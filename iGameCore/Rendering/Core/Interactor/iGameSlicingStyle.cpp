@@ -1,4 +1,4 @@
-#include "iGameSlicingStyle.h"
+﻿#include "iGameSlicingStyle.h"
 #include "iGameInteractor.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -19,12 +19,10 @@ void SlicingStyle::Initialize(Interactor* a) {
     boxHandle = m_Painter->DrawCube(p1, p7);
 
     center = bbox.center();
-    head = rear = headBound = rearBound = center;
+    head = rear = center;
     head[0] += bbox.diag() / 2;
     rear[0] -= bbox.diag() / 2;
     len = bbox.diag();
-    headBound[0] += (bbox.max - bbox.min)[0] / 2;
-    rearBound[0] -= (bbox.max - bbox.min)[0] / 2;
     normal = (head - rear).normalized();
     top = center;
     top[2] += (bbox.max - bbox.min)[2] / 2;
@@ -56,28 +54,19 @@ void SlicingStyle::MousePressEvent(IEvent _event) {
     auto& pos = _event.pos;
     igm::vec3 point1 = GetNearWorldCoord(pos, invMVP);
     igm::vec3 point2 = GetFarWorldCoord(pos, invMVP);
+    Vector3d intersection;
 
-    igm::vec3 dir = (point1 - point2).normalized();
-
-    double d1 = DistancePointToLine(v(center), point1, point2);
-    double d2 = DistancePointToLine(v(head), point1, point2);
-    double d3 = DistancePointToLine(v(rear), point1, point2);
-
-    if (d1 < 0.1) {
+    if (DistancePointToLine(v(center), point1, point2) < 0.1) {
         selectId = 0;
-    } else if (d2 < 0.1) {
+    } else if (DistancePointToLine(v(head), point1, point2) < 0.1) {
         selectId = 1;
-    } else if (d3 < 0.1) {
+    } else if (DistancePointToLine(v(rear), point1, point2) < 0.1) {
         selectId = 2;
+    } else if (IsIntersect(V(point1), V(point2), head, center, intersection)) {
+        selectId = 3;
     } else {
         selectId = -1;
     }
-
-
-
-    //std::cout << p1 << " " << p2 << " " << p3 << " " << p4 << std::endl;
-
-    //std::cout << pos << std::endl;
 }
 void SlicingStyle::MouseMoveEvent(IEvent _event) {
     igm::vec2 pos = _event.pos;
@@ -85,20 +74,25 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
     switch (m_MouseMode) {
     case LeftButton:
-        if (selectId == 0) {
+        if (selectId == 0) { // 拖动中点 Drag center pointer
             igm::vec2 pos1 = igm::vec2(pos.x, 0);
             igm::vec2 pos2 = igm::vec2(pos.x, m_Interactor->GetHeight());
 
+            // p1,p2,p3 组成视锥平面 form the cone plane
             igm::vec3 p1 = GetNearWorldCoord(pos1, invMVP);
             igm::vec3 p2 = GetFarWorldCoord(pos1, invMVP);
             igm::vec3 p3 = GetNearWorldCoord(pos2, invMVP);
             igm::vec3 intersection;
 
+            // 计算直线与与视锥平面的交点 Calculate the intersection of the line with the cone plane
             LinePlaneIntersection(v(head), v(rear), p1, p2, p3,
                                     intersection);
             Vector3d newCenter = V(intersection);
             if (!m_DataObject->GetBoundingBox().isIn(newCenter)) { return; }
 
+            Vector3d dir = newCenter - center;
+            top = top + dir;
+            left = left + dir;
             center = newCenter;
             m_Painter->SetPen(16);
             m_Painter->SetPen(Color::Red);
@@ -169,7 +163,10 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
             ComputeSlicingPlane(plane);
             DrawSlicingPlane(plane);
+        } else if (selectId == 3) {
+            
         }
+
         break;
     case RightButton:
         RightButtonMouseMove();
@@ -193,26 +190,6 @@ void SlicingStyle::RightButtonMouseMove() { BasicStyle::ModelRotation(); }
 
 void SlicingStyle::MiddleButtonMouseMove() { BasicStyle::ViewTranslation(); }
 
-
-
-//inline void reorderPoints(std::vector<Point>& points) {
-//    std::vector<Point> sortedPoints = points;
-//    Point centroid = {0, 0, 0};
-//    for (const auto& point: points) {
-//        centroid += point;
-//    }
-//    centroid /= points.size();
-//
-//    // ����������
-//    std::sort(sortedPoints.begin(), sortedPoints.end(),
-//              [&centroid](const Point& a, const Point& b) {
-//                  return calculateAngle(a, centroid) <
-//                         calculateAngle(b, centroid);
-//              });
-//
-//    return sortedPoints;
-//}
-
 SlicingStyle::~SlicingStyle() {
     for (int i = 0; i < 10; i++) {
         if (planeHandle[i] != 0) { m_Painter->Delete(planeHandle[i]); }
@@ -224,9 +201,6 @@ SlicingStyle::~SlicingStyle() {
     if (lineHandle != 0) { m_Painter->Delete(lineHandle); }
 }
 
-//inline bool calculateAngle(const Vector3d& a, const Vector3d& b) {
-//
-//}
 
 void SlicingStyle::ComputeSlicingPlane(std::vector<Vector3d>& plane) {
 
@@ -241,7 +215,8 @@ void SlicingStyle::ComputeSlicingPlane(std::vector<Vector3d>& plane) {
     Vector3d p6 = Vector3d(p7[0], p1[1], p7[2]);
     Vector3d p8 = Vector3d(p1[0], p7[1], p7[2]);
 
-    plane.clear();
+    // 计算切平面与boundingbox的交点 Calculate the intersection of the tangent plane and the boundingbox
+    plane.clear(); 
     Vector3d intersection;
     bool ok = false;
     if (LinePlaneIntersection2(p1, p2, center, normal, intersection)) {
@@ -283,40 +258,26 @@ void SlicingStyle::ComputeSlicingPlane(std::vector<Vector3d>& plane) {
         plane.push_back(intersection);
     }
 
-
-    if (plane.size() == 4) {
-        for (int i = 1; i < 4; i++) {
-            if (i != 2 &&((plane[0] - plane[i]).normalized() -
-                (plane[0] - center).normalized())
-                .squaredLength() < 0.01) {
-                std::swap(plane[i], plane[2]);
-                break;
-            }
-        }
-        //for (int i = 1; i < 4; i++) {
-        //    Vector3d intersection;
-        //    if (i != 2 && IsIntersect(plane[0], plane[2], plane[1], plane[3],
-        //                              intersection)) {
-        //        std::swap(plane[i], plane[2]);
-        //        break;
-        //    }
-        //}
-
+    Vector3d centroid = {0, 0, 0};
+    for (const auto& point: plane) {
+        centroid += point;
     }
+    centroid /= plane.size();
+    Vector3d axis = (0.75 * plane[0] + 0.25 * plane[1]) - centroid;
+    double length = axis.length();
+    Vector3d n = head - center;
 
-    //if (plane.size() > 3) {
-    //    Vector3d centroid = {0, 0, 0};
-    //    for (const auto& point: plane) {
-    //        centroid += point;
-    //    }
-    //    centroid /= plane.size();
+    // 计算与axis向量的夹角，带正负 Calculate the Angle with the axis vector, plus or minus
+    auto calculateAngle = [&](const Vector3d& p) -> double {
+        Vector3d axis2 = p - centroid;
+        return std::acos(axis.dot(axis2) / length / axis2.length()) *
+               (axis.cross(axis2) * n > 0 ? 1 : -1);
+    };
 
-    //    std::sort(plane.begin(), plane.end(),
-    //              [&centroid](const Vector3d& a, const Vector3d& b) {
-    //                    return calculateAngle(a, centroid) <
-    //                            calculateAngle(b, centroid);
-    //                });
-    //}
+    std::sort(plane.begin(), plane.end(),
+              [&](const Vector3d& a, const Vector3d& b) {
+                  return calculateAngle(a) < calculateAngle(b);
+              });
 
 }
 void SlicingStyle::DrawSlicingPlane(std::vector<Vector3d>& plane) {
@@ -337,5 +298,54 @@ void SlicingStyle::DrawSlicingPlane(std::vector<Vector3d>& plane) {
     for (int i = plane.size(); i < 10; i++) { 
         planeHandle[i] = 0;
     }
+}
+
+bool SlicingStyle::LinePlaneIntersection2(const Vector3d& A, const Vector3d& B,
+                            const Vector3d& P, const Vector3d& N,
+                            Vector3d& intersection) {
+    // 直线的方向向量 The direction vector of the line
+    Vector3d u = B - A;
+
+    double D = -N.dot(P);
+
+    double denominator = N.dot(u);
+    if (denominator == 0) {
+        return false; // 直线与平面平行 The line is parallel to the plane
+    }
+
+    double t = -(N.dot(A) + D) / denominator;
+
+    if (t < 0 || t > 1) {
+        return false; // 交点不在直线段上 The intersection is not on the line segment
+    }
+
+    // 计算交点 Calculated intersection
+    intersection = A + t * u;
+    return true;
+}
+
+bool SlicingStyle::IsIntersect(const Vector3d& p1, const Vector3d& p2,
+                               const Vector3d& p3,
+                 const Vector3d& p4, Vector3d& intersection) {
+    Vector3d d1 = p2 - p1;
+    Vector3d d2 = p4 - p3;
+    Vector3d r = p1 - p3;
+
+    double d = d1.dot(d2.cross(d2));
+
+    if (std::abs(d) < 1e-10) {
+        // 直线平行或重合 The lines are parallel or overlap
+        return false;
+    }
+
+    double t = (r.cross(d2).dot(d2)) / d;
+    double u = (r.cross(d1).dot(d1)) / d;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        intersection = p1 + t * d1; // 计算交点 Calculated intersection
+        return true;
+    }
+
+    return false;
 }
 IGAME_NAMESPACE_END

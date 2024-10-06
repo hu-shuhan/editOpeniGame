@@ -173,7 +173,6 @@ public:
     bool GetClipped() override { return true; }
 
     void SetFaceColor(const float color[3]);
-    ;
     const float* GetFaceColor() const;
     void SetFaceTransparency(float val);
     float GetFaceTransparency() const;

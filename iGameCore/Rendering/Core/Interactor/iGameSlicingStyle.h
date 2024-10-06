@@ -1,4 +1,4 @@
-#ifndef OPENIGAME_SLICING_STYLE_H
+ï»¿#ifndef OPENIGAME_SLICING_STYLE_H
 #define OPENIGAME_SLICING_STYLE_H
 
 #include "iGameBasicStyle.h"
@@ -25,81 +25,33 @@ protected:
     void ComputeSlicingPlane(std::vector<Vector3d>& plane);
     void DrawSlicingPlane(std::vector<Vector3d>& plane);
 
+    // è®¡ç®—ç›´çº¿ä¸å¹³é¢çš„äº¤ç‚¹ï¼ŒABç›´çº¿ï¼ŒPå¹³é¢ä¸Šçš„ç‚¹ï¼ŒNå¹³é¢æ³•å‘é‡
+    // Calculate the intersection of a line with a plane, a line AB, a point in the p-plane, and a normal vector in the n-plane
     bool LinePlaneIntersection2(const Vector3d& A, const Vector3d& B,
-                               const Vector3d& P, const Vector3d& N,
-                               Vector3d& intersection) {
-        // Ö±ÏßµÄ·½ÏòÏòÁ¿
-        Vector3d u = B - A;
+                                const Vector3d& P, const Vector3d& N,
+                                Vector3d& intersection);
 
-        // Æ½Ãæ·½³ÌµÄ D Öµ
-        double D = -N.dot(P);
-
-        // ¼ÆËã·ÖÄ¸
-        double denominator = N.dot(u);
-        if (denominator == 0) {
-            return false; // Ö±ÏßÓëÆ½ÃæÆ½ĞĞ
-        }
-
-        // ¼ÆËã t
-        double t = -(N.dot(A) + D) /
-                   denominator;
-
-        if (t < 0 || t > 1) {
-            return false; // ½»µã²»ÔÚÖ±Ïß¶ÎÉÏ
-        }
-
-        // ¼ÆËã½»µã
-        intersection[0] = A[0] + t * u[0];
-        intersection[1] = A[1] + t * u[1];
-        intersection[2] = A[2] + t * u[2];
-
-        return true;
-    }
-
-    // ¼ÆËãÁ½ÌõÖ±ÏßµÄ½»µã
+    // è®¡ç®—ä¸¤æ¡ç›´çº¿çš„äº¤ç‚¹
+    // Calculate the intersection of two lines
     bool IsIntersect(const Vector3d& p1, const Vector3d& p2, const Vector3d& p3,
-                   const Vector3d& p4, Vector3d& intersection) {
-        Vector3d d1 = p2 - p1;
-        Vector3d d2 = p4 - p3;
-        Vector3d r = p1 - p3;  // Ïß¶ÎÖ®¼äµÄÏòÁ¿
-
-        double d = d1.dot(d2.cross(d2)); // ¼ÆËãĞĞÁĞÊ½µÄ¾ø¶ÔÖµ
-
-        if (std::abs(d) < 1e-10) {
-            // Ö±ÏßÆ½ĞĞ»òÖØºÏ
-            return false;
-        }
-
-        // ¼ÆËã²ÎÊı
-        double t = (r.cross(d2).dot(d2)) / d;
-        double u = (r.cross(d1).dot(d1)) / d;
-
-        // ¼ì²é²ÎÊı·¶Î§
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-            intersection = p1 + t * d1; // ¼ÆËã½»µã
-            return true;
-        }
-
-        return false; // ²»Ïà½»
-    }
+                     const Vector3d& p4, Vector3d& intersection);
 
     Model::Pointer m_Model;
     DataObject::Pointer m_DataObject;
     Painter::Pointer m_Painter;
 
 private:
-    int selectId{-1}; // 0:center 1:head 2:rear
+    int selectId{-1}; // 0:center 1:head 2:rear 3:line
 
     igm::mat4 mvp{};
     igm::mat4 invMVP{};
 
     double len;
     Vector3d center;
-    Vector3d head, headBound;
-    Vector3d rear, rearBound;
-    Vector3d top, left;
-    Vector3d normal;
-    Vector3d direction;
+    Vector3d head;
+    Vector3d rear;
+    Vector3d top, left; // åˆ‡å¹³é¢çš„ä¸Š/å·¦é¡¶ç‚¹
+    Vector3d normal; // åˆ‡å¹³é¢çš„æ³•å‘é‡
     IGuint boxHandle{0};
     IGuint centerHandle{0};
     IGuint headHandle{0};

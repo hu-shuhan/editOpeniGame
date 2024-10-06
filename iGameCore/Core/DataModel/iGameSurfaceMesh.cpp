@@ -648,10 +648,9 @@ IGsize SurfaceMesh::AddFace(igIndex* ptIds, int size) {
 void SurfaceMesh::DeletePoint(const IGsize ptId) {
     if (!InEditStatus()) { RequestEditStatus(); }
     if (IsPointDeleted(ptId)) { return; }
-    const igIndex* edgeIds;
-    int size;
-    GetPointToNeighborEdges(ptId, edgeIds, size);
-    for (int i = 0; i < size; i++) { DeleteEdge(edgeIds[i]); }
+    ReturnContainer edgeIds;
+    GetPointToNeighborEdges(ptId, edgeIds);
+    for (int i = 0; i < edgeIds.size(); i++) { DeleteEdge(edgeIds[i]); }
     m_EdgeLinks->DeleteLink(ptId);
     m_FaceLinks->DeleteLink(ptId);
     m_PointDeleteMarker->MarkDeleted(ptId);
@@ -660,12 +659,11 @@ void SurfaceMesh::DeleteEdge(const IGsize edgeId) {
     if (!InEditStatus()) { RequestEditStatus(); }
     if (IsEdgeDeleted(edgeId)) { return; }
     igIndex e[2]{};
-    const igIndex* faceIds;
-    int size;
-    GetEdgeToNeighborFaces(edgeId, faceIds, size);
+    ReturnContainer faceIds;
+    GetEdgeToNeighborFaces(edgeId, faceIds);
     GetEdgePointIds(edgeId, e);
     for (int i = 0; i < 2; i++) { m_EdgeLinks->RemoveReference(e[i], edgeId); }
-    for (int i = 0; i < size; i++) { DeleteFace(faceIds[i]); }
+    for (int i = 0; i < faceIds.size(); i++) { DeleteFace(faceIds[i]); }
     m_FaceEdgeLinks->DeleteLink(edgeId);
     m_EdgeDeleteMarker->MarkDeleted(edgeId);
 }
