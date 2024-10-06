@@ -693,7 +693,7 @@ void igQtMainWindow::initAllFilters() {
                 VolumeMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)
                                                    ->TransferToVolumeMesh();
                 PointFinder::Pointer finder = PointFinder::New();
-                finder->SetPoints(mesh->GetPoints());
+                //finder->SetPoints(mesh->GetPoints());
                 finder->Initialize();
                 Point p = Point(0.234, 0.678987, 0.765);
                 int id;
@@ -1597,6 +1597,17 @@ void igQtMainWindow::initAllInteractor() {
                             Interactor::BasicStyle);
                 }
             });
+
+    connect(ui->action_slicing, &QAction::triggered, this,
+        [&](bool checked) {
+            if (ui->action_slicing->isChecked()) {
+                rendererWidget->ChangeInteractorStyle(
+                        Interactor::SlicingStyle);
+            } else {
+                rendererWidget->ChangeInteractorStyle(
+                        Interactor::BasicStyle);
+            }
+        });
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }

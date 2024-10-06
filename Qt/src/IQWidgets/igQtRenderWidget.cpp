@@ -111,6 +111,9 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             s->SetModel(m_Scene->GetCurrentModel());
             m_Interactor->RequestDragPointStyle(s);
         } break;
+        case Interactor::SlicingStyle: {
+            m_Interactor->RequestSlicingStyle();
+        } break;
         default:
             break;
     }

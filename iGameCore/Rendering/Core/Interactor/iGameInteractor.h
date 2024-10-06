@@ -11,6 +11,7 @@
 #include "iGameSingleSelectionStyle.h"
 #include "iGameMultiSelectionStyle.h"
 #include "iGameSingleDragStyle.h"
+#include "iGameSlicingStyle.h"
 
 IGAME_NAMESPACE_BEGIN
 class Interactor : public Object {
@@ -46,15 +47,18 @@ public:
         MultiPointSelectionStyle,
         MultiFaceSelectionStyle,
         DragPointStyle,
+        SlicingStyle,
     };
 
     void RequestBasicStyle() {
+        InitModel();
         m_Internal = BasicStyle::New();
         m_Internal->Initialize(this);
     }
 
     void RequestDragPointStyle(Selection* s) {
         if (!s) return;
+        InitModel();
         auto act = SingleDragStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
@@ -63,6 +67,7 @@ public:
 
     void RequestPointSelectionStyle(Selection* s) {
         if (!s) return;
+        InitModel();
         auto act = SingleSelectionStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
@@ -71,6 +76,7 @@ public:
 
     void RequestFaceSelectionStyle(Selection* s) {
         if (!s) return;
+        InitModel();
         auto act = SingleSelectionStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
         act->Initialize(this, s);
@@ -88,6 +94,14 @@ public:
         act->Initialize(this, s);
     }
 
+    void RequestSlicingStyle() {
+        auto act = SlicingStyle::New();
+        InitModel();
+        act->Initialize(this);
+        m_Internal = act;
+    }
+
+
     float GetWidth() const { return m_Camera->GetViewPort().x; }
     float GetHeight() const { return m_Camera->GetViewPort().y; }
     igm::mat4 GetMVP() const {
@@ -96,10 +110,18 @@ public:
     Model* GetModel() { return m_Model.get(); }
     Scene* GetScene() { return m_Scene.get(); }
     Camera* GetCamera() { return m_Camera.get(); }
+    
+
 
 protected:
     Interactor() = default;
     ~Interactor() override = default;
+
+    void InitModel() {
+        if (m_Scene) { 
+            m_Model = m_Scene->GetCurrentModel();
+        }
+    }
 
     InteractorStyle::Pointer m_Internal{};
     Model::Pointer m_Model{};
