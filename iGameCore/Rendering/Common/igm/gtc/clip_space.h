@@ -60,18 +60,18 @@ template<typename T>
 mat<4, 4, T> lookAtLH(const vec<3, T>& eye, const vec<3, T>& center,
                       const vec<3, T>& up);
 
-/**
- * Creates a view matrix. The handedness of the coordinate system is
- * implementation-defined.
- * @param eye The position of the camera.
- * @param center The point to look at.
- * @param up The up direction vector.
- * @return A view matrix.
- * @note Default right-handed coordinate system
- */
-template<typename T>
-mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
-                    const vec<3, T>& up);
+///**
+// * Creates a view matrix. The handedness of the coordinate system is
+// * implementation-defined.
+// * @param eye The position of the camera.
+// * @param center The point to look at.
+// * @param up The up direction vector.
+// * @return A view matrix.
+// * @note Default right-handed coordinate system
+// */
+//template<typename T>
+//mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
+//                    const vec<3, T>& up);
 
 /**
  * Creates a perspective projection matrix for a right-handed coordinate system

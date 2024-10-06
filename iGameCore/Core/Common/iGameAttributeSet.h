@@ -114,6 +114,7 @@ public:
 				auto scalarDataArray = Scalars->GetElement(i);
 				auto name = scalarDataArray.pointer->GetName();
 				auto attachmentType = scalarDataArray.attachmentType;
+                std::cout << "attachmentType:" << attachmentType<< std::endl;
 				bool isvector = false;
 				if (name[name.length() - 1] == 'X') {
 					isvector = true;

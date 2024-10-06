@@ -43,11 +43,11 @@ mat<4, 4, T> rotate(mat<4, 4, T> const& m, T angle, vec<3, T> const& v) {
     return Result;
 }
 
-template<typename T>
-mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
-                    const vec<3, T>& up) {
-    return lookAtRH(eye, center, up);
-}
+//template<typename T>
+//mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
+//                    const vec<3, T>& up) {
+//    return lookAtRH(eye, center, up);
+//}
 
 template<typename T>
 mat<4, 4, T> lookAtRH(const vec<3, T>& eye, const vec<3, T>& center,
@@ -271,7 +271,6 @@ mat<4, 4, T> perspectiveLH_NO(T fovy, T aspect, T zNear) {
 }
 
 template<typename T>
-// TODO: Waiting for verification
 mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear, T zFar) {
     assert(abs(aspect - std::numeric_limits<T>::epsilon()) > static_cast<T>(0));
 
@@ -287,7 +286,6 @@ mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear, T zFar) {
 }
 
 template<typename T>
-// TODO: Waiting for verification
 mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear) {
     assert(abs(aspect - std::numeric_limits<T>::epsilon()) > static_cast<T>(0));
 
@@ -301,20 +299,156 @@ mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear) {
     return Result;
 }
 
+//template<typename T>
+//mat<4, 4, T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
+//    return orthoRH_NO(left, right, bottom, top, zNear, zFar);
+//}
+
 template<typename T>
-mat<4, 4, T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
-    return orthoRH_NO(left, right, bottom, top, zNear, zFar);
+// depth range: 0.0(near plane) -> 1.0(far plane)
+mat<4, 4, T> orthoRH_ZO(T left, T right, T bottom, T top, T zNear, T zFar) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = -static_cast<T>(1) / (zFar - zNear);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = -zNear / (zFar - zNear);
+    return Result;
 }
 
 template<typename T>
+// depth range: 0.0(near plane) -> 1.0(far plane)
+mat<4, 4, T> orthoRH_ZO(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    return Result;
+}
+
+template<typename T>
+// depth range: -1.0(near plane) -> 1.0(far plane)
 mat<4, 4, T> orthoRH_NO(T left, T right, T bottom, T top, T zNear, T zFar) {
-    mat<4, 4, T> Result(1.0f);
+    mat<4, 4, T> Result(static_cast<T>(1));
     Result[0][0] = static_cast<T>(2) / (right - left);
     Result[1][1] = static_cast<T>(2) / (top - bottom);
     Result[2][2] = -static_cast<T>(2) / (zFar - zNear);
     Result[3][0] = -(right + left) / (right - left);
     Result[3][1] = -(top + bottom) / (top - bottom);
     Result[3][2] = -(zFar + zNear) / (zFar - zNear);
+    return Result;
+}
+
+template<typename T>
+// depth range: -1.0(near plane) -> 1.0(far plane)
+mat<4, 4, T> orthoRH_NO(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = -static_cast<T>(1);
+    return Result;
+}
+
+template<typename T>
+// depth range: 1.0(near plane) -> 0.0(far plane)
+mat<4, 4, T> orthoRH_OZ(T left, T right, T bottom, T top, T zNear, T zFar) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(1) / (zFar - zNear);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = zFar / (zFar - zNear);
+    return Result;
+}
+
+template<typename T>
+// depth range: 1.0(near plane) -> 0.0(far plane)
+mat<4, 4, T> orthoRH_OZ(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = static_cast<T>(1);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_ZO(T left, T right, T bottom, T top, T zNear, T zFar) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(1) / (zFar - zNear);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = -zNear / (zFar - zNear);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_ZO(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_NO(T left, T right, T bottom, T top, T zNear, T zFar) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(2) / (zFar - zNear);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = -(zFar + zNear) / (zFar - zNear);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_NO(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = -static_cast<T>(1);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_OZ(T left, T right, T bottom, T top, T zNear, T zFar) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = -static_cast<T>(1) / (zFar - zNear);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = zFar / (zFar - zNear);
+    return Result;
+}
+
+template<typename T>
+mat<4, 4, T> orthoLH_OZ(T left, T right, T bottom, T top, T zNear) {
+    mat<4, 4, T> Result(static_cast<T>(1));
+    Result[0][0] = static_cast<T>(2) / (right - left);
+    Result[1][1] = static_cast<T>(2) / (top - bottom);
+    Result[2][2] = static_cast<T>(0);
+    Result[3][0] = -(right + left) / (right - left);
+    Result[3][1] = -(top + bottom) / (top - bottom);
+    Result[3][2] = static_cast<T>(1);
     return Result;
 }
 

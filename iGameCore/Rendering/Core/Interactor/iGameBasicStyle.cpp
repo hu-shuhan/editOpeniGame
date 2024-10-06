@@ -12,11 +12,11 @@ void BasicStyle::Initialize(Interactor* a) {
     m_Camera = a->GetCamera();
 }
 
-void BasicStyle::MousePressEvent(IEvent _event){
+void BasicStyle::MousePressEvent(IEvent _event) {
     m_OldPoint2D = _event.pos;
     m_MouseMode = _event.button;
 };
-void BasicStyle::MouseMoveEvent(IEvent _event){
+void BasicStyle::MouseMoveEvent(IEvent _event) {
     m_NewPoint2D = _event.pos;
     //if (m_OldPoint2D == m_NewPoint2D) { return; }
 
@@ -41,8 +41,8 @@ void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
 
 void BasicStyle::MiddleButtonMouseMove() {}
 
-void BasicStyle::MouseReleaseEvent(IEvent _event){ m_MouseMode = NoButton; };
-void BasicStyle::WheelEvent(IEvent _event){
+void BasicStyle::MouseReleaseEvent(IEvent _event) { m_MouseMode = NoButton; };
+void BasicStyle::WheelEvent(IEvent _event) {
     float wheelMoveDirection = 0.0;
     if (_event.delta == 0) {
         std::cout << "The wheel movement given to the interactor is 0"
@@ -59,7 +59,9 @@ void BasicStyle::WheelEvent(IEvent _event){
 
     auto moveSize =
             static_cast<float>(-wheelMoveDirection * m_CameraScaleSpeed);
-    m_Camera->moveZ(moveSize);
+    auto oldPos = m_Camera->GetCameraPos();
+    auto newPos = oldPos + igm::vec3{0.0f, 0.0f, moveSize};
+    m_Camera->SetCameraPos(newPos);
 
     UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
 };
@@ -105,8 +107,15 @@ void BasicStyle::ViewTranslation() {
     if (m_Camera) {
         auto offset = m_NewPoint2D - m_OldPoint2D;
         UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
-        m_Camera->moveXY(-offset.x * m_CameraMoveSpeed,
-                         offset.y * m_CameraMoveSpeed);
+
+        auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
+                                    offset.y * m_CameraMoveSpeed, 0.0f};
+        auto oldPos = m_Camera->GetCameraPos();
+        auto oldFocal = m_Camera->GetCameraFocal();
+        auto newPos = oldPos + moveOffset;
+        auto newFocal = oldFocal + moveOffset;
+        m_Camera->SetCameraPos(newPos);
+        m_Camera->SetCameraFocal(newFocal);
     }
 }
 void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
@@ -114,14 +123,15 @@ void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
 
     igm::mat4 model = m_Scene->ModelMatrix();
     igm::mat4 view = m_Camera->GetViewMatrix();
-    igm::mat4 proj = m_Camera->GetProjectionMatrixReversedZ();
+    igm::mat4 proj = m_Camera->GetProjectionMatrix();
 
     auto p = igm::vec4{center, 1.0f};
     auto p_mvp = (proj * view * model * p);
     p_mvp /= p_mvp.w;
 
     // if the perspective enters the model, rotate around (0,0)
-    if (p_mvp.x > 1.0f || p_mvp.x < -1.0f || p_mvp.y > 1.0f || p_mvp.y < -1.0f) {
+    if (p_mvp.x > 1.0f || p_mvp.x < -1.0f || p_mvp.y > 1.0f ||
+        p_mvp.y < -1.0f) {
         p_mvp = igm::vec4{0.0f, 0.0f, 0.0f, 0.0f};
     }
 
@@ -164,7 +174,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
 
     igm::mat4 model = m_Scene->ModelMatrix();
     igm::mat4 view = m_Camera->GetViewMatrix();
-    igm::mat4 proj = m_Camera->GetProjectionMatrixReversedZ();
+    igm::mat4 proj = m_Camera->GetProjectionMatrix();
     auto mvp = proj * view * model;
 
     auto boundingCenterMvp = mvp * igm::vec4{center.xyz(), 1.0f};
@@ -173,7 +183,10 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
 
     // the center of the bounding-sphere is located behind the near plane
     if (bz > 1.0f || bz < 0.0f) {
-        auto cameraFront = m_Camera->GetCameraFront().normalized();
+
+        auto cameraFront =
+                (m_Camera->GetCameraFocal() - m_Camera->GetCameraPos())
+                        .normalized();
         auto boundingBehind = center.xyz() + cameraFront * center.w;
         auto boundingBehindMvp = mvp * igm::vec4{boundingBehind, 1.0f};
         boundingBehindMvp /= boundingBehindMvp.w;

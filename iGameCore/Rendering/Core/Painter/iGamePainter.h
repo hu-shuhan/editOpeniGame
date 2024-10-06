@@ -8,7 +8,9 @@
 
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLVertexArray.h"
+
 #include "iGameBrush.h"
+#include "iGameColorUtils.h"
 #include "iGameHandlePool.h"
 #include "iGameObject.h"
 #include "iGamePen.h"
@@ -31,11 +33,15 @@ public:
 
     void SetPen(const Pen::Pointer& pen);
     void SetPen(const Color& color);
+    void SetPen(int red, int green, int blue);
+    void SetPen(float red, float green, float blue);
     void SetPen(const PenStyle& style);
     void SetPen(float width);
 
     void SetBrush(const Brush::Pointer& brush);
     void SetBrush(const Color& color);
+    void SetBrush(int red, int green, int blue);
+    void SetBrush(float red, float green, float blue);
     void SetBrush(const BrushStyle& style);
 
     IGuint DrawPoint(const Point& point);
@@ -77,9 +83,6 @@ protected:
         std::array<std::vector<iguIndex>, 3> indexes;
         bool visible = true;
     };
-
-protected:
-    Vector3f ColorMap(Color color);
 
 protected:
     Painter();

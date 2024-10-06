@@ -3,7 +3,7 @@
 
 #include <utility>
 
-#include "iGameDataObject.h"
+#include "iGameDrawObject.h"
 #include "iGameObject.h"
 #include "iGamePainter.h"
 #include "iGamePoints.h"
@@ -18,9 +18,16 @@ public:
     static Pointer New() { return new Model; }
 
     void Draw(Scene*);
+    void DrawWithTransparency(Scene*);
+    void DrawPhase1(Scene*);
+    void DrawPhase2(Scene*);
+    void TestOcclusionResults(Scene*);
 
     DataObject::Pointer GetDataObject() { return m_DataObject; }
-    bool GetVisibility() { return m_DataObject->GetVisibility(); }
+    bool GetVisibility() {
+        auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+        return drawObject->GetVisibility();
+    }
     Filter* GetModelFilter();
     Painter* GetPainter() { return m_Painter; }
     void DeleteModelFilter();

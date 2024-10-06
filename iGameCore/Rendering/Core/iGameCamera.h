@@ -35,18 +35,18 @@ public:
         m_DevicePixelRatio = devicePixelRatio;
     };
 
-    igm::uvec2 GetViewPort() { return m_Size; };
+    igm::ivec2 GetViewPort() { return m_Size; };
     int GetDevicePixelRatio() { return m_DevicePixelRatio; };
-    igm::uvec2 GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+    igm::ivec2 GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
 
     template<typename FloatT>
     FloatT aspect() const {
         return FloatT(m_Size.x) / FloatT(m_Size.y);
     }
 
-private:
-    igm::uvec2 m_Offset = igm::uvec2{0, 0};
-    igm::uvec2 m_Size = igm::uvec2{800, 600};
+protected:
+    igm::ivec2 m_Offset = igm::ivec2{0, 0};
+    igm::ivec2 m_Size = igm::ivec2{800, 600};
     int m_DevicePixelRatio = 1;
 
 protected:
@@ -60,43 +60,47 @@ public:
     static Pointer New() { return new Viewer; }
 
 public:
-    void SetNearPlane(float _near) { nearPlane = _near; };
-    //void SetFarPlane(float far) { farPlane = far; };
-    float GetNearPlane() { return nearPlane; };
-    //float GetFarPlane() { return farPlane; };
+    void SetNearPlane(float _near) { nearPlane = _near; }
+    float GetNearPlane() { return nearPlane; }
 
-    // depth range: 0.0(near plane) -> 1.0(far plane)
-    igm::mat4 GetProjectionMatrix() {
-        return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(fov)),
-                                     aspect<float>(), nearPlane);
-    };
+    void SetFarPlane(float _far) { farPlane = _far; }
+    float GetFarPlane() { return farPlane; }
+
+    void SetFOV(float _fov) { fov = _fov; }
+    float GetFOV() const { return fov; }
 
     /** Depth Map Visualization:
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           1              2      INF/-INF     0              1
     */
-    float LinearizeDepth(float z) {
-        float ndcZ = z * 2.0f - 1.0f; // back to NDC
-        float depth = 2.0f * nearPlane / (1.0f - ndcZ);
-        return depth;
-    };
+    //float LinearizeDepth(float z) {
+    //    float ndcZ = z * 2.0f - 1.0f; // back to NDC
+    //    float depth = 2.0f * nearPlane / (1.0f - ndcZ);
+    //    return depth;
+    //};
 
-    // depth range: 1.0(near plane) -> 0.0(far plane)
-    igm::mat4 GetProjectionMatrixReversedZ() {
-        return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
-                                     aspect<float>(), nearPlane);
-    }
+    // depth range: 0.0(near plane) -> 1.0(far plane)
+    virtual igm::mat4 GetProjectionMatrix() {
+        return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(fov)),
+                                     aspect<float>(), nearPlane, farPlane);
+    };
 
     /** Depth Map Visualization:
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           0             -1     -INF/INF      1              0
     */
-    float LinearizeDepthReverseZ(float z) const {
-        float depth = nearPlane / z;
-        return depth;
-    }
+    //float LinearizeDepthReverseZ(float z) const {
+    //    float depth = nearPlane / z;
+    //    return depth;
+    //}
+
+    // depth range: 1.0(near plane) -> 0.0(far plane)
+    //igm::mat4 GetProjectionMatrixReversedZ() {
+    //    return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
+    //                                 aspect<float>(), nearPlane);
+    //}
 
 protected:
     float fov = 45.0f;
@@ -113,115 +117,88 @@ public:
     I_OBJECT(Camera)
     static Pointer New() { return new Camera; }
 
-private:
-    enum Camera_Movement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
-
-    const float YAW = -90.0f;
-    const float PITCH = 0.0f;
-    const float SPEED = 2.5f;
-    const float SENSITIVITY = 0.1f;
-    const float ZOOM = 45.0f;
+public:
+    enum CameraType { PERSPECTIVE = 0, ORTHOGRAPHIC, CAMERATYPE_COUNT };
 
 public:
-    void Initialize(igm::vec3 position = igm::vec3(0.0f, 0.0f, 0.0f),
+    void Initialize(igm::vec3 position = igm::vec3(0.0f, 0.0f, 1.0f),
+                    igm::vec3 focal = igm::vec3{0.0f, 0.0f, 0.0f},
                     igm::vec3 up = igm::vec3(0.0f, 1.0f, 0.0f)) {
         m_Position = position;
+        m_Focal = focal;
         m_WorldUp = up;
-        m_Yaw = YAW;
-        m_Pitch = PITCH;
         updateCameraVectors();
     }
 
-    void Initialize(float posX, float posY, float posZ, float upX, float upY,
-                    float upZ, float yaw, float pitch) {
+    void Initialize(float posX, float posY, float posZ, float focalX,
+                    float focalY, float focalZ, float upX, float upY,
+                    float upZ) {
         m_Position = igm::vec3(posX, posY, posZ);
+        m_Focal = igm::vec3{focalX, focalY, focalZ};
         m_WorldUp = igm::vec3(upX, upY, upZ);
-        m_Yaw = yaw;
-        m_Pitch = pitch;
         updateCameraVectors();
     }
 
-    void SetCameraPos(igm::vec3 pos) { m_Position = pos; }
+    void ChangeCameraType(CameraType type) { m_CameraType = type; }
 
-    void SetCameraPos(float x, float y, float z) { m_Position = {x, y, z}; }
-
+    void SetCameraPos(igm::vec3 pos) {
+        m_Position = pos;
+        updateCameraVectors();
+    }
+    void SetCameraPos(float posX, float posY, float posZ) {
+        m_Position = {posX, posY, posZ};
+        updateCameraVectors();
+    }
     igm::vec3 GetCameraPos() const { return m_Position; }
 
-    igm::vec3 GetCameraUp() const { return m_Up; }
-
-    igm::vec3 GetCameraFront() const { return m_Front; }
-
-    igm::mat4 GetViewMatrix() {
-        return igm::lookAt(m_Position, m_Position + m_Front, m_Up);
-    }
-
-    void ProcessKeyboard(Camera_Movement direction, float deltaTime) {
-        float velocity = m_MovementSpeed * deltaTime;
-        float origin_y = m_Position.y;
-        if (direction == FORWARD) {
-            m_Position += m_Front * velocity;
-            m_Position.y = origin_y;
-        }
-        if (direction == BACKWARD) {
-            m_Position -= m_Front * velocity;
-            m_Position.y = origin_y;
-        }
-        if (direction == LEFT) m_Position -= m_Right * velocity;
-        if (direction == RIGHT) m_Position += m_Right * velocity;
-        if (direction == UP) m_Position.y += velocity;
-        if (direction == DOWN) m_Position.y -= velocity;
-    }
-
-    void ProcessMouseMovement(float xoffset, float yoffset,
-                              bool constrainPitch = true) {
-        xoffset *= m_MouseSensitivity;
-        yoffset *= m_MouseSensitivity;
-
-        m_Yaw += xoffset;
-        m_Pitch += yoffset;
-
-        // Make sure that when pitch is out of bounds, screen doesn't get flipped
-        if (constrainPitch) {
-            if (m_Pitch > 89.0f) m_Pitch = 89.0f;
-            if (m_Pitch < -89.0f) m_Pitch = -89.0f;
-        }
-
-        // Update m_Front, Right and Up Vectors using the updated Euler angles
+    void SetCameraFocal(igm::vec3 focal) {
+        m_Focal = focal;
         updateCameraVectors();
     }
+    void SetCameraFocal(float focalX, float focalY, float focalZ) {
+        m_Focal = {focalX, focalY, focalZ};
+        updateCameraVectors();
+    }
+    igm::vec3 GetCameraFocal() const { return m_Focal; }
 
-    void ProcessMouseScroll(float yoffset) {
-        m_Zoom -= (float) yoffset;
-        if (m_Zoom < 1.0f) m_Zoom = 1.0f;
-        if (m_Zoom > 45.0f) m_Zoom = 45.0f;
+    void SetCameraUp(igm::vec3 up) {
+        m_WorldUp = up;
+        updateCameraVectors();
+    }
+    void SetCameraUp(float upX, float upY, float upZ) {
+        m_WorldUp = {upX, upY, upZ};
+        updateCameraVectors();
+    }
+    igm::vec3 GetCameraUp() const { return m_Up; }
+
+    void SetCameraType(CameraType type) { m_CameraType = type; }
+    CameraType GetCameraType() const { return m_CameraType; }
+
+    igm::mat4 GetViewMatrix() {
+        return igm::lookAtRH(m_Position, m_Position + m_Front, m_Up);
     }
 
-    void moveXY(float offsetX, float offsetY) {
-        m_Position += igm::vec3{offsetX, offsetY, 0.0f};
+    igm::mat4 GetProjectionMatrix() override {
+        if (m_CameraType == PERSPECTIVE) {
+            return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
+                                         aspect<float>(), nearPlane);
+        } else if (m_CameraType == ORTHOGRAPHIC) {
+            auto dist = (m_Focal - m_Position).length();
+            return igm::orthoRH_OZ(
+                    m_Focal.x - dist * 0.5f, m_Focal.x + dist * 0.5f,
+                    m_Focal.y - dist * 0.5f, m_Focal.y + dist * 0.5f,
+                    m_Focal.z - dist * 10000.0f, m_Focal.z + dist * 10000.0f);
+        }
+        return igm::mat4(1.0f);
     }
-
-    void moveZ(float offsetZ) { m_Position.z += offsetZ; }
-
-    //void SetViewMatrix(igm::mat4& _viewMatrix) {
-    //    this->m_ViewMatrix = _viewMatrix;
-    //    igm::mat4 inv_view = _viewMatrix.invert();
-    //    m_Position = igm::vec3(inv_view[0][3], inv_view[1][3], inv_view[2][3]);
-    //    updateCameraVectors();
-    //}
 
 private:
-    Camera()
-        : m_Front(igm::vec3(0.0f, 0.0f, -1.0f)), m_MovementSpeed(SPEED),
-          m_MouseSensitivity(SENSITIVITY), m_Zoom(ZOOM) {}
+    Camera() { Initialize(); }
     ~Camera() override = default;
 
     void updateCameraVectors() {
         // Calculate the new m_Front vector
-        igm::vec3 front;
-        front.x = cos(igm::radians(m_Yaw)) * cos(igm::radians(m_Pitch));
-        front.y = sin(igm::radians(m_Pitch));
-        front.z = sin(igm::radians(m_Yaw)) * cos(igm::radians(m_Pitch));
-        m_Front = front.normalize();
+        m_Front = (m_Focal - m_Position).normalized();
         // Also re-calculate the Right and Up vector
         m_Right = (igm::cross(m_Front, m_WorldUp)).normalized();
         m_Up = (igm::cross(m_Right, m_Front)).normalized();
@@ -229,19 +206,15 @@ private:
 
     // Camera attributes
     igm::vec3 m_Position;
-    igm::vec3 m_Front;
-    igm::vec3 m_Up;
-    igm::vec3 m_Right;
+    igm::vec3 m_Focal;
     igm::vec3 m_WorldUp;
 
-    // Euler angles
-    float m_Yaw;
-    float m_Pitch;
+    igm::vec3 m_Front;
+    igm::vec3 m_Right;
+    igm::vec3 m_Up;
 
-    // Camera options
-    float m_MovementSpeed;
-    float m_MouseSensitivity;
-    float m_Zoom;
+    // Camera type
+    CameraType m_CameraType = CameraType::PERSPECTIVE;
 };
 IGAME_NAMESPACE_END
 

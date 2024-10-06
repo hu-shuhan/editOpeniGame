@@ -71,6 +71,7 @@ public:
     // GLenum target: GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_UNIFORM_BUFFER
     // GLenum target: GL_SHADER_STORAGE_BUFFER, GL_DRAW_INDIRECT_BUFFER
     // GLenum target: GL_DISPATCH_INDIRECT_BUFFER
+    // GLenum target: GL_ATOMIC_COUNTER_BUFFER, GL_TEXTURE_BUFFER
     void target(GLenum target) { m_Target = target; }
 
     void bind() const { glBindBuffer(m_Target, handle); }

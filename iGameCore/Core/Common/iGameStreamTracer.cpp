@@ -154,7 +154,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(
     float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
 
     for (int i = 0; i < numOfPoints; i++) {
-        float v[8] = {0.0f};
+        float v[4] = {0.0f};
         Vector.pointer->GetElement(i, v);
         _vector.emplace_back(Vector3f(v[0], v[1], v[2]));
     }
@@ -415,6 +415,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(
         std::vector<std::vector<float>>& streamColor, float lengOfStreamLine,
         float lengthOfStep, float terminalSpeed, int maxSteps) {
     CellData2PointData(vectorName);
+    this->mesh->GetAttributeSet()->TransformScalars2VectorArray();
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPolyhedrons = mesh->GetVolumes();
     auto allPoints = mesh->GetPoints();
@@ -805,9 +806,16 @@ bool iGameStreamTracer::CellData2PointData(std::string vectorName) {
     auto allPoints = mesh->GetPoints();
     auto numOfPoints = mesh->GetNumberOfPoints();
     auto numOfCells = mesh->GetNumberOfVolumes();
-    ;
     auto Vec = mesh->GetAttributeSet();
-    auto vec = Vec->GetVector(vectorName);
+    Vec->TransformScalars2VectorArray();
+    auto Scalars = Vec->GetAllAttributes();
+    int size = Scalars->GetNumberOfElements();
+    for (int i = 0; i < size; i++) {
+        auto scalarDataArray = Scalars->GetElement(i);
+        if (scalarDataArray.type==IG_VECTOR)
+        std::cout << "type is a" << scalarDataArray.attachmentType << std::endl;
+    }
+    auto vec = Vec->GetVector(1);
     // how much D
     if (vec.attachmentType != IG_CELL) { 
         std::cout << vec.attachmentType << std::endl;

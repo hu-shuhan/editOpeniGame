@@ -1,9 +1,6 @@
-#version 330 core
+#version 420 core
 
-#extension GL_ARB_shading_language_420pack : enable
-#extension GL_ARB_separate_shader_objects : enable
-
-//#include "BlinnPhong.h"
+layout (early_fragment_tests) in;
 
 layout(std140, binding = 0) uniform CameraDataBlock {
     vec3 viewPos;
@@ -23,8 +20,15 @@ layout(std140, binding = 2) uniform UniformBufferObjectBlock {
     bool useColor;
 } ubo;
 
-//layout(binding = 3) uniform sampler2D texSampler;
-uniform sampler2D texSampler;
+// 0:blinnPhong shading, 1:no light shading, 2:pure color shading
+uniform int colorMode;
+uniform vec3 inputColor = vec3(1.0, 1.0, 1.0);
+
+// Atomic counter, used to allocate data to the linked list
+layout(binding = 0, offset = 0) uniform atomic_uint indexCounter;
+
+layout(binding = 0, r32ui) uniform uimage2D headPointerImage;
+layout(binding = 1, rgba32ui) uniform writeonly uimageBuffer listBuffer;
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Color;
@@ -63,8 +67,7 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
     return diffuse;
 }
 
-void main() {
-    //out_ScreenColor = texture(texSampler, in_UV);
+vec3 ShadeFragment() {
     vec3 color = vec3(0.0, 0.0, 0.0);
 
     // continuous patch
@@ -81,7 +84,28 @@ void main() {
     if (gamma) {
         color = pow(color, vec3(1.0 / 2.2));
     }
-    out_ScreenColor = vec4(color, 1.0f);
 
-    //out_ScreenColor = vec4(in_Color, 1.0);
+    return color;
+}
+
+void main() {
+    vec4 fragColor;
+    if (colorMode == 0) {
+        fragColor = vec4(ShadeFragment(), objectData.transparent);
+    } else if (colorMode == 1) {
+        fragColor = vec4(in_Color, objectData.transparent);
+    } else if (colorMode == 2) {
+        fragColor = vec4(inputColor, objectData.transparent);
+    }
+
+    uint newHead = atomicCounterIncrement(indexCounter);
+    uint oldHead = imageAtomicExchange(headPointerImage, ivec2(gl_FragCoord.xy), newHead);
+
+    uvec4 item;
+    item.x = oldHead;
+    item.y = packUnorm4x8(fragColor);
+    item.z = floatBitsToUint(gl_FragCoord.z);
+    item.w = 0;
+
+    imageStore(listBuffer, int(newHead), item);
 }

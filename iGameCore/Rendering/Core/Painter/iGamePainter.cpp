@@ -45,15 +45,27 @@ void Painter::Delete(IGuint handle) {
 
 void Painter::SetPen(const Pen::Pointer& pen) { m_Pen = pen; }
 void Painter::SetPen(const Color& color) { m_Pen->SetColor(color); }
+void Painter::SetPen(int red, int green, int blue) {
+    m_Pen->SetColor(red, green, blue);
+}
+void Painter::SetPen(float red, float green, float blue) {
+    m_Pen->SetColor(red, green, blue);
+}
 void Painter::SetPen(const PenStyle& style) { m_Pen->SetStyle(style); }
 void Painter::SetPen(float width) { m_Pen->SetWidth(width); }
 
 void Painter::SetBrush(const Color& color) { m_Brush->SetColor(color); }
 void Painter::SetBrush(const Brush::Pointer& brush) { m_Brush = brush; }
+void Painter::SetBrush(int red, int green, int blue) {
+    m_Brush->SetColor(red, green, blue);
+}
+void Painter::SetBrush(float red, float green, float blue) {
+    m_Brush->SetColor(red, green, blue);
+}
 void Painter::SetBrush(const BrushStyle& style) { m_Brush->SetStyle(style); }
 
 IGuint Painter::DrawPoint(const Point& point) {
-    if (m_Pen->GetColor() == Color::None) { return 0; }
+    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -62,9 +74,9 @@ IGuint Painter::DrawPoint(const Point& point) {
     auto& colors = primitive.colors;
     auto& indexes = primitive.indexes;
 
-    auto c = ColorMap(m_Pen->GetColor());
+    auto color = m_Pen->GetColor();
     points.insert(points.end(), {point});
-    colors.insert(colors.end(), {c});
+    colors.insert(colors.end(), {color});
 
     std::vector<int> index = {0};
     indexes[0].insert(indexes[0].end(), index.begin(), index.end());
@@ -74,7 +86,7 @@ IGuint Painter::DrawPoint(const Point& point) {
 }
 
 IGuint Painter::DrawLine(const Point& p1, const Point& p2) {
-    if (m_Pen->GetColor() == Color::None) { return 0; }
+    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -83,7 +95,7 @@ IGuint Painter::DrawLine(const Point& p1, const Point& p2) {
     auto& colors = primitive.colors;
     auto& indexes = primitive.indexes;
 
-    auto color = ColorMap(m_Pen->GetColor());
+    auto color = m_Pen->GetColor();
     points.insert(points.end(), {p1, p2});
     colors.insert(colors.end(), {color, color});
 
@@ -96,8 +108,8 @@ IGuint Painter::DrawLine(const Point& p1, const Point& p2) {
 
 IGuint Painter::DrawTriangle(const Point& p1, const Point& p2,
                              const Point& p3) {
-    if (m_Pen->GetColor() == Color::None &&
-        m_Brush->GetColor() == Color::None) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
         return 0;
     }
 
@@ -108,8 +120,9 @@ IGuint Painter::DrawTriangle(const Point& p1, const Point& p2,
     auto& colors = primitive.colors;
     auto& indexes = primitive.indexes;
 
-    if (m_Pen->GetColor() != Color::None) {
-        auto color = ColorMap(m_Pen->GetColor());
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
         points.insert(points.end(), {p1, p2, p3});
         colors.insert(colors.end(), {color, color, color});
 
@@ -117,10 +130,10 @@ IGuint Painter::DrawTriangle(const Point& p1, const Point& p2,
         indexes[1].insert(indexes[1].end(), index.begin(), index.end());
     }
 
-    if (m_Brush->GetColor() != Color::None) {
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
         int offset = points.size();
 
-        auto color = ColorMap(m_Brush->GetColor());
+        auto color = m_Brush->GetColor();
         points.insert(points.end(), {p1, p2, p3});
         colors.insert(colors.end(), {color, color, color});
 
@@ -135,11 +148,10 @@ IGuint Painter::DrawTriangle(const Point& p1, const Point& p2,
 }
 
 IGuint Painter::DrawRect(const Point& p1, const Point& p3) {
-    if (m_Pen->GetColor() == Color::None &&
-        m_Brush->GetColor() == Color::None) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
         return 0;
     }
-
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
 
@@ -150,8 +162,8 @@ IGuint Painter::DrawRect(const Point& p1, const Point& p3) {
     auto p2 = Point{p1[0], p3[1], p1[2]};
     auto p4 = Point{p3[0], p1[1], p3[2]};
 
-    if (m_Pen->GetColor() != Color::None) {
-        auto color = ColorMap(m_Pen->GetColor());
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
         points.insert(points.end(), {p1, p2, p3, p4});
         colors.insert(colors.end(), {color, color, color, color});
 
@@ -159,10 +171,10 @@ IGuint Painter::DrawRect(const Point& p1, const Point& p3) {
         indexes[1].insert(indexes[1].end(), index.begin(), index.end());
     }
 
-    if (m_Brush->GetColor() != Color::None) {
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
         int offset = points.size();
 
-        auto color = ColorMap(m_Brush->GetColor());
+        auto color = m_Brush->GetColor();
         points.insert(points.end(), {p1, p2, p3, p4});
         colors.insert(colors.end(), {color, color, color, color});
 
@@ -177,8 +189,8 @@ IGuint Painter::DrawRect(const Point& p1, const Point& p3) {
 }
 
 IGuint Painter::DrawCube(const Point& p1, const Point& p7) {
-    if (m_Pen->GetColor() == Color::None &&
-        m_Brush->GetColor() == Color::None) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
         return 0;
     }
 
@@ -196,8 +208,8 @@ IGuint Painter::DrawCube(const Point& p1, const Point& p7) {
     auto p6 = Point{p1[0], p7[1], p7[2]};
     auto p8 = Point{p7[0], p7[1], p1[2]};
 
-    if (m_Pen->GetColor() != Color::None) {
-        auto color = ColorMap(m_Pen->GetColor());
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
         points.insert(points.end(), {p1, p2, p3, p4, p5, p6, p7, p8});
         colors.insert(colors.end(),
                       {color, color, color, color, color, color, color, color});
@@ -207,10 +219,10 @@ IGuint Painter::DrawCube(const Point& p1, const Point& p7) {
         indexes[1].insert(indexes[1].end(), index.begin(), index.end());
     }
 
-    if (m_Brush->GetColor() != Color::None) {
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
         int offset = points.size();
 
-        auto color = ColorMap(m_Brush->GetColor());
+        auto color = m_Brush->GetColor();
         points.insert(points.end(), {p1, p2, p3, p4, p5, p6, p7, p8});
         colors.insert(colors.end(),
                       {color, color, color, color, color, color, color, color});
@@ -317,47 +329,6 @@ void Painter::Clear() {
     m_PointIndexes.clear();
     m_LineIndexes.clear();
     m_TriangleIndexes.clear();
-}
-
-Vector3f Painter::ColorMap(Color color) {
-    switch (color) {
-        case Color::Red:
-            return Vector3f{1.0f, 0.0f, 0.0f};
-        case Color::Green:
-            return Vector3f{0.0f, 1.0f, 0.0f};
-        case Color::Blue:
-            return Vector3f{0.0f, 0.0f, 1.0f};
-        case Color::LightBlue:
-            return Vector3f{0.678f, 0.847f, 0.902f};
-        case Color::White:
-            return Vector3f{1.0f, 1.0f, 1.0f};
-        case Color::Black:
-            return Vector3f{0.0f, 0.0f, 0.0f};
-        case Color::Gray:
-            return Vector3f{0.5f, 0.5f, 0.5f};
-        case Color::DarkGray:
-            return Vector3f{0.25f, 0.25f, 0.25f};
-        case Color::LightGray:
-            return Vector3f{0.75f, 0.75f, 0.75f};
-        case Color::Yellow:
-            return Vector3f{1.0f, 1.0f, 0.0f};
-        case Color::Magenta:
-            return Vector3f{1.0f, 0.0f, 1.0f};
-        case Color::Cyan:
-            return Vector3f{0.0f, 1.0f, 1.0f};
-        case Color::Orange:
-            return Vector3f{1.0f, 0.647f, 0.0f};
-        case Color::Purple:
-            return Vector3f{0.5f, 0.0f, 0.5f};
-        case Color::Pink:
-            return Vector3f{1.0f, 0.752f, 0.796f};
-        case Color::Brown:
-            return Vector3f{0.647f, 0.165f, 0.165f};
-        case Color::Gold:
-            return Vector3f{1.0f, 0.843f, 0.0f};
-        default:
-            return Vector3f{0.0f, 0.0f, 0.0f};
-    }
 }
 
 //void Painter::ExpandVBO(GLBuffer& vbo, size_t oldSize, size_t newSize) {

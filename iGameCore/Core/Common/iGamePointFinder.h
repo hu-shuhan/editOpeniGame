@@ -14,6 +14,8 @@ public:
     I_OBJECT(PointFinder);
     static Pointer New() { return new PointFinder; }
 
+    void SetPoints(Points::Pointer p) { m_Points = p; }
+
     void Initialize() {
         if (!m_Points) { return; }
         // m_NumberOfPointsPerBox = m_Threshold * m_Points->GetNumberOfPoints();
