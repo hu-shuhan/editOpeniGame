@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 
     QSurfaceFormat format;
     format.setRenderableType(QSurfaceFormat::OpenGL);
-    format.setVersion(3, 3); // Mac set to format.setVersion(3, 3);
+    format.setVersion(4, 6); // Mac set to format.setVersion(3, 3);
     format.setProfile(QSurfaceFormat::CoreProfile);
 
     format.setRedBufferSize(8); // RGBA8

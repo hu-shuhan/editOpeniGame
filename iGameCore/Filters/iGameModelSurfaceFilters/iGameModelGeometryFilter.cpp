@@ -31,13 +31,10 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 	this->ExtentClippingFlip = false;
 	this->PlaneClippingFlip = false;
 
-	this->Merging = true;
+	this->Merging = false;
 
-	this->FastMode = false;
 	this->RemoveGhostInterfaces = true;
 
-	//Process high-level mesh
-	this->NonlinearSubdivisionLevel = 1;
 
 	this->Delegation = true;
 }
@@ -592,6 +589,39 @@ struct ExtractCellBoundaries {
 		std::fill(this->PointMap, this->PointMap + numPts, -1);
 	}
 
+	void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints,
+                        Points::Pointer newPoints) {
+        auto ids = Polygons->GetCellIdArray()->RawPointer();
+        IGsize num = Polygons->GetCellIdArray()->GetNumberOfIds();
+		igIndex id=0;
+        igIndex oldId = 0;
+        igIndex newId = 0;
+		Point p;
+        for (IGsize i = 0; i < num; i++) { 
+			oldId = ids[i];
+			if (this->PointMap[oldId] == -1) {
+                //p = oldPoints->GetPoint(oldId);
+                //newPoints->AddPoint(p);
+				this->PointMap[oldId]=newId++;
+			}
+		}
+        for (IGsize i = 0; i < num; i++) {
+            oldId = ids[i];
+			ids[i] = this->PointMap[oldId];
+		}
+        newPoints->Resize(newId);
+		auto pNum = oldPoints->GetNumberOfPoints();
+		for (IGsize i = 0; i < pNum; i++) {
+            if (this->PointMap[i] != -1) {
+                newPoints->SetPoint(PointMap[i],oldPoints->GetPoint(i));
+		}
+		}
+
+	}
+
+	igIndex* GetPointMap() {
+		return this->PointMap;
+	}
 	// Initialize thread data
 	virtual void Initialize() {}
 
@@ -610,7 +640,8 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input,
 	igIndex64 numCells = Grid->GetNumberOfFaces();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-	auto inPoints = Grid->GetPoints();
+    auto inPoints = Grid->GetPoints();
+    auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -633,15 +664,16 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input,
 			f2c.emplace_back(i);
 		}
 	}
+
+
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
 	for (i = 0; i < outAllDataArray->GetAllAttributes().GetPointer()->Size(); i++) {
 		attrbNameArray->AddElement(
 			outAllDataArray->GetAttribute(i).pointer.get()->GetName());
 	}
-	output->SetPoints(inPoints);
+	output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
-	output->GetMetadata()->AddStringArray(ATTRIBUTE_NAME_ARRAY, attrbNameArray);
 
 	igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
 		<< output->GetNumberOfFaces() << " faces.");
@@ -765,7 +797,7 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId,
 		}
 	}
 
-} // ExtractCellGeometry()
+} 
 struct ExtractVM : public ExtractCellBoundaries {
 	// The unstructured grid to process
 	VolumeMesh::Pointer Grid;
@@ -824,7 +856,8 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 	igIndex64 numCells = Grid->GetNumberOfVolumes();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-	auto inPoints = Grid->GetPoints();
+    auto inPoints = Grid->GetPoints();
+    auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -851,7 +884,15 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
 
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
-	output->SetPoints(inPoints);
+    if (Merging) {
+        outPoints = Points::New();
+        extract->UpdatePointMap(Polygons, inPoints, outPoints);
+        CompositePointAttribute(extract->GetPointMap(),
+                                inPoints->GetNumberOfPoints(),
+                                outPoints->GetNumberOfPoints(),
+			                    outAllDataArray);
+    }
+    output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
 
@@ -1249,7 +1290,8 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	igIndex64 numCells = Grid->GetNumberOfCells();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-	auto inPoints = Grid->GetPoints();
+    auto inPoints = Grid->GetPoints();
+    auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -1273,7 +1315,14 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
 
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
-	output->SetPoints(inPoints);
+    if (Merging) {
+        outPoints = Points::New();
+        extract->UpdatePointMap(Polygons, inPoints, outPoints);
+        CompositePointAttribute(
+                extract->GetPointMap(), inPoints->GetNumberOfPoints(),
+                outPoints->GetNumberOfPoints(), outAllDataArray);
+    }
+    output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
 
@@ -1470,7 +1519,8 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
 	igIndex64 numCells = Grid->GetNumberOfCells();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-	auto inPoints = Grid->GetPoints();
+    auto inPoints = Grid->GetPoints();
+    auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	CellArray::Pointer Polygons = CellArray::New();
@@ -1486,13 +1536,19 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
 		this->Merging, this->RemoveGhostInterfaces);
 	extract->Execute();
 	Polygons = extract->Quads;
-
 	clock_t time_2 = clock();
 	igDebug("Extracted surface(not composite) cost " << time_2 - time1 << "ms.");
 
 
 	CompositeCellAttribute(extract->f2c, inAllDataArray, outAllDataArray);
-	output->SetPoints(inPoints);
+    if (Merging) {
+        outPoints = Points::New();
+        extract->UpdatePointMap(Polygons, inPoints, outPoints);
+        CompositePointAttribute(
+                extract->GetPointMap(), inPoints->GetNumberOfPoints(),
+                outPoints->GetNumberOfPoints(), outAllDataArray);
+    }
+	output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
 	igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
@@ -1598,7 +1654,11 @@ void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C,
 			CellAttributes.emplace_back(inAllDataArray->GetAttribute(i));
 		}
 		else {
-			outAllDataArray->AddAttribute(inAllDataArray->GetAttribute(i).type, inAllDataArray->GetAttribute(i).attachmentType, inAllDataArray->GetAttribute(i).pointer, inAllDataArray->GetAttribute(i).dataRange);
+                outAllDataArray->AddAttribute(
+                        inAllDataArray->GetAttribute(i).type,
+                        inAllDataArray->GetAttribute(i).attachmentType,
+                        inAllDataArray->GetAttribute(i).pointer,
+                        inAllDataArray->GetAttribute(i).dataRange);
 		}
 	}
 	igIndex AttributeSize = CellAttributes.size();
@@ -1624,5 +1684,34 @@ void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C,
 			newData);
 	}
 }
+void iGameModelGeometryFilter::CompositePointAttribute(
+        igIndex* PointMap, IGsize oldPNum,
+        IGsize newPNum, AttributeSet::Pointer inAllDataArray) {
+    igIndex i = 0;
+    auto inDataArrayNum =inAllDataArray->GetAllAttributes()->GetNumberOfElements();
+    for (i = 0; i < inDataArrayNum; i++) {
+        auto& inData = inAllDataArray->GetAttribute(i).pointer;
+        ArrayObject::Pointer outData =inData;
+        if (inAllDataArray->GetAttribute(i).attachmentType == IG_POINT) {
+                auto newData = DoubleArray::New();
+                newData->SetDimension(inData->GetDimension());
+                newData->Resize(newPNum);
+                newData->SetName(inData->GetName());
 
+			    auto func = [&](igIndex start, igIndex end) -> void {
+                 double tmp[64];
+                for (igIndex i = start; i < end; i++) {
+						if (PointMap[i] != -1) { 
+							inData->GetElement(i,tmp);
+                            newData->SetElement(PointMap[i], tmp);
+						}
+                     }
+                };
+                ThreadPool::parallelFor(0, oldPNum, func);
+				outData=newData;
+        } 
+		inAllDataArray->GetAttribute(i).pointer=outData;
+    }
+
+}
 IGAME_NAMESPACE_END

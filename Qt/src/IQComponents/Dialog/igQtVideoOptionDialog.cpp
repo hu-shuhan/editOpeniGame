@@ -1,3 +1,4 @@
+#if defined(FFMPEG_ENABLE)
 #include "IQComponents/Dialog/igQtVideoOptionDialog.h"
 
 
@@ -46,6 +47,11 @@ igQtVideoOptionDialog::igQtVideoOptionDialog(QWidget *parent) : QDialog(parent) 
 }
 
 iGame::VideoInputInfo igQtVideoOptionDialog::getInput() {
-    return {};
-//    return {m_WidthLineEdit->text().toInt(), m_HeightLineEdit->text().toInt()};
+    iGame::VideoInputInfo res;
+    res.width = m_Width_LineEdit->text().toInt();
+    res.height = m_Height_LineEdit->text().toInt();
+    res.frame_rate = m_frameRate_LineEdit->text().toInt();
+    res.bit_rate = m_bitRate_LineEdit->text().toInt();
+    return res;
 }
+#endif

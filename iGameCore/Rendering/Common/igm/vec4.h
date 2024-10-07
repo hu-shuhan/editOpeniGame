@@ -14,5 +14,7 @@
 
 #include "./ext/vector_double4.h"
 #include "./ext/vector_float4.h"
+#include "./ext/vector_int4.h"
+#include "./ext/vector_uint4.h"
 
 #endif // OPENIGAME_IGM_VEC4_H

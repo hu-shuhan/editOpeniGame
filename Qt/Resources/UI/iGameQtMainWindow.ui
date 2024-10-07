@@ -947,6 +947,10 @@ border:2px solid #EEF1F7
    </property>
   </action>
   <action name="action_SaveScreenShot">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/ScreenShot.svg</normaloff>:/Ticon/Icons/ScreenShot.svg</iconset>
+   </property>
    <property name="text">
     <string>保存截屏</string>
    </property>
@@ -972,6 +976,10 @@ border:2px solid #EEF1F7
    </property>
   </action>
   <action name="action_SaveAnimation">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/animation_save_vcr.svg</normaloff>:/Ticon/Icons/animation_save_vcr.svg</iconset>
+   </property>
    <property name="text">
     <string>保存动画</string>
    </property>

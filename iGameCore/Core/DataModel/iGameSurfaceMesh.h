@@ -78,6 +78,8 @@ public:
                                 igIndex* edgeIds); // Unsafe: Stake overflow
     bool GetPointToNeighborEdges(const IGsize ptId, const igIndex*& edgeIds,
                                  int& size); // Safe but data will be modified
+    bool GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds,
+                                 int& size); // Safe but data will be modified
     bool GetPointToNeighborEdges(const IGsize ptId,
                                  IdArray::Pointer edgeIds); // Safe
     bool GetPointToNeighborEdges(const IGsize ptId,

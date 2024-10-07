@@ -13,9 +13,10 @@ layout(std140, binding = 0) uniform CameraDataBlock {
 } cameraData;
 
 layout(std140, binding = 1) uniform ObjectDataBLock {
+    float transparent;
     mat4 model;
     mat4 normal;// transpose(inverse(model))
-    vec4 sphereBounds;// not set now, do not use
+    vec4 sphereBounds;
 } objectData;
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
@@ -81,7 +82,6 @@ void main() {
         color = pow(color, vec3(1.0 / 2.2));
     }
     out_ScreenColor = vec4(color, 1.0f);
-    //out_ScreenColor = vec4(color, transparency);
 
     //out_ScreenColor = vec4(in_Color, 1.0);
 }

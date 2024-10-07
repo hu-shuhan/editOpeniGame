@@ -29,15 +29,11 @@ if (ENABLE_CGNS_MODULE)
     #    set(CGNS_ENABLE_HDF5 OFF)
     # set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
 
-    # 在系统环境变量里设置HDF5_HOME，值为HDF5路径
+    # 鍦ㄧ郴缁熺幆澧冨彉閲忛噷璁剧疆HDF5_HOME锛屽�间负HDF5璺緞
     if (DEFINED ENV{HDF5_HOME})
         set(HDF5_DIR "$ENV{HDF5_HOME}/cmake")
     else ()
         set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
     endif ()
     add_subdirectory(CGNS)
-endif ()
-
-if (ENABLE_ABAQUS_MODULE)
-
 endif ()

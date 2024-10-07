@@ -1,6 +1,7 @@
 #ifndef iGameDrawObject_h
 #define iGameDrawObject_h
 
+#include "iGameClipper.h"
 #include "iGameDataObject.h"
 #include "iGameIdArray.h"
 #include "iGameMarker.h"
@@ -31,6 +32,8 @@ public:
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
+    bool IsUseColor() { return m_UseColor; }
+
     void SetVisibility(bool f);
     bool GetVisibility();
     /*ViewStyle's detail. See iGameType.h */
@@ -42,18 +45,21 @@ public:
     unsigned int GetViewStyleOfModel();
 
     virtual bool GetClipped();
-    void SetExtentClipping(bool _in);
-    void SetPlaneClipping(bool _in);
-    void SetExtent(double xMin, double xMax, double yMin, double yMax,
-                   double zMin, double zMax, bool flip = false);
-    void SetPlane(double ox, double oy, double oz, double nx, double ny,
-                  double nz, bool flip = false);
+    iGameClipper::Pointer GetClipper() { return m_Clipper; }
 
     void SetTransparency(float transparency);
     float GetTransparency();
 
+    //virtual void Draw(Scene* scene);
+    virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
+    void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
+
 protected:
-    void Create();
+    template<typename Functor, typename... Args>
+    void ProcessSubDataObjects(Functor&& functor, Args&&... args);
+
+protected:
+    void CreateDrawBuffer();
 
 protected:
     unsigned int m_ViewStyle{0};
@@ -71,11 +77,8 @@ protected:
     IdArray::Pointer m_PointIndices{};
     IdArray::Pointer m_LineIndices{};
     IdArray::Pointer m_TriangleIndices{};
-    //UnsignedIntArray::Pointer M_VertexIndices{};
-    //UnsignedIntArray::Pointer M_LineIndices{};
-    //UnsignedIntArray::Pointer M_TriangleIndices{};
 
-    bool m_Flag{false};
+    bool m_Flag{true};
     bool m_UseColor{false};
     bool m_ColorWithCell{false};
     int m_PointSize{8};
@@ -83,23 +86,11 @@ protected:
     int m_CellPositionSize{};
 
     float m_Transparency{1.0f};
-    bool m_TransparencyChanged{false};
 
     ArrayObject::Pointer m_ViewAttribute{};
     int m_ViewDemension{};
 
-    struct {
-        struct {
-            bool m_Use{false};
-            double m_bmin[3], m_bmax[3];
-            bool m_flip{false};
-        } m_Extent;
-        struct {
-            bool m_Use{false};
-            double m_origin[3], m_normal[3];
-            bool m_flip{false};
-        } m_Plane;
-    } m_Clip; // Used for clip mesh
+    iGameClipper::Pointer m_Clipper{iGameClipper::New()};
 
     friend class Model;
 
@@ -108,5 +99,17 @@ protected:
 #endif
 };
 
+template<typename Functor, typename... Args>
+inline void DrawObject::ProcessSubDataObjects(Functor&& functor,
+                                              Args&&... args) {
+    if (HasSubDataObject()) {
+        for (auto it = m_SubDataObjectsHelper->Begin();
+             it != m_SubDataObjectsHelper->End(); ++it) {
+            //            (it->second->*functor)(std::forward<Args>(args)...);
+            (DynamicCast<DrawObject>(it->second)->*functor)(
+                    std::forward<Args>(args)...);
+        }
+    }
+}
 IGAME_NAMESPACE_END
 #endif

@@ -25,7 +25,7 @@ public:
     static igm::mat4 ViewMatrix();
     static igm::mat4 ProjMatrix();
 
-    void Update(const igm::mat4& _mvp, const igm::vec4& viewPort);
+    void Update(const igm::mat4& _mvp, const igm::ivec4& viewPort);
 
 private:
     void initialize();

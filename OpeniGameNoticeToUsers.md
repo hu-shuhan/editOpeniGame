@@ -546,6 +546,11 @@ Mac系统最高只支持``OpenGL4.1``，因此必须设置为``OpenGL3.3``，还
 format.setVersion(4, 6); //Mac set to format.setVersion(3, 3);
 ```
 
+### 透明度显示功能
+
+透明度显示为高级功能，由于采用次序无关透明度(Order Independent Transparency, OIT)，因此在本项目必须在``OpenGL4.6``
+版本才会生效，在``OpenGL3.3``版本中设置透明度不会产生作用。
+
 ### 遮挡剔除功能
 
 遮挡剔除为加速渲染功能，由于需要用到计算着色器（Compute Shader），因此在本项目必须在``OpenGL4.6``版本才能开启。

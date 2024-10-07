@@ -381,35 +381,9 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
 //}
 
 void UnstructuredMesh::ConvertToDrawableData() {
-    this->Create();
+    this->CreateDrawBuffer();
 
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
-
-    //if (m_TransparencyChanged && m_Transparency == 1.0f) {
-    //    m_TransparencyChanged = false;
-    //
-    //    if (m_DrawMesh == nullptr ||
-    //        m_DrawMesh->GetMTime() < this->GetMTime()) {
-    //        iGameModelGeometryFilter::Pointer extract =
-    //                iGameModelGeometryFilter::New();
-    //        // update clip status
-    //        if (m_Clip.m_Extent.m_Use) {
-    //            const auto& a = m_Clip.m_Extent.m_bmin;
-    //            const auto& b = m_Clip.m_Extent.m_bmax;
-    //            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2],
-    //                               m_Clip.m_Extent.m_flip);
-    //        }
-    //        if (m_Clip.m_Plane.m_Use) {
-    //            extract->SetClipPlane(m_Clip.m_Plane.m_origin,
-    //                                  m_Clip.m_Plane.m_normal,
-    //                                  m_Clip.m_Plane.m_flip);
-    //        }
-    //        m_DrawMesh = SurfaceMesh::New();
-    //        if (!extract->Execute(this, m_DrawMesh)) { m_DrawMesh = nullptr; }
-    //        if (m_DrawMesh) { m_DrawMesh->Modified(); }
-    //    }
-    //    if (m_DrawMesh) { return m_DrawMesh->ConvertToDrawableData(); }
-    //}
 
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
@@ -426,6 +400,17 @@ void UnstructuredMesh::ConvertToDrawableData() {
     igIndex ids[128]{};
     for (int id = 0; id < GetNumberOfCells(); id++) {
         int size = GetCellPointIds(id, ids);
+        if (!m_Clipper->IsAllDisable()) {
+            bool visible = true;
+            for (int i = 0; i < size; i++) {
+                const auto& point = this->GetPoint(ids[i]);
+                if (!m_Clipper->IsVisible(point.pointer())) {
+                    visible = false;
+                    break;
+                }
+            }
+            if (!visible) continue;
+        }
         IGenum type = GetCellType(id);
         switch (type) {
             case IG_VERTEX:
@@ -652,6 +637,9 @@ void UnstructuredMesh::ConvertToDrawableData() {
 void UnstructuredMesh::ViewCloudPicture(Scene* scene, int index,
                                         int demension) {
     if (m_DrawMesh) {
+        m_DrawMesh->SetColorMapper(m_ColorMapper);
+        m_AttributeIndex = index;
+        m_AttributeDimension = demension;
         return m_DrawMesh->ViewCloudPicture(scene, index, demension);
     }
     if (index == -1) {
@@ -685,12 +673,14 @@ void UnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
         m_UseColor = true;
         m_ColorWithCell = false;
 
-        if (range.first != range.second) {
-            m_ColorMapper->SetRange(range.first, range.second);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+            if (range.first != range.second) {
+                m_ColorMapper->SetRange(range.first, range.second);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
         range.first = m_ColorMapper->GetRange()[0];
         range.second = m_ColorMapper->GetRange()[1];

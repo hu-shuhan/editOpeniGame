@@ -75,7 +75,7 @@ void Axes::DrawXYZ(const GLShaderProgram* shader, const GLUniform texture,
     m_FontVAO.release();
 }
 
-void Axes::Update(const igm::mat4& _mvp, const igm::vec4& viewPort) {
+void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
     mvp = _mvp;
     inv_mvp = _mvp.invert();
 

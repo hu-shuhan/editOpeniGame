@@ -174,8 +174,7 @@ protected:
     DataObject* m_Parent{nullptr};
 
 
-    template<typename Functor, typename... Args>
-    void ProcessSubDataObjects(Functor&& functor, Args&&... args);
+
 
 private:
     DataObjectId GetIncrementDataObjectId();
@@ -191,10 +190,7 @@ public:
     virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
     virtual bool IsDrawable() { return m_Drawable; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
-
-    virtual void ViewCloudPicture(Scene*, int index, int dimension = -1);
-    void ViewCloudPictureOfModel(Scene*, int index, int dimension = -1);
-
+    void SetColorMapper(ScalarsToColors::Pointer cm) {m_ColorMapper=cm;}
     int GetAttributeIndex();
     int GetAttributeDimension();
 
@@ -209,16 +205,16 @@ protected:
     ScalarsToColors::Pointer m_ColorMapper = ScalarsToColors::New();
 };
 
-template<typename Functor, typename... Args>
-inline void DataObject::ProcessSubDataObjects(Functor&& functor,
-                                              Args&&... args) {
-    if (HasSubDataObject()) {
-        for (auto it = m_SubDataObjectsHelper->Begin();
-             it != m_SubDataObjectsHelper->End(); ++it) {
-            (it->second->*functor)(std::forward<Args>(args)...);
-        }
-    }
-}
+//template<typename Functor, typename... Args>
+//inline void DataObject::ProcessSubDataObjects(Functor&& functor,
+//                                              Args&&... args) {
+//    if (HasSubDataObject()) {
+//        for (auto it = m_SubDataObjectsHelper->Begin();
+//             it != m_SubDataObjectsHelper->End(); ++it) {
+//            (it->second->*functor)(std::forward<Args>(args)...);
+//        }
+//    }
+//}
 
 IGAME_NAMESPACE_END
 #endif

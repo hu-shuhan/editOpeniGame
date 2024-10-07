@@ -31,4 +31,5 @@ public:
     void onDirectoryLoaded(const QString &path);
 
     void groupFilesByName();
+
 };

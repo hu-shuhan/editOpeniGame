@@ -59,7 +59,8 @@ bool iGame::iGamePVDReader::Parsing() {
     if(!m_Data.GetTimeData()->GetArrays().empty()){
         auto& firstFrame = m_Data.GetTimeData()->GetArrays()[0];
 
-        m_data_object = DataObject::New();
+        m_data_object = DrawObject::New();
+//        m_data_object = DataObject::New();
         m_data_object->SetTimeFrames(m_Data.GetTimeData());
         auto attributeSet = AttributeSet::New();
         m_data_object->SetAttributeSet(attributeSet);

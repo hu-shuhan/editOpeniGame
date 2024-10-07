@@ -88,6 +88,8 @@
         <file>Icons/_Manage.png</file>
         <file>Icons/Eyeball.svg</file>
         <file>Icons/EyeballClosed.svg</file>
+        <file>Icons/ScreenShot.svg</file>
+        <file>Icons/animation_save_vcr.svg</file>
         <file>Icons/select/select_face.png</file>
         <file>Icons/select/select_vertex.png</file>
         <file>Icons/select/select_vertex_geodesic.png</file>

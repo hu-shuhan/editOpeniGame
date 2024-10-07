@@ -35,9 +35,9 @@ public:
         m_DevicePixelRatio = devicePixelRatio;
     };
 
-    igm::uvec2 GetViewPort() { return m_Size; };
+    igm::ivec2 GetViewPort() { return m_Size; };
     int GetDevicePixelRatio() { return m_DevicePixelRatio; };
-    igm::uvec2 GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+    igm::ivec2 GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
 
     template<typename FloatT>
     FloatT aspect() const {
@@ -45,8 +45,8 @@ public:
     }
 
 protected:
-    igm::uvec2 m_Offset = igm::uvec2{0, 0};
-    igm::uvec2 m_Size = igm::uvec2{800, 600};
+    igm::ivec2 m_Offset = igm::ivec2{0, 0};
+    igm::ivec2 m_Size = igm::ivec2{800, 600};
     int m_DevicePixelRatio = 1;
 
 protected:

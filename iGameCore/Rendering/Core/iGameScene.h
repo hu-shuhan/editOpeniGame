@@ -8,6 +8,8 @@
 #include "OpenGL/GLFramebuffer.h"
 #include "OpenGL/GLIndirectCommand.h"
 #include "OpenGL/GLShader.h"
+#include "OpenGL/GLTextureBuffer.h"
+
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameFontSet.h"
@@ -52,6 +54,7 @@ public:
         alignas(16) igm::mat4 proj_view; // proj * view
     };
     struct ObjectDataBuffer {
+        alignas(4) float transparent;
         alignas(16) igm::mat4 model;
         alignas(16) igm::mat4 normal; // transpose(inverse(model))
         alignas(16) igm::vec4 sphereBounds;
@@ -74,6 +77,8 @@ public:
         PBR,
         NOLIGHT,
         PURECOLOR,
+        TRANSPARENCYLINK,
+        TRANSPARENCYSORT,
         AXES,
         FONT,
         ATTACHMENTRESOLVE,
@@ -95,7 +100,7 @@ public:
     igm::mat4& ModelRotate() { return m_ModelRotate; }
     igm::mat4& ModelMatrix() { return m_ModelMatrix; }
 
-    void UseColor();
+    //void UseColor();
     void UpdateUniformBuffer();
 
     void SetShader(IGenum type, GLShaderProgram*);
@@ -118,6 +123,9 @@ public:
     void lookAtIsometric();
     void rotateNinetyClockwise();
     void rotateNinetyCounterClockwise();
+
+    unsigned char* CaptureOffScreenBuffer(int width, int height);
+
 
     template<typename Functor, typename... Args>
     void SetUpdateFunctor(Functor&& functor, Args&&... args) {
@@ -148,6 +156,7 @@ protected:
     void UpdateModelsBoundingSphere();
 
     void InitOpenGL();
+    void InitOIT();
     void InitFont();
     void InitAxes();
 
@@ -156,11 +165,20 @@ protected:
     void RefreshDepthPyramid();
     void RefreshDrawCullDataBuffer();
 
-    void UpdateUniformData();
     void DrawFrame();
-    void DrawModels();
-    void DrawAxes();
+    void ResolveFrame();
+    void RenderToQtFrame();
+    void ForwardPass();
+    void TransparentForwardPass();
+    void ShadowPass();
+
+    void UpdateCameraDataBlock();
+    void UpdateObjectDataBlock(DataObject* obj);
+    void UpdateUniformBufferObjectBlock(DataObject* obj);
+
+    void DrawAxes(igm::ivec4 drawRange);
     void CalculateFrameRate();
+
 
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;
@@ -210,12 +228,19 @@ protected:
     GLTexture2d m_DepthTexture;
 #endif
 
+    GLTexture2d m_OITHeadPointerTexture;
+    GLBuffer m_OITHeadPointerInitializer;
+    GLBuffer m_OITAtomicCounterBuffer;
+    GLBuffer m_OITLinkedListBuffer;
+    GLTextureBuffer m_OITLinkedListTexture;
+
     GLBuffer m_DrawCullData;
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d m_DepthPyramid;
 
     Painter::Pointer painter = Painter::New();
 
+    friend class Model;
     friend class Interactor;
     friend class BasicInteractor;
 };

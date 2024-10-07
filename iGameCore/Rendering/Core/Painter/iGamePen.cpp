@@ -18,7 +18,6 @@ void Pen::SetColor(const Color& color) {
         m_PenColor = Vector3f{-1.0f, -1.0f, -1.0f};
         return;
     }
-
     auto c = ColorUtils::Map(color);
     m_PenColor = Vector3f{c.x, c.y, c.z};
 };
@@ -26,12 +25,18 @@ void Pen::SetColor(const Color& color) {
 void Pen::SetColor(float red, float green, float blue) {
     if (ColorUtils::IsValid(red, green, blue)) {
         m_PenColor = Vector3f{red / 255.0f, green / 255.0f, blue / 255.0f};
+    } else {
+        throw std::runtime_error(
+                "Color values must be in the range of 0.0 to 1.0");
     }
 };
 
 void Pen::SetColor(int red, int green, int blue) {
     if (ColorUtils::IsValid(red, green, blue)) {
         m_PenColor = Vector3f{red / 255.0f, green / 255.0f, blue / 255.0f};
+    } else {
+        throw std::runtime_error(
+                "Color values must be in the range of 0 to 255");
     }
 }
 

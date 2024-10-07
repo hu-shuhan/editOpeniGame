@@ -31,10 +31,11 @@ public slots:
 	void updateAllAttriubute(DataObject::Pointer obj);
 	int addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source);
 	int updateCurrentModelInfo();
-
+    int updateCloudPicture();
     void deleteCurrentModel();
 signals:
 	void CurrendModelChanged();
+    void CloudPictureChanged();
 protected:
 	void UpdateCurrentModel(Model::Pointer model);
 

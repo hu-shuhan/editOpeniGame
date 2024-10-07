@@ -126,7 +126,7 @@ void PointSet::ComputeBoundingBox() {
 //};
 
 void PointSet::ConvertToDrawableData() {
-    this->Create();
+    this->CreateDrawBuffer();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 
     m_Positions = m_Points->ConvertToArray();
@@ -155,7 +155,8 @@ void PointSet::ViewCloudPicture(Scene* scene, int index, int demension) {
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
                                          std::pair<float, float>& range,
                                          igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         if (attr == nullptr) {
             m_UseColor = false;
             m_ViewAttribute = nullptr;
@@ -188,4 +189,66 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
                           GL_FLOAT, GL_FALSE, 0);
     }
 }
+
+//void PointSet::Draw(Scene *scene) {
+//    auto visibility = this->m_Visibility;
+//    auto useColor = this->m_UseColor;
+//    auto colorWithCell = this->m_ColorWithCell;
+//    auto viewStyle = this->m_ViewStyle;
+//    if (!visibility) { return; }
+//    if (useColor && colorWithCell) {
+//        scene->GetShader(Scene::BLINNPHONG)->use();
+//        this->m_CellVAO.bind();
+//        glad_glDrawArrays(GL_TRIANGLES, 0, this->m_CellPositionSize);
+//        this->m_CellVAO.release();
+//        return;
+//    }
+//
+//    if (viewStyle & IG_POINTS) {
+//        scene->GetShader(Scene::NOLIGHT)->use();
+//
+//        this->m_PointVAO.bind();
+//        glad_glPointSize(8);
+//        glad_glDepthRange(0.000001, 1);
+//        glad_glDrawArrays(GL_POINTS, 0,
+//                          this->m_Positions->GetNumberOfValues() / 3);
+//        glad_glDepthRange(0, 1);
+//        this->m_PointVAO.release();
+//    }
+//
+//    if (viewStyle & IG_WIREFRAME) {
+//        if (useColor) {
+//            scene->GetShader(Scene::NOLIGHT)->use();
+//        } else {
+//            auto shader = scene->GetShader(Scene::PURECOLOR);
+//            shader->use();
+//            shader->setUniform(shader->getUniformLocation("inputColor"),
+//                               igm::vec3{0.0f, 0.0f, 0.0f});
+//        }
+//
+//        this->m_LineVAO.bind();
+//        glLineWidth(this->m_LineWidth);
+//        glad_glDrawElements(GL_LINES,
+//                            this->m_LineIndices->GetNumberOfIds(),
+//                            GL_UNSIGNED_INT, 0);
+//        this->m_LineVAO.release();
+//    }
+//
+//    if (viewStyle & IG_SURFACE) {
+//        auto shader = scene->GetShader(Scene::BLINNPHONG);
+//        shader->use();
+//
+//        this->m_TriangleVAO.bind();
+//        glEnable(GL_POLYGON_OFFSET_FILL);
+//        glPolygonOffset(-0.5f, -0.5f);
+//        glad_glDrawElements(GL_TRIANGLES,
+//                            this->m_TriangleIndices->GetNumberOfIds(),
+//                            GL_UNSIGNED_INT, 0);
+//        glDisable(GL_POLYGON_OFFSET_FILL);
+//        this->m_TriangleVAO.release();
+//
+//
+//    }
+//
+//}
 IGAME_NAMESPACE_END

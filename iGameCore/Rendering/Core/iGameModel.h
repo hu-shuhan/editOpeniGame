@@ -18,6 +18,7 @@ public:
     static Pointer New() { return new Model; }
 
     void Draw(Scene*);
+    void DrawWithTransparency(Scene*);
     void DrawPhase1(Scene*);
     void DrawPhase2(Scene*);
     void TestOcclusionResults(Scene*);
@@ -47,7 +48,8 @@ public:
     void Update();
 
     void ViewCloudPicture(int index, int dimension = -1) {
-        m_DataObject->ViewCloudPicture(m_Scene, index, dimension);
+        auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+        if(drawObject != nullptr) drawObject->ViewCloudPicture(m_Scene, index, dimension);
     }
     void SetFilePath(std::string filePath) { m_FilePath = filePath; }
     std::string GetFilePath() { return this->m_FilePath; }
