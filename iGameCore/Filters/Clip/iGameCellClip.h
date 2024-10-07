@@ -1,6 +1,7 @@
 #include "iGameTetra.h"
 #include "iGameCellArray.h"
 #include "iGameAttributeSet.h"
+#include"iGameVolumeMesh.h"
 IGAME_NAMESPACE_BEGIN
 
 namespace CellClip {
@@ -26,8 +27,53 @@ namespace CellClip {
 	  { { 6, 0, 3, 2, 101, 103, 102 } },  // 14
 	  { { 4, 100, 101, 102, 103, 0, 0 } } // 15
 	};
+    bool getCellIntersectPoint(VolumeMesh::Pointer mesh,const Vector3f& planeNormal,const Vector3f& pointOnPlane,igIndex cellId,std::vector<std::pair<Vector3f,Vector3f>>&clipEdges){
+        igIndex f[32]{};
+        igIndex e[32]{};
+        bool find = false;
+        int fsize = mesh->GetVolumeFaceIds(cellId, f);
 
+        for (int i = 0; i < fsize; i++) {
+            int esize = mesh->GetFaceEdgeIds(f[i], e);
+            std::pair<Vector3f, Vector3f> clipEdge;
+            bool count = false;
+            for (int j = 0; j < esize; j++) {
+				auto edge=mesh->GetEdge(e[j]);
+                Vector3f interactPoint;
+                if (isLineSegmentIntersectingPlane(edge->GetPoint(0),edge->GetPoint(1),planeNormal,pointOnPlane,interactPoint))
+				{
+                    if (!count) {
+                        clipEdge.first = interactPoint;
+                        find = true;
+                        count = true;
+                    } else {
+                        clipEdge.second = interactPoint;
+                        clipEdges.emplace_back(clipEdge);
+                    }
+                    
+				}
+               
+			}
+		}
+        return find;
 
+    };
+    bool isLineSegmentIntersectingPlane(const Vector3f& p1, const Vector3f& p2,const Vector3f& planeNormal,const Vector3f& pointOnPlane,Vector3f& intersectionPoint) {
+        Vector3f lineDirection = p2 - p1;
+
+        float denominator = planeNormal.dot(lineDirection);
+
+        if (fabs(denominator) < 1e-6) { return false; }
+
+        float t = (pointOnPlane - p1).dot(planeNormal) / denominator;
+
+        if (t >= 0 && t <= 1) {
+            intersectionPoint = p1 + t * lineDirection;
+            return true;
+        }
+
+        return false;
+    }
 	static void Clip(Cell::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity,UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId)
 	{
