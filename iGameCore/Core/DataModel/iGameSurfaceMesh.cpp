@@ -844,49 +844,73 @@ void SurfaceMesh::ConvertToDrawableData() {
     this->Create();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 
-    //if (m_DrawMesh == nullptr || m_DrawMesh->GetMTime() < this->GetMTime()) {
-    //    iGameModelGeometryFilter::Pointer extract =
-    //            iGameModelGeometryFilter::New();
-    //    // update clip status
-    //    if (m_Clip.m_Extent.m_Use) {
-    //        const auto& a = m_Clip.m_Extent.m_bmin;
-    //        const auto& b = m_Clip.m_Extent.m_bmax;
-    //        extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2],
-    //                           m_Clip.m_Extent.m_flip);
-    //    }
-    //    if (m_Clip.m_Plane.m_Use) {
-    //        extract->SetClipPlane(m_Clip.m_Plane.m_origin,
-    //                              m_Clip.m_Plane.m_normal,
-    //                              m_Clip.m_Plane.m_flip);
-    //    }
-    //    m_DrawMesh = SurfaceMesh::New();
-    //    if (!extract->Execute(this, m_DrawMesh)) { m_DrawMesh = nullptr; }
-    //    if (m_DrawMesh) { m_DrawMesh->Modified(); }
-    //}
-    //if (m_DrawMesh) { return m_DrawMesh->ConvertToDrawableData(); }
-
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
 
     // set line indices
     if (this->GetEdges() == nullptr) { this->BuildEdges(); }
-    m_LineIndices = this->GetEdges()->GetCellIdArray();
 
-    // set triangle indices
-    IdArray::Pointer triangleIndices = IdArray::New();
-    int i, ncell;
-    igIndex cell[32]{};
+    if (m_Clipper->IsAllDisable()) {
+        m_LineIndices = this->GetEdges()->GetCellIdArray();
 
-    for (i = 0; i < this->GetNumberOfFaces(); i++) {
-        ncell = this->GetFacePointIds(i, cell);
-        for (int j = 2; j < ncell; j++) {
-            triangleIndices->AddId(cell[0]);
-            triangleIndices->AddId(cell[j - 1]);
-            triangleIndices->AddId(cell[j]);
+        // set triangle indices
+        IdArray::Pointer triangleIndices = IdArray::New();
+        int i, ncell;
+        igIndex cell[32]{};
+
+        for (i = 0; i < this->GetNumberOfFaces(); i++) {
+            ncell = this->GetFacePointIds(i, cell);
+            for (int j = 2; j < ncell; j++) {
+                triangleIndices->AddId(cell[0]);
+                triangleIndices->AddId(cell[j - 1]);
+                triangleIndices->AddId(cell[j]);
+            }
         }
-    }
-    m_TriangleIndices = triangleIndices;
+        m_TriangleIndices = triangleIndices;
+    } else {
+        IdArray::Pointer lineIndices = IdArray::New();
+        igIndex edge[2];
+        for (int i = 0; i < this->GetEdges()->GetNumberOfCells(); ++i) {
+            this->GetEdges()->GetCellIds(i, edge);
+            bool visible = true;
+            for (int j = 0; j < 2; ++j) {
+                const auto& point = this->GetPoint(edge[j]);
+                if (!m_Clipper->IsVisible(point.pointer())) {
+                    visible = false;
+                    break;
+                }
+            }
+            if (!visible) continue;
+            lineIndices->AddId(edge[0]);
+            lineIndices->AddId(edge[1]);
+        }
+        m_LineIndices = lineIndices;
 
+        // set triangle indices
+        IdArray::Pointer triangleIndices = IdArray::New();
+        int i, ncell;
+        igIndex cell[32]{};
+
+        for (i = 0; i < this->GetNumberOfFaces(); i++) {
+            ncell = this->GetFacePointIds(i, cell);
+            bool visible = true;
+            for (int j = 0; j < ncell; j++) {
+                const auto& point = this->GetPoint(cell[j]);
+                if (!m_Clipper->IsVisible(point.pointer())) {
+                    visible = false;
+                    break;
+                }
+            }
+            if (!visible) continue;
+            for (int j = 2; j < ncell; j++) {
+                triangleIndices->AddId(cell[0]);
+                triangleIndices->AddId(cell[j - 1]);
+                triangleIndices->AddId(cell[j]);
+            }
+        }
+        m_TriangleIndices = triangleIndices;
+    }
+  
     // set triangles
     //if (m_UseColor) {
     //    IGsize numberOfPoints = m_Positions->GetNumberOfElements();

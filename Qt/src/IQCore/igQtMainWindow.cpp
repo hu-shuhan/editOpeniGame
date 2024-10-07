@@ -1319,8 +1319,7 @@ void igQtMainWindow::initAllMySignalConnections() {
                     return;
                 }
 
-                inputMesh->SetExtentClipping(false);
-                inputMesh->SetPlaneClipping(false);
+                inputMesh->GetClipper()->DisableAll();
                 inputMesh->SetVisibility(true);
                 inputMesh->Modified();
 
@@ -1415,34 +1414,35 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    double x_min =
+                    auto& cbox = inputMesh->GetClipper()->m_Box;
+                    cbox.m_Use = true;
+
+                    cbox.m_Bmin[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(x_min_id, ok), 0.,
                                             1.);
-                    double y_min =
+                    cbox.m_Bmin[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(y_min_id, ok), 0.,
                                             1.);
-                    double z_min =
+                    cbox.m_Bmin[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(z_min_id, ok), 0.,
                                             1.);
-                    double x_max =
+                    cbox.m_Bmax[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(x_max_id, ok), 0.,
                                             1.);
-                    double y_max =
+                    cbox.m_Bmax[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(y_max_id, ok), 0.,
                                             1.);
-                    double z_max =
+                    cbox.m_Bmax[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(z_max_id, ok), 0.,
                                             1.);
-                    bool flip = dialog->getChecked(flip_id, ok);
+                    cbox.m_Flip = dialog->getChecked(flip_id, ok);
 
-                    inputMesh->SetExtent(x_min, x_max, y_min, y_max, z_min,
-                                         z_max, flip);
                     inputMesh->Modified();
 
                     rendererWidget->update();
@@ -1506,32 +1506,34 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    double origin_x =
+                    auto& cplane = inputMesh->GetClipper()->m_Plane;
+                    cplane.m_Use = true;
+
+                    cplane.m_Origin[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(origin_x_id, ok),
                                             0., 1.);
-                    double origin_y =
+                    cplane.m_Origin[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(origin_y_id, ok),
                                             0., 1.);
-                    double origin_z =
+                    cplane.m_Origin[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(origin_z_id, ok),
                                             0., 1.);
-                    double normal_x =
+                    cplane.m_Normal[0] =
                             Clamp(dialog->getDouble(normal_x_id, ok), -1., 1.);
-                    double normal_y =
+                    cplane.m_Normal[1] =
                             Clamp(dialog->getDouble(normal_y_id, ok), -1., 1.);
-                    double normal_z =
+                    cplane.m_Normal[2] =
                             Clamp(dialog->getDouble(normal_z_id, ok), -1., 1.);
-                    bool flip = dialog->getChecked(flip_id, ok);
-                    if (normal_x == 0. && normal_y == 0. && normal_z == 0.) {
+                    cplane.m_Flip = dialog->getChecked(flip_id, ok);
+                    if (cplane.m_Normal[0] == 0. && cplane.m_Normal[1] == 0. &&
+                        cplane.m_Normal[2] == 0.) {
                         std::cout << "Normal is a vector of zero" << std::endl;
                         return;
                     }
 
-                    inputMesh->SetPlane(origin_x, origin_y, origin_z, normal_x,
-                                        normal_y, normal_z, flip);
                     inputMesh->Modified();
 
                     rendererWidget->update();
