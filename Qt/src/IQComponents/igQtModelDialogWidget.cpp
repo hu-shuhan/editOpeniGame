@@ -39,6 +39,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 	ui->ModelInformationWidget->hide();
 	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCurrentModelInfo);
+	connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
 
     connect(ui->pushButton, &QPushButton::clicked, this, [&](){iGame::SceneManager::Instance()->GetCurrentScene()->Draw();});
 }
@@ -179,7 +180,11 @@ int igQtModelDialogWidget::updateCurrentModelInfo()
 	Q_EMIT CurrendModelChanged();
 	return 1;
 }
-
+int igQtModelDialogWidget::updateCloudPicture() {
+ 
+    Q_EMIT CloudPictureChanged();
+    return 1;
+}
 void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem

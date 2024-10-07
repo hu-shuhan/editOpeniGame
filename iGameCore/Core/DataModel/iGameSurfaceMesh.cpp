@@ -1165,6 +1165,9 @@ void SurfaceMesh::ConvertToDrawableData() {
 
 void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
     if (m_DrawMesh) {
+        m_DrawMesh->SetColorMapper(m_ColorMapper);
+        m_AttributeIndex = index;
+        m_AttributeDimension = demension;
         return m_DrawMesh->ViewCloudPicture(scene, index, demension);
     }
     if (index == -1) {
@@ -1193,18 +1196,21 @@ void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
 void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
                                             std::pair<float, float>& range,
                                             igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         m_ViewAttribute = attr;
         m_ViewDemension = dimension;
         m_UseColor = true;
         m_ColorWithCell = false;
 
-        if (range.first != range.second) {
-            m_ColorMapper->SetRange(range.first, range.second);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+            if (range.first != range.second) {
+                m_ColorMapper->SetRange(range.first, range.second);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
         m_Colors = m_ColorMapper->MapScalars(attr, dimension);
         if (m_Colors == nullptr) { return; }
@@ -1232,17 +1238,21 @@ void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& range,
                                            igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         m_ViewAttribute = attr;
         m_ViewDemension = dimension;
         m_UseColor = true;
         m_ColorWithCell = true;
 
-        if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+        if (m_ColorMapper->GetMTime()<=this->GetMTime()) {
+            if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
+
         //        if (dimension == -1) {
         //            mapper->InitRange(attr);
         //        } else {

@@ -166,7 +166,8 @@ void PointSet::ViewCloudPicture(Scene* scene, int index, int demension) {
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
                                          std::pair<float, float>& range,
                                          igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         if (attr == nullptr) {
             m_UseColor = false;
             m_ViewAttribute = nullptr;

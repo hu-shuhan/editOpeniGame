@@ -193,6 +193,7 @@ public:
 	virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
 	virtual bool IsDrawable() { return m_Drawable; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
+    void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper=cm; }
     virtual void ViewCloudPicture(Scene*, int index, int dimension = -1);
 	void ViewCloudPictureOfModel(Scene*, int index, int dimension = -1);
 
