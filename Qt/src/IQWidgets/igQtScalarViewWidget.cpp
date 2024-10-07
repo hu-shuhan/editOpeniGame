@@ -31,7 +31,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
     connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
             this, [&](float _min, float _max) {
                 m_ColorMapper->SetRange(_min, _max);
-                drawModelWithScalarData();
+                updateDrawStyle();
             });
     connect(SetCustomScaleRangeUi->btnRescale, &QPushButton::clicked, this,
             &igQtScalarViewWidget::setCustomScaleRange);
@@ -136,29 +136,27 @@ void igQtScalarViewWidget::initScalarInfo()
 void igQtScalarViewWidget::showScalarView() {
     loadScalarData();
     initScalarRange();
-    drawModelWithScalarData();
+    //updateDrawStyle();
     initScalarInfo();
 }
-void igQtScalarViewWidget::drawModelWithScalarData() {
-    //modelColorManager->UpdateDrawInfoWithColor();
-
+void igQtScalarViewWidget::updateDrawStyle() {
+    m_ColorMapper->Modified();
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     if (scene) {
         auto model = scene->GetCurrentModel();
         if (model && model->GetDataObject()) {
             model->ViewCloudPicture(
-                    model->GetDataObject()->GetAttributeIndex(),
-                    model->GetDataObject()->GetAttributeDimension());
+                    currentSelectedScalarIdx,
+                    drawItem);
         }
     }
-    //Q_EMIT updateCurrentModelColor();
 }
 void igQtScalarViewWidget::editColorBar() { Q_EMIT ChangeShowColorManager(); }
 void igQtScalarViewWidget::rescaleRange() {
     if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper; }
     m_ColorMapper->SetRange(scalarMin, scalarMax);
     ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
-    drawModelWithScalarData();
+    updateDrawStyle();
 }
 
 void igQtScalarViewWidget::setCustomScaleRange() {
@@ -171,7 +169,7 @@ void igQtScalarViewWidget::setCustomScaleRange() {
     ssmax >> max;
     m_ColorMapper->SetRange(min, max);
     ui->widget_DataRangeSlider->updateMinAndMax(min, max);
-    drawModelWithScalarData();
+    updateDrawStyle();
     this->SetCustomScaleRangeWidget->hide();
 }
 

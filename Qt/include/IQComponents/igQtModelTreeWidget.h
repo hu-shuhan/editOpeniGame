@@ -312,6 +312,7 @@ protected:
             ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
             if (parent) {
                 parent->getModel()->ViewCloudPicture(index);
+                Q_EMIT ViewCloudPicture();
             }
         }
         if (call)
@@ -324,7 +325,7 @@ protected:
 
 signals:
     void ChangeCurrentModel(iGame::Model* model);
-
+    void ViewCloudPicture();
 private:
 
 };

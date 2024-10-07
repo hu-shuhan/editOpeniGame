@@ -6,6 +6,7 @@
 #include "iGameMarker.h"
 #include "iGameMeshlet.h"
 #include "iGamePoints.h"
+#include "iGameClipper.h"
 
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLShader.h"
@@ -44,12 +45,7 @@ public:
     unsigned int GetViewStyleOfModel();
 
     virtual bool GetClipped();
-    void SetExtentClipping(bool _in);
-    void SetPlaneClipping(bool _in);
-    void SetExtent(double xMin, double xMax, double yMin, double yMax,
-                   double zMin, double zMax, bool flip = false);
-    void SetPlane(double ox, double oy, double oz, double nx, double ny,
-                  double nz, bool flip = false);
+    iGameClipper::Pointer GetClipper() { return m_Clipper; }
 
     void SetTransparency(float transparency);
     float GetTransparency();
@@ -94,18 +90,7 @@ protected:
     ArrayObject::Pointer m_ViewAttribute{};
     int m_ViewDemension{};
 
-    struct {
-        struct {
-            bool m_Use{false};
-            double m_bmin[3], m_bmax[3];
-            bool m_flip{false};
-        } m_Extent;
-        struct {
-            bool m_Use{false};
-            double m_origin[3], m_normal[3];
-            bool m_flip{false};
-        } m_Plane;
-    } m_Clip; // Used for clip mesh
+    iGameClipper::Pointer m_Clipper{iGameClipper::New()};
 
     friend class Model;
 
