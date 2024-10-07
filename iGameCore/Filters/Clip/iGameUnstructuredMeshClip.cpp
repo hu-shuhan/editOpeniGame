@@ -51,6 +51,6 @@ bool UnstructuredMeshClip::Execute()
 
 	}
 
-
+    return true;
 }
 IGAME_NAMESPACE_END

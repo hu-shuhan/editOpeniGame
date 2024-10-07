@@ -145,7 +145,7 @@ bool FFMPEGVideoWriter::Execute() {
     }
 
     for (int i = 0; i < m_VideoInfo.raw_image_data.size(); ++i) {
-        // 将QImage转换为YUV格式
+        // 将uint8_t转换为YUV格式
         uint8_t* inData[1] = { m_VideoInfo.raw_image_data[i].data() };
         int inLinesize[1] = { m_VideoInfo.bytes_per_line };
 
