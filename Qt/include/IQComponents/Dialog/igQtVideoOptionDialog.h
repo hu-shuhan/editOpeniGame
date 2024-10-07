@@ -4,7 +4,7 @@
  */
 
 #pragma once
-
+#if defined(FFMPEG_ENABLE)
 #include <IQCore/igQtExportModule.h>
 #include <QDialog>
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
@@ -22,3 +22,4 @@ protected:
     QLineEdit* m_Width_LineEdit, *m_Height_LineEdit;
     QLineEdit* m_frameRate_LineEdit, *m_bitRate_LineEdit;
 };
+#endif

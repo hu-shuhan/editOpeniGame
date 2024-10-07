@@ -317,6 +317,7 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 bool igQtAnimationWidget::saveAnimation()
 {
+#if defined(FFMPEG_ENABLE)
 //    using namespace iGame;
 //    igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
 //
@@ -366,6 +367,8 @@ bool igQtAnimationWidget::saveAnimation()
 //        QMessageBox::information(this, "", "保存失败");
 //    }
 //    rendererWidget->resize(oldwidth, oldheight);
+#endif
+
 
 
 ////    currentScene
