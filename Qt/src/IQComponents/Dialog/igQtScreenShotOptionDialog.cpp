@@ -9,8 +9,8 @@ igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget *parent) : QDialo
     QVBoxLayout *layout = new QVBoxLayout(this);
     QHBoxLayout* hlay_0 = new QHBoxLayout();
     QHBoxLayout* hlay_1 = new QHBoxLayout();
-    m_WidthLineEdit = new QLineEdit(this);
-    m_HeightLineEdit = new QLineEdit(this);
+    m_WidthLineEdit = new QLineEdit("1920",this);
+    m_HeightLineEdit = new QLineEdit("1080",this);
     QLabel* width_label  = new QLabel("width :", this);
     QLabel* height_label = new QLabel("height :", this);
 

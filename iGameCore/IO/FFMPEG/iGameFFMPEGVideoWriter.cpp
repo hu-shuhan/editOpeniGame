@@ -21,17 +21,6 @@ FFMPEGVideoWriter::Pointer FFMPEGVideoWriter::New() {
     return new FFMPEGVideoWriter;
 }
 
-void FFMPEGVideoWriter::SetImageData(const std::vector<std::pair<int, std::vector<uint8_t>>> &_imageData_vec) {
-    m_RawImageData = _imageData_vec;
-}
-
-void FFMPEGVideoWriter::SetOutPutPath(const std::string &path) {
-    m_videoStoragePath = path;
-}
-void FFMPEGVideoWriter::SetImageSize(int width, int height) {
-    m_Width = width;
-    m_Height = height;
-}
 void FFMPEGVideoWriter::SetVideoInputInfo(VideoInputInfo &info) {
     m_VideoInfo = std::move(info);
 }
@@ -75,11 +64,9 @@ bool FFMPEGVideoWriter::Execute() {
     SwsContext* swsContext = nullptr;
     int ret;
 
-    int width = m_Width, height = m_Height;
-    int fps = 10;
-
+    const char* storagePath = m_VideoInfo.output_path.c_str();
     // 创建输出格式
-    avformat_alloc_output_context2(&formatContext, nullptr, "mp4", m_videoStoragePath.c_str());
+    avformat_alloc_output_context2(&formatContext, nullptr, "mp4", storagePath);
     if (!formatContext) {
         std::cout << "Could not create output context";
         return false;
@@ -99,15 +86,16 @@ bool FFMPEGVideoWriter::Execute() {
         return false;
     }
     // 设置编码器参数
+    int width = m_VideoInfo.width, height = m_VideoInfo.height;
     codecContext = avcodec_alloc_context3(codec);
-    codecContext->width = width;
-    codecContext->height = height;
-    codecContext->time_base = AVRational{1, fps};
-    codecContext->framerate = AVRational{fps, 1};
+    codecContext->width = m_VideoInfo.width;
+    codecContext->height = m_VideoInfo.height;
+    codecContext->time_base = AVRational{1, m_VideoInfo.frame_rate};
+    codecContext->framerate = AVRational{m_VideoInfo.frame_rate, 1};
     codecContext->gop_size = 12; // 每12帧插入一个I帧
     codecContext->max_b_frames = 2;
     codecContext->pix_fmt = AV_PIX_FMT_YUV420P;
-    codecContext->bit_rate = 4000000;  // 400kbps
+    codecContext->bit_rate = m_VideoInfo.bit_rate;  // 400kbps
     videoStream->time_base = codecContext->time_base;  // 同步流的时间基
     if (formatContext->oformat->flags & AVFMT_GLOBALHEADER)
         codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -128,7 +116,7 @@ bool FFMPEGVideoWriter::Execute() {
 
     // 打开输出文件
     if (!(formatContext->oformat->flags & AVFMT_NOFILE)) {
-        ret = avio_open(&formatContext->pb, m_videoStoragePath.c_str(), AVIO_FLAG_WRITE);
+        ret = avio_open(&formatContext->pb, storagePath, AVIO_FLAG_WRITE);
         if (ret < 0) {
             std::cout  << "Could not open output file";
             return false;
@@ -156,11 +144,10 @@ bool FFMPEGVideoWriter::Execute() {
         return false;
     }
 
-    for (int i = 0; i < m_RawImageData.size(); ++i) {
-        // 将QImage转换为YUV格式
-        auto& image = m_RawImageData[i];
-        uint8_t* inData[1] = { image.second.data() };
-        int inLinesize[1] = { image.first };
+    for (int i = 0; i < m_VideoInfo.raw_image_data.size(); ++i) {
+        // 将uint8_t转换为YUV格式
+        uint8_t* inData[1] = { m_VideoInfo.raw_image_data[i].data() };
+        int inLinesize[1] = { m_VideoInfo.bytes_per_line };
 
         sws_scale(swsContext, inData, inLinesize, 0, height, frame->data, frame->linesize);
         frame->pts = i;
