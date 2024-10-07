@@ -239,7 +239,8 @@ bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
     size = m_EdgeLinks->GetLinkSize(ptId);
     return true;
 }
-bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex *edgeIds, int &size) {
+bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds,
+                                          int& size) {
     assert(ptId < GetNumberOfPoints() && "ptId too large");
     auto& link = m_EdgeLinks->GetLink(ptId);
     for (int i = 0; i < link.size; i++) { edgeIds[i] = link.pointer[i]; }
@@ -656,12 +657,12 @@ IGsize SurfaceMesh::AddFace(igIndex* ptIds, int size) {
 void SurfaceMesh::DeletePoint(const IGsize ptId) {
     if (!InEditStatus()) { RequestEditStatus(); }
     if (IsPointDeleted(ptId)) { return; }
-//    igIndex* edgeIds;
+    //    igIndex* edgeIds;
     igIndex edgeIds[64];
     int size;
 
     GetPointToNeighborEdges(ptId, edgeIds, size);
-    for (int i = 0; i < size; i++) {DeleteEdge(edgeIds[i]);}
+    for (int i = 0; i < size; i++) { DeleteEdge(edgeIds[i]); }
     m_EdgeLinks->DeleteLink(ptId);
     m_FaceLinks->DeleteLink(ptId);
     m_PointDeleteMarker->MarkDeleted(ptId);
@@ -841,7 +842,7 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 //
 
 void SurfaceMesh::ConvertToDrawableData() {
-    this->Create();
+    this->CreateDrawBuffer();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 
     m_Positions = m_Points->ConvertToArray();
@@ -910,7 +911,7 @@ void SurfaceMesh::ConvertToDrawableData() {
         }
         m_TriangleIndices = triangleIndices;
     }
-  
+
     // set triangles
     //if (m_UseColor) {
     //    IGsize numberOfPoints = m_Positions->GetNumberOfElements();
@@ -1067,7 +1068,7 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
         m_UseColor = true;
         m_ColorWithCell = true;
 
-        if (m_ColorMapper->GetMTime()<=this->GetMTime()) {
+        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
             if (dimension == -1) {
                 m_ColorMapper->InitRange(attr);
             } else {

@@ -719,18 +719,18 @@ void Scene::Draw() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 <<<<<<< HEAD
-        auto shader = GetShader(Scene::SCREEN);
-        shader->use();
+    auto shader = GetShader(Scene::SCREEN);
+    shader->use();
 
-        m_ColorTexture.active(GL_TEXTURE1);
-        m_DepthTexture.active(GL_TEXTURE2);
-        m_DepthPyramid.active(GL_TEXTURE3);
-        shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
+    m_ColorTexture.active(GL_TEXTURE1);
+    m_DepthTexture.active(GL_TEXTURE2);
+    m_DepthPyramid.active(GL_TEXTURE3);
+    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
 
-        m_EmptyVAO.bind();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        m_EmptyVAO.release();
-    }
+    m_EmptyVAO.bind();
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    m_EmptyVAO.release();
+}
 //    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 =======
     //{
@@ -823,7 +823,7 @@ void Scene::DrawFrame() {
     // convert to drawable data
     for (auto& [id, model]: m_Models) {
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if(drawObject == nullptr) continue;
+        if (drawObject == nullptr) continue;
         drawObject->ConvertToDrawableData();
     }
 
@@ -939,8 +939,6 @@ void Scene::ForwardPass() {
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() == 1.0f) {
-                UpdateObjectDataBlock(model);
-                UpdateUniformBufferObjectBlock(model);
                 model->DrawPhase1(this);
             }
         }
@@ -952,8 +950,6 @@ void Scene::ForwardPass() {
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() == 1.0f) {
-                UpdateObjectDataBlock(model);
-                UpdateUniformBufferObjectBlock(model);
                 model->DrawPhase2(this);
             }
         }
@@ -963,11 +959,7 @@ void Scene::ForwardPass() {
     } else {
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                UpdateObjectDataBlock(model);
-                UpdateUniformBufferObjectBlock(model);
-                model->Draw(this);
-            }
+            if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
         }
     }
 #endif
@@ -1012,8 +1004,6 @@ void Scene::TransparentForwardPass() {
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() != 1.0f) {
-                UpdateObjectDataBlock(model);
-                UpdateUniformBufferObjectBlock(model);
                 model->DrawWithTransparency(this);
             }
         }
@@ -1052,10 +1042,10 @@ void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
     m_CameraDataBlock.subData(0, sizeof(CameraDataBuffer), &m_CameraData);
 }
-void Scene::UpdateObjectDataBlock(Model* model) {
+void Scene::UpdateObjectDataBlock(DataObject* obj) {
     // update object data matrix
-    auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-    auto box = model->m_DataObject->GetBoundingBox();
+    auto drawObject = DynamicCast<DrawObject>(obj);
+    auto box = obj->GetBoundingBox();
     Vector3f center = box.center();
 
     m_ObjectData.transparent = drawObject->GetTransparency();
@@ -1067,8 +1057,8 @@ void Scene::UpdateObjectDataBlock(Model* model) {
     // update object data matrix
     m_ObjectDataBlock.subData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
 }
-void Scene::UpdateUniformBufferObjectBlock(Model* model) {
-    auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
+    auto drawObject = DynamicCast<DrawObject>(obj);
 
     m_UBO.useColor = drawObject->IsUseColor();
 
@@ -1273,29 +1263,28 @@ void Scene::CalculateFrameRate() {
     }
 }
 
-unsigned char * Scene::CaptureOffScreenBuffer(int width, int height) {
-//    unsigned char * screenPixel = new unsigned char [width * height * 3];
-//    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
+unsigned char* Scene::CaptureOffScreenBuffer(int width, int height) {
+    //    unsigned char * screenPixel = new unsigned char [width * height * 3];
+    //    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
 
     auto old_viewport = this->m_Camera->GetViewPort();
     GLCheckError();
     Resize(width, height, m_Camera->GetDevicePixelRatio());
     glFinish();
-//    GLCheckError();
-//    Draw();
-//    GLCheckError();
-//    glFinish();
-    unsigned char * screenPixel = new unsigned char [width * height * 3];
-//    GLint defaultFramebuffer = GL_NONE;
-//    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
-//    std::cout << "default frame : " << defaultFramebuffer << '\n';
-//    glBindFramebuffer(GL_FRAMEBUFFER, 1);
+    //    GLCheckError();
+    //    Draw();
+    //    GLCheckError();
+    //    glFinish();
+    unsigned char* screenPixel = new unsigned char[width * height * 3];
+    //    GLint defaultFramebuffer = GL_NONE;
+    //    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
+    //    std::cout << "default frame : " << defaultFramebuffer << '\n';
+    //    glBindFramebuffer(GL_FRAMEBUFFER, 1);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
-//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     GLCheckError();
     Resize(old_viewport.x, old_viewport.y, m_Camera->GetDevicePixelRatio());
     GLCheckError();
     return screenPixel;
-
 }
 IGAME_NAMESPACE_END

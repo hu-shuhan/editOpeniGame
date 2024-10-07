@@ -33,11 +33,8 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 
 	this->Merging = false;
 
-	this->FastMode = false;
 	this->RemoveGhostInterfaces = true;
 
-	//Process high-level mesh
-	this->NonlinearSubdivisionLevel = 1;
 
 	this->Delegation = true;
 }

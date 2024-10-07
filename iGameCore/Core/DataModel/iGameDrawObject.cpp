@@ -2,7 +2,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-void DrawObject::Create() {
+void DrawObject::CreateDrawBuffer() {
     if (m_Flag) {
         m_PointVAO.create();
         m_VertexVAO.create();
@@ -116,7 +116,8 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
                           dimension);
 }
 
-void DrawObject::ViewCloudPictureOfModel(Scene *scene, int index, int dimension){
+void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
+                                         int dimension) {
     auto* parent = dynamic_cast<DrawObject*>(FindParent());
     if (parent != nullptr && parent != this) {
         parent->ViewCloudPicture(scene, index, dimension);
@@ -125,8 +126,8 @@ void DrawObject::ViewCloudPictureOfModel(Scene *scene, int index, int dimension)
     }
 }
 
-void DrawObject::Draw(Scene *scene) {
-    ProcessSubDataObjects(&DrawObject::Draw, scene);
-}
+//void DrawObject::Draw(Scene *scene) {
+//    ProcessSubDataObjects(&DrawObject::Draw, scene);
+//}
 
 IGAME_NAMESPACE_END

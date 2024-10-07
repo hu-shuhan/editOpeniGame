@@ -12,3 +12,4 @@
 #include "TensorViewFilter/iGameTensorWidgetBase.h"
 #include "TestFilter/iGameTestFilter.h"
 #include "MarchingCubes/iGameMarchingCubes.h"
+#include "Clip/iGameUnstructuredMeshClip.h"

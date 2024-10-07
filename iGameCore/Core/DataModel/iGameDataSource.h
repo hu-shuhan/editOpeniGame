@@ -198,7 +198,7 @@ public:
     //    m_LineVAO.release();
     //}
     void ConvertToDrawableData() override {
-        this->Create();
+        this->CreateDrawBuffer();
 
         if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) {
             return;
