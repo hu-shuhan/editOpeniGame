@@ -887,7 +887,7 @@ void igQtMainWindow::initAllFilters() {
                 auto box=obj->GetBoundingBox();
                 auto center = (box.min + box.max) * 0.5;
                 float n[3]={0,0,1};
-                float o[3]={center[0],center[1],center[2]};
+                float o[3]={(float)center[0],(float)center[1],(float)center[2]};
                 auto filter=UnstructuredMeshClip::New();
                 filter->SetPlane(n,o);
                 filter->SetInput(0,obj);

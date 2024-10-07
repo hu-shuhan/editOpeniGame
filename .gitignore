@@ -4,6 +4,7 @@
 
 /.idea/
 /out/
+/build/
 /.vs/
 
 /*.rar

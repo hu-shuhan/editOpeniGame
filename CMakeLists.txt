@@ -18,7 +18,7 @@ list(INSERT CMAKE_MODULE_PATH 0
 
 add_executable(${PROJECT_NAME}
         main.cpp
-)
+ )
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 

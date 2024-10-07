@@ -108,7 +108,7 @@ if (WIN32)
                 #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
                 #                ${Qt5_DLL_DIR}/Qt5Gui.dll
                 ${Qt5_DLL_DIR}/Qt5Charts.dll
-
+ 
         )
     endif ()
     # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录
