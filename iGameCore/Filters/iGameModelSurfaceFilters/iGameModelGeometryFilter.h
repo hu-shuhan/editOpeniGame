@@ -109,10 +109,6 @@ protected:
 	bool RemoveGhostInterfaces;
 	//Point merging
 	bool Merging;
-	//is to use fast mode,
-	bool FastMode;
-
-	int NonlinearSubdivisionLevel;
 
 	bool Delegation;
 

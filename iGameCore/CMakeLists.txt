@@ -22,8 +22,6 @@ target_include_directories(${MODULE_NAME} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper
         ${CMAKE_CURRENT_SOURCE_DIR}/IO
         ${CMAKE_CURRENT_SOURCE_DIR}/Filters
-        # 删除下面
-        ${CMAKE_CURRENT_SOURCE_DIR}/Filters/*
 
         ${CMAKE_CURRENT_SOURCE_DIR}/Rendering
         ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common
