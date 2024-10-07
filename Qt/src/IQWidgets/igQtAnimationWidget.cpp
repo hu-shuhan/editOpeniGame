@@ -12,7 +12,7 @@
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <QAbstractButton>
 #include <QFileDialog>
-#include <IQComponents/igQtOptionDialog.h>
+#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 #include <QMessageBox>
 
@@ -317,55 +317,55 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 bool igQtAnimationWidget::saveAnimation()
 {
-    using namespace iGame;
-    igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
-
-    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation", "", "Mp4 Files(*.mp4)");
-//        if(!path.contains(".mp4")) path += ".mp4";
-    igQtOptionDialog dialog(this);
-    dialog.setWindowTitle("Save Animation Option.");
-    int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
-    int ratio_pixel = rendererWidget->devicePixelRatio();
-    int width = 1920, height = 1080;
-    if (dialog.exec() == QDialog::Accepted) {
-        auto input = dialog.getInput();
-        width = input.first, height = input.second;
-
-    }else return false;
-    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
-
-    auto currentScene = SceneManager::Instance()->GetCurrentScene();
-    auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
-    if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
-    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-
-    VideoInputInfo videoInputInfo;
-    videoInputInfo.width = width;
-    videoInputInfo.height = height;
-
-
-    std::vector<std::pair<int, std::vector<uint8_t>>> bits;
-
-    for(int i = 0; i < timeStepSize; i ++)
-    {
-        this->playAnimation_snap(i);
-        QImage image = rendererWidget->grabFramebuffer();
-        std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());
-        bits.emplace_back(image.bytesPerLine(), std::move(tmp));
-
-//        QString idx = QString(std::to_string(i).c_str());
-//        QString res_path = path + "_" + idx + ".png";
-//        std::cout << "===================path " << res_path.toStdString() << '\n';
+//    using namespace iGame;
+//    igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
 //
-//        if(!image.save(res_path)) sc = false;
-    }
-//    iGame::FFM
-    if(iGame::FileIO::WriteMp4(path.toStdString(), bits)){
-        QMessageBox::information(this, "", "保存成功");
-    }else {
-        QMessageBox::information(this, "", "保存失败");
-    }
-    rendererWidget->resize(oldwidth, oldheight);
+//    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation", "", "Mp4 Files(*.mp4)");
+////        if(!path.contains(".mp4")) path += ".mp4";
+//    igQtScreenShotOptionDialog dialog(this);
+//    dialog.setWindowTitle("Save Animation Option.");
+//    int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
+//    int ratio_pixel = rendererWidget->devicePixelRatio();
+//    int width = 1920, height = 1080;
+//    if (dialog.exec() == QDialog::Accepted) {
+//        auto input = dialog.getInput();
+//        width = input.first, height = input.second;
+//
+//    }else return false;
+//    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
+//
+//    auto currentScene = SceneManager::Instance()->GetCurrentScene();
+//    auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
+//    if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
+//    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
+//
+//    VideoInputInfo videoInputInfo;
+//    videoInputInfo.width = width;
+//    videoInputInfo.height = height;
+//
+//
+//    std::vector<std::pair<int, std::vector<uint8_t>>> bits;
+//
+//    for(int i = 0; i < timeStepSize; i ++)
+//    {
+//        this->playAnimation_snap(i);
+//        QImage image = rendererWidget->grabFramebuffer();
+//        std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());
+//        bits.emplace_back(image.bytesPerLine(), std::move(tmp));
+//
+////        QString idx = QString(std::to_string(i).c_str());
+////        QString res_path = path + "_" + idx + ".png";
+////        std::cout << "===================path " << res_path.toStdString() << '\n';
+////
+////        if(!image.save(res_path)) sc = false;
+//    }
+////    iGame::FFM
+//    if(iGame::FileIO::WriteMp4(path.toStdString(), bits)){
+//        QMessageBox::information(this, "", "保存成功");
+//    }else {
+//        QMessageBox::information(this, "", "保存失败");
+//    }
+//    rendererWidget->resize(oldwidth, oldheight);
 
 
 ////    currentScene

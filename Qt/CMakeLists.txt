@@ -95,7 +95,7 @@ if (WIN32)
         set(Qt5_DLLS
 #                ${Qt5_DLL_DIR}/Qt5Cored.dll
 #                ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
-                                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
+#                                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
 #                ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
 #                ${Qt5_DLL_DIR}/Qt5Gui.dll
                 ${Qt5_DLL_DIR}/Qt5Chartsd.dll

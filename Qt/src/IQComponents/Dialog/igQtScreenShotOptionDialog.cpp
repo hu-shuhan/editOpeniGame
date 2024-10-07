@@ -1,11 +1,11 @@
-#include "IQComponents/igQtOptionDialog.h"
+#include "IQComponents/Dialog/igQtScreenShotOptionDialog.h"
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
 
 
-igQtOptionDialog::igQtOptionDialog(QWidget *parent) : QDialog(parent) {
+igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget *parent) : QDialog(parent) {
     QVBoxLayout *layout = new QVBoxLayout(this);
     QHBoxLayout* hlay_0 = new QHBoxLayout();
     QHBoxLayout* hlay_1 = new QHBoxLayout();
@@ -21,9 +21,9 @@ igQtOptionDialog::igQtOptionDialog(QWidget *parent) : QDialog(parent) {
     auto *okButton = new QPushButton("OK", this);
     layout->addWidget(okButton);
 
-    connect(okButton, &QPushButton::clicked, this, &igQtOptionDialog::accept);
+    connect(okButton, &QPushButton::clicked, this, &igQtScreenShotOptionDialog::accept);
 }
 
-std::pair<int, int> igQtOptionDialog::getInput() {
+std::pair<int, int> igQtScreenShotOptionDialog::getInput() {
     return {m_WidthLineEdit->text().toInt(), m_HeightLineEdit->text().toInt()};
 }

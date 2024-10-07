@@ -5,10 +5,10 @@
 
 
 class QLineEdit ;
-class IG_QT_MODULE_EXPORT igQtOptionDialog : public QDialog{
+class IG_QT_MODULE_EXPORT igQtScreenShotOptionDialog : public QDialog{
     Q_OBJECT
 public:
-    igQtOptionDialog(QWidget *parent = nullptr);
+    igQtScreenShotOptionDialog(QWidget *parent = nullptr);
 
     std::pair<int, int> getInput();
 

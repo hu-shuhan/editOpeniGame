@@ -12,10 +12,10 @@ struct VideoInputInfo{
     int width;
     int height;
     int frame_rate;
-
     int bit_rate;
-    int bytes_per_line;
     std::string output_path;
+
+    int bytes_per_line;
     std::vector<std::vector<uint8_t>> raw_image_data;
 };
 

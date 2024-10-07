@@ -358,10 +358,4 @@ bool  FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataOb
 	return result;
 }
 
-bool FileIO::WriteMp4(const std::string &file_name, const  std::vector<std::pair<int, std::vector<uint8_t>>>& imageData) {
-    FFMPEGVideoWriter::Pointer writer = FFMPEGVideoWriter::New();
-    writer->SetImageData(imageData);
-    writer->SetOutPutPath(file_name);
-    return writer->Execute();
-}
 IGAME_NAMESPACE_END
