@@ -11,3 +11,4 @@
 #include "Sources/iGameLineTypePointsSource.h"
 #include "TensorViewFilter/iGameTensorWidgetBase.h"
 #include "TestFilter/iGameTestFilter.h"
+#include "MarchingCubes/iGameMarchingCubes.h"

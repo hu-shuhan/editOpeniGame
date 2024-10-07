@@ -23,7 +23,6 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
 #include <stdio.h>
-
 #include <IQComponents/igQtOptionDialog.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 
@@ -862,6 +861,20 @@ void igQtMainWindow::initAllFilters() {
                 modelTreeWidget->addDataObjectToModelTree(
                         mesh, ItemSource::Algorithm);
 
+                rendererWidget->update();
+            });
+
+        connect(ui->menuTest->addAction("executeMarchingCubes"), &QAction::triggered, this,
+            [&](bool checked) {
+                auto obj = rendererWidget->GetScene()
+                                   ->GetCurrentModel()
+                                   ->GetDataObject();
+                auto MC=iGameMarchingCubes::New();
+                MC->SetInput(0,obj);
+                MC->Execute();
+                auto result = MC->GetOutput(0);
+                modelTreeWidget->addDataObjectToModelTree(
+                        result, ItemSource::Algorithm);
                 rendererWidget->update();
             });
 }
