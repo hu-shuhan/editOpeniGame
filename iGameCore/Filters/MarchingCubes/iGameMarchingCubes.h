@@ -123,12 +123,22 @@ public:
 	static Pointer New() { return new iGameMarchingCubes; }
 	~iGameMarchingCubes() {};
 	bool Execute() override;
-
+	void SetAttribute(AttributeSet::Attribute& attr) {
+		this->m_Attribute=attr;
+		this->m_Scalar=attr.pointer;
+	}
+	void SetValue(float v){this->m_Value=v;}
 protected:
 	iGameMarchingCubes()
 	{
 		SetNumberOfInputs(1);
 		SetNumberOfOutputs(1);
 	};
+	DataObject::Pointer m_Mesh{nullptr};
+	VolumeMesh::Pointer m_VolumeMesh{nullptr};
+	UnstructuredMesh::Pointer m_UnstructuredMesh{nullptr};
+	AttributeSet::Attribute m_Attribute{nullptr};
+	ArrayObject::Pointer m_Scalar{nullptr};
+	float m_Value=0.0;
 };
 IGAME_NAMESPACE_END

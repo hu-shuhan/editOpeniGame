@@ -871,6 +871,7 @@ void igQtMainWindow::initAllFilters() {
                                    ->GetDataObject();
                 auto MC=iGameMarchingCubes::New();
                 MC->SetInput(0,obj);
+                MC->SetValue(0.23);
                 MC->Execute();
                 auto result = MC->GetOutput(0);
                 modelTreeWidget->addDataObjectToModelTree(

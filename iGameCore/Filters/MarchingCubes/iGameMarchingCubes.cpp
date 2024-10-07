@@ -349,26 +349,26 @@ bool iGameMarchingCubes::Execute()
 {
 	// 输入数据从 inInfo 中获取，输出数据放到 outInfo
 	if (!this->GetNumberOfInputs()) { return false; }
-	// 获取网格数据，inInfo->GetObject(MESH_KEY()) 得到 iGameObject 对象，
-	// 通过向下转换得到想要的网格对象，注意该算法针对的网格种类，获取对应
-	// 的类，如果不是该类或者该类的子类，则会返回 nullptr。
-	//VolumeMesh::Pointer m_Mesh = DynamicCast<VolumeMesh>(this->GetInput(0));
-	VolumeMesh::Pointer m_Mesh = DynamicCast<UnstructuredMesh>(this->GetInput(0))->TransferToVolumeMesh();
-	if (!m_Mesh) { return false; }
-	auto cellNum = m_Mesh->GetNumberOfVolumes();
-	auto Points = m_Mesh->GetPoints();
-	auto PointData = m_Mesh->GetAttributeSet()->GetAllPointAttributes();
+	m_Mesh= this->GetInput(0);
+	switch (m_Mesh->GetDataObjectType())
+	{
+	case IG_VOLUME_MESH:
+	case IG_STRUCTURED_MESH:
+		m_VolumeMesh= DynamicCast<VolumeMesh>(m_Mesh);
+		break;
+	case IG_UNSTRUCTURED_MESH:
+		m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(m_Mesh);
+		m_VolumeMesh=m_UnstructuredMesh->TransferToVolumeMesh();
+		break;
+	default:
+		return false;
+	}
+	if (!m_VolumeMesh) { return false; }
+	auto cellNum = m_VolumeMesh->GetNumberOfVolumes();
+	auto Points = m_VolumeMesh->GetPoints();
+	auto PointData = m_VolumeMesh->GetAttributeSet()->GetAllPointAttributes();
 	if (!PointData->GetNumberOfElements()) { return false; }
-	auto scalars = PointData->GetElement(0).pointer;
-
-	//auto cells = iGame::iGameVolumeMesh::SafeDownCast(
-	//        inInfo->GetObject(iGame::MESH_KEY()));
-	//int cells_nums = iGame::iGameVolumeMesh::SafeDownCast(
-	//                         inInfo->GetObject(iGame::MESH_KEY()))
-	//                         ->GetNumberOfVolumes();
-	//auto points_data = cells->GetPoints();
-	//if (cells->GetPointData()->GetAllScalars().empty()) { return false; }
-	//auto scalars = cells->GetPointData()->GetScalars(0);
+	this->SetAttribute(PointData->GetElement(0));
 
 	std::vector<MarchingCubes::Cube> cubes;
 	igIndex i = 0, j = 0;
@@ -376,14 +376,14 @@ bool iGameMarchingCubes::Execute()
 	igIndex vcnt = 0;
 	for (i = 0; i < cellNum; i++) {
 		MarchingCubes::Cube cube_temp;
-		vcnt = m_Mesh->GetVolumePointIds(i, vhs);
+		vcnt = m_VolumeMesh->GetVolumePointIds(i, vhs);
 		for (j = 0; j < vcnt; j++) {
 			auto id = vhs[j];
 			auto p_t = Points->GetPoint(id);
 			cube_temp.p[j].x = p_t[0];
 			cube_temp.p[j].y = p_t[1];
 			cube_temp.p[j].z = p_t[2];
-			cube_temp.p[j].value = scalars->GetValue(id);
+			cube_temp.p[j].value = m_Scalar->GetValue(id);
 			// std::cout << cube_temp.p[j].value << std::endl;
 		}
 		cubes.push_back(cube_temp);
@@ -392,11 +392,8 @@ bool iGameMarchingCubes::Execute()
 	/*for (auto c : cubes) {
 				printCube(c);
 			}*/
-	float iso_value;
-	std::cout<<"please input iso_value\n";
-	std::cin >> iso_value;
 	std::vector<MarchingCubes::Triangle_3D> tris;
-	tris = get_result(cubes, iso_value);
+	tris = get_result(cubes, m_Value);
 	/*for (auto t : tris) {
 				printTriangle(t);
 			}*/
