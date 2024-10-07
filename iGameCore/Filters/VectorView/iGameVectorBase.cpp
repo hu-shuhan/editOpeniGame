@@ -41,13 +41,13 @@ void iGameVectorBase::DrawVector(std::string VecName) {
     mapper->InitRange(array, -1); 
     auto colors = mapper->MapScalars(array, -1);
     auto colorsPtr = colors->RawPointer();
-    m_Triangles->AddPoint(Vector3f(0.0, 1.0, 0.0));
-    m_PositionColors->AddElement3(1.0, 0.2, 0.3);
-    m_Triangles->AddPoint(Vector3f(1.0, 0.0, 0.0));
-    m_PositionColors->AddElement3(1.0, 0.2, 0.3);
-    m_Triangles->AddPoint(Vector3f(0.0, 0.0, 1.0));
-    m_PositionColors->AddElement3(1.0, 0.2, 0.3);
-    index->AddId(0);
+    //m_Triangles->AddPoint(Vector3f(0.0, 1.0, 0.0));
+    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
+    //m_Triangles->AddPoint(Vector3f(1.0, 0.0, 0.0));
+    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
+    //m_Triangles->AddPoint(Vector3f(0.0, 0.0, 1.0));
+    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
+    //index->AddId(0);
     return;
     for (int i = 0; i < numOfPoint; i++) {
         float v[4] = {0.0f};
