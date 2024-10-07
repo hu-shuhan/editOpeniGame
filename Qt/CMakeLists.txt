@@ -4,10 +4,10 @@ if (DEFINED ENV{QT_HOME})
 else ()
     # if complied in Linux,   set Qt5_DIR to e.g.(/usr/lib/Qt/5.14.2/gcc_64/lib/cmake/Qt5)
     # if complied in Windows, set Qt5_DIR to e.g.(D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5)
-#        set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    #        set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    #set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    #    set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
 
 set(MODULE_NAME Qt_module)
@@ -93,20 +93,20 @@ if (WIN32)
     set(Qt5_DLL_DIR "${Qt5_INSTALL_DIR}")
     if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         set(Qt5_DLLS
-#                ${Qt5_DLL_DIR}/Qt5Cored.dll
-#                ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
-#                                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
-#                ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
-#                ${Qt5_DLL_DIR}/Qt5Gui.dll
+                #                ${Qt5_DLL_DIR}/Qt5Cored.dll
+                #                ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
+                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
+                #                ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
+                #                ${Qt5_DLL_DIR}/Qt5Gui.dll
                 ${Qt5_DLL_DIR}/Qt5Chartsd.dll
         )
     elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
         set(Qt5_DLLS
-#                ${Qt5_DLL_DIR}/Qt5Core.dll
-#                ${Qt5_DLL_DIR}/Qt5OpenGL.dll
-#                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
-#                ${Qt5_DLL_DIR}/Qt5Widgets.dll
-#                ${Qt5_DLL_DIR}/Qt5Gui.dll
+                #                ${Qt5_DLL_DIR}/Qt5Core.dll
+                #                ${Qt5_DLL_DIR}/Qt5OpenGL.dll
+                #                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
+                #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
+                #                ${Qt5_DLL_DIR}/Qt5Gui.dll
                 ${Qt5_DLL_DIR}/Qt5Charts.dll
 
         )

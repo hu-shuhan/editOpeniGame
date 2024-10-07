@@ -124,7 +124,7 @@ public:
     void rotateNinetyClockwise();
     void rotateNinetyCounterClockwise();
 
-    unsigned char * CaptureOffScreenBuffer(int width, int height);
+    unsigned char* CaptureOffScreenBuffer(int width, int height);
 
 
     template<typename Functor, typename... Args>
@@ -173,8 +173,8 @@ protected:
     void ShadowPass();
 
     void UpdateCameraDataBlock();
-    void UpdateObjectDataBlock(Model* model);
-    void UpdateUniformBufferObjectBlock(Model* model);
+    void UpdateObjectDataBlock(DataObject* obj);
+    void UpdateUniformBufferObjectBlock(DataObject* obj);
 
     void DrawAxes(igm::ivec4 drawRange);
     void CalculateFrameRate();
@@ -240,6 +240,7 @@ protected:
 
     Painter::Pointer painter = Painter::New();
 
+    friend class Model;
     friend class Interactor;
     friend class BasicInteractor;
 };
