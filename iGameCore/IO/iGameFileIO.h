@@ -37,6 +37,7 @@ public:
 	static IGenum GetFileType(const std::string& file_name);
 	static std::string GetFileTypeAsString(IGenum type);
 
+    static bool WriteMp4(const std::string& file_name, const  std::vector<std::pair<int, std::vector<uint8_t>>>& imageData);
 };
 
 IGAME_NAMESPACE_END

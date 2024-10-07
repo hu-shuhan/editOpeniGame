@@ -41,9 +41,6 @@ add_library(${MODULE_NAME} SHARED
         ${UI_FILES}
         ${UI_HEAD_FILES}
         ${QT_SRCS}
-        src/IQComponents/igQtOptionDialog.cpp
-        include/IQCore/igQtOpenGLWidgetManager.h
-        src/IQCore/igQtOpenGLWidgetManager.cpp
 )
 
 

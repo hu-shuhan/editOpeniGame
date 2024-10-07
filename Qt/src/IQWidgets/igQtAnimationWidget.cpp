@@ -1,18 +1,21 @@
 //
 // Created by m_ky on 2024/4/22.
 //
+#include <iGameFileIO.h>
+#include <iGameSceneManager.h>
+#include <iGameThreadPool.h>
 
+#include <qdebug.h>
 #include <IQComponents/igQtAnimationTreeWidget_interpolate.h>
 #include <IQComponents/igQtAnimationTreeWidget_snap.h>
 #include <IQCore/igQtAnimationVcrController.h>
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <QAbstractButton>
+#include <QFileDialog>
+#include <IQComponents/igQtOptionDialog.h>
+#include <IQCore/igQtOpenGLWidgetManager.h>
+#include <QMessageBox>
 
-#include <qdebug.h>
-
-#include <iGameFileIO.h>
-#include <iGameSceneManager.h>
-#include <iGameThreadPool.h>
 
 /**
  * @class   igQtAnimationWidget
@@ -310,16 +313,14 @@ void igQtAnimationWidget::initAnimationComponents() {
 //#include <fstream>
 //#include <windows.h>
 
-#include <QFileDialog>
-#include <IQComponents/igQtOptionDialog.h>
-#include <IQCore/igQtOpenGLWidgetManager.h>
-#include <QMessageBox>
+#include <FFMPEG/iGameFFMPEGVideoWriter.h>
 
 bool igQtAnimationWidget::saveAnimation()
 {
+    using namespace iGame;
     igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
 
-    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation", "", "Mp4 Files(.mp4)");
+    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation", "", "Mp4 Files(*.mp4)");
 //        if(!path.contains(".mp4")) path += ".mp4";
     igQtOptionDialog dialog(this);
     dialog.setWindowTitle("Save Animation Option.");
@@ -330,45 +331,42 @@ bool igQtAnimationWidget::saveAnimation()
         auto input = dialog.getInput();
         width = input.first, height = input.second;
 
-    }
-    width /= ratio_pixel, height /= ratio_pixel;
-    rendererWidget->resize(width, height);
+    }else return false;
+    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
 
-    using namespace iGame;
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
     auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
     if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
 
-    bool sc = true;
+    VideoInputInfo videoInputInfo;
+    videoInputInfo.width = width;
+    videoInputInfo.height = height;
+
+
+    std::vector<std::pair<int, std::vector<uint8_t>>> bits;
+
     for(int i = 0; i < timeStepSize; i ++)
     {
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
+        std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());
+        bits.emplace_back(image.bytesPerLine(), std::move(tmp));
 
-        QString idx = QString(std::to_string(i).c_str());
-        QString res_path = path + "_" + idx + ".png";
-        std::cout << "===================path " << res_path.toStdString() << '\n';
-
-        if(!image.save(res_path)) sc = false;
+//        QString idx = QString(std::to_string(i).c_str());
+//        QString res_path = path + "_" + idx + ".png";
+//        std::cout << "===================path " << res_path.toStdString() << '\n';
+//
+//        if(!image.save(res_path)) sc = false;
     }
-    rendererWidget->resize(oldwidth, oldheight);
-    if(sc){
+//    iGame::FFM
+    if(iGame::FileIO::WriteMp4(path.toStdString(), bits)){
         QMessageBox::information(this, "", "保存成功");
     }else {
         QMessageBox::information(this, "", "保存失败");
     }
+    rendererWidget->resize(oldwidth, oldheight);
 
-//    using namespace iGame;
-//    auto currentScene = SceneManager::Instance()->GetCurrentScene();
-//    auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
-//    if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
-//    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-//    for(size_t i = 0; i < timeStepSize; i ++)
-//    {
-//        playAnimation_snap(i);
-//
-//    }
 
 ////    currentScene
 //    int width = 1920, height = 1080;

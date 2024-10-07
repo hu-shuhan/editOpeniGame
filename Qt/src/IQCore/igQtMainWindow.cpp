@@ -27,7 +27,6 @@
 #include <IQCore/igQtOpenGLWidgetManager.h>
 
 #include <QMessageBox>
-
 igQtMainWindow::igQtMainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -67,8 +66,10 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
+
 }
 void igQtMainWindow::initToolbarComponent() {
+
     // viewStyleCombox = new QComboBox(this);
     // viewStyleCombox->addItem("Points");
     // viewStyleCombox->addItem("WireFrame");

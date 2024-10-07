@@ -19,6 +19,7 @@
 #include "INP/iGameINPReader.h"
 #include "CGNS/iGameCGNSReader.h"
 #include "Abaqus/iGameODBReader.h"
+#include "FFMPEG/iGameFFMPEGVideoWriter.h"
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name)
@@ -355,5 +356,12 @@ bool  FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataOb
 	//igDebug(out);
 	std::cout << out << std::endl;
 	return result;
+}
+
+bool FileIO::WriteMp4(const std::string &file_name, const  std::vector<std::pair<int, std::vector<uint8_t>>>& imageData) {
+    FFMPEGVideoWriter::Pointer writer = FFMPEGVideoWriter::New();
+    writer->SetImageData(imageData);
+    writer->SetOutPutPath(file_name);
+    return writer->Execute();
 }
 IGAME_NAMESPACE_END

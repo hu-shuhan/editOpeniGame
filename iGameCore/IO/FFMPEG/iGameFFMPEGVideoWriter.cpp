@@ -1,53 +1,231 @@
 //
 // Created by m_ky on 2024/10/5.
 //
-#ifdef FFMPEG_ENABLE
-
 /**
  * @class   iGameFFMPEGVideoWriter
  * @brief   iGameFFMPEGVideoWriter's brief
  */
 
-#include "iGameFFMPEGVideoWriter.h"
-//extern "C" {
-//#include <libavcodec/avcodec.h>
-//}
+#if defined(FFMPEG_ENABLE)
 
+#include "iGameFFMPEGVideoWriter.h"
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/stereo3d.h>
+#include <libswscale/swscale.h>
+}
 
 IGAME_NAMESPACE_BEGIN
-FFMPEGVideoWriter::FFMPEGVideoWriter() {
-//    AVFormatContext *kAVFormatContext;
-//    AVOutputFormat *kAVOutputFormat;
-//    AVCodecContext *kAVCodecContext;
-//    AVDictionary *kAVDictionary = NULL;
-//    AVDictionary *opt = NULL;
-//    AVCodec *video_codec;
-////    AVStream *kAVStream;
-//    AVFrame *frame;
-//    AVFrame *tmp_frame;
-//    AVPacket kAVPacket = { 0 };
-//    struct SwsContext *kSwsContext;
-//    AVRational time{1,24};  /*1s25帧*/
-//    AVRational time_1{1,1};  /*1s25帧*/
-//    uint8_t *intBuffer = 0;
-//
-//    int ret;
-//    int got_packer = 0;
-//    int64_t next_pts = 0;
-//
-//    tmp_frame = av_frame_alloc();
-//    av_init_packet(&kAVPacket);
-//
-//    av_register_all();
-
-}
-
 FFMPEGVideoWriter::Pointer FFMPEGVideoWriter::New() {
-    return new FFMPEGVideoWriter();
+    return new FFMPEGVideoWriter;
 }
 
-void FFMPEGVideoWriter::SetImageData(const std::vector<const char *> &_imageData_vec) {
+void FFMPEGVideoWriter::SetImageData(const std::vector<std::pair<int, std::vector<uint8_t>>> &_imageData_vec) {
     m_RawImageData = _imageData_vec;
 }
+
+void FFMPEGVideoWriter::SetOutPutPath(const std::string &path) {
+    m_videoStoragePath = path;
+}
+void FFMPEGVideoWriter::SetImageSize(int width, int height) {
+    m_Width = width;
+    m_Height = height;
+}
+void FFMPEGVideoWriter::SetVideoInputInfo(VideoInputInfo &info) {
+    m_VideoInfo = std::move(info);
+}
+
+class FFMPEGVideoWriterInternal{
+public:
+    FFMPEGVideoWriterInternal(){
+//        av_codec_r
+    };
+
+
+public:
+//    AVFormatContext* formatContext = nullptr;
+//    AVCodecContext* codecContext = nullptr;
+//    AVStream* videoStream = nullptr;
+//    AVFrame* frame = nullptr;
+//    SwsContext* swsContext = nullptr;
+//    int width{1920};
+//    int height{1080};
+//    int fps{1};
+//    int frameIndex = 0;
+
+};
+FFMPEGVideoWriter::FFMPEGVideoWriter() {
+    m_Internal = new FFMPEGVideoWriterInternal;
+}
+
+FFMPEGVideoWriter::~FFMPEGVideoWriter() {
+    delete m_Internal;
+}
+
+bool FFMPEGVideoWriter::Execute() {
+    AVFormatContext* formatContext = nullptr;
+    AVCodecContext* codecContext = nullptr;
+    AVStream* videoStream = nullptr;
+    AVFrame* frame = nullptr;
+    AVPacket pkt;
+    av_init_packet(&pkt);  // 初始化 AVPacket
+    pkt.data = nullptr;
+    pkt.size = 0;
+    SwsContext* swsContext = nullptr;
+    int ret;
+
+    int width = m_Width, height = m_Height;
+    int fps = 10;
+
+    // 创建输出格式
+    avformat_alloc_output_context2(&formatContext, nullptr, "mp4", m_videoStoragePath.c_str());
+    if (!formatContext) {
+        std::cout << "Could not create output context";
+        return false;
+    }
+
+    // 选择编码器
+    const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    if (!codec) {
+        std::cout  << "Codec not found";
+        return false;
+    }
+
+    // 创建视频流
+    videoStream = avformat_new_stream(formatContext, nullptr);
+    if (!videoStream) {
+        std::cout  << "Could not create video stream";
+        return false;
+    }
+    // 设置编码器参数
+    codecContext = avcodec_alloc_context3(codec);
+    codecContext->width = width;
+    codecContext->height = height;
+    codecContext->time_base = AVRational{1, fps};
+    codecContext->framerate = AVRational{fps, 1};
+    codecContext->gop_size = 12; // 每12帧插入一个I帧
+    codecContext->max_b_frames = 2;
+    codecContext->pix_fmt = AV_PIX_FMT_YUV420P;
+    codecContext->bit_rate = 4000000;  // 400kbps
+    videoStream->time_base = codecContext->time_base;  // 同步流的时间基
+    if (formatContext->oformat->flags & AVFMT_GLOBALHEADER)
+        codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+    // 打开编码器
+    ret = avcodec_open2(codecContext, codec, nullptr);
+    if (ret < 0) {
+        std::cout  << "Could not open codec";
+        return false;
+    }
+
+    videoStream->codecpar->codec_id = formatContext->oformat->video_codec;
+    videoStream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+    videoStream->codecpar->width = codecContext->width;
+    videoStream->codecpar->height = codecContext->height;
+    videoStream->codecpar->format = codecContext->pix_fmt;
+    avcodec_parameters_from_context(videoStream->codecpar, codecContext);
+
+    // 打开输出文件
+    if (!(formatContext->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&formatContext->pb, m_videoStoragePath.c_str(), AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            std::cout  << "Could not open output file";
+            return false;
+        }
+    }
+
+    // 写入文件头
+    ret = avformat_write_header(formatContext, nullptr);
+    if (ret < 0) {
+        std::cout  << "Error occurred when writing header";
+        return false;
+    }
+
+    // 创建SWS上下文，用于图像格式转换
+    swsContext = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BILINEAR, nullptr, nullptr, nullptr);
+
+    // 创建帧
+    frame = av_frame_alloc();
+    frame->format = codecContext->pix_fmt;
+    frame->width = codecContext->width;
+    frame->height = codecContext->height;
+    ret = av_frame_get_buffer(frame, 32);
+    if (ret < 0) {
+        std::cout  << "Could not allocate frame data";
+        return false;
+    }
+
+    for (int i = 0; i < m_RawImageData.size(); ++i) {
+        // 将QImage转换为YUV格式
+        auto& image = m_RawImageData[i];
+        uint8_t* inData[1] = { image.second.data() };
+        int inLinesize[1] = { image.first };
+
+        sws_scale(swsContext, inData, inLinesize, 0, height, frame->data, frame->linesize);
+        frame->pts = i;
+
+        // 发送帧
+        ret = avcodec_send_frame(codecContext, frame);
+        if (ret < 0) {
+            std::cout << "Error sending frame: " << ret << std::endl;
+            break;
+        }
+
+        // 循环接收编码包
+        while (true) {
+            ret = avcodec_receive_packet(codecContext, &pkt);
+            if (ret == AVERROR(EAGAIN)) {
+//                std::cout << "Encoder needs more frames (EAGAIN)." << std::endl;
+                break;
+            } else if (ret == AVERROR_EOF) {
+                std::cout << "Encoder has finished (EOF)." << std::endl;
+                break;
+            } else if (ret < 0) {
+                std::cout << "Error encoding frame: " << ret << std::endl;
+                break;
+            }
+            // 确保包的时间戳正确
+            av_packet_rescale_ts(&pkt, codecContext->time_base, videoStream->time_base);
+            pkt.stream_index = videoStream->index;
+            av_interleaved_write_frame(formatContext, &pkt);
+            av_packet_unref(&pkt);
+        }
+    }
+
+// 发送null帧，确保编码器输出所有剩余的包
+    ret = avcodec_send_frame(codecContext, nullptr);
+    if (ret >= 0) {
+        while (true) {
+            ret = avcodec_receive_packet(codecContext, &pkt);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                break;
+            if (ret < 0) {
+                std::cout << "Error encoding final frame." << std::endl;
+                break;
+            }
+            // 确保包的时间戳正确
+            av_packet_rescale_ts(&pkt, codecContext->time_base, videoStream->time_base);
+            pkt.stream_index = videoStream->index;
+            av_interleaved_write_frame(formatContext, &pkt);
+            av_packet_unref(&pkt);
+        }
+    }
+    // 写入文件尾
+    av_write_trailer(formatContext);
+
+    // 释放资源
+    avcodec_free_context(&codecContext);
+    av_frame_free(&frame);
+    sws_freeContext(swsContext);
+    if (!(formatContext->oformat->flags & AVFMT_NOFILE))
+        avio_closep(&formatContext->pb);
+    avformat_free_context(formatContext);
+
+    return true;
+}
+
+
+
 IGAME_NAMESPACE_END
 #endif
