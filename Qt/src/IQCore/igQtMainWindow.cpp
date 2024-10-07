@@ -14,6 +14,7 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
+#include <IQWidgets/igQtCharts.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 用于 open
@@ -506,60 +507,18 @@ void igQtMainWindow::initAllFilters() {
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-        clock_t time1 = clock();
-        auto Tensorview = iGameTensorWidgetBase::New();
-        auto mesh = DynamicCast<UnstructuredMesh>(SceneManager::Instance()
-                                                          ->GetCurrentScene()
-                                                          ->GetCurrentModel()
-                                                          ->GetDataObject());
+        auto chart=new igQtCharts;
+        auto dataarray = 
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute(0).pointer;
+        //auto dataarray=DoubleArray::New();
+        //dataarray->AddValue(1.0);
+        //dataarray->AddValue(2.0);
+        //dataarray->AddValue(13.0);
+        //dataarray->AddValue(4.0);
+        //dataarray->AddValue(6.0);
+        chart->drawLineChart(dataarray);
+        chart->exec();
 
-        Tensorview->SetPoints(mesh->GetPoints());
-        Tensorview->SetTensorAttributes(
-                mesh->GetAttributeSet()->GetAttribute(2).pointer);
-        Tensorview->ShowTensorField();
-        modelTreeWidget->addDataObjectToModelTree(Tensorview, ItemSource::File);
-        return;
-        clock_t time2 = clock();
-        std::cout << "compute cost " << time2 - time1 << "ms\n";
-        auto painter = SceneManager::Instance()
-                               ->GetCurrentScene()
-                               ->GetCurrentModel()
-                               ->GetPainter();
-        painter->SetPen(3);
-        painter->SetPen(Color::Green);
-        painter->SetBrush(Color::Red);
-
-        auto connect = Tensorview->GetDrawGlyphPointOrders()->RawPointer();
-        auto points = Tensorview->GetDrawGlyphPoints();
-
-        // for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-        //	auto p = points->GetPoint(i);
-        //	std::cout << p[0] << " " << p[1] << " " << p[2] << '\n';
-        // }
-        long long fcnt =
-                Tensorview->GetDrawGlyphPointOrders()->GetNumberOfValues() / 3;
-        for (long long i = 0; i < fcnt; i++) {
-            painter->DrawTriangle(points->GetPoint(connect[i * 3]),
-                                  points->GetPoint(connect[i * 3 + 1]),
-                                  points->GetPoint(connect[i * 3 + 2]));
-        }
-        return;
-        SurfaceMesh::Pointer res = SurfaceMesh::New();
-        res->SetPoints(points);
-        std::cout << points->GetNumberOfPoints() << '\n';
-        CellArray::Pointer faces = CellArray::New();
-        res->SetFaces(faces);
-        for (long long i = 0; i < fcnt; i++) {
-            faces->AddCellId3(connect[i * 3], connect[i * 3 + 1],
-                              connect[i * 3 + 2]);
-        }
-        // for (long long i = 0; i < fcnt; i++) {
-        // std::cout<<connect[i * 3]<<' '<<connect[i * 3 + 1]<<' '<<connect[i * 3 +
-        // 2]<<'\n';
-        // }
-        modelTreeWidget->addDataObjectToModelTree(res, ItemSource::File);
-        clock_t time3 = clock();
-        std::cout << "draw cost " << time3 - time2 << "ms\n";
     });
     auto action_loadtest = ui->menu_help->addAction("loadtest");
     connect(action_loadtest, &QAction::triggered, this, [&](bool checked) {
@@ -1263,27 +1222,28 @@ void igQtMainWindow::initAllMySignalConnections() {
 
     // connect(ui->modelTreeView, &igQtModelListView::ChangeModelVisible,
     // rendererWidget, &igQtModelDrawWidget::changeTargetModelVisible);
-    // connect(ui->widget_ScalarField,
-    // &igQtScalarViewWidget::updateCurrentModelColor, rendererWidget,
-    // &igQtModelDrawWidget::UpdateCurrentModel); connect(ui->widget_ScalarField,
-    // &igQtScalarViewWidget::changeColorBarShow, this,
-    // &igQtMainWindow::updateColorBarShow); connect(ui->widget_QualityDetection,
-    // &igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
-    // &igQtModelDrawWidget::UpdateCurrentModel);
-    connect(ui->widget_ScalarField,
-            &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
-                if (this->ColorManagerWidget->isHidden()) {
-                    this->ColorManagerWidget->resetColorRange();
-                    this->ColorManagerWidget->show();
-                } else {
-                    this->ColorManagerWidget->hide();
-                }
-            });
-//    connect(this->ColorManagerWidget,
-//            &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
-//                ui->widget_ScalarField->drawModelWithScalarData();
-//                this->rendererWidget->getColorBarWidget()->update();
-//            });
+
+     //connect(ui->widget_QualityDetection,
+     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
+     //&igQtModelDrawWidget::UpdateCurrentModel); 
+    connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow,
+            this, &igQtMainWindow::updateColorBarShow);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged,
+            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+    connect(ui->widget_ScalarField,&igQtScalarViewWidget::ChangeShowColorManager, this, [&]() { 
+         if(this->ColorManagerWidget->isHidden()) {
+    		this->ColorManagerWidget->resetColorRange();
+    		this->ColorManagerWidget->show();
+         }
+    	else {
+    		this->ColorManagerWidget->hide();
+    	}
+    	});
+     connect(this->ColorManagerWidget,
+     &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
+    	ui->widget_ScalarField->updateDrawStyle();
+    	this->rendererWidget->getColorBarWidget()->update();
+    	});
     // connect(ui->widget_EditMode, &igQtEditModeWidget::ChangeCutFlag,
     // rendererWidget, &igQtModelDrawWidget::UpdateCutFlag);
     // connect(ui->widget_EditMode,

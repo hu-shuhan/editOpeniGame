@@ -20,7 +20,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/UI")
 
 # 查找 Qt
 #find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
-find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL)
+find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL Charts)
 #qt_standard_project_setup()
 Qt5_add_resources(QRC_FILES "Resources/iGameQtMainWindow.qrc")
 #set(QRC_FILES ${QRC_FILES} PARENT_SCOPE)
@@ -62,6 +62,7 @@ list(APPEND LINK_LIBS
         Qt5::Core
         Qt5::Gui
         Qt5::Widgets
+        Qt5::Charts
         iGameCore_module
         #iGameRendering_module
 )

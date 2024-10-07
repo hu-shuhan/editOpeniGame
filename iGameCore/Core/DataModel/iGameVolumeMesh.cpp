@@ -1310,9 +1310,12 @@ void VolumeMesh::ConvertToDrawableData() {
 }
 
 void VolumeMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-//    if (m_DrawMesh) {
-//        return m_DrawMesh->ViewCloudPicture(scene, index, demension);
-//    }
+    if (m_DrawMesh) {
+        m_DrawMesh->SetColorMapper(m_ColorMapper);
+        m_AttributeIndex = index;
+        m_AttributeDimension = demension;
+        return m_DrawMesh->ViewCloudPicture(scene, index, demension);
+    }
     if (index == -1) {
         m_UseColor = false;
         m_ViewAttribute = nullptr;
@@ -1337,18 +1340,21 @@ void VolumeMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
 void VolumeMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& range,
                                            igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         m_ViewAttribute = attr;
         m_ViewDemension = dimension;
         m_UseColor = true;
         m_ColorWithCell = false;
 
-        if (range.first != range.second) {
-            m_ColorMapper->SetRange(range.first, range.second);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+            if (range.first != range.second) {
+                m_ColorMapper->SetRange(range.first, range.second);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
         range.first = m_ColorMapper->GetRange()[0];
         range.second = m_ColorMapper->GetRange()[1];
@@ -1377,18 +1383,22 @@ void VolumeMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                           igIndex i) {
-    if (m_ViewAttribute != attr || m_ViewDemension != i) {
+    if (m_ViewAttribute != attr || m_ViewDemension != i ||
+        m_ColorMapper->GetMTime() > this->GetMTime()) {
         m_ViewAttribute = attr;
         m_ViewDemension = i;
         m_UseColor = true;
         m_ColorWithCell = true;
 
 
-        if (i == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, i);
+        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+            if (i == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, i);
+            }
         }
+
 
         FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, i);
         if (colors == nullptr) { return; }
