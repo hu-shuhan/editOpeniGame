@@ -1198,28 +1198,6 @@ void VolumeMesh::ConvertToDrawableData() {
     this->Create();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 
-    //if (m_DrawMesh == nullptr || m_DrawMesh->GetMTime() < this->GetMTime()) {
-    //    iGameModelGeometryFilter::Pointer extract =
-    //            iGameModelGeometryFilter::New();
-    //    // update clip status
-    //    if (m_Clip.m_Extent.m_Use) {
-    //        const auto& a = m_Clip.m_Extent.m_bmin;
-    //        const auto& b = m_Clip.m_Extent.m_bmax;
-    //        extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2],
-    //                           m_Clip.m_Extent.m_flip);
-    //    }
-    //    if (m_Clip.m_Plane.m_Use) {
-    //        extract->SetClipPlane(m_Clip.m_Plane.m_origin,
-    //                              m_Clip.m_Plane.m_normal,
-    //                              m_Clip.m_Plane.m_flip);
-    //    }
-    //
-    //    m_DrawMesh = SurfaceMesh::New();
-    //    if (!extract->Execute(this, m_DrawMesh)) { m_DrawMesh = nullptr; }
-    //    if (m_DrawMesh) { m_DrawMesh->Modified(); }
-    //}
-    //if (m_DrawMesh) { return m_DrawMesh->ConvertToDrawableData(); }
-
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
 
@@ -1228,6 +1206,17 @@ void VolumeMesh::ConvertToDrawableData() {
     if (!this->IsPolyhedronType) {
         for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
             Volume* volume = this->GetVolume(i);
+            if (!m_Clipper->IsAllDisable()) {
+                bool visible = true;
+                for (int j = 0; j < volume->GetNumberOfPoints(); ++j) {
+                    const auto& point = volume->GetPoint(j);
+                    if (!m_Clipper->IsVisible(point.pointer())) {
+                        visible = false;
+                        break;
+                    }
+                }
+                if (!visible) continue;
+            }
             const igIndex* face;
             for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
                 int size = volume->GetFacePointIds(j, face);
@@ -1251,6 +1240,21 @@ void VolumeMesh::ConvertToDrawableData() {
         igIndex face[IGAME_CELL_MAX_SIZE];
         for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
             fcnt = this->m_VolumeFaces->GetCellIds(i, fhs);
+            if (!m_Clipper->IsAllDisable()) {
+                bool visible = true;
+                for (int j = 0; j < fcnt; j++) {
+                    int size = this->m_Faces->GetCellIds(fhs[j], face);
+                    for (int k = 0; k < size; k++) {
+                        const auto& point = this->GetPoint(face[k]);
+                        if (!m_Clipper->IsVisible(point.pointer())) {
+                            visible = false;
+                            break;
+                        }
+                    }
+                    if (!visible) break;
+                }
+                if (!visible) continue;
+            }
             for (int j = 0; j < fcnt; j++) {
                 int size = this->m_Faces->GetCellIds(fhs[j], face);
                 for (int k = 2; k < size; k++) {
