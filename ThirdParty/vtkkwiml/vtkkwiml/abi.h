@@ -1,6 +1,3 @@
-//直接cv的，后续需要处理掉
-
-
 /*============================================================================
   Kitware Information Macro Library
   Copyright 2010-2018 Kitware, Inc.
@@ -349,12 +346,12 @@ suppression macro KWIML_ABI_NO_VERIFY was defined.
 
 #if defined(KWIML_ABI_ENDIAN_ID) /* Skip #elif cases if already defined.  */
 
-   /* Use dedicated symbols if the compiler defines them.  Do this first
-      because some architectures allow runtime byte order selection by
-      the operating system (values for such architectures below are
-      guesses for compilers that do not define a dedicated symbol).
-      Ensure that only one is defined in case the platform or a header
-      defines both as possible values for some third symbol.  */
+/* Use dedicated symbols if the compiler defines them.  Do this first
+   because some architectures allow runtime byte order selection by
+   the operating system (values for such architectures below are
+   guesses for compilers that do not define a dedicated symbol).
+   Ensure that only one is defined in case the platform or a header
+   defines both as possible values for some third symbol.  */
 #elif defined(_BIG_ENDIAN) && !defined(_LITTLE_ENDIAN)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 #elif defined(_LITTLE_ENDIAN) && !defined(_BIG_ENDIAN)
@@ -364,11 +361,11 @@ suppression macro KWIML_ABI_NO_VERIFY was defined.
 #elif defined(__LITTLE_ENDIAN__) && !defined(__BIG_ENDIAN__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* Alpha */
+/* Alpha */
 #elif defined(__alpha) || defined(__alpha__) || defined(_M_ALPHA)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* Arm */
+/* Arm */
 #elif defined(__arm__)
 # if !defined(__ARMEB__)
 #  define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
@@ -376,7 +373,7 @@ suppression macro KWIML_ABI_NO_VERIFY was defined.
 #  define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 # endif
 
-   /* Intel x86 */
+/* Intel x86 */
 #elif defined(__i386) || defined(__i386__) || defined(_M_IX86)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 #elif defined(_X86_) || defined(__THW_INTEL__) || defined(__I86__)
@@ -384,79 +381,79 @@ suppression macro KWIML_ABI_NO_VERIFY was defined.
 #elif defined(__MWERKS__) && defined(__INTEL__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* Intel x86-64 */
+/* Intel x86-64 */
 #elif defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 #elif defined(__amd64) || defined(__amd64__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* Intel Architecture-64 (Itanium) */
+/* Intel Architecture-64 (Itanium) */
 #elif defined(__ia64) || defined(__ia64__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 #elif defined(_IA64) || defined(__IA64__) || defined(_M_IA64)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* PowerPC */
+/* PowerPC */
 #elif defined(__powerpc) || defined(__powerpc__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 #elif defined(__ppc) || defined(__ppc__) || defined(__POWERPC__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* SPARC */
+/* SPARC */
 #elif defined(__sparc) || defined(__sparc__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* HP/PA RISC */
+/* HP/PA RISC */
 #elif defined(__hppa) || defined(__hppa__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* Motorola 68k */
+/* Motorola 68k */
 #elif defined(__m68k__) || defined(M68000)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* MIPSel (MIPS little endian) */
+/* MIPSel (MIPS little endian) */
 #elif defined(__MIPSEL__) || defined(__MIPSEL) || defined(_MIPSEL)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* MIPSeb (MIPS big endian) */
+/* MIPSeb (MIPS big endian) */
 #elif defined(__MIPSEB__) || defined(__MIPSEB) || defined(_MIPSEB)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* MIPS (fallback, big endian) */
+/* MIPS (fallback, big endian) */
 #elif defined(__mips) || defined(__mips__) || defined(__MIPS__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* NIOS2 */
+/* NIOS2 */
 #elif defined(__NIOS2__) || defined(__NIOS2) || defined(__nios2__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* OpenRISC 1000 */
+/* OpenRISC 1000 */
 #elif defined(__or1k__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* RS/6000 */
+/* RS/6000 */
 #elif defined(__THW_RS600) || defined(_IBMR2) || defined(_POWER)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 #elif defined(_ARCH_PWR) || defined(_ARCH_PWR2)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* System/370 */
+/* System/370 */
 #elif defined(__370__) || defined(__THW_370__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* System/390 */
+/* System/390 */
 #elif defined(__s390__) || defined(__s390x__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* z/Architecture */
+/* z/Architecture */
 #elif defined(__SYSC_ZARCH__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* VAX */
+/* VAX */
 #elif defined(__vax__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 
-   /* Aarch64 */
+/* Aarch64 */
 #elif defined(__aarch64__)
 # if !defined(__AARCH64EB__)
 #  define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
@@ -464,24 +461,24 @@ suppression macro KWIML_ABI_NO_VERIFY was defined.
 #  define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 # endif
 
-   /* Xtensa */
+/* Xtensa */
 #elif defined(__XTENSA_EB__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_BIG
 #elif defined(__XTENSA_EL__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* RISC-V */
+/* RISC-V */
 #elif defined(__riscv) || defined(__riscv__)
 # define KWIML_ABI_ENDIAN_ID KWIML_ABI_ENDIAN_ID_LITTLE
 
-   /* Unknown CPU */
+/* Unknown CPU */
 #elif !defined(KWIML_ABI_NO_ERROR_ENDIAN)
 # error "Byte order of target CPU unknown."
 #endif
 
 #endif /* KWIML_ABI_private_DO_DEFINE */
 
-   /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 #ifdef KWIML_ABI_private_DO_VERIFY
 #undef KWIML_ABI_private_DO_VERIFY
 
@@ -546,10 +543,10 @@ KWIML_ABI_private_VERIFY_DIFF(KWIML_ABI___INT64_NOT_LONG_LONG, __int64, long lon
 
 #if defined(KWIML_ABI_CHAR_IS_UNSIGNED)
 KWIML_ABI_private_VERIFY_BOOL(KWIML_ABI_CHAR_IS_UNSIGNED,
-    KWIML_ABI_private_STATIC_CAST(char, 0x80) > 0);
+                              KWIML_ABI_private_STATIC_CAST(char, 0x80) > 0);
 #elif defined(KWIML_ABI_CHAR_IS_SIGNED)
 KWIML_ABI_private_VERIFY_BOOL(KWIML_ABI_CHAR_IS_SIGNED,
-    KWIML_ABI_private_STATIC_CAST(char, 0x80) < 0);
+                              KWIML_ABI_private_STATIC_CAST(char, 0x80) < 0);
 #endif
 
 #undef KWIML_ABI_private_VERIFY_DIFF

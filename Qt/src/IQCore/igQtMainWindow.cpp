@@ -879,6 +879,24 @@ void igQtMainWindow::initAllFilters() {
                         result, ItemSource::Algorithm);
                 rendererWidget->update();
             });
+        connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
+            [&](bool checked) {
+                auto obj = rendererWidget->GetScene()
+                    ->GetCurrentModel()
+                    ->GetDataObject();
+                auto box=obj->GetBoundingBox();
+                auto center = (box.min + box.max) * 0.5;
+                float n[3]={0,0,1};
+                float o[3]={(float)center[0],(float)center[1],(float)center[2]};
+                auto filter=UnstructuredMeshClip::New();
+                filter->SetPlane(n,o);
+                filter->SetInput(0,obj);
+                filter->Execute();
+                auto result = filter->GetOutput(0);
+                modelTreeWidget->addDataObjectToModelTree(
+                    result, ItemSource::Algorithm);
+                rendererWidget->update();
+            });
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {

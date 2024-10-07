@@ -3,8 +3,8 @@
  * @brief   igQtVideoOptionDialog's brief
  */
 
-#pragma once
 #if defined(FFMPEG_ENABLE)
+#pragma once
 #include <IQCore/igQtExportModule.h>
 #include <QDialog>
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
