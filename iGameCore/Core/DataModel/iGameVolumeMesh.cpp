@@ -1195,7 +1195,7 @@ void VolumeMesh::RequestVolumeStatus() {
 //}
 
 void VolumeMesh::ConvertToDrawableData() {
-    this->Create();
+    this->CreateDrawBuffer();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 
     m_Positions = m_Points->ConvertToArray();

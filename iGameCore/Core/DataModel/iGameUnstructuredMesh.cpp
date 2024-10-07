@@ -381,7 +381,7 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
 //}
 
 void UnstructuredMesh::ConvertToDrawableData() {
-    this->Create();
+    this->CreateDrawBuffer();
 
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
 

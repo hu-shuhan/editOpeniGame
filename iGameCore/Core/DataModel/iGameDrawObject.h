@@ -1,12 +1,12 @@
 #ifndef iGameDrawObject_h
 #define iGameDrawObject_h
 
+#include "iGameClipper.h"
 #include "iGameDataObject.h"
 #include "iGameIdArray.h"
 #include "iGameMarker.h"
 #include "iGameMeshlet.h"
 #include "iGamePoints.h"
-#include "iGameClipper.h"
 
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLShader.h"
@@ -50,7 +50,7 @@ public:
     void SetTransparency(float transparency);
     float GetTransparency();
 
-    virtual void Draw(Scene* scene);
+    //virtual void Draw(Scene* scene);
     virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
@@ -59,7 +59,7 @@ protected:
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);
 
 protected:
-    void Create();
+    void CreateDrawBuffer();
 
 protected:
     unsigned int m_ViewStyle{0};
@@ -100,12 +100,14 @@ protected:
 };
 
 template<typename Functor, typename... Args>
-inline void DrawObject::ProcessSubDataObjects(Functor&& functor, Args&&... args){
+inline void DrawObject::ProcessSubDataObjects(Functor&& functor,
+                                              Args&&... args) {
     if (HasSubDataObject()) {
         for (auto it = m_SubDataObjectsHelper->Begin();
-        it != m_SubDataObjectsHelper->End(); ++it) {
-//            (it->second->*functor)(std::forward<Args>(args)...);
-            (DynamicCast<DrawObject>(it->second)->*functor)(std::forward<Args>(args)...);
+             it != m_SubDataObjectsHelper->End(); ++it) {
+            //            (it->second->*functor)(std::forward<Args>(args)...);
+            (DynamicCast<DrawObject>(it->second)->*functor)(
+                    std::forward<Args>(args)...);
         }
     }
 }

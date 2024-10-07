@@ -64,7 +64,7 @@ protected:
     DeleteMarker::Pointer m_PointDeleteMarker{}; // The marker for delete point
     bool m_InEditStatus{false};
 
-    void Draw(Scene* scene) override;
+    //void Draw(Scene* scene) override;
 public:
     //void Draw(Scene*) override;
     //void DrawPhase1(Scene*) override;

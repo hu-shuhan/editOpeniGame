@@ -23,11 +23,10 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
 #include <stdio.h>
-#include <IQComponents/igQtOptionDialog.h>
+#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 
 #include <QMessageBox>
-
 igQtMainWindow::igQtMainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -67,8 +66,10 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
+
 }
 void igQtMainWindow::initToolbarComponent() {
+
     // viewStyleCombox = new QComboBox(this);
     // viewStyleCombox->addItem("Points");
     // viewStyleCombox->addItem("WireFrame");
@@ -257,7 +258,7 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&](){
 
         QString path = QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
-        igQtOptionDialog dialog(this);
+        igQtScreenShotOptionDialog dialog(this);
         dialog.setWindowTitle("Save ScreenShot Option.");
         int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
         int ratio_pixel = rendererWidget->devicePixelRatio();
