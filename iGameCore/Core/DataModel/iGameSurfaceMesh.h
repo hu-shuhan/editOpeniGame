@@ -12,8 +12,6 @@
 #include "iGameQuad.h"
 #include "iGameTriangle.h"
 
-#include "iGameMeshlet.h"
-
 IGAME_NAMESPACE_BEGIN
 class SurfaceMesh : public PointSet {
 public:
@@ -79,6 +77,8 @@ public:
     int GetPointToNeighborEdges(const IGsize ptId,
                                 igIndex* edgeIds); // Unsafe: Stake overflow
     bool GetPointToNeighborEdges(const IGsize ptId, const igIndex*& edgeIds,
+                                 int& size); // Safe but data will be modified
+    bool GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds,
                                  int& size); // Safe but data will be modified
     bool GetPointToNeighborEdges(const IGsize ptId,
                                  IdArray::Pointer edgeIds); // Safe
@@ -172,11 +172,10 @@ public:
     IGsize GetRealMemorySize() override;
     bool GetClipped() override { return true; }
 
-    void SetFaceColor(const float color[3]);
-    ;
-    const float* GetFaceColor() const;
-    void SetFaceTransparency(float val);
-    float GetFaceTransparency() const;
+    //void SetFaceColor(const float color[3]);
+    //const float* GetFaceColor() const;
+    //void SetFaceTransparency(float val);
+    //float GetFaceTransparency() const;
 
 protected:
     SurfaceMesh();
@@ -197,8 +196,8 @@ protected:
     CellArray::Pointer m_FaceEdges{};     // The edge set of faces
     CellLinks::Pointer m_FaceEdgeLinks{}; // The adjacent faces of edges
 
-    float m_FaceColor[3]{1.0f, 1.0f, 1.0f}; // The color of the mesh
-    float m_FaceTransparency{1.0f};         // Transparency of the faces
+    //float m_FaceColor[3]{1.0f, 1.0f, 1.0f}; // The color of the mesh
+    //float m_FaceTransparency{1.0f};         // Transparency of the faces
 private:
     // Used for the returned cell object, which is Thread-Unsafe
     Line::Pointer m_Edge{};
@@ -207,10 +206,7 @@ private:
     Polygon::Pointer m_Polygon{};
 
 public:
-    void Draw(Scene*) override;
-    void DrawPhase1(Scene*) override;
-    void DrawPhase2(Scene*) override;
-    void TestOcclusionResults(Scene*) override;
+    //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
     bool IsDrawable() override { return true; }
     void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
@@ -223,10 +219,6 @@ public:
 
 protected:
     SurfaceMesh::Pointer m_DrawMesh{nullptr};
-
-#ifdef IGAME_OPENGL_VERSION_460
-    Meshlet::Pointer m_Meshlets{Meshlet::New()};
-#endif
 };
 IGAME_NAMESPACE_END
 #endif

@@ -1,6 +1,8 @@
 #pragma once
 
 #define MSAA
+#define MAX_FRAMEBUFFER_WIDTH 3840
+#define MAX_FRAMEBUFFER_HEIGHT 2160
 
 /*
     GL_NO_ERROR: (0)

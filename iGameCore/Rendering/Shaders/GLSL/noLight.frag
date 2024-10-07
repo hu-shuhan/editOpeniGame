@@ -11,9 +11,10 @@ layout(std140, binding = 0) uniform CameraDataBlock {
 } cameraData;
 
 layout(std140, binding = 1) uniform ObjectDataBLock {
+    float transparent;
     mat4 model;
     mat4 normal;// transpose(inverse(model))
-    vec4 sphereBounds;// not set now, do not use
+    vec4 sphereBounds;
 } objectData;
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {

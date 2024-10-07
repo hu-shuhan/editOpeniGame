@@ -239,6 +239,14 @@ bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
     size = m_EdgeLinks->GetLinkSize(ptId);
     return true;
 }
+bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex *edgeIds, int &size) {
+    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    auto& link = m_EdgeLinks->GetLink(ptId);
+    for (int i = 0; i < link.size; i++) { edgeIds[i] = link.pointer[i]; }
+    size = link.size;
+    return true;
+}
+
 bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
                                           IdArray::Pointer edgeIds) {
     assert(ptId < GetNumberOfPoints() && "ptId too large");
@@ -648,10 +656,12 @@ IGsize SurfaceMesh::AddFace(igIndex* ptIds, int size) {
 void SurfaceMesh::DeletePoint(const IGsize ptId) {
     if (!InEditStatus()) { RequestEditStatus(); }
     if (IsPointDeleted(ptId)) { return; }
-    const igIndex* edgeIds;
+//    igIndex* edgeIds;
+    igIndex edgeIds[64];
     int size;
+
     GetPointToNeighborEdges(ptId, edgeIds, size);
-    for (int i = 0; i < size; i++) { DeleteEdge(edgeIds[i]); }
+    for (int i = 0; i < size; i++) {DeleteEdge(edgeIds[i]);}
     m_EdgeLinks->DeleteLink(ptId);
     m_FaceLinks->DeleteLink(ptId);
     m_PointDeleteMarker->MarkDeleted(ptId);
@@ -742,330 +752,118 @@ IGsize SurfaceMesh::GetRealMemorySize() {
     return res + sizeof(IGsize);
 }
 
-void SurfaceMesh::SetFaceColor(const float color[3]) {
-    m_FaceColor[0] = color[0];
-    m_FaceColor[1] = color[1];
-    m_FaceColor[2] = color[2];
-    m_UseColor = true;
-    this->Modified();
-}
+//void SurfaceMesh::SetFaceColor(const float color[3]) {
+//    m_FaceColor[0] = color[0];
+//    m_FaceColor[1] = color[1];
+//    m_FaceColor[2] = color[2];
+//    m_UseColor = true;
+//    this->Modified();
+//}
+//
+//const float* SurfaceMesh::GetFaceColor() const { return this->m_FaceColor; }
+//
+//void SurfaceMesh::SetFaceTransparency(float val) {
+//    this->m_FaceTransparency = val;
+//    this->Modified();
+//}
+//
+//float SurfaceMesh::GetFaceTransparency() const {
+//    return this->m_FaceTransparency;
+//}
 
-const float* SurfaceMesh::GetFaceColor() const { return this->m_FaceColor; }
-
-void SurfaceMesh::SetFaceTransparency(float val) {
-    this->m_FaceTransparency = val;
-    this->Modified();
-}
-
-float SurfaceMesh::GetFaceTransparency() const {
-    return this->m_FaceTransparency;
-}
-
-void SurfaceMesh::Draw(Scene* scene) {
-    if (!m_Visibility) { return; }
-
-    if (m_DrawMesh) {
-        m_DrawMesh->SetViewStyle(m_ViewStyle);
-        return m_DrawMesh->Draw(scene);
-    }
-
-    // update uniform buffer
-    if (m_UseColor) {
-        scene->UBO().useColor = true;
-    } else {
-        scene->UBO().useColor = false;
-    }
-    scene->UpdateUniformBuffer();
-
-    if (m_UseColor && m_ColorWithCell) {
-        scene->GetShader(Scene::BLINNPHONG)->use();
-        m_CellVAO.bind();
-        glad_glDrawArrays(GL_TRIANGLES, 0, m_CellPositionSize);
-        m_CellVAO.release();
-        return;
-    }
-
-    if (m_ViewStyle & IG_POINTS) {
-        scene->GetShader(Scene::NOLIGHT)->use();
-
-        m_PointVAO.bind();
-        glad_glPointSize(8);
-        glad_glDepthRange(0.000001, 1);
-        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
-        glad_glDepthRange(0, 1);
-        m_PointVAO.release();
-    }
-
-    if (m_ViewStyle & IG_WIREFRAME) {
-        if (m_UseColor) {
-            scene->GetShader(Scene::NOLIGHT)->use();
-        } else {
-            auto shader = scene->GetShader(Scene::PURECOLOR);
-            shader->use();
-            shader->setUniform(shader->getUniformLocation("inputColor"),
-                               igm::vec3{0.0f, 0.0f, 0.0f});
-        }
-
-        m_LineVAO.bind();
-        glLineWidth(m_LineWidth);
-        glad_glDrawElements(GL_LINES, m_LineIndices->GetNumberOfIds(),
-                            GL_UNSIGNED_INT, 0);
-        m_LineVAO.release();
-    }
-
-    if (m_ViewStyle & IG_SURFACE) {
-        auto shader = scene->GetShader(Scene::BLINNPHONG);
-        shader->use();
-        shader->setUniform(shader->getUniformLocation("transparency"),
-                           m_FaceTransparency);
-
-        m_TriangleVAO.bind();
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(-0.5f, -0.5f);
-        glad_glDrawElements(GL_TRIANGLES, m_TriangleIndices->GetNumberOfIds(),
-                            GL_UNSIGNED_INT, 0);
-        glDisable(GL_POLYGON_OFFSET_FILL);
-        m_TriangleVAO.release();
-    }
-}
-
-void SurfaceMesh::DrawPhase1(Scene* scene) {
-#ifdef IGAME_OPENGL_VERSION_460
-    // std::cout << "Draw phase 1:" << std::endl;
-    if (!m_Visibility) { return; }
-
-    // update uniform buffer
-    {
-        if (m_UseColor) {
-            scene->UBO().useColor = true;
-        } else {
-            scene->UBO().useColor = false;
-        }
-        scene->UpdateUniformBuffer();
-    }
-
-    // draw
-    if (m_UseColor && m_ColorWithCell) {}
-
-    if (m_ViewStyle & IG_POINTS) {}
-    if (m_ViewStyle & IG_WIREFRAME) {}
-    if (m_ViewStyle & IG_SURFACE) {
-        scene->GetShader(Scene::BLINNPHONG)->use();
-        m_TriangleVAO.bind();
-        unsigned int count = 0;
-        m_Meshlets->VisibleMeshletBuffer().getSubData(0, sizeof(unsigned int),
-                                                      &count);
-        m_Meshlets->FinalDrawCommandBuffer().target(GL_DRAW_INDIRECT_BUFFER);
-        m_Meshlets->FinalDrawCommandBuffer().bind();
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                    count, 0);
-        std::cout << "Draw phase 1: [render count: " << count;
-        std::cout << ", meshlet count: " << m_Meshlets->MeshletsCount() << "]"
-                  << std::endl;
-        m_TriangleVAO.release();
-    }
-#endif
-}
-
-void SurfaceMesh::DrawPhase2(Scene* scene) {
-#ifdef IGAME_OPENGL_VERSION_460
-    // std::cout << "Draw phase 2:" << std::endl;
-    if (!m_Visibility) { return; }
-
-    // update uniform buffer
-    {
-        if (m_UseColor) {
-            scene->UBO().useColor = true;
-        } else {
-            scene->UBO().useColor = false;
-        }
-        scene->UpdateUniformBuffer();
-    }
-
-    // draw
-    if (m_UseColor && m_ColorWithCell) {}
-
-    if (m_ViewStyle & IG_POINTS) {}
-    if (m_ViewStyle & IG_WIREFRAME) {}
-    if (m_ViewStyle & IG_SURFACE) {
-        // compute culling
-        {
-            auto shader = scene->GetShader(Scene::MESHLETCULL);
-            shader->use();
-
-            GLUniform workMode = shader->getUniformLocation("workMode");
-            shader->setUniform(workMode, 0);
-
-            m_Meshlets->MeshletsBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->MeshletsBuffer().bindBase(1);
-
-            m_Meshlets->DrawCommandBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->DrawCommandBuffer().bindBase(2);
-
-            unsigned int data = 0;
-            m_Meshlets->VisibleMeshletBuffer().subData(0, sizeof(unsigned int),
-                                                       &data);
-            m_Meshlets->VisibleMeshletBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->VisibleMeshletBuffer().bindBase(3);
-
-            m_Meshlets->FinalDrawCommandBuffer().target(
-                    GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->FinalDrawCommandBuffer().bindBase(4);
-
-            scene->GetDrawCullDataBuffer().target(GL_UNIFORM_BUFFER);
-            scene->GetDrawCullDataBuffer().bindBase(5);
-
-            scene->DepthPyramid().active(GL_TEXTURE1);
-            shader->setUniform(shader->getUniformLocation("depthPyramid"), 1);
-
-            auto count = m_Meshlets->MeshletsCount();
-            glDispatchCompute(((count + 255) / 256), 1, 1);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        }
-
-        scene->GetShader(Scene::BLINNPHONG)->use();
-        m_TriangleVAO.bind();
-
-        unsigned int count = 0;
-        m_Meshlets->VisibleMeshletBuffer().getSubData(0, sizeof(unsigned int),
-                                                      &count);
-
-        m_Meshlets->FinalDrawCommandBuffer().target(GL_DRAW_INDIRECT_BUFFER);
-        m_Meshlets->FinalDrawCommandBuffer().bind();
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                    count, 0);
-
-        std::cout << "Draw phase 2: [render count: " << count;
-        std::cout << ", meshlet count: " << m_Meshlets->MeshletsCount() << "]"
-                  << std::endl;
-
-        m_TriangleVAO.release();
-    }
-
-#endif
-}
-
-void SurfaceMesh::TestOcclusionResults(Scene* scene) {
-#ifdef IGAME_OPENGL_VERSION_460
-    // std::cout << "Test Occlusion:" << std::endl;
-    if (!m_Visibility) { return; }
-
-    if (m_UseColor && m_ColorWithCell) {}
-
-    if (m_ViewStyle & IG_POINTS) {}
-    if (m_ViewStyle & IG_WIREFRAME) {}
-    if (m_ViewStyle & IG_SURFACE) {
-        // compute culling
-        {
-            auto shader = scene->GetShader(Scene::MESHLETCULL);
-            shader->use();
-
-            GLUniform workMode = shader->getUniformLocation("workMode");
-            shader->setUniform(workMode, 1);
-
-            m_Meshlets->MeshletsBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->MeshletsBuffer().bindBase(1);
-
-            m_Meshlets->DrawCommandBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->DrawCommandBuffer().bindBase(2);
-
-            unsigned int data = 0;
-            m_Meshlets->VisibleMeshletBuffer().subData(0, sizeof(unsigned int),
-                                                       &data);
-            m_Meshlets->VisibleMeshletBuffer().target(GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->VisibleMeshletBuffer().bindBase(3);
-
-            m_Meshlets->FinalDrawCommandBuffer().target(
-                    GL_SHADER_STORAGE_BUFFER);
-            m_Meshlets->FinalDrawCommandBuffer().bindBase(4);
-
-            scene->GetDrawCullDataBuffer().target(GL_UNIFORM_BUFFER);
-            scene->GetDrawCullDataBuffer().bindBase(5);
-
-            scene->DepthPyramid().active(GL_TEXTURE1);
-            shader->setUniform(shader->getUniformLocation("depthPyramid"), 1);
-
-            auto count = m_Meshlets->MeshletsCount();
-            glDispatchCompute(((count + 255) / 256), 1, 1);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        }
-    }
-
-    unsigned int count = 0;
-    m_Meshlets->VisibleMeshletBuffer().getSubData(0, sizeof(unsigned int),
-                                                  &count);
-    // std::cout << "Test Occlusion: [render count: " << count;
-    // std::cout << ", meshlet count: " << m_Meshlets->MeshletsCount() << "]"
-    //           << std::endl;
-
-    // std::vector<DrawElementsIndirectCommand> readBackCommands(
-    //         m_Meshlets->MeshletsCount());
-    // m_Meshlets->DrawCommandBuffer().getSubData(
-    //         0, readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
-    //         readBackCommands.data());
-    // for (const auto& cmd: readBackCommands) {
-    //     //std::cout << "count: " << cmd.count << std::endl;
-    //     std::cout << "primCount: " << cmd.primCount << std::endl;
-    //     //std::cout << "firstIndex: " << cmd.firstIndex << std::endl;
-    //     //std::cout << "baseVertex: " << cmd.baseVertex << std::endl;
-    //     //std::cout << "baseInstance: " << cmd.baseInstance << std::endl;
-    // }
-#endif
-}
+//void SurfaceMesh::Draw(Scene* scene) {
+//    if (!m_Visibility) { return; }
+//
+//    if (m_DrawMesh) {
+//        m_DrawMesh->SetViewStyle(m_ViewStyle);
+//        return m_DrawMesh->Draw(scene);
+//    }
+//
+//    // update uniform buffer
+//    if (m_UseColor) {
+//        scene->UBO().useColor = true;
+//    } else {
+//        scene->UBO().useColor = false;
+//    }
+//    scene->UpdateUniformBuffer();
+//
+//    if (m_UseColor && m_ColorWithCell) {
+//        scene->GetShader(Scene::BLINNPHONG)->use();
+//        m_CellVAO.bind();
+//        glad_glDrawArrays(GL_TRIANGLES, 0, m_CellPositionSize);
+//        m_CellVAO.release();
+//        return;
+//    }
+//
+//    if (m_ViewStyle & IG_POINTS) {
+//        scene->GetShader(Scene::NOLIGHT)->use();
+//
+//        m_PointVAO.bind();
+//        glad_glPointSize(8);
+//        glad_glDepthRange(0.000001, 1);
+//        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
+//        glad_glDepthRange(0, 1);
+//        m_PointVAO.release();
+//    }
+//
+//    if (m_ViewStyle & IG_WIREFRAME) {
+//        if (m_UseColor) {
+//            scene->GetShader(Scene::NOLIGHT)->use();
+//        } else {
+//            auto shader = scene->GetShader(Scene::PURECOLOR);
+//            shader->use();
+//            shader->setUniform(shader->getUniformLocation("inputColor"),
+//                               igm::vec3{0.0f, 0.0f, 0.0f});
+//        }
+//
+//        m_LineVAO.bind();
+//        glLineWidth(m_LineWidth);
+//        glad_glDrawElements(GL_LINES, m_LineIndices->GetNumberOfIds(),
+//                            GL_UNSIGNED_INT, 0);
+//        m_LineVAO.release();
+//    }
+//
+//    if (m_ViewStyle & IG_SURFACE) {
+//        auto shader = scene->GetShader(Scene::BLINNPHONG);
+//        shader->use();
+//        shader->setUniform(shader->getUniformLocation("transparency"),
+//                           m_FaceTransparency);
+//
+//        m_TriangleVAO.bind();
+//        glEnable(GL_POLYGON_OFFSET_FILL);
+//        glPolygonOffset(-0.5f, -0.5f);
+//        glad_glDrawElements(GL_TRIANGLES, m_TriangleIndices->GetNumberOfIds(),
+//                            GL_UNSIGNED_INT, 0);
+//        glDisable(GL_POLYGON_OFFSET_FILL);
+//        m_TriangleVAO.release();
+//    }
+//}
+//
 
 void SurfaceMesh::ConvertToDrawableData() {
+    this->Create();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
-    if (m_DrawMesh == nullptr || m_DrawMesh->GetMTime() < this->GetMTime()) {
-        iGameModelGeometryFilter::Pointer extract =
-                iGameModelGeometryFilter::New();
-        // update clip status
-        if (m_Clip.m_Extent.m_Use) {
-            const auto& a = m_Clip.m_Extent.m_bmin;
-            const auto& b = m_Clip.m_Extent.m_bmax;
-            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2],
-                               m_Clip.m_Extent.m_flip);
-        }
-        if (m_Clip.m_Plane.m_Use) {
-            extract->SetClipPlane(m_Clip.m_Plane.m_origin,
-                                  m_Clip.m_Plane.m_normal,
-                                  m_Clip.m_Plane.m_flip);
-        }
-        m_DrawMesh = SurfaceMesh::New();
-        if (!extract->Execute(this, m_DrawMesh)) { m_DrawMesh = nullptr; }
-        if (m_DrawMesh) { m_DrawMesh->Modified(); }
-    }
-    if (m_DrawMesh) { return m_DrawMesh->ConvertToDrawableData(); }
-    if (!m_Flag) {
-        m_PointVAO.create();
-        m_LineVAO.create();
-        m_TriangleVAO.create();
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        m_NormalVBO.create();
-        m_NormalVBO.target(GL_ARRAY_BUFFER);
-        m_TextureVBO.create();
-        m_TextureVBO.target(GL_ARRAY_BUFFER);
-        m_PointEBO.create();
-        m_PointEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_LineEBO.create();
-        m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO.create();
-        m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
 
-        m_CellVAO.create();
-        m_CellPositionVBO.create();
-        m_CellPositionVBO.target(GL_ARRAY_BUFFER);
-        m_CellColorVBO.create();
-        m_CellColorVBO.target(GL_ARRAY_BUFFER);
-
-#ifdef IGAME_OPENGL_VERSION_460
-        m_Meshlets->CreateBuffer();
-#endif
-
-        m_Flag = true;
-    }
+    //if (m_DrawMesh == nullptr || m_DrawMesh->GetMTime() < this->GetMTime()) {
+    //    iGameModelGeometryFilter::Pointer extract =
+    //            iGameModelGeometryFilter::New();
+    //    // update clip status
+    //    if (m_Clip.m_Extent.m_Use) {
+    //        const auto& a = m_Clip.m_Extent.m_bmin;
+    //        const auto& b = m_Clip.m_Extent.m_bmax;
+    //        extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2],
+    //                           m_Clip.m_Extent.m_flip);
+    //    }
+    //    if (m_Clip.m_Plane.m_Use) {
+    //        extract->SetClipPlane(m_Clip.m_Plane.m_origin,
+    //                              m_Clip.m_Plane.m_normal,
+    //                              m_Clip.m_Plane.m_flip);
+    //    }
+    //    m_DrawMesh = SurfaceMesh::New();
+    //    if (!extract->Execute(this, m_DrawMesh)) { m_DrawMesh = nullptr; }
+    //    if (m_DrawMesh) { m_DrawMesh->Modified(); }
+    //}
+    //if (m_DrawMesh) { return m_DrawMesh->ConvertToDrawableData(); }
 
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
@@ -1090,15 +888,15 @@ void SurfaceMesh::ConvertToDrawableData() {
     m_TriangleIndices = triangleIndices;
 
     // set triangles
-    if (m_UseColor) {
-        IGsize numberOfPoints = m_Positions->GetNumberOfElements();
-        m_Colors = FloatArray::New();
-        m_Colors->SetDimension(3);
-        m_Colors->Resize(numberOfPoints);
-        for (IGsize i = 0; i < numberOfPoints; ++i) {
-            m_Colors->SetElement(i, m_FaceColor);
-        }
-    }
+    //if (m_UseColor) {
+    //    IGsize numberOfPoints = m_Positions->GetNumberOfElements();
+    //    m_Colors = FloatArray::New();
+    //    m_Colors->SetDimension(3);
+    //    m_Colors->Resize(numberOfPoints);
+    //    for (IGsize i = 0; i < numberOfPoints; ++i) {
+    //        m_Colors->SetElement(i, m_FaceColor);
+    //    }
+    //}
 
     // allocate buffer
     {
@@ -1106,11 +904,11 @@ void SurfaceMesh::ConvertToDrawableData() {
                            m_Positions->GetNumberOfValues() * sizeof(float),
                            m_Positions->RawPointer());
 
-        if (m_UseColor) {
-            GLAllocateGLBuffer(m_ColorVBO,
-                               m_Colors->GetNumberOfValues() * sizeof(float),
-                               m_Colors->RawPointer());
-        }
+        //if (m_UseColor) {
+        //    GLAllocateGLBuffer(m_ColorVBO,
+        //                       m_Colors->GetNumberOfValues() * sizeof(float),
+        //                       m_Colors->RawPointer());
+        //}
 
         GLAllocateGLBuffer(m_LineEBO,
                            m_LineIndices->GetNumberOfIds() * sizeof(igIndex),
@@ -1142,16 +940,16 @@ void SurfaceMesh::ConvertToDrawableData() {
                                    3 * sizeof(float));
         GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
                           GL_FLOAT, GL_FALSE, 0);
-        if (m_UseColor) {
-            m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                       3 * sizeof(float));
-            GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                              GL_FLOAT, GL_FALSE, 0);
-        }
+        //if (m_UseColor) {
+        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+        //                               3 * sizeof(float));
+        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //}
         m_TriangleVAO.elementBuffer(m_TriangleEBO);
 
 #ifdef IGAME_OPENGL_VERSION_460
-        bool debug = true;
+        bool debug = false;
         if (debug) {
             m_Meshlets->BuildMeshlet(m_Positions->RawPointer(),
                                      m_Positions->GetNumberOfValues() / 3,
@@ -1303,4 +1101,6 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                           GL_FLOAT, GL_FALSE, 0);
     }
 }
+
+
 IGAME_NAMESPACE_END

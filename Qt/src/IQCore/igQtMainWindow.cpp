@@ -3,37 +3,39 @@
 // Created by m_ky on 2024/4/10.
 //
 #include "Interactor/iGameInteractor.h"
-#include "VTK/iGameVTKWriter.h"
 #include "iGameARAPTest.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
-#include <IQComponents/igQtModelListView.h>
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <IQCore/igQtFileLoader.h>
-#include <IQCore/igQtMainWindow.h>
-#include <IQWidgets/ColorManager/igQtBasicColorAreaWidget.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtCharts.h>
 #include <Sources/iGameLineTypePointsSource.h>
+#include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 用于 open
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
 #include <stdio.h>
-#include <iGamePointFinder.h>
-#include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
+
+#include <IQComponents/igQtOptionDialog.h>
+#include <IQCore/igQtOpenGLWidgetManager.h>
+
+#include <QMessageBox>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     modelTreeWidget = new igQtModelDialogWidget(this);
     rendererWidget = new igQtModelDrawWidget(this);
+    igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
+//    rendererWidget->setParent(this);
     fileLoader = new igQtFileLoader(this);
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
@@ -151,6 +153,7 @@ void igQtMainWindow::initToolbarComponent() {
     // SLOT(ChangeScalarViewDim()));
     // ui->toolBar_attribute_view_dim->addWidget(attributeViewDimCombox);
 }
+
 void igQtMainWindow::initAllComponents() {
 
     // init ProgressBar
@@ -171,9 +174,22 @@ void igQtMainWindow::initAllComponents() {
     // connect(ui->action_RecoverMesh, &QAction::triggered, this, [&]() {
     //	iGame::iGameManager::Instance()->RecoverMesh();
     //	});
+    connect(ui->action_UseOrthographic, &QAction::triggered, this,
+            [&](bool checked) {
+                if (ui->action_UseOrthographic->isChecked()) {
+                    SceneManager::Instance()
+                            ->GetCurrentScene()
+                            ->ChangeCameraType(
+                                    Camera::CameraType::ORTHOGRAPHIC);
+                } else {
+                    SceneManager::Instance()
+                            ->GetCurrentScene()
+                            ->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+                }
+                rendererWidget->update();
+            });
     connect(ui->action_ResetCenter, &QAction::triggered, this, [&]() {
         SceneManager::Instance()->GetCurrentScene()->ResetCenter();
-        std::cout << "dsadas" << '\n';
         rendererWidget->update();
     });
     // connect(ui->action_PickCenter, &QAction::triggered, this, [&]() {
@@ -239,6 +255,34 @@ void igQtMainWindow::initAllComponents() {
                 rendererWidget->GetScene()->rotateNinetyCounterClockwise();
                 rendererWidget->update();
             });
+    connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&](){
+
+        QString path = QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
+        igQtOptionDialog dialog(this);
+        dialog.setWindowTitle("Save ScreenShot Option.");
+        int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
+        int ratio_pixel = rendererWidget->devicePixelRatio();
+        int width = 1920, height = 1080;
+        if (dialog.exec() == QDialog::Accepted) {
+            auto input = dialog.getInput();
+            width = input.first, height = input.second;
+
+        }
+
+        width /= ratio_pixel, height /= ratio_pixel;
+        rendererWidget->resize(width, height);
+        QImage saved_image = rendererWidget->grabFramebuffer();
+        if(saved_image.save(path, "BMP")){
+            QMessageBox::information(this, "", "保存成功");
+        }else {
+            QMessageBox::information(this, "", "保存失败");
+        }
+        rendererWidget->resize(oldwidth, oldheight);
+    });
+
+    connect(ui->action_SaveAnimation, &QAction::triggered, this, [&](){
+        ui->widget_Animation->saveAnimation();
+    });
 
     initAllMySignalConnections();
     initAllDockWidgetConnectWithAction();
@@ -247,32 +291,18 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
-        PointSet::Pointer points = PointSet::New();
-        Points::Pointer ps = Points::New();
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dis(0.0, 1.0);
-
-        double r = 1;
-        for (int i = 0; i < 1000000; i++) {
-            double u = dis(gen);
-            double v = dis(gen);
-            double w = dis(gen);
-
-            double theta = 2.0 * M_PI * u;
-            double phi = acos(2.0 * v - 1.0);
-            double rCubeRoot = std::cbrt(w);
-
-            double x = r * rCubeRoot * sin(phi) * cos(theta);
-            double y = r * rCubeRoot * sin(phi) * sin(theta);
-            double z = r * rCubeRoot * cos(phi);
-
-            ps->AddPoint(x, y, z);
+        auto mesh = DynamicCast<SurfaceMesh>(SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject())  ;
+        mesh->BuildEdges();
+        mesh->BuildEdgeLinks();
+        mesh->BuildFaceLinks();
+        mesh->BuildFaceEdgeLinks();
+        for(int i = 0; i < 100; i ++){
+//            igIndex ids[32];
+//            int size = mesh->GetPointToNeighborEdges(i, ids);
+            mesh->DeletePoint(i);
         }
-        points->SetPoints(ps);
-        points->SetName("undefined_PointSet");
-        rendererWidget->AddDataObject(points);
+        mesh->GarbageCollection();
+        mesh->Modified();
     });
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
@@ -837,223 +867,293 @@ void igQtMainWindow::initAllFilters() {
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->sh
-	//  ow();
-	//	});
-	 connect(ui->action_IsShowColorBar, &QAction::triggered, this,
-	 &igQtMainWindow::updateColorBarShow);
-	connect(ui->action_ExportAnimation, &QAction::triggered, this,
-		[&](bool checked) { ui->dockWidget_Animation->show(); });
-	 connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_ScalarField->show();
-		});
-	// connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-	//	ui->dockWidget_VectorField->show();
-	//	});
-	connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_TensorField->show();
-		ui->widget_TensorField->UpdateScalarsNameList();
-		ui->widget_TensorField->UpdateTensorsNameList();
-		});
-	connect(ui->action_FlowField, &QAction::triggered, this,
-		[&](bool checked) { ui->dockWidget_FlowField->show(); });
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->show();
-	//	});
-	//  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
-	//  {
-	//	ui->dockWidget_EditMode->show();
-	//	});
-	//  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
-	//  checked) { 	ui->dockWidget_QualityDetection->show();
-	//	});
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->sh
+    //  ow();
+    //	});
+    connect(ui->action_IsShowColorBar, &QAction::triggered, this,
+            &igQtMainWindow::updateColorBarShow);
+    connect(ui->action_ExportAnimation, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_Animation->show(); });
+    connect(ui->action_Scalar, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_ScalarField->show(); });
+    connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_VectorField->show();
+        ui->widget_VectorField->updateVectorNameList();
+        });
+    connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_TensorField->show();
+        ui->widget_TensorField->UpdateScalarsNameList();
+        ui->widget_TensorField->UpdateTensorsNameList();
+    });
+    connect(ui->action_FlowField, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_FlowField->show(); });
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->show();
+    //	});
+    //  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
+    //  {
+    //	ui->dockWidget_EditMode->show();
+    //	});
+    //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
+    //  checked) { 	ui->dockWidget_QualityDetection->show();
+    //	});
 
-	auto AddClippingMeshToScene = [](
-		const std::string& mainName,
-		SurfaceMesh::Pointer OV,
-		SurfaceMesh::Pointer IV,
-		SurfaceMesh::Pointer OIV,
-		igQtModelDialogWidget* modelTreeWidget
-		) {
-			auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    auto AddClippingMeshToScene = [](const std::string& mainName,
+                                     SurfaceMesh::Pointer OV,
+                                     SurfaceMesh::Pointer IV,
+                                     SurfaceMesh::Pointer OIV,
+                                     igQtModelDialogWidget* modelTreeWidget) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
-			const std::string OVName = "__" + mainName+ "_OV"; // 临时模型
-			const std::string IVName = "__" + mainName+ "_IV"; // 临时模型
-			const std::string OIVName = "__" + mainName + "_OIV"; // 临时模型
-			const float OVColor[3]{ 1.0f, 1.0f, 1.0f };
-			const float IVColor[3]{ 1.0f, 1.0f, 0.0f };
-			const float OIVColor[3]{ 1.0f, 1.0f, 1.0f };
-			const float OIVAlpha = 0.2f;
+        const std::string OVName = "__" + mainName + "_OV";   // 临时模型
+        const std::string IVName = "__" + mainName + "_IV";   // 临时模型
+        const std::string OIVName = "__" + mainName + "_OIV"; // 临时模型
+        const float OVColor[3]{1.0f, 1.0f, 1.0f};
+        const float IVColor[3]{1.0f, 1.0f, 0.0f};
+        const float OIVColor[3]{1.0f, 1.0f, 1.0f};
+        const float OIVAlpha = 0.2f;
 
-			OV->SetName(OVName);
-			IV->SetName(IVName);
-			OIV->SetName(OIVName);
+        OV->SetName(OVName);
+        IV->SetName(IVName);
+        OIV->SetName(OIVName);
 
-			bool exist[3]{ false, false, false };
-			for (auto& [id, model] : scene->GetModelList()) {
-				if (model->GetDataObject()->GetName() == OVName) {
-					auto model = scene->GetModelById(id);
-					model->SetDataObject(OV);
-					exist[0] = true;
-				}
-				else if (model->GetDataObject()->GetName() == IVName) {
-					auto model = scene->GetModelById(id);
-					model->SetDataObject(IV);
-					exist[1] = true;
-				}
-				else if (model->GetDataObject()->GetName() == OIVName) {
-					auto model = scene->GetModelById(id);
-					model->SetDataObject(OIV);
-					exist[2] = true;
-				}
-			}
-			if (!exist[0]) modelTreeWidget->addDataObjectToModelTree(OV, ItemSource::Algorithm);
-			if (!exist[1]) modelTreeWidget->addDataObjectToModelTree(IV, ItemSource::Algorithm);
-			if (!exist[2]) modelTreeWidget->addDataObjectToModelTree(OIV, ItemSource::Algorithm);
+        bool exist[3]{false, false, false};
+        for (auto& [id, model]: scene->GetModelList()) {
+            if (model->GetDataObject()->GetName() == OVName) {
+                auto model = scene->GetModelById(id);
+                model->SetDataObject(OV);
+                exist[0] = true;
+            } else if (model->GetDataObject()->GetName() == IVName) {
+                auto model = scene->GetModelById(id);
+                model->SetDataObject(IV);
+                exist[1] = true;
+            } else if (model->GetDataObject()->GetName() == OIVName) {
+                auto model = scene->GetModelById(id);
+                model->SetDataObject(OIV);
+                exist[2] = true;
+            }
+        }
+        if (!exist[0])
+            modelTreeWidget->addDataObjectToModelTree(OV,
+                                                      ItemSource::Algorithm);
+        if (!exist[1])
+            modelTreeWidget->addDataObjectToModelTree(IV,
+                                                      ItemSource::Algorithm);
+        if (!exist[2])
+            modelTreeWidget->addDataObjectToModelTree(OIV,
+                                                      ItemSource::Algorithm);
 
-			OV->SetFaceColor(OVColor);
-			OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-			IV->SetFaceColor(IVColor);
-			IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-			OIV->SetFaceColor(OIVColor);
-			OIV->SetFaceTransparency(OIVAlpha);
-			OIV->SetViewStyle(IG_SURFACE);
-		};
+        //OV->SetFaceColor(OVColor);
+        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+        //IV->SetFaceColor(IVColor);
+        IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+        //OIV->SetFaceColor(OIVColor);
+        //OIV->SetFaceTransparency(OIVAlpha);
+        OIV->SetViewStyle(IG_SURFACE);
+    };
 
-	connect(ui->action_BoxClipping_Better, &QAction::triggered, this, [&](bool checked) {
-		if (!rendererWidget->GetScene()->GetCurrentModel()) {
-			std::cout << "Need Input" << std::endl;
-			return;
-		}
-		bool ok;
-		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-		auto oldCurrentModel = scene->GetCurrentModel();
-		auto dataObject = scene->GetCurrentModel()->GetDataObject();
-		static std::vector<int> supportTypes = {
-			IG_VOLUME_MESH,
-			IG_UNSTRUCTURED_MESH,
-			IG_STRUCTURED_MESH
-		};
-		if (std::find(supportTypes.begin(), supportTypes.end(),
-			dataObject->GetDataObjectType()) == supportTypes.end()) {
-			std::cout << "This type of mesh can't be clipped" << std::endl;
-			return;
-		}
+    connect(ui->action_BoxClipping_Better, &QAction::triggered, this,
+            [&](bool checked) {
+                if (!rendererWidget->GetScene()->GetCurrentModel()) {
+                    std::cout << "Need Input" << std::endl;
+                    return;
+                }
+                bool ok;
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                auto oldCurrentModel = scene->GetCurrentModel();
+                auto dataObject = scene->GetCurrentModel()->GetDataObject();
+                auto drawObject = DynamicCast<DrawObject>(dataObject);
+                static std::vector<int> supportTypes = {IG_VOLUME_MESH,
+                                                        IG_UNSTRUCTURED_MESH,
+                                                        IG_STRUCTURED_MESH};
+                if (std::find(supportTypes.begin(), supportTypes.end(),
+                              dataObject->GetDataObjectType()) ==
+                    supportTypes.end()) {
+                    std::cout << "This type of mesh can't be clipped"
+                              << std::endl;
+                    return;
+                }
 
-		auto inputMesh = DynamicCast<iGame::DrawObject>(dataObject);
-		auto box = inputMesh->GetBoundingBox();
-		auto center = (box.min + box.max) * 0.5;
-		auto size = box.max - box.min;
+                auto inputMesh = DynamicCast<iGame::DataObject>(dataObject);
+                auto box = inputMesh->GetBoundingBox();
+                auto center = (box.min + box.max) * 0.5;
+                auto size = box.max - box.min;
 
-		igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-		int x_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)", "0.0");
-		int y_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)", "0.0");
-		int z_min_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)", "0.0");
-		int x_max_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_max(0..1)", "0.5");
-		int y_max_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_max(0..1)", "1.0");
-		int z_max_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_max(0..1)", "1.0");
-		int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
-		dialog->show();
+                igQtFilterDialogDockWidget* dialog =
+                        new igQtFilterDialogDockWidget(this);
+                int x_min_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_min(0..1)",
+                        "0.0");
+                int y_min_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_min(0..1)",
+                        "0.0");
+                int z_min_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_min(0..1)",
+                        "0.0");
+                int x_max_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "x_max(0..1)",
+                        "0.5");
+                int y_max_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "y_max(0..1)",
+                        "1.0");
+                int z_max_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT, "z_max(0..1)",
+                        "1.0");
+                int flip_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip",
+                        "false");
+                dialog->show();
 
-		dialog->setApplyFunctor([=]() {
-			bool ok;
-			auto Clamp = [](double x, double l, double r) -> double {
-				if (x < l) return l;
-				if (x > r) return r;
-				return x;
-				};
+                dialog->setApplyFunctor([=]() {
+                    bool ok;
+                    auto Clamp = [](double x, double l, double r) -> double {
+                        if (x < l) return l;
+                        if (x > r) return r;
+                        return x;
+                    };
 
-			double x_min = box.min[0] + size[0] * Clamp(dialog->getDouble(x_min_id, ok), 0., 1.);
-			double y_min = box.min[1] + size[1] * Clamp(dialog->getDouble(y_min_id, ok), 0., 1.);
-			double z_min = box.min[2] + size[2] * Clamp(dialog->getDouble(z_min_id, ok), 0., 1.);
-			double x_max = box.min[0] + size[0] * Clamp(dialog->getDouble(x_max_id, ok), 0., 1.);
-			double y_max = box.min[1] + size[1] * Clamp(dialog->getDouble(y_max_id, ok), 0., 1.);
-			double z_max = box.min[2] + size[2] * Clamp(dialog->getDouble(z_max_id, ok), 0., 1.);
-			bool flip = dialog->getChecked(flip_id, ok);
+                    double x_min =
+                            box.min[0] +
+                            size[0] * Clamp(dialog->getDouble(x_min_id, ok), 0.,
+                                            1.);
+                    double y_min =
+                            box.min[1] +
+                            size[1] * Clamp(dialog->getDouble(y_min_id, ok), 0.,
+                                            1.);
+                    double z_min =
+                            box.min[2] +
+                            size[2] * Clamp(dialog->getDouble(z_min_id, ok), 0.,
+                                            1.);
+                    double x_max =
+                            box.min[0] +
+                            size[0] * Clamp(dialog->getDouble(x_max_id, ok), 0.,
+                                            1.);
+                    double y_max =
+                            box.min[1] +
+                            size[1] * Clamp(dialog->getDouble(y_max_id, ok), 0.,
+                                            1.);
+                    double z_max =
+                            box.min[2] +
+                            size[2] * Clamp(dialog->getDouble(z_max_id, ok), 0.,
+                                            1.);
+                    bool flip = dialog->getChecked(flip_id, ok);
 
-			auto clipper = iGameVolumeMeshClipper::New();
-			clipper->SetInput(0, dataObject);
-			clipper->SetExtent(x_min, x_max, y_min, y_max, z_min, z_max, flip);
-			clipper->Execute();
-			auto OV = DynamicCast<SurfaceMesh>(clipper->GetOutput(0));
-			auto IV = DynamicCast<SurfaceMesh>(clipper->GetOutput(1));
-			auto OIV = DynamicCast<SurfaceMesh>(clipper->GetOutput(2));
-			AddClippingMeshToScene(dataObject->GetName(), OV, IV, OIV, modelTreeWidget);
-			dataObject->SetVisibility(false);
-			scene->SetCurrentModel(oldCurrentModel);
-			rendererWidget->update();
-			});
-		});
+                    auto clipper = iGameVolumeMeshClipper::New();
+                    clipper->SetInput(0, dataObject);
+                    clipper->SetExtent(x_min, x_max, y_min, y_max, z_min, z_max,
+                                       flip);
+                    clipper->Execute();
+                    auto OV = DynamicCast<SurfaceMesh>(clipper->GetOutput(0));
+                    auto IV = DynamicCast<SurfaceMesh>(clipper->GetOutput(1));
+                    auto OIV = DynamicCast<SurfaceMesh>(clipper->GetOutput(2));
+                    AddClippingMeshToScene(dataObject->GetName(), OV, IV, OIV,
+                                           modelTreeWidget);
+                    drawObject->SetVisibility(false);
+                    scene->SetCurrentModel(oldCurrentModel);
+                    rendererWidget->update();
+                });
+            });
 
-	connect(ui->action_PlaneClipping_Better, &QAction::triggered, this, [&](bool checked) {
-		if (!rendererWidget->GetScene()->GetCurrentModel()) {
-			std::cout << "Need Input" << std::endl;
-			return;
-		}
-		bool ok;
-		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-		auto oldCurrentModel = scene->GetCurrentModel();
-		auto dataObject = scene->GetCurrentModel()->GetDataObject();
-		static std::vector<int> supportTypes = {
-			IG_VOLUME_MESH,
-			IG_UNSTRUCTURED_MESH,
-			IG_STRUCTURED_MESH
-		};
-		if (std::find(supportTypes.begin(), supportTypes.end(),
-			dataObject->GetDataObjectType()) == supportTypes.end()) {
-			std::cout << "This type of mesh can't be clipped" << std::endl;
-			return;
-		}
+    connect(ui->action_PlaneClipping_Better, &QAction::triggered, this,
+            [&](bool checked) {
+                if (!rendererWidget->GetScene()->GetCurrentModel()) {
+                    std::cout << "Need Input" << std::endl;
+                    return;
+                }
+                bool ok;
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                auto oldCurrentModel = scene->GetCurrentModel();
+                auto dataObject = scene->GetCurrentModel()->GetDataObject();
+                auto drawObject = DynamicCast<DrawObject>(dataObject);
+                static std::vector<int> supportTypes = {IG_VOLUME_MESH,
+                                                        IG_UNSTRUCTURED_MESH,
+                                                        IG_STRUCTURED_MESH};
+                if (std::find(supportTypes.begin(), supportTypes.end(),
+                              dataObject->GetDataObjectType()) ==
+                    supportTypes.end()) {
+                    std::cout << "This type of mesh can't be clipped"
+                              << std::endl;
+                    return;
+                }
 
-		auto inputMesh = DynamicCast<iGame::DrawObject>(dataObject);
-		auto box = inputMesh->GetBoundingBox();
-		auto center = (box.min + box.max) * 0.5;
-		auto size = box.max - box.min;
+                auto inputMesh = DynamicCast<iGame::DataObject>(dataObject);
+                auto box = inputMesh->GetBoundingBox();
+                auto center = (box.min + box.max) * 0.5;
+                auto size = box.max - box.min;
 
-		igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-		int origin_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_x(0..1)", "0.5");
-		int origin_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_y(0..1)", "0.5");
-		int origin_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "origin_z(0..1)", "0.5");
-		int normal_x_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "normal_x(-1..1)", "1.0");
-		int normal_y_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "normal_y(-1..1)", "0.0");
-		int normal_z_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "normal_z(-1..1)", "0.0");
-		int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
-		dialog->show();
+                igQtFilterDialogDockWidget* dialog =
+                        new igQtFilterDialogDockWidget(this);
+                int origin_x_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "origin_x(0..1)", "0.5");
+                int origin_y_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "origin_y(0..1)", "0.5");
+                int origin_z_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "origin_z(0..1)", "0.5");
+                int normal_x_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "normal_x(-1..1)", "1.0");
+                int normal_y_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "normal_y(-1..1)", "0.0");
+                int normal_z_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                        "normal_z(-1..1)", "0.0");
+                int flip_id = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip",
+                        "false");
+                dialog->show();
 
-		dialog->setApplyFunctor([=]() {
-			bool ok;
-			auto Clamp = [](double x, double l, double r) -> double {
-				if (x < l) return l;
-				if (x > r) return r;
-				return x;
-				};
+                dialog->setApplyFunctor([=]() {
+                    bool ok;
+                    auto Clamp = [](double x, double l, double r) -> double {
+                        if (x < l) return l;
+                        if (x > r) return r;
+                        return x;
+                    };
 
-			double origin_x = box.min[0] + size[0] * Clamp(dialog->getDouble(origin_x_id, ok), 0., 1.);
-			double origin_y = box.min[1] + size[1] * Clamp(dialog->getDouble(origin_y_id, ok), 0., 1.);
-			double origin_z = box.min[2] + size[2] * Clamp(dialog->getDouble(origin_z_id, ok), 0., 1.);
-			double normal_x = Clamp(dialog->getDouble(normal_x_id, ok), -1., 1.);
-			double normal_y = Clamp(dialog->getDouble(normal_y_id, ok), -1., 1.);
-			double normal_z = Clamp(dialog->getDouble(normal_z_id, ok), -1., 1.);
-			bool flip = dialog->getChecked(flip_id, ok);
-			if (normal_x == 0. && normal_y == 0. && normal_z == 0.) {
-				std::cout << "Normal is a vector of zero" << std::endl;
-				return;
-			}
+                    double origin_x =
+                            box.min[0] +
+                            size[0] * Clamp(dialog->getDouble(origin_x_id, ok),
+                                            0., 1.);
+                    double origin_y =
+                            box.min[1] +
+                            size[1] * Clamp(dialog->getDouble(origin_y_id, ok),
+                                            0., 1.);
+                    double origin_z =
+                            box.min[2] +
+                            size[2] * Clamp(dialog->getDouble(origin_z_id, ok),
+                                            0., 1.);
+                    double normal_x =
+                            Clamp(dialog->getDouble(normal_x_id, ok), -1., 1.);
+                    double normal_y =
+                            Clamp(dialog->getDouble(normal_y_id, ok), -1., 1.);
+                    double normal_z =
+                            Clamp(dialog->getDouble(normal_z_id, ok), -1., 1.);
+                    bool flip = dialog->getChecked(flip_id, ok);
+                    if (normal_x == 0. && normal_y == 0. && normal_z == 0.) {
+                        std::cout << "Normal is a vector of zero" << std::endl;
+                        return;
+                    }
 
-			auto clipper = iGameVolumeMeshClipper::New();
-			clipper->SetInput(0, dataObject);
-			clipper->SetPlane(origin_x, origin_y, origin_z, normal_x, normal_y, normal_z, flip);
-			clipper->Execute();
-			auto OV = DynamicCast<SurfaceMesh>(clipper->GetOutput(0));
-			auto IV = DynamicCast<SurfaceMesh>(clipper->GetOutput(1));
-			auto OIV = DynamicCast<SurfaceMesh>(clipper->GetOutput(2));
-			AddClippingMeshToScene(dataObject->GetName(), OV, IV, OIV, modelTreeWidget);
-			dataObject->SetVisibility(false);
-			scene->SetCurrentModel(oldCurrentModel);
-			rendererWidget->update();
-			});
-		});
+                    auto clipper = iGameVolumeMeshClipper::New();
+                    clipper->SetInput(0, dataObject);
+                    clipper->SetPlane(origin_x, origin_y, origin_z, normal_x,
+                                      normal_y, normal_z, flip);
+                    clipper->Execute();
+                    auto OV = DynamicCast<SurfaceMesh>(clipper->GetOutput(0));
+                    auto IV = DynamicCast<SurfaceMesh>(clipper->GetOutput(1));
+                    auto OIV = DynamicCast<SurfaceMesh>(clipper->GetOutput(2));
+                    AddClippingMeshToScene(dataObject->GetName(), OV, IV, OIV,
+                                           modelTreeWidget);
+                    drawObject->SetVisibility(false);
+                    scene->SetCurrentModel(oldCurrentModel);
+                    rendererWidget->update();
+                });
+            });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
@@ -1109,33 +1209,6 @@ void igQtMainWindow::initAllMySignalConnections() {
     // connect(ui->widget_Animation,
     // &igQtAnimationWidget::PlayAnimation_interpolate, rendererWidget,
     // &igQtModelDrawWidget::PlayAnimation_interpolate);
-    //	connect(ui->widget_Animation, &igQtAnimationWidget::PlayAnimation_snap,
-    // this, [&](int keyframe){ 		using namespace iGame; 		auto
-    // currentObject =
-    // SceneManager::Instance()->GetCurrentScene()->GetCurrentObject();
-    //		if(currentObject == nullptr ||
-    // currentObject->GetTimeFrames()->GetArrays().empty())  return;
-    // auto& frameSubFiles =
-    // currentObject->GetTimeFrames()->GetTargetTimeFrame(keyframe).SubFileNames;
-    //		rendererWidget->makeCurrent();
-    //		if(frameSubFiles->Size() > 1){
-    //			currentObject->ClearSubDataObject();
-    //			for(int i = 0; i < frameSubFiles->Size(); i ++){
-    //				DataObject::Pointer sub =
-    // FileIO::ReadFile(frameSubFiles->GetElement(i));
-    //				currentObject->AddSubDataObject(sub);
-    //			}
-    //		}
-    //		else {
-    //			SceneManager::Instance()->GetCurrentScene()->RemoveCurrentDataObject();
-    //			currentObject =
-    // FileIO::ReadFile(frameSubFiles->GetElement(0));
-    //			currentObject->SetTimeFrames(currentObject->GetTimeFrames());
-    //			SceneManager::Instance()->GetCurrentScene()->AddDataObject(currentObject);
-    //		}
-    //		currentObject->SwitchToCurrentTimeframe(keyframe);
-    //		rendererWidget->doneCurrent();
-    //	});
 
     // connect(ui->widget_FlowField, &igQtStreamTracerWidget::sendstreams,
     // rendererWidget, &igQtModelDrawWidget::DrawStreamline);
@@ -1233,32 +1306,45 @@ void igQtMainWindow::initAllMySignalConnections() {
                     return;
                 }
 
-		inputMesh->SetExtentClipping(false);
-		inputMesh->SetPlaneClipping(false);
-		inputMesh->SetVisibility(true);
-		inputMesh->Modified();
+                inputMesh->SetExtentClipping(false);
+                inputMesh->SetPlaneClipping(false);
+                inputMesh->SetVisibility(true);
+                inputMesh->Modified();
 
-		const std::string OVName = "__" + inputMesh->GetName() + "_OV"; // 临时模型
-		const std::string IVName = "__" + inputMesh->GetName() + "_IV"; // 临时模型
-		const std::string OIVName = "__" + inputMesh->GetName() + "_OIV"; // 临时模型
-		bool exist[3]{ false, false, false };
-		for (auto& [id, model] : scene->GetModelList()) {
-			if (model->GetDataObject()->GetName() == OVName) {
-				auto model = scene->GetModelById(id);
-				model->GetDataObject()->SetVisibility(false);
-			}
-			else if (model->GetDataObject()->GetName() == IVName) {
-				auto model = scene->GetModelById(id);
-				model->GetDataObject()->SetVisibility(false);
-			}
-			else if (model->GetDataObject()->GetName() == OIVName) {
-				auto model = scene->GetModelById(id);
-				model->GetDataObject()->SetVisibility(false);
-			}
-		}
+                const std::string OVName =
+                        "__" + inputMesh->GetName() + "_OV"; // 临时模型
+                const std::string IVName =
+                        "__" + inputMesh->GetName() + "_IV"; // 临时模型
+                const std::string OIVName =
+                        "__" + inputMesh->GetName() + "_OIV"; // 临时模型
+                bool exist[3]{false, false, false};
+                //for (auto& [id, model]: scene->GetModelList()) {
+                //    if (model->GetDataObject()->GetName() == OVName) {
+                //        auto model = scene->GetModelById(id);
+                //        model->GetDataObject()->SetVisibility(false);
+                //    } else if (model->GetDataObject()->GetName() == IVName) {
+                //        auto model = scene->GetModelById(id);
+                //        model->GetDataObject()->SetVisibility(false);
+                //    } else if (model->GetDataObject()->GetName() == OIVName) {
+                //        auto model = scene->GetModelById(id);
+                //        model->GetDataObject()->SetVisibility(false);
+                //    }
+                //}
+                for (auto& [id, model]: scene->GetModelList()) {
+                    auto drawObject =
+                            DynamicCast<DrawObject>(model->GetDataObject());
 
-		rendererWidget->update();
-		});
+                    if (drawObject->GetName() == OVName) {
+                        drawObject->SetVisibility(false);
+                    } else if (drawObject->GetName() == IVName) {
+                        drawObject->SetVisibility(false);
+                    } else if (drawObject->GetName() == OIVName) {
+                        drawObject->SetVisibility(false);
+                    }
+                }
+
+                rendererWidget->update();
+            });
 
 
     // box clipping
@@ -1448,17 +1534,14 @@ void igQtMainWindow::updateRecentFilePaths() {
     }
 }
 void igQtMainWindow::updateColorBarShow() {
-     auto colorBar = this->rendererWidget->getColorBarWidget();
-     if (!colorBar) {
-         return;
-     }
-     colorBar->update();
-     if (colorBar->isHidden()) {
-    	colorBar->show();
-     }
-     else {
-    	colorBar->hide();
-     }
+    auto colorBar = this->rendererWidget->getColorBarWidget();
+    if (!colorBar) { return; }
+    colorBar->update();
+    if (colorBar->isHidden()) {
+        colorBar->show();
+    } else {
+        colorBar->hide();
+    }
 }
 
 void igQtMainWindow::initAllSources() {

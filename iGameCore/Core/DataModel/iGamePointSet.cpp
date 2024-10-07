@@ -93,52 +93,41 @@ void PointSet::ComputeBoundingBox() {
     }
 }
 
-void PointSet::Draw(Scene* scene) {
-    if (!m_Visibility) { return; }
+//void PointSet::Draw(Scene* scene) {
+//    if (!m_Visibility) { return; }
+//
+//    if (m_UseColor) {
+//        scene->UBO().useColor = true;
+//    } else {
+//        scene->UBO().useColor = false;
+//    }
+//    scene->UpdateUniformBuffer();
+//
+//    if (m_ViewStyle & IG_POINTS) {
+//        scene->GetShader(Scene::NOLIGHT)->use();
+//
+//        m_PointVAO.bind();
+//        glPointSize(m_PointSize);
+//        glad_glDepthRange(0.000001, 1);
+//        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
+//        glad_glDepthRange(0, 1);
+//        m_PointVAO.release();
+//    }
+//}
 
-    if (m_UseColor) {
-        scene->UBO().useColor = true;
-    } else {
-        scene->UBO().useColor = false;
-    }
-    scene->UpdateUniformBuffer();
-
-    if (m_ViewStyle & IG_POINTS) {
-        scene->GetShader(Scene::NOLIGHT)->use();
-
-        m_PointVAO.bind();
-        glPointSize(m_PointSize);
-        glad_glDepthRange(0.000001, 1);
-        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
-        glad_glDepthRange(0, 1);
-        m_PointVAO.release();
-    }
-}
-// TODO: wait to implement
-void PointSet::DrawPhase1(Scene*) {
-
-};
-void PointSet::DrawPhase2(Scene*) {
-
-};
-void PointSet::TestOcclusionResults(Scene*) {
-
-};
+//void PointSet::DrawPhase1(Scene*) {
+//
+//};
+//void PointSet::DrawPhase2(Scene*) {
+//
+//};
+//void PointSet::TestOcclusionResults(Scene*) {
+//
+//};
 
 void PointSet::ConvertToDrawableData() {
+    this->Create();
     if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
-
-    if (!m_Flag) {
-        m_PointVAO.create();
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        m_PointEBO.create();
-        m_PointEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_Flag = true;
-    }
 
     m_Positions = m_Points->ConvertToArray();
 
@@ -177,21 +166,19 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
         m_ViewAttribute = attr;
         m_ViewDemension = dimension;
 
-    m_UseColor = true;
+        m_UseColor = true;
 
-      if (range.first != range.second) {
-      m_ColorMapper->SetRange(range.first, range.second);
-      } else if (dimension == -1) {
-      m_ColorMapper->InitRange(attr);
-      } else {
-      m_ColorMapper->InitRange(attr, dimension);
-      }
-      range.first = m_ColorMapper->GetRange()[0];
-      range.second = m_ColorMapper->GetRange()[1];
-      m_Colors = m_ColorMapper->MapScalars(attr, dimension);
-    if (m_Colors == nullptr) {
-      return;
-    }
+        if (range.first != range.second) {
+            m_ColorMapper->SetRange(range.first, range.second);
+        } else if (dimension == -1) {
+            m_ColorMapper->InitRange(attr);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
+        range.first = m_ColorMapper->GetRange()[0];
+        range.second = m_ColorMapper->GetRange()[1];
+        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+        if (m_Colors == nullptr) { return; }
 
         GLAllocateGLBuffer(m_ColorVBO,
                            m_Colors->GetNumberOfValues() * sizeof(float),
@@ -201,5 +188,67 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
         GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
                           GL_FLOAT, GL_FALSE, 0);
     }
+}
+
+void PointSet::Draw(Scene *scene) {
+    auto visibility = this->m_Visibility;
+    auto useColor = this->m_UseColor;
+    auto colorWithCell = this->m_ColorWithCell;
+    auto viewStyle = this->m_ViewStyle;
+    if (!visibility) { return; }
+    if (useColor && colorWithCell) {
+        scene->GetShader(Scene::BLINNPHONG)->use();
+        this->m_CellVAO.bind();
+        glad_glDrawArrays(GL_TRIANGLES, 0, this->m_CellPositionSize);
+        this->m_CellVAO.release();
+        return;
+    }
+
+    if (viewStyle & IG_POINTS) {
+        scene->GetShader(Scene::NOLIGHT)->use();
+
+        this->m_PointVAO.bind();
+        glad_glPointSize(8);
+        glad_glDepthRange(0.000001, 1);
+        glad_glDrawArrays(GL_POINTS, 0,
+                          this->m_Positions->GetNumberOfValues() / 3);
+        glad_glDepthRange(0, 1);
+        this->m_PointVAO.release();
+    }
+
+    if (viewStyle & IG_WIREFRAME) {
+        if (useColor) {
+            scene->GetShader(Scene::NOLIGHT)->use();
+        } else {
+            auto shader = scene->GetShader(Scene::PURECOLOR);
+            shader->use();
+            shader->setUniform(shader->getUniformLocation("inputColor"),
+                               igm::vec3{0.0f, 0.0f, 0.0f});
+        }
+
+        this->m_LineVAO.bind();
+        glLineWidth(this->m_LineWidth);
+        glad_glDrawElements(GL_LINES,
+                            this->m_LineIndices->GetNumberOfIds(),
+                            GL_UNSIGNED_INT, 0);
+        this->m_LineVAO.release();
+    }
+
+    if (viewStyle & IG_SURFACE) {
+        auto shader = scene->GetShader(Scene::BLINNPHONG);
+        shader->use();
+
+        this->m_TriangleVAO.bind();
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-0.5f, -0.5f);
+        glad_glDrawElements(GL_TRIANGLES,
+                            this->m_TriangleIndices->GetNumberOfIds(),
+                            GL_UNSIGNED_INT, 0);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        this->m_TriangleVAO.release();
+
+
+    }
+
 }
 IGAME_NAMESPACE_END

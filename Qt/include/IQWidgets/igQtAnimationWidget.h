@@ -18,8 +18,10 @@ public:
 public slots:
     void initAnimationComponents();
 
+    bool saveAnimation();
+
 private slots:
-    void playAnimation_snap(int keyframe_idx);
+    void playAnimation_snap(unsigned int keyframe_idx);
     void playAnimation_interpolate(int keyframe_0, float t);
     void btnPlay_finishLoop();
     void updateAnimationComponentsKeyframeSum(int keyframeSum);

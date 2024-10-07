@@ -72,17 +72,19 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             CellArray::Pointer faces;
 
             if (DynamicCast<VolumeMesh>(obj)) {
-                auto mesh = DynamicCast<VolumeMesh>(obj)->GetDrawMesh();
+                //auto mesh = DynamicCast<VolumeMesh>(obj)->GetDrawMesh();
+                auto mesh = DynamicCast<VolumeMesh>(obj);
                 points = mesh->GetPoints();
                 faces = mesh->GetFaces();
             } else if (DynamicCast<UnstructuredMesh>(obj)) {
-                auto mesh = DynamicCast<UnstructuredMesh>(obj)->GetDrawMesh();
+                //auto mesh = DynamicCast<UnstructuredMesh>(obj)->GetDrawMesh();
+                auto mesh = DynamicCast<UnstructuredMesh>(obj);
                 points = mesh->GetPoints();
-                faces = mesh->GetFaces();
+                faces = mesh->GetCells();
             } else if (DynamicCast<SurfaceMesh>(obj)) {
                 auto mesh = DynamicCast<SurfaceMesh>(obj);
-                faces = mesh->GetFaces();
                 points = mesh->GetPoints();
+                faces = mesh->GetFaces();
             }
             if (points == nullptr || faces == nullptr) {
                 m_Interactor->RequestBasicStyle();

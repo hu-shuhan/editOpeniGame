@@ -12,6 +12,7 @@
 #ifndef OPENIGAME_IGM_VEC2_H
 #define OPENIGAME_IGM_VEC2_H
 
+#include "./ext/vector_double2.h"
 #include "./ext/vector_float2.h"
 #include "./ext/vector_int2.h"
 #include "./ext/vector_uint2.h"

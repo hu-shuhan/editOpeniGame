@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>30</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -358,6 +358,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_UseOrthographic"/>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ShowCenter"/>
    <addaction name="action_ResetCenter"/>
@@ -485,8 +486,8 @@ border:2px solid #EEF1F7
   <widget class="QDockWidget" name="dockWidget_Animation">
    <property name="minimumSize">
     <size>
-     <width>98</width>
-     <height>44</height>
+     <width>107</width>
+     <height>46</height>
     </size>
    </property>
    <property name="allowedAreas">
@@ -946,6 +947,10 @@ border:2px solid #EEF1F7
    </property>
   </action>
   <action name="action_SaveScreenShot">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/ScreenShot.svg</normaloff>:/Ticon/Icons/ScreenShot.svg</iconset>
+   </property>
    <property name="text">
     <string>保存截屏</string>
    </property>
@@ -971,6 +976,10 @@ border:2px solid #EEF1F7
    </property>
   </action>
   <action name="action_SaveAnimation">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/animation_save_vcr.svg</normaloff>:/Ticon/Icons/animation_save_vcr.svg</iconset>
+   </property>
    <property name="text">
     <string>保存动画</string>
    </property>
@@ -1328,6 +1337,24 @@ border:2px solid #EEF1F7
   <action name="action_BoxClipping_Better">
    <property name="text">
     <string>盒子切割（美观）</string>
+   </property>
+  </action>
+  <action name="action_UseOrthographic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/orthographic.svg</normaloff>:/Ticon/Icons/orthographic.svg</iconset>
+   </property>
+   <property name="text">
+    <string>使用正交投影</string>
+   </property>
+   <property name="toolTip">
+    <string>使用正交投影</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::TextHeuristicRole</enum>
    </property>
   </action>
  </widget>

@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include "iGameColorUtils.h"
 #include "iGameObject.h"
+#include "iGamePoints.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -37,7 +39,9 @@ public:
     static Pointer New() { return new Brush; }
 
     void SetColor(const Color& color);
-    Color GetColor() const;
+    void SetColor(int red, int green, int blue);
+    void SetColor(float red, float green, float blue);
+    Vector3f GetColor() const;
 
     void SetStyle(BrushStyle style);
     BrushStyle GetStyle() const;
@@ -49,7 +53,7 @@ protected:
     Brush();
     ~Brush() override;
 
-    Color m_BrushColor;
+    Vector3f m_BrushColor;
     BrushStyle m_BrushStyle;
     float m_BrushOpacity;
 };

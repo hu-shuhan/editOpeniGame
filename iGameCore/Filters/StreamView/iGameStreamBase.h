@@ -28,7 +28,7 @@ private:
     FloatArray::Pointer m_PositionColors;
 
 public:
-    void Draw(Scene*) override;
+    //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
     std::vector<std::vector<float>> m_StreamLine;
 };

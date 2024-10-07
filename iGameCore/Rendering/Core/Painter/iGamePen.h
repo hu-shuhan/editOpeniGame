@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include "iGameColorUtils.h"
 #include "iGameObject.h"
+#include "iGamePoints.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -25,7 +27,9 @@ public:
     static Pointer New() { return new Pen; }
 
     void SetColor(const Color& color);
-    Color GetColor() const;
+    void SetColor(int red, int green, int blue);
+    void SetColor(float red, float green, float blue);
+    Vector3f GetColor() const;
 
     void SetWidth(float width);
     int GetWidth() const;
@@ -40,7 +44,7 @@ protected:
     Pen();
     ~Pen() override;
 
-    Color m_PenColor;
+    Vector3f m_PenColor;
     float m_PenWidth;
     PenStyle m_PenStyle;
     float m_PenOpacity;

@@ -54,11 +54,19 @@ if(ENABLE_ABAQUS_MODULE)
     endif ()
 endif ()
 
+find_package(FFMPEG)
+if (${FFMPEG_FOUND})
+    message("Find FFMPEG")
+    target_compile_definitions(${MODULE_NAME} PRIVATE FFMPEG_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+endif ()
+
+
 target_compile_definitions(${MODULE_NAME} PRIVATE ASSESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests")
 target_compile_definitions(${MODULE_NAME} PRIVATE SHADERS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders")
 
 IF (WIN32)
-    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
+    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
 ELSEIF (APPLE)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ELSEIF (UNIX)
