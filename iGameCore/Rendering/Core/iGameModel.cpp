@@ -39,23 +39,23 @@ void Model::Draw(Scene* scene) {
             drawObject->m_PointVAO.release();
         }
 
-        if (viewStyle & IG_WIREFRAME) {
-            if (useColor) {
-                scene->GetShader(Scene::NOLIGHT)->use();
-            } else {
-                auto shader = scene->GetShader(Scene::PURECOLOR);
-                shader->use();
-                shader->setUniform(shader->getUniformLocation("inputColor"),
-                                   igm::vec3{0.0f, 0.0f, 0.0f});
-            }
+        //if (viewStyle & IG_WIREFRAME) {
+        //    if (useColor) {
+        //        scene->GetShader(Scene::NOLIGHT)->use();
+        //    } else {
+        //        auto shader = scene->GetShader(Scene::PURECOLOR);
+        //        shader->use();
+        //        shader->setUniform(shader->getUniformLocation("inputColor"),
+        //                           igm::vec3{0.0f, 0.0f, 0.0f});
+        //    }
 
-            drawObject->m_LineVAO.bind();
-            glLineWidth(drawObject->m_LineWidth);
-            glad_glDrawElements(GL_LINES,
-                                drawObject->m_LineIndices->GetNumberOfIds(),
-                                GL_UNSIGNED_INT, 0);
-            drawObject->m_LineVAO.release();
-        }
+        //    drawObject->m_LineVAO.bind();
+        //    glLineWidth(drawObject->m_LineWidth);
+        //    glad_glDrawElements(GL_LINES,
+        //                        drawObject->m_LineIndices->GetNumberOfIds(),
+        //                        GL_UNSIGNED_INT, 0);
+        //    drawObject->m_LineVAO.release();
+        //}
 
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(Scene::BLINNPHONG);

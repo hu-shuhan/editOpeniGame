@@ -1282,6 +1282,16 @@ void igQtMainWindow::initAllMySignalConnections() {
     //	this->rendererWidget->DrawSelectedPoint(points);
     //	});
     //
+     connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this,
+             [&](iGame::DataObject::Pointer res) {
+                 modelTreeWidget->addDataObjectToModelTree(
+                         res, ItemSource::Algorithm);
+             });
+     connect(ui->widget_VectorField, &igQtVectorWidget::UpdateDireVector,
+             this, [&](iGame::DataObject::Pointer res) {
+                 res->Modified();
+                 rendererWidget->update();
+             });
     connect(ui->widget_TensorField, &igQtTensorWidget::DrawTensorGlyphs, this,
             [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->addDataObjectToModelTree(
