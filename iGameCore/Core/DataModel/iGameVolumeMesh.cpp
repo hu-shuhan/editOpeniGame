@@ -1251,7 +1251,6 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
         m_UseColor = true;
         m_ColorWithCell = true;
 
-
         if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
             if (i == -1) {
                 m_ColorMapper->InitRange(attr);
@@ -1259,8 +1258,7 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                 m_ColorMapper->InitRange(attr, i);
             }
         }
-
-
+        
         FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, i);
         if (colors == nullptr) { return; }
 

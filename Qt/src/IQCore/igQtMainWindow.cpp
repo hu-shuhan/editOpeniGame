@@ -891,11 +891,12 @@ void igQtMainWindow::initAllFilters() {
                                    ->GetDataObject();
                 auto box = obj->GetBoundingBox();
                 auto center = (box.min + box.max) * 0.5;
-                float n[3]={0,1,0};
-                float o[3]={(float)center[0],(float)center[1],(float)center[2]};
-                auto filter=UnstructuredMeshClip::New();
-                filter->SetPlane(n,o);
-                filter->SetInput(0,obj);
+                float n[3] = {0, 1, 0};
+                float o[3] = {(float) center[0], (float) center[1],
+                              (float) center[2]};
+                auto filter = UnstructuredMeshClip::New();
+                filter->SetPlane(n, o);
+                filter->SetInput(0, obj);
                 filter->Execute();
                 auto result = filter->GetOutput(0);
                 modelTreeWidget->addDataObjectToModelTree(
@@ -1543,7 +1544,9 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    auto& cplane = inputMesh->GetClipper()->m_Plane;
+                    auto clipper = inputMesh->GetClipper();
+
+                    auto& cplane = clipper->m_Plane;
                     cplane.m_Use = true;
 
                     cplane.m_Origin[0] =
@@ -1571,7 +1574,7 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return;
                     }
 
-                    inputMesh->Modified();
+                    clipper->Modified();
 
                     rendererWidget->update();
                 });
