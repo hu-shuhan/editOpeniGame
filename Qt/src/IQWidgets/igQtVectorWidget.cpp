@@ -10,15 +10,15 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     ui->tailRSlider_3->setValue(100);
     tailRadiusP = 1;
     ui->tailLSlider_4->setValue(100);
-    headRadius = 0.014;
+    headRadius = 0.01;
 
-    ui->headRlineEdit->setText("0.014");
-    headLength = 0.3;
-    ui->headLlineEdit->setText("0.3");
-    tailLength = 0.4;
-    ui->tailLlineEdit->setText("0.4");
-    tailRadius = 0.07;
-    ui->tailRlineEdit->setText("0.07");
+    ui->headRlineEdit->setText("0.01");
+    headLength = 0.03;
+    ui->headLlineEdit->setText("0.03");
+    tailLength = 0.04;
+    ui->tailLlineEdit->setText("0.04");
+    tailRadius = 0.005;
+    ui->tailRlineEdit->setText("0.005");
 
 	connect(ui->headRSlider, SIGNAL(valueChanged(int)),   this,  SLOT(changeHRProportion()));
 	connect(ui->headLSlider_2, SIGNAL(valueChanged(int)), this,  SLOT(changeHLProportion()));

@@ -42,13 +42,15 @@ void iGameVectorBase::DrawVector(std::string VecName) {
     auto colors = mapper->MapScalars(array, -1);
     auto colorsPtr = colors->RawPointer();
     //m_Triangles->AddPoint(Vector3f(0.0, 1.0, 0.0));
-    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
-    //m_Triangles->AddPoint(Vector3f(1.0, 0.0, 0.0));
-    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
-    //m_Triangles->AddPoint(Vector3f(0.0, 0.0, 1.0));
-    //m_PositionColors->AddElement3(1.0, 0.2, 0.3);
+    //m_PositionColors->AddElement3(0.0, 1.0, 0.0);
     //index->AddId(0);
-    return;
+    //m_Triangles->AddPoint(Vector3f(1.0, 0.0, 0.0));
+    //m_PositionColors->AddElement3(1.0, 0.0, 0.0);
+    //index->AddId(1);
+    //m_Triangles->AddPoint(Vector3f(0.0, 0.0, 1.0));
+    //m_PositionColors->AddElement3(0.0, 0.0, 1.0);
+    //index->AddId(2);
+    //return;
     for (int i = 0; i < numOfPoint; i++) {
         float v[4] = {0.0f};
         allVectors.pointer->GetElement(i, v);
@@ -61,7 +63,7 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
     Vector3f L = normal.normalized();
     Vector3f normal1 = Vector3f(0, 1, 0).cross(L);
     Vector3f normal2 = normal1.cross(L);
-    Vector3f centerHigh = coord + normal * (tL + hL);
+    Vector3f centerHigh = coord + L * (tL + hL);
     std::vector<Vector3f> vertices(7);
     std::vector<Vector3f> verticesMid(7);
     std::vector<Vector3f> verticesHigh(7);
@@ -78,16 +80,20 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
     for (int i = 1; i < 5; i++) {
         m_Triangles->AddPoint(vertices[0]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(vertices[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(vertices[i + 1]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
 
         m_Triangles->AddPoint(verticesMid[0]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesMid[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesMid[i + 1]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
@@ -95,16 +101,20 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
     for (int i = 0; i < 6; i++) {
         m_Triangles->AddPoint(vertices[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(vertices[(i + 1) % 6]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesMid[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
 
         m_Triangles->AddPoint(vertices[(i + 1) % 6]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesMid[(i + 1) % 6]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesMid[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
@@ -113,8 +123,10 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
     for (int i = 1; i < 5; i++) {
         m_Triangles->AddPoint(verticesHigh[0]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesHigh[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesHigh[i + 1]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
@@ -123,8 +135,10 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
     for (int i = 0; i < 6; i++) {
         m_Triangles->AddPoint(verticesHigh[i]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(verticesHigh[(i + 1) % 6]);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
+        index->AddId(count++);
         m_Triangles->AddPoint(centerHigh);
         m_PositionColors->AddElement3(RGB[0], RGB[1], RGB[2]);
         index->AddId(count++);
@@ -170,29 +184,8 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord,Vector3f normal,Vector3f
 //}
 
 void iGameVectorBase::ConvertToDrawableData() {
-    if (!m_Flag) {
-        //m_PointVAO.create();
-        //m_VertexVAO.create();
-       // m_LineVAO.create();
-        m_TriangleVAO.create();
+    this->CreateDrawBuffer();
 
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        //m_NormalVBO.create();
-        //m_NormalVBO.target(GL_ARRAY_BUFFER);
-        //m_TextureVBO.create();
-        //m_TextureVBO.target(GL_ARRAY_BUFFER);
-
-        //m_VertexEBO.create();
-        //m_VertexEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        //m_LineEBO.create();
-        //m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO.create();
-        m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_Flag = true;
-    }
     //m_Points->Reset();
     //for (int i = 0; i < m_StreamLine.size(); i++) {
     //    IdArray::Pointer line = IdArray::New();
@@ -211,7 +204,6 @@ void iGameVectorBase::ConvertToDrawableData() {
     m_Positions->Modified();
     m_TriangleIndices = index;
     m_Colors = m_PositionColors;
-
 
     GLAllocateGLBuffer(m_PositionVBO,
                        m_Positions->GetNumberOfValues() * sizeof(float),

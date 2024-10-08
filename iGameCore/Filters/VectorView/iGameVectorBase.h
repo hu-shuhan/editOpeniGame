@@ -10,7 +10,7 @@
 #include <iGameVolumeMesh.h>
 IGAME_NAMESPACE_BEGIN
 class Scene;
-class iGameVectorBase : public Filter, public DrawObject {
+class iGameVectorBase :  public DrawObject {
 public:
     I_OBJECT(iGameVectorBase);
     static iGameVectorBase* New() { return new iGameVectorBase; }
