@@ -28,6 +28,10 @@ int Scene::AddModel(Model::Pointer model) {
 
     ChangeModelVisibility(model.get(), true);
     UpdateModelsBoundingSphere();
+
+    auto drawMesh = DynamicCast<DrawObject>(model->m_DataObject);
+    drawMesh->ConvertToDrawableData();
+
     return newModelId;
 }
 
@@ -684,74 +688,20 @@ void Scene::Draw() {
     ResolveFrame();
     m_FramebufferResolved.release();
 
-    // render to screen
+    // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
     RenderToQtFrame();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
-    auto width = m_Camera->GetScaledViewPort().x;
-    auto height = m_Camera->GetScaledViewPort().y;
-
     // render to my framebuffer
     m_Framebuffer.bind();
     DrawFrame();
     m_Framebuffer.release();
 
-    //glViewport(0, 0, width, height);
-    //glBindFramebuffer(GL_FRAMEBUFFER, m_Framebuffer);
-    //{
-    //    //reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
-    //    glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-    //                 m_BackgroundColor.b, 1.0f);
-    //    glClearDepth(0.0f);
-    //    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //
-    //    // use reversed-z buffer
-    //    glEnable(GL_DEPTH_TEST);
-    //    glDepthFunc(GL_GREATER);
-    //    DrawFrame();
-    //}
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // render to screen
+    // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
     RenderToQtFrame();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-<<<<<<< HEAD
-    auto shader = GetShader(Scene::SCREEN);
-    shader->use();
-
-    m_ColorTexture.active(GL_TEXTURE1);
-    m_DepthTexture.active(GL_TEXTURE2);
-    m_DepthPyramid.active(GL_TEXTURE3);
-    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
-
-    m_EmptyVAO.bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO.release();
-}
-//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-=======
-    //{
-    //    glViewport(0, 0, width, height);
-    //    glClear(GL_COLOR_BUFFER_BIT);
-    //    glDisable(GL_DEPTH_TEST);
-    //
-    //    auto shader = GetShader(Scene::SCREEN);
-    //    shader->use();
-    //
-    //    m_ColorTexture.active(GL_TEXTURE1);
-    //    m_DepthTexture.active(GL_TEXTURE2);
-    //    m_DepthPyramid.active(GL_TEXTURE3);
-    //    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
-    //
-    //    m_EmptyVAO.bind();
-    //    glDrawArrays(GL_TRIANGLES, 0, 3);
-    //    m_EmptyVAO.release();
-    //}
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
->>>>>>> da3251f28066ec940d8e180510dc22092e0bf9f2
 #endif
 
     CalculateFrameRate();
@@ -822,9 +772,14 @@ void Scene::DrawFrame() {
 
     // convert to drawable data
     for (auto& [id, model]: m_Models) {
+        if (!model->m_DataObject->IsDrawable()) { continue; }
+
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject == nullptr) continue;
-        drawObject->ConvertToDrawableData();
+        if (drawObject->GetClipper()->GetMTime() > drawObject->GetMTime()) {
+            drawObject->ConvertToDrawableData();
+        }
+        drawObject->ReAllocateDisplayBuffer();
+        drawObject->Modified();
     }
 
     // update camera data block in GPU
@@ -917,11 +872,7 @@ void Scene::RenderToQtFrame() {
 
 void Scene::ForwardPass() {
 #ifdef IGAME_OPENGL_VERSION_330
-    for (auto& [id, model]: m_Models) {
-        UpdateObjectDataBlock(model);
-        UpdateUniformBufferObjectBlock(model);
-        model->Draw(this);
-    }
+    for (auto& [id, model]: m_Models) { model->Draw(this); }
 #elif IGAME_OPENGL_VERSION_460
     bool debug = false;
     if (debug) {

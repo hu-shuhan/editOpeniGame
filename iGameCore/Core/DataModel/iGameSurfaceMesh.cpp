@@ -753,144 +753,98 @@ IGsize SurfaceMesh::GetRealMemorySize() {
     return res + sizeof(IGsize);
 }
 
-//void SurfaceMesh::SetFaceColor(const float color[3]) {
-//    m_FaceColor[0] = color[0];
-//    m_FaceColor[1] = color[1];
-//    m_FaceColor[2] = color[2];
-//    m_UseColor = true;
-//    this->Modified();
-//}
-//
-//const float* SurfaceMesh::GetFaceColor() const { return this->m_FaceColor; }
-//
-//void SurfaceMesh::SetFaceTransparency(float val) {
-//    this->m_FaceTransparency = val;
-//    this->Modified();
-//}
-//
-//float SurfaceMesh::GetFaceTransparency() const {
-//    return this->m_FaceTransparency;
-//}
-
-//void SurfaceMesh::Draw(Scene* scene) {
-//    if (!m_Visibility) { return; }
-//
-//    if (m_DrawMesh) {
-//        m_DrawMesh->SetViewStyle(m_ViewStyle);
-//        return m_DrawMesh->Draw(scene);
-//    }
-//
-//    // update uniform buffer
-//    if (m_UseColor) {
-//        scene->UBO().useColor = true;
-//    } else {
-//        scene->UBO().useColor = false;
-//    }
-//    scene->UpdateUniformBuffer();
-//
-//    if (m_UseColor && m_ColorWithCell) {
-//        scene->GetShader(Scene::BLINNPHONG)->use();
-//        m_CellVAO.bind();
-//        glad_glDrawArrays(GL_TRIANGLES, 0, m_CellPositionSize);
-//        m_CellVAO.release();
-//        return;
-//    }
-//
-//    if (m_ViewStyle & IG_POINTS) {
-//        scene->GetShader(Scene::NOLIGHT)->use();
-//
-//        m_PointVAO.bind();
-//        glad_glPointSize(8);
-//        glad_glDepthRange(0.000001, 1);
-//        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
-//        glad_glDepthRange(0, 1);
-//        m_PointVAO.release();
-//    }
-//
-//    if (m_ViewStyle & IG_WIREFRAME) {
-//        if (m_UseColor) {
-//            scene->GetShader(Scene::NOLIGHT)->use();
-//        } else {
-//            auto shader = scene->GetShader(Scene::PURECOLOR);
-//            shader->use();
-//            shader->setUniform(shader->getUniformLocation("inputColor"),
-//                               igm::vec3{0.0f, 0.0f, 0.0f});
-//        }
-//
-//        m_LineVAO.bind();
-//        glLineWidth(m_LineWidth);
-//        glad_glDrawElements(GL_LINES, m_LineIndices->GetNumberOfIds(),
-//                            GL_UNSIGNED_INT, 0);
-//        m_LineVAO.release();
-//    }
-//
-//    if (m_ViewStyle & IG_SURFACE) {
-//        auto shader = scene->GetShader(Scene::BLINNPHONG);
-//        shader->use();
-//        shader->setUniform(shader->getUniformLocation("transparency"),
-//                           m_FaceTransparency);
-//
-//        m_TriangleVAO.bind();
-//        glEnable(GL_POLYGON_OFFSET_FILL);
-//        glPolygonOffset(-0.5f, -0.5f);
-//        glad_glDrawElements(GL_TRIANGLES, m_TriangleIndices->GetNumberOfIds(),
-//                            GL_UNSIGNED_INT, 0);
-//        glDisable(GL_POLYGON_OFFSET_FILL);
-//        m_TriangleVAO.release();
-//    }
-//}
-//
-
 void SurfaceMesh::ConvertToDrawableData() {
-    this->CreateDrawBuffer();
-    if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
-
-    m_Positions = m_Points->ConvertToArray();
+    GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices);
     m_Positions->Modified();
+    m_LineIndices->Modified();
+    m_TriangleIndices->Modified();
+#ifdef IGAME_OPENGL_VERSION_460
+    bool debug = false;
+    if (debug) {
+        m_Meshlets->BuildMeshlet(
+                m_Positions->RawPointer(), m_Positions->GetNumberOfValues() / 3,
+                m_TriangleIndices->RawPointer(),
+                m_TriangleIndices->GetNumberOfValues(), m_TriangleEBO);
+    }
+#endif
+}
+
+void SurfaceMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
+    surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
+                                  m_TriangleIndices);
+    m_Positions->Modified();
+    m_LineIndices->Modified();
+    m_TriangleIndices->Modified();
+}
+
+void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
+                                   UnsignedIntArray::Pointer& lineIndices,
+                                   UnsignedIntArray::Pointer& triangleIndices) {
+    positions = m_Points->ConvertToArray();
+
+    lineIndices->Reset();
+    lineIndices->SetDimension(2);
+
+    triangleIndices->Reset();
+    triangleIndices->SetDimension(3);
 
     // set line indices
     if (this->GetEdges() == nullptr) { this->BuildEdges(); }
 
     if (m_Clipper->IsAllDisable()) {
-        m_LineIndices = this->GetEdges()->GetCellIdArray();
-
         // set triangle indices
-        IdArray::Pointer triangleIndices = IdArray::New();
         int i, ncell;
         igIndex cell[32]{};
+
+        for (i = 0; i < this->GetNumberOfEdges(); i++) {
+            ncell = this->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                throw std::runtime_error("The index of the edge is negative.");
+            } else {
+                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]),
+                                         static_cast<iguIndex>(cell[1]));
+            }
+        }
 
         for (i = 0; i < this->GetNumberOfFaces(); i++) {
             ncell = this->GetFacePointIds(i, cell);
             for (int j = 2; j < ncell; j++) {
-                triangleIndices->AddId(cell[0]);
-                triangleIndices->AddId(cell[j - 1]);
-                triangleIndices->AddId(cell[j]);
+                triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
+                //triangleIndices->AddId(cell[0]);
+                //triangleIndices->AddId(cell[j - 1]);
+                //triangleIndices->AddId(cell[j]);
             }
         }
-        m_TriangleIndices = triangleIndices;
     } else {
-        IdArray::Pointer lineIndices = IdArray::New();
-        igIndex edge[2];
-        for (int i = 0; i < this->GetEdges()->GetNumberOfCells(); ++i) {
-            this->GetEdges()->GetCellIds(i, edge);
-            bool visible = true;
-            for (int j = 0; j < 2; ++j) {
-                const auto& point = this->GetPoint(edge[j]);
-                if (!m_Clipper->IsVisible(point.pointer())) {
-                    visible = false;
-                    break;
-                }
-            }
-            if (!visible) continue;
-            lineIndices->AddId(edge[0]);
-            lineIndices->AddId(edge[1]);
-        }
-        m_LineIndices = lineIndices;
+        //igIndex edge[2];
+        //for (int i = 0; i < this->GetEdges()->GetNumberOfCells(); ++i) {
+        //    this->GetEdges()->GetCellIds(i, edge);
+        //    bool visible = true;
+        //    for (int j = 0; j < 2; ++j) {
+        //        const auto& point = this->GetPoint(edge[j]);
+        //        if (!m_Clipper->IsVisible(point.pointer())) {
+        //            visible = false;
+        //            break;
+        //        }
+        //    }
+        //    if (!visible) continue;
+        //    lineIndices->AddId(edge[0]);
+        //    lineIndices->AddId(edge[1]);
+        //}
 
         // set triangle indices
-        IdArray::Pointer triangleIndices = IdArray::New();
         int i, ncell;
         igIndex cell[32]{};
+
+        for (i = 0; i < this->GetNumberOfEdges(); i++) {
+            ncell = this->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                throw std::runtime_error("The index of the edge is negative.");
+            } else {
+                lineIndices->AddElement2(static_cast<iguIndex>(cell[0]),
+                                         static_cast<iguIndex>(cell[1]));
+            }
+        }
 
         for (i = 0; i < this->GetNumberOfFaces(); i++) {
             ncell = this->GetFacePointIds(i, cell);
@@ -904,95 +858,16 @@ void SurfaceMesh::ConvertToDrawableData() {
             }
             if (!visible) continue;
             for (int j = 2; j < ncell; j++) {
-                triangleIndices->AddId(cell[0]);
-                triangleIndices->AddId(cell[j - 1]);
-                triangleIndices->AddId(cell[j]);
+                triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
+                //triangleIndices->AddId(cell[0]);
+                //triangleIndices->AddId(cell[j - 1]);
+                //triangleIndices->AddId(cell[j]);
             }
         }
-        m_TriangleIndices = triangleIndices;
-    }
-
-    // set triangles
-    //if (m_UseColor) {
-    //    IGsize numberOfPoints = m_Positions->GetNumberOfElements();
-    //    m_Colors = FloatArray::New();
-    //    m_Colors->SetDimension(3);
-    //    m_Colors->Resize(numberOfPoints);
-    //    for (IGsize i = 0; i < numberOfPoints; ++i) {
-    //        m_Colors->SetElement(i, m_FaceColor);
-    //    }
-    //}
-
-    // allocate buffer
-    {
-        GLAllocateGLBuffer(m_PositionVBO,
-                           m_Positions->GetNumberOfValues() * sizeof(float),
-                           m_Positions->RawPointer());
-
-        //if (m_UseColor) {
-        //    GLAllocateGLBuffer(m_ColorVBO,
-        //                       m_Colors->GetNumberOfValues() * sizeof(float),
-        //                       m_Colors->RawPointer());
-        //}
-
-        GLAllocateGLBuffer(m_LineEBO,
-                           m_LineIndices->GetNumberOfIds() * sizeof(igIndex),
-                           m_LineIndices->RawPointer());
-
-        GLAllocateGLBuffer(m_TriangleEBO,
-                           m_TriangleIndices->GetNumberOfIds() *
-                                   sizeof(igIndex),
-                           m_TriangleIndices->RawPointer());
-    }
-
-    // set vertex attribute pointer
-    {
-        // point
-        m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                                3 * sizeof(float));
-        GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        // line
-        m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                               3 * sizeof(float));
-        GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-        m_LineVAO.elementBuffer(m_LineEBO);
-
-        // triangle
-        m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                                   3 * sizeof(float));
-        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-        //if (m_UseColor) {
-        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-        //                               3 * sizeof(float));
-        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //}
-        m_TriangleVAO.elementBuffer(m_TriangleEBO);
-
-#ifdef IGAME_OPENGL_VERSION_460
-        bool debug = false;
-        if (debug) {
-            m_Meshlets->BuildMeshlet(m_Positions->RawPointer(),
-                                     m_Positions->GetNumberOfValues() / 3,
-                                     m_TriangleIndices->RawPointer(),
-                                     m_TriangleIndices->GetNumberOfIds(),
-                                     m_TriangleEBO);
-        }
-#endif
     }
 }
 
 void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-    if (m_DrawMesh) {
-        m_DrawMesh->SetColorMapper(m_ColorMapper);
-        m_AttributeIndex = index;
-        m_AttributeDimension = demension;
-        return m_DrawMesh->ViewCloudPicture(scene, index, demension);
-    }
     if (index == -1) {
         m_UseColor = false;
         m_ViewAttribute = nullptr;
@@ -1001,7 +876,7 @@ void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
         scene->Update();
         return;
     }
-    scene->MakeCurrent();
+
     m_AttributeIndex = index;
     auto& attr = this->GetAttributeSet()->GetAttribute(index);
     if (!attr.isDeleted) {
@@ -1012,7 +887,7 @@ void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
             this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
                                            demension);
     }
-    scene->DoneCurrent();
+
     scene->Update();
 }
 
@@ -1036,25 +911,11 @@ void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
             }
         }
         m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+        m_Colors->Modified();
         if (m_Colors == nullptr) { return; }
+
         range.first = m_ColorMapper->GetRange()[0];
         range.second = m_ColorMapper->GetRange()[1];
-        GLAllocateGLBuffer(m_ColorVBO,
-                           m_Colors->GetNumberOfValues() * sizeof(float),
-                           m_Colors->RawPointer());
-
-        m_PointVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                   3 * sizeof(float));
-        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
     }
 }
 
@@ -1075,12 +936,6 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                 m_ColorMapper->InitRange(attr, dimension);
             }
         }
-
-        //        if (dimension == -1) {
-        //            mapper->InitRange(attr);
-        //        } else {
-        //            mapper->InitRange(attr, dimension);
-        //        }
 
         FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
         if (colors == nullptr) { return; }
@@ -1109,21 +964,11 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
         }
         m_CellPositionSize = newPositions->GetNumberOfElements();
 
-        GLAllocateGLBuffer(m_CellPositionVBO,
-                           newPositions->GetNumberOfValues() * sizeof(float),
-                           newPositions->RawPointer());
-        GLAllocateGLBuffer(m_CellColorVBO,
-                           newColors->GetNumberOfValues() * sizeof(float),
-                           newColors->RawPointer());
+        m_CellPositions = newPositions;
+        m_CellPositions->Modified();
 
-        m_CellVAO.vertexBuffer(GL_VBO_IDX_0, m_CellPositionVBO, 0,
-                               3 * sizeof(float));
-        GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-        m_CellVAO.vertexBuffer(GL_VBO_IDX_1, m_CellColorVBO, 0,
-                               3 * sizeof(float));
-        GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
+        m_CellColors = newColors;
+        m_CellColors->Modified();
     }
 }
 

@@ -2,6 +2,8 @@
 #include "iGameScene.h"
 IGAME_NAMESPACE_BEGIN
 iGameTensorWidgetBase::iGameTensorWidgetBase() {
+    this->Modified();
+
     this->m_TensorManager = iGameTensorRepresentation::New();
     this->m_TensorManager->SetSliceNum(5);
     this->m_DrawGlyphPoints = Points::New();
@@ -69,7 +71,6 @@ void iGameTensorWidgetBase::UpdateGlyphDrawIndexData() {
     }
 }
 void iGameTensorWidgetBase::UpdateGlyphDrawColor() {
-    m_DrawGlyphColors = nullptr;
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
     if (PointNum == 0 || this->m_PositionColors == nullptr ||
         this->m_PositionColors->GetNumberOfElements() != PointNum) {
@@ -97,11 +98,15 @@ void iGameTensorWidgetBase::UpdateGlyphDrawColor() {
 void iGameTensorWidgetBase::UpdateGlyphScale(double s) {
     this->m_TensorManager->SetScale(s);
     UpdateGlyphDrawPositionData();
+
+    this->ConvertToDrawableData();
 }
 
 void iGameTensorWidgetBase::SetPositionColors(FloatArray::Pointer colors) {
     this->m_PositionColors = colors;
     UpdateGlyphDrawColor();
+
+    this->ConvertToDrawableData();
 }
 
 DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
@@ -127,133 +132,19 @@ DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
     }
     return m_EigenVector;
 }
-//void iGameTensorWidgetBase::Draw(Scene* scene)
-//{
-//	if (!m_Visibility) { return; }
-//	// Update uniform buffer
-//	if (m_UseColor) {
-//		scene->UBO().useColor = true;
-//	}
-//	else {
-//		scene->UBO().useColor = false;
-//	}
-//	scene->UpdateUniformBuffer();
-//
-//	if (m_ViewStyle & IG_POINTS) {
-//		scene->GetShader(Scene::NOLIGHT)->use();
-//		m_PointVAO.bind();
-//		//        glPointSize(m_PointSize);
-//		glPointSize(9);
-//		glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
-//		m_PointVAO.release();
-//
-//	}
-//	//if (m_ViewStyle & IG_WIREFRAME) {
-//	//	if (m_UseColor) {
-//	//		scene->GetShader(Scene::NOLIGHT)->use();
-//	//	}
-//	//	else {
-//	//		auto shader = scene->GetShader(Scene::PURECOLOR);
-//	//		shader->use();
-//	//		shader->setUniform(shader->getUniformLocation("inputColor"),
-//	//			igm::vec3{ 0.0f, 0.0f, 0.0f });
-//	//	}
-//
-//	//	m_LineVAO.bind();
-//	//	glLineWidth(m_LineWidth);
-//	//	glad_glDrawElements(GL_LINES, M_LineIndices->GetNumberOfValues(),
-//	//		GL_UNSIGNED_INT, 0);
-//	//	m_LineVAO.release();
-//	//}
-//	if (m_ViewStyle & IG_SURFACE) {
-//		scene->GetShader(Scene::BLINNPHONG)->use();
-//		m_TriangleVAO.bind();
-//		glad_glDrawElements(GL_TRIANGLES,
-//			M_TriangleIndices->GetNumberOfValues(),
-//			GL_UNSIGNED_INT, 0);
-//		m_TriangleVAO.release();
-//	}
-//
-//}
 
 void iGameTensorWidgetBase::ConvertToDrawableData() {
-    this->CreateDrawBuffer();
-
     m_Positions = m_DrawGlyphPoints->ConvertToArray();
     m_Positions->Modified();
 
-    //M_TriangleIndices = m_DrawGlyphPointOrders;
-    for (int i = 0; i < m_DrawGlyphPointOrders->GetNumberOfValues(); i++) {
-        //std::cout << static_cast<igIndex>(
-        //                     *m_DrawGlyphPointOrders->RawPointer() + i)
-        //          << std::endl;
-        m_TriangleIndices->AddId(static_cast<igIndex>(
-                *(m_DrawGlyphPointOrders->RawPointer() + i)));
-    }
+    m_TriangleIndices = m_DrawGlyphPointOrders;
+    m_TriangleIndices->Modified();
 
-    m_Colors = m_DrawGlyphColors;
+    if (m_DrawGlyphColors->GetNumberOfValues() != 0) {
+        m_Colors = m_DrawGlyphColors;
+        m_Colors->Modified();
 
-
-    GLAllocateGLBuffer(m_PositionVBO,
-                       m_Positions->GetNumberOfValues() * sizeof(float),
-                       m_Positions->RawPointer());
-
-    //GLAllocateGLBuffer(m_VertexEBO,
-    //	M_VertexIndices->GetNumberOfValues() *
-    //	sizeof(unsigned int),
-    //	M_VertexIndices->RawPointer());
-
-    //GLAllocateGLBuffer(m_LineEBO,
-    //	M_LineIndices->GetNumberOfValues() *
-    //	sizeof(unsigned int),
-    //	M_LineIndices->RawPointer());
-
-    //GLAllocateGLBuffer(m_TriangleEBO,
-    //                   M_TriangleIndices->GetNumberOfValues() *
-    //                           sizeof(unsigned int),
-    //                   M_TriangleIndices->RawPointer());
-    GLAllocateGLBuffer(m_TriangleEBO,
-                       m_TriangleIndices->GetNumberOfIds() * sizeof(igIndex),
-                       m_TriangleIndices->RawPointer());
-
-    m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                      GL_FALSE, 0);
-
-    //m_VertexVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-    //GLSetVertexAttrib(m_VertexVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-    //	GL_FALSE, 0);
-    //m_VertexVAO.elementBuffer(m_VertexEBO);
-
-    //m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-    //GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-    //	GL_FALSE, 0);
-    //m_LineVAO.elementBuffer(m_LineEBO);
-
-    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                               3 * sizeof(float));
-    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                      GL_FLOAT, GL_FALSE, 0);
-    m_TriangleVAO.elementBuffer(m_TriangleEBO);
-    m_UseColor = false;
-    if (m_Colors != nullptr) {
-        m_UseColor = true;
-        GLAllocateGLBuffer(m_ColorVBO,
-                           m_Colors->GetNumberOfValues() * sizeof(float),
-                           m_Colors->RawPointer());
-
-        m_PointVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        //m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        //GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
-        //	GL_FALSE, 0);
-
-        m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                   3 * sizeof(float));
-        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
+        if (m_Colors != nullptr) { m_UseColor = true; }
     }
 }
 IGAME_NAMESPACE_END

@@ -10,11 +10,12 @@
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <IQCore/igQtFileLoader.h>
+#include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
+#include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
-#include <IQWidgets/igQtCharts.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 用于 open
@@ -22,9 +23,8 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
-#include <stdio.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
-#include <IQCore/igQtOpenGLWidgetManager.h>
+#include <stdio.h>
 
 #include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
@@ -33,7 +33,7 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
     modelTreeWidget = new igQtModelDialogWidget(this);
     rendererWidget = new igQtModelDrawWidget(this);
     igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
-//    rendererWidget->setParent(this);
+    //    rendererWidget->setParent(this);
     fileLoader = new igQtFileLoader(this);
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
@@ -66,7 +66,6 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
-
 }
 void igQtMainWindow::initToolbarComponent() {
 
@@ -255,34 +254,34 @@ void igQtMainWindow::initAllComponents() {
                 rendererWidget->GetScene()->rotateNinetyCounterClockwise();
                 rendererWidget->update();
             });
-    connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&](){
-
-        QString path = QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
+    connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
+        QString path = QFileDialog::getSaveFileName(
+                nullptr, "Save Screen shot", "",
+                "PNG Images(*.png);;BMP Images(*.bmp)");
         igQtScreenShotOptionDialog dialog(this);
         dialog.setWindowTitle("Save ScreenShot Option.");
-        int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
+        int oldwidth = rendererWidget->width(),
+            oldheight = rendererWidget->height();
         int ratio_pixel = rendererWidget->devicePixelRatio();
         int width = 1920, height = 1080;
         if (dialog.exec() == QDialog::Accepted) {
             auto input = dialog.getInput();
             width = input.first, height = input.second;
-
         }
 
         width /= ratio_pixel, height /= ratio_pixel;
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
-        if(saved_image.save(path, "BMP")){
+        if (saved_image.save(path, "BMP")) {
             QMessageBox::information(this, "", "保存成功");
-        }else {
+        } else {
             QMessageBox::information(this, "", "保存失败");
         }
         rendererWidget->resize(oldwidth, oldheight);
     });
 
-    connect(ui->action_SaveAnimation, &QAction::triggered, this, [&](){
-        ui->widget_Animation->saveAnimation();
-    });
+    connect(ui->action_SaveAnimation, &QAction::triggered, this,
+            [&]() { ui->widget_Animation->saveAnimation(); });
 
     initAllMySignalConnections();
     initAllDockWidgetConnectWithAction();
@@ -291,14 +290,17 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
-        auto mesh = DynamicCast<SurfaceMesh>(SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject())  ;
+        auto mesh = DynamicCast<SurfaceMesh>(SceneManager::Instance()
+                                                     ->GetCurrentScene()
+                                                     ->GetCurrentModel()
+                                                     ->GetDataObject());
         mesh->BuildEdges();
         mesh->BuildEdgeLinks();
         mesh->BuildFaceLinks();
         mesh->BuildFaceEdgeLinks();
-        for(int i = 0; i < 100; i ++){
-//            igIndex ids[32];
-//            int size = mesh->GetPointToNeighborEdges(i, ids);
+        for (int i = 0; i < 100; i++) {
+            //            igIndex ids[32];
+            //            int size = mesh->GetPointToNeighborEdges(i, ids);
             mesh->DeletePoint(i);
         }
         mesh->GarbageCollection();
@@ -507,9 +509,13 @@ void igQtMainWindow::initAllFilters() {
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-        auto chart=new igQtCharts;
-        auto dataarray = 
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject()->GetAttributeSet()->GetAttribute(0).pointer;
+        auto chart = new igQtCharts;
+        auto dataarray = rendererWidget->GetScene()
+                                 ->GetCurrentModel()
+                                 ->GetDataObject()
+                                 ->GetAttributeSet()
+                                 ->GetAttribute(0)
+                                 .pointer;
         //auto dataarray=DoubleArray::New();
         //dataarray->AddValue(1.0);
         //dataarray->AddValue(2.0);
@@ -518,7 +524,6 @@ void igQtMainWindow::initAllFilters() {
         //dataarray->AddValue(6.0);
         chart->draw(dataarray);
         chart->exec();
-
     });
     auto action_loadtest = ui->menu_help->addAction("loadtest");
     connect(action_loadtest, &QAction::triggered, this, [&](bool checked) {
@@ -865,13 +870,13 @@ void igQtMainWindow::initAllFilters() {
                 rendererWidget->update();
             });
 
-        connect(ui->menuTest->addAction("executeMarchingCubes"), &QAction::triggered, this,
-            [&](bool checked) {
+    connect(ui->menuTest->addAction("executeMarchingCubes"),
+            &QAction::triggered, this, [&](bool checked) {
                 auto obj = rendererWidget->GetScene()
                                    ->GetCurrentModel()
                                    ->GetDataObject();
-                auto MC=iGameMarchingCubes::New();
-                MC->SetInput(0,obj);
+                auto MC = iGameMarchingCubes::New();
+                MC->SetInput(0, obj);
                 MC->SetValue(0.23);
                 MC->Execute();
                 auto result = MC->GetOutput(0);
@@ -879,12 +884,12 @@ void igQtMainWindow::initAllFilters() {
                         result, ItemSource::Algorithm);
                 rendererWidget->update();
             });
-        connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
+    connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
             [&](bool checked) {
                 auto obj = rendererWidget->GetScene()
-                    ->GetCurrentModel()
-                    ->GetDataObject();
-                auto box=obj->GetBoundingBox();
+                                   ->GetCurrentModel()
+                                   ->GetDataObject();
+                auto box = obj->GetBoundingBox();
                 auto center = (box.min + box.max) * 0.5;
                 float n[3]={0,1,0};
                 float o[3]={(float)center[0],(float)center[1],(float)center[2]};
@@ -894,7 +899,7 @@ void igQtMainWindow::initAllFilters() {
                 filter->Execute();
                 auto result = filter->GetOutput(0);
                 modelTreeWidget->addDataObjectToModelTree(
-                    result, ItemSource::Algorithm);
+                        result, ItemSource::Algorithm);
                 rendererWidget->update();
             });
 }
@@ -913,7 +918,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_VectorField->show();
         ui->widget_VectorField->updateVectorNameList();
-        });
+    });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_TensorField->show();
         ui->widget_TensorField->UpdateScalarsNameList();
@@ -1256,27 +1261,27 @@ void igQtMainWindow::initAllMySignalConnections() {
     // connect(ui->modelTreeView, &igQtModelListView::ChangeModelVisible,
     // rendererWidget, &igQtModelDrawWidget::changeTargetModelVisible);
 
-     //connect(ui->widget_QualityDetection,
-     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
-     //&igQtModelDrawWidget::UpdateCurrentModel); 
+    //connect(ui->widget_QualityDetection,
+    //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
+    //&igQtModelDrawWidget::UpdateCurrentModel);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow,
             this, &igQtMainWindow::updateColorBarShow);
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
-    connect(ui->widget_ScalarField,&igQtScalarViewWidget::ChangeShowColorManager, this, [&]() { 
-         if(this->ColorManagerWidget->isHidden()) {
-    		this->ColorManagerWidget->resetColorRange();
-    		this->ColorManagerWidget->show();
-         }
-    	else {
-    		this->ColorManagerWidget->hide();
-    	}
-    	});
-     connect(this->ColorManagerWidget,
-     &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
-    	ui->widget_ScalarField->updateDrawStyle();
-    	this->rendererWidget->getColorBarWidget()->update();
-    	});
+    connect(ui->widget_ScalarField,
+            &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
+                if (this->ColorManagerWidget->isHidden()) {
+                    this->ColorManagerWidget->resetColorRange();
+                    this->ColorManagerWidget->show();
+                } else {
+                    this->ColorManagerWidget->hide();
+                }
+            });
+    connect(this->ColorManagerWidget,
+            &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
+                ui->widget_ScalarField->updateDrawStyle();
+                this->rendererWidget->getColorBarWidget()->update();
+            });
     // connect(ui->widget_EditMode, &igQtEditModeWidget::ChangeCutFlag,
     // rendererWidget, &igQtModelDrawWidget::UpdateCutFlag);
     // connect(ui->widget_EditMode,
@@ -1300,16 +1305,16 @@ void igQtMainWindow::initAllMySignalConnections() {
     //	this->rendererWidget->DrawSelectedPoint(points);
     //	});
     //
-     connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this,
-             [&](iGame::DataObject::Pointer res) {
-                 modelTreeWidget->addDataObjectToModelTree(
-                         res, ItemSource::Algorithm);
-             });
-     connect(ui->widget_VectorField, &igQtVectorWidget::UpdateDireVector,
-             this, [&](iGame::DataObject::Pointer res) {
-                 res->Modified();
-                 rendererWidget->update();
-             });
+    connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this,
+            [&](iGame::DataObject::Pointer res) {
+                modelTreeWidget->addDataObjectToModelTree(
+                        res, ItemSource::Algorithm);
+            });
+    connect(ui->widget_VectorField, &igQtVectorWidget::UpdateDireVector, this,
+            [&](iGame::DataObject::Pointer res) {
+                res->Modified();
+                rendererWidget->update();
+            });
     connect(ui->widget_TensorField, &igQtTensorWidget::DrawTensorGlyphs, this,
             [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->addDataObjectToModelTree(
@@ -1317,7 +1322,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateTensorGlyphs, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
+                //res->Modified();
                 rendererWidget->update();
             });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateAttributes, this,
@@ -1444,7 +1449,9 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    auto& cbox = inputMesh->GetClipper()->m_Box;
+                    auto clipper = inputMesh->GetClipper();
+
+                    auto& cbox = clipper->m_Box;
                     cbox.m_Use = true;
 
                     cbox.m_Bmin[0] =
@@ -1473,7 +1480,7 @@ void igQtMainWindow::initAllMySignalConnections() {
                                             1.);
                     cbox.m_Flip = dialog->getChecked(flip_id, ok);
 
-                    inputMesh->Modified();
+                    clipper->Modified();
 
                     rendererWidget->update();
                 });
