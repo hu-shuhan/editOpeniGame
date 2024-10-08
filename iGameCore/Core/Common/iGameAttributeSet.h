@@ -110,65 +110,118 @@ public:
 
 		auto Scalars = this->GetAllScarleAttributes();
 		int size = Scalars->GetNumberOfElements();
-			for (int i = 0; i < size; i++) {
-				auto scalarDataArray = Scalars->GetElement(i);
-				auto name = scalarDataArray.pointer->GetName();
-				auto attachmentType = scalarDataArray.attachmentType;
-                std::cout << "attachmentType:" << attachmentType<< std::endl;
-				bool isvector = false;
-				if (name[name.length() - 1] == 'X') {
-					isvector = true;
-					int j = 1;
-					for ( j = 1; j < 3; j++) {
-						auto scalarDataArray = Scalars->GetElement(i);
-						if (i + j >= size)break;
-						auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-						if (tmpName[tmpName.length() - 1] != 'X' + j) {
-							isvector = false;
-						}
+		for (int i = 0; i < size; i++) {
+			auto scalarDataArray = Scalars->GetElement(i);
+			auto name = scalarDataArray.pointer->GetName();
+			auto attachmentType = scalarDataArray.attachmentType;
+			std::cout << "attachmentType:" << attachmentType << std::endl;
+			bool isvector = false;
+			if (name[name.length() - 1] == 'X') {
+				isvector = true;
+				int j = 1;
+				for (j = 1; j < 3; j++) {
+					auto scalarDataArray = Scalars->GetElement(i);
+					if (i + j >= size)break;
+					auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
+					if (tmpName[tmpName.length() - 1] != 'X' + j) {
+						isvector = false;
 					}
 				}
+			}
 
-				if (isvector) {
-					FloatArray::Pointer Vector = FloatArray::New();
-					Vector->SetName(name.substr(0, name.length() - 1));
-					Vector->SetDimension(3);
-					Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
-					float* vector = Vector->RawPointer();
-					igIndex index = 0;
-					int j = 0;
-					for (j = 0; j < 3; j++) {
-						auto scalarData = Scalars->GetElement(i + j).pointer;
-						index = j;
-						int k=0;
-						for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
-							vector[index] = scalarData->GetValue(k);
-							index += 3;
-						}
-						//delete scalarData;
+			if (isvector) {
+				FloatArray::Pointer Vector = FloatArray::New();
+				Vector->SetName(name.substr(0, name.length() - 1));
+				Vector->SetDimension(3);
+				Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
+				float* vector = Vector->RawPointer();
+				igIndex index = 0;
+				int j = 0;
+				for (j = 0; j < 3; j++) {
+					auto scalarData = Scalars->GetElement(i + j).pointer;
+					index = j;
+					int k = 0;
+					for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
+						vector[index] = scalarData->GetValue(k);
+						index += 3;
 					}
-					this->AddVector(attachmentType,Vector);
-					i += 2;
+					//delete scalarData;
 				}
-			}
-	}
-	void AllocateSizeWithCopy(AttributeSet* ps, IGsize numCells) {
-		auto allarray = ps->GetAllAttributes();
-		this->m_Buffer->Resize(allarray->Size());
-		for (int i = 0; i < allarray->Size(); i++) {
-			auto& array = ps->GetAttribute(i);
-			if (array.attachmentType == IG_POINT) {
-				this->m_Buffer->AddElement(array);
-			}
-			else {
-				Attribute EmptyArray;
-				EmptyArray.type = IG_ARRAY_OBJECT;
-				EmptyArray.attachmentType = IG_CELL;
-				EmptyArray.isDeleted = false;
-				this->m_Buffer->AddElement(EmptyArray);
+				this->AddVector(attachmentType, Vector);
+				i += 2;
 			}
 		}
 	}
+	void CopyPointData(AttributeSet::Pointer inData, igIndex inIndex, igIndex copyIndex = -1) {
+		auto allAttributes = inData->GetAllAttributes();
+		this->m_Buffer->Resize(allAttributes->Size());
+		double values[256] = { 0 };
+		for (int i = 0; i < allAttributes->Size(); i++) {
+			auto& attr = allAttributes->GetElement(i);
+			if (attr.attachmentType == IG_POINT) {
+				auto inArray = attr.pointer;
+				auto copyArray = this->m_Buffer->GetElement(i).pointer;
+				inArray->GetElement(inIndex, values);
+
+				if (copyIndex == -1) {
+
+				}
+				else {
+					copyArray->SetElement(copyIndex, values);
+				}
+			}
+		}
+	}
+	void CopyCellData(AttributeSet::Pointer inData, igIndex inIndex, igIndex copyIndex = -1) {
+		auto allAttributes = inData->GetAllAttributes();
+		this->m_Buffer->Resize(allAttributes->Size());
+		double values[256] = { 0 };
+		for (int i = 0; i < allAttributes->Size(); i++) {
+			auto& attr = allAttributes->GetElement(i);
+			if (attr.attachmentType == IG_CELL) {
+				auto inArray = attr.pointer;
+				auto copyArray = this->m_Buffer->GetElement(i).pointer;
+				inArray->GetElement(inIndex, values);
+
+				if (copyIndex == -1) {
+
+				}
+				else {
+					copyArray->SetElement(copyIndex, values);
+				}
+			}
+		}
+	}
+	void CopyPointDataWithInterpolate(AttributeSet::Pointer inData, igIndex p1, igIndex p2, float t, igIndex copyIndex = -1) {
+		auto allAttributes = inData->GetAllAttributes();
+		this->m_Buffer->Resize(allAttributes->Size());
+		double values_1[256] = { 0 };
+		double values_2[256] = { 0 };
+		int dimension = 0;
+		double values[256] = { 0 };
+		for (int i = 0; i < allAttributes->Size(); i++) {
+			auto& attr = allAttributes->GetElement(i);
+			if (attr.attachmentType == IG_POINT) {
+				auto inArray = attr.pointer;
+				auto copyArray = this->m_Buffer->GetElement(i).pointer;
+				inArray->GetElement(p1, values_1);
+				inArray->GetElement(p2, values_2);
+				dimension = inArray->GetDimension();
+				for (int j = 0; j < dimension; j++) {
+					values[j] = values_1[j] + t * (values_2[j] - values_1[j]);
+				}
+				if (copyIndex == -1) {
+
+				}
+				else {
+					copyArray->SetElement(copyIndex, values);
+				}
+			}
+		}
+
+	}
+
+
 	IGsize GetRealMemorySize() {
 		if (!m_Buffer)return 0;
 		IGsize res = 0;

@@ -516,7 +516,7 @@ void igQtMainWindow::initAllFilters() {
         //dataarray->AddValue(13.0);
         //dataarray->AddValue(4.0);
         //dataarray->AddValue(6.0);
-        chart->drawLineChart(dataarray);
+        chart->draw(dataarray);
         chart->exec();
 
     });
@@ -886,7 +886,7 @@ void igQtMainWindow::initAllFilters() {
                     ->GetDataObject();
                 auto box=obj->GetBoundingBox();
                 auto center = (box.min + box.max) * 0.5;
-                float n[3]={0,0,1};
+                float n[3]={0,1,0};
                 float o[3]={(float)center[0],(float)center[1],(float)center[2]};
                 auto filter=UnstructuredMeshClip::New();
                 filter->SetPlane(n,o);

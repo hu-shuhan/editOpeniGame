@@ -35,6 +35,7 @@ int UnstructuredMesh::GetCellPointIds(const IGsize cellId,
 Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
     Cell* cell = GetTypedCell(cellId);
     if (cell == nullptr) { return nullptr; }
+    cell->Reset();
     if (cell->GetCellType() != IG_POLYHEDRON) {
         GetCellPointIds(cellId, cell->PointIds);
         for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {

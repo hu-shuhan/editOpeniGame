@@ -16,31 +16,46 @@ public:
 	using ConstReference = typename VectorType::const_reference;
 
 	// Free all memory and initialize the array
-	void Initialize() {
+	void Initialize() override {
 		std::vector<TValue> temp;
 		this->VectorType::swap(temp);
 	}
 
 	// Reallocate memory, and the old data is preserved. The array
 	// size will not change. '_NewElementNum' is the number of elements.
-	void Reserve(const IGsize _NewElementNum) {
+	void Reserve(const IGsize _NewElementNum) override {
 		this->VectorType::reserve(_NewElementNum * m_Dimension);
 	}
 
 	// Reallocate memory, and the old data is preserved. The array
 	// size will change. '_Newsize' is the number of elements.
-	void Resize(const IGsize _NewElementNum) {
+	void Resize(const IGsize _NewElementNum) override {
 		this->VectorType::resize(_NewElementNum * m_Dimension);
 	}
 
 	// Reset the array size, and the old memory will not change.
-	void Reset() {
+	void Reset() override {
 		this->VectorType::clear();
 	}
 
 	// Free unnecessary memory.
-	void Squeeze() {
+	void Squeeze() override {
 		this->Resize(GetNumberOfElements());
+	}
+
+	bool ShallowCopy(FlatArray<TValue>::Pointer other) { return false; }
+	bool DeepCopy(FlatArray<TValue>::Pointer other) {
+		if (other == nullptr) {
+			return false;
+		}
+
+		m_Dimension = other->m_Dimension;
+		this->Reserve(other->GetNumberOfElements());
+		for (IGsize i = 0; i < other->GetNumberOfValues(); i++) {
+			this->AddValue(other->RawPointer()[i]);
+		}
+
+		return true;
 	}
 
 	// Set the size of the element
@@ -192,18 +207,46 @@ public:
 			data[i] = _Element[i];
 		}
 	}
-	void SetElement(const IGsize _Pos, TValue* _Element) {
+	//void SetElement(const IGsize _Pos, TValue* _Element) {
+	//	assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
+	//	TValue* data = this->RawPointer(_Pos);
+	//	for (int i = 0; i < m_Dimension; ++i) {
+	//		data[i] = _Element[i];
+	//	}
+	//}
+	//void SetElement(const IGsize _Pos, const TValue* _Element) {
+	//	assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
+	//	TValue* data = this->RawPointer(_Pos);
+	//	for (int i = 0; i < m_Dimension; ++i) {
+	//		data[i] = _Element[i];
+	//	}
+	//}
+	void SetElement(const IGsize _Pos, float* _Element) {
 		assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
 		TValue* data = this->RawPointer(_Pos);
 		for (int i = 0; i < m_Dimension; ++i) {
-			data[i] = _Element[i];
+			data[i] = static_cast<TValue>(_Element[i]);
 		}
 	}
-	void SetElement(const IGsize _Pos, const TValue* _Element) {
+	void SetElement(const IGsize _Pos, const float* _Element) {
 		assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
 		TValue* data = this->RawPointer(_Pos);
 		for (int i = 0; i < m_Dimension; ++i) {
-			data[i] = _Element[i];
+			data[i] = static_cast<TValue>(_Element[i]);
+		}
+	}
+	void SetElement(const IGsize _Pos, double* _Element) {
+		assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
+		TValue* data = this->RawPointer(_Pos);
+		for (int i = 0; i < m_Dimension; ++i) {
+			data[i] = static_cast<TValue>(_Element[i]);
+		}
+	}
+	void SetElement(const IGsize _Pos, const double* _Element) {
+		assert(0 <= _Pos && _Pos < this->GetNumberOfElements());
+		TValue* data = this->RawPointer(_Pos);
+		for (int i = 0; i < m_Dimension; ++i) {
+			data[i] = static_cast<TValue>(_Element[i]);
 		}
 	}
 

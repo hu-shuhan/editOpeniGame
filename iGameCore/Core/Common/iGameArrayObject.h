@@ -10,6 +10,22 @@ public:
 	I_OBJECT(ArrayObject);
 	//static Pointer New() { return new ArrayObject; }
 
+	virtual void Initialize() = 0;
+
+	// Reallocate memory, and the old data is preserved. The array
+	// size will not change. '_NewElementNum' is the number of elements.
+	virtual void Reserve(const IGsize _NewElementNum) = 0;
+
+	// Reallocate memory, and the old data is preserved. The array
+	// size will change. '_Newsize' is the number of elements.
+	virtual void Resize(const IGsize _NewElementNum) = 0;
+
+	// Reset the array size, and the old memory will not change.
+	virtual void Reset() = 0;
+
+	// Free unnecessary memory.
+	virtual void Squeeze() = 0;
+
 	// Get the number of elements
 	virtual IGsize GetNumberOfElements() const = 0;
 
@@ -33,6 +49,11 @@ public:
 	virtual void GetElement(const IGsize _Pos, double* _Element) = 0;
 	virtual void GetElement(const IGsize _Pos, std::vector<float>& _Element) = 0;
 	virtual void GetElement(const IGsize _Pos, std::vector<double>& _Element) = 0;
+
+	virtual void SetElement(const IGsize _Pos, float* _Element) = 0;
+	virtual void SetElement(const IGsize _Pos, const float* _Element) = 0;
+	virtual void SetElement(const IGsize _Pos, double* _Element) = 0;
+	virtual void SetElement(const IGsize _Pos, const double* _Element) = 0;
 
 	// Get the type of array.
 	virtual IGenum GetArrayType() { return IG_ARRAY_OBJECT; }
