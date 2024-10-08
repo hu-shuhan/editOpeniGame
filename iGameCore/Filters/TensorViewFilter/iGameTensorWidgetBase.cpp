@@ -178,14 +178,17 @@ DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
 
 void iGameTensorWidgetBase::ConvertToDrawableData() {
     this->CreateDrawBuffer();
-    
+
     m_Positions = m_DrawGlyphPoints->ConvertToArray();
     m_Positions->Modified();
 
     //M_TriangleIndices = m_DrawGlyphPointOrders;
     for (int i = 0; i < m_DrawGlyphPointOrders->GetNumberOfValues(); i++) {
+        //std::cout << static_cast<igIndex>(
+        //                     *m_DrawGlyphPointOrders->RawPointer() + i)
+        //          << std::endl;
         m_TriangleIndices->AddId(static_cast<igIndex>(
-                *m_DrawGlyphPointOrders->RawPointer() + i));
+                *(m_DrawGlyphPointOrders->RawPointer() + i)));
     }
 
     m_Colors = m_DrawGlyphColors;
