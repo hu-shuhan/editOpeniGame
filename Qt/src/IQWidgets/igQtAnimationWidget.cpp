@@ -222,18 +222,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx){
         currentDrawObject->ViewCloudPicture(
                 currentScene, currentDrawObject->GetAttributeIndex());
     }
-    //    else if(frameSubFiles->Size() == 1){
-    //        auto newDataObject = FileIO::ReadFile(frameSubFiles->GetElement(0));
-    //        newDataObject->SetTimeFrames(currentObject->GetTimeFrames());
-    //
-    //        currentScene->RemoveCurrentModel();
-    //        currentScene->GetCurrentModel()->SetDataObject(newDataObject);
-    //        currentScene->AddModel(currentScene->CreateModel(newDataObject));
-    //        newDataObject->SwitchToCurrentTimeframe(keyframe_idx);
-    //        newDataObject->SetScalarRange(currentObject->GetScalarRange());
-    //        newDataObject->ConvertToDrawableData();
-    //        newDataObject->ViewCloudPicture(currentScene, 0);
-    //    }
     currentScene->DoneCurrent();
 
     Q_EMIT UpdateScene();
@@ -314,15 +302,20 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
 #include <IQComponents/Dialog/igQtVideoOptionDialog.h>
+#include <qdebug.h>
 
 bool igQtAnimationWidget::saveAnimation()
 {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;
     igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
+    QStringList filters = {
+            "Mp4 File(*.mp4)",
+            "GIF File(*.gif)",
+    };
 
-    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation", "", "Mp4 Files(*.mp4)");
-//        if(!path.contains(".mp4")) path += ".mp4";
+    QString SelectedFilter;
+    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation As ", "", filters.join(";;"), &SelectedFilter);
     igQtVideoOptionDialog dialog(this);
     dialog.setWindowTitle("Save Animation Option.");
     int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
@@ -339,7 +332,7 @@ bool igQtAnimationWidget::saveAnimation()
     auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
     if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-    inputInfo.output_path = path.toStdString();
+
 
     for(int i = 0; i < timeStepSize; i ++)
     {
@@ -348,22 +341,41 @@ bool igQtAnimationWidget::saveAnimation()
         std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());
         inputInfo.bytes_per_line = image.bytesPerLine();
         inputInfo.raw_image_data.emplace_back(tmp);
-//        QString idx = QString(std::to_string(i).c_str());
-//        QString res_path = path + "_" + idx + ".png";
-//        std::cout << "===================path " << res_path.toStdString() << '\n';
-//
-//        if(!image.save(res_path)) sc = false;
     }
     rendererWidget->resize(oldwidth, oldheight);
 
+
+    int selected_idx = filters.indexOf(SelectedFilter);
+    switch(selected_idx){
+        case 0:
+            if(!path.contains(".mp4")) path += ".mp4";
+            break;
+        case 1:
+            if(!path.contains(".gif")) path += ".gif";
+            break;
+        default:
+            break;
+    }
     FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
+    inputInfo.output_path = path.toStdString();
     videoWriter->SetVideoInputInfo(inputInfo);
-    if(videoWriter->Execute()) {
+
+    bool sc = false;
+    switch(selected_idx){
+        case 0:
+            sc = videoWriter->SaveMP4();
+            break;
+        case 1:
+            sc = videoWriter->SaveGIF();
+            break;
+        default:
+            break;
+    }
+    if(sc) {
         QMessageBox::information(this, "", "保存成功");
     }else {
         QMessageBox::information(this, "", "保存失败");
     }
-
 #endif
 
 
