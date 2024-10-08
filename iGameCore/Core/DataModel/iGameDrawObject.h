@@ -66,7 +66,7 @@ protected:
     bool m_Visibility{true};
 
 protected:
-    GLVertexArray m_PointVAO, m_VertexVAO, m_LineVAO, m_TriangleVAO;
+    GLVertexArray m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
     GLBuffer m_PointEBO, m_VertexEBO, m_LineEBO, m_TriangleEBO;
     GLVertexArray m_CellVAO;
