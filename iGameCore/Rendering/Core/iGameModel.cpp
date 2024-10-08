@@ -6,6 +6,8 @@
 IGAME_NAMESPACE_BEGIN
 
 void Model::Draw(Scene* scene) {
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->m_Visibility) { return; }
 
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
@@ -39,23 +41,23 @@ void Model::Draw(Scene* scene) {
             drawObject->m_PointVAO.release();
         }
 
-        //if (viewStyle & IG_WIREFRAME) {
-        //    if (useColor) {
-        //        scene->GetShader(Scene::NOLIGHT)->use();
-        //    } else {
-        //        auto shader = scene->GetShader(Scene::PURECOLOR);
-        //        shader->use();
-        //        shader->setUniform(shader->getUniformLocation("inputColor"),
-        //                           igm::vec3{0.0f, 0.0f, 0.0f});
-        //    }
+        if (viewStyle & IG_WIREFRAME) {
+            if (useColor) {
+                scene->GetShader(Scene::NOLIGHT)->use();
+            } else {
+                auto shader = scene->GetShader(Scene::PURECOLOR);
+                shader->use();
+                shader->setUniform(shader->getUniformLocation("inputColor"),
+                                   igm::vec3{0.0f, 0.0f, 0.0f});
+            }
 
-        //    drawObject->m_LineVAO.bind();
-        //    glLineWidth(drawObject->m_LineWidth);
-        //    glad_glDrawElements(GL_LINES,
-        //                        drawObject->m_LineIndices->GetNumberOfIds(),
-        //                        GL_UNSIGNED_INT, 0);
-        //    drawObject->m_LineVAO.release();
-        //}
+            drawObject->m_LineVAO.bind();
+            glLineWidth(drawObject->m_LineWidth);
+            glad_glDrawElements(GL_LINES,
+                                drawObject->m_LineIndices->GetNumberOfIds(),
+                                GL_UNSIGNED_INT, 0);
+            drawObject->m_LineVAO.release();
+        }
 
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(Scene::BLINNPHONG);
@@ -85,6 +87,8 @@ void Model::Draw(Scene* scene) {
 }
 
 void Model::DrawWithTransparency(Scene* scene) {
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->m_Visibility) { return; }
 
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
@@ -95,8 +99,6 @@ void Model::DrawWithTransparency(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
 
         if (useColor && colorWithCell) {
             auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
@@ -176,6 +178,9 @@ void Model::DrawPhase1(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Draw phase 1:" << std::endl;
 
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->m_Visibility) { return; }
+
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -186,8 +191,6 @@ void Model::DrawPhase1(Scene* scene) {
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
         auto meshlets = drawObject->m_Meshlets;
-
-        if (!visibility) { return; }
 
         // draw
         if (useColor && colorWithCell) {}
@@ -226,6 +229,9 @@ void Model::DrawPhase2(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Draw phase 2:" << std::endl;
 
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->m_Visibility) { return; }
+
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -236,8 +242,6 @@ void Model::DrawPhase2(Scene* scene) {
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
         auto meshlets = drawObject->m_Meshlets;
-
-        if (!visibility) { return; }
 
         // draw
         if (useColor && colorWithCell) {}
@@ -316,6 +320,9 @@ void Model::DrawPhase2(Scene* scene) {
 void Model::TestOcclusionResults(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Test Occlusion:" << std::endl;
+
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->m_Visibility) { return; }
 
     auto draw = [&](const DataObject::Pointer& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -433,14 +440,14 @@ void Model::Show() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(true);
     m_Scene->ChangeModelVisibility(this, true);
-    m_Painter->ShowAll();
+    //m_Painter->ShowAll();
 }
 
 void Model::Hide() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(false);
     m_Scene->ChangeModelVisibility(this, false);
-    m_Painter->HideAll();
+    //m_Painter->HideAll();
 }
 
 void Model::SetBoundingBoxSwitch(bool action) {

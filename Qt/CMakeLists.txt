@@ -6,8 +6,8 @@ else ()
     # if complied in Windows, set Qt5_DIR to e.g.(D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5)
     #        set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-        set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    #set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    #        set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
 
 set(MODULE_NAME Qt_module)
@@ -108,7 +108,7 @@ if (WIN32)
                 #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
                 #                ${Qt5_DLL_DIR}/Qt5Gui.dll
                 ${Qt5_DLL_DIR}/Qt5Charts.dll
- 
+
         )
     endif ()
     # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录

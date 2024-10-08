@@ -11,7 +11,7 @@
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
-class iGameTensorWidgetBase : public Filter, public DrawObject {
+class iGameTensorWidgetBase : public DrawObject {
 public:
     I_OBJECT(iGameTensorWidgetBase);
     static iGameTensorWidgetBase* New() { return new iGameTensorWidgetBase; }
