@@ -28,7 +28,9 @@ public:
 
     void SetVideoInputInfo(VideoInputInfo& info);
 
-    bool Execute() override;
+    bool SaveMP4();
+
+    bool SaveGIF();
 
 protected:
 

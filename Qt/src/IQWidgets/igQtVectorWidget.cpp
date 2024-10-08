@@ -3,13 +3,23 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     ui->setupUi(this);
     m_VectorBase = iGame::iGameVectorBase::New();
     headRadiusP = 1;
+    ui->headRSlider->setValue(100);
     headLengthP = 1;
+    ui->headLSlider_2->setValue(100);
     tailLengthP = 1;
+    ui->tailRSlider_3->setValue(100);
     tailRadiusP = 1;
-    headRadius = 1;
-    headLength = 1;
-    tailLength = 2;
-    tailRadius = 0.5;
+    ui->tailLSlider_4->setValue(100);
+    headRadius = 0.01;
+
+    ui->headRlineEdit->setText("0.01");
+    headLength = 0.03;
+    ui->headLlineEdit->setText("0.03");
+    tailLength = 0.04;
+    ui->tailLlineEdit->setText("0.04");
+    tailRadius = 0.005;
+    ui->tailRlineEdit->setText("0.005");
+
 	connect(ui->headRSlider, SIGNAL(valueChanged(int)),   this,  SLOT(changeHRProportion()));
 	connect(ui->headLSlider_2, SIGNAL(valueChanged(int)), this,  SLOT(changeHLProportion()));
     connect(ui->tailRSlider_3, SIGNAL(valueChanged(int)), this,  SLOT(changeTRProportion()));
@@ -21,6 +31,19 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     connect(ui->tailLlineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeTL()));
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this,[&]() {this->changeVecName();});
+	connect(ui->DrawButton, SIGNAL(clicked(bool)), this, SLOT(drawV()));
+
+}
+void igQtVectorWidget::drawV() {
+    m_VectorBase->SetArrow(headRadius*headRadiusP,headLength*headLengthP,tailRadius*tailRadiusP,tailLength*tailLengthP);
+    m_VectorBase->DrawVector(vecName);
+    if (!isDraw) {
+        m_VectorBase->DataObject::SetName(masterName + "_Vector");
+        isDraw = true;
+        Q_EMIT DrawDireVector(m_VectorBase);
+    } else {
+        Q_EMIT UpdateDireVector(m_VectorBase);
+    }
 
 }
 void igQtVectorWidget::changeHRProportion() {
@@ -73,6 +96,7 @@ void igQtVectorWidget::updateVectorNameList() {
     auto currentModel = scene->GetCurrentModel();
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
+    masterName = obj->GetName();
     if (!obj) return;
     auto AttributeSet = obj->GetAttributeSet();
     if (!AttributeSet) return;

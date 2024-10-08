@@ -177,36 +177,20 @@ DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
 //}
 
 void iGameTensorWidgetBase::ConvertToDrawableData() {
-    if (!m_Flag) {
-        m_PointVAO.create();
-        m_VertexVAO.create();
-        m_LineVAO.create();
-        m_TriangleVAO.create();
+    this->CreateDrawBuffer();
 
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        m_NormalVBO.create();
-        m_NormalVBO.target(GL_ARRAY_BUFFER);
-        m_TextureVBO.create();
-        m_TextureVBO.target(GL_ARRAY_BUFFER);
-
-        m_VertexEBO.create();
-        m_VertexEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_LineEBO.create();
-        m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO.create();
-        m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_Flag = true;
-    }
     m_Positions = m_DrawGlyphPoints->ConvertToArray();
     m_Positions->Modified();
+
     //M_TriangleIndices = m_DrawGlyphPointOrders;
     for (int i = 0; i < m_DrawGlyphPointOrders->GetNumberOfValues(); i++) {
+        //std::cout << static_cast<igIndex>(
+        //                     *m_DrawGlyphPointOrders->RawPointer() + i)
+        //          << std::endl;
         m_TriangleIndices->AddId(static_cast<igIndex>(
-                *m_DrawGlyphPointOrders->RawPointer() + i));
+                *(m_DrawGlyphPointOrders->RawPointer() + i)));
     }
+
     m_Colors = m_DrawGlyphColors;
 
 

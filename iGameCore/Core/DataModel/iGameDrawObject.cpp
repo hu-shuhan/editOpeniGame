@@ -5,7 +5,6 @@ IGAME_NAMESPACE_BEGIN
 void DrawObject::CreateDrawBuffer() {
     if (m_Flag) {
         m_PointVAO.create();
-        m_VertexVAO.create();
         m_LineVAO.create();
         m_TriangleVAO.create();
 
@@ -20,8 +19,6 @@ void DrawObject::CreateDrawBuffer() {
 
         m_PointEBO.create();
         m_PointEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_VertexEBO.create();
-        m_VertexEBO.target(GL_ELEMENT_ARRAY_BUFFER);
         m_LineEBO.create();
         m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
         m_TriangleEBO.create();
@@ -29,9 +26,9 @@ void DrawObject::CreateDrawBuffer() {
 
         m_CellVAO.create();
         m_CellPositionVBO.create();
-        m_CellPositionVBO.target(GL_ELEMENT_ARRAY_BUFFER);
+        m_CellPositionVBO.target(GL_ARRAY_BUFFER);
         m_CellColorVBO.create();
-        m_CellColorVBO.target(GL_ELEMENT_ARRAY_BUFFER);
+        m_CellColorVBO.target(GL_ARRAY_BUFFER);
 
 #ifdef IGAME_OPENGL_VERSION_460
         m_Meshlets->CreateBuffer();

@@ -66,17 +66,17 @@ protected:
     bool m_Visibility{true};
 
 protected:
-    GLVertexArray m_PointVAO, m_VertexVAO, m_LineVAO, m_TriangleVAO;
+    GLVertexArray m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
-    GLBuffer m_PointEBO, m_VertexEBO, m_LineEBO, m_TriangleEBO;
+    GLBuffer m_PointEBO, m_LineEBO, m_TriangleEBO;
     GLVertexArray m_CellVAO;
     GLBuffer m_CellPositionVBO, m_CellColorVBO;
 
-    FloatArray::Pointer m_Positions{};
-    FloatArray::Pointer m_Colors{};
-    IdArray::Pointer m_PointIndices{};
-    IdArray::Pointer m_LineIndices{};
-    IdArray::Pointer m_TriangleIndices{};
+    FloatArray::Pointer m_Positions{FloatArray::New()};
+    FloatArray::Pointer m_Colors{FloatArray::New()};
+    IdArray::Pointer m_PointIndices{IdArray::New()};
+    IdArray::Pointer m_LineIndices{IdArray::New()};
+    IdArray::Pointer m_TriangleIndices{IdArray::New()};
 
     bool m_Flag{true};
     bool m_UseColor{false};

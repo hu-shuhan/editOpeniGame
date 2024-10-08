@@ -3,6 +3,7 @@
 #include "Quadratic/iGameQuadraticTetra.h"
 #include "iGameCellArray.h"
 #include "iGameAttributeSet.h"
+#include"iGameVolumeMesh.h"
 IGAME_NAMESPACE_BEGIN
 
 namespace CellClip {
@@ -152,12 +153,10 @@ namespace CellClip {
 		if (allOut) {
 			return;
 		}
-
-		if (allIn)
-		{
+		else if (allIn){
+			return;
 			connectivity->AddCellIds(cell->PointIds);
 			types->AddValue(cell->GetCellType());
-
 		}
 		else {
 

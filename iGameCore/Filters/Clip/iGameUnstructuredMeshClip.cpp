@@ -94,6 +94,7 @@ bool UnstructuredMeshClip::Execute()
 		auto attr = inAllAttr->GetElement(i);
 		auto inArray = attr.pointer;
 		auto outArray = FloatArray::New();
+		outArray->SetName(inArray->GetName());
 		if (attr.attachmentType == IG_CELL) {
 			outArray->Resize(outCellNum);
 			for (j = 0; j < outCellNum; j++) {

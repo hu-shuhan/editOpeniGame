@@ -22,6 +22,10 @@ public slots:
     void changeTL();
     void updateVectorNameList();
     void changeVecName();
+    void drawV();
+signals:
+    void DrawDireVector(iGame::DataObject::Pointer);
+    void UpdateDireVector(iGame::DataObject::Pointer);
 
 private:
     Ui::igVector* ui;
@@ -34,7 +38,9 @@ private:
     float tailRadius;
     float tailLength;
     std::string vecName;
+    std::string masterName;
     bool isInit = false;
+    bool isDraw = false;
     iGame::iGameVectorBase* m_VectorBase{nullptr};
     
 };
