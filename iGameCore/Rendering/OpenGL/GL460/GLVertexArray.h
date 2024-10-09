@@ -5,7 +5,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class GLVertexAttribute {
+class GLVertexAttribute : public Object {
 private:
     GLuint m_index;
 
@@ -39,23 +39,23 @@ public:
         glVertexArrayElementBuffer(handle, buffer);
     }
 
-    void enableAttrib(GLVertexAttribute attribute) {
+    void enableAttrib(const GLVertexAttribute& attribute) {
         glEnableVertexArrayAttrib(handle, attribute.index());
     }
 
     // GLVertexAttribute is one attribute in binding_index of VAO
-    void attribBinding(GLVertexAttribute attribute,
+    void attribBinding(const GLVertexAttribute& attribute,
                        unsigned int binding_index) {
         glVertexArrayAttribBinding(handle, attribute.index(), binding_index);
     }
 
-    void attribFormat(GLVertexAttribute attribute, int size, GLenum type,
+    void attribFormat(const GLVertexAttribute& attribute, int size, GLenum type,
                       bool normalized, unsigned int relative_offset) {
         glVertexArrayAttribFormat(handle, attribute.index(), size, type,
                                   normalized, relative_offset);
     }
 
-    void attribFormati(GLVertexAttribute attribute, int size, GLenum type,
+    void attribFormati(GLVertexAttribute& attribute, int size, GLenum type,
                        unsigned int relative_offset) {
         glVertexArrayAttribIFormat(handle, attribute.index(), size, type,
                                    relative_offset);
@@ -73,7 +73,7 @@ inline const GLVertexAttribute GL_LOCATION_IDX_2{2};
 inline const GLVertexAttribute GL_LOCATION_IDX_3{3};
 
 inline static void GLSetVertexAttrib(GLVertexArray& VAO,
-                                     GLVertexAttribute attribute,
+                                     const GLVertexAttribute& attribute,
                                      GLuint vbo_binding_index, int size,
                                      GLenum type, GLboolean normalized,
                                      unsigned int offset) {

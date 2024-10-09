@@ -6,7 +6,7 @@
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
-class iGameTimer {
+class iGameTimer : public Object {
 public:
     enum class TimeUnit { Microseconds, Milliseconds, Seconds };
 

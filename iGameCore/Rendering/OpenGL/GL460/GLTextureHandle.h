@@ -4,7 +4,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class GLTextureHandle {
+class GLTextureHandle : public Object {
 private:
     GLuint64 handle;
 

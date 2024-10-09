@@ -32,7 +32,9 @@ void Brush::SetColor(float red, float green, float blue) {
 
 void Brush::SetColor(int red, int green, int blue) {
     if (ColorUtils::IsValid(red, green, blue)) {
-        m_BrushColor = Vector3f{red / 255.0f, green / 255.0f, blue / 255.0f};
+        m_BrushColor = Vector3f{static_cast<float>(red) / 255.0f,
+                                static_cast<float>(green) / 255.0f,
+                                static_cast<float>(blue) / 255.0f};
     } else {
         throw std::runtime_error(
                 "Color values must be in the range of 0 to 255");

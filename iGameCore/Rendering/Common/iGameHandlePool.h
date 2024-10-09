@@ -9,7 +9,7 @@
 IGAME_NAMESPACE_BEGIN
 
 template<typename ObjectType>
-class HandlePool {
+class HandlePool : public Object {
 public:
     using HandleType = IGuint;
     using MapType = std::unordered_map<HandleType, ObjectType>;
