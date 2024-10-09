@@ -938,9 +938,39 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
 
-    auto AddClippingMeshToScene = [](const std::string& mainName,
+    auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter* painter,
+                                const float color[3]) -> void {
+        // 1. draw faces
+        painter->SetPen(Color::None);
+        painter->SetBrush(color[0], color[1], color[2]);
+        igIndex cell[32]{};
+        for (int i = 0; i < m->GetNumberOfFaces(); i++) {
+            int ncell = m->GetFacePointIds(i, cell);
+            for (int j = 2; j < ncell; j++) {
+                painter->DrawTriangle(m->GetPoint(cell[0]),
+                                      m->GetPoint(cell[j - 1]),
+                                      m->GetPoint(cell[j]));
+            }
+        }
+        // 2. draw lines
+        painter->SetPen(Color::Black);
+        painter->SetBrush(Color::None);
+        if (m->GetEdges() == nullptr) { m->BuildEdges(); }
+        for (int i = 0; i < m->GetNumberOfEdges(); i++) {
+            int ncell = m->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                throw std::runtime_error("The index of the edge is negative.");
+            } else {
+                painter->DrawLine(m->GetPoint(cell[0]), m->GetPoint(cell[1]));
+            }
+        }
+        painter->Modified();
+    };
+
+    auto AddClippingMeshToScene = [DrawSurfaceMeshByPointer](
+                                          const std::string& mainName,
                                      SurfaceMesh::Pointer OV,
-                                     SurfaceMesh::Pointer IV,
+                                     SurfaceMesh::Pointer t_IV,
                                      SurfaceMesh::Pointer OIV,
                                      igQtModelDialogWidget* modelTreeWidget) {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
@@ -948,15 +978,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         const std::string OVName = "__" + mainName + "_OV";   // 临时模型
         const std::string IVName = "__" + mainName + "_IV";   // 临时模型
         const std::string OIVName = "__" + mainName + "_OIV"; // 临时模型
-        const float OVColor[3]{1.0f, 1.0f, 1.0f};
-        const float IVColor[3]{1.0f, 1.0f, 0.0f};
-        const float OIVColor[3]{1.0f, 1.0f, 1.0f};
+        const float OVColor[3]{1.f, 1.f, 1.f};
+        const float IVColor[3]{1.f, 1.f, 0.f};
+        const float OIVColor[3]{1.f, 1.f, 1.f};
         const float OIVAlpha = 0.2f;
 
+        SurfaceMesh::Pointer IV = SurfaceMesh::New();
         OV->SetName(OVName);
         IV->SetName(IVName);
         OIV->SetName(OIVName);
 
+        Model* IVModel{nullptr};
         bool exist[3]{false, false, false};
         for (auto& [id, model]: scene->GetModelList()) {
             if (model->GetDataObject()->GetName() == OVName) {
@@ -967,6 +999,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 auto model = scene->GetModelById(id);
                 model->SetDataObject(IV);
                 exist[1] = true;
+                IVModel = model;
             } else if (model->GetDataObject()->GetName() == OIVName) {
                 auto model = scene->GetModelById(id);
                 model->SetDataObject(OIV);
@@ -976,19 +1009,23 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (!exist[0])
             modelTreeWidget->addDataObjectToModelTree(OV,
                                                       ItemSource::Algorithm);
-        if (!exist[1])
-            modelTreeWidget->addDataObjectToModelTree(IV,
+        if (!exist[1]) {
+            int id = modelTreeWidget->addDataObjectToModelTree(IV,
                                                       ItemSource::Algorithm);
+            IVModel = scene->GetModelById(id);
+        }
         if (!exist[2])
             modelTreeWidget->addDataObjectToModelTree(OIV,
                                                       ItemSource::Algorithm);
 
+        DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter(), IVColor);
+
         //OV->SetFaceColor(OVColor);
         OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
         //IV->SetFaceColor(IVColor);
-        IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+        //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
         //OIV->SetFaceColor(OIVColor);
-        //OIV->SetFaceTransparency(OIVAlpha);
+        OIV->SetTransparency(OIVAlpha);
         OIV->SetViewStyle(IG_SURFACE);
     };
 
@@ -1357,7 +1394,6 @@ void igQtMainWindow::initAllMySignalConnections() {
 
                 inputMesh->GetClipper()->DisableAll();
                 inputMesh->SetVisibility(true);
-                inputMesh->Modified();
 
                 const std::string OVName =
                         "__" + inputMesh->GetName() + "_OV"; // 临时模型
