@@ -12,7 +12,6 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/stereo3d.h>
 #include <libswscale/swscale.h>
 }
 

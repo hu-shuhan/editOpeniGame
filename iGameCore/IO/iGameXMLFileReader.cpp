@@ -41,6 +41,9 @@ bool iGameXMLFileReader::Execute() {
 		return false;
 	}
 	int size = m_Output->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
+//    auto pointset = DynamicCast<iGame::PointSet>(m_Output);
+//    auto uset = pointset->GetAttributeSet()->GetAttribute("U", IG_SCALAR).pointer;
+
 	if (size > 0) {
 		StringArray::Pointer attrbNameArray = StringArray::New();
 		for (int i = 0; i < size; i++) {

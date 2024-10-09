@@ -272,12 +272,12 @@ void igQtMainWindow::initAllComponents() {
         width /= ratio_pixel, height /= ratio_pixel;
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
+        rendererWidget->resize(oldwidth, oldheight);
         if(saved_image.save(path, "BMP")){
             QMessageBox::information(this, "", "保存成功");
         }else {
             QMessageBox::information(this, "", "保存失败");
         }
-        rendererWidget->resize(oldwidth, oldheight);
     });
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&](){
