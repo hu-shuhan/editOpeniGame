@@ -938,8 +938,9 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
 
-    auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter* painter,
-                                const float color[3]) -> void {
+    auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
+                                       Painter3D* painter,
+                                       const float color[3]) -> void {
         // 1. draw faces
         painter->SetPen(Color::None);
         painter->SetBrush(color[0], color[1], color[2]);
@@ -967,67 +968,67 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         painter->Modified();
     };
 
-    auto AddClippingMeshToScene = [DrawSurfaceMeshByPointer](
-                                          const std::string& mainName,
-                                     SurfaceMesh::Pointer OV,
-                                     SurfaceMesh::Pointer t_IV,
-                                     SurfaceMesh::Pointer OIV,
-                                     igQtModelDialogWidget* modelTreeWidget) {
-        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    auto AddClippingMeshToScene =
+            [DrawSurfaceMeshByPointer](
+                    const std::string& mainName, SurfaceMesh::Pointer OV,
+                    SurfaceMesh::Pointer t_IV, SurfaceMesh::Pointer OIV,
+                    igQtModelDialogWidget* modelTreeWidget) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
-        const std::string OVName = "__" + mainName + "_OV";   // 临时模型
-        const std::string IVName = "__" + mainName + "_IV";   // 临时模型
-        const std::string OIVName = "__" + mainName + "_OIV"; // 临时模型
-        const float OVColor[3]{1.f, 1.f, 1.f};
-        const float IVColor[3]{1.f, 1.f, 0.f};
-        const float OIVColor[3]{1.f, 1.f, 1.f};
-        const float OIVAlpha = 0.2f;
+                const std::string OVName = "__" + mainName + "_OV"; // 临时模型
+                const std::string IVName = "__" + mainName + "_IV"; // 临时模型
+                const std::string OIVName =
+                        "__" + mainName + "_OIV"; // 临时模型
+                const float OVColor[3]{1.f, 1.f, 1.f};
+                const float IVColor[3]{1.f, 1.f, 0.f};
+                const float OIVColor[3]{1.f, 1.f, 1.f};
+                const float OIVAlpha = 0.2f;
 
-        SurfaceMesh::Pointer IV = SurfaceMesh::New();
-        OV->SetName(OVName);
-        IV->SetName(IVName);
-        OIV->SetName(OIVName);
+                SurfaceMesh::Pointer IV = SurfaceMesh::New();
+                OV->SetName(OVName);
+                IV->SetName(IVName);
+                OIV->SetName(OIVName);
 
-        Model* IVModel{nullptr};
-        bool exist[3]{false, false, false};
-        for (auto& [id, model]: scene->GetModelList()) {
-            if (model->GetDataObject()->GetName() == OVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(OV);
-                exist[0] = true;
-            } else if (model->GetDataObject()->GetName() == IVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(IV);
-                exist[1] = true;
-                IVModel = model;
-            } else if (model->GetDataObject()->GetName() == OIVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(OIV);
-                exist[2] = true;
-            }
-        }
-        if (!exist[0])
-            modelTreeWidget->addDataObjectToModelTree(OV,
-                                                      ItemSource::Algorithm);
-        if (!exist[1]) {
-            int id = modelTreeWidget->addDataObjectToModelTree(IV,
-                                                      ItemSource::Algorithm);
-            IVModel = scene->GetModelById(id);
-        }
-        if (!exist[2])
-            modelTreeWidget->addDataObjectToModelTree(OIV,
-                                                      ItemSource::Algorithm);
+                Model* IVModel{nullptr};
+                bool exist[3]{false, false, false};
+                for (auto& [id, model]: scene->GetModelList()) {
+                    if (model->GetDataObject()->GetName() == OVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(OV);
+                        exist[0] = true;
+                    } else if (model->GetDataObject()->GetName() == IVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(IV);
+                        exist[1] = true;
+                        IVModel = model;
+                    } else if (model->GetDataObject()->GetName() == OIVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(OIV);
+                        exist[2] = true;
+                    }
+                }
+                if (!exist[0])
+                    modelTreeWidget->addDataObjectToModelTree(
+                            OV, ItemSource::Algorithm);
+                if (!exist[1]) {
+                    int id = modelTreeWidget->addDataObjectToModelTree(
+                            IV, ItemSource::Algorithm);
+                    IVModel = scene->GetModelById(id);
+                }
+                if (!exist[2])
+                    modelTreeWidget->addDataObjectToModelTree(
+                            OIV, ItemSource::Algorithm);
 
-        DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter(), IVColor);
+                DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter(), IVColor);
 
-        //OV->SetFaceColor(OVColor);
-        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-        //IV->SetFaceColor(IVColor);
-        //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-        //OIV->SetFaceColor(OIVColor);
-        OIV->SetTransparency(OIVAlpha);
-        OIV->SetViewStyle(IG_SURFACE);
-    };
+                //OV->SetFaceColor(OVColor);
+                OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+                //IV->SetFaceColor(IVColor);
+                //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+                //OIV->SetFaceColor(OIVColor);
+                OIV->SetTransparency(OIVAlpha);
+                OIV->SetViewStyle(IG_SURFACE);
+            };
 
     connect(ui->action_BoxClipping_Better, &QAction::triggered, this,
             [&](bool checked) {

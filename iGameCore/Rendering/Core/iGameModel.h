@@ -5,7 +5,7 @@
 
 #include "iGameDrawObject.h"
 #include "iGameObject.h"
-#include "iGamePainter.h"
+#include "iGamePainter3D.h"
 #include "iGamePoints.h"
 #include "iGameSelection.h"
 
@@ -29,7 +29,7 @@ public:
         return drawObject->GetVisibility();
     }
     Filter* GetModelFilter();
-    Painter* GetPainter() { return m_Painter; }
+    Painter3D::Pointer GetPainter() { return m_Painter3D; }
     void DeleteModelFilter();
     void SetModelFilter(SmartPointer<Filter> _filter);
     void SetDataObject(DataObject::Pointer dataObject) {
@@ -49,7 +49,8 @@ public:
 
     void ViewCloudPicture(int index, int dimension = -1) {
         auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-        if(drawObject != nullptr) drawObject->ViewCloudPicture(m_Scene, index, dimension);
+        if (drawObject != nullptr)
+            drawObject->ViewCloudPicture(m_Scene, index, dimension);
     }
     void SetFilePath(std::string filePath) { m_FilePath = filePath; }
     std::string GetFilePath() { return this->m_FilePath; }
@@ -68,12 +69,12 @@ protected:
     void SwitchOff(ViewSwitch type) { m_Switch &= ~(1ull << type); }
     bool GetSwitch(ViewSwitch type) { return m_Switch & (1ull << type); }
 
-    Selection::Pointer m_Selection{};
+    Selection::Pointer m_Selection{Selection::New()};
     SmartPointer<Filter> m_Filter{};
-    DataObject::Pointer m_DataObject{};
+    DataObject::Pointer m_DataObject{DataObject::New()};
     std::string m_FilePath;
     Scene* m_Scene{nullptr};
-    Painter::Pointer m_Painter{};
+    Painter3D::Pointer m_Painter3D{Painter3D::New()};
     IGuint m_BboxHandle = 0;
     unsigned long long m_Switch{0ull};
 

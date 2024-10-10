@@ -348,73 +348,47 @@ void UnstructuredMesh::ConvertToDrawableData() {
             IGenum type = GetCellType(id);
             switch (type) {
                 case IG_VERTEX:
-                    m_PointIndices->AddValue(ids[0]);
-                    //pointIndices->AddId(ids[0]);
+                    pointIndices->AddValue(ids[0]);
                     break;
                 case IG_LINE:
                 case IG_POLY_LINE: {
                     for (int i = 1; i < size; i++) {
-                        m_LineIndices->AddElement2(ids[i - 1], ids[i]);
-                        //edgeIndices->AddId(ids[i - 1]);
-                        //edgeIndices->AddId(ids[i]);
+                        edgeIndices->AddElement2(ids[i - 1], ids[i]);
                     }
                 } break;
                 case IG_QUADRATIC_EDGE: {
-                    m_LineIndices->AddElement2(ids[0], ids[2]);
-                    m_LineIndices->AddElement2(ids[2], ids[1]);
-                    //edgeIndices->AddId(ids[0]);
-                    //edgeIndices->AddId(ids[2]);
-                    //edgeIndices->AddId(ids[2]);
-                    //edgeIndices->AddId(ids[1]);
+                    edgeIndices->AddElement2(ids[0], ids[2]);
+                    edgeIndices->AddElement2(ids[2], ids[1]);
                 } break;
                 case IG_TRIANGLE:
                 case IG_QUAD:
                 case IG_POLYGON: {
                     for (int i = 2; i < size; i++) {
-                        m_TriangleIndices->AddElement3(ids[0], ids[i - 1],
-                                                       ids[i]);
-                        //triangleIndices->AddId(ids[0]);
-                        //triangleIndices->AddId(ids[i - 1]);
-                        //triangleIndices->AddId(ids[i]);
+                        triangleIndices->AddElement3(ids[0], ids[i - 1],
+                                                     ids[i]);
                     }
                     for (int i = 0; i < size; i++) {
-                        m_LineIndices->AddElement2(ids[i], ids[(i + 1) % size]);
-                        //edgeIndices->AddId(ids[i]);
-                        //edgeIndices->AddId(ids[(i + 1) % size]);
+                        edgeIndices->AddElement2(ids[i], ids[(i + 1) % size]);
                     }
                 } break;
                 case IG_QUADRATIC_TRIANGLE:
                 case IG_QUADRATIC_QUAD: {
                     int trueSize = size / 2;
-                    m_TriangleIndices->AddElement3(ids[0], ids[trueSize],
-                                                   ids[trueSize * 2 - 1]);
-                    //triangleIndices->AddId(ids[0]);
-                    //triangleIndices->AddId(ids[trueSize]);
-                    //triangleIndices->AddId(ids[trueSize * 2 - 1]);
+                    triangleIndices->AddElement3(ids[0], ids[trueSize],
+                                                 ids[trueSize * 2 - 1]);
                     for (int j = 1; j < trueSize; j++) {
-                        m_TriangleIndices->AddElement3(ids[j],
-                                                       ids[j + trueSize],
-                                                       ids[j + trueSize - 1]);
-                        //triangleIndices->AddId(ids[j]);
-                        //triangleIndices->AddId(ids[j + trueSize]);
-                        //triangleIndices->AddId(ids[j + trueSize - 1]);
+                        triangleIndices->AddElement3(ids[j], ids[j + trueSize],
+                                                     ids[j + trueSize - 1]);
                     }
                     for (int j = 2; j < trueSize; j++) {
-                        m_TriangleIndices->AddElement3(ids[trueSize],
-                                                       ids[trueSize + j - 1],
-                                                       ids[trueSize + j]);
-                        //triangleIndices->AddId(ids[trueSize]);
-                        //triangleIndices->AddId(ids[trueSize + j - 1]);
-                        //triangleIndices->AddId(ids[trueSize + j]);
+                        triangleIndices->AddElement3(ids[trueSize],
+                                                     ids[trueSize + j - 1],
+                                                     ids[trueSize + j]);
                     }
                     for (int i = 0; i < trueSize; i++) {
-                        m_LineIndices->AddElement2(ids[i], ids[i + trueSize]);
-                        m_LineIndices->AddElement2(ids[(i + 1) % trueSize],
-                                                   ids[i + trueSize]);
-                        //edgeIndices->AddId(ids[i]);
-                        //edgeIndices->AddId(ids[i + trueSize]);
-                        //edgeIndices->AddId(ids[(i + 1) % trueSize]);
-                        //edgeIndices->AddId(ids[i + trueSize]);
+                        edgeIndices->AddElement2(ids[i], ids[i + trueSize]);
+                        edgeIndices->AddElement2(ids[(i + 1) % trueSize],
+                                                 ids[i + trueSize]);
                     }
                 } break;
                 case IG_TETRA:
@@ -426,19 +400,14 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     const int *edge{}, *face{};
                     for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
                         cell->GetEdgePointIds(i, edge);
-                        m_LineIndices->AddElement2(ids[edge[0]], ids[edge[1]]);
-                        //edgeIndices->AddId(ids[edge[0]]);
-                        //edgeIndices->AddId(ids[edge[1]]);
+                        edgeIndices->AddElement2(ids[edge[0]], ids[edge[1]]);
                     }
                     for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
                         int face_size = cell->GetFacePointIds(i, face);
                         for (int j = 2; j < face_size; j++) {
-                            m_TriangleIndices->AddElement3(ids[face[0]],
-                                                           ids[face[j - 1]],
-                                                           ids[face[j]]);
-                            //triangleIndices->AddId(ids[face[0]]);
-                            //triangleIndices->AddId(ids[face[j - 1]]);
-                            //triangleIndices->AddId(ids[face[j]]);
+                            triangleIndices->AddElement3(ids[face[0]],
+                                                         ids[face[j - 1]],
+                                                         ids[face[j]]);
                         }
                     }
                 } break;
@@ -448,18 +417,13 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     while (index < size) {
                         realsize = ids[index++];
                         for (igIndex i = 1; i < realsize; i++) {
-                            m_LineIndices->AddElement2(ids[index + i - 1],
-                                                       ids[index + i]);
-                            //edgeIndices->AddId(ids[index + i - 1]);
-                            //edgeIndices->AddId(ids[index + i]);
+                            edgeIndices->AddElement2(ids[index + i - 1],
+                                                     ids[index + i]);
                         }
                         for (igIndex i = 2; i < realsize; i++) {
-                            m_TriangleIndices->AddElement3(ids[index],
-                                                           ids[index + i - 1],
-                                                           ids[index + i]);
-                            //triangleIndices->AddId(ids[index]);
-                            //triangleIndices->AddId(ids[index + i - 1]);
-                            //triangleIndices->AddId(ids[index + i]);
+                            triangleIndices->AddElement3(ids[index],
+                                                         ids[index + i - 1],
+                                                         ids[index + i]);
                         }
                         index += realsize;
                     }
@@ -474,42 +438,24 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     const int *edge{}, *face{};
                     for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
                         cell->GetEdgePointIds(i, edge);
-                        m_LineIndices->AddElement2(ids[edge[0]], ids[edge[2]]);
-                        m_LineIndices->AddElement2(ids[edge[2]], ids[edge[1]]);
-                        //edgeIndices->AddId(ids[edge[0]]);
-                        //edgeIndices->AddId(ids[edge[2]]);
-                        //edgeIndices->AddId(ids[edge[2]]);
-                        //edgeIndices->AddId(ids[edge[1]]);
+                        edgeIndices->AddElement2(ids[edge[0]], ids[edge[2]]);
+                        edgeIndices->AddElement2(ids[edge[2]], ids[edge[1]]);
                     }
                     for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
                         int base_face_size = cell->GetFacePointIds(i, face) / 2;
-                        m_TriangleIndices->AddElement3(
+                        triangleIndices->AddElement3(
                                 ids[face[0]], ids[face[base_face_size]],
                                 ids[face[base_face_size * 2 - 1]]);
-                        //triangleIndices->AddId(ids[face[0]]);
-                        //triangleIndices->AddId(ids[face[base_face_size]]);
-                        //triangleIndices->AddId(
-                        //        ids[face[base_face_size * 2 - 1]]);
                         for (int j = 1; j < base_face_size; j++) {
-                            m_TriangleIndices->AddElement3(
+                            triangleIndices->AddElement3(
                                     ids[face[j]], ids[face[j + base_face_size]],
                                     ids[face[j + base_face_size - 1]]);
-                            //triangleIndices->AddId(ids[face[j]]);
-                            //triangleIndices->AddId(
-                            //        ids[face[j + base_face_size]]);
-                            //triangleIndices->AddId(
-                            //        ids[face[j + base_face_size - 1]]);
                         }
                         for (int j = 2; j < base_face_size; j++) {
-                            m_TriangleIndices->AddElement3(
+                            triangleIndices->AddElement3(
                                     ids[face[base_face_size]],
                                     ids[face[base_face_size + j - 1]],
                                     ids[face[base_face_size + j]]);
-                            //triangleIndices->AddId(ids[face[base_face_size]]);
-                            //triangleIndices->AddId(
-                            //        ids[face[base_face_size + j - 1]]);
-                            //triangleIndices->AddId(
-                            //        ids[face[base_face_size + j]]);
                         }
                     }
                 } break;
