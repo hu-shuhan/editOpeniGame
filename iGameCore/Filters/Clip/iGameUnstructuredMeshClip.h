@@ -31,6 +31,9 @@ public:
 		m_Origin[1] = o[1];
 		m_Origin[2] = o[2];
 	}
+	void SetIsSlice(bool s) {
+		this->m_Slice=s;
+	}
 protected:
 	UnstructuredMeshClip();
 
@@ -38,6 +41,7 @@ protected:
 	float m_Normal[3];
 	float m_Origin[3];
 	UnstructuredMesh::Pointer m_UnstructuredMesh{ nullptr };
+	bool m_Slice=false;
 };
 IGAME_NAMESPACE_END
 #endif
