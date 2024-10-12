@@ -9,18 +9,16 @@
 #include "SurfaceMeshFilters/iGameSurfaceSimplification.h"
 
 #include "Interactor/iGameInteractor.h"
-#include "VTK/iGameVTKWriter.h"
 #include "iGameARAPTest.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
-#include <IQComponents/igQtModelListView.h>
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <IQCore/igQtFileLoader.h>
-#include <IQCore/igQtMainWindow.h>
-#include <IQWidgets/ColorManager/igQtBasicColorAreaWidget.h>
+#include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
+#include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
@@ -31,13 +29,19 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
+#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <stdio.h>
+#include <IQComponents/igQtSliceWidget.h>
+#include <IQWidgets/igQtModelClipWidget.h>
 
+#include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     modelTreeWidget = new igQtModelDialogWidget(this);
     rendererWidget = new igQtModelDrawWidget(this);
+    igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
+    //    rendererWidget->setParent(this);
     fileLoader = new igQtFileLoader(this);
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
@@ -72,6 +76,7 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
     updateRecentFilePaths();
 }
 void igQtMainWindow::initToolbarComponent() {
+
     // viewStyleCombox = new QComboBox(this);
     // viewStyleCombox->addItem("Points");
     // viewStyleCombox->addItem("WireFrame");
@@ -155,6 +160,7 @@ void igQtMainWindow::initToolbarComponent() {
     // SLOT(ChangeScalarViewDim()));
     // ui->toolBar_attribute_view_dim->addWidget(attributeViewDimCombox);
 }
+
 void igQtMainWindow::initAllComponents() {
 
     // init ProgressBar
@@ -256,6 +262,35 @@ void igQtMainWindow::initAllComponents() {
                 rendererWidget->GetScene()->rotateNinetyCounterClockwise();
                 rendererWidget->update();
             });
+    connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
+        QString path = QFileDialog::getSaveFileName(
+                nullptr, "Save Screen shot", "",
+                "PNG Images(*.png);;BMP Images(*.bmp)");
+        igQtScreenShotOptionDialog dialog(this);
+        dialog.setWindowTitle("Save ScreenShot Option.");
+        int oldwidth = rendererWidget->width(),
+            oldheight = rendererWidget->height();
+        int ratio_pixel = rendererWidget->devicePixelRatio();
+        int width = 1920, height = 1080;
+        if (dialog.exec() == QDialog::Accepted) {
+            auto input = dialog.getInput();
+            width = input.first, height = input.second;
+        }
+
+        width /= ratio_pixel, height /= ratio_pixel;
+        rendererWidget->resize(width, height);
+        QImage saved_image = rendererWidget->grabFramebuffer();
+        rendererWidget->resize(oldwidth, oldheight);
+        if(saved_image.save(path, "BMP")){
+            QMessageBox::information(this, "", "保存成功");
+        } else {
+            QMessageBox::information(this, "", "保存失败");
+        }
+    });
+
+    connect(ui->action_SaveAnimation, &QAction::triggered, this,
+            [&]() { ui->widget_Animation->saveAnimation(); });
+
 
     initAllMySignalConnections();
     initAllDockWidgetConnectWithAction();
@@ -486,60 +521,21 @@ void igQtMainWindow::initAllFilters() {
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-        clock_t time1 = clock();
-        auto Tensorview = iGameTensorWidgetBase::New();
-        auto mesh = DynamicCast<UnstructuredMesh>(SceneManager::Instance()
-                                                          ->GetCurrentScene()
-                                                          ->GetCurrentModel()
-                                                          ->GetDataObject());
-
-        Tensorview->SetPoints(mesh->GetPoints());
-        Tensorview->SetTensorAttributes(
-                mesh->GetAttributeSet()->GetAttribute(2).pointer);
-        Tensorview->ShowTensorField();
-        modelTreeWidget->addDataObjectToModelTree(Tensorview, ItemSource::File);
-        return;
-        clock_t time2 = clock();
-        std::cout << "compute cost " << time2 - time1 << "ms\n";
-        auto painter = SceneManager::Instance()
-                               ->GetCurrentScene()
-                               ->GetCurrentModel()
-                               ->GetPainter();
-        painter->SetPen(3);
-        painter->SetPen(Color::Green);
-        painter->SetBrush(Color::Red);
-
-        auto connect = Tensorview->GetDrawGlyphPointOrders()->RawPointer();
-        auto points = Tensorview->GetDrawGlyphPoints();
-
-        // for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-        //	auto p = points->GetPoint(i);
-        //	std::cout << p[0] << " " << p[1] << " " << p[2] << '\n';
-        // }
-        long long fcnt =
-                Tensorview->GetDrawGlyphPointOrders()->GetNumberOfValues() / 3;
-        for (long long i = 0; i < fcnt; i++) {
-            painter->DrawTriangle(points->GetPoint(connect[i * 3]),
-                                  points->GetPoint(connect[i * 3 + 1]),
-                                  points->GetPoint(connect[i * 3 + 2]));
-        }
-        return;
-        SurfaceMesh::Pointer res = SurfaceMesh::New();
-        res->SetPoints(points);
-        std::cout << points->GetNumberOfPoints() << '\n';
-        CellArray::Pointer faces = CellArray::New();
-        res->SetFaces(faces);
-        for (long long i = 0; i < fcnt; i++) {
-            faces->AddCellId3(connect[i * 3], connect[i * 3 + 1],
-                              connect[i * 3 + 2]);
-        }
-        // for (long long i = 0; i < fcnt; i++) {
-        // std::cout<<connect[i * 3]<<' '<<connect[i * 3 + 1]<<' '<<connect[i * 3 +
-        // 2]<<'\n';
-        // }
-        modelTreeWidget->addDataObjectToModelTree(res, ItemSource::File);
-        clock_t time3 = clock();
-        std::cout << "draw cost " << time3 - time2 << "ms\n";
+        auto chart = new igQtCharts;
+        auto dataarray = rendererWidget->GetScene()
+                                 ->GetCurrentModel()
+                                 ->GetDataObject()
+                                 ->GetAttributeSet()
+                                 ->GetAttribute(0)
+                                 .pointer;
+        //auto dataarray=DoubleArray::New();
+        //dataarray->AddValue(1.0);
+        //dataarray->AddValue(2.0);
+        //dataarray->AddValue(13.0);
+        //dataarray->AddValue(4.0);
+        //dataarray->AddValue(6.0);
+        chart->draw(dataarray);
+        chart->exec();
     });
     auto action_loadtest = ui->menu_help->addAction("loadtest");
     connect(action_loadtest, &QAction::triggered, this, [&](bool checked) {
@@ -886,6 +882,40 @@ void igQtMainWindow::initAllFilters() {
                 rendererWidget->update();
             });
 
+    connect(ui->menuTest->addAction("executeMarchingCubes"),
+            &QAction::triggered, this, [&](bool checked) {
+                auto obj = rendererWidget->GetScene()
+                                   ->GetCurrentModel()
+                                   ->GetDataObject();
+                auto MC = iGameMarchingCubes::New();
+                MC->SetInput(0, obj);
+                MC->SetValue(0.23);
+                MC->Execute();
+                auto result = MC->GetOutput(0);
+                modelTreeWidget->addDataObjectToModelTree(
+                        result, ItemSource::Algorithm);
+                rendererWidget->update();
+            });
+    connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
+            [&](bool checked) {
+                auto obj = rendererWidget->GetScene()
+                                   ->GetCurrentModel()
+                                   ->GetDataObject();
+                auto box = obj->GetBoundingBox();
+                auto center = (box.min + box.max) * 0.5;
+                float n[3] = {0, 1, 0};
+                float o[3] = {(float) center[0], (float) center[1],
+                              (float) center[2]};
+                auto filter = ModelClip::New();
+                filter->SetPlane(n, o);
+                filter->SetInput(0, obj);
+                filter->Execute();
+                auto result = filter->GetOutput(0);
+                modelTreeWidget->addDataObjectToModelTree(
+                        result, ItemSource::Algorithm);
+                rendererWidget->update();
+            });
+
 
     QMenu *view = ui->menu_filters->addMenu("viewTest");
     QAction *curvature = view->addAction("Get Curvature");
@@ -954,7 +984,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_VectorField->show();
         ui->widget_VectorField->updateVectorNameList();
-        });
+    });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_TensorField->show();
         ui->widget_TensorField->UpdateScalarsNameList();
@@ -973,59 +1003,97 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
 
-    auto AddClippingMeshToScene = [](const std::string& mainName,
-                                     SurfaceMesh::Pointer OV,
-                                     SurfaceMesh::Pointer IV,
-                                     SurfaceMesh::Pointer OIV,
-                                     igQtModelDialogWidget* modelTreeWidget) {
-        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-
-        const std::string OVName = "__" + mainName + "_OV";   // 临时模型
-        const std::string IVName = "__" + mainName + "_IV";   // 临时模型
-        const std::string OIVName = "__" + mainName + "_OIV"; // 临时模型
-        const float OVColor[3]{1.0f, 1.0f, 1.0f};
-        const float IVColor[3]{1.0f, 1.0f, 0.0f};
-        const float OIVColor[3]{1.0f, 1.0f, 1.0f};
-        const float OIVAlpha = 0.2f;
-
-        OV->SetName(OVName);
-        IV->SetName(IVName);
-        OIV->SetName(OIVName);
-
-        bool exist[3]{false, false, false};
-        for (auto& [id, model]: scene->GetModelList()) {
-            if (model->GetDataObject()->GetName() == OVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(OV);
-                exist[0] = true;
-            } else if (model->GetDataObject()->GetName() == IVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(IV);
-                exist[1] = true;
-            } else if (model->GetDataObject()->GetName() == OIVName) {
-                auto model = scene->GetModelById(id);
-                model->SetDataObject(OIV);
-                exist[2] = true;
+    auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
+                                       Painter3D* painter,
+                                       const float color[3]) -> void {
+        // 1. draw faces
+        painter->SetPen(Color::None);
+        painter->SetBrush(color[0], color[1], color[2]);
+        igIndex cell[32]{};
+        for (int i = 0; i < m->GetNumberOfFaces(); i++) {
+            int ncell = m->GetFacePointIds(i, cell);
+            for (int j = 2; j < ncell; j++) {
+                painter->DrawTriangle(m->GetPoint(cell[0]),
+                                      m->GetPoint(cell[j - 1]),
+                                      m->GetPoint(cell[j]));
             }
         }
-        if (!exist[0])
-            modelTreeWidget->addDataObjectToModelTree(OV,
-                                                      ItemSource::Algorithm);
-        if (!exist[1])
-            modelTreeWidget->addDataObjectToModelTree(IV,
-                                                      ItemSource::Algorithm);
-        if (!exist[2])
-            modelTreeWidget->addDataObjectToModelTree(OIV,
-                                                      ItemSource::Algorithm);
-
-        //OV->SetFaceColor(OVColor);
-        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-        //IV->SetFaceColor(IVColor);
-        IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
-        //OIV->SetFaceColor(OIVColor);
-        //OIV->SetFaceTransparency(OIVAlpha);
-        OIV->SetViewStyle(IG_SURFACE);
+        // 2. draw lines
+        painter->SetPen(Color::Black);
+        painter->SetBrush(Color::None);
+        if (m->GetEdges() == nullptr) { m->BuildEdges(); }
+        for (int i = 0; i < m->GetNumberOfEdges(); i++) {
+            int ncell = m->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                throw std::runtime_error("The index of the edge is negative.");
+            } else {
+                painter->DrawLine(m->GetPoint(cell[0]), m->GetPoint(cell[1]));
+            }
+        }
+        painter->Modified();
     };
+
+    auto AddClippingMeshToScene =
+            [DrawSurfaceMeshByPointer](
+                    const std::string& mainName, SurfaceMesh::Pointer OV,
+                    SurfaceMesh::Pointer t_IV, SurfaceMesh::Pointer OIV,
+                    igQtModelDialogWidget* modelTreeWidget) {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+
+                const std::string OVName = "__" + mainName + "_OV"; // 临时模型
+                const std::string IVName = "__" + mainName + "_IV"; // 临时模型
+                const std::string OIVName =
+                        "__" + mainName + "_OIV"; // 临时模型
+                const float OVColor[3]{1.f, 1.f, 1.f};
+                const float IVColor[3]{1.f, 1.f, 0.f};
+                const float OIVColor[3]{1.f, 1.f, 1.f};
+                const float OIVAlpha = 0.2f;
+
+                SurfaceMesh::Pointer IV = SurfaceMesh::New();
+                OV->SetName(OVName);
+                IV->SetName(IVName);
+                OIV->SetName(OIVName);
+
+                Model* IVModel{nullptr};
+                bool exist[3]{false, false, false};
+                for (auto& [id, model]: scene->GetModelList()) {
+                    if (model->GetDataObject()->GetName() == OVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(OV);
+                        exist[0] = true;
+                    } else if (model->GetDataObject()->GetName() == IVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(IV);
+                        exist[1] = true;
+                        IVModel = model;
+                    } else if (model->GetDataObject()->GetName() == OIVName) {
+                        auto model = scene->GetModelById(id);
+                        model->SetDataObject(OIV);
+                        exist[2] = true;
+                    }
+                }
+                if (!exist[0])
+                    modelTreeWidget->addDataObjectToModelTree(
+                            OV, ItemSource::Algorithm);
+                if (!exist[1]) {
+                    int id = modelTreeWidget->addDataObjectToModelTree(
+                            IV, ItemSource::Algorithm);
+                    IVModel = scene->GetModelById(id);
+                }
+                if (!exist[2])
+                    modelTreeWidget->addDataObjectToModelTree(
+                            OIV, ItemSource::Algorithm);
+
+                DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter(), IVColor);
+
+                //OV->SetFaceColor(OVColor);
+                OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+                //IV->SetFaceColor(IVColor);
+                //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+                //OIV->SetFaceColor(OIVColor);
+                OIV->SetTransparency(OIVAlpha);
+                OIV->SetViewStyle(IG_SURFACE);
+            };
 
     connect(ui->action_BoxClipping_Better, &QAction::triggered, this,
             [&](bool checked) {
@@ -1228,6 +1296,31 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                     rendererWidget->update();
                 });
             });
+
+
+    SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setWindowTitle("网格切割");
+    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
+    SliceDockWidget->setWidget(SliceWidget);
+    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
+    SliceDockWidget->hide();
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked){
+        SliceDockWidget->show();
+        auto obj =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto box = obj->GetBoundingBox();
+        auto center = (box.min + box.max) * 0.5;
+        float n[3] = {0, 1, 0};
+        float o[3] = {(float) center[0], (float) center[1], (float) center[2]};
+        SliceWidget->SetPlane(o, n);
+        SliceWidget->SetOriginDataObject(obj);
+    });
+    connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
+            [&](SurfaceMesh::Pointer mesh) {
+                modelTreeWidget->addDataObjectToModelTree(
+                        mesh, ItemSource::Algorithm);
+            });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
@@ -1283,33 +1376,6 @@ void igQtMainWindow::initAllMySignalConnections() {
     // connect(ui->widget_Animation,
     // &igQtAnimationWidget::PlayAnimation_interpolate, rendererWidget,
     // &igQtModelDrawWidget::PlayAnimation_interpolate);
-    //	connect(ui->widget_Animation, &igQtAnimationWidget::PlayAnimation_snap,
-    // this, [&](int keyframe){ 		using namespace iGame; 		auto
-    // currentObject =
-    // SceneManager::Instance()->GetCurrentScene()->GetCurrentObject();
-    //		if(currentObject == nullptr ||
-    // currentObject->GetTimeFrames()->GetArrays().empty())  return;
-    // auto& frameSubFiles =
-    // currentObject->GetTimeFrames()->GetTargetTimeFrame(keyframe).SubFileNames;
-    //		rendererWidget->makeCurrent();
-    //		if(frameSubFiles->Size() > 1){
-    //			currentObject->ClearSubDataObject();
-    //			for(int i = 0; i < frameSubFiles->Size(); i ++){
-    //				DataObject::Pointer sub =
-    // FileIO::ReadFile(frameSubFiles->GetElement(i));
-    //				currentObject->AddSubDataObject(sub);
-    //			}
-    //		}
-    //		else {
-    //			SceneManager::Instance()->GetCurrentScene()->RemoveCurrentDataObject();
-    //			currentObject =
-    // FileIO::ReadFile(frameSubFiles->GetElement(0));
-    //			currentObject->SetTimeFrames(currentObject->GetTimeFrames());
-    //			SceneManager::Instance()->GetCurrentScene()->AddDataObject(currentObject);
-    //		}
-    //		currentObject->SwitchToCurrentTimeframe(keyframe);
-    //		rendererWidget->doneCurrent();
-    //	});
 
     // connect(ui->widget_FlowField, &igQtStreamTracerWidget::sendstreams,
     // rendererWidget, &igQtModelDrawWidget::DrawStreamline);
@@ -1323,13 +1389,14 @@ void igQtMainWindow::initAllMySignalConnections() {
 
     // connect(ui->modelTreeView, &igQtModelListView::ChangeModelVisible,
     // rendererWidget, &igQtModelDrawWidget::changeTargetModelVisible);
-    // connect(ui->widget_ScalarField,
-    // &igQtScalarViewWidget::updateCurrentModelColor, rendererWidget,
-    // &igQtModelDrawWidget::UpdateCurrentModel); connect(ui->widget_ScalarField,
-    // &igQtScalarViewWidget::changeColorBarShow, this,
-    // &igQtMainWindow::updateColorBarShow); connect(ui->widget_QualityDetection,
-    // &igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
-    // &igQtModelDrawWidget::UpdateCurrentModel);
+
+    //connect(ui->widget_QualityDetection,
+    //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
+    //&igQtModelDrawWidget::UpdateCurrentModel);
+    connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow,
+            this, &igQtMainWindow::updateColorBarShow);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged,
+            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
     connect(ui->widget_ScalarField,
             &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
                 if (this->ColorManagerWidget->isHidden()) {
@@ -1341,7 +1408,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             });
     connect(this->ColorManagerWidget,
             &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
-                ui->widget_ScalarField->drawModelWithScalarData();
+                ui->widget_ScalarField->updateDrawStyle();
                 this->rendererWidget->getColorBarWidget()->update();
             });
     // connect(ui->widget_EditMode, &igQtEditModeWidget::ChangeCutFlag,
@@ -1367,6 +1434,16 @@ void igQtMainWindow::initAllMySignalConnections() {
     //	this->rendererWidget->DrawSelectedPoint(points);
     //	});
     //
+    connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this,
+            [&](iGame::DataObject::Pointer res) {
+                modelTreeWidget->addDataObjectToModelTree(
+                        res, ItemSource::Algorithm);
+            });
+    connect(ui->widget_VectorField, &igQtVectorWidget::UpdateDireVector, this,
+            [&](iGame::DataObject::Pointer res) {
+                res->Modified();
+                rendererWidget->update();
+            });
     connect(ui->widget_TensorField, &igQtTensorWidget::DrawTensorGlyphs, this,
             [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->addDataObjectToModelTree(
@@ -1374,7 +1451,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateTensorGlyphs, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
+                //res->Modified();
                 rendererWidget->update();
             });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateAttributes, this,
@@ -1406,10 +1483,8 @@ void igQtMainWindow::initAllMySignalConnections() {
                     return;
                 }
 
-                inputMesh->SetExtentClipping(false);
-                inputMesh->SetPlaneClipping(false);
+                inputMesh->GetClipper()->DisableAll();
                 inputMesh->SetVisibility(true);
-                inputMesh->Modified();
 
                 const std::string OVName =
                         "__" + inputMesh->GetName() + "_OV"; // 临时模型
@@ -1502,35 +1577,38 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    double x_min =
+                    auto clipper = inputMesh->GetClipper();
+
+                    auto& cbox = clipper->m_Box;
+                    cbox.m_Use = true;
+
+                    cbox.m_Bmin[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(x_min_id, ok), 0.,
                                             1.);
-                    double y_min =
+                    cbox.m_Bmin[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(y_min_id, ok), 0.,
                                             1.);
-                    double z_min =
+                    cbox.m_Bmin[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(z_min_id, ok), 0.,
                                             1.);
-                    double x_max =
+                    cbox.m_Bmax[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(x_max_id, ok), 0.,
                                             1.);
-                    double y_max =
+                    cbox.m_Bmax[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(y_max_id, ok), 0.,
                                             1.);
-                    double z_max =
+                    cbox.m_Bmax[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(z_max_id, ok), 0.,
                                             1.);
-                    bool flip = dialog->getChecked(flip_id, ok);
+                    cbox.m_Flip = dialog->getChecked(flip_id, ok);
 
-                    inputMesh->SetExtent(x_min, x_max, y_min, y_max, z_min,
-                                         z_max, flip);
-                    inputMesh->Modified();
+                    clipper->Modified();
 
                     rendererWidget->update();
                 });
@@ -1593,33 +1671,37 @@ void igQtMainWindow::initAllMySignalConnections() {
                         return x;
                     };
 
-                    double origin_x =
+                    auto clipper = inputMesh->GetClipper();
+
+                    auto& cplane = clipper->m_Plane;
+                    cplane.m_Use = true;
+
+                    cplane.m_Origin[0] =
                             box.min[0] +
                             size[0] * Clamp(dialog->getDouble(origin_x_id, ok),
                                             0., 1.);
-                    double origin_y =
+                    cplane.m_Origin[1] =
                             box.min[1] +
                             size[1] * Clamp(dialog->getDouble(origin_y_id, ok),
                                             0., 1.);
-                    double origin_z =
+                    cplane.m_Origin[2] =
                             box.min[2] +
                             size[2] * Clamp(dialog->getDouble(origin_z_id, ok),
                                             0., 1.);
-                    double normal_x =
+                    cplane.m_Normal[0] =
                             Clamp(dialog->getDouble(normal_x_id, ok), -1., 1.);
-                    double normal_y =
+                    cplane.m_Normal[1] =
                             Clamp(dialog->getDouble(normal_y_id, ok), -1., 1.);
-                    double normal_z =
+                    cplane.m_Normal[2] =
                             Clamp(dialog->getDouble(normal_z_id, ok), -1., 1.);
-                    bool flip = dialog->getChecked(flip_id, ok);
-                    if (normal_x == 0. && normal_y == 0. && normal_z == 0.) {
+                    cplane.m_Flip = dialog->getChecked(flip_id, ok);
+                    if (cplane.m_Normal[0] == 0. && cplane.m_Normal[1] == 0. &&
+                        cplane.m_Normal[2] == 0.) {
                         std::cout << "Normal is a vector of zero" << std::endl;
                         return;
                     }
 
-                    inputMesh->SetPlane(origin_x, origin_y, origin_z, normal_x,
-                                        normal_y, normal_z, flip);
-                    inputMesh->Modified();
+                    clipper->Modified();
 
                     rendererWidget->update();
                 });

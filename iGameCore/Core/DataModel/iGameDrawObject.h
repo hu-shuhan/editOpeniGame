@@ -1,6 +1,7 @@
 #ifndef iGameDrawObject_h
 #define iGameDrawObject_h
 
+#include "iGameClipper.h"
 #include "iGameDataObject.h"
 #include "iGameIdArray.h"
 #include "iGameMarker.h"
@@ -23,11 +24,14 @@ public:
     static Pointer New() { return new DrawObject; }
 
 protected:
-    DrawObject(){};
+    DrawObject();
     ~DrawObject() override = default;
 
 public:
+    bool IsDrawable() override { return true; }
     virtual void ConvertToDrawableData();
+    void CreateDrawBuffer();
+    void ReAllocateDisplayBuffer();
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
@@ -44,35 +48,43 @@ public:
     unsigned int GetViewStyleOfModel();
 
     virtual bool GetClipped();
-    void SetExtentClipping(bool _in);
-    void SetPlaneClipping(bool _in);
-    void SetExtent(double xMin, double xMax, double yMin, double yMax,
-                   double zMin, double zMax, bool flip = false);
-    void SetPlane(double ox, double oy, double oz, double nx, double ny,
-                  double nz, bool flip = false);
+    iGameClipper::Pointer GetClipper() { return m_Clipper; }
 
     void SetTransparency(float transparency);
     float GetTransparency();
 
-protected:
-    void Create();
+    virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
+    void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
+
+private:
+    static void SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
+    static void SetColorBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
+    static void SetNormalBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
+    static void SetTextureBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
 
 protected:
-    unsigned int m_ViewStyle{0};
-    bool m_Visibility{true};
-
-protected:
-    GLVertexArray m_PointVAO, m_VertexVAO, m_LineVAO, m_TriangleVAO;
+    GLVertexArray m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
-    GLBuffer m_PointEBO, m_VertexEBO, m_LineEBO, m_TriangleEBO;
+    GLBuffer m_PointEBO, m_LineEBO, m_TriangleEBO;
     GLVertexArray m_CellVAO;
     GLBuffer m_CellPositionVBO, m_CellColorVBO;
+    GLBuffer m_CellEBO;
 
-    FloatArray::Pointer m_Positions{};
-    FloatArray::Pointer m_Colors{};
-    IdArray::Pointer m_PointIndices{};
-    IdArray::Pointer m_LineIndices{};
-    IdArray::Pointer m_TriangleIndices{};
+    FloatArray::Pointer m_Positions;
+    FloatArray::Pointer m_Colors;
+    FloatArray::Pointer m_Normals;
+    FloatArray::Pointer m_Textures;
+
+    UnsignedIntArray::Pointer m_PointIndices;
+    UnsignedIntArray::Pointer m_LineIndices;
+    UnsignedIntArray::Pointer m_TriangleIndices;
+
+    FloatArray::Pointer m_CellPositions;
+    FloatArray::Pointer m_CellColors;
+    UnsignedIntArray::Pointer m_CellIndices;
+
+    unsigned int m_ViewStyle{0};
+    bool m_Visibility{true};
 
     bool m_Flag{true};
     bool m_UseColor{false};
@@ -86,25 +98,30 @@ protected:
     ArrayObject::Pointer m_ViewAttribute{};
     int m_ViewDemension{};
 
-    struct {
-        struct {
-            bool m_Use{false};
-            double m_bmin[3], m_bmax[3];
-            bool m_flip{false};
-        } m_Extent;
-        struct {
-            bool m_Use{false};
-            double m_origin[3], m_normal[3];
-            bool m_flip{false};
-        } m_Plane;
-    } m_Clip; // Used for clip mesh
+    iGameClipper::Pointer m_Clipper;
 
     friend class Model;
+    friend class UnstructuredMesh;
 
 #ifdef IGAME_OPENGL_VERSION_460
     Meshlet::Pointer m_Meshlets{Meshlet::New()};
 #endif
+
+protected:
+    template<typename Functor, typename... Args>
+    void ProcessSubDataObjects(Functor&& functor, Args&&... args);
 };
 
+template<typename Functor, typename... Args>
+inline void DrawObject::ProcessSubDataObjects(Functor&& functor,
+                                              Args&&... args) {
+    if (HasSubDataObject()) {
+        for (auto it = m_SubDataObjectsHelper->Begin();
+             it != m_SubDataObjectsHelper->End(); ++it) {
+            (DynamicCast<DrawObject>(it->second)->*functor)(
+                    std::forward<Args>(args)...);
+        }
+    }
+}
 IGAME_NAMESPACE_END
 #endif

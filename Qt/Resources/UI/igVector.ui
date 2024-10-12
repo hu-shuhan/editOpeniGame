@@ -109,7 +109,7 @@
      </layout>
     </item>
     <item row="4" column="0" colspan="2">
-     <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,3">
+     <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,3,0">
       <item>
        <widget class="QLabel" name="label_6">
         <property name="text">
@@ -119,6 +119,13 @@
       </item>
       <item>
        <widget class="QComboBox" name="comboBox"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="DrawButton">
+        <property name="text">
+         <string>绘制</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>

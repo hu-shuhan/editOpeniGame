@@ -50,8 +50,8 @@ protected:
 			}
 		}
 		else if (m_PlaneClipper.m_Use) {
-			const auto& o = m_BoxClipper.m_BoxMin;
-			const auto& n = m_BoxClipper.m_BoxMax;
+            const auto& o = m_PlaneClipper.m_Origin;
+            const auto& n = m_PlaneClipper.m_Normal;
 			if (((position[0] - o[0]) * n[0] + (position[1] - o[1]) * n[1] + (position[2] - o[2]) * n[2])
 				>= 0.) {
 				return !m_PlaneClipper.m_Flip;

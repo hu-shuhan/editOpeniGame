@@ -35,11 +35,9 @@ void igQtColorRangeSlider::initColorRanges() {
     if (!m_ColorMapper) { m_ColorMapper = iGame::ColorMap::NewInstance(); }
 
     this->m_TmpColorMapper = iGame::ColorMap::NewInstance();
-    auto tmpColorBar = this->m_TmpColorMapper->GetColorBar();
-    auto tmpColorRange = this->m_TmpColorMapper->GetColorRange();
-    tmpColorBar = iGame::FloatArray::New();
+    auto tmpColorBar = iGame::FloatArray::New();
     tmpColorBar->SetDimension(3);
-    tmpColorRange = iGame::FloatArray::New();
+    auto tmpColorRange = iGame::FloatArray::New();
     int n = m_ColorMapper->GetColorBarSize() + 1;
     tmpColorBar->Resize(n);
     tmpColorRange->Resize(n);
@@ -51,6 +49,7 @@ void igQtColorRangeSlider::initColorRanges() {
     for (int i = 0; i < n; i++) {
         tmpColorRange->AddValue(m_ColorMapper->GetColorRange()->GetValue(i));
     }
+    m_TmpColorMapper->UpdateColorMap(tmpColorBar, tmpColorRange);
 }
 void igQtColorRangeSlider::updateColorBarDrawInfo() {
 

@@ -7,7 +7,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class GLShader {
+class GLShader : public Object {
 private:
     GLuint handle;
     friend class GLShaderProgram;
@@ -57,7 +57,7 @@ public:
     ~GLShader() { glDeleteShader(handle); }
 };
 
-class GLUniform {
+class GLUniform : public Object {
 private:
     GLuint m_index;
 
@@ -67,7 +67,7 @@ public:
     unsigned int index() const { return m_index; }
 };
 
-class GLShaderProgram {
+class GLShaderProgram : public Object {
 private:
     GLuint handle;
 
@@ -88,13 +88,13 @@ private:
 public:
     GLShaderProgram() {}
 
-    void addShaders(std::initializer_list<GLShader> shaders) {
+    template<typename... Shaders>
+    void addShaders(Shaders&&... shaders) {
         handle = glCreateProgram();
 
-        for (const auto& shader: shaders) glAttachShader(handle, shader.handle);
+        (glAttachShader(handle, shaders.handle), ...);
 
         glLinkProgram(handle);
-
         checkCompileErrors();
     }
 
@@ -102,35 +102,35 @@ public:
 
     GLuint programID() const { return handle; }
 
-    void setUniform(GLUniform uniform, int value) const {
+    void setUniform(const GLUniform& uniform, int value) const {
         glUniform1i(uniform.index(), value);
     }
 
-    void setUniform(GLUniform uniform, unsigned int value) const {
+    void setUniform(const GLUniform& uniform, unsigned int value) const {
         glUniform1ui(uniform.index(), value);
     }
 
-    void setUniform(GLUniform uniform, float value) const {
+    void setUniform(const GLUniform& uniform, float value) const {
         glUniform1f(uniform.index(), value);
     }
 
-    void setUniform(GLUniform uniform, const igm::uvec2& vec2) const {
+    void setUniform(const GLUniform& uniform, const igm::uvec2& vec2) const {
         glUniform2ui(uniform.index(), vec2.x, vec2.y);
     }
 
-    void setUniform(GLUniform uniform, const igm::vec3& vec3) const {
+    void setUniform(const GLUniform& uniform, const igm::vec3& vec3) const {
         glUniform3f(uniform.index(), vec3.x, vec3.y, vec3.z);
     }
 
-    void setUniform(GLUniform uniform, const igm::vec4& vec4) const {
+    void setUniform(const GLUniform& uniform, const igm::vec4& vec4) const {
         glUniform4f(uniform.index(), vec4.x, vec4.y, vec4.z, vec4.w);
     }
 
-    void setUniform(GLUniform uniform, const igm::mat4& mat4) const {
+    void setUniform(const GLUniform& uniform, const igm::mat4& mat4) const {
         glUniformMatrix4fv(uniform.index(), 1, GL_FALSE, mat4.data());
     }
 
-    void setUniform(GLUniform uniform, bool transpose,
+    void setUniform(const GLUniform& uniform, bool transpose,
                     const igm::mat4& mat4) const {
         glUniformMatrix4fv(uniform.index(), 1, transpose ? GL_TRUE : GL_FALSE,
                            mat4.data());

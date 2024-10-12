@@ -546,6 +546,59 @@ Mac系统最高只支持``OpenGL4.1``，因此必须设置为``OpenGL3.3``，还
 format.setVersion(4, 6); //Mac set to format.setVersion(3, 3);
 ```
 
+### DrawObject的渲染流程
+
+仔细阅读以上手册可以知道，框架的``DrawObject``类继承自``DataObject``，因此一个类如果继承自``DataObject``
+则代表该类无法进行渲染，反之如果继承自``DrawObject``才可以进行渲染。
+
+而可以渲染的派生类主要依赖于``DrawObject``的以下10个数组，核心场景的渲染会根据这10个数组进行转化，传输至GPU渲染，因此想更改模型的渲染结果必须更改以下10个数组的数据。
+
+```cpp
+FloatArray::Pointer m_Positions{FloatArray::New()};
+FloatArray::Pointer m_Colors{FloatArray::New()};
+FloatArray::Pointer m_Normals{FloatArray::New()};
+FloatArray::Pointer m_Textures{FloatArray::New()};
+
+IdArray::Pointer m_PointIndices{IdArray::New()};
+IdArray::Pointer m_LineIndices{IdArray::New()};
+IdArray::Pointer m_TriangleIndices{IdArray::New()};
+
+FloatArray::Pointer m_CellPositions{FloatArray::New()};
+FloatArray::Pointer m_CellColors{FloatArray::New()};
+IdArray::Pointer m_CellIndices{IdArray::New()};
+```
+
+以下是一个修改示例（绘制一个三角形），修改完切记调用``Modify()``函数，以通知类更新数据上传至GPU：
+
+```cpp
+FloatArray::Pointer position = FloatArray::New();
+position->SetDimension(3);
+IdArray::Pointer triangle = IdArray::New();
+
+float point_1[3]{-0.5f, -0.5f, 0.0f};
+float point_2[3]{0.0f, 0.5f, 0.0f};
+float point_3[3]{0.5f, -0.5f, 0.0f};
+
+position->AddElement(point_1);
+position->AddElement(point_2);
+position->AddElement(point_3);
+
+triangle->AddId(0);
+triangle->AddId(1);
+triangle->AddId(2);
+
+m_Positions = position;
+m_TriangleIndices = triangle;
+
+m_Positions->Modified();
+m_TriangleIndices->Modified();
+```
+
+### 透明度显示功能
+
+透明度显示为高级功能，由于采用次序无关透明度(Order Independent Transparency, OIT)，因此在本项目必须在``OpenGL4.6``
+版本才会生效，在``OpenGL3.3``版本中设置透明度不会产生作用。
+
 ### 遮挡剔除功能
 
 遮挡剔除为加速渲染功能，由于需要用到计算着色器（Compute Shader），因此在本项目必须在``OpenGL4.6``版本才能开启。

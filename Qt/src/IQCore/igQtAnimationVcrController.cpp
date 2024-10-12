@@ -60,7 +60,7 @@ void igQtAnimationVcrController::onLoop(bool checked) {
 }
 
 void igQtAnimationVcrController::startTimer() {
-    if (keyframe_sum) timer->start(100);
+    if (keyframe_sum) timer->start(10);
 }
 
 void igQtAnimationVcrController::stopTimer() {

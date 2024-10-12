@@ -32,8 +32,8 @@ public:
     }
 
 
-    TimeFrame& GetTargetTimeFrame(int index) { return m_Data[index]; }
-    const TimeFrame& GetTargetTimeFrame(int index) const { return m_Data[index]; }
+    TimeFrame& GetTargetTimeFrame(unsigned int index) { return m_Data[index]; }
+    const TimeFrame& GetTargetTimeFrame(unsigned int  index) const { return m_Data[index]; }
 
 //    DataArray* GetAttribute(IGenum type, IGenum attachmentType, const std::string& name)
 //    {
@@ -56,11 +56,11 @@ public:
 //        m_Data[i].active = false;
 //        m_Data[i].array = nullptr;
 //    }
+    size_t GetTimeNum(){return m_Data.size();}
 
     std::vector<TimeFrame>& GetArrays() {
         return m_Data;
     }
-
 
 protected:
 

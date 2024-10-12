@@ -24,6 +24,10 @@ class IG_QT_MODULE_EXPORT igQtRenderWidget : public QOpenGLWidget {
 public:
   igQtRenderWidget(QWidget *parent = nullptr);
   ~igQtRenderWidget() override;
+  static igQtRenderWidget* Instance(){
+      static igQtRenderWidget instance;
+      return &instance;
+  }
 
   Scene *GetScene();
 

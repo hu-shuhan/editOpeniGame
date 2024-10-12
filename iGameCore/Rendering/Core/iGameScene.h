@@ -124,6 +124,9 @@ public:
     void rotateNinetyClockwise();
     void rotateNinetyCounterClockwise();
 
+    unsigned char* CaptureOffScreenBuffer(int width, int height);
+
+
     template<typename Functor, typename... Args>
     void SetUpdateFunctor(Functor&& functor, Args&&... args) {
         m_UpdateFunctor = std::bind(functor, args...);
@@ -170,11 +173,12 @@ protected:
     void ShadowPass();
 
     void UpdateCameraDataBlock();
-    void UpdateObjectDataBlock(Model* model);
-    void UpdateUniformBufferObjectBlock(Model* model);
+    void UpdateObjectDataBlock(DataObject* obj);
+    void UpdateUniformBufferObjectBlock(DataObject* obj);
 
     void DrawAxes(igm::ivec4 drawRange);
     void CalculateFrameRate();
+
 
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;
@@ -234,8 +238,9 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d m_DepthPyramid;
 
-    Painter::Pointer painter = Painter::New();
+    Painter3D::Pointer painter = Painter3D::New();
 
+    friend class Model;
     friend class Interactor;
     friend class BasicInteractor;
 };

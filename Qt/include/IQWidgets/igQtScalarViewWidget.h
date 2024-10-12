@@ -25,7 +25,7 @@ public slots:
 	void setCustomScaleRange();
 	void showCustomScaleRangeWidget();
 	void isShowColorLegend();
-	void drawModelWithScalarData();
+    void updateDrawStyle();
 	void loadScalarData();
 	void initScalarRange();
     void initScalarInfo();

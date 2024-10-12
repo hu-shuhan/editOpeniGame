@@ -64,13 +64,13 @@ protected:
     DeleteMarker::Pointer m_PointDeleteMarker{}; // The marker for delete point
     bool m_InEditStatus{false};
 
+    //void Draw(Scene* scene) override;
 public:
     //void Draw(Scene*) override;
     //void DrawPhase1(Scene*) override;
     //void DrawPhase2(Scene*) override;
     //void TestOcclusionResults(Scene*) override;
     void ConvertToDrawableData() override;
-    bool IsDrawable() override { return true; }
     void ViewCloudPicture(Scene*, int index, int demension = -1) override;
 
     /* Range's first means minRange, second means maxRange. */

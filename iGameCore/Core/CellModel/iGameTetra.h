@@ -7,7 +7,12 @@ IGAME_NAMESPACE_BEGIN
 class Tetra : public Volume {
 public:
 	I_OBJECT(Tetra);
-	static Pointer New() { return new Tetra; }
+    static Pointer New() { return new Tetra; }
+    static Pointer Create(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3,
+                       igIndex ph0, igIndex ph1, igIndex ph2, igIndex ph3) {
+        return new Tetra( p0,  p1,  p2,  p3,
+                          ph0,  ph1,  ph2,  ph3);
+    }
 	
 	IGenum GetCellType() const noexcept override { return IG_TETRA; }
     int GetCellSize() const noexcept override { return 4; }
@@ -212,6 +217,24 @@ private:
 		m_Line = Line::New();
         m_Triangle = Triangle::New();
 	}
+    Tetra(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, igIndex ph0,igIndex ph1, igIndex ph2, igIndex ph3) {
+        this->Points->SetNumberOfPoints(4);
+        this->PointIds->SetNumberOfIds(4);
+
+        this->Points->SetPoint(0, p0[0], p0[1], p0[2]);
+        this->PointIds->SetId(0, ph0);
+
+		this->Points->SetPoint(1, p1[0], p1[1], p1[2]);
+        this->PointIds->SetId(0, ph1);
+
+        this->Points->SetPoint(2, p2[0], p2[1], p2[2]);
+        this->PointIds->SetId(0, ph2);
+
+        this->Points->SetPoint(3, p3[0], p3[1], p3[2]);
+        this->PointIds->SetId(0, ph3);
+        m_Line = Line::New();
+        m_Triangle = Triangle::New();
+    }
 	~Tetra() override = default;
 
 	Line::Pointer m_Line;

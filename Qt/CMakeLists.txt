@@ -4,9 +4,9 @@ if (DEFINED ENV{QT_HOME})
 else ()
     # if complied in Linux,   set Qt5_DIR to e.g.(/usr/lib/Qt/5.14.2/gcc_64/lib/cmake/Qt5)
     # if complied in Windows, set Qt5_DIR to e.g.(D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5)
-    #    set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    #        set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
+           set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
 
@@ -20,7 +20,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/UI")
 
 # 查找 Qt
 #find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
-find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL)
+find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL Charts)
 #qt_standard_project_setup()
 Qt5_add_resources(QRC_FILES "Resources/iGameQtMainWindow.qrc")
 #set(QRC_FILES ${QRC_FILES} PARENT_SCOPE)
@@ -59,6 +59,7 @@ list(APPEND LINK_LIBS
         Qt5::Core
         Qt5::Gui
         Qt5::Widgets
+        Qt5::Charts
         iGameCore_module
         #iGameRendering_module
 )
@@ -86,33 +87,35 @@ if (WIN32)
     set_property(TARGET ${MODULE_NAME} PROPERTY RUNTIME_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY LIBRARY_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
-    #   get_target_property(Qt5Core_LOCATION Qt5::Core LOCATION)
-    #   get_filename_component(Qt5_INSTALL_DIR ${Qt5Core_LOCATION} DIRECTORY)
-    #   # 构建 Qt 的 DLL 文件路径
-    #   set(Qt5_DLL_DIR "${Qt5_INSTALL_DIR}")
-    #   if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    #       set(Qt5_DLLS
-    #               ${Qt5_DLL_DIR}/Qt5Cored.dll
-    #               ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
-    #               #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
-    #               ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
-    #               ${Qt5_DLL_DIR}/Qt5Guid.dll
-    #       )
-    #   elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-    #       set(Qt5_DLLS
-    #               ${Qt5_DLL_DIR}/Qt5Core.dll
-    #               ${Qt5_DLL_DIR}/Qt5OpenGL.dll
-    #               #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
-    #               ${Qt5_DLL_DIR}/Qt5Widgets.dll
-    #               ${Qt5_DLL_DIR}/Qt5Gui.dll
-    #
-    #       )
-    #   endif ()
-    #   # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录
-    #   add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-    #           COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    #           ${Qt5_DLLS}
-    #           $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    #   )
+    get_target_property(Qt5Core_LOCATION Qt5::Core LOCATION)
+    get_filename_component(Qt5_INSTALL_DIR ${Qt5Core_LOCATION} DIRECTORY)
+    # 构建 Qt 的 DLL 文件路径
+#    set(Qt5_DLL_DIR "${Qt5_INSTALL_DIR}")
+#    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+#        set(Qt5_DLLS
+#                #                ${Qt5_DLL_DIR}/Qt5Cored.dll
+#                #                ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
+#                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
+#                #                ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
+#                #                ${Qt5_DLL_DIR}/Qt5Gui.dll
+#                ${Qt5_DLL_DIR}/Qt5Chartsd.dll
+#        )
+#    elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+#        set(Qt5_DLLS
+#                #                ${Qt5_DLL_DIR}/Qt5Core.dll
+#                #                ${Qt5_DLL_DIR}/Qt5OpenGL.dll
+#                #                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
+#                #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
+#                #                ${Qt5_DLL_DIR}/Qt5Gui.dll
+#                ${Qt5_DLL_DIR}/Qt5Charts.dll
+#
+#        )
+#    endif ()
+#    # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录
+#    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+#            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#            ${Qt5_DLLS}
+#            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+#    )
 endif ()
 target_link_libraries(${PROJECT_NAME} PUBLIC ${MODULE_NAME})

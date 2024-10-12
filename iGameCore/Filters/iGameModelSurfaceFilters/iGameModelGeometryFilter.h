@@ -74,6 +74,7 @@ public:
 	SurfaceMesh::Pointer GetExtractMesh() { return this->output; }
 
 	void CompositeCellAttribute(std::vector<igIndex>& f2c, AttributeSet::Pointer inAllDataArray, AttributeSet::Pointer& outAllDataArray);
+    void CompositePointAttribute(igIndex* PointMap,IGsize oldPNum,IGsize newPNum,AttributeSet::Pointer inAllDataArray);
 
 	void SetPointClipping(bool _in) { this->PointClipping = _in; }
 	void SetCellClipping(bool _in) { this->CellClipping = _in; }
@@ -108,10 +109,6 @@ protected:
 	bool RemoveGhostInterfaces;
 	//Point merging
 	bool Merging;
-	//is to use fast mode,
-	bool FastMode;
-
-	int NonlinearSubdivisionLevel;
 
 	bool Delegation;
 
