@@ -26,6 +26,8 @@ public slots:
 	void ClipModel();
 
 	void SetIsSlice(bool s);
+
+	void SetOriginDataObject(iGame::DataObject::Pointer m_d);
 signals:
 	void DrawClipModel(iGame::SurfaceMesh::Pointer);
 	void UpdateClipModel(iGame::SurfaceMesh::Pointer);

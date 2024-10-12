@@ -35,6 +35,22 @@ public:
 		m_Origin[1] = o[1];
 		m_Origin[2] = o[2];
 	}
+    void GetPlane(float o[3], float n[3]) {
+        n[0]= m_Normal[0];
+        n[1]= m_Normal[1];
+        n[2]= m_Normal[2];
+        o[0]= m_Origin[0];
+        o[1]= m_Origin[1];
+        o[2]= m_Origin[2];
+	}
+    void GetPlane(double o[3], double n[3]) {
+        n[0] = m_Normal[0];
+        n[1] = m_Normal[1];
+        n[2] = m_Normal[2];
+        o[0] = m_Origin[0];
+        o[1] = m_Origin[1];
+        o[2] = m_Origin[2];
+    }
 	void SetIsSlice(bool s) {
 		this->m_Slice = s;
 	}

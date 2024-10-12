@@ -1,10 +1,13 @@
 #include "IQWidgets/igQtModelClipWidget.h"
+#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 	: QWidget(parent), ui(new Ui::Form) {
 
 	ui->setupUi(this);
 	m_Clipper = iGame::ModelClip::New();
+    connect(ui->pushButton, &QPushButton::clicked, this,
+            &igQtModelClipWidget::ClipModel);
 }
 
 
@@ -31,7 +34,25 @@ void igQtModelClipWidget::SetIsSlice(bool s)
 {
 	m_Clipper->SetIsSlice(s);
 }
-void igQtModelClipWidget::ClipModel()
-{
 
+void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
+{
+    this->m_OriginDataObject = m_d;
 }
+
+void igQtModelClipWidget::ClipModel() {
+    m_Clipper->SetInput(m_OriginDataObject);
+    m_Clipper->Execute();
+        iGame::iGameModelGeometryFilter::Pointer surfaceextract =
+                iGame::iGameModelGeometryFilter::New();
+    surfaceextract->Execute(m_Clipper->GetOutput(), m_ResultMesh);
+        //m_ResultMesh = m_Clipper->GetOutput();
+    auto tmp = iGame::SurfaceMesh::New();
+    double o[3];
+    double n[3];
+    m_Clipper->GetPlane(o, n);
+    surfaceextract->SetClipPlane(o, n);
+    surfaceextract->Execute(m_OriginDataObject, tmp);
+    m_ResultMesh->AddSubDataObject(tmp);
+    DrawClipModel(m_ResultMesh);
+    }
