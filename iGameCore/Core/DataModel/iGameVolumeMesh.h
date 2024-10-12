@@ -177,7 +177,7 @@ public:
     //	return Types.get();
     //}
     igIndex GetCellDimension(igIndex CellTyp) { return 3; };
-    SurfaceMesh::Pointer GetDrawMesh() { return m_DrawMesh; }
+    //SurfaceMesh::Pointer GetDrawMesh() { return m_DrawMesh; }
 
     bool IsBoundaryPoint(const IGsize ptId) override;
     bool IsBoundaryEdge(const IGsize edgeId) override;
@@ -338,7 +338,6 @@ private:
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
-    bool IsDrawable() override { return true; }
     void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
 
     void SetAttributeWithPointData(ArrayObject::Pointer attr,

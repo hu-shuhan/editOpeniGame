@@ -25,7 +25,8 @@ protected:
 public:
     void CreateBuffer();
     void BuildMeshlet(const float* vertex_positions, size_t vertex_count,
-                      const int* indices, size_t index_count, GLBuffer& EBO);
+                      const unsigned int* indices, size_t index_count,
+                      GLBuffer& EBO);
 
     size_t MeshletsCount();
     GLBuffer& MeshletsBuffer();

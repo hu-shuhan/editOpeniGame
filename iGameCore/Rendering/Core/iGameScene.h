@@ -238,7 +238,7 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d m_DepthPyramid;
 
-    Painter::Pointer painter = Painter::New();
+    Painter3D::Pointer painter = Painter3D::New();
 
     friend class Model;
     friend class Interactor;

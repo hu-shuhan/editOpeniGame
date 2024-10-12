@@ -10,7 +10,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class ColorUtils {
+class ColorUtils : public Object {
 private:
     ColorUtils() = default;
 

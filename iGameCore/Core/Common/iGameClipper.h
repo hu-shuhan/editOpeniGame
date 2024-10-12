@@ -76,12 +76,11 @@ public:
     }
 
     void DisableAll() {
+        this->Modified();
         m_Box.m_Use = false;
         m_Plane.m_Use = false;
     }
-    bool IsAllDisable() const { 
-        return !m_Box.m_Use && !m_Plane.m_Use;
-    }
+    bool IsAllDisable() const { return !m_Box.m_Use && !m_Plane.m_Use; }
 
 protected:
     iGameClipper() {}

@@ -41,8 +41,8 @@ void Axes::DrawAxes() {
     glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
     m_TriangleVAO.release();
 }
-void Axes::DrawXYZ(const GLShaderProgram* shader, const GLUniform texture,
-                   const GLUniform color) {
+void Axes::DrawXYZ(const GLShaderProgram* shader, const GLUniform& texture,
+                   const GLUniform& color) {
     // draw xyz
     m_FontVAO.bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

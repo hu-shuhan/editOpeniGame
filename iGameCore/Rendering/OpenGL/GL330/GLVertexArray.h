@@ -6,7 +6,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class GLVertexAttribute {
+class GLVertexAttribute : public Object {
 private:
     GLuint m_index;
 
@@ -53,13 +53,13 @@ public:
         glBindVertexArray(0);
     }
 
-    void enableAttrib(GLVertexAttribute attribute) {
+    void enableAttrib(const GLVertexAttribute& attribute) {
         glBindVertexArray(handle);
         glEnableVertexAttribArray(attribute.index());
         glBindVertexArray(0);
     }
 
-    void attribBindingFormat(GLVertexAttribute attribute,
+    void attribBindingFormat(const GLVertexAttribute& attribute,
                              unsigned int vbo_binding_index, int size,
                              GLenum type, bool normalized,
                              unsigned int relative_offset) {
@@ -87,7 +87,8 @@ inline void GLAllocateGLBuffer(GLBuffer& vbo, size_t size, const void* data) {
     vbo.allocate(size, data, GL_STATIC_DRAW);
 }
 
-inline void GLSetVertexAttrib(GLVertexArray& VAO, GLVertexAttribute attribute,
+inline void GLSetVertexAttrib(GLVertexArray& VAO,
+                              const GLVertexAttribute& attribute,
                               GLuint vbo_binding_index, int size, GLenum type,
                               GLboolean normalized, unsigned int offset) {
     VAO.enableAttrib(attribute);
