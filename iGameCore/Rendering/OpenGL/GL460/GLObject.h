@@ -1,10 +1,11 @@
 #pragma once
 
 #include "GLVendor.h"
+#include "iGameObject.h"
 
 IGAME_NAMESPACE_BEGIN
 template<typename Helper>
-class GLObject {
+class GLObject : public Object {
 protected:
     GLuint handle = 0;
     GLObject(GLuint _handle) : handle{_handle} {}

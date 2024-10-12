@@ -1,28 +1,30 @@
 #pragma once
 
-#pragma once
-
 #include "iGameObject.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
-class iGameTimer {
+class Timer : public Object {
+public:
+    I_OBJECT(Timer);
+    static Pointer New() { return new Timer; }
+
 public:
     enum class TimeUnit { Microseconds, Milliseconds, Seconds };
 
-    iGameTimer() { reset(); }
+    void Reset() { start = std::chrono::high_resolution_clock::now(); }
 
-    void reset() { start = std::chrono::high_resolution_clock::now(); }
-
-    size_t elapsedMicroseconds() const {
-        return elapsed(TimeUnit::Microseconds);
+    size_t ElapsedMicroseconds() const {
+        return Elapsed(TimeUnit::Microseconds);
     }
-    size_t elapsedMilliseconds() const {
-        return elapsed(TimeUnit::Milliseconds);
-    }
-    size_t elapsedSeconds() const { return elapsed(TimeUnit::Seconds); }
 
-    size_t elapsed(TimeUnit unit = TimeUnit::Microseconds) const {
+    size_t ElapsedMilliseconds() const {
+        return Elapsed(TimeUnit::Milliseconds);
+    }
+
+    size_t ElapsedSeconds() const { return Elapsed(TimeUnit::Seconds); }
+
+    size_t Elapsed(TimeUnit unit = TimeUnit::Microseconds) const {
         auto now = std::chrono::high_resolution_clock::now();
         switch (unit) {
             case TimeUnit::Microseconds:
@@ -40,6 +42,10 @@ public:
         }
         return 0;
     }
+
+protected:
+    Timer() { Reset(); }
+    ~Timer() override = default;
 
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> start;

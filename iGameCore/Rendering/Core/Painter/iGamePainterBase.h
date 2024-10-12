@@ -19,10 +19,9 @@
 IGAME_NAMESPACE_BEGIN
 class Scene;
 
-class Painter : public Object {
+class PainterBase : public Object {
 public:
-    I_OBJECT(Painter);
-    static Pointer New() { return new Painter; }
+    I_OBJECT(PainterBase);
 
 public:
     void ShowAll();
@@ -44,35 +43,8 @@ public:
     void SetBrush(float red, float green, float blue);
     void SetBrush(const BrushStyle& style);
 
-    IGuint DrawPoint(const Point& point);
-    IGuint DrawLine(const Point& p1, const Point& p2);
-    IGuint DrawTriangle(const Point& p1, const Point& p2, const Point& p3);
-
-    /* draw rectangle
-    * p2 +------------+ p3
-    *    |            |
-    *    |            |
-    *    |            |
-    * p1 +------------+ p4
-    */
-    IGuint DrawRect(const Point& p1, const Point& p3);
-
-    /* draw cube
-    *     p6+-----------+ p7
-    *      /|          /|
-    *     / |         / |
-    *    /  |        /  |
-    * p5+-----------+p8 |
-    *   |   |       |   |
-    *   | p2+-------|---+ p3
-    *   |  /        |  /
-    *   | /         | /
-    *   |/          |/
-    * p1+-----------+ p4
-    */
-    IGuint DrawCube(const Point& p1, const Point& p7);
-
     void Draw(Scene*);
+    void PackDrawableData();
     void Clear();
 
 protected:
@@ -80,25 +52,20 @@ protected:
         float penWidth;
         std::vector<Vector3f> points;
         std::vector<Vector3f> colors;
-        std::array<std::vector<iguIndex>, 3> indexes;
+        std::array<std::vector<iguIndex>, 3> indices;
         bool visible = true;
     };
 
 protected:
-    Painter();
-    ~Painter() override;
+    PainterBase();
+    ~PainterBase() override;
+
     bool first{true};
 
-    Pen::Pointer m_Pen;
-    Brush::Pointer m_Brush;
+    Pen::Pointer m_Pen{};
+    Brush::Pointer m_Brush{};
 
-    HandlePool<Primitive> m_PrimitivesPool;
-
-    std::vector<Vector3f> m_Points{};
-    std::vector<Vector3f> m_Colors{};
-    std::vector<iguIndex> m_PointIndexes{};
-    std::vector<iguIndex> m_LineIndexes{};
-    std::vector<iguIndex> m_TriangleIndexes{};
+    HandlePool<Primitive>::Pointer m_PrimitivesPool{};
 
     GLVertexArray m_VAO;
     GLBuffer m_PositionVBO, m_ColorVBO;

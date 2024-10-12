@@ -28,19 +28,17 @@ void Model::Draw(Scene* scene) {
             drawObject->m_CellVAO.release();
             return;
         }
-
         if (viewStyle & IG_POINTS) {
             scene->GetShader(Scene::NOLIGHT)->use();
 
             drawObject->m_PointVAO.bind();
-            glad_glPointSize(8);
+            glad_glPointSize(drawObject->m_PointSize);
             glad_glDepthRange(0.000001, 1);
             glad_glDrawArrays(GL_POINTS, 0,
-                              drawObject->m_Positions->GetNumberOfValues() / 3);
+                              drawObject->m_Positions->GetNumberOfElements());
             glad_glDepthRange(0, 1);
             drawObject->m_PointVAO.release();
         }
-
         if (viewStyle & IG_WIREFRAME) {
             if (useColor) {
                 scene->GetShader(Scene::NOLIGHT)->use();
@@ -50,25 +48,24 @@ void Model::Draw(Scene* scene) {
                 shader->setUniform(shader->getUniformLocation("inputColor"),
                                    igm::vec3{0.0f, 0.0f, 0.0f});
             }
-
             drawObject->m_LineVAO.bind();
             glLineWidth(drawObject->m_LineWidth);
             glad_glDrawElements(GL_LINES,
-                                drawObject->m_LineIndices->GetNumberOfIds(),
+                                drawObject->m_LineIndices->GetNumberOfValues(),
                                 GL_UNSIGNED_INT, 0);
             drawObject->m_LineVAO.release();
         }
-
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(Scene::BLINNPHONG);
             shader->use();
 
             drawObject->m_TriangleVAO.bind();
             glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(-0.5f, -0.5f);
-            glad_glDrawElements(GL_TRIANGLES,
-                                drawObject->m_TriangleIndices->GetNumberOfIds(),
-                                GL_UNSIGNED_INT, 0);
+            glPolygonOffset(0.0f, -1.0f);
+            glad_glDrawElements(
+                    GL_TRIANGLES,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT, 0);
             glDisable(GL_POLYGON_OFFSET_FILL);
             drawObject->m_TriangleVAO.release();
         }
@@ -83,7 +80,7 @@ void Model::Draw(Scene* scene) {
         }
     }
 
-    m_Painter->Draw(scene);
+    m_Painter3D->Draw(scene);
 }
 
 void Model::DrawWithTransparency(Scene* scene) {
@@ -141,7 +138,7 @@ void Model::DrawWithTransparency(Scene* scene) {
             drawObject->m_LineVAO.bind();
             glLineWidth(drawObject->m_LineWidth);
             glad_glDrawElements(GL_LINES,
-                                drawObject->m_LineIndices->GetNumberOfIds(),
+                                drawObject->m_LineIndices->GetNumberOfValues(),
                                 GL_UNSIGNED_INT, 0);
             drawObject->m_LineVAO.release();
         }
@@ -154,9 +151,10 @@ void Model::DrawWithTransparency(Scene* scene) {
             drawObject->m_TriangleVAO.bind();
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(-0.5f, -0.5f);
-            glad_glDrawElements(GL_TRIANGLES,
-                                drawObject->m_TriangleIndices->GetNumberOfIds(),
-                                GL_UNSIGNED_INT, 0);
+            glad_glDrawElements(
+                    GL_TRIANGLES,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT, 0);
             glDisable(GL_POLYGON_OFFSET_FILL);
             drawObject->m_TriangleVAO.release();
         }
@@ -171,7 +169,7 @@ void Model::DrawWithTransparency(Scene* scene) {
         }
     }
 
-    m_Painter->Draw(scene);
+    m_Painter3D->Draw(scene);
 }
 
 void Model::DrawPhase1(Scene* scene) {
@@ -440,14 +438,14 @@ void Model::Show() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(true);
     m_Scene->ChangeModelVisibility(this, true);
-    //m_Painter->ShowAll();
+    //m_Painter3D->ShowAll();
 }
 
 void Model::Hide() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(false);
     m_Scene->ChangeModelVisibility(this, false);
-    //m_Painter->HideAll();
+    //m_Painter3D->HideAll();
 }
 
 void Model::SetBoundingBoxSwitch(bool action) {
@@ -459,14 +457,14 @@ void Model::SetBoundingBoxSwitch(bool action) {
         Vector3d p1 = bbox.min;
         Vector3d p7 = bbox.max;
 
-        if (m_BboxHandle != 0) { m_Painter->Delete(m_BboxHandle); }
-        m_Painter->SetPen(5);
-        m_Painter->SetPen(Color::LightBlue);
-        m_Painter->SetBrush(Color::None);
-        m_BboxHandle = m_Painter->DrawCube(p1, p7);
+        if (m_BboxHandle != 0) { m_Painter3D->Delete(m_BboxHandle); }
+        m_Painter3D->SetPen(5);
+        m_Painter3D->SetPen(Color::LightBlue);
+        m_Painter3D->SetBrush(Color::None);
+        m_BboxHandle = m_Painter3D->DrawCube(p1, p7);
     } else {
         SwitchOff(ViewSwitch::BoundingBox);
-        m_Painter->Hide(m_BboxHandle);
+        m_Painter3D->Hide(m_BboxHandle);
     }
 }
 
@@ -474,10 +472,10 @@ void Model::SetPickedItemSwitch(bool action) {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     if (action) {
         SwitchOn(ViewSwitch::PickedItem);
-        if (drawObject->GetVisibility()) { m_Painter->ShowAll(); }
+        if (drawObject->GetVisibility()) { m_Painter3D->ShowAll(); }
     } else {
         SwitchOff(ViewSwitch::PickedItem);
-        m_Painter->HideAll();
+        m_Painter3D->HideAll();
     }
 }
 
@@ -509,8 +507,6 @@ void Model::SetViewFillSwitch(bool action) {
 }
 
 Model::Model() {
-    m_Painter = Painter::New();
-
     SwitchOff(ViewSwitch::BoundingBox);
     SwitchOn(ViewSwitch::PickedItem);
 }

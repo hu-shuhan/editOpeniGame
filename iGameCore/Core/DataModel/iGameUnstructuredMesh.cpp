@@ -298,346 +298,195 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
     return cell;
 }
 
-//void UnstructuredMesh::Draw(Scene* scene) {
-//    if (!m_Visibility) { return; }
-//    if (m_DrawMesh) {
-//        m_DrawMesh->SetViewStyle(m_ViewStyle);
-//        return m_DrawMesh->Draw(scene);
-//    }
-//    // Update uniform buffer
-//    if (m_UseColor) {
-//        scene->UBO().useColor = true;
-//    } else {
-//        scene->UBO().useColor = false;
-//    }
-//    scene->UpdateUniformBuffer();
-//
-//    if (m_ViewStyle & IG_POINTS) {
-//        scene->GetShader(Scene::NOLIGHT)->use();
-//
-//        m_PointVAO.bind();
-//        glPointSize(m_PointSize);
-//        glad_glDepthRange(0.000001, 1);
-//        glad_glDrawArrays(GL_POINTS, 0, m_Positions->GetNumberOfValues() / 3);
-//        glad_glDepthRange(0, 1);
-//        m_PointVAO.release();
-//    }
-//    if (m_ViewStyle & IG_WIREFRAME) {
-//        if (m_UseColor) {
-//            scene->GetShader(Scene::NOLIGHT)->use();
-//        } else {
-//            auto shader = scene->GetShader(Scene::PURECOLOR);
-//            shader->use();
-//            shader->setUniform(shader->getUniformLocation("inputColor"),
-//                               igm::vec3{0.0f, 0.0f, 0.0f});
-//        }
-//
-//        m_LineVAO.bind();
-//        glLineWidth(m_LineWidth);
-//        glad_glDrawElements(GL_LINES, M_LineIndices->GetNumberOfValues(),
-//                            GL_UNSIGNED_INT, 0);
-//        m_LineVAO.release();
-//    }
-//    if (m_ViewStyle & IG_SURFACE) {
-//        scene->GetShader(Scene::BLINNPHONG)->use();
-//
-//        m_TriangleVAO.bind();
-//        glEnable(GL_POLYGON_OFFSET_FILL);
-//        glPolygonOffset(-0.5f, -0.5f);
-//        glad_glDrawElements(GL_TRIANGLES,
-//                            M_TriangleIndices->GetNumberOfValues(),
-//                            GL_UNSIGNED_INT, 0);
-//        glDisable(GL_POLYGON_OFFSET_FILL);
-//        m_TriangleVAO.release();
-//
-//        m_VertexVAO.bind();
-//        glPointSize(m_PointSize);
-//        glad_glDrawElements(GL_POINTS, M_VertexIndices->GetNumberOfValues(),
-//                            GL_UNSIGNED_INT, 0);
-//        m_PointVAO.release();
-//    }
-//    /*if (m_ViewStyle == IG_SURFACE_WITH_EDGE) {
-//		if (m_UseColor) {
-//			scene->GetShader(Scene::NOLIGHT)->use();
-//		} else {
-//			auto shader = scene->GetShader(Scene::PURECOLOR);
-//			shader->use();
-//			shader->setUniform(shader->getUniformLocation("inputColor"),
-//							   igm::vec3{0.0f, 0.0f, 0.0f});
-//		}
-//
-//		m_LineVAO.bind();
-//		glLineWidth(m_LineWidth);
-//		glad_glDrawElements(GL_LINES, M_LineIndices->GetNumberOfValues(),
-//							GL_UNSIGNED_INT, 0);
-//		m_LineVAO.release();
-//
-//		scene->GetShader(Scene::PATCH)->use();
-//		m_TriangleVAO.bind();
-//		glad_glDrawElements(GL_TRIANGLES,
-//							M_TriangleIndices->GetNumberOfValues(),
-//							GL_UNSIGNED_INT, 0);
-//		m_TriangleVAO.release();
-//	}*/
-//}
-
 void UnstructuredMesh::ConvertToDrawableData() {
-    this->CreateDrawBuffer();
+    iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
 
-    if (m_Positions && m_Positions->GetMTime() > this->GetMTime()) { return; }
-
-    m_Positions = m_Points->ConvertToArray();
-    m_Positions->Modified();
-    //M_VertexIndices = UnsignedIntArray::New();
-    //M_LineIndices = UnsignedIntArray::New();
-    //M_TriangleIndices = UnsignedIntArray::New();
-    //M_LineIndices->SetDimension(2);
-    //M_TriangleIndices->SetDimension(3);
-
-    IdArray::Pointer pointIndices = IdArray::New();
-    IdArray::Pointer edgeIndices = IdArray::New();
-    IdArray::Pointer triangleIndices = IdArray::New();
-
-    igIndex ids[128]{};
-    for (int id = 0; id < GetNumberOfCells(); id++) {
-        int size = GetCellPointIds(id, ids);
-        if (!m_Clipper->IsAllDisable()) {
-            bool visible = true;
-            for (int i = 0; i < size; i++) {
-                const auto& point = this->GetPoint(ids[i]);
-                if (!m_Clipper->IsVisible(point.pointer())) {
-                    visible = false;
-                    break;
-                }
-            }
-            if (!visible) continue;
-        }
-        IGenum type = GetCellType(id);
-        switch (type) {
-            case IG_VERTEX:
-                //M_VertexIndices->AddValue(ids[0]);
-                pointIndices->AddId(ids[0]);
-                break;
-            case IG_LINE:
-            case IG_POLY_LINE: {
-                for (int i = 1; i < size; i++) {
-                    //M_LineIndices->AddElement2(ids[i - 1], ids[i]);
-                    edgeIndices->AddId(ids[i - 1]);
-                    edgeIndices->AddId(ids[i]);
-                }
-            } break;
-            case IG_QUADRATIC_EDGE: {
-                //M_LineIndices->AddElement2(ids[0], ids[2]);
-                //M_LineIndices->AddElement2(ids[2], ids[1]);
-                edgeIndices->AddId(ids[0]);
-                edgeIndices->AddId(ids[2]);
-                edgeIndices->AddId(ids[2]);
-                edgeIndices->AddId(ids[1]);
-            } break;
-            case IG_TRIANGLE:
-            case IG_QUAD:
-            case IG_POLYGON: {
-                for (int i = 2; i < size; i++) {
-                    //M_TriangleIndices->AddElement3(ids[0], ids[i - 1], ids[i]);
-                    triangleIndices->AddId(ids[0]);
-                    triangleIndices->AddId(ids[i - 1]);
-                    triangleIndices->AddId(ids[i]);
-                }
-                for (int i = 0; i < size; i++) {
-                    //M_LineIndices->AddElement2(ids[i], ids[(i + 1) % size]);
-                    edgeIndices->AddId(ids[i]);
-                    edgeIndices->AddId(ids[(i + 1) % size]);
-                }
-            } break;
-            case IG_QUADRATIC_TRIANGLE:
-            case IG_QUADRATIC_QUAD: {
-                int trueSize = size / 2;
-                //M_TriangleIndices->AddElement3(ids[0], ids[trueSize],
-                //                               ids[trueSize * 2 - 1]);
-                triangleIndices->AddId(ids[0]);
-                triangleIndices->AddId(ids[trueSize]);
-                triangleIndices->AddId(ids[trueSize * 2 - 1]);
-                for (int j = 1; j < trueSize; j++) {
-                    //M_TriangleIndices->AddElement3(ids[j], ids[j + trueSize],
-                    //                               ids[j + trueSize - 1]);
-                    triangleIndices->AddId(ids[j]);
-                    triangleIndices->AddId(ids[j + trueSize]);
-                    triangleIndices->AddId(ids[j + trueSize - 1]);
-                }
-                for (int j = 2; j < trueSize; j++) {
-                    //M_TriangleIndices->AddElement3(ids[trueSize],
-                    //                               ids[trueSize + j - 1],
-                    //                               ids[trueSize + j]);
-                    triangleIndices->AddId(ids[trueSize]);
-                    triangleIndices->AddId(ids[trueSize + j - 1]);
-                    triangleIndices->AddId(ids[trueSize + j]);
-                }
-                for (int i = 0; i < trueSize; i++) {
-                    //M_LineIndices->AddElement2(ids[i], ids[i + trueSize]);
-                    //M_LineIndices->AddElement2(ids[(i + 1) % trueSize],
-                    //                           ids[i + trueSize]);
-                    edgeIndices->AddId(ids[i]);
-                    edgeIndices->AddId(ids[i + trueSize]);
-                    edgeIndices->AddId(ids[(i + 1) % trueSize]);
-                    edgeIndices->AddId(ids[i + trueSize]);
-                }
-            } break;
-            case IG_TETRA:
-            case IG_HEXAHEDRON:
-            case IG_PRISM:
-            case IG_PYRAMID: {
-                Volume* cell = dynamic_cast<Volume*>(GetTypedCell(id));
-                if (cell == nullptr) { break; }
-                const int *edge{}, *face{};
-                for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
-                    cell->GetEdgePointIds(i, edge);
-                    //M_LineIndices->AddElement2(ids[edge[0]], ids[edge[1]]);
-                    edgeIndices->AddId(ids[edge[0]]);
-                    edgeIndices->AddId(ids[edge[1]]);
-                }
-                for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
-                    int face_size = cell->GetFacePointIds(i, face);
-                    for (int j = 2; j < face_size; j++) {
-                        //M_TriangleIndices->AddElement3(
-                        //        ids[face[0]], ids[face[j - 1]], ids[face[j]]);
-                        triangleIndices->AddId(ids[face[0]]);
-                        triangleIndices->AddId(ids[face[j - 1]]);
-                        triangleIndices->AddId(ids[face[j]]);
-                    }
-                }
-            } break;
-            case IG_POLYHEDRON: {
-                igIndex index = 1;
-                igIndex realsize = 0;
-                while (index < size) {
-                    realsize = ids[index++];
-                    for (igIndex id = 1; id < realsize; id++) {
-                        //M_LineIndices->AddElement2(ids[index + id - 1],
-                        //                           ids[index + id]);
-                        edgeIndices->AddId(ids[index + id - 1]);
-                        edgeIndices->AddId(ids[index + id]);
-                    }
-                    for (igIndex id = 2; id < realsize; id++) {
-                        //M_TriangleIndices->AddElement3(ids[index],
-                        //                               ids[index + id - 1],
-                        //                               ids[index + id]);
-                        triangleIndices->AddId(ids[index]);
-                        triangleIndices->AddId(ids[index + id - 1]);
-                        triangleIndices->AddId(ids[index + id]);
-                    }
-                    index += realsize;
-                }
-            } break;
-            case IG_QUADRATIC_TETRA:
-            case IG_QUADRATIC_HEXAHEDRON:
-            case IG_QUADRATIC_PRISM:
-            case IG_QUADRATIC_PYRAMID: {
-                QuadraticVolume* cell =
-                        dynamic_cast<QuadraticVolume*>(GetTypedCell(id));
-                if (cell == nullptr) { break; }
-                const int *edge{}, *face{};
-                for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
-                    cell->GetEdgePointIds(i, edge);
-                    //M_LineIndices->AddElement2(ids[edge[0]], ids[edge[2]]);
-                    //M_LineIndices->AddElement2(ids[edge[2]], ids[edge[1]]);
-                    edgeIndices->AddId(ids[0]);
-                    edgeIndices->AddId(ids[2]);
-                    edgeIndices->AddId(ids[2]);
-                    edgeIndices->AddId(ids[1]);
-                }
-                for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
-                    int base_face_size = cell->GetFacePointIds(i, face) / 2;
-                    //M_TriangleIndices->AddElement3(
-                    //        ids[face[0]], ids[face[base_face_size]],
-                    //        ids[face[base_face_size * 2 - 1]]);
-                    triangleIndices->AddId(ids[face[0]]);
-                    triangleIndices->AddId(ids[face[base_face_size]]);
-                    triangleIndices->AddId(ids[face[base_face_size * 2 - 1]]);
-                    for (int j = 1; j < base_face_size; j++) {
-                        //M_TriangleIndices->AddElement3(
-                        //        ids[face[j]], ids[face[j + base_face_size]],
-                        //        ids[face[j + base_face_size - 1]]);
-                        triangleIndices->AddId(ids[face[j]]);
-                        triangleIndices->AddId(ids[face[j + base_face_size]]);
-                        triangleIndices->AddId(
-                                ids[face[j + base_face_size - 1]]);
-                    }
-                    for (int j = 2; j < base_face_size; j++) {
-                        //M_TriangleIndices->AddElement3(
-                        //        ids[face[base_face_size]],
-                        //        ids[face[base_face_size + j - 1]],
-                        //        ids[face[base_face_size + j]]);
-                        triangleIndices->AddId(ids[face[base_face_size]]);
-                        triangleIndices->AddId(
-                                ids[face[base_face_size + j - 1]]);
-                        triangleIndices->AddId(ids[face[base_face_size + j]]);
-                    }
-                }
-            } break;
-            default:
-                break;
-        }
+    // update clip status
+    auto box = m_Clipper->m_Box;
+    if (box.m_Use) {
+        const auto& a = box.m_Bmin;
+        const auto& b = box.m_Bmax;
+        extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
     }
 
-    m_PointIndices = pointIndices;
-    m_LineIndices = edgeIndices;
-    m_TriangleIndices = triangleIndices;
+    auto plane = m_Clipper->m_Plane;
+    if (plane.m_Use) {
+        extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip);
+    }
 
-    GLAllocateGLBuffer(m_PositionVBO,
-                       m_Positions->GetNumberOfValues() * sizeof(float),
-                       m_Positions->RawPointer());
+    // shell algorithm
+    SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+    if (extract->Execute(this, surfaceMesh)) {
+        surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
+                                      m_TriangleIndices);
+        m_Positions->Modified();
+        m_LineIndices->Modified();
+        m_TriangleIndices->Modified();
+    } else {
+        UnsignedIntArray::Pointer pointIndices = UnsignedIntArray::New();
+        pointIndices->SetDimension(1);
+        UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
+        edgeIndices->SetDimension(2);
+        UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
+        triangleIndices->SetDimension(3);
 
-    //GLAllocateGLBuffer(m_VertexEBO,
-    //                   M_VertexIndices->GetNumberOfValues() *
-    //                           sizeof(unsigned int),
-    //                   M_VertexIndices->RawPointer());
+        igIndex ids[IGAME_CELL_MAX_SIZE]{};
+        for (int id = 0; id < GetNumberOfCells(); id++) {
+            int size = GetCellPointIds(id, ids);
+            if (!m_Clipper->IsAllDisable()) {
+                bool visible = true;
+                for (int i = 0; i < size; i++) {
+                    const auto& point = this->GetPoint(ids[i]);
+                    if (!m_Clipper->IsVisible(point.pointer())) {
+                        visible = false;
+                        break;
+                    }
+                }
+                if (!visible) continue;
+            }
 
-    GLAllocateGLBuffer(m_PointEBO,
-                       m_PointIndices->GetNumberOfIds() * sizeof(igIndex),
-                       m_PointIndices->RawPointer());
+            IGenum type = GetCellType(id);
+            switch (type) {
+                case IG_VERTEX:
+                    pointIndices->AddValue(ids[0]);
+                    break;
+                case IG_LINE:
+                case IG_POLY_LINE: {
+                    for (int i = 1; i < size; i++) {
+                        edgeIndices->AddElement2(ids[i - 1], ids[i]);
+                    }
+                } break;
+                case IG_QUADRATIC_EDGE: {
+                    edgeIndices->AddElement2(ids[0], ids[2]);
+                    edgeIndices->AddElement2(ids[2], ids[1]);
+                } break;
+                case IG_TRIANGLE:
+                case IG_QUAD:
+                case IG_POLYGON: {
+                    for (int i = 2; i < size; i++) {
+                        triangleIndices->AddElement3(ids[0], ids[i - 1],
+                                                     ids[i]);
+                    }
+                    for (int i = 0; i < size; i++) {
+                        edgeIndices->AddElement2(ids[i], ids[(i + 1) % size]);
+                    }
+                } break;
+                case IG_QUADRATIC_TRIANGLE:
+                case IG_QUADRATIC_QUAD: {
+                    int trueSize = size / 2;
+                    triangleIndices->AddElement3(ids[0], ids[trueSize],
+                                                 ids[trueSize * 2 - 1]);
+                    for (int j = 1; j < trueSize; j++) {
+                        triangleIndices->AddElement3(ids[j], ids[j + trueSize],
+                                                     ids[j + trueSize - 1]);
+                    }
+                    for (int j = 2; j < trueSize; j++) {
+                        triangleIndices->AddElement3(ids[trueSize],
+                                                     ids[trueSize + j - 1],
+                                                     ids[trueSize + j]);
+                    }
+                    for (int i = 0; i < trueSize; i++) {
+                        edgeIndices->AddElement2(ids[i], ids[i + trueSize]);
+                        edgeIndices->AddElement2(ids[(i + 1) % trueSize],
+                                                 ids[i + trueSize]);
+                    }
+                } break;
+                case IG_TETRA:
+                case IG_HEXAHEDRON:
+                case IG_PRISM:
+                case IG_PYRAMID: {
+                    Volume* cell = dynamic_cast<Volume*>(GetTypedCell(id));
+                    if (cell == nullptr) { break; }
+                    const int *edge{}, *face{};
+                    for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
+                        cell->GetEdgePointIds(i, edge);
+                        edgeIndices->AddElement2(ids[edge[0]], ids[edge[1]]);
+                    }
+                    for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
+                        int face_size = cell->GetFacePointIds(i, face);
+                        for (int j = 2; j < face_size; j++) {
+                            triangleIndices->AddElement3(ids[face[0]],
+                                                         ids[face[j - 1]],
+                                                         ids[face[j]]);
+                        }
+                    }
+                } break;
+                case IG_POLYHEDRON: {
+                    igIndex index = 1;
+                    igIndex realsize = 0;
+                    while (index < size) {
+                        realsize = ids[index++];
+                        for (igIndex i = 1; i < realsize; i++) {
+                            edgeIndices->AddElement2(ids[index + i - 1],
+                                                     ids[index + i]);
+                        }
+                        for (igIndex i = 2; i < realsize; i++) {
+                            triangleIndices->AddElement3(ids[index],
+                                                         ids[index + i - 1],
+                                                         ids[index + i]);
+                        }
+                        index += realsize;
+                    }
+                } break;
+                case IG_QUADRATIC_TETRA:
+                case IG_QUADRATIC_HEXAHEDRON:
+                case IG_QUADRATIC_PRISM:
+                case IG_QUADRATIC_PYRAMID: {
+                    QuadraticVolume* cell =
+                            dynamic_cast<QuadraticVolume*>(GetTypedCell(id));
+                    if (cell == nullptr) { break; }
+                    const int *edge{}, *face{};
+                    for (int i = 0; i < cell->GetNumberOfEdges(); i++) {
+                        cell->GetEdgePointIds(i, edge);
+                        edgeIndices->AddElement2(ids[edge[0]], ids[edge[2]]);
+                        edgeIndices->AddElement2(ids[edge[2]], ids[edge[1]]);
+                    }
+                    for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
+                        int base_face_size = cell->GetFacePointIds(i, face) / 2;
+                        triangleIndices->AddElement3(
+                                ids[face[0]], ids[face[base_face_size]],
+                                ids[face[base_face_size * 2 - 1]]);
+                        for (int j = 1; j < base_face_size; j++) {
+                            triangleIndices->AddElement3(
+                                    ids[face[j]], ids[face[j + base_face_size]],
+                                    ids[face[j + base_face_size - 1]]);
+                        }
+                        for (int j = 2; j < base_face_size; j++) {
+                            triangleIndices->AddElement3(
+                                    ids[face[base_face_size]],
+                                    ids[face[base_face_size + j - 1]],
+                                    ids[face[base_face_size + j]]);
+                        }
+                    }
+                } break;
+                default:
+                    break;
+            }
+        }
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
 
-    //GLAllocateGLBuffer(m_LineEBO,
-    //                   M_LineIndices->GetNumberOfValues() *
-    //                           sizeof(unsigned int),
-    //                   M_LineIndices->RawPointer());
+        m_PointIndices = pointIndices;
+        m_PointIndices->Modified();
 
-    GLAllocateGLBuffer(m_LineEBO,
-                       m_LineIndices->GetNumberOfIds() * sizeof(igIndex),
-                       m_LineIndices->RawPointer());
+        m_LineIndices = edgeIndices;
+        m_LineIndices->Modified();
 
-    //GLAllocateGLBuffer(m_TriangleEBO,
-    //                   M_TriangleIndices->GetNumberOfValues() *
-    //                           sizeof(unsigned int),
-    //                   M_TriangleIndices->RawPointer());
+        m_TriangleIndices = triangleIndices;
+        m_TriangleIndices->Modified();
+    }
+}
 
-    GLAllocateGLBuffer(m_TriangleEBO,
-                       m_TriangleIndices->GetNumberOfIds() * sizeof(igIndex),
-                       m_TriangleIndices->RawPointer());
-
-    m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                      GL_FALSE, 0);
-
-    m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                      GL_FALSE, 0);
-    m_LineVAO.elementBuffer(m_LineEBO);
-
-    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                               3 * sizeof(float));
-    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                      GL_FLOAT, GL_FALSE, 0);
-    m_TriangleVAO.elementBuffer(m_TriangleEBO);
+void UnstructuredMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
+    surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
+                                  m_TriangleIndices);
+    m_Positions->Modified();
+    m_LineIndices->Modified();
+    m_TriangleIndices->Modified();
 }
 
 void UnstructuredMesh::ViewCloudPicture(Scene* scene, int index,
                                         int demension) {
-    if (m_DrawMesh) {
-        m_DrawMesh->SetColorMapper(m_ColorMapper);
-        m_AttributeIndex = index;
-        m_AttributeDimension = demension;
-        return m_DrawMesh->ViewCloudPicture(scene, index, demension);
-    }
     if (index == -1) {
         m_UseColor = false;
         m_ViewAttribute = nullptr;
@@ -646,7 +495,7 @@ void UnstructuredMesh::ViewCloudPicture(Scene* scene, int index,
         scene->Update();
         return;
     }
-    scene->MakeCurrent();
+
     m_AttributeIndex = index;
     auto& attr = this->GetAttributeSet()->GetAttribute(index);
     if (!attr.isDeleted) {
@@ -656,14 +505,15 @@ void UnstructuredMesh::ViewCloudPicture(Scene* scene, int index,
         else if (attr.attachmentType == IG_CELL)
             this->SetAttributeWithCellData(attr.pointer, demension);
     }
-    scene->DoneCurrent();
+
     scene->Update();
 }
 
 void UnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
                                                  std::pair<float, float>& range,
                                                  igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension) {
+    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+        m_ColorMapper->GetMTime() >= this->GetMTime()) {
         m_ViewAttribute = attr;
         m_ViewDemension = dimension;
         m_UseColor = true;
@@ -681,25 +531,8 @@ void UnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
         range.first = m_ColorMapper->GetRange()[0];
         range.second = m_ColorMapper->GetRange()[1];
         m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+        m_Colors->Modified();
         if (m_Colors == nullptr) { return; }
-
-        GLAllocateGLBuffer(m_ColorVBO,
-                           m_Colors->GetNumberOfValues() * sizeof(float),
-                           m_Colors->RawPointer());
-
-
-        m_PointVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-        GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-
-        m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                   3 * sizeof(float));
-        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
     }
 }
 

@@ -28,6 +28,10 @@ int Scene::AddModel(Model::Pointer model) {
 
     ChangeModelVisibility(model.get(), true);
     UpdateModelsBoundingSphere();
+
+    auto drawMesh = DynamicCast<DrawObject>(model->m_DataObject);
+    drawMesh->ConvertToDrawableData();
+
     return newModelId;
 }
 
@@ -195,7 +199,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case PBR: {
             GLShader shader_vert = GLShader{
@@ -205,7 +209,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/pbr.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case NOLIGHT: {
             GLShader shader_vert = GLShader{
@@ -215,7 +219,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/noLight.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case PURECOLOR: {
             GLShader shader_vert = GLShader{
@@ -225,7 +229,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/pureColor.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, pureColor_frag});
+            sp->addShaders(shader_vert, pureColor_frag);
         } break;
         case TRANSPARENCYLINK: {
             GLShader shader_vert = GLShader{
@@ -236,7 +240,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case TRANSPARENCYSORT: {
             GLShader shader_vert = GLShader{
@@ -248,7 +252,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case AXES: {
             GLShader axis_vert = GLShader{
@@ -258,7 +262,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/axis.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({axis_vert, axis_frag});
+            sp->addShaders(axis_vert, axis_frag);
         } break;
         case FONT: {
             GLShader font_vert = GLShader{
@@ -268,7 +272,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/font.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({font_vert, font_frag});
+            sp->addShaders(font_vert, font_frag);
         } break;
         case ATTACHMENTRESOLVE: {
             GLShader shader_vert = GLShader{
@@ -280,23 +284,27 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case DEPTHREDUCE: {
+#ifdef IGAME_OPENGL_VERSION_460
             GLShader depthReduce_comp = GLShader{
                     (std::string(SHADERS_DIR) + "/GLSL/depthReduce.comp")
                             .c_str(),
                     GL_COMPUTE_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({depthReduce_comp});
+            sp->addShaders(depthReduce_comp);
+#endif
         } break;
         case MESHLETCULL: {
+#ifdef IGAME_OPENGL_VERSION_460
             GLShader meshletCull_comp = GLShader{
                     (std::string(SHADERS_DIR) + "/GLSL/meshletCull.comp")
                             .c_str(),
                     GL_COMPUTE_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({meshletCull_comp});
+            sp->addShaders(meshletCull_comp);
+#endif
         } break;
         case SCREEN: {
             GLShader screen_vert = GLShader{
@@ -308,7 +316,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({screen_vert, screen_frag});
+            sp->addShaders(screen_vert, screen_frag);
         } break;
         case FXAA: {
             GLShader fxaa_vert = GLShader{
@@ -318,7 +326,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/fxaa.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({fxaa_vert, fxaa_frag});
+            sp->addShaders(fxaa_vert, fxaa_frag);
         } break;
         default:
             break;
@@ -411,8 +419,10 @@ void Scene::InitOpenGL() {
         }
         // map culling computer shader block
         {
+#ifdef IGAME_OPENGL_VERSION_460
             auto shader = this->GetShader(MESHLETCULL);
             shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+#endif
         }
     }
 
@@ -684,74 +694,20 @@ void Scene::Draw() {
     ResolveFrame();
     m_FramebufferResolved.release();
 
-    // render to screen
+    // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
     RenderToQtFrame();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
-    auto width = m_Camera->GetScaledViewPort().x;
-    auto height = m_Camera->GetScaledViewPort().y;
-
     // render to my framebuffer
     m_Framebuffer.bind();
     DrawFrame();
     m_Framebuffer.release();
 
-    //glViewport(0, 0, width, height);
-    //glBindFramebuffer(GL_FRAMEBUFFER, m_Framebuffer);
-    //{
-    //    //reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
-    //    glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-    //                 m_BackgroundColor.b, 1.0f);
-    //    glClearDepth(0.0f);
-    //    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //
-    //    // use reversed-z buffer
-    //    glEnable(GL_DEPTH_TEST);
-    //    glDepthFunc(GL_GREATER);
-    //    DrawFrame();
-    //}
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // render to screen
+    // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
     RenderToQtFrame();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-<<<<<<< HEAD
-    auto shader = GetShader(Scene::SCREEN);
-    shader->use();
-
-    m_ColorTexture.active(GL_TEXTURE1);
-    m_DepthTexture.active(GL_TEXTURE2);
-    m_DepthPyramid.active(GL_TEXTURE3);
-    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
-
-    m_EmptyVAO.bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO.release();
-}
-//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-=======
-    //{
-    //    glViewport(0, 0, width, height);
-    //    glClear(GL_COLOR_BUFFER_BIT);
-    //    glDisable(GL_DEPTH_TEST);
-    //
-    //    auto shader = GetShader(Scene::SCREEN);
-    //    shader->use();
-    //
-    //    m_ColorTexture.active(GL_TEXTURE1);
-    //    m_DepthTexture.active(GL_TEXTURE2);
-    //    m_DepthPyramid.active(GL_TEXTURE3);
-    //    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
-    //
-    //    m_EmptyVAO.bind();
-    //    glDrawArrays(GL_TRIANGLES, 0, 3);
-    //    m_EmptyVAO.release();
-    //}
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
->>>>>>> da3251f28066ec940d8e180510dc22092e0bf9f2
 #endif
 
     CalculateFrameRate();
@@ -822,9 +778,14 @@ void Scene::DrawFrame() {
 
     // convert to drawable data
     for (auto& [id, model]: m_Models) {
+        if (!model->m_DataObject->IsDrawable()) { continue; }
+
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject == nullptr) continue;
-        drawObject->ConvertToDrawableData();
+        if (drawObject->GetClipper()->GetMTime() > drawObject->GetMTime()) {
+            drawObject->ConvertToDrawableData();
+        }
+        drawObject->ReAllocateDisplayBuffer();
+        drawObject->Modified();
     }
 
     // update camera data block in GPU
@@ -917,11 +878,7 @@ void Scene::RenderToQtFrame() {
 
 void Scene::ForwardPass() {
 #ifdef IGAME_OPENGL_VERSION_330
-    for (auto& [id, model]: m_Models) {
-        UpdateObjectDataBlock(model);
-        UpdateUniformBufferObjectBlock(model);
-        model->Draw(this);
-    }
+    for (auto& [id, model]: m_Models) { model->Draw(this); }
 #elif IGAME_OPENGL_VERSION_460
     bool debug = false;
     if (debug) {

@@ -44,7 +44,7 @@ if (ENABLE_CGNS_MODULE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
 ENDIF ()
 
-if(ENABLE_ABAQUS_MODULE)
+if (ENABLE_ABAQUS_MODULE)
     find_package(AbqSDK)
     if (${AbqSDK_FOUND})
         message("Find abqsdk")

@@ -150,7 +150,6 @@ bool iGameModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::P
 	default:
 		break;
 	}
-	// Use the general case
 	return true;
 }
 

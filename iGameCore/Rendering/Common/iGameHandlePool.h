@@ -9,7 +9,11 @@
 IGAME_NAMESPACE_BEGIN
 
 template<typename ObjectType>
-class HandlePool {
+class HandlePool : public Object {
+public:
+    I_OBJECT(HandlePool);
+    static Pointer New() { return new HandlePool; }
+
 public:
     using HandleType = IGuint;
     using MapType = std::unordered_map<HandleType, ObjectType>;
@@ -17,8 +21,6 @@ public:
     using ConstIterator = typename MapType::const_iterator;
 
 public:
-    HandlePool() : currentHandle(1) {}
-
     HandleType AllocateObject(const ObjectType& object) {
         HandleType handle;
         if (!freeHandles.empty()) {
@@ -63,6 +65,9 @@ public:
     ConstIterator end() const { return handleToObject.end(); }
 
 private:
+    HandlePool() : currentHandle(1) {}
+    ~HandlePool() override = default;
+
     HandleType currentHandle;
     std::queue<HandleType> freeHandles;
     std::unordered_set<HandleType> activeHandles;
