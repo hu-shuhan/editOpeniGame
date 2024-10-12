@@ -45,7 +45,7 @@ protected:
 
     Model::Pointer m_Model;
     DataObject::Pointer m_DataObject;
-    Painter::Pointer m_Painter;
+    Painter3D::Pointer m_Painter;
 
 private:
     int selectId{-1}; // 0:center 1:head 2:rear 3:line

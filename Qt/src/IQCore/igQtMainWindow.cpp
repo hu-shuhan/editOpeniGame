@@ -1822,16 +1822,16 @@ void igQtMainWindow::initAllInteractor() {
                 }
             });
 
-    connect(ui->action_slicing, &QAction::triggered, this,
-        [&](bool checked) {
-            if (ui->action_slicing->isChecked()) {
-                rendererWidget->ChangeInteractorStyle(
-                        Interactor::SlicingStyle);
-            } else {
-                rendererWidget->ChangeInteractorStyle(
-                        Interactor::BasicStyle);
-            }
-        });
+    //connect(ui->action_slicing, &QAction::triggered, this,
+    //    [&](bool checked) {
+    //        if (ui->action_slicing->isChecked()) {
+    //            rendererWidget->ChangeInteractorStyle(
+    //                    Interactor::SlicingStyle);
+    //        } else {
+    //            rendererWidget->ChangeInteractorStyle(
+    //                    Interactor::BasicStyle);
+    //        }
+    //    });
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
