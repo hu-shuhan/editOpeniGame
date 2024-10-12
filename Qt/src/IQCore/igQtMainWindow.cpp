@@ -2,6 +2,12 @@
 //
 // Created by m_ky on 2024/4/10.
 //
+#include "UndefinedFilters/iGameCurvatureFilter.h"
+#include "UndefinedFilters/iGameGradientFilter.h"
+#include "UndefinedFilters/iGameLaplacianFilter.h"
+#include "UndefinedFilters/iGameVortexFilter.h"
+#include "SurfaceMeshFilters/iGameSurfaceSimplification.h"
+
 #include "Interactor/iGameInteractor.h"
 #include "iGameARAPTest.h"
 #include "iGameFileIO.h"
@@ -293,21 +299,24 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
-        auto mesh = DynamicCast<SurfaceMesh>(SceneManager::Instance()
-                                                     ->GetCurrentScene()
-                                                     ->GetCurrentModel()
-                                                     ->GetDataObject());
-        mesh->BuildEdges();
-        mesh->BuildEdgeLinks();
-        mesh->BuildFaceLinks();
-        mesh->BuildFaceEdgeLinks();
-        for (int i = 0; i < 100; i++) {
-            //            igIndex ids[32];
-            //            int size = mesh->GetPointToNeighborEdges(i, ids);
-            mesh->DeletePoint(i);
-        }
-        mesh->GarbageCollection();
-        mesh->Modified();
+        SurfaceSimplification::Pointer filter = SurfaceSimplification::New();
+
+        filter->SetInput(
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+
+        //auto data =
+        //        rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        //iGameModelGeometryFilter::Pointer ext =
+        //iGameModelGeometryFilter::New();
+        //ext->SetInput(data);
+        //ext->Execute();
+
+        //auto mesh = ext->GetExtractMesh();
+        //filter->SetInput(mesh);
+
+        filter->Execute();
+        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+        rendererWidget->update();
     });
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
@@ -690,7 +699,7 @@ void igQtMainWindow::initAllFilters() {
                 VolumeMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)
                                                    ->TransferToVolumeMesh();
                 PointFinder::Pointer finder = PointFinder::New();
-                finder->SetPoints(mesh->GetPoints());
+                //finder->SetPoints(mesh->GetPoints());
                 finder->Initialize();
                 Point p = Point(0.234, 0.678987, 0.765);
                 int id;
@@ -906,6 +915,59 @@ void igQtMainWindow::initAllFilters() {
                         result, ItemSource::Algorithm);
                 rendererWidget->update();
             });
+
+
+    QMenu *view = ui->menu_filters->addMenu("viewTest");
+    QAction *curvature = view->addAction("Get Curvature");
+    connect(curvature, &QAction::triggered, this, [&](bool checked) {
+        CurvatureFilter::Pointer filter = CurvatureFilter::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        filter->Execute();
+        modelTreeWidget->updateAllAttriubute(data);
+    });
+
+    QAction* gradient = view->addAction("Get Gradient");
+    connect(gradient, &QAction::triggered, this, [&](bool checked) {
+        GradientFilter::Pointer filter = GradientFilter::New();
+        auto data =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        filter->Execute();
+        modelTreeWidget->updateAllAttriubute(data);
+    });
+    
+    QAction* laplacian = view->addAction("Get Laplacian");
+    connect(laplacian, &QAction::triggered, this, [&](bool checked) {
+        LaplacianFilter::Pointer filter = LaplacianFilter::New();
+        auto data =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        filter->Execute();
+        modelTreeWidget->updateAllAttriubute(data);
+    });
+
+    QAction* vortex = view->addAction("Get Vortex");
+    connect(vortex, &QAction::triggered, this, [&](bool checked) {
+        VortexFilter::Pointer filter = VortexFilter::New();
+        UnstructuredMesh::Pointer data = DynamicCast<UnstructuredMesh>(
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        //iGameModelGeometryFilter::Pointer ext =
+        //        iGameModelGeometryFilter::New();
+        //ext->SetInput(data);
+        //ext->Execute();
+
+        //auto mesh = ext->GetExtractMesh();
+        //filter->SetInput(mesh);
+        //filter->Execute();
+        //modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm);
+
+
+        filter->SetInput(data);
+        filter->Execute();
+        modelTreeWidget->updateAllAttriubute(data);
+    });
+    
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
@@ -1651,7 +1713,6 @@ void igQtMainWindow::initAllMySignalConnections() {
                 });
             });
 }
-
 void igQtMainWindow::updateRecentFilePaths() {
     ui->menu_RecentFiles->clear();
     auto recentFileActions = fileLoader->GetRecentActionList();
@@ -1766,6 +1827,17 @@ void igQtMainWindow::initAllInteractor() {
                             Interactor::BasicStyle);
                 }
             });
+
+    //connect(ui->action_slicing, &QAction::triggered, this,
+    //    [&](bool checked) {
+    //        if (ui->action_slicing->isChecked()) {
+    //            rendererWidget->ChangeInteractorStyle(
+    //                    Interactor::SlicingStyle);
+    //        } else {
+    //            rendererWidget->ChangeInteractorStyle(
+    //                    Interactor::BasicStyle);
+    //        }
+    //    });
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }

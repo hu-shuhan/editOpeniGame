@@ -113,6 +113,13 @@ void Filter::ResetProgress()
     m_ProgressScale = 1 - m_Progress;
 }
 
+void Filter::ResetProgress(double scale) {
+    if (scale > 1 - m_Progress) { return; }
+
+    m_ProgressShift = m_Progress;
+    m_ProgressScale = scale;
+}
+
 void Filter::SetNumberOfInputs(int n)
 {
     m_Inputs->Resize(n);

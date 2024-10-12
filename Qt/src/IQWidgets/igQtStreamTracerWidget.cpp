@@ -106,7 +106,7 @@ void igQtStreamTracerWidget::generateStreamline() {
 	if (!ptFinder)
 	{
 		ptFinder = PointFinder::New();
-		ptFinder->SetPoints(mesh->GetPoints());
+		//ptFinder->SetPoints(mesh->GetPoints());
 		ptFinder->Initialize();
 	}
 	streamtracer->SetPtFinder(ptFinder);

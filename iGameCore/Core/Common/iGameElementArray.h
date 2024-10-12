@@ -47,6 +47,18 @@ public:
         this->Resize(Size());
     }
 
+    bool ShallowCopy(ElementArray<TElement>::Pointer other) { 
+        return false;
+    }
+    bool DeepCopy(ElementArray<TElement>::Pointer other) {
+        if (other == nullptr) return false;
+        this->Reserve(other->Size());
+        for (int i = 0; i < other->Size(); i++) {
+            this->AddElement(other->GetElement(i));
+        }
+        return true;
+    }
+
     // Add an element to the end of an array
     void AddElement(TElement&& _Element) {
         this->VectorType::push_back(_Element);

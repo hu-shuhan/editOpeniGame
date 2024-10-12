@@ -26,6 +26,15 @@ public:
 	IGsize GetRealMemorySize() {
 		return  this->m_Buffer.capacity() * sizeof(uint8_t) + sizeof(m_BitsPerUnit) + sizeof(m_UnitCount);
 	}
+
+	bool ShallowCopy(Marker::Pointer other) { return false; }
+    bool DeepCopy(Marker::Pointer other) {
+        m_BitsPerUnit = other->m_BitsPerUnit;
+        m_UnitCount = other->m_UnitCount;
+        m_Buffer = other->m_Buffer;
+        return true;
+    }
+
 protected:
 	Marker(int bitsPerUnit) : m_BitsPerUnit(bitsPerUnit) {}
 	~Marker() override {}
@@ -61,6 +70,8 @@ public:
 	bool IsDeleted(const IGsize idx) const noexcept {
 		return (m_Buffer[idx / 8] >> (idx % 8)) & 1;
 	}
+
+
 
 protected:
 	DeleteMarker() : Marker(1) {}
