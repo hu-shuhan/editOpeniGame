@@ -3,19 +3,37 @@
 IGAME_NAMESPACE_BEGIN
 
 DrawObject::DrawObject() {
+    m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
+
+    m_Colors = FloatArray::New();
     m_Colors->SetDimension(3);
+
+    m_Normals = FloatArray::New();
     m_Normals->SetDimension(3);
+
+    m_Textures = FloatArray::New();
     m_Textures->SetDimension(2);
 
+    m_PointIndices = UnsignedIntArray::New();
     m_PointIndices->SetDimension(1);
+
+    m_LineIndices = UnsignedIntArray::New();
     m_LineIndices->SetDimension(2);
+
+    m_TriangleIndices = UnsignedIntArray::New();
     m_TriangleIndices->SetDimension(3);
+
+    m_CellPositions = FloatArray::New();
+    m_CellPositions->SetDimension(3);
+
+    m_CellColors = FloatArray::New();
+    m_CellColors->SetDimension(3);
+
+    m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
 
-    m_CellPositions->SetDimension(3);
-    m_CellColors->SetDimension(3);
-    m_CellIndices->SetDimension(3);
+    m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::CreateDrawBuffer() {

@@ -100,6 +100,7 @@ void igQtVectorWidget::updateVectorNameList() {
     if (!obj) return;
     auto AttributeSet = obj->GetAttributeSet();
     if (!AttributeSet) return;
+    AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {

@@ -27,7 +27,7 @@ public:
 		return (this->m_Normal[0] * (x0 - this->m_Origin[0]) + this->m_Normal[1] * (x1 - this->m_Origin[1]) +
 			this->m_Normal[2] * (x2 - this->m_Origin[2]));
 	}
-	void SetPlane(float n[3], float o[3]) {
+	void SetPlane(float o[3], float n[3]) {
 		m_Normal[0] = n[0];
 		m_Normal[1] = n[1];
 		m_Normal[2] = n[2];
@@ -35,6 +35,22 @@ public:
 		m_Origin[1] = o[1];
 		m_Origin[2] = o[2];
 	}
+    void GetPlane(float o[3], float n[3]) {
+        n[0]= m_Normal[0];
+        n[1]= m_Normal[1];
+        n[2]= m_Normal[2];
+        o[0]= m_Origin[0];
+        o[1]= m_Origin[1];
+        o[2]= m_Origin[2];
+	}
+    void GetPlane(double o[3], double n[3]) {
+        n[0] = m_Normal[0];
+        n[1] = m_Normal[1];
+        n[2] = m_Normal[2];
+        o[0] = m_Origin[0];
+        o[1] = m_Origin[1];
+        o[2] = m_Origin[2];
+    }
 	void SetIsSlice(bool s) {
 		this->m_Slice = s;
 	}

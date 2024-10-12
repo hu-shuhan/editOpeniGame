@@ -33,17 +33,31 @@ int BuildLocalFragmentList(void) {
 void SortFragmentList(int fragCount) {
     int i, j;
 
-    for (i = 0; i < fragCount - 1; i++) {
-        for (j = i + 1; j < fragCount; j++) {
-            float depth_i = uintBitsToFloat(fragments[i].z);
-            float depth_j = uintBitsToFloat(fragments[j].z);
+    // Bubble Sort
+    //    for (i = 0; i < fragCount - 1; i++) {
+    //        for (j = i + 1; j < fragCount; j++) {
+    //            float depth_i = uintBitsToFloat(fragments[i].z);
+    //            float depth_j = uintBitsToFloat(fragments[j].z);
+    //
+    //            if (depth_i > depth_j) {
+    //                uvec4 temp = fragments[i];
+    //                fragments[i] = fragments[j];
+    //                fragments[j] = temp;
+    //            }
+    //        }
+    //    }
 
-            if (depth_i > depth_j) {
-                uvec4 temp = fragments[i];
-                fragments[i] = fragments[j];
-                fragments[j] = temp;
-            }
+    // Insertion Sort
+    for (i = 1; i < fragCount; i++) {
+        uvec4 currentFragment = fragments[i];
+        float currentDepth = uintBitsToFloat(currentFragment.z);
+        j = i - 1;
+
+        while (j >= 0 && uintBitsToFloat(fragments[j].z) > currentDepth) {
+            fragments[j + 1] = fragments[j];
+            j--;
         }
+        fragments[j + 1] = currentFragment;
     }
 }
 
