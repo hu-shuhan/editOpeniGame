@@ -4,7 +4,7 @@
 #include "iGameObject.h"
 #include "igm/igm.h"
 #include "igm/transform.h"
-#include <Eigen/Dense>
+//#include <Eigen/Dense>
 #include <format>
 
 IGAME_NAMESPACE_BEGIN
@@ -73,9 +73,7 @@ public:
                                  _event.delta);
     };
 
-    enum class Event {
-        Slicing
-    };
+    enum class Event { Slicing };
 
 protected:
     InteractorStyle() = default;
