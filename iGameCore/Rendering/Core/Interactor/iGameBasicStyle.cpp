@@ -105,10 +105,9 @@ void BasicStyle::ModelRotation() {
 }
 void BasicStyle::ViewTranslation() {
     if (m_Camera) {
-        auto offset = m_NewPoint2D - m_OldPoint2D;
-        std::cout << m_Scene->ModelsBoundingSphere() << std::endl;
         UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
 
+        auto offset = m_NewPoint2D - m_OldPoint2D;
         auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
                                     offset.y * m_CameraMoveSpeed, 0.0f};
         auto oldPos = m_Camera->GetCameraPos();
@@ -256,9 +255,8 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
 }
 
 bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
-                                         igm::vec3 v0, igm::vec3 v1,
-                                         igm::vec3 v2,
-                                         igm::vec3& intersection) {
+                                     igm::vec3 v0, igm::vec3 v1, igm::vec3 v2,
+                                     igm::vec3& intersection) {
     float t, u, v;
     igm::vec3 dir = end - orig;
     igm::vec3 E1 = v1 - v0;
@@ -298,7 +296,7 @@ bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
 
 
 double BasicStyle::DistancePointToPlane(igm::vec3 point, igm::vec3 p1,
-                                            igm::vec3 p2, igm::vec3 p3) {
+                                        igm::vec3 p2, igm::vec3 p3) {
     // Calculate two vectors on the plane
     igm::vec3 v1 = {p2.x - p1.x, p2.y - p1.y, p2.z - p1.z};
     igm::vec3 v2 = {p3.x - p1.x, p3.y - p1.y, p3.z - p1.z};
@@ -328,14 +326,13 @@ double BasicStyle::DistancePointToLine(Vector3d point, Vector3d p1,
     return Line::ComputePointToLineDis(p1, (p1 - p2).normalized(), point);
 }
 
-igm::vec4 BasicStyle::GetPlane(const igm::vec3& p,
-                                   const igm::vec3& normal) {
+igm::vec4 BasicStyle::GetPlane(const igm::vec3& p, const igm::vec3& normal) {
     igm::vec3 n = normal.normalized();
     return igm::vec4(n, -n.dot(p));
 }
 
 igm::vec3 BasicStyle::GetNearWorldCoord(const igm::vec2& screenCoord,
-                                            const igm::mat4& invertedMvp) {
+                                        const igm::mat4& invertedMvp) {
     igm::vec2 NDC(2.0f * screenCoord.x / m_Interactor->GetWidth() - 1.0f,
                   1.0f - (2.0f * screenCoord.y / m_Interactor->GetHeight()));
 
@@ -349,7 +346,7 @@ igm::vec3 BasicStyle::GetNearWorldCoord(const igm::vec2& screenCoord,
 
 
 igm::vec3 BasicStyle::GetFarWorldCoord(const igm::vec2& screenCoord,
-                                           const igm::mat4& invertedMvp) {
+                                       const igm::mat4& invertedMvp) {
     igm::vec2 NDC(2.0f * screenCoord.x / m_Interactor->GetWidth() - 1.0f,
                   1.0f - (2.0f * screenCoord.y / m_Interactor->GetHeight()));
 
