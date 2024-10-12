@@ -105,6 +105,7 @@
         <file>Icons/select/file.png</file>
         <file>Icons/select/DragPoint.svg</file>
         <file>Icons/orthographic.svg</file>
+        <file>Icons/Slice.svg</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>
