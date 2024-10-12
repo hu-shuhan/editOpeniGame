@@ -106,6 +106,7 @@ void BasicStyle::ModelRotation() {
 void BasicStyle::ViewTranslation() {
     if (m_Camera) {
         auto offset = m_NewPoint2D - m_OldPoint2D;
+        std::cout << m_Scene->ModelsBoundingSphere() << std::endl;
         UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
 
         auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
@@ -177,13 +178,12 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     igm::mat4 proj = m_Camera->GetProjectionMatrix();
     auto mvp = proj * view * model;
 
-    auto boundingCenterMvp = mvp * igm::vec4{center.xyz(), 1.0f};
-    boundingCenterMvp /= boundingCenterMvp.w;
-    auto bz = boundingCenterMvp.z;
+    auto centerMvp = mvp * igm::vec4{center.xyz(), 1.0f};
+    centerMvp /= centerMvp.w;
+    auto bz = centerMvp.z;
 
     // the center of the bounding-sphere is located behind the near plane
     if (bz > 1.0f || bz < 0.0f) {
-
         auto cameraFront =
                 (m_Camera->GetCameraFocal() - m_Camera->GetCameraPos())
                         .normalized();
@@ -196,6 +196,15 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         if (bz > 1.0f) return;
     }
 
+    // p is the screen coordinate of the center offset one pixel upwards
+    auto p = igm::vec3{centerMvp.x, centerMvp.y + 2.0f / viewportF.y,
+                       centerMvp.z};
+    auto pWorldCoord = mvp.invert() * igm::vec4{p, 1.0f};
+    pWorldCoord /= pWorldCoord.w;
+
+    m_CameraMoveSpeed = (igm::vec3(pWorldCoord) - igm::vec3(center)).length();
+
+    /*
     Eigen::Matrix4f A;
     Eigen::Vector4f b;
     A << mvp[0][0], mvp[1][0], mvp[2][0], mvp[3][0], mvp[0][1], mvp[1][1],
@@ -212,6 +221,9 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         b << 0.0f, 0.0f, bz, 1.0f;
 
         Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
+        //Eigen::Vector4f solution =
+        //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
         float x = solution(0);
         float y = solution(1);
         float z = solution(2);
@@ -229,6 +241,9 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         b << 0.0f, 2.0f / viewportF.y, bz, 1.0f;
 
         Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
+        //Eigen::Vector4f solution =
+        //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
         float x = solution(0);
         float y = solution(1);
         float z = solution(2);
@@ -237,6 +252,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     }
 
     m_CameraMoveSpeed = (p - c).length();
+    */
 }
 
 bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
