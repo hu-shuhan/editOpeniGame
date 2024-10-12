@@ -1,19 +1,23 @@
-#ifndef iGameUnstructuredMeshClip_h
-#define iGameUnstructuredMeshClip_h
+#ifndef iGameModelClip_h
+#define iGameModelClip_h
 
 #include "iGameFilter.h"
 #include "iGameUnstructuredMesh.h"
 
 
 IGAME_NAMESPACE_BEGIN
-class UnstructuredMeshClip : public Filter {
+class ModelClip : public Filter {
 
 public:
-	I_OBJECT(UnstructuredMeshClip);
-	static Pointer New() { return new UnstructuredMeshClip; }
-	~UnstructuredMeshClip();
+	I_OBJECT(ModelClip);
+	static Pointer New() { return new ModelClip; }
+	~ModelClip();
 
 	bool Execute()override;
+
+	bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
+	bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
+	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 
 	float GetCutValue(float x[3]) {
 		return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
@@ -32,16 +36,21 @@ public:
 		m_Origin[2] = o[2];
 	}
 	void SetIsSlice(bool s) {
-		this->m_Slice=s;
+		this->m_Slice = s;
 	}
 protected:
-	UnstructuredMeshClip();
+	ModelClip();
 
 	float m_CutPlane[4];
 	float m_Normal[3];
 	float m_Origin[3];
 	UnstructuredMesh::Pointer m_UnstructuredMesh{ nullptr };
-	bool m_Slice=false;
+	SurfaceMesh::Pointer m_SurfaceMesh{ nullptr };
+	VolumeMesh::Pointer m_VolumeMesh{ nullptr };
+	bool m_Slice = false;
+
+private:
+
 };
 IGAME_NAMESPACE_END
 #endif

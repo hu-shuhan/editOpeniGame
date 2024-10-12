@@ -896,7 +896,7 @@ void igQtMainWindow::initAllFilters() {
                 float n[3] = {0, 1, 0};
                 float o[3] = {(float) center[0], (float) center[1],
                               (float) center[2]};
-                auto filter = UnstructuredMeshClip::New();
+                auto filter = ModelClip::New();
                 filter->SetPlane(n, o);
                 filter->SetInput(0, obj);
                 filter->Execute();
