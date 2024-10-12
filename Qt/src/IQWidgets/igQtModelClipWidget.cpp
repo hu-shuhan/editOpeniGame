@@ -1,8 +1,9 @@
 #include "IQWidgets/igQtModelClipWidget.h"
 
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
-	: QWidget(parent)/*, ui(new Ui::ScalarView) */ {
+	: QWidget(parent), ui(new Ui::Form) {
 
+	ui->setupUi(this);
 	m_Clipper = iGame::ModelClip::New();
 }
 
@@ -24,7 +25,7 @@ void igQtModelClipWidget::UpdatePlane()
 	n[1] = .0;
 	n[2] = .0;
 
-	m_Clipper->SetPlane(o,n);
+	m_Clipper->SetPlane(o, n);
 }
 void igQtModelClipWidget::SetIsSlice(bool s)
 {

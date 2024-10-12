@@ -27,7 +27,7 @@ public:
 		return (this->m_Normal[0] * (x0 - this->m_Origin[0]) + this->m_Normal[1] * (x1 - this->m_Origin[1]) +
 			this->m_Normal[2] * (x2 - this->m_Origin[2]));
 	}
-	void SetPlane(float n[3], float o[3]) {
+	void SetPlane(float o[3], float n[3]) {
 		m_Normal[0] = n[0];
 		m_Normal[1] = n[1];
 		m_Normal[2] = n[2];

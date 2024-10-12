@@ -26,6 +26,7 @@
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <stdio.h>
 #include <IQComponents/igQtSliceWidget.h>
+#include <IQWidgets/igQtModelClipWidget.h>
 
 #include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
@@ -1237,7 +1238,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
     SliceDockWidget = new QDockWidget(this);
     SliceDockWidget->setWindowTitle("网格切割");
-    SliceWidget = new igQtSliceWidget(SliceDockWidget);
+    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->hide();

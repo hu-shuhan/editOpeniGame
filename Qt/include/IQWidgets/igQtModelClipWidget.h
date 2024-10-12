@@ -7,6 +7,7 @@
 #include <QDockWidget>
 #include "iGameSurfaceMesh.h"
 #include "Clip/iGameModelClip.h"
+#include <ui_Slice.h>
 class igQtModelClipWidget : public QWidget {
 
 	Q_OBJECT
@@ -31,7 +32,7 @@ signals:
 protected:
 
 private:
-	//Ui::ScalarView* ui;
+	Ui::Form* ui;
 
 	iGame::DataObject::Pointer m_OriginDataObject = { nullptr };
 	iGame::SurfaceMesh::Pointer m_ResultMesh = { nullptr };

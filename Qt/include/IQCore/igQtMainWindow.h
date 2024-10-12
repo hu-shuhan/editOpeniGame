@@ -26,7 +26,7 @@ class igQtFilterDialogDockWidget;
 class igQtSliceWidget;
 class igQtProgressBarWidget;
 class igQtModelDialogWidget;
-class igQtSliceWidget;
+class igQtModelClipWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -51,7 +51,7 @@ public:
     igQtColorManagerWidget* ColorManagerWidget;
     igQtFilterDialogDockWidget* filterDialogDockWidget;
     QDockWidget* SliceDockWidget;
-    igQtSliceWidget* SliceWidget;
+    igQtModelClipWidget* SliceWidget;
     igQtProgressBarWidget* progressBarWidget;
     QComboBox* viewStyleCombox;
     QComboBox* attributeViewIndexCombox;
