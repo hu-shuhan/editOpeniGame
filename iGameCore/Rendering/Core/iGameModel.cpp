@@ -32,10 +32,10 @@ void Model::Draw(Scene* scene) {
             scene->GetShader(Scene::NOLIGHT)->use();
 
             drawObject->m_PointVAO.bind();
-            glad_glPointSize(8);
+            glad_glPointSize(drawObject->m_PointSize);
             glad_glDepthRange(0.000001, 1);
             glad_glDrawArrays(GL_POINTS, 0,
-                              drawObject->m_Positions->GetNumberOfValues() / 3);
+                              drawObject->m_Positions->GetNumberOfElements());
             glad_glDepthRange(0, 1);
             drawObject->m_PointVAO.release();
         }

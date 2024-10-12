@@ -70,18 +70,18 @@ protected:
     GLBuffer m_CellPositionVBO, m_CellColorVBO;
     GLBuffer m_CellEBO;
 
-    FloatArray::Pointer m_Positions{FloatArray::New()};
-    FloatArray::Pointer m_Colors{FloatArray::New()};
-    FloatArray::Pointer m_Normals{FloatArray::New()};
-    FloatArray::Pointer m_Textures{FloatArray::New()};
+    FloatArray::Pointer m_Positions;
+    FloatArray::Pointer m_Colors;
+    FloatArray::Pointer m_Normals;
+    FloatArray::Pointer m_Textures;
 
-    UnsignedIntArray::Pointer m_PointIndices{UnsignedIntArray::New()};
-    UnsignedIntArray::Pointer m_LineIndices{UnsignedIntArray::New()};
-    UnsignedIntArray::Pointer m_TriangleIndices{UnsignedIntArray::New()};
+    UnsignedIntArray::Pointer m_PointIndices;
+    UnsignedIntArray::Pointer m_LineIndices;
+    UnsignedIntArray::Pointer m_TriangleIndices;
 
-    FloatArray::Pointer m_CellPositions{FloatArray::New()};
-    FloatArray::Pointer m_CellColors{FloatArray::New()};
-    UnsignedIntArray::Pointer m_CellIndices{UnsignedIntArray::New()};
+    FloatArray::Pointer m_CellPositions;
+    FloatArray::Pointer m_CellColors;
+    UnsignedIntArray::Pointer m_CellIndices;
 
     unsigned int m_ViewStyle{0};
     bool m_Visibility{true};
@@ -98,7 +98,7 @@ protected:
     ArrayObject::Pointer m_ViewAttribute{};
     int m_ViewDemension{};
 
-    iGameClipper::Pointer m_Clipper{iGameClipper::New()};
+    iGameClipper::Pointer m_Clipper;
 
     friend class Model;
     friend class UnstructuredMesh;
