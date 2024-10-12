@@ -12,7 +12,7 @@ void Meshlet::CreateBuffer() {
 }
 
 void Meshlet::BuildMeshlet(const float* vertex_positions, size_t vertex_count,
-                           const int* indices, size_t index_count,
+                           const unsigned int* indices, size_t index_count,
                            GLBuffer& EBO) {
     iGameTimer timer;
     timer.reset();
@@ -22,7 +22,7 @@ void Meshlet::BuildMeshlet(const float* vertex_positions, size_t vertex_count,
     std::vector<unsigned char> meshletTriangles;
 
     // Preprocessing: Vertex Cache Optimization
-    std::vector<int> optimized_indices(index_count);
+    std::vector<unsigned int> optimized_indices(index_count);
     meshopt_optimizeVertexCache(optimized_indices.data(), indices, index_count,
                                 vertex_count);
 

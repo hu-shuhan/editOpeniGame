@@ -351,6 +351,7 @@ bool igQtAnimationWidget::saveAnimation()
 
     for(int i = 0; i < timeStepSize; i ++)
     {
+        std::cout << "playing step : " << i << '\n';
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
         std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());

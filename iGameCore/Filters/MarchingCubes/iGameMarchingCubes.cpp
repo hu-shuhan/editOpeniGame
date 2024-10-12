@@ -374,6 +374,7 @@ bool iGameMarchingCubes::Execute()
 	igIndex i = 0, j = 0;
 	igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 	igIndex vcnt = 0;
+	double values[IGAME_CELL_MAX_SIZE];
 	for (i = 0; i < cellNum; i++) {
 		MarchingCubes::Cube cube_temp;
 		vcnt = m_VolumeMesh->GetVolumePointIds(i, vhs);
@@ -383,20 +384,14 @@ bool iGameMarchingCubes::Execute()
 			cube_temp.p[j].x = p_t[0];
 			cube_temp.p[j].y = p_t[1];
 			cube_temp.p[j].z = p_t[2];
-			cube_temp.p[j].value = m_Scalar->GetValue(id);
+			m_Scalar->GetElement(id,values);
+			cube_temp.p[j].value = values[0];
 			// std::cout << cube_temp.p[j].value << std::endl;
 		}
 		cubes.push_back(cube_temp);
 	}
-	// 打印一下cubes
-	/*for (auto c : cubes) {
-				printCube(c);
-			}*/
 	std::vector<MarchingCubes::Triangle_3D> tris;
 	tris = get_result(cubes, m_Value);
-	/*for (auto t : tris) {
-				printTriangle(t);
-			}*/
 	auto m_ResultMesh = SurfaceMesh::New();
 	auto m_ResultPoints = Points::New();
 	auto m_ResultTriangles = CellArray::New();

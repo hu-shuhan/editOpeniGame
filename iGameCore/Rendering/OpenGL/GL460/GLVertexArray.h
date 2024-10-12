@@ -72,9 +72,11 @@ inline const GLVertexAttribute GL_LOCATION_IDX_1{1};
 inline const GLVertexAttribute GL_LOCATION_IDX_2{2};
 inline const GLVertexAttribute GL_LOCATION_IDX_3{3};
 
-inline void GLSetVertexAttrib(GLVertexArray& VAO, GLVertexAttribute attribute,
-                              GLuint vbo_binding_index, int size, GLenum type,
-                              GLboolean normalized, unsigned int offset) {
+inline static void GLSetVertexAttrib(GLVertexArray& VAO,
+                                     GLVertexAttribute attribute,
+                                     GLuint vbo_binding_index, int size,
+                                     GLenum type, GLboolean normalized,
+                                     unsigned int offset) {
     VAO.enableAttrib(attribute);
     VAO.attribBinding(attribute, vbo_binding_index);
     VAO.attribFormat(attribute, size, type, normalized, offset);

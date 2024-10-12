@@ -69,7 +69,7 @@ public:
     TransferVolumeMeshToUnstructuredMesh(VolumeMesh::Pointer volumeMesh,
                                          UnstructuredMesh::Pointer&);
 
-    SurfaceMesh::Pointer GetDrawMesh() { return m_DrawMesh; }
+    //SurfaceMesh::Pointer GetDrawMesh() { return m_DrawMesh; }
 
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
@@ -110,15 +110,15 @@ private:
 public:
     //void Draw(Scene* scene) override;
     void ConvertToDrawableData() override;
-    bool IsDrawable() override { return true; }
+    void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
     void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
     void SetAttributeWithPointData(ArrayObject::Pointer attr,
                                    std::pair<float, float>& range,
                                    igIndex i = -1) override;
     void SetAttributeWithCellData(ArrayObject::Pointer attr, igIndex i = -1);
 
-protected:
-    SurfaceMesh::Pointer m_DrawMesh{nullptr};
+    //protected:
+    //    SurfaceMesh::Pointer m_DrawMesh{nullptr};
 };
 IGAME_NAMESPACE_END
 #endif

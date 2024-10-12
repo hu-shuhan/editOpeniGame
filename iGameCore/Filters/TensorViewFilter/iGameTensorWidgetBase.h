@@ -63,7 +63,7 @@ private:
     //椭球面片的邻接顺序
     UnsignedIntArray::Pointer m_DrawGlyphPointOrders;
     //椭球面片的颜色
-    FloatArray::Pointer m_DrawGlyphColors;
+    FloatArray::Pointer m_DrawGlyphColors{FloatArray::New()};
 
     //存放每个点的生成的某一个特征向量（最大或者最小），用于作为矢量输出。
     DoubleArray::Pointer m_EigenVector;

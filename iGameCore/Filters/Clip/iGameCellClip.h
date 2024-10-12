@@ -1,4 +1,6 @@
 #include "iGameTetra.h"
+#include "iGamePolyhedron.h"
+#include "Quadratic/iGameQuadraticTetra.h"
 #include "iGameCellArray.h"
 #include "iGameAttributeSet.h"
 #include"iGameVolumeMesh.h"
@@ -27,60 +29,30 @@ namespace CellClip {
 	  { { 6, 0, 3, 2, 101, 103, 102 } },  // 14
 	  { { 4, 100, 101, 102, 103, 0, 0 } } // 15
 	};
-  //  bool getCellIntersectPoint(VolumeMesh::Pointer mesh,const Vector3f& planeNormal,const Vector3f& pointOnPlane,igIndex cellId,std::vector<std::pair<Vector3f,Vector3f>>&clipEdges){
-  //      igIndex f[32]{};
-  //      igIndex e[32]{};
-  //      bool find = false;
-  //      int fsize = mesh->GetVolumeFaceIds(cellId, f);
 
-  //      for (int i = 0; i < fsize; i++) {
-  //          int esize = mesh->GetFaceEdgeIds(f[i], e);
-  //          std::pair<Vector3f, Vector3f> clipEdge;
-  //          bool count = false;
-  //          for (int j = 0; j < esize; j++) {
-		//		auto edge=mesh->GetEdge(e[j]);
-  //              Vector3f interactPoint;
-  //              if (isLineSegmentIntersectingPlane(edge->GetPoint(0),edge->GetPoint(1),planeNormal,pointOnPlane,interactPoint))
-		//		{
-  //                  if (!count) {
-  //                      clipEdge.first = interactPoint;
-  //                      find = true;
-  //                      count = true;
-  //                  } else {
-  //                      clipEdge.second = interactPoint;
-  //                      clipEdges.emplace_back(clipEdge);
-  //                  }
-  //                  
-		//		}
-  //             
-		//	}
-		//}
-  //      return find;
+	struct InterpolateEdge {
+		igIndex vh1;
+		igIndex vh2;
+		float t;
+		InterpolateEdge(igIndex vh) {
+			vh1 = vh;
+			vh2 = -1;
+			t = 0.0;
+		}
+		InterpolateEdge(igIndex _vh1, igIndex _vh2, float _t) {
+			vh1 = _vh1;
+			vh2 = _vh2;
+			t = _t;
+		}
+	};
 
-  //  };
-    //bool isLineSegmentIntersectingPlane(const Vector3f& p1, const Vector3f& p2,const Vector3f& planeNormal,const Vector3f& pointOnPlane,Vector3f& intersectionPoint) {
-    //    Vector3f lineDirection = p2 - p1;
-
-    //    float denominator = planeNormal.dot(lineDirection);
-
-    //    if (fabs(denominator) < 1e-6) { return false; }
-
-    //    float t = (pointOnPlane - p1).dot(planeNormal) / denominator;
-
-    //    if (t >= 0 && t <= 1) {
-    //        intersectionPoint = p1 + t * lineDirection;
-    //        return true;
-    //    }
-
-    //    return false;
-    //}
-	static void Clip(Cell::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity,UnsignedIntArray::Pointer types,
-		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId)
+	static void Clip(Tetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell)
 	{
 		int MASK[4] = { 1,2,4,8 };
 		int i, j, CaseIndex = 0;
 		igIndex pId = 0;
-		igIndex vhs[IGAME_CELL_MAX_SIZE];
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = {};
 		igIndex vcnt = 0;
 		const int* vert = nullptr;
 		igIndex vh1 = 0, vh2 = 0;
@@ -91,12 +63,17 @@ namespace CellClip {
 				CaseIndex |= MASK[i];
 			}
 		}
+		if (CaseIndex == 0 || CaseIndex == 15) {
+			return;
+		}
 		auto ClipData = (tetraCases + CaseIndex)->clip;
 		for (i = 1; i <= ClipData[0]; i++) {
-
 			if (ClipData[i] >= 100) {
 				pId = ClipData[i] - 100;
-				vhs[i - 1] = cell->GetPointId(pId);
+				//vhs[i - 1] = cell->GetPointId(pId);
+				points->AddPoint(cell->GetPoint(pId));
+				vhs[i - 1] = points->GetNumberOfPoints() - 1;
+				OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(pId)));
 			}
 			else {
 				vert = Tetra::edges[ClipData[i]];
@@ -116,17 +93,82 @@ namespace CellClip {
 				v2 = cell->GetPoint(vh2);
 				p = v1 + (v2 - v1) * t;
 				points->AddPoint(p);
-				vhs[i - 1] = points->GetNumberOfPoints()-1;
+				vhs[i - 1] = points->GetNumberOfPoints() - 1;
+				OriginEdge.emplace_back(InterpolateEdge(vh1, vh2, t));
 			}
 		}
+		//std::cout<<vhs[0]<<" "<<vhs[1]<<' ' << vhs[2] << " " << vhs[3] << '\n';
 		if (ClipData[0] == 4) {
 			connectivity->AddCellIds(vhs, 4);
 			types->AddValue(IG_TETRA);
+			originCell.emplace_back(cellId);
 		}
-		else {
+		else if (ClipData[0] == 6) {
 			connectivity->AddCellIds(vhs, 6);
 			types->AddValue(IG_PRISM);
+			originCell.emplace_back(cellId);
 		}
+	}
+
+
+
+	static void Clip(QuadraticTetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell)
+	{
+		Tetra::Pointer tetra = Tetra::New();
+		float tetvalues[4] = {};
+		igIndex pid = 0;
+		for (int i = 0; i < 8; i++)
+		{
+			for (int j = 0; j < 4; j++) 
+			{
+				pid = QuadraticTetra::SubTetras[0][i][j];
+				tetra->Points->SetPoint(j, cell->Points->GetPoint(pid));
+				tetra->PointIds->SetId(j, cell->PointIds->GetId(pid));
+				tetvalues[j] = cellValues[pid];
+			}
+			Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell);
+		}
+	}
+
+
+	static void Clip(Volume::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell)
+	{
+		Tetra::Pointer tetra = Tetra::New();
+		float tetvalues[4] = {};
+		int PointNum = cell->GetNumberOfPoints();
+		int i = 0, allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < PointNum; i++)
+		{
+			value = cellValues[i];
+			if (value >= 0.0) {
+				allOut = 0;
+			}
+			else {
+				allIn = 0;
+			}
+		}
+		if (allOut) {
+			return;
+		}
+		else if (allIn){
+			return;
+			connectivity->AddCellIds(cell->PointIds);
+			types->AddValue(cell->GetCellType());
+		}
+		else {
+
+			for (;;) {
+				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell);
+			}
+		}
+	}
+	static void Clip(Polyhedron::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell) {
+
+
 	}
 }
 

@@ -208,7 +208,7 @@ private:
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
-    bool IsDrawable() override { return true; }
+    void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
     void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
     void SetAttributeWithPointData(ArrayObject::Pointer attr,
                                    std::pair<float, float>& range,
@@ -217,8 +217,12 @@ public:
                                   std::pair<float, float>& range,
                                   igIndex i = -1);
 
-protected:
-    SurfaceMesh::Pointer m_DrawMesh{nullptr};
+    void GetDrawableArray(FloatArray::Pointer& positions,
+                          UnsignedIntArray::Pointer& lineIndices,
+                          UnsignedIntArray::Pointer& triangleIndices);
+
+    //protected:
+    //    SurfaceMesh::Pointer m_DrawMesh{nullptr};
 };
 IGAME_NAMESPACE_END
 #endif

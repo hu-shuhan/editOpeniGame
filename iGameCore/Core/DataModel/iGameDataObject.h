@@ -174,8 +174,6 @@ protected:
     DataObject* m_Parent{nullptr};
 
 
-
-
 private:
     DataObjectId GetIncrementDataObjectId();
     void SetParent(DataObject* parent);
@@ -187,10 +185,10 @@ public:
     //virtual void TestOcclusionResults(Scene*);
     //virtual void ConvertToDrawableData();
 
-    virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
-    virtual bool IsDrawable() { return m_Drawable; }
+    //virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
+    virtual bool IsDrawable() { return false; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
-    void SetColorMapper(ScalarsToColors::Pointer cm) {m_ColorMapper=cm;}
+    void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper = cm; }
     int GetAttributeIndex();
     int GetAttributeDimension();
 
@@ -198,7 +196,6 @@ public:
     void SwitchToCurrentTimeframe(int timeIndex);
 
 protected:
-    bool m_Drawable{false};
     int m_AttributeIndex{-1};
     int m_AttributeDimension{-1};
     int m_CurrentTimeframeIndex{-1};
