@@ -32,6 +32,20 @@ public:
 	// Free up extra memory.
 	void Squeeze();
 
+	bool ShallowCopy(CellArray::Pointer o) { return false;
+	}
+	bool DeepCopy(CellArray::Pointer o) {
+        if (o == nullptr) return false;
+		m_Buffer = IdArray::New();
+        m_Buffer->DeepCopy(o->m_Buffer);
+        m_Offsets->DeepCopy(o->m_Offsets);
+        m_DeleteMasker->DeepCopy(o->m_DeleteMasker);
+        m_NumberOfCells = o->m_NumberOfCells;
+        m_FixedCellSize = o->m_FixedCellSize;
+        m_UseOffsets = o->m_UseOffsets;
+        return true;
+	}
+
 	// '_Newsize' is the number of cells 
 	void SetNumberOfCells(const IGsize _Newsize);
 

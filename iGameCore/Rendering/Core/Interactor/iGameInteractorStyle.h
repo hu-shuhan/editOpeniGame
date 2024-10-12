@@ -73,9 +73,19 @@ public:
                                  _event.delta);
     };
 
+    enum class Event {
+        Slicing
+    };
+
 protected:
     InteractorStyle() = default;
     ~InteractorStyle() override = default;
+
+    void InvokeEvent(Event _event, void* callData) {
+        if (m_CallBack) { m_CallBack(_event, callData); }
+    }
+
+    std::function<void(Event, void*)> m_CallBack;
 
     friend class Interactor;
 };

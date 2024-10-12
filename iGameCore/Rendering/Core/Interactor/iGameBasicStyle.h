@@ -1,4 +1,4 @@
-#ifndef OPENIGAME_BASIC_STYLE_H
+ï»¿#ifndef OPENIGAME_BASIC_STYLE_H
 #define OPENIGAME_BASIC_STYLE_H
 
 #include "iGameInteractorStyle.h"
@@ -6,6 +6,7 @@
 #include "iGameCamera.h"
 
 IGAME_NAMESPACE_BEGIN
+
 class BasicStyle : public InteractorStyle {
 public:
     I_OBJECT(BasicStyle);
@@ -45,36 +46,36 @@ protected:
     void MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D);
     void UpdateCameraMoveSpeed(const igm::vec4& center);
 
-    // ¼ÆËãÖ±ÏßÓëÆ½ÃæµÄ½»µã
+    // è®¡ç®—ç›´çº¿ä¸å¹³é¢çš„äº¤ç‚¹
     bool LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B, 
                                const igm::vec3& P1, const igm::vec3& P2,
                                const igm::vec3& P3, igm::vec3& intersection) {
-        // Ö±ÏßµÄ·½ÏòÏòÁ¿
+        // ç›´çº¿çš„æ–¹å‘å‘é‡
         double u[3] = {B.x - A.x, B.y - A.y, B.z - A.z};
 
-        // ¼ÆËãÆ½ÃæµÄ·¨ÏòÁ¿
+        // è®¡ç®—å¹³é¢çš„æ³•å‘é‡
         double v1[3] = {P2.x - P1.x, P2.y - P1.y, P2.z - P1.z};
         double v2[3] = {P3.x - P1.x, P3.y - P1.y, P3.z - P1.z};
 
-        // ·¨ÏòÁ¿ N = v1 ¡Á v2
+        // æ³•å‘é‡ N = v1 Ã— v2
         double N[3] = {v1[1] * v2[2] - v1[2] * v2[1],
                        v1[2] * v2[0] - v1[0] * v2[2],
                        v1[0] * v2[1] - v1[1] * v2[0]};
 
-        // Æ½Ãæ·½³ÌµÄ D Öµ
+        // å¹³é¢æ–¹ç¨‹çš„ D å€¼
         double D = -(N[0] * P1.x + N[1] * P1.y + N[2] * P1.z);
 
-        // ´úÈëÆ½Ãæ·½³ÌÇó½»µã
+        // ä»£å…¥å¹³é¢æ–¹ç¨‹æ±‚äº¤ç‚¹
         double denominator = N[0] * u[0] + N[1] * u[1] + N[2] * u[2];
         if (denominator == 0) {
-            // Ö±ÏßÓëÆ½ÃæÆ½ĞĞ
+            // ç›´çº¿ä¸å¹³é¢å¹³è¡Œ
             return false;
         }
 
-        // ¼ÆËã t µÄÖµ
+        // è®¡ç®— t çš„å€¼
         double t = -(N[0] * A.x + N[1] * A.y + N[2] * A.z + D) / denominator;
 
-        // ¼ÆËã½»µã×ø±ê
+        // è®¡ç®—äº¤ç‚¹åæ ‡
         intersection.x = A.x + t * u[0];
         intersection.y = A.y + t * u[1];
         intersection.z = A.z + t * u[2];
@@ -109,6 +110,7 @@ protected:
     float m_CameraScaleSpeed{1.0f};
     float m_CameraMoveSpeed{0.01f};
     MouseButton m_MouseMode{NoButton};
+    
 };
 IGAME_NAMESPACE_END
 #endif

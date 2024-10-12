@@ -10,6 +10,28 @@ IGsize SurfaceMesh::GetNumberOfFaces() const noexcept {
     return m_Faces ? m_Faces->GetNumberOfCells() : 0;
 }
 
+bool SurfaceMesh::ShallowCopy(DataObject::Pointer o) { return false; }
+
+bool SurfaceMesh::DeepCopy(DataObject::Pointer o) { return false; }
+
+bool SurfaceMesh::ShallowCopy(SurfaceMesh::Pointer o) {
+    if (o == nullptr) { return false; }
+
+    this->SetPoints(o->m_Points);
+    this->SetFaces(o->m_Faces);
+    this->SetAttributeSet(o->m_Attributes);
+    return true;
+}
+
+bool SurfaceMesh::DeepCopy(SurfaceMesh::Pointer other) {
+    if (other == nullptr) { return false; }
+    m_Points = Points::New();
+    m_Points->DeepCopy(other->m_Points);
+    m_Faces = CellArray::New();
+    m_Faces->DeepCopy(other->m_Faces);
+    return true;
+}
+
 CellArray* SurfaceMesh::GetEdges() { return m_Edges ? m_Edges.get() : nullptr; }
 CellArray* SurfaceMesh::GetFaces() { return m_Faces ? m_Faces.get() : nullptr; }
 
@@ -224,7 +246,20 @@ bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
         ptIds->AddId(e[0] - ptId + e[1]);
         assert(e[0] == ptId || e[1] == ptId);
     }
-    return link.size;
+    return true;
+}
+bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
+                                          ReturnContainer& ptIds) {
+    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    ptIds.reset();
+    auto& link = m_EdgeLinks->GetLink(ptId);
+    igIndex e[2]{};
+    for (int i = 0; i < link.size; i++) {
+        GetEdgePointIds(link.pointer[i], e);
+        ptIds.push_back(e[0] - ptId + e[1]);
+        assert(e[0] == ptId || e[1] == ptId);
+    }
+    return true;
 }
 int SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds) {
     assert(ptId < GetNumberOfPoints() && "ptId too large");
@@ -950,6 +985,7 @@ void SurfaceMesh::ConvertToDrawableData() {
 }
 
 void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
+    demension = 0;
     if (m_DrawMesh) {
         return m_DrawMesh->ViewCloudPicture(scene, index, demension);
     }

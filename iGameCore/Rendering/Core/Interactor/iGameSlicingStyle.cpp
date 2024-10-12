@@ -42,8 +42,21 @@ void SlicingStyle::Initialize(Interactor* a) {
 
     ComputeSlicingPlane(plane);
     DrawSlicingPlane(plane);
-
+    Invoke();
 }
+
+void SlicingStyle::Invoke() { 
+    
+    slicingPlane.point[0] = center[0];
+    slicingPlane.point[1] = center[1];
+    slicingPlane.point[2] = center[2];
+    slicingPlane.normal[0] = normal[0];
+    slicingPlane.normal[1] = normal[1];
+    slicingPlane.normal[2] = normal[2];
+
+    this->InvokeEvent(Event::Slicing, &plane);
+}
+
 void SlicingStyle::MousePressEvent(IEvent _event) {
     BasicStyle::MousePressEvent(_event);
 
@@ -101,6 +114,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
             ComputeSlicingPlane(plane);
             DrawSlicingPlane(plane);
+            Invoke();
         } else if (selectId == 1) {
             igm::vec3 p1 = GetNearWorldCoord(pos, invMVP);
             igm::vec3 p2 = GetFarWorldCoord(pos, invMVP);
@@ -132,6 +146,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
             ComputeSlicingPlane(plane);
             DrawSlicingPlane(plane);
+            Invoke();
         } else if (selectId == 2) {
             igm::vec3 p1 = GetNearWorldCoord(pos, invMVP);
             igm::vec3 p2 = GetFarWorldCoord(pos, invMVP);
@@ -163,6 +178,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
             ComputeSlicingPlane(plane);
             DrawSlicingPlane(plane);
+            Invoke();
         } else if (selectId == 3) {
             
         }
@@ -348,4 +364,5 @@ bool SlicingStyle::IsIntersect(const Vector3d& p1, const Vector3d& p2,
 
     return false;
 }
+
 IGAME_NAMESPACE_END

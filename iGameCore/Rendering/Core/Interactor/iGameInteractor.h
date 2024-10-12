@@ -14,6 +14,7 @@
 #include "iGameSlicingStyle.h"
 
 IGAME_NAMESPACE_BEGIN
+
 class Interactor : public Object {
 public:
     I_OBJECT(Interactor);
@@ -111,7 +112,13 @@ public:
     Scene* GetScene() { return m_Scene.get(); }
     Camera* GetCamera() { return m_Camera.get(); }
     
-
+    template<typename Functor, typename... Args>
+    bool SetCallBack(Functor&& functor, Args&&... args) {
+        if (!m_Internal) return false;
+        m_Internal->m_CallBack = std::bind(std::forward<Functor>(functor),
+                              std::forward<Args>(args)...);
+        return true;
+    }
 
 protected:
     Interactor() = default;

@@ -9,6 +9,11 @@ public:
     I_OBJECT(SlicingStyle);
     static Pointer New() { return new SlicingStyle; }
 
+    struct SlicingPlane {
+        float point[3]{};
+        float normal[3]{};
+    };
+
     void Initialize(Interactor* a) override;
 
     void MousePressEvent(IEvent _event) override;
@@ -36,6 +41,8 @@ protected:
     bool IsIntersect(const Vector3d& p1, const Vector3d& p2, const Vector3d& p3,
                      const Vector3d& p4, Vector3d& intersection);
 
+    void Invoke();
+
     Model::Pointer m_Model;
     DataObject::Pointer m_DataObject;
     Painter::Pointer m_Painter;
@@ -59,6 +66,8 @@ private:
     IGuint lineHandle{0};
     IGuint planeHandle[10]{0};
     std::vector<Vector3d> plane;
+
+    SlicingPlane slicingPlane;
 
     Vector3Tovec3 v{};
     vec3ToVector3d V{};

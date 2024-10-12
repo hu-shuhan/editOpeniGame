@@ -1,4 +1,4 @@
-#ifndef iGameSurfaceMesh_h
+﻿#ifndef iGameSurfaceMesh_h
 #define iGameSurfaceMesh_h
 
 #include "iGameCellArray.h"
@@ -24,6 +24,11 @@ public:
     IGsize GetNumberOfEdges() const noexcept;
     // Get the number of all faces
     IGsize GetNumberOfFaces() const noexcept;
+
+    bool ShallowCopy(DataObject::Pointer o) override;
+    bool DeepCopy(DataObject::Pointer o) override;
+    bool ShallowCopy(SurfaceMesh::Pointer o);
+    bool DeepCopy(SurfaceMesh::Pointer o);
 
     // Get edge array
     CellArray* GetEdges();
@@ -72,6 +77,8 @@ public:
                                 igIndex* ptIds); // Unsafe: Stake overflow
     bool GetPointToOneRingPoints(const IGsize ptId,
                                  IdArray::Pointer ptIds); // Safe
+    bool GetPointToOneRingPoints(const IGsize ptId,
+                                 ReturnContainer& ptIds); // Safe
 
     // Get all neighboring edges of a point. Return the size of indices.
     int GetPointToNeighborEdges(const IGsize ptId,
@@ -174,6 +181,138 @@ public:
     //const float* GetFaceColor() const;
     //void SetFaceTransparency(float val);
     //float GetFaceTransparency() const;
+
+    bool IsCollapsable(igIndex edgeId) {
+        if (IsEdgeDeleted(edgeId)) { return false; }
+
+        igIndex e[2]{};
+        GetEdgePointIds(edgeId, e);
+
+        // 如果两个顶点在边界，边却没在边界，则不能坍缩
+        if (IsBoundaryPoint(e[0]) && IsBoundaryPoint(e[1]) &&
+            !IsBoundaryEdge(edgeId)) {
+            return false;
+        }
+
+        // 只有两个顶点的邻接顶点的交集个数小于2，才能坍缩
+        SurfaceMesh::ReturnContainer v1, v2;
+        GetPointToOneRingPoints(e[0], v1);
+        GetPointToOneRingPoints(e[1], v2);
+        int count = 0;
+        for (int i = 0; i < v1.size(); i++) {
+            for (int j = 0; j < v2.size(); j++) {
+                if (v1[i] == v2[j]) { count++; }
+            }
+        }
+        return (count <= 2);
+    }
+
+    void CollapseEdge(igIndex edgeId) {
+        assert(IsCollapsable(edgeId) &&
+               "Please call IsCollapsable before CollapseEdge");
+
+        igIndex e[2]{};
+        GetEdgePointIds(edgeId, e);
+        igIndex from = e[0];
+        igIndex to = e[1];
+
+        if (GetNumberOfLinks(from, SurfaceMesh::P2E) == 1) {
+            DeletePoint(from);
+            return;
+        }
+        if (GetNumberOfLinks(to, SurfaceMesh::P2E) == 1) {
+            DeletePoint(to);
+            return;
+        }
+
+        auto GetOppoFaceId = [&](igIndex edgeId, igIndex faceId) -> igIndex {
+            igIndex ids[2]{};
+            int size = GetEdgeToNeighborFaces(edgeId, ids);
+            if (size < 2) { return -1; }
+            return ids[0] + ids[1] - faceId;
+        };
+
+        struct ColFace {
+            igIndex col_edgeId; // 坍缩的边id
+            igIndex oppo_ptId;  // 坍缩的边对应的顶点id
+            igIndex faceId;     // 坍缩边的邻接面id
+            igIndex from_edgeId, from_oppo_faceId; // 非坍缩边以及其对偶面
+            igIndex to_edgeId, to_oppo_faceId;
+        };
+
+        igIndex ids[2]{}, fpoint[3]{}, fedge[3]{};
+        int size = GetEdgeToNeighborFaces(edgeId, ids);
+        for (int i = 0; i < size; i++) {
+            ColFace f;
+            f.faceId = ids[i];
+            GetFacePointIds(f.faceId, fpoint);
+            GetFaceEdgeIds(f.faceId, fedge);
+
+            // 该边对应的顶点id
+            f.oppo_ptId = fpoint[0] + fpoint[1] + fpoint[2] - from - to;
+
+            int k = 0;
+            igIndex edge[2]{};
+            for (int j = 0; j < 3; j++) {
+                if (fedge[j] != edgeId) {
+                    GetEdgePointIds(fedge[j], edge);
+                    if (edge[0] == from || edge[1] == from) {
+                        f.from_edgeId = fedge[j];
+                        f.from_oppo_faceId = GetOppoFaceId(fedge[j], f.faceId);
+                    } else/* if (edge[0] == to || edge[1] == to) */{
+                        f.to_edgeId = fedge[j];
+                        f.to_oppo_faceId = GetOppoFaceId(fedge[j], f.faceId);
+                    }
+                }
+            }
+            assert(k == 2);
+
+            if (f.from_oppo_faceId != -1) {
+                m_FaceEdgeLinks->ReplaceReference(f.to_edgeId, f.faceId,
+                                                  f.from_oppo_faceId);
+                m_FaceEdges->ReplaceCellReference(f.from_oppo_faceId,
+                                                  f.from_edgeId, f.to_edgeId);
+            } else {
+                m_FaceEdgeLinks->RemoveReference(f.to_edgeId, f.faceId);
+            }
+
+
+            m_FaceLinks->RemoveReference(f.oppo_ptId, f.faceId);
+            m_FaceLinks->RemoveReference(from, f.faceId);
+            m_FaceLinks->RemoveReference(to, f.faceId);
+
+            m_EdgeLinks->RemoveReference(f.oppo_ptId, f.from_edgeId);
+            m_EdgeLinks->RemoveReference(from, f.from_edgeId);
+
+            m_EdgeDeleteMarker->MarkDeleted(f.from_edgeId);
+            m_FaceDeleteMarker->MarkDeleted(f.faceId);
+        }
+        m_EdgeLinks->RemoveReference(from, edgeId);
+        m_EdgeLinks->RemoveReference(to, edgeId);
+
+        ReturnContainer container;
+        GetPointToNeighborFaces(from, container);
+        for (int i = 0; i < container.size(); i++) {
+            m_Faces->ReplaceCellReference(container[i], from, to);
+        }
+        GetPointToNeighborEdges(from, container);
+        for (int i = 0; i < container.size(); i++) {
+            m_Edges->ReplaceCellReference(container[i], from, to);
+        }
+
+        const igIndex* ptr = m_FaceLinks->GetLinkPointer(from);
+        for (int i = 0; i < m_FaceLinks->GetLinkSize(from); i++) {
+            m_FaceLinks->AddReference(to, ptr[i]);
+        }
+
+        ptr = m_EdgeLinks->GetLinkPointer(from);
+        for (int i = 0; i < m_EdgeLinks->GetLinkSize(from); i++) {
+            m_EdgeLinks->AddReference(to, ptr[i]);
+        }
+
+        m_EdgeDeleteMarker->MarkDeleted(edgeId);
+        m_PointDeleteMarker->MarkDeleted(from);
+    }
 
 protected:
     SurfaceMesh();

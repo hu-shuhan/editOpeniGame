@@ -172,7 +172,10 @@ void CellArray::ReplaceCellReference(const IGsize cellId, igIndex from,
     int size = this->GetCellSize(cellId);
     igIndex* pos = m_Buffer->RawPointer() + begin;
     for (int i = 0; i < size; i++) {
-        if (pos[i] == from) { pos[i] = to; }
+        if (pos[i] == from) {
+            pos[i] = to;
+            break;
+        }
     }
 }
 
