@@ -1247,18 +1247,24 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         SliceDockWidget->show();
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        SliceWidget->SetOriginDataObject(obj);
         auto box = obj->GetBoundingBox();
         auto center = (box.min + box.max) * 0.5;
         float n[3] = {0, 1, 0};
         float o[3] = {(float) center[0], (float) center[1], (float) center[2]};
         SliceWidget->SetPlane(o, n);
-        SliceWidget->SetOriginDataObject(obj);
+
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](SurfaceMesh::Pointer mesh) {
                 modelTreeWidget->addDataObjectToModelTree(
                         mesh, ItemSource::Algorithm);
             });
+    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
+        [&](SurfaceMesh::Pointer mesh) {
+            //mesh->Modified();
+            rendererWidget->update();
+        });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
