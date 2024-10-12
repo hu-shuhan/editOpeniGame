@@ -17,6 +17,7 @@ UnstructuredMeshClip::UnstructuredMeshClip()
 	m_Origin[0] = 0.0;
 	m_Origin[1] = 0.0;
 	m_Origin[2] = 0.0;
+	this->m_Slice=false;
 }
 UnstructuredMeshClip::~UnstructuredMeshClip()
 {
@@ -71,14 +72,14 @@ bool UnstructuredMeshClip::Execute()
 		switch (cell->GetCellType())
 		{
 		case IG_TETRA:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell);
+			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell,m_Slice);
 			break;
 		case IG_QUADRATIC_TETRA:
-			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell);
+			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, m_OutPoints, m_OutConn, m_OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 			}
 			break;
 		}
@@ -101,7 +102,7 @@ bool UnstructuredMeshClip::Execute()
 				inArray->GetElement(originCell[j], values);
 				outArray->SetElement(j, values);
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
@@ -120,7 +121,7 @@ bool UnstructuredMeshClip::Execute()
 				}
 
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
 		}
 	}
 

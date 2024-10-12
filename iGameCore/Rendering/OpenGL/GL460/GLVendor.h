@@ -12,6 +12,7 @@
 
 #include "glad/glad.h"
 #include "iGameMacro.h"
+#include "iGameObject.h"
 #include "iGameRenderingMacro.h"
 #include "igm/igm.h"
 

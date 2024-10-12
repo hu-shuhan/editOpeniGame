@@ -199,7 +199,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case PBR: {
             GLShader shader_vert = GLShader{
@@ -209,7 +209,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/pbr.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case NOLIGHT: {
             GLShader shader_vert = GLShader{
@@ -219,7 +219,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/noLight.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case PURECOLOR: {
             GLShader shader_vert = GLShader{
@@ -229,7 +229,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/pureColor.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, pureColor_frag});
+            sp->addShaders(shader_vert, pureColor_frag);
         } break;
         case TRANSPARENCYLINK: {
             GLShader shader_vert = GLShader{
@@ -240,7 +240,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case TRANSPARENCYSORT: {
             GLShader shader_vert = GLShader{
@@ -252,7 +252,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case AXES: {
             GLShader axis_vert = GLShader{
@@ -262,7 +262,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/axis.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({axis_vert, axis_frag});
+            sp->addShaders(axis_vert, axis_frag);
         } break;
         case FONT: {
             GLShader font_vert = GLShader{
@@ -272,7 +272,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/font.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({font_vert, font_frag});
+            sp->addShaders(font_vert, font_frag);
         } break;
         case ATTACHMENTRESOLVE: {
             GLShader shader_vert = GLShader{
@@ -284,23 +284,27 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({shader_vert, shader_frag});
+            sp->addShaders(shader_vert, shader_frag);
         } break;
         case DEPTHREDUCE: {
+#ifdef IGAME_OPENGL_VERSION_460
             GLShader depthReduce_comp = GLShader{
                     (std::string(SHADERS_DIR) + "/GLSL/depthReduce.comp")
                             .c_str(),
                     GL_COMPUTE_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({depthReduce_comp});
+            sp->addShaders(depthReduce_comp);
+#endif
         } break;
         case MESHLETCULL: {
+#ifdef IGAME_OPENGL_VERSION_460
             GLShader meshletCull_comp = GLShader{
                     (std::string(SHADERS_DIR) + "/GLSL/meshletCull.comp")
                             .c_str(),
                     GL_COMPUTE_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({meshletCull_comp});
+            sp->addShaders(meshletCull_comp);
+#endif
         } break;
         case SCREEN: {
             GLShader screen_vert = GLShader{
@@ -312,7 +316,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                             .c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({screen_vert, screen_frag});
+            sp->addShaders(screen_vert, screen_frag);
         } break;
         case FXAA: {
             GLShader fxaa_vert = GLShader{
@@ -322,7 +326,7 @@ GLShaderProgram* Scene::GenShader(IGenum type) {
                     (std::string(SHADERS_DIR) + "/GLSL/fxaa.frag").c_str(),
                     GL_FRAGMENT_SHADER};
             sp = new GLShaderProgram;
-            sp->addShaders({fxaa_vert, fxaa_frag});
+            sp->addShaders(fxaa_vert, fxaa_frag);
         } break;
         default:
             break;
@@ -415,8 +419,10 @@ void Scene::InitOpenGL() {
         }
         // map culling computer shader block
         {
+#ifdef IGAME_OPENGL_VERSION_460
             auto shader = this->GetShader(MESHLETCULL);
             shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+#endif
         }
     }
 

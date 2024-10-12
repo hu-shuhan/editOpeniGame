@@ -4,7 +4,7 @@
 #include "iGameDrawObject.h"
 #include "iGameSceneManager.h"
 #include <iGameFilter.h>
-#include <iGamePainter.h>
+#include <iGamePainter3D.h>
 #include <iGameScalarsToColors.h>
 #include <iGameVector.h>
 #include <iGameVolumeMesh.h>
