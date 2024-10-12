@@ -25,6 +25,7 @@
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <stdio.h>
+#include <IQComponents/igQtSliceWidget.h>
 
 #include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
@@ -272,16 +273,17 @@ void igQtMainWindow::initAllComponents() {
         width /= ratio_pixel, height /= ratio_pixel;
         rendererWidget->resize(width, height);
         QImage saved_image = rendererWidget->grabFramebuffer();
-        if (saved_image.save(path, "BMP")) {
+        rendererWidget->resize(oldwidth, oldheight);
+        if(saved_image.save(path, "BMP")){
             QMessageBox::information(this, "", "保存成功");
         } else {
             QMessageBox::information(this, "", "保存失败");
         }
-        rendererWidget->resize(oldwidth, oldheight);
     });
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this,
             [&]() { ui->widget_Animation->saveAnimation(); });
+
 
     initAllMySignalConnections();
     initAllDockWidgetConnectWithAction();
@@ -1231,6 +1233,18 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                     rendererWidget->update();
                 });
             });
+
+
+    SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setWindowTitle("网格切割");
+    SliceWidget = new igQtSliceWidget(SliceDockWidget);
+    SliceDockWidget->setWidget(SliceWidget);
+    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
+    SliceDockWidget->hide();
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked){
+        SliceDockWidget->show();
+    });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
