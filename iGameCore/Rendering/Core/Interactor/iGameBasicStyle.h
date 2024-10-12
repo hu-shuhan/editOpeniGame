@@ -6,12 +6,11 @@
 #include "iGameCamera.h"
 
 IGAME_NAMESPACE_BEGIN
-
 class BasicStyle : public InteractorStyle {
 public:
     I_OBJECT(BasicStyle);
     static Pointer New() { return new BasicStyle; }
-
+    
     struct Vector3Tovec3 {
         igm::vec3 operator()(const Vector3f& v) {
             return igm::vec3(v[0], v[1], v[2]);
@@ -40,6 +39,8 @@ public:
 protected:
     BasicStyle() = default;
     ~BasicStyle() override = default;
+
+    void RequestSignal(InteractorStyle::Signal, void*);
 
     void ModelRotation();
     void ViewTranslation();

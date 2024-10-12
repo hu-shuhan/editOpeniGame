@@ -51,6 +51,8 @@ public:
         SlicingStyle,
     };
 
+
+
     void RequestBasicStyle() {
         InitModel();
         m_Internal = BasicStyle::New();
@@ -113,11 +115,14 @@ public:
     Camera* GetCamera() { return m_Camera.get(); }
     
     template<typename Functor, typename... Args>
-    bool SetCallBack(Functor&& functor, Args&&... args) {
-        if (!m_Internal) return false;
-        m_Internal->m_CallBack = std::bind(std::forward<Functor>(functor),
-                              std::forward<Args>(args)...);
-        return true;
+    void SetCallBack(Functor&& functor, Args&&... args) {
+        this->m_CallBack = std::bind(
+                std::forward<Functor>(functor), std::forward<Args>(args)...,
+                std::placeholders::_1, std::placeholders::_2);
+    }
+
+    void RequestSignal(InteractorStyle::Signal signal, void* callData) {
+        if (m_CallBack) { m_CallBack(signal, callData); }
     }
 
 protected:
@@ -129,6 +134,8 @@ protected:
             m_Model = m_Scene->GetCurrentModel();
         }
     }
+
+    std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
     InteractorStyle::Pointer m_Internal{};
     Model::Pointer m_Model{};
