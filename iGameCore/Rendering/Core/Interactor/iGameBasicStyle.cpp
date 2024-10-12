@@ -172,86 +172,99 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     auto viewportF = igm::vec2{static_cast<float>(viewport.x),
                                static_cast<float>(viewport.y)};
 
-    igm::mat4 model = m_Scene->ModelMatrix();
-    igm::mat4 view = m_Camera->GetViewMatrix();
-    igm::mat4 proj = m_Camera->GetProjectionMatrix();
-    auto mvp = proj * view * model;
+    if (m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC) {
+        // Step 1: Calculate the world size of one pixel
+        float orthoHeight = m_Camera->GetLengthToFocal() * 0.5f;
+        float pixelSizeWorld = orthoHeight / viewportF.y;
 
-    auto centerMvp = mvp * igm::vec4{center.xyz(), 1.0f};
-    centerMvp /= centerMvp.w;
-    auto bz = centerMvp.z;
+        // Step 2: Apply the pixel offset to the world coordinates
+        igm::vec3 pWorldCoord =
+                igm::vec3(center) + igm::vec3(0, pixelSizeWorld, 0);
 
-    // the center of the bounding-sphere is located behind the near plane
-    if (bz > 1.0f || bz < 0.0f) {
-        auto cameraFront =
-                (m_Camera->GetCameraFocal() - m_Camera->GetCameraPos())
-                        .normalized();
-        auto boundingBehind = center.xyz() + cameraFront * center.w;
-        auto boundingBehindMvp = mvp * igm::vec4{boundingBehind, 1.0f};
-        boundingBehindMvp /= boundingBehindMvp.w;
-        bz = boundingBehindMvp.z;
+        m_CameraMoveSpeed = (pWorldCoord - igm::vec3(center)).length();
+    } else if (m_Camera->GetCameraType() == Camera::PERSPECTIVE) {
+        igm::mat4 model = m_Scene->ModelMatrix();
+        igm::mat4 view = m_Camera->GetViewMatrix();
+        igm::mat4 proj = m_Camera->GetProjectionMatrix();
+        auto mvp = proj * view * model;
 
-        // the bounding-sphere is behind camera
-        if (bz > 1.0f) return;
+        auto centerMvp = mvp * igm::vec4{center.xyz(), 1.0f};
+        centerMvp /= centerMvp.w;
+        auto bz = centerMvp.z;
+
+        // the center of the bounding-sphere is located behind the near plane
+        if (bz > 1.0f || bz < 0.0f) {
+            auto cameraFront =
+                    (m_Camera->GetCameraFocal() - m_Camera->GetCameraPos())
+                            .normalized();
+            auto boundingBehind = center.xyz() + cameraFront * center.w;
+            auto boundingBehindMvp = mvp * igm::vec4{boundingBehind, 1.0f};
+            boundingBehindMvp /= boundingBehindMvp.w;
+            bz = boundingBehindMvp.z;
+
+            // the bounding-sphere is behind camera
+            if (bz > 1.0f) return;
+        }
+
+        // p is the screen coordinate of the center offset one pixel upwards
+        auto p = igm::vec3{centerMvp.x, centerMvp.y + 2.0f / viewportF.y,
+                           centerMvp.z};
+        auto pWorldCoord = mvp.invert() * igm::vec4{p, 1.0f};
+        pWorldCoord /= pWorldCoord.w;
+
+        m_CameraMoveSpeed =
+                (igm::vec3(pWorldCoord) - igm::vec3(center)).length();
+
+        /*
+        Eigen::Matrix4f A;
+        Eigen::Vector4f b;
+        A << mvp[0][0], mvp[1][0], mvp[2][0], mvp[3][0], mvp[0][1], mvp[1][1],
+                mvp[2][1], mvp[3][1], mvp[0][2], mvp[1][2], mvp[2][2], mvp[3][2],
+                mvp[0][3], mvp[1][3], mvp[2][3], mvp[3][3];
+
+        igm::vec3 c{0.0f};
+        // c is the point located at the center of the screen after mvp transformation
+        {
+            // | x11 x12 x13 x14 |   |  x  | =  |  0  |
+            // | x21 x22 x23 x24 | * |  y  |    |  0  |
+            // | x31 x32 x33 x34 |   |  z  |    | w*bz|
+            // | x41 x42 x43 x44 |   | 1.0 |    |  w  |
+            b << 0.0f, 0.0f, bz, 1.0f;
+
+            Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
+            //Eigen::Vector4f solution =
+            //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+            float x = solution(0);
+            float y = solution(1);
+            float z = solution(2);
+            float w = solution(3);
+            c = igm::vec3{x / w, y / w, z / w};
+        }
+
+        igm::vec3 p{0.0f};
+        // p is the point located at the screen pixel (0,1) after mvp transformation
+        {
+            // | x11 x12 x13 x14 |   |  x  | =  |        0       |
+            // | x21 x22 x23 x24 | * |  y  |    | w * 2 / height |
+            // | x31 x32 x33 x34 |   |  z  |    |      w * bz    |
+            // | x41 x42 x43 x44 |   | 1.0 |    |        w       |
+            b << 0.0f, 2.0f / viewportF.y, bz, 1.0f;
+
+            Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
+            //Eigen::Vector4f solution =
+            //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+            float x = solution(0);
+            float y = solution(1);
+            float z = solution(2);
+            float w = solution(3);
+            p = igm::vec3{x / w, y / w, z / w};
+        }
+
+        m_CameraMoveSpeed = (p - c).length();
+        */
     }
-
-    // p is the screen coordinate of the center offset one pixel upwards
-    auto p = igm::vec3{centerMvp.x, centerMvp.y + 2.0f / viewportF.y,
-                       centerMvp.z};
-    auto pWorldCoord = mvp.invert() * igm::vec4{p, 1.0f};
-    pWorldCoord /= pWorldCoord.w;
-
-    m_CameraMoveSpeed = (igm::vec3(pWorldCoord) - igm::vec3(center)).length();
-
-    /*
-    Eigen::Matrix4f A;
-    Eigen::Vector4f b;
-    A << mvp[0][0], mvp[1][0], mvp[2][0], mvp[3][0], mvp[0][1], mvp[1][1],
-            mvp[2][1], mvp[3][1], mvp[0][2], mvp[1][2], mvp[2][2], mvp[3][2],
-            mvp[0][3], mvp[1][3], mvp[2][3], mvp[3][3];
-
-    igm::vec3 c{0.0f};
-    // c is the point located at the center of the screen after mvp transformation
-    {
-        // | x11 x12 x13 x14 |   |  x  | =  |  0  |
-        // | x21 x22 x23 x24 | * |  y  |    |  0  |
-        // | x31 x32 x33 x34 |   |  z  |    | w*bz|
-        // | x41 x42 x43 x44 |   | 1.0 |    |  w  |
-        b << 0.0f, 0.0f, bz, 1.0f;
-
-        Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
-        //Eigen::Vector4f solution =
-        //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-
-        float x = solution(0);
-        float y = solution(1);
-        float z = solution(2);
-        float w = solution(3);
-        c = igm::vec3{x / w, y / w, z / w};
-    }
-
-    igm::vec3 p{0.0f};
-    // p is the point located at the screen pixel (0,1) after mvp transformation
-    {
-        // | x11 x12 x13 x14 |   |  x  | =  |        0       |
-        // | x21 x22 x23 x24 | * |  y  |    | w * 2 / height |
-        // | x31 x32 x33 x34 |   |  z  |    |      w * bz    |
-        // | x41 x42 x43 x44 |   | 1.0 |    |        w       |
-        b << 0.0f, 2.0f / viewportF.y, bz, 1.0f;
-
-        Eigen::Vector4f solution = A.colPivHouseholderQr().solve(b);
-        //Eigen::Vector4f solution =
-        //        A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-
-        float x = solution(0);
-        float y = solution(1);
-        float z = solution(2);
-        float w = solution(3);
-        p = igm::vec3{x / w, y / w, z / w};
-    }
-
-    m_CameraMoveSpeed = (p - c).length();
-    */
 }
 
 bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
