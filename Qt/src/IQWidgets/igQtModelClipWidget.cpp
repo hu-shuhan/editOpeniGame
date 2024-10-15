@@ -6,7 +6,6 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 
 
 	ui->setupUi(this);
-	//ui->radioButton_Clip->setChecked(false);
 
 	m_Drawed = false;
 	m_Clipper = iGame::ModelClip::New();
