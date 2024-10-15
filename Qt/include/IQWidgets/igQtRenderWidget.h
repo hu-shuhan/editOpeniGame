@@ -36,7 +36,9 @@ public:
   void ChangeInteractorStyle(IGenum style);
   void update() { QOpenGLWidget::update(); }
 
-protected:
+  Interactor* getInteractor();
+
+  protected:
   void initializeGL() override;
   void resizeGL(int w, int h) override;
   void paintGL() override;

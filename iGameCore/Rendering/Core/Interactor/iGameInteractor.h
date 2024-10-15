@@ -51,17 +51,15 @@ public:
         SlicingStyle,
     };
 
-
-
     void RequestBasicStyle() {
-        InitModel();
+        //InitModel();
         m_Internal = BasicStyle::New();
         m_Internal->Initialize(this);
     }
 
     void RequestDragPointStyle(Selection* s) {
         if (!s) return;
-        InitModel();
+        //InitModel();
         auto act = SingleDragStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
@@ -70,7 +68,7 @@ public:
 
     void RequestPointSelectionStyle(Selection* s) {
         if (!s) return;
-        InitModel();
+        //InitModel();
         auto act = SingleSelectionStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
@@ -79,7 +77,7 @@ public:
 
     void RequestFaceSelectionStyle(Selection* s) {
         if (!s) return;
-        InitModel();
+        //InitModel();
         auto act = SingleSelectionStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
         act->Initialize(this, s);
@@ -99,7 +97,7 @@ public:
 
     void RequestSlicingStyle() {
         auto act = SlicingStyle::New();
-        InitModel();
+        //InitModel();
         act->Initialize(this);
         m_Internal = act;
     }
@@ -110,7 +108,7 @@ public:
     igm::mat4 GetMVP() const {
         return m_Scene->CameraData().proj_view * m_Scene->ObjectData().model;
     }
-    Model* GetModel() { return m_Model.get(); }
+    //Model* GetModel() { return m_Model.get(); }
     Scene* GetScene() { return m_Scene.get(); }
     Camera* GetCamera() { return m_Camera.get(); }
     
@@ -125,22 +123,28 @@ public:
         if (m_CallBack) { m_CallBack(signal, callData); }
     }
 
+    void SetDataObject(DataObject::Pointer obj) { m_DataObject = obj; }
+    DataObject::Pointer GetDataObject() { return m_DataObject; }
+    void SetPainter(Painter3D::Pointer p) { m_Painter = p; }
+    Painter3D::Pointer GetPainter() { return m_Painter; }
+
 protected:
     Interactor() = default;
     ~Interactor() override = default;
 
-    void InitModel() {
-        if (m_Scene) { 
-            m_Model = m_Scene->GetCurrentModel();
-        }
-    }
+    //void InitModel() {
+    //    if (m_Scene) { 
+    //        m_Model = m_Scene->GetCurrentModel();
+    //    }
+    //}
 
     std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
     InteractorStyle::Pointer m_Internal{};
-    Model::Pointer m_Model{};
     Scene::Pointer m_Scene{};
     Camera::Pointer m_Camera{};
+    Painter3D::Pointer m_Painter{};
+    DataObject::Pointer m_DataObject{};
 };
 
 IGAME_NAMESPACE_END

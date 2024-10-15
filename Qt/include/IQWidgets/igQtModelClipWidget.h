@@ -58,6 +58,6 @@ private:
 	iGame::DataObject::Pointer m_OriginDataObject = { nullptr };
 	iGame::SurfaceMesh::Pointer m_ResultMesh = { nullptr };
 	iGame::ModelClip::Pointer m_Clipper = { nullptr };
-	bool m_Drawed=false;
+	bool m_Generated=false;
 
 };

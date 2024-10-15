@@ -4,9 +4,9 @@
 IGAME_NAMESPACE_BEGIN
 void SlicingStyle::Initialize(Interactor* a) {
     BasicStyle::Initialize(a);
-    m_Model = a->GetModel();
-    m_DataObject = m_Model->GetDataObject();
-    m_Painter = m_Model->GetPainter();
+    m_Painter = a->GetPainter();
+    m_DataObject = a->GetDataObject();
+    
 
     auto& bbox = m_DataObject->GetBoundingBox();
     Vector3d p1 = bbox.min;
