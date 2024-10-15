@@ -1323,6 +1323,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		auto faces=CellArray::New();
 		for (int cellId = 0; cellId < 100; cellId++) {
 			auto cell = DynamicCast<Polyhedron>(um->GetCell(cellId));
+			igIndex cellids[256];
+			um->GetCellPointIds(cellId, cellids);
 			auto fcnt = cell->GetNumberOfFaces();
 			auto topVh = cell->GetPointId(0);
 			auto originVhs = cell->PointIds->RawPointer();

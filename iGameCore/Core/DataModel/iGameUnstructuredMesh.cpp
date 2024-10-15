@@ -49,15 +49,15 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
         polyhedron->PointIds->Reserve(size);
 
         igIndex index = 1;
-        igIndex realsize = 0;
+        igIndex faceVcnt = 0;
         int offset = 0;
         while (index < size) {
             polyhedron->m_FaceOffset->AddId(offset);
-            realsize = ids[index++];
-            for (igIndex id = 0; id < realsize; id++) {
+            faceVcnt = ids[index++];
+            for (igIndex id = 0; id < faceVcnt; id++) {
                 polyhedron->PointIds->AddId(ids[index++]);
             }
-            offset += realsize;
+            offset += faceVcnt;
         }
         polyhedron->m_FaceOffset->AddId(offset);
         for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {
