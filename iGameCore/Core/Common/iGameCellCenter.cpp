@@ -10,7 +10,7 @@ iGame::Vector3f CellCenter::GetCenter(iGame::Points::Pointer points) {
         result = result / num;
         return result;
     } 
-
+    return {};
 }// volumeMesh's points
 iGame::Vector3f CellCenter::GetCenter(iGame::Points::Pointer points,iGame::CellArray* allVolume,int cellId) {
     if (function == Mean) {
@@ -21,4 +21,6 @@ iGame::Vector3f CellCenter::GetCenter(iGame::Points::Pointer points,iGame::CellA
         result = result / num;
         return result;
     }
+    return {};
+
 }

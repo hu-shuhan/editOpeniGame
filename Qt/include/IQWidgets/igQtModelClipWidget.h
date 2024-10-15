@@ -4,7 +4,6 @@
  */
 
 #pragma once
-#include <QDockWidget>
 #include "iGameSurfaceMesh.h"
 #include "Clip/iGameModelClip.h"
 #include "Core/Interactor/iGameSlicingStyle.h"

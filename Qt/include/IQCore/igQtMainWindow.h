@@ -27,6 +27,7 @@ class igQtSliceWidget;
 class igQtProgressBarWidget;
 class igQtModelDialogWidget;
 class igQtModelClipWidget;
+class igQtDeformationWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -52,6 +53,9 @@ public:
     igQtFilterDialogDockWidget* filterDialogDockWidget;
     QDockWidget* SliceDockWidget;
     igQtModelClipWidget* SliceWidget;
+    QDockWidget* DeformationDockWidget;
+    igQtDeformationWidget* DeformationWidget;
+
     igQtProgressBarWidget* progressBarWidget;
     QComboBox* viewStyleCombox;
     QComboBox* attributeViewIndexCombox;
