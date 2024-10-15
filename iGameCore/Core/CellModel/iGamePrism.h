@@ -2,7 +2,7 @@
 #define iGamePrism_h
 
 #include "iGameVolume.h"
-
+#include <iGameTetra.h>
 IGAME_NAMESPACE_BEGIN
 class Prism : public Volume {
 public:

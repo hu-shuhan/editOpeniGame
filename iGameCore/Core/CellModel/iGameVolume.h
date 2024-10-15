@@ -20,7 +20,6 @@ public:
 	virtual int GetPointToNeighborFaces(const int ptId, const igIndex*& faceIds) = 0;
 	virtual int GetEdgeToNeighborFaces(const int edgeId, const igIndex*& faceIds) = 0;
 	virtual int GetFaceToNeighborFaces(const int faceId, const igIndex*& faceIds) = 0;
-
 protected:
 	Volume()
 	{

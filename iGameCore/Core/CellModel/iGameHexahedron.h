@@ -2,7 +2,7 @@
 #define iGameHexahedron_h
 
 #include "iGameVolume.h"
-#include"iGameTetra.h"
+#include<iGameTetra.h>
 IGAME_NAMESPACE_BEGIN
 class Hexahedron : public Volume {
 public:
