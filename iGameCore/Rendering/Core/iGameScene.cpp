@@ -786,7 +786,6 @@ void Scene::DrawFrame() {
             drawObject->ConvertToDrawableData();
         }
         drawObject->ReAllocateDisplayBuffer();
-        drawObject->Modified();
     }
 
     // update camera data block in GPU
