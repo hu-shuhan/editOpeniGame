@@ -80,13 +80,14 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
-	igIndex vhs[IGAME_CELL_MAX_SIZE];
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
+	igIndex* vhs=nullptr;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Cell::Pointer cell=nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
-		vcnt = m_UnstructuredMesh->GetCellPointIds(CellId, vhs);
+		vhs=cell->PointIds->RawPointer();
+		vcnt=cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
 		}

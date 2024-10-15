@@ -90,7 +90,6 @@ void igQtDeformationWidget::updateInfo() {
 
 void igQtDeformationWidget::CalculateCurrentDSF() {
     auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-    for(int i = )
 }
 
 void igQtDeformationWidget::HideUniform() {

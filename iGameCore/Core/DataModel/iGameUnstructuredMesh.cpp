@@ -45,6 +45,7 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
         igIndex ids[IGAME_CELL_MAX_SIZE];
         igIndex size = m_Cells->GetCellIds(cellId, ids);
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
+        polyhedron->m_FaceOffset->Reset();
         polyhedron->m_FaceOffset->Reserve(ids[0]);
         polyhedron->PointIds->Reserve(size);
 
