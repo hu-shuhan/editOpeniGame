@@ -25,8 +25,8 @@
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <stdio.h>
-#include <IQComponents/igQtSliceWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
+#include <IQWidgets/igQtDeformationWidget.h>
 
 #include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
@@ -1259,6 +1259,19 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 modelTreeWidget->addDataObjectToModelTree(
                         mesh, ItemSource::Algorithm);
             });
+
+    DeformationDockWidget = new QDockWidget(this);
+    DeformationDockWidget->setWindowTitle("结构形变");
+    DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
+    DeformationDockWidget->setWidget(DeformationWidget);
+    DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->hide();
+    this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+    connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
+        if(checked) DeformationDockWidget->show();
+        else DeformationDockWidget->hide();
+    });
+
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,

@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>29</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -554,8 +554,7 @@ border:2px solid #EEF1F7
     <bool>false</bool>
    </attribute>
    <addaction name="action_StreamLine"/>
-   <addaction name="action_Glyph"/>
-   <addaction name="action_slice"/>
+   <addaction name="action_deformation"/>
   </widget>
   <widget class="QToolBar" name="toolBar_attribute_view_dim">
    <property name="windowTitle">
@@ -567,6 +566,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_Glyph"/>
   </widget>
   <widget class="QToolBar" name="toolBar_attribute_view_index">
    <property name="windowTitle">
@@ -578,6 +578,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_slice"/>
   </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -1359,6 +1360,9 @@ border:2px solid #EEF1F7
    </property>
   </action>
   <action name="action_slice">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/Slice.svg</normaloff>:/Ticon/Icons/Slice.svg</iconset>
@@ -1368,6 +1372,21 @@ border:2px solid #EEF1F7
    </property>
    <property name="toolTip">
     <string>网格切面</string>
+   </property>
+  </action>
+  <action name="action_deformation">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/Deformation.svg</normaloff>:/Ticon/Icons/Deformation.svg</iconset>
+   </property>
+   <property name="text">
+    <string>结构形变</string>
+   </property>
+   <property name="toolTip">
+    <string>结构形变</string>
    </property>
   </action>
  </widget>

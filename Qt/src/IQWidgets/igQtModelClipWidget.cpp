@@ -45,6 +45,7 @@ void igQtModelClipWidget::ClipModel() {
     m_Clipper->Execute();
         iGame::iGameModelGeometryFilter::Pointer surfaceextract =
                 iGame::iGameModelGeometryFilter::New();
+    m_ResultMesh = iGame::SurfaceMesh::New();
     surfaceextract->Execute(m_Clipper->GetOutput(), m_ResultMesh);
         //m_ResultMesh = m_Clipper->GetOutput();
     auto tmp = iGame::SurfaceMesh::New();
@@ -53,6 +54,6 @@ void igQtModelClipWidget::ClipModel() {
     m_Clipper->GetPlane(o, n);
     surfaceextract->SetClipPlane(o, n);
     surfaceextract->Execute(m_OriginDataObject, tmp);
-    m_ResultMesh->AddSubDataObject(tmp);
+//    m_ResultMesh->AddSubDataObject(tmp);
     DrawClipModel(m_ResultMesh);
     }
