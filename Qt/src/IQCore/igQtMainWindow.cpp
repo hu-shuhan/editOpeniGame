@@ -31,8 +31,8 @@
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <stdio.h>
-#include <IQComponents/igQtSliceWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
+#include <IQWidgets/igQtDeformationWidget.h>
 
 #include <QMessageBox>
 igQtMainWindow::igQtMainWindow(QWidget* parent)
@@ -167,56 +167,55 @@ void igQtMainWindow::initAllComponents() {
 	progressBarWidget = new igQtProgressBarWidget(this);
 	this->statusBar()->addPermanentWidget(progressBarWidget);
 
-	// connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
-	// &igQtModelDrawWidget::SaveScreenShoot);
-	connect(ui->action_LoadFile, &QAction::triggered, fileLoader,
-		&igQtFileLoader::LoadFile);
-	// connect(ui->action_SaveMesh, &QAction::triggered, fileLoader,
-	// &igQtFileLoader::SaveFile);
-	connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader,
-		&igQtFileLoader::SaveFileAs);
-	// connect(ui->action_CopyMesh, &QAction::triggered, this, [&]() {
-	//	iGame::iGameManager::Instance()->CopyMesh();
-	//	});
-	// connect(ui->action_RecoverMesh, &QAction::triggered, this, [&]() {
-	//	iGame::iGameManager::Instance()->RecoverMesh();
-	//	});
-	connect(ui->action_UseOrthographic, &QAction::triggered, this,
-		[&](bool checked) {
-			if (ui->action_UseOrthographic->isChecked()) {
-				SceneManager::Instance()
-					->GetCurrentScene()
-					->ChangeCameraType(
-						Camera::CameraType::ORTHOGRAPHIC);
-			}
-			else {
-				SceneManager::Instance()
-					->GetCurrentScene()
-					->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
-			}
-			rendererWidget->update();
-		});
-	connect(ui->action_ResetCenter, &QAction::triggered, this, [&]() {
-		SceneManager::Instance()->GetCurrentScene()->ResetCenter();
-		rendererWidget->update();
-		});
-	// connect(ui->action_PickCenter, &QAction::triggered, this, [&]() {
-	//	float x = -1.0, y = -1.0, z = -1.0;
-	//	iGame::iGameManager::Instance()->UpdateCenter(x, y, z);
-	//	rendererWidget->update();
-	//	});
-	connect(ui->action_DeleteMesh, &QAction::triggered, ui->modelTreeView,
-		&igQtModelListView::DeleteCurrentFile);
-	// connect(ui->action_DeleteMesh, &QAction::triggered, this,
-	// &igQtMainWindow::updateCurrentSceneWidget); connect(ui->action_NextMesh,
-	// &QAction::triggered, ui->modelTreeView,
-	// &igQtModelListView::ChangeSelected2NextItem); connect(ui->action_NextMesh,
-	// &QAction::triggered, rendererWidget,
-	// &igQtModelDrawWidget::changeCurrentModel2Next);
-	// connect(ui->action_LastMesh, &QAction::triggered, ui->modelTreeView,
-	// &igQtModelListView::ChangeSelected2LastItem); connect(ui->action_LastMesh,
-	// &QAction::triggered, rendererWidget,
-	// &igQtModelDrawWidget::changeCurrentModel2Last);
+    // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
+    // &igQtModelDrawWidget::SaveScreenShoot);
+    connect(ui->action_LoadFile, &QAction::triggered, fileLoader,
+            &igQtFileLoader::LoadFile);
+    // connect(ui->action_SaveMesh, &QAction::triggered, fileLoader,
+    // &igQtFileLoader::SaveFile);
+    connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader,
+            &igQtFileLoader::SaveFileAs);
+    // connect(ui->action_CopyMesh, &QAction::triggered, this, [&]() {
+    //	iGame::iGameManager::Instance()->CopyMesh();
+    //	});
+    // connect(ui->action_RecoverMesh, &QAction::triggered, this, [&]() {
+    //	iGame::iGameManager::Instance()->RecoverMesh();
+    //	});
+    connect(ui->action_UseOrthographic, &QAction::triggered, this,
+            [&](bool checked) {
+                if (ui->action_UseOrthographic->isChecked()) {
+                    SceneManager::Instance()
+                            ->GetCurrentScene()
+                            ->ChangeCameraType(
+                                    Camera::CameraType::ORTHOGRAPHIC);
+                } else {
+                    SceneManager::Instance()
+                            ->GetCurrentScene()
+                            ->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+                }
+                rendererWidget->update();
+            });
+    connect(ui->action_ResetCenter, &QAction::triggered, this, [&]() {
+        SceneManager::Instance()->GetCurrentScene()->ResetCenter();
+        rendererWidget->update();
+    });
+    // connect(ui->action_PickCenter, &QAction::triggered, this, [&]() {
+    //	float x = -1.0, y = -1.0, z = -1.0;
+    //	iGame::iGameManager::Instance()->UpdateCenter(x, y, z);
+    //	rendererWidget->update();
+    //	});
+//    connect(ui->action_DeleteMesh, &QAction::triggered, ui->modelTreeView,
+//            &igQtModelListView::DeleteCurrentFile);
+    // connect(ui->action_DeleteMesh, &QAction::triggered, this,
+    // &igQtMainWindow::updateCurrentSceneWidget); connect(ui->action_NextMesh,
+    // &QAction::triggered, ui->modelTreeView,
+    // &igQtModelListView::ChangeSelected2NextItem); connect(ui->action_NextMesh,
+    // &QAction::triggered, rendererWidget,
+    // &igQtModelDrawWidget::changeCurrentModel2Next);
+    // connect(ui->action_LastMesh, &QAction::triggered, ui->modelTreeView,
+    // &igQtModelListView::ChangeSelected2LastItem); connect(ui->action_LastMesh,
+    // &QAction::triggered, rendererWidget,
+    // &igQtModelDrawWidget::changeCurrentModel2Last);
 
 	connect(ui->action_setViewToPositiveX, &QAction::triggered, this,
 		[&](bool checked) {
@@ -294,8 +293,8 @@ void igQtMainWindow::initAllComponents() {
 		[&]() { ui->widget_Animation->saveAnimation(); });
 
 
-	initAllMySignalConnections();
-	initAllDockWidgetConnectWithAction();
+    initAllDockWidgetConnectWithAction();
+    initAllMySignalConnections();
 }
 igQtMainWindow::~igQtMainWindow() {}
 
@@ -1312,11 +1311,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 	SliceDockWidget->hide();
 	this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-
-
-
-
-
 		auto um = DynamicCast<UnstructuredMesh>(
 			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
 		auto tetras = CellArray::New();
@@ -1437,12 +1431,14 @@ void igQtMainWindow::initAllMySignalConnections() {
 		&igQtModelDialogWidget::deleteCurrentModel);
 
 
-	// connect(fileLoader, &igQtFileLoader::FinishReading, this,
-	// &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
-	// &igQtFileLoader::FinishReading, this,
-	// &igQtMainWindow::updateCurrentSceneWidget);
-	connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
-		&igQtAnimationWidget::initAnimationComponents);
+    // connect(fileLoader, &igQtFileLoader::FinishReading, this,
+    // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
+    // &igQtFileLoader::FinishReading, this,
+    // &igQtMainWindow::updateCurrentSceneWidget);
+    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
+            &igQtAnimationWidget::initAnimationComponents);
+    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+
 
 
 	connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject,

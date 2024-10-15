@@ -50,7 +50,6 @@ bool iGameXMLFileReader::Execute() {
 			auto& data = m_Output->GetAttributeSet()->GetAttribute(i);
 			attrbNameArray->AddElement(data.pointer->GetName());
 		}
-		m_Output->GetMetadata()->AddStringArray(ATTRIBUTE_NAME_ARRAY, attrbNameArray);
 	}
 	m_Output->SetName(m_FileName);
 	delete doc;

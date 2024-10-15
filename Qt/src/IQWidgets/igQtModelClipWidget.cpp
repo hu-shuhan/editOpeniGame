@@ -66,8 +66,12 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
 }
 
 void igQtModelClipWidget::ClipModel() {
+<<<<<<< HEAD
+	auto tmp1= iGame::SurfaceMesh::New();
+=======
 
 	auto Result_ClipPart= iGame::SurfaceMesh::New();
+>>>>>>> 540d4b2a3d9f5542113e1b2997bbd81eabea50ee
 	m_ResultMesh->ClearSubDataObject();
 
 	m_Clipper->SetInput(m_OriginDataObject);
