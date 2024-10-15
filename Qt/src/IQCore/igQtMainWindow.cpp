@@ -1435,7 +1435,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateCurrentSceneWidget);
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
             &igQtAnimationWidget::initAnimationComponents);
-    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+//    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
 
