@@ -23,7 +23,7 @@ public:
 		m_Polygon->Reset();
 		igIndex st = m_FaceOffset->GetId(faceId);
 		igIndex ed = m_FaceOffset->GetId(faceId + 1);
-		std::cout << st << ' ' << ed << '\n';
+		//std::cout << st << ' ' << ed << '\n';
 		for (int i = st; i < ed; ++i) {
 			m_Polygon->PointIds->AddId(PointIds->GetId(i));
 			m_Polygon->Points->AddPoint(Points->GetPoint(i));

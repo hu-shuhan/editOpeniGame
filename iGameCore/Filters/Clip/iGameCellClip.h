@@ -210,6 +210,63 @@ namespace CellClip {
 	static void Clip(Polyhedron::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
+		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
+		int allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < vcnt; i++)
+		{
+			value = cellValues[i];
+			if (value >= 0.0) {
+				allOut = 0;
+			}
+			else {
+				allIn = 0;
+			}
+		}
+		if (allIn || allOut) {
+			return;
+		}
+
+		auto fcnt = cell->GetNumberOfFaces();
+		auto topVh = cell->GetPointId(0);
+		auto originVhs = cell->PointIds->RawPointer();
+		Cell::Pointer face = nullptr;
+		bool isCount = false;
+
+		igIndex st = 0;
+		igIndex ed = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		Tetra::Pointer tetra = Tetra::New();;
+		float tetvalues[4] = { 0,0,0,cellValues[0] };
+		tetra->PointIds->SetId(3, topVh);
+		tetra->Points->SetPoint(3, cell->GetPoint(0));
+
+
+		for (int i = 0; i < fcnt; i++) {
+			face = cell->GetFace(i);
+			isCount = false;
+			st = cell->m_FaceOffset->GetId(i);
+			ed = cell->m_FaceOffset->GetId(i + 1);
+			for (j = st; j < ed && !isCount; j++) {
+				if (originVhs[j] == topVh) {
+					isCount = true;
+				}
+			}
+			if (!isCount) {
+				for (j = st; j < ed - 2; j++) {
+					tetra->PointIds->SetId(0, originVhs[st]);
+					tetra->PointIds->SetId(1, originVhs[j + 1]);
+					tetra->PointIds->SetId(2, originVhs[j + 2]);
+					tetra->Points->SetPoint(0, cell->GetPoint(st));
+					tetra->Points->SetPoint(1, cell->GetPoint(j + 1));
+					tetra->Points->SetPoint(2, cell->GetPoint(j + 2));
+					tetvalues[0] = tetvalues[st];
+					tetvalues[1] = tetvalues[j + 1];
+					tetvalues[2] = tetvalues[j + 2];
+					Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice);
+				}
+			}
+		}
 
 	}
 

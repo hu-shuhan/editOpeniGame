@@ -83,7 +83,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	igIndex vhs[IGAME_CELL_MAX_SIZE];
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Cell::Pointer cell;
+	Cell::Pointer cell=nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
 		vcnt = m_UnstructuredMesh->GetCellPointIds(CellId, vhs);
@@ -106,6 +106,9 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			break;
 		case IG_QUADRATIC_TETRA:
 			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+			break;
+		case IG_POLYHEDRON:
+			CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
@@ -157,6 +160,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	OutMesh->SetCells(OutConn, OutType);
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
+
 	this->SetOutput(0, OutMesh);
 	return true;
 }
