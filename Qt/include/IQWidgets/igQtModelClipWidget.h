@@ -50,6 +50,7 @@ public slots:
 signals:
 	void DrawClipModel(iGame::SurfaceMesh::Pointer);
 	void UpdateClipModel(iGame::SurfaceMesh::Pointer);
+
 protected:
 
 private:

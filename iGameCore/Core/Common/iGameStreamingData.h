@@ -62,14 +62,18 @@ public:
         return m_Data;
     }
 
-    void SetDeformationScaleFactor(float dsf){ m_deformation_scale_factor = dsf; }
+    void SetDeformationScaleFactors(float dsf){ m_deformation_scale_factor_x = m_deformation_scale_factor_y = m_deformation_scale_factor_z = dsf; }
+
+    void SetDeformationScaleFactorX(float dsf){ m_deformation_scale_factor_x = m_deformation_scale_factor_y = m_deformation_scale_factor_z = dsf; }
 
 protected:
 
     StreamingData() = default;
     ~StreamingData() = default;
     std::vector<TimeFrame> m_Data;
-    float m_deformation_scale_factor = {1.f};
+    float m_deformation_scale_factor_x = {1.f};
+    float m_deformation_scale_factor_y = {1.f};
+    float m_deformation_scale_factor_z = {1.f};
     bool m_enable_dsf {false};
 
 };

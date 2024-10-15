@@ -62,11 +62,14 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
 
     });
 
+    /* if lineEdit update. update the corresponding dsf. */
+
 }
 
 igQtDeformationWidget::~igQtDeformationWidget() {
 
 }
+
 void igQtDeformationWidget::updateInfo() {
     using namespace iGame;
     /*Update combobox info.*/
@@ -90,6 +93,8 @@ void igQtDeformationWidget::updateInfo() {
 
 void igQtDeformationWidget::CalculateCurrentDSF() {
     auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+    int attri_idx = ui->comboBox_Deformation_vector->currentIndex();
+
 }
 
 void igQtDeformationWidget::HideUniform() {

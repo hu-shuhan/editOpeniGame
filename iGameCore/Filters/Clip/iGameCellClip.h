@@ -271,7 +271,6 @@ namespace CellClip {
 				}
 			}
 		}
-
 	}
 
 	struct TRIANGLE_CLIP {

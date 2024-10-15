@@ -1329,17 +1329,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		auto obj =
 			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 		SliceWidget->SetOriginDataObject(obj);
-		auto box = obj->GetBoundingBox();
-		auto center = (box.min + box.max) * 0.5;
-		float n[3] = { 0, 1, 0 };
-		float o[3] = { (float)center[0], (float)center[1], (float)center[2] };
+        
+        rendererWidget->getInteractor()->SetDataObject(obj);
+        rendererWidget->getInteractor()->SetPainter(
+                rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
 
 		if (rendererWidget->GetScene()->GetInteractor()) {
-			rendererWidget->GetScene()->GetInteractor()->SetCallBack(
-				&igQtModelClipWidget::FilterSignal, SliceWidget);
-		}
-		rendererWidget->ChangeInteractorStyle(Interactor::SlicingStyle);
-		SliceWidget->SetPlane(o, n);
+            rendererWidget->GetScene()->GetInteractor()->SetCallBack(
+                    &igQtModelClipWidget::FilterSignal, SliceWidget);
+        }
+
+        rendererWidget->getInteractor()->RequestSlicingStyle();
 
 		});
 	connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
@@ -1349,7 +1349,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		});
 	connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
 		[&](SurfaceMesh::Pointer mesh) {
-			//mesh->Modified();
 			rendererWidget->update();
 		});
 }

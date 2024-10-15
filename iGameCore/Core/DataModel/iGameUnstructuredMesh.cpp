@@ -317,7 +317,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
     // shell algorithm
     SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-    if (extract->Execute(this, surfaceMesh)) {
+    if (extract->Execute(this, surfaceMesh)&&false) {
         surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
                                       m_TriangleIndices);
         m_Positions->Modified();
