@@ -54,6 +54,9 @@ public:
 	void SetIsSlice(bool s) {
 		this->m_Slice = s;
 	}
+	bool GetIsSlice(){
+		return this->m_Slice;
+	}
 protected:
 	ModelClip();
 

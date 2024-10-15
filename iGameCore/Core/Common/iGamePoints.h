@@ -30,6 +30,18 @@ public:
 	// Free unnecessary memory.
 	void Squeeze();
 
+	bool ShallowCopy(Points::Pointer other) { 
+		if (other == nullptr) return false;
+		m_Buffer = other->m_Buffer;
+		return true; 
+	}
+    bool DeepCopy(Points::Pointer other) {
+        if (other == nullptr) return false;
+        m_Buffer = FloatArray::New();
+        m_Buffer->DeepCopy(other->m_Buffer);
+        return true;
+    }
+
 	// Equal to function Resize()
 	void SetNumberOfPoints(const IGsize _NewPointsNum);
 

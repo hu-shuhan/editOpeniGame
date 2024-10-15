@@ -170,6 +170,7 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
 }
 
 void Scene::ChangeCameraType(IGenum type) {
+    ResetCenter();
     switch (type) {
         case Camera::CameraType::PERSPECTIVE: {
             m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);

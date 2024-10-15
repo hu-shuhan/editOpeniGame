@@ -2,7 +2,7 @@
 #define iGameHexahedron_h
 
 #include "iGameVolume.h"
-#include"iGameTetra.h"
+#include<iGameTetra.h>
 IGAME_NAMESPACE_BEGIN
 class Hexahedron : public Volume {
 public:
@@ -35,8 +35,8 @@ public:
 
 		return m_Quad.get();
 	}
-    std::vector<iGame::Tetra::Pointer> clipCelltoTetra() {
-        std::vector<iGame::Tetra::Pointer> result;
+    std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
+        std::vector<iGame::Cell::Pointer> result;
         std::vector<Vector3f> points;
         std::vector<igIndex> pointsIds;
         for (int i = 0; i < 8; i++) { 

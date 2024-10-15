@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>631</width>
-    <height>420</height>
+    <height>241</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -125,7 +125,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_Nonuniform_y"/>
+      <widget class="QLineEdit" name="lineEdit_Nonuniform_y">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="label_z">

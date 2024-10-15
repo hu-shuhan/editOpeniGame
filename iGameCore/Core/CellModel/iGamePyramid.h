@@ -2,7 +2,7 @@
 #define iGamePyramid_h
 
 #include "iGameVolume.h"
-
+#include <iGameTetra.h>
 IGAME_NAMESPACE_BEGIN
 class Pyramid : public Volume {
 public:
@@ -42,15 +42,15 @@ public:
 
         return face;
     }
-    std::vector<iGame::Tetra::Pointer> clipCelltoTetra() {
-        std::vector<iGame::Tetra::Pointer> result;
+    std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
+        std::vector<iGame::Cell::Pointer> result;
         std::vector<Vector3f> points;
         std::vector<igIndex> pointsIds;
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 5; i++) {
             points.emplace_back(this->Points->GetPoint(i));
             pointsIds.emplace_back(this->PointIds->GetId(i));
         }
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 2; i++) {
             const int* verts = clipedCell[i];
             Tetra::Pointer tetra1 = iGame::Tetra::Create(
                     points[verts[0]], points[verts[1]], points[verts[2]],
@@ -166,8 +166,8 @@ public:
 	  { 0, 1, 2, 3 , 4 },
 	};
 	static constexpr int clipedCell[2][4] = {
-	  { 1, 4, 3, -1 },
-	  { 0, 2, 4, -1 },
+	  { 0, 1, 3,4 },
+	  { 1, 2, 3,4 },
 	};
 
 	int GetEdgePointIds(const int edgeId, const igIndex*& pts) override {

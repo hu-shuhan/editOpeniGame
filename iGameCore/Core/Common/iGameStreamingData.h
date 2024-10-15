@@ -62,11 +62,16 @@ public:
         return m_Data;
     }
 
+    void SetDeformationScaleFactor(float dsf){ m_deformation_scale_factor = dsf; }
+
 protected:
 
     StreamingData() = default;
     ~StreamingData() = default;
     std::vector<TimeFrame> m_Data;
+    float m_deformation_scale_factor = {1.f};
+    bool m_enable_dsf {false};
+
 };
 
 IGAME_NAMESPACE_END

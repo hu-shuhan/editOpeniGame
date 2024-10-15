@@ -105,7 +105,8 @@ void igQtVectorWidget::updateVectorNameList() {
     if (!allAttributes) return;
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
         auto attribute = allAttributes->GetElement(i);
-        if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
+       // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
+        if (attribute.type == IG_VECTOR) {
             if (attribute.pointer) {
                 ui->comboBox->addItem(
                         QString::fromStdString(attribute.pointer->GetName()));

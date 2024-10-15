@@ -16,6 +16,13 @@ private:
 
     Ui::Deformation* ui;
 
+    uint32_t m_Scalar_num{0};
+public:
+    void updateInfo();
+
+private slots:
+    void CalculateCurrentDSF();
+
 private:
     void HideUniform();
     void HideNonUniform();

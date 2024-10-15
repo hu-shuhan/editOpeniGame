@@ -8,6 +8,8 @@
  */
 
 #include "IQWidgets/igQtDeformationWidget.h"
+#include <iGameSceneManager.h>
+#include <iGameStreamingData.h>
 
 igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     : QWidget(par), ui(new Ui::Deformation){
@@ -15,35 +17,80 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     ui->setupUi(this);
 
     HideNonUniform();
-    HideUniform();
+    ui->lineEdit_Uniform_val->setEnabled(false);
     connect(ui->radioButton_autoCompute, &QRadioButton::toggled, this, [&](bool checked){
         if(checked){
+            ShowUniform();
             HideNonUniform();
-            HideUniform();
-        } else {
-            if(ui->radioButton_Nonuniform->isChecked()) {
-                HideUniform();
-                ShowNonUniform();
-            }
-            else {
-                HideNonUniform();
-                ShowUniform();
-            }
+            ui->lineEdit_Uniform_val->setEnabled(false);
         }
+//        else {
+//            if(ui->radioButton_Nonuniform->isChecked()) {
+//                HideUniform();
+//                ShowNonUniform();
+//            }
+//            else {
+//                HideNonUniform();
+//                ShowUniform();
+//                ui->lineEdit_Uniform_val->setEnabled(true);
+//            }
+//        }
     });
     connect(ui->radioButton_Uniform, &QRadioButton::toggled, this, [&](bool checked){
        if(checked){
            ShowUniform();
+           ui->lineEdit_Uniform_val->setEnabled(true);
            HideNonUniform();
-       }else if(ui->radioButton_Nonuniform->isChecked()){
-           ShowNonUniform();
-           HideUniform();
        }
+//       else if(ui->radioButton_Nonuniform->isChecked()){
+//           ShowNonUniform();
+//           HideUniform();
+//       }
     });
+
+    connect(ui->radioButton_Nonuniform, &QRadioButton::toggled, this, [&](bool checked) {
+        if(checked){
+            ShowNonUniform();
+            HideUniform();
+        }
+    });
+
+    connect(ui->checkBox_enableOffset, &QCheckBox::toggled, this, [&](bool checked){
+        if(checked){
+            this->CalculateCurrentDSF();
+        }
+
+    });
+
 }
 
 igQtDeformationWidget::~igQtDeformationWidget() {
 
+}
+void igQtDeformationWidget::updateInfo() {
+    using namespace iGame;
+    /*Update combobox info.*/
+    auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+    dataObject->GetAttributeSet();
+    m_Scalar_num = dataObject->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
+
+    ui->comboBox_Deformation_vector->clear();
+    StringArray::Pointer attrbNameArray = StringArray::New();
+    for (int i = 0; i < m_Scalar_num; i++) {
+        auto& data = dataObject->GetAttributeSet()->GetAttribute(i);
+        ui->comboBox_Deformation_vector->addItem(QString(data.pointer->GetName().c_str()));
+    }
+    /*Update lineEdit info.*/
+    ui->lineEdit_Uniform_val->setText("1.f");
+    ui->lineEdit_Nonuniform_x->setText("1.f");
+    ui->lineEdit_Nonuniform_y->setText("1.f");
+    ui->lineEdit_Nonuniform_z->setText("1.f");
+}
+
+
+void igQtDeformationWidget::CalculateCurrentDSF() {
+    auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+    for(int i = )
 }
 
 void igQtDeformationWidget::HideUniform() {
@@ -73,3 +120,8 @@ void igQtDeformationWidget::ShowNonUniform() {
     ui->label_y->show();
     ui->label_z->show();
 }
+
+
+
+
+
