@@ -18,6 +18,17 @@ void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
     std::cout << "change:" << hR << "," << hL << "," << tR << std::endl;
     return;
 }
+void iGameVectorBase::ComputeBoundingBox() {
+    if (m_Bounding.isNull() ||
+        m_BoundingHelper->GetMTime() < m_Triangles->GetMTime()) {
+        m_Bounding.reset();
+        for (int i = 0; i < m_Triangles->GetNumberOfPoints(); i++) {
+            m_Bounding.add(m_Triangles->GetPoint(i));
+        }
+        m_BoundingHelper->Modified();
+    }
+}
+
 void iGameVectorBase::DrawVector(std::string VecName) {
     if (!isInit) {
         auto sceneManager = iGame::SceneManager::Instance();
@@ -55,6 +66,7 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1],
                                         colorsPtr[3 * i + 2]));
         }
+        ConvertToDrawableData();
         return;
     } else if(allVectors.attachmentType==IG_CELL) {
         long long numOfCell = allVectors.pointer->GetNumberOfElements();
@@ -83,6 +95,7 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                             colorsPtr[3 * i + 1],
                                             colorsPtr[3 * i + 2]));
             }
+            ConvertToDrawableData();
             return;
         } else {
             auto allVolume = volumeMesh->GetVolumes();
@@ -97,6 +110,7 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                             colorsPtr[3 * i + 1],
                                             colorsPtr[3 * i + 2]));
             }
+            ConvertToDrawableData();
             return;
         }
     } else {
@@ -208,6 +222,9 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
 void iGameVectorBase::ConvertToDrawableData() {
     m_Positions = m_Triangles->ConvertToArray();
     m_Positions->Modified();
+
+    std::cout << "VectorBase:" << m_Positions->GetMTime() << std::endl;
+    std::cout << this->GetMTime() << std::endl << std::endl;
 
     m_TriangleIndices = index;
     m_TriangleIndices->Modified();

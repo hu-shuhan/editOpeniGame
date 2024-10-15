@@ -165,6 +165,9 @@ void DrawObject::ReAllocateDisplayBuffer() {
 
     this->CreateDrawBuffer();
 
+        std::cout << "DrawObject:" << m_Positions->GetMTime() << std::endl;
+    std::cout << this->GetMTime() << std::endl ;
+          
     if (m_Positions->GetMTime() > this->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
                            m_Positions->GetNumberOfValues() * sizeof(float),
