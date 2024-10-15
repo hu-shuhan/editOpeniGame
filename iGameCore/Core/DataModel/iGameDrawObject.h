@@ -93,7 +93,7 @@ protected:
     int m_LineWidth{1};
     int m_CellPositionSize{};
 
-    float m_Transparency{0.5f};
+    float m_Transparency{1.0f};
 
     ArrayObject::Pointer m_ViewAttribute{};
     int m_ViewDemension{};

@@ -113,7 +113,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue,m_Slice);
 			}
 			break;
 		}
@@ -210,7 +210,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 		case 6:
 		case 5:
 		case 8:
-			CellClip::Clip(cell, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+			CellClip::Clip(cell, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
 			break;
 		}
 	}
