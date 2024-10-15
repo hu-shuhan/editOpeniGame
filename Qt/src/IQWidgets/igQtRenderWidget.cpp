@@ -62,6 +62,8 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             }
             s->SetPoints(ps->GetPoints());
             s->SetModel(m_Scene->GetCurrentModel());
+            m_Interactor->SetDataObject(ps);
+            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
             m_Interactor->RequestPointSelectionStyle(s);
         } break;
         case Interactor::SingleFaceSelectionStyle: {
@@ -93,6 +95,8 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             s->SetPoints(points);
             s->SetCells(faces);
             s->SetModel(model);
+            m_Interactor->SetDataObject(obj);
+            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
             m_Interactor->RequestFaceSelectionStyle(s);
         } break;
         case Interactor::MultiPointSelectionStyle:
@@ -111,15 +115,16 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             }
             s->SetPoints(ps->GetPoints());
             s->SetModel(m_Scene->GetCurrentModel());
+            m_Interactor->SetDataObject(ps);
+            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
             m_Interactor->RequestDragPointStyle(s);
-        } break;
-        case Interactor::SlicingStyle: {
-            m_Interactor->RequestSlicingStyle();
         } break;
         default:
             break;
     }
 }
+
+Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
     // 目前当窗口

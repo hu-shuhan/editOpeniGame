@@ -24,15 +24,8 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 
 void igQtModelClipWidget::SetPlane(float o[3], float n[3])
 {
-	ui->lineEdit_origin_x->setText(QString::fromStdString(std::to_string(o[0])));
-	ui->lineEdit_origin_y->setText(QString::fromStdString(std::to_string(o[1])));
-	ui->lineEdit_origin_z->setText(QString::fromStdString(std::to_string(o[2])));
-	ui->lineEdit_normal_x->setText(QString::fromStdString(std::to_string(n[0])));
-	ui->lineEdit_normal_y->setText(QString::fromStdString(std::to_string(n[1])));
-	ui->lineEdit_normal_z->setText(QString::fromStdString(std::to_string(n[2])));
-
 	m_Clipper->SetPlane(o, n);
-	ClipModel();
+	
     ui->lineEdit_origin_x->setText(QString::number(o[0]));
     ui->lineEdit_origin_y->setText(QString::number(o[1]));
     ui->lineEdit_origin_z->setText(QString::number(o[2]));
@@ -40,6 +33,7 @@ void igQtModelClipWidget::SetPlane(float o[3], float n[3])
     ui->lineEdit_normal_y->setText(QString::number(n[1]));
     ui->lineEdit_normal_z->setText(QString::number(n[2]));
 
+    ClipModel();
 }
 
 void igQtModelClipWidget::UpdatePlane()
@@ -63,7 +57,7 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
 {
 	this->m_OriginDataObject = m_d;
 	m_ResultMesh = iGame::SurfaceMesh::New();
-	m_Drawed = false;
+    DrawClipModel(m_ResultMesh);
 }
 
 void igQtModelClipWidget::ClipModel() {
@@ -89,20 +83,11 @@ void igQtModelClipWidget::ClipModel() {
 		surfaceextract->Execute(m_OriginDataObject, tmp);
 		m_ResultMesh->AddSubDataObject(tmp);
 		tmp->ConvertToDrawableData();
-
+        
 	}
 	tmp1->ConvertToDrawableData();
 	m_ResultMesh->AddSubDataObject(tmp1);
 	m_ResultMesh=tmp1;
-	if (m_Drawed) {
-		//m_ResultMesh->ConvertToDrawableData();
-		UpdateClipModel(m_ResultMesh);
-	}
-	else {
-		//m_ResultMesh->ConvertToDrawableData();
-		DrawClipModel(m_ResultMesh);
-		//DrawClipModel(tmp);
-		m_Drawed = true;
-	}
-
+    //m_ResultMesh->ConvertToDrawableData();
+    UpdateClipModel(m_ResultMesh);
 }

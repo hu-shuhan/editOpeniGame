@@ -1310,26 +1310,32 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         SliceWidget->SetOriginDataObject(obj);
-        auto box = obj->GetBoundingBox();
-        auto center = (box.min + box.max) * 0.5;
-        float n[3] = {0, 1, 0};
-        float o[3] = {(float) center[0], (float) center[1], (float) center[2]};
+        auto painter =
+                rendererWidget->GetScene()->GetCurrentModel()->GetPainter();
+        //auto box = obj->GetBoundingBox();
+        //auto center = (box.min + box.max) * 0.5;
+        //float n[3] = {0, 1, 0};
+        //float o[3] = {(float) center[0], (float) center[1], (float) center[2]};
 
         if (rendererWidget->GetScene()->GetInteractor()) {
             rendererWidget->GetScene()->GetInteractor()->SetCallBack(
                     &igQtModelClipWidget::FilterSignal, SliceWidget);
         }
-        rendererWidget->ChangeInteractorStyle(Interactor::SlicingStyle);
+        rendererWidget->getInteractor()->SetDataObject(obj);
+        rendererWidget->getInteractor()->SetPainter(painter);
+        rendererWidget->getInteractor()->RequestSlicingStyle();
 
         
-        SliceWidget->SetPlane(o, n);
+        //SliceWidget->SetPlane(o, n);
 
     });
+
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](SurfaceMesh::Pointer mesh) {
                 modelTreeWidget->addDataObjectToModelTree(
                         mesh, ItemSource::Algorithm);
             });
+
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
         [&](SurfaceMesh::Pointer mesh) {
             //mesh->Modified();
