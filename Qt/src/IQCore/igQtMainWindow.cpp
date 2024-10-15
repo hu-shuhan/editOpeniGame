@@ -1310,11 +1310,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 	SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
 	SliceDockWidget->hide();
 	this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
-	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-
-
-
-
+    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
 
 		//auto um = DynamicCast<UnstructuredMesh>(
 		//	rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
@@ -1347,37 +1343,38 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		//		}
 		//	}
 		//}
-		auto um = DynamicCast<UnstructuredMesh>(
-			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-		auto tetras = CellArray::New();
-		auto faces=CellArray::New();
-		for (int cellId = 0; cellId < 100; cellId++) {
-			auto cell = DynamicCast<Polyhedron>(um->GetCell(cellId));
-			auto fcnt = cell->GetNumberOfFaces();
-			auto topVh = cell->GetPointId(0);
-			auto originVhs = cell->PointIds->RawPointer();
-			bool isCount = false;
-			int i, j = 0;
-			igIndex st = 0;
-			igIndex ed = 0;
-			igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
-			for (i = 0; i < fcnt; i++) {
-				isCount = false;
-				st = cell->m_FaceOffset->GetId(i);
-				ed = cell->m_FaceOffset->GetId(i + 1);
-				faces->AddCellIds((originVhs+st),ed-st);
-				for (j = st; j < ed && !isCount; j++) {
-					if (originVhs[j] == topVh) {
-						isCount = true;
-					}
-				}
-				if (!isCount) {
-					for (j = st; j < ed - 2; j++) {
-						tetras->AddCellId4(originVhs[j+2], originVhs[j + 1], originVhs[st], topVh);
-					}
-				}
-			}
-		}
+		
+		//auto um = DynamicCast<UnstructuredMesh>(
+		//	rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+		//auto tetras = CellArray::New();
+		//auto faces=CellArray::New();
+		//for (int cellId = 0; cellId < 100; cellId++) {
+		//	auto cell = DynamicCast<Polyhedron>(um->GetCell(cellId));
+		//	auto fcnt = cell->GetNumberOfFaces();
+		//	auto topVh = cell->GetPointId(0);
+		//	auto originVhs = cell->PointIds->RawPointer();
+		//	bool isCount = false;
+		//	int i, j = 0;
+		//	igIndex st = 0;
+		//	igIndex ed = 0;
+		//	igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		//	for (i = 0; i < fcnt; i++) {
+		//		isCount = false;
+		//		st = cell->m_FaceOffset->GetId(i);
+		//		ed = cell->m_FaceOffset->GetId(i + 1);
+		//		faces->AddCellIds((originVhs+st),ed-st);
+		//		for (j = st; j < ed && !isCount; j++) {
+		//			if (originVhs[j] == topVh) {
+		//				isCount = true;
+		//			}
+		//		}
+		//		if (!isCount) {
+		//			for (j = st; j < ed - 2; j++) {
+		//				tetras->AddCellId4(originVhs[j+2], originVhs[j + 1], originVhs[st], topVh);
+		//			}
+		//		}
+		//	}
+		//}
 
 		//auto mesh = VolumeMesh::New();
 		//mesh->SetPoints(um->GetPoints());
@@ -1429,21 +1426,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		auto obj =
 			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 		SliceWidget->SetOriginDataObject(obj);
-		auto box = obj->GetBoundingBox();
-		auto center = (box.min + box.max) * 0.5;
-		float n[3] = { 0, 1, 0 };
-		float o[3] = { (float)center[0], (float)center[1], (float)center[2] };
-
-		if (rendererWidget->GetScene()->GetInteractor()) {
-			rendererWidget->GetScene()->GetInteractor()->SetCallBack(
-				&igQtModelClipWidget::FilterSignal, SliceWidget);
-		}
         
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter(
                 rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
+
+		if (rendererWidget->GetScene()->GetInteractor()) {
+            rendererWidget->GetScene()->GetInteractor()->SetCallBack(
+                    &igQtModelClipWidget::FilterSignal, SliceWidget);
+        }
+
         rendererWidget->getInteractor()->RequestSlicingStyle();
-		SliceWidget->SetPlane(o, n);
 
 		});
 	connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
@@ -1453,7 +1446,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		});
 	connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
 		[&](SurfaceMesh::Pointer mesh) {
-			//mesh->Modified();
 			rendererWidget->update();
 		});
 }
