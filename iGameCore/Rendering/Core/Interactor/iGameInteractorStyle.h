@@ -36,6 +36,8 @@ class InteractorStyle : public Object {
 public:
     I_OBJECT(InteractorStyle);
 
+    enum Signal { Slicing }; 
+
     virtual void Initialize(Interactor* a) = 0;
     virtual void FilterEvent(IEvent _event) {
         switch (_event.type) {
@@ -73,17 +75,9 @@ public:
                                  _event.delta);
     };
 
-    enum class Event { Slicing };
-
 protected:
     InteractorStyle() = default;
     ~InteractorStyle() override = default;
-
-    void InvokeEvent(Event _event, void* callData) {
-        if (m_CallBack) { m_CallBack(_event, callData); }
-    }
-
-    std::function<void(Event, void*)> m_CallBack;
 
     friend class Interactor;
 };

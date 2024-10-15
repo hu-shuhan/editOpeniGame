@@ -1314,6 +1314,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto center = (box.min + box.max) * 0.5;
         float n[3] = {0, 1, 0};
         float o[3] = {(float) center[0], (float) center[1], (float) center[2]};
+
+        if (rendererWidget->GetScene()->GetInteractor()) {
+            rendererWidget->GetScene()->GetInteractor()->SetCallBack(
+                    &igQtModelClipWidget::FilterSignal, SliceWidget);
+        }
+        rendererWidget->ChangeInteractorStyle(Interactor::SlicingStyle);
+
+        
         SliceWidget->SetPlane(o, n);
 
     });

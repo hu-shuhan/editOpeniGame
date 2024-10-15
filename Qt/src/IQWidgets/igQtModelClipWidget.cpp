@@ -32,6 +32,13 @@ void igQtModelClipWidget::SetPlane(float o[3], float n[3])
 
 	m_Clipper->SetPlane(o, n);
 	ClipModel();
+    ui->lineEdit_origin_x->setText(QString::number(o[0]));
+    ui->lineEdit_origin_y->setText(QString::number(o[1]));
+    ui->lineEdit_origin_z->setText(QString::number(o[2]));
+    ui->lineEdit_normal_x->setText(QString::number(n[0]));
+    ui->lineEdit_normal_y->setText(QString::number(n[1]));
+    ui->lineEdit_normal_z->setText(QString::number(n[2]));
+
 }
 
 void igQtModelClipWidget::UpdatePlane()

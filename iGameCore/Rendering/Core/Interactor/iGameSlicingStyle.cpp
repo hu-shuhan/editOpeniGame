@@ -46,7 +46,6 @@ void SlicingStyle::Initialize(Interactor* a) {
 }
 
 void SlicingStyle::Invoke() { 
-    
     slicingPlane.point[0] = center[0];
     slicingPlane.point[1] = center[1];
     slicingPlane.point[2] = center[2];
@@ -54,7 +53,7 @@ void SlicingStyle::Invoke() {
     slicingPlane.normal[1] = normal[1];
     slicingPlane.normal[2] = normal[2];
 
-    this->InvokeEvent(Event::Slicing, &plane);
+    this->RequestSignal(InteractorStyle::Slicing, &slicingPlane);
 }
 
 void SlicingStyle::MousePressEvent(IEvent _event) {
