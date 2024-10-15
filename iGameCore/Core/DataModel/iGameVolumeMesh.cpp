@@ -37,7 +37,7 @@ Volume* VolumeMesh::GetVolume(const IGsize volumeId) {
     } else if (ncells == Pyramid::NumberOfPoints) {
         if (m_Pyramid == nullptr) { m_Pyramid = Pyramid::New(); }
         volume = m_Pyramid.get();
-    }
+    } 
 
     assert(volume != nullptr);
     volume->PointIds->Reset();
