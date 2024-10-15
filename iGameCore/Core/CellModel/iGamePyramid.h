@@ -42,8 +42,8 @@ public:
 
         return face;
     }
-    std::vector<iGame::Tetra::Pointer> clipCelltoTetra() {
-        std::vector<iGame::Tetra::Pointer> result;
+    std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
+        std::vector<iGame::Cell::Pointer> result;
         std::vector<Vector3f> points;
         std::vector<igIndex> pointsIds;
         for (int i = 0; i < 5; i++) {
