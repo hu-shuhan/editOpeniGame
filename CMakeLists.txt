@@ -18,7 +18,7 @@ list(INSERT CMAKE_MODULE_PATH 0
 
 add_executable(${PROJECT_NAME}
         main.cpp
- )
+)
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -33,7 +33,7 @@ set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 # 2. Set OFF to On.
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
-set(ENABLE_ABAQUS_MODULE ON CACHE BOOL "Enable ABAQUS SDK ThirdParty Module" FORCE)
+set(ENABLE_ABAQUS_MODULE OFF CACHE BOOL "Enable ABAQUS SDK ThirdParty Module" FORCE)
 
 #--------------------------------------------------------------------
 # Add subdirectories

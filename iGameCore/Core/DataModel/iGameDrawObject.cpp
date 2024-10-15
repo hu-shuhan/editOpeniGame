@@ -165,92 +165,102 @@ void DrawObject::ReAllocateDisplayBuffer() {
 
     this->CreateDrawBuffer();
 
-    if (m_Positions->GetMTime() > this->GetMTime()) {
+    if (m_Positions->GetMTime() > m_PositionVBO.GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
                            m_Positions->GetNumberOfValues() * sizeof(float),
                            m_Positions->RawPointer());
+        m_PositionVBO.Modified();
 
         SetPositionBufferToVAO(m_PointVAO, m_PositionVBO);
         SetPositionBufferToVAO(m_LineVAO, m_PositionVBO);
         SetPositionBufferToVAO(m_TriangleVAO, m_PositionVBO);
     }
 
-    if (m_Colors->GetMTime() > this->GetMTime()) {
+    if (m_Colors->GetMTime() > m_ColorVBO.GetMTime()) {
         GLAllocateGLBuffer(m_ColorVBO,
                            m_Colors->GetNumberOfValues() * sizeof(float),
                            m_Colors->RawPointer());
+        m_ColorVBO.Modified();
 
         SetColorBufferToVAO(m_PointVAO, m_ColorVBO);
         SetColorBufferToVAO(m_LineVAO, m_ColorVBO);
         SetColorBufferToVAO(m_TriangleVAO, m_ColorVBO);
     }
 
-    if (m_Normals->GetMTime() > this->GetMTime()) {
+    if (m_Normals->GetMTime() > m_NormalVBO.GetMTime()) {
         GLAllocateGLBuffer(m_NormalVBO,
                            m_Normals->GetNumberOfValues() * sizeof(float),
                            m_Normals->RawPointer());
+        m_NormalVBO.Modified();
 
         SetNormalBufferToVAO(m_PointVAO, m_NormalVBO);
         SetNormalBufferToVAO(m_LineVAO, m_NormalVBO);
         SetNormalBufferToVAO(m_TriangleVAO, m_NormalVBO);
     }
 
-    if (m_Textures->GetMTime() > this->GetMTime()) {
+    if (m_Textures->GetMTime() > m_TextureVBO.GetMTime()) {
         GLAllocateGLBuffer(m_TextureVBO,
                            m_Textures->GetNumberOfValues() * sizeof(float),
                            m_Textures->RawPointer());
+        m_TextureVBO.Modified();
 
         SetTextureBufferToVAO(m_PointVAO, m_TextureVBO);
         SetTextureBufferToVAO(m_LineVAO, m_TextureVBO);
         SetTextureBufferToVAO(m_TriangleVAO, m_TextureVBO);
     }
 
-    if (m_PointIndices->GetMTime() > this->GetMTime()) {
+    if (m_PointIndices->GetMTime() > m_PointEBO.GetMTime()) {
         GLAllocateGLBuffer(m_PointEBO,
                            m_PointIndices->GetNumberOfValues() *
                                    sizeof(igIndex),
                            m_PointIndices->RawPointer());
+        m_PointEBO.Modified();
 
         m_PointVAO.elementBuffer(m_PointEBO);
     }
 
-    if (m_LineIndices->GetMTime() > this->GetMTime()) {
+    if (m_LineIndices->GetMTime() > m_LineEBO.GetMTime()) {
         GLAllocateGLBuffer(m_LineEBO,
                            m_LineIndices->GetNumberOfValues() * sizeof(igIndex),
                            m_LineIndices->RawPointer());
+        m_LineEBO.Modified();
 
         m_LineVAO.elementBuffer(m_LineEBO);
     }
 
-    if (m_TriangleIndices->GetMTime() > this->GetMTime()) {
+    if (m_TriangleIndices->GetMTime() > m_TriangleEBO.GetMTime()) {
         GLAllocateGLBuffer(m_TriangleEBO,
                            m_TriangleIndices->GetNumberOfValues() *
                                    sizeof(igIndex),
                            m_TriangleIndices->RawPointer());
+        m_TriangleEBO.Modified();
 
         m_TriangleVAO.elementBuffer(m_TriangleEBO);
     }
 
-    if (m_CellPositions->GetMTime() > this->GetMTime()) {
+    if (m_CellPositions->GetMTime() > m_CellPositionVBO.GetMTime()) {
         GLAllocateGLBuffer(m_CellPositionVBO,
                            m_CellPositions->GetNumberOfValues() * sizeof(float),
                            m_CellPositions->RawPointer());
+        m_CellPositionVBO.Modified();
 
         SetPositionBufferToVAO(m_CellVAO, m_CellPositionVBO);
     }
 
-    if (m_CellColors->GetMTime() > this->GetMTime()) {
+    if (m_CellColors->GetMTime() > m_CellColorVBO.GetMTime()) {
         GLAllocateGLBuffer(m_CellColorVBO,
                            m_CellColors->GetNumberOfValues() * sizeof(float),
                            m_CellColors->RawPointer());
+        m_CellColorVBO.Modified();
 
         SetColorBufferToVAO(m_CellVAO, m_CellColorVBO);
     }
 
-    if (m_CellIndices->GetMTime() > this->GetMTime()) {
+    if (m_CellIndices->GetMTime() > m_CellEBO.GetMTime()) {
         GLAllocateGLBuffer(m_CellEBO,
                            m_CellIndices->GetNumberOfValues() * sizeof(float),
                            m_CellIndices->RawPointer());
+        m_CellEBO.Modified();
 
         m_CellVAO.elementBuffer(m_CellEBO);
     }

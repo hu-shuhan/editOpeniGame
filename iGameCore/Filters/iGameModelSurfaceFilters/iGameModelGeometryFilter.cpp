@@ -31,7 +31,7 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 	this->ExtentClippingFlip = false;
 	this->PlaneClippingFlip = false;
 
-	this->Merging = false;
+	this->Merging = true;
 
 	this->RemoveGhostInterfaces = true;
 
