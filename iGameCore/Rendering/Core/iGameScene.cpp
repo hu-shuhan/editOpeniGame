@@ -786,10 +786,6 @@ void Scene::DrawFrame() {
             drawObject->ConvertToDrawableData();
         }
         drawObject->ReAllocateDisplayBuffer();
-        drawObject->Modified();
-
-        std::cout << "Scene:" << drawObject->GetMTime() << std::endl
-        << std::endl;
     }
 
     // update camera data block in GPU
