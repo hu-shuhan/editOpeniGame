@@ -39,7 +39,11 @@ public:
         }
         return m_Triangle.get();
     }
-
+    std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
+        std::vector<iGame::Cell::Pointer> result;
+        result.emplace_back(this);
+        return result;
+	}
 	/**
 	 * The number of points of the cell
 	 */

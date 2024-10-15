@@ -8,6 +8,7 @@
 #include <iGameScalarsToColors.h>
 #include <iGameVector.h>
 #include <iGameVolumeMesh.h>
+#include<iGameCellCenter.h>
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class iGameVectorBase : public DrawObject {
