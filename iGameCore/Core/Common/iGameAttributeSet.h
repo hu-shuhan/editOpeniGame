@@ -35,6 +35,15 @@ public:
 		}
 	};
 
+	bool ShallowCopy(Pointer o) { return false;
+	}
+	bool DeepCopy(Pointer o) {
+        if (o == nullptr) return false;
+        m_Buffer = ElementArray<Attribute>::New();
+        m_Buffer->DeepCopy(o->m_Buffer);
+        return true;
+	}
+
 	// Add a scalar attribute to array back.
 	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr);
 	// Add a scalar attribute to array back with range.

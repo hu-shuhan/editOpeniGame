@@ -45,6 +45,7 @@ public:
 	void UpdateProgress(double amount);
 	// Switch to the next task. Progress will be reset.
     void ResetProgress();
+    void ResetProgress(double scale);
 	
 	void SetModel(Model::Pointer model) {
 		m_Model = model;

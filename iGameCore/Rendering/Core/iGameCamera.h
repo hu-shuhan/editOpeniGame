@@ -141,6 +141,8 @@ public:
 
     void ChangeCameraType(CameraType type) { m_CameraType = type; }
 
+    float GetLengthToFocal() { return (m_Focal - m_Position).length(); }
+
     void SetCameraPos(igm::vec3 pos) {
         m_Position = pos;
         updateCameraVectors();
@@ -183,14 +185,13 @@ public:
             return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
                                          aspect<float>(), nearPlane);
         } else if (m_CameraType == ORTHOGRAPHIC) {
-            float dist = (m_Focal - m_Position).length();
-            float orthoHeight = dist * 0.4f;
+            float orthoHeight = GetLengthToFocal() * 0.5f;
             float orthoWidth = orthoHeight * aspect<float>();
 
             return igm::orthoRH_OZ(
                     m_Focal.x - orthoWidth, m_Focal.x + orthoWidth,
                     m_Focal.y - orthoHeight, m_Focal.y + orthoHeight,
-                    m_Focal.z - dist * 10000.0f, m_Focal.z + dist * 10000.0f);
+                    m_Focal.z - 10000000.0f, m_Focal.z + 10000000.0f);
         }
         return igm::mat4(1.0f);
     }

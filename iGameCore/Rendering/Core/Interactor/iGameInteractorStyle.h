@@ -4,7 +4,7 @@
 #include "iGameObject.h"
 #include "igm/igm.h"
 #include "igm/transform.h"
-#include <Eigen/Dense>
+//#include <Eigen/Dense>
 #include <format>
 
 IGAME_NAMESPACE_BEGIN
@@ -35,6 +35,8 @@ class Interactor;
 class InteractorStyle : public Object {
 public:
     I_OBJECT(InteractorStyle);
+
+    enum Signal { Slicing }; 
 
     virtual void Initialize(Interactor* a) = 0;
     virtual void FilterEvent(IEvent _event) {
