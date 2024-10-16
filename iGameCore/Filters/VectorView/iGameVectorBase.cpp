@@ -18,6 +18,10 @@ void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
     std::cout << "change:" << hR << "," << hL << "," << tR << std::endl;
     return;
 }
+void iGameVectorBase::SetInit(bool init) {
+    isInit = init;
+    return;
+}
 void iGameVectorBase::ComputeBoundingBox() {
     if (m_Bounding.isNull() ||
         m_BoundingHelper->GetMTime() < m_Triangles->GetMTime()) {
@@ -78,10 +82,20 @@ void iGameVectorBase::DrawVector(std::string VecName) {
         }
         CellCenter centerCul;
         auto mapper = ScalarsToColors::New();
-        auto array = allVectors.pointer;
-        
-        mapper->InitRange(array, -1);
-        auto colors = mapper->MapScalars(array, -1);
+        FloatArray::Pointer Vector1 = FloatArray::New();
+        Vector1->SetDimension(3);
+        Vector1->Resize(0);
+        igIndex index = 0;
+        for (int i = 0; i < 600; i++) { 
+              float v[4] = {0.0f};
+            allVectors.pointer->GetElement(i, v);
+              Vector1->AddElement3(v[0], v[1], v[2]);
+        }
+        mapper->InitRange(Vector1, -1);
+        auto colors = mapper->MapScalars(Vector1, -1);
+        //auto array = allVectors.pointer;
+        //mapper->InitRange(array, -1);
+        //auto colors = mapper->MapScalars(array, -1);
         auto colorsPtr = colors->RawPointer();
         if (!volumeMesh->GetIsPolyhedronType()) {
             for (int i = 0; i < numOfCell; i++) {
@@ -121,7 +135,13 @@ void iGameVectorBase::DrawVector(std::string VecName) {
 }
 void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
                                          Vector3f RGB) {
-    Vector3f L = normal.normalized();
+    Vector3f L;
+    if (normal.length() == 0) {
+         L=Vector3f(1.0,0.0,0.0);   
+    } else {
+         L = normal.normalized();
+
+    }
     Vector3f normal1 = Vector3f(0, 1, 0).cross(L);
     Vector3f normal2 = normal1.cross(L);
     Vector3f centerHigh = coord + L * (tL + hL);
