@@ -9,14 +9,11 @@
 #include "iGameStructuredMesh.h"
 IGAME_NAMESPACE_BEGIN
 
-
+struct ExtractCellBoundaries;
 class iGameModelGeometryFilter : public Filter {
 public:
 	I_OBJECT(iGameModelGeometryFilter);
 	///@{
-	/**
-	 * Standard methods for instantiation, type information, and printing.
-	 */
 	static iGameModelGeometryFilter* New() {
 		return new iGameModelGeometryFilter;
 	};
@@ -46,9 +43,7 @@ public:
 	void SetCellIndexMinimum(igIndex _min);
 	void SetCellIndexMaximum(igIndex _max);
 	/**
-	 * Direct access methods so that this class can be used as an
-	 * algorithm without using it as a filter (i.e., no pipeline updates).
-	 * Also some internal methods with additional options.
+     处理不同的网格
 	 */
 	int ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
 		SurfaceMesh::Pointer exc);
@@ -84,12 +79,18 @@ public:
 	void SetPointMergin(bool _b) { this->Merging = _b; }
 
 	char* ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints, CellArray::Pointer Cells);
-
+	void ProcessPointMergin(ExtractCellBoundaries* extract,
+		Points::Pointer inPoints, Points::Pointer& outPoints, CellArray::Pointer Polygons,
+		AttributeSet::Pointer outAllDataArray);
+	FlatArray<igIndex>::Pointer GetPointMap() {
+		return m_PointMap;
+	}
 protected:
 	iGameModelGeometryFilter();
 	//有时候在文件里会有标注表面信息，如果有则不需要这边运算，
-	//只需要把attribute的信息copy一份给表面就可以
+	//只需要把attribute的信息copy一份给表面就可以，暂时没有完善这个功能.
 	SurfaceMesh::Pointer excFaces;
+
 	DataObject::Pointer input;
 	SurfaceMesh::Pointer output;
 	igIndex PointMaximum;
@@ -112,6 +113,9 @@ protected:
 	bool RemoveGhostInterfaces;
 	//Point merging
 	bool Merging;
+
+	//m_PointMap->GetValue(i)表示的是第i个new point对应的origin point id
+	FlatArray<igIndex>::Pointer m_PointMap=nullptr;
 
 private:
 };

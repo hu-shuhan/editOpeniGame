@@ -42,6 +42,8 @@ public:
     void Squeeze() override {
 		this->Resize(GetNumberOfElements());
 	}
+	
+
 
 	bool ShallowCopy(FlatArray<TValue>::Pointer other) { return false; }
     bool DeepCopy(FlatArray<TValue>::Pointer other) {
