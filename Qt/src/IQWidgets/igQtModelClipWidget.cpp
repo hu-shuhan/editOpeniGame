@@ -16,6 +16,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
             });
     connect(ui->radioButton_Slice, &QRadioButton::toggled, this, [&](bool isChecked) {
         this->SetIsSlice(ui->radioButton_Slice->isChecked());
+
     });
     ui->radioButton_Slice->setChecked(true);
 }
