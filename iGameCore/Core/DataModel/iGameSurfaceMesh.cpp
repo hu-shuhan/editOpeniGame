@@ -41,7 +41,12 @@ void SurfaceMesh::SetFaces(CellArray::Pointer faces) {
         this->Modified();
     }
 }
-
+void SurfaceMesh::SetEdges(CellArray::Pointer edges) {
+    if (m_Edges != edges) {
+        m_Edges = edges;
+        this->Modified();
+    }
+}
 Line* SurfaceMesh::GetEdge(const IGsize edgeId) {
     const igIndex* cell;
     int ncells = m_Edges->GetCellIds(edgeId, cell);

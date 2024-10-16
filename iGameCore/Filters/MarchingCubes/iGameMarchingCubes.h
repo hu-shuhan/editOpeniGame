@@ -123,9 +123,10 @@ public:
 	static Pointer New() { return new iGameMarchingCubes; }
 	~iGameMarchingCubes() {};
 	bool Execute() override;
-	void SetAttribute(AttributeSet::Attribute& attr) {
+	void SetAttribute(AttributeSet::Attribute& attr,int dimension=-1) {
 		this->m_Attribute=attr;
 		this->m_Scalar=attr.pointer;
+		this->m_Dimension=dimension;
 	}
 	void SetValue(float v){this->m_Value=v;}
 protected:
@@ -139,6 +140,8 @@ protected:
 	UnstructuredMesh::Pointer m_UnstructuredMesh{nullptr};
 	AttributeSet::Attribute m_Attribute{nullptr};
 	ArrayObject::Pointer m_Scalar{nullptr};
+	int m_Dimension=-1;
 	float m_Value=0.0;
+	
 };
 IGAME_NAMESPACE_END

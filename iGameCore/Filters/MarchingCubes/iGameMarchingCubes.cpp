@@ -349,16 +349,16 @@ bool iGameMarchingCubes::Execute()
 {
 	// 输入数据从 inInfo 中获取，输出数据放到 outInfo
 	if (!this->GetNumberOfInputs()) { return false; }
-	m_Mesh= this->GetInput(0);
+	m_Mesh = this->GetInput(0);
 	switch (m_Mesh->GetDataObjectType())
 	{
 	case IG_VOLUME_MESH:
 	case IG_STRUCTURED_MESH:
-		m_VolumeMesh= DynamicCast<VolumeMesh>(m_Mesh);
+		m_VolumeMesh = DynamicCast<VolumeMesh>(m_Mesh);
 		break;
 	case IG_UNSTRUCTURED_MESH:
 		m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(m_Mesh);
-		m_VolumeMesh=m_UnstructuredMesh->TransferToVolumeMesh();
+		m_VolumeMesh = m_UnstructuredMesh->TransferToVolumeMesh();
 		break;
 	default:
 		return false;
@@ -371,10 +371,12 @@ bool iGameMarchingCubes::Execute()
 	this->SetAttribute(PointData->GetElement(0));
 
 	std::vector<MarchingCubes::Cube> cubes;
-	igIndex i = 0, j = 0;
+	igIndex i = 0, j = 0, k = 0;
 	igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 	igIndex vcnt = 0;
 	double values[IGAME_CELL_MAX_SIZE];
+	double value = 0.0;
+	int dimensionSize = m_Scalar->GetDimension();
 	for (i = 0; i < cellNum; i++) {
 		MarchingCubes::Cube cube_temp;
 		vcnt = m_VolumeMesh->GetVolumePointIds(i, vhs);
@@ -384,25 +386,35 @@ bool iGameMarchingCubes::Execute()
 			cube_temp.p[j].x = p_t[0];
 			cube_temp.p[j].y = p_t[1];
 			cube_temp.p[j].z = p_t[2];
-			m_Scalar->GetElement(id,values);
-			cube_temp.p[j].value = values[0];
+			m_Scalar->GetElement(id, values);
+			if (m_Dimension != -1) {
+				cube_temp.p[j].value = values[m_Dimension];
+			}
+			else {
+				value = 0.0;
+				for (k = 0; k < dimensionSize; k++) {
+					value += values[k] * values[k];
+				}
+				value = std::sqrt(value);
+				cube_temp.p[j].value = value;
+			}
 			// std::cout << cube_temp.p[j].value << std::endl;
 		}
 		cubes.push_back(cube_temp);
 	}
 	std::vector<MarchingCubes::Triangle_3D> tris;
 	tris = get_result(cubes, m_Value);
-	auto m_ResultMesh = SurfaceMesh::New();
-	auto m_ResultPoints = Points::New();
-	auto m_ResultTriangles = CellArray::New();
-	m_ResultMesh->SetPoints(m_ResultPoints);
-	m_ResultMesh->SetFaces(m_ResultTriangles);
+	auto ResultMesh = SurfaceMesh::New();
+	auto ResultPoints = Points::New();
+	auto ResultTriangles = CellArray::New();
+	ResultMesh->SetPoints(ResultPoints);
+	ResultMesh->SetFaces(ResultTriangles);
 	igIndex index = 0;
 	for (auto& t : tris) {
-		m_ResultPoints->AddPoint(t.p[0].x, t.p[0].y, t.p[0].z);
-		m_ResultPoints->AddPoint(t.p[1].x, t.p[1].y, t.p[1].z);
-		m_ResultPoints->AddPoint(t.p[2].x, t.p[2].y, t.p[2].z);
-		m_ResultTriangles->AddCellId3(index++, index++, index++);
+		ResultPoints->AddPoint(t.p[0].x, t.p[0].y, t.p[0].z);
+		ResultPoints->AddPoint(t.p[1].x, t.p[1].y, t.p[1].z);
+		ResultPoints->AddPoint(t.p[2].x, t.p[2].y, t.p[2].z);
+		ResultTriangles->AddCellId3(index++, index++, index++);
 		//    igIndex p0_index = return_mesh->AddVertex(
 		//            iGame::Point(t.p[0].x, t.p[0].y, t.p[0].z));
 		//    igIndex p1_index = return_mesh->AddVertex(
@@ -418,7 +430,7 @@ bool iGameMarchingCubes::Execute()
 		//    points_index[2] = p2_index;
 		//    return_mesh->AddFace(points_index, 3);
 	}
-	m_Outputs->SetElement(0,m_ResultMesh);
+	m_Outputs->SetElement(0, ResultMesh);
 	return true;
 }
 IGAME_NAMESPACE_END

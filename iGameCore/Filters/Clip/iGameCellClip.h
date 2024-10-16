@@ -51,11 +51,11 @@ namespace CellClip {
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 
-		//auto oriVhs=cell->PointIds->RawPointer();
-		//connectivity->AddCellIds(oriVhs, 4);
-		//types->AddValue(IG_TETRA);
-		//originCell.emplace_back(cellId);
-		//return;
+		/*auto oriVhs=cell->PointIds->RawPointer();
+		connectivity->AddCellIds(oriVhs, 4);
+		types->AddValue(IG_TETRA);
+		originCell.emplace_back(cellId);
+		return;*/
 
 		int MASK[4] = { 1,2,4,8 };
 		int i, j, CaseIndex = 0;
@@ -217,7 +217,7 @@ namespace CellClip {
 				for (j = 0; j < 4; j++) {
 					tetvalues[j] = pointValues[tetra->PointIds->GetId(j)];
 				}
-				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
+				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);		
 			}
 		}
 	}
