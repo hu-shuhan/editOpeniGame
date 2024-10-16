@@ -21,7 +21,7 @@ public:
     void updateInfo();
 
 private slots:
-    void CalculateCurrentDSF();
+    void CalculateCurrentDSF(bool enabled);
 
 private:
     void HideUniform();

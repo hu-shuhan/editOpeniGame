@@ -7,6 +7,7 @@
 #include "iGamePropertyTree.h"
 #include "iGameScalarsToColors.h"
 #include "iGameStreamingData.h"
+#include "iGameDeformationData.h"
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
@@ -28,8 +29,9 @@ public:
     virtual bool DeepCopy(Pointer o) { return true; }
 
     StreamingData::Pointer GetTimeFrames();
-    //	SmartPointer<StreamingData> GetTimeFrames();
+    DeformationData::Pointer GetDeformationData();
     void SetTimeFrames(StreamingData::Pointer p) { m_TimeFrames = p; }
+    void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
 
     void SetAttributeSet(AttributeSet::Pointer p) { m_Attributes = p; }
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
@@ -162,6 +164,7 @@ protected:
 
     DataObjectId m_UniqueId{};
     StreamingData::Pointer m_TimeFrames{};
+    DeformationData::Pointer m_DeformationData{};
     AttributeSet::Pointer m_Attributes{};
     Metadata::Pointer m_Metadata{};
     PropertyTree::Pointer m_Propertys{};

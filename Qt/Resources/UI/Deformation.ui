@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>631</width>
-    <height>241</height>
+    <height>487</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,1,0,0,0,0,1,1">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0,0,0,0,0,1">
    <item>
     <widget class="QLabel" name="ScaleLabel">
      <property name="text">
@@ -106,7 +106,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_nonuniform" stretch="0,1,0,1,0,1">
+    <layout class="QHBoxLayout" name="horizontalLayout_nonuniform" stretch="0,0,0,0,0,0">
      <item>
       <widget class="QLabel" name="label_x">
        <property name="text">
@@ -142,6 +142,44 @@
       <widget class="QLineEdit" name="lineEdit_Nonuniform_z"/>
      </item>
     </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,0,1">
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_exec">
+       <property name="text">
+        <string>应用</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>244</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>

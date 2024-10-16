@@ -308,12 +308,11 @@ void UnstructuredMesh::ConvertToDrawableData() {
         const auto& b = box.m_Bmax;
         extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
     }
-
+    extract->Merging = false;
     auto plane = m_Clipper->m_Plane;
     if (plane.m_Use) {
         extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip);
     }
-
     // shell algorithm
     SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
     if (extract->Execute(this, surfaceMesh)) {

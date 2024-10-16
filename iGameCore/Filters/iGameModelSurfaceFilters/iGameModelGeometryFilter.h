@@ -17,7 +17,7 @@ public:
 	/**
 	 * Standard methods for instantiation, type information, and printing.
 	 */
-	static iGameModelGeometryFilter* New() {
+	static iGameModelGeometryFilter::Pointer New() {
 		return new iGameModelGeometryFilter;
 	};
 	~iGameModelGeometryFilter();
@@ -108,6 +108,7 @@ protected:
 
 	bool RemoveGhostInterfaces;
 	//Point merging
+public:
 	bool Merging;
 
 	bool Delegation;

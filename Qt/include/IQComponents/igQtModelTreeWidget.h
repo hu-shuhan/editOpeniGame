@@ -307,12 +307,15 @@ protected:
                 emit ChangeCurrentModel(item->getModel());
             }
         }
-        else if((child = getChild(event->pos())) && child) {
-            int index = child->data(0, Qt::UserRole).toInt();
-            ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
-            if (parent) {
-                parent->getModel()->ViewCloudPicture(index);
-                Q_EMIT ViewCloudPicture();
+        else {
+            child = getChild(event->pos());
+            if(child) {
+                int index = child->data(0, Qt::UserRole).toInt();
+                ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
+                if (parent) {
+                    parent->getModel()->ViewCloudPicture(index);
+                    Q_EMIT ViewCloudPicture();
+                }
             }
         }
         if (call)

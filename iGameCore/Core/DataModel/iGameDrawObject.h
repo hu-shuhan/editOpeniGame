@@ -56,6 +56,7 @@ public:
     virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
+    FloatArray::Pointer GetRenderPoints(){return m_Positions;}
 private:
     static void SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
     static void SetColorBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
