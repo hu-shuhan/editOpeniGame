@@ -47,6 +47,8 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
                                        this);
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem,
                                       this);
+
+
 }
 iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
 
@@ -174,6 +176,8 @@ void AttribTreeWidgetItem::setDimension(int length) {
     for (int i = 0; i < length && i < 4; i++) {
         comboBox->addItem(QString::fromUtf8(NAME[i]));
     }
+    comboBox->setCurrentIndex(0);
+
 }
 
 igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent)
@@ -185,6 +189,16 @@ ModelTreeWidgetItem* igQtModelTreeWidget::getItem(const QPoint& p) const {
 QTreeWidgetItem* igQtModelTreeWidget::getChild(const QPoint& p) const {
     return dynamic_cast<QTreeWidgetItem*>(itemAt(p));
 }
+
+//void igQtModelTreeWidget::setCurrentModel(ModelTreeWidgetItem* item) {
+//    if (currentModel) { 
+//        auto* current = dynamic_cast<AttribTreeWidgetItem*>(
+//                currentModel->getCurrentChild());
+//        if (current) { current->hide(); }
+//        currentModel->setCurrentChild(nullptr);
+//    }
+//    currentModel = item;
+//}
 
 void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
     bool call = true;
@@ -214,6 +228,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
         if (current) { current->hide(); }
         item->setCurrentChild(nullptr);
+        //if (currentModel != item) { 
+        //    this->setCurrentModel(item);
+        //}
+
     } else if ((child = getChild(event->pos())) && child) {
         int index = child->data(0, Qt::UserRole).toInt();
         ModelTreeWidgetItem* parent =
@@ -229,6 +247,9 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             parent->setCurrentChild(child);
 
             int dim = c->currentIndex();
+            if (dim == -1) { 
+                dim = 0;
+            }
             parent->viewAttribute(index, dim - 1);
             Q_EMIT ViewCloudPicture();
         }

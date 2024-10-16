@@ -99,6 +99,8 @@ public:
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
     QTreeWidgetItem* getChild(const QPoint& p) const;
 
+    //void setCurrentModel(ModelTreeWidgetItem* item);
+
 protected:
     void mousePressEvent(QMouseEvent* event) override;
 
@@ -106,4 +108,6 @@ signals:
     void ChangeCurrentModel(iGame::Model* model);
     void ViewCloudPicture();
 
+private:
+    //ModelTreeWidgetItem* currentModel{nullptr};
 };

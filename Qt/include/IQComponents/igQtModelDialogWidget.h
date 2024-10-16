@@ -45,7 +45,7 @@ private:
     Model* currentModel;
 
 	igQtModelTreeWidget* modelTreeWidget;
-	QtTreePropertyBrowser* propertyTreeWidget;
+    QtTreePropertyBrowser* propertyWidget;
 
 	QtVariantPropertyManager* propertyManager;
 	QtVariantEditorFactory* editFactory;

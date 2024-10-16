@@ -100,7 +100,7 @@ public:
     MComboBox(AttribTreeWidgetItem* item, QWidget* parent = nullptr);
 
 private slots:
-    void onCurrentIndexChanged(int index);
+    void onItemActivated(int index);
 
 private:
     AttribTreeWidgetItem* item;
