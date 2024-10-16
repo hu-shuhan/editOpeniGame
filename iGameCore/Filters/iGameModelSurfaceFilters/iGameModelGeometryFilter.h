@@ -74,15 +74,17 @@ public:
 	SurfaceMesh::Pointer GetExtractMesh() { return this->output; }
 
 	void CompositeCellAttribute(std::vector<igIndex>& f2c, AttributeSet::Pointer inAllDataArray, AttributeSet::Pointer& outAllDataArray);
-    void CompositePointAttribute(igIndex* PointMap,IGsize oldPNum,IGsize newPNum,AttributeSet::Pointer inAllDataArray);
+	//这边直接对attributeset进行处理，不用再copy一个，因为传进去的已经是一个对cellattributeset处理过的对象
+	void CompositePointAttribute(igIndex* PointMap, IGsize oldPNum, IGsize newPNum, AttributeSet::Pointer outAllDataArray);
 
-	void SetPointClipping(bool _in) { this->PointClipping = _in; }
-	void SetCellClipping(bool _in) { this->CellClipping = _in; }
-	void SetExtentClipping(bool _in) { this->ExtentClipping = _in; }
-	void SetPlaneClipping(bool _in) { this->PlaneClipping = _in; }
-
+	void SetPointClipping(bool _b) { this->PointClipping = _b; }
+	void SetCellClipping(bool _b) { this->CellClipping = _b; }
+	void SetExtentClipping(bool _b) { this->ExtentClipping = _b; }
+	void SetPlaneClipping(bool _b) { this->PlaneClipping = _b; }
+	void SetPointMergin(bool _b) { this->Merging = _b; }
 
 	char* ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints, CellArray::Pointer Cells);
+
 protected:
 	iGameModelGeometryFilter();
 	//有时候在文件里会有标注表面信息，如果有则不需要这边运算，
@@ -101,17 +103,15 @@ protected:
 	bool CellClipping;
 	bool ExtentClipping;
 	bool PlaneClipping;
+
+	//maybe remain inside or outside, temporary not used.
 	bool ExtentClippingFlip;
 	bool PlaneClippingFlip;
 
-	int OutputPointsPrecision;
-
+	//maybe exist ghost data
 	bool RemoveGhostInterfaces;
 	//Point merging
 	bool Merging;
-
-	bool Delegation;
-
 
 private:
 };

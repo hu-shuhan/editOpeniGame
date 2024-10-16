@@ -28,15 +28,12 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 	this->CellClipping = false;
 	this->ExtentClipping = false;
 	this->PlaneClipping = false;
-	this->ExtentClippingFlip = false;
-	this->PlaneClippingFlip = false;
+
 
 	this->Merging = true;
 
 	this->RemoveGhostInterfaces = true;
 
-
-	this->Delegation = true;
 }
 iGameModelGeometryFilter::~iGameModelGeometryFilter()
 {
@@ -1646,57 +1643,55 @@ void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C,
 		outAllDataArray = AttributeSet::New();
 	}
 	igIndex i = 0;
-	auto inDataArrayNum = inAllDataArray->GetAllAttributes()->GetNumberOfElements();
-	std::vector<AttributeSet::Attribute> CellAttributes;
-	for (i = 0; i < inDataArrayNum; i++) {
-		if (inAllDataArray->GetAttribute(i).attachmentType == IG_CELL) {
-			CellAttributes.emplace_back(inAllDataArray->GetAttribute(i));
-		}
-		else {
-                outAllDataArray->AddAttribute(
-                        inAllDataArray->GetAttribute(i).type,
-                        inAllDataArray->GetAttribute(i).attachmentType,
-                        inAllDataArray->GetAttribute(i).pointer,
-                        inAllDataArray->GetAttribute(i).dataRange);
-		}
-	}
-	igIndex AttributeSize = CellAttributes.size();
-	iGameAtomicMutex tmpLock;
 	IGsize fcnt = F2C.size();
 	auto f2c = F2C.data();
-	for (int AttributeID = 0; AttributeID < AttributeSize; AttributeID++) {
-		auto& inData = CellAttributes[AttributeID].pointer;
-		auto newData = DoubleArray::New();
-		newData->SetDimension(inData->GetDimension());
-		newData->Resize(fcnt);
-		newData->SetName(inData->GetName());
-		auto func = [&](igIndex start, igIndex end) -> void {
-			double tmp[64];
-			for (igIndex i = start; i < end; i++) {
-				inData->GetElement(f2c[i], tmp);
-				newData->SetElement(i, tmp);
-			}
-		};
-		ThreadPool::parallelFor(0, fcnt, func);
-		std::lock_guard<iGameAtomicMutex> DataLock(tmpLock);
-		outAllDataArray->AddAttribute(CellAttributes[AttributeID].type, IG_CELL,
-			newData);
+	auto inDataArrayNum = inAllDataArray->GetAllAttributes()->GetNumberOfElements();
+	for (i = 0; i < inDataArrayNum; i++) {
+		auto& inData = inAllDataArray->GetAttribute(i).pointer;
+		ArrayObject::Pointer outData = inData;
+		if (inAllDataArray->GetAttribute(i).attachmentType == IG_CELL) {
+			auto newData = DoubleArray::New();
+			newData->SetDimension(inData->GetDimension());
+			newData->Resize(fcnt);
+			newData->SetName(inData->GetName());
+			auto func = [&](igIndex start, igIndex end) -> void {
+				double tmp[64];
+				for (igIndex i = start; i < end; i++) {
+					inData->GetElement(f2c[i], tmp);
+					newData->SetElement(i, tmp);
+				}
+			};
+			ThreadPool::parallelFor(0, fcnt, func);
+			outData = newData;
+			outAllDataArray->AddAttribute(
+				inAllDataArray->GetAttribute(i).type,
+				inAllDataArray->GetAttribute(i).attachmentType,
+				newData,
+				inAllDataArray->GetAttribute(i).dataRange);
+		}
+		else {
+			outAllDataArray->AddAttribute(
+				inAllDataArray->GetAttribute(i).type,
+				inAllDataArray->GetAttribute(i).attachmentType,
+				inAllDataArray->GetAttribute(i).pointer,
+				inAllDataArray->GetAttribute(i).dataRange);
+		}
+		
 	}
 }
 void iGameModelGeometryFilter::CompositePointAttribute(
         igIndex* PointMap, IGsize oldPNum,
-        IGsize newPNum, AttributeSet::Pointer inAllDataArray) {
+        IGsize newPNum, AttributeSet::Pointer outAllDataArray) {
     igIndex i = 0;
-    auto inDataArrayNum =inAllDataArray->GetAllAttributes()->GetNumberOfElements();
+    auto inDataArrayNum = outAllDataArray->GetAllAttributes()->GetNumberOfElements();
     for (i = 0; i < inDataArrayNum; i++) {
-        auto& inData = inAllDataArray->GetAttribute(i).pointer;
+        auto& inData = outAllDataArray->GetAttribute(i).pointer;
         ArrayObject::Pointer outData =inData;
-        if (inAllDataArray->GetAttribute(i).attachmentType == IG_POINT) {
+        if (outAllDataArray->GetAttribute(i).attachmentType == IG_POINT) {
                 auto newData = DoubleArray::New();
                 newData->SetDimension(inData->GetDimension());
                 newData->Resize(newPNum);
                 newData->SetName(inData->GetName());
-
 			    auto func = [&](igIndex start, igIndex end) -> void {
                  double tmp[64];
                 for (igIndex i = start; i < end; i++) {
@@ -1709,8 +1704,7 @@ void iGameModelGeometryFilter::CompositePointAttribute(
                 ThreadPool::parallelFor(0, oldPNum, func);
 				outData=newData;
         } 
-		inAllDataArray->GetAttribute(i).pointer=outData;
+		outAllDataArray->GetAttribute(i).pointer=outData;
     }
-
 }
 IGAME_NAMESPACE_END
