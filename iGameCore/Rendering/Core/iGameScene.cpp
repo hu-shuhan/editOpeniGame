@@ -79,6 +79,7 @@ void Scene::RemoveCurrentModel() {
         m_VisibleModelsCount--;
     }
 
+    m_CurrentModel->GetDataObject()->InvokeEvent(Command::DeleteEvent);
     m_Models.erase(m_CurrentModelId);
     if (m_Models.empty()) {
         m_CurrentModelId = -1;

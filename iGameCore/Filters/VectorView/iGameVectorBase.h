@@ -36,9 +36,11 @@ private:
 
 public:
     void SetArrow(float _hR, float _hL, float _tR, float _tL);
+    void SetInit(bool init);
     void DrawVector(std::string VecName);
     void convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB);
     //void Draw(Scene*) override;
+    void ComputeBoundingBox()override;
     void ConvertToDrawableData() override;
     std::vector<float> Vector;
 };

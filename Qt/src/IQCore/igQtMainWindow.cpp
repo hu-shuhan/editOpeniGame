@@ -985,37 +985,43 @@ void igQtMainWindow::initAllFilters() {
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->sh
-	//  ow();
-	//	});
-	connect(ui->action_IsShowColorBar, &QAction::triggered, this,
-		&igQtMainWindow::updateColorBarShow);
-	connect(ui->action_ExportAnimation, &QAction::triggered, this,
-		[&](bool checked) { ui->dockWidget_Animation->show(); });
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->sh
+    //  ow();
+    //	});
+    connect(ui->action_IsShowColorBar, &QAction::triggered, this,
+            &igQtMainWindow::updateColorBarShow);
+    connect(ui->action_ExportAnimation, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_Animation->show(); });
+    connect(ui->action_Scalar, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_ScalarField->show(); });
+    connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_VectorField->show();
+        ui->widget_VectorField->updateVectorNameList();
+    });
 	connect(ui->action_Scalar, &QAction::triggered, this,
 		[&](bool checked) { ui->dockWidget_ScalarField->show(); });
-	connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
+	connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
 		ui->dockWidget_VectorField->show();
 		ui->widget_VectorField->updateVectorNameList();
 		});
-	connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_TensorField->show();
-		ui->widget_TensorField->UpdateScalarsNameList();
-		ui->widget_TensorField->UpdateTensorsNameList();
-		});
-	connect(ui->action_FlowField, &QAction::triggered, this,
-		[&](bool checked) { ui->dockWidget_FlowField->show(); });
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->show();
-	//	});
-	//  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
-	//  {
-	//	ui->dockWidget_EditMode->show();
-	//	});
-	//  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
-	//  checked) { 	ui->dockWidget_QualityDetection->show();
-	//	});
+    connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_TensorField->show();
+        ui->widget_TensorField->UpdateScalarsNameList();
+        ui->widget_TensorField->UpdateTensorsNameList();
+    });
+    connect(ui->action_FlowField, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_FlowField->show(); });
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->show();
+    //	});
+    //  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
+    //  {
+    //	ui->dockWidget_EditMode->show();
+    //	});
+    //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
+    //  checked) { 	ui->dockWidget_QualityDetection->show();
+    //	});
 
 	auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
 		Painter3D* painter,
