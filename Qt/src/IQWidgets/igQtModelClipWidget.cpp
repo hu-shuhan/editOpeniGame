@@ -10,15 +10,14 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 
     m_Generated = false;
     m_Clipper = iGame::ModelClip::New();
-    connect(ui->pushButton, &QPushButton::clicked, this,
-            [&]() {
-                this->UpdatePlane();
-                this->ClipModel();
-            });
-    connect(ui->radioButton_Slice, &QRadioButton::toggled, this, [&](bool isChecked) {
-        this->SetIsSlice(ui->radioButton_Slice->isChecked());
-
+    connect(ui->pushButton, &QPushButton::clicked, this, [&]() {
+        this->UpdatePlane();
+        this->ClipModel();
     });
+    connect(ui->radioButton_Slice, &QRadioButton::toggled, this,
+            [&](bool isChecked) {
+                this->SetIsSlice(ui->radioButton_Slice->isChecked());
+            });
     ui->radioButton_Slice->setChecked(true);
 }
 
@@ -65,6 +64,9 @@ void igQtModelClipWidget::ClipModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
     auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
+
+    std::cout << oldAttributeIndex << std::endl;
+    std::cout << oldAttributeDimension << std::endl << std::endl;
 
     m_ResultMesh->ClearSubDataObject();
     // recover attribute
