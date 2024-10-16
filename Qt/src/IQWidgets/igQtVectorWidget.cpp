@@ -2,6 +2,12 @@
 igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui::igVector) {
     ui->setupUi(this);
     m_VectorBase = iGame::iGameVectorBase::New();
+    m_VectorBase->AddObserver(iGame::Command::DeleteEvent, [&]() -> void { 
+        std::cout << "123\n";
+        isDraw = false;
+        m_VectorBase->SetInit(false);
+        });
+    
     headRadiusP = 1;
     ui->headRSlider->setValue(100);
     headLengthP = 1;
@@ -35,6 +41,7 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 
 }
 void igQtVectorWidget::drawV() {
+    
     m_VectorBase->SetArrow(headRadius*headRadiusP,headLength*headLengthP,tailRadius*tailRadiusP,tailLength*tailLengthP);
     m_VectorBase->DrawVector(vecName);
     if (!isDraw) {
@@ -102,7 +109,8 @@ void igQtVectorWidget::updateVectorNameList() {
     if (!AttributeSet) return;
     AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = AttributeSet->GetAllAttributes();
-    if (!allAttributes) return;
+    if (!allAttributes) return; 
+
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
         auto attribute = allAttributes->GetElement(i);
        // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {

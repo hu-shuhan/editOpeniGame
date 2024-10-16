@@ -112,16 +112,18 @@ public:
             const auto& grad_y = gradient_2[idx];
             const auto& grad_z = gradient_3[idx];
 
+            //float omega_x = grad_x[0];
             float omega_x = grad_z[1] - grad_y[2]; // ∂vz/∂y - ∂vy/∂z
             float omega_y = grad_x[2] - grad_z[0]; // ∂vx/∂z - ∂vz/∂x
             float omega_z = grad_y[0] - grad_x[1]; // ∂vy/∂x - ∂vx/∂y
 
             auto scalar = sqrt(omega_x * omega_x + omega_y * omega_y +
                                omega_z * omega_z);
-
-            //            vorticities->AddElement3(omega_x, omega_y, omega_z);
-            vorticities->AddElement3(omega_x / scalar, omega_y / scalar,
-                                     omega_z / scalar);
+            if (scalar > 1e-6) {
+                vorticities->AddElement3(omega_x / scalar, omega_y / scalar,
+                                         omega_z / scalar);
+            } else
+                vorticities->AddElement3(0, 0, 0);
         }
 
         return true;
@@ -170,89 +172,91 @@ public:
                                omega_z * omega_z);
 
             //            vorticities->AddElement3(omega_x, omega_y, omega_z);
-            vorticities->AddElement3(omega_x / scalar, omega_y / scalar,
-                                     omega_z / scalar);
+            if (scalar > 1e-6) {
+                vorticities->AddElement3(omega_x / scalar, omega_y / scalar,
+                                         omega_z / scalar);
+            } else
+                vorticities->AddElement3(0, 0, 0);
+            //if (type == 0) {
+            //    auto arr = surface_Mesh->GetMetadata()->GetStringArray(
+            //            ATTRIBUTE_NAME_ARRAY);
+            //    arr->AddElement("vorticities");
+            //} else if (type == 1) {
+            //    auto arr = volume_Mesh->GetMetadata()->GetStringArray(
+            //            ATTRIBUTE_NAME_ARRAY);
+            //    arr->AddElement("vorticities");
+            //}
+            return true;
         }
-        //if (type == 0) {
-        //    auto arr = surface_Mesh->GetMetadata()->GetStringArray(
-        //            ATTRIBUTE_NAME_ARRAY);
-        //    arr->AddElement("vorticities");
-        //} else if (type == 1) {
-        //    auto arr = volume_Mesh->GetMetadata()->GetStringArray(
-        //            ATTRIBUTE_NAME_ARRAY);
-        //    arr->AddElement("vorticities");
-        //}
-        return true;
+
+        //    bool GetPointVortex_ivd(int type, Points::Pointer Points, int PointNum){
+        //
+        //        PropertySet* m_PropertySet;
+        //        if (type == 0 )
+        //            m_PropertySet = surface_Mesh->GetPropertySet();
+        //        else if ( type == 1 )
+        //            m_PropertySet = volume_Mesh->GetPropertySet();
+        //
+        //        auto data = m_PropertySet->GetProperty(1).pointer;
+        //        int dimension = data->GetElementSize();
+        //        if(dimension != 3)
+        //            return false;
+        //
+        //        std::cout << "[Debug  ] " << "compute vortex" << '\n';
+        //
+        //        FloatArray::Pointer vorticities_ivd = FloatArray::New();
+        //        vorticities_ivd->SetElementSize(3);
+        //        vorticities_ivd->Reserve(PointNum);
+        //        m_PropertySet->AddScalar(IG_POINT,vorticities_ivd);
+        //
+        //        std::vector<std::array<float, 3>> vorticity(PointNum, {0.0f, 0.0f, 0.0f});
+        //        std::vector scalar(PointNum,0.0f);
+        //
+        //        // 计算涡旋
+        //        for (igIndex idx = 0; idx < PointNum; ++idx) {
+        //            auto v1 = Points->GetPoint(idx);
+        //            vorticity[idx][0] = data->GetValue(dimension * idx + 1) - data->GetValue(dimension * idx + 2);
+        //            vorticity[idx][1] = data->GetValue(dimension * idx + 2) - data->GetValue(dimension * idx);
+        //            vorticity[idx][0] = data->GetValue(dimension * idx) - data->GetValue(dimension * idx + 1);
+        //            scalar[idx] = sqrt(vorticity[idx][0] * vorticity[idx][0] + vorticity[idx][1] * vorticity[idx][1]+vorticity[idx][2]*vorticity[idx][2]);
+        //        }
+        //
+        //        // ivd
+        //        float max_scalar = *std::max_element(scalar.begin(), scalar.end());
+        //        float min_scalar = *std::min_element(scalar.begin(), scalar.end());
+        //        std::vector<float> normalized_scalar(scalar.size());
+        //        float total_ivd = 0.0f, ivd = 0.0f;
+        //        for (size_t i = 0; i < scalar.size(); ++i) {
+        //            if (max_scalar - min_scalar != 0) {
+        //                normalized_scalar[i] = (scalar[i] - min_scalar) / (max_scalar - min_scalar);
+        //                total_ivd+= normalized_scalar[i];
+        //            } else {
+        //                normalized_scalar[i] = 0.0;
+        //            }
+        //        }
+        //        if(total_ivd>0)
+        //            ivd = total_ivd / scalar.size();
+        //
+        //        for (igIndex idx = 0; idx < PointNum; idx++) {
+        //            if ( (abs(normalized_scalar[idx]) - ivd) >= 0.00 )
+        //                vorticities_ivd->AddElement3(vorticity[idx][0],vorticity[idx][1],vorticity[idx][2]);
+        //            else vorticities_ivd->AddElement3(0,0,0);
+        //        }
+        //
+        //        if (type == 0 ) {
+        //            auto arr = surface_Mesh->GetMetadata()->GetStringArray(ATTRIBUTE_NAME_ARRAY);
+        //            arr->AddElement("vorticities_ivd");
+        //        } else if ( type == 1 )
+        //        {
+        //            auto arr = volume_Mesh->GetMetadata()->GetStringArray(ATTRIBUTE_NAME_ARRAY);
+        //            arr->AddElement("vorticities_ivd");
+        //        }
+        //
+        //        return true;
+        //    }
     }
-
-    //    bool GetPointVortex_ivd(int type, Points::Pointer Points, int PointNum){
-    //
-    //        PropertySet* m_PropertySet;
-    //        if (type == 0 )
-    //            m_PropertySet = surface_Mesh->GetPropertySet();
-    //        else if ( type == 1 )
-    //            m_PropertySet = volume_Mesh->GetPropertySet();
-    //
-    //        auto data = m_PropertySet->GetProperty(1).pointer;
-    //        int dimension = data->GetElementSize();
-    //        if(dimension != 3)
-    //            return false;
-    //
-    //        std::cout << "[Debug  ] " << "compute vortex" << '\n';
-    //
-    //        FloatArray::Pointer vorticities_ivd = FloatArray::New();
-    //        vorticities_ivd->SetElementSize(3);
-    //        vorticities_ivd->Reserve(PointNum);
-    //        m_PropertySet->AddScalar(IG_POINT,vorticities_ivd);
-    //
-    //        std::vector<std::array<float, 3>> vorticity(PointNum, {0.0f, 0.0f, 0.0f});
-    //        std::vector scalar(PointNum,0.0f);
-    //
-    //        // 计算涡旋
-    //        for (igIndex idx = 0; idx < PointNum; ++idx) {
-    //            auto v1 = Points->GetPoint(idx);
-    //            vorticity[idx][0] = data->GetValue(dimension * idx + 1) - data->GetValue(dimension * idx + 2);
-    //            vorticity[idx][1] = data->GetValue(dimension * idx + 2) - data->GetValue(dimension * idx);
-    //            vorticity[idx][0] = data->GetValue(dimension * idx) - data->GetValue(dimension * idx + 1);
-    //            scalar[idx] = sqrt(vorticity[idx][0] * vorticity[idx][0] + vorticity[idx][1] * vorticity[idx][1]+vorticity[idx][2]*vorticity[idx][2]);
-    //        }
-    //
-    //        // ivd
-    //        float max_scalar = *std::max_element(scalar.begin(), scalar.end());
-    //        float min_scalar = *std::min_element(scalar.begin(), scalar.end());
-    //        std::vector<float> normalized_scalar(scalar.size());
-    //        float total_ivd = 0.0f, ivd = 0.0f;
-    //        for (size_t i = 0; i < scalar.size(); ++i) {
-    //            if (max_scalar - min_scalar != 0) {
-    //                normalized_scalar[i] = (scalar[i] - min_scalar) / (max_scalar - min_scalar);
-    //                total_ivd+= normalized_scalar[i];
-    //            } else {
-    //                normalized_scalar[i] = 0.0;
-    //            }
-    //        }
-    //        if(total_ivd>0)
-    //            ivd = total_ivd / scalar.size();
-    //
-    //        for (igIndex idx = 0; idx < PointNum; idx++) {
-    //            if ( (abs(normalized_scalar[idx]) - ivd) >= 0.00 )
-    //                vorticities_ivd->AddElement3(vorticity[idx][0],vorticity[idx][1],vorticity[idx][2]);
-    //            else vorticities_ivd->AddElement3(0,0,0);
-    //        }
-    //
-    //        if (type == 0 ) {
-    //            auto arr = surface_Mesh->GetMetadata()->GetStringArray(ATTRIBUTE_NAME_ARRAY);
-    //            arr->AddElement("vorticities_ivd");
-    //        } else if ( type == 1 )
-    //        {
-    //            auto arr = volume_Mesh->GetMetadata()->GetStringArray(ATTRIBUTE_NAME_ARRAY);
-    //            arr->AddElement("vorticities_ivd");
-    //        }
-    //
-    //        return true;
-    //    }
-
-    std::vector<std::array<float, 3>>
-    GetPointGradient(int type, Points::Pointer Points, int PointNum, int dim) {
+    std::vector<std::array<float, 3>> GetPointGradient(
+            int type, Points::Pointer Points, int PointNum, int dim) {
 
         AttributeSet* attributeSet;
         if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
@@ -263,7 +267,7 @@ public:
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(PointNum,
-                                                   {0.0f, 0.0f, 0.0f});
+                                                    {0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[64]{};
@@ -310,7 +314,7 @@ public:
         return gradient;
     }
 
-    std::array<float, 3> GetPosition_volume(Volume* v, int num) {
+    std::array<float, 3> GetPosition_volume(Volume * v, int num) {
         std::array<float, 3> position = {0.0f, 0.0f, 0.0f};
         for (igIndex idx = 0; idx < num; idx++) {
             position[0] += v->GetPoint(idx)[0];
@@ -323,7 +327,7 @@ public:
         }
         return position;
     }
-    std::array<float, 3> GetPosition_face(Face* f, int num) {
+    std::array<float, 3> GetPosition_face(Face * f, int num) {
         std::array<float, 3> position = {0.0f, 0.0f, 0.0f};
         for (igIndex idx = 0; idx < num; idx++) {
             position[0] += f->GetPoint(idx)[0];
@@ -338,7 +342,7 @@ public:
     }
 
     std::vector<std::array<float, 3>> GetOtherGradient(int type, int Num,
-                                                       int dim) {
+                                                        int dim) {
         AttributeSet* attributeSet;
         if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
         else if (type == 1)
@@ -358,13 +362,14 @@ public:
             // 获取邻接顶点
             if (type == 1)
                 // neighbors:volumeIds
-                NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
-                        idx, neighbors);
+                NeighborNum =
+                        volume_Mesh->GetVolumeToNeighborVolumesWithFace(
+                                idx, neighbors);
 
             else if (type == 0)
                 // neighbors:faceIds
-                NeighborNum =
-                        surface_Mesh->GetFaceToNeighborFaces(idx, neighbors);
+                NeighborNum = surface_Mesh->GetFaceToNeighborFaces(
+                        idx, neighbors);
 
             for (int m = 0; m < NeighborNum; m++) {
                 float x, y, z;
@@ -400,8 +405,9 @@ public:
                     z = v1_position[2] - v2_position[2];
                 }
                 // 标量计算时就算是三维数据也默认取第一维
-                double value = data->GetValue(idx * dimension + dim) -
-                               data->GetValue(neighbors[m] * dimension + dim);
+                double value =
+                        data->GetValue(idx * dimension + dim) -
+                        data->GetValue(neighbors[m] * dimension + dim);
 
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
                 sumWeights[idx] += weight;

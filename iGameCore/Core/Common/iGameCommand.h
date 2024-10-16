@@ -8,6 +8,7 @@ IGAME_NAMESPACE_BEGIN
 
 #define iGameAllEventsMacro()    \
     add_event(ModifiedEvent)     \
+    add_event(DeleteEvent)       \
     add_event(BeginEvent)        \
     add_event(EndEvent)          \
     add_event(UpdateEvent)       \
