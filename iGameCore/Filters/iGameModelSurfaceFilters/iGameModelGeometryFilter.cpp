@@ -28,15 +28,14 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 	this->CellClipping = false;
 	this->ExtentClipping = false;
 	this->PlaneClipping = false;
-	this->ExtentClippingFlip = false;
-	this->PlaneClippingFlip = false;
 
-	this->Merging = false;
+
+	this->Merging = true;
 
 	this->RemoveGhostInterfaces = true;
 
+	this->m_PointMap=nullptr;
 
-	this->Delegation = true;
 }
 iGameModelGeometryFilter::~iGameModelGeometryFilter()
 {
@@ -139,7 +138,7 @@ bool iGameModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::P
 	case IG_NONE:
 		return true;
 	case IG_VOLUME_MESH:
-	return this->ExecuteWithVolumeMesh(input, output, excFaces);
+		return this->ExecuteWithVolumeMesh(input, output, excFaces);
 	case IG_SURFACE_MESH:
 		return this->ExecuteWithSurfaceMesh(input, output, excFaces);
 	case IG_UNSTRUCTURED_MESH:
@@ -222,9 +221,7 @@ public:
 	bool operator!=(const GFace& other) const { return !(*this == other); }
 };
 
-/**
- * A subclass of GFace to define Faces with a static number of points
- */
+
 template<int Fcnt>
 class StaticFace : public GFace {
 private:
@@ -241,13 +238,11 @@ public:
 	inline static constexpr int GetSize() { return Fcnt; }
 
 	void Initialize(const igIndex* pointIds) {
-		// find the index to the smallest id
 		int offset = 0;
 		int index;
 		for (index = 1; index < Fcnt; ++index) {
 			if (pointIds[index] < pointIds[offset]) { offset = index; }
 		}
-		// copy ids into ordered array with the smallest id first
 		for (index = 0; index < Fcnt; ++index) {
 			this->PointIds[index] =
 				static_cast<igIndex>(pointIds[(offset + index) % Fcnt]);
@@ -255,9 +250,6 @@ public:
 	}
 };
 
-/**
- * A subclass of GFace to define Faces with a dynamic number of points
- */
 class DynamicFace : public GFace {
 private:
 	std::vector<igIndex> PointIdsContainer;
@@ -361,7 +353,7 @@ public:
 	}
 
 	GFace* Allocate(const int& numberOfPoints) {
-		// see if there's room for this one
+
 		const int polySize = SizeofFace(numberOfPoints);
 		//std::cout << this->NextArrayIndex << " " << this->NextFaceIndex << '\n';
 		if (this->NextFaceIndex + polySize > this->ArrayLength) {
@@ -369,7 +361,6 @@ public:
 			this->NextFaceIndex = 0;
 		}
 
-		// Although this should not happen often, check first.
 		if (this->NextArrayIndex >= this->NumberOfArrays) {
 			int idx, num;
 			unsigned char** newArrays;
@@ -385,8 +376,7 @@ public:
 			this->Arrays = newArrays;
 			this->NumberOfArrays = num;
 		}
-
-		// Next: allocate a new array if necessary.
+		//如果还没有就生成一个新的
 		if (this->Arrays[this->NextArrayIndex] == nullptr) {
 			this->Arrays[this->NextArrayIndex] =
 				new unsigned char[this->ArrayLength];
@@ -398,8 +388,7 @@ public:
 
 		static constexpr int fSize = sizeof(GFace);
 		static constexpr int sizeId = sizeof(igIndex);
-		// If necessary, we create padding after TFace such that
-		// the beginning of ids aligns evenly with sizeof(TInputIdType).
+		//字节对齐
 		if (fSize % sizeId == 0) {
 			Face->PointIds = (igIndex*)Face + fSize / sizeId;
 		}
@@ -415,7 +404,6 @@ public:
 class CellArrayType {
 private:
 	igIndex* PointMap;
-	//vtkStaticCellLinksTemplate<igIndex>* ExcFaces;
 	const unsigned char* PointGhost;
 
 public:
@@ -430,9 +418,7 @@ public:
 		this->PointGhost = pointGhost;
 	}
 	void SetPointMap(igIndex* ptMap) { this->PointMap = ptMap; }
-	//void SetExcludedFaces(vtkStaticCellLinksTemplate<TInputIdType>* exc) {
-	//    this->ExcFaces = exc;
-	//}
+
 	igIndex GetNumberOfCells() {
 		return static_cast<igIndex>(this->OrigCellIds.size());
 	}
@@ -557,14 +543,10 @@ public:
 
 
 struct ExtractCellBoundaries {
-	// If point merging is specified, then a point map is created.
-	igIndex* PointMap;
-
-	// Cell visibility and cell ghost levels
+	igIndex* PointMap = nullptr;
 	const char* CellVis;
 	const unsigned char* CellGhosts;
 	const unsigned char* PointGhost;
-	// Thread-related output data
 
 	igIndex PolysNumPts, PolysNumCells;
 	igIndex PolysCellIdOffset;
@@ -574,12 +556,12 @@ struct ExtractCellBoundaries {
 
 
 	ExtractCellBoundaries(const char* cellVis, const unsigned char* cellGhosts,
-		const unsigned char* pointGhost )
+		const unsigned char* pointGhost)
 		: PointMap(nullptr), CellVis(cellVis), CellGhosts(cellGhosts),
-		PointGhost(pointGhost){
+		PointGhost(pointGhost) {
 	}
 
-	virtual ~ExtractCellBoundaries() { delete[] this->PointMap; }
+	virtual ~ExtractCellBoundaries() {  }
 
 	// If point merging is needed, create the point map (map from old points
 	// to new points).
@@ -589,39 +571,37 @@ struct ExtractCellBoundaries {
 	}
 
 	void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints,
-                        Points::Pointer newPoints) {
-        auto ids = Polygons->GetCellIdArray()->RawPointer();
-        IGsize num = Polygons->GetCellIdArray()->GetNumberOfIds();
-		igIndex id=0;
-        igIndex oldId = 0;
-        igIndex newId = 0;
+		Points::Pointer newPoints) {
+		auto ids = Polygons->GetCellIdArray()->RawPointer();
+		IGsize num = Polygons->GetCellIdArray()->GetNumberOfIds();
+		igIndex id = 0;
+		igIndex oldId = 0;
+		igIndex newId = 0;
 		Point p;
-        for (IGsize i = 0; i < num; i++) { 
+		for (IGsize i = 0; i < num; i++) {
 			oldId = ids[i];
 			if (this->PointMap[oldId] == -1) {
-                //p = oldPoints->GetPoint(oldId);
-                //newPoints->AddPoint(p);
-				this->PointMap[oldId]=newId++;
+				//p = oldPoints->GetPoint(oldId);
+				//newPoints->AddPoint(p);
+				this->PointMap[oldId] = newId++;
 			}
 		}
-        for (IGsize i = 0; i < num; i++) {
-            oldId = ids[i];
+		for (IGsize i = 0; i < num; i++) {
+			oldId = ids[i];
 			ids[i] = this->PointMap[oldId];
 		}
-        newPoints->Resize(newId);
+		newPoints->Resize(newId);
 		auto pNum = oldPoints->GetNumberOfPoints();
 		for (IGsize i = 0; i < pNum; i++) {
-            if (this->PointMap[i] != -1) {
-                newPoints->SetPoint(PointMap[i],oldPoints->GetPoint(i));
+			if (this->PointMap[i] != -1) {
+				newPoints->SetPoint(PointMap[i], oldPoints->GetPoint(i));
+			}
 		}
-		}
-
 	}
 
 	igIndex* GetPointMap() {
 		return this->PointMap;
 	}
-	// Initialize thread data
 	virtual void Initialize() {}
 
 
@@ -639,8 +619,8 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input,
 	igIndex64 numCells = Grid->GetNumberOfFaces();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
-    auto outPoints = inPoints;
+	auto inPoints = Grid->GetPoints();
+	auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -796,9 +776,9 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId,
 		}
 	}
 
-} 
+}
 struct ExtractVM : public ExtractCellBoundaries {
-	// The unstructured grid to process
+	// Process unstructured grid 
 	VolumeMesh::Pointer Grid;
 	std::shared_ptr<FaceHashMap> FaceMap;
 	bool RemoveGhostInterFaces;
@@ -814,7 +794,6 @@ struct ExtractVM : public ExtractCellBoundaries {
 		this->Initialize();
 	}
 
-	// Initialize thread data
 	void Initialize() override {
 		this->ExtractCellBoundaries::Initialize();
 	}
@@ -855,8 +834,8 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 	igIndex64 numCells = Grid->GetNumberOfVolumes();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
-    auto outPoints = inPoints;
+	auto inPoints = Grid->GetPoints();
+	auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -883,15 +862,13 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
 
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
-    if (Merging) {
-        outPoints = Points::New();
-        extract->UpdatePointMap(Polygons, inPoints, outPoints);
-        CompositePointAttribute(extract->GetPointMap(),
-                                inPoints->GetNumberOfPoints(),
-                                outPoints->GetNumberOfPoints(),
-			                    outAllDataArray);
-    }
-    output->SetPoints(outPoints);
+	if (Merging) {
+		ProcessPointMergin(extract,inPoints,outPoints,Polygons,outAllDataArray);
+	}
+	else {
+		m_PointMap=nullptr;
+	}
+	output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
 
@@ -944,9 +921,6 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
 		//break;
 
 		//case IG_PIXEL:
-		//    // pixelConvert (in the following loop) is an int[4]. GCC 5.1.1
-		//    // warns about pixelConvert[4] being uninitialized due to loop
-		//    // unrolling -- forcibly restricting npts <= 4 prevents this warning.
 		//    ptIds[0] = pts[pixelConvert[0]];
 		//    ptIds[1] = pts[pixelConvert[1]];
 		//    ptIds[2] = pts[pixelConvert[2]];
@@ -964,17 +938,6 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
 		}
 		break;
 
-		//case IG_VOXEL:
-		//    for (FaceId = 0; FaceId < 6; FaceId++) {
-		//        FaceVerts = vtkVoxel::GeTFaceArray(FaceId);
-		//        ptIds[0] = pts[FaceVerts[pixelConvert[0]]];
-		//        ptIds[1] = pts[FaceVerts[pixelConvert[1]]];
-		//        ptIds[2] = pts[FaceVerts[pixelConvert[2]]];
-		//        ptIds[3] = pts[FaceVerts[pixelConvert[3]]];
-		//        FaceMap->Insert(Quad<TInputIdType>(cellId, ptIds, isGhost),
-		//                        localData->FacePool);
-		//    }
-		//    break;
 
 	case IG_HEXAHEDRON:
 		for (FaceId = 0; FaceId < 6; FaceId++) {
@@ -1021,44 +984,7 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
 		}
 		break;
 
-		//case IG_HEXAGONAL_PRISM:
-		//    for (FaceId = 0; FaceId < 8; FaceId++) {
-		//        FaceVerts = vtkHexagonalPrism::GeTFaceArray(FaceId);
-		//        ptIds[0] = pts[FaceVerts[0]];
-		//        ptIds[1] = pts[FaceVerts[1]];
-		//        ptIds[2] = pts[FaceVerts[2]];
-		//        ptIds[3] = pts[FaceVerts[3]];
-		//        if (FaceVerts[4] < 0) {
-		//            FaceMap->Insert(Quad<TInputIdType>(cellId, ptIds, isGhost),
-		//                            localData->FacePool);
-		//        } else {
-		//            ptIds[4] = pts[FaceVerts[4]];
-		//            ptIds[5] = pts[FaceVerts[5]];
-		//            FaceMap->Insert(
-		//                    Hexagon<TInputIdType>(cellId, ptIds, isGhost),
-		//                    localData->FacePool);
-		//        }
-		//    }
-		//    break;
 
-		//case IG_PENTAGONAL_PRISM:
-		//    for (FaceId = 0; FaceId < 7; FaceId++) {
-		//        FaceVerts = vtkPentagonalPrism::GeTFaceArray(FaceId);
-		//        ptIds[0] = pts[FaceVerts[0]];
-		//        ptIds[1] = pts[FaceVerts[1]];
-		//        ptIds[2] = pts[FaceVerts[2]];
-		//        ptIds[3] = pts[FaceVerts[3]];
-		//        if (FaceVerts[4] < 0) {
-		//            FaceMap->Insert(Quad<TInputIdType>(cellId, ptIds, isGhost),
-		//                            localData->FacePool);
-		//        } else {
-		//            ptIds[4] = pts[FaceVerts[4]];
-		//            FaceMap->Insert(
-		//                    Pentagon<TInputIdType>(cellId, ptIds, isGhost),
-		//                    localData->FacePool);
-		//        }
-		//    }
-		//    break;
 
 	case IG_POLYHEDRON: {
 		input->GetCellPointIds(cellId, Ids);
@@ -1207,15 +1133,14 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
 					FaceMap->Insert(GPolygon(cellId, FaceVcnt, Face->PointIds->RawPointer(), isGhost), FacePool);
 					break;
 				}
-			} // for all cell Faces
-		}     // if 3D
+			}
+		}
 		else {
 			igDebug("Unknown cell type.");
 		}
-	} // switch
-} // ExtractCellGeometry()
+	}
+}
 struct ExtractUG : public ExtractCellBoundaries {
-	// The unstructured grid to process
 	UnstructuredMesh::Pointer Grid;
 	std::shared_ptr<FaceHashMap> FaceMap;
 	bool RemoveGhostInterFaces;
@@ -1289,8 +1214,8 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	igIndex64 numCells = Grid->GetNumberOfCells();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
-    auto outPoints = inPoints;
+	auto inPoints = Grid->GetPoints();
+	auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	StringArray::Pointer attrbNameArray = StringArray::New();
@@ -1314,14 +1239,13 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
 
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
-    if (Merging) {
-        outPoints = Points::New();
-        extract->UpdatePointMap(Polygons, inPoints, outPoints);
-        CompositePointAttribute(
-                extract->GetPointMap(), inPoints->GetNumberOfPoints(),
-                outPoints->GetNumberOfPoints(), outAllDataArray);
-    }
-    output->SetPoints(outPoints);
+	if (Merging) {
+		ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
+	}
+	else {
+		m_PointMap = nullptr;
+	}
+	output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
 
@@ -1342,7 +1266,6 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 
 
 struct ExtractSG : public ExtractCellBoundaries {
-	// The unstructured grid to process
 	StructuredMesh::Pointer Grid;
 	bool RemoveGhostInterFaces;
 	CellArray::Pointer Quads;
@@ -1367,9 +1290,7 @@ struct ExtractSG : public ExtractCellBoundaries {
 		std::vector<igIndex> temp;
 		f2c.swap(temp);
 	}
-	// Initialize thread data
 	void Initialize() override {
-
 		this->ExtractCellBoundaries::Initialize();
 	}
 
@@ -1518,8 +1439,8 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
 	igIndex64 numCells = Grid->GetNumberOfCells();
 	igIndex64 numInputPts = Grid->GetNumberOfPoints();
 	igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
-    auto outPoints = inPoints;
+	auto inPoints = Grid->GetPoints();
+	auto outPoints = inPoints;
 	auto inAllDataArray = input->GetAttributeSet();
 	auto outAllDataArray = AttributeSet::New();
 	CellArray::Pointer Polygons = CellArray::New();
@@ -1540,13 +1461,12 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
 
 
 	CompositeCellAttribute(extract->f2c, inAllDataArray, outAllDataArray);
-    if (Merging) {
-        outPoints = Points::New();
-        extract->UpdatePointMap(Polygons, inPoints, outPoints);
-        CompositePointAttribute(
-                extract->GetPointMap(), inPoints->GetNumberOfPoints(),
-                outPoints->GetNumberOfPoints(), outAllDataArray);
-    }
+	if (Merging) {
+		ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
+	}
+	else {
+		m_PointMap = nullptr;
+	}
 	output->SetPoints(outPoints);
 	output->SetFaces(Polygons);
 	output->SetAttributeSet(outAllDataArray);
@@ -1565,10 +1485,8 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
 
 char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints, CellArray::Pointer Cells)
 {
-
 	IGsize numCells = Cells ? Cells->GetNumberOfCells() : 0;
 	char* CellVisible = nullptr;
-	// Determine nature of what we have to do
 	if ((!CellClipping) && (!PointClipping) && (!ExtentClipping) && (!PlaneClipping)) {
 		return nullptr;
 	}
@@ -1616,10 +1534,10 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& Cell
 						CellVisible[cellId] = 0;
 						break;
 					}
-					else if (PlaneClipping && !PlaneClippingFlip &&(/*dot product*/
+					else if (PlaneClipping && !PlaneClippingFlip && (/*dot product*/
 						((x[0] - PlaneOrigin[0]) * PlaneNormal[0]
-						+ (x[1] - PlaneOrigin[1]) * PlaneNormal[1]
-						+ (x[2] - PlaneOrigin[2]) * PlaneNormal[2]) > 0.
+							+ (x[1] - PlaneOrigin[1]) * PlaneNormal[1]
+							+ (x[2] - PlaneOrigin[2]) * PlaneNormal[2]) > 0.
 						)) {
 						CellVisible[cellId] = 0;
 						break;
@@ -1639,78 +1557,87 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& Cell
 	ThreadPool::parallelFor(0, numCells, func);
 	return CellVisibleArray->RawPointer();
 }
-
+void iGameModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract,
+	Points::Pointer inPoints, Points::Pointer& outPoints, CellArray::Pointer Polygons,
+	AttributeSet::Pointer outAllDataArray)
+{
+	outPoints = Points::New();
+	extract->UpdatePointMap(Polygons, inPoints, outPoints);
+	CompositePointAttribute(extract->GetPointMap(),
+		inPoints->GetNumberOfPoints(),
+		outPoints->GetNumberOfPoints(),
+		outAllDataArray);
+	m_PointMap = FlatArray<igIndex>::New();
+	m_PointMap->SetArray(extract->GetPointMap(), 1, outPoints->GetNumberOfPoints(), outPoints->GetNumberOfPoints());
+}
 void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C,
 	AttributeSet::Pointer inAllDataArray, AttributeSet::Pointer& outAllDataArray) {
 	if (!outAllDataArray) {
 		outAllDataArray = AttributeSet::New();
 	}
 	igIndex i = 0;
-	auto inDataArrayNum = inAllDataArray->GetAllAttributes()->GetNumberOfElements();
-	std::vector<AttributeSet::Attribute> CellAttributes;
-	for (i = 0; i < inDataArrayNum; i++) {
-		if (inAllDataArray->GetAttribute(i).attachmentType == IG_CELL) {
-			CellAttributes.emplace_back(inAllDataArray->GetAttribute(i));
-		}
-		else {
-                outAllDataArray->AddAttribute(
-                        inAllDataArray->GetAttribute(i).type,
-                        inAllDataArray->GetAttribute(i).attachmentType,
-                        inAllDataArray->GetAttribute(i).pointer,
-                        inAllDataArray->GetAttribute(i).dataRange);
-		}
-	}
-	igIndex AttributeSize = CellAttributes.size();
-	iGameAtomicMutex tmpLock;
 	IGsize fcnt = F2C.size();
 	auto f2c = F2C.data();
-	for (int AttributeID = 0; AttributeID < AttributeSize; AttributeID++) {
-		auto& inData = CellAttributes[AttributeID].pointer;
-		auto newData = DoubleArray::New();
-		newData->SetDimension(inData->GetDimension());
-		newData->Resize(fcnt);
-		newData->SetName(inData->GetName());
-		auto func = [&](igIndex start, igIndex end) -> void {
-			double tmp[64];
-			for (igIndex i = start; i < end; i++) {
-				inData->GetElement(f2c[i], tmp);
-				newData->SetElement(i, tmp);
-			}
-		};
-		ThreadPool::parallelFor(0, fcnt, func);
-		std::lock_guard<iGameAtomicMutex> DataLock(tmpLock);
-		outAllDataArray->AddAttribute(CellAttributes[AttributeID].type, IG_CELL,
-			newData);
+	auto inDataArrayNum = inAllDataArray->GetAllAttributes()->GetNumberOfElements();
+	for (i = 0; i < inDataArrayNum; i++) {
+		auto& inData = inAllDataArray->GetAttribute(i).pointer;
+		ArrayObject::Pointer outData = inData;
+		if (inAllDataArray->GetAttribute(i).attachmentType == IG_CELL) {
+			auto newData = DoubleArray::New();
+			newData->SetDimension(inData->GetDimension());
+			newData->Resize(fcnt);
+			newData->SetName(inData->GetName());
+			auto func = [&](igIndex start, igIndex end) -> void {
+				double tmp[64];
+				for (igIndex i = start; i < end; i++) {
+					inData->GetElement(f2c[i], tmp);
+					newData->SetElement(i, tmp);
+				}
+			};
+			ThreadPool::parallelFor(0, fcnt, func);
+			outData = newData;
+			outAllDataArray->AddAttribute(
+				inAllDataArray->GetAttribute(i).type,
+				inAllDataArray->GetAttribute(i).attachmentType,
+				newData,
+				inAllDataArray->GetAttribute(i).dataRange);
+		}
+		else {
+			outAllDataArray->AddAttribute(
+				inAllDataArray->GetAttribute(i).type,
+				inAllDataArray->GetAttribute(i).attachmentType,
+				inAllDataArray->GetAttribute(i).pointer,
+				inAllDataArray->GetAttribute(i).dataRange);
+		}
+
 	}
 }
 void iGameModelGeometryFilter::CompositePointAttribute(
-        igIndex* PointMap, IGsize oldPNum,
-        IGsize newPNum, AttributeSet::Pointer inAllDataArray) {
-    igIndex i = 0;
-    auto inDataArrayNum =inAllDataArray->GetAllAttributes()->GetNumberOfElements();
-    for (i = 0; i < inDataArrayNum; i++) {
-        auto& inData = inAllDataArray->GetAttribute(i).pointer;
-        ArrayObject::Pointer outData =inData;
-        if (inAllDataArray->GetAttribute(i).attachmentType == IG_POINT) {
-                auto newData = DoubleArray::New();
-                newData->SetDimension(inData->GetDimension());
-                newData->Resize(newPNum);
-                newData->SetName(inData->GetName());
-
-			    auto func = [&](igIndex start, igIndex end) -> void {
-                 double tmp[64];
-                for (igIndex i = start; i < end; i++) {
-						if (PointMap[i] != -1) { 
-							inData->GetElement(i,tmp);
-                            newData->SetElement(PointMap[i], tmp);
-						}
-                     }
-                };
-                ThreadPool::parallelFor(0, oldPNum, func);
-				outData=newData;
-        } 
-		inAllDataArray->GetAttribute(i).pointer=outData;
-    }
-
+	igIndex* PointMap, IGsize oldPNum,
+	IGsize newPNum, AttributeSet::Pointer outAllDataArray) {
+	igIndex i = 0;
+	auto inDataArrayNum = outAllDataArray->GetAllAttributes()->GetNumberOfElements();
+	for (i = 0; i < inDataArrayNum; i++) {
+		auto& inData = outAllDataArray->GetAttribute(i).pointer;
+		ArrayObject::Pointer outData = inData;
+		if (outAllDataArray->GetAttribute(i).attachmentType == IG_POINT) {
+			auto newData = DoubleArray::New();
+			newData->SetDimension(inData->GetDimension());
+			newData->Resize(newPNum);
+			newData->SetName(inData->GetName());
+			auto func = [&](igIndex start, igIndex end) -> void {
+				double tmp[64];
+				for (igIndex i = start; i < end; i++) {
+					if (PointMap[i] != -1) {
+						inData->GetElement(i, tmp);
+						newData->SetElement(PointMap[i], tmp);
+					}
+				}
+			};
+			ThreadPool::parallelFor(0, oldPNum, func);
+			outData = newData;
+		}
+		outAllDataArray->GetAttribute(i).pointer = outData;
+	}
 }
 IGAME_NAMESPACE_END

@@ -229,13 +229,13 @@ private:
         this->PointIds->SetId(0, ph0);
 
 		this->Points->SetPoint(1, p1[0], p1[1], p1[2]);
-        this->PointIds->SetId(0, ph1);
+        this->PointIds->SetId(1, ph1);
 
         this->Points->SetPoint(2, p2[0], p2[1], p2[2]);
-        this->PointIds->SetId(0, ph2);
+        this->PointIds->SetId(2, ph2);
 
         this->Points->SetPoint(3, p3[0], p3[1], p3[2]);
-        this->PointIds->SetId(0, ph3);
+        this->PointIds->SetId(3, ph3);
         m_Line = Line::New();
         m_Triangle = Triangle::New();
     }

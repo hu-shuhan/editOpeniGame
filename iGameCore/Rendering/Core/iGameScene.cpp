@@ -1231,6 +1231,7 @@ unsigned char* Scene::CaptureOffScreenBuffer(int width, int height) {
     glFinish();
     //    GLCheckError();
     //    Draw();
+    //    Draw();
     //    GLCheckError();
     //    glFinish();
     unsigned char* screenPixel = new unsigned char[width * height * 3];

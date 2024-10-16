@@ -189,6 +189,7 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem
     QTreeWidgetItem* currentItem = modelTreeWidget->currentItem();
+    if(currentItem == nullptr) return;
     while(currentItem->parent()) currentItem = currentItem->parent();
     // 如果没有父节点，说明是顶级项，使用takeTopLevelItem方法
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
