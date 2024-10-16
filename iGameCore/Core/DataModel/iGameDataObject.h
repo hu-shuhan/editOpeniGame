@@ -9,8 +9,6 @@
 #include "iGameStreamingData.h"
 
 IGAME_NAMESPACE_BEGIN
-class Scene;
-
 class DataObject : public Object {
 public:
     I_OBJECT(DataObject);
@@ -155,6 +153,8 @@ protected:
         m_Propertys->AddProperty(Variant::Int, "Width");
         m_Propertys->AddProperty(Variant::Int, "Height");
         m_Propertys->AddProperty(Variant::Int, "Length");
+
+        m_AttributeHelper = Object::New();
     }
     ~DataObject() override{/*std::cout << "Destructed\n";*/};
 
@@ -198,6 +198,8 @@ public:
 protected:
     int m_AttributeIndex{-1};
     int m_AttributeDimension{-1};
+    Object::Pointer m_AttributeHelper{};
+
     int m_CurrentTimeframeIndex{-1};
     ScalarsToColors::Pointer m_ColorMapper = ScalarsToColors::New();
 };

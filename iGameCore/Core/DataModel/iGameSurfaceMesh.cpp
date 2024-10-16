@@ -790,10 +790,39 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 }
 
 void SurfaceMesh::ConvertToDrawableData() {
-    GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices);
-    m_Positions->Modified();
-    m_LineIndices->Modified();
-    m_TriangleIndices->Modified();
+    if (m_Points->GetMTime() > m_Positions->GetMTime() ||
+        m_Clipper->GetMTime() > m_Positions->GetMTime()) {
+        GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices);
+        m_Positions->Modified();
+        m_LineIndices->Modified();
+        m_TriangleIndices->Modified();
+    }
+
+
+    // convert scalar data
+    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
+        if (m_AttributeIndex == -1) {
+            m_UseColor = false;
+            m_ColorWithCell = false;
+        } else {
+            m_UseColor = true;
+
+            auto& attr =
+                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (!attr.isDeleted) {
+                if (attr.attachmentType == IG_POINT) {
+                    m_ColorWithCell = false;
+                    this->SetAttributeWithPointData(
+                            attr.pointer, attr.dataRange, m_AttributeDimension);
+                } else if (attr.attachmentType == IG_CELL) {
+                    m_ColorWithCell = true;
+                    this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
+                                                   m_AttributeDimension);
+                }
+            }
+        }
+    }
+
 #ifdef IGAME_OPENGL_VERSION_460
     bool debug = false;
     if (debug) {
@@ -805,13 +834,13 @@ void SurfaceMesh::ConvertToDrawableData() {
 #endif
 }
 
-void SurfaceMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
-    surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
-                                  m_TriangleIndices);
-    m_Positions->Modified();
-    m_LineIndices->Modified();
-    m_TriangleIndices->Modified();
-}
+//void SurfaceMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
+//    surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
+//                                  m_TriangleIndices);
+//    m_Positions->Modified();
+//    m_LineIndices->Modified();
+//    m_TriangleIndices->Modified();
+//}
 
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
                                    UnsignedIntArray::Pointer& lineIndices,
@@ -903,109 +932,98 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
     }
 }
 
-void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-    if (index == -1) {
-        m_UseColor = false;
-        m_ViewAttribute = nullptr;
-        m_ViewDemension = -1;
-        m_ColorWithCell = false;
-        scene->Update();
-        return;
-    }
+//void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
+//    if (index == -1) {
+//        m_UseColor = false;
+//        m_ViewAttribute = nullptr;
+//        m_ViewDemension = -1;
+//        m_ColorWithCell = false;
+//        scene->Update();
+//        return;
+//    }
+//
+//    m_AttributeIndex = index;
+//    auto& attr = this->GetAttributeSet()->GetAttribute(index);
+//    if (!attr.isDeleted) {
+//        if (attr.attachmentType == IG_POINT)
+//            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
+//                                            demension);
+//        else if (attr.attachmentType == IG_CELL)
+//            this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
+//                                           demension);
+//    }
+//
+//    scene->Update();
+//}
 
-    m_AttributeIndex = index;
-    auto& attr = this->GetAttributeSet()->GetAttribute(index);
-    if (!attr.isDeleted) {
-        if (attr.attachmentType == IG_POINT)
-            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
-                                            demension);
-        else if (attr.attachmentType == IG_CELL)
-            this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
-                                           demension);
-    }
-
-    scene->Update();
-}
-
-void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                            std::pair<float, float>& range,
-                                            igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
-        m_ColorMapper->GetMTime() > this->GetMTime()) {
-        m_ViewAttribute = attr;
-        m_ViewDemension = dimension;
-        m_UseColor = true;
-        m_ColorWithCell = false;
-
-        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-            if (range.first != range.second) {
-                m_ColorMapper->SetRange(range.first, range.second);
-            } else if (dimension == -1) {
-                m_ColorMapper->InitRange(attr);
-            } else {
-                m_ColorMapper->InitRange(attr, dimension);
-            }
-        }
-        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
-        m_Colors->Modified();
-        if (m_Colors == nullptr) { return; }
-
-        range.first = m_ColorMapper->GetRange()[0];
-        range.second = m_ColorMapper->GetRange()[1];
-    }
-}
+//void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
+//                                            std::pair<float, float>& range,
+//                                            igIndex dimension) {
+//    if (m_ColorMapper->GetMTime() > this->GetMTime()) {
+//
+//        //if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+//        if (range.first != range.second) {
+//            m_ColorMapper->SetRange(range.first, range.second);
+//        } else if (dimension == -1) {
+//            m_ColorMapper->InitRange(attr);
+//        } else {
+//            m_ColorMapper->InitRange(attr, dimension);
+//        }
+//        //}
+//        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+//        m_Colors->Modified();
+//        if (m_Colors == nullptr) { return; }
+//
+//        range.first = m_ColorMapper->GetRange()[0];
+//        range.second = m_ColorMapper->GetRange()[1];
+//    }
+//}
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& range,
                                            igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
-        m_ColorMapper->GetMTime() > this->GetMTime()) {
-        m_ViewAttribute = attr;
-        m_ViewDemension = dimension;
-        m_UseColor = true;
-        m_ColorWithCell = true;
-
-        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-            if (dimension == -1) {
-                m_ColorMapper->InitRange(attr);
-            } else {
-                m_ColorMapper->InitRange(attr, dimension);
-            }
-        }
-
-        FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
-        if (colors == nullptr) { return; }
-
-        FloatArray::Pointer newPositions = FloatArray::New();
-        FloatArray::Pointer newColors = FloatArray::New();
-        newPositions->SetDimension(3);
-        newColors->SetDimension(3);
-
-        float color[3]{};
-        for (int i = 0; i < this->GetNumberOfFaces(); i++) {
-            Face* face = this->GetFace(i);
-            colors->GetElement(i, color);
-            for (int j = 2; j < face->GetCellSize(); j++) {
-                auto& p0 = face->Points->GetPoint(0);
-                newPositions->AddElement3(p0[0], p0[1], p0[2]);
-                auto& p1 = face->Points->GetPoint(j - 1);
-                newPositions->AddElement3(p1[0], p1[1], p1[2]);
-                auto& p2 = face->Points->GetPoint(j);
-                newPositions->AddElement3(p2[0], p2[1], p2[2]);
-
-                newColors->AddElement3(color[0], color[1], color[2]);
-                newColors->AddElement3(color[0], color[1], color[2]);
-                newColors->AddElement3(color[0], color[1], color[2]);
-            }
-        }
-        m_CellPositionSize = newPositions->GetNumberOfElements();
-
-        m_CellPositions = newPositions;
-        m_CellPositions->Modified();
-
-        m_CellColors = newColors;
-        m_CellColors->Modified();
+    if (range.first != range.second) {
+        m_ColorMapper->SetRange(range.first, range.second);
+    } else if (dimension == -1) {
+        m_ColorMapper->InitRange(attr);
+    } else {
+        m_ColorMapper->InitRange(attr, dimension);
     }
+    range.first = m_ColorMapper->GetRange()[0];
+    range.second = m_ColorMapper->GetRange()[1];
+
+    FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
+    if (colors == nullptr) { return; }
+
+    FloatArray::Pointer newPositions = FloatArray::New();
+    FloatArray::Pointer newColors = FloatArray::New();
+    newPositions->SetDimension(3);
+    newColors->SetDimension(3);
+
+    float color[3]{};
+    for (int i = 0; i < this->GetNumberOfFaces(); i++) {
+        Face* face = this->GetFace(i);
+        colors->GetElement(i, color);
+        for (int j = 2; j < face->GetCellSize(); j++) {
+            auto& p0 = face->Points->GetPoint(0);
+            newPositions->AddElement3(p0[0], p0[1], p0[2]);
+            auto& p1 = face->Points->GetPoint(j - 1);
+            newPositions->AddElement3(p1[0], p1[1], p1[2]);
+            auto& p2 = face->Points->GetPoint(j);
+            newPositions->AddElement3(p2[0], p2[1], p2[2]);
+
+            newColors->AddElement3(color[0], color[1], color[2]);
+            newColors->AddElement3(color[0], color[1], color[2]);
+            newColors->AddElement3(color[0], color[1], color[2]);
+        }
+    }
+    m_CellPositionSize = newPositions->GetNumberOfElements();
+
+    m_CellPositions = newPositions;
+    m_CellPositions->Modified();
+
+    m_CellColors = newColors;
+    m_CellColors->Modified();
 }
 
 

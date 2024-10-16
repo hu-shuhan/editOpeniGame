@@ -29,8 +29,7 @@ int Scene::AddModel(Model::Pointer model) {
     ChangeModelVisibility(model.get(), true);
     UpdateModelsBoundingSphere();
 
-    auto drawMesh = DynamicCast<DrawObject>(model->m_DataObject);
-    drawMesh->ConvertToDrawableData();
+    this->Update();
 
     return newModelId;
 }
@@ -783,9 +782,6 @@ void Scene::DrawFrame() {
         if (!model->m_DataObject->IsDrawable()) { continue; }
 
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetClipper()->GetMTime() > drawObject->GetMTime()) {
-            drawObject->ConvertToDrawableData();
-        }
         drawObject->ReAllocateDisplayBuffer();
     }
 

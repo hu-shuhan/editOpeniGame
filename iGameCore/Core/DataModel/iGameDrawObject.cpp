@@ -1,7 +1,7 @@
 #include "iGameDrawObject.h"
+#include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
-
 DrawObject::DrawObject() {
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
@@ -151,19 +151,33 @@ void DrawObject::CreateDrawBuffer() {
 }
 
 void DrawObject::ConvertToDrawableData() {
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->ConvertToDrawableData();
+        return;
+    }
+
+    // process this object
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::ConvertToDrawableData);
-        return;
     }
 }
 
 void DrawObject::ReAllocateDisplayBuffer() {
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->ReAllocateDisplayBuffer();
         return;
     }
 
+    // process this object
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
+    }
+
     this->CreateDrawBuffer();
+
+    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
 
     if (m_Positions->GetMTime() > m_PositionVBO.GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
@@ -271,6 +285,10 @@ IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 IGsize DrawObject::GetRealMemorySize() { return 0; };
 
 void DrawObject::SetVisibility(bool f) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetVisibility(f); }
+
+    // process this object
     this->m_Visibility = f;
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::SetVisibility, f);
@@ -283,6 +301,11 @@ void DrawObject::SetViewStyle(IGenum mode) {
     /*
      * e.g. mode = IG_WIREFRAME | IG_SURFACE, means that the model shows the wireframe and surface.
      * */
+
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetViewStyle(mode); }
+
+    // process this object
     m_ViewStyle = mode;
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::SetViewStyle, mode);
@@ -290,6 +313,10 @@ void DrawObject::SetViewStyle(IGenum mode) {
 }
 
 void DrawObject::AddViewStyle(IGenum mode) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->AddViewStyle(mode); }
+
+    // process this object
     m_ViewStyle |= mode;
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::AddViewStyle, mode);
@@ -297,6 +324,10 @@ void DrawObject::AddViewStyle(IGenum mode) {
 }
 
 void DrawObject::RemoveViewStyle(IGenum mode) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->RemoveViewStyle(mode); }
+
+    // process this object
     m_ViewStyle &= ~mode;
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::RemoveViewStyle, mode);
@@ -306,7 +337,10 @@ void DrawObject::RemoveViewStyle(IGenum mode) {
 unsigned int DrawObject::GetViewStyle() { return m_ViewStyle; }
 
 void DrawObject::AddViewStyleOfModel(IGenum mode) {
-    //auto* parent = FindParent();
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->AddViewStyleOfModel(mode); }
+
+    // process this object
     auto* parentDrawObject = DynamicCast<DrawObject>(FindParent());
     if (parentDrawObject != this) {
         parentDrawObject->AddViewStyle(mode);
@@ -316,7 +350,6 @@ void DrawObject::AddViewStyleOfModel(IGenum mode) {
 }
 
 unsigned int DrawObject::GetViewStyleOfModel() {
-    //auto* parent = FindParent();
     auto* parentDrawObject = DynamicCast<DrawObject>(FindParent());
     if (parentDrawObject != this) {
         return parentDrawObject->GetViewStyle();
@@ -330,10 +363,18 @@ bool DrawObject::GetClipped() {
 }; // Gets whether this can be clipped.
 
 void DrawObject::SetTransparency(float transparency) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetTransparency(transparency); }
+
+    // process this object
     if (transparency < 0.0f || transparency > 1.0f) {
         throw std::runtime_error("Transparency must be between 0-1");
     }
     m_Transparency = transparency;
+
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::SetTransparency, transparency);
+    }
 }
 
 float DrawObject::GetTransparency() { return m_Transparency; }
@@ -345,22 +386,107 @@ void DrawObject::SetPointSize(int size) {
 int DrawObject::GetPointSize() { return m_PointSize; }
 
 void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
-    m_AttributeIndex = index;
-    m_AttributeDimension = dimension;
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->ViewCloudPicture(scene, index, dimension);
+    }
+
+    // process this object
+    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
+        return;
+    }
+
+    if (index == -1) {
+        m_AttributeIndex = -1;
+        m_AttributeDimension = -1;
+    } else {
+        m_AttributeIndex = index;
+        m_AttributeDimension = dimension;
+    }
+    m_AttributeHelper->Modified();
+
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
                               dimension);
     }
+
+    this->Modified();
+
+    scene->Update();
+
+    //m_AttributeIndex = index;
+    //m_AttributeDimension = dimension;
+    //if (this->HasSubDataObject()) {
+    //    ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
+    //                          dimension);
+    //}
 }
 
 void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
                                          int dimension) {
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->ViewCloudPictureOfModel(scene, index, dimension);
+    }
+
+    // process this object
     auto* parent = dynamic_cast<DrawObject*>(FindParent());
     if (parent != nullptr && parent != this) {
         parent->ViewCloudPicture(scene, index, dimension);
     } else {
         this->ViewCloudPicture(scene, index, dimension);
     }
+}
+
+void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->SetPolygonOffsetParameters(factor, units);
+    }
+
+    // process this object
+    this->m_PolygonFactor = factor;
+    this->m_PolygonOffset = units;
+    this->Modified();
+}
+
+void DrawObject::GetPolygonOffsetParameters(float& factor, float& units) {
+    factor = this->m_PolygonFactor;
+    units = this->m_PolygonOffset;
+}
+
+void DrawObject::SetLineOffsetParameters(float factor, float units) {
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->SetLineOffsetParameters(factor, units);
+    }
+
+    // process this object
+    this->m_LineFactor = factor;
+    this->m_LineOffset = units;
+    this->Modified();
+}
+
+void DrawObject::GetLineOffsetParameters(float& factor, float& units) {
+    factor = this->m_LineFactor;
+    units = this->m_LineOffset;
+}
+
+void DrawObject::SetPointOffsetParameters(float units) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetPointOffsetParameters(units); }
+
+    // process this object
+    this->m_PointOffset = units;
+    this->Modified();
+}
+
+void DrawObject::GetPointOffsetParameters(float& units) {
+    units = this->m_PointOffset;
+}
+
+void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
+    m_DisplayObject = DynamicCast<DrawObject>(dataObject);
 }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO) {
