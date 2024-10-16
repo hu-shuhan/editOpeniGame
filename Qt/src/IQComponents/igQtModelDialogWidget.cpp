@@ -27,8 +27,9 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 
 	modelTreeWidget->setColumnCount(2);
 	modelTreeWidget->header()->hide();
-	modelTreeWidget->setColumnWidth(0, 250);
+	modelTreeWidget->setColumnWidth(0, 140);
 	modelTreeWidget->setColumnWidth(1, 150);
+    modelTreeWidget->setIndentation(15);
 
 	//propertyTreeWidget = ui->propertyTreeWidget;
 	//propertyTreeWidget->setHeaderVisible(false);
@@ -125,14 +126,27 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, Ite
 	item->setName(QString::fromStdString(obj->GetName()));
 	item->setModel(model);
 
+	//QTreeWidgetItem* attributes = new QTreeWidgetItem(item);
+ //   attributes->setText(0, QString::fromStdString("属性"));
+ //   attributes->setIcon(0, QIcon(":/Ticon/Icons/select/selected.png"));
+ //   
+
+ //   QTreeWidgetItem* liuchang = new QTreeWidgetItem(item);
+ //   liuchang->setText(0, QString::fromStdString("流场"));
+ //   liuchang->setIcon(0, QIcon(":/Ticon/Icons/select/selected.png"));
+
+ //   item->addChild(attributes);
+ //   item->addChild(liuchang);
+    
 	auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
 	for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
 		auto& attr = attrSet->GetElement(i);
 		if (attr.isDeleted) continue;
-		QTreeWidgetItem* child = new QTreeWidgetItem(item);
+        AttribTreeWidgetItem* child =
+                new AttribTreeWidgetItem(i, modelTreeWidget, item);
 		child->setText(0, QString::fromStdString(attr.pointer->GetName()));
 		child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
-		child->setData(0, Qt::UserRole, i);
+        child->setDimension(attr.pointer->GetDimension());
 		//int index = child->data(0, Qt::UserRole).toInt();
 		//std::cout << index << std::endl;
 	}
@@ -141,6 +155,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, Ite
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
 	updateCurrentModelInfo();
+
+
 	//propertyTreeWidget->removeProperty(objectGroup);
 	//objectGroup = propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
 	//propertyTreeWidget->addProperty(objectGroup);
@@ -170,6 +186,7 @@ int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
 
 	item->setName(QString::fromStdString(model->GetDataObject()->GetName()));
 	item->setModel(model);
+
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
 	return id;

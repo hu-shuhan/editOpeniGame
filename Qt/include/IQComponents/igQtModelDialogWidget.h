@@ -33,6 +33,8 @@ public slots:
 	int updateCurrentModelInfo();
     int updateCloudPicture();
     void deleteCurrentModel();
+
+
 signals:
 	void CurrendModelChanged();
     void CloudPictureChanged();
