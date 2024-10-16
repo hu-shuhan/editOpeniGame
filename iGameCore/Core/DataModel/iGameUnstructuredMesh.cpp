@@ -45,19 +45,20 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
         igIndex ids[IGAME_CELL_MAX_SIZE];
         igIndex size = m_Cells->GetCellIds(cellId, ids);
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
+        polyhedron->m_FaceOffset->Reset();
         polyhedron->m_FaceOffset->Reserve(ids[0]);
         polyhedron->PointIds->Reserve(size);
 
         igIndex index = 1;
-        igIndex realsize = 0;
+        igIndex faceVcnt = 0;
         int offset = 0;
         while (index < size) {
             polyhedron->m_FaceOffset->AddId(offset);
-            realsize = ids[index++];
-            for (igIndex id = 0; id < realsize; id++) {
+            faceVcnt = ids[index++];
+            for (igIndex id = 0; id < faceVcnt; id++) {
                 polyhedron->PointIds->AddId(ids[index++]);
             }
-            offset += realsize;
+            offset += faceVcnt;
         }
         polyhedron->m_FaceOffset->AddId(offset);
         for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {
