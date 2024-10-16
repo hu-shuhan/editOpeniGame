@@ -118,7 +118,7 @@ void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj)
 }
 int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source) {
 	ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
-    //modelTreeWidget->setCurrentModel(item);
+    modelTreeWidget->setCurrentModelItem(item);
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	auto model = scene->CreateModel(obj);
 	int id = scene->AddModel(model);
@@ -214,10 +214,8 @@ int igQtModelDialogWidget::updateCloudPicture() {
 void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem
-    QTreeWidgetItem* currentItem = modelTreeWidget->currentItem();
+    QTreeWidgetItem* currentItem = modelTreeWidget->setCurrentModelItem();
     if(currentItem == nullptr) return;
-    while(currentItem->parent()) currentItem = currentItem->parent();
-    // 如果没有父节点，说明是顶级项，使用takeTopLevelItem方法
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) {
         delete modelTreeWidget->takeTopLevelItem(index);
@@ -226,5 +224,5 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
     iGame::SceneManager::Instance()->GetCurrentScene()->Update();
 
-	//modelTreeWidget->setCurrentModel(nullptr);
+	modelTreeWidget->setCurrentModelItem(nullptr);
 }

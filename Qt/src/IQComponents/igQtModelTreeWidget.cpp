@@ -190,6 +190,15 @@ QTreeWidgetItem* igQtModelTreeWidget::getChild(const QPoint& p) const {
     return dynamic_cast<QTreeWidgetItem*>(itemAt(p));
 }
 
+void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
+    currentModelItem = item;
+    //std::cout << "change\n";
+}
+
+ModelTreeWidgetItem* igQtModelTreeWidget::setCurrentModelItem() {
+    return currentModelItem;
+}
+
 //void igQtModelTreeWidget::setCurrentModel(ModelTreeWidgetItem* item) {
 //    if (currentModel) { 
 //        auto* current = dynamic_cast<AttribTreeWidgetItem*>(
@@ -228,16 +237,18 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
         if (current) { current->hide(); }
         item->setCurrentChild(nullptr);
-        //if (currentModel != item) { 
-        //    this->setCurrentModel(item);
-        //}
+        if (currentModelItem != item) { 
+            this->setCurrentModelItem(item);
+        }
 
     } else if ((child = getChild(event->pos())) && child) {
         int index = child->data(0, Qt::UserRole).toInt();
         ModelTreeWidgetItem* parent =
                 dynamic_cast<ModelTreeWidgetItem*>(child->parent());
         if (parent) {
-
+            if (currentModelItem != parent) {
+                this->setCurrentModelItem(parent);
+            }
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(
                     parent->getCurrentChild());
             if (current) { current->hide(); }

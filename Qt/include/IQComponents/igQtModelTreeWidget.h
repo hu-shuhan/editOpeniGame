@@ -99,7 +99,8 @@ public:
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
     QTreeWidgetItem* getChild(const QPoint& p) const;
 
-    //void setCurrentModel(ModelTreeWidgetItem* item);
+    void setCurrentModelItem(ModelTreeWidgetItem* item);
+    ModelTreeWidgetItem* setCurrentModelItem();
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -109,5 +110,5 @@ signals:
     void ViewCloudPicture();
 
 private:
-    //ModelTreeWidgetItem* currentModel{nullptr};
+    ModelTreeWidgetItem* currentModelItem{nullptr};
 };
