@@ -35,18 +35,18 @@ public:
 
 		return m_Quad.get();
 	}
-    std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
-        std::vector<iGame::Cell::Pointer> result;
-        for (int i = 0; i < 5; i++) {
-		const int* verts = clipedCell[i];
-            Tetra::Pointer tetra = Tetra::New();
+	std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
+		std::vector<iGame::Cell::Pointer> result;
+		for (int i = 0; i < 6; i++) {
+			const int* verts = clipedCell[i];
+			Tetra::Pointer tetra = Tetra::New();
 			for (int j = 0; j < 4; j++) {
-                tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
-                tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+				tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
+				tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+			}
+			result.emplace_back(tetra);
 		}
-        result.emplace_back(tetra);
-		}
-        return result;
+		return result;
 	}
 	/**
 	 * The number of points of the cell
@@ -172,13 +172,22 @@ public:
 		{ 5, 2, 7, 3 },
 		{ 6, 3, 4, 3 },
 	};
-	//PointIds of cliped cell
-	static constexpr int clipedCell[5][4] = {
-		{ 0, 1, 3, 4 },
-		{ 1, 2, 3, 6 },
-		{ 3, 4, 6, 7 },
-		{ 1, 4, 5, 6 },
-		{ 1, 3, 4, 6 },
+	////PointIds of cliped cell
+	//static constexpr int clipedCell[5][4] = {
+	//	{ 0, 1, 3, 4 },
+	//	{ 1, 2, 3, 6 },
+	//	{ 3, 4, 6, 7 },
+	//	{ 1, 4, 5, 6 },
+	//	{ 1, 3, 4, 6 },
+	//};
+
+	static constexpr int clipedCell[6][4] = {
+	{ 1, 5, 6, 0},
+	{ 1, 6, 2, 0},
+	{ 4, 6, 5, 0},
+	{ 4, 7, 6, 0},
+	{ 3, 2, 6, 0},
+	{ 3, 6, 7, 0},
 	};
 
 	int GetEdgePointIds(const int edgeId, const igIndex*& pts) override {

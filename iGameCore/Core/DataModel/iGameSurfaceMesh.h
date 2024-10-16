@@ -37,7 +37,8 @@ public:
 
     // Set face array
     void SetFaces(CellArray::Pointer faces);
-
+    // Set edge array
+    void SetEdges(CellArray::Pointer edges);
     // Get edge cell by index edgeId. Thread-Unsafe, please use GetEdgePointId
     Line* GetEdge(const IGsize edgeId);
     // Get face cell by index faceId. Thread-Unsafe, please use GetFacePointId and GetFaceEdgeId
