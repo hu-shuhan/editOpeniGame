@@ -166,12 +166,28 @@ namespace CellClip {
 	static void Clip(QuadraticTetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
+		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
+		int allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < vcnt; i++)
+		{
+			value = cellValues[i];
+			if (value >= 0.0) {
+				allOut = 0;
+			}
+			else {
+				allIn = 0;
+			}
+		}
+		if (allIn || allOut) {
+			return;
+		}
 		Tetra::Pointer tetra = Tetra::New();
 		float tetvalues[4] = {};
 		igIndex pid = 0;
-		for (int i = 0; i < 8; i++)
+		for ( i = 0; i < 8; i++)
 		{
-			for (int j = 0; j < 4; j++)
+			for ( j = 0; j < 4; j++)
 			{
 				pid = QuadraticTetra::SubTetras[0][i][j];
 				tetra->Points->SetPoint(j, cell->Points->GetPoint(pid));
