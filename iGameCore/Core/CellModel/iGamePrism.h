@@ -43,7 +43,7 @@ public:
     }
     std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
         std::vector<iGame::Cell::Pointer> result;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 6; i++) {
             const int* verts = clipedCell[i];
             Tetra::Pointer tetra = Tetra::New();
             for (int j = 0; j < 4; j++) {
@@ -163,10 +163,13 @@ public:
 	  { 3, 1, 5, 3 },
 	  { 4, 2, 3, 3 },
 	};	
-	static constexpr int clipedCell[3][4] = {
+	static constexpr int clipedCell[6][4] = {
 	  { 0, 1, 2, 5 },
 	  { 0, 3, 4, 5 },
 	  { 0, 1, 4, 5 },
+	  { 0, 3, 4, 1},
+	  { 1, 4, 5, 2},
+	  { 2, 5, 3, 0},
 	};
 
 	int GetEdgePointIds(const int edgeId, const igIndex*& pts) override {
