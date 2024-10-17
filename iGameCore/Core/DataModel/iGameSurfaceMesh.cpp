@@ -29,6 +29,7 @@ bool SurfaceMesh::DeepCopy(SurfaceMesh::Pointer other) {
     m_Points->DeepCopy(other->m_Points);
     m_Faces = CellArray::New();
     m_Faces->DeepCopy(other->m_Faces);
+    this->Modified();
     return true;
 }
 
@@ -796,8 +797,18 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_Positions->Modified();
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
-    }
 
+#ifdef IGAME_OPENGL_VERSION_460
+        bool debug = false;
+        if (debug) {
+            m_Meshlets->BuildMeshlet(m_Positions->RawPointer(),
+                                     m_Positions->GetNumberOfElements(),
+                                     m_TriangleIndices->RawPointer(),
+                                     m_TriangleIndices->GetNumberOfValues(),
+                                     m_TriangleIndices);
+        }
+#endif
+    }
 
     // convert scalar data
     if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
@@ -823,25 +834,7 @@ void SurfaceMesh::ConvertToDrawableData() {
             }
         }
     }
-
-#ifdef IGAME_OPENGL_VERSION_460
-    bool debug = false;
-    if (debug) {
-        m_Meshlets->BuildMeshlet(
-                m_Positions->RawPointer(), m_Positions->GetNumberOfValues() / 3,
-                m_TriangleIndices->RawPointer(),
-                m_TriangleIndices->GetNumberOfValues(), m_TriangleEBO);
-    }
-#endif
 }
-
-//void SurfaceMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
-//    surfaceMesh->GetDrawableArray(m_Positions, m_LineIndices,
-//                                  m_TriangleIndices);
-//    m_Positions->Modified();
-//    m_LineIndices->Modified();
-//    m_TriangleIndices->Modified();
-//}
 
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
                                    UnsignedIntArray::Pointer& lineIndices,
@@ -876,9 +869,6 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
             ncell = this->GetFacePointIds(i, cell);
             for (int j = 2; j < ncell; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
-                //triangleIndices->AddId(cell[0]);
-                //triangleIndices->AddId(cell[j - 1]);
-                //triangleIndices->AddId(cell[j]);
             }
         }
     } else {
@@ -925,60 +915,10 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
             if (!visible) continue;
             for (int j = 2; j < ncell; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
-                //triangleIndices->AddId(cell[0]);
-                //triangleIndices->AddId(cell[j - 1]);
-                //triangleIndices->AddId(cell[j]);
             }
         }
     }
 }
-
-//void SurfaceMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-//    if (index == -1) {
-//        m_UseColor = false;
-//        m_ViewAttribute = nullptr;
-//        m_ViewDemension = -1;
-//        m_ColorWithCell = false;
-//        scene->Update();
-//        return;
-//    }
-//
-//    m_AttributeIndex = index;
-//    auto& attr = this->GetAttributeSet()->GetAttribute(index);
-//    if (!attr.isDeleted) {
-//        if (attr.attachmentType == IG_POINT)
-//            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
-//                                            demension);
-//        else if (attr.attachmentType == IG_CELL)
-//            this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
-//                                           demension);
-//    }
-//
-//    scene->Update();
-//}
-
-//void SurfaceMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
-//                                            std::pair<float, float>& range,
-//                                            igIndex dimension) {
-//    if (m_ColorMapper->GetMTime() > this->GetMTime()) {
-//
-//        //if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-//        if (range.first != range.second) {
-//            m_ColorMapper->SetRange(range.first, range.second);
-//        } else if (dimension == -1) {
-//            m_ColorMapper->InitRange(attr);
-//        } else {
-//            m_ColorMapper->InitRange(attr, dimension);
-//        }
-//        //}
-//        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
-//        m_Colors->Modified();
-//        if (m_Colors == nullptr) { return; }
-//
-//        range.first = m_ColorMapper->GetRange()[0];
-//        range.second = m_ColorMapper->GetRange()[1];
-//    }
-//}
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& range,

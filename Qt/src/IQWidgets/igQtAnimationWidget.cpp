@@ -5,15 +5,15 @@
 #include <iGameSceneManager.h>
 #include <iGameThreadPool.h>
 
-#include <qdebug.h>
 #include <IQComponents/igQtAnimationTreeWidget_interpolate.h>
 #include <IQComponents/igQtAnimationTreeWidget_snap.h>
 #include <IQCore/igQtAnimationVcrController.h>
+#include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/igQtAnimationWidget.h>
 #include <QAbstractButton>
 #include <QFileDialog>
-#include <IQCore/igQtOpenGLWidgetManager.h>
 #include <QMessageBox>
+#include <qdebug.h>
 
 
 /**
@@ -150,7 +150,7 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             &igQtAnimationVcrController::updateCurrentKeyframe);
 }
 
-void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx){
+void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     using namespace iGame;
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
     auto currentDrawObject = DynamicCast<DrawObject>(
@@ -177,19 +177,28 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx){
             currentDrawObject->AddSubDataObject(task.get());
         }
     }
-    std::cout << "current name : " <<  currentDrawObject->GetName() << '\n';
-    if(currentDrawObject->GetName() == "sukong"){
+    std::cout << "current name : " << currentDrawObject->GetName() << '\n';
+    if (currentDrawObject->GetName() == "sukong") {
         std::cout << "Process sukong.pvd";
-        for(auto it = currentDrawObject->SubDataObjectIteratorBegin(); it != currentDrawObject->SubDataObjectIteratorEnd(); ++ it){
+        for (auto it = currentDrawObject->SubDataObjectIteratorBegin();
+             it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
             auto pointset = DynamicCast<iGame::PointSet>(it->second);
-            auto uset = pointset->GetAttributeSet()->GetAttribute("U", IG_SCALAR).pointer;
-            std::cout << "Points : " << pointset->GetNumberOfPoints() << ' ' << uset->GetNumberOfValues() << '\n';
-            for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
-//                std::cout << uset->GetValue(j) << ' ' << uset->GetValue(j + 1)<< ' '  << uset->GetValue(j + 2) << '\n';
-//                Vector3f vec = {0.f, 0.f, 0.f};
-//                pointset->SetPoint(i, pointset->GetPoint(i) + (48380.) * (Vector3d(uset->GetValue(j), uset->GetValue(j + 1), uset->GetValue(j + 2)))
-                pointset->SetPoint(i, pointset->GetPoint(i) + (40081800.) * (Vector3d(uset->GetValue(j), uset->GetValue(j + 1), uset->GetValue(j + 2)))
-                );
+            auto uset = pointset->GetAttributeSet()
+                                ->GetAttribute("U", IG_SCALAR)
+                                .pointer;
+            std::cout << "Points : " << pointset->GetNumberOfPoints() << ' '
+                      << uset->GetNumberOfValues() << '\n';
+            for (int i = 0, j = 0; i < pointset->GetNumberOfPoints();
+                 i++, j += 3) {
+                //                std::cout << uset->GetValue(j) << ' ' << uset->GetValue(j + 1)<< ' '  << uset->GetValue(j + 2) << '\n';
+                //                Vector3f vec = {0.f, 0.f, 0.f};
+                //                pointset->SetPoint(i, pointset->GetPoint(i) + (48380.) * (Vector3d(uset->GetValue(j), uset->GetValue(j + 1), uset->GetValue(j + 2)))
+                pointset->SetPoint(
+                        i, pointset->GetPoint(i) +
+                                   (40081800.) *
+                                           (Vector3d(uset->GetValue(j),
+                                                     uset->GetValue(j + 1),
+                                                     uset->GetValue(j + 2))));
             }
             pointset->Modified();
         }
@@ -228,7 +237,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx){
     currentScene->MakeCurrent();
 
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
-    currentDrawObject->ConvertToDrawableData();
 
     //    for(auto it = currentObject->SubDataObjectIteratorBegin(); it != currentObject->SubDataObjectIteratorEnd(); ++ it){
     //        it->second->SetViewStyle(currentObject->GetViewStyle());
@@ -319,42 +327,48 @@ void igQtAnimationWidget::initAnimationComponents() {
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
 #include <IQComponents/Dialog/igQtVideoOptionDialog.h>
 
-bool igQtAnimationWidget::saveAnimation()
-{
+bool igQtAnimationWidget::saveAnimation() {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;
-    igQtRenderWidget* rendererWidget = igQtOpenGLManager::Instance()->getRenderWidget();
+    igQtRenderWidget* rendererWidget =
+            igQtOpenGLManager::Instance()->getRenderWidget();
     QStringList filters = {
             "Mp4 File(*.mp4)",
             "GIF File(*.gif)",
     };
 
     QString SelectedFilter;
-    QString path = QFileDialog::getSaveFileName(nullptr, "Save Animation As ", "", filters.join(";;"), &SelectedFilter);
+    QString path =
+            QFileDialog::getSaveFileName(nullptr, "Save Animation As ", "",
+                                         filters.join(";;"), &SelectedFilter);
     igQtVideoOptionDialog dialog(this);
     dialog.setWindowTitle("Save Animation Option.");
-    int oldwidth = rendererWidget->width(), oldheight = rendererWidget->height();
+    int oldwidth = rendererWidget->width(),
+        oldheight = rendererWidget->height();
     int ratio_pixel = rendererWidget->devicePixelRatio();
     int width = 1920, height = 1080;
     VideoInputInfo inputInfo;
     if (dialog.exec() == QDialog::Accepted) {
         inputInfo = dialog.getInput();
         width = inputInfo.width, height = inputInfo.height;
-    }else return false;
+    } else
+        return false;
     rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
 
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
     auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
-    if(currentObject == nullptr || currentObject->GetTimeFrames()->GetArrays().empty()) return false;
+    if (currentObject == nullptr ||
+        currentObject->GetTimeFrames()->GetArrays().empty())
+        return false;
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
 
 
-    for(int i = 0; i < timeStepSize; i ++)
-    {
+    for (int i = 0; i < timeStepSize; i++) {
         std::cout << "playing step : " << i << '\n';
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
-        std::vector<uint8_t> tmp(image.bits(), image.bits() + image.sizeInBytes());
+        std::vector<uint8_t> tmp(image.bits(),
+                                 image.bits() + image.sizeInBytes());
         inputInfo.bytes_per_line = image.bytesPerLine();
         inputInfo.raw_image_data.emplace_back(tmp);
     }
@@ -362,12 +376,12 @@ bool igQtAnimationWidget::saveAnimation()
 
 
     int selected_idx = filters.indexOf(SelectedFilter);
-    switch(selected_idx){
+    switch (selected_idx) {
         case 0:
-            if(!path.contains(".mp4")) path += ".mp4";
+            if (!path.contains(".mp4")) path += ".mp4";
             break;
         case 1:
-            if(!path.contains(".gif")) path += ".gif";
+            if (!path.contains(".gif")) path += ".gif";
             break;
         default:
             break;
@@ -377,7 +391,7 @@ bool igQtAnimationWidget::saveAnimation()
     videoWriter->SetVideoInputInfo(inputInfo);
 
     bool sc = false;
-    switch(selected_idx){
+    switch (selected_idx) {
         case 0:
             sc = videoWriter->SaveMP4();
             break;
@@ -387,42 +401,41 @@ bool igQtAnimationWidget::saveAnimation()
         default:
             break;
     }
-    if(sc) {
+    if (sc) {
         QMessageBox::information(this, "", "保存成功");
-    }else {
+    } else {
         QMessageBox::information(this, "", "保存失败");
     }
 #endif
 
 
+    ////    currentScene
+    //    int width = 1920, height = 1080;
+    //    currentScene->MakeCurrent();
+    //    auto* bits = currentScene->CaptureOffScreenBuffer(width, height);
+    //    currentScene->DoneCurrent();
+    ////    for(auto i = 0; i )
+    //    FILE* pfile = fopen(file_path.toStdString().c_str(), "wb");
+    //    if(pfile){
+    //        BITMAPFILEHEADER  bfh;
+    //        memset(&bfh, 0, sizeof (BITMAPFILEHEADER));
+    //        bfh.bfType = 0x4D42;
+    //        bfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof (BITMAPINFOHEADER) + width * height * 3;
+    //        bfh.bfOffBits = sizeof (BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    //        fwrite(&bfh, sizeof(BITMAPFILEHEADER), 1, pfile);
+    //
+    //        BITMAPINFOHEADER  bih;
+    //        memset(&bih, 0, sizeof (BITMAPINFOHEADER));
+    //        bih.biWidth = width;
+    //        bih.biHeight = height;
+    //        bih.biBitCount = 24;
+    //        bih.biSize = sizeof(BITMAPINFOHEADER);
+    //        fwrite(&bih, sizeof(BITMAPINFOHEADER), 1, pfile);
+    //
+    //        fwrite(bits, 1, width * height * 3, pfile);
+    //        fclose(pfile);
+    //    }
+    //    delete[] bits;
 
-////    currentScene
-//    int width = 1920, height = 1080;
-//    currentScene->MakeCurrent();
-//    auto* bits = currentScene->CaptureOffScreenBuffer(width, height);
-//    currentScene->DoneCurrent();
-////    for(auto i = 0; i )
-//    FILE* pfile = fopen(file_path.toStdString().c_str(), "wb");
-//    if(pfile){
-//        BITMAPFILEHEADER  bfh;
-//        memset(&bfh, 0, sizeof (BITMAPFILEHEADER));
-//        bfh.bfType = 0x4D42;
-//        bfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof (BITMAPINFOHEADER) + width * height * 3;
-//        bfh.bfOffBits = sizeof (BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-//        fwrite(&bfh, sizeof(BITMAPFILEHEADER), 1, pfile);
-//
-//        BITMAPINFOHEADER  bih;
-//        memset(&bih, 0, sizeof (BITMAPINFOHEADER));
-//        bih.biWidth = width;
-//        bih.biHeight = height;
-//        bih.biBitCount = 24;
-//        bih.biSize = sizeof(BITMAPINFOHEADER);
-//        fwrite(&bih, sizeof(BITMAPINFOHEADER), 1, pfile);
-//
-//        fwrite(bits, 1, width * height * 3, pfile);
-//        fclose(pfile);
-//    }
-//    delete[] bits;
-
-return true;
+    return true;
 }

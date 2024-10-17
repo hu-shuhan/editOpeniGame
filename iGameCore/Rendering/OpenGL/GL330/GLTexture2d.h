@@ -5,20 +5,11 @@
 IGAME_NAMESPACE_BEGIN
 
 class GLTexture2d : public GLObject<GLTexture2d> {
-private:
-    friend class GLObject<GLTexture2d>;
-    static void createHandle(GLsizei count, GLuint* handles) {
-        glGenTextures(count, handles);
-    }
-    static void destroyHandle(GLsizei count, GLuint* handles) {
-        glDeleteTextures(count, handles);
-    }
-
-private:
-    GLTexture2d(GLuint handle) : GLObject<GLTexture2d>{handle} {}
-
 public:
-    static void copyImageSubData(const GLTexture2d& source, GLenum srcTarget,
+    I_OBJECT(GLTexture2d);
+    static Pointer New() { return new GLTexture2d; }
+
+    static void CopyImageSubData(const GLTexture2d& source, GLenum srcTarget,
                                  GLint srcLevel, GLint srcX, GLint srcY,
                                  GLint srcZ, const GLTexture2d& destination,
                                  GLenum dstTarget, GLint dstLevel, GLint dstX,
@@ -33,8 +24,7 @@ public:
     }
 
 public:
-    GLTexture2d() = default;
-    static GLTexture2d view(GLenum target, const GLTexture2d& original,
+    static GLTexture2d View(GLenum target, const GLTexture2d& original,
                             GLenum internal_format, unsigned first_mip_level,
                             unsigned mip_level_count, unsigned first_layer,
                             unsigned layer_count) {
@@ -55,7 +45,7 @@ public:
     // GLenum internal_format(Sized Internal Format): GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT24
     // GLenum internal_format(Sized Internal Format): GL_DEPTH32F_STENCIL8, GL_DEPTH24_STENCIL8
     // GLenum internal_format(Sized Internal Format): GL_STENCIL_INDEX8
-    void storage(unsigned mip_levels, GLenum internal_format, unsigned width,
+    void Storage(unsigned mip_levels, GLenum internal_format, unsigned width,
                  unsigned height) const {
         glBindTexture(GL_TEXTURE_2D, handle);
 
@@ -110,7 +100,7 @@ public:
 
     // GLenum format(Base Internal Format): GL_RED, GL_RG, GL_RGB, GL_RGBA
     // GLenum type:GL_UNSIGNED_BYTE, GL_FLOAT
-    void subImage(unsigned mip_level, unsigned xoffset, unsigned yoffset,
+    void SubImage(unsigned mip_level, unsigned xoffset, unsigned yoffset,
                   unsigned width, unsigned height, GLenum format, GLenum type,
                   const void* pixels) {
         glBindTexture(GL_TEXTURE_2D, handle);
@@ -121,13 +111,13 @@ public:
 
     // GLenum pname: GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_MAG_FILTER
     // GLint param: GL_CLAMP_TO_EDGE, GL_MIRRORED_REPEAT, GL_NEAREST, GL_LINEAR
-    void parameteri(GLenum pname, GLint param) {
+    void Parameteri(GLenum pname, GLint param) {
         glBindTexture(GL_TEXTURE_2D, handle);
         glTexParameteri(GL_TEXTURE_2D, pname, param);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    void generateMipmap() {
+    void GenerateMipmap() {
         glBindTexture(GL_TEXTURE_2D, handle);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -135,7 +125,7 @@ public:
 
     // GLenum texture: GL_TEXTURE1 - GL_TEXTURE15
     // GL_TEXTURE0 is reserved to prevent other binding operations from being performed after a texture unit is activated.
-    void active(GLenum texture) {
+    void Active(GLenum texture) {
         if (texture == GL_TEXTURE0) {
             throw std::runtime_error("GL_TEXTURE0 is reserved.");
         }
@@ -144,16 +134,29 @@ public:
         glActiveTexture(GL_TEXTURE0);
     };
 
-    void bind() const { glBindTexture(GL_TEXTURE_2D, handle); }
-    void release() const { glBindTexture(GL_TEXTURE_2D, 0); }
+    void Bind() const { glBindTexture(GL_TEXTURE_2D, handle); }
+    void Release() const { glBindTexture(GL_TEXTURE_2D, 0); }
 
-    void bindImage(unsigned int binding_index, unsigned int mip_level,
+    void BindImage(unsigned int binding_index, unsigned int mip_level,
                    bool layered, int layer, GLenum access, GLenum format) {
         throw std::runtime_error("You called the GLTexture2d::bindImage "
                                  "function on the opengl330. "
                                  "This function is currently not supported.");
         //glBindImageTexture(binding_index, handle, mip_level, layered, layer,
         //                   access, format);
+    }
+
+protected:
+    GLTexture2d() = default;
+    GLTexture2d(GLuint handle) : GLObject<GLTexture2d>{handle} {}
+    ~GLTexture2d() override = default;
+
+    friend class GLObject<GLTexture2d>;
+    static void CreateHandle(GLsizei count, GLuint* handles) {
+        glGenTextures(count, handles);
+    }
+    static void DestroyHandle(GLsizei count, GLuint* handles) {
+        glDeleteTextures(count, handles);
     }
 };
 

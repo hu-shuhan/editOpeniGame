@@ -79,6 +79,6 @@ protected:
         glDeleteFramebuffers(count, handles);
     }
 
-    GLenum m_Target;
+    GLenum m_Target{GL_NONE};
 };
 IGAME_NAMESPACE_END
