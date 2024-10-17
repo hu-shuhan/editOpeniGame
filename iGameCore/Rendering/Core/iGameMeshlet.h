@@ -14,7 +14,7 @@ public:
     static Pointer New() { return new Meshlet; }
 
 protected:
-    Meshlet() {}
+    Meshlet();
     ~Meshlet() override {}
 
     struct MeshletData {
@@ -26,13 +26,13 @@ public:
     void CreateBuffer();
     void BuildMeshlet(const float* vertex_positions, size_t vertex_count,
                       const unsigned int* indices, size_t index_count,
-                      GLBuffer& EBO);
+                      GLBuffer::Pointer EBO);
 
     size_t MeshletsCount();
-    GLBuffer& MeshletsBuffer();
-    GLBuffer& DrawCommandBuffer();
-    GLBuffer& VisibleMeshletBuffer();
-    GLBuffer& FinalDrawCommandBuffer();
+    GLBuffer::Pointer MeshletsBuffer();
+    GLBuffer::Pointer DrawCommandBuffer();
+    GLBuffer::Pointer VisibleMeshletBuffer();
+    GLBuffer::Pointer FinalDrawCommandBuffer();
 
 private:
     const size_t m_MaxVertices = 64;
@@ -41,10 +41,10 @@ private:
 
     // use for indirect draw
     size_t m_MeshletsCount = 0;
-    GLBuffer m_MeshletsBuffer;
-    GLBuffer m_DrawCommandBuffer;
-    GLBuffer m_VisibleMeshletBuffer;
-    GLBuffer m_FinalDrawCommandBuffer;
+    GLBuffer::Pointer m_MeshletsBuffer;
+    GLBuffer::Pointer m_DrawCommandBuffer;
+    GLBuffer::Pointer m_VisibleMeshletBuffer;
+    GLBuffer::Pointer m_FinalDrawCommandBuffer;
 };
 #endif
 

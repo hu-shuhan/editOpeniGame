@@ -16,7 +16,7 @@
 #include "iGameMeshlet.h"
 
 IGAME_NAMESPACE_BEGIN
-class Model;
+class Scene;
 
 class DrawObject : public DataObject {
 public:
@@ -55,22 +55,40 @@ public:
     void SetPointSize(int size);
     int GetPointSize();
 
-    virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
+    void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
+    void SetPolygonOffsetParameters(float factor, float units);
+    void GetPolygonOffsetParameters(float& factor, float& units);
+
+    void SetLineOffsetParameters(float factor, float units);
+    void GetLineOffsetParameters(float& factor, float& units);
+
+    void SetPointOffsetParameters(float units);
+    void GetPointOffsetParameters(float& units);
+
+    void SetDisplayObject(DataObject::Pointer dataObject);
+
 private:
-    static void SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetColorBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetNormalBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetTextureBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
+    static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
+                                       GLBuffer::Pointer VBO);
+    static void SetColorBufferToVAO(GLVertexArray::Pointer VAO,
+                                    GLBuffer::Pointer VBO);
+    static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO,
+                                     GLBuffer::Pointer VBO);
+    static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO,
+                                      GLBuffer::Pointer VBO);
 
 protected:
-    GLVertexArray m_PointVAO, m_LineVAO, m_TriangleVAO;
-    GLBuffer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
-    GLBuffer m_PointEBO, m_LineEBO, m_TriangleEBO;
-    GLVertexArray m_CellVAO;
-    GLBuffer m_CellPositionVBO, m_CellColorVBO;
-    GLBuffer m_CellEBO;
+    bool m_AutoUpdateDrawData{true};
+    DrawObject::Pointer m_DisplayObject{nullptr};
+
+    GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
+    GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
+    GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
+    GLVertexArray::Pointer m_CellVAO;
+    GLBuffer::Pointer m_CellPositionVBO, m_CellColorVBO;
+    GLBuffer::Pointer m_CellEBO;
 
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
@@ -95,10 +113,13 @@ protected:
     int m_LineWidth{1};
     int m_CellPositionSize{};
 
-    float m_Transparency{1.0f};
+    float m_PolygonFactor{-1.0f};
+    float m_PolygonOffset{-1.0f};
+    float m_LineFactor{-1.0f};
+    float m_LineOffset{-1.0f};
+    float m_PointOffset{-1.0f};
 
-    ArrayObject::Pointer m_ViewAttribute{};
-    int m_ViewDemension{};
+    float m_Transparency{1.0f};
 
     iGameClipper::Pointer m_Clipper;
 

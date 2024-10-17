@@ -12,6 +12,35 @@ Scene::Scene() {
     m_ModelMatrix = igm::mat4{};
     m_BackgroundColor = {0.5f, 0.5f, 0.5f};
 
+    m_CameraDataBlock = GLBuffer::New();
+    m_ObjectDataBlock = GLBuffer::New();
+    m_UBOBlock = GLBuffer::New();
+
+    m_EmptyVAO = GLVertexArray::New();
+
+#ifdef MSAA
+    m_FramebufferMultisampled = GLFramebuffer::New();
+    m_ColorTextureMultisampled = GLTexture2dMultisample::New();
+    m_DepthTextureMultisampled = GLTexture2dMultisample::New();
+
+    m_FramebufferResolved = GLFramebuffer::New();
+    m_ColorTextureResolved = GLTexture2d::New();
+    m_DepthTextureResolved = GLTexture2d::New();
+#else
+    m_Framebuffer = GLFramebuffer::New();
+    m_ColorTexture = GLTexture2d::New();
+    m_DepthTexture = GLTexture2d::New();
+#endif
+
+    m_OITHeadPointerTexture = GLTexture2d::New();
+    m_OITHeadPointerInitializer = GLBuffer::New();
+    m_OITAtomicCounterBuffer = GLBuffer::New();
+    m_OITLinkedListBuffer = GLBuffer::New();
+    m_OITLinkedListTexture = GLTextureBuffer::New();
+
+    m_DrawCullData = GLBuffer::New();
+    m_DepthPyramid = GLTexture2d::New();
+
     InitOpenGL();
     InitOIT();
     InitFont();
@@ -29,8 +58,7 @@ int Scene::AddModel(Model::Pointer model) {
     ChangeModelVisibility(model.get(), true);
     UpdateModelsBoundingSphere();
 
-    auto drawMesh = DynamicCast<DrawObject>(model->m_DataObject);
-    drawMesh->ConvertToDrawableData();
+    this->Update();
 
     return newModelId;
 }
@@ -98,8 +126,8 @@ void Scene::SetCurrentModel(int index) {
             m_CurrentModel = model.get();
             return;
         }
-        //if (obj->m_DataObject->HasSubDataObject()) {
-        //    auto subObj = obj->m_DataObject->GetSubDataObject(index);
+        //if (obj->m_DataObject->Has->SubDataObject()) {
+        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
         //    if (subObj != nullptr) {
         //        m_CurrentModelId = index;
         //        m_CurrentObject = subObj.get();
@@ -128,8 +156,8 @@ Model* Scene::GetCurrentModel() { return m_CurrentModel; }
 Model* Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
-        //if (obj->m_DataObject->HasSubDataObject()) {
-        //    auto subObj = obj->m_DataObject->GetSubDataObject(index);
+        //if (obj->m_DataObject->Has->SubDataObject()) {
+        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
         //    if (subObj != nullptr) { return subObj.get(); }
         //}
     }
@@ -184,166 +212,8 @@ void Scene::ChangeCameraType(IGenum type) {
     }
 }
 
-void Scene::SetShader(IGenum type, GLShaderProgram* sp) {
-    if (sp == nullptr) { return; }
-    m_ShaderPrograms[type] = std::unique_ptr<GLShaderProgram>(sp);
-}
-
-GLShaderProgram* Scene::GenShader(IGenum type) {
-    GLShaderProgram* sp;
-    switch (type) {
-        case BLINNPHONG: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/vertex.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/blinnPhong.frag")
-                            .c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case PBR: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/vertex.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/pbr.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case NOLIGHT: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/vertex.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/noLight.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case PURECOLOR: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/vertex.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader pureColor_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/pureColor.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, pureColor_frag);
-        } break;
-        case TRANSPARENCYLINK: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/vertex.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/transparencyLink.frag")
-                            .c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case TRANSPARENCYSORT: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/fullScreenTriangle.vert")
-                            .c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/transparencySort.frag")
-                            .c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case AXES: {
-            GLShader axis_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/axis.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader axis_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/axis.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(axis_vert, axis_frag);
-        } break;
-        case FONT: {
-            GLShader font_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/font.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader font_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/font.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(font_vert, font_frag);
-        } break;
-        case ATTACHMENTRESOLVE: {
-            GLShader shader_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/attachmentResolve.vert")
-                            .c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader shader_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/attachmentResolve.frag")
-                            .c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(shader_vert, shader_frag);
-        } break;
-        case DEPTHREDUCE: {
-#ifdef IGAME_OPENGL_VERSION_460
-            GLShader depthReduce_comp = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/depthReduce.comp")
-                            .c_str(),
-                    GL_COMPUTE_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(depthReduce_comp);
-#endif
-        } break;
-        case MESHLETCULL: {
-#ifdef IGAME_OPENGL_VERSION_460
-            GLShader meshletCull_comp = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/meshletCull.comp")
-                            .c_str(),
-                    GL_COMPUTE_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(meshletCull_comp);
-#endif
-        } break;
-        case SCREEN: {
-            GLShader screen_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/fullScreenTriangle.vert")
-                            .c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader screen_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/screenShader.frag")
-                            .c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(screen_vert, screen_frag);
-        } break;
-        case FXAA: {
-            GLShader fxaa_vert = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/fxaa.vert").c_str(),
-                    GL_VERTEX_SHADER};
-            GLShader fxaa_frag = GLShader{
-                    (std::string(SHADERS_DIR) + "/GLSL/fxaa.frag").c_str(),
-                    GL_FRAGMENT_SHADER};
-            sp = new GLShaderProgram;
-            sp->addShaders(fxaa_vert, fxaa_frag);
-        } break;
-        default:
-            break;
-    }
-    return sp;
-}
-
-GLShaderProgram* Scene::GetShaderWithType(IGenum type) {
-    auto it = m_ShaderPrograms.find(type);
-    if (it == m_ShaderPrograms.end()) { return nullptr; }
-    return it->second.get();
-}
-
-GLShaderProgram* Scene::GetShader(IGenum type) {
-    GLShaderProgram* sp = this->GetShaderWithType(type);
+GLShaderProgram::Pointer Scene::GetShader(IGenum type) {
+    GLShaderProgram::Pointer sp = this->GetShaderWithType(type);
     if (sp != nullptr) { return sp; }
 
     sp = this->GenShader(type);
@@ -354,11 +224,146 @@ GLShaderProgram* Scene::GetShader(IGenum type) {
     return sp;
 }
 
+GLShaderProgram::Pointer Scene::GetShaderWithType(IGenum type) {
+    auto it = m_ShaderPrograms.find(type);
+    if (it == m_ShaderPrograms.end()) { return nullptr; }
+    return it->second;
+}
+
+GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
+    GLShaderProgram::Pointer sp = GLShaderProgram::New();
+    switch (type) {
+        case BLINNPHONG: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer blinnPhong_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/blinnPhong.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, blinnPhong_frag);
+        } break;
+        case PBR: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer pbr_frag =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/pbr.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, pbr_frag);
+        } break;
+        case NOLIGHT: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer noLight_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/noLight.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, noLight_frag);
+        } break;
+        case PURECOLOR: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer pureColor_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/pureColor.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, pureColor_frag);
+        } break;
+        case TRANSPARENCYLINK: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer transparencyLink_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/transparencyLink.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, transparencyLink_frag);
+        } break;
+        case TRANSPARENCYSORT: {
+            GLShader::Pointer fullScreenTriangle_vert = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/fullScreenTriangle.vert"),
+                    GL_VERTEX_SHADER);
+            GLShader::Pointer transparencySort_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/transparencySort.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(fullScreenTriangle_vert, transparencySort_frag);
+        } break;
+        case AXES: {
+            GLShader::Pointer axis_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/axis.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer axis_frag =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/axis.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(axis_vert, axis_frag);
+        } break;
+        case FONT: {
+            GLShader::Pointer font_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/font.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer font_frag =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/font.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(font_vert, font_frag);
+        } break;
+        case ATTACHMENTRESOLVE: {
+            GLShader::Pointer attachmentResolve_vert = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/attachmentResolve.vert"),
+                    GL_VERTEX_SHADER);
+            GLShader::Pointer attachmentResolve_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/attachmentResolve.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(attachmentResolve_vert, attachmentResolve_frag);
+        } break;
+        case DEPTHREDUCE: {
+#ifdef IGAME_OPENGL_VERSION_460
+            GLShader::Pointer depthReduce_comp = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/depthReduce.comp"),
+                    GL_COMPUTE_SHADER);
+            sp->AddShaders(depthReduce_comp);
+#endif
+        } break;
+        case MESHLETCULL: {
+#ifdef IGAME_OPENGL_VERSION_460
+            GLShader::Pointer meshletCull_comp = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/meshletCull.comp"),
+                    GL_COMPUTE_SHADER);
+            sp->AddShaders(meshletCull_comp);
+#endif
+        } break;
+        case SCREEN: {
+            GLShader::Pointer fullScreenTriangle_vert = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/fullScreenTriangle.vert"),
+                    GL_VERTEX_SHADER);
+            GLShader::Pointer screenShader_frag = CreateShader(
+                    SHADERS_DIR + std::string("/GLSL/screenShader.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(fullScreenTriangle_vert, screenShader_frag);
+        } break;
+        case FXAA: {
+            GLShader::Pointer fxaa_vert =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/fxaa.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer fxaa_frag =
+                    CreateShader(SHADERS_DIR + std::string("/GLSL/fxaa.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(fxaa_vert, fxaa_frag);
+        } break;
+        default:
+            break;
+    }
+    return sp;
+}
+
+void Scene::SetShader(IGenum type, GLShaderProgram::Pointer sp) {
+    if (sp == nullptr) { return; }
+    m_ShaderPrograms[type] = sp;
+}
+
 bool Scene::HasShader(IGenum type) {
     return this->GetShaderWithType(type) != nullptr;
 }
 
-void Scene::UseShader(IGenum type) { this->GetShader(type)->use(); }
+void Scene::UseShader(IGenum type) { this->GetShader(type)->Use(); }
 
 void Scene::InitOpenGL() {
     if (!gladLoadGL()) {
@@ -374,56 +379,56 @@ void Scene::InitOpenGL() {
     glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
     // create empty VAO to render full-screen triangle
-    m_EmptyVAO.create();
+    m_EmptyVAO->Create();
 
     // allocate memory
     {
-        m_CameraDataBlock.create();
-        m_CameraDataBlock.target(GL_UNIFORM_BUFFER);
-        m_CameraDataBlock.allocate(sizeof(CameraDataBuffer), nullptr,
-                                   GL_STATIC_DRAW);
-        m_ObjectDataBlock.create();
-        m_ObjectDataBlock.target(GL_UNIFORM_BUFFER);
-        m_ObjectDataBlock.allocate(sizeof(ObjectDataBuffer), nullptr,
-                                   GL_STATIC_DRAW);
-        m_UBOBlock.create();
-        m_UBOBlock.target(GL_UNIFORM_BUFFER);
-        m_UBOBlock.allocate(sizeof(UniformBufferObjectBuffer), nullptr,
-                            GL_STATIC_DRAW);
+        m_CameraDataBlock->Create();
+        m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
+        m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
+                                    GL_STATIC_DRAW);
+        m_ObjectDataBlock->Create();
+        m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
+        m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
+                                    GL_STATIC_DRAW);
+        m_UBOBlock->Create();
+        m_UBOBlock->Target(GL_UNIFORM_BUFFER);
+        m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
+                             GL_STATIC_DRAW);
 
         // map shader block
         {
             auto shader = this->GetShader(BLINNPHONG);
-            shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->mapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->mapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map no light shader block
         {
             auto shader = this->GetShader(NOLIGHT);
-            shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->mapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->mapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map pure color shader block
         {
             auto shader = this->GetShader(PURECOLOR);
-            shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->mapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->mapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map pure color shader block
         {
             auto shader = this->GetShader(TRANSPARENCYLINK);
-            shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->mapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->mapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map culling computer shader block
         {
 #ifdef IGAME_OPENGL_VERSION_460
             auto shader = this->GetShader(MESHLETCULL);
-            shader->mapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
 #endif
         }
     }
@@ -431,9 +436,9 @@ void Scene::InitOpenGL() {
     m_UBO.useColor = false;
 
     // init drawculldata buffer
-    m_DrawCullData.create();
-    m_DrawCullData.target(GL_UNIFORM_BUFFER);
-    m_DrawCullData.allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
+    m_DrawCullData->Create();
+    m_DrawCullData->Target(GL_UNIFORM_BUFFER);
+    m_DrawCullData->Allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -469,31 +474,32 @@ void Scene::InitOIT() {
     GLuint* data;
     size_t totalPixels = MAX_FRAMEBUFFER_WIDTH * MAX_FRAMEBUFFER_HEIGHT;
 
-    m_OITHeadPointerTexture.create();
-    m_OITHeadPointerTexture.storage(1, GL_R32UI, MAX_FRAMEBUFFER_WIDTH,
-                                    MAX_FRAMEBUFFER_HEIGHT);
+    m_OITHeadPointerTexture->Create();
+    m_OITHeadPointerTexture->Storage(1, GL_R32UI, MAX_FRAMEBUFFER_WIDTH,
+                                     MAX_FRAMEBUFFER_HEIGHT);
 
-    m_OITHeadPointerInitializer.create();
-    m_OITHeadPointerInitializer.target(GL_PIXEL_UNPACK_BUFFER);
-    m_OITHeadPointerInitializer.allocate(totalPixels * sizeof(GLuint), nullptr,
-                                         GL_STATIC_DRAW);
-    data = static_cast<GLuint*>(m_OITHeadPointerInitializer.mapRange(
+    m_OITHeadPointerInitializer->Create();
+    m_OITHeadPointerInitializer->Target(GL_PIXEL_UNPACK_BUFFER);
+    m_OITHeadPointerInitializer->Allocate(totalPixels * sizeof(GLuint), nullptr,
+                                          GL_STATIC_DRAW);
+    data = static_cast<GLuint*>(m_OITHeadPointerInitializer->MapRange(
             0, totalPixels * sizeof(GLuint), GL_MAP_WRITE_BIT));
     // 0xFF is equivalent to the end of the linked list
     memset(data, 0xFF, totalPixels * sizeof(GLuint));
-    m_OITHeadPointerInitializer.unmap();
+    m_OITHeadPointerInitializer->Unmap();
 
-    m_OITAtomicCounterBuffer.create();
-    m_OITAtomicCounterBuffer.target(GL_ATOMIC_COUNTER_BUFFER);
-    m_OITAtomicCounterBuffer.allocate(sizeof(GLuint), nullptr, GL_DYNAMIC_COPY);
+    m_OITAtomicCounterBuffer->Create();
+    m_OITAtomicCounterBuffer->Target(GL_ATOMIC_COUNTER_BUFFER);
+    m_OITAtomicCounterBuffer->Allocate(sizeof(GLuint), nullptr,
+                                       GL_DYNAMIC_COPY);
 
-    m_OITLinkedListBuffer.create();
-    m_OITLinkedListBuffer.target(GL_TEXTURE_BUFFER);
-    m_OITLinkedListBuffer.allocate(2 * totalPixels * sizeof(igm::vec4), nullptr,
-                                   GL_DYNAMIC_COPY);
+    m_OITLinkedListBuffer->Create();
+    m_OITLinkedListBuffer->Target(GL_TEXTURE_BUFFER);
+    m_OITLinkedListBuffer->Allocate(2 * totalPixels * sizeof(igm::vec4),
+                                    nullptr, GL_DYNAMIC_COPY);
 
-    m_OITLinkedListTexture.create();
-    m_OITLinkedListTexture.buffer(GL_RGBA32UI, m_OITLinkedListBuffer);
+    m_OITLinkedListTexture->Create();
+    m_OITLinkedListTexture->Buffer(GL_RGBA32UI, m_OITLinkedListBuffer);
 #endif
 }
 
@@ -504,14 +510,15 @@ void Scene::InitFont() {
 
 void Scene::InitAxes() {
     auto axesShader = this->GetShader(AXES);
-    GLUniform viewLocation = axesShader->getUniformLocation("view");
-    GLUniform projLocation = axesShader->getUniformLocation("proj");
-    GLUniform viewPosLocation = axesShader->getUniformLocation("viewPos");
+    GLUniform::Pointer viewLocation = axesShader->GetUniformLocation("view");
+    GLUniform::Pointer projLocation = axesShader->GetUniformLocation("proj");
+    GLUniform::Pointer viewPosLocation =
+            axesShader->GetUniformLocation("viewPos");
 
-    axesShader->use();
-    axesShader->setUniform(viewLocation, Axes::ViewMatrix());
-    axesShader->setUniform(projLocation, Axes::ProjMatrix());
-    axesShader->setUniform(viewPosLocation, Axes::CameraPos());
+    axesShader->Use();
+    axesShader->SetUniform(viewLocation, Axes::ViewMatrix());
+    axesShader->SetUniform(projLocation, Axes::ProjMatrix());
+    axesShader->SetUniform(viewPosLocation, Axes::CameraPos());
 
     m_Axes = Axes::New();
 }
@@ -526,32 +533,33 @@ void Scene::ResizeFrameBuffer() {
     {
         //glGetIntegerv(GL_MAX_SAMPLES, &samples);
 
-        GLFramebuffer fbo;
-        fbo.create();
-        fbo.target(GL_FRAMEBUFFER);
-        fbo.bind();
+        auto fbo = GLFramebuffer::New();
+        fbo->Create();
+        fbo->Target(GL_FRAMEBUFFER);
+        fbo->Bind();
 
-        GLTexture2dMultisample colorTexture;
-        colorTexture.create();
-        colorTexture.bind();
-        colorTexture.storage(samples, GL_RGBA8, width, height, GL_TRUE);
-        fbo.texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+        auto colorTexture = GLTexture2dMultisample::New();
+        colorTexture->Create();
+        colorTexture->Bind();
+        colorTexture->Storage(samples, GL_RGBA8, width, height, GL_TRUE);
+        fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
 
-        GLTexture2dMultisample depthTexture;
-        depthTexture.create();
-        depthTexture.bind();
-        depthTexture.storage(samples, GL_DEPTH_COMPONENT24, width, height,
-                             GL_TRUE);
-        fbo.texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
+        auto depthTexture = GLTexture2dMultisample::New();
+        depthTexture->Create();
+        depthTexture->Bind();
+        depthTexture->Storage(samples, GL_DEPTH_COMPONENT24, width, height,
+                              GL_TRUE);
+        fbo->Texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
 
-        fbo.release();
+        fbo->Release();
 
-        m_ColorTextureMultisampled = std::move(colorTexture);
-        m_DepthTextureMultisampled = std::move(depthTexture);
-        m_FramebufferMultisampled = std::move(fbo);
+        m_ColorTextureMultisampled = colorTexture;
+        m_DepthTextureMultisampled = depthTexture;
+        m_FramebufferMultisampled = fbo;
 
-        if (m_FramebufferMultisampled.checkStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
+        if (m_FramebufferMultisampled->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
+                         "complete!"
                       << std::endl;
     }
 
@@ -562,76 +570,78 @@ void Scene::ResizeFrameBuffer() {
         //int mipLevels =
         //        static_cast<int>(std::ceil(std::log2(std::max(width, height))));
 
-        GLFramebuffer fbo;
-        fbo.create();
-        fbo.target(GL_FRAMEBUFFER);
-        fbo.bind();
+        auto fbo = GLFramebuffer::New();
+        fbo->Create();
+        fbo->Target(GL_FRAMEBUFFER);
+        fbo->Bind();
 
-        GLTexture2d colorTexture;
-        colorTexture.create();
-        colorTexture.bind();
-        colorTexture.storage(1, GL_RGBA8, width, height);
-        colorTexture.parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        colorTexture.parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        colorTexture.parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        colorTexture.parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        fbo.texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+        auto colorTexture = GLTexture2d::New();
+        colorTexture->Create();
+        colorTexture->Bind();
+        colorTexture->Storage(1, GL_RGBA8, width, height);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
 
-        GLTexture2d depthTexture;
-        depthTexture.create();
-        depthTexture.bind();
-        depthTexture.storage(1, GL_R32F, width, height);
-        depthTexture.parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        depthTexture.parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        depthTexture.parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        depthTexture.parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        fbo.texture(GL_COLOR_ATTACHMENT1, depthTexture, 0);
+        auto depthTexture = GLTexture2d::New();
+        depthTexture->Create();
+        depthTexture->Bind();
+        depthTexture->Storage(1, GL_R32F, width, height);
+        depthTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        depthTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        depthTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        depthTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        fbo->Texture(GL_COLOR_ATTACHMENT1, depthTexture, 0);
 
         GLenum buffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-        fbo.drawBuffers(2, buffers);
+        fbo->DrawBuffers(2, buffers);
 
-        fbo.release();
+        fbo->Release();
 
-        m_ColorTextureResolved = std::move(colorTexture);
-        m_DepthTextureResolved = std::move(depthTexture);
-        m_FramebufferResolved = std::move(fbo);
+        m_ColorTextureResolved = colorTexture;
+        m_DepthTextureResolved = depthTexture;
+        m_FramebufferResolved = fbo;
 
-        if (m_FramebufferResolved.checkStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
+        if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
+                         "complete!"
                       << std::endl;
     }
 #else
     //resize resolve framebuffer(form multisamples to single sample)
     {
-        GLFramebuffer fbo;
-        fbo.create();
-        fbo.target(GL_FRAMEBUFFER);
-        fbo.bind();
+        auto fbo = GLFramebuffer::New();
+        fbo->Create();
+        fbo->Target(GL_FRAMEBUFFER);
+        fbo->Bind();
 
-        GLTexture2d colorTexture;
-        colorTexture.create();
-        colorTexture.bind();
-        colorTexture.storage(1, GL_RGBA8, width, height);
-        colorTexture.parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        colorTexture.parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        colorTexture.parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        colorTexture.parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        fbo.texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+        auto colorTexture = GLTexture2d::New();
+        colorTexture->Create();
+        colorTexture->Bind();
+        colorTexture->Storage(1, GL_RGBA8, width, height);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
 
-        GLTexture2d depthTexture;
-        depthTexture.create();
-        depthTexture.bind();
-        depthTexture.storage(1, GL_DEPTH_COMPONENT24, width, height);
-        fbo.texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
+        auto depthTexture = GLTexture2d::New();
+        depthTexture->Create();
+        depthTexture->Bind();
+        depthTexture->Storage(1, GL_DEPTH_COMPONENT24, width, height);
+        fbo->Texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
 
-        fbo.release();
+        fbo->Release();
 
-        m_ColorTexture = std::move(colorTexture);
-        m_DepthTexture = std::move(depthTexture);
-        m_Framebuffer = std::move(fbo);
+        m_ColorTexture = colorTexture;
+        m_DepthTexture = depthTexture;
+        m_Framebuffer = fbo;
 
-        if (m_Framebuffer.checkStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
+        if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
+                         "complete!"
                       << std::endl;
     }
 #endif
@@ -663,16 +673,16 @@ void Scene::ResizeDepthPyramid() {
     m_DepthPyramidLevels =
             compDepthMipLevels(m_DepthPyramidWidth, m_DepthPyramidHeight);
 
-    GLTexture2d texture;
-    texture.create();
-    texture.bind();
-    texture.storage(m_DepthPyramidLevels, GL_R32F, m_DepthPyramidWidth,
-                    m_DepthPyramidHeight);
-    texture.parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    texture.parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    texture.parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    texture.parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    texture.release();
+    GLTexture2d::Pointer texture = GLTexture2d::New();
+    texture->Create();
+    texture->Bind();
+    texture->Storage(m_DepthPyramidLevels, GL_R32F, m_DepthPyramidWidth,
+                     m_DepthPyramidHeight);
+    texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    texture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    texture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    texture->Release();
 
     m_DepthPyramid = std::move(texture);
 #endif
@@ -687,14 +697,14 @@ void Scene::Draw() {
 
 #ifdef MSAA
     // render to multisample framebuffer
-    m_FramebufferMultisampled.bind();
+    m_FramebufferMultisampled->Bind();
     DrawFrame();
-    m_FramebufferMultisampled.release();
+    m_FramebufferMultisampled->Release();
 
     // resolve to single sample framebuffer
-    m_FramebufferResolved.bind();
+    m_FramebufferResolved->Bind();
     ResolveFrame();
-    m_FramebufferResolved.release();
+    m_FramebufferResolved->Release();
 
     // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
@@ -702,9 +712,9 @@ void Scene::Draw() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
     // render to my framebuffer
-    m_Framebuffer.bind();
+    m_Framebuffer->Bind();
     DrawFrame();
-    m_Framebuffer.release();
+    m_Framebuffer->Release();
 
     // render to qt framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
@@ -719,22 +729,23 @@ void Scene::Draw() {
 void Scene::RefreshDepthPyramid() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto shader = GetShader(DEPTHREDUCE);
-    shader->use();
-    m_DepthTextureMultisampled.active(GL_TEXTURE1);
-    m_DepthPyramid.active(GL_TEXTURE2);
-    shader->setUniform(shader->getUniformLocation("screenDepthMS"), 1);
-    shader->setUniform(shader->getUniformLocation("myDepthPyramid"), 2);
+    shader->Use();
+    m_DepthTextureMultisampled->Active(GL_TEXTURE1);
+    m_DepthPyramid->Active(GL_TEXTURE2);
+    shader->SetUniform(shader->GetUniformLocation("screenDepthMS"), 1);
+    shader->SetUniform(shader->GetUniformLocation("myDepthPyramid"), 2);
 
     // generate level 0
     {
         unsigned int level = 0;
         uint32_t width = m_DepthPyramidWidth;
         uint32_t height = m_DepthPyramidHeight;
-        shader->use();
-        shader->setUniform(shader->getUniformLocation("level"), level);
-        shader->setUniform(shader->getUniformLocation("outDepthPyramidSize"),
+        shader->Use();
+        shader->SetUniform(shader->GetUniformLocation("level"), level);
+        shader->SetUniform(shader->GetUniformLocation("outDepthPyramidSize"),
                            igm::uvec2{width, height});
-        m_DepthPyramid.bindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
+                                  GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
@@ -751,13 +762,14 @@ void Scene::RefreshDepthPyramid() {
         if (levelWidth < 1) levelWidth = 1;
         if (levelHeight < 1) levelHeight = 1;
 
-        shader->use();
+        shader->Use();
 
-        shader->use();
-        shader->setUniform(shader->getUniformLocation("level"), level);
-        shader->setUniform(shader->getUniformLocation("inDepthPyramidSize"),
+        shader->Use();
+        shader->SetUniform(shader->GetUniformLocation("level"), level);
+        shader->SetUniform(shader->GetUniformLocation("inDepthPyramidSize"),
                            igm::uvec2{width, height});
-        m_DepthPyramid.bindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
+                                  GL_R32F);
 
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -783,9 +795,6 @@ void Scene::DrawFrame() {
         if (!model->m_DataObject->IsDrawable()) { continue; }
 
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetClipper()->GetMTime() > drawObject->GetMTime()) {
-            drawObject->ConvertToDrawableData();
-        }
         drawObject->ReAllocateDisplayBuffer();
     }
 
@@ -835,17 +844,17 @@ void Scene::ResolveFrame() {
     glDisable(GL_DEPTH_TEST);
 
     auto shader = GetShader(Scene::ATTACHMENTRESOLVE);
-    shader->use();
+    shader->Use();
 
-    shader->setUniform(shader->getUniformLocation("numSamples"), samples);
-    m_ColorTextureMultisampled.active(GL_TEXTURE1);
-    shader->setUniform(shader->getUniformLocation("colorTextureMS"), 1);
-    m_DepthTextureMultisampled.active(GL_TEXTURE2);
-    shader->setUniform(shader->getUniformLocation("depthTextureMS"), 2);
+    shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+    m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+    shader->SetUniform(shader->GetUniformLocation("colorTextureMS"), 1);
+    m_DepthTextureMultisampled->Active(GL_TEXTURE2);
+    shader->SetUniform(shader->GetUniformLocation("depthTextureMS"), 2);
 
-    m_EmptyVAO.bind();
+    m_EmptyVAO->Bind();
     glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO.release();
+    m_EmptyVAO->Release();
 #endif
 }
 
@@ -857,24 +866,24 @@ void Scene::RenderToQtFrame() {
     glDisable(GL_DEPTH_TEST);
 
     auto shader = GetShader(Scene::SCREEN);
-    shader->use();
+    shader->Use();
 
 #ifdef MSAA
-    m_ColorTextureResolved.generateMipmap();
-    m_ColorTextureResolved.active(GL_TEXTURE1);
-    m_DepthTextureResolved.active(GL_TEXTURE2);
-    m_DepthPyramid.active(GL_TEXTURE3);
-    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
+    m_ColorTextureResolved->GenerateMipmap();
+    m_ColorTextureResolved->Active(GL_TEXTURE1);
+    m_DepthTextureResolved->Active(GL_TEXTURE2);
+    m_DepthPyramid->Active(GL_TEXTURE3);
+    shader->SetUniform(shader->GetUniformLocation("screenColorSampler"), 1);
 #else
-    m_ColorTexture.active(GL_TEXTURE1);
-    m_DepthTexture.active(GL_TEXTURE2);
-    m_DepthPyramid.active(GL_TEXTURE3);
-    shader->setUniform(shader->getUniformLocation("screenColorSampler"), 1);
+    m_ColorTexture->Active(GL_TEXTURE1);
+    m_DepthTexture->Active(GL_TEXTURE2);
+    m_DepthPyramid->Active(GL_TEXTURE3);
+    shader->SetUniform(shader->GetUniformLocation("screenColorSampler"), 1);
 #endif
 
-    m_EmptyVAO.bind();
+    m_EmptyVAO->Bind();
     glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO.release();
+    m_EmptyVAO->Release();
 }
 
 void Scene::ForwardPass() {
@@ -928,24 +937,24 @@ void Scene::TransparentForwardPass() {
     // 1.reset oit pipeline status
     {
         auto shader = GetShader(Scene::TRANSPARENCYLINK);
-        shader->use();
+        shader->Use();
 
-        m_OITAtomicCounterBuffer.bindBase(0);
+        m_OITAtomicCounterBuffer->BindBase(0);
         const GLuint zero = 0;
-        m_OITAtomicCounterBuffer.subData(0, sizeof(zero), &zero);
+        m_OITAtomicCounterBuffer->SubData(0, sizeof(zero), &zero);
 
-        m_OITHeadPointerInitializer.bind();
-        m_OITHeadPointerTexture.bind();
-        m_OITHeadPointerTexture.subImage(0, 0, 0, MAX_FRAMEBUFFER_WIDTH,
-                                         MAX_FRAMEBUFFER_HEIGHT, GL_RED_INTEGER,
-                                         GL_UNSIGNED_INT, nullptr);
-        m_OITHeadPointerTexture.release();
-        m_OITHeadPointerInitializer.release();
+        m_OITHeadPointerInitializer->Bind();
+        m_OITHeadPointerTexture->Bind();
+        m_OITHeadPointerTexture->SubImage(
+                0, 0, 0, MAX_FRAMEBUFFER_WIDTH, MAX_FRAMEBUFFER_HEIGHT,
+                GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+        m_OITHeadPointerTexture->Release();
+        m_OITHeadPointerInitializer->Release();
 
-        m_OITHeadPointerTexture.bindImage(0, 0, GL_FALSE, 0, GL_READ_WRITE,
-                                          GL_R32UI);
-        m_OITLinkedListTexture.bindImage(1, 0, GL_FALSE, 0, GL_WRITE_ONLY,
-                                         GL_RGBA32UI);
+        m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_WRITE,
+                                           GL_R32UI);
+        m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+                                          GL_RGBA32UI);
     }
 
     // 2.build the oit link list
@@ -953,11 +962,11 @@ void Scene::TransparentForwardPass() {
     {
         // add the result of drawing opaque objects
         auto shader = GetShader(Scene::TRANSPARENCYSORT);
-        shader->use();
+        shader->Use();
 
-        shader->setUniform(shader->getUniformLocation("numSamples"), samples);
-        m_ColorTextureMultisampled.active(GL_TEXTURE1);
-        shader->setUniform(shader->getUniformLocation("forwardPassColorMS"), 1);
+        shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+        shader->SetUniform(shader->GetUniformLocation("forwardPassColorMS"), 1);
 
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
@@ -972,16 +981,16 @@ void Scene::TransparentForwardPass() {
     glDisable(GL_DEPTH_TEST);
     {
         auto shader = GetShader(Scene::TRANSPARENCYSORT);
-        shader->use();
+        shader->Use();
 
-        m_OITHeadPointerTexture.bindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
-                                          GL_R32UI);
-        m_OITLinkedListTexture.bindImage(1, 0, GL_FALSE, 0, GL_READ_ONLY,
-                                         GL_RGBA32UI);
+        m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
+                                           GL_R32UI);
+        m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_READ_ONLY,
+                                          GL_RGBA32UI);
 
-        m_EmptyVAO.bind();
+        m_EmptyVAO->Bind();
         glDrawArrays(GL_TRIANGLES, 0, 3);
-        m_EmptyVAO.release();
+        m_EmptyVAO->Release();
     }
     glEnable(GL_DEPTH_TEST);
 #endif
@@ -998,7 +1007,7 @@ void Scene::UpdateCameraDataBlock() {
             m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
 
     // update camera data matrix
-    m_CameraDataBlock.subData(0, sizeof(CameraDataBuffer), &m_CameraData);
+    m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &m_CameraData);
 }
 void Scene::UpdateObjectDataBlock(DataObject* obj) {
     // update object data matrix
@@ -1013,7 +1022,7 @@ void Scene::UpdateObjectDataBlock(DataObject* obj) {
                                           static_cast<float>(box.diag() / 2)};
 
     // update object data matrix
-    m_ObjectDataBlock.subData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
+    m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
 }
 void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
     auto drawObject = DynamicCast<DrawObject>(obj);
@@ -1021,41 +1030,43 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
     m_UBO.useColor = drawObject->IsUseColor();
 
     // update other ubo
-    m_UBOBlock.subData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+    m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
 }
 
 void Scene::UpdateUniformBuffer() {
     // update camera data matrix
-    m_CameraDataBlock.subData(0, sizeof(CameraDataBuffer), &m_CameraData);
+    m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &m_CameraData);
 
     // update object data matrix
-    m_ObjectDataBlock.subData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
+    m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
 
     // update other ubo
-    m_UBOBlock.subData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+    m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
 }
 
 void Scene::DrawAxes(igm::ivec4 drawRange) {
     auto axesShader = this->GetShader(Scene::AXES);
-    axesShader->use();
+    axesShader->Use();
 
-    GLUniform modelLocation = axesShader->getUniformLocation("model");
-    axesShader->setUniform(modelLocation, m_ModelRotate);
+    GLUniform::Pointer modelLocation = axesShader->GetUniformLocation("model");
+    axesShader->SetUniform(modelLocation, m_ModelRotate);
 
-    GLUniform isFontLocation = axesShader->getUniformLocation("isDrawFont");
+    GLUniform::Pointer isFontLocation =
+            axesShader->GetUniformLocation("isDrawFont");
 
     // draw Axes
     {
-        axesShader->setUniform(isFontLocation, false);
+        axesShader->SetUniform(isFontLocation, false);
         m_Axes->DrawAxes();
     }
 
     // draw Axes Font
     {
-        axesShader->setUniform(isFontLocation, true);
-        GLUniform textureUniform =
-                axesShader->getUniformLocation("fontSampler");
-        GLUniform colorUniform = axesShader->getUniformLocation("textColor");
+        axesShader->SetUniform(isFontLocation, true);
+        GLUniform::Pointer textureUniform =
+                axesShader->GetUniformLocation("fontSampler");
+        GLUniform::Pointer colorUniform =
+                axesShader->GetUniformLocation("textColor");
 
         m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
                        {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
@@ -1084,7 +1095,7 @@ void Scene::RefreshDrawCullDataBuffer() {
     cullData.pyramidWidth = static_cast<float>(m_DepthPyramidWidth);
     cullData.pyramidHeight = static_cast<float>(m_DepthPyramidHeight);
 
-    m_DrawCullData.subData(0, sizeof(DrawCullData), &cullData);
+    m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
 void Scene::lookAtPositiveX() {

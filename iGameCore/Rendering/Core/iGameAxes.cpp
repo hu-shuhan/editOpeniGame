@@ -3,76 +3,91 @@
 IGAME_NAMESPACE_BEGIN
 
 Axes::Axes() {
-    m_TriangleVAO.create();
-    m_PositionVBO.create();
-    m_PositionVBO.target(GL_ARRAY_BUFFER);
-    m_ColorVBO.create();
-    m_ColorVBO.target(GL_ARRAY_BUFFER);
-    m_TriangleEBO.create();
-    m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
+    m_TriangleVAO = GLVertexArray::New();
+    m_TriangleVAO->Create();
 
-    m_FontVAO.create();
-    m_TextureCoordVBO.create();
-    m_TextureCoordVBO.target(GL_ARRAY_BUFFER);
-    m_WorldCoordVBO.create();
-    m_WorldCoordVBO.target(GL_ARRAY_BUFFER);
-    m_FontTextureEBO.create();
-    m_FontTextureEBO.target(GL_ELEMENT_ARRAY_BUFFER);
+    m_PositionVBO = GLBuffer::New();
+    m_PositionVBO->Create();
+    m_PositionVBO->Target(GL_ARRAY_BUFFER);
+
+    m_ColorVBO = GLBuffer::New();
+    m_ColorVBO->Create();
+    m_ColorVBO->Target(GL_ARRAY_BUFFER);
+
+    m_TriangleEBO = GLBuffer::New();
+    m_TriangleEBO->Create();
+    m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_FontVAO = GLVertexArray::New();
+    m_FontVAO->Create();
+
+    m_TextureCoordVBO = GLBuffer::New();
+    m_TextureCoordVBO->Create();
+    m_TextureCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_WorldCoordVBO = GLBuffer::New();
+    m_WorldCoordVBO->Create();
+    m_WorldCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_FontTextureEBO = GLBuffer::New();
+    m_FontTextureEBO->Create();
+    m_FontTextureEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
 
     initialize();
 }
 
 Axes::~Axes() {
-    m_TriangleVAO.destroy();
-    m_PositionVBO.destroy();
-    m_ColorVBO.destroy();
-    m_TriangleEBO.destroy();
+    m_TriangleVAO->Destroy();
+    m_PositionVBO->Destroy();
+    m_ColorVBO->Destroy();
+    m_TriangleEBO->Destroy();
 
-    m_FontVAO.destroy();
-    m_TextureCoordVBO.destroy();
-    m_WorldCoordVBO.destroy();
-    m_FontTextureEBO.destroy();
+    m_FontVAO->Destroy();
+    m_TextureCoordVBO->Destroy();
+    m_WorldCoordVBO->Destroy();
+    m_FontTextureEBO->Destroy();
 };
 
 void Axes::DrawAxes() {
     // draw axes
-    m_TriangleVAO.bind();
+    m_TriangleVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
-    m_TriangleVAO.release();
+    m_TriangleVAO->Release();
 }
-void Axes::DrawXYZ(const GLShaderProgram* shader, const GLUniform& texture,
-                   const GLUniform& color) {
+void Axes::DrawXYZ(const GLShaderProgram::Pointer shader,
+                   const GLUniform::Pointer texture,
+                   const GLUniform::Pointer color) {
     // draw xyz
-    m_FontVAO.bind();
+    m_FontVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
     igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
     igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
 
-    auto& textureX = FontSet::Instance().GetTexture(L'X');
-    textureX.active(GL_TEXTURE1);
-    auto& textureY = FontSet::Instance().GetTexture(L'Y');
-    textureY.active(GL_TEXTURE2);
-    auto& textureZ = FontSet::Instance().GetTexture(L'Z');
-    textureZ.active(GL_TEXTURE3);
+    auto textureX = FontSet::Instance().GetTexture(L'X');
+    textureX->Active(GL_TEXTURE1);
+    auto textureY = FontSet::Instance().GetTexture(L'Y');
+    textureY->Active(GL_TEXTURE2);
+    auto textureZ = FontSet::Instance().GetTexture(L'Z');
+    textureZ->Active(GL_TEXTURE3);
 
-    shader->setUniform(texture, 1);
-    shader->setUniform(color, red);
+    shader->SetUniform(texture, 1);
+    shader->SetUniform(color, red);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-    shader->setUniform(texture, 2);
-    shader->setUniform(color, green);
+    shader->SetUniform(texture, 2);
+    shader->SetUniform(color, green);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                    (void*) (6 * sizeof(GLuint)));
 
-    shader->setUniform(texture, 3);
-    shader->setUniform(color, blue);
+    shader->SetUniform(texture, 3);
+    shader->SetUniform(color, blue);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                    (void*) (12 * sizeof(GLuint)));
 
-    m_FontVAO.release();
+    m_FontVAO->Release();
 }
 
 void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
@@ -129,9 +144,9 @@ void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
                 fontVertices.push_back(tmpWc.z);
     }
 
-    m_WorldCoordVBO.allocate(fontVertices.size() * sizeof(float),
-                             fontVertices.data(), GL_STATIC_DRAW);
-    m_FontVAO.vertexBuffer(0, m_WorldCoordVBO, 0, 3 * sizeof(float));
+    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
+                              fontVertices.data(), GL_STATIC_DRAW);
+    m_FontVAO->VertexBuffer(0, m_WorldCoordVBO, 0, 3 * sizeof(float));
     GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, 0, 3, GL_FLOAT, GL_FALSE,
                       0);
 }
@@ -163,22 +178,22 @@ void Axes::initialize() {
             39, 46, 43, 40, 41, 45, 40, 45, 44,
     };
     requestData(vertices, colors);
-    m_PositionVBO.allocate(vertices.size() * sizeof(igm::vec3), vertices.data(),
-                           GL_STATIC_DRAW);
-    m_ColorVBO.allocate(colors.size() * sizeof(igm::vec3), colors.data(),
-                        GL_STATIC_DRAW);
-    m_TriangleEBO.allocate(triangleIndices.size() * sizeof(uint32_t),
-                           triangleIndices.data(), GL_STATIC_DRAW);
+    m_PositionVBO->Allocate(vertices.size() * sizeof(igm::vec3),
+                            vertices.data(), GL_STATIC_DRAW);
+    m_ColorVBO->Allocate(colors.size() * sizeof(igm::vec3), colors.data(),
+                         GL_STATIC_DRAW);
+    m_TriangleEBO->Allocate(triangleIndices.size() * sizeof(uint32_t),
+                            triangleIndices.data(), GL_STATIC_DRAW);
 
     // bind vertex attribute pointer to VAO
-    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                               3 * sizeof(float));
+    m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+                                3 * sizeof(float));
     GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
                       GL_FLOAT, GL_FALSE, 0);
-    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
+    m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
     GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
                       GL_FLOAT, GL_FALSE, 0);
-    m_TriangleVAO.elementBuffer(m_TriangleEBO);
+    m_TriangleVAO->ElementBuffer(m_TriangleEBO);
 
     // billboard
     Viewport[0] = 0;
@@ -196,21 +211,22 @@ void Axes::initialize() {
                                       6, 5, 7, 8, 9, 10, 10, 9, 11};
 
     // Bind Axes font texture VAO, VBO, EBO
-    m_WorldCoordVBO.allocate(fontVertices.size() * sizeof(float),
-                             fontVertices.data(), GL_STATIC_DRAW);
-    m_TextureCoordVBO.allocate(textureCoords.size() * sizeof(float),
-                               textureCoords.data(), GL_STATIC_DRAW);
-    m_FontTextureEBO.allocate(fontIndices.size() * sizeof(uint32_t),
-                              fontIndices.data(), GL_STATIC_DRAW);
+    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
+                              fontVertices.data(), GL_STATIC_DRAW);
+    m_TextureCoordVBO->Allocate(textureCoords.size() * sizeof(float),
+                                textureCoords.data(), GL_STATIC_DRAW);
+    m_FontTextureEBO->Allocate(fontIndices.size() * sizeof(uint32_t),
+                               fontIndices.data(), GL_STATIC_DRAW);
 
-    m_FontVAO.vertexBuffer(GL_VBO_IDX_0, m_WorldCoordVBO, 0, 3 * sizeof(float));
+    m_FontVAO->VertexBuffer(GL_VBO_IDX_0, m_WorldCoordVBO, 0,
+                            3 * sizeof(float));
     GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
                       GL_FALSE, 0);
-    m_FontVAO.vertexBuffer(GL_VBO_IDX_1, m_TextureCoordVBO, 0,
-                           2 * sizeof(float));
+    m_FontVAO->VertexBuffer(GL_VBO_IDX_1, m_TextureCoordVBO, 0,
+                            2 * sizeof(float));
     GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_1, 2, GL_FLOAT,
                       GL_FALSE, 0);
-    m_FontVAO.elementBuffer(m_FontTextureEBO);
+    m_FontVAO->ElementBuffer(m_FontTextureEBO);
 }
 
 void Axes::requestData(std::vector<igm::vec3>& vertices,

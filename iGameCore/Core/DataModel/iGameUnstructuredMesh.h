@@ -110,12 +110,15 @@ private:
 public:
     //void Draw(Scene* scene) override;
     void ConvertToDrawableData() override;
-    void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
-    void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
-    void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                   std::pair<float, float>& range,
-                                   igIndex i = -1) override;
-    void SetAttributeWithCellData(ArrayObject::Pointer attr, igIndex i = -1);
+    //void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
+    //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
+    //void SetAttributeWithPointData(ArrayObject::Pointer attr,
+    //                               std::pair<float, float>& range,
+    //                               igIndex i = -1) override;
+    //void SetAttributeWithCellData(ArrayObject::Pointer attr, igIndex i = -1);
+    void SetAttributeWithCellData(ArrayObject::Pointer attr,
+                                  std::pair<float, float>& range,
+                                  igIndex dimension = -1) override;
 
     //protected:
     //    SurfaceMesh::Pointer m_DrawMesh{nullptr};

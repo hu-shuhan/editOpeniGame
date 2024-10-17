@@ -71,21 +71,31 @@ void PainterBase::SetBrush(const BrushStyle& style) {
 
 void PainterBase::Draw(Scene* scene) {
     if (first) {
-        m_VAO.create();
+        m_VAO = GLVertexArray::New();
+        m_VAO->Create();
 
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        m_PointEBO.create();
-        m_PointEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_LineEBO.create();
-        m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO.create();
-        m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
+        m_PositionVBO = GLBuffer::New();
+        m_PositionVBO->Create();
+        m_PositionVBO->Target(GL_ARRAY_BUFFER);
 
-        m_VAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-        m_VAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
+        m_ColorVBO = GLBuffer::New();
+        m_ColorVBO->Create();
+        m_ColorVBO->Target(GL_ARRAY_BUFFER);
+
+        m_PointEBO = GLBuffer::New();
+        m_PointEBO->Create();
+        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_LineEBO = GLBuffer::New();
+        m_LineEBO->Create();
+        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_TriangleEBO = GLBuffer::New();
+        m_TriangleEBO->Create();
+        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_VAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
+        m_VAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
 
         GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
                           GL_FALSE, 0);
@@ -102,23 +112,23 @@ void PainterBase::Draw(Scene* scene) {
         auto& colors = primitive.colors;
         auto& indexes = primitive.indices;
 
-        m_PositionVBO.allocate(points.size() * sizeof(Vector3f), points.data(),
-                               GL_STATIC_DRAW);
-        m_ColorVBO.allocate(colors.size() * sizeof(Vector3f), colors.data(),
-                            GL_STATIC_DRAW);
+        m_PositionVBO->Allocate(points.size() * sizeof(Vector3f), points.data(),
+                                GL_STATIC_DRAW);
+        m_ColorVBO->Allocate(colors.size() * sizeof(Vector3f), colors.data(),
+                             GL_STATIC_DRAW);
 
         scene->UBO().useColor = true;
         scene->UpdateUniformBuffer();
-        scene->GetShader(Scene::NOLIGHT)->use();
+        scene->GetShader(Scene::NOLIGHT)->Use();
 
-        m_VAO.bind();
+        m_VAO->Bind();
 
         if (indexes[0].size() != 0) {
-            m_PointEBO.allocate(indexes[0].size() * sizeof(iguIndex),
-                                indexes[0].data(), GL_STATIC_DRAW);
-            m_VAO.elementBuffer(m_PointEBO);
+            m_PointEBO->Allocate(indexes[0].size() * sizeof(iguIndex),
+                                 indexes[0].data(), GL_STATIC_DRAW);
+            m_VAO->ElementBuffer(m_PointEBO);
 
-            m_VAO.bind();
+            m_VAO->Bind();
             glad_glPointSize(primitive.penWidth);
             glad_glDepthRange(0.000001, 1);
             glad_glDrawElements(GL_POINTS, indexes[0].size(), GL_UNSIGNED_INT,
@@ -126,11 +136,11 @@ void PainterBase::Draw(Scene* scene) {
             glad_glDepthRange(0, 1);
         }
         if (indexes[1].size() != 0) {
-            m_LineEBO.allocate(indexes[1].size() * sizeof(iguIndex),
-                               indexes[1].data(), GL_STATIC_DRAW);
-            m_VAO.elementBuffer(m_LineEBO);
+            m_LineEBO->Allocate(indexes[1].size() * sizeof(iguIndex),
+                                indexes[1].data(), GL_STATIC_DRAW);
+            m_VAO->ElementBuffer(m_LineEBO);
 
-            m_VAO.bind();
+            m_VAO->Bind();
             GLCheckError();
             glad_glLineWidth(primitive.penWidth);
             GLCheckError();
@@ -138,36 +148,36 @@ void PainterBase::Draw(Scene* scene) {
                                 0);
         }
         if (indexes[2].size() != 0) {
-            m_TriangleEBO.allocate(indexes[2].size() * sizeof(iguIndex),
-                                   indexes[2].data(), GL_STATIC_DRAW);
-            m_VAO.elementBuffer(m_TriangleEBO);
+            m_TriangleEBO->Allocate(indexes[2].size() * sizeof(iguIndex),
+                                    indexes[2].data(), GL_STATIC_DRAW);
+            m_VAO->ElementBuffer(m_TriangleEBO);
 
-            m_VAO.bind();
+            m_VAO->Bind();
             glad_glDrawElements(GL_TRIANGLES, indexes[2].size(),
                                 GL_UNSIGNED_INT, 0);
         }
 
-        m_VAO.release();
+        m_VAO->Release();
     }
 }
 
 void PainterBase::PackDrawableData() {
     if (first) {
-        m_VAO.create();
+        m_VAO->Create();
 
-        m_PositionVBO.create();
-        m_PositionVBO.target(GL_ARRAY_BUFFER);
-        m_ColorVBO.create();
-        m_ColorVBO.target(GL_ARRAY_BUFFER);
-        m_PointEBO.create();
-        m_PointEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_LineEBO.create();
-        m_LineEBO.target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO.create();
-        m_TriangleEBO.target(GL_ELEMENT_ARRAY_BUFFER);
+        m_PositionVBO->Create();
+        m_PositionVBO->Target(GL_ARRAY_BUFFER);
+        m_ColorVBO->Create();
+        m_ColorVBO->Target(GL_ARRAY_BUFFER);
+        m_PointEBO->Create();
+        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+        m_LineEBO->Create();
+        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+        m_TriangleEBO->Create();
+        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
 
-        m_VAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-        m_VAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
+        m_VAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
+        m_VAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
 
         GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
                           GL_FALSE, 0);
@@ -233,8 +243,8 @@ void PainterBase::Clear() { m_PrimitivesPool->Clear(); }
 
 //void Painter::ExpandVBO(GLBuffer& vbo, size_t oldSize, size_t newSize) {
 //    GLBuffer tmp;
-//    tmp.create();
-//    tmp.target(GL_ARRAY_BUFFER);
+//    tmp->Create();
+//    tmp->Target(GL_ARRAY_BUFFER);
 //    tmp.storage(newSize, nullptr, GL_DYNAMIC_STORAGE_BIT);
 //    GLBuffer::copySubData(vbo, tmp, 0, 0, oldSize);
 //
@@ -244,8 +254,8 @@ void PainterBase::Clear() { m_PrimitivesPool->Clear(); }
 //
 //void Painter::ExpandEBO(GLBuffer& ebo, size_t oldSize, size_t newSize) {
 //    GLBuffer tmp;
-//    tmp.create();
-//    tmp.target(GL_ELEMENT_ARRAY_BUFFER);
+//    tmp->Create();
+//    tmp->Target(GL_ELEMENT_ARRAY_BUFFER);
 //    tmp.storage(newSize, nullptr, GL_DYNAMIC_STORAGE_BIT);
 //    GLBuffer::copySubData(ebo, tmp, 0, 0, oldSize);
 //
