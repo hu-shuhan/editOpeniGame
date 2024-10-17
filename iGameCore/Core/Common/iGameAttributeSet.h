@@ -161,74 +161,7 @@ public:
 			}
 		}
 	}
-	void CopyPointData(AttributeSet::Pointer inData, igIndex inIndex, igIndex copyIndex = -1) {
-		auto allAttributes = inData->GetAllAttributes();
-		this->m_Buffer->Resize(allAttributes->Size());
-		double values[256] = { 0 };
-		for (int i = 0; i < allAttributes->Size(); i++) {
-			auto& attr = allAttributes->GetElement(i);
-			if (attr.attachmentType == IG_POINT) {
-				auto inArray = attr.pointer;
-				auto copyArray = this->m_Buffer->GetElement(i).pointer;
-				inArray->GetElement(inIndex, values);
 
-				if (copyIndex == -1) {
-
-				}
-				else {
-					copyArray->SetElement(copyIndex, values);
-				}
-			}
-		}
-	}
-	void CopyCellData(AttributeSet::Pointer inData, igIndex inIndex, igIndex copyIndex = -1) {
-		auto allAttributes = inData->GetAllAttributes();
-		this->m_Buffer->Resize(allAttributes->Size());
-		double values[256] = { 0 };
-		for (int i = 0; i < allAttributes->Size(); i++) {
-			auto& attr = allAttributes->GetElement(i);
-			if (attr.attachmentType == IG_CELL) {
-				auto inArray = attr.pointer;
-				auto copyArray = this->m_Buffer->GetElement(i).pointer;
-				inArray->GetElement(inIndex, values);
-
-				if (copyIndex == -1) {
-
-				}
-				else {
-					copyArray->SetElement(copyIndex, values);
-				}
-			}
-		}
-	}
-	void CopyPointDataWithInterpolate(AttributeSet::Pointer inData, igIndex p1, igIndex p2, float t, igIndex copyIndex = -1) {
-		auto allAttributes = inData->GetAllAttributes();
-		this->m_Buffer->Resize(allAttributes->Size());
-		double values_1[256] = { 0 };
-		double values_2[256] = { 0 };
-		int dimension = 0;
-		double values[256] = { 0 };
-		for (int i = 0; i < allAttributes->Size(); i++) {
-			auto& attr = allAttributes->GetElement(i);
-			if (attr.attachmentType == IG_POINT) {
-				auto inArray = attr.pointer;
-				auto copyArray = this->m_Buffer->GetElement(i).pointer;
-				inArray->GetElement(p1, values_1);
-				inArray->GetElement(p2, values_2);
-				dimension = inArray->GetDimension();
-				for (int j = 0; j < dimension; j++) {
-					values[j] = values_1[j] + t * (values_2[j] - values_1[j]);
-				}
-				if (copyIndex == -1) {
-
-				}
-				else {
-					copyArray->SetElement(copyIndex, values);
-				}
-			}
-		}
-
-	}
 
 
 	IGsize GetRealMemorySize() {
