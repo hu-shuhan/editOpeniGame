@@ -44,20 +44,17 @@ void igQtModelClipWidget::UpdatePlane() {
     n[2] = ui->lineEdit_normal_z->text().toFloat();
     m_Clipper->SetPlane(o, n);
 }
-void igQtModelClipWidget::SetIsSlice(bool s)
-{
+void igQtModelClipWidget::SetIsSlice(bool s) {
     m_Clipper->SetIsSlice(s);
-    if (m_Generated) {
-        ClipModel();
-    }
+    if (m_Generated) { ClipModel(); }
 }
-void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
-{
+void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     this->m_OriginDataObject = m_d;
     m_ResultMesh = iGame::SurfaceMesh::New();
     m_ResultMesh->SetName("Clip");
+    m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
     DrawClipModel(m_ResultMesh);
-    m_Generated=true;
+    m_Generated = true;
 }
 
 void igQtModelClipWidget::ClipModel() {
@@ -80,7 +77,6 @@ void igQtModelClipWidget::ClipModel() {
     surfaceextract->Execute(m_Clipper->GetOutput(), Result_ClipPart);
 
     m_ResultMesh->AddSubDataObject(Result_ClipPart);
-    m_ResultMesh->SetAttributeSet(Result_ClipPart->GetAttributeSet());
 
     if (!m_Clipper->GetIsSlice()) {
         auto Result_ExtractPart = iGame::SurfaceMesh::New();
@@ -95,10 +91,12 @@ void igQtModelClipWidget::ClipModel() {
     m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex,
                                    oldAttributeDimension);
 
-    if (m_Generated) {
-        UpdateClipModel(m_ResultMesh);
-    } else {
-        DrawClipModel(m_ResultMesh);
-        m_Generated = true;
-    }
+    UpdateClipModel(m_ResultMesh);
+    
+    //if (m_Generated) {
+    //    UpdateClipModel(m_ResultMesh);
+    //} else {
+    //    DrawClipModel(m_ResultMesh);
+    //    m_Generated = true;
+    //}
 }

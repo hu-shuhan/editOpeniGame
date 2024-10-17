@@ -487,6 +487,7 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
+    m_DisplayObject->ReAllocateDisplayBuffer();
 }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO) {
