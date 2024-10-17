@@ -68,6 +68,7 @@ public:
     void GetPointOffsetParameters(float& units);
 
     void SetDisplayObject(DataObject::Pointer dataObject);
+    DataObject::Pointer GetDisplayObject();
 
 private:
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO,

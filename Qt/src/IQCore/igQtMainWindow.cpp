@@ -969,16 +969,18 @@ void igQtMainWindow::initAllFilters() {
         VortexFilter::Pointer filter = VortexFilter::New();
         UnstructuredMesh::Pointer data = DynamicCast<UnstructuredMesh>(
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        //iGameModelGeometryFilter::Pointer ext =
-        //        iGameModelGeometryFilter::New();
-        //ext->SetInput(data);
-        //ext->Execute();
 
-        //auto mesh = ext->GetExtractMesh();
-        //filter->SetInput(mesh);
-        //filter->Execute();
-        //modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm);
-
+        auto mesh = data->GetDisplayObject();
+        if (mesh) {
+            filter->SetInput(mesh);
+            filter->Execute();
+            modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+            
+        } else {
+            filter->SetInput(data);
+            filter->Execute();
+            modelTreeWidget->updateAllAttriubute(data);
+        }
 
         filter->SetInput(data);
         filter->Execute();

@@ -515,7 +515,10 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
     m_DisplayObject->ReAllocateDisplayBuffer();
+    m_DisplayObject->SetColorMapper(this->GetColorMapper());
 }
+
+DataObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
                                         GLBuffer::Pointer VBO) {
