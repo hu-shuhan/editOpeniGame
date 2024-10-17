@@ -1483,6 +1483,7 @@ void igQtMainWindow::initAllMySignalConnections() {
 	connect(ui->widget_VectorField, &igQtVectorWidget::UpdateDireVector, this,
 		[&](iGame::DataObject::Pointer res) {
 			res->Modified();
+                modelTreeWidget->updateItemName(res);
 			rendererWidget->update();
 		});
 	connect(ui->widget_TensorField, &igQtTensorWidget::DrawTensorGlyphs, this,
