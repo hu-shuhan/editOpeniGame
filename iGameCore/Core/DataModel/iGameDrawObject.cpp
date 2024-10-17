@@ -337,7 +337,13 @@ void DrawObject::SetTransparency(float transparency) {
 }
 
 float DrawObject::GetTransparency() { return m_Transparency; }
+
+void DrawObject::SetPointSize(int size) {
+    m_PointSize = size;
+}
+
 int DrawObject::GetPointSize() { return m_PointSize; }
+
 void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     m_AttributeIndex = index;
     m_AttributeDimension = dimension;

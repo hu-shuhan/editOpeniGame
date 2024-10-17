@@ -31,13 +31,16 @@ public slots:
 	void updateAllAttriubute(DataObject::Pointer obj);
 	int addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source);
 	int updateCurrentModelInfo();
+	void updateCurrentModelProperty(iGame::Model* model);
     int updateCloudPicture();
     void deleteCurrentModel();
-
+    void onPropertyChanged(QtProperty* property, const QVariant& value);
 
 signals:
 	void CurrendModelChanged();
     void CloudPictureChanged();
+    void Update();
+
 protected:
 	void UpdateCurrentModel(Model::Pointer model);
 
@@ -49,7 +52,11 @@ private:
 
 	QtVariantPropertyManager* propertyManager;
 	QtVariantEditorFactory* editFactory;
+	
 	QtProperty* objectGroup;
+	QtVariantProperty* prop_PointSize;
+    QtVariantProperty* prop_Transparency;
+
 	Ui::LayerDialog* ui;
 };
 

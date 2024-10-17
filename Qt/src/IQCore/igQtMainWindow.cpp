@@ -74,6 +74,9 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
 	initAllSources();
 	initAllInteractor();
 	updateRecentFilePaths();
+
+	connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
+            &igQtRenderWidget::update);
 }
 void igQtMainWindow::initToolbarComponent() {
 

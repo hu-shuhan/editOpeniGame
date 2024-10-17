@@ -52,6 +52,7 @@ public:
 
     void SetTransparency(float transparency);
     float GetTransparency();
+    void SetPointSize(int size);
     int GetPointSize();
 
     virtual void ViewCloudPicture(Scene* scene, int index, int dimension = -1);

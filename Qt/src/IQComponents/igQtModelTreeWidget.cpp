@@ -248,6 +248,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         if (parent) {
             if (currentModelItem != parent) {
                 this->setCurrentModelItem(parent);
+                emit ChangeCurrentModel(parent->getModel());
             }
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(
                     parent->getCurrentChild());
