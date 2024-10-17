@@ -20,8 +20,15 @@ void SlicingStyle::Initialize(Interactor* a) {
 
     center = bbox.center();
     head = rear = center;
-    head[0] += bbox.diag() / 2;
-    rear[0] -= bbox.diag() / 2;
+    radius = bbox.diag() / 3;
+    head[0] += radius;
+    rear[0] -= radius;
+    normal = (head - rear).normalized();
+
+    m_Painter->SetPen(4);
+    m_Painter->SetPen(Color::Red);
+    circleHandle = m_Painter->DrawCircle(center, normal, radius, 100);
+
     len = bbox.diag();
     normal = (head - rear).normalized();
     top = center;
@@ -30,7 +37,7 @@ void SlicingStyle::Initialize(Interactor* a) {
     left[1] += (bbox.max - bbox.min)[1] / 2;
 
     m_Painter->SetPen(4);
-    m_Painter->SetPen(Color::Red);
+    m_Painter->SetPen(Color::Green);
     lineHandle = m_Painter->DrawLine(head, rear);
 
     m_Painter->SetPen(16);
@@ -115,6 +122,59 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
             DrawSlicingPlane(plane);
             Invoke();
         } else if (selectId == 1) {
+            igm::vec3 oldPoint3D, newPoint3D;
+            oldPoint3D = v(head);
+            if (!MapToSphere(pos, newPoint3D)) return;
+
+            head = V(newPoint3D);
+            rear = center - (head - center);
+            normal = (head - rear).normalized();
+
+            m_Painter->SetPen(4);
+            m_Painter->Delete(circleHandle);
+            m_Painter->SetPen(Color::Red);
+            circleHandle = m_Painter->DrawCircle(center, normal, radius, 100);
+
+            m_Painter->SetPen(16);
+            m_Painter->Delete(headHandle);
+            m_Painter->SetPen(Color::Green);
+            headHandle = m_Painter->DrawPoint(head);
+
+            m_Painter->Delete(rearHandle);
+            m_Painter->SetPen(Color::Blue);
+            rearHandle = m_Painter->DrawPoint(rear);
+
+            m_Painter->SetPen(4);
+            m_Painter->SetPen(Color::Red);
+            m_Painter->Delete(lineHandle);
+            lineHandle = m_Painter->DrawLine(head, rear);
+
+            ComputeSlicingPlane(plane);
+            DrawSlicingPlane(plane);
+            Invoke();
+            return;
+            //igm::vec3 axis =
+            //        igm::cross(oldPoint3D, newPoint3D); // corss product
+            //if (axis.length() < 1e-7) {
+            //    axis = igm::vec3(1.0f, 0.0f, 0.0f);
+            //} else {
+            //    axis.normalize();
+            //}
+
+            //// find the amount of rotation
+            //igm::vec3 d = oldPoint3D - newPoint3D;
+            //const double trackballradius = 0.6;
+            //double t = 0.5 * d.length() / trackballradius;
+            //if (t < -1.0) {
+            //    t = -1.0;
+            //} else if (t > 1.0) {
+            //    t = 1.0;
+            //}
+
+            //double phi = 2.0 * asin(t);
+            //double angle = phi * 180.0 / IGM_PI;
+
+
             igm::vec3 p1 = GetNearWorldCoord(pos, invMVP);
             igm::vec3 p2 = GetFarWorldCoord(pos, invMVP);
             igm::vec3 intersection;
