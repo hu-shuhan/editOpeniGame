@@ -41,7 +41,7 @@ protected:
     bool IsIntersect(const Vector3d& p1, const Vector3d& p2, const Vector3d& p3,
                      const Vector3d& p4, Vector3d& intersection);
 
-    bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D) {
+    bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D, double radius) {
         auto center = v(this->center);
 
         igm::mat4 model = m_Scene->ModelMatrix();
@@ -62,8 +62,8 @@ protected:
         auto width = m_Camera->GetViewPort().x;
         auto height = m_Camera->GetViewPort().y;
 
-        const double trackballradius = 0.6;
-        const double rsqr = trackballradius * trackballradius;
+        //const double trackballradius = 0.6;
+        const double rsqr = radius * radius;
 
         // calculate old hit sphere point3D
         double x = (2.0 * v2D.x - width) / width - p_mvp.x;
