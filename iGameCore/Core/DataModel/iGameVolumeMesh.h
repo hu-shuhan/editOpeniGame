@@ -338,13 +338,15 @@ private:
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
-    void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
+    //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
 
-    void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                   std::pair<float, float>& range,
-                                   igIndex i = -1) override;
+    //void SetAttributeWithPointData(ArrayObject::Pointer attr,
+    //                               std::pair<float, float>& range,
+    //                               igIndex i = -1) override;
 
-    void SetAttributeWithCellData(ArrayObject::Pointer attr, igIndex i = -1);
+    void SetAttributeWithCellData(ArrayObject::Pointer attr,
+                                  std::pair<float, float>& range,
+                                  igIndex dimension = -1) override;
 };
 IGAME_NAMESPACE_END
 #endif

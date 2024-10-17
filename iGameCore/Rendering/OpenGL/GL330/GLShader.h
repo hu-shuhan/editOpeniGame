@@ -139,6 +139,8 @@ public:
     void mapUniformBlock(const char* uniformBlockName,
                          uint32_t uniformBlockBinding, GLBuffer& m_UBOBlock) {
         GLuint blockIndex = glGetUniformBlockIndex(handle, uniformBlockName);
+        assert(blockIndex != GL_INVALID_INDEX);
+        
         glUniformBlockBinding(handle, blockIndex, uniformBlockBinding);
         m_UBOBlock.target(GL_UNIFORM_BUFFER);
         m_UBOBlock.bindBase(uniformBlockBinding);

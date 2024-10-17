@@ -67,7 +67,7 @@ public:
 	///@}
 	void SetInput(DataObject::Pointer ip) { this->input = ip; }
 	SurfaceMesh::Pointer GetExtractMesh() { return this->output; }
-
+	DataObject::Pointer GetOutput() override{return this->output;}
 	void CompositeCellAttribute(std::vector<igIndex>& f2c, AttributeSet::Pointer inAllDataArray, AttributeSet::Pointer& outAllDataArray);
 	//这边直接对attributeset进行处理，不用再copy一个，因为传进去的已经是一个对cellattributeset处理过的对象
 	void CompositePointAttribute(igIndex* PointMap, IGsize oldPNum, IGsize newPNum, AttributeSet::Pointer outAllDataArray);

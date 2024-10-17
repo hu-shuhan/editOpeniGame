@@ -91,7 +91,7 @@ public:
 
     Camera::Pointer Camera() { return m_Camera; }
     void ChangeCameraType(IGenum type);
-    GLTexture2d& DepthPyramid() { return m_DepthPyramid; }
+    GLTexture2d::Pointer DepthPyramid() { return m_DepthPyramid; }
 
     CameraDataBuffer& CameraData() { return m_CameraData; }
     ObjectDataBuffer& ObjectData() { return m_ObjectData; }
@@ -103,10 +103,10 @@ public:
     //void UseColor();
     void UpdateUniformBuffer();
 
-    void SetShader(IGenum type, GLShaderProgram*);
-    GLShaderProgram* GenShader(IGenum type);
-    GLShaderProgram* GetShaderWithType(IGenum type);
-    GLShaderProgram* GetShader(IGenum type);
+    void SetShader(IGenum type, GLShaderProgram::Pointer);
+    GLShaderProgram::Pointer GenShader(IGenum type);
+    GLShaderProgram::Pointer GetShaderWithType(IGenum type);
+    GLShaderProgram::Pointer GetShader(IGenum type);
     bool HasShader(IGenum type);
     void UseShader(IGenum type);
 
@@ -132,7 +132,7 @@ public:
         m_UpdateFunctor = std::bind(functor, args...);
     }
 
-    GLBuffer& GetDrawCullDataBuffer() { return m_DrawCullData; }
+    GLBuffer::Pointer GetDrawCullDataBuffer() { return m_DrawCullData; }
 
     void MakeCurrent() {
         if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
@@ -179,7 +179,6 @@ protected:
     void DrawAxes(igm::ivec4 drawRange);
     void CalculateFrameRate();
 
-
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;
     int m_IncrementModelId{0};
@@ -207,36 +206,36 @@ protected:
     uint32_t m_VisibleModelsCount = 0;
     igm::vec4 m_ModelsBoundingSphere{0.0f, 0.0f, 0.0f, 1.0f};
 
-    GLBuffer m_CameraDataBlock, m_ObjectDataBlock, m_UBOBlock;
-    std::map<IGenum, std::unique_ptr<GLShaderProgram>> m_ShaderPrograms;
+    GLBuffer::Pointer m_CameraDataBlock, m_ObjectDataBlock, m_UBOBlock;
+    std::map<IGenum, GLShaderProgram::Pointer> m_ShaderPrograms;
 
     // used to draw full-screen triangle
-    GLVertexArray m_EmptyVAO;
+    GLVertexArray::Pointer m_EmptyVAO;
 
 #ifdef MSAA
     GLint samples = 4;
-    GLFramebuffer m_FramebufferMultisampled;
-    GLTexture2dMultisample m_ColorTextureMultisampled;
-    GLTexture2dMultisample m_DepthTextureMultisampled;
+    GLFramebuffer::Pointer m_FramebufferMultisampled;
+    GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
+    GLTexture2dMultisample::Pointer m_DepthTextureMultisampled;
 
-    GLFramebuffer m_FramebufferResolved;
-    GLTexture2d m_ColorTextureResolved;
-    GLTexture2d m_DepthTextureResolved;
+    GLFramebuffer::Pointer m_FramebufferResolved;
+    GLTexture2d::Pointer m_ColorTextureResolved;
+    GLTexture2d::Pointer m_DepthTextureResolved;
 #else
-    GLFramebuffer m_Framebuffer;
-    GLTexture2d m_ColorTexture;
-    GLTexture2d m_DepthTexture;
+    GLFramebuffer::Pointer m_Framebuffer;
+    GLTexture2d::Pointer m_ColorTexture;
+    GLTexture2d::Pointer m_DepthTexture;
 #endif
 
-    GLTexture2d m_OITHeadPointerTexture;
-    GLBuffer m_OITHeadPointerInitializer;
-    GLBuffer m_OITAtomicCounterBuffer;
-    GLBuffer m_OITLinkedListBuffer;
-    GLTextureBuffer m_OITLinkedListTexture;
+    GLTexture2d::Pointer m_OITHeadPointerTexture;
+    GLBuffer::Pointer m_OITHeadPointerInitializer;
+    GLBuffer::Pointer m_OITAtomicCounterBuffer;
+    GLBuffer::Pointer m_OITLinkedListBuffer;
+    GLTextureBuffer::Pointer m_OITLinkedListTexture;
 
-    GLBuffer m_DrawCullData;
+    GLBuffer::Pointer m_DrawCullData;
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
-    GLTexture2d m_DepthPyramid;
+    GLTexture2d::Pointer m_DepthPyramid;
 
     Painter3D::Pointer painter = Painter3D::New();
 
