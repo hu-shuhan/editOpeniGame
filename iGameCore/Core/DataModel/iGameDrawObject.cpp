@@ -404,6 +404,9 @@ void DrawObject::SetTransparency(float transparency) {
 float DrawObject::GetTransparency() { return m_Transparency; }
 
 void DrawObject::SetPointSize(int size) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetPointSize(size); }
+
     m_PointSize = size;
 }
 
