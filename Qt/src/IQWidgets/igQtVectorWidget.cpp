@@ -47,8 +47,13 @@ void igQtVectorWidget::drawV() {
     if (!isDraw) {
         m_VectorBase->DataObject::SetName(masterName + "_Vector");
         isDraw = true;
+        haveChange = false;
         Q_EMIT DrawDireVector(m_VectorBase);
     } else {
+        if (haveChange) {
+            m_VectorBase->DataObject::SetName(masterName + "_Vector");
+            haveChange = false;
+        }
         Q_EMIT UpdateDireVector(m_VectorBase);
     }
 
@@ -103,7 +108,11 @@ void igQtVectorWidget::updateVectorNameList() {
     auto currentModel = scene->GetCurrentModel();
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
-    masterName = obj->GetName();
+    if (masterName != obj->GetName()) {
+        masterName = obj->GetName();
+        m_VectorBase->SetInit(false);
+        haveChange = true;
+    }
     if (!obj) return;
     auto AttributeSet = obj->GetAttributeSet();
     if (!AttributeSet) return;

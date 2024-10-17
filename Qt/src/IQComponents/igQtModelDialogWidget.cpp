@@ -126,6 +126,13 @@ ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(DataObject::Pointe
 	}
 	return nullptr;
 }
+void igQtModelDialogWidget::updateItemName(DataObject::Pointer obj) {
+    auto item = getItemFromObject(obj);
+    if (!item) return;
+    item->setName(QString::fromStdString(obj->GetName()));
+    return;
+
+}
 void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj)
 {
 	auto item = getItemFromObject(obj);

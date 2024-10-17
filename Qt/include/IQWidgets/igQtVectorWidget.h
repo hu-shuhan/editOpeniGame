@@ -41,6 +41,7 @@ private:
     std::string masterName;
     bool isInit = false;
     bool isDraw = false;
+    bool haveChange = false;
     iGame::iGameVectorBase::Pointer m_VectorBase{nullptr};
     iGame::Model::Pointer m_Model{nullptr};
     
