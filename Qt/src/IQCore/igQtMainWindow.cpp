@@ -893,14 +893,13 @@ void igQtMainWindow::initAllFilters() {
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
-			auto MC = iGameMarchingCubes::New();
-			MC->SetInput(0, obj);
-			MC->SetValue(0.23);
-			MC->Execute();
-			auto result = MC->GetOutput(0);
+            auto filter=ModelClip::New();
+            auto pointData= obj->GetAttributeSet()->GetAllPointAttributes();
+            filter->SetIsoScalarData(pointData->GetElement(0).pointer,0.58,0);
+			filter->SetInput(0, obj);
+			filter->Execute();
 			modelTreeWidget->addDataObjectToModelTree(
-				result, ItemSource::Algorithm);
-			rendererWidget->update();
+				filter->GetOutput(), ItemSource::Algorithm);
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
