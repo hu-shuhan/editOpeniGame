@@ -52,11 +52,6 @@ void Model::Draw(Scene* scene) {
                         drawObject->m_Positions->GetNumberOfElements());
                 glDisable(GL_POLYGON_OFFSET_POINT);
             }
-            //glad_glPointSize(drawObject->m_PointSize);
-            //glad_glDepthRange(0.000001, 1);
-            //glad_glDrawArrays(GL_POINTS, 0,
-            //                  drawObject->m_Positions->GetNumberOfElements());
-            //glad_glDepthRange(0, 1);
             drawObject->m_PointVAO->Release();
         }
         if (viewStyle & IG_WIREFRAME) {
@@ -75,18 +70,14 @@ void Model::Draw(Scene* scene) {
                 float f, u;
                 drawObject->GetLineOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_LINE);
-                glPolygonOffset(f, u);
+                //glEnable(GL_POLYGON_OFFSET_LINE);
+                //glPolygonOffset(f, u);
                 glad_glDrawElements(
                         GL_LINES,
                         drawObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_LINE);
+                //glDisable(GL_POLYGON_OFFSET_LINE);
             }
-            //glLineWidth(drawObject->m_LineWidth);
-            //glad_glDrawElements(GL_LINES,
-            //                    drawObject->m_LineIndices->GetNumberOfValues(),
-            //                    GL_UNSIGNED_INT, 0);
             drawObject->m_LineVAO->Release();
         }
         if (viewStyle & IG_SURFACE) {
@@ -98,21 +89,14 @@ void Model::Draw(Scene* scene) {
                 float f, u;
                 drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
+                //glEnable(GL_POLYGON_OFFSET_FILL);
+                //glPolygonOffset(f, u);
                 glad_glDrawElements(
                         GL_TRIANGLES,
                         drawObject->m_TriangleIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
+                //glDisable(GL_POLYGON_OFFSET_FILL);
             }
-            //glEnable(GL_POLYGON_OFFSET_FILL);
-            //glPolygonOffset(0.0f, -1.0f);
-            //glad_glDrawElements(
-            //        GL_TRIANGLES,
-            //        drawObject->m_TriangleIndices->GetNumberOfValues(),
-            //        GL_UNSIGNED_INT, 0);
-            //glDisable(GL_POLYGON_OFFSET_FILL);
             drawObject->m_TriangleVAO->Release();
         }
     };

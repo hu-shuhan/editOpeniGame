@@ -187,11 +187,17 @@ public:
         } else if (m_CameraType == ORTHOGRAPHIC) {
             float orthoHeight = GetLengthToFocal() * 0.5f;
             float orthoWidth = orthoHeight * aspect<float>();
+            float dist = (m_Focal - m_Position).length();
 
             return igm::orthoRH_OZ(
                     m_Focal.x - orthoWidth, m_Focal.x + orthoWidth,
                     m_Focal.y - orthoHeight, m_Focal.y + orthoHeight,
-                    m_Focal.z - 10000000.0f, m_Focal.z + 10000000.0f);
+                    m_Focal.z - dist * 100.0f, m_Focal.z + dist * 100.0f);
+            //auto dist = (m_Focal - m_Position).length();
+            //return igm::orthoRH_OZ(
+            //        m_Focal.x - dist * 1.5f, m_Focal.x + dist * 1.5f,
+            //        m_Focal.y - dist * 1.5f, m_Focal.y + dist * 1.5f,
+            //        m_Focal.z - dist * 1.5f, m_Focal.z + dist * 1.5f);
         }
         return igm::mat4(1.0f);
     }
