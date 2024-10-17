@@ -44,21 +44,33 @@ bool iGame::StressDeformationFilter::Execute() {
         {
             auto pointset = DynamicCast<iGame::PointSet>(dataObject);
             if(nullptr != pointset){
-                auto pset = pointset->GetRenderPoints();
-                auto uset = pointset->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
-//                std::cout << "Points : " << pointset->GetPoint(599999)[0] << '\n';
-                for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
-//                    std::cout << uset->GetValue(j + 0) << ' ' << uset->GetValue(j + 1) << ' ' <<uset->GetValue(j + 2) << '\n' ;
-                    pset->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * uset->GetValue(j + 0));
-                    pset->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * uset->GetValue(j + 1));
-                    pset->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * uset->GetValue(j + 2));
-//                    pointset->SetPoint(i, pointset->GetPoint(i) + (Vector3d
-//                          (deform_x * uset->GetValue(j + 0),
-//                           deform_y * uset->GetValue(j + 1),
-//                           deform_z * uset->GetValue(j + 2))));
+                auto render_pos_set = pointset->GetRenderPoints();
+                auto pointMap = pointset->GetPointMap();
+                auto attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+                for(int i = 0, j = 0; i < pointMap->GetNumberOfValues(); i ++, j += 3){
+                    int new_idx = pointMap->GetValue(i);
+                    if(new_idx == -1) continue;
+                    int k = new_idx * 3;
+                    render_pos_set->SetValue(k + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
+                    render_pos_set->SetValue(k + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
+                    render_pos_set->SetValue(k + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+
+//                    float a = render_pos_set->GetValue(new_idx * 3 + 0);
+//                    float b = render_pos_set->GetValue(new_idx * 3 + 1);
+//                    float c = render_pos_set->GetValue(new_idx * 3 + 2);
+//                    float d = pointset->GetPoint(i)[0];
+//                    float e = pointset->GetPoint(i)[1];
+//                    float f = pointset->GetPoint(i)[2];
+//
+//                    std::cout << a << ' ' << d << '\n';
+//                    std::cout << b << ' ' << e << '\n';
+//                    std::cout << c << ' ' << f << '\n';
+//                    std::cout <<  "====\n";
+////                    render_pos_set->SetValue(j + 0, pointset->GetPoint(old_idx)[0]);
+////                    render_pos_set->SetValue(j + 1, pointset->GetPoint(old_idx)[1]);
+////                    render_pos_set->SetValue(j + 2, pointset->GetPoint(old_idx)[2]);
                 }
-//                pointset->Modified();
-                pset->Modified();
+                render_pos_set->Modified();
             }
         }
     }

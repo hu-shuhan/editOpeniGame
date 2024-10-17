@@ -61,6 +61,7 @@ void igQtModelClipWidget::ClipModel() {
 
     auto Result_ClipPart = iGame::SurfaceMesh::New();
     m_ResultMesh->ClearSubDataObject();
+
     m_Clipper->SetInput(m_OriginDataObject);
     m_Clipper->Execute();
     iGame::iGameModelGeometryFilter::Pointer surfaceextract =
@@ -81,7 +82,4 @@ void igQtModelClipWidget::ClipModel() {
         Result_ExtractPart->ConvertToDrawableData();
     }
     UpdateClipModel(m_ResultMesh);
-
 }
-
-

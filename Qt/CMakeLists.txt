@@ -41,6 +41,8 @@ add_library(${MODULE_NAME} SHARED
         ${UI_FILES}
         ${UI_HEAD_FILES}
         ${QT_SRCS}
+        include/IQComponents/Dialog/igQtSplineOptionDialog.h
+        src/IQComponents/Dialog/igQtSplineOptionDialog.cpp
 )
 
 

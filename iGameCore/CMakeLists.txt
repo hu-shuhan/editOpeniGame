@@ -8,13 +8,11 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DPLATFORM_MAC)
 endif ()
 
-#set(SHADER_COMPILE_TARGET OpeniGameShaderCompile)
-#add_subdirectory(Rendering/Shaders)
-
+#--------------------------------------------------------------------
+# Core Module's main Cmake
+#--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
-add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE}
-        Core/Common/iGameDeformationData.h
-        Filters/Deformation/iGameStressDeformationFilter.h)
+add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
 
 target_include_directories(${MODULE_NAME} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel
@@ -31,6 +29,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Interactor
         ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Painter
         ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/OpenGL
+
 )
 target_link_libraries(${MODULE_NAME} PUBLIC
         glad
@@ -40,28 +39,6 @@ target_link_libraries(${MODULE_NAME} PUBLIC
         tinyXML2
         vtkkwiml
 )
-
-if (ENABLE_CGNS_MODULE)
-    target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-ENDIF ()
-
-if (ENABLE_ABAQUS_MODULE)
-    find_package(AbqSDK)
-    if (${AbqSDK_FOUND})
-        message("Find abqsdk")
-        target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-        target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-    endif ()
-endif ()
-
-find_package(FFMPEG)
-if (${FFMPEG_FOUND})
-    message("Find FFMPEG")
-    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
-endif ()
-
 
 target_compile_definitions(${MODULE_NAME} PRIVATE ASSESTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests")
 target_compile_definitions(${MODULE_NAME} PRIVATE SHADERS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders")
@@ -74,6 +51,58 @@ ELSEIF (UNIX)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ENDIF ()
 
+
+#--------------------------------------------------------------------
+# Find or Enable ThirdParty Components' Stuff.
+#--------------------------------------------------------------------
+if (ENABLE_CGNS_MODULE)
+    target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
+ENDIF ()
+
+find_package(AbqSDK)
+if (${AbqSDK_FOUND})
+    message("Find abqsdk")
+    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+endif ()
+
+find_package(FFMPEG)
+if (${FFMPEG_FOUND})
+    message("Find FFMPEG")
+    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+endif ()
+
+if(ENABLE_GPSCUDA_MODULE)
+    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
+    message("Enable GPSCuda Module.")
+    target_include_directories(${MODULE_NAME} PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/wmma_extension/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/glm)
+
+    target_link_libraries(${MODULE_NAME} PUBLIC
+        CommonLib
+        helper_opencascade
+        Geom
+        GPHelperIO
+        GPSplineLib
+
+    )
+
+    file(GLOB_RECURSE EXDLL  ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
+    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${EXDLL}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
+
+endif ()
 
 if (WIN32)
     #  内部库在cmake构建时定义IGAME_COMPILE_EXPORT，使得模式切换为dllexport, 否则外部库在使用编译这个动态库代码时将其模式切换为dllimport
@@ -89,6 +118,7 @@ if (WIN32)
     set_property(TARGET ${MODULE_NAME} PROPERTY RUNTIME_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY LIBRARY_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
+
 endif ()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${MODULE_NAME})

@@ -137,4 +137,8 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
         if (m_Colors == nullptr) { return; }
     }
 }
+
+FlatArray<igIndex>::Pointer PointSet::GetPointMap() {
+    return m_PointMap;
+}
 IGAME_NAMESPACE_END

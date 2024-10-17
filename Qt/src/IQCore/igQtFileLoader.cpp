@@ -10,13 +10,21 @@
 #include "iGameFileIO.h"
 #include "iGameScene.h"
 #include "iGamePointSet.h"
+#if defined(GPSCUDA_ENABLE)
+#include "Spline XML/iGameSplineSurfaceReader.h"
+#include "Spline XML/iGameSplineVolumeReader.h"
+#endif
 
 #include <IQCore/igQtFileLoader.h>
+#include <IQCore/igQtFileType.h>
+#include <IQComponents/Dialog/igQtSplineOptionDialog.h>
+
 #include <QCoreApplication.h>
 #include <qsettings.h>
 #include <qdebug.h>
 #include <qaction.h>
 #include <iostream>
+#include <QMessageBox>
 
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent)
 {
@@ -29,8 +37,26 @@ igQtFileLoader::~igQtFileLoader() {
 
 void igQtFileLoader::LoadFile()
 {
-	std::string filePath = QFileDialog::getOpenFileName(nullptr, "Load file", "", "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu *.vtm *.cgns *.odb);;VTK file(*.vtk);;CGNS file(*.cgns);; ABAQUS file(*.odb)").toStdString();
-	this->OpenFile(filePath);
+    QStringList filters = {
+            "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu *.vtm *.cgns *.odb)",
+            "VTK file(*.vtk)",
+            "CGNS file(*.cgns)",
+            "ABAQUS file(*.odb)",
+            "Spline file(*.xml)",
+    };
+    QString selectedFilter;
+	std::string filePath = QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
+    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+
+    switch (selected_idx) {
+        case FileType::Spline:
+            this->OpenSplineFile(filePath);
+            break;
+
+        default:
+            this->OpenFile(filePath);
+            break;
+    }
 }
 
 void igQtFileLoader::OpenFile(const std::string& filePath)
@@ -53,6 +79,58 @@ void igQtFileLoader::OpenFile(const std::string& filePath)
 	emit FinishReading();
 }
 
+void igQtFileLoader::OpenSplineFile(const std::string &filePath) {
+
+    using namespace iGame;
+    if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr)return;
+    igQtSplineOptionDialog dialog;
+    dialog.setFileName(QString(filePath.c_str()));
+
+    SplineType reader;
+    if (dialog.exec() == QDialog::Accepted) {
+        reader = dialog.getDialogOutput();
+    }else return;
+
+#if defined(GPSCUDA_ENABLE)
+    DataObject::Pointer obj = nullptr;
+    switch (reader) {
+        case SplineType::Surface:
+        {
+            SplineSurfaceReader::Pointer reader = SplineSurfaceReader::New();
+            reader->SetFilePath(filePath);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        case SplineType::Volume:
+        {
+            SplineVolumeReader::Pointer reader = SplineVolumeReader::New();
+            reader->SetFilePath(filePath);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        default:
+            break;
+    }
+    if (obj == nullptr) {
+        igDebug("This file read error.");
+        return;
+    }
+    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+    obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+    //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
+
+    this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    emit NewModel(obj, ItemSource::File);
+    emit FinishReading();
+
+#else
+    QMessageBox::information(nullptr, "", "Fail to Read, Please enable GPS Cuda Module");
+#endif
+}
+
 void igQtFileLoader::SaveFile() {
 	//auto currentModel = iGame::iGameManager::Instance()->GetCurrentModel();
 	//if (currentModel == nullptr)return;
@@ -60,6 +138,7 @@ void igQtFileLoader::SaveFile() {
 	//	igDebug("Save File Error\n");
 	//}
 }
+
 void igQtFileLoader::SaveFileAs() {
 
 	auto sceneManager = iGame::SceneManager::Instance();
@@ -78,7 +157,6 @@ void igQtFileLoader::SaveFileAs() {
 		igDebug("Save File Error\n");
 	}
 }
-
 void igQtFileLoader::SaveCurrentFileToRecentFile(QString path)
 {
 	if (path.isEmpty())
@@ -122,6 +200,8 @@ void igQtFileLoader::UpdateIniFileInfo()
 		}
 	}
 }
+
+
 void igQtFileLoader::InitRecentFilePaths()
 {
 	QString path = QCoreApplication::applicationDirPath() + "/config/savePath.ini";
@@ -144,7 +224,6 @@ void igQtFileLoader::InitRecentFilePaths()
 	delete file;
 	InitRecentFileActions(FilePaths);
 }
-
 
 void igQtFileLoader::InitRecentFileActions(std::vector<QString> FilePaths)
 {

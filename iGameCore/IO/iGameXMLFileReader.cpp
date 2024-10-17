@@ -16,6 +16,7 @@ IGAME_NAMESPACE_BEGIN
 iGameXMLFileReader::iGameXMLFileReader() {
 	SetNumberOfInputs(0);
 	SetNumberOfOutputs(1);
+    SetOutput(0, m_Output);
 }
 
 

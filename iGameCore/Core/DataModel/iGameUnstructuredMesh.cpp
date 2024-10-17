@@ -45,19 +45,20 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
         igIndex ids[IGAME_CELL_MAX_SIZE];
         igIndex size = m_Cells->GetCellIds(cellId, ids);
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
+        polyhedron->m_FaceOffset->Reset();
         polyhedron->m_FaceOffset->Reserve(ids[0]);
         polyhedron->PointIds->Reserve(size);
 
         igIndex index = 1;
-        igIndex realsize = 0;
+        igIndex faceVcnt = 0;
         int offset = 0;
         while (index < size) {
             polyhedron->m_FaceOffset->AddId(offset);
-            realsize = ids[index++];
-            for (igIndex id = 0; id < realsize; id++) {
+            faceVcnt = ids[index++];
+            for (igIndex id = 0; id < faceVcnt; id++) {
                 polyhedron->PointIds->AddId(ids[index++]);
             }
-            offset += realsize;
+            offset += faceVcnt;
         }
         polyhedron->m_FaceOffset->AddId(offset);
         for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {
@@ -308,7 +309,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
         const auto& b = box.m_Bmax;
         extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
     }
-    extract->Merging = false;
+//    extract->Merging = true;
     auto plane = m_Clipper->m_Plane;
     if (plane.m_Use) {
         extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip);
@@ -321,6 +322,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
         m_Positions->Modified();
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
+        m_PointMap = extract->GetPointMap();
     } else {
         UnsignedIntArray::Pointer pointIndices = UnsignedIntArray::New();
         pointIndices->SetDimension(1);
@@ -474,6 +476,8 @@ void UnstructuredMesh::ConvertToDrawableData() {
         m_TriangleIndices = triangleIndices;
         m_TriangleIndices->Modified();
     }
+
+
 }
 
 void UnstructuredMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {

@@ -50,6 +50,7 @@ public:
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
 
+    FlatArray<igIndex>::Pointer GetPointMap();
 protected:
     PointSet();
     ~PointSet() override = default;
@@ -63,6 +64,7 @@ protected:
     Points::Pointer m_Points{};                  // The point array
     DeleteMarker::Pointer m_PointDeleteMarker{}; // The marker for delete point
     bool m_InEditStatus{false};
+    FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
     //void Draw(Scene* scene) override;
 public:

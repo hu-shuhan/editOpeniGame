@@ -80,13 +80,14 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
-	igIndex vhs[IGAME_CELL_MAX_SIZE];
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
+	igIndex* vhs=nullptr;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Cell::Pointer cell=nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
-		vcnt = m_UnstructuredMesh->GetCellPointIds(CellId, vhs);
+		vhs=cell->PointIds->RawPointer();
+		vcnt=cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
 		}
@@ -112,7 +113,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue,m_Slice);
 			}
 			break;
 		}
@@ -209,7 +210,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 		case 6:
 		case 5:
 		case 8:
-			CellClip::Clip(cell, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+			CellClip::Clip(cell, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
 			break;
 		}
 	}
