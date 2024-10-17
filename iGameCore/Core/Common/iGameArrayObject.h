@@ -40,6 +40,8 @@ public:
 
 	// Get value by index _Pos. Return double type.
 	virtual double GetValue(const IGsize _Pos) = 0;
+	// Get value by element index _Pos and dimension, dimension=-1 means magnitude. Return double type.
+	virtual double GetElementValue(const IGsize _Pos,const int dimension)=0;
 
 	// Set value by index _Pos.
 	virtual void SetValue(IGsize _Pos, double value) = 0;

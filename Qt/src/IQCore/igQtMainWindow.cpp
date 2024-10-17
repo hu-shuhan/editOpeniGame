@@ -910,6 +910,7 @@ void igQtMainWindow::initAllFilters() {
 		modelTreeWidget->addDataObjectToModelTree(
 			res, ItemSource::Algorithm);
 		});
+
 	connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
 		[&](bool checked) {
 			auto obj = rendererWidget->GetScene()
@@ -917,11 +918,12 @@ void igQtMainWindow::initAllFilters() {
 				->GetDataObject();
 			auto box = obj->GetBoundingBox();
 			auto center = (box.min + box.max) * 0.5;
-			float n[3] = { 0, 1, 0 };
+			float n[3] = { 1,0, 0 };
 			float o[3] = { (float)center[0], (float)center[1],
 						  (float)center[2] };
 			auto filter = ModelClip::New();
-			filter->SetPlane(n, o);
+			filter->SetIsSlice(true);
+			filter->SetPlane(o , n);
 			filter->SetInput(0, obj);
 			filter->Execute();
 			auto result = filter->GetOutput(0);

@@ -12,4 +12,5 @@
 #include "TensorViewFilter/iGameTensorWidgetBase.h"
 #include "TestFilter/iGameTestFilter.h"
 #include "MarchingCubes/iGameMarchingCubes.h"
+#include "IsoLineExtract/iGameIsoLineExtraction.h"
 #include "Clip/iGameModelClip.h"

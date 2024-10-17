@@ -153,7 +153,6 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 					}
 					outArray->SetElement(j, values);
 				}
-
 			}
 			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
 		}

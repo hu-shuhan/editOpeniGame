@@ -41,12 +41,12 @@ public:
 		const int* verts = clipedCell[i];
             Tetra::Pointer tetra = Tetra::New();
 			for (int j = 0; j < 4; j++) {
-                tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
-                tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+				tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
+				tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+			}
+			result.emplace_back(tetra);
 		}
-        result.emplace_back(tetra);
-		}
-        return result;
+		return result;
 	}
 	/**
 	 * The number of points of the cell

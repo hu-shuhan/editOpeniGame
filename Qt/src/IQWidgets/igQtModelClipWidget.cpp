@@ -16,6 +16,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
             });
     connect(ui->radioButton_Slice, &QRadioButton::toggled, this, [&](bool isChecked) {
         this->SetIsSlice(ui->radioButton_Slice->isChecked());
+
     });
     ui->radioButton_Slice->setChecked(true);
 }
@@ -48,6 +49,9 @@ void igQtModelClipWidget::UpdatePlane()
 void igQtModelClipWidget::SetIsSlice(bool s)
 {
     m_Clipper->SetIsSlice(s);
+    if (m_Generated) {
+        ClipModel();
+    }
 }
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
 {
@@ -55,6 +59,7 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d)
     m_ResultMesh = iGame::SurfaceMesh::New();
     m_ResultMesh->SetName("Clip");
     DrawClipModel(m_ResultMesh);
+    m_Generated=true;
 }
 
 void igQtModelClipWidget::ClipModel() {

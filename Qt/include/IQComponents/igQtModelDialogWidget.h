@@ -33,6 +33,8 @@ public slots:
 	int updateCurrentModelInfo();
     int updateCloudPicture();
     void deleteCurrentModel();
+
+
 signals:
 	void CurrendModelChanged();
     void CloudPictureChanged();
@@ -43,7 +45,7 @@ private:
     Model* currentModel;
 
 	igQtModelTreeWidget* modelTreeWidget;
-	QtTreePropertyBrowser* propertyTreeWidget;
+    QtTreePropertyBrowser* propertyWidget;
 
 	QtVariantPropertyManager* propertyManager;
 	QtVariantEditorFactory* editFactory;
