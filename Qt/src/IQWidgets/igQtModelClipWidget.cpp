@@ -51,7 +51,7 @@ void igQtModelClipWidget::SetIsSlice(bool s) {
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     this->m_OriginDataObject = m_d;
     m_ResultMesh = iGame::SurfaceMesh::New();
-    m_ResultMesh->SetName("Clip");
+    m_ResultMesh->SetName(m_OriginDataObject->GetName()+"_Clip");
     m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
     DrawClipModel(m_ResultMesh);
     m_Generated = true;
@@ -61,7 +61,6 @@ void igQtModelClipWidget::ClipModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
     auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
-
     m_ResultMesh->ClearSubDataObject();
     // recover attribute
     m_ResultMesh->ViewCloudPicture(scene, -1, -1);
@@ -72,9 +71,9 @@ void igQtModelClipWidget::ClipModel() {
     iGame::iGameModelGeometryFilter::Pointer surfaceextract =
             iGame::iGameModelGeometryFilter::New();
     surfaceextract->Execute(m_Clipper->GetOutput(), Result_ClipPart);
-
+    Result_ClipPart->SetViewStyle(m_ResultMesh->GetViewStyle());
+    Result_ClipPart->ConvertToDrawableData();
     m_ResultMesh->AddSubDataObject(Result_ClipPart);
-
     if (!m_Clipper->GetIsSlice()) {
         auto Result_ExtractPart = iGame::SurfaceMesh::New();
         double o[3];
@@ -82,18 +81,15 @@ void igQtModelClipWidget::ClipModel() {
         m_Clipper->GetPlane(o, n);
         surfaceextract->SetClipPlane(o, n);
         surfaceextract->Execute(m_OriginDataObject, Result_ExtractPart);
+        Result_ExtractPart->SetViewStyle(m_ResultMesh->GetViewStyle());
+        Result_ExtractPart->ConvertToDrawableData();
         m_ResultMesh->AddSubDataObject(Result_ExtractPart);
     }
 
     m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex,
                                    oldAttributeDimension);
 
+
     UpdateClipModel(m_ResultMesh);
 
-    //if (m_Generated) {
-    //    UpdateClipModel(m_ResultMesh);
-    //} else {
-    //    DrawClipModel(m_ResultMesh);
-    //    m_Generated = true;
-    //}
 }

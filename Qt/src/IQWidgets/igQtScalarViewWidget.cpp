@@ -148,14 +148,8 @@ void igQtScalarViewWidget::updateDrawStyle() {
     m_ColorMapper->Modified();
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     if (scene) {
-        auto model = scene->GetCurrentModel();
-        if (model && model->GetDataObject()) {
-            model->ViewCloudPicture(
-                    currentSelectedScalarIdx,
-                    drawItem);
-        }
+      scene->Update();
     }
-
 }
 void igQtScalarViewWidget::editColorBar() { Q_EMIT ChangeShowColorManager(); }
 void igQtScalarViewWidget::rescaleRange() {

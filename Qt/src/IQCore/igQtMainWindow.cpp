@@ -1427,6 +1427,8 @@ void igQtMainWindow::initAllMySignalConnections() {
 	//&igQtModelDrawWidget::UpdateCurrentModel);
 	connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow,
 		this, &igQtMainWindow::updateColorBarShow);
+
+    
 	connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged,
 		ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 	connect(ui->widget_ScalarField,

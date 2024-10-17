@@ -26,6 +26,7 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
         m_SubDataObjectsHelper = SubDataObjectsHelper::New();
     }
     obj->SetParent(this);
+    obj->SetColorMapper(this->GetColorMapper());
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
 }
 

@@ -800,7 +800,8 @@ void SurfaceMesh::ConvertToDrawableData() {
 
 
     // convert scalar data
-    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
+    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
         if (m_AttributeIndex == -1) {
             m_UseColor = false;
             m_ColorWithCell = false;
@@ -982,12 +983,16 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& range,
                                            igIndex dimension) {
-    if (range.first != range.second) {
-        m_ColorMapper->SetRange(range.first, range.second);
-    } else if (dimension == -1) {
-        m_ColorMapper->InitRange(attr);
-    } else {
-        m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+        if (range.first != range.second) {
+            m_ColorMapper->SetRange(range.first, range.second);
+        }
+        else if (dimension == -1) {
+            m_ColorMapper->InitRange(attr);
+        }
+        else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
     }
     range.first = m_ColorMapper->GetRange()[0];
     range.second = m_ColorMapper->GetRange()[1];
