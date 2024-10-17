@@ -62,9 +62,6 @@ void igQtModelClipWidget::ClipModel() {
     auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
     auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
 
-    std::cout << oldAttributeIndex << std::endl;
-    std::cout << oldAttributeDimension << std::endl << std::endl;
-
     m_ResultMesh->ClearSubDataObject();
     // recover attribute
     m_ResultMesh->ViewCloudPicture(scene, -1, -1);
@@ -92,7 +89,7 @@ void igQtModelClipWidget::ClipModel() {
                                    oldAttributeDimension);
 
     UpdateClipModel(m_ResultMesh);
-    
+
     //if (m_Generated) {
     //    UpdateClipModel(m_ResultMesh);
     //} else {

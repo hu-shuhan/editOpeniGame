@@ -8,11 +8,47 @@
 IGAME_NAMESPACE_BEGIN
 
 class GLShader : public Object {
-private:
-    GLuint handle;
-    friend class GLShaderProgram;
+public:
+    I_OBJECT(GLShader);
+    static Pointer New() { return new GLShader; }
 
-    void checkCompileErrors() {
+    void Compile(const char* const file_path, GLenum type) {
+        handle = glCreateShader(type);
+
+        std::string sourceStr = ReadFile(file_path);
+        const char* source = sourceStr.c_str();
+
+        auto src_cpy = source;
+        glShaderSource(handle, 1, &src_cpy, 0);
+        glCompileShader(handle);
+
+        CheckCompileErrors();
+    }
+
+protected:
+    GLShader() = default;
+    ~GLShader() {
+        if (handle != 0) {
+            glDeleteShader(handle);
+            handle = 0;
+        }
+    }
+
+    std::string ReadFile(const char* file_path) {
+        std::ifstream file(file_path, std::ios::in | std::ios::binary);
+        if (file) {
+            std::string contents;
+            file.seekg(0, std::ios::end);
+            contents.resize(file.tellg());
+            file.seekg(0, std::ios::beg);
+            file.read(contents.data(), contents.size());
+            file.close();
+            return contents;
+        }
+        throw std::runtime_error("failed to open file");
+    }
+
+    void CheckCompileErrors() {
         int success;
         std::string infoLog;
         infoLog.resize(BUFSIZ);
@@ -27,51 +63,135 @@ private:
         }
     }
 
-public:
-    GLShader(const char* const file_path, GLenum type)
-        : handle(glCreateShader(type)) {
-        std::string sourceStr = read_file(file_path);
-        const char* source = sourceStr.c_str();
+    GLuint handle;
 
-        auto src_cpy = source;
-        glShaderSource(handle, 1, &src_cpy, 0);
-        glCompileShader(handle);
-
-        checkCompileErrors();
-    }
-
-    std::string read_file(const char* file_path) {
-        std::ifstream file(file_path, std::ios::in | std::ios::binary);
-        if (file) {
-            std::string contents;
-            file.seekg(0, std::ios::end);
-            contents.resize(file.tellg());
-            file.seekg(0, std::ios::beg);
-            file.read(contents.data(), contents.size());
-            file.close();
-            return contents;
-        }
-        throw std::runtime_error("failed to open file");
-    }
-
-    ~GLShader() { glDeleteShader(handle); }
+    friend class GLShaderProgram;
 };
 
+inline GLShader::Pointer CreateShader(const std::string& path,
+                                      GLenum shaderType) {
+    auto shader = GLShader::New();
+    shader->Compile(path.c_str(), shaderType);
+    return shader;
+}
+
 class GLUniform : public Object {
-private:
-    GLuint m_index;
-
 public:
-    explicit GLUniform(unsigned int location) : m_index{location} {}
+    I_OBJECT(GLUniform);
+    static Pointer New() { return new GLUniform; }
 
-    unsigned int index() const { return m_index; }
+    unsigned int Index() const { return m_index; }
+
+protected:
+    GLUniform() = default;
+    //explicit GLUniform(unsigned int location) : m_index{location} {}
+    ~GLUniform() override = default;
+
+    GLuint m_index;
+    friend class GLShaderProgram;
 };
 
 class GLShaderProgram : public Object {
-private:
-    GLuint handle;
+public:
+    I_OBJECT(GLShaderProgram);
+    static Pointer New() { return new GLShaderProgram; }
 
-    void checkCompileErrors() {
+    template<typename... Shaders>
+    void AddShaders(Shaders&&... shaders) {
+        handle = glCreateProgram();
+
+        // 解引用 smart pointers 以访问 handle
+        (glAttachShader(handle, shaders->handle), ...);
+
+        glLinkProgram(handle);
+        CheckCompileErrors();
+    }
+
+    void Use() const { glUseProgram(handle); }
+
+    GLuint ProgramID() const { return handle; }
+
+    void SetUniform(const GLUniform::Pointer uniform, int value) const {
+        glProgramUniform1i(handle, uniform->Index(), value);
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform,
+                    unsigned int value) const {
+        glProgramUniform1ui(handle, uniform->Index(), value);
+    }
+
+    void GetUniformValue(const GLUniform::Pointer uniform,
+                         unsigned int& value) const {
+        glGetUniformuiv(handle, uniform->Index(), &value);
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform, float value) const {
+        glProgramUniform1f(handle, uniform->Index(), value);
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform,
+                    const igm::uvec2& vec2) const {
+        glProgramUniform2uiv(handle, uniform->Index(), 1, vec2.data());
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform,
+                    const igm::vec3& vec3) const {
+        glProgramUniform3fv(handle, uniform->Index(), 1, vec3.data());
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform,
+                    const igm::vec4& vec4) const {
+        glProgramUniform4fv(handle, uniform->Index(), 1, vec4.data());
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform,
+                    const igm::mat4& mat4) const {
+        glProgramUniformMatrix4fv(handle, uniform->Index(), 1, false,
+                                  mat4.data());
+    }
+
+    void SetUniform(const GLUniform::Pointer uniform, bool transpose,
+                    const igm::mat4& mat4) const {
+        glProgramUniformMatrix4fv(handle, uniform->Index(), 1, transpose,
+                                  mat4.data());
+    }
+
+    void MapUniformBlock(const char* uniformBlockName,
+                         uint32_t uniformBlockBinding,
+                         GLBuffer::Pointer m_UBOBlock) {
+        GLuint blockIndex = glGetUniformBlockIndex(handle, uniformBlockName);
+        assert(blockIndex != GL_INVALID_INDEX);
+
+        glUniformBlockBinding(handle, blockIndex, uniformBlockBinding);
+        m_UBOBlock->Target(GL_UNIFORM_BUFFER);
+        m_UBOBlock->BindBase(uniformBlockBinding);
+    }
+
+    GLVertexAttribute GetAttribLocation(const char* const name) {
+        int location = glGetAttribLocation(handle, name);
+        assert(location != -1);
+        return GLVertexAttribute{static_cast<unsigned int>(location)};
+    }
+
+    GLUniform::Pointer GetUniformLocation(const char* const name) {
+        int location = glGetUniformLocation(handle, name);
+        assert(location != -1);
+
+        GLUniform::Pointer uniform = GLUniform::New();
+        uniform->m_index = static_cast<unsigned int>(location);
+        return uniform;
+    }
+
+protected:
+    GLShaderProgram() {}
+    ~GLShaderProgram() {
+        if (handle != 0) {
+            glDeleteProgram(handle);
+            handle = 0;
+        }
+    }
+
+    void CheckCompileErrors() {
         int success;
         std::string infoLog;
         infoLog.resize(BUFSIZ);
@@ -85,85 +205,7 @@ private:
         }
     }
 
-public:
-    GLShaderProgram() {}
-
-    template<typename... Shaders>
-    void addShaders(Shaders&&... shaders) {
-        handle = glCreateProgram();
-
-        (glAttachShader(handle, shaders.handle), ...);
-
-        glLinkProgram(handle);
-        checkCompileErrors();
-    }
-
-    void use() const { glUseProgram(handle); }
-
-    GLuint programID() const { return handle; }
-
-    void setUniform(const GLUniform& uniform, int value) const {
-        glProgramUniform1i(handle, uniform.index(), value);
-    }
-
-    void setUniform(const GLUniform& uniform, unsigned int value) const {
-        glProgramUniform1ui(handle, uniform.index(), value);
-    }
-
-    void getUniformValue(const GLUniform& uniform, unsigned int& value) const {
-        glGetUniformuiv(handle, uniform.index(), &value);
-    }
-
-    void setUniform(const GLUniform& uniform, float value) const {
-        glProgramUniform1f(handle, uniform.index(), value);
-    }
-
-    void setUniform(const GLUniform& uniform, const igm::uvec2& vec2) const {
-        glProgramUniform2uiv(handle, uniform.index(), 1, vec2.data());
-    }
-
-    void setUniform(const GLUniform& uniform, const igm::vec3& vec3) const {
-        glProgramUniform3fv(handle, uniform.index(), 1, vec3.data());
-    }
-
-    void setUniform(const GLUniform& uniform, const igm::vec4& vec4) const {
-        glProgramUniform4fv(handle, uniform.index(), 1, vec4.data());
-    }
-
-    void setUniform(const GLUniform& uniform, const igm::mat4& mat4) const {
-        glProgramUniformMatrix4fv(handle, uniform.index(), 1, false,
-                                  mat4.data());
-    }
-
-    void setUniform(const GLUniform uniform, bool transpose,
-                    const igm::mat4& mat4) const {
-        glProgramUniformMatrix4fv(handle, uniform.index(), 1, transpose,
-                                  mat4.data());
-    }
-
-    void mapUniformBlock(const char* uniformBlockName,
-                         uint32_t uniformBlockBinding, GLBuffer& m_UBOBlock) {
-        GLuint blockIndex = glGetUniformBlockIndex(handle, uniformBlockName);
-        assert(blockIndex != GL_INVALID_INDEX);
-        
-        glUniformBlockBinding(handle, blockIndex, uniformBlockBinding);
-        m_UBOBlock.target(GL_UNIFORM_BUFFER);
-        m_UBOBlock.bindBase(uniformBlockBinding);
-    }
-
-    GLVertexAttribute getAttribLocation(const char* const name) {
-        int location = glGetAttribLocation(handle, name);
-        assert(location != -1);
-        return GLVertexAttribute{static_cast<unsigned int>(location)};
-    }
-
-    GLUniform getUniformLocation(const char* const name) {
-        int location = glGetUniformLocation(handle, name);
-        assert(location != -1);
-        return GLUniform{static_cast<unsigned int>(location)};
-    }
-
-    ~GLShaderProgram() { glDeleteProgram(handle); }
+    GLuint handle;
 };
 
 IGAME_NAMESPACE_END

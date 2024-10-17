@@ -61,25 +61,25 @@ void FontSet::RegisterWords(const wchar_t* text) {
         FlipVertically(data, font_width, font_rows);
 
         // Generate Texture
-        GLTexture2d texture;
-        texture.create();
-        texture.bind();
-        texture.storage(1, GL_R8, font_width, font_rows);
-        texture.subImage(0, 0, 0, font_width, font_rows, GL_RED,
-                         GL_UNSIGNED_BYTE, data);
-        texture.parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        texture.parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        texture.parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        texture.parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GLTexture2d::Pointer texture = GLTexture2d::New();
+        texture->Create();
+        texture->Bind();
+        texture->Storage(1, GL_R8, font_width, font_rows);
+        texture->SubImage(0, 0, 0, font_width, font_rows, GL_RED,
+                          GL_UNSIGNED_BYTE, data);
+        texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        texture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        texture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         // Store textures for later use
         m_Textures.insert(
-                std::pair<wchar_t, GLTexture2d>(wchar, std::move(texture)));
+                std::pair<wchar_t, GLTexture2d::Pointer>(wchar, texture));
 
         // Store characters for later use
-        Character character = {texture, igm::ivec2(font_width, font_rows),
-                               igm::ivec2(font_left, font_top),
-                               static_cast<uint32_t>(font_x)};
+        Character character = {
+                texture->Handle(), igm::ivec2(font_width, font_rows),
+                igm::ivec2(font_left, font_top), static_cast<uint32_t>(font_x)};
         m_Characters.insert(std::pair<wchar_t, Character>(wchar, character));
     }
 
@@ -108,7 +108,7 @@ Character& FontSet::GetCharacter(const wchar_t wchar) {
     assert(it != m_Characters.end());
     return it->second;
 }
-GLTexture2d& FontSet::GetTexture(const wchar_t wchar) {
+GLTexture2d::Pointer FontSet::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
     assert(it != m_Textures.end());
     return it->second;

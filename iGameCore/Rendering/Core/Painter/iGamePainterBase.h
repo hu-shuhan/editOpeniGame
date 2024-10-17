@@ -67,9 +67,9 @@ protected:
 
     HandlePool<Primitive>::Pointer m_PrimitivesPool{};
 
-    GLVertexArray m_VAO;
-    GLBuffer m_PositionVBO, m_ColorVBO;
-    GLBuffer m_PointEBO, m_LineEBO, m_TriangleEBO;
+    GLVertexArray::Pointer m_VAO;
+    GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
+    GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
 };
 
 IGAME_NAMESPACE_END

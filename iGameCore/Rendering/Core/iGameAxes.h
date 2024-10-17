@@ -18,8 +18,9 @@ protected:
 
 public:
     void DrawAxes();
-    void DrawXYZ(const GLShaderProgram* shader, const GLUniform& texture,
-                 const GLUniform& color);
+    void DrawXYZ(const GLShaderProgram::Pointer shader,
+                 const GLUniform::Pointer texture,
+                 const GLUniform::Pointer color);
 
     static igm::vec3 CameraPos();
     static igm::mat4 ViewMatrix();
@@ -38,12 +39,12 @@ private:
     void worldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc);
 
 private:
-    GLVertexArray m_TriangleVAO;
-    GLBuffer m_PositionVBO, m_ColorVBO;
-    GLBuffer m_TriangleEBO;
+    GLVertexArray::Pointer m_TriangleVAO;
+    GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
+    GLBuffer::Pointer m_TriangleEBO;
 
-    GLVertexArray m_FontVAO;
-    GLBuffer m_TextureCoordVBO, m_WorldCoordVBO, m_FontTextureEBO;
+    GLVertexArray::Pointer m_FontVAO;
+    GLBuffer::Pointer m_TextureCoordVBO, m_WorldCoordVBO, m_FontTextureEBO;
     double Viewport[4];
     igm::mat4 mvp{1.0f};
     igm::mat4 inv_mvp{1.0f};

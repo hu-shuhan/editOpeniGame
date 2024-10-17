@@ -70,21 +70,25 @@ public:
     void SetDisplayObject(DataObject::Pointer dataObject);
 
 private:
-    static void SetPositionBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetColorBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetNormalBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
-    static void SetTextureBufferToVAO(GLVertexArray& VAO, GLBuffer& VBO);
+    static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
+                                       GLBuffer::Pointer VBO);
+    static void SetColorBufferToVAO(GLVertexArray::Pointer VAO,
+                                    GLBuffer::Pointer VBO);
+    static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO,
+                                     GLBuffer::Pointer VBO);
+    static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO,
+                                      GLBuffer::Pointer VBO);
 
 protected:
     bool m_AutoUpdateDrawData{true};
     DrawObject::Pointer m_DisplayObject{nullptr};
 
-    GLVertexArray m_PointVAO, m_LineVAO, m_TriangleVAO;
-    GLBuffer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
-    GLBuffer m_PointEBO, m_LineEBO, m_TriangleEBO;
-    GLVertexArray m_CellVAO;
-    GLBuffer m_CellPositionVBO, m_CellColorVBO;
-    GLBuffer m_CellEBO;
+    GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
+    GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
+    GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
+    GLVertexArray::Pointer m_CellVAO;
+    GLBuffer::Pointer m_CellPositionVBO, m_CellColorVBO;
+    GLBuffer::Pointer m_CellEBO;
 
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;

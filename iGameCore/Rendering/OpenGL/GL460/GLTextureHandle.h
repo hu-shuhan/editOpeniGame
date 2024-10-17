@@ -5,23 +5,33 @@
 IGAME_NAMESPACE_BEGIN
 
 class GLTextureHandle : public Object {
-private:
+public:
+    I_OBJECT(GLTextureHandle);
+    //static Pointer New() { return new GLTextureHandle; }
+
+    GLuint64 Raw() const { return handle; }
+
+    void MakeResident() { glMakeTextureHandleResidentARB(handle); }
+
+    void MakeNonResident() { glMakeTextureHandleNonResidentARB(handle); }
+
+protected:
+    GLTextureHandle() : handle(0) {}
+    explicit GLTextureHandle(GLuint64 handle) : handle(handle) {}
+    ~GLTextureHandle() override = default;
+
     GLuint64 handle;
 
-public:
-    GLTextureHandle() : handle(0) {}
+    friend class GLTexture2d;
+    friend class GLTexture2dArray;
+    friend class GLTexture2dMultisample;
 
-    explicit GLTextureHandle(GLuint64 handle) : handle(handle) {}
-
+private:
     operator igm::uvec2() const {
         igm::uvec2 result;
         *reinterpret_cast<GLuint64*>(&result) = handle;
         return result;
     }
-
-    void makeResident() { glMakeTextureHandleResidentARB(handle); }
-    void makeNonResident() { glMakeTextureHandleNonResidentARB(handle); }
-    GLuint64 raw() const { return handle; }
 };
 
 IGAME_NAMESPACE_END
