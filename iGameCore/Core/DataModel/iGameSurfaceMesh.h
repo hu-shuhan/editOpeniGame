@@ -37,7 +37,8 @@ public:
 
     // Set face array
     void SetFaces(CellArray::Pointer faces);
-
+    // Set edge array
+    void SetEdges(CellArray::Pointer edges);
     // Get edge cell by index edgeId. Thread-Unsafe, please use GetEdgePointId
     Line* GetEdge(const IGsize edgeId);
     // Get face cell by index faceId. Thread-Unsafe, please use GetFacePointId and GetFaceEdgeId
@@ -261,7 +262,7 @@ public:
                     if (edge[0] == from || edge[1] == from) {
                         f.from_edgeId = fedge[j];
                         f.from_oppo_faceId = GetOppoFaceId(fedge[j], f.faceId);
-                    } else/* if (edge[0] == to || edge[1] == to) */{
+                    } else /* if (edge[0] == to || edge[1] == to) */ {
                         f.to_edgeId = fedge[j];
                         f.to_oppo_faceId = GetOppoFaceId(fedge[j], f.faceId);
                     }
@@ -347,14 +348,14 @@ private:
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
-    void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
-    void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
-    void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                   std::pair<float, float>& range,
-                                   igIndex i = -1) override;
+    //void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
+    //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
+    //void SetAttributeWithPointData(ArrayObject::Pointer attr,
+    //                               std::pair<float, float>& range,
+    //                               igIndex i = -1) override;
     void SetAttributeWithCellData(ArrayObject::Pointer attr,
                                   std::pair<float, float>& range,
-                                  igIndex i = -1);
+                                  igIndex dimension = -1) override;
 
     void GetDrawableArray(FloatArray::Pointer& positions,
                           UnsignedIntArray::Pointer& lineIndices,

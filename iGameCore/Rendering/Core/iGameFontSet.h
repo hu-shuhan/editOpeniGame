@@ -40,14 +40,14 @@ public:
     void RegisterWords(const wchar_t* text);
 
     Character& GetCharacter(const wchar_t wchar);
-    GLTexture2d& GetTexture(const wchar_t wchar);
+    GLTexture2d::Pointer GetTexture(const wchar_t wchar);
 
 private:
     void FlipVertically(unsigned char* data, int width, int height);
 
 private:
     std::map<wchar_t, Character> m_Characters;
-    std::map<wchar_t, GLTexture2d> m_Textures;
+    std::map<wchar_t, GLTexture2d::Pointer> m_Textures;
 };
 
 IGAME_NAMESPACE_END

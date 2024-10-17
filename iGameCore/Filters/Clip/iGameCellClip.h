@@ -51,11 +51,11 @@ namespace CellClip {
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 
-		//auto oriVhs=cell->PointIds->RawPointer();
-		//connectivity->AddCellIds(oriVhs, 4);
-		//types->AddValue(IG_TETRA);
-		//originCell.emplace_back(cellId);
-		//return;
+		/*auto oriVhs=cell->PointIds->RawPointer();
+		connectivity->AddCellIds(oriVhs, 4);
+		types->AddValue(IG_TETRA);
+		originCell.emplace_back(cellId);
+		return;*/
 
 		int MASK[4] = { 1,2,4,8 };
 		int i, j, CaseIndex = 0;
@@ -166,12 +166,28 @@ namespace CellClip {
 	static void Clip(QuadraticTetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
+		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
+		int allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < vcnt; i++)
+		{
+			value = cellValues[i];
+			if (value >= 0.0) {
+				allOut = 0;
+			}
+			else {
+				allIn = 0;
+			}
+		}
+		if (allIn || allOut) {
+			return;
+		}
 		Tetra::Pointer tetra = Tetra::New();
 		float tetvalues[4] = {};
 		igIndex pid = 0;
-		for (int i = 0; i < 8; i++)
+		for ( i = 0; i < 8; i++)
 		{
-			for (int j = 0; j < 4; j++)
+			for ( j = 0; j < 4; j++)
 			{
 				pid = QuadraticTetra::SubTetras[0][i][j];
 				tetra->Points->SetPoint(j, cell->Points->GetPoint(pid));
@@ -183,44 +199,7 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Volume::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
-		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, float* pointValues , bool m_slice = false)
-	{
-		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
-		int PointNum = cell->GetNumberOfPoints();
-		int i = 0, j = 0, allOut = 1, allIn = 1;
-		float value = 0.0;
-		for (i = 0; i < PointNum; i++)
-		{
-			value = cellValues[i];
-			if (value >= 0.0) {
-				allOut = 0;
-			}
-			else {
-				allIn = 0;
-			}
-		}
-		if (allOut || allIn) {
-			return;
-		}
-		else if (allIn) {
-			//可能会有需求
-			connectivity->AddCellIds(cell->PointIds);
-			types->AddValue(cell->GetCellType());
-		}
-		else {
-			auto tetras = cell->clipCelltoTetra();
-			for (int i = 0; i < tetras.size(); i++) {
-				tetra->Points = tetras[i]->Points;
-				tetra->PointIds = tetras[i]->PointIds;
-				for (j = 0; j < 4; j++) {
-					tetvalues[j] = pointValues[tetra->PointIds->GetId(j)];
-				}
-				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
-			}
-		}
-	}
+
 	static void Clip(Polyhedron::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
@@ -279,7 +258,44 @@ namespace CellClip {
 			}
 		}
 	}
-
+	static void Clip(Volume::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, float* pointValues, bool m_slice = false)
+	{
+		Tetra::Pointer tetra = Tetra::New();
+		float tetvalues[4] = {};
+		int PointNum = cell->GetNumberOfPoints();
+		int i = 0, j = 0, allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < PointNum; i++)
+		{
+			value = cellValues[i];
+			if (value >= 0.0) {
+				allOut = 0;
+			}
+			else {
+				allIn = 0;
+			}
+		}
+		if (allOut || allIn) {
+			return;
+		}
+		else if (allIn) {
+			//可能会有需求
+			connectivity->AddCellIds(cell->PointIds);
+			types->AddValue(cell->GetCellType());
+		}
+		else {
+		    auto tetras = cell->clipCelltoTetra();
+			for (int i = 0; i < tetras.size(); i++) {
+				tetra->Points = tetras[i]->Points;
+				tetra->PointIds = tetras[i]->PointIds;
+				for (j = 0; j < 4; j++) {
+					tetvalues[j] = pointValues[tetra->PointIds->GetId(j)];
+				}
+				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
+			}
+		}
+	}
 	struct TRIANGLE_CLIP {
 		int clip[7];
 	};
@@ -294,7 +310,7 @@ namespace CellClip {
   { { 100, 101, 102, -1, -1, -1, -1 } } // 7
 	};
 	static void Clip(Triangle::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
-		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 		int MASK[3] = { 1,2,4 };
 		int i, j, CaseIndex = 0;
@@ -310,8 +326,10 @@ namespace CellClip {
 				CaseIndex |= MASK[i];
 			}
 		}
-		if (CaseIndex == 0 || CaseIndex == 7) {
-			return;
+		if (!isMustClip) {
+			if (CaseIndex == 0 || CaseIndex == 7) {
+				return;
+			}
 		}
 		auto ClipData = (triangleCases + CaseIndex)->clip;
 
@@ -355,6 +373,7 @@ namespace CellClip {
 			if (ClipData[0] < 0) {
 				return;
 			}
+			int nPts = 0;
 			for (int i = 0; i < 3; i++) {
 				if (ClipData[i] < 100) {
 					int vert[2] = { ClipData[i],(ClipData[i] + 1) % 3 };
@@ -373,7 +392,7 @@ namespace CellClip {
 					v2 = cell->GetPoint(vh2);
 					p = v1 + (v2 - v1) * t;
 					points->AddPoint(p);
-					vhs[i] = points->GetNumberOfPoints() - 1;
+					vhs[nPts++] = points->GetNumberOfPoints() - 1;
 					OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(vh1), cell->GetPointId(vh2), t));
 				}
 			}
@@ -409,95 +428,91 @@ namespace CellClip {
 	static void Clip(Quad::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
-
-
 		Triangle::Pointer triangle = Triangle::New();
 		float trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
-		for (int i = 0; i < nPts - 2; i++)
-		{
-			for (int j = 0; j < 3; j++)
-			{
+		for (int i = 0; i < nPts - 2; i++){
+			for (int j = 0; j < 3; j++){
 				pid = j == 0 ? 0 : i + j;
 				triangle->Points->SetPoint(j, cell->Points->GetPoint(pid));
 				triangle->PointIds->SetId(j, cell->PointIds->GetId(pid));
 				trivalues[j] = cellValues[pid];
 			}
-			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice);
+			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice,true);
 		}
 
 		return;
 
-		int MASK[4] = { 1,2,4,8 };
-		int i, j, CaseIndex = 0;
-		igIndex pId = 0;
-		igIndex vhs[IGAME_CELL_MAX_SIZE] = {};
-		igIndex vcnt = 0;
-		const int* vert = nullptr;
-		igIndex vh1 = 0, vh2 = 0;
-		Point v1, v2, p;
-		double deltaValue = 0.0, t = 0.0;
-		for (i = 0; i < 4; i++) {
-			if (cellValues[i] <= 0.0) {
-				CaseIndex |= MASK[i];
-			}
-		}
-		if (CaseIndex == 0 || CaseIndex == 15) {
-			return;
-		}
-		auto ClipData = (quadCases + CaseIndex)->clip;
+		//int MASK[4] = { 1,2,4,8 };
+		//int i, j, CaseIndex = 0;
+		//igIndex pId = 0;
+		//igIndex vhs[IGAME_CELL_MAX_SIZE] = {};
+		//igIndex vcnt = 0;
+		//const int* vert = nullptr;
+		//igIndex vh1 = 0, vh2 = 0;
+		//Point v1, v2, p;
+		//double deltaValue = 0.0, t = 0.0;
+		//for (i = 0; i < 4; i++) {
+		//	if (cellValues[i] <= 0.0) {
+		//		CaseIndex |= MASK[i];
+		//	}
+		//}
+		//if (CaseIndex == 0 || CaseIndex == 15) {
+		//	return;
+		//}
+		//auto ClipData = (quadCases + CaseIndex)->clip;
 
-		if (m_slice == false) {
-			for (; ClipData[0] > -1; ClipData += ClipData[0] + 1) {
-				for (int i = 0; i < ClipData[0]; i++) {
-					if (ClipData[i] >= 100) {
-						pId = ClipData[i] - 100;
-						points->AddPoint(cell->GetPoint(pId));
-						vhs[i] = points->GetNumberOfPoints() - 1;
-						OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(pId)));
-					}
-					else {
-						int vert[2] = { ClipData[i],(ClipData[i] + 1) % 4 };
-						deltaValue = cellValues[vert[1]] - cellValues[vert[0]];
-						if (deltaValue > 0) {
-							vh1 = vert[0];
-							vh2 = vert[1];
-						}
-						else {
-							vh2 = vert[0];
-							vh1 = vert[1];
-							deltaValue = -deltaValue;
-						}
-						t = (deltaValue == 0.0 ? 0.0 : -cellValues[vh1] / deltaValue);
-						v1 = cell->GetPoint(vh1);
-						v2 = cell->GetPoint(vh2);
-						p = v1 + (v2 - v1) * t;
-						points->AddPoint(p);
-						vhs[i] = points->GetNumberOfPoints() - 1;
-						OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(vh1), cell->GetPointId(vh2), t));
-					}
-				}
-				if (ClipData[0] == 3) {
-					if (vhs[0] == vhs[1] || vhs[0] == vhs[2] || vhs[1] == vhs[2])
-					{
-						continue;
-					}
-					connectivity->AddCellIds(vhs, 3);
-					types->AddValue(IG_TRIANGLE);
-					originCell.emplace_back(cellId);
-				}
-				else if (ClipData[0] == 4) {
-					if ((vhs[0] == vhs[3] && vhs[1] == vhs[2]) || (vhs[0] == vhs[1] && vhs[3] == vhs[2]))
-					{
-						continue;
-					}
-					connectivity->AddCellIds(vhs, 4);
-					types->AddValue(IG_TRIANGLE);
-					originCell.emplace_back(cellId);
-				}
-			}
-		}
+		//if (m_slice == false) {
+		//	for (; ClipData[0] > -1; ClipData += ClipData[0] + 1) {
+		//		for (int i = 0; i < ClipData[0]; i++) {
+		//			if (ClipData[i] >= 100) {
+		//				pId = ClipData[i] - 100;
+		//				points->AddPoint(cell->GetPoint(pId));
+		//				vhs[i] = points->GetNumberOfPoints() - 1;
+		//				OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(pId)));
+		//			}
+		//			else {
+		//				int vert[2] = { ClipData[i],(ClipData[i] + 1) % 4 };
+		//				deltaValue = cellValues[vert[1]] - cellValues[vert[0]];
+		//				if (deltaValue > 0) {
+		//					vh1 = vert[0];
+		//					vh2 = vert[1];
+		//				}
+		//				else {
+		//					vh2 = vert[0];
+		//					vh1 = vert[1];
+		//					deltaValue = -deltaValue;
+		//				}
+		//				t = (deltaValue == 0.0 ? 0.0 : -cellValues[vh1] / deltaValue);
+		//				v1 = cell->GetPoint(vh1);
+		//				v2 = cell->GetPoint(vh2);
+		//				p = v1 + (v2 - v1) * t;
+		//				points->AddPoint(p);
+		//				vhs[i] = points->GetNumberOfPoints() - 1;
+		//				OriginEdge.emplace_back(InterpolateEdge(cell->GetPointId(vh1), cell->GetPointId(vh2), t));
+		//			}
+		//		}
+		//		if (ClipData[0] == 3) {
+		//			if (vhs[0] == vhs[1] || vhs[0] == vhs[2] || vhs[1] == vhs[2])
+		//			{
+		//				continue;
+		//			}
+		//			connectivity->AddCellIds(vhs, 3);
+		//			types->AddValue(IG_TRIANGLE);
+		//			originCell.emplace_back(cellId);
+		//		}
+		//		else if (ClipData[0] == 4) {
+		//			if ((vhs[0] == vhs[3] && vhs[1] == vhs[2]) || (vhs[0] == vhs[1] && vhs[3] == vhs[2]))
+		//			{
+		//				continue;
+		//			}
+		//			connectivity->AddCellIds(vhs, 4);
+		//			types->AddValue(IG_TRIANGLE);
+		//			originCell.emplace_back(cellId);
+		//		}
+		//	}
+		//}
 	}
 
 	static void Clip(Polygon::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
@@ -517,7 +532,7 @@ namespace CellClip {
 				triangle->PointIds->SetId(j, cell->PointIds->GetId(pid));
 				trivalues[j] = cellValues[pid];
 			}
-			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice);
+			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
 		}
 	}
 }

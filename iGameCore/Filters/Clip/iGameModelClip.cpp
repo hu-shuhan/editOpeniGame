@@ -73,10 +73,8 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	FloatArray::Pointer PointClipArray = FloatArray::New();
 	PointClipArray->Resize(PointNum);
 	float* PointClipValue = PointClipArray->RawPointer();
-	Point p;
 	for (PointId = 0; PointId < PointNum; PointId++) {
-		p = Points->GetPoint(PointId);
-		PointClipValue[PointId] = this->GetCutValue(p[0], p[1], p[2]);
+		PointClipValue[PointId]=GetPointValue(PointId, Points);
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
@@ -153,7 +151,6 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 					}
 					outArray->SetElement(j, values);
 				}
-
 			}
 			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
 		}
@@ -185,10 +182,8 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	FloatArray::Pointer PointClipArray = FloatArray::New();
 	PointClipArray->Resize(PointNum);
 	float* PointClipValue = PointClipArray->RawPointer();
-	Point p;
 	for (PointId = 0; PointId < PointNum; PointId++) {
-		p = Points->GetPoint(PointId);
-		PointClipValue[PointId] = this->GetCutValue(p[0], p[1], p[2]);
+		PointClipValue[PointId] = GetPointValue(PointId, Points);
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_VolumeMesh->GetNumberOfVolumes();
@@ -279,10 +274,8 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	FloatArray::Pointer PointClipArray = FloatArray::New();
 	PointClipArray->Resize(PointNum);
 	float* PointClipValue = PointClipArray->RawPointer();
-	Point p;
 	for (PointId = 0; PointId < PointNum; PointId++) {
-		p = Points->GetPoint(PointId);
-		PointClipValue[PointId] = this->GetCutValue(p[0], p[1], p[2]);
+		PointClipValue[PointId] = GetPointValue(PointId, Points);
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_SurfaceMesh->GetNumberOfFaces();

@@ -73,12 +73,16 @@ public:
     //void DrawPhase2(Scene*) override;
     //void TestOcclusionResults(Scene*) override;
     void ConvertToDrawableData() override;
-    void ViewCloudPicture(Scene*, int index, int demension = -1) override;
+    //void ViewCloudPicture(Scene*, int index, int demension = -1) override;
 
     /* Range's first means minRange, second means maxRange. */
     virtual void SetAttributeWithPointData(ArrayObject::Pointer attr,
                                            std::pair<float, float>& attrRange,
                                            igIndex dimension = -1);
+
+    virtual void SetAttributeWithCellData(ArrayObject::Pointer attr,
+                                          std::pair<float, float>& range,
+                                          igIndex i = -1);
 };
 
 IGAME_NAMESPACE_END

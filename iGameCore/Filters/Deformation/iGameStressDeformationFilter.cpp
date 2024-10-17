@@ -54,21 +54,6 @@ bool iGame::StressDeformationFilter::Execute() {
                     render_pos_set->SetValue(k + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                     render_pos_set->SetValue(k + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
                     render_pos_set->SetValue(k + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
-
-//                    float a = render_pos_set->GetValue(new_idx * 3 + 0);
-//                    float b = render_pos_set->GetValue(new_idx * 3 + 1);
-//                    float c = render_pos_set->GetValue(new_idx * 3 + 2);
-//                    float d = pointset->GetPoint(i)[0];
-//                    float e = pointset->GetPoint(i)[1];
-//                    float f = pointset->GetPoint(i)[2];
-//
-//                    std::cout << a << ' ' << d << '\n';
-//                    std::cout << b << ' ' << e << '\n';
-//                    std::cout << c << ' ' << f << '\n';
-//                    std::cout <<  "====\n";
-////                    render_pos_set->SetValue(j + 0, pointset->GetPoint(old_idx)[0]);
-////                    render_pos_set->SetValue(j + 1, pointset->GetPoint(old_idx)[1]);
-////                    render_pos_set->SetValue(j + 2, pointset->GetPoint(old_idx)[2]);
                 }
                 render_pos_set->Modified();
             }

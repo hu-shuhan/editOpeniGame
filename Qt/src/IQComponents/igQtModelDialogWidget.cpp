@@ -22,21 +22,50 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 	//splitter->setChildrenCollapsible(false);
 
 	modelTreeWidget = ui->modelTreeWidget;
-	//propertyTreeWidget = ui->propertyTreeWidget;
+	propertyWidget = ui->propertyWidget;
 
 	modelTreeWidget->setColumnCount(2);
 	modelTreeWidget->header()->hide();
-	modelTreeWidget->setColumnWidth(0, 250);
+	modelTreeWidget->setColumnWidth(0, 140);
 	modelTreeWidget->setColumnWidth(1, 150);
+    modelTreeWidget->setIndentation(15);
 
-	//propertyTreeWidget = ui->propertyTreeWidget;
-	//propertyTreeWidget->setHeaderVisible(false);
-	//propertyManager = new QtVariantPropertyManager(propertyTreeWidget);
-	//editFactory = new QtVariantEditorFactory(propertyTreeWidget);
-	//propertyTreeWidget->setFactoryForManager(propertyManager, editFactory);
+
+	propertyWidget->setHeaderVisible(false);
+	propertyManager = new QtVariantPropertyManager(propertyWidget);
+	editFactory = new QtVariantEditorFactory(propertyWidget);
+	propertyWidget->setFactoryForManager(propertyManager, editFactory);
+
+	propertyWidget->removeProperty(objectGroup);
+    objectGroup = propertyManager->addProperty(
+            QtVariantPropertyManager::groupTypeId(),
+            QStringLiteral("Object propertys"));
+    propertyWidget->addProperty(objectGroup);
+
+    
+    prop_PointSize = propertyManager->addProperty(QVariant::Int, "Point Size");
+    prop_PointSize->setEnabled(false);
+    prop_PointSize->setValue(0);
+    objectGroup->addSubProperty(prop_PointSize);
+    propertyManager->setAttribute(prop_PointSize, "minimum", 1);
+    propertyManager->setAttribute(prop_PointSize, "maximum", 99);
+    propertyManager->setAttribute(prop_PointSize, "singleStep", 1);
+
+    prop_Transparency =
+            propertyManager->addProperty(QVariant::Double, "Transparency");
+    prop_Transparency->setEnabled(false);
+    prop_Transparency->setValue(0);
+    objectGroup->addSubProperty(prop_Transparency);
+    propertyManager->setAttribute(prop_Transparency, "minimum", 0.0);
+    propertyManager->setAttribute(prop_Transparency, "maximum", 1.0);
+    propertyManager->setAttribute(prop_Transparency, "singleStep", 0.1);
+
+	connect(propertyManager, &QtVariantPropertyManager::valueChanged, this,
+            &igQtModelDialogWidget::onPropertyChanged);
 
 	ui->ModelInformationWidget->hide();
-	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
+	//connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
+	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCurrentModelProperty);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCurrentModelInfo);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
 
@@ -96,6 +125,13 @@ ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(DataObject::Pointe
 	}
 	return nullptr;
 }
+void igQtModelDialogWidget::updateItemName(DataObject::Pointer obj) {
+    auto item = getItemFromObject(obj);
+    if (!item) return;
+    item->setName(QString::fromStdString(obj->GetName()));
+    return;
+
+}
 void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj)
 {
 	auto item = getItemFromObject(obj);
@@ -107,58 +143,53 @@ void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj)
 	for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
 		auto& attr = attrSet->GetElement(i);
 		if (attr.isDeleted) continue;
-		QTreeWidgetItem* child = new QTreeWidgetItem(item);
-		child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-		child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
-		child->setData(0, Qt::UserRole, i);
-		//int index = child->data(0, Qt::UserRole).toInt();
-		//std::cout << index << std::endl;
+        AttribTreeWidgetItem* child =
+                new AttribTreeWidgetItem(i, modelTreeWidget, item);
+        child->setText(0, QString::fromStdString(attr.pointer->GetName()));
+        child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
+        child->setDimension(attr.pointer->GetDimension());
 	}
 }
 int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source) {
 	ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
+    modelTreeWidget->setCurrentModelItem(item);
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	auto model = scene->CreateModel(obj);
 	int id = scene->AddModel(model);
+    currentModel = model;
 
 	item->setName(QString::fromStdString(obj->GetName()));
 	item->setModel(model);
 
+	//QTreeWidgetItem* attributes = new QTreeWidgetItem(item);
+ //   attributes->setText(0, QString::fromStdString("属性"));
+ //   attributes->setIcon(0, QIcon(":/Ticon/Icons/select/selected.png"));
+ //   
+
+ //   QTreeWidgetItem* liuchang = new QTreeWidgetItem(item);
+ //   liuchang->setText(0, QString::fromStdString("流场"));
+ //   liuchang->setIcon(0, QIcon(":/Ticon/Icons/select/selected.png"));
+
+ //   item->addChild(attributes);
+ //   item->addChild(liuchang);
+    
 	auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
 	for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
 		auto& attr = attrSet->GetElement(i);
 		if (attr.isDeleted) continue;
-		QTreeWidgetItem* child = new QTreeWidgetItem(item);
+        AttribTreeWidgetItem* child =
+                new AttribTreeWidgetItem(i, modelTreeWidget, item);
 		child->setText(0, QString::fromStdString(attr.pointer->GetName()));
 		child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
-		child->setData(0, Qt::UserRole, i);
-		//int index = child->data(0, Qt::UserRole).toInt();
-		//std::cout << index << std::endl;
+        child->setDimension(attr.pointer->GetDimension());
 	}
 
 
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
 	updateCurrentModelInfo();
-	//propertyTreeWidget->removeProperty(objectGroup);
-	//objectGroup = propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
-	//propertyTreeWidget->addProperty(objectGroup);
-	//auto* props = obj->GetPropertys();
-	//for (int i = 0; i < props->Size(); i++) {
-	//	auto prop = props->GetProperty(i);
-	//	QtVariantProperty* item = propertyManager->addProperty(QVariant::Int, QString::fromStdString(prop->GetName()));
-	//	item->setValue(prop->Get<int>());
-	//	item->setEnabled(prop->IsEnabled());
-	//	objectGroup->addSubProperty(item);
+    updateCurrentModelProperty(model.get());
 
-	//	for (int j = 0; j < prop->Size(); j++) {
-	//		auto subProp = prop->GetSubProperty(j);
-	//		QtVariantProperty* subItem = propertyManager->addProperty(QVariant::Int, QString::fromStdString(subProp->GetName()));
-	//		subItem->setValue(subProp->Get<int>());
-	//		subItem->setEnabled(prop->IsEnabled());
-	//		item->addSubProperty(subItem);
-	//	}
-	//}
 	return id;
 }
 
@@ -169,6 +200,7 @@ int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
 
 	item->setName(QString::fromStdString(model->GetDataObject()->GetName()));
 	item->setModel(model);
+
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
 	return id;
@@ -180,6 +212,21 @@ int igQtModelDialogWidget::updateCurrentModelInfo()
 	Q_EMIT CurrendModelChanged();
 	return 1;
 }
+void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) { 
+	currentModel = model;
+	auto obj = DynamicCast<DrawObject>(model->GetDataObject());
+	if (obj) {
+        prop_PointSize->setEnabled(true);
+        prop_PointSize->setValue(obj->GetPointSize());
+        prop_Transparency->setEnabled(true);
+        prop_Transparency->setValue(obj->GetTransparency());
+    } else {
+        prop_PointSize->setEnabled(false);
+        prop_PointSize->setValue(0);
+        prop_Transparency->setEnabled(false);
+        prop_Transparency->setValue(0);
+	}
+}
 int igQtModelDialogWidget::updateCloudPicture() {
  
     Q_EMIT CloudPictureChanged();
@@ -188,10 +235,8 @@ int igQtModelDialogWidget::updateCloudPicture() {
 void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem
-    QTreeWidgetItem* currentItem = modelTreeWidget->currentItem();
+    QTreeWidgetItem* currentItem = modelTreeWidget->setCurrentModelItem();
     if(currentItem == nullptr) return;
-    while(currentItem->parent()) currentItem = currentItem->parent();
-    // 如果没有父节点，说明是顶级项，使用takeTopLevelItem方法
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) {
         delete modelTreeWidget->takeTopLevelItem(index);
@@ -200,5 +245,29 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
     iGame::SceneManager::Instance()->GetCurrentScene()->Update();
 
+	modelTreeWidget->setCurrentModelItem(nullptr);
+}
 
+void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
+                                              const QVariant& value) {
+    if (property == prop_PointSize) { 
+		//std::cout << value.toInt() << std::endl;
+		if (currentModel) {
+            auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
+            if (obj && obj->GetPointSize() != value.toInt() && value.toInt() > 0) {
+                obj->SetPointSize(value.toInt());
+                Update();
+			}
+		}
+    } else if (property == prop_Transparency) {
+        //std::cout << value.toDouble() << std::endl;
+        if (currentModel) {
+            auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
+            if (obj && obj->GetTransparency() != value.toDouble() &&
+                value.toDouble() >= 0 && value.toDouble() <= 1.0) {
+                obj->SetTransparency(value.toDouble());
+                Update();
+            }
+        }
+	}
 }

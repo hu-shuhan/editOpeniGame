@@ -2,6 +2,12 @@
 igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui::igVector) {
     ui->setupUi(this);
     m_VectorBase = iGame::iGameVectorBase::New();
+    m_VectorBase->AddObserver(iGame::Command::DeleteEvent, [&]() -> void { 
+        std::cout << "123\n";
+        isDraw = false;
+        m_VectorBase->SetInit(false);
+        });
+    
     headRadiusP = 1;
     ui->headRSlider->setValue(100);
     headLengthP = 1;
@@ -35,13 +41,19 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 
 }
 void igQtVectorWidget::drawV() {
+    
     m_VectorBase->SetArrow(headRadius*headRadiusP,headLength*headLengthP,tailRadius*tailRadiusP,tailLength*tailLengthP);
     m_VectorBase->DrawVector(vecName);
     if (!isDraw) {
         m_VectorBase->DataObject::SetName(masterName + "_Vector");
         isDraw = true;
+        haveChange = false;
         Q_EMIT DrawDireVector(m_VectorBase);
     } else {
+        if (haveChange) {
+            m_VectorBase->DataObject::SetName(masterName + "_Vector");
+            haveChange = false;
+        }
         Q_EMIT UpdateDireVector(m_VectorBase);
     }
 
@@ -96,13 +108,18 @@ void igQtVectorWidget::updateVectorNameList() {
     auto currentModel = scene->GetCurrentModel();
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
-    masterName = obj->GetName();
+    if (masterName != obj->GetName()) {
+        masterName = obj->GetName();
+        m_VectorBase->SetInit(false);
+        haveChange = true;
+    }
     if (!obj) return;
     auto AttributeSet = obj->GetAttributeSet();
     if (!AttributeSet) return;
     AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = AttributeSet->GetAllAttributes();
-    if (!allAttributes) return;
+    if (!allAttributes) return; 
+
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
         auto attribute = allAttributes->GetElement(i);
        // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {

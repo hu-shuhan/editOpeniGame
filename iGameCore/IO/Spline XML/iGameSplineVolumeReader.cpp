@@ -33,7 +33,7 @@ bool SplineVolumeReader::Parsing() {
     bool isSurface = false;
     int isoNum = 50;
     gpmesh::CadSceneGP m_scene_gp;
-    //sculpt.xml,/pinion£¬lever_arm£¬mechanical02£¬beam1_sub1_2500
+    //sculpt.xml,/pinionï¼Œlever_armï¼Œmechanical02ï¼Œbeam1_sub1_2500
     gpbezier::SurfaceConvertHelper SurfaceHelper;
     SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, isoNum);
 

@@ -11,7 +11,7 @@ public:
 	I_OBJECT(AbstractObject);
 
 	// Delete this object to free memory
-	virtual void Delete() const
+    virtual void Delete() const
 	{
 		m_ReferenceCount = 0;
 		delete this;

@@ -237,18 +237,18 @@ public:
                            m_Indices->GetNumberOfIds() * sizeof(igIndex),
                            m_Indices->RawPointer());
 
-        m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                               3 * sizeof(float));
+        m_LineVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+                                3 * sizeof(float));
         GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
                           GL_FLOAT, GL_FALSE, 0);
 
         if (m_UseColor) {
-            m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                   3 * sizeof(float));
+            m_LineVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+                                    3 * sizeof(float));
             GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
                               GL_FLOAT, GL_FALSE, 0);
         }
-        m_LineVAO.elementBuffer(m_LineEBO);
+        m_LineVAO->ElementBuffer(m_LineEBO);
 
 
         if (m_UseColor) {
@@ -260,9 +260,9 @@ public:
     bool IsDrawable() override { return true; }
 
 private:
-    GLVertexArray m_LineVAO;
-    GLBuffer m_PositionVBO, m_ColorVBO;
-    GLBuffer m_LineEBO;
+    GLVertexArray::Pointer m_LineVAO;
+    GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
+    GLBuffer::Pointer m_LineEBO;
 
     FloatArray::Pointer m_Positions{};
     FloatArray::Pointer m_Colors{};
