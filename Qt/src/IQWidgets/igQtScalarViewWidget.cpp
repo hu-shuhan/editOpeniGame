@@ -9,7 +9,12 @@
 igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::ScalarView) {
     ui->setupUi(this);
-    //modelColorManager = iGame::iGameModelColorManager::Instance();
+    ui->label_Scalar->hide();
+    ui->scalarInfoComboBox->hide();
+    ui->scalarItemComboBox->hide();
+    ui->label_Data->hide();
+    ui->DataInfoCombox->hide();
+    ui->DataItemCombox->hide();
     SetCustomScaleRangeWidget = new QWidget;
     SetCustomScaleRangeUi = new Ui::SetCustomScaleRange;
     SetCustomScaleRangeUi->setupUi(SetCustomScaleRangeWidget);
@@ -143,12 +148,7 @@ void igQtScalarViewWidget::updateDrawStyle() {
     m_ColorMapper->Modified();
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     if (scene) {
-        auto model = scene->GetCurrentModel();
-        if (model && model->GetDataObject()) {
-            model->ViewCloudPicture(
-                    currentSelectedScalarIdx,
-                    drawItem);
-        }
+      scene->Update();
     }
 }
 void igQtScalarViewWidget::editColorBar() { Q_EMIT ChangeShowColorManager(); }

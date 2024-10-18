@@ -20,8 +20,15 @@ void SlicingStyle::Initialize(Interactor* a) {
 
     center = bbox.center();
     head = rear = center;
-    head[0] += bbox.diag() / 2;
-    rear[0] -= bbox.diag() / 2;
+    radius = bbox.diag() / 3;
+    head[0] += radius;
+    rear[0] -= radius;
+    normal = (head - rear).normalized();
+
+    //m_Painter->SetPen(4);
+    //m_Painter->SetPen(Color::Red);
+    //circleHandle = m_Painter->DrawCircle(center, normal, radius, 100);
+
     len = bbox.diag();
     normal = (head - rear).normalized();
     top = center;
@@ -105,16 +112,75 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
             Vector3d dir = newCenter - center;
             top = top + dir;
             left = left + dir;
+
+            dir = (head - center).normalized();
             center = newCenter;
+            head = center + dir * radius;
+            rear = center - dir * radius;
             m_Painter->SetPen(16);
             m_Painter->SetPen(Color::Red);
             m_Painter->Delete(centerHandle);
             centerHandle = m_Painter->DrawPoint(center);
 
+            m_Painter->Delete(headHandle);
+            m_Painter->SetPen(Color::Green);
+            headHandle = m_Painter->DrawPoint(head);
+            m_Painter->Delete(rearHandle);
+            m_Painter->SetPen(Color::Blue);
+            rearHandle = m_Painter->DrawPoint(rear);
+
+            m_Painter->SetPen(4);
+            m_Painter->SetPen(Color::Red);
+            m_Painter->Delete(lineHandle);
+            lineHandle = m_Painter->DrawLine(head, rear);
+
             ComputeSlicingPlane(plane);
             DrawSlicingPlane(plane);
             Invoke();
         } else if (selectId == 1) {
+            //igm::vec3 oldPoint3D, newPoint3D;
+            //oldPoint3D = v(head);
+            //MapToSphere(m_OldPoint2D, oldPoint3D, radius);
+            //MapToSphere(pos, newPoint3D, radius);
+
+            //igm::vec3 axis =
+            //        igm::cross(oldPoint3D, newPoint3D); // corss product
+            //if (axis.length() < 1e-7) {
+            //    axis = igm::vec3(1.0f, 0.0f, 0.0f);
+            //} else {
+            //    axis.normalize();
+            //}
+
+
+            //head = V(newPoint3D);
+            //rear = center - (head - center);
+            //normal = (head - rear).normalized();
+
+            //m_Painter->SetPen(4);
+            //m_Painter->Delete(circleHandle);
+            //m_Painter->SetPen(Color::Red);
+            //circleHandle = m_Painter->DrawCircle(center, normal, radius, 100);
+
+            //m_Painter->SetPen(16);
+            //m_Painter->Delete(headHandle);
+            //m_Painter->SetPen(Color::Green);
+            //headHandle = m_Painter->DrawPoint(head);
+
+            //m_Painter->Delete(rearHandle);
+            //m_Painter->SetPen(Color::Blue);
+            //rearHandle = m_Painter->DrawPoint(rear);
+
+            //m_Painter->SetPen(4);
+            //m_Painter->SetPen(Color::Red);
+            //m_Painter->Delete(lineHandle);
+            //lineHandle = m_Painter->DrawLine(head, rear);
+
+            //ComputeSlicingPlane(plane);
+            //DrawSlicingPlane(plane);
+            //Invoke();
+            //return;
+
+
             igm::vec3 p1 = GetNearWorldCoord(pos, invMVP);
             igm::vec3 p2 = GetFarWorldCoord(pos, invMVP);
             igm::vec3 intersection;
@@ -126,8 +192,8 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
             Vector3d newHead = V(intersection);
             Vector3d dir = (newHead - center).normalized();
             //std::cout << len << std::endl;
-            head = center + headLen * dir;
-            rear = center - (len - headLen) * dir;
+            head = center + radius * dir;
+            rear = center - radius * dir;
             normal = (head - rear).normalized();
 
             m_Painter->SetPen(16);
@@ -158,8 +224,8 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
             Vector3d newRear = V(intersection);
             Vector3d dir = (newRear - center).normalized();
             //std::cout << len << std::endl;
-            rear = center + rearLen * dir;
-            head = center - (len - rearLen) * dir;
+            rear = center + radius * dir;
+            head = center - radius * dir;
             normal = (head - rear).normalized();
 
             m_Painter->SetPen(16);

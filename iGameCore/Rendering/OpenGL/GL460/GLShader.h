@@ -34,20 +34,6 @@ protected:
         }
     }
 
-    std::string ReadFile(const char* file_path) {
-        std::ifstream file(file_path, std::ios::in | std::ios::binary);
-        if (file) {
-            std::string contents;
-            file.seekg(0, std::ios::end);
-            contents.resize(file.tellg());
-            file.seekg(0, std::ios::beg);
-            file.read(contents.data(), contents.size());
-            file.close();
-            return contents;
-        }
-        throw std::runtime_error("failed to open file");
-    }
-
     void CheckCompileErrors() {
         int success;
         std::string infoLog;
@@ -61,6 +47,20 @@ protected:
                       << infoLog << std::endl;
             throw std::runtime_error("Shader compilation failed");
         }
+    }
+
+    std::string ReadFile(const char* file_path) {
+        std::ifstream file(file_path, std::ios::in | std::ios::binary);
+        if (file) {
+            std::string contents;
+            file.seekg(0, std::ios::end);
+            contents.resize(file.tellg());
+            file.seekg(0, std::ios::beg);
+            file.read(contents.data(), contents.size());
+            file.close();
+            return contents;
+        }
+        throw std::runtime_error("failed to open file");
     }
 
     GLuint handle;
@@ -88,6 +88,7 @@ protected:
     ~GLUniform() override = default;
 
     GLuint m_index;
+
     friend class GLShaderProgram;
 };
 

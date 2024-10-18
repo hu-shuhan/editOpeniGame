@@ -34,6 +34,7 @@ signals:
 	void updateCurrentModelColor();
 	void changeColorBarShow();
 	void ChangeShowColorManager();
+	void UpdateRenderWidget();
 protected:
 
 private:

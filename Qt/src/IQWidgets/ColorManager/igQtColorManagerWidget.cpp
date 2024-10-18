@@ -77,6 +77,9 @@ void igQtColorManagerWidget::slotColorItemSel(QColor c)
 void igQtColorManagerWidget::slotUpdateEditData(QColor c)
 {
 	myColor = c;
+	if (ui->checkBox_UpdateInRealTime->isChecked()) {
+		ui->widget_ColorRangeSlider->updateColorInIndex(myColor);
+	}
 }
 void igQtColorManagerWidget::slotEditChanged(QString str)
 {

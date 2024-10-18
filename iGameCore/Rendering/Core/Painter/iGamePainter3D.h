@@ -43,6 +43,42 @@ public:
     */
     IGuint DrawCube(const Point& p1, const Point& p7);
 
+    /* draw circle (on plane)
+    *            *******
+    *         **         **
+    *       **             **  
+    *      *                 *
+    *     *        * center   *
+    *      *                 *
+    *       **             **
+    *         **         **
+    *            *******
+    * 
+    * @param center: Center of a circle
+    * @param normal: The normal vector of the plane in which the circle is located
+    * @param radius: The radius of circle
+    * @param n: The number of discrete points on the edge of a circle
+    */
+    IGuint DrawCircle(const Point& center, const Vector3f& normal, double radius,
+                      int num);
+
+    /* draw sphere (3D)
+    *            *******
+    *         **         **
+    *       **             **  
+    *      *                 *
+    *     *        * center   *
+    *      *                 *
+    *       **             **
+    *         **         **
+    *            *******
+    * 
+    * @param center: Center of a sphere
+    * @param radius: The radius of sphere
+    * @param n: The degree of discretization
+    */
+    IGuint DrawSphere(const Point& center, double radius, int num);
+
 protected:
     Painter3D() = default;
     ~Painter3D() override = default;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "GLVendor.h"
-#include "iGameObject.h"
 
 IGAME_NAMESPACE_BEGIN
 template<typename Helper>

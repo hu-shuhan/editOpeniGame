@@ -529,7 +529,14 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
     m_DisplayObject->ReAllocateDisplayBuffer();
     m_Positions->Modified();
+//<<<<<<< HEAD
+//    m_Positions->Modified();
+//=======
+    m_DisplayObject->SetColorMapper(this->GetColorMapper());
+//>>>>>>> 11aa2cf2cf7719122b358d4ab210e37c55814021
 }
+
+DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
                                         GLBuffer::Pointer VBO) {

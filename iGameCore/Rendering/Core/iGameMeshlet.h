@@ -1,6 +1,7 @@
 #pragma once
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLIndirectCommand.h"
+#include "iGameFlatArray.h"
 #include "iGameObject.h"
 #include "iGameTimer.h"
 #include "meshoptimizer.h"
@@ -26,7 +27,7 @@ public:
     void CreateBuffer();
     void BuildMeshlet(const float* vertex_positions, size_t vertex_count,
                       const unsigned int* indices, size_t index_count,
-                      GLBuffer::Pointer EBO);
+                      UnsignedIntArray::Pointer afterBuildIndices);
 
     size_t MeshletsCount();
     GLBuffer::Pointer MeshletsBuffer();

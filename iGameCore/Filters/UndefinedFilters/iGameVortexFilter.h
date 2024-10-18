@@ -20,47 +20,61 @@ public:
     static Pointer New() { return new VortexFilter; }
     bool Execute() override {
 
-        surface_Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
-        volume_Mesh = DynamicCast<VolumeMesh>(GetInput(0));
+        auto input = GetInput(0);
+        switch (input->GetDataObjectType()) {
+            case IG_SURFACE_MESH:
+                surface_Mesh = DynamicCast<SurfaceMesh>(input);
+                break;
+            case IG_VOLUME_MESH:
+                volume_Mesh = DynamicCast<VolumeMesh>(input);
+                break;
+            case IG_UNSTRUCTURED_MESH:
+            {
+                auto mesh = DynamicCast<UnstructuredMesh>(input);
+                surface_Mesh = mesh->TransferToSurfaceMesh();
+                volume_Mesh = mesh->TransferToVolumeMesh();
 
-        if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
-            auto mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            surface_Mesh = mesh->TransferToSurfaceMesh();
-            volume_Mesh = mesh->TransferToVolumeMesh();
+                if (volume_Mesh) {
+                    surface_Mesh = DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    if (!surface_Mesh) return false;
 
-            if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
+                    FloatArray::Pointer vorticities = FloatArray::New();
+                    vorticities->SetDimension(3);
+                    vorticities->SetName("vorticities");
+                    mesh->GetAttributeSet()->AddScalar(IG_POINT, vorticities);
+                }
+            } break;
+            default:
                 return false;
-            }
         }
 
-        AttributeSet* attributeSet;
+        
 
         if (volume_Mesh) {
-            std::cout << "[Debug  ] "
-                      << "vortex in volume_mesh " << '\n';
-            attributeSet = volume_Mesh->GetAttributeSet();
-            if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            //surface_Mesh =
+            //        DynamicCast<SurfaceMesh>(volume_Mesh->GetDisplayObject());
+            //if (!surface_Mesh) return false;
 
-            int VolumeNum = volume_Mesh->GetNumberOfVolumes();
-            int PointNum = volume_Mesh->GetNumberOfPoints();
-            Points::Pointer Points = volume_Mesh->GetPoints();
-            volume_Mesh->RequestEditStatus();
-            // 附着在point
-            if (PointNum != 0 && attachmentType == 0) {
-                GetPointVortex(1, Points, PointNum);
-                //                GetPointVortex_ivd(1, Points, PointNum);
-            }
-            // 附着在cell
-            else if (VolumeNum != 0 && attachmentType == 0)
-                GetOtherVortex(1, VolumeNum);
-        } else if (surface_Mesh) {
-            std::cout << "[Debug  ] "
-                      << "vortex in surface_mesh " << '\n';
+            //FloatArray::Pointer vorticities = FloatArray::New();
+            //vorticities->SetDimension(3);
+            //vorticities->SetName("vorticities");
+            //volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT, vorticities);
+
+            //// 测试时默认取第一个数组
+            //auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+
+            //int VolumeNum = volume_Mesh->GetNumberOfVolumes();
+            //int PointNum = volume_Mesh->GetNumberOfPoints();
+            //Points::Pointer Points = volume_Mesh->GetPoints();
+            //volume_Mesh->RequestEditStatus();
+            //if (PointNum != 0 && attachmentType == 0) 
+            //    GetPointVortex(1, Points, PointNum);
+            //else if (VolumeNum != 0 && attachmentType == 0)
+            //    GetOtherVortex(1, VolumeNum);
+        } 
+
+        if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
-            if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
             auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
@@ -77,11 +91,6 @@ public:
     }
 
     bool GetPointVortex(int type, Points::Pointer Points, int PointNum) {
-
-        AttributeSet* attributeSet;
-        if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
-        else if (type == 1)
-            attributeSet = volume_Mesh->GetAttributeSet();
 
         auto data = attributeSet->GetAttribute(0).pointer;
 
@@ -130,11 +139,6 @@ public:
     }
 
     bool GetOtherVortex(int type, int Num) {
-
-        AttributeSet* attributeSet;
-        if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
-        else if (type == 1)
-            attributeSet = volume_Mesh->GetAttributeSet();
 
         auto data = attributeSet->GetAttribute(0).pointer;
         int dimension = data->GetDimension();
@@ -258,11 +262,6 @@ public:
     std::vector<std::array<float, 3>> GetPointGradient(
             int type, Points::Pointer Points, int PointNum, int dim) {
 
-        AttributeSet* attributeSet;
-        if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
-        else if (type == 1)
-            attributeSet = volume_Mesh->GetAttributeSet();
-
         auto data = attributeSet->GetAttribute(0).pointer;
         int dimension = data->GetDimension();
 
@@ -343,10 +342,6 @@ public:
 
     std::vector<std::array<float, 3>> GetOtherGradient(int type, int Num,
                                                         int dim) {
-        AttributeSet* attributeSet;
-        if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
-        else if (type == 1)
-            attributeSet = volume_Mesh->GetAttributeSet();
 
         auto data = attributeSet->GetAttribute(0).pointer;
         int dimension = data->GetDimension();
@@ -437,6 +432,7 @@ protected:
 
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
+    AttributeSet* attributeSet{nullptr};
 };
 
 IGAME_NAMESPACE_END

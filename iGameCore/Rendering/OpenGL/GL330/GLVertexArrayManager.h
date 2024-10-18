@@ -19,10 +19,6 @@ struct GLVertexArrayManagerTupleHash {
 };
 
 class GLVertexArrayManager : public Object {
-private:
-    GLVertexArrayManager() = default;
-    ~GLVertexArrayManager() = default;
-
 public:
     static GLVertexArrayManager& Instance() {
         static GLVertexArrayManager instance;
@@ -69,8 +65,11 @@ public:
                     "Buffer not found for given VAO and binding index.");
         }
     }
+    
+protected:
+    GLVertexArrayManager() = default;
+    ~GLVertexArrayManager() = default;
 
-private:
     std::unordered_map<std::tuple<unsigned int, unsigned int>,
                        std::tuple<unsigned int, size_t>,
                        GLVertexArrayManagerTupleHash>
