@@ -83,6 +83,7 @@ public:
     virtual void SetAttributeWithCellData(ArrayObject::Pointer attr,
                                           std::pair<float, float>& range,
                                           igIndex i = -1);
+
 };
 
 IGAME_NAMESPACE_END

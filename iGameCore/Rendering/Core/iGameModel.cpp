@@ -116,7 +116,13 @@ void Model::Draw(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if( subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 

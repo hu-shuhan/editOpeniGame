@@ -80,7 +80,7 @@ public:
 	bool InvokeEvent(const char* event) { return this->InvokeEvent(event, nullptr); }
 
 protected:
-	Object() {}
+	Object() {this->Modified();}
 	~Object() override 
 	{
 		if (m_Internal)

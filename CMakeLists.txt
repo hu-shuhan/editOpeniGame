@@ -7,12 +7,12 @@ cmake_minimum_required(VERSION 3.19)
 
 # if need to Enable remote ThirdParty module. Follow this step:
 # 1. use git command1(git submodule init) and command2(git submodule update) to clone remote Submodule which are defined in .gitmodules file
-# 2. Set OFF to On.
+# 2. Switch OFF to On.
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
-# This module is temporarily available on Windows Platform.
+# This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.

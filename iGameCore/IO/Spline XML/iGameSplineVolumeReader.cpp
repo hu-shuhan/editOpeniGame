@@ -31,7 +31,7 @@ bool SplineVolumeReader::Parsing() {
 
     CSFile* csf;
     bool isSurface = false;
-    int isoNum = 50;
+    int isoNum = 30;
     gpmesh::CadSceneGP m_scene_gp;
     //sculpt.xml,/pinion，lever_arm，mechanical02，beam1_sub1_2500
     gpbezier::SurfaceConvertHelper SurfaceHelper;
@@ -46,7 +46,6 @@ bool SplineVolumeReader::Parsing() {
     FloatArray::Pointer scalarArray = FloatArray::New();
     scalarArray->SetDimension(3);
     scalarArray->SetName("scalar3");
-    m_Output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, scalarArray);
 
     int64_t surface_num = SurfaceHelper.getSurfaces().size();
     Points::Pointer Points = Points::New();

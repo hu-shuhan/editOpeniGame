@@ -1,8 +1,12 @@
 #include "iGameDrawObject.h"
+
+#include <utility>
 #include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
 DrawObject::DrawObject() {
+    m_Clipper = iGameClipper::New();
+
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
 
@@ -32,8 +36,6 @@ DrawObject::DrawObject() {
 
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
-
-    m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::CreateDrawBuffer() {
@@ -198,7 +200,6 @@ void DrawObject::ReAllocateDisplayBuffer() {
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
     }
-
     this->CreateDrawBuffer();
 
     if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
@@ -474,7 +475,9 @@ FloatArray::Pointer DrawObject::GetRenderPoints() {
     // return this object
     return m_Positions;
 }
-
+void DrawObject::SetRenderPoints(FloatArray::Pointer points) {
+    m_Positions = std::move(points);
+}
 void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
     // process display object
     if (m_DisplayObject) {
@@ -525,6 +528,7 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
     m_DisplayObject->ReAllocateDisplayBuffer();
+    m_Positions->Modified();
 }
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO,

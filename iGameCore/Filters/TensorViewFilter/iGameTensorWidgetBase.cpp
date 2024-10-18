@@ -63,7 +63,7 @@ void iGameTensorWidgetBase::UpdateGlyphDrawIndexData() {
         IGsize st = i * GlyphPointIndexOrders->GetNumberOfValues();
         IGsize offset = i * GlyphPointNum;
         for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
-            //è¿™é‡Œä¸å¤ªå¥½ç”¨copyï¼Œä¸èƒ½ä¿è¯ä¸¤ä¸ªç±»åž‹ç›¸åŒ
+            //ÕâÀï²»Ì«ºÃÓÃcopy£¬²»ÄÜ±£Ö¤Á½¸öÀàÐÍÏàÍ¬
             m_DrawGlyphPointOrders->SetValue(
                     st + j, offset + GlyphPointIndexOrders->GetValue(j));
             //m_DrawGlyphPointOrders->AddValue(st + GlyphPointIndexOrders->GetValue(j));

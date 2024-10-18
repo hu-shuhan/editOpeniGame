@@ -5,6 +5,7 @@ IGAME_NAMESPACE_BEGIN
 void PointSet::SetPoints(Points::Pointer points) {
     if (m_Points != points) {
         m_Points = points;
+        m_Points->Modified();
         this->Modified();
     }
 }
@@ -150,4 +151,5 @@ FlatArray<igIndex>::Pointer PointSet::GetPointMap() {
 void PointSet::SetAttributeWithCellData(ArrayObject::Pointer attr,
                                         std::pair<float, float>& range,
                                         igIndex dimension) {}
+
 IGAME_NAMESPACE_END

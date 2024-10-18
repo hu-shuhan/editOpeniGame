@@ -17,21 +17,21 @@ public:
     static constexpr int QEM_FASTEST = 0;
     static constexpr int QEM_NICEST = 1;
 
-    static constexpr int QEM_INTERIOR_EDGE = 0;      // å†…éƒ¨è¾¹
-    static constexpr int QEM_HALF_BOUNDARY_EDGE = 1; // è¾¹ç•ŒåŠè¾¹
-    static constexpr int QEM_BOUNDARY_EDGE = 2;      // è¾¹ç•Œè¾¹
+    static constexpr int QEM_INTERIOR_EDGE = 0;      // ÄÚ²¿±ß
+    static constexpr int QEM_HALF_BOUNDARY_EDGE = 1; // ±ß½ç°ë±ß
+    static constexpr int QEM_BOUNDARY_EDGE = 2;      // ±ß½ç±ß
 
-    int TargetFaceNum = 0;         // ç›®æ ‡é¢æ•°
-    double TargetReduction = 0.5;  // å‡å°‘çš„ç™¾åˆ†æ¯”
-    bool NormalCheck = true;       // æ˜¯å¦è¿›è¡Œæ³•çº¿æ£€æŸ¥ã€‚
-    double NormalThr = M_PI / 4.0; // æ³•çº¿æ£€æŸ¥çš„é˜ˆå€¼ï¼Œä»¥å¼§åº¦è¡¨ç¤ºã€‚
-    double CosineThr = cos(NormalThr); // æ³•çº¿æ£€æŸ¥çš„ä½™å¼¦é˜ˆå€¼ã€‚
-    bool OptimalPosition = true;       // æ˜¯å¦ä½¿ç”¨æœ€ä¼˜ä½ç½®ã€‚
-    bool PreserveBoundary = false;     // æ˜¯å¦ä¿æŒè¾¹ç•Œã€‚
-    double QuadricEpsilon = 1e-15;     // äºŒæ¬¡å‹çš„é˜ˆå€¼ã€‚
-    bool QualityCheck = true;          // æ˜¯å¦è¿›è¡Œè´¨é‡æ£€æŸ¥ã€‚
-    double QualityThr = 0.3;           // ç”¨äºè´¨é‡æ£€æŸ¥çš„è´¨é‡é˜ˆå€¼ã€‚
-    bool ScalarCheck = true;          // æ˜¯å¦è¿›è¡Œæ ‡é‡æ£€æŸ¥ã€‚
+    int TargetFaceNum = 0;         // Ä¿±êÃæÊı
+    double TargetReduction = 0.5;  // ¼õÉÙµÄ°Ù·Ö±È
+    bool NormalCheck = true;       // ÊÇ·ñ½øĞĞ·¨Ïß¼ì²é¡£
+    double NormalThr = M_PI / 4.0; // ·¨Ïß¼ì²éµÄãĞÖµ£¬ÒÔ»¡¶È±íÊ¾¡£
+    double CosineThr = cos(NormalThr); // ·¨Ïß¼ì²éµÄÓàÏÒãĞÖµ¡£
+    bool OptimalPosition = true;       // ÊÇ·ñÊ¹ÓÃ×îÓÅÎ»ÖÃ¡£
+    bool PreserveBoundary = false;     // ÊÇ·ñ±£³Ö±ß½ç¡£
+    double QuadricEpsilon = 1e-15;     // ¶ş´ÎĞÍµÄãĞÖµ¡£
+    bool QualityCheck = true;          // ÊÇ·ñ½øĞĞÖÊÁ¿¼ì²é¡£
+    double QualityThr = 0.3;           // ÓÃÓÚÖÊÁ¿¼ì²éµÄÖÊÁ¿ãĞÖµ¡£
+    bool ScalarCheck = true;          // ÊÇ·ñ½øĞĞ±êÁ¿¼ì²é¡£
 
 	bool Execute() override {
 

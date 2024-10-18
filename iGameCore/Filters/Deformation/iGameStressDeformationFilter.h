@@ -17,9 +17,13 @@ I_OBJECT(StressDeformationFilter)
 
     bool Execute() override;
 
-//    Pointer GetOutput() override {
-//        return Filter::GetOutput();
-//    }
+/*
+ *  DSF = K * D_model / U_max
+ *  D_model = cbrt(D_x * D_y * D_z), D_{x, y, z} is the model's Bounding Box's max minus min.
+ *  U_max: max vertex offset in the model.
+ *  Here assume that K is simply equal to 0.1
+ * */
+    bool CalculateIdealDSF();
 
 protected:
     StressDeformationFilter();
