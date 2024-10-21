@@ -5,7 +5,7 @@
 
 #pragma once
 
-enum FileType{
+enum FileType {
     ALLFILE,
     VTK,
     CGNS,
@@ -14,12 +14,15 @@ enum FileType{
 
 };
 
-enum SplineType{
-    Surface,
-    Volume
+enum SplineType {
+    NurbsCurve,
+    NurbsSurface,
+    NurbsVolume,
+    BSplineSurface,
+    BSplineVolume,
 };
 
-enum AnimationType{
+enum AnimationType {
     MP4,
     gif,
 };
