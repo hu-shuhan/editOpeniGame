@@ -209,6 +209,8 @@ void DrawObject::ReAllocateDisplayBuffer() {
         }
     }
 
+//    std::cout << "m_Positions" << m_Positions->GetMTime() << std::endl;
+//    std::cout << "m_PositionVBO" << m_PositionVBO->GetMTime() << std::endl;
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
                            m_Positions->GetNumberOfValues() * sizeof(float),
@@ -533,11 +535,7 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
     m_Positions->Modified();
-//<<<<<<< HEAD
-//    m_Positions->Modified();
-//=======
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
-//>>>>>>> 11aa2cf2cf7719122b358d4ab210e37c55814021
 }
 
 DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }

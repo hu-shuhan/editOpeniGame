@@ -1189,6 +1189,12 @@ void VolumeMesh::ConvertToDrawableData() {
             }
         }
 
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
+
+//        m_PointIndices = pointIndices;
+//        m_PointIndices->Modified();
+
         m_TriangleIndices = triangleIndices;
         m_TriangleIndices->Modified();
 
@@ -1197,7 +1203,8 @@ void VolumeMesh::ConvertToDrawableData() {
     }
 
     // convert scalar data
-    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
+    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
         if (m_AttributeIndex == -1) {
             m_UseColor = false;
             m_ColorWithCell = false;

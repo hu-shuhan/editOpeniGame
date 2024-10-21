@@ -30,7 +30,7 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
 
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
-        drawObject->ConvertToDrawableData();
+//        drawObject->ConvertToDrawableData();
     }
 
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
