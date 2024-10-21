@@ -28,9 +28,9 @@ public:
     void SetAttributeName(std::string& name){ m_deformation_attribute_name = name;}
 
 public:
-    float m_deformation_scale_factor_x = {1.f};
-    float m_deformation_scale_factor_y = {1.f};
-    float m_deformation_scale_factor_z = {1.f};
+    float m_deformation_scale_factor_x = {0.f};
+    float m_deformation_scale_factor_y = {0.f};
+    float m_deformation_scale_factor_z = {0.f};
 
     bool m_enable_dsf {false};
     std::string m_deformation_attribute_name;

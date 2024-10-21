@@ -202,7 +202,12 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
     this->CreateDrawBuffer();
 
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+    if (m_AutoUpdateDrawData) {
+        ConvertToDrawableData();
+        if (m_DisplayObject) {
+            m_DisplayObject->ReAllocateDisplayBuffer();
+        }
+    }
 
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
@@ -420,9 +425,13 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
 
     // process this object
-    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
-        return;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
+                              dimension);
     }
+//    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
+//        return;
+//    }
 
     if (index == -1) {
         m_AttributeIndex = -1;
@@ -433,10 +442,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
     m_AttributeHelper->Modified();
 
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
-                              dimension);
-    }
 
     this->Modified();
 
@@ -527,7 +532,6 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
-    m_DisplayObject->ReAllocateDisplayBuffer();
     m_Positions->Modified();
 //<<<<<<< HEAD
 //    m_Positions->Modified();

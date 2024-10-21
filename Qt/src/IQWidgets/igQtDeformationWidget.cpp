@@ -112,23 +112,27 @@ void igQtDeformationWidget::updateInfo() {
     auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
     m_Scalar_num = dataObject->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
 
-    ui->checkBox_enableOffset->setChecked(false);
-    ui->comboBox_Deformation_vector->clear();
-    for (int i = 0; i < m_Scalar_num; i++) {
-        auto& data = dataObject->GetAttributeSet()->GetAttribute(i);
-        ui->comboBox_Deformation_vector->addItem(QString(data.pointer->GetName().c_str()));
-    }
     /*Update lineEdit info.*/
     ui->lineEdit_Uniform_val->setText("0.0");
     ui->lineEdit_Nonuniform_x->setText("0.0");
     ui->lineEdit_Nonuniform_y->setText("0.0");
     ui->lineEdit_Nonuniform_z->setText("0.0");
+    ui->checkBox_enableOffset->setChecked(false);
+    ui->comboBox_Deformation_vector->clear();
+
+
+    for (int i = 0; i < m_Scalar_num; i++) {
+        auto& data = dataObject->GetAttributeSet()->GetAttribute(i);
+        if(data.pointer->GetDimension() < 2) continue;
+        ui->comboBox_Deformation_vector->addItem(QString(data.pointer->GetName().c_str()));
+    }
+
 }
 
 
 void igQtDeformationWidget::CalculateCurrentDSF() {
     auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-    if(dataObject != nullptr && ui->comboBox_Deformation_vector->count() > 1){
+    if(dataObject != nullptr){
         dataObject->GetDeformationData()->m_deformation_attribute_name = ui->comboBox_Deformation_vector->currentText().toStdString();
         iGame::StressDeformationFilter::Pointer p = iGame::StressDeformationFilter::New();
         p->SetInput(dataObject);

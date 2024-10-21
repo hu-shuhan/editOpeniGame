@@ -19,7 +19,7 @@ public:
 		IGenum attachmentType{ IG_NONE }; // IG_POINT, IG_CELL
 		bool isDeleted{ false };
 
-		std::pair<float, float> dataRange{ 0.f, 0.f };
+		std::pair<float, float> dataRange{ FLT_MIN, FLT_MAX};
 
 		static Attribute None() {
 			Attribute att;
@@ -49,8 +49,9 @@ public:
 	// Add a scalar attribute to array back with range.
 	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
 
-	// Add a vector attribute to array back.
-	IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr);
+    // Add a vector attribute to array back.
+    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
+    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr);
 
 	Attribute& GetScalar();
 	const Attribute& GetScalar() const;

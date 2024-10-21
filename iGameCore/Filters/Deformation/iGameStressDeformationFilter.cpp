@@ -55,14 +55,25 @@ bool iGame::StressDeformationFilter::Execute() {
                 /* Process the Model Geometry Surface Filter, means that the points renderer are not raw points
                  * So we need to use pointMap.*/
                 else if(pointMap != nullptr && render_pos_set->GetNumberOfValues() != attribute_set->GetNumberOfValues()){
-                    for(int i = 0, j = 0; i < pointMap->GetNumberOfValues(); i ++, j += 3){
-                        int new_idx = pointMap->GetValue(i);
-                        if(new_idx == -1) continue;
-                        int k = new_idx * 3;
-                        render_pos_set->SetValue(k + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
-                        render_pos_set->SetValue(k + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
-                        render_pos_set->SetValue(k + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                    if(render_pos_set->GetNumberOfValues() == 0){
+                        for(int i = 0, j = 0; i < pointMap->GetNumberOfValues(); i ++, j += 3){
+                            int new_idx = pointMap->GetValue(i);
+                            if(new_idx == -1) continue;
+                            render_pos_set->AddValue(pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
+                            render_pos_set->AddValue(pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
+                            render_pos_set->AddValue(pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                        }
+                    } else {
+                        for(int i = 0, j = 0; i < pointMap->GetNumberOfValues(); i ++, j += 3){
+                            int new_idx = pointMap->GetValue(i);
+                            if(new_idx == -1) continue;
+                            int k = new_idx * 3;
+                            render_pos_set->SetValue(k + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
+                            render_pos_set->SetValue(k + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
+                            render_pos_set->SetValue(k + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                        }
                     }
+
                 }
                 render_pos_set->Modified();
             }
@@ -83,7 +94,6 @@ bool iGame::StressDeformationFilter::Execute() {
                         render_pos_set = newCopy;
                         pointset->SetRenderPoints(render_pos_set);
                     }
-
                     for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
                         render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                         render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
@@ -123,6 +133,7 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
     if(dataObject->HasSubDataObject()){
         for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
             auto uset = it->second->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+            if(uset == nullptr) return false;
             for(int i = 0; i < uset->GetNumberOfValues(); i += 3){
                 float x = uset->GetValue(i), y = uset->GetValue(i + 1), z = uset->GetValue(i + 2);
                 U_max = std::max(U_max, std::sqrt(x * x + y * y + z * z));

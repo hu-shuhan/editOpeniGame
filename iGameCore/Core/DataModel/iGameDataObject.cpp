@@ -27,6 +27,12 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     }
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
+
+    if (obj->IsDrawable()) {
+        auto drawObject = DynamicCast<DrawObject>(obj);
+        drawObject->ConvertToDrawableData();
+    }
+
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
 }
 

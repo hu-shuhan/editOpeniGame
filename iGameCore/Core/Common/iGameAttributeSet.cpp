@@ -15,8 +15,14 @@ IGsize AttributeSet::AddScalar(IGenum attachmentType, ArrayObject::Pointer attr,
 
 
 IGsize AttributeSet::AddVector(IGenum attachmentType,
-	ArrayObject::Pointer attr) {
-	return this->AddAttribute(IG_VECTOR, attachmentType, attr);
+	ArrayObject::Pointer attr, const std::pair<float, float>& range) {
+    if (!attr) { return -1; }
+	return this->AddAttribute(IG_VECTOR, attachmentType, attr, range);
+}
+
+IGsize AttributeSet::AddVector(IGenum attachmentType, ArrayObject::Pointer attr) {
+    if (!attr) { return -1; }
+    return this->AddAttribute(IG_VECTOR, attachmentType, attr);
 }
 
 AttributeSet::Attribute& AttributeSet::GetScalar()
@@ -79,13 +85,13 @@ const AttributeSet::Attribute& AttributeSet::GetVector(const std::string& name) 
 	return GetAttribute(name, IG_VECTOR);
 }
 
+
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType,
 	ArrayObject::Pointer attr, std::pair<float, float> dataRange) {
 	if (!attr) { return -1; }
 	m_Buffer->AddElement(Attribute{ attr, type, attachmentType, false , dataRange});
 	return m_Buffer->GetNumberOfElements() - 1;
 }
-
 
 AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index) {
 	return m_Buffer->ElementAt(index);
@@ -168,10 +174,10 @@ void AttributeSet::DeleteAttribute(const IGsize index) {
 	p.pointer = nullptr;
 }
 
+
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllAttributes() {
 	return m_Buffer;
 }
-
 
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllPointAttributes() {
 	if (!m_tmpBuffer) {
@@ -188,6 +194,7 @@ ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllPointAttribut
 	return m_tmpBuffer;
 }
 
+
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllCellAttributes() {
 	if (!m_tmpBuffer) {
 		m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
@@ -203,9 +210,7 @@ ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllCellAttribute
 	return m_tmpBuffer;
 }
 
-
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
-
 
 
 IGAME_NAMESPACE_END
