@@ -8,43 +8,50 @@
  */
 
 #include "IQComponents/Dialog/igQtSplineOptionDialog.h"
-#include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QVBoxLayout>
 
-igQtSplineOptionDialog::igQtSplineOptionDialog(QWidget *par): QDialog(par) {
+igQtSplineOptionDialog::igQtSplineOptionDialog(QWidget* par) : QDialog(par) {
     this->setWindowTitle("Open Data With...");
 
-    QVBoxLayout *layout = new QVBoxLayout(this);
+    QVBoxLayout* layout = new QVBoxLayout(this);
 
     m_IntroduceLabel = new QLabel(this);
 
     m_ListWidget = new QListWidget(this);
+
+#if defined(GPSCUDA_ENABLE)
     m_ListWidget->addItem("Spline Surface Reader");
     m_ListWidget->addItem("Spline Volume Reader");
+#endif
+    m_ListWidget->addItem("Nurbs Curve Reader");
+    m_ListWidget->addItem("Nurbs Surface Reader");
+    m_ListWidget->addItem("Nurbs Volume Reader");
 
     QHBoxLayout* hlay_buttons = new QHBoxLayout(this);
-    auto *okButton = new QPushButton("OK", this);
-    auto *cancelButton = new QPushButton("Cancel", this);
+    auto* okButton = new QPushButton("OK", this);
+    auto* cancelButton = new QPushButton("Cancel", this);
     hlay_buttons->addWidget(okButton);
     hlay_buttons->addWidget(cancelButton);
     layout->addLayout(hlay_buttons);
-    connect(okButton, &QPushButton::clicked, this, &igQtSplineOptionDialog::accept);
-    connect(cancelButton, &QPushButton::clicked, this, &igQtSplineOptionDialog::reject);
-
+    connect(okButton, &QPushButton::clicked, this,
+            &igQtSplineOptionDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, this,
+            &igQtSplineOptionDialog::reject);
 
 
     layout->addWidget(m_IntroduceLabel);
     layout->addWidget(m_ListWidget);
     layout->addLayout(hlay_buttons);
-
-
 }
 
-void igQtSplineOptionDialog::setFileName(const QString &fileName) {
-    m_IntroduceLabel->setText(QString::asprintf("More than one reader for \" %s \".Please choose one:", fileName.toStdString().c_str()));
+void igQtSplineOptionDialog::setFileName(const QString& fileName) {
+    m_IntroduceLabel->setText(QString::asprintf(
+            "More than one reader for \" %s \".Please choose one:",
+            fileName.toStdString().c_str()));
 }
 
 SplineType igQtSplineOptionDialog::getDialogOutput() {
