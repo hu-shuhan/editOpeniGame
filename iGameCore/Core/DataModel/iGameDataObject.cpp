@@ -30,7 +30,7 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
 
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
-//        drawObject->ConvertToDrawableData();
+        drawObject->ConvertToDrawableData();
     }
 
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
@@ -141,7 +141,7 @@ StreamingData::Pointer DataObject::GetTimeFrames() {
 }
 
 DeformationData::Pointer DataObject::GetDeformationData() {
-    if(nullptr == m_DeformationData){
+    if (nullptr == m_DeformationData) {
         m_DeformationData = DeformationData::New();
     }
     return m_DeformationData;
