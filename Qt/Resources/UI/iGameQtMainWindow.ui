@@ -368,7 +368,6 @@ border:2px solid #EEF1F7
    <addaction name="action_select_face"/>
    <addaction name="action_select_faces"/>
    <addaction name="action_drag_point"/>
-   <addaction name="action_slicing"/>
   </widget>
   <widget class="QToolBar" name="toolBar_4">
    <property name="windowTitle">

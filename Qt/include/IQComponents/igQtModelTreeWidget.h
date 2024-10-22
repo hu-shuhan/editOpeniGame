@@ -81,7 +81,10 @@ public:
     void show() { comboBox->show(); }
     void hide() { comboBox->hide(); }
     MComboBox* get() { return comboBox; }
-    void viewAttribute(int dim) { parent->viewAttribute(index, dim); }
+    void viewAttribute(int dim) {
+        parent->viewAttribute(index, dim);
+        //std::cout << index << std::endl;
+    }
 
 private:
     int index;

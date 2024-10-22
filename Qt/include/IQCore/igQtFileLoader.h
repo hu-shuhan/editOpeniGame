@@ -22,6 +22,7 @@ public:
 public:
 	void LoadFile();
 	void OpenFile(const std::string& fileName);
+    void OpenSplineFile(const std::string& fileName);
 	void SaveFile(); //保存
 	void SaveFileAs();//另存为
 	void SaveCurrentFileToRecentFile(QString file_name);

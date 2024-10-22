@@ -39,8 +39,8 @@ void igQtColorRangeSlider::initColorRanges() {
     tmpColorBar->SetDimension(3);
     auto tmpColorRange = iGame::FloatArray::New();
     int n = m_ColorMapper->GetColorBarSize() + 1;
-    tmpColorBar->Resize(n);
-    tmpColorRange->Resize(n);
+    tmpColorBar->Reserve(n);
+    tmpColorRange->Reserve(n);
     float rgb[16];
     for (int i = 0; i < n; i++) {
         m_ColorMapper->GetColorBar()->GetElement(i, rgb);

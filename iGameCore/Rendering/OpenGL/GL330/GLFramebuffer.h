@@ -8,19 +8,10 @@
 
 IGAME_NAMESPACE_BEGIN
 class GLFramebuffer : public GLObject<GLFramebuffer> {
-private:
-    GLenum m_Target;
-
-private:
-    friend class GLObject<GLFramebuffer>;
-    static void createHandle(GLsizei count, GLuint* handles) {
-        glGenFramebuffers(count, handles);
-    }
-    static void destroyHandle(GLsizei count, GLuint* handles) {
-        glDeleteFramebuffers(count, handles);
-    }
-
 public:
+    I_OBJECT(GLFramebuffer);
+    static Pointer New() { return new GLFramebuffer; }
+
     // GLbitfield mask: GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT
     // GLenum filter: GL_NEAREST, GL_LINEAR
     static void blit(const GLFramebuffer& source,
@@ -37,12 +28,12 @@ public:
 
 public:
     // GLenum target: GL_FRAMEBUFFER, GL_READ_FRAMEBUFFER, GL_DRAW_FRAMEBUFFER
-    void target(GLenum target) { m_Target = target; }
+    void Target(GLenum target) { m_Target = target; }
 
-    void bind() const { glBindFramebuffer(m_Target, handle); }
-    void release() const { glBindFramebuffer(m_Target, 0); }
+    void Bind() const { glBindFramebuffer(m_Target, handle); }
+    void Release() const { glBindFramebuffer(m_Target, 0); }
 
-    void drawBuffers(size_t count, GLenum* buffers) {
+    void DrawBuffers(size_t count, GLenum* buffers) {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, handle);
         glDrawBuffers(count, buffers);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -52,20 +43,23 @@ public:
     // GLenum attachment: GL_DEPTH_ATTACHMENT(texture need GL_DEPTH_COMPONENT)
     // GLenum attachment: GL_STENCIL_ATTACHMENT(texture need GL_STENCIL_INDEX)
     // GLenum attachment: GL_DEPTH_STENCIL_ATTACHMENT(texture need GL_DEPTH24_STENCIL8)
-    void texture(GLenum attachment, const GLTexture2d& texture,
+    void Texture(GLenum attachment, const GLTexture2d::Pointer texture,
                  unsigned mip_level) {
         glBindFramebuffer(GL_FRAMEBUFFER, handle);
-        glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture, mip_level);
+        glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture->Handle(),
+                             mip_level);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
-    void texture(GLenum attachment, const GLTexture2dMultisample& texture,
+    void Texture(GLenum attachment,
+                 const GLTexture2dMultisample::Pointer texture,
                  unsigned mip_level) {
         glBindFramebuffer(GL_FRAMEBUFFER, handle);
-        glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture, mip_level);
+        glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture->Handle(),
+                             mip_level);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void textureLayer(GLenum attachment, const GLTexture2dArray& texture,
+    void TextureLayer(GLenum attachment, const GLTexture2dArray& texture,
                       unsigned mip_level, unsigned layer) {
         glBindFramebuffer(GL_FRAMEBUFFER, handle);
         glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture,
@@ -73,7 +67,7 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void renderbuffer(GLenum attachment, GLenum renderbuffer_target,
+    void Renderbuffer(GLenum attachment, GLenum renderbuffer_target,
                       const GLRenderbuffer& rbo) {
         glBindFramebuffer(GL_FRAMEBUFFER, handle);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment,
@@ -81,11 +75,25 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    GLenum checkStatus() {
+    GLenum CheckStatus() {
         glBindFramebuffer(m_Target, handle);
         GLenum status = glCheckFramebufferStatus(m_Target);
         glBindFramebuffer(m_Target, 0);
         return status;
     }
+
+private:
+    GLFramebuffer() = default;
+    ~GLFramebuffer() override = default;
+
+    friend class GLObject<GLFramebuffer>;
+    static void CreateHandle(GLsizei count, GLuint* handles) {
+        glGenFramebuffers(count, handles);
+    }
+    static void DestroyHandle(GLsizei count, GLuint* handles) {
+        glDeleteFramebuffers(count, handles);
+    }
+
+    GLenum m_Target{GL_NONE};
 };
 IGAME_NAMESPACE_END

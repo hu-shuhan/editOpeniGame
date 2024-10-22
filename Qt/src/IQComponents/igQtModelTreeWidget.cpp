@@ -248,6 +248,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         if (parent) {
             if (currentModelItem != parent) {
                 this->setCurrentModelItem(parent);
+                emit ChangeCurrentModel(parent->getModel());
             }
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(
                     parent->getCurrentChild());
@@ -261,7 +262,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             if (dim == -1) { 
                 dim = 0;
             }
-            parent->viewAttribute(index, dim - 1);
+            c->viewAttribute(dim - 1);
             Q_EMIT ViewCloudPicture();
         }
     }

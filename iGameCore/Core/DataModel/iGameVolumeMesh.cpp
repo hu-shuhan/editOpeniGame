@@ -37,7 +37,7 @@ Volume* VolumeMesh::GetVolume(const IGsize volumeId) {
     } else if (ncells == Pyramid::NumberOfPoints) {
         if (m_Pyramid == nullptr) { m_Pyramid = Pyramid::New(); }
         volume = m_Pyramid.get();
-    } 
+    }
 
     assert(volume != nullptr);
     volume->PointIds->Reset();
@@ -1109,193 +1109,224 @@ void VolumeMesh::RequestVolumeStatus() {
 }
 
 void VolumeMesh::ConvertToDrawableData() {
-    m_Positions = m_Points->ConvertToArray();
-    m_Positions->Modified();
+    if (m_Points->GetMTime() > m_Positions->GetMTime() ||
+        m_Clipper->GetMTime() > m_Positions->GetMTime()) {
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
 
-    UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
-    triangleIndices->SetDimension(3);
-    UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
-    edgeIndices->SetDimension(2);
+        UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
+        triangleIndices->SetDimension(3);
+        UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
+        edgeIndices->SetDimension(2);
 
-    if (!this->IsPolyhedronType) {
-        for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
-            Volume* volume = this->GetVolume(i);
-            if (!m_Clipper->IsAllDisable()) {
-                bool visible = true;
-                for (int j = 0; j < volume->GetNumberOfPoints(); ++j) {
-                    const auto& point = volume->GetPoint(j);
-                    if (!m_Clipper->IsVisible(point.pointer())) {
-                        visible = false;
-                        break;
-                    }
-                }
-                if (!visible) continue;
-            }
-            const igIndex* face;
-            for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
-                int size = volume->GetFacePointIds(j, face);
-                for (int k = 2; k < size; k++) {
-                    triangleIndices->AddElement3(
-                            volume->PointIds->GetId(face[0]),
-                            volume->PointIds->GetId(face[k - 1]),
-                            volume->PointIds->GetId(face[k]));
-                    //triangleIndices->AddId();
-                    //triangleIndices->AddId();
-                    //triangleIndices->AddId(volume->PointIds->GetId(face[k]));
-                }
-            }
-            const igIndex* edge;
-            for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
-                int size = volume->GetEdgePointIds(j, edge);
-                edgeIndices->AddElement2(volume->PointIds->GetId(edge[0]),
-                                         volume->PointIds->GetId(edge[1]));
-                //edgeIndices->AddId(volume->PointIds->GetId(edge[0]));
-                //edgeIndices->AddId(volume->PointIds->GetId(edge[1]));
-            }
-        }
-    } else {
-        igIndex fcnt = 0;
-        igIndex fhs[IGAME_CELL_MAX_SIZE];
-        igIndex face[IGAME_CELL_MAX_SIZE];
-        for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
-            fcnt = this->m_VolumeFaces->GetCellIds(i, fhs);
-            if (!m_Clipper->IsAllDisable()) {
-                bool visible = true;
-                for (int j = 0; j < fcnt; j++) {
-                    int size = this->m_Faces->GetCellIds(fhs[j], face);
-                    for (int k = 0; k < size; k++) {
-                        const auto& point = this->GetPoint(face[k]);
+        if (!this->IsPolyhedronType) {
+            for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
+                Volume* volume = this->GetVolume(i);
+                if (!m_Clipper->IsAllDisable()) {
+                    bool visible = true;
+                    for (int j = 0; j < volume->GetNumberOfPoints(); ++j) {
+                        const auto& point = volume->GetPoint(j);
                         if (!m_Clipper->IsVisible(point.pointer())) {
                             visible = false;
                             break;
                         }
                     }
-                    if (!visible) break;
+                    if (!visible) continue;
                 }
-                if (!visible) continue;
+                const igIndex* face;
+                for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
+                    int size = volume->GetFacePointIds(j, face);
+                    for (int k = 2; k < size; k++) {
+                        triangleIndices->AddElement3(
+                                volume->PointIds->GetId(face[0]),
+                                volume->PointIds->GetId(face[k - 1]),
+                                volume->PointIds->GetId(face[k]));
+                        //triangleIndices->AddId();
+                        //triangleIndices->AddId();
+                        //triangleIndices->AddId(volume->PointIds->GetId(face[k]));
+                    }
+                }
+                const igIndex* edge;
+                for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
+                    int size = volume->GetEdgePointIds(j, edge);
+                    edgeIndices->AddElement2(volume->PointIds->GetId(edge[0]),
+                                             volume->PointIds->GetId(edge[1]));
+                    //edgeIndices->AddId(volume->PointIds->GetId(edge[0]));
+                    //edgeIndices->AddId(volume->PointIds->GetId(edge[1]));
+                }
             }
-            for (int j = 0; j < fcnt; j++) {
-                int size = this->m_Faces->GetCellIds(fhs[j], face);
-                for (int k = 2; k < size; k++) {
-                    triangleIndices->AddElement3(face[0], face[k - 1], face[k]);
-                    //triangleIndices->AddId(face[0]);
-                    //triangleIndices->AddId(face[k - 1]);
-                    //triangleIndices->AddId(face[k]);
+        } else {
+            igIndex fcnt = 0;
+            igIndex fhs[IGAME_CELL_MAX_SIZE];
+            igIndex face[IGAME_CELL_MAX_SIZE];
+            for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
+                fcnt = this->m_VolumeFaces->GetCellIds(i, fhs);
+                if (!m_Clipper->IsAllDisable()) {
+                    bool visible = true;
+                    for (int j = 0; j < fcnt; j++) {
+                        int size = this->m_Faces->GetCellIds(fhs[j], face);
+                        for (int k = 0; k < size; k++) {
+                            const auto& point = this->GetPoint(face[k]);
+                            if (!m_Clipper->IsVisible(point.pointer())) {
+                                visible = false;
+                                break;
+                            }
+                        }
+                        if (!visible) break;
+                    }
+                    if (!visible) continue;
+                }
+                for (int j = 0; j < fcnt; j++) {
+                    int size = this->m_Faces->GetCellIds(fhs[j], face);
+                    for (int k = 2; k < size; k++) {
+                        triangleIndices->AddElement3(face[0], face[k - 1],
+                                                     face[k]);
+                        //triangleIndices->AddId(face[0]);
+                        //triangleIndices->AddId(face[k - 1]);
+                        //triangleIndices->AddId(face[k]);
+                    }
+                }
+            }
+        }
+
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
+
+//        m_PointIndices = pointIndices;
+//        m_PointIndices->Modified();
+
+        m_TriangleIndices = triangleIndices;
+        m_TriangleIndices->Modified();
+
+        m_LineIndices = edgeIndices;
+        m_LineIndices->Modified();
+    }
+
+    // convert scalar data
+    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+        if (m_AttributeIndex == -1) {
+            m_UseColor = false;
+            m_ColorWithCell = false;
+        } else {
+            m_UseColor = true;
+
+            auto& attr =
+                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (!attr.isDeleted) {
+                if (attr.attachmentType == IG_POINT) {
+                    m_ColorWithCell = false;
+                    this->SetAttributeWithPointData(
+                            attr.pointer, attr.dataRange, m_AttributeDimension);
+                } else if (attr.attachmentType == IG_CELL) {
+                    m_ColorWithCell = false;
+                    this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
+                                                   m_AttributeDimension);
                 }
             }
         }
     }
-
-    m_TriangleIndices = triangleIndices;
-    m_TriangleIndices->Modified();
-
-    m_LineIndices = edgeIndices;
-    m_LineIndices->Modified();
 }
 
-void VolumeMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-    if (index == -1) {
-        m_UseColor = false;
-        m_ViewAttribute = nullptr;
-        m_ViewDemension = -1;
-        m_ColorWithCell = false;
-        scene->Update();
-        return;
-    }
+//void VolumeMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
+//    if (index == -1) {
+//        m_UseColor = false;
+//        m_ViewAttribute = nullptr;
+//        m_ViewDemension = -1;
+//        m_ColorWithCell = false;
+//        scene->Update();
+//        return;
+//    }
+//
+//    auto& attr = this->GetAttributeSet()->GetAttribute(index);
+//    if (!attr.isDeleted) {
+//        if (attr.attachmentType == IG_POINT)
+//            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
+//                                            demension);
+//        else if (attr.attachmentType == IG_CELL)
+//            this->SetAttributeWithCellData(attr.pointer, demension);
+//    }
+//
+//    scene->Update();
+//}
 
-    auto& attr = this->GetAttributeSet()->GetAttribute(index);
-    if (!attr.isDeleted) {
-        if (attr.attachmentType == IG_POINT)
-            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
-                                            demension);
-        else if (attr.attachmentType == IG_CELL)
-            this->SetAttributeWithCellData(attr.pointer, demension);
-    }
-
-    scene->Update();
-}
-
-void VolumeMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                           std::pair<float, float>& range,
-                                           igIndex dimension) {
-    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
-        m_ColorMapper->GetMTime() > this->GetMTime()) {
-        m_ViewAttribute = attr;
-        m_ViewDemension = dimension;
-        m_UseColor = true;
-        m_ColorWithCell = false;
-
-        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-            if (range.first != range.second) {
-                m_ColorMapper->SetRange(range.first, range.second);
-            } else if (dimension == -1) {
-                m_ColorMapper->InitRange(attr);
-            } else {
-                m_ColorMapper->InitRange(attr, dimension);
-            }
-        }
-        range.first = m_ColorMapper->GetRange()[0];
-        range.second = m_ColorMapper->GetRange()[1];
-        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
-        m_Colors->Modified();
-        if (m_Colors == nullptr) { return; }
-    }
-}
+//void VolumeMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
+//                                           std::pair<float, float>& range,
+//                                           igIndex dimension) {
+//    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
+//        m_ColorMapper->GetMTime() > this->GetMTime()) {
+//        m_ViewAttribute = attr;
+//        m_ViewDemension = dimension;
+//        m_UseColor = true;
+//        m_ColorWithCell = false;
+//
+//        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+//            if (range.first != range.second) {
+//                m_ColorMapper->SetRange(range.first, range.second);
+//            } else if (dimension == -1) {
+//                m_ColorMapper->InitRange(attr);
+//            } else {
+//                m_ColorMapper->InitRange(attr, dimension);
+//            }
+//        }
+//        range.first = m_ColorMapper->GetRange()[0];
+//        range.second = m_ColorMapper->GetRange()[1];
+//        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
+//        m_Colors->Modified();
+//        if (m_Colors == nullptr) { return; }
+//    }
+//}
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                          igIndex i) {
-    if (m_ViewAttribute != attr || m_ViewDemension != i ||
-        m_ColorMapper->GetMTime() > this->GetMTime()) {
-        m_ViewAttribute = attr;
-        m_ViewDemension = i;
-        m_UseColor = true;
-        m_ColorWithCell = true;
+                                          std::pair<float, float>& range,
+                                          igIndex dimension) {
 
-        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-            if (i == -1) {
-                m_ColorMapper->InitRange(attr);
-            } else {
-                m_ColorMapper->InitRange(attr, i);
-            }
-        }
-        
-        FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, i);
-        if (colors == nullptr) { return; }
-
-        FloatArray::Pointer newPositions = FloatArray::New();
-        FloatArray::Pointer newColors = FloatArray::New();
-        newPositions->SetDimension(3);
-        newColors->SetDimension(3);
-
-        float color[3]{};
-        for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
-            Volume* volume = this->GetVolume(i);
-            const igIndex* face;
-            colors->GetElement(i, color);
-            for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
-                int size = volume->GetFacePointIds(j, face);
-                for (int k = 2; k < size; k++) {
-                    auto& p0 = volume->Points->GetPoint(face[0]);
-                    newPositions->AddElement3(p0[0], p0[1], p0[2]);
-                    auto& p1 = volume->Points->GetPoint(face[k - 1]);
-                    newPositions->AddElement3(p1[0], p1[1], p1[2]);
-                    auto& p2 = volume->Points->GetPoint(face[k]);
-                    newPositions->AddElement3(p2[0], p2[1], p2[2]);
-
-                    newColors->AddElement3(color[0], color[1], color[2]);
-                    newColors->AddElement3(color[0], color[1], color[2]);
-                    newColors->AddElement3(color[0], color[1], color[2]);
-                }
-            }
-        }
-
-        m_CellPositionSize = newPositions->GetNumberOfElements();
-
-        m_CellPositions = newPositions;
-        m_CellPositions->Modified();
-
-        m_CellColors = newColors;
-        m_CellColors->Modified();
+    if (range.first != range.second) {
+        m_ColorMapper->SetRange(range.first, range.second);
+    } else if (dimension == -1) {
+        m_ColorMapper->InitRange(attr);
+    } else {
+        m_ColorMapper->InitRange(attr, dimension);
     }
+    range.first = m_ColorMapper->GetRange()[0];
+    range.second = m_ColorMapper->GetRange()[1];
+
+    FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
+    if (colors == nullptr) { return; }
+
+    FloatArray::Pointer newPositions = FloatArray::New();
+    FloatArray::Pointer newColors = FloatArray::New();
+    newPositions->SetDimension(3);
+    newColors->SetDimension(3);
+
+    float color[3]{};
+    for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
+        Volume* volume = this->GetVolume(i);
+        const igIndex* face;
+        colors->GetElement(i, color);
+        for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
+            int size = volume->GetFacePointIds(j, face);
+            for (int k = 2; k < size; k++) {
+                auto& p0 = volume->Points->GetPoint(face[0]);
+                newPositions->AddElement3(p0[0], p0[1], p0[2]);
+                auto& p1 = volume->Points->GetPoint(face[k - 1]);
+                newPositions->AddElement3(p1[0], p1[1], p1[2]);
+                auto& p2 = volume->Points->GetPoint(face[k]);
+                newPositions->AddElement3(p2[0], p2[1], p2[2]);
+
+                newColors->AddElement3(color[0], color[1], color[2]);
+                newColors->AddElement3(color[0], color[1], color[2]);
+                newColors->AddElement3(color[0], color[1], color[2]);
+            }
+        }
+    }
+
+    m_CellPositionSize = newPositions->GetNumberOfElements();
+
+    m_CellPositions = newPositions;
+    m_CellPositions->Modified();
+
+    m_CellColors = newColors;
+    m_CellColors->Modified();
 }
 IGAME_NAMESPACE_END

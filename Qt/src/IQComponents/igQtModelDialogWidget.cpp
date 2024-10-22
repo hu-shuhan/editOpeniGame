@@ -1,4 +1,3 @@
-
 #include <iGameSceneManager.h>
 #include "Sources/iGameLineTypePointsSource.h"
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
@@ -37,9 +36,38 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 	editFactory = new QtVariantEditorFactory(propertyWidget);
 	propertyWidget->setFactoryForManager(propertyManager, editFactory);
 
+	propertyWidget->removeProperty(objectGroup);
+    objectGroup = propertyManager->addProperty(
+            QtVariantPropertyManager::groupTypeId(),
+            QStringLiteral("Object propertys"));
+    propertyWidget->addProperty(objectGroup);
+
+    
+    prop_PointSize = propertyManager->addProperty(QVariant::Int, "Point Size");
+    prop_PointSize->setEnabled(false);
+    prop_PointSize->setValue(0);
+    objectGroup->addSubProperty(prop_PointSize);
+    propertyManager->setAttribute(prop_PointSize, "minimum", 1);
+    propertyManager->setAttribute(prop_PointSize, "maximum", 99);
+    propertyManager->setAttribute(prop_PointSize, "singleStep", 1);
+
+    prop_Transparency =
+            propertyManager->addProperty(QVariant::Double, "Transparency");
+    prop_Transparency->setEnabled(false);
+    prop_Transparency->setValue(0);
+    objectGroup->addSubProperty(prop_Transparency);
+    propertyManager->setAttribute(prop_Transparency, "minimum", 0.0);
+    propertyManager->setAttribute(prop_Transparency, "maximum", 1.0);
+    propertyManager->setAttribute(prop_Transparency, "singleStep", 0.1);
+
+	connect(propertyManager, &QtVariantPropertyManager::valueChanged, this,
+            &igQtModelDialogWidget::onPropertyChanged);
+
 	ui->ModelInformationWidget->hide();
-	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
+	//connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
+	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCurrentModelProperty);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCurrentModelInfo);
+	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
 
     connect(ui->pushButton, &QPushButton::clicked, this, [&](){iGame::SceneManager::Instance()->GetCurrentScene()->Draw();});
@@ -129,6 +157,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, Ite
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	auto model = scene->CreateModel(obj);
 	int id = scene->AddModel(model);
+    currentModel = model;
 
 	item->setName(QString::fromStdString(obj->GetName()));
 	item->setModel(model);
@@ -160,38 +189,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, Ite
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
 	updateCurrentModelInfo();
+    updateCurrentModelProperty(model.get());
 
-	propertyWidget->removeProperty(objectGroup);
-	objectGroup = propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
-	propertyWidget->addProperty(objectGroup);
-
-	auto drawObj = DynamicCast<DrawObject>(obj);
-	QtVariantProperty* prop = propertyManager->addProperty(QVariant::Int, "Point Size");
-    prop->setValue(drawObj->GetPointSize());
-    prop->setEnabled(true);
-    objectGroup->addSubProperty(prop);
-
-	prop = propertyManager->addProperty(QVariant::Double, "Transparency");
-    prop->setValue(drawObj->GetTransparency());
-    prop->setEnabled(true);
-    objectGroup->addSubProperty(prop);
-
-	/*auto* props = obj->GetPropertys();
-	for (int i = 0; i < props->Size(); i++) {
-		auto prop = props->GetProperty(i);
-		QtVariantProperty* item = propertyManager->addProperty(QVariant::Int, QString::fromStdString(prop->GetName()));
-		item->setValue(prop->Get<int>());
-		item->setEnabled(prop->IsEnabled());
-		objectGroup->addSubProperty(item);
-
-		for (int j = 0; j < prop->Size(); j++) {
-			auto subProp = prop->GetSubProperty(j);
-			QtVariantProperty* subItem = propertyManager->addProperty(QVariant::Int, QString::fromStdString(subProp->GetName()));
-			subItem->setValue(subProp->Get<int>());
-			subItem->setEnabled(prop->IsEnabled());
-			item->addSubProperty(subItem);
-		}
-	}*/
 	return id;
 }
 
@@ -209,9 +208,25 @@ int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
 }
 int igQtModelDialogWidget::updateCurrentModelInfo()
 {
+//    qDebug() << ui->modelTreeWidget->currentIndex();
 	ui->ModelInformationWidget->updateInformationFrame();
 	Q_EMIT CurrendModelChanged();
 	return 1;
+}
+void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) { 
+	currentModel = model;
+	auto obj = DynamicCast<DrawObject>(model->GetDataObject());
+	if (obj) {
+        prop_PointSize->setEnabled(true);
+        prop_PointSize->setValue(obj->GetPointSize());
+        prop_Transparency->setEnabled(true);
+        prop_Transparency->setValue(obj->GetTransparency());
+    } else {
+        prop_PointSize->setEnabled(false);
+        prop_PointSize->setValue(0);
+        prop_Transparency->setEnabled(false);
+        prop_Transparency->setValue(0);
+	}
 }
 int igQtModelDialogWidget::updateCloudPicture() {
  
@@ -232,4 +247,28 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     iGame::SceneManager::Instance()->GetCurrentScene()->Update();
 
 	modelTreeWidget->setCurrentModelItem(nullptr);
+}
+
+void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
+                                              const QVariant& value) {
+    if (property == prop_PointSize) { 
+		//std::cout << value.toInt() << std::endl;
+		if (currentModel) {
+            auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
+            if (obj && obj->GetPointSize() != value.toInt() && value.toInt() > 0) {
+                obj->SetPointSize(value.toInt());
+                Update();
+			}
+		}
+    } else if (property == prop_Transparency) {
+        //std::cout << value.toDouble() << std::endl;
+        if (currentModel) {
+            auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
+            if (obj && obj->GetTransparency() != value.toDouble() &&
+                value.toDouble() >= 0 && value.toDouble() <= 1.0) {
+                obj->SetTransparency(value.toDouble());
+                Update();
+            }
+        }
+	}
 }

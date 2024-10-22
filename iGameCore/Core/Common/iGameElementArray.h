@@ -6,7 +6,7 @@
 
 IGAME_NAMESPACE_BEGIN
 template<typename TElement>
-class ElementArray : public Object, private std::vector<TElement>{
+class ElementArray : public Object, private std::vector<TElement> {
 public:
     I_OBJECT(ElementArray);
     static Pointer New() { return new ElementArray; }
@@ -30,32 +30,25 @@ public:
 
     // Reallocate memory, and the old memory is preserved. The array
     // size will change. '_Newsize' is the number of elements.
-    void Resize(const IGsize _Newsize) {
-        this->VectorType::resize(_Newsize);
-    }
+    void Resize(const IGsize _Newsize) { this->VectorType::resize(_Newsize); }
     void Resize(const IGsize _Newsize, const TElement& _Element) {
         this->VectorType::resize(_Newsize, _Element);
     }
 
     // Reset the array size, and the old memory will not change.
-    void Reset() {
-        this->VectorType::clear();
-    }
+    void Reset() { this->VectorType::clear(); }
 
     // Free up extra memory.
-    void Squeeze() {
-        this->Resize(Size());
-    }
+    void Squeeze() { this->Resize(Size()); }
 
-    bool ShallowCopy(ElementArray<TElement>::Pointer other) { 
-        return false;
-    }
+    bool ShallowCopy(ElementArray<TElement>::Pointer other) { return false; }
     bool DeepCopy(ElementArray<TElement>::Pointer other) {
         if (other == nullptr) return false;
         this->Reserve(other->Size());
         for (int i = 0; i < other->Size(); i++) {
             this->AddElement(other->GetElement(i));
         }
+        //this->Modified();
         return true;
     }
 
@@ -95,30 +88,16 @@ public:
         return this->VectorType::erase(_Where);
     }
 
-    Iterator Begin() {
-        return this->VectorType::begin();
-    }
-    ConstIterator Begin() const {
-        return this->VectorType::begin();
-    }
-    Iterator End() {
-        return this->VectorType::end();
-    }
-    ConstIterator End() const {
-        return this->VectorType::end();
-    }
+    Iterator Begin() { return this->VectorType::begin(); }
+    ConstIterator Begin() const { return this->VectorType::begin(); }
+    Iterator End() { return this->VectorType::end(); }
+    ConstIterator End() const { return this->VectorType::end(); }
 
-    IGsize GetNumberOfElements() const {
-        return this->VectorType::size();
-    }
+    IGsize GetNumberOfElements() const { return this->VectorType::size(); }
 
-    IGsize Size() const {
-        return this->VectorType::size();
-    }
+    IGsize Size() const { return this->VectorType::size(); }
 
-    TElement* RawPointer() {
-        return this->VectorType::data();
-    }
+    TElement* RawPointer() { return this->VectorType::data(); }
 
 protected:
     ElementArray() {}

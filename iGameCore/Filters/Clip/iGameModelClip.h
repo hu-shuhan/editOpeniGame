@@ -19,6 +19,13 @@ public:
 	bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
 	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 
+	enum ClipMethod {
+		IG_PLANE,
+		IG_SCALAR
+	};
+	void SetClipMethod(ClipMethod CM) {
+		this->m_ClipMethod = CM;
+	}
 	float GetCutValue(float x[3]) {
 		return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
 			this->m_Normal[2] * (x[2] - this->m_Origin[2]));
@@ -27,6 +34,24 @@ public:
 		return (this->m_Normal[0] * (x0 - this->m_Origin[0]) + this->m_Normal[1] * (x1 - this->m_Origin[1]) +
 			this->m_Normal[2] * (x2 - this->m_Origin[2]));
 	}
+	float GetCutValue(Point x) {
+		return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
+			this->m_Normal[2] * (x[2] - this->m_Origin[2]));
+	}
+	float GetPointValue(igIndex pId, Points::Pointer points) {
+		switch (m_ClipMethod)
+		{
+		case iGame::ModelClip::IG_PLANE:
+			return this->GetCutValue(points->GetPoint(pId));
+			break;
+		case iGame::ModelClip::IG_SCALAR:
+			return this->m_SelectedScalar->GetElementValue(pId, m_SeletectDimension) - m_IsoValue;
+			break;
+		default:
+			break;
+		}
+        return -1;
+	}
 	void SetPlane(float o[3], float n[3]) {
 		m_Normal[0] = n[0];
 		m_Normal[1] = n[1];
@@ -34,35 +59,50 @@ public:
 		m_Origin[0] = o[0];
 		m_Origin[1] = o[1];
 		m_Origin[2] = o[2];
+		this->SetClipMethod(IG_PLANE);
 	}
-    void GetPlane(float o[3], float n[3]) {
-        n[0]= m_Normal[0];
-        n[1]= m_Normal[1];
-        n[2]= m_Normal[2];
-        o[0]= m_Origin[0];
-        o[1]= m_Origin[1];
-        o[2]= m_Origin[2];
+	void SetIsoScalarData(ArrayObject::Pointer array, float value, int dimension = -1) {
+		this->m_SelectedScalar = array;
+		this->m_SeletectDimension = dimension;
+		this->m_IsoValue = value;
+		this->SetClipMethod(IG_SCALAR);
+		this->m_Slice = true;
 	}
-    void GetPlane(double o[3], double n[3]) {
-        n[0] = m_Normal[0];
-        n[1] = m_Normal[1];
-        n[2] = m_Normal[2];
-        o[0] = m_Origin[0];
-        o[1] = m_Origin[1];
-        o[2] = m_Origin[2];
-    }
+	void GetPlane(float o[3], float n[3]) {
+		n[0] = m_Normal[0];
+		n[1] = m_Normal[1];
+		n[2] = m_Normal[2];
+		o[0] = m_Origin[0];
+		o[1] = m_Origin[1];
+		o[2] = m_Origin[2];
+	}
+	void GetPlane(double o[3], double n[3]) {
+		n[0] = m_Normal[0];
+		n[1] = m_Normal[1];
+		n[2] = m_Normal[2];
+		o[0] = m_Origin[0];
+		o[1] = m_Origin[1];
+		o[2] = m_Origin[2];
+	}
 	void SetIsSlice(bool s) {
 		this->m_Slice = s;
 	}
-	bool GetIsSlice(){
+	bool GetIsSlice() {
 		return this->m_Slice;
 	}
+
 protected:
 	ModelClip();
 
+	ClipMethod m_ClipMethod = IG_PLANE;
 	float m_CutPlane[4];
 	float m_Normal[3];
 	float m_Origin[3];
+
+	ArrayObject::Pointer m_SelectedScalar = nullptr;
+	int m_SeletectDimension = -1;
+	float m_IsoValue = 0.0;
+
 	UnstructuredMesh::Pointer m_UnstructuredMesh{ nullptr };
 	SurfaceMesh::Pointer m_SurfaceMesh{ nullptr };
 	VolumeMesh::Pointer m_VolumeMesh{ nullptr };

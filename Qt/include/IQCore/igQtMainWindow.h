@@ -36,6 +36,7 @@ public:
     ~igQtMainWindow() override;
 
 public:
+    void initAllUnDefinedComponents();
     void initToolbarComponent();
     void initAllComponents();
     void initAllDockWidgetConnectWithAction();

@@ -1,19 +1,44 @@
 cmake_minimum_required(VERSION 3.19)
-project(OpeniGame LANGUAGES C CXX)
-add_definitions(/D_USE_MATH_DEFINES)
-set(CMAKE_CXX_STANDARD 20)
-if (WIN32)
-    # Used to Clear C4819 Warning.
-    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-    add_definitions(-D_WINDOWS_SOURCE)
-    # Or for a specific target:
-    # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
+#--------------------------------------------------------------------
+# Set Cmake Option to On/OFF.
+#--------------------------------------------------------------------
+#
+# Add an option that the user can set with the -D parameter
+
+# if need to Enable remote ThirdParty module. Follow this step:
+# 1. use git command1(git submodule init) and command2(git submodule update) to clone remote Submodule which are defined in .gitmodules file
+# 2. Switch OFF to On.
+
+#option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+
+# This module is temporarily only available on Windows Platform.
+set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+
+# If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
+if (NOT ENABLE_GPSCUDA_MODULE)
+    project(OpeniGame LANGUAGES C CXX)
+    if(WIN32)
+        add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+        add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+        add_definitions(-D_WINDOWS_SOURCE)
+        # Or for a specific target:
+        # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
+    endif ()
+else ()
+    project(OpeniGame LANGUAGES C CXX CUDA)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_ARCHITECTURES "86")
+    set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif ()
 
+add_definitions(/D_USE_MATH_DEFINES)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
+
 # insert our Custom CMake macro path to CMake Module Path
-list(INSERT CMAKE_MODULE_PATH 0
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
 add_executable(${PROJECT_NAME}
@@ -22,23 +47,15 @@ add_executable(${PROJECT_NAME}
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-#--------------------------------------------------------------------
-## Set Cmake Option to On/OFF.
-##--------------------------------------------------------------------
-#
-## Add an option that the user can set with the -D parameter
 
-# if need to Enable remote ThirdParty module. Follow this step:
-# 1. use git command1(git submodule init) and command2(git submodule update) to clone remote Submodule which are defined in .gitmodules file
-# 2. Set OFF to On.
-#option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
-set(ENABLE_ABAQUS_MODULE OFF CACHE BOOL "Enable ABAQUS SDK ThirdParty Module" FORCE)
 
 #--------------------------------------------------------------------
 # Add subdirectories
 #--------------------------------------------------------------------
 #导入第三方组件
+if(ENABLE_GPSCUDA_MODULE)
+    add_subdirectory(CMakeGPS)
+endif ()
 add_subdirectory(ThirdParty)
 #导入iGame核心后处理组件
 add_subdirectory(iGameCore)

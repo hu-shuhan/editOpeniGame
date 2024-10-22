@@ -61,7 +61,6 @@ void SingleDragStyle::MouseMoveEvent(IEvent _event) {
 
             // updating point coordinates requires a re-conversion
             auto drawObject = DynamicCast<DrawObject>(m_Model->GetDataObject());
-            drawObject->ConvertToDrawableData();
 
             //m_Model->GetPointPainter()->Clear();
             auto painter = m_Model->GetPainter();

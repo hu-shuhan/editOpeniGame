@@ -14,7 +14,10 @@ class iGameModelGeometryFilter : public Filter {
 public:
 	I_OBJECT(iGameModelGeometryFilter);
 	///@{
-	static iGameModelGeometryFilter* New() {
+	/**
+	 * Standard methods for instantiation, type information, and printing.
+	 */
+	static iGameModelGeometryFilter::Pointer New() {
 		return new iGameModelGeometryFilter;
 	};
 	~iGameModelGeometryFilter();
@@ -67,7 +70,7 @@ public:
 	///@}
 	void SetInput(DataObject::Pointer ip) { this->input = ip; }
 	SurfaceMesh::Pointer GetExtractMesh() { return this->output; }
-
+	DataObject::Pointer GetOutput() override{return this->output;}
 	void CompositeCellAttribute(std::vector<igIndex>& f2c, AttributeSet::Pointer inAllDataArray, AttributeSet::Pointer& outAllDataArray);
 	//这边直接对attributeset进行处理，不用再copy一个，因为传进去的已经是一个对cellattributeset处理过的对象
 	void CompositePointAttribute(igIndex* PointMap, IGsize oldPNum, IGsize newPNum, AttributeSet::Pointer outAllDataArray);
@@ -112,6 +115,7 @@ protected:
 	//maybe exist ghost data
 	bool RemoveGhostInterfaces;
 	//Point merging
+public:
 	bool Merging;
 
 	//m_PointMap->GetValue(i)表示的是第i个new point对应的origin point id

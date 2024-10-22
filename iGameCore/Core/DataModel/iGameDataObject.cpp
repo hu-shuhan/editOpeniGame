@@ -26,6 +26,13 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
         m_SubDataObjectsHelper = SubDataObjectsHelper::New();
     }
     obj->SetParent(this);
+    obj->SetColorMapper(this->GetColorMapper());
+
+    if (obj->IsDrawable()) {
+        auto drawObject = DynamicCast<DrawObject>(obj);
+        drawObject->ConvertToDrawableData();
+    }
+
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
 }
 
@@ -130,8 +137,14 @@ void DataObject::SwitchToCurrentTimeframe(int timeIndex) {
 
 StreamingData::Pointer DataObject::GetTimeFrames() {
     if (m_TimeFrames == nullptr) m_TimeFrames = StreamingData::New();
-
     return m_TimeFrames;
+}
+
+DeformationData::Pointer DataObject::GetDeformationData() {
+    if (nullptr == m_DeformationData) {
+        m_DeformationData = DeformationData::New();
+    }
+    return m_DeformationData;
 }
 
 //void DataObject::UpdateAttributeSetRange() {
