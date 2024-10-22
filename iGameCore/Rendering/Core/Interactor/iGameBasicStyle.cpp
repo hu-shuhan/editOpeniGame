@@ -53,9 +53,10 @@ void BasicStyle::WheelEvent(IEvent _event) {
     } else {
         wheelMoveDirection = -1.0f;
     }
-
-    auto radius = m_Scene->ModelsBoundingSphere().w;
-    m_CameraScaleSpeed = radius * 0.1f;
+    
+    auto dist =
+            (m_Camera->GetCameraPos() - m_Camera->GetCameraFocal()).length();
+    m_CameraScaleSpeed = dist * 0.1f;
 
     auto moveSize =
             static_cast<float>(-wheelMoveDirection * m_CameraScaleSpeed);
@@ -66,8 +67,7 @@ void BasicStyle::WheelEvent(IEvent _event) {
     UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
 };
 
-void BasicStyle::RequestSignal(InteractorStyle::Signal signal,
-                                  void* callData) {
+void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
     if (m_Interactor) { m_Interactor->RequestSignal(signal, callData); }
 }
 
