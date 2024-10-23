@@ -3,7 +3,7 @@
 #include "iGameSceneManager.h"
 
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::Form) {
+    : QWidget(parent), ui(new Ui::ModelClipWidget) {
 
 
     ui->setupUi(this);
@@ -52,7 +52,9 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     this->m_OriginDataObject = m_d;
     m_ResultMesh = iGame::SurfaceMesh::New();
     m_ResultMesh->SetName(m_OriginDataObject->GetName()+"_Clip");
+
     m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
+
     DrawClipModel(m_ResultMesh);
     m_Generated = true;
 }
@@ -88,6 +90,7 @@ void igQtModelClipWidget::ClipModel() {
     Result_ClipPart->ConvertToDrawableData();
 
     m_ResultMesh->AddSubDataObject(Result_ClipPart);
+
     if (!m_Clipper->GetIsSlice()) {
         auto Result_ExtractPart = iGame::SurfaceMesh::New();
         double o[3];
@@ -113,7 +116,6 @@ void igQtModelClipWidget::ClipModel() {
 
     m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex,
                                    oldAttributeDimension);
-
 
     UpdateClipModel(m_ResultMesh);
 

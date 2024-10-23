@@ -128,6 +128,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		auto inArray = attr.pointer;
 		auto outArray = FloatArray::New();
 		outArray->SetName(inArray->GetName());
+		outArray->SetDimension(inArray->GetDimension());
 		if (attr.attachmentType == IG_CELL) {
 			outArray->Resize(outCellNum);
 			for (j = 0; j < outCellNum; j++) {
@@ -138,14 +139,14 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
+			auto dimension = inArray->GetDimension();
 			for (j = 0; j < outPointNum; j++) {
 				inArray->GetElement(OriginEdge[j].vh1, values_1);
 				if (OriginEdge[j].vh2 == -1) {
 					outArray->SetElement(j, values_1);
 				}
 				else {
-					inArray->GetElement(OriginEdge[j].vh2, values_2);
-					auto dimension = inArray->GetDimension();
+					inArray->GetElement(OriginEdge[j].vh2, values_2);	
 					for (k = 0; k < dimension; k++) {
 						values[k] = values_1[k] + OriginEdge[j].t * (values_2[k] - values_1[k]);
 					}

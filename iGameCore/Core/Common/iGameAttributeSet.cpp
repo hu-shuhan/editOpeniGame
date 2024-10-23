@@ -201,33 +201,33 @@ ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllAttributes() 
 }
 
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllPointAttributes() {
-	if (!m_tmpBuffer) {
-		m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
+	if (!m_PointBuffer) {
+		m_PointBuffer = ElementArray<AttributeSet::Attribute>::New();
 	}
 	else {
-		m_tmpBuffer->Reset();
+		m_PointBuffer->Reset();
 	}
 	for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
 		if (m_Buffer->GetElement(i).attachmentType == IG_POINT) {
-			m_tmpBuffer->AddElement(m_Buffer->GetElement(i));
+			m_PointBuffer->AddElement(m_Buffer->GetElement(i));
 		}
 	}
-	return m_tmpBuffer;
+	return m_PointBuffer;
 }
 
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllCellAttributes() {
-	if (!m_tmpBuffer) {
-		m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
+	if (!m_CellBuffer) {
+		m_CellBuffer = ElementArray<AttributeSet::Attribute>::New();
 	}
 	else {
-		m_tmpBuffer->Reset();
+		m_CellBuffer->Reset();
 	}
 	for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
 		if (m_Buffer->GetElement(i).attachmentType == IG_CELL) {
-			m_tmpBuffer->AddElement(m_Buffer->GetElement(i));
+			m_CellBuffer->AddElement(m_Buffer->GetElement(i));
 		}
 	}
-	return m_tmpBuffer;
+	return m_CellBuffer;
 }
 
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }

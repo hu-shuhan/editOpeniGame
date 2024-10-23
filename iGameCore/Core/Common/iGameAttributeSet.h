@@ -207,6 +207,8 @@ protected:
 	~AttributeSet() override = default;
 
 	ElementArray<Attribute>::Pointer m_Buffer{};
+	ElementArray<Attribute>::Pointer m_PointBuffer{};
+	ElementArray<Attribute>::Pointer m_CellBuffer{};
 	ElementArray<Attribute>::Pointer m_tmpBuffer{};
 
 	Attribute NONE{ AttributeSet::Attribute::None() };
