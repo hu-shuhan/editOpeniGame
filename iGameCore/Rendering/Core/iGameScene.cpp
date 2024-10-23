@@ -179,12 +179,21 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
 }
 
 void Scene::ResetCenter() {
-    igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
+    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
+    //float radius = m_ModelsBoundingSphere.w;
+    //m_Camera->SetCameraPos(centerInWorld.x, centerInWorld.y,
+    //                       centerInWorld.z + 2.0f * radius);
+    //m_Camera->SetCameraFocal(centerInWorld);
+    //
+    //std::cout << "centerInWorld: " << centerInWorld << std::endl;
+
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-    m_Camera->SetCameraPos(centerInWorld.x, centerInWorld.y,
-                           centerInWorld.z + 2.0f * radius);
-    m_Camera->SetCameraFocal(centerInWorld);
+    
+    m_ModelMatrix = m_ModelRotate;
+    m_Camera->SetCameraPos(center.x, center.y, center.z + 2.0f * radius);
+    m_Camera->SetCameraFocal(center);
 }
 
 void Scene::ChangeModelVisibility(Model* model, bool visibility) {
