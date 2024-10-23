@@ -17,7 +17,6 @@ DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
 
 DataObject::Pointer DataObject::GetSubDataObject(DataObjectId id) {
     if (m_SubDataObjectsHelper == nullptr) { return nullptr; }
-
     return m_SubDataObjectsHelper->GetSubDataObject(id);
 }
 
