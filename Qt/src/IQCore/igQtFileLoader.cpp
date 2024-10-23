@@ -97,15 +97,15 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
 
 #if defined(GPSCUDA_ENABLE)
     DataObject::Pointer obj = nullptr;
-    switch (reader) {
-        case SplineType::Surface: {
+    switch (readerType) {
+        case SplineType::BSplineSurface: {
             SplineSurfaceReader::Pointer reader = SplineSurfaceReader::New();
             reader->SetFilePath(filePath);
             reader->Execute();
             obj = reader->GetOutput();
             break;
         }
-        case SplineType::Volume: {
+        case SplineType::BSplineVolume: {
             SplineVolumeReader::Pointer reader = SplineVolumeReader::New();
             reader->SetFilePath(filePath);
             reader->Execute();

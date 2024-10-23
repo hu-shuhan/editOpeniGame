@@ -1205,6 +1205,7 @@ void VolumeMesh::ConvertToDrawableData() {
     // convert scalar data
     if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
         m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+
         if (m_AttributeIndex == -1) {
             m_UseColor = false;
             m_ColorWithCell = false;
