@@ -107,7 +107,6 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
 
     //m_Model->GetFacePainter()->Clear();
     if (id != -1) {
-        //std::cout << "pick face id: " << id << std::endl;
         igIndex face[16]{};
         int size = m_Cells->GetCellIds(id, face);
         auto& p0 = m_Points->GetPoint(face[0]);

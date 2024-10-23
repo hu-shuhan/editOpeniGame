@@ -58,6 +58,9 @@ public:
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
+    FloatArray::Pointer GetRenderPoints();
+    void SetRenderPoints(FloatArray::Pointer points);
+
     void SetPolygonOffsetParameters(float factor, float units);
     void GetPolygonOffsetParameters(float& factor, float& units);
 

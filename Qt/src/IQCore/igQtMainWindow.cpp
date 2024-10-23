@@ -38,36 +38,7 @@
 igQtMainWindow::igQtMainWindow(QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow) {
 	ui->setupUi(this);
-	modelTreeWidget = new igQtModelDialogWidget(this);
-	rendererWidget = new igQtModelDrawWidget(this);
-	igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
-	//    rendererWidget->setParent(this);
-	fileLoader = new igQtFileLoader(this);
-	this->setCentralWidget(rendererWidget);
-	this->ColorManagerWidget = new igQtColorManagerWidget;
-	ColorManagerWidget->setGeometry(400, 500, 780, 1000);
-	ui->dockWidget_ScalarField->hide();
-	ui->dockWidget_VectorField->hide();
-	ui->dockWidget_FlowField->hide();
-	ui->dockWidget_TensorField->hide();
-	ui->dockWidget_SearchInfo->hide();
-	ui->dockWidget_QualityDetection->hide();
-	ui->dockWidget_EditMode->hide();
-	ui->dockWidget_Animation->hide();
-	ui->dockWidget_ModelList->hide();
-	// Setup default GUI layout.
-	this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
-	this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
-	this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
-	// Set up the dock window corners to give the vertical docks more room.
-	this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
-	this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
-	modelTreeWidget->setFloating(false); // Make sure it's docked
-	modelTreeWidget->setAllowedAreas(Qt::LeftDockWidgetArea |
-		Qt::TopDockWidgetArea);
-	modelTreeWidget->setFeatures(
-		QDockWidget::NoDockWidgetFeatures); // Disable floating and moving
-	this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget);
+    initAllUnDefinedComponents();
 	initToolbarComponent();
 	initAllComponents();
 	initAllFilters();
@@ -77,6 +48,59 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
 
 	connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
             &igQtRenderWidget::update);
+}
+void igQtMainWindow::initAllUnDefinedComponents() {
+    rendererWidget = new igQtModelDrawWidget(this);
+    igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
+    //    rendererWidget->setParent(this);
+    fileLoader = new igQtFileLoader(this);
+    this->setCentralWidget(rendererWidget);
+    this->ColorManagerWidget = new igQtColorManagerWidget;
+    ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+    ui->dockWidget_ScalarField->hide();
+    ui->dockWidget_VectorField->hide();
+    ui->dockWidget_FlowField->hide();
+    ui->dockWidget_TensorField->hide();
+    ui->dockWidget_SearchInfo->hide();
+    ui->dockWidget_QualityDetection->hide();
+    ui->dockWidget_EditMode->hide();
+    ui->dockWidget_Animation->hide();
+    ui->dockWidget_ModelList->hide();
+    // Setup default GUI layout.
+    this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+    this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
+    this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
+    // Set up the dock window corners to give the vertical docks more room.
+    this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
+    this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+
+    modelTreeWidget = new igQtModelDialogWidget(this);
+    modelTreeWidget->setFloating(false); // Make sure it's docked
+    modelTreeWidget->setAllowedAreas(Qt::LeftDockWidgetArea |
+                                     Qt::TopDockWidgetArea);
+    modelTreeWidget->setFeatures(
+            QDockWidget::NoDockWidgetFeatures); // Disable floating and moving
+    this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget);
+
+
+    SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setWindowTitle("网格切割");
+    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
+    SliceDockWidget->setWidget(SliceWidget);
+    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
+    SliceDockWidget->hide();
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+
+    DeformationDockWidget = new QDockWidget(this);
+    DeformationDockWidget->setWindowTitle("结构形变");
+    DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
+    DeformationDockWidget->setWidget(DeformationWidget);
+    DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->hide();
+    this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
+
+
 }
 void igQtMainWindow::initToolbarComponent() {
 
@@ -1321,19 +1345,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 });
             });
 
-    SliceDockWidget = new QDockWidget(this);
-    SliceDockWidget->setWindowTitle("网格切割");
-    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
-    SliceDockWidget->setWidget(SliceWidget);
-    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
-    SliceDockWidget->hide();
-    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
-    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        SliceDockWidget->show();
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        SliceWidget->SetOriginDataObject(obj);
+	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
 
+
+		SliceDockWidget->show();
+		auto obj =
+			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+		SliceWidget->SetOriginDataObject(obj);
+        
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter(
                 rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
@@ -1344,14 +1363,22 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
 
         rendererWidget->getInteractor()->RequestSlicingStyle();
+
+		});
+	connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
+		[&](SurfaceMesh::Pointer mesh) {
+			modelTreeWidget->addDataObjectToModelTree(
+				mesh, ItemSource::Algorithm);
+		});
+	connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
+		[&](SurfaceMesh::Pointer mesh) {
+			rendererWidget->update();
+		});
+
+    connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
+        if(checked)DeformationDockWidget->show();
+        else DeformationDockWidget->hide();
     });
-    connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](SurfaceMesh::Pointer mesh) {
-                modelTreeWidget->addDataObjectToModelTree(
-                        mesh, ItemSource::Algorithm);
-            });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
-            [&](SurfaceMesh::Pointer mesh) { rendererWidget->update(); });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
@@ -1371,7 +1398,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateCurrentSceneWidget);
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
             &igQtAnimationWidget::initAnimationComponents);
-    //connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject,

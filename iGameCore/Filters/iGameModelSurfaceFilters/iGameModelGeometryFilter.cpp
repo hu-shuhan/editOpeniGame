@@ -1545,19 +1545,18 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(
     ThreadPool::parallelFor(0, numCells, func);
     return CellVisibleArray->RawPointer();
 }
-void iGameModelGeometryFilter::ProcessPointMergin(
-        ExtractCellBoundaries* extract, Points::Pointer inPoints,
-        Points::Pointer& outPoints, CellArray::Pointer Polygons,
-        AttributeSet::Pointer outAllDataArray) {
-    outPoints = Points::New();
-    extract->UpdatePointMap(Polygons, inPoints, outPoints);
-    CompositePointAttribute(extract->GetPointMap(),
-                            inPoints->GetNumberOfPoints(),
-                            outPoints->GetNumberOfPoints(), outAllDataArray);
-    m_PointMap = FlatArray<igIndex>::New();
-    m_PointMap->SetArray(extract->GetPointMap(), 1,
-                         outPoints->GetNumberOfPoints(),
-                         outPoints->GetNumberOfPoints());
+void iGameModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract,
+	Points::Pointer inPoints, Points::Pointer& outPoints, CellArray::Pointer Polygons,
+	AttributeSet::Pointer outAllDataArray)
+{
+	outPoints = Points::New();
+	extract->UpdatePointMap(Polygons, inPoints, outPoints);
+	CompositePointAttribute(extract->GetPointMap(),
+		inPoints->GetNumberOfPoints(),
+		outPoints->GetNumberOfPoints(),
+		outAllDataArray);
+	m_PointMap = FlatArray<igIndex>::New();
+	m_PointMap->SetArray(extract->GetPointMap(), 1, inPoints->GetNumberOfPoints(), inPoints->GetNumberOfPoints());
 }
 void iGameModelGeometryFilter::CompositeCellAttribute(
         std::vector<igIndex>& F2C, AttributeSet::Pointer inAllDataArray,

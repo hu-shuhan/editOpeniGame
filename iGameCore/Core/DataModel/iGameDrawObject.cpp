@@ -1,8 +1,12 @@
 #include "iGameDrawObject.h"
+
+#include <utility>
 #include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
 DrawObject::DrawObject() {
+    m_Clipper = iGameClipper::New();
+
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
 
@@ -32,8 +36,6 @@ DrawObject::DrawObject() {
 
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
-
-    m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::CreateDrawBuffer() {
@@ -198,11 +200,17 @@ void DrawObject::ReAllocateDisplayBuffer() {
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
     }
-
     this->CreateDrawBuffer();
 
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+    if (m_AutoUpdateDrawData) {
+        ConvertToDrawableData();
+        if (m_DisplayObject) {
+            m_DisplayObject->ReAllocateDisplayBuffer();
+        }
+    }
 
+//    std::cout << "m_Positions" << m_Positions->GetMTime() << std::endl;
+//    std::cout << "m_PositionVBO" << m_PositionVBO->GetMTime() << std::endl;
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
                            m_Positions->GetNumberOfValues() * sizeof(float),
@@ -419,9 +427,13 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
 
     // process this object
-    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
-        return;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
+                              dimension);
     }
+//    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
+//        return;
+//    }
 
     if (index == -1) {
         m_AttributeIndex = -1;
@@ -432,10 +444,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
     m_AttributeHelper->Modified();
 
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
-                              dimension);
-    }
 
     this->Modified();
 
@@ -465,6 +473,18 @@ void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
     }
 }
 
+FloatArray::Pointer DrawObject::GetRenderPoints() {
+    // return display object
+    if (m_DisplayObject) {
+        return m_DisplayObject->m_Positions;
+    }
+
+    // return this object
+    return m_Positions;
+}
+void DrawObject::SetRenderPoints(FloatArray::Pointer points) {
+    m_Positions = std::move(points);
+}
 void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
     // process display object
     if (m_DisplayObject) {
@@ -514,7 +534,10 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
-    m_DisplayObject->ReAllocateDisplayBuffer();
+    // After the first extraction, there is no data for rendering "m_Positions"
+    m_DisplayObject->ConvertToDrawableData();
+    // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
+    m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
 }
 

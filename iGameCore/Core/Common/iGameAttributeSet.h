@@ -6,6 +6,18 @@
 #include <variant>
 
 IGAME_NAMESPACE_BEGIN
+//class DataRangeSet : public DoubleArray{
+//public:
+//    I_OBJECT(DataRangeSet)
+//    static Pointer New(){ return new DataRangeSet;}
+//
+//
+//protected:
+//
+//    DoubleArray::Pointer m_StoreArray;
+//    DataRangeSet();
+//};
+
 // Attributes set stores all Attribute array data, like scalar, vector etc
 class AttributeSet : public Object {
 public:
@@ -16,19 +28,31 @@ public:
 	{
 		ArrayObject::Pointer pointer{};
 		IGenum type{ IG_NONE };           // IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
-		IGenum attachmentType{ IG_NONE }; // IG_POINT, IG_CELL
+        IGenum attachmentType{ IG_NONE }; // IG_POINT, IG_CELL
 		bool isDeleted{ false };
+        /* dataRange is a 2 dimension(Minimum value, Maximum value) flatArray, Here is the meaning of its elements:
+         * Element[0] : magnitude data range, if the data only have one dimension, this value is equal to that dimension.
+         * Element[1] : x dimension data range.
+         * Element[2] : y dimension data range, if exist.
+         * Element[3] : z dimension data range, if exist.
+         * ...
+         * Element[N] : Nth dimension data range, if exist.
+         * */
+        DoubleArray::Pointer dataRange{nullptr};
 
-		std::pair<float, float> dataRange{ 0.f, 0.f };
 
-		static Attribute None() {
-			Attribute att;
-			att.pointer = nullptr;
-			att.type = IG_NONE;
-			att.attachmentType = IG_NONE;
-			att.isDeleted = false;
-			return att;
-		}
+//		std::pair<float, float> dataRange{ FLT_MIN, FLT_MAX};
+        DoubleArray::Pointer GetDataRange();
+        bool updateAllDataRange();
+
+        static Attribute None() {
+            Attribute att;
+            att.pointer = nullptr;
+            att.type = IG_NONE;
+            att.attachmentType = IG_NONE;
+            att.isDeleted = false;
+            return att;
+        }
 
 		bool isNone() const {
 			return pointer == nullptr || type == IG_NONE || attachmentType == IG_NONE || isDeleted == true;
@@ -46,11 +70,14 @@ public:
 
 	// Add a scalar attribute to array back.
 	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr);
+	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, DoubleArray::Pointer DataRange);
 	// Add a scalar attribute to array back with range.
-	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
+//	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
 
-	// Add a vector attribute to array back.
-	IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr);
+    // Add a vector attribute to array back.
+//    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
+    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr);
+    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, DoubleArray::Pointer DataRange);
 
 	Attribute& GetScalar();
 	const Attribute& GetScalar() const;
@@ -70,7 +97,9 @@ public:
 	// @param type: The type of attribute, such as IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
 	// @param attachmentType: Which element is attached to, such as IG_POINT, IG_CELL
 	// @param attr: The pointer of attribute array
-	IGsize AddAttribute(IGenum type, IGenum attachmentType, ArrayObject::Pointer attr, std::pair<float, float> dataRange = { 0.f, 0.f });
+//	IGsize AddAttribute(IGenum type, IGenum attachmentType, ArrayObject::Pointer attr, std::pair<float, float> dataRange = { 0.f, 0.f });
+	IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr, DoubleArray::Pointer dataRange);
+	IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr);
 
 	// Get a attribute by index
 	Attribute& GetAttribute(const IGsize index);

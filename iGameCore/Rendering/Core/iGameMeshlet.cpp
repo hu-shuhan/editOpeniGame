@@ -20,7 +20,7 @@ void Meshlet::CreateBuffer() {
 
 void Meshlet::BuildMeshlet(const float* vertex_positions, size_t vertex_count,
                            const unsigned int* indices, size_t index_count,
-                           GLBuffer::Pointer EBO) {
+                           UnsignedIntArray::Pointer afterBuildIndices) {
     Timer::Pointer timer = Timer::New();
     timer->Reset();
 
@@ -97,8 +97,14 @@ void Meshlet::BuildMeshlet(const float* vertex_positions, size_t vertex_count,
         }
     }
 
-    GLAllocateGLBuffer(EBO, meshletIndices.size() * sizeof(igIndex),
-                       meshletIndices.data());
+    afterBuildIndices->Reset();
+    afterBuildIndices->SetDimension(3);
+    for (size_t i = 0; i < meshletIndices.size(); i++) {
+        afterBuildIndices->AddValue(meshletIndices[i]);
+    }
+    afterBuildIndices->Modified();
+    //GLAllocateGLBuffer(EBO, meshletIndices.size() * sizeof(igIndex),
+    //                   meshletIndices.data());
 
     m_MeshletsCount = meshlet_count;
     m_MeshletsBuffer->Target(GL_SHADER_STORAGE_BUFFER);

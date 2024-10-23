@@ -116,7 +116,13 @@ void Model::Draw(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if( subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 
@@ -275,9 +281,6 @@ void Model::DrawPhase1(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Draw phase 1:" << std::endl;
 
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->m_Visibility) { return; }
-
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -288,6 +291,8 @@ void Model::DrawPhase1(Scene* scene) {
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
         auto meshlets = drawObject->m_Meshlets;
+
+        if (!visibility) { return; }
 
         // draw
         if (useColor && colorWithCell) {}
@@ -311,11 +316,21 @@ void Model::DrawPhase1(Scene* scene) {
         }
     };
 
-    if (!m_DataObject->HasSubDataObject()) {
-        draw(m_DataObject);
+    auto dataObject = m_DataObject;
+    auto drawObject = DynamicCast<DrawObject>(dataObject);
+
+    if (drawObject->m_DisplayObject != nullptr) {
+        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
+        drawObject = DynamicCast<DrawObject>(dataObject);
+    }
+
+    if (!drawObject->m_Visibility) { return; }
+
+    if (!dataObject->HasSubDataObject()) {
+        draw(dataObject);
     } else {
-        for (auto it = m_DataObject->SubDataObjectIteratorBegin();
-             it != m_DataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = dataObject->SubDataObjectIteratorBegin();
+             it != dataObject->SubDataObjectIteratorEnd(); it++) {
             draw(it->second);
         }
     }
@@ -325,9 +340,6 @@ void Model::DrawPhase1(Scene* scene) {
 void Model::DrawPhase2(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Draw phase 2:" << std::endl;
-
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->m_Visibility) { return; }
 
     auto draw = [&](const DataObject::Pointer& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
@@ -339,6 +351,8 @@ void Model::DrawPhase2(Scene* scene) {
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
         auto meshlets = drawObject->m_Meshlets;
+
+        if (!visibility) { return; }
 
         // draw
         if (useColor && colorWithCell) {}
@@ -404,11 +418,21 @@ void Model::DrawPhase2(Scene* scene) {
         }
     };
 
-    if (!m_DataObject->HasSubDataObject()) {
-        draw(m_DataObject);
+    auto dataObject = m_DataObject;
+    auto drawObject = DynamicCast<DrawObject>(dataObject);
+
+    if (drawObject->m_DisplayObject != nullptr) {
+        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
+        drawObject = DynamicCast<DrawObject>(dataObject);
+    }
+
+    if (!drawObject->m_Visibility) { return; }
+
+    if (!dataObject->HasSubDataObject()) {
+        draw(dataObject);
     } else {
-        for (auto it = m_DataObject->SubDataObjectIteratorBegin();
-             it != m_DataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = dataObject->SubDataObjectIteratorBegin();
+             it != dataObject->SubDataObjectIteratorEnd(); it++) {
             draw(it->second);
         }
     }
@@ -418,9 +442,6 @@ void Model::DrawPhase2(Scene* scene) {
 void Model::TestOcclusionResults(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     // std::cout << "Test Occlusion:" << std::endl;
-
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->m_Visibility) { return; }
 
     auto draw = [&](const DataObject::Pointer& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -497,11 +518,21 @@ void Model::TestOcclusionResults(Scene* scene) {
         // }
     };
 
-    if (!m_DataObject->HasSubDataObject()) {
-        draw(m_DataObject);
+    auto dataObject = m_DataObject;
+    auto drawObject = DynamicCast<DrawObject>(dataObject);
+
+    if (drawObject->m_DisplayObject != nullptr) {
+        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
+        drawObject = DynamicCast<DrawObject>(dataObject);
+    }
+
+    if (!drawObject->m_Visibility) { return; }
+
+    if (!dataObject->HasSubDataObject()) {
+        draw(dataObject);
     } else {
-        for (auto it = m_DataObject->SubDataObjectIteratorBegin();
-             it != m_DataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = dataObject->SubDataObjectIteratorBegin();
+             it != dataObject->SubDataObjectIteratorEnd(); it++) {
             draw(it->second);
         }
     }

@@ -35,47 +35,17 @@ public:
     TimeFrame& GetTargetTimeFrame(unsigned int index) { return m_Data[index]; }
     const TimeFrame& GetTargetTimeFrame(unsigned int  index) const { return m_Data[index]; }
 
-//    DataArray* GetAttribute(IGenum type, IGenum attachmentType, const std::string& name)
-//    {
-//        for (int i = 0; i < this->m_Data.size(); i++)
-//        {
-//            if (m_Data[i].active && m_Data[i].attachmentType == attachmentType && m_Data[i].array->GetName() == name)
-//            {
-//                return m_Data[i].array.get();
-//            }
-//        }
-//        return nullptr;
-//    }
-//
-//    void DeleteAttribute(int i)
-//    {
-//        if (i < 0 || i >= m_Data.size())
-//        {
-//            return;
-//        }
-//        m_Data[i].active = false;
-//        m_Data[i].array = nullptr;
-//    }
     size_t GetTimeNum(){return m_Data.size();}
 
     std::vector<TimeFrame>& GetArrays() {
         return m_Data;
     }
 
-    void SetDeformationScaleFactors(float dsf){ m_deformation_scale_factor_x = m_deformation_scale_factor_y = m_deformation_scale_factor_z = dsf; }
-
-    void SetDeformationScaleFactorX(float dsf){ m_deformation_scale_factor_x = m_deformation_scale_factor_y = m_deformation_scale_factor_z = dsf; }
-
 protected:
 
     StreamingData() = default;
     ~StreamingData() = default;
     std::vector<TimeFrame> m_Data;
-    float m_deformation_scale_factor_x = {1.f};
-    float m_deformation_scale_factor_y = {1.f};
-    float m_deformation_scale_factor_z = {1.f};
-    bool m_enable_dsf {false};
-
 };
 
 IGAME_NAMESPACE_END

@@ -50,7 +50,7 @@ public:
 		default:
 			break;
 		}
-
+        return -1;
 	}
 	void SetPlane(float o[3], float n[3]) {
 		m_Normal[0] = n[0];
