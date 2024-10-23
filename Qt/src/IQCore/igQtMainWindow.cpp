@@ -916,13 +916,28 @@ void igQtMainWindow::initAllFilters() {
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
-            auto filter=ModelClip::New();
-            auto pointData= obj->GetAttributeSet()->GetAllPointAttributes();
-            filter->SetIsoScalarData(pointData->GetElement(0).pointer,0.58,0);
-			filter->SetInput(0, obj);
-			filter->Execute();
-			modelTreeWidget->addDataObjectToModelTree(
-				filter->GetOutput(), ItemSource::Algorithm);
+         auto mesh=DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+         //mesh->RequestEditStatus();
+         auto res=SurfaceMesh::New();
+         auto res_points=Points::New();
+         auto res_faces=CellArray::New();
+ auto faces=mesh->GetFaces();
+ int vhs[512]={0};
+ int vcnt=0;
+ int index=0;
+ for (int i = 0; i < faces->GetNumberOfCells(); i++) {
+   vcnt= faces->GetCellIds(i,vhs);
+   for (int j = 2; j < vcnt; j++) {
+       res_points->AddPoint(mesh->GetPoint(vhs[0]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j-1]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j]));
+       res_faces->AddCellId3(index++,index++,index++);
+   }
+ }
+ res->SetPoints(res_points);
+ res->SetFaces(res_faces);
+ modelTreeWidget->addDataObjectToModelTree(
+     res, ItemSource::Algorithm);
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
