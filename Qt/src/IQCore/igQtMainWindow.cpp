@@ -66,6 +66,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_EditMode->hide();
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
+    ui->dockWidget_ContourExtract->hide();
     // Setup default GUI layout.
     this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
@@ -1050,6 +1051,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool
+         checked) { 
+            ui->dockWidget_ContourExtract->show();
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if(!scene)return;
+            auto CurrentModel = scene->GetCurrentModel();
+            if(!CurrentModel)return;
+            auto dataObject = CurrentModel->GetDataObject();
+            if(!dataObject)return;
+            ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+        	});
 
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
                                        Painter3D* painter,
@@ -1524,7 +1536,14 @@ void igQtMainWindow::initAllMySignalConnections() {
 			// ItemSource::Algorithm);
 		});
 
-
+    connect(ui->widget_ContourExtract,&igQtContourExtractWidget::DrawContourModel,this,
+        [&](iGame::DataObject::Pointer res) {
+             modelTreeWidget->addDataObjectToModelTree(res,ItemSource::Algorithm);
+        });
+    connect(ui->widget_ContourExtract, &igQtContourExtractWidget::UpdateContourModel, this,
+        [&](DataObject::Pointer mesh) {
+            rendererWidget->update();
+        });
     // reset clipping
     connect(ui->action_ResetClipping, &QAction::triggered, this,
             [&](bool checked) {

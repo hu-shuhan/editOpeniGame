@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>25</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -579,6 +579,7 @@ border:2px solid #EEF1F7
     <bool>false</bool>
    </attribute>
    <addaction name="action_slice"/>
+   <addaction name="action_ContourExtract"/>
   </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -596,6 +597,15 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_ContourExtract">
+   <property name="windowTitle">
+    <string>轮廓提取（等值线/等值面）</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtContourExtractWidget" name="widget_ContourExtract"/>
   </widget>
   <action name="action_SaveMesh">
    <property name="icon">
@@ -1368,7 +1378,7 @@ border:2px solid #EEF1F7
      <normaloff>:/Ticon/Icons/Slice.svg</normaloff>:/Ticon/Icons/Slice.svg</iconset>
    </property>
    <property name="text">
-    <string>slice</string>
+    <string>网格切面</string>
    </property>
    <property name="toolTip">
     <string>网格切面</string>
@@ -1387,6 +1397,21 @@ border:2px solid #EEF1F7
    </property>
    <property name="toolTip">
     <string>结构形变</string>
+   </property>
+  </action>
+  <action name="action_ContourExtract">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/Slice.svg</normaloff>:/Ticon/Icons/Slice.svg</iconset>
+   </property>
+   <property name="text">
+    <string>轮廓提取</string>
+   </property>
+   <property name="toolTip">
+    <string>轮廓提取</string>
    </property>
   </action>
  </widget>
@@ -1448,6 +1473,12 @@ border:2px solid #EEF1F7
    <class>igQtTensorWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igqttensorwidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtContourExtractWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igqtcontourextractwidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

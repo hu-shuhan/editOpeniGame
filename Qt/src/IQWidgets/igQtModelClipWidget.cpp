@@ -3,7 +3,7 @@
 #include "iGameSceneManager.h"
 
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::Form) {
+    : QWidget(parent), ui(new Ui::ModelClipWidget) {
 
 
     ui->setupUi(this);
