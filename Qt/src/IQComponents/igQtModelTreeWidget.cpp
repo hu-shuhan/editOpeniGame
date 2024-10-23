@@ -241,7 +241,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             this->setCurrentModelItem(item);
         }
 
-    } else if ((child = getChild(event->pos())) && child) {
+    } else if ((child = getChild(event->pos()))) {
         int index = child->data(0, Qt::UserRole).toInt();
         ModelTreeWidgetItem* parent =
                 dynamic_cast<ModelTreeWidgetItem*>(child->parent());

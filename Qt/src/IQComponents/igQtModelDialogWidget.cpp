@@ -15,11 +15,12 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 	ui->setupUi(this);
 	this->setMinimumWidth(parent->width() / 4);
 
-	//QSplitter* splitter = new QSplitter(Qt::Vertical, this);
-	//this->setWidget(splitter);
-	//splitter->addWidget(ui->modelTreeWidget);
-	//splitter->addWidget(ui->propertyTreeWidget);
-	//splitter->setChildrenCollapsible(false);
+	QSplitter* splitter = new QSplitter(Qt::Vertical, this);
+	this->setWidget(splitter);
+	splitter->addWidget(ui->modelTreeWidget);
+    splitter->addWidget(ui->ModelInformationWidget);
+	splitter->addWidget(ui->propertyWidget);
+	splitter->setChildrenCollapsible(false);
 
 	modelTreeWidget = ui->modelTreeWidget;
 	propertyWidget = ui->propertyWidget;
@@ -70,7 +71,6 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
 	connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
 	connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
 
-    connect(ui->pushButton, &QPushButton::clicked, this, [&](){iGame::SceneManager::Instance()->GetCurrentScene()->Draw();});
 }
 
 void igQtModelDialogWidget::UpdateCurrentModel(Model::Pointer model) {

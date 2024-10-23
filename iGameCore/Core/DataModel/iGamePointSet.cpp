@@ -134,11 +134,10 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
 	igIndex dimension) {
 
 	if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if(dimension == -1 && magnitude_min < magnitude_max){
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-
+        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+        if(minimal_val < maximal_val){
+            m_ColorMapper->SetRange(minimal_val, maximal_val);
         }
 		else if (dimension == -1) {
 			m_ColorMapper->InitRange(attr);
