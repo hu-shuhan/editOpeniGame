@@ -204,8 +204,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
              it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
             auto& range =
                     it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-            range.second = par_range.second;
-            range.first = par_range.first;
+            range = par_range;
         }
         //        std::cout << "range : " << range_max << ' ' << range_min << '\n';
     }

@@ -534,6 +534,9 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
+    // After the first extraction, there is no data for rendering "m_Positions"
+    m_DisplayObject->ConvertToDrawableData();
+    // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
     m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
 }

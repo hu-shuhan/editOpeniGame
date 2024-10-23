@@ -113,7 +113,7 @@ void PointSet::ConvertToDrawableData() {
 				this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
 			if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
 				m_ColorWithCell = false;
-				this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
+				this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(),
 					m_AttributeDimension);
 			}
 		}
@@ -130,13 +130,16 @@ void PointSet::ConvertToDrawableData() {
 //}
 
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
-	std::pair<float, float>& range,
+     DoubleArray::Pointer attrRange,
 	igIndex dimension) {
 
 	if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-		if (range.first != range.second) {
-			m_ColorMapper->SetRange(range.first, range.second);
-		}
+        double magnitude_min = attrRange->GetValue(0);
+        double magnitude_max = attrRange->GetValue(1);
+        if(dimension == -1 && magnitude_min < magnitude_max){
+            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+
+        }
 		else if (dimension == -1) {
 			m_ColorMapper->InitRange(attr);
 		}
@@ -144,8 +147,9 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
 			m_ColorMapper->InitRange(attr, dimension);
 		}
 	}
-	range.first = m_ColorMapper->GetRange()[0];
-	range.second = m_ColorMapper->GetRange()[1];
+//	attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
+//	attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
+    //	range.second = m_ColorMapper->GetRange()[1];
 	m_Colors = m_ColorMapper->MapScalars(attr, dimension);
 	m_Colors->Modified();
 	if (m_Colors == nullptr) { return; }
@@ -155,7 +159,9 @@ FlatArray<igIndex>::Pointer PointSet::GetPointMap() {
     return m_PointMap;
 }
 void PointSet::SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                        std::pair<float, float>& range,
-                                        igIndex dimension) {}
+                                        DoubleArray::Pointer attrRange,
+                                        igIndex dimension) {
+
+}
 
 IGAME_NAMESPACE_END

@@ -141,6 +141,7 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
         }
     }
     auto attribute_set = dataObject->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+    if(attribute_set == nullptr) return false;
     for(int i = 0; i < attribute_set->GetNumberOfValues(); i += 3){
         float x = attribute_set->GetValue(i), y = attribute_set->GetValue(i + 1), z = attribute_set->GetValue(i + 2);
         U_max = std::max(U_max, std::sqrt(x * x + y * y + z * z));
@@ -151,7 +152,7 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
 //    std::cout << "max_offset : " << U_max << '\n';
 //    std::cout << "max_D : " << D_max << '\n';
 //    std::cout << "res : " << D_max / U_max << '\n';
-    dataObject->GetDeformationData()->SetScaleFactors(0.1f * D_max / U_max);
-    return false;
+    dataObject->GetDeformationData()->SetScaleFactors(m_K_factor * D_max / U_max);
+    return true;
 }
 

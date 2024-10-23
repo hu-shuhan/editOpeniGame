@@ -77,11 +77,11 @@ public:
 
     /* Range's first means minRange, second means maxRange. */
     virtual void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                           std::pair<float, float>& attrRange,
+                                           DoubleArray::Pointer attrRange,
                                            igIndex dimension = -1);
 
     virtual void SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                          std::pair<float, float>& range,
+                                          DoubleArray::Pointer attrRange,
                                           igIndex i = -1);
 
 };

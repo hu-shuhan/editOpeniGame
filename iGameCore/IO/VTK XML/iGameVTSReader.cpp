@@ -149,8 +149,8 @@ bool iGame::iGameVTSReader::Parsing() {
         data = elem->GetText();
         if(data)
         {
-            float range_max = FLT_MIN;
-            float range_min = FLT_MAX;
+//            float range_max = FLT_MIN;
+//            float range_min = FLT_MAX;
             if(!strncmp(type, "Float", 5)){
                 FloatArray::Pointer arr = FloatArray::New();
                 arr->SetDimension(scalarComponents);
@@ -160,8 +160,9 @@ bool iGame::iGameVTSReader::Parsing() {
                     for (int i = 0; i < scalarComponents; i++) {
 
                         ps[i] = mAtof(token);
-                        range_max = std::max(range_max, ps[i]);
-                        range_min = std::min(range_min, ps[i]);
+//                        range_max = std::max(range_max, ps[i]);
+//                        range_min = std::min(range_min, ps[i]);
+
 //                        if(it > range_max) range_max = it;
 //                        else if(it < range_min) range_min = it;
                         token = strtok(nullptr, delimiters);
@@ -174,7 +175,7 @@ bool iGame::iGameVTSReader::Parsing() {
             if(array != nullptr){
                 array->SetName(scalarName);
 
-                m_Data.GetData()->AddScalar(IG_POINT, array, {range_min, range_max});
+                m_Data.GetData()->AddScalar(IG_POINT, array);
             }
 
         }

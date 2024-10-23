@@ -28,8 +28,17 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
 
+
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
+//        auto attributes_parent = this->GetAttributeSet()->GetAllAttributes();
+//        auto attributes_sub = obj->GetAttributeSet()->GetAllAttributes();
+//        for(int i = 0; i < attributes_sub->GetNumberOfElements(); i ++){
+//            auto& par = attributes_parent->GetElement(i);
+//            par.updateAllDataRange();
+//            auto& sub = attributes_sub->GetElement(i);
+//            sub.dataRange = par.GetDataRange();
+//        }
         drawObject->ConvertToDrawableData();
     }
 

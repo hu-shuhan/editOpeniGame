@@ -500,10 +500,10 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 if (attr.attachmentType == IG_POINT) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(
-                            attr.pointer, attr.dataRange, m_AttributeDimension);
+                            attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 } else if (attr.attachmentType == IG_CELL) {
                     m_ColorWithCell = true;
-                    this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
+                    this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(),
                                                    m_AttributeDimension);
                 }
             }
@@ -573,6 +573,6 @@ void UnstructuredMesh::ConvertToDrawableData() {
 //}
 
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                                std::pair<float, float>& range,
+                                                DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {}
 IGAME_NAMESPACE_END
