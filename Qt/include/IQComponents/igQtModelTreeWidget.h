@@ -66,7 +66,7 @@ private:
 
     int modelId;
     iGame::Model::Pointer model;
-
+    QTreeWidget* parent=nullptr;
     QTreeWidgetItem* current_child{nullptr};
 };
 

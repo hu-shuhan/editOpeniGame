@@ -8,7 +8,7 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent)
 
 
 	ui->setupUi(this);
-
+	ui->label_RangeInfo->clear();
 	m_Generated = false;
 	m_Extracter = nullptr;
 	m_PointData = nullptr;
@@ -59,10 +59,10 @@ void igQtContourExtractWidget::UpdateScalarDimension()
 {
 	this->m_ScalarDimension = ui->comboBox_ScalarDimension->currentIndex() - 1;
 	ui->label_RangeInfo->clear();
-	auto mapper=iGame::ScalarsToColors::New();
-	mapper->InitRange(m_ScalarArray,this->m_ScalarDimension);
-	float* range=mapper->GetRange();
-	std::string info= "Range:(" +std::to_string( range[0]) + ", " + std::to_string(range[1]) + ")\n";
+	auto mapper = iGame::ScalarsToColors::New();
+	mapper->InitRange(m_ScalarArray, this->m_ScalarDimension);
+	float* range = mapper->GetRange();
+	std::string info = "Range:(" + std::to_string(range[0]) + ", " + std::to_string(range[1]) + ")\n";
 	ui->label_RangeInfo->setText(QString::fromStdString(info));
 }
 
@@ -80,7 +80,8 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 	InitScalarName();
 	m_Generated = false;
 	m_Extracter = iGame::ModelClip::New();
-	m_ResultMesh=iGame::SurfaceMesh::New();
+	m_ResultMesh = iGame::SurfaceMesh::New();
+	m_ResultMesh->SetName(m_OriginDataObject->GetName() +"_Contour");
 }
 
 void igQtContourExtractWidget::ContourExtract()
@@ -95,7 +96,7 @@ void igQtContourExtractWidget::ContourExtract()
 	m_Extracter->SetInput(m_OriginDataObject);
 	m_Extracter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
 	m_Extracter->Execute();
-	auto output= DynamicCast<iGame::UnstructuredMesh>(m_Extracter->GetOutput());
+	auto output = DynamicCast<iGame::UnstructuredMesh>(m_Extracter->GetOutput());
 
 	m_ResultMesh->SetPoints(output->GetPoints());
 	m_ResultMesh->SetFaces(output->GetCells());
@@ -104,7 +105,7 @@ void igQtContourExtractWidget::ContourExtract()
 
 	if (m_Generated) {
 		m_ResultMesh->ConvertToDrawableData();
-	 UpdateContourModel(m_ResultMesh);
+		UpdateContourModel(m_ResultMesh);
 	}
 	else {
 		DrawContourModel(m_ResultMesh);
