@@ -525,27 +525,26 @@ void igQtMainWindow::initAllFilters() {
                                                           ItemSource::File);
             });
 
-    auto action_subdivision = ui->menuTest->addAction("Subdivision");
+    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
     connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-        /*	auto filter = HexhedronSubdivision::New();
-						VolumeMesh::Pointer mesh =
-		   DynamicCast<VolumeMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());*/
-        // auto filter = QuadSubdivision::New();
-        // SurfaceMesh::Pointer mesh = DynamicCast<SurfaceMesh>(
-        //     rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        // filter->SetMesh(mesh);
-        // filter->Execute();
-        // auto ControlPoints = filter->GetOutput();
-        // ControlPoints->SetName("ControlPoints");
-
-        // modelTreeWidget->addDataObjectToModelTree(ControlPoints,
-        // ItemSource::File);
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        std::cout << obj->GetName() << "KB\n";
-        // MyTestFilter::Pointer aaa = MyTestFilter::New();
-        // aaa->SetMesh(obj);
-        // aaa->Execute();
+        auto input = rendererWidget->GetScene()
+            ->GetCurrentModel()
+            ->GetDataObject();
+        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
+        auto attributeset=input->GetAttributeSet();
+        double rgb[3]={0,0,0};
+        int fcnt= mesh->GetNumberOfFaces();
+        auto array = DoubleArray::New();
+        array->SetDimension(3);
+        array->Reserve(fcnt);
+        array->SetName("rgb");
+        for (int i = 0; i < fcnt; i++) {
+            rgb[1]=double(i)/double(fcnt);
+            array->AddElement(rgb);
+        }
+        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
+        modelTreeWidget->addDataObjectToModelTree(mesh,
+            ItemSource::File);
     });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");

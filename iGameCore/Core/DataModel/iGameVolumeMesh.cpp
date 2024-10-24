@@ -1242,6 +1242,12 @@ void VolumeMesh::ConvertToDrawableData() {
 
 			auto& attr =
 				this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+			if (attr.type == IG_RGB) {
+				this->m_ColorMapper->SetVectorModeToRGBColors();
+			}
+			else {
+				this->m_ColorMapper->SetVectorModeToMagnitude();
+			}
 			if (!attr.isDeleted) {
 				if (attr.attachmentType == IG_POINT) {
 					m_ColorWithCell = false;

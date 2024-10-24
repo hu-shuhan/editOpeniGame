@@ -123,7 +123,6 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int s
 	if (vectorMode == COMPONENT)
 	{
 		if (component == -1) {
-			// if set to -1, use default value provided by table
 			component = this->GetVectorComponent();
 		}
 		if (component < 0) {
@@ -135,9 +134,7 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int s
 	}
 	if (vectorMode == MAGNITUDE)
 	{
-		// make sure vectorSize is within allowed range
 		if (size == -1) {
-			// if set to -1, use default value provided by table
 			size = this->GetVectorSize();
 		}
 		if (size <= 0) {
@@ -202,6 +199,10 @@ FloatArray::Pointer ScalarsToColors::MapScalars(
 	FloatArray::Pointer newColors = FloatArray::New();
 	newColors->SetDimension(outputFormat);
 	newColors->Resize(scalars->GetNumberOfElements());
+	if (this->VectorMode == RGBCOLORS) {
+		this->MapVectorsThroughTable(scalars, newColors, outputFormat);
+		return newColors;
+	}
 	if (component < 0 && numberOfComponents>1) {
 		this->SetVectorModeToMagnitude();
 		this->MapVectorsThroughTable(scalars, newColors, outputFormat);
@@ -228,7 +229,6 @@ void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatAr
 	int vectorMode = this->GetVectorMode();
 	if (vectorMode == COMPONENT) {
 		if (vectorComponent == -1) {
-			// if set to -1, use default value provided by table
 			vectorComponent = this->GetVectorComponent();
 		}
 		if (vectorComponent < 0) {
@@ -239,9 +239,7 @@ void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatAr
 		}
 	}
 	else {
-		// make sure vectorSize is within allowed range
 		if (vectorSize == -1) {
-			// if set to -1, use default value provided by table
 			vectorSize = this->GetVectorSize();
 		}
 		if (vectorSize <= 0) {

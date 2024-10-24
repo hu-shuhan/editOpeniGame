@@ -75,6 +75,7 @@ enum AttributeType {
     IG_NORMAL,
     IG_TCOORD,
     IG_TENSOR,
+    IG_RGB,
     IG_ATTRIBUTE_COUNT,
 };
 
