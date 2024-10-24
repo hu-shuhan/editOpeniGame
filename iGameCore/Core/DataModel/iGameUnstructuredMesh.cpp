@@ -486,31 +486,33 @@ void UnstructuredMesh::ConvertToDrawableData() {
     }
 
     // convert scalar data
-    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
-        if (m_AttributeIndex == -1) {
-            m_UseColor = false;
-            m_ColorWithCell = false;
-        } else {
-            m_UseColor = true;
+    if (m_AttributeIndex == -1) {
+        m_UseColor = false;
+        m_ColorWithCell = false;
+    } else {
+        m_UseColor = true;
 
-            auto& attr =
-                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (!attr.isDeleted) {
-                if (attr.attachmentType == IG_POINT) {
+        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+        if (!attr.isDeleted) {
+            if (attr.attachmentType == IG_POINT) {
+                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;
-                    this->SetAttributeWithPointData(
-                            attr.pointer, attr.GetDataRange(), m_AttributeDimension);
-                } else if (attr.attachmentType == IG_CELL) {
+                    this->SetAttributeWithPointData(attr.pointer,
+                                                    attr.GetDataRange(),
+                                                    m_AttributeDimension);
+                }
+            } else if (attr.attachmentType == IG_CELL) {
+                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
                     m_ColorWithCell = true;
-                    this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(),
+                    this->SetAttributeWithCellData(attr.pointer,
+                                                   attr.GetDataRange(),
                                                    m_AttributeDimension);
                 }
             }
         }
     }
-
-
 }
 
 //void UnstructuredMesh::SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh) {
