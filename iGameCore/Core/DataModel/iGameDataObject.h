@@ -182,13 +182,6 @@ private:
     void SetParent(DataObject* parent);
 
 public:
-    //virtual void Draw(Scene*);
-    //virtual void DrawPhase1(Scene*);
-    //virtual void DrawPhase2(Scene*);
-    //virtual void TestOcclusionResults(Scene*);
-    //virtual void ConvertToDrawableData();
-
-    //virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
     virtual bool IsDrawable() { return false; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
     void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper = cm; }

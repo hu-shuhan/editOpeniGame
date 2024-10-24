@@ -136,19 +136,12 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
 	if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
         double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
         double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
-        if(minimal_val < maximal_val){
+        if(minimal_val < maximal_val) {
             m_ColorMapper->SetRange(minimal_val, maximal_val);
-        }
-		else if (dimension == -1) {
-			m_ColorMapper->InitRange(attr);
-		}
-		else {
+        } else {
 			m_ColorMapper->InitRange(attr, dimension);
 		}
 	}
-//	attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
-//	attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
-    //	range.second = m_ColorMapper->GetRange()[1];
 	m_Colors = m_ColorMapper->MapScalars(attr, dimension);
 	m_Colors->Modified();
 	if (m_Colors == nullptr) { return; }

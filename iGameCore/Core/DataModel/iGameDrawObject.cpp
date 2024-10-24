@@ -431,9 +431,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
                               dimension);
     }
-//    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
-//        return;
-//    }
 
     if (index == -1) {
         m_AttributeIndex = -1;
