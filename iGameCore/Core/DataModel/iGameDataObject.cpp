@@ -30,14 +30,17 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
 
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
-//        auto attributes_parent = this->GetAttributeSet()->GetAllAttributes();
-//        auto attributes_sub = obj->GetAttributeSet()->GetAllAttributes();
-//        for(int i = 0; i < attributes_sub->GetNumberOfElements(); i ++){
-//            auto& par = attributes_parent->GetElement(i);
-//            par.updateAllDataRange();
-//            auto& sub = attributes_sub->GetElement(i);
-//            sub.dataRange = par.GetDataRange();
-//        }
+
+        /* Update SubDataObject's DataRange to Global DataRange. */
+        auto attributes = this->GetAttributeSet()->GetAllAttributes();
+        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+            auto& par = attributes->GetElement(i);
+            if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
+                par.updateAllDataRange();
+            }
+            auto& sub = obj->GetAttributeSet()->GetAttribute(i);
+            sub.dataRange = par.GetDataRange();
+        }
         drawObject->ConvertToDrawableData();
     }
 

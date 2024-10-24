@@ -1,7 +1,9 @@
 #include "Surface.h"
 
+IGAME_NAMESPACE_BEGIN
+IGAME_NURBS_NAMESPACE_BEGIN
 Surface::Surface(const int udegree, const int vdegree,
-                 const std::vector<std::vector<double>>& controlPoints,
+                 const std::vector<Point>& controlPoints,
                  const std::vector<double>& uknots,
                  const std::vector<double>& vknots,
                  const std::vector<double>& weights) {
@@ -13,13 +15,13 @@ Surface::Surface(const int udegree, const int vdegree,
     type = Gtype::Surface;
 }
 
-std::vector<double> Surface::getPointAtParam(std::vector<double>& u) {
+Point Surface::getPointAtParam(std::vector<double>& u) {
     std::vector<double> basisValue;
     std::vector<int> index;
     eval(u, basisValue);
     getConnectIndex(u, index);
 
-    std::vector<double> point{0, 0, 0};
+    Point point{0, 0, 0};
     for (int i = 0; i < basisValue.size(); ++i) {
         point[0] += basisValue[i] * m_ControlPoints[index[i]][0];
         point[1] += basisValue[i] * m_ControlPoints[index[i]][1];
@@ -44,7 +46,7 @@ void Surface::getConnectIndex(const std::vector<double>& u,
 }
 
 bool Surface::getPointAtParam(std::vector<std::vector<double>>& u,
-                              std::vector<std::vector<double>>& points) {
+                              std::vector<Point>& points) {
     points.resize(u.size());
     for (int i = 0; i < points.size(); ++i) {
         points[i] = getPointAtParam(u[i]);
@@ -146,3 +148,5 @@ void Surface::evalDers(std::vector<double>& u,
         }
     }
 }
+IGAME_NURBS_NAMESPACE_END
+IGAME_NAMESPACE_END
