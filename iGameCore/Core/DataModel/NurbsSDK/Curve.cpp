@@ -1,8 +1,8 @@
 #include "Curve.h"
 
-
-Curve::Curve(const int degree,
-             const std::vector<std::vector<double>>& controlPoints,
+IGAME_NAMESPACE_BEGIN
+IGAME_NURBS_NAMESPACE_BEGIN
+Curve::Curve(const int degree, const std::vector<Point>& controlPoints,
              const std::vector<double>& knots,
              const std::vector<double>& weights) {
     m_ControlPoints = controlPoints;
@@ -11,13 +11,13 @@ Curve::Curve(const int degree,
     type = Gtype::Curve;
 }
 
-std::vector<double> Curve::getPointAtParam(std::vector<double>& u) {
+Point Curve::getPointAtParam(std::vector<double>& u) {
     std::vector<double> basisValue;
     std::vector<int> index;
     eval(u, basisValue);
     getConnectIndex(u, index);
 
-    std::vector<double> point{0, 0, 0};
+    Point point{0, 0, 0};
     for (int i = 0; i < basisValue.size(); ++i) {
         point[0] += basisValue[i] * m_ControlPoints[index[i]][0];
         point[1] += basisValue[i] * m_ControlPoints[index[i]][1];
@@ -35,7 +35,7 @@ void Curve::getConnectIndex(const std::vector<double>& u,
 }
 
 bool Curve::getPointAtParam(std::vector<std::vector<double>>& u,
-                            std::vector<std::vector<double>>& points) {
+                            std::vector<Point>& points) {
     points.resize(u.size());
     for (int i = 0; i < points.size(); ++i) {
         points[i] = getPointAtParam(u[i]);
@@ -104,3 +104,5 @@ void Curve::evalDers(std::vector<double>& u,
         basisValue[1][i] = (Nu_ders[1][i] * w - Nu[i] * dNdxi) * fac;
     }
 }
+IGAME_NURBS_NAMESPACE_END
+IGAME_NAMESPACE_END
