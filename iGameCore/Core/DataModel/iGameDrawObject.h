@@ -52,8 +52,12 @@ public:
 
     void SetTransparency(float transparency);
     float GetTransparency();
+
     void SetPointSize(int size);
     int GetPointSize();
+
+    void SetLineWidth(int size);
+    int GetLineWidth();
 
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
