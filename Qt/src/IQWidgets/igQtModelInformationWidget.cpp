@@ -54,106 +54,107 @@ void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::P
 	}
 }
 void igQtModelInformationWidget::updateInformationFrame() {
-	while (QLayoutItem* item = frameLayout->takeAt(0)) {
-		if (QWidget* widget = item->widget()) {
-			widget->deleteLater();
-		}
-		delete item;
-	}
-	auto sceneManeger = iGame::SceneManager::Instance();
-	auto scene = sceneManeger->GetCurrentScene();
-	if (!scene)return;
+    // 禁用界面更新
+    this->setUpdatesEnabled(false);
+    frameLayout->blockSignals(true);
 
-	auto currentModel = scene->GetCurrentModel();
-	if (!currentModel) {
-		this->hide();
-	}
-	this->show();
-	auto obj = currentModel->GetDataObject();
-	// File Properties
-	iGame::Property::Pointer p;
-	std::string filePath("");
-	if ((p = obj->GetPropertys()->GetProperty("FilePath")) != nullptr) {
-		filePath = p->Get<std::string>();
-	}
-	//auto filePath = currentModel->GetFilePath();
-	size_t lastSlashPos = filePath.find_last_of("/\\");
-	QString directory;
-	QString fileName;
-	if (lastSlashPos == std::string::npos) {
-		directory = "(n/a)";
-		if (filePath.length() == 0) {
-			fileName = "(n/a)";
-		}
-		else {
-			fileName = QString::fromStdString(filePath);
-		}
-	}
-	else {
-		directory = QString::fromStdString(filePath.substr(0, lastSlashPos));
-		fileName = QString::fromStdString(filePath.substr(lastSlashPos + 1));
-	}
-	frameLayout->addWidget(createLabel("File Properties"));
-	frameLayout->addWidget(createSeparator());
-	frameLayout->addWidget(createPropertyLabel("Name", fileName));
-	frameLayout->addWidget(createPropertyLabel("Path", directory));
+    // 清空现有控件
+    while (QLayoutItem* item = frameLayout->takeAt(0)) {
+        if (QWidget* widget = item->widget()) {
+            widget->hide(); // 隐藏控件
+            widget->deleteLater(); // 标记控件待删除
+        }
+        delete item; // 删除布局项
+    }
 
-	//// Data Grouping
-	//frameLayout->addWidget(createLabel("Data Grouping"));
-	//frameLayout->addWidget(createSeparator());
-	//frameLayout->addWidget(createPropertyLabel("(n/a)", ""));
+    // 获取当前场景和模型
+    auto sceneManeger = iGame::SceneManager::Instance();
+    auto scene = sceneManeger->GetCurrentScene();
+    if (!scene) return;
+
+    auto currentModel = scene->GetCurrentModel();
+    if (!currentModel) {
+        this->hide();
+        this->setUpdatesEnabled(true);
+        return; // 直接返回，避免继续执行
+    }
+    this->show();
+
+    auto obj = currentModel->GetDataObject();
+
+    // 处理文件属性
+    iGame::Property::Pointer p;
+    std::string filePath("");
+    if ((p = obj->GetPropertys()->GetProperty("FilePath")) != nullptr) {
+        filePath = p->Get<std::string>();
+    }
+
+    size_t lastSlashPos = filePath.find_last_of("/\\");
+    QString directory, fileName;
+    if (lastSlashPos == std::string::npos) {
+        directory = "(n/a)";
+        fileName = filePath.length() == 0 ? "(n/a)" : QString::fromStdString(filePath);
+    }
+    else {
+        directory = QString::fromStdString(filePath.substr(0, lastSlashPos));
+        fileName = QString::fromStdString(filePath.substr(lastSlashPos + 1));
+    }
+
+    frameLayout->addWidget(createLabel("File Properties"));
+    frameLayout->addWidget(createSeparator());
+    frameLayout->addWidget(createPropertyLabel("Name", fileName));
+    frameLayout->addWidget(createPropertyLabel("Path", directory));
+
+    // 数据统计
+    frameLayout->addWidget(createLabel("Data Statistics"));
+    frameLayout->addWidget(createSeparator());
+    if (obj->HasSubDataObject()) {
+        frameLayout->addWidget(createPropertyLabel("Type", "Multiblock Mesh"));
+        frameLayout->addWidget(createPropertyLabel("# of blocks", QString::number(obj->GetNumberOfSubDataObjects())));
+    }
+    else {
+        CreateDataObjectLayoutInfo(obj);
+    }
+
+    IGsize memorySize = obj->GetRealMemorySize();
+    QString dw[5] = { "B","KB","MB","GB","TB" };
+    igIndex index = 0;
+    while (memorySize > 1024 && index < 4) {
+        memorySize /= 1024;
+        index++;
+    }
+    frameLayout->addWidget(createPropertyLabel("Memory", QString::number(memorySize) + dw[index]));
+
+    // 处理边界框
+    std::string str;
+    iGame::BoundingBox bound = obj->GetBoundingBox();
+    for (int i = 0; i < 3; i++) {
+        float min = bound.min[i];
+        float max = bound.max[i];
+
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(2);
+        if (i == 0) {
+            stream << "Bounds " << std::setw(8) << min << " to "
+                << std::setw(8) << max
+                << " delta: " << std::setw(8) << (max - min);
+        }
+        else {
+            stream << "      " << std::setw(8) << min << " to "
+                << std::setw(8) << max
+                << " delta: " << std::setw(8) << (max - min);
+        }
+        str = stream.str();
+        QLabel* label = new QLabel(QString::fromStdString(str));
+        frameLayout->addWidget(label);
+    }
 
 
-
-	// Data Statistics
-	frameLayout->addWidget(createLabel("Data Statistics"));
-	frameLayout->addWidget(createSeparator());
-	if (obj->HasSubDataObject()) {
-		frameLayout->addWidget(createPropertyLabel("Type", "Multibolck Mesh"));
-		frameLayout->addWidget(createPropertyLabel("# of blocks", QString::number(obj->GetNumberOfSubDataObjects())));
-		//int index=0;
-		//for (auto it = obj->SubDataObjectIteratorBegin(); it!=obj->SubDataObjectIteratorEnd(); it++) {
-		//	auto child=it->second;
-		//	frameLayout->addWidget(createPropertyLabel("block ", QString::number(index++)));
-		//	CreateDataObjectLayoutInfo(child);
-		//}
-	}
-	else {
-		CreateDataObjectLayoutInfo(obj);
-	}
-	
-	IGsize memorySize = obj->GetRealMemorySize();
-	QString dw[5] = { "B","KB","MB","GB","TB" };
-	igIndex index = 0;
-	while (memorySize > 1024 && index < 4) {
-		memorySize /= 1024;
-		index++;
-	}
-	frameLayout->addWidget(createPropertyLabel("Memory", QString::number(memorySize) + dw[index]));
-	std::string str;
-	float min, max;
-	iGame::BoundingBox bound = obj->GetBoundingBox();
-	for (int i = 0; i < 3; i++) {
-		min = bound.min[i];
-		max = bound.max[i];
-
-		std::stringstream stream;
-		stream << std::fixed << std::setprecision(2);
-		if (i == 0) {
-			stream << "Bounds " << std::setw(8) << min << " to "
-				<< std::setw(8) << max
-				<< " delta: " << std::setw(8) << (max - min);
-		}
-		else {
-			stream << "      " << std::setw(8) << min << " to "
-				<< std::setw(8) << max
-				<< " delta: " << std::setw(8) << (max - min);
-		}
-		str = stream.str();
-		QLabel* label = new QLabel(QString::fromStdString(str));
-		frameLayout->addWidget(label);
-	}
-	return;
+    // 恢复界面更新
+    this->setUpdatesEnabled(true);
+    this->updateGeometry();
+    // 修改布局
+    frameLayout->blockSignals(true);
 }
 
 QLabel* igQtModelInformationWidget::createLabel(const QString& text) {

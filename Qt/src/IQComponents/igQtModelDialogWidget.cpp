@@ -211,8 +211,11 @@ int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
 }
 int igQtModelDialogWidget::updateCurrentModelInfo() {
     //    qDebug() << ui->modelTreeWidget->currentIndex();
+
     ui->ModelInformationWidget->updateInformationFrame();
     Q_EMIT CurrendModelChanged();
+
+
     return 1;
 }
 void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) {

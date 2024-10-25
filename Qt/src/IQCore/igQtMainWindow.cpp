@@ -1399,11 +1399,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             });
 
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-
-
+        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+            return;
+        }
+        auto obj =
+            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if(!obj)return;
 		SliceDockWidget->show();
-		auto obj =
-			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 		SliceWidget->SetOriginDataObject(obj);
         
         rendererWidget->getInteractor()->SetDataObject(obj);

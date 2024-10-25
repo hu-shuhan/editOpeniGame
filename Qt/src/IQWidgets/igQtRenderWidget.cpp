@@ -47,7 +47,9 @@ void igQtRenderWidget::ChangeInteractor(SmartPointer<Interactor> it) {
 }
 
 void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
-
+    if (!m_Scene || !m_Scene->GetCurrentModel()) {
+        return;
+    }
     switch (style) {
         case Interactor::BasicStyle:
             m_Interactor->RequestBasicStyle();
