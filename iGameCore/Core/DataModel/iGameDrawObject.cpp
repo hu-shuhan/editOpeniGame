@@ -314,7 +314,10 @@ void DrawObject::ReAllocateDisplayBuffer() {
 
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 
-IGsize DrawObject::GetRealMemorySize() { return 0; };
+IGsize DrawObject::GetRealMemorySize() {
+    IGsize res = this->DataObject::GetRealMemorySize();
+    return res; 
+};
 
 void DrawObject::SetVisibility(bool f) {
     // process display object

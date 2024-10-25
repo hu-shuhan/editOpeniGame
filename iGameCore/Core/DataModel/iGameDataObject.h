@@ -130,7 +130,17 @@ public:
 
     DataObject* FindParent();
     //Get real size of DataObject
-    virtual IGsize GetRealMemorySize() { return 0; };
+    virtual IGsize GetRealMemorySize() { 
+        IGsize res=0;
+        if (m_Attributes) res += m_Attributes->GetRealMemorySize();
+        if (this->HasSubDataObject()) {
+            for (auto it = m_SubDataObjectsHelper->Begin();
+                it != m_SubDataObjectsHelper->End(); ++it) {
+                res+=it->second->GetRealMemorySize();
+            }
+        }
+        return res;
+    };
 
 protected:
     DataObject() {

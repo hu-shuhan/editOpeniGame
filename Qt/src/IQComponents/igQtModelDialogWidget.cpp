@@ -188,9 +188,9 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, Ite
 
 	modelTreeWidget->addTopLevelItem(item);
 	modelTreeWidget->setCurrentItem(item);
-	updateCurrentModelInfo();
-    updateCurrentModelProperty(model.get());
 
+    updateCurrentModelProperty(model.get());
+	updateCurrentModelInfo();
 	return id;
 }
 

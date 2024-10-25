@@ -14,6 +14,45 @@ igQtModelInformationWidget::igQtModelInformationWidget(QWidget* parent) : QWidge
 	this->frameLayout = new QVBoxLayout(this->informationFrame);
 	mainLayout->addWidget(this->informationFrame);
 }
+
+void igQtModelInformationWidget::CreateDataObjectLayoutInfo(iGame::DataObject::Pointer obj)
+{
+	switch (obj->GetDataObjectType())
+	{
+	case IG_SURFACE_MESH:
+	{
+		auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
+		frameLayout->addWidget(createPropertyLabel("Type", "Surface Mesh"));
+		frameLayout->addWidget(createPropertyLabel("# of Faces", QString::number(mesh->GetNumberOfFaces())));
+		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
+	}break;
+	case IG_VOLUME_MESH:
+	{
+		auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
+		frameLayout->addWidget(createPropertyLabel("Type", "Volume Mesh"));
+		frameLayout->addWidget(createPropertyLabel("# of Volumes", QString::number(mesh->GetNumberOfVolumes())));
+		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
+	}break;
+	case IG_STRUCTURED_MESH:
+	{
+		auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
+		auto size = mesh->GetDimensionSize();
+		frameLayout->addWidget(createPropertyLabel("Type", "Structured Mesh"));
+		frameLayout->addWidget(createPropertyLabel("# of Dimesion X ", QString::number(size[0])));
+		frameLayout->addWidget(createPropertyLabel("# of Dimesion Y ", QString::number(size[1])));
+		frameLayout->addWidget(createPropertyLabel("# of Dimesion Z ", QString::number(size[2])));
+	}break;
+	case IG_UNSTRUCTURED_MESH:
+	{
+		auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
+		frameLayout->addWidget(createPropertyLabel("Type", "Unstructured Mesh"));
+		frameLayout->addWidget(createPropertyLabel("# of Cells", QString::number(mesh->GetNumberOfCells())));
+		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
+	}break;
+	default:
+		break;
+	}
+}
 void igQtModelInformationWidget::updateInformationFrame() {
 	while (QLayoutItem* item = frameLayout->takeAt(0)) {
 		if (QWidget* widget = item->widget()) {
@@ -69,41 +108,20 @@ void igQtModelInformationWidget::updateInformationFrame() {
 	// Data Statistics
 	frameLayout->addWidget(createLabel("Data Statistics"));
 	frameLayout->addWidget(createSeparator());
-	switch (obj->GetDataObjectType())
-	{
-	case IG_SURFACE_MESH:
-	{
-		auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
-		frameLayout->addWidget(createPropertyLabel("Type", "Surface Mesh"));
-		frameLayout->addWidget(createPropertyLabel("# of Faces", QString::number(mesh->GetNumberOfFaces())));
-		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
-	}break;
-	case IG_VOLUME_MESH:
-	{
-		auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
-		frameLayout->addWidget(createPropertyLabel("Type", "Volume Mesh"));
-		frameLayout->addWidget(createPropertyLabel("# of Volumes", QString::number(mesh->GetNumberOfVolumes())));
-		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
-	}break;
-	case IG_STRUCTURED_MESH:
-	{
-		auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
-		auto size = mesh->GetDimensionSize();
-		frameLayout->addWidget(createPropertyLabel("Type", "Structured Mesh"));
-		frameLayout->addWidget(createPropertyLabel("# of Dimesion X ", QString::number(size[0])));
-		frameLayout->addWidget(createPropertyLabel("# of Dimesion Y ", QString::number(size[1])));
-		frameLayout->addWidget(createPropertyLabel("# of Dimesion Z ", QString::number(size[2])));
-	}break;
-	case IG_UNSTRUCTURED_MESH:
-	{
-		auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-		frameLayout->addWidget(createPropertyLabel("Type", "Unstructured Mesh"));
-		frameLayout->addWidget(createPropertyLabel("# of Cells", QString::number(mesh->GetNumberOfCells())));
-		frameLayout->addWidget(createPropertyLabel("# of Points", QString::number(mesh->GetNumberOfPoints())));
-	}break;
-	default:
-		break;
+	if (obj->HasSubDataObject()) {
+		frameLayout->addWidget(createPropertyLabel("Type", "Multibolck Mesh"));
+		frameLayout->addWidget(createPropertyLabel("# of blocks", QString::number(obj->GetNumberOfSubDataObjects())));
+		//int index=0;
+		//for (auto it = obj->SubDataObjectIteratorBegin(); it!=obj->SubDataObjectIteratorEnd(); it++) {
+		//	auto child=it->second;
+		//	frameLayout->addWidget(createPropertyLabel("block ", QString::number(index++)));
+		//	CreateDataObjectLayoutInfo(child);
+		//}
 	}
+	else {
+		CreateDataObjectLayoutInfo(obj);
+	}
+	
 	IGsize memorySize = obj->GetRealMemorySize();
 	QString dw[5] = { "B","KB","MB","GB","TB" };
 	igIndex index = 0;

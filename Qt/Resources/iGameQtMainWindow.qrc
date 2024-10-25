@@ -107,6 +107,7 @@
         <file>Icons/orthographic.svg</file>
         <file>Icons/Slice.svg</file>
         <file>Icons/Deformation.svg</file>
+        <file>Icons/contourline.svg</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>
@@ -119,5 +120,6 @@
         <file>UI/ScalarView.ui</file>
         <file>UI/Animation.ui</file>
         <file>UI/igStreamTracer.ui</file>
+        <file>Icons/chart.svg</file>
     </qresource>
 </RCC>
