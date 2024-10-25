@@ -19,6 +19,7 @@ layout(std140, binding = 1) uniform ObjectDataBLock {
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
     bool useColor;
+    bool useNormalSmooth;
 } ubo;
 
 layout(location = 0) in vec3 in_Position;
@@ -91,7 +92,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 void main()
 {
     //    vec3 N = normalize(in_Normal);
-    vec3 N = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    vec3 N = vec3(0.0, 0.0, 0.0);
+    if (ubo.useNormalSmooth) {
+        // continuous patch
+        N = normalize(in_Normal);
+    } else {
+        // discrete patch
+        N = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    }
     vec3 V = normalize(cameraData.viewPos - in_Position);
 
     // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0 

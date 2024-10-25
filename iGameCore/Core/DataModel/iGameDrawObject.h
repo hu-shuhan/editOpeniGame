@@ -36,6 +36,7 @@ public:
     IGsize GetRealMemorySize() override;
 
     bool IsUseColor() { return m_UseColor; }
+    bool HasNormalData() { return m_Normals->GetNumberOfValues() != 0; }
 
     void SetVisibility(bool f);
     bool GetVisibility();

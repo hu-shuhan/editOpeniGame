@@ -190,7 +190,7 @@ void Scene::ResetCenter() {
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-    
+
     m_ModelMatrix = m_ModelRotate;
     m_Camera->SetCameraPos(center.x, center.y, center.z + 2.0f * radius);
     m_Camera->SetCameraFocal(center);
@@ -1037,6 +1037,7 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
     auto drawObject = DynamicCast<DrawObject>(obj);
 
     m_UBO.useColor = drawObject->IsUseColor();
+    m_UBO.useNormalSmooth = drawObject->HasNormalData();
 
     // update other ubo
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
