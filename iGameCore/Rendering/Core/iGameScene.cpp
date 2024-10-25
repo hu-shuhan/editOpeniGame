@@ -1037,7 +1037,7 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
     auto drawObject = DynamicCast<DrawObject>(obj);
 
     m_UBO.useColor = drawObject->IsUseColor();
-    m_UBO.useNormalSmooth = drawObject->HasNormalData();
+    m_UBO.useNormalSmooth = drawObject->IsUseNormalSmooth();
 
     // update other ubo
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);

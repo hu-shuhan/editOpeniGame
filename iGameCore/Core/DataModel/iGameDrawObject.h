@@ -36,7 +36,14 @@ public:
     IGsize GetRealMemorySize() override;
 
     bool IsUseColor() { return m_UseColor; }
-    bool HasNormalData() { return m_Normals->GetNumberOfValues() != 0; }
+    bool IsUseNormalSmooth() {
+        if (m_UseNormalSmooth && m_Normals->GetNumberOfValues() == 0) {
+            std::cout << "You have enabled normal smoothing, but have not "
+                         "provided normals."
+                      << std::endl;
+        }
+        return m_UseNormalSmooth;
+    }
 
     void SetVisibility(bool f);
     bool GetVisibility();
@@ -117,6 +124,7 @@ protected:
 
     bool m_Flag{true};
     bool m_UseColor{false};
+    bool m_UseNormalSmooth{false};
     bool m_ColorWithCell{false};
     int m_PointSize{8};
     int m_LineWidth{1};
