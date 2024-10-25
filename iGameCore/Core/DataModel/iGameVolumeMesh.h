@@ -7,6 +7,7 @@
 #include "iGamePrism.h"
 #include "iGamePyramid.h"
 #include "iGameTetra.h"
+#include "iGamePolyhedron.h"
 
 IGAME_NAMESPACE_BEGIN
 class VolumeMesh : public SurfaceMesh {
@@ -335,6 +336,7 @@ private:
             m_Prism{}; // Used for the returned 'Prism' object, which is Thread-Unsafe
     Pyramid::Pointer
             m_Pyramid{}; // Used for the returned 'Pyramid' object, which is Thread-Unsafe
+    Polyhedron::Pointer m_Polyhedron{};
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
@@ -345,7 +347,7 @@ public:
     //                               igIndex i = -1) override;
 
     void SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                  std::pair<float, float>& range,
+                                  DoubleArray::Pointer attrRange,
                                   igIndex dimension = -1) override;
 };
 IGAME_NAMESPACE_END

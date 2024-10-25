@@ -1,8 +1,8 @@
 ﻿#ifndef iGameType_h
 #define iGameType_h
 
-#include <vtkkwiml/abi.h>
 #include <stdint.h>
+#include <vtkkwiml/abi.h>
 #define IGAME_SIZEOF_CHAR KWIML_ABI_SIZEOF_CHAR
 #define IGAME_SIZEOF_SHORT KWIML_ABI_SIZEOF_SHORT
 #define IGAME_SIZEOF_INT KWIML_ABI_SIZEOF_INT
@@ -32,6 +32,7 @@ enum {
     IG_UNSTRUCTURED_MESH,
     IG_STRUCTURED_MESH,
     IG_MULTIBLOCK_MESH,
+    IG_NURBS_GEOMETRY,
     IG_DATA_OBJECT_COUNT,
 };
 
@@ -75,6 +76,7 @@ enum AttributeType {
     IG_NORMAL,
     IG_TCOORD,
     IG_TENSOR,
+    IG_RGB,
     IG_ATTRIBUTE_COUNT,
 };
 

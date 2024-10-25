@@ -5,9 +5,10 @@
 
 #pragma once
 
+#include "NurbsSDK/MultiGeo.h"
+#include "iGameNurbsGeometry.h"
 #include <iGameXMLFileReader.h>
 
-class MultiGeo;
 IGAME_NAMESPACE_BEGIN
 class NurbsReader : public iGameXMLFileReader {
 public:
@@ -20,15 +21,17 @@ public:
     static Pointer New() { return new NurbsReader; }
 
 public:
-    void SetNurbsType(int type) { m_nurbs_type = type; }
+    void SetNurbsType(int type) { m_NurbsType = type; }
 
 protected:
     /* 0 : Curve
      * 1 : Surface
      * 2 : Volume
      * */
-    int m_nurbs_type{0};
-    //MultiGeo* m_Geometry{nullptr};
+    int m_NurbsType{0};
+    std::vector<NurbsSDK::Geometry> m_Patchs;
+    std::vector<std::array<int, 2>> m_Boundary;
+
     NurbsReader() {
         SetNumberOfOutputs(1);
         SetNumberOfInputs(0);

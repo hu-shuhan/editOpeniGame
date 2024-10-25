@@ -66,85 +66,6 @@ bool iGame::iGamePVDReader::Parsing() {
         m_data_object->SetAttributeSet(attributeSet);
         std::string fileName, fileSuffix;
 
-        int times = 200;
-//        long long cost = 0LL;
-//        for(int ttt =  0; ttt < times ; ttt ++){
-//            auto t2 = std::chrono::steady_clock::now();
-//            DataObject::Pointer  newObj;
-//            for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
-//
-//                fileName = firstFrame.SubFileNames->GetElement(i);
-//                const char* pos = strrchr(fileName.data(), '.');
-//                if (pos != nullptr) {
-//                    const char *fileEnd = fileName.data() + fileName.size();
-//                    fileSuffix = std::string(pos + 1, fileEnd);
-//                }
-//                if(fileSuffix == "vts"){
-//                    iGameVTSReader::Pointer rd = iGameVTSReader::New();
-//                    rd->SetFilePath(fileName);
-//                    rd->Execute();
-//                    newObj = rd->GetOutput();
-//                }
-//                else if(fileSuffix == "vtu"){
-//                    iGameVTUReader::Pointer rd = iGameVTUReader::New();
-//                    rd->SetFilePath(fileName);
-//                    rd->Execute();
-//                    newObj = rd->GetOutput();
-//                } else if(fileSuffix == "pvd"){
-//                    iGamePVDReader::Pointer rd = iGamePVDReader::New();
-//                    rd->SetFilePath(fileName);
-//                    rd->Execute();
-//                    newObj = rd->GetOutput();
-//                }
-////            m_data_object->AddSubDataObject(newObj);
-//            }
-//            auto t3 = std::chrono::steady_clock::now();
-//            cost += std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
-//        }
-//        std::cout << "test times : " << times << " average Read subFiles cost : "<<  cost / times << " ms\n";
-
-
-//        long long cost = 0LL;
-//        for(int ttt =  0; ttt < times ; ttt ++){
-//            auto t2 = std::chrono::steady_clock::now();
-//            std::vector<std::future<DataObject::Pointer>> readTaskList;
-//            for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
-//                readTaskList.emplace_back(ThreadPool::Instance()->Commit([](const std::string& fileName){
-//                    DataObject::Pointer newObj;
-//                    const char* pos = strrchr(fileName.data(), '.');
-//                    std::string fileSuffix;
-//                    const char *fileEnd = fileName.data() + fileName.size();
-//                    fileSuffix = std::string(pos + 1, fileEnd);
-//                    if(fileSuffix == "vts"){
-//                        iGameVTSReader::Pointer rd = iGameVTSReader::New();
-//                        rd->SetFilePath(fileName);
-//                        rd->Execute();
-//                        newObj = rd->GetOutput();
-//                    }
-//                    else if(fileSuffix == "vtu"){
-//                        iGameVTUReader::Pointer rd = iGameVTUReader::New();
-//                        rd->SetFilePath(fileName);
-//                        rd->Execute();
-//                        newObj = rd->GetOutput();
-//                    } else if(fileSuffix == "pvd"){
-//                        iGamePVDReader::Pointer rd = iGamePVDReader::New();
-//                        rd->SetFilePath(fileName);
-//                        rd->Execute();
-//                        newObj = rd->GetOutput();
-//                    }
-//                    return newObj;
-//                }, firstFrame.SubFileNames->GetElement(i)));
-//            }
-//
-//            for(auto& task : readTaskList){
-//                task.get();
-////                m_data_object->AddSubDataObject(task.get());
-//            }
-//            auto t3 = std::chrono::steady_clock::now();
-//            cost += std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
-//        }
-//        std::cout << "test times : " << times << " average Read subFiles cost : "<<  cost / times << " ms\n";
-
         auto t2 = std::chrono::steady_clock::now();
         std::vector<std::future<DataObject::Pointer>> readTaskList;
         for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
@@ -183,44 +104,49 @@ bool iGame::iGamePVDReader::Parsing() {
 //        iGame::ThreadPool::Instance()->Commit()
         /* Reset DataObject's scalar range. */
         auto subScalarPointer = m_data_object->GetAttributeSet()->GetAllAttributes();
-        bool scalar_exist_0 = false;
-        if(subScalarPointer != nullptr && subScalarPointer->GetNumberOfElements()) scalar_exist_0 = true;
-        bool scalar_exist_1 = (m_data_object->HasSubDataObject() && m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet());
+
+        /* DataObject itself have */
+        bool scalar_exist = (m_data_object->HasSubDataObject() && m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet());
         /* Model's scalar num is determined by the dataObject and its subDataObject 's scalar num. */
-        if(scalar_exist_0 || scalar_exist_1){
+        if(scalar_exist){
 
-            IGsize scalarNum = scalar_exist_0 ? subScalarPointer->GetNumberOfElements() :  m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
-
-            float range_max, range_min;
+            IGsize scalarNum = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
+            double dataRange_max[64], dataRange_min[64];
             for(IGsize k = 0; k < scalarNum; k ++)
             {
                 /*If false, means the scalar is point scalar, otherwise, the scalar is cell scalar.*/
                 auto attribute = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute(k);
-                int scalar_type = IG_CELL;
-                FloatArray::Pointer array = FloatArray::New();
+                int dim = attribute.pointer->GetDimension();
+                int scalar_type = attribute.attachmentType;
+                DoubleArray::Pointer array = DoubleArray::New();
                 array->SetName(attribute.pointer->GetName());
-                array->SetDimension(attribute.pointer->GetDimension());
-                range_max = FLT_MIN;
-                range_min = FLT_MAX;
-                if(scalar_exist_0){
-                    const auto& ScalarDataRange = m_data_object->GetAttributeSet()->GetAttribute(k).dataRange;
-                    range_min = std::min(range_min, ScalarDataRange.first );
-                    range_max = std::max(range_max, ScalarDataRange.second);
-                }
+                array->SetDimension(dim);
+                std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
+                std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
 
-                if(scalar_exist_1){
-                    for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
-                        const auto& ScalarDataRange = it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-                        range_min = std::min(range_min, ScalarDataRange.first );
-                        range_max = std::max(range_max, ScalarDataRange.second);
-                    }
-                    for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
-                        auto& ScalarDataRange = it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-                        ScalarDataRange.first  = range_min;
-                        ScalarDataRange.second = range_max;
+                /* Get ALL SubBlock's dataRange to Calc Parent dataObject's dataRange, then update the subDataObject's Range. */
+                for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
+                    auto& attr = it->second->GetAttributeSet()->GetAttribute(k);
+                    attr.updateAllDataRange();
+                    const auto& ScalarDataRange = attr.GetDataRange();
+                    for(int j = 0; j < dim + 1; j ++){
+                        dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
+                        dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
                     }
                 }
-                m_data_object->GetAttributeSet()->AddScalar(scalar_type, array, {range_min, range_max});
+                /* Init DataRange Flat Array. */
+                DoubleArray::Pointer parent_dataRange = DoubleArray::New();
+                parent_dataRange->SetDimension(2);
+                parent_dataRange->Resize(dim + 1);
+                for(int j = 0; j < dim + 1; j ++){
+                    parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
+                }
+                m_data_object->GetAttributeSet()->AddScalar(scalar_type, array, parent_dataRange);
+
+                /* Update All SubData's DataRange. */
+                for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
+                    it->second->GetAttributeSet()->GetAttribute(k).dataRange = parent_dataRange;
+                }
             }
         }
 

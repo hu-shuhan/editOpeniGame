@@ -66,6 +66,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_EditMode->hide();
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
+    ui->dockWidget_ContourExtract->hide();
     // Setup default GUI layout.
     this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
@@ -524,27 +525,26 @@ void igQtMainWindow::initAllFilters() {
                                                           ItemSource::File);
             });
 
-    auto action_subdivision = ui->menuTest->addAction("Subdivision");
+    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
     connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-        /*	auto filter = HexhedronSubdivision::New();
-						VolumeMesh::Pointer mesh =
-		   DynamicCast<VolumeMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());*/
-        // auto filter = QuadSubdivision::New();
-        // SurfaceMesh::Pointer mesh = DynamicCast<SurfaceMesh>(
-        //     rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        // filter->SetMesh(mesh);
-        // filter->Execute();
-        // auto ControlPoints = filter->GetOutput();
-        // ControlPoints->SetName("ControlPoints");
-
-        // modelTreeWidget->addDataObjectToModelTree(ControlPoints,
-        // ItemSource::File);
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        std::cout << obj->GetName() << "KB\n";
-        // MyTestFilter::Pointer aaa = MyTestFilter::New();
-        // aaa->SetMesh(obj);
-        // aaa->Execute();
+        auto input = rendererWidget->GetScene()
+            ->GetCurrentModel()
+            ->GetDataObject();
+        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
+        auto attributeset=input->GetAttributeSet();
+        double rgb[3]={0,0,0};
+        int fcnt= mesh->GetNumberOfFaces();
+        auto array = DoubleArray::New();
+        array->SetDimension(3);
+        array->Reserve(fcnt);
+        array->SetName("rgb");
+        for (int i = 0; i < fcnt; i++) {
+            rgb[1]=double(i)/double(fcnt);
+            array->AddElement(rgb);
+        }
+        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
+        modelTreeWidget->addDataObjectToModelTree(mesh,
+            ItemSource::File);
     });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
@@ -915,13 +915,28 @@ void igQtMainWindow::initAllFilters() {
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
-            auto filter=ModelClip::New();
-            auto pointData= obj->GetAttributeSet()->GetAllPointAttributes();
-            filter->SetIsoScalarData(pointData->GetElement(0).pointer,0.58,0);
-			filter->SetInput(0, obj);
-			filter->Execute();
-			modelTreeWidget->addDataObjectToModelTree(
-				filter->GetOutput(), ItemSource::Algorithm);
+         auto mesh=DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+         //mesh->RequestEditStatus();
+         auto res=SurfaceMesh::New();
+         auto res_points=Points::New();
+         auto res_faces=CellArray::New();
+ auto faces=mesh->GetFaces();
+ int vhs[512]={0};
+ int vcnt=0;
+ int index=0;
+ for (int i = 0; i < faces->GetNumberOfCells(); i++) {
+   vcnt= faces->GetCellIds(i,vhs);
+   for (int j = 2; j < vcnt; j++) {
+       res_points->AddPoint(mesh->GetPoint(vhs[0]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j-1]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j]));
+       res_faces->AddCellId3(index++,index++,index++);
+   }
+ }
+ res->SetPoints(res_points);
+ res->SetFaces(res_faces);
+ modelTreeWidget->addDataObjectToModelTree(
+     res, ItemSource::Algorithm);
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
@@ -1050,6 +1065,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool
+         checked) { 
+            ui->dockWidget_ContourExtract->show();
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if(!scene)return;
+            auto CurrentModel = scene->GetCurrentModel();
+            if(!CurrentModel)return;
+            auto dataObject = CurrentModel->GetDataObject();
+            if(!dataObject)return;
+            ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+        	});
 
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
                                        Painter3D* painter,
@@ -1524,7 +1550,14 @@ void igQtMainWindow::initAllMySignalConnections() {
 			// ItemSource::Algorithm);
 		});
 
-
+    connect(ui->widget_ContourExtract,&igQtContourExtractWidget::DrawContourModel,this,
+        [&](iGame::DataObject::Pointer res) {
+             modelTreeWidget->addDataObjectToModelTree(res,ItemSource::Algorithm);
+        });
+    connect(ui->widget_ContourExtract, &igQtContourExtractWidget::UpdateContourModel, this,
+        [&](DataObject::Pointer mesh) {
+            rendererWidget->update();
+        });
     // reset clipping
     connect(ui->action_ResetClipping, &QAction::triggered, this,
             [&](bool checked) {

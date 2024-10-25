@@ -14,6 +14,8 @@
 #include "GPSpline/GPSplinePatchSurface.h"
 
 #include "iGameSurfaceMesh.h"
+//#include "iGameStructuredMesh.h"
+//#include "iGameUnstructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -24,6 +26,7 @@ bool SplineSurfaceReader::Execute() {
 
 bool SplineSurfaceReader::Parsing() {
     SurfaceMesh::Pointer output = SurfaceMesh::New();
+//    UnstructuredMesh::Pointer output = iGame::UnstructuredMesh::New();
     m_Output = output;
     SetOutput(0, m_Output);
 
@@ -44,7 +47,6 @@ bool SplineSurfaceReader::Parsing() {
     scalarArray->SetDimension(3);
     scalarArray->SetName("scalar3");
     output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, scalarArray);
-
     CellArray::Pointer faces = CellArray::New();
     output->SetFaces(faces);
 //    int64_t surface_num = SurfaceHelper.getSurfaces().size();
@@ -68,8 +70,52 @@ bool SplineSurfaceReader::Parsing() {
                                        scalar[i][(p * 5 + q) * 64 * 3 + j * 3 + 2] };
                     scalarArray->AddElement(value);
                 }
+
+
                 for (auto j = 0; j < 7; j++) {
                     for (auto k = 0; k < 7; k++) {
+                        if (j == 0) {
+                            if (k == 0) {
+                                output->AddEdge(face[j][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1], face[j + 1][k]);
+                                output->AddEdge(face[j][k], face[j + 1][k]);
+                                //output->AddEdge(face[j + 1][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1],
+                                                face[j + 1][k + 1]);
+                                output->AddEdge(face[j + 1][k + 1],
+                                                face[j + 1][k]);
+                            } else {
+                                output->AddEdge(face[j][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1], face[j + 1][k]);
+                                //output->AddEdge(face[j][k], face[j + 1][k]);
+                                //output->AddEdge(face[j + 1][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1],
+                                                face[j + 1][k + 1]);
+                                output->AddEdge(face[j + 1][k + 1],
+                                                face[j + 1][k]);
+                            }
+                        } else {
+                            if (k == 0) {
+                                //output->AddEdge(face[j][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1], face[j + 1][k]);
+                                output->AddEdge(face[j][k], face[j + 1][k]);
+                                //output->AddEdge(face[j + 1][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1],
+                                                face[j + 1][k + 1]);
+                                output->AddEdge(face[j + 1][k + 1],
+                                                face[j + 1][k]);
+                            } else {
+                                //output->AddEdge(face[j][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1], face[j + 1][k]);
+                                //output->AddEdge(face[j][k], face[j + 1][k]);
+                                //output->AddEdge(face[j + 1][k], face[j][k + 1]);
+                                output->AddEdge(face[j][k + 1],
+                                                face[j + 1][k + 1]);
+                                output->AddEdge(face[j + 1][k + 1],
+                                                face[j + 1][k]);
+                            }
+                        }
+
                         faces->AddCellId3(face[j][k], face[j][k + 1], face[j + 1][k]);
                         faces->AddCellId3(face[j + 1][k], face[j][k + 1], face[j + 1][k + 1]);
                     }
@@ -77,7 +123,6 @@ bool SplineSurfaceReader::Parsing() {
             }
         }
     }
-
     return true;
 }
 

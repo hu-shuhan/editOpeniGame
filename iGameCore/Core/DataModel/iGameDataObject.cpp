@@ -17,7 +17,6 @@ DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
 
 DataObject::Pointer DataObject::GetSubDataObject(DataObjectId id) {
     if (m_SubDataObjectsHelper == nullptr) { return nullptr; }
-
     return m_SubDataObjectsHelper->GetSubDataObject(id);
 }
 
@@ -28,8 +27,20 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
 
+
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
+
+        /* Update SubDataObject's DataRange to Global DataRange. */
+        auto attributes = this->GetAttributeSet()->GetAllAttributes();
+        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+            auto& par = attributes->GetElement(i);
+            if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
+                par.updateAllDataRange();
+            }
+            auto& sub = obj->GetAttributeSet()->GetAttribute(i);
+            sub.dataRange = par.GetDataRange();
+        }
         drawObject->ConvertToDrawableData();
     }
 
