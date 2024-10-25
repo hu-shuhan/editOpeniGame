@@ -53,9 +53,8 @@ void BasicStyle::WheelEvent(IEvent _event) {
     } else {
         wheelMoveDirection = -1.0f;
     }
-    
-    auto dist =
-            (m_Camera->GetCameraPos() - m_Camera->GetCameraFocal()).length();
+
+    auto dist = m_Camera->GetLengthToFocal();
     m_CameraScaleSpeed = dist * 0.1f;
 
     auto moveSize =

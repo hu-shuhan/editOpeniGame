@@ -177,7 +177,7 @@ public:
     CameraType GetCameraType() const { return m_CameraType; }
 
     igm::mat4 GetViewMatrix() {
-        return igm::lookAtRH(m_Position, m_Position + m_Front, m_Up);
+        return igm::lookAtRH(m_Position, m_Focal, m_Up);
     }
 
     igm::mat4 GetProjectionMatrix() override {
@@ -185,14 +185,12 @@ public:
             return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
                                          aspect<float>(), nearPlane);
         } else if (m_CameraType == ORTHOGRAPHIC) {
-            float orthoHeight = GetLengthToFocal() * 0.5f;
+            float dist = GetLengthToFocal();
+            float orthoHeight = dist * 0.5f;
             float orthoWidth = orthoHeight * aspect<float>();
-            float dist = (m_Focal - m_Position).length();
 
-            return igm::orthoRH_OZ(
-                    m_Focal.x - orthoWidth, m_Focal.x + orthoWidth,
-                    m_Focal.y - orthoHeight, m_Focal.y + orthoHeight,
-                    m_Focal.z - dist * 100.0f, m_Focal.z + dist * 100.0f);
+            return igm::orthoRH_OZ(-orthoWidth, orthoWidth, -orthoHeight,
+                                   orthoHeight, nearPlane, dist * 2);
         }
         return igm::mat4(1.0f);
     }

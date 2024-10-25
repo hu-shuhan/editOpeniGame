@@ -185,13 +185,14 @@ void Scene::ResetCenter() {
     //m_Camera->SetCameraPos(centerInWorld.x, centerInWorld.y,
     //                       centerInWorld.z + 2.0f * radius);
     //m_Camera->SetCameraFocal(centerInWorld);
-    //
+
     //std::cout << "centerInWorld: " << centerInWorld << std::endl;
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
-    m_ModelMatrix = m_ModelRotate;
+    m_ModelMatrix = igm::mat4{1.0f};
+    m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetCameraPos(center.x, center.y, center.z + 2.0f * radius);
     m_Camera->SetCameraFocal(center);
 }
@@ -1109,6 +1110,8 @@ void Scene::RefreshDrawCullDataBuffer() {
 }
 
 void Scene::lookAtPositiveX() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(90.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, -radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
@@ -1116,9 +1119,10 @@ void Scene::lookAtPositiveX() {
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtNegativeX() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(90.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f}) *
@@ -1126,18 +1130,20 @@ void Scene::lookAtNegativeX() {
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtPositiveY() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(90.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, -radians, igm::vec3{1.0f, 0.0f, 0.0f});
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtNegativeY() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(90.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
@@ -1145,25 +1151,27 @@ void Scene::lookAtNegativeY() {
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtPositiveZ() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(90.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, 2 * radians, igm::vec3{0.0f, 1.0f, 0.0f});
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtNegativeZ() {
-    auto matrix = igm::mat4{};
+    ResetCenter();
 
+    auto matrix = igm::mat4{};
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::lookAtIsometric() {
+    ResetCenter();
+
     auto radians = static_cast<float>(igm::radians(45.0f));
     auto matrix =
             igm::rotate(igm::mat4{}, radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
@@ -1171,7 +1179,6 @@ void Scene::lookAtIsometric() {
 
     m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
     m_ModelRotate = matrix;
-    ResetCenter();
 };
 void Scene::rotateNinetyClockwise() {
     auto rotateMatrix = igm::mat4{};
