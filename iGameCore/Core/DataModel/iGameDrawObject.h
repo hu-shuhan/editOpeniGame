@@ -36,6 +36,14 @@ public:
     IGsize GetRealMemorySize() override;
 
     bool IsUseColor() { return m_UseColor; }
+    bool IsUseNormalSmooth() {
+        if (m_UseNormalSmooth && m_Normals->GetNumberOfValues() == 0) {
+            std::cout << "You have enabled normal smoothing, but have not "
+                         "provided normals."
+                      << std::endl;
+        }
+        return m_UseNormalSmooth;
+    }
 
     void SetVisibility(bool f);
     bool GetVisibility();
@@ -52,8 +60,12 @@ public:
 
     void SetTransparency(float transparency);
     float GetTransparency();
+
     void SetPointSize(int size);
     int GetPointSize();
+
+    void SetLineWidth(int size);
+    int GetLineWidth();
 
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
@@ -112,6 +124,7 @@ protected:
 
     bool m_Flag{true};
     bool m_UseColor{false};
+    bool m_UseNormalSmooth{false};
     bool m_ColorWithCell{false};
     int m_PointSize{8};
     int m_LineWidth{1};

@@ -43,7 +43,8 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 void igQtVectorWidget::drawV() {
     
     m_VectorBase->SetArrow(headRadius*headRadiusP,headLength*headLengthP,tailRadius*tailRadiusP,tailLength*tailLengthP);
-    m_VectorBase->DrawVector(vecName);
+   bool check= m_VectorBase->DrawVector(vecName);
+    if (!check) { return; }
     if (!isDraw) {
         m_VectorBase->DataObject::SetName(masterName + "_Vector");
         isDraw = true;
