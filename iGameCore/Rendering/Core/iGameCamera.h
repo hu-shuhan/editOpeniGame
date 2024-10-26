@@ -60,14 +60,14 @@ public:
     static Pointer New() { return new Viewer; }
 
 public:
-    void SetNearPlane(float _near) { nearPlane = _near; }
-    float GetNearPlane() { return nearPlane; }
+    void SetNearPlane(float nearz) { m_NearZ = nearz; }
+    float GetNearPlane() { return m_NearZ; }
 
-    void SetFarPlane(float _far) { farPlane = _far; }
-    float GetFarPlane() { return farPlane; }
+    void SetFarPlane(float farz) { m_FarZ = farz; }
+    float GetFarPlane() { return m_FarZ; }
 
-    void SetFOV(float _fov) { fov = _fov; }
-    float GetFOV() const { return fov; }
+    void SetFov(float fov) { m_Fov = fov; }
+    float GetFov() const { return m_Fov; }
 
     /** Depth Map Visualization:
     *          -far           -near              near            far
@@ -82,8 +82,8 @@ public:
 
     // depth range: 0.0(near plane) -> 1.0(far plane)
     virtual igm::mat4 GetProjectionMatrix() {
-        return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(fov)),
-                                     aspect<float>(), nearPlane, farPlane);
+        return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
+                                     aspect<float>(), m_NearZ, m_FarZ);
     };
 
     /** Depth Map Visualization:
@@ -103,9 +103,9 @@ public:
     //}
 
 protected:
-    float fov = 45.0f;
-    float nearPlane = 0.01f;
-    float farPlane = 100.0f;
+    float m_Fov = 45.0f;
+    float m_NearZ = 0.01f;
+    float m_FarZ = 1000.01f;
 
 protected:
     Viewer() = default;
@@ -182,15 +182,16 @@ public:
 
     igm::mat4 GetProjectionMatrix() override {
         if (m_CameraType == PERSPECTIVE) {
-            return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
-                                         aspect<float>(), nearPlane);
+            return igm::perspectiveRH_OZ(
+                    static_cast<float>(igm::radians(m_Fov)), aspect<float>(),
+                    m_NearZ);
         } else if (m_CameraType == ORTHOGRAPHIC) {
             float dist = GetLengthToFocal();
             float orthoHeight = dist * 0.5f;
             float orthoWidth = orthoHeight * aspect<float>();
 
             return igm::orthoRH_OZ(-orthoWidth, orthoWidth, -orthoHeight,
-                                   orthoHeight, nearPlane, dist * 2);
+                                   orthoHeight, m_NearZ, m_FarZ);
         }
         return igm::mat4(1.0f);
     }

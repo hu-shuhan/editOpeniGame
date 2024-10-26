@@ -1112,104 +1112,139 @@ void Scene::RefreshDrawCullDataBuffer() {
 void Scene::lookAtPositiveX() {
     ResetCenter();
 
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
+
     auto radians = static_cast<float>(igm::radians(90.0f));
-    auto matrix =
+    auto rotate =
             igm::rotate(igm::mat4{}, -radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
             igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtNegativeX() {
     ResetCenter();
 
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
+
     auto radians = static_cast<float>(igm::radians(90.0f));
-    auto matrix =
+    auto rotate =
             igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f}) *
             igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 1.0f, 0.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtPositiveY() {
     ResetCenter();
 
-    auto radians = static_cast<float>(igm::radians(90.0f));
-    auto matrix =
-            igm::rotate(igm::mat4{}, -radians, igm::vec3{1.0f, 0.0f, 0.0f});
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    auto radians = static_cast<float>(igm::radians(90.0f));
+    auto rotate =
+            igm::rotate(igm::mat4{}, -radians, igm::vec3{1.0f, 0.0f, 0.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtNegativeY() {
     ResetCenter();
 
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
+
     auto radians = static_cast<float>(igm::radians(90.0f));
-    auto matrix =
+    auto rotate =
             igm::rotate(igm::mat4{}, radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
             igm::rotate(igm::mat4{}, 2 * radians, igm::vec3{0.0f, 1.0f, 0.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtPositiveZ() {
     ResetCenter();
 
-    auto radians = static_cast<float>(igm::radians(90.0f));
-    auto matrix =
-            igm::rotate(igm::mat4{}, 2 * radians, igm::vec3{0.0f, 1.0f, 0.0f});
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    auto radians = static_cast<float>(igm::radians(90.0f));
+    auto rotate =
+            igm::rotate(igm::mat4{}, 2 * radians, igm::vec3{0.0f, 1.0f, 0.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtNegativeZ() {
     ResetCenter();
 
-    auto matrix = igm::mat4{};
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
+
+    auto rotate = igm::mat4{};
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::lookAtIsometric() {
     ResetCenter();
 
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
+
     auto radians = static_cast<float>(igm::radians(45.0f));
-    auto matrix =
+    auto rotate =
             igm::rotate(igm::mat4{}, radians, igm::vec3{1.0f, 0.0f, 0.0f}) *
             igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 1.0f, 0.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = matrix * m_ModelRotate.invert() * m_ModelMatrix;
-    m_ModelRotate = matrix;
-};
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 void Scene::rotateNinetyClockwise() {
-    auto rotateMatrix = igm::mat4{};
-    auto radians = static_cast<float>(igm::radians(90.0f));
-    rotateMatrix =
-            igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
-
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-    igm::mat4 rotate = translateBack * rotateMatrix * translateToOrigin;
 
-    m_ModelMatrix = rotate * (m_ModelMatrix);
-    m_ModelRotate = rotateMatrix * (m_ModelRotate);
-};
-void Scene::rotateNinetyCounterClockwise() {
-    auto rotateMatrix = igm::mat4{};
     auto radians = static_cast<float>(igm::radians(90.0f));
-    rotateMatrix =
+    auto rotate =
+            igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
+void Scene::rotateNinetyCounterClockwise() {
+    igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+    igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
+    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
+    igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
+
+    auto radians = static_cast<float>(igm::radians(90.0f));
+    auto rotate =
             igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
 
-    igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-    igm::mat4 rotate = translateBack * rotateMatrix * translateToOrigin;
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = rotate * (m_ModelMatrix);
-    m_ModelRotate = rotateMatrix * (m_ModelRotate);
-};
+    m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    m_ModelRotate = rotate * m_ModelRotate;
+}
 
 void Scene::UpdateModelsBoundingSphere() {
     // update all models bounding sphere
@@ -1230,6 +1265,10 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
+
+    // update camera setting
+    auto dist = (m_Camera->GetCameraPos() - center).length();
+    m_Camera->SetFarPlane(dist + radius);
 }
 
 void Scene::CalculateFrameRate() {
