@@ -1132,9 +1132,29 @@ void VolumeMesh::RequestVolumeStatus() {
 void VolumeMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() ||
         m_Clipper->GetMTime() > m_Positions->GetMTime()) {
-        m_Positions = m_Points->ConvertToArray();
-        m_Positions->Modified();
 
+
+        iGameModelGeometryFilter::Pointer extract =
+            iGameModelGeometryFilter::New();
+        // update clip status
+        auto box = m_Clipper->m_Box;
+        if (box.m_Use) {
+            const auto& a = box.m_Bmin;
+            const auto& b = box.m_Bmax;
+            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+        }
+
+        auto plane = m_Clipper->m_Plane;
+        if (plane.m_Use) {
+            extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip);
+        }
+        // shell algorithm
+        SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+        if (extract->Execute(this, surfaceMesh)) {
+            SetDisplayObject(surfaceMesh);
+            m_PointMap = extract->GetPointMap();
+        }
+        else {
         UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
         triangleIndices->SetDimension(3);
         UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
@@ -1221,6 +1241,7 @@ void VolumeMesh::ConvertToDrawableData() {
 
         m_LineIndices = edgeIndices;
         m_LineIndices->Modified();
+    }
     }
 
     // convert scalar data

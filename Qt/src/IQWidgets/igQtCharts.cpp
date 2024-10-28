@@ -22,7 +22,7 @@ igQtCharts::igQtCharts(QWidget* parent)
  * @brief   Draws a bar chart based on the provided data.
  * @param   data A vector of integers representing the values for the bar chart.
  */
-void igQtCharts::draw(iGame::ArrayObject::Pointer data) {
+void igQtCharts::drawBarChart(iGame::ArrayObject::Pointer data) {
     // 初始化最小值和最大值
     float minValue = std::numeric_limits<float>::max();
     float maxValue = std::numeric_limits<float>::lowest();

@@ -556,13 +556,7 @@ void igQtMainWindow::initAllFilters() {
                                  ->GetAttributeSet()
                                  ->GetAttribute(0)
                                  .pointer;
-        //auto dataarray=DoubleArray::New();
-        //dataarray->AddValue(1.0);
-        //dataarray->AddValue(2.0);
-        //dataarray->AddValue(13.0);
-        //dataarray->AddValue(4.0);
-        //dataarray->AddValue(6.0);
-        chart->draw(dataarray);
+        chart->drawBarChart(dataarray);
         chart->exec();
     });
     auto action_loadtest = ui->menu_help->addAction("loadtest");
@@ -1076,7 +1070,40 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             if(!dataObject)return;
             ui->widget_ContourExtract->SetOriginDataObject(dataObject);
         	});
-
+    connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool
+        checked) {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (!scene)return;
+            auto CurrentModel = scene->GetCurrentModel();
+            if (!CurrentModel)return;
+            auto dataObject = CurrentModel->GetDataObject();
+            if (!dataObject)return;
+            auto attributeSet=dataObject->GetAttributeSet();
+            auto attrIndex=dataObject->GetAttributeIndex();
+            auto attrDimension=dataObject->GetAttributeDimension();
+            if (attrIndex<0 ) {
+                return;
+            }
+            auto array= attributeSet->GetAttribute(attrIndex).pointer;
+            if(array==nullptr)return;
+            ArrayObject::Pointer drawArray=nullptr;
+            if (array->GetDimension() <= 1) {
+                drawArray= array;
+            }
+            else {
+                 auto tmpArray=FloatArray::New();
+                 int size= array->GetNumberOfElements();
+                 tmpArray->Reserve(size);
+                 tmpArray->SetName(array->GetName());
+                 for (int i = 0; i < size; i++) {
+                     tmpArray->AddValue(array->GetElementValue(i, attrDimension));
+                 }
+                 drawArray= tmpArray;
+            }
+            auto chart = new igQtCharts;
+            chart->drawBarChart(drawArray);
+            chart->exec();
+        });
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
                                        Painter3D* painter,
                                        const float color[3]) -> void {
@@ -1372,11 +1399,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             });
 
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-
-
+        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+            return;
+        }
+        auto obj =
+            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if(!obj)return;
 		SliceDockWidget->show();
-		auto obj =
-			rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 		SliceWidget->SetOriginDataObject(obj);
         
         rendererWidget->getInteractor()->SetDataObject(obj);
@@ -1398,6 +1427,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 		});
 	connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
 		[&](SurfaceMesh::Pointer mesh) {
+            modelTreeWidget->updateCurrentModelInfo();
 			rendererWidget->update();
 		});
 
@@ -1556,6 +1586,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         });
     connect(ui->widget_ContourExtract, &igQtContourExtractWidget::UpdateContourModel, this,
         [&](DataObject::Pointer mesh) {
+            modelTreeWidget->updateCurrentModelInfo();
             rendererWidget->update();
         });
     // reset clipping

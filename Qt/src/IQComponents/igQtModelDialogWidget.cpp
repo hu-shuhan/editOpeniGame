@@ -189,12 +189,12 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj,
     }
 
 
-    modelTreeWidget->addTopLevelItem(item);
-    modelTreeWidget->setCurrentItem(item);
-    updateCurrentModelInfo();
-    updateCurrentModelProperty(model.get());
+	modelTreeWidget->addTopLevelItem(item);
+	modelTreeWidget->setCurrentItem(item);
 
-    return id;
+    updateCurrentModelProperty(model.get());
+	updateCurrentModelInfo();
+	return id;
 }
 
 int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
@@ -211,8 +211,11 @@ int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
 }
 int igQtModelDialogWidget::updateCurrentModelInfo() {
     //    qDebug() << ui->modelTreeWidget->currentIndex();
+
     ui->ModelInformationWidget->updateInformationFrame();
     Q_EMIT CurrendModelChanged();
+
+
     return 1;
 }
 void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) {

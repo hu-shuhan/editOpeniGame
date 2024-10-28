@@ -53,9 +53,8 @@ void BasicStyle::WheelEvent(IEvent _event) {
     } else {
         wheelMoveDirection = -1.0f;
     }
-    
-    auto dist =
-            (m_Camera->GetCameraPos() - m_Camera->GetCameraFocal()).length();
+
+    auto dist = m_Camera->GetLengthToFocal();
     m_CameraScaleSpeed = dist * 0.1f;
 
     auto moveSize =
@@ -63,6 +62,7 @@ void BasicStyle::WheelEvent(IEvent _event) {
     auto oldPos = m_Camera->GetCameraPos();
     auto newPos = oldPos + igm::vec3{0.0f, 0.0f, moveSize};
     m_Camera->SetCameraPos(newPos);
+    m_Camera->SetFarPlane(dist + moveSize + m_Scene->ModelsBoundingSphere().w);
 
     UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
 };
@@ -99,14 +99,14 @@ void BasicStyle::ModelRotation() {
 
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-    igm::mat4 rotateMatrix = igm::rotate(
+    igm::mat4 rotate = igm::rotate(
             igm::mat4{}, static_cast<float>(igm::radians(angle)), axis);
 
-    igm::mat4 rotate = translateBack * rotateMatrix * translateToOrigin;
-    m_Scene->ModelMatrix() = rotate * (m_Scene->ModelMatrix());
+    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+    m_Scene->ModelMatrix() = rotateSelf * (m_Scene->ModelMatrix());
 
     // updated the rotation matrix of the origin
-    m_Scene->ModelRotate() = rotateMatrix * (m_Scene->ModelRotate());
+    m_Scene->ModelRotate() = rotate * (m_Scene->ModelRotate());
 }
 void BasicStyle::ViewTranslation() {
     if (m_Camera) {
@@ -180,13 +180,21 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     if (m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC) {
         // Step 1: Calculate the world size of one pixel
         float orthoHeight = m_Camera->GetLengthToFocal() * 0.5f;
-        float pixelSizeWorld = orthoHeight / viewportF.y;
+        float pixelSizeWorld =
+                orthoHeight / viewportF.y * m_Camera->GetDevicePixelRatio();
 
         // Step 2: Apply the pixel offset to the world coordinates
-        igm::vec3 pWorldCoord =
-                igm::vec3(center) + igm::vec3(0, pixelSizeWorld, 0);
+        m_CameraMoveSpeed = pixelSizeWorld;
 
-        m_CameraMoveSpeed = (pWorldCoord - igm::vec3(center)).length();
+        //// Step 1: Calculate the world size of one pixel
+        //float orthoHeight = m_Camera->GetLengthToFocal() * 0.5f;
+        //float pixelSizeWorld = orthoHeight / viewportF.y;
+        //
+        //// Step 2: Apply the pixel offset to the world coordinates
+        //igm::vec3 pWorldCoord =
+        //        igm::vec3(center) + igm::vec3(0, pixelSizeWorld, 0);
+        //
+        //m_CameraMoveSpeed = (pWorldCoord - igm::vec3(center)).length();
     } else if (m_Camera->GetCameraType() == Camera::PERSPECTIVE) {
         igm::mat4 model = m_Scene->ModelMatrix();
         igm::mat4 view = m_Camera->GetViewMatrix();
