@@ -36,7 +36,12 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 
     this->m_PointMap = nullptr;
 }
-iGameModelGeometryFilter::~iGameModelGeometryFilter() {}
+iGameModelGeometryFilter::~iGameModelGeometryFilter() {
+    this->m_PointMap = nullptr;
+    this->input=nullptr;
+    this->output=nullptr;
+    this->excFaces=nullptr;
+}
 void iGameModelGeometryFilter::SetExtent(double xMin, double xMax, double yMin,
                                          double yMax, double zMin, double zMax,
                                          bool flip) {
@@ -123,7 +128,13 @@ bool iGameModelGeometryFilter::Execute(DataObject::Pointer input) {
 
 bool iGameModelGeometryFilter::Execute(DataObject::Pointer input,
                                        SurfaceMesh::Pointer& output) {
-
+    if (!input) {
+        output=nullptr;
+        return false;
+    }
+    if (!output) {
+        output=SurfaceMesh::New();
+    }
     switch (input->GetDataObjectType()) {
         case IG_NONE:
             return true;
@@ -316,7 +327,7 @@ public:
         for (auto i = 0; i < this->NumberOfArrays; i++) {
             this->Arrays[i] = nullptr;
         }
-        // size the chunks based on the size of a quadrilateral
+        //用四边形初始化内存，防止频繁开空间
         int quadSize = SizeofFace(4);
         if (numberOfPoints < this->NumberOfArrays) {
             this->ArrayLength = 50 * quadSize;
@@ -386,52 +397,6 @@ public:
         return Face;
     }
 };
-class CellArrayType {
-private:
-    igIndex* PointMap;
-    const unsigned char* PointGhost;
-
-public:
-    // Make things a little more expressive
-    using IdListType = std::vector<igIndex>;
-    IdListType Cells;
-    IdListType OrigCellIds;
-
-    CellArrayType() : PointMap(nullptr), PointGhost(nullptr) {}
-
-    void SetPointsGhost(const unsigned char* pointGhost) {
-        this->PointGhost = pointGhost;
-    }
-    void SetPointMap(igIndex* ptMap) { this->PointMap = ptMap; }
-
-    igIndex GetNumberOfCells() {
-        return static_cast<igIndex>(this->OrigCellIds.size());
-    }
-    igIndex GetNumberOfConnEntries() {
-        return static_cast<igIndex>(this->Cells.size());
-    }
-    static constexpr unsigned char MASKED_POINT_VALUE = 2;
-
-    void InsertNextCell(igIndex npts, const igIndex* pts, igIndex cellId) {
-        if (this->PointGhost) {
-            for (auto i = 0; i < npts; ++i) {
-                if (this->PointGhost[pts[i]] & MASKED_POINT_VALUE) { return; }
-            }
-        }
-        this->Cells.emplace_back(npts);
-        if (!this->PointMap) {
-            for (auto i = 0; i < npts; ++i) {
-                this->Cells.emplace_back(static_cast<igIndex>(pts[i]));
-            }
-        } else {
-            for (auto i = 0; i < npts; ++i) {
-                this->Cells.emplace_back(static_cast<igIndex>(pts[i]));
-                this->PointMap[pts[i]] = 1;
-            }
-        }
-        this->OrigCellIds.emplace_back(static_cast<igIndex>(cellId));
-    }
-};
 class FaceHashMap {
 private:
     struct Bucket {
@@ -445,6 +410,9 @@ private:
 public:
     FaceHashMap(const size_t& size) : Size(size) {
         this->Buckets.resize(this->Size);
+    }
+    ~FaceHashMap() {
+        std::vector<Bucket>().swap(this->Buckets);
     }
     std::vector<Bucket>& GetBuckets() { return this->Buckets; }
     //插入面到池子中，如果已经存在就去除，如果不存在就加入
@@ -477,6 +445,9 @@ public:
         newF->OriginalCellId = f.OriginalCellId;
         newF->IsGhost = f.IsGhost;
         std::copy(f.PointIds, f.PointIds + f.GetSize(), newF->PointIds);
+        //for (int i = 0; i < f.GetSize(); i++) {
+        //    newF->PointIds[i]=f.PointIds[i];
+        //}
         if (bucketHead == nullptr) {
             bucketHead = newF;
         } else {
@@ -497,30 +468,7 @@ public:
             }
         }
     }
-    void PopulateCellArrays(std::vector<CellArrayType*>& threadedPolys) {
-        std::vector<GFace*> Faces;
-        for (auto& bucket: this->Buckets) {
-            if (bucket.Head != nullptr) {
-                auto current = bucket.Head;
-                while (current != nullptr) {
-                    if (!current->IsGhost) { Faces.push_back(current); }
-                    current = current->Next;
-                }
-            }
-        }
-        const igIndex numberOfThreads =
-                static_cast<igIndex>(threadedPolys.size());
-        const igIndex numberOfFaces = static_cast<igIndex>(Faces.size());
-        for (igIndex threadId = 0; threadId < numberOfThreads; ++threadId) {
-            igIndex begin = threadId * numberOfFaces / numberOfThreads;
-            igIndex end = (threadId + 1) * numberOfFaces / numberOfThreads;
-            for (igIndex i = begin; i < end; ++i) {
-                auto& f = Faces[i];
-                threadedPolys[threadId]->InsertNextCell(
-                        f->NumberOfPoints, f->PointIds, f->OriginalCellId);
-            }
-        }
-    }
+  
 };
 
 
@@ -529,12 +477,6 @@ struct ExtractCellBoundaries {
     const char* CellVis;
     const unsigned char* CellGhosts;
     const unsigned char* PointGhost;
-
-    igIndex PolysNumPts, PolysNumCells;
-    igIndex PolysCellIdOffset;
-    igIndex NumPts;
-    igIndex NumCells;
-    ExtractCellBoundaries* Extract;
 
 
     ExtractCellBoundaries(const char* cellVis, const unsigned char* cellGhosts,
@@ -589,8 +531,8 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(
         SurfaceMesh::Pointer exc) {
     clock_t time1 = clock();
     SurfaceMesh::Pointer Grid = DynamicCast<SurfaceMesh>(input);
-    igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-                         << Grid->GetNumberOfFaces() << " faces.");
+    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
+    //                     << Grid->GetNumberOfFaces() << " faces.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Grid->GetNumberOfFaces();
@@ -619,8 +561,6 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(
             f2c.emplace_back(i);
         }
     }
-
-
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
     for (i = 0; i < outAllDataArray->GetAllAttributes().GetPointer()->Size();
          i++) {
@@ -632,12 +572,12 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(
     output->SetAttributeSet(outAllDataArray);
     output->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
 
-    igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
-                         << output->GetNumberOfFaces() << " faces.");
+    //igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
+    //                     << output->GetNumberOfFaces() << " faces.");
     std::vector<igIndex> temp;
     f2c.swap(temp);
     clock_t time2 = clock();
-    igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+    //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;
 }
 
@@ -793,8 +733,8 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
         SurfaceMesh::Pointer exc) {
     clock_t time1 = clock();
     VolumeMesh::Pointer Grid = DynamicCast<VolumeMesh>(input);
-    igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-                         << Grid->GetNumberOfVolumes() << " volumes.");
+    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
+    //                     << Grid->GetNumberOfVolumes() << " volumes.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Grid->GetNumberOfVolumes();
@@ -815,16 +755,16 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 
     auto* extract = new ExtractVM(Grid, CellVisible, cellGhosts, pointGhosts,
                                   this->Merging, this->RemoveGhostInterfaces);
-    auto func = [&](igIndex start, igIndex end) -> void {
-        FaceMemoryPool* FacePool = new FaceMemoryPool;
-        FacePool->Initialize(Grid->GetNumberOfPoints());
-        extract->Execute(start, end, FacePool);
+    FaceMemoryPool** FacePools = new FaceMemoryPool * [this->MaxThreadSize];
+    std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+    auto func = [&](igIndex start, igIndex end, int i) -> void {
+        FacePools[i] = new FaceMemoryPool;
+        FacePools[i]->Initialize(Grid->GetNumberOfPoints());
+        extract->Execute(start, end, FacePools[i]);
     };
-    ThreadPool::parallelFor(0, numCells, func);
+    ThreadPool::parallelFor(0, numCells, MaxThreadSize, func, UseThreadSize);
 
     clock_t time_2 = clock();
-    igDebug("Extracted surface(not composite) cost " << time_2 - time1
-                                                     << "ms.");
 
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
@@ -841,13 +781,21 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
     output->SetAttributeSet(outAllDataArray);
     output->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
 
-    igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
-                         << output->GetNumberOfFaces() << " faces.");
+    //igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
+    //                     << output->GetNumberOfFaces() << " faces.");
     std::vector<igIndex> temp;
     f2c.swap(temp);
     delete extract;
+    for (int i = 0; i < MaxThreadSize; i++) {
+        if (FacePools[i]) {
+            delete FacePools[i];
+        }
+        else {
+            break;
+        }
+    }
     clock_t time2 = clock();
-    igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+    //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;
 }
 int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
@@ -1152,7 +1100,6 @@ struct ExtractUG : public ExtractCellBoundaries {
         this->Initialize();
     }
 
-    // Initialize thread data
     void Initialize() override { this->ExtractCellBoundaries::Initialize(); }
 
     void Execute(igIndex beginCellId, igIndex endCellId,
@@ -1171,23 +1118,22 @@ struct ExtractUG : public ExtractCellBoundaries {
                                 !this->RemoveGhostInterFaces)) {
                     continue;
                 }
-                // If the cell is visible process it
                 if (!this->CellVis || this->CellVis[cellId]) {
                     Grid->GetCellPointIds(cellId, pts);
                     ExtractCellGeometry(this->Grid, cellId, cellType, npts, pts,
                                         FacePool, FaceMap, isGhost);
-                } // if cell visible
+                }
             }
         }
-    } // operator()
+    } 
 };
 int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
         DataObject::Pointer input, SurfaceMesh::Pointer& output,
         SurfaceMesh::Pointer exc) {
     clock_t time1 = clock();
-    UnstructuredMesh* Grid = DynamicCast<UnstructuredMesh>(input);
-    igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-                         << Grid->GetNumberOfCells() << " cells.");
+    UnstructuredMesh::Pointer Grid = DynamicCast<UnstructuredMesh>(input);
+    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
+    //                     << Grid->GetNumberOfCells() << " cells.");
     bool is3D = false;
     for (int i = 0; i < Grid->GetNumberOfCells(); i++) {
         if (Cell::GetCellDimension(Grid->GetCellType(i)) >= 3) {
@@ -1211,28 +1157,27 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
     auto outPoints = inPoints;
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
-    StringArray::Pointer attrbNameArray = StringArray::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
     char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints,
                                                 Grid->GetCells());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
+
     auto* extract = new ExtractUG(Grid, CellVisible, cellGhosts, pointGhosts,
                                   this->Merging, this->RemoveGhostInterfaces);
-    auto func = [&](igIndex start, igIndex end) -> void {
-        FaceMemoryPool* FacePool = new FaceMemoryPool;
-        FacePool->Initialize(Grid->GetNumberOfPoints());
-        extract->Execute(start, end, FacePool);
-    };
-    ThreadPool::parallelFor(0, numCells, func);
-    clock_t time_2 = clock();
-    igDebug("Extracted surface(not composite) cost " << time_2 - time1
-                                                     << "ms.");
 
+    FaceMemoryPool** FacePools =new FaceMemoryPool *[this->MaxThreadSize];
+    std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+    auto func = [&](igIndex start, igIndex end,int i) -> void {
+        FacePools[i]= new FaceMemoryPool;
+        FacePools[i]->Initialize(Grid->GetNumberOfPoints());
+        extract->Execute(start, end, FacePools[i]);
+    };
+    ThreadPool::parallelFor(0, numCells,MaxThreadSize,func,UseThreadSize);
+    clock_t time_2 = clock();
     std::vector<igIndex> f2c;
     extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
-
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
     if (Merging) {
         ProcessPointMergin(extract, inPoints, outPoints, Polygons,
@@ -1244,14 +1189,21 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
     output->SetFaces(Polygons);
     output->SetAttributeSet(outAllDataArray);
     output->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
-
-    igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
-                         << output->GetNumberOfFaces() << " faces.");
+    //igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
+    //                     << output->GetNumberOfFaces() << " faces.");
     std::vector<igIndex> temp;
     f2c.swap(temp);
     delete extract;
+    for (int i = 0; i < MaxThreadSize; i++) {
+        if (FacePools[i]) {
+            delete FacePools[i];
+        }
+        else {
+            break;
+        }
+    }
     clock_t time2 = clock();
-    igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+    //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;
 }
 
@@ -1418,10 +1370,10 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
         DataObject::Pointer input, SurfaceMesh::Pointer& output,
         SurfaceMesh::Pointer exc, bool* extracFace) {
     clock_t time1 = clock();
-    StructuredMesh* Grid = DynamicCast<StructuredMesh>(input);
+    StructuredMesh::Pointer Grid = DynamicCast<StructuredMesh>(input);
     if (Grid->GetDimension() != 3) { return 0; }
-    igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-                         << Grid->GetNumberOfCells() << " cells.");
+    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
+    //                     << Grid->GetNumberOfCells() << " cells.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
     igIndex64 numCells = Grid->GetNumberOfCells();
@@ -1444,9 +1396,6 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
     extract->Execute();
     Polygons = extract->Quads;
     clock_t time_2 = clock();
-    igDebug("Extracted surface(not composite) cost " << time_2 - time1
-                                                     << "ms.");
-
 
     CompositeCellAttribute(extract->f2c, inAllDataArray, outAllDataArray);
     if (Merging) {
@@ -1460,11 +1409,11 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(
     output->SetAttributeSet(outAllDataArray);
     output->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
     
-    igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
-                         << output->GetNumberOfFaces() << " faces.");
+    //igDebug("Extracted " << output->GetNumberOfPoints() << " points,"
+    //                     << output->GetNumberOfFaces() << " faces.");
     delete extract;
     clock_t time2 = clock();
-    igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+    //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;
 }
 

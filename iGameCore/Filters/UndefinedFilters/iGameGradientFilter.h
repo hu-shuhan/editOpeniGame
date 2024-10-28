@@ -44,7 +44,7 @@ public:
             if (attributeSet == nullptr) return false;
 
             // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int VolumeNum = volume_Mesh->GetNumberOfVolumes();
             int PointNum = volume_Mesh->GetNumberOfPoints();
@@ -64,7 +64,7 @@ public:
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
             // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
@@ -88,7 +88,7 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(1).pointer;
         int dimension = data->GetDimension();
         FloatArray::Pointer gradients = FloatArray::New();
         gradients->SetDimension(3);

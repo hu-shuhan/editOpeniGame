@@ -50,12 +50,23 @@ public:
 		default:
 			break;
 		}
-        return -1;
+		return -1;
 	}
 	void SetPlane(float o[3], float n[3]) {
-		m_Normal[0] = n[0];
-		m_Normal[1] = n[1];
-		m_Normal[2] = n[2];
+		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+		m_Normal[0] = n[0] / sum;
+		m_Normal[1] = n[1] / sum;
+		m_Normal[2] = n[2] / sum;
+		m_Origin[0] = o[0];
+		m_Origin[1] = o[1];
+		m_Origin[2] = o[2];
+		this->SetClipMethod(IG_PLANE);
+	}
+	void SetPlane(double o[3], double n[3]) {
+		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+		m_Normal[0] = n[0] / sum;
+		m_Normal[1] = n[1] / sum;
+		m_Normal[2] = n[2] / sum;
 		m_Origin[0] = o[0];
 		m_Origin[1] = o[1];
 		m_Origin[2] = o[2];
