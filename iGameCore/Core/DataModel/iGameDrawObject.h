@@ -130,16 +130,16 @@ protected:
     int m_LineWidth{1};
     int m_CellPositionSize{};
 
+    //float m_PolygonFactor{-1.0f};
+    //float m_PolygonOffset{-1.0f};
+    //float m_LineFactor{-1.0f};
+    //float m_LineOffset{-1.0f};
+    //float m_PointOffset{-1.0f};
     float m_PolygonFactor{0.0f};
     float m_PolygonOffset{0.0f};
     float m_LineFactor{0.0f};
-    float m_LineOffset{0.0f};
-    float m_PointOffset{0.0f};
-    //float m_PolygonFactor{0.0f};
-    //float m_PolygonOffset{0.0f};
-    //float m_LineFactor{0.0f};
-    //float m_LineOffset{-4.0f};
-    //float m_PointOffset{-8.0f};
+    float m_LineOffset{-4.0f};
+    float m_PointOffset{-8.0f};
 
     float m_Transparency{1.0f};
 

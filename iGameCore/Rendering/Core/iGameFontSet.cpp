@@ -18,7 +18,7 @@ FontSet::~FontSet() {
 
 void FontSet::RegisterWords(const wchar_t* text) {
     std::string fontPath =
-            std::string(ASSESTS_DIR) + "/Fonts/SourceHanSansCN-Normal.otf";
+            "./Resources/Assests/Fonts/SourceHanSansCN-Normal.otf";
 
     FT_Library ft;
     if (FT_Init_FreeType(&ft))
