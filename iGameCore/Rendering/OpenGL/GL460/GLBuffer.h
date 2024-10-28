@@ -47,16 +47,20 @@ public:
     void* MapRange(size_t offset, size_t length, GLbitfield access) const {
         void* ptr = glMapNamedBufferRange(handle, offset, length, access);
         if (ptr == nullptr) {
+            igError("Map buffer range is nullptr.");
             throw std::runtime_error("Map buffer range is nullptr.");
         }
         return ptr;
     }
 
     void Unmap() {
-        if (!glUnmapNamedBuffer(handle))
+        if (!glUnmapNamedBuffer(handle)) {
+            igError("data store contents have become corrupt during the time "
+                    "the data store was mapped");
             throw std::runtime_error(
                     "data store contents have become corrupt during the time "
                     "the data store was mapped");
+        }
     }
 
     // What is target this buffer for

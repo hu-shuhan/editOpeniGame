@@ -384,6 +384,7 @@ void Scene::UseShader(IGenum type) { this->GetShader(type)->Use(); }
 
 void Scene::InitOpenGL() {
     if (!gladLoadGL()) {
+        igError("Failed to initialize GLAD");
         throw std::runtime_error("Failed to initialize GLAD");
     }
 

@@ -60,7 +60,7 @@ protected:
     PainterBase();
     ~PainterBase() override;
 
-    bool first{true};
+    bool m_Flag{false};
 
     Pen::Pointer m_Pen{};
     Brush::Pointer m_Brush{};
