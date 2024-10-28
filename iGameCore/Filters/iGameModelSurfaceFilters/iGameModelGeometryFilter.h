@@ -80,10 +80,8 @@ public:
 	void SetExtentClipping(bool _b) { this->ExtentClipping = _b; }
 	void SetPlaneClipping(bool _b) { this->PlaneClipping = _b; }
 	void SetPointMergin(bool _b) { this->Merging = _b; }
-
 	void SetMaxThreadSize(int _b) { this->MaxThreadSize = _b; }
 	void SetUseThreadSize(int _b) { this->UseThreadSize = _b; }
-
 	char* ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints, CellArray::Pointer Cells);
 	void ProcessPointMergin(ExtractCellBoundaries* extract,
 		Points::Pointer inPoints, Points::Pointer& outPoints, CellArray::Pointer Polygons,
