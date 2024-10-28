@@ -499,30 +499,29 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->menuTest->addAction("surfaceExtractTest"), &QAction::triggered,
             this, [&](bool checked) {
-                auto fp = iGameModelGeometryFilter::New();
+            for (int i = 0; i < 200; i++) {
                 auto input = rendererWidget->GetScene()
-                                     ->GetCurrentModel()
-                                     ->GetDataObject();
-                /*	fp->SetCellIndexExtent(100, 100000);*/
-                // fp->SetPointIndexExtent(0, 100);
-                auto bound = input->GetBoundingBox();
-                auto a = (bound.max + bound.min * 4) / 5;
-                auto b = (bound.max * 4 + bound.min) / 5;
-                double extent[6] = {a[0], b[0], a[1], b[1], a[2], b[2]};
-
-                for (int i = 0; i < 3; i++) {
-                    std::cout << a[i] << ' ' << b[i] << '\n';
-                }
-                fp->SetExtent(extent);
-
+                    ->GetCurrentModel()
+                    ->GetDataObject();
+                auto grid= DynamicCast<UnstructuredMesh>(input);
+                SurfaceMesh::Pointer mesh=nullptr;
+                auto fp = iGameModelGeometryFilter::New();
                 fp->Execute(input);
-                SceneManager::Instance()
-                        ->GetCurrentScene()
-                        ->ChangeModelVisibility(0, false);
-                auto mesh = fp->GetExtractMesh();
-                mesh->SetName("SURFACE");
-                modelTreeWidget->addDataObjectToModelTree(mesh,
-                                                          ItemSource::File);
+                mesh=fp->GetExtractMesh();
+
+                //mesh =SurfaceMesh::New();     
+                //auto faces=CellArray::New();
+                //mesh->SetPoints(grid->GetPoints());
+                //int vhs[256];
+                //int vcnt=0;
+                //for (int i = 0; i < grid->GetNumberOfCells(); i++) {
+                //    grid->GetCellPointIds(i,vhs);
+                //    faces->AddCellId3(vhs[0],vhs[1],vhs[2]);
+                //}
+                //mesh->SetFaces(faces);
+                grid->SetDisplayObject(mesh);
+            }
+       
             });
 
     auto action_subdivision = ui->menuTest->addAction("rgbscalar");

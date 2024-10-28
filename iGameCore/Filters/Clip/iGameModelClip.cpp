@@ -159,8 +159,9 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	OutMesh->SetCells(OutConn, OutType);
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
-
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 
@@ -290,6 +291,8 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
@@ -385,6 +388,8 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 IGAME_NAMESPACE_END
