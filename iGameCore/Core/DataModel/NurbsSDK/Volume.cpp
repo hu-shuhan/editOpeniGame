@@ -1,7 +1,9 @@
 #include "Volume.h"
 
+IGAME_NAMESPACE_BEGIN
+IGAME_NURBS_NAMESPACE_BEGIN
 Volume::Volume(const int udegree, const int vdegree, const int wdegree,
-               const std::vector<std::vector<double>>& controlPoints,
+               const std::vector<Point>& controlPoints,
                const std::vector<double>& uknots,
                const std::vector<double>& vknots,
                const std::vector<double>& wknots,
@@ -15,13 +17,13 @@ Volume::Volume(const int udegree, const int vdegree, const int wdegree,
     type = Gtype::Volume;
 }
 
-std::vector<double> Volume::getPointAtParam(std::vector<double>& u) {
+Point Volume::getPointAtParam(std::vector<double>& u) {
     std::vector<double> basisValue;
     std::vector<int> index;
     eval(u, basisValue);
     getConnectIndex(u, index);
 
-    std::vector<double> point{0, 0, 0};
+    Point point{0, 0, 0};
     for (int i = 0; i < basisValue.size(); ++i) {
         point[0] += basisValue[i] * m_ControlPoints[index[i]][0];
         point[1] += basisValue[i] * m_ControlPoints[index[i]][1];
@@ -52,7 +54,7 @@ void Volume::getConnectIndex(const std::vector<double>& u,
 }
 
 bool Volume::getPointAtParam(std::vector<std::vector<double>>& u,
-                             std::vector<std::vector<double>>& points) {
+                             std::vector<Point>& points) {
     points.resize(u.size());
     for (int i = 0; i < points.size(); ++i) {
         points[i] = getPointAtParam(u[i]);
@@ -189,3 +191,5 @@ void Volume::evalDers(std::vector<double>& u,
         }
     }
 }
+IGAME_NURBS_NAMESPACE_END
+IGAME_NAMESPACE_END

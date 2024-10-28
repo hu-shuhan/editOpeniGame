@@ -40,15 +40,12 @@ void igQtContourExtractWidget::UpdateScalarName()
 	}
 	if (m_ScalarArray) {
 		int size = m_ScalarArray->GetDimension();
-		if (size < 5) {
-			if (size > 1) ui->comboBox_ScalarDimension->addItem(QString::fromStdString("magnitude"));
+		if (size < 4) {
 			if (size > 0) ui->comboBox_ScalarDimension->addItem(QString::fromStdString("x"));
 			if (size > 1) ui->comboBox_ScalarDimension->addItem(QString::fromStdString("y"));
 			if (size > 2) ui->comboBox_ScalarDimension->addItem(QString::fromStdString("z"));
-			if (size > 3) ui->comboBox_ScalarDimension->addItem(QString::fromStdString("u"));
 		}
 		else {
-			ui->comboBox_ScalarDimension->addItem(QString::fromStdString("magnitude"));
 			for (int i = 0; i < size; i++) {
 				ui->comboBox_ScalarDimension->addItem(QString::fromStdString("D" + std::to_string(i)));
 			}
@@ -57,7 +54,7 @@ void igQtContourExtractWidget::UpdateScalarName()
 }
 void igQtContourExtractWidget::UpdateScalarDimension()
 {
-	this->m_ScalarDimension = ui->comboBox_ScalarDimension->currentIndex() - 1;
+	this->m_ScalarDimension = ui->comboBox_ScalarDimension->currentIndex();
 	ui->label_RangeInfo->clear();
 	auto mapper = iGame::ScalarsToColors::New();
 	mapper->InitRange(m_ScalarArray, this->m_ScalarDimension);

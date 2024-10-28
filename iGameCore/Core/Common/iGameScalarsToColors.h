@@ -14,11 +14,13 @@ public:
 	/*Get the range of scaled data*/
 	virtual float* GetRange();
 	virtual void InitRange(ArrayObject::Pointer input) {
+		if(this->VectorMode== RGBCOLORS)return;
 		this->SetVectorModeToMagnitude();
 		InitRange(input, 0, -1);
 	}
 	/*Init the range of scaled data,the data is input,the component is the scaled component*/
 	virtual void InitRange(ArrayObject::Pointer input, int component) {
+		if (this->VectorMode == RGBCOLORS)return;
 		if (component < 0) {
 			return InitRange(input);
 		}

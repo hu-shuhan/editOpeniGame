@@ -5,7 +5,6 @@ iGameVectorBase::iGameVectorBase() {
     this->m_Triangles = Points::New();
     this->m_PositionColors = FloatArray::New();
     this->m_PositionColors->SetDimension(3);
-
     this->index = UnsignedIntArray::New();
     this->index->SetDimension(3);
 }
@@ -33,22 +32,24 @@ void iGameVectorBase::ComputeBoundingBox() {
     }
 }
 
-void iGameVectorBase::DrawVector(std::string VecName) {
+bool iGameVectorBase::DrawVector(std::string VecName) {
     if (!isInit) {
         auto sceneManager = iGame::SceneManager::Instance();
         auto scene = sceneManager->GetCurrentScene();
-        if (!scene) return;
+        if (!scene) return false;
         model = scene->GetCurrentModel();
-        if (!model) return;
+        if (!model) return false;
         isInit = true;
     }
     auto obj = model->GetDataObject();
-    if (!obj) return;
+    if (!obj) return false;
     auto AttributeSet = obj->GetAttributeSet();
-    if (!AttributeSet) return;
+   // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
+   // maxLength = (bound.max - bound.min).length();
+    if (!AttributeSet) return false;
     auto allVectors = AttributeSet->GetVector(VecName);
    // if (allVectors.isNone() || allVectors.attachmentType != IG_POINT) return;
-    if (allVectors.isNone() ) return;
+    if (allVectors.isNone()) return false;
     m_Triangles->Reset();
     m_PositionColors->Reset();
     index->Reset();
@@ -71,14 +72,14 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                         colorsPtr[3 * i + 2]));
         }
         ConvertToDrawableData();
-        return;
+        return true;
     } else if(allVectors.attachmentType==IG_CELL) {
         long long numOfCell = allVectors.pointer->GetNumberOfElements();
         
         auto volumeMesh=DynamicCast<VolumeMesh>(model->GetDataObject());
         if (volumeMesh == nullptr) {
             std::cout << "not a volumeMesh" << std::endl;
-            return;
+            return false;
         }
         CellCenter centerCul;
         auto mapper = ScalarsToColors::New();
@@ -110,7 +111,7 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                             colorsPtr[3 * i + 2]));
             }
             ConvertToDrawableData();
-            return;
+            return true;
         } else {
             auto allVolume = volumeMesh->GetVolumes();
             auto allPoints = volumeMesh->GetPoints();
@@ -125,11 +126,11 @@ void iGameVectorBase::DrawVector(std::string VecName) {
                                             colorsPtr[3 * i + 2]));
             }
             ConvertToDrawableData();
-            return;
+            return true;
         }
     } else {
         std::cout << "error attachmentType!" << std::endl;
-        return;
+        return false;
     }
 
 }
@@ -145,6 +146,7 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
     Vector3f normal1 = Vector3f(0, 1, 0).cross(L);
     Vector3f normal2 = normal1.cross(L);
     Vector3f centerHigh = coord + L * (tL + hL);
+   // Vector3f centerHigh = coord + L * (tL + hL) * maxLength;
     std::vector<Vector3f> vertices(7);
     std::vector<Vector3f> verticesMid(7);
     std::vector<Vector3f> verticesHigh(7);
@@ -152,10 +154,14 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
         float angle = igm::radians(60.0 * float(i));
         Vector3f tem =
                 (normal1 * cos(angle) + normal2 * sin(angle)).normalized();
+     //   Vector3f vertex = coord + tem * tR * maxLength;
         Vector3f vertex = coord + tem * tR;
         vertices[i] = vertex;
+        //verticesMid[i] = vertex + L * tL * maxLength;
         verticesMid[i] = vertex + L * tL;
-        verticesHigh[i] = coord + tem * hR + L * tL;
+        verticesMid[i] = vertex + L * tL;
+        //verticesHigh[i] = coord + tem * hR * maxLength + L * tL * maxLength;
+        verticesHigh[i] = coord + tem * hR  + L * tL ;
     }
     //tail
     for (int i = 1; i < 5; i++) {

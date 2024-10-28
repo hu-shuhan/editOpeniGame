@@ -61,6 +61,7 @@ public:
     };
     struct UniformBufferObjectBuffer {
         alignas(4) int useColor{0};
+        alignas(4) int useNormalSmooth{0};
     };
 
     struct DrawCullData {

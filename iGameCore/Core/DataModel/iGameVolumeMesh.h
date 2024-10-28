@@ -274,7 +274,7 @@ public:
             m_Volumes->AddCellIds(ptIds, npts);
             m_VolumeEdges->AddCellIds(edgeIds, nedges);
         }
-
+        return;
         for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
             int size = m_Faces->GetCellIds(i, ptIds);
             for (int j = 0; j < size; j++) {
@@ -287,7 +287,6 @@ public:
             }
             m_FaceEdges->AddCellIds(edgeIds, size);
         }
-
         m_Edges = EdgeTable->GetOutput();
         BuildEdgeLinks();
         BuildFaceLinks();

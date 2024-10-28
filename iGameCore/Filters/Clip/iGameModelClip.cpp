@@ -192,27 +192,58 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Cell::Pointer cell;
-	for (CellId = 0; CellId < CellNum; CellId++) {
-		cell = m_VolumeMesh->GetVolume(CellId);
-		vhs = cell->m_PointIds->RawPointer();
-		vcnt = cell->GetNumberOfPoints();
-		for (i = 0; i < vcnt; i++) {
-			CellClipValue[i] = PointClipValue[vhs[i]];
-		}
-		switch (cell->GetCellType())
-		{
-		case IG_TETRA:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
-			break;
-		case IG_POLYHEDRON:
-			CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
-			break;
-		default:
-			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
+	if (m_VolumeMesh->GetIsPolyhedronType()) {
+		auto faces=m_VolumeMesh->GetFaces();
+		igIndex fhs[IGAME_CELL_MAX_SIZE]={0};
+		igIndex fcnt=0;
+		igIndex faceVhs[IGAME_CELL_MAX_SIZE]={0};
+		Polyhedron::Pointer polyhedron=Polyhedron::New();
+		igIndex offset=0;
+		for (CellId = 0; CellId < CellNum; CellId++) {
+			fcnt=m_VolumeMesh->GetVolumeFaceIds(CellId,fhs);
+			polyhedron->m_Points->Reset();
+			polyhedron->m_PointIds->Reset();
+			polyhedron->m_FaceOffset->Reset();
+			offset=0;
+			polyhedron->m_FaceOffset->AddId(offset);
+			for (i = 0; i < fcnt; i++) {
+				vcnt=faces->GetCellIds(fhs[i], faceVhs);
+				for (j = 0; j < vcnt; j++) {
+					polyhedron->m_PointIds->AddId(faceVhs[j]);
+					polyhedron->m_Points->AddPoint(Points->GetPoint(faceVhs[j]));
+				}
+				offset+=vcnt;
+				polyhedron->m_FaceOffset->AddId(offset);
 			}
-			break;
+			vhs = polyhedron->m_PointIds->RawPointer();
+			vcnt = polyhedron->GetNumberOfPoints();
+			for (i = 0; i < vcnt; i++) {
+				CellClipValue[i] = PointClipValue[vhs[i]];
+			}
+			CellClip::Clip(polyhedron, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 		}
+	}
+	else {
+		for (CellId = 0; CellId < CellNum; CellId++) {
+			cell = m_VolumeMesh->GetVolume(CellId);
+			vhs = cell->m_PointIds->RawPointer();
+			vcnt = cell->GetNumberOfPoints();
+			for (i = 0; i < vcnt; i++) {
+				CellClipValue[i] = PointClipValue[vhs[i]];
+			}
+			switch (cell->GetCellType())
+			{
+			case IG_TETRA:
+				CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+				break;
+			default:
+				if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
+					CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
+				}
+				break;
+			}
+		}
+
 	}
 
 	auto outCellNum = OutConn->GetNumberOfCells();

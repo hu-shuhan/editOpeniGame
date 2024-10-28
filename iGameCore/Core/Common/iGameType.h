@@ -32,6 +32,7 @@ enum {
     IG_UNSTRUCTURED_MESH,
     IG_STRUCTURED_MESH,
     IG_MULTIBLOCK_MESH,
+    IG_NURBS_GEOMETRY,
     IG_DATA_OBJECT_COUNT,
 };
 
@@ -75,6 +76,7 @@ enum AttributeType {
     IG_NORMAL,
     IG_TCOORD,
     IG_TENSOR,
+    IG_RGB,
     IG_ATTRIBUTE_COUNT,
 };
 

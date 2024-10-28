@@ -47,9 +47,16 @@ void Model::Draw(Scene* scene) {
 
                 glEnable(GL_POLYGON_OFFSET_POINT);
                 glPolygonOffset(0.0f, u);
-                glad_glDrawArrays(
-                        GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements());
+                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                    glad_glDrawArrays(
+                            GL_POINTS, 0,
+                            drawObject->m_Positions->GetNumberOfElements());
+                } else {
+                    glad_glDrawElements(
+                            GL_POINTS,
+                            drawObject->m_PointIndices->GetNumberOfValues(),
+                            GL_UNSIGNED_INT, 0);
+                }
                 glDisable(GL_POLYGON_OFFSET_POINT);
             }
             drawObject->m_PointVAO->Release();
@@ -118,7 +125,7 @@ void Model::Draw(Scene* scene) {
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if( subDrawObj->m_DisplayObject == nullptr) {
+            if (subDrawObj->m_DisplayObject == nullptr) {
                 draw(subDataObj);
             } else {
                 draw(subDrawObj->m_DisplayObject);
@@ -270,7 +277,13 @@ void Model::DrawWithTransparency(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if (subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 
@@ -331,7 +344,13 @@ void Model::DrawPhase1(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if (subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 #endif
@@ -433,7 +452,13 @@ void Model::DrawPhase2(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if (subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 #endif
@@ -533,7 +558,13 @@ void Model::TestOcclusionResults(Scene* scene) {
     } else {
         for (auto it = dataObject->SubDataObjectIteratorBegin();
              it != dataObject->SubDataObjectIteratorEnd(); it++) {
-            draw(it->second);
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if (subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
         }
     }
 #endif

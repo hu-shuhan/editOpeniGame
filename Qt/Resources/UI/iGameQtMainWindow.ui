@@ -580,6 +580,7 @@ border:2px solid #EEF1F7
    </attribute>
    <addaction name="action_slice"/>
    <addaction name="action_ContourExtract"/>
+   <addaction name="action_GenerateChart"/>
   </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -1371,7 +1372,7 @@ border:2px solid #EEF1F7
   </action>
   <action name="action_slice">
    <property name="checkable">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
@@ -1401,17 +1402,32 @@ border:2px solid #EEF1F7
   </action>
   <action name="action_ContourExtract">
    <property name="checkable">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/Slice.svg</normaloff>:/Ticon/Icons/Slice.svg</iconset>
+     <normaloff>:/Ticon/Icons/contourline.svg</normaloff>:/Ticon/Icons/contourline.svg</iconset>
    </property>
    <property name="text">
     <string>轮廓提取</string>
    </property>
    <property name="toolTip">
     <string>轮廓提取</string>
+   </property>
+  </action>
+  <action name="action_GenerateChart">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/uiwidgets/Icons/chart.svg</normaloff>:/uiwidgets/Icons/chart.svg</iconset>
+   </property>
+   <property name="text">
+    <string>生成图表</string>
+   </property>
+   <property name="toolTip">
+    <string>生成图表</string>
    </property>
   </action>
  </widget>

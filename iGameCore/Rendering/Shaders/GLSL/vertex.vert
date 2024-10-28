@@ -19,6 +19,7 @@ layout(std140, binding = 1) uniform ObjectDataBlock {
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
     bool useColor;
+    bool useNormalSmooth;
 } ubo;
 
 layout(location = 0) in vec3 in_Position;

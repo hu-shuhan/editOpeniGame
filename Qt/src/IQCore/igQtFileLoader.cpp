@@ -139,7 +139,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     DataObject::Pointer obj = nullptr;
     /* Without Cuda version, only support Nurbs Reader.*/
     NurbsReader::Pointer reader = NurbsReader::New();
-    reader->SetNurbsType(readerType);
+    //reader->SetNurbsType(readerType);
     reader->SetFilePath(filePath);
     reader->Execute();
     obj = reader->GetOutput();
