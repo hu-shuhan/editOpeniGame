@@ -3,6 +3,9 @@
 // Created by m_ky on 2024/4/10.
 //
 #include "SurfaceMeshFilters/iGameSurfaceSimplification.h"
+#include "SurfaceMeshFilters/iGameSimplification.h"
+#include "SurfaceMeshFilters/iGameGradient.h"
+#include "SurfaceMeshFilters/iGameTriangulation.h"
 #include "UndefinedFilters/iGameCurvatureFilter.h"
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
@@ -302,10 +305,10 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
-        SurfaceSimplification::Pointer filter = SurfaceSimplification::New();
+        //SurfaceSimplification::Pointer filter = SurfaceSimplification::New();
 
-        filter->SetInput(
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        //filter->SetInput(
+        //        rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
 
         //auto data =
         //        rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -317,9 +320,48 @@ void igQtMainWindow::initAllFilters() {
         //auto mesh = ext->GetExtractMesh();
         //filter->SetInput(mesh);
 
+        //filter->Execute();
+        //modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(),
+        //                                          Algorithm);
+        //rendererWidget->update();
+
+        //auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        //auto mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+        //mesh->RequestEditStatus();
+        //igIndex ids[8]{};
+        //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
+        //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
+        //    if (size > 2) { 
+        //        std::cout << "123\n";
+        //    }
+        //}
+
+        Triangulation::Pointer triangulation = Triangulation::New();
+        auto obj =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+
+        triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+
+        obj = triangulation->GetOutput();
+
+        Simplification::Pointer filter = Simplification::New();
+        //Gradient::Pointer filter = Gradient::New();
+        filter->SetInput(obj);
         filter->Execute();
-        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(),
-                                                  Algorithm);
+
+
+        //auto mesh = DynamicCast<SurfaceMesh>(obj);
+        //mesh->RequestEditStatus();
+        //igIndex ids[8]{};
+        //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
+        //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
+        //    if (size > 2) { std::cout << "123\n"; }
+        //}
+
+        modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
         rendererWidget->update();
     });
 
@@ -970,17 +1012,18 @@ void igQtMainWindow::initAllFilters() {
         UnstructuredMesh::Pointer data = DynamicCast<UnstructuredMesh>(
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
 
-        auto mesh = data->GetDisplayObject();
-        if (mesh) {
-            filter->SetInput(mesh);
-            filter->Execute();
-            modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
-            
-        } else {
-            filter->SetInput(data);
-            filter->Execute();
-            modelTreeWidget->updateAllAttriubute(data);
-        }
+        //auto mesh = data->GetDisplayObject();
+        //if (mesh) {
+        //    filter->SetInput(mesh);
+        //    filter->Execute();
+        //    modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+        //    
+
+        //} else {
+        //    filter->SetInput(data);
+        //    filter->Execute();
+        //    modelTreeWidget->updateAllAttriubute(data);
+        //}
 
         filter->SetInput(data);
         filter->Execute();
@@ -1427,8 +1470,6 @@ void igQtMainWindow::initAllMySignalConnections() {
 	//&igQtModelDrawWidget::UpdateCurrentModel);
 	connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow,
 		this, &igQtMainWindow::updateColorBarShow);
-
-    
 	connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged,
 		ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 	connect(ui->widget_ScalarField,

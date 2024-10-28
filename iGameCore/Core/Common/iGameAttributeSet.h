@@ -162,7 +162,9 @@ public:
 		}
 	}
 
-
+	size_t GetNumberOfAttributes() const {
+        return m_Buffer->GetNumberOfElements();
+	}
 
 	IGsize GetRealMemorySize() {
 		if (!m_Buffer)return 0;

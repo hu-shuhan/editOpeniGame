@@ -26,6 +26,7 @@ public:
     IGsize size() const noexcept { return m_Size; }
     IGsize capacity() const noexcept { return m_Capacity; }
     void reset() { m_Size = 0; }
+    void resize(int size) { m_Size = size; }
 
     void push_back(_Ty&& _Value) 
     {
