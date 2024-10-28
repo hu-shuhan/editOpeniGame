@@ -16,11 +16,11 @@ public:
     Cell* GetEdge(const int edgeId) override {
         const int* verts = edges[edgeId];
 
-        m_Line->PointIds->SetId(0, PointIds->GetId(verts[0]));
-        m_Line->PointIds->SetId(1, PointIds->GetId(verts[1]));
+        m_Line->m_PointIds->SetId(0, m_PointIds->GetId(verts[0]));
+        m_Line->m_PointIds->SetId(1, m_PointIds->GetId(verts[1]));
 
-        m_Line->Points->SetPoint(0, Points->GetPoint(verts[0]));
-        m_Line->Points->SetPoint(1, Points->GetPoint(verts[1]));
+        m_Line->m_Points->SetPoint(0, m_Points->GetPoint(verts[0]));
+        m_Line->m_Points->SetPoint(1, m_Points->GetPoint(verts[1]));
 
         return m_Line.get();
     }
@@ -28,8 +28,8 @@ public:
         const int* verts = faces[faceId];
         const int* edges = faceEdges[faceId];
         for (int i = 0; i < 3; ++i) {
-            m_Triangle->PointIds->SetId(i, PointIds->GetId(verts[i]));
-            m_Triangle->Points->SetPoint(i, Points->GetPoint(verts[i]));
+            m_Triangle->m_PointIds->SetId(i, m_PointIds->GetId(verts[i]));
+            m_Triangle->m_Points->SetPoint(i, m_Points->GetPoint(verts[i]));
         }
         return m_Triangle.get();
     }
@@ -204,12 +204,12 @@ public:
 private:
 	Tetra()
 	{
-		this->Points->SetNumberOfPoints(4);
-		this->PointIds->SetNumberOfIds(4);
+		this->m_Points->SetNumberOfPoints(4);
+		this->m_PointIds->SetNumberOfIds(4);
 		for (int i = 0; i < 4; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 
 		m_Line = Line::New();

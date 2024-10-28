@@ -35,19 +35,30 @@
 #include <stdio.h>
 
 #include <QMessageBox>
+#include <qDebug>
+
 igQtMainWindow::igQtMainWindow(QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow) {
-	ui->setupUi(this);
+    qDebug() << "Initializing mainWindow start ";
+    ui->setupUi(this);
+    qDebug() << "Step 1";
     initAllUnDefinedComponents();
-	initToolbarComponent();
-	initAllComponents();
-	initAllFilters();
-	initAllSources();
-	initAllInteractor();
-	updateRecentFilePaths();
-
-	connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
+    qDebug() << "Step 2";
+    initToolbarComponent();
+    qDebug() << "Step 3";
+    initAllComponents();
+    qDebug() << "Step 4";
+    initAllFilters();
+    qDebug() << "Step 5";
+    initAllSources();
+    qDebug() << "Step 6";
+    initAllInteractor();
+    qDebug() << "Step 7";
+    updateRecentFilePaths();
+    qDebug() << "Step 8";
+    connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
             &igQtRenderWidget::update);
+    qDebug() << "Initializing mainWindow end ";
 }
 void igQtMainWindow::initAllUnDefinedComponents() {
     rendererWidget = new igQtModelDrawWidget(this);

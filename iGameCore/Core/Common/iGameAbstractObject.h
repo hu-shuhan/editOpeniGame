@@ -5,6 +5,10 @@
 #include "iGameMacro.h"
 #include "iGameType.h"
 
+#if defined(__linux__)
+#include <atomic>
+#endif
+
 IGAME_NAMESPACE_BEGIN
 class AbstractObject {
 public:

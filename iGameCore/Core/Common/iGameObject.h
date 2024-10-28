@@ -4,8 +4,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include <string.h>
-#include <string>
+#include <cstring>
 
 #include <array>
 #include <map>
@@ -14,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <cfloat>
 
 #include "iGameAbstractObject.h"
 #include "iGameTimeStamp.h"

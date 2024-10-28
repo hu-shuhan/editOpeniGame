@@ -5,10 +5,10 @@
 #ifndef OPENIGAME_SCENCE_H
 #define OPENIGAME_SCENCE_H
 
-#include "OpenGL/GLFramebuffer.h"
-#include "OpenGL/GLIndirectCommand.h"
-#include "OpenGL/GLShader.h"
-#include "OpenGL/GLTextureBuffer.h"
+#include <GLFramebuffer.h>
+#include <GLIndirectCommand.h>
+#include <GLShader.h>
+#include <GLTextureBuffer.h>
 
 #include "iGameAxes.h"
 #include "iGameCamera.h"

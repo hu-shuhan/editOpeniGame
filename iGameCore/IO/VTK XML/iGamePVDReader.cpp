@@ -18,8 +18,6 @@
 
 #include <tinyxml2.h>
 #include <algorithm>
-#undef max
-#undef min
 
 bool iGame::iGamePVDReader::Parsing() {
     std::string fileDir = this->m_FilePath.substr(0, this->m_FilePath.find_last_of('/') + 1);

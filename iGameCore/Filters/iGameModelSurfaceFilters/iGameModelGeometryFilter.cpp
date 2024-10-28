@@ -1065,67 +1065,67 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId,
                      FaceId < numFaces; FaceId++) {
                     Cell* Face = cell->GetFace(FaceId);
                     FaceVcnt =
-                            static_cast<int>(Face->PointIds->GetNumberOfIds());
+                            static_cast<int>(Face->m_PointIds->GetNumberOfIds());
                     switch (FaceVcnt) {
                         case 3:
                             FaceMap->Insert(
                                     GTriangle(cellId,
-                                              Face->PointIds->RawPointer(),
+                                              Face->m_PointIds->RawPointer(),
                                               isGhost),
                                     FacePool);
                             break;
                         case 4:
                             FaceMap->Insert(GQuad(cellId,
-                                                  Face->PointIds->RawPointer(),
+                                                  Face->m_PointIds->RawPointer(),
                                                   isGhost),
                                             FacePool);
                             break;
                         case 5:
                             FaceMap->Insert(
                                     GPentagon(cellId,
-                                              Face->PointIds->RawPointer(),
+                                              Face->m_PointIds->RawPointer(),
                                               isGhost),
                                     FacePool);
                             break;
                         case 6:
                             FaceMap->Insert(
                                     GHexagon(cellId,
-                                             Face->PointIds->RawPointer(),
+                                             Face->m_PointIds->RawPointer(),
                                              isGhost),
                                     FacePool);
                             break;
                         case 7:
                             FaceMap->Insert(
                                     GHeptagon(cellId,
-                                              Face->PointIds->RawPointer(),
+                                              Face->m_PointIds->RawPointer(),
                                               isGhost),
                                     FacePool);
                             break;
                         case 8:
                             FaceMap->Insert(
                                     GOctagon(cellId,
-                                             Face->PointIds->RawPointer(),
+                                             Face->m_PointIds->RawPointer(),
                                              isGhost),
                                     FacePool);
                             break;
                         case 9:
                             FaceMap->Insert(
                                     GNonagon(cellId,
-                                             Face->PointIds->RawPointer(),
+                                             Face->m_PointIds->RawPointer(),
                                              isGhost),
                                     FacePool);
                             break;
                         case 10:
                             FaceMap->Insert(
                                     GDecagon(cellId,
-                                             Face->PointIds->RawPointer(),
+                                             Face->m_PointIds->RawPointer(),
                                              isGhost),
                                     FacePool);
                             break;
                         default:
                             FaceMap->Insert(
                                     GPolygon(cellId, FaceVcnt,
-                                             Face->PointIds->RawPointer(),
+                                             Face->m_PointIds->RawPointer(),
                                              isGhost),
                                     FacePool);
                             break;

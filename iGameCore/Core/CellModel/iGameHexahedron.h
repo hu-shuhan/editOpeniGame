@@ -17,11 +17,11 @@ public:
 	Cell* GetEdge(const int edgeId) override {
 		const int* verts = edges[edgeId];
 
-		m_Line->PointIds->SetId(0, this->PointIds->GetId(verts[0]));
-		m_Line->PointIds->SetId(1, this->PointIds->GetId(verts[1]));
+		m_Line->m_PointIds->SetId(0, this->m_PointIds->GetId(verts[0]));
+		m_Line->m_PointIds->SetId(1, this->m_PointIds->GetId(verts[1]));
 
-		m_Line->Points->SetPoint(0, this->Points->GetPoint(verts[0]));
-		m_Line->Points->SetPoint(1, this->Points->GetPoint(verts[1]));
+		m_Line->m_Points->SetPoint(0, this->m_Points->GetPoint(verts[0]));
+		m_Line->m_Points->SetPoint(1, this->m_Points->GetPoint(verts[1]));
 
 		return m_Line.get();
 	}
@@ -29,8 +29,8 @@ public:
 		const int* verts = faces[faceId];
 		const int* edges = faceEdges[faceId];
 		for (int i = 0; i < 4; ++i) {
-			m_Quad->PointIds->SetId(i, PointIds->GetId(verts[i]));
-			m_Quad->Points->SetPoint(i, Points->GetPoint(verts[i]));
+			m_Quad->m_PointIds->SetId(i,  m_PointIds->GetId(verts[i]));
+			m_Quad->m_Points->SetPoint(i, m_Points->GetPoint(verts[i]));
 		}
 
 		return m_Quad.get();
@@ -41,8 +41,8 @@ public:
 		const int* verts = clipedCell[i];
             Tetra::Pointer tetra = Tetra::New();
 			for (int j = 0; j < 4; j++) {
-				tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
-				tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+				tetra->m_Points->SetPoint(j, this->m_Points->GetPoint(verts[j]));
+				tetra->m_PointIds->SetId(j,  this->m_PointIds->GetId(verts[j]));
 			}
 			result.emplace_back(tetra);
 		}
@@ -224,12 +224,12 @@ public:
 private:
 	Hexahedron()
 	{
-		this->Points->SetNumberOfPoints(4);
-		this->PointIds->SetNumberOfIds(4);
+		this->m_Points->SetNumberOfPoints(4);
+		this->m_PointIds->SetNumberOfIds(4);
 		for (int i = 0; i < 4; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 
 		m_Line = Line::New();

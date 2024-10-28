@@ -47,7 +47,7 @@ IF (WIN32)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
 ELSEIF (APPLE)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
-ELSEIF (UNIX)
+ELSE()
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ENDIF ()
 
@@ -60,13 +60,13 @@ if (ENABLE_CGNS_MODULE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
 ENDIF ()
 
-find_package(AbqSDK)
-if (${AbqSDK_FOUND})
-    message("Find abqsdk")
-    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-endif ()
-
+#find_package(AbqSDK)
+#if (${AbqSDK_FOUND})
+#    message("Find abqsdk")
+#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+#endif ()
+#
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})
     message("Find FFMPEG")
@@ -101,7 +101,6 @@ if (ENABLE_GPSCUDA_MODULE)
             ${EXDLL}
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
     )
-
 endif ()
 
 if (WIN32)
@@ -120,5 +119,4 @@ if (WIN32)
     set_property(TARGET ${MODULE_NAME} PROPERTY LIBRARY_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
 
 endif ()
-
 target_link_libraries(${PROJECT_NAME} PUBLIC ${MODULE_NAME})

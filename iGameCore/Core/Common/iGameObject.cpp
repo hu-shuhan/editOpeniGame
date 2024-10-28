@@ -8,11 +8,11 @@ public:
 	Observer() {}
 	~Observer() {}
 
-	Command::Pointer Command{};
-	unsigned long Event{ 0 };
-	unsigned long Tag{ 0 };
-	Observer* Next{ nullptr };
-	float Priority{ 0.0 };
+	Command::Pointer m_Command{};
+	unsigned long m_Event{ 0 };
+	unsigned long m_Tag{ 0 };
+	Observer* m_Next{ nullptr };
+	float m_Priority{ 0.0 };
 };
 
 class ObserverInternal {
@@ -22,48 +22,48 @@ public:
 
 	unsigned long AddObserver(unsigned long event, Command::Pointer cmd, float p) {
 		Observer* elem = new Observer;
-		elem->Priority = p;
-		elem->Next = nullptr;
-		elem->Event = event;
-		elem->Command = cmd;
-		elem->Tag = this->Count;
-		this->Count++;
+		elem->m_Priority = p;
+		elem->m_Next = nullptr;
+		elem->m_Event = event;
+		elem->m_Command = cmd;
+		elem->m_Tag = this->m_Count;
+		this->m_Count++;
 
 
-		if (!this->Start)
+		if (!this->m_Start)
 		{
-			this->Start = elem;
+			this->m_Start = elem;
 		}
 		else
 		{
 			// Insert sort, from highest to lowest priority
 			Observer* prev = nullptr;
-			Observer* pos = this->Start;
-			while (pos->Priority >= elem->Priority && pos->Next)
+			Observer* pos = this->m_Start;
+			while (pos->m_Priority >= elem->m_Priority && pos->m_Next)
 			{
 				prev = pos;
-				pos = pos->Next;
+				pos = pos->m_Next;
 			}
 
-			if (pos->Priority > elem->Priority)
+			if (pos->m_Priority > elem->m_Priority)
 			{
-				pos->Next = elem;
+				pos->m_Next = elem;
 			}
 			else
 			{
 				if (prev)
 				{
-					prev->Next = elem;
+					prev->m_Next = elem;
 				}
-				elem->Next = pos;
+				elem->m_Next = pos;
 
-				if (pos == this->Start)
+				if (pos == this->m_Start)
 				{
-					this->Start = elem;
+					this->m_Start = elem;
 				}
 			}
 		}
-		return elem->Tag;
+		return elem->m_Tag;
 	}
 
 	void RemoveObserver(unsigned long tag)
@@ -72,21 +72,21 @@ public:
 		Observer* prev;
 		Observer* next;
 
-		elem = this->Start;
+		elem = this->m_Start;
 		prev = nullptr;
 		while (elem)
 		{
-			if (elem->Tag == tag)
+			if (elem->m_Tag == tag)
 			{
 				if (prev)
 				{
-					prev->Next = elem->Next;
-					next = prev->Next;
+					prev->m_Next = elem->m_Next;
+					next = prev->m_Next;
 				}
 				else
 				{
-					this->Start = elem->Next;
-					next = this->Start;
+					this->m_Start = elem->m_Next;
+					next = this->m_Start;
 				}
 				delete elem;
 				elem = next;
@@ -94,7 +94,7 @@ public:
 			else
 			{
 				prev = elem;
-				elem = elem->Next;
+				elem = elem->m_Next;
 			}
 		}
 	}
@@ -104,21 +104,21 @@ public:
 		Observer* prev;
 		Observer* next;
 
-		elem = this->Start;
+		elem = this->m_Start;
 		prev = nullptr;
 		while (elem)
 		{
-			if (elem->Event == event)
+			if (elem->m_Event == event)
 			{
 				if (prev)
 				{
-					prev->Next = elem->Next;
-					next = prev->Next;
+					prev->m_Next = elem->m_Next;
+					next = prev->m_Next;
 				}
 				else
 				{
-					this->Start = elem->Next;
-					next = this->Start;
+					this->m_Start = elem->m_Next;
+					next = this->m_Start;
 				}
 				delete elem;
 				elem = next;
@@ -126,7 +126,7 @@ public:
 			else
 			{
 				prev = elem;
-				elem = elem->Next;
+				elem = elem->m_Next;
 			}
 		}
 	}
@@ -136,21 +136,21 @@ public:
 		Observer* prev;
 		Observer* next;
 
-		elem = this->Start;
+		elem = this->m_Start;
 		prev = nullptr;
 		while (elem)
 		{
-			if (elem->Event == event && elem->Command == cmd)
+			if (elem->m_Event == event && elem->m_Command == cmd)
 			{
 				if (prev)
 				{
-					prev->Next = elem->Next;
-					next = prev->Next;
+					prev->m_Next = elem->m_Next;
+					next = prev->m_Next;
 				}
 				else
 				{
-					this->Start = elem->Next;
-					next = this->Start;
+					this->m_Start = elem->m_Next;
+					next = this->m_Start;
 				}
 				delete elem;
 				elem = next;
@@ -158,35 +158,35 @@ public:
 			else
 			{
 				prev = elem;
-				elem = elem->Next;
+				elem = elem->m_Next;
 			}
 		}
 	}
 	void RemoveAllObservers()
 	{
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		Observer* next;
 		while (elem)
 		{
-			next = elem->Next;
+			next = elem->m_Next;
 			delete elem;
 			elem = next;
 		}
-		this->Start = nullptr;
+		this->m_Start = nullptr;
 	}
 
 	bool InvokeEvent(unsigned long event, void* callData, Object* self)
 	{
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		Observer* next;
 
 		while (elem)
 		{
-			next = elem->Next;
-			if (elem->Event == event && elem->Tag < this->Count)
+			next = elem->m_Next;
+			if (elem->m_Event == event && elem->m_Tag < this->m_Count)
 			{
-				Command::Pointer command = elem->Command;
-				elem->Command->Execute(self, event, callData);
+				Command::Pointer command = elem->m_Command;
+				elem->m_Command->Execute(self, event, callData);
 			}
 
 			elem = next;
@@ -197,62 +197,62 @@ public:
 
 	Command::Pointer GetCommand(unsigned long tag)
 	{
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		while (elem)
 		{
-			if (elem->Tag == tag)
+			if (elem->m_Tag == tag)
 			{
-				return elem->Command;
+				return elem->m_Command;
 			}
-			elem = elem->Next;
+			elem = elem->m_Next;
 		}
 		return nullptr;
 	}
 
 	unsigned long GetTag(Command::Pointer cmd)
 	{
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		while (elem)
 		{
-			if (elem->Command == cmd)
+			if (elem->m_Command == cmd)
 			{
-				return elem->Tag;
+				return elem->m_Tag;
 			}
-			elem = elem->Next;
+			elem = elem->m_Next;
 		}
 		return 0;
 	}
 
 	bool HasObserver(unsigned long event)
 	{
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		while (elem)
 		{
-			if (elem->Event == event)
+			if (elem->m_Event == event)
 			{
 				return true;
 			}
-			elem = elem->Next;
+			elem = elem->m_Next;
 		}
 		return false;
 	}
 
 	bool HasObserver(unsigned long event, Command::Pointer cmd) {
-		Observer* elem = this->Start;
+		Observer* elem = this->m_Start;
 		while (elem)
 		{
-			if (elem->Event == event && elem->Command == cmd)
+			if (elem->m_Event == event && elem->m_Command == cmd)
 			{
 				return true;
 			}
-			elem = elem->Next;
+			elem = elem->m_Next;
 		}
 		return false;
 	}
 
 protected:
-	Observer* Start{ nullptr };
-	unsigned long Count{ 0 };
+	Observer* m_Start{ nullptr };
+	unsigned long m_Count{ 0 };
 };
 
 class CallbackBase {

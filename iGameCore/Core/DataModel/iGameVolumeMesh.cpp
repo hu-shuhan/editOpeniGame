@@ -65,12 +65,12 @@ Volume* VolumeMesh::GetVolume(const IGsize volumeId) {
 		}
 
 		assert(volume != nullptr);
-		volume->PointIds->Reset();
-		volume->Points->Reset();
+		volume->m_PointIds->Reset();
+		volume->m_Points->Reset();
 
 		for (int i = 0; i < ncells; i++) {
-			volume->PointIds->AddId(cell[i]);
-			volume->Points->AddPoint(this->GetPoint(cell[i]));
+			volume->m_PointIds->AddId(cell[i]);
+			volume->m_Points->AddPoint(this->GetPoint(cell[i]));
 		}
 	}
 	return volume;
@@ -1164,9 +1164,9 @@ void VolumeMesh::ConvertToDrawableData() {
 					int size = volume->GetFacePointIds(j, face);
 					for (int k = 2; k < size; k++) {
 						triangleIndices->AddElement3(
-							volume->PointIds->GetId(face[0]),
-							volume->PointIds->GetId(face[k - 1]),
-							volume->PointIds->GetId(face[k]));
+							volume->m_PointIds->GetId(face[0]),
+							volume->m_PointIds->GetId(face[k - 1]),
+							volume->m_PointIds->GetId(face[k]));
 						//triangleIndices->AddId();
 						//triangleIndices->AddId();
 						//triangleIndices->AddId(volume->PointIds->GetId(face[k]));
@@ -1175,8 +1175,8 @@ void VolumeMesh::ConvertToDrawableData() {
 				const igIndex* edge;
 				for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
 					int size = volume->GetEdgePointIds(j, edge);
-					edgeIndices->AddElement2(volume->PointIds->GetId(edge[0]),
-						volume->PointIds->GetId(edge[1]));
+					edgeIndices->AddElement2(volume->m_PointIds->GetId(edge[0]),
+						volume->m_PointIds->GetId(edge[1]));
 					//edgeIndices->AddId(volume->PointIds->GetId(edge[0]));
 					//edgeIndices->AddId(volume->PointIds->GetId(edge[1]));
 				}
@@ -1335,11 +1335,11 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
 		for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
 			int size = volume->GetFacePointIds(j, face);
 			for (int k = 2; k < size; k++) {
-				auto& p0 = volume->Points->GetPoint(face[0]);
+				auto& p0 = volume->m_Points->GetPoint(face[0]);
 				newPositions->AddElement3(p0[0], p0[1], p0[2]);
-				auto& p1 = volume->Points->GetPoint(face[k - 1]);
+				auto& p1 = volume->m_Points->GetPoint(face[k - 1]);
 				newPositions->AddElement3(p1[0], p1[1], p1[2]);
-				auto& p2 = volume->Points->GetPoint(face[k]);
+				auto& p2 = volume->m_Points->GetPoint(face[k]);
 				newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
 				newColors->AddElement3(color[0], color[1], color[2]);

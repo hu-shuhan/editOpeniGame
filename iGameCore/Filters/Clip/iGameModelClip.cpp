@@ -84,7 +84,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	Cell::Pointer cell=nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
-		vhs=cell->PointIds->RawPointer();
+		vhs=cell->m_PointIds->RawPointer();
 		vcnt=cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
@@ -194,7 +194,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	Cell::Pointer cell;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_VolumeMesh->GetVolume(CellId);
-		vhs = cell->PointIds->RawPointer();
+		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
@@ -291,7 +291,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	Face::Pointer cell;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_SurfaceMesh->GetFace(CellId);
-		vhs = cell->PointIds->RawPointer();
+		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];

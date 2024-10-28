@@ -14,8 +14,6 @@
 
 #include <tinyxml2.h>
 
-#undef max
-#undef min
 
 IGAME_NAMESPACE_BEGIN
 bool iGame::iGameVTUReader::Parsing() {

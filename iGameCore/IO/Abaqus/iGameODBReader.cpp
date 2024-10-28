@@ -73,33 +73,21 @@ void ODBReader::ExtractHeader() {
     if (m_ODB != nullptr)
     {
         auto filename = m_FileDir + "header.txt";
-//        std::ofstream header(filename);
-//        if (header.is_open())
         {
             // write instances
             odb_InstanceRepositoryIT instIter(m_ODB->rootAssembly().instances());
-//            header << "instances: ";
             for (instIter.first(); !instIter.isDone(); instIter.next())
             {
                 m_Instance_names.push_back(instIter.currentKey().CStr());
-//                header << instIter.currentKey().CStr() << " ";
             }
-//            header << "\n";
             // write steps and frames
             odb_StepRepositoryIT stepIter(m_ODB->steps());
             for (stepIter.first(); !stepIter.isDone(); stepIter.next())
             {
                 std::string stepName = std::string(stepIter.currentKey().CStr());
                 m_StepFrameMap[stepName] = stepIter.currentValue().frames().size();
-//                header << stepIter.currentKey().CStr() << ": ";
-//                for (int i = 0; i < stepIter.currentValue().frames().size(); i++)
-//                {
-//                    header << i << " ";
-//                }
-//                header << "\n";
             }
         }
-//        header.close();
     }
 }
 
@@ -114,20 +102,18 @@ void ODBReader::ConstructMap() {
         m_CellsMap[inst_name] = std::map<int, int>();
         auto rootAssy = m_ODB->rootAssembly();
         auto inst = rootAssy.instances()[inst_name];
-        auto node_list = inst.nodes();
-        auto cell_list = inst.elements();
+        const auto& node_list = inst.nodes();
+        const auto& cell_list = inst.elements();
         m_nodesNum += node_list.size();
         m_cellsNum += cell_list.size();
         for (int i = 0; i < node_list.size(); i++)
         {
-            auto node = node_list[i];
-            m_NodesMap[inst_name][node.label()] = nodeIndex;
+            m_NodesMap[inst_name][inst.nodes(i).label()] = nodeIndex;
             nodeIndex++;
         }
         for (int i = 0; i < cell_list.size(); i++)
         {
-            auto cell = cell_list[i];
-            m_CellsMap[inst_name][cell.label()] = cellIndex;
+            m_CellsMap[inst_name][inst.elements(i).label()] = cellIndex;
             cellIndex++;
         }
     }
@@ -141,33 +127,43 @@ void ODBReader::ReadCoordinates() {
     IntArray::Pointer cellConnectivity = IntArray::New();
     IntArray::Pointer cellOffsets = IntArray::New();
     //  Note that it need to add a zero index.
-    cellOffsets->AddValue(0);
+    cellOffsets->AddValue(offset);
     IntArray::Pointer cellTypes = IntArray::New();
+
+
     for (const auto& inst_name : m_Instance_names)
     {
-        auto inst = rootAssy.instances()[inst_name];
+        const auto& inst = rootAssy.instances()[inst_name];
         // write node coordinates
-
         for (int i = 0; i < inst.nodes().size(); i ++)
         {
-            auto node = inst.nodes()[i];
-            dataSetPoints->AddPoint(node.coordinates());
+            dataSetPoints->AddPoint(inst.nodes(i).coordinates());
         }
         // write cell connectivity, offset, and type
         for (int i = 0; i < inst.elements().size(); i++)
         {
-            auto cell = inst.elements()[i];
+//            auto t1 = std::chrono::steady_clock::now();
+            const auto& cell = inst.elements(i);
+//            auto t2 = std::chrono::steady_clock::now();
             // connectivity
             const int* conn = cell.connectivity(nodesNumCell);
+//            auto t3 = std::chrono::steady_clock::now();
             for (int j = 0; j < nodesNumCell; j++)
             {
                 cellConnectivity->AddValue(m_NodesMap[inst_name][conn[j]]);
             }
+//            auto t4 = std::chrono::steady_clock::now();
             // offset
             offset += nodesNumCell;
             cellOffsets->AddValue(offset);
             // CellType
             cellTypes->AddValue(ABAQUS_VTK_CELL_MAP(cell.type().cStr()));
+//            auto t5 = std::chrono::steady_clock::now();
+//            std::cout << "===================\n";
+//            std::cout << "cost 1 : " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << '\n';
+//            std::cout << "cost 2 : " << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() << '\n';
+//            std::cout << "cost 3 : " << std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() << '\n';
+//            std::cout << "cost 4 : " << std::chrono::duration_cast<std::chrono::microseconds>(t5 - t4).count() << '\n';
         }
     }
     if (cellTypes)

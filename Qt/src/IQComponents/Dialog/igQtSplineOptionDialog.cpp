@@ -22,9 +22,9 @@ igQtSplineOptionDialog::igQtSplineOptionDialog(QWidget* par) : QDialog(par) {
     m_IntroduceLabel = new QLabel(this);
 
     m_ListWidget = new QListWidget(this);
-    m_ListWidget->addItem("Nurbs Curve Reader");
-    m_ListWidget->addItem("Nurbs Surface Reader");
-    m_ListWidget->addItem("Nurbs Volume Reader");
+    m_ListWidget->addItem("Nurbs Reader");
+//    m_ListWidget->addItem("Nurbs Surface Reader");
+//    m_ListWidget->addItem("Nurbs Volume Reader");
 #if defined(GPSCUDA_ENABLE)
     m_ListWidget->addItem("Spline Surface Reader");
     m_ListWidget->addItem("Spline Volume Reader");
