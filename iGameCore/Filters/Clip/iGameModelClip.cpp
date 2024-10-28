@@ -128,6 +128,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		auto inArray = attr.pointer;
 		auto outArray = FloatArray::New();
 		outArray->SetName(inArray->GetName());
+		outArray->SetDimension(inArray->GetDimension());
 		if (attr.attachmentType == IG_CELL) {
 			outArray->Resize(outCellNum);
 			for (j = 0; j < outCellNum; j++) {
@@ -138,14 +139,14 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
+			auto dimension = inArray->GetDimension();
 			for (j = 0; j < outPointNum; j++) {
 				inArray->GetElement(OriginEdge[j].vh1, values_1);
 				if (OriginEdge[j].vh2 == -1) {
 					outArray->SetElement(j, values_1);
 				}
 				else {
-					inArray->GetElement(OriginEdge[j].vh2, values_2);
-					auto dimension = inArray->GetDimension();
+					inArray->GetElement(OriginEdge[j].vh2, values_2);	
 					for (k = 0; k < dimension; k++) {
 						values[k] = values_1[k] + OriginEdge[j].t * (values_2[k] - values_1[k]);
 					}
@@ -187,27 +188,62 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_VolumeMesh->GetNumberOfVolumes();
-	igIndex vhs[IGAME_CELL_MAX_SIZE];
+	igIndex* vhs = nullptr;
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Volume::Pointer cell;
-	for (CellId = 0; CellId < CellNum; CellId++) {
-		cell = m_VolumeMesh->GetVolume(CellId);
-		vcnt = m_VolumeMesh->GetVolumePointIds(CellId, vhs);
-		for (i = 0; i < vcnt; i++) {
-			CellClipValue[i] = PointClipValue[vhs[i]];
+	Cell::Pointer cell;
+	if (m_VolumeMesh->GetIsPolyhedronType()) {
+		auto faces=m_VolumeMesh->GetFaces();
+		igIndex fhs[IGAME_CELL_MAX_SIZE]={0};
+		igIndex fcnt=0;
+		igIndex faceVhs[IGAME_CELL_MAX_SIZE]={0};
+		Polyhedron::Pointer polyhedron=Polyhedron::New();
+		igIndex offset=0;
+		for (CellId = 0; CellId < CellNum; CellId++) {
+			fcnt=m_VolumeMesh->GetVolumeFaceIds(CellId,fhs);
+			polyhedron->Points->Reset();
+			polyhedron->PointIds->Reset();
+			polyhedron->m_FaceOffset->Reset();
+			offset=0;
+			polyhedron->m_FaceOffset->AddId(offset);
+			for (i = 0; i < fcnt; i++) {
+				vcnt=faces->GetCellIds(fhs[i], faceVhs);
+				for (j = 0; j < vcnt; j++) {
+					polyhedron->PointIds->AddId(faceVhs[j]);
+					polyhedron->Points->AddPoint(Points->GetPoint(faceVhs[j]));
+				}
+				offset+=vcnt;
+				polyhedron->m_FaceOffset->AddId(offset);
+			}
+			vhs = polyhedron->PointIds->RawPointer();
+			vcnt = polyhedron->GetNumberOfPoints();
+			for (i = 0; i < vcnt; i++) {
+				CellClipValue[i] = PointClipValue[vhs[i]];
+			}
+			CellClip::Clip(polyhedron, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 		}
-		switch (cell->GetNumberOfPoints())
-		{
-		case 4:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
-			break;
-		case 6:
-		case 5:
-		case 8:
-			CellClip::Clip(cell, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
-			break;
+	}
+	else {
+		for (CellId = 0; CellId < CellNum; CellId++) {
+			cell = m_VolumeMesh->GetVolume(CellId);
+			vhs = cell->PointIds->RawPointer();
+			vcnt = cell->GetNumberOfPoints();
+			for (i = 0; i < vcnt; i++) {
+				CellClipValue[i] = PointClipValue[vhs[i]];
+			}
+			switch (cell->GetCellType())
+			{
+			case IG_TETRA:
+				CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
+				break;
+			default:
+				if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
+					CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
+				}
+				break;
+			}
 		}
+
 	}
 
 	auto outCellNum = OutConn->GetNumberOfCells();
@@ -221,6 +257,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 		auto inArray = attr.pointer;
 		auto outArray = FloatArray::New();
 		outArray->SetName(inArray->GetName());
+		outArray->SetDimension(inArray->GetDimension());
 		if (attr.attachmentType == IG_CELL) {
 			outArray->Resize(outCellNum);
 			for (j = 0; j < outCellNum; j++) {
@@ -279,13 +316,14 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_SurfaceMesh->GetNumberOfFaces();
-	igIndex vhs[IGAME_CELL_MAX_SIZE];
+	igIndex* vhs=nullptr;
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Face::Pointer cell;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_SurfaceMesh->GetFace(CellId);
-		vcnt = m_SurfaceMesh->GetFacePointIds(CellId, vhs);
+		vhs = cell->PointIds->RawPointer();
+		vcnt = cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
 		}
@@ -314,6 +352,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 		auto inArray = attr.pointer;
 		auto outArray = FloatArray::New();
 		outArray->SetName(inArray->GetName());
+		outArray->SetDimension(inArray->GetDimension());
 		if (attr.attachmentType == IG_CELL) {
 			outArray->Resize(outCellNum);
 			for (j = 0; j < outCellNum; j++) {

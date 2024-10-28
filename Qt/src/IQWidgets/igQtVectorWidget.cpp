@@ -38,12 +38,20 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this,[&]() {this->changeVecName();});
 	connect(ui->DrawButton, SIGNAL(clicked(bool)), this, SLOT(drawV()));
+    auto* LineValidator =
+            new QRegExpValidator(QRegExp("^[0-9]*\\.?[0-9]*$"), this);
+    ui->headRlineEdit->setValidator(LineValidator);
+    ui->headLlineEdit->setValidator(LineValidator);
+    ui->tailLlineEdit->setValidator(LineValidator);
+    ui->tailRlineEdit->setValidator(LineValidator);
+
 
 }
 void igQtVectorWidget::drawV() {
     
     m_VectorBase->SetArrow(headRadius*headRadiusP,headLength*headLengthP,tailRadius*tailRadiusP,tailLength*tailLengthP);
-    m_VectorBase->DrawVector(vecName);
+   bool check= m_VectorBase->DrawVector(vecName);
+    if (!check) { return; }
     if (!isDraw) {
         m_VectorBase->DataObject::SetName(masterName + "_Vector");
         isDraw = true;

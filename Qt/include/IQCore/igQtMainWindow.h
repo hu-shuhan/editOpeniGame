@@ -36,6 +36,7 @@ public:
     ~igQtMainWindow() override;
 
 public:
+    void initAllUnDefinedComponents();
     void initToolbarComponent();
     void initAllComponents();
     void initAllDockWidgetConnectWithAction();
@@ -52,6 +53,7 @@ public:
     igQtColorManagerWidget* ColorManagerWidget;
     igQtFilterDialogDockWidget* filterDialogDockWidget;
     QDockWidget* SliceDockWidget;
+    QDockWidget* ContourDockWidget;
     igQtModelClipWidget* SliceWidget;
     QDockWidget* DeformationDockWidget;
     igQtDeformationWidget* DeformationWidget;

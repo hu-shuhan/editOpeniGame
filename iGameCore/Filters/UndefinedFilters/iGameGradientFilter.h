@@ -13,7 +13,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-//ÏÖÔÚÄ¬ÈÏÈ¡µÚÒ»¸öÊı×é
+//ç°åœ¨é»˜è®¤å–ç¬¬ä¸€ä¸ªæ•°ç»„
 class GradientFilter : public Filter {
 
 public:
@@ -36,51 +36,51 @@ public:
 
         AttributeSet* attributeSet;
 
-        // ÌåÍø¸ñ
+        // ä½“ç½‘æ ¼
         if (volume_Mesh) {
             std::cout << "[Debug  ] "
                       << "gradient in volume_mesh " << '\n';
             attributeSet = volume_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
 
-            // ²âÊÔÊ±Ä¬ÈÏÈ¡µÚÒ»¸öÊı×é
+            // æµ‹è¯•æ—¶é»˜è®¤å–ç¬¬ä¸€ä¸ªæ•°ç»„
             auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int VolumeNum = volume_Mesh->GetNumberOfVolumes();
             int PointNum = volume_Mesh->GetNumberOfPoints();
             Points::Pointer Points = volume_Mesh->GetPoints();
             volume_Mesh->RequestEditStatus();
-            // ¸½×ÅÔÚpoint
+            // é™„ç€åœ¨point
             if (PointNum != 0 && attachmentType == 0)
                 GetPointGradient(1, Points, PointNum);
-            // ¸½×ÅÔÚcell
+            // é™„ç€åœ¨cell
             else if (VolumeNum != 0 && attachmentType == 1)
                 GetOtherGradient(1, VolumeNum);
 
-            // ±íÃæÍø¸ñ
+            // è¡¨é¢ç½‘æ ¼
         } else if (surface_Mesh) {
             std::cout << "[Debug  ] "
                       << "gradient in surface_mesh " << '\n';
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
-            // ²âÊÔÊ±Ä¬ÈÏÈ¡µÚÒ»¸öÊı×é
+            // æµ‹è¯•æ—¶é»˜è®¤å–ç¬¬ä¸€ä¸ªæ•°ç»„
             auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
             Points::Pointer Points = surface_Mesh->GetPoints();
             surface_Mesh->RequestEditStatus();
-            // ¸½×ÅÔÚpoint
+            // é™„ç€åœ¨point
             if (PointNum != 0 && attachmentType == 0)
                 GetPointGradient(0, Points, PointNum);
-            // ¸½×ÅÔÚcell
+            // é™„ç€åœ¨cell
             else if (FaceNum != 0 && attachmentType == 1)
                 GetOtherGradient(0, FaceNum);
         }
         return true;
     }
 
-    // ±íÃæ/ÌåÍø¸ñ£ºµã
+    // è¡¨é¢/ä½“ç½‘æ ¼ï¼šç‚¹
     bool GetPointGradient(int type, Points::Pointer Points, int PointNum) {
 
         AttributeSet* attributeSet;
@@ -101,10 +101,10 @@ public:
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[64]{};
-        // ¼ÆËãµãµÄÌİ¶È
+        // è®¡ç®—ç‚¹çš„æ¢¯åº¦
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             int NeighborNum;
-            // »ñÈ¡ÁÚ½Ó¶¥µã
+            // è·å–é‚»æ¥é¡¶ç‚¹
             if (type == 1)
                 NeighborNum = volume_Mesh->GetPointToOneRingPoints(
                         idx, neighborVerts);
@@ -124,7 +124,7 @@ public:
                 float y = v1[1] - v2[1];
                 float z = v1[2] - v2[2];
 
-                // ±êÁ¿¼ÆËãÊ±¾ÍËãÊÇÈıÎ¬Êı¾İÒ²Ä¬ÈÏÈ¡µÚÒ»Î¬
+                // æ ‡é‡è®¡ç®—æ—¶å°±ç®—æ˜¯ä¸‰ç»´æ•°æ®ä¹Ÿé»˜è®¤å–ç¬¬ä¸€ç»´
                 double value = data->GetValue(dimension * idx) -
                                data->GetValue(dimension * neighborVerts[m]);
 
@@ -174,7 +174,7 @@ public:
         return position;
     }
 
-    // ±íÃæÍø¸ñ£ºÃæ / ÌåÍø¸ñ£ºÌå
+    // è¡¨é¢ç½‘æ ¼ï¼šé¢ / ä½“ç½‘æ ¼ï¼šä½“
     bool GetOtherGradient(int type, int Num) {
         AttributeSet* attributeSet;
         if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
@@ -193,12 +193,12 @@ public:
         std::vector<std::array<float, 3>> gradient(Num, {0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(Num, 0.0f);
 
-        // ¼ÆËãµãµÄÌİ¶È
+        // è®¡ç®—ç‚¹çš„æ¢¯åº¦
         for (igIndex idx = 0; idx < Num; ++idx) {
 
             igIndex* neighbors;
             int NeighborNum;
-            // »ñÈ¡ÁÚ½Ó¶¥µã
+            // è·å–é‚»æ¥é¡¶ç‚¹
             if (type == 1)
                 // neighbors:volumeIds
                 NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
@@ -242,7 +242,7 @@ public:
                     y = v1_position[1] - v2_position[1];
                     z = v1_position[2] - v2_position[2];
                 }
-                // ±êÁ¿¼ÆËãÊ±¾ÍËãÊÇÈıÎ¬Êı¾İÒ²Ä¬ÈÏÈ¡µÚÒ»Î¬
+                // æ ‡é‡è®¡ç®—æ—¶å°±ç®—æ˜¯ä¸‰ç»´æ•°æ®ä¹Ÿé»˜è®¤å–ç¬¬ä¸€ç»´
                 auto value = data->GetValue(idx * dimension) -
                              data->GetValue(neighbors[m] * dimension);
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
@@ -265,7 +265,7 @@ public:
 
 protected:
     GradientFilter()
-    //ÊäÈëÊä³ö¸öÊı
+    //è¾“å…¥è¾“å‡ºä¸ªæ•°
     {
         SetNumberOfInputs(1);
         SetNumberOfOutputs(1);

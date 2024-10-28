@@ -19,7 +19,7 @@ class igQtCharts : public QDialog {
 
 public:
     igQtCharts(QWidget* parent = nullptr);
-    void draw(iGame::ArrayObject::Pointer m_data);
+    void drawBarChart(iGame::ArrayObject::Pointer m_data);
     void drawLineChart(iGame::ArrayObject::Pointer m_data);
     QChartView* getChartView() const;
 

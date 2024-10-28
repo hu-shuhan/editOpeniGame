@@ -25,29 +25,50 @@ Volume* VolumeMesh::GetVolume(const IGsize volumeId) {
     int ncells = m_Volumes->GetCellIds(volumeId, cell);
 
     Volume* volume = nullptr;
-    if (ncells == Tetra::NumberOfPoints) {
-        if (m_Tetra == nullptr) { m_Tetra = Tetra::New(); }
-        volume = m_Tetra.get();
-    } else if (ncells == Hexahedron::NumberOfPoints) {
-        if (m_Hexahedron == nullptr) { m_Hexahedron = Hexahedron::New(); }
-        volume = m_Hexahedron.get();
-    } else if (ncells == Prism::NumberOfPoints) {
-        if (m_Prism == nullptr) { m_Prism = Prism::New(); }
-        volume = m_Prism.get();
-    } else if (ncells == Pyramid::NumberOfPoints) {
-        if (m_Pyramid == nullptr) { m_Pyramid = Pyramid::New(); }
-        volume = m_Pyramid.get();
+    if (this->GetIsPolyhedronType()) {
+        /*	if (m_Polyhedron == nullptr) { m_Polyhedron = Polyhedron::New(); }
+		m_Polyhedron->Reset();
+		volume = m_Polyhedron.get();
+		igIndex fhs[IGAME_CELL_MAX_SIZE]={0};
+		igIndex vhs[IGAME_CELL_MAX_SIZE]={0};
+		int vcnt=0;
+		int fcnt=this->GetVolumeFaceIds(volumeId,fhs);
+		int offset=0;
+			m_Polyhedron->m_FaceOffset->AddId(offset);
+
+		for (int i = 0; i < fcnt; i++) {
+			vcnt=this->GetFacePointIds(fhs[i],vhs);
+			for (int j = 0; j < vcnt; j++) {
+				m_Polyhedron->PointIds->AddId(vhs[j]);
+				m_Polyhedron->Points->AddPoint(this->GetPoint(vhs[j]));
+			}
+		    offset+=vcnt;
+			m_Polyhedron->m_FaceOffset->AddId(offset);
+		}*/
+    } else {
+        if (ncells == Tetra::NumberOfPoints) {
+            if (m_Tetra == nullptr) { m_Tetra = Tetra::New(); }
+            volume = m_Tetra.get();
+        } else if (ncells == Hexahedron::NumberOfPoints) {
+            if (m_Hexahedron == nullptr) { m_Hexahedron = Hexahedron::New(); }
+            volume = m_Hexahedron.get();
+        } else if (ncells == Prism::NumberOfPoints) {
+            if (m_Prism == nullptr) { m_Prism = Prism::New(); }
+            volume = m_Prism.get();
+        } else if (ncells == Pyramid::NumberOfPoints) {
+            if (m_Pyramid == nullptr) { m_Pyramid = Pyramid::New(); }
+            volume = m_Pyramid.get();
+        }
+
+        assert(volume != nullptr);
+        volume->PointIds->Reset();
+        volume->Points->Reset();
+
+        for (int i = 0; i < ncells; i++) {
+            volume->PointIds->AddId(cell[i]);
+            volume->Points->AddPoint(this->GetPoint(cell[i]));
+        }
     }
-
-    assert(volume != nullptr);
-    volume->PointIds->Reset();
-    volume->Points->Reset();
-
-    for (int i = 0; i < ncells; i++) {
-        volume->PointIds->AddId(cell[i]);
-        volume->Points->AddPoint(this->GetPoint(cell[i]));
-    }
-
     return volume;
 }
 
@@ -1111,9 +1132,29 @@ void VolumeMesh::RequestVolumeStatus() {
 void VolumeMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() ||
         m_Clipper->GetMTime() > m_Positions->GetMTime()) {
-        m_Positions = m_Points->ConvertToArray();
-        m_Positions->Modified();
 
+
+        iGameModelGeometryFilter::Pointer extract =
+            iGameModelGeometryFilter::New();
+        // update clip status
+        auto box = m_Clipper->m_Box;
+        if (box.m_Use) {
+            const auto& a = box.m_Bmin;
+            const auto& b = box.m_Bmax;
+            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+        }
+
+        auto plane = m_Clipper->m_Plane;
+        if (plane.m_Use) {
+            extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip);
+        }
+        // shell algorithm
+        SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+        if (extract->Execute(this, surfaceMesh)) {
+            SetDisplayObject(surfaceMesh);
+            m_PointMap = extract->GetPointMap();
+        }
+        else {
         UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
         triangleIndices->SetDimension(3);
         UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
@@ -1189,31 +1230,49 @@ void VolumeMesh::ConvertToDrawableData() {
             }
         }
 
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
+
+        //        m_PointIndices = pointIndices;
+        //        m_PointIndices->Modified();
+
         m_TriangleIndices = triangleIndices;
         m_TriangleIndices->Modified();
 
         m_LineIndices = edgeIndices;
         m_LineIndices->Modified();
     }
+    }
 
     // convert scalar data
-    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
-        if (m_AttributeIndex == -1) {
-            m_UseColor = false;
-            m_ColorWithCell = false;
-        } else {
-            m_UseColor = true;
+    if (m_AttributeIndex == -1) {
+        m_UseColor = false;
+        m_ColorWithCell = false;
+    } else {
+        m_UseColor = true;
 
-            auto& attr =
-                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (!attr.isDeleted) {
-                if (attr.attachmentType == IG_POINT) {
+        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+        if (attr.type == IG_RGB) {
+            this->m_ColorMapper->SetVectorModeToRGBColors();
+        }
+        else {
+            this->m_ColorMapper->SetVectorModeToComponent();
+        }
+        if (!attr.isDeleted) {
+            if (attr.attachmentType == IG_POINT) {
+                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;
-                    this->SetAttributeWithPointData(
-                            attr.pointer, attr.dataRange, m_AttributeDimension);
-                } else if (attr.attachmentType == IG_CELL) {
-                    m_ColorWithCell = false;
-                    this->SetAttributeWithCellData(attr.pointer, attr.dataRange,
+                    this->SetAttributeWithPointData(attr.pointer,
+                                                    attr.GetDataRange(),
+                                                    m_AttributeDimension);
+                }
+            } else if (attr.attachmentType == IG_CELL) {
+                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                    m_ColorWithCell = true;
+                    this->SetAttributeWithCellData(attr.pointer,
+                                                   attr.GetDataRange(),
                                                    m_AttributeDimension);
                 }
             }
@@ -1271,19 +1330,17 @@ void VolumeMesh::ConvertToDrawableData() {
 //}
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                          std::pair<float, float>& range,
+                                          DoubleArray::Pointer attrRange,
                                           igIndex dimension) {
-
-    if (range.first != range.second) {
-        m_ColorMapper->SetRange(range.first, range.second);
-    } else if (dimension == -1) {
-        m_ColorMapper->InitRange(attr);
-    } else {
-        m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+        if (minimal_val < maximal_val) {
+            m_ColorMapper->SetRange(minimal_val, maximal_val);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
     }
-    range.first = m_ColorMapper->GetRange()[0];
-    range.second = m_ColorMapper->GetRange()[1];
-
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
     if (colors == nullptr) { return; }
 

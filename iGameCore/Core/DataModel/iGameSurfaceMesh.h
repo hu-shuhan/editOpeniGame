@@ -361,7 +361,7 @@ public:
     //                               std::pair<float, float>& range,
     //                               igIndex i = -1) override;
     void SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                  std::pair<float, float>& range,
+                                  DoubleArray::Pointer attrRange,
                                   igIndex dimension = -1) override;
 
     void GetDrawableArray(FloatArray::Pointer& positions,

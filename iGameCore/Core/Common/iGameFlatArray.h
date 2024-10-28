@@ -36,6 +36,9 @@ public:
     // Reset the array size, and the old memory will not change.
     void Reset() override { this->VectorType::clear(); }
 
+    // Reset the array size, and the old memory will not change.
+    void Clear() { this->VectorType::clear(); }
+
     // Free unnecessary memory.
     void Squeeze() override { this->Resize(GetNumberOfElements()); }
 

@@ -18,6 +18,7 @@ layout(std140, binding = 1) uniform ObjectDataBLock {
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
     bool useColor;
+    bool useNormalSmooth;
 } ubo;
 
 // 0:blinnPhong shading, 1:no light shading, 2:pure color shading
@@ -70,10 +71,14 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 vec3 ShadeFragment() {
     vec3 color = vec3(0.0, 0.0, 0.0);
 
-    // continuous patch
-    //    vec3 normal = normalize(in_Normal);
-    // discrete patch
-    vec3 normal = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    vec3 normal = vec3(0.0, 0.0, 0.0);
+    if (ubo.useNormalSmooth) {
+        // continuous patch
+        normal = normalize(in_Normal);
+    } else {
+        // discrete patch
+        normal = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    }
 
     // ambient
     color += ambient * in_Color;

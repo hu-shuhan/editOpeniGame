@@ -5,6 +5,7 @@ IGAME_NAMESPACE_BEGIN
 void PointSet::SetPoints(Points::Pointer points) {
 	if (m_Points != points) {
 		m_Points = points;
+		m_Points->Modified();
 		this->Modified();
 	}
 }
@@ -67,10 +68,9 @@ PointSet::PointSet() {
 	m_ViewStyle = IG_POINT;
 }
 IGsize PointSet::GetRealMemorySize() {
-	IGsize res = 0;
+	IGsize res = this->DrawObject::GetRealMemorySize();
 	if (m_Points) res += m_Points->GetRealMemorySize();
 	if (m_PointDeleteMarker) res += m_PointDeleteMarker->GetRealMemorySize();
-	if (m_Attributes) res += m_Attributes->GetRealMemorySize();
 	return res + sizeof(m_InEditStatus);
 }
 void PointSet::RequestPointStatus() {
@@ -100,24 +100,33 @@ void PointSet::ConvertToDrawableData() {
 	}
 
 	// convert scalar data
-	if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
-		if (m_AttributeIndex == -1) {
-			m_UseColor = false;
-			m_ColorWithCell = false;
+	if (m_AttributeIndex == -1) {
+		m_UseColor = false;
+		m_ColorWithCell = false;
+	}
+	else {
+		m_UseColor = true;
+
+		auto& attr =
+			this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+		if (attr.type == IG_RGB) {
+			this->m_ColorMapper->SetVectorModeToRGBColors();
 		}
 		else {
-			m_UseColor = true;
-
-			auto& attr =
-				this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-			if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
+			this->m_ColorMapper->SetVectorModeToComponent();
+		}
+		if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
+			if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+				m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
 				m_ColorWithCell = false;
-				this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
+				this->SetAttributeWithPointData(attr.pointer,
+					attr.GetDataRange(),
 					m_AttributeDimension);
 			}
 		}
 	}
 }
+
 
 //void PointSet::ViewCloudPicture(Scene* scene, int index, int demension) {
 //    auto& attr = this->GetAttributeSet()->GetAttribute(index);
@@ -129,28 +138,27 @@ void PointSet::ConvertToDrawableData() {
 //}
 
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr,
-	std::pair<float, float>& range,
+	DoubleArray::Pointer attrRange,
 	igIndex dimension) {
 
 	if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-		if (range.first != range.second) {
-			m_ColorMapper->SetRange(range.first, range.second);
-		}
-		else if (dimension == -1) {
-			m_ColorMapper->InitRange(attr);
+		double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+		double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+		if (minimal_val < maximal_val) {
+			m_ColorMapper->SetRange(minimal_val, maximal_val);
 		}
 		else {
 			m_ColorMapper->InitRange(attr, dimension);
 		}
 	}
-	range.first = m_ColorMapper->GetRange()[0];
-	range.second = m_ColorMapper->GetRange()[1];
 	m_Colors = m_ColorMapper->MapScalars(attr, dimension);
 	m_Colors->Modified();
 	if (m_Colors == nullptr) { return; }
 }
 
+FlatArray<igIndex>::Pointer PointSet::GetPointMap() { return m_PointMap; }
 void PointSet::SetAttributeWithCellData(ArrayObject::Pointer attr,
-	std::pair<float, float>& range,
+	DoubleArray::Pointer attrRange,
 	igIndex dimension) {}
+
 IGAME_NAMESPACE_END

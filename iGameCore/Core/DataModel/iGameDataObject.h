@@ -7,6 +7,7 @@
 #include "iGamePropertyTree.h"
 #include "iGameScalarsToColors.h"
 #include "iGameStreamingData.h"
+#include "iGameDeformationData.h"
 
 IGAME_NAMESPACE_BEGIN
 class DataObject : public Object {
@@ -26,8 +27,9 @@ public:
     virtual bool DeepCopy(Pointer o) { return true; }
 
     StreamingData::Pointer GetTimeFrames();
-    //	SmartPointer<StreamingData> GetTimeFrames();
+    DeformationData::Pointer GetDeformationData();
     void SetTimeFrames(StreamingData::Pointer p) { m_TimeFrames = p; }
+    void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
 
     void SetAttributeSet(AttributeSet::Pointer p) { m_Attributes = p; }
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
@@ -128,7 +130,17 @@ public:
 
     DataObject* FindParent();
     //Get real size of DataObject
-    virtual IGsize GetRealMemorySize() { return 0; };
+    virtual IGsize GetRealMemorySize() { 
+        IGsize res=0;
+        if (m_Attributes) res += m_Attributes->GetRealMemorySize();
+        if (this->HasSubDataObject()) {
+            for (auto it = m_SubDataObjectsHelper->Begin();
+                it != m_SubDataObjectsHelper->End(); ++it) {
+                res+=it->second->GetRealMemorySize();
+            }
+        }
+        return res;
+    };
 
 protected:
     DataObject() {
@@ -162,6 +174,7 @@ protected:
 
     DataObjectId m_UniqueId{};
     StreamingData::Pointer m_TimeFrames{};
+    DeformationData::Pointer m_DeformationData{};
     AttributeSet::Pointer m_Attributes{};
     Metadata::Pointer m_Metadata{};
     PropertyTree::Pointer m_Propertys{};
@@ -179,13 +192,6 @@ private:
     void SetParent(DataObject* parent);
 
 public:
-    //virtual void Draw(Scene*);
-    //virtual void DrawPhase1(Scene*);
-    //virtual void DrawPhase2(Scene*);
-    //virtual void TestOcclusionResults(Scene*);
-    //virtual void ConvertToDrawableData();
-
-    //virtual void ChangeDrawable(bool drawScalar) { m_Drawable = drawScalar; }
     virtual bool IsDrawable() { return false; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
     void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper = cm; }

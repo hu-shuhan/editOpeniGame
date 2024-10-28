@@ -21,6 +21,7 @@ layout(std140, binding = 1) uniform ObjectDataBlock {
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
     bool useColor;
+    bool useNormalSmooth;
 } ubo;
 
 //layout(binding = 3) uniform sampler2D texSampler;
@@ -67,10 +68,14 @@ void main() {
     //out_ScreenColor = texture(texSampler, in_UV);
     vec3 color = vec3(0.0, 0.0, 0.0);
 
-    // continuous patch
-    //    vec3 normal = normalize(in_Normal);
-    // discrete patch
-    vec3 normal = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    vec3 normal = vec3(0.0, 0.0, 0.0);
+    if (ubo.useNormalSmooth) {
+        // continuous patch
+        normal = normalize(in_Normal);
+    } else {
+        // discrete patch
+        normal = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+    }
 
     // ambient
     color += ambient * in_Color;

@@ -41,36 +41,7 @@
 igQtMainWindow::igQtMainWindow(QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow) {
 	ui->setupUi(this);
-	modelTreeWidget = new igQtModelDialogWidget(this);
-	rendererWidget = new igQtModelDrawWidget(this);
-	igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
-	//    rendererWidget->setParent(this);
-	fileLoader = new igQtFileLoader(this);
-	this->setCentralWidget(rendererWidget);
-	this->ColorManagerWidget = new igQtColorManagerWidget;
-	ColorManagerWidget->setGeometry(400, 500, 780, 1000);
-	ui->dockWidget_ScalarField->hide();
-	ui->dockWidget_VectorField->hide();
-	ui->dockWidget_FlowField->hide();
-	ui->dockWidget_TensorField->hide();
-	ui->dockWidget_SearchInfo->hide();
-	ui->dockWidget_QualityDetection->hide();
-	ui->dockWidget_EditMode->hide();
-	ui->dockWidget_Animation->hide();
-	ui->dockWidget_ModelList->hide();
-	// Setup default GUI layout.
-	this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
-	this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
-	this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
-	// Set up the dock window corners to give the vertical docks more room.
-	this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
-	this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
-	modelTreeWidget->setFloating(false); // Make sure it's docked
-	modelTreeWidget->setAllowedAreas(Qt::LeftDockWidgetArea |
-		Qt::TopDockWidgetArea);
-	modelTreeWidget->setFeatures(
-		QDockWidget::NoDockWidgetFeatures); // Disable floating and moving
-	this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget);
+    initAllUnDefinedComponents();
 	initToolbarComponent();
 	initAllComponents();
 	initAllFilters();
@@ -80,6 +51,60 @@ igQtMainWindow::igQtMainWindow(QWidget* parent)
 
 	connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
             &igQtRenderWidget::update);
+}
+void igQtMainWindow::initAllUnDefinedComponents() {
+    rendererWidget = new igQtModelDrawWidget(this);
+    igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
+    //    rendererWidget->setParent(this);
+    fileLoader = new igQtFileLoader(this);
+    this->setCentralWidget(rendererWidget);
+    this->ColorManagerWidget = new igQtColorManagerWidget;
+    ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+    ui->dockWidget_ScalarField->hide();
+    ui->dockWidget_VectorField->hide();
+    ui->dockWidget_FlowField->hide();
+    ui->dockWidget_TensorField->hide();
+    ui->dockWidget_SearchInfo->hide();
+    ui->dockWidget_QualityDetection->hide();
+    ui->dockWidget_EditMode->hide();
+    ui->dockWidget_Animation->hide();
+    ui->dockWidget_ModelList->hide();
+    ui->dockWidget_ContourExtract->hide();
+    // Setup default GUI layout.
+    this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+    this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
+    this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
+    // Set up the dock window corners to give the vertical docks more room.
+    this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
+    this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+
+    modelTreeWidget = new igQtModelDialogWidget(this);
+    modelTreeWidget->setFloating(false); // Make sure it's docked
+    modelTreeWidget->setAllowedAreas(Qt::LeftDockWidgetArea |
+                                     Qt::TopDockWidgetArea);
+    modelTreeWidget->setFeatures(
+            QDockWidget::NoDockWidgetFeatures); // Disable floating and moving
+    this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget);
+
+
+    SliceDockWidget = new QDockWidget(this);
+    SliceDockWidget->setWindowTitle("网格切割");
+    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
+    SliceDockWidget->setWidget(SliceWidget);
+    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
+    SliceDockWidget->hide();
+    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
+
+    DeformationDockWidget = new QDockWidget(this);
+    DeformationDockWidget->setWindowTitle("结构形变");
+    DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
+    DeformationDockWidget->setWidget(DeformationWidget);
+    DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+    DeformationDockWidget->hide();
+    this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
+
+
 }
 void igQtMainWindow::initToolbarComponent() {
 
@@ -542,27 +567,26 @@ void igQtMainWindow::initAllFilters() {
                                                           ItemSource::File);
             });
 
-    auto action_subdivision = ui->menuTest->addAction("Subdivision");
+    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
     connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-        /*	auto filter = HexhedronSubdivision::New();
-						VolumeMesh::Pointer mesh =
-		   DynamicCast<VolumeMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());*/
-        // auto filter = QuadSubdivision::New();
-        // SurfaceMesh::Pointer mesh = DynamicCast<SurfaceMesh>(
-        //     rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        // filter->SetMesh(mesh);
-        // filter->Execute();
-        // auto ControlPoints = filter->GetOutput();
-        // ControlPoints->SetName("ControlPoints");
-
-        // modelTreeWidget->addDataObjectToModelTree(ControlPoints,
-        // ItemSource::File);
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        std::cout << obj->GetName() << "KB\n";
-        // MyTestFilter::Pointer aaa = MyTestFilter::New();
-        // aaa->SetMesh(obj);
-        // aaa->Execute();
+        auto input = rendererWidget->GetScene()
+            ->GetCurrentModel()
+            ->GetDataObject();
+        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
+        auto attributeset=input->GetAttributeSet();
+        double rgb[3]={0,0,0};
+        int fcnt= mesh->GetNumberOfFaces();
+        auto array = DoubleArray::New();
+        array->SetDimension(3);
+        array->Reserve(fcnt);
+        array->SetName("rgb");
+        for (int i = 0; i < fcnt; i++) {
+            rgb[1]=double(i)/double(fcnt);
+            array->AddElement(rgb);
+        }
+        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
+        modelTreeWidget->addDataObjectToModelTree(mesh,
+            ItemSource::File);
     });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
@@ -574,13 +598,7 @@ void igQtMainWindow::initAllFilters() {
                                  ->GetAttributeSet()
                                  ->GetAttribute(0)
                                  .pointer;
-        //auto dataarray=DoubleArray::New();
-        //dataarray->AddValue(1.0);
-        //dataarray->AddValue(2.0);
-        //dataarray->AddValue(13.0);
-        //dataarray->AddValue(4.0);
-        //dataarray->AddValue(6.0);
-        chart->draw(dataarray);
+        chart->drawBarChart(dataarray);
         chart->exec();
     });
     auto action_loadtest = ui->menu_help->addAction("loadtest");
@@ -933,13 +951,28 @@ void igQtMainWindow::initAllFilters() {
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
-            auto filter=ModelClip::New();
-            auto pointData= obj->GetAttributeSet()->GetAllPointAttributes();
-            filter->SetIsoScalarData(pointData->GetElement(0).pointer,0.58,0);
-			filter->SetInput(0, obj);
-			filter->Execute();
-			modelTreeWidget->addDataObjectToModelTree(
-				filter->GetOutput(), ItemSource::Algorithm);
+         auto mesh=DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+         //mesh->RequestEditStatus();
+         auto res=SurfaceMesh::New();
+         auto res_points=Points::New();
+         auto res_faces=CellArray::New();
+ auto faces=mesh->GetFaces();
+ int vhs[512]={0};
+ int vcnt=0;
+ int index=0;
+ for (int i = 0; i < faces->GetNumberOfCells(); i++) {
+   vcnt= faces->GetCellIds(i,vhs);
+   for (int j = 2; j < vcnt; j++) {
+       res_points->AddPoint(mesh->GetPoint(vhs[0]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j-1]));
+       res_points->AddPoint(mesh->GetPoint(vhs[j]));
+       res_faces->AddCellId3(index++,index++,index++);
+   }
+ }
+ res->SetPoints(res_points);
+ res->SetFaces(res_faces);
+ modelTreeWidget->addDataObjectToModelTree(
+     res, ItemSource::Algorithm);
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
@@ -1069,7 +1102,51 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
     //  checked) { 	ui->dockWidget_QualityDetection->show();
     //	});
-
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool
+         checked) { 
+            ui->dockWidget_ContourExtract->show();
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if(!scene)return;
+            auto CurrentModel = scene->GetCurrentModel();
+            if(!CurrentModel)return;
+            auto dataObject = CurrentModel->GetDataObject();
+            if(!dataObject)return;
+            ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+        	});
+    connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool
+        checked) {
+            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+            if (!scene)return;
+            auto CurrentModel = scene->GetCurrentModel();
+            if (!CurrentModel)return;
+            auto dataObject = CurrentModel->GetDataObject();
+            if (!dataObject)return;
+            auto attributeSet=dataObject->GetAttributeSet();
+            auto attrIndex=dataObject->GetAttributeIndex();
+            auto attrDimension=dataObject->GetAttributeDimension();
+            if (attrIndex<0 ) {
+                return;
+            }
+            auto array= attributeSet->GetAttribute(attrIndex).pointer;
+            if(array==nullptr)return;
+            ArrayObject::Pointer drawArray=nullptr;
+            if (array->GetDimension() <= 1) {
+                drawArray= array;
+            }
+            else {
+                 auto tmpArray=FloatArray::New();
+                 int size= array->GetNumberOfElements();
+                 tmpArray->Reserve(size);
+                 tmpArray->SetName(array->GetName());
+                 for (int i = 0; i < size; i++) {
+                     tmpArray->AddValue(array->GetElementValue(i, attrDimension));
+                 }
+                 drawArray= tmpArray;
+            }
+            auto chart = new igQtCharts;
+            chart->drawBarChart(drawArray);
+            chart->exec();
+        });
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m,
                                        Painter3D* painter,
                                        const float color[3]) -> void {
@@ -1364,19 +1441,16 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 });
             });
 
-    SliceDockWidget = new QDockWidget(this);
-    SliceDockWidget->setWindowTitle("网格切割");
-    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
-    SliceDockWidget->setWidget(SliceWidget);
-    SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
-    SliceDockWidget->hide();
-    this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
-    connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        SliceDockWidget->show();
+	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
+        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+            return;
+        }
         auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        SliceWidget->SetOriginDataObject(obj);
-
+            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if(!obj)return;
+		SliceDockWidget->show();
+		SliceWidget->SetOriginDataObject(obj);
+        
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter(
                 rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
@@ -1387,14 +1461,23 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
 
         rendererWidget->getInteractor()->RequestSlicingStyle();
+
+		});
+	connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
+		[&](SurfaceMesh::Pointer mesh) {
+			modelTreeWidget->addDataObjectToModelTree(
+				mesh, ItemSource::Algorithm);
+		});
+	connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
+		[&](SurfaceMesh::Pointer mesh) {
+            modelTreeWidget->updateCurrentModelInfo();
+			rendererWidget->update();
+		});
+
+    connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
+        if(checked)DeformationDockWidget->show();
+        else DeformationDockWidget->hide();
     });
-    connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](SurfaceMesh::Pointer mesh) {
-                modelTreeWidget->addDataObjectToModelTree(
-                        mesh, ItemSource::Algorithm);
-            });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this,
-            [&](SurfaceMesh::Pointer mesh) { rendererWidget->update(); });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,
@@ -1414,7 +1497,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateCurrentSceneWidget);
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
             &igQtAnimationWidget::initAnimationComponents);
-    //connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject,
@@ -1538,7 +1621,15 @@ void igQtMainWindow::initAllMySignalConnections() {
 			// ItemSource::Algorithm);
 		});
 
-
+    connect(ui->widget_ContourExtract,&igQtContourExtractWidget::DrawContourModel,this,
+        [&](iGame::DataObject::Pointer res) {
+             modelTreeWidget->addDataObjectToModelTree(res,ItemSource::Algorithm);
+        });
+    connect(ui->widget_ContourExtract, &igQtContourExtractWidget::UpdateContourModel, this,
+        [&](DataObject::Pointer mesh) {
+            modelTreeWidget->updateCurrentModelInfo();
+            rendererWidget->update();
+        });
     // reset clipping
     connect(ui->action_ResetClipping, &QAction::triggered, this,
             [&](bool checked) {

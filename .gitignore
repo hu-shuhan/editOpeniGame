@@ -1,6 +1,7 @@
 # Project exclude paths
 /cmake-build-debug/
 /cmake-build-release/
+/CMakeGPS/
 
 /.idea/
 /out/
@@ -10,4 +11,4 @@
 /*.rar
 /*.zip
 
-iGameCore/Filters/TensorViewFilter/iGameTensorWidgetBase.cpp~
+iGameCore/Filters/TensorViewFilter/iGameTensorWidgetBase.cpp

@@ -13,8 +13,7 @@
 #include <QAbstractButton>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <qdebug.h>
-
+#include <Deformation/iGameStressDeformationFilter.h>
 
 /**
  * @class   igQtAnimationWidget
@@ -177,37 +176,13 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
             currentDrawObject->AddSubDataObject(task.get());
         }
     }
-    std::cout << "current name : " << currentDrawObject->GetName() << '\n';
-    if (currentDrawObject->GetName() == "sukong") {
-        std::cout << "Process sukong.pvd";
-        for (auto it = currentDrawObject->SubDataObjectIteratorBegin();
-             it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
-            auto pointset = DynamicCast<iGame::PointSet>(it->second);
-            auto uset = pointset->GetAttributeSet()
-                                ->GetAttribute("U", IG_SCALAR)
-                                .pointer;
-            std::cout << "Points : " << pointset->GetNumberOfPoints() << ' '
-                      << uset->GetNumberOfValues() << '\n';
-            for (int i = 0, j = 0; i < pointset->GetNumberOfPoints();
-                 i++, j += 3) {
-                //                std::cout << uset->GetValue(j) << ' ' << uset->GetValue(j + 1)<< ' '  << uset->GetValue(j + 2) << '\n';
-                //                Vector3f vec = {0.f, 0.f, 0.f};
-                //                pointset->SetPoint(i, pointset->GetPoint(i) + (48380.) * (Vector3d(uset->GetValue(j), uset->GetValue(j + 1), uset->GetValue(j + 2)))
-                pointset->SetPoint(
-                        i, pointset->GetPoint(i) +
-                                   (40081800.) *
-                                           (Vector3d(uset->GetValue(j),
-                                                     uset->GetValue(j + 1),
-                                                     uset->GetValue(j + 2))));
-            }
-            pointset->Modified();
-        }
-    }
+    /* If obj has the deformation var and is enabled.
+     * Make sure every timeStep have the deformation scale factor. */
 
-    //    for(int i = 0; i < frameSubFiles->Size(); i ++){
-    //        auto sub = FileIO::ReadFile(frameSubFiles->GetElement(i));
-    //        currentObject->AddSubDataObject(sub);
-    //    }
+    StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+    deformFilter->SetInput(currentDrawObject);
+    if(!deformFilter->Execute()) std::cout << " error \n";
+
 
     /* process Object's scalar range*/
     IGsize scalar_size = currentDrawObject->GetAttributeSet()
@@ -229,8 +204,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
              it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
             auto& range =
                     it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-            range.second = par_range.second;
-            range.first = par_range.first;
+            range = par_range;
         }
         //        std::cout << "range : " << range_max << ' ' << range_min << '\n';
     }
@@ -363,8 +337,8 @@ bool igQtAnimationWidget::saveAnimation() {
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
 
 
-    for (int i = 0; i < timeStepSize; i++) {
-        std::cout << "playing step : " << i << '\n';
+    for(int i = 0; i < timeStepSize; i ++)
+    {
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
         std::vector<uint8_t> tmp(image.bits(),

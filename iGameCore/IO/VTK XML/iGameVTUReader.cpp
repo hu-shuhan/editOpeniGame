@@ -186,15 +186,16 @@ bool iGame::iGameVTUReader::Parsing() {
 			}
 			if (array != nullptr) {
 				array->SetName(scalarName);
-				float scalar_range_max = FLT_MIN;
-				float scalar_range_min = FLT_MAX;
+//				float scalar_range_max = FLT_MIN;
+//				float scalar_range_min = FLT_MAX;
 				float value;
 				for (int i = 0; i < array->GetNumberOfElements(); i++) {
 					value = array->GetValue(i);
-					scalar_range_max = std::max(scalar_range_max, value);
-					scalar_range_min = std::min(scalar_range_min, value);
+//					scalar_range_max = std::max(scalar_range_max, value);
+//					scalar_range_min = std::min(scalar_range_min, value);
 				}
-				m_Data.GetData()->AddScalar(IG_POINT, array, { scalar_range_min, scalar_range_max });
+//				m_Data.GetData()->AddScalar(IG_POINT, array, { scalar_range_min, scalar_range_max });
+				m_Data.GetData()->AddScalar(IG_POINT, array);
 			}
 		}
 		elem = elem->NextSiblingElement("DataArray");
@@ -290,15 +291,16 @@ bool iGame::iGameVTUReader::Parsing() {
             }
             if (array != nullptr) {
                 array->SetName(scalarName);
-                float scalar_range_max = FLT_MIN;
-                float scalar_range_min = FLT_MAX;
+//                float scalar_range_max = FLT_MIN;
+//                float scalar_range_min = FLT_MAX;
                 float value;
                 for (int i = 0; i < array->GetNumberOfElements(); i++) {
                     value = array->GetValue(i);
-                    scalar_range_max = std::max(scalar_range_max, value);
-                    scalar_range_min = std::min(scalar_range_min, value);
+//                    scalar_range_max = std::max(scalar_range_max, value);
+//                    scalar_range_min = std::min(scalar_range_min, value);
                 }
-                m_Data.GetData()->AddScalar(IG_CELL, array, { scalar_range_min, scalar_range_max });
+//                m_Data.GetData()->AddScalar(IG_CELL, array, { scalar_range_min, scalar_range_max });
+                m_Data.GetData()->AddScalar(IG_CELL, array);
             }
         }
         elem = elem->NextSiblingElement("DataArray");

@@ -48,7 +48,7 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem,
                                       this);
 
-
+    this->parent=parent;
 }
 iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
 
@@ -74,6 +74,8 @@ void ModelTreeWidgetItem::changeVisibility() {
 
 void ModelTreeWidgetItem::viewAttribute(int index, int dim) {
     model->ViewCloudPicture(index, dim);
+    Q_EMIT dynamic_cast<igQtModelTreeWidget*>(this->parent)->ViewCloudPicture();
+
 }
 
 void ModelTreeWidgetItem::setCurrentChild(QTreeWidgetItem* child) {
@@ -248,7 +250,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         if (parent) {
             if (currentModelItem != parent) {
                 this->setCurrentModelItem(parent);
+                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(
+                    parent->getModel());
                 emit ChangeCurrentModel(parent->getModel());
+                
             }
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(
                     parent->getCurrentChild());

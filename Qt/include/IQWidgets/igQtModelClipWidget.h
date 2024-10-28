@@ -8,7 +8,7 @@
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
 
-#include <ui_Slice.h>
+#include <ui_ModelClip.h>
 class igQtModelClipWidget : public QWidget {
 
     Q_OBJECT
@@ -50,11 +50,11 @@ signals:
 
 protected:
 private:
-    Ui::Form* ui;
+    Ui::ModelClipWidget* ui;
 
 	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
     iGame::SurfaceMesh::Pointer m_ResultMesh{nullptr};
     iGame::ModelClip::Pointer m_Clipper{nullptr};
 	bool m_Generated=false;
-
+    iGame::DrawObject::Pointer m_tmp{nullptr};
 };

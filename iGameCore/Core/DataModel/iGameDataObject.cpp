@@ -17,7 +17,6 @@ DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
 
 DataObject::Pointer DataObject::GetSubDataObject(DataObjectId id) {
     if (m_SubDataObjectsHelper == nullptr) { return nullptr; }
-
     return m_SubDataObjectsHelper->GetSubDataObject(id);
 }
 
@@ -27,6 +26,24 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     }
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
+
+
+    if (obj->IsDrawable()) {
+        auto drawObject = DynamicCast<DrawObject>(obj);
+
+        /* Update SubDataObject's DataRange to Global DataRange. */
+        auto attributes = this->GetAttributeSet()->GetAllAttributes();
+        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+            auto& par = attributes->GetElement(i);
+            if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
+                par.updateAllDataRange();
+            }
+            auto& sub = obj->GetAttributeSet()->GetAttribute(i);
+            sub.dataRange = par.GetDataRange();
+        }
+        drawObject->ConvertToDrawableData();
+    }
+
     return m_SubDataObjectsHelper->AddSubDataObject(obj);
 }
 
@@ -131,8 +148,14 @@ void DataObject::SwitchToCurrentTimeframe(int timeIndex) {
 
 StreamingData::Pointer DataObject::GetTimeFrames() {
     if (m_TimeFrames == nullptr) m_TimeFrames = StreamingData::New();
-
     return m_TimeFrames;
+}
+
+DeformationData::Pointer DataObject::GetDeformationData() {
+    if (nullptr == m_DeformationData) {
+        m_DeformationData = DeformationData::New();
+    }
+    return m_DeformationData;
 }
 
 //void DataObject::UpdateAttributeSetRange() {

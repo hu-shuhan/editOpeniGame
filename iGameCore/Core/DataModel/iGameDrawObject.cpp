@@ -1,8 +1,12 @@
 #include "iGameDrawObject.h"
+
 #include "iGameScene.h"
+#include <utility>
 
 IGAME_NAMESPACE_BEGIN
 DrawObject::DrawObject() {
+    m_Clipper = iGameClipper::New();
+
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
 
@@ -32,8 +36,6 @@ DrawObject::DrawObject() {
 
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
-
-    m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::CreateDrawBuffer() {
@@ -198,10 +200,12 @@ void DrawObject::ReAllocateDisplayBuffer() {
     if (this->HasSubDataObject()) {
         ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
     }
-
     this->CreateDrawBuffer();
 
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+    if (m_AutoUpdateDrawData) {
+        ConvertToDrawableData();
+        if (m_DisplayObject) { m_DisplayObject->ReAllocateDisplayBuffer(); }
+    }
 
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO,
@@ -306,7 +310,10 @@ void DrawObject::ReAllocateDisplayBuffer() {
 
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 
-IGsize DrawObject::GetRealMemorySize() { return 0; };
+IGsize DrawObject::GetRealMemorySize() {
+    IGsize res = this->DataObject::GetRealMemorySize();
+    return res; 
+};
 
 void DrawObject::SetVisibility(bool f) {
     // process display object
@@ -386,6 +393,32 @@ bool DrawObject::GetClipped() {
     return false;
 }; // Gets whether this can be clipped.
 
+void DrawObject::SetPointSize(int size) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetPointSize(size); }
+
+    // process this object
+    m_PointSize = size;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::SetPointSize, size);
+    }
+}
+
+int DrawObject::GetPointSize() { return m_PointSize; }
+
+void DrawObject::SetLineWidth(int size) {
+    // process display object
+    if (m_DisplayObject) { m_DisplayObject->SetLineWidth(size); }
+
+    // process this object
+    m_LineWidth = size;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::SetLineWidth, size);
+    }
+}
+
+int DrawObject::GetLineWidth() { return m_LineWidth; }
+
 void DrawObject::SetTransparency(float transparency) {
     // process display object
     if (m_DisplayObject) { m_DisplayObject->SetTransparency(transparency); }
@@ -403,15 +436,6 @@ void DrawObject::SetTransparency(float transparency) {
 
 float DrawObject::GetTransparency() { return m_Transparency; }
 
-void DrawObject::SetPointSize(int size) {
-    // process display object
-    if (m_DisplayObject) { m_DisplayObject->SetPointSize(size); }
-
-    m_PointSize = size;
-}
-
-int DrawObject::GetPointSize() { return m_PointSize; }
-
 void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     // process display object
     if (m_DisplayObject) {
@@ -419,8 +443,9 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
 
     // process this object
-    if (m_AttributeIndex == index && m_AttributeDimension == dimension) {
-        return;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
+                              dimension);
     }
 
     if (index == -1) {
@@ -432,21 +457,10 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     }
     m_AttributeHelper->Modified();
 
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
-                              dimension);
-    }
 
     this->Modified();
 
     scene->Update();
-
-    //m_AttributeIndex = index;
-    //m_AttributeDimension = dimension;
-    //if (this->HasSubDataObject()) {
-    //    ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
-    //                          dimension);
-    //}
 }
 
 void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
@@ -465,6 +479,16 @@ void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
     }
 }
 
+FloatArray::Pointer DrawObject::GetRenderPoints() {
+    // return display object
+    if (m_DisplayObject) { return m_DisplayObject->m_Positions; }
+
+    // return this object
+    return m_Positions;
+}
+void DrawObject::SetRenderPoints(FloatArray::Pointer points) {
+    m_Positions = std::move(points);
+}
 void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
     // process display object
     if (m_DisplayObject) {
@@ -514,7 +538,10 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
-    m_DisplayObject->ReAllocateDisplayBuffer();
+    // After the first extraction, there is no data for rendering "m_Positions"
+    m_DisplayObject->ConvertToDrawableData();
+    // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
+    m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
 }
 

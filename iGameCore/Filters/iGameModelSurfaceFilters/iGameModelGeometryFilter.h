@@ -14,7 +14,10 @@ class iGameModelGeometryFilter : public Filter {
 public:
 	I_OBJECT(iGameModelGeometryFilter);
 	///@{
-	static iGameModelGeometryFilter* New() {
+	/**
+	 * Standard methods for instantiation, type information, and printing.
+	 */
+	static iGameModelGeometryFilter::Pointer New() {
 		return new iGameModelGeometryFilter;
 	};
 	~iGameModelGeometryFilter();
@@ -112,6 +115,7 @@ protected:
 	//maybe exist ghost data
 	bool RemoveGhostInterfaces;
 	//Point merging
+public:
 	bool Merging;
 
 	//m_PointMap->GetValue(i)表示的是第i个new point对应的origin point id

@@ -50,6 +50,7 @@ public:
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
 
+    FlatArray<igIndex>::Pointer GetPointMap();
 protected:
     PointSet();
     ~PointSet() override = default;
@@ -63,6 +64,7 @@ protected:
     Points::Pointer m_Points{};                  // The point array
     DeleteMarker::Pointer m_PointDeleteMarker{}; // The marker for delete point
     bool m_InEditStatus{false};
+    FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
     //void Draw(Scene* scene) override;
 public:
@@ -75,12 +77,13 @@ public:
 
     /* Range's first means minRange, second means maxRange. */
     virtual void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                           std::pair<float, float>& attrRange,
+                                           DoubleArray::Pointer attrRange,
                                            igIndex dimension = -1);
 
     virtual void SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                          std::pair<float, float>& range,
+                                          DoubleArray::Pointer attrRange,
                                           igIndex i = -1);
+
 };
 
 IGAME_NAMESPACE_END
