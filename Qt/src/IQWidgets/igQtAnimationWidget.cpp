@@ -298,9 +298,9 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
                 const auto& attribute_0 = attributes_0[j].RawPointer()->pointer;
                 const auto& attribute_1 = attributes_1[j].RawPointer()->pointer;
                 /* If attribute's dimension is minus one, means it needn't to process in Deformation. */
-                if(attribute_0->GetDimension() < 2) continue;
+//                if(attribute_0->GetDimension() < 2) continue;
                 int dimension = attribute_0->GetDimension();
-                for(auto k = 0; k < attributes_0->GetNumberOfElements(); k ++){
+                for(auto k = 0; k < attribute_0->GetNumberOfElements(); k ++){
                     for(int elem_idx = 0; elem_idx < dimension; elem_idx ++){
                         double val_0 = attribute_0->GetValue(k * dimension + elem_idx);
                         double val_1 = attribute_1->GetValue(k * dimension + elem_idx);

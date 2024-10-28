@@ -13,6 +13,7 @@
 
 #include <qdebug.h>
 
+#include <QOpenGLContext>
 int main(int argc, char* argv[]) {
 
     //	::testing::InitGoogleTest(&argc, argv);
@@ -43,12 +44,15 @@ int main(int argc, char* argv[]) {
        // format.setStencilBufferSize(8);
 
        format.setSamples(1);
-
        QSurfaceFormat::setDefaultFormat(format);
 
-       a.processEvents();
-       QTextCodec* codec = QTextCodec::codecForName("GBK");
-       igQtMainWindow w;
+//    QOpenGLContext *context = new QOpenGLContext();
+//    context->setFormat(QSurfaceFormat::defaultFormat());
+//    context->create();
+//    context->makeCurrent(&w);
+    a.processEvents();
+    igQtMainWindow w;
+    QTextCodec* codec = QTextCodec::codecForName("GBK");
        w.setWindowTitle(codec->toUnicode("iGame-MeshView"));
         qDebug() << "show begin";
        w.show();
