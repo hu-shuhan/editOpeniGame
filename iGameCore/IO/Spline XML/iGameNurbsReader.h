@@ -21,12 +21,12 @@ public:
     static Pointer New() { return new NurbsReader; }
 
 public:
-    void SetNurbsType(int type) { m_NurbsType = type; }
+    //void SetNurbsType(int type) { m_NurbsType = type; }
 
 protected:
-    /* 0 : Curve
-     * 1 : Surface
-     * 2 : Volume
+    /* 1 : Curve
+     * 2 : Surface
+     * 3 : Volume
      * */
     int m_NurbsType{0};
     std::vector<NurbsSDK::Geometry> m_Patchs;

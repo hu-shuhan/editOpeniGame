@@ -44,7 +44,7 @@ public:
             attributeSet = volume_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
             // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int VolumeNum = volume_Mesh->GetNumberOfVolumes();
             int PointNum = volume_Mesh->GetNumberOfPoints();
@@ -62,7 +62,7 @@ public:
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
             // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
@@ -86,10 +86,10 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(1).pointer;
         //        int dimension = data->GetElementSize();
         FloatArray::Pointer curvatures = FloatArray::New();
-        curvatures->SetDimension(2);
+        curvatures->SetDimension(1);
         curvatures->Reserve(PointNum);
         curvatures->SetName("curvatures");
         attributeSet->AddScalar(IG_POINT, curvatures);
@@ -173,7 +173,7 @@ public:
             curvature[idx][2] = (k1 + k2) / 2.0;
             curvature[idx][3] = k1 * k2;
 
-            curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
+            curvatures->AddValue(curvature[idx][2]);
         }
 
         return true;
@@ -224,6 +224,7 @@ public:
         std::vector<std::array<float, 4>> curvature(Num,
                                                     {0.0f, 0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(Num, 0.0f);
+
         igIndex neighborVerts[64]{};
 
         for (igIndex idx = 0; idx < Num; ++idx) {
@@ -332,7 +333,7 @@ public:
             attributeSet = volume_Mesh->GetAttributeSet();
 
         // 默认取第一个数组
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(1).pointer;
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(PointNum,

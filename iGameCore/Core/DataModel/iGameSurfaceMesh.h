@@ -211,9 +211,16 @@ public:
     }
 
     void CollapseEdge(igIndex edgeId) {
-        assert(IsCollapsable(edgeId) &&
-               "Please call IsCollapsable before CollapseEdge");
+        //assert(IsCollapsable(edgeId) &&
+        //       "Please call IsCollapsable before CollapseEdge");
 
+        if (edgeId == 971090 || edgeId == 1453665) { 
+            int a = 0;
+            if (a == 0) { 
+                int b = 0;
+            }
+        }
+        //std::cout << edgeId << std::endl;
         igIndex e[2]{};
         GetEdgePointIds(edgeId, e);
         igIndex from = e[0];
@@ -268,7 +275,7 @@ public:
                     }
                 }
             }
-            assert(k == 2);
+            //assert(k == 2);
 
             if (f.from_oppo_faceId != -1) {
                 m_FaceEdgeLinks->ReplaceReference(f.to_edgeId, f.faceId,

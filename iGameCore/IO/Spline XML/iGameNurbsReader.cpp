@@ -20,7 +20,6 @@ bool NurbsReader::Parsing() {
         std::string s_type = type;
         const char* delimiters = " \n";
 
-
         for (auto* item = root->FirstChildElement(type); item;
              item = item->NextSiblingElement(type)) {
 
@@ -29,9 +28,10 @@ bool NurbsReader::Parsing() {
                               : (s_type == "surface"
                                          ? 2
                                          : (s_type == "volume" ? 3 : 0));
+            m_NurbsType = num;
             if (num == 0) {
                 printf("xml tag error\n");
-                exit(0);
+                return false;
             }
 
             std::vector<int> degree(num), cpt(num);
@@ -224,18 +224,17 @@ bool NurbsReader::CreateDataObject() {
 
     mesh->SetPatch(m_Patchs);
     mesh->SetBoundary(m_Boundary);
-    if (m_NurbsType == 0) {
-        mesh->SetType(NurbsSDK::CURVE);
-    } else if (m_NurbsType == 1) {
-        mesh->SetType(NurbsSDK::SURFACE);
+    if (m_NurbsType == 1) {
+        mesh->SetType(NurbsSDK::NurbsType::CURVE);
     } else if (m_NurbsType == 2) {
-        mesh->SetType(NurbsSDK::VOLUME);
+        mesh->SetType(NurbsSDK::NurbsType::SURFACE);
+    } else if (m_NurbsType == 3) {
+        mesh->SetType(NurbsSDK::NurbsType::VOLUME);
     }
     mesh->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
     //mesh->SetViewStyle(IG_POINTS | IG_WIREFRAME | IG_SURFACE);
 
     m_Output = mesh;
-
 
     return true;
 }

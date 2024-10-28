@@ -126,8 +126,9 @@ public:
             float omega_y = grad_x[2] - grad_z[0]; // ∂vx/∂z - ∂vz/∂x
             float omega_z = grad_y[0] - grad_x[1]; // ∂vy/∂x - ∂vx/∂y
 
-            auto scalar = sqrt(omega_x * omega_x + omega_y * omega_y +
-                               omega_z * omega_z);
+            //auto scalar = sqrt(omega_x * omega_x + omega_y * omega_y +
+            //                   omega_z * omega_z);
+            float scalar = 1;
             if (scalar > 1e-6) {
                 vorticities->AddElement3(omega_x / scalar, omega_y / scalar,
                                          omega_z / scalar);
@@ -303,6 +304,10 @@ public:
                 gradient[idx][0] += x * weight * value;
                 gradient[idx][1] += y * weight * value;
                 gradient[idx][2] += z * weight * value;
+
+                //gradient[idx][0] += value;
+                //gradient[idx][1] += value;
+                //gradient[idx][2] += value;
             }
             if (sumWeights[idx] > 0) {
                 gradient[idx][0] /= sumWeights[idx];
