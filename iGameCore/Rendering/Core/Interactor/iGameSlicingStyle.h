@@ -93,6 +93,7 @@ private:
     igm::mat4 mvp{};
     igm::mat4 invMVP{};
 
+    double pickRadius;
     double len;
     double radius;
     Vector3d center;

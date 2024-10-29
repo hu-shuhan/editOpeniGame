@@ -55,15 +55,18 @@ public:
         //InitModel();
         m_Internal = BasicStyle::New();
         m_Internal->Initialize(this);
+        is_Base = true;
     }
 
     void RequestDragPointStyle(Selection* s) {
-        if (!s) return;
+        if (!s) 
+            return;
         //InitModel();
         auto act = SingleDragStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
         m_Internal = act;
+        is_Base = false;
     }
 
     void RequestPointSelectionStyle(Selection* s) {
@@ -73,6 +76,7 @@ public:
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
         act->Initialize(this, s);
         m_Internal = act;
+        is_Base = false;
     }
 
     void RequestFaceSelectionStyle(Selection* s) {
@@ -82,6 +86,7 @@ public:
         act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
         act->Initialize(this, s);
         m_Internal = act;
+        is_Base = false;
     }
 
     void LoadSelectionStyleRequired(Selection* s) {
@@ -100,6 +105,7 @@ public:
         //InitModel();
         act->Initialize(this);
         m_Internal = act;
+        is_Base = false;
     }
 
 
@@ -127,6 +133,7 @@ public:
     DataObject::Pointer GetDataObject() { return m_DataObject; }
     void SetPainter(Painter3D::Pointer p) { m_Painter = p; }
     Painter3D::Pointer GetPainter() { return m_Painter; }
+    bool IsBase() const { return is_Base; }
 
 protected:
     Interactor() = default;
@@ -140,6 +147,7 @@ protected:
 
     std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
+    bool is_Base{true};
     InteractorStyle::Pointer m_Internal{};
     Scene::Pointer m_Scene{};
     Camera::Pointer m_Camera{};
