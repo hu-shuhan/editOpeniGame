@@ -39,6 +39,7 @@ public:
     void SetArrow(float _hR, float _hL, float _tR, float _tL);
     void SetInit(bool init);
     bool DrawVector(std::string VecName);
+    bool addArrow2Draw(iGame::DataObject* obj, std::string VecName);
     void convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB);
     //void Draw(Scene*) override;
     void ComputeBoundingBox()override;

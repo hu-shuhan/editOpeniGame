@@ -174,7 +174,8 @@ bool iGame::iGameVTSReader::Parsing() {
             }
             if(array != nullptr){
                 array->SetName(scalarName);
-
+                if (array->GetDimension() > 1)
+                    m_Data.GetData()->AddVector(IG_POINT, array);
                 m_Data.GetData()->AddScalar(IG_POINT, array);
             }
 
