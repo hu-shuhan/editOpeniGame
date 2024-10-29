@@ -55,18 +55,30 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             m_Interactor->RequestBasicStyle();
             break;
         case Interactor::SinglePointSelectionStyle: {
-            auto* s = m_Scene->GetCurrentModel()->GetSelection();
-            auto ps = DynamicCast<PointSet>(
-                    m_Scene->GetCurrentModel()->GetDataObject());
-            if (ps == nullptr) {
-                m_Interactor->RequestBasicStyle();
-                return;
+            auto obj = m_Scene->GetCurrentModel()->GetDataObject();
+            if (obj->HasSubDataObject()) {
+                auto* s = m_Scene->GetCurrentModel()->GetSelection();
+                s->SetModel(m_Scene->GetCurrentModel());
+                m_Interactor->SetDataObject(obj);
+                m_Interactor->SetPainter(
+                        m_Scene->GetCurrentModel()->GetPainter());
+                m_Interactor->RequestPointSelectionStyle(s);
+
+            } else {
+                auto* s = m_Scene->GetCurrentModel()->GetSelection();
+                auto ps = DynamicCast<PointSet>(
+                        m_Scene->GetCurrentModel()->GetDataObject());
+                if (ps == nullptr) {
+                    m_Interactor->RequestBasicStyle();
+                    return;
+                }
+                s->SetPoints(ps->GetPoints());
+                s->SetModel(m_Scene->GetCurrentModel());
+                m_Interactor->SetDataObject(ps);
+                m_Interactor->SetPainter(
+                        m_Scene->GetCurrentModel()->GetPainter());
+                m_Interactor->RequestPointSelectionStyle(s);
             }
-            s->SetPoints(ps->GetPoints());
-            s->SetModel(m_Scene->GetCurrentModel());
-            m_Interactor->SetDataObject(ps);
-            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
-            m_Interactor->RequestPointSelectionStyle(s);
         } break;
         case Interactor::SingleFaceSelectionStyle: {
             auto* s = m_Scene->GetCurrentModel()->GetSelection();

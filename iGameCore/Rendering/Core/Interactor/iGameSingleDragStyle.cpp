@@ -14,11 +14,12 @@ void SingleDragStyle::MousePressEvent(IEvent _event) {
 
     igm::vec3 dir = (point1 - point2).normalized();
 
+    Point p;
     PointPicker::Pointer picker = PointPicker::New();
     picker->SetPoints(m_Points);
     m_SelectedPointId = picker->PickClosetPointOnLine(
             Vector3d(point1.x, point1.y, point1.z),
-            Vector3d(dir.x, dir.y, dir.z));
+            Vector3d(dir.x, dir.y, dir.z), p);
 
     //m_Model->GetPointPainter()->Clear();
     if (m_SelectedPointId != -1) {

@@ -1924,8 +1924,8 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->action_select_point, &QAction::triggered, this,
             [&](bool checked) {
                 if (ui->action_select_point->isChecked()) {
-                    if (ui->action_select_points->isChecked()) {
-                        ui->action_select_points->setChecked(false);
+                    if (ui->action_select_faces->isChecked()) {
+                        ui->action_select_faces->setChecked(false);
                     }
                     rendererWidget->ChangeInteractorStyle(
                             Interactor::SinglePointSelectionStyle);
@@ -1934,25 +1934,25 @@ void igQtMainWindow::initAllInteractor() {
                             Interactor::BasicStyle);
                 }
             });
-    connect(ui->action_select_points, &QAction::triggered, this,
-            [&](bool checked) {
-                if (ui->action_select_points->isChecked()) {
-                    if (ui->action_select_point->isChecked()) {
-                        ui->action_select_point->setChecked(false);
-                    }
-                    rendererWidget->ChangeInteractorStyle(
-                            Interactor::MultiPointSelectionStyle);
-                } else {
-                    rendererWidget->ChangeInteractorStyle(
-                            Interactor::BasicStyle);
-                }
-            });
+    //connect(ui->action_select_points, &QAction::triggered, this,
+    //        [&](bool checked) {
+    //            if (ui->action_select_points->isChecked()) {
+    //                if (ui->action_select_point->isChecked()) {
+    //                    ui->action_select_point->setChecked(false);
+    //                }
+    //                rendererWidget->ChangeInteractorStyle(
+    //                        Interactor::MultiPointSelectionStyle);
+    //            } else {
+    //                rendererWidget->ChangeInteractorStyle(
+    //                        Interactor::BasicStyle);
+    //            }
+    //        });
 
     connect(ui->action_select_face, &QAction::triggered, this,
             [&](bool checked) {
                 if (ui->action_select_face->isChecked()) {
-                    if (ui->action_select_faces->isChecked()) {
-                        ui->action_select_faces->setChecked(false);
+                    if (ui->action_select_point->isChecked()) {
+                        ui->action_select_point->setChecked(false);
                     }
                     rendererWidget->ChangeInteractorStyle(
                             Interactor::SingleFaceSelectionStyle);
@@ -1961,19 +1961,19 @@ void igQtMainWindow::initAllInteractor() {
                             Interactor::BasicStyle);
                 }
             });
-    connect(ui->action_select_faces, &QAction::triggered, this,
-            [&](bool checked) {
-                if (ui->action_select_faces->isChecked()) {
-                    if (ui->action_select_face->isChecked()) {
-                        ui->action_select_face->setChecked(false);
-                    }
-                    rendererWidget->ChangeInteractorStyle(
-                            Interactor::MultiFaceSelectionStyle);
-                } else {
-                    rendererWidget->ChangeInteractorStyle(
-                            Interactor::BasicStyle);
-                }
-            });
+    //connect(ui->action_select_faces, &QAction::triggered, this,
+    //        [&](bool checked) {
+    //            if (ui->action_select_faces->isChecked()) {
+    //                if (ui->action_select_face->isChecked()) {
+    //                    ui->action_select_face->setChecked(false);
+    //                }
+    //                rendererWidget->ChangeInteractorStyle(
+    //                        Interactor::MultiFaceSelectionStyle);
+    //            } else {
+    //                rendererWidget->ChangeInteractorStyle(
+    //                        Interactor::BasicStyle);
+    //            }
+    //        });
     connect(ui->action_drag_point, &QAction::triggered, this,
             [&](bool checked) {
                 if (ui->action_drag_point->isChecked()) {
