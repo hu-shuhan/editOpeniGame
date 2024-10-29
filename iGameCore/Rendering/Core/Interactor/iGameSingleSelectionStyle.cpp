@@ -21,7 +21,9 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
 }
 
 void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
-    if (m_Points == nullptr || m_Model == nullptr) { return; }
+    if (m_Model == nullptr) { 
+        return; 
+    }
     auto mvp = m_Interactor->GetMVP();
     auto mvp_invert = mvp.invert();
 
@@ -31,11 +33,13 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
 
     igm::vec3 dir = (point1 - point2).normalized();
 
+    igIndex id = -1;
+    Point p;
+    auto obj = m_Model->GetDataObject();
     PointPicker::Pointer picker = PointPicker::New();
-    picker->SetPoints(m_Points);
-    igIndex id = picker->PickClosetPointOnLine(
-            Vector3d(point1.x, point1.y, point1.z),
-            Vector3d(dir.x, dir.y, dir.z));
+    picker->SetDataObject(obj);
+    id = picker->PickClosetPointOnLine(Vector3d(point1.x, point1.y, point1.z),
+                                       Vector3d(dir.x, dir.y, dir.z), p);
 
     //m_Model->GetPointPainter()->Clear();
     if (id != -1) {
@@ -43,9 +47,10 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
         auto painter = m_Model->GetPainter();
         painter->SetPen(10);
         painter->SetPen(Color::Red);
-        painter->DrawPoint(m_Points->GetPoint(id));
+        //painter->DrawPoint(m_Points->GetPoint(id));
+        painter->DrawPoint(p);
 
-        if (m_Selection) {
+        if (m_Selection && !obj->HasSubDataObject()) {
             Selection::Event e;
             e.type = Selection::Event::PickPoint;
             e.pickId = id;

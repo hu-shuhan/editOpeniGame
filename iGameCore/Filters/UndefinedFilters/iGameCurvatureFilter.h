@@ -89,7 +89,7 @@ public:
         auto data = attributeSet->GetAttribute(1).pointer;
         //        int dimension = data->GetElementSize();
         FloatArray::Pointer curvatures = FloatArray::New();
-        curvatures->SetDimension(1);
+        curvatures->SetDimension(2);
         curvatures->Reserve(PointNum);
         curvatures->SetName("curvatures");
         attributeSet->AddScalar(IG_POINT, curvatures);
@@ -173,7 +173,7 @@ public:
             curvature[idx][2] = (k1 + k2) / 2.0;
             curvature[idx][3] = k1 * k2;
 
-            curvatures->AddValue(curvature[idx][2]);
+            curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
 
         return true;

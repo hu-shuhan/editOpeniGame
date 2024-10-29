@@ -61,11 +61,13 @@ void igQtFileLoader::LoadFile() {
     }
 }
 
+//static DataObject::Pointer _obj;
 void igQtFileLoader::OpenFile(const std::string& filePath) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
 
     auto obj = iGame::FileIO::ReadFile(filePath);
+    //_obj = obj;
     if (obj == nullptr) {
         igDebug("This file read error.");
         return;
@@ -78,6 +80,8 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    
+    //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
 }

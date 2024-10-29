@@ -58,7 +58,8 @@ public:
     }
 
     void RequestDragPointStyle(Selection* s) {
-        if (!s) return;
+        if (!s) 
+            return;
         //InitModel();
         auto act = SingleDragStyle::New();
         act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
