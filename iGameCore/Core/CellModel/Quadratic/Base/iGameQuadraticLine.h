@@ -20,12 +20,12 @@ public:
 protected:
 	QuadraticLine()
 	{
-		this->Points->SetNumberOfPoints(3);
-		this->PointIds->SetNumberOfIds(3);
+		this->m_Points->SetNumberOfPoints(3);
+		this->m_PointIds->SetNumberOfIds(3);
 		for (int i = 0; i < 3; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 	}
 	~QuadraticLine() override = default;

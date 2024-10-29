@@ -130,7 +130,8 @@ bool FFMPEGVideoWriter::SaveMP4() {
     }
 
     // 创建SWS上下文，用于图像格式转换
-    swsContext = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    swsContext = sws_getContext(width, height, AV_PIX_FMT_RGBA,
+                                width, height, AV_PIX_FMT_YUV420P, SWS_BILINEAR, nullptr, nullptr, nullptr);
 
     // 创建帧
     frame = av_frame_alloc();
@@ -220,7 +221,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     av_init_packet(&pkt);  // 初始化 AVPacket
     pkt.data = nullptr;
     pkt.size = 0;
-    SwsContext* swsContext = nullptr;
+    SwsContext* swsContext;
     int ret;
 
     const char* storagePath = m_VideoInfo.output_path.c_str();
@@ -249,9 +250,11 @@ bool FFMPEGVideoWriter::SaveGIF() {
     codecContext = avcodec_alloc_context3(codec);
     codecContext->width = m_VideoInfo.width;
     codecContext->height = m_VideoInfo.height;
+    codecContext->gop_size = 1; // 每12帧插入一个I帧
+    codecContext->max_b_frames = 1;
     codecContext->time_base = AVRational{1, m_VideoInfo.frame_rate};   // 设置时间基为 1/fps 秒
     codecContext->framerate = AVRational{m_VideoInfo.frame_rate, 1};   // 设置帧率
-    codecContext->pix_fmt = AV_PIX_FMT_RGB8; // 使用RGB24格式
+    codecContext->pix_fmt = AV_PIX_FMT_RGB8; // 使用RGB格式
 
     if (formatContext->oformat->flags & AVFMT_GLOBALHEADER)
         codecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -288,15 +291,17 @@ bool FFMPEGVideoWriter::SaveGIF() {
     }
 
 
-    // 创建SWS上下文，将图像从RGB24转换为GIF所需格式
-    swsContext = sws_getContext(m_VideoInfo.width, m_VideoInfo.height, AV_PIX_FMT_RGB24, m_VideoInfo.width, m_VideoInfo.height, AV_PIX_FMT_RGB8, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    // 创建SWS上下文，将图像从RGBA转换为GIF所需格式
+    swsContext = sws_getContext(m_VideoInfo.width, m_VideoInfo.height, AV_PIX_FMT_RGBA,
+                                m_VideoInfo.width, m_VideoInfo.height, AV_PIX_FMT_RGB8,
+                                SWS_BILINEAR, nullptr, nullptr, nullptr);
 
     // 创建帧
     frame = av_frame_alloc();
-//    frame->format = codecContext->pix_fmt;
-    frame->format = AV_PIX_FMT_RGB8;
+    frame->format = codecContext->pix_fmt;
     frame->width = codecContext->width;
     frame->height = codecContext->height;
+    frame->pict_type = AV_PICTURE_TYPE_NONE;
     ret = av_frame_get_buffer(frame, 32);
     if (ret < 0) {
         std::cout << "Could not allocate frame data";
@@ -314,7 +319,6 @@ bool FFMPEGVideoWriter::SaveGIF() {
 
         // 设置帧的 PTS
         frame->pts = i;
-
         // 发送帧到编码器
         ret = avcodec_send_frame(codecContext, frame);
         if (ret < 0) {
@@ -338,6 +342,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
             av_packet_rescale_ts(&pkt, codecContext->time_base, videoStream->time_base);
             pkt.stream_index = videoStream->index;
 
+            std::cout << "Encoded packet size for frame " << i << ": " << pkt.size << std::endl;
             // 写入文件
             av_interleaved_write_frame(formatContext, &pkt);
             av_packet_unref(&pkt);

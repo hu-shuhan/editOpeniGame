@@ -1,8 +1,8 @@
 ﻿#ifndef iGameType_h
 #define iGameType_h
 
-#include <stdint.h>
 #include <vtkkwiml/abi.h>
+#include <cstdint>
 #define IGAME_SIZEOF_CHAR KWIML_ABI_SIZEOF_CHAR
 #define IGAME_SIZEOF_SHORT KWIML_ABI_SIZEOF_SHORT
 #define IGAME_SIZEOF_INT KWIML_ABI_SIZEOF_INT

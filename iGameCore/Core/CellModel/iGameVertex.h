@@ -19,12 +19,12 @@ public:
 protected:
 	Vertex()
 	{
-		this->Points->SetNumberOfPoints(1);
-		this->PointIds->SetNumberOfIds(1);
+		this->m_Points->SetNumberOfPoints(1);
+		this->m_PointIds->SetNumberOfIds(1);
 		for (int i = 0; i < 1; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 	}
 	~Vertex() override = default;

@@ -3,7 +3,8 @@
 
 #include "iGameMacro.h"
 #include "iGameType.h"
-#include <assert.h>
+#include <cassert>
+#include <cmath>
 #include <iostream>
 
 IGAME_NAMESPACE_BEGIN

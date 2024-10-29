@@ -11,7 +11,7 @@ public:
 	static Pointer New() { return new Polyhedron; }
 
 	IGenum GetCellType() const noexcept override { return IG_POLYHEDRON; }
-	int GetCellSize() const noexcept override { return Points->GetNumberOfPoints(); }
+	int GetCellSize() const noexcept override { return m_Points->GetNumberOfPoints(); }
 	int GetNumberOfEdges() override { return 0; }
 	int GetNumberOfFaces() override { return m_FaceOffset->GetNumberOfIds() - 1; }
 
@@ -25,8 +25,8 @@ public:
 		igIndex ed = m_FaceOffset->GetId(faceId + 1);
 		//std::cout << st << ' ' << ed << '\n';
 		for (int i = st; i < ed; ++i) {
-			m_Polygon->PointIds->AddId(PointIds->GetId(i));
-			m_Polygon->Points->AddPoint(Points->GetPoint(i));
+			m_Polygon->m_PointIds->AddId( m_PointIds->GetId(i));
+			m_Polygon->m_Points->AddPoint(m_Points->GetPoint(i));
 		}
 		return m_Polygon.get();
 	}

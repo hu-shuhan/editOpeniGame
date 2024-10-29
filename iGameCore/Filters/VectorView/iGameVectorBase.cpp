@@ -31,7 +31,101 @@ void iGameVectorBase::ComputeBoundingBox() {
         m_BoundingHelper->Modified();
     }
 }
+bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) {
+    auto _AttributeSet = obj->GetAttributeSet();
+    if (!_AttributeSet) return false;
+    auto allVectors = _AttributeSet->GetVector(VecName);
+    // if (allVectors.isNone() || allVectors.attachmentType != IG_POINT) return;
+    if (allVectors.isNone()) return false;
+    if (allVectors.attachmentType == IG_POINT) {
+        long long numOfPoint = allVectors.pointer->GetNumberOfElements();
+        auto allPoints =
+                DynamicCast<PointSet>(obj)->GetPoints();
+        auto mapper = ScalarsToColors::New();
+        auto array = allVectors.pointer;
+        mapper->InitRange(array, -1);
+        auto colors = mapper->MapScalars(array, -1);
+        auto colorsPtr = colors->RawPointer();
+        // Downsampling prevents stuttering 
+        //int temCount = 0;
+        for (int i = 0; i < numOfPoint; i++) {
+            float v[4] = {0.0f};
+            allVectors.pointer->GetElement(i, v);
+            Vector3f vec(v[0], v[1], v[2]);
+            //temCount++;
+            //if (temCount % 5 == 0) {
+                convertPoint2Arrow(allPoints->GetPoint(i), vec,
+                                   Vector3f(colorsPtr[3 * i],
+                                            colorsPtr[3 * i + 1],
+                                            colorsPtr[3 * i + 2]));
+           // }
 
+        }
+        return true;
+    } else if (allVectors.attachmentType == IG_CELL) {
+        long long numOfCell = allVectors.pointer->GetNumberOfElements();
+
+        auto volumeMesh = DynamicCast<VolumeMesh>(model->GetDataObject());
+        if (volumeMesh == nullptr) {
+            std::cout << "not a volumeMesh" << std::endl;
+            return false;
+        }
+        CellCenter centerCul;
+        auto mapper = ScalarsToColors::New();
+        FloatArray::Pointer Vector1 = FloatArray::New();
+        Vector1->SetDimension(3);
+        Vector1->Resize(0);
+        igIndex index = 0;
+        for (int i = 0; i < 600; i++) {
+            float v[4] = {0.0f};
+            allVectors.pointer->GetElement(i, v);
+            Vector1->AddElement3(v[0], v[1], v[2]);
+        }
+        mapper->InitRange(Vector1, -1);
+        auto colors = mapper->MapScalars(Vector1, -1);
+        //auto array = allVectors.pointer;
+        //mapper->InitRange(array, -1);
+        //auto colors = mapper->MapScalars(array, -1);
+        auto colorsPtr = colors->RawPointer();
+        if (!volumeMesh->GetIsPolyhedronType()) {
+         //   int temCount = 0;
+            for (int i = 0; i < numOfCell; i++) {
+          //      temCount++;
+               // if (temCount % 5 == 0) {
+                    float v[4] = {0.0f};
+                    allVectors.pointer->GetElement(i, v);
+                    auto volume = volumeMesh->GetVolume(i);
+                    auto center = centerCul.GetCenter(volume->Points);
+                    Vector3f vec(v[0], v[1], v[2]);
+                    convertPoint2Arrow(center, vec,
+                                       Vector3f(colorsPtr[3 * i],
+                                                colorsPtr[3 * i + 1],
+                                                colorsPtr[3 * i + 2]));
+              //  }
+
+            }
+            return true;
+        } else {
+            auto allVolume = volumeMesh->GetVolumes();
+            auto allPoints = volumeMesh->GetPoints();
+         //   int temCount = 0;
+            for (int i = 0; i < 600; i++) {
+                float v[4] = {0.0f};
+                allVectors.pointer->GetElement(i, v);
+                auto center = centerCul.GetCenter(allPoints, allVolume, i);
+                Vector3f vec(v[0], v[1], v[2]);
+                convertPoint2Arrow(center, vec,
+                                   Vector3f(colorsPtr[3 * i],
+                                            colorsPtr[3 * i + 1],
+                                            colorsPtr[3 * i + 2]));
+            }
+            return true;
+        }
+    } else {
+        std::cout << "error attachmentType!" << std::endl;
+        return false;
+    }
+}
 bool iGameVectorBase::DrawVector(std::string VecName) {
     if (!isInit) {
         auto sceneManager = iGame::SceneManager::Instance();
@@ -43,95 +137,35 @@ bool iGameVectorBase::DrawVector(std::string VecName) {
     }
     auto obj = model->GetDataObject();
     if (!obj) return false;
-    auto AttributeSet = obj->GetAttributeSet();
-   // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
-   // maxLength = (bound.max - bound.min).length();
-    if (!AttributeSet) return false;
-    auto allVectors = AttributeSet->GetVector(VecName);
-   // if (allVectors.isNone() || allVectors.attachmentType != IG_POINT) return;
-    if (allVectors.isNone()) return false;
+    iGame::AttributeSet* _AttributeSet;
     m_Triangles->Reset();
     m_PositionColors->Reset();
     index->Reset();
     count = 0;
-    if (allVectors.attachmentType==IG_POINT){
-        long long numOfPoint = allVectors.pointer->GetNumberOfElements();
-        auto allPoints =
-                DynamicCast<PointSet>(model->GetDataObject())->GetPoints();
-        auto mapper = ScalarsToColors::New();
-        auto array = allVectors.pointer;
-        mapper->InitRange(array, -1);
-        auto colors = mapper->MapScalars(array, -1);
-        auto colorsPtr = colors->RawPointer();
-        for (int i = 0; i < numOfPoint; i++) {
-            float v[4] = {0.0f};
-            allVectors.pointer->GetElement(i, v);
-            Vector3f vec(v[0], v[1], v[2]);
-            convertPoint2Arrow(allPoints->GetPoint(i), vec,
-                               Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1],
-                                        colorsPtr[3 * i + 2]));
+    if (obj->HasSubDataObject()){ 
+        auto it = obj->SubDataObjectIteratorBegin();
+        bool canDraw = false;
+        for (; it != obj->SubDataObjectIteratorEnd(); it++) {
+            auto subObj = it->second;
+            if (addArrow2Draw(subObj, VecName)) { canDraw = true;
+            }
         }
-        ConvertToDrawableData();
-        return true;
-    } else if(allVectors.attachmentType==IG_CELL) {
-        long long numOfCell = allVectors.pointer->GetNumberOfElements();
-        
-        auto volumeMesh=DynamicCast<VolumeMesh>(model->GetDataObject());
-        if (volumeMesh == nullptr) {
-            std::cout << "not a volumeMesh" << std::endl;
+        if (canDraw) {
+            ConvertToDrawableData();
+        } else {
             return false;
         }
-        CellCenter centerCul;
-        auto mapper = ScalarsToColors::New();
-        FloatArray::Pointer Vector1 = FloatArray::New();
-        Vector1->SetDimension(3);
-        Vector1->Resize(0);
-        igIndex index = 0;
-        for (int i = 0; i < 600; i++) { 
-              float v[4] = {0.0f};
-            allVectors.pointer->GetElement(i, v);
-              Vector1->AddElement3(v[0], v[1], v[2]);
-        }
-        mapper->InitRange(Vector1, -1);
-        auto colors = mapper->MapScalars(Vector1, -1);
-        //auto array = allVectors.pointer;
-        //mapper->InitRange(array, -1);
-        //auto colors = mapper->MapScalars(array, -1);
-        auto colorsPtr = colors->RawPointer();
-        if (!volumeMesh->GetIsPolyhedronType()) {
-            for (int i = 0; i < numOfCell; i++) {
-                float v[4] = {0.0f};
-                allVectors.pointer->GetElement(i, v);
-                auto volume = volumeMesh->GetVolume(i);
-                auto center = centerCul.GetCenter(volume->Points);
-                Vector3f vec(v[0], v[1], v[2]);
-                convertPoint2Arrow(center, vec,
-                                   Vector3f(colorsPtr[3 * i],
-                                            colorsPtr[3 * i + 1],
-                                            colorsPtr[3 * i + 2]));
-            }
+    } else{
+        if (addArrow2Draw(obj, VecName)) {
             ConvertToDrawableData();
             return true;
         } else {
-            auto allVolume = volumeMesh->GetVolumes();
-            auto allPoints = volumeMesh->GetPoints();
-            for (int i = 0; i < 600; i++) {
-                float v[4] = {0.0f};
-                allVectors.pointer->GetElement(i, v);
-                auto center = centerCul.GetCenter(allPoints,allVolume,i);
-                Vector3f vec(v[0], v[1], v[2]);
-                convertPoint2Arrow(center, vec,
-                                   Vector3f(colorsPtr[3 * i],
-                                            colorsPtr[3 * i + 1],
-                                            colorsPtr[3 * i + 2]));
-            }
-            ConvertToDrawableData();
-            return true;
-        }
-    } else {
-        std::cout << "error attachmentType!" << std::endl;
-        return false;
+            return false;
+        };
     }
+
+   // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
+   // maxLength = (bound.max - bound.min).length();
 
 }
 void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,

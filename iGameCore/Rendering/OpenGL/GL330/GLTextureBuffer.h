@@ -21,6 +21,8 @@ public:
 
     void BindImage(unsigned int binding_index, unsigned int mip_level,
                    bool layered, int layer, GLenum access, GLenum format) {
+        igError("You called the GLTextureBuffer::bindImage function on the "
+                "opengl330. This function is currently not supported.");
         throw std::runtime_error("You called the GLTextureBuffer::bindImage "
                                  "function on the opengl330. "
                                  "This function is currently not supported.");

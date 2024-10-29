@@ -27,6 +27,8 @@ public:
     void VertexBuffer(unsigned int vbo_binding_index, GLBuffer::Pointer buffer,
                       ptrdiff_t offset, size_t stride) {
         if (offset != 0) {
+            igError("You are trying to offset the VBO in the opengl330 "
+                    "version, which is illegal. Please check your code.");
             throw std::runtime_error(
                     "You are trying to offset the VBO in the opengl330 "
                     "version, which is illegal. Please check your code.");

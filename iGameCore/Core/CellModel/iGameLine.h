@@ -26,12 +26,12 @@ public:
 protected:
 	Line()
 	{
-		this->Points->SetNumberOfPoints(2);
-		this->PointIds->SetNumberOfIds(2);
+		this->m_Points->SetNumberOfPoints(2);
+		this->m_PointIds->SetNumberOfIds(2);
 		for (int i = 0; i < 2; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 	}
 	~Line() override = default;

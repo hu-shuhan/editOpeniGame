@@ -54,12 +54,12 @@ Line* SurfaceMesh::GetEdge(const IGsize edgeId) {
 
     if (m_Edge == nullptr) { m_Edge = Line::New(); }
 
-    m_Edge->PointIds->Reset();
-    m_Edge->PointIds->AddId(cell[0]);
-    m_Edge->PointIds->AddId(cell[1]);
-    m_Edge->Points->Reset();
-    m_Edge->Points->AddPoint(this->GetPoint(cell[0]));
-    m_Edge->Points->AddPoint(this->GetPoint(cell[1]));
+    m_Edge->m_PointIds->Reset();
+    m_Edge->m_PointIds->AddId(cell[0]);
+    m_Edge->m_PointIds->AddId(cell[1]);
+    m_Edge->m_Points->Reset();
+    m_Edge->m_Points->AddPoint(this->GetPoint(cell[0]));
+    m_Edge->m_Points->AddPoint(this->GetPoint(cell[1]));
     return m_Edge.get();
 }
 
@@ -82,12 +82,12 @@ Face* SurfaceMesh::GetFace(const IGsize faceId) {
         assert(ncells > 4);
     }
 
-    face->PointIds->Reset();
-    face->Points->Reset();
+    face->m_PointIds->Reset();
+    face->m_Points->Reset();
 
     for (int i = 0; i < ncells; i++) {
-        face->PointIds->AddId(cell[i]);
-        face->Points->AddPoint(this->GetPoint(cell[i]));
+        face->m_PointIds->AddId(cell[i]);
+        face->m_Points->AddPoint(this->GetPoint(cell[i]));
     }
 
     return face;
@@ -817,18 +817,16 @@ void SurfaceMesh::ConvertToDrawableData() {
     } else {
         m_UseColor = true;
 
-            auto& attr =
-                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (attr.type == IG_RGB) {
-                this->m_ColorMapper->SetVectorModeToRGBColors();
-            }
-            else {
-                this->m_ColorMapper->SetVectorModeToComponent();
-            }
-            if (!attr.isDeleted) {
-                if (attr.attachmentType == IG_POINT) {
-                    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+        if (attr.type == IG_RGB) {
+            this->m_ColorMapper->SetVectorModeToRGBColors();
+        } else {
+            this->m_ColorMapper->SetVectorModeToComponent();
+        }
+        if (!attr.isDeleted) {
+            if (attr.attachmentType == IG_POINT) {
+                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(attr.pointer,
                                                     attr.GetDataRange(),
@@ -869,6 +867,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
+                igError("The index of the edge is negative.");
                 throw std::runtime_error("The index of the edge is negative.");
             } else {
                 lineIndices->AddElement2(static_cast<iguIndex>(cell[0]),
@@ -964,11 +963,11 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr,
         Face* face = this->GetFace(i);
         colors->GetElement(i, color);
         for (int j = 2; j < face->GetCellSize(); j++) {
-            auto& p0 = face->Points->GetPoint(0);
+            auto& p0 = face->m_Points->GetPoint(0);
             newPositions->AddElement3(p0[0], p0[1], p0[2]);
-            auto& p1 = face->Points->GetPoint(j - 1);
+            auto& p1 = face->m_Points->GetPoint(j - 1);
             newPositions->AddElement3(p1[0], p1[1], p1[2]);
-            auto& p2 = face->Points->GetPoint(j);
+            auto& p2 = face->m_Points->GetPoint(j);
             newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
             newColors->AddElement3(color[0], color[1], color[2]);

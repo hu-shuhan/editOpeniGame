@@ -18,8 +18,6 @@
 
 #include <tinyxml2.h>
 #include <algorithm>
-#undef max
-#undef min
 
 bool iGame::iGamePVDReader::Parsing() {
     std::string fileDir = this->m_FilePath.substr(0, this->m_FilePath.find_last_of('/') + 1);
@@ -64,44 +62,49 @@ bool iGame::iGamePVDReader::Parsing() {
         m_data_object->SetTimeFrames(m_Data.GetTimeData());
         auto attributeSet = AttributeSet::New();
         m_data_object->SetAttributeSet(attributeSet);
-        std::string fileName, fileSuffix;
-
-        auto t2 = std::chrono::steady_clock::now();
-        std::vector<std::future<DataObject::Pointer>> readTaskList;
-        for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
-            readTaskList.emplace_back(ThreadPool::Instance()->Commit([](const std::string& fileName){
-                DataObject::Pointer newObj;
-                const char* pos = strrchr(fileName.data(), '.');
-                std::string fileSuffix;
-                const char *fileEnd = fileName.data() + fileName.size();
-                fileSuffix = std::string(pos + 1, fileEnd);
-                if(fileSuffix == "vts"){
-                    iGameVTSReader::Pointer rd = iGameVTSReader::New();
-                    rd->SetFilePath(fileName);
-                    rd->Execute();
-                    newObj = rd->GetOutput();
-                }
-                else if(fileSuffix == "vtu"){
-                    iGameVTUReader::Pointer rd = iGameVTUReader::New();
-                    rd->SetFilePath(fileName);
-                    rd->Execute();
-                    newObj = rd->GetOutput();
-                } else if(fileSuffix == "pvd"){
-                    iGamePVDReader::Pointer rd = iGamePVDReader::New();
-                    rd->SetFilePath(fileName);
-                    rd->Execute();
-                    newObj = rd->GetOutput();
-                }
-                return newObj;
-            }, firstFrame.SubFileNames->GetElement(i)));
+        {
+            std::string fileName, fileSuffix;
+            auto t2 = std::chrono::steady_clock::now();
+            std::vector<DataObject::Pointer> results(firstFrame.SubFileNames->Size());
+            std::vector<std::future<DataObject::Pointer>> readTaskList;
+            for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
+                readTaskList.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
+                    DataObject::Pointer newObj;
+                    const char* pos = strrchr(fileName.data(), '.');
+                    std::string fileSuffix;
+                    const char *fileEnd = fileName.data() + fileName.size();
+                    fileSuffix = std::string(pos + 1, fileEnd);
+                    if(fileSuffix == "vts"){
+                        iGameVTSReader::Pointer rd = iGameVTSReader::New();
+                        rd->SetFilePath(fileName);
+                        rd->Execute();
+                        newObj = rd->GetOutput();
+                    }
+                    else if(fileSuffix == "vtu"){
+                        iGameVTUReader::Pointer rd = iGameVTUReader::New();
+                        rd->SetFilePath(fileName);
+                        rd->Execute();
+                        newObj = rd->GetOutput();
+                    } else if(fileSuffix == "pvd"){
+                        iGamePVDReader::Pointer rd = iGamePVDReader::New();
+                        rd->SetFilePath(fileName);
+                        rd->Execute();
+                        newObj = rd->GetOutput();
+                    }
+                    results[i] = newObj;
+                    return newObj;
+                }, firstFrame.SubFileNames->GetElement(i)));
+            }
+            for(auto& task : readTaskList){
+                task.get();
+            }
+            auto t3 = std::chrono::steady_clock::now();
+            std::cout << "Read subFiles cost : "<< std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms\n";
+            for(auto obj : results){
+                m_data_object->AddSubDataObject(obj);
+            }
         }
-        for(auto& task : readTaskList){
-                m_data_object->AddSubDataObject(task.get());
-        }
-        auto t3 = std::chrono::steady_clock::now();
-        std::cout << "Read subFiles cost : "<< std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms\n";
 
-//        iGame::ThreadPool::Instance()->Commit()
         /* Reset DataObject's scalar range. */
         auto subScalarPointer = m_data_object->GetAttributeSet()->GetAllAttributes();
 
@@ -121,10 +124,10 @@ bool iGame::iGamePVDReader::Parsing() {
                 DoubleArray::Pointer array = DoubleArray::New();
                 array->SetName(attribute.pointer->GetName());
                 array->SetDimension(dim);
-                std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
-                std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
 
                 /* Get ALL SubBlock's dataRange to Calc Parent dataObject's dataRange, then update the subDataObject's Range. */
+                std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
+                std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
                 for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
                     auto& attr = it->second->GetAttributeSet()->GetAttribute(k);
                     attr.updateAllDataRange();
@@ -141,12 +144,19 @@ bool iGame::iGamePVDReader::Parsing() {
                 for(int j = 0; j < dim + 1; j ++){
                     parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
                 }
-                m_data_object->GetAttributeSet()->AddScalar(scalar_type, array, parent_dataRange);
+                switch (attribute.type) {
+                    case IG_SCALAR:
+                        m_data_object->GetAttributeSet()->AddScalar(scalar_type, array, parent_dataRange);
+                        break;
+                    case IG_VECTOR:
+                        m_data_object->GetAttributeSet()->AddVector(scalar_type, array, parent_dataRange);
+                        break;
+                    default:
+                        break;
+                }
 
                 /* Update All SubData's DataRange. */
-                for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
-                    it->second->GetAttributeSet()->GetAttribute(k).dataRange = parent_dataRange;
-                }
+                m_data_object->UpdateSubDataObjectDataRange();
             }
         }
 

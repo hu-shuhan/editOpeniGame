@@ -13,25 +13,25 @@ public:
 
 	virtual IGenum GetCellType() const noexcept = 0;
 	virtual int GetCellSize() const noexcept {
-		return this->PointIds->GetNumberOfIds();
+		return this->m_PointIds->GetNumberOfIds();
 	}
 
-    virtual int GetNumberOfPoints() { return this->PointIds->GetNumberOfIds(); }
+    virtual int GetNumberOfPoints() { return this->m_PointIds->GetNumberOfIds(); }
     virtual int GetNumberOfEdges() = 0;
     virtual int GetNumberOfFaces() = 0;
 	// return   position and id of the i th point in cell
-    igIndex GetPointId(const int id) { return this->PointIds->GetId(id); }
-    Point& GetPoint(const int id) { return this->Points->GetPoint(id); }
+    igIndex GetPointId(const int id) { return this->m_PointIds->GetId(id); }
+    Point& GetPoint(const int id) { return this->m_Points->GetPoint(id); }
     const Point& GetPoint(const int id) const {
-        return this->Points->GetPoint(id);
+        return this->m_Points->GetPoint(id);
     }
 
 	virtual Cell* GetEdge(const int edgeId) = 0;
 	virtual Cell* GetFace(const int faceId) = 0;
 
 	void Reset() {
-		this->PointIds->Reset();
-		this->Points->Reset();
+		this->m_PointIds->Reset();
+		this->m_Points->Reset();
 	}
 	static igIndex GetCellDimension(igIndex celltype) {
 		return GetCellDimension(IGCellType(celltype));
@@ -78,13 +78,13 @@ public:
 		}
 	}
 
-	Points::Pointer Points{};
-	IdArray::Pointer PointIds{};
+	Points::Pointer m_Points{};
+	IdArray::Pointer m_PointIds{};
 
 protected:
 	Cell() {
-		this->Points = Points::New();
-		this->PointIds = IdArray::New();
+		this->m_Points = Points::New();
+		this->m_PointIds = IdArray::New();
 	};
 	~Cell() override = default;
 };

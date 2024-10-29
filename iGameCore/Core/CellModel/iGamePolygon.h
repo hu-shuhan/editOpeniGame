@@ -15,7 +15,7 @@ public:
 
 	Vector3f GetNormal() override
 	{
-		return this->Self::ComputrAverageNormal(this->Points);
+		return this->Self::ComputrAverageNormal(this->m_Points);
 	}
 
 	static Vector3f ComputrAverageNormal(Points::Pointer points)

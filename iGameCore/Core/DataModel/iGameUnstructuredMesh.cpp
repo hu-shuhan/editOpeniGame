@@ -37,9 +37,9 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
     if (cell == nullptr) { return nullptr; }
     cell->Reset();
     if (cell->GetCellType() != IG_POLYHEDRON) {
-        GetCellPointIds(cellId, cell->PointIds);
-        for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {
-            cell->Points->AddPoint(GetPoint(cell->PointIds->GetId(i)));
+        GetCellPointIds(cellId, cell->m_PointIds);
+        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
+            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
         }
     } else {
         igIndex ids[IGAME_CELL_MAX_SIZE];
@@ -47,7 +47,7 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
         polyhedron->m_FaceOffset->Reset();
         polyhedron->m_FaceOffset->Reserve(ids[0]);
-        polyhedron->PointIds->Reserve(size);
+        polyhedron->m_PointIds->Reserve(size);
 
         igIndex index = 1;
         igIndex faceVcnt = 0;
@@ -56,13 +56,13 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
             polyhedron->m_FaceOffset->AddId(offset);
             faceVcnt = ids[index++];
             for (igIndex id = 0; id < faceVcnt; id++) {
-                polyhedron->PointIds->AddId(ids[index++]);
+                polyhedron->m_PointIds->AddId(ids[index++]);
             }
             offset += faceVcnt;
         }
         polyhedron->m_FaceOffset->AddId(offset);
-        for (int i = 0; i < cell->PointIds->GetNumberOfIds(); i++) {
-            cell->Points->AddPoint(GetPoint(cell->PointIds->GetId(i)));
+        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
+            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
         }
     }
     return cell;

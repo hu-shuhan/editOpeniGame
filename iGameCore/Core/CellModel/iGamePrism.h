@@ -17,11 +17,11 @@ public:
     Cell* GetEdge(const int edgeId) override {
         const int* verts = edges[edgeId];
 
-        m_Line->PointIds->SetId(0, this->PointIds->GetId(verts[0]));
-        m_Line->PointIds->SetId(1, this->PointIds->GetId(verts[1]));
+        m_Line->m_PointIds->SetId(0, this->m_PointIds->GetId(verts[0]));
+        m_Line->m_PointIds->SetId(1, this->m_PointIds->GetId(verts[1]));
 
-        m_Line->Points->SetPoint(0, this->Points->GetPoint(verts[0]));
-        m_Line->Points->SetPoint(1, this->Points->GetPoint(verts[1]));
+        m_Line->m_Points->SetPoint(0, this->m_Points->GetPoint(verts[0]));
+        m_Line->m_Points->SetPoint(1, this->m_Points->GetPoint(verts[1]));
 
         return m_Line.get();
     }
@@ -35,8 +35,8 @@ public:
             face = m_Quad.get();
         }
         for (int i = 0; i < faces[faceId][MaxFaceSize]; ++i) {
-            face->PointIds->SetId(i, this->PointIds->GetId(verts[i]));
-            face->Points->SetPoint(i, this->Points->GetPoint(verts[i]));
+            face->m_PointIds->SetId(i,  this->m_PointIds->GetId(verts[i]));
+            face->m_Points->SetPoint(i, this->m_Points->GetPoint(verts[i]));
         }
 
         return face;
@@ -47,8 +47,8 @@ public:
             const int* verts = clipedCell[i];
             Tetra::Pointer tetra = Tetra::New();
             for (int j = 0; j < 4; j++) {
-                tetra->Points->SetPoint(j, this->Points->GetPoint(verts[j]));
-                tetra->PointIds->SetId(j, this->PointIds->GetId(verts[j]));
+                tetra->m_Points->SetPoint(j, this->m_Points->GetPoint(verts[j]));
+                tetra->m_PointIds->SetId(j,  this->m_PointIds->GetId(verts[j]));
 			}
             result.emplace_back(tetra);
         }
@@ -208,12 +208,12 @@ public:
 private:
 	Prism()
 	{
-		this->Points->SetNumberOfPoints(6);
-		this->PointIds->SetNumberOfIds(6);
+		this->m_Points->SetNumberOfPoints(6);
+		this->m_PointIds->SetNumberOfIds(6);
 		for (int i = 0; i < 6; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 
 		m_Line = Line::New();

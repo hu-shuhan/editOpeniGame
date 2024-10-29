@@ -38,18 +38,19 @@
 #include <stdio.h>
 
 #include <QMessageBox>
+#include <qDebug>
+
 igQtMainWindow::igQtMainWindow(QWidget* parent)
 	: QMainWindow(parent), ui(new Ui::MainWindow) {
-	ui->setupUi(this);
+    ui->setupUi(this);
     initAllUnDefinedComponents();
-	initToolbarComponent();
-	initAllComponents();
-	initAllFilters();
-	initAllSources();
-	initAllInteractor();
-	updateRecentFilePaths();
-
-	connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
+    initToolbarComponent();
+    initAllComponents();
+    initAllFilters();
+    initAllSources();
+    initAllInteractor();
+    updateRecentFilePaths();
+    connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget,
             &igQtRenderWidget::update);
 }
 void igQtMainWindow::initAllUnDefinedComponents() {

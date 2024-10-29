@@ -14,11 +14,11 @@ public:
 	{
 		int edgeIdPlus = (edgeId + 1) % this->GetNumberOfEdges();
 
-		m_Line->PointIds->SetId(0, this->PointIds->GetId(edgeId));
-		m_Line->PointIds->SetId(1, this->PointIds->GetId(edgeIdPlus));
+		m_Line->m_PointIds->SetId(0, this->m_PointIds->GetId(edgeId));
+		m_Line->m_PointIds->SetId(1, this->m_PointIds->GetId(edgeIdPlus));
 
-		m_Line->Points->SetPoint(0, this->Points->GetPoint(edgeId));
-		m_Line->Points->SetPoint(1, this->Points->GetPoint(edgeIdPlus));
+		m_Line->m_Points->SetPoint(0, this->m_Points->GetPoint(edgeId));
+		m_Line->m_Points->SetPoint(1, this->m_Points->GetPoint(edgeIdPlus));
 
 		return m_Line;
 	}

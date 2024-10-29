@@ -122,10 +122,17 @@ void igQtVectorWidget::updateVectorNameList() {
         haveChange = true;
     }
     if (!obj) return;
-    auto AttributeSet = obj->GetAttributeSet();
-    if (!AttributeSet) return;
-    AttributeSet->TransformScalars2VectorArray();
-    auto allAttributes = AttributeSet->GetAllAttributes();
+    iGame::AttributeSet* _AttributeSet;
+    if (obj->HasSubDataObject()){
+        auto it = obj->SubDataObjectIteratorBegin();
+       // it++;
+        _AttributeSet = it->second->GetAttributeSet();
+    } else {
+        _AttributeSet = obj->GetAttributeSet();
+    } 
+    if (!_AttributeSet) return;
+    _AttributeSet->TransformScalars2VectorArray();
+    auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return; 
 
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
