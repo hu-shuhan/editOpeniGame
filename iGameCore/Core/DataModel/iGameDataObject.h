@@ -116,6 +116,7 @@ public:
     void SetParentDataObject(DataObject* parent) { m_Parent = parent; }
 
 
+    bool UpdateSubDataObjectDataRange();
     DataObjectId AddSubDataObject(DataObject::Pointer obj);
     void RemoveSubDataObject(DataObjectId id);
     void ClearSubDataObject();

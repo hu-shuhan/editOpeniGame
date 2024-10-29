@@ -1250,8 +1250,15 @@ void VolumeMesh::ConvertToDrawableData() {
         m_ColorWithCell = false;
     } else {
         m_UseColor = true;
-
         auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+        /* Update scalar data Range. */
+//        {
+//            if(attr.dataRange->GetMTime() > attr.pointer->GetMTime()){
+//
+//            }
+//        }
+//
+
         if (attr.type == IG_RGB) {
             this->m_ColorMapper->SetVectorModeToRGBColors();
         }

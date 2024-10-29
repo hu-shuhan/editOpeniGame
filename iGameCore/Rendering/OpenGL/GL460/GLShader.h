@@ -70,7 +70,6 @@ protected:
 
 inline GLShader::Pointer CreateShader(const std::string& path,
                                       GLenum shaderType) {
-    std::cout << "path: " << path << std::endl;
     auto shader = GLShader::New();
     shader->Compile(path.c_str(), shaderType);
     return shader;

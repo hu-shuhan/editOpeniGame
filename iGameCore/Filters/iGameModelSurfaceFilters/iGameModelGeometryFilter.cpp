@@ -794,6 +794,7 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
             break;
         }
     }
+    delete[] FacePools;
     clock_t time2 = clock();
     //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;

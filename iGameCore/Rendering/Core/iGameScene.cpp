@@ -245,15 +245,12 @@ GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
     GLShaderProgram::Pointer sp = GLShaderProgram::New();
     switch (type) {
         case BLINNPHONG: {
-            std::cout << "GEN BLINNPHONG STEP 1: \n";
             GLShader::Pointer vertex_vert =
                     CreateShader(std::string("./Resources/Shaders/vertex.vert"),
                                  GL_VERTEX_SHADER);
-            std::cout << "GEN BLINNPHONG STEP 2: \n";
             GLShader::Pointer blinnPhong_frag = CreateShader(
                     std::string("./Resources/Shaders/blinnPhong.frag"),
                     GL_FRAGMENT_SHADER);
-            std::cout << "GEN BLINNPHONG STEP 3: \n";
             sp->AddShaders(vertex_vert, blinnPhong_frag);
         } break;
         case PBR: {
@@ -386,54 +383,39 @@ bool Scene::HasShader(IGenum type) {
 void Scene::UseShader(IGenum type) { this->GetShader(type)->Use(); }
 
 void Scene::InitOpenGL() {
-    std::cout << "Init OPENGL START \n";
-    std::cout << "glad load GL START \n";
     if (!gladLoadGL()) {
         throw std::runtime_error("Failed to initialize GLAD");
     }
-    std::cout << "glad load GL END \n";
-    std::cout << "GL STEP 1: \n";
     glEnable(GL_DEPTH_TEST);
-    std::cout << "GL STEP 2: \n";
     glEnable(GL_MULTISAMPLE);
-    std::cout << "GL STEP 3: \n";
     glEnable(GL_BLEND);
-    std::cout << "GL STEP 4: \n";
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    std::cout << "GL STEP 5: \n";
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
     glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-    std::cout << "GL STEP 6: \n";
 
     // create empty VAO to render full-screen triangle
     m_EmptyVAO->Create();
-    std::cout << "GL STEP 7: \n";
 
-    std::cout << "ALLOW CATE START: \n";
     // allocate memory
     {
 
-        std::cout << "ALLOW CATE START 1: \n";
         m_CameraDataBlock->Create();
         m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
         m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
                                     GL_STATIC_DRAW);
 
-        std::cout << "ALLOW CATE START 2: \n";
         m_ObjectDataBlock->Create();
         m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
         m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
                                     GL_STATIC_DRAW);
 
-        std::cout << "ALLOW CATE START 3: \n";
         m_UBOBlock->Create();
         m_UBOBlock->Target(GL_UNIFORM_BUFFER);
         m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
                              GL_STATIC_DRAW);
 
         // map shader block
-        std::cout << "ALLOW CATE START 4: \n";
         {
             auto shader = this->GetShader(BLINNPHONG);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -441,7 +423,6 @@ void Scene::InitOpenGL() {
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map no light shader block
-        std::cout << "ALLOW CATE START 5: \n";
         {
             auto shader = this->GetShader(NOLIGHT);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -449,7 +430,6 @@ void Scene::InitOpenGL() {
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map pure color shader block
-        std::cout << "ALLOW CATE START 6: \n";
         {
             auto shader = this->GetShader(PURECOLOR);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -457,7 +437,6 @@ void Scene::InitOpenGL() {
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map pure color shader block
-        std::cout << "ALLOW CATE START 7: \n";
         {
             auto shader = this->GetShader(TRANSPARENCYLINK);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -465,7 +444,6 @@ void Scene::InitOpenGL() {
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
         // map culling computer shader block
-        std::cout << "ALLOW CATE START 7: \n";
         {
 #ifdef IGAME_OPENGL_VERSION_460
             auto shader = this->GetShader(MESHLETCULL);
@@ -473,7 +451,6 @@ void Scene::InitOpenGL() {
 #endif
         }
     }
-    std::cout << "ALLOW CATE END: \n";
 
     m_UBO.useColor = false;
 
@@ -509,7 +486,6 @@ void Scene::InitOpenGL() {
     //pen->SetWidth(3);
     //brush->SetColor(Color{Red});
     //std::cout << painter->DrawTriangle(p1, p2, p3) << std::endl;
-    std::cout << "Init OPENGL END\n";
 }
 
 void Scene::InitOIT() {
