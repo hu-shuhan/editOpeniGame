@@ -54,6 +54,7 @@ public:
 	}
 	void SetPlane(float o[3], float n[3]) {
 		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+		if(sum<1e-40){sum=1e-40;};
 		m_Normal[0] = n[0] / sum;
 		m_Normal[1] = n[1] / sum;
 		m_Normal[2] = n[2] / sum;
@@ -64,6 +65,7 @@ public:
 	}
 	void SetPlane(double o[3], double n[3]) {
 		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+		if (sum < 1e-40) { sum = 1e-40;};
 		m_Normal[0] = n[0] / sum;
 		m_Normal[1] = n[1] / sum;
 		m_Normal[2] = n[2] / sum;

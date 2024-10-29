@@ -44,7 +44,7 @@ private:
 	QWidget* SetCustomScaleRangeWidget{ nullptr };
 	Ui::SetCustomScaleRange* SetCustomScaleRangeUi{ nullptr };
 	std::map<std::string, int >scalarInfo;
-	int drawItem { -1 };
+	int scalarDimension{ -1 };
     int currentSelectedScalarIdx{ -1 };
 	std::string scalarName = {"" };
 	float scalarMin = 0.0, scalarMax = 1.0;

@@ -32,9 +32,9 @@ void igQtContourExtractWidget::UpdateScalarName()
 	this->m_ScalarName = ui->comboBox_ScalarIndex->currentText().toStdString();
 	this->m_ScalarArray = nullptr;
 	for (int i = 0; i < m_PointData->GetNumberOfElements(); i++) {
-		auto attr = m_PointData->GetElement(i).pointer;
-		if (attr->GetName() == m_ScalarName) {
-			m_ScalarArray = attr;
+		auto array = m_PointData->GetElement(i).pointer;
+		if (array->GetName() == m_ScalarName) {
+			m_ScalarArray = array;
 			break;
 		}
 	}
@@ -78,7 +78,7 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 	m_Generated = false;
 	m_Extracter = iGame::ModelClip::New();
 	m_ResultMesh = iGame::SurfaceMesh::New();
-	m_ResultMesh->SetName(m_OriginDataObject->GetName() +"_Contour");
+	m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
 }
 
 void igQtContourExtractWidget::ContourExtract()

@@ -73,9 +73,6 @@ void igQtModelClipWidget::ClipModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
     auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
-    for (int i=0;i< m_OriginDataObject->GetNumberOfSubDataObjects();i++) {
-       m_ResultMesh->GetSubDataObject(i)->Delete();
-    }
     m_ResultMesh->ClearSubDataObject();
     // recover attribute
     m_ResultMesh->ViewCloudPicture(scene, -1, -1);

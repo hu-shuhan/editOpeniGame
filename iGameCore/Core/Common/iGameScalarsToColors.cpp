@@ -117,8 +117,8 @@ void ScalarsToColors::MapValueToRGB(float v, float* rgb, float& shift, float& sc
 void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int size)
 {
 	if (this->VectorMode == IG_RGB)return;
-	float minv = 1e9;
-	float maxv = -1e9;
+	float minv = FLT_MAX;
+	float maxv = -FLT_MAX;
 	int vectorMode = this->GetVectorMode();
 	int inComponent = input->GetDimension();
 	if (vectorMode == COMPONENT)
