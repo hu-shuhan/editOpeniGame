@@ -117,9 +117,13 @@ void igQtScalarViewWidget::loadScalarData() {
 		->GetAttribute(currentSelectedScalarIdx)
 		.pointer->GetName();
 	this->scalarDimension = obj->GetAttributeDimension();
-	this->m_ColorMapper->InitRange(obj->GetAttributeSet()
-		->GetAttribute(currentSelectedScalarIdx)
-		.pointer, this->scalarDimension);
+
+	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
+	if (dataRange) {
+		this->scalarMin = dataRange->GetValue(2 * scalarDimension + 2);
+		this->scalarMax = dataRange->GetValue(2 * scalarDimension + 3);
+	}
+
 }
 void igQtScalarViewWidget::initScalarRange() {
 
@@ -127,8 +131,6 @@ void igQtScalarViewWidget::initScalarRange() {
 		ui->widget_DataRangeSlider->hide();
 		return;
 	}
-	this->scalarMin = m_ColorMapper->GetRange()[0];
-	this->scalarMax = m_ColorMapper->GetRange()[1];
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
 	ui->widget_DataRangeSlider->show();
 }

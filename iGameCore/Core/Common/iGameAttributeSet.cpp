@@ -256,6 +256,7 @@ AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
 
 iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
     if(dataRange == nullptr){
+		if (!this->pointer){return dataRange;}
         dataRange = DoubleArray::New();
         int dim = this->pointer->GetDimension();
         dataRange->SetDimension(2);
@@ -264,6 +265,7 @@ iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
 //            dataRange->SetElement(i, {FLT_MIN, FLT_MAX});
             dataRange->SetElement(i, {0, 0});
         }
+		updateAllDataRange();
     }
     return dataRange;
 }

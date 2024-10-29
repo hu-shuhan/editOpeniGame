@@ -95,7 +95,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                     float v[4] = {0.0f};
                     allVectors.pointer->GetElement(i, v);
                     auto volume = volumeMesh->GetVolume(i);
-                    auto center = centerCul.GetCenter(volume->Points);
+                    auto center = centerCul.GetCenter(volume->m_Points);
                     Vector3f vec(v[0], v[1], v[2]);
                     convertPoint2Arrow(center, vec,
                                        Vector3f(colorsPtr[3 * i],
