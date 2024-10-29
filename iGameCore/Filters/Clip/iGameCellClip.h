@@ -172,10 +172,14 @@ namespace CellClip {
 		for (i = 0; i < vcnt; i++)
 		{
 			value = cellValues[i];
-			if (value >= 0.0) {
+			if (value > 0.0) {
 				allOut = 0;
 			}
+			else if (value < 0.0) {
+				allIn = 0;
+			}
 			else {
+				allOut = 0;
 				allIn = 0;
 			}
 		}
@@ -209,10 +213,14 @@ namespace CellClip {
 		for (i = 0; i < vcnt; i++)
 		{
 			value = cellValues[i];
-			if (value >= 0.0) {
+			if (value > 0.0) {
 				allOut = 0;
 			}
+			else if (value < 0.0) {
+				allIn = 0;
+			}
 			else {
+				allOut = 0;
 				allIn = 0;
 			}
 		}
@@ -269,11 +277,15 @@ namespace CellClip {
 		for (i = 0; i < PointNum; i++)
 		{
 			value = cellValues[i];
-			if (value >= 0.0) {
+			if (value > 0.0) {
 				allOut = 0;
 			}
-			else {
+			else if (value < 0.0) {
 				allIn = 0;
+			}
+			else {
+				allOut =0;
+				allIn=0;
 			}
 		}
 		if (allOut || allIn) {
