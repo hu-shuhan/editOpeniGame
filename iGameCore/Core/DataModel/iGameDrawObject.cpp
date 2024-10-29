@@ -39,7 +39,7 @@ DrawObject::DrawObject() {
 }
 
 void DrawObject::CreateDrawBuffer() {
-    if (m_Flag) {
+    if (!m_Flag) {
         m_PointVAO = GLVertexArray::New();
         m_PointVAO->Create();
 
@@ -172,7 +172,7 @@ void DrawObject::CreateDrawBuffer() {
         //    m_CellVAO.elementBuffer(m_CellEBO);
         //}
 
-        m_Flag = false;
+        m_Flag = true;
     }
 }
 
@@ -312,7 +312,7 @@ IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 
 IGsize DrawObject::GetRealMemorySize() {
     IGsize res = this->DataObject::GetRealMemorySize();
-    return res; 
+    return res;
 };
 
 void DrawObject::SetVisibility(bool f) {

@@ -50,6 +50,7 @@ public:
         if (it != bufferMap.end()) {
             return std::get<0>(it->second);
         } else {
+            igError("Buffer not found for given VAO and binding index.");
             throw std::runtime_error(
                     "Buffer not found for given VAO and binding index.");
         }
@@ -61,11 +62,12 @@ public:
         if (it != bufferMap.end()) {
             return std::get<1>(it->second);
         } else {
+            igError("Buffer not found for given VAO and binding index.");
             throw std::runtime_error(
                     "Buffer not found for given VAO and binding index.");
         }
     }
-    
+
 protected:
     GLVertexArrayManager() = default;
     ~GLVertexArrayManager() = default;

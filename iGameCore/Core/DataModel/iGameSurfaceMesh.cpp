@@ -817,18 +817,16 @@ void SurfaceMesh::ConvertToDrawableData() {
     } else {
         m_UseColor = true;
 
-            auto& attr =
-                    this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (attr.type == IG_RGB) {
-                this->m_ColorMapper->SetVectorModeToRGBColors();
-            }
-            else {
-                this->m_ColorMapper->SetVectorModeToComponent();
-            }
-            if (!attr.isDeleted) {
-                if (attr.attachmentType == IG_POINT) {
-                    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                        m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+        if (attr.type == IG_RGB) {
+            this->m_ColorMapper->SetVectorModeToRGBColors();
+        } else {
+            this->m_ColorMapper->SetVectorModeToComponent();
+        }
+        if (!attr.isDeleted) {
+            if (attr.attachmentType == IG_POINT) {
+                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(attr.pointer,
                                                     attr.GetDataRange(),
@@ -869,6 +867,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
+                igError("The index of the edge is negative.");
                 throw std::runtime_error("The index of the edge is negative.");
             } else {
                 lineIndices->AddElement2(static_cast<iguIndex>(cell[0]),

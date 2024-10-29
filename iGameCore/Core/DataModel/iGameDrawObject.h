@@ -122,7 +122,7 @@ protected:
     unsigned int m_ViewStyle{0};
     bool m_Visibility{true};
 
-    bool m_Flag{true};
+    bool m_Flag{false};
     bool m_UseColor{false};
     bool m_UseNormalSmooth{false};
     bool m_ColorWithCell{false};
