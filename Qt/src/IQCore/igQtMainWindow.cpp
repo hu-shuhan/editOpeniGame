@@ -1442,12 +1442,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             });
 
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+        if (!rendererWidget->GetScene() ||
+            !rendererWidget->GetScene()->GetCurrentModel()) {
             return;
         }
         auto obj =
-            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if(!obj)return;
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        if (!rendererWidget->getInteractor()->IsBase()) {
+            rendererWidget->getInteractor()->RequestBasicStyle();
+            return;
+        }
 		SliceDockWidget->show();
 		SliceWidget->SetOriginDataObject(obj);
         
