@@ -318,7 +318,7 @@ public:
         return this->VectorType::operator[](_Pos);
     }
     ConstReference ValueAt(const IGsize _Pos) const {
-        return this->SuperClass::operator[](_Pos);
+        return this->VectorType::operator[](_Pos);
     }
 
     // Constructed by std::vector or pointer

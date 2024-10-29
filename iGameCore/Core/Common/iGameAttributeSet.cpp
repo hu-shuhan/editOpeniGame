@@ -151,6 +151,26 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index, IG
 	}
 	return NONE;
 }
+    AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) {
+        for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
+            auto& attrb = m_Buffer->GetElement(i);
+            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+                return attrb;
+            }
+        }
+        return NONE;
+    }
+
+    const AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) const {
+        for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
+            auto& attrb = m_Buffer->GetElement(i);
+            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+                return attrb;
+            }
+        }
+        return NONE;
+    }
+
 
 AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& name, IGenum type)
 {
@@ -234,11 +254,9 @@ AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
 
 
 
-
-
-
 iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
     if(dataRange == nullptr){
+		if (!this->pointer){return dataRange;}
         dataRange = DoubleArray::New();
         int dim = this->pointer->GetDimension();
         dataRange->SetDimension(2);
@@ -247,6 +265,7 @@ iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
 //            dataRange->SetElement(i, {FLT_MIN, FLT_MAX});
             dataRange->SetElement(i, {0, 0});
         }
+		updateAllDataRange();
     }
     return dataRange;
 }

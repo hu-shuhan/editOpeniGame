@@ -33,6 +33,8 @@ public:
     }
 
     void Storage(size_t size, const void* data, GLbitfield flags) {
+        igError("You called the GLBuffer::storage function on the opengl330. "
+                "This function is currently not supported.");
         throw std::runtime_error(
                 "You called the GLBuffer::storage function on the opengl330. "
                 "This function is currently not supported.");
@@ -66,6 +68,8 @@ public:
         glBindBuffer(m_Target, handle);
         if (!glUnmapBuffer(m_Target)) {
             glBindBuffer(m_Target, 0);
+            igError("data store contents have become corrupt during the time "
+                    "the data store was mapped");
             throw std::runtime_error(
                     "data store contents have become corrupt during the time "
                     "the data store was mapped");
@@ -88,7 +92,7 @@ public:
 protected:
     GLBuffer() = default;
     ~GLBuffer() override = default;
-    
+
     friend class GLObject<GLBuffer>;
     static void CreateHandle(GLsizei count, GLuint* handles) {
         glGenBuffers(count, handles);

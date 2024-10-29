@@ -15,9 +15,7 @@ enum FileType {
 };
 
 enum SplineType {
-    NurbsCurve,
-    NurbsSurface,
-    NurbsVolume,
+    Nurbs,
     BSplineSurface,
     BSplineVolume,
 };

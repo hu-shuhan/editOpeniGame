@@ -19,12 +19,12 @@ public:
 
 	Cell* GetEdge(const int edgeId) override {
 		const int* verts = edges[edgeId];
-		m_Line->PointIds->SetId(0, this->PointIds->GetId(verts[0]));
-		m_Line->PointIds->SetId(1, this->PointIds->GetId(verts[1]));
-		m_Line->PointIds->SetId(2, this->PointIds->GetId(verts[2]));
-		m_Line->Points->SetPoint(0, this->Points->GetPoint(verts[0]));
-		m_Line->Points->SetPoint(1, this->Points->GetPoint(verts[1]));
-		m_Line->Points->SetPoint(2, this->Points->GetPoint(verts[2]));
+		m_Line->m_PointIds->SetId(0, this->m_PointIds->GetId(verts[0]));
+		m_Line->m_PointIds->SetId(1, this->m_PointIds->GetId(verts[1]));
+		m_Line->m_PointIds->SetId(2, this->m_PointIds->GetId(verts[2]));
+		m_Line->m_Points->SetPoint(0, this->m_Points->GetPoint(verts[0]));
+		m_Line->m_Points->SetPoint(1, this->m_Points->GetPoint(verts[1]));
+		m_Line->m_Points->SetPoint(2, this->m_Points->GetPoint(verts[2]));
 		return m_Line.get();
 	}
 	Cell* GetFace(const int faceId) override {
@@ -38,8 +38,8 @@ public:
 			face = m_Quad.get();
 		}
 		for (int i = 0; i < verts[MaxFaceSize]; ++i) {
-			face->PointIds->SetId(i, this->PointIds->GetId(verts[i]));
-			face->Points->SetPoint(i, this->Points->GetPoint(verts[i]));
+			face->m_PointIds->SetId(i, this->m_PointIds->GetId(verts[i]));
+			face->m_Points->SetPoint(i, this->m_Points->GetPoint(verts[i]));
 		}
 		for (int i = 0; i < edges[MaxFaceSize / 2]; ++i) {
 			face->EdgeIds->SetId(i, EdgeIds->GetId(edges[i]));
@@ -168,12 +168,12 @@ public:
 private:
 	QuadraticPrism()
 	{
-		this->Points->SetNumberOfPoints(NumberOfPoints);
-		this->PointIds->SetNumberOfIds(NumberOfPoints);
+		this->m_Points->SetNumberOfPoints(NumberOfPoints);
+		this->m_PointIds->SetNumberOfIds(NumberOfPoints);
 		for (int i = 0; i < NumberOfPoints; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 
 		m_Line = QuadraticLine::New();

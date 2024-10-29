@@ -190,8 +190,8 @@ namespace CellClip {
 			for (j = 0; j < 4; j++)
 			{
 				pid = QuadraticTetra::SubTetras[0][i][j];
-				tetra->Points->SetPoint(j, cell->Points->GetPoint(pid));
-				tetra->PointIds->SetId(j, cell->PointIds->GetId(pid));
+				tetra->m_Points->SetPoint(j, cell->m_Points->GetPoint(pid));
+				tetra->m_PointIds->SetId(j,  cell->m_PointIds->GetId(pid));
 				tetvalues[j] = cellValues[pid];
 			}
 			Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
@@ -221,7 +221,7 @@ namespace CellClip {
 		}
 		auto fcnt = cell->GetNumberOfFaces();
 		auto topVh = cell->GetPointId(0);
-		auto originVhs = cell->PointIds->RawPointer();
+		auto originVhs = cell->m_PointIds->RawPointer();
 		Cell::Pointer face = nullptr;
 		bool isCount = false;
 
@@ -230,8 +230,8 @@ namespace CellClip {
 		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 		Tetra::Pointer tetra = Tetra::New();
 		float tetvalues[4] = { 0 };
-		tetra->PointIds->SetId(3, topVh);
-		tetra->Points->SetPoint(3, cell->GetPoint(0));
+		tetra->m_PointIds->SetId(3, topVh);
+		tetra->m_Points->SetPoint(3, cell->GetPoint(0));
 		tetvalues[3] = cellValues[0];
 		for (int i = 0; i < fcnt; i++) {
 			isCount = false;
@@ -244,12 +244,12 @@ namespace CellClip {
 			}
 			if (!isCount) {
 				for (j = st; j < ed - 2; j++) {
-					tetra->PointIds->SetId(2, originVhs[st]);
-					tetra->PointIds->SetId(1, originVhs[j + 1]);
-					tetra->PointIds->SetId(0, originVhs[j + 2]);
-					tetra->Points->SetPoint(2, cell->GetPoint(st));
-					tetra->Points->SetPoint(1, cell->GetPoint(j + 1));
-					tetra->Points->SetPoint(0, cell->GetPoint(j + 2));
+					tetra->m_PointIds->SetId(2, originVhs[st]);
+					tetra->m_PointIds->SetId(1, originVhs[j + 1]);
+					tetra->m_PointIds->SetId(0, originVhs[j + 2]);
+					tetra->m_Points->SetPoint(2, cell->GetPoint(st));
+					tetra->m_Points->SetPoint(1, cell->GetPoint(j + 1));
+					tetra->m_Points->SetPoint(0, cell->GetPoint(j + 2));
 					tetvalues[2] = cellValues[st];
 					tetvalues[1] = cellValues[j + 1];
 					tetvalues[0] = cellValues[j + 2];
@@ -281,16 +281,16 @@ namespace CellClip {
 		}
 		else if (allIn) {
 			//可能会有需求
-			connectivity->AddCellIds(cell->PointIds);
+			connectivity->AddCellIds(cell->m_PointIds);
 			types->AddValue(cell->GetCellType());
 		}
 		else {
 			auto tetras = cell->clipCelltoTetra();
 			for (int i = 0; i < tetras.size(); i++) {
-				tetra->Points = tetras[i]->Points;
-				tetra->PointIds = tetras[i]->PointIds;
+				tetra->m_Points = tetras[i]->m_Points;
+				tetra->m_PointIds = tetras[i]->m_PointIds;
 				for (j = 0; j < 4; j++) {
-					tetvalues[j] = pointValues[tetra->PointIds->GetId(j)];
+					tetvalues[j] = pointValues[tetra->m_PointIds->GetId(j)];
 				}
 				Clip(tetra, tetvalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
 			}
@@ -435,8 +435,8 @@ namespace CellClip {
 		for (int i = 0; i < nPts - 2; i++) {
 			for (int j = 0; j < 3; j++) {
 				pid = j == 0 ? 0 : i + j;
-				triangle->Points->SetPoint(j, cell->Points->GetPoint(pid));
-				triangle->PointIds->SetId(j, cell->PointIds->GetId(pid));
+				triangle->m_Points->SetPoint(j, cell->m_Points->GetPoint(pid));
+				triangle->m_PointIds->SetId(j,  cell->m_PointIds->GetId(pid));
 				trivalues[j] = cellValues[pid];
 			}
 			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
@@ -528,8 +528,8 @@ namespace CellClip {
 			for (int j = 0; j < 3; j++)
 			{
 				pid = j == 0 ? 0 : i + j;
-				triangle->Points->SetPoint(j, cell->Points->GetPoint(pid));
-				triangle->PointIds->SetId(j, cell->PointIds->GetId(pid));
+				triangle->m_Points->SetPoint(j, cell->m_Points->GetPoint(pid));
+				triangle->m_PointIds->SetId(j,  cell->m_PointIds->GetId(pid));
 				trivalues[j] = cellValues[pid];
 			}
 			Clip(triangle, trivalues, points, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);

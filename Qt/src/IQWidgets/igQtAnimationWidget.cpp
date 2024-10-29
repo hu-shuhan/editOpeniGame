@@ -162,18 +162,22 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
                                   .SubFileNames;
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
-
+        std::vector<iGame::DataObject::Pointer> results(frameSubFiles->GetNumberOfElements());
         for (int i = 0; i < frameSubFiles->GetNumberOfElements(); i++) {
             tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
-                    [](const std::string& fileName) {
-                        return FileIO::ReadFile(fileName);
+                    [i, &results](const std::string& fileName) {
+                        auto res = FileIO::ReadFile(fileName);
+                        results[i] = res;
+                        return res;
                     },
                     frameSubFiles->GetElement(i)));
         }
         currentDrawObject->ClearSubDataObject();
-
         for (auto& task: tasks) {
-            currentDrawObject->AddSubDataObject(task.get());
+            task.get();
+        }
+        for(auto& subObj : results){
+            currentDrawObject->AddSubDataObject(subObj);
         }
     }
     /* If obj has the deformation var and is enabled.
@@ -185,37 +189,11 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
 
     /* process Object's scalar range*/
-    IGsize scalar_size = currentDrawObject->GetAttributeSet()
-                                 ? currentDrawObject->GetAttributeSet()
-                                           ->GetAllAttributes()
-                                           ->GetNumberOfElements()
-                                 : 0;
-    for (IGsize k = 0; k < scalar_size; k++) {
-        auto& par_range =
-                currentDrawObject->GetAttributeSet()->GetAttribute(k).dataRange;
-        //        float range_max = FLT_MIN;
-        //        float range_min = FLT_MAX;
-        //        for(auto it = currentObject->SubDataObjectIteratorBegin(); it != currentObject->SubDataObjectIteratorEnd(); ++ it){
-        //            const auto& range = it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-        //            range_max = std::max(range_max, range.second);
-        //            range_min = std::min(range_min, range.first );
-        //        }
-        for (auto it = currentDrawObject->SubDataObjectIteratorBegin();
-             it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
-            auto& range =
-                    it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-            range = par_range;
-        }
-        //        std::cout << "range : " << range_max << ' ' << range_min << '\n';
-    }
-    currentScene->MakeCurrent();
+    currentDrawObject->UpdateSubDataObjectDataRange();
 
+    currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
 
-    //    for(auto it = currentObject->SubDataObjectIteratorBegin(); it != currentObject->SubDataObjectIteratorEnd(); ++ it){
-    //        it->second->SetViewStyle(currentObject->GetViewStyle());
-    //        it->second->ConvertToDrawableData();
-    //    }
     if (currentDrawObject->GetAttributeIndex() != -1) {
         currentDrawObject->ViewCloudPicture(
                 currentScene, currentDrawObject->GetAttributeIndex());
@@ -226,6 +204,121 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 }
 
 void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
+
+
+    using namespace iGame;
+    auto currentScene = SceneManager::Instance()->GetCurrentScene();
+    auto currentDrawObject = DynamicCast<DrawObject>(
+            currentScene->GetCurrentModel()->GetDataObject());
+    if (currentDrawObject == nullptr
+    ||  currentDrawObject->GetTimeFrames()->GetArrays().empty()
+    ||  keyframe_0 + 1 == currentDrawObject->GetTimeFrames()->GetArrays().size())
+        return;
+    auto& frameSubFiles_0 = currentDrawObject->GetTimeFrames()
+            ->GetTargetTimeFrame(keyframe_0)
+            .SubFileNames;
+    std::vector<iGame::DataObject::Pointer> results_0(frameSubFiles_0->GetNumberOfElements());
+    {
+        std::vector<std::future<iGame::DataObject::Pointer>> tasks;
+        for (int i = 0; i < frameSubFiles_0->GetNumberOfElements(); i++) {
+            tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
+                    [i, &results_0](const std::string& fileName) {
+                        auto res = FileIO::ReadFile(fileName);
+                        res->SetName(fileName);
+                        results_0[i] = res;
+                        return res;
+                    },
+                    frameSubFiles_0->GetElement(i)));
+        }
+        currentDrawObject->ClearSubDataObject();
+
+        for (auto& task: tasks) {
+            task.get();
+        }
+        for(const auto& obj : results_0){
+            currentDrawObject->AddSubDataObject(obj);
+        }
+        currentDrawObject->UpdateSubDataObjectDataRange();
+    }
+    auto& frameSubFiles_1 = currentDrawObject->GetTimeFrames()
+            ->GetTargetTimeFrame(keyframe_0 + 1)
+            .SubFileNames;
+    {
+        std::vector<std::future<iGame::DataObject::Pointer>> tasks;
+        std::vector<iGame::DataObject::Pointer> results(frameSubFiles_1->GetNumberOfElements());
+        for (int i = 0; i < frameSubFiles_1->GetNumberOfElements(); i++) {
+            tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
+                    [i, &results](const std::string& fileName) {
+                        auto res = FileIO::ReadFile(fileName);
+                        res->SetName(fileName);
+                        results[i] = res;
+                        return res;
+                    },
+                    frameSubFiles_1->GetElement(i)));
+        }
+        for(auto& task : tasks){
+            task.get();
+        }
+
+//        auto it = currentDrawObject->SubDataObjectIteratorBegin();
+//        for (int i = 0; i < tasks.size(); i ++, it ++) {
+        for (int i = 0; i < tasks.size(); i ++) {
+//            const auto& subObject_0 = DynamicCast<PointSet>(it->second);
+            const auto& subObject_0 = DynamicCast<PointSet>(results_0[i]);
+            const auto& subObject_1 = DynamicCast<PointSet>(results[i]);
+            /* Process interpolate. */
+            const auto& ps_0 = subObject_0->GetPoints().get();
+            const auto& ps_1 = subObject_1->GetPoints().get();
+            /* Process Points' interpolation. */
+            for(int j = 0; j < subObject_0->GetNumberOfPoints(); j ++){
+                /* p_inter = p_0 + t(p_1 - p_0)*/
+                auto p_0 = ps_0->GetPoint(j);
+                auto p_1 = ps_1->GetPoint(j);
+                ps_0->SetPoint(j, p_0 + t * (p_1 - p_0));
+//                ps_0->GetPoint(j) = ps_0->GetPoint(j) + t * (ps_1->GetPoint(j) - ps_0->GetPoint(j));
+            }
+            /* Process Vector's Interpolation to adapt Interpolation's Deformation Filter. */
+            const auto& attributes_0 = subObject_0->GetAttributeSet()->GetAllAttributes();
+            const auto& attributes_1 = subObject_1->GetAttributeSet()->GetAllAttributes();
+            for(int j = 0; j < attributes_0->Size(); j ++){
+                const auto& attribute_0 = attributes_0[j].RawPointer()->pointer;
+                const auto& attribute_1 = attributes_1[j].RawPointer()->pointer;
+                /* If attribute's dimension is minus one, means it needn't to process in Deformation. */
+//                if(attribute_0->GetDimension() < 2) continue;
+                int dimension = attribute_0->GetDimension();
+                for(auto k = 0; k < attribute_0->GetNumberOfElements(); k ++){
+                    for(int elem_idx = 0; elem_idx < dimension; elem_idx ++){
+                        double val_0 = attribute_0->GetValue(k * dimension + elem_idx);
+                        double val_1 = attribute_1->GetValue(k * dimension + elem_idx);
+                        attribute_0->SetValue(k * dimension + elem_idx, val_0 + t * (val_1 - val_0));
+                    }
+                }
+            }
+            subObject_0->GetPoints()->Modified();
+            subObject_0->GetAttributeSet()->Modified();
+            subObject_0->ConvertToDrawableData();
+        }
+    }
+
+    /* If obj has the deformation var and is enabled.
+     * Make sure every timeStep have the deformation scale factor. */
+
+//    StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+//    deformFilter->SetInput(currentDrawObject);
+//    if(!deformFilter->Execute()) std::cout << " error \n";
+
+
+    currentScene->MakeCurrent();
+    currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
+
+    if (currentDrawObject->GetAttributeIndex() != -1) {
+        currentDrawObject->ViewCloudPicture(
+                currentScene, currentDrawObject->GetAttributeIndex());
+    }
+    currentScene->DoneCurrent();
+
+    Q_EMIT UpdateScene();
+
     Q_EMIT PlayAnimation_interpolate(keyframe_0, t);
 }
 

@@ -43,8 +43,7 @@ protected:
 
         if (!success) {
             glGetShaderInfoLog(handle, BUFSIZ, NULL, infoLog.data());
-            std::cerr << "ERROR::SHADER_COMPILATION_ERROR\n"
-                      << infoLog << std::endl;
+            igError("ERROR::SHADER_COMPILATION_ERROR\n" + infoLog);
             throw std::runtime_error("Shader compilation failed");
         }
     }
@@ -60,6 +59,7 @@ protected:
             file.close();
             return contents;
         }
+        igError("failed to open file");
         throw std::runtime_error("failed to open file");
     }
 
@@ -195,6 +195,7 @@ protected:
 
         if (!success) {
             glGetProgramInfoLog(handle, BUFSIZ, NULL, infoLog.data());
+            igError("shader program linkage failed: " + infoLog);
             throw std::runtime_error("shader program linkage failed: " +
                                      infoLog);
         }

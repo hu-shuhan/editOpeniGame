@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <utility>
-#include <type_traits>
 #include "iGameMacro.h"
 
 IGAME_NAMESPACE_BEGIN

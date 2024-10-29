@@ -141,6 +141,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
+//    qDebug() <<"Init GL start";
     // 目前当窗口
     SceneManager::Pointer sceneManager = SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
@@ -151,6 +152,7 @@ void igQtRenderWidget::initializeGL() {
     m_Interactor = Interactor::New();
     m_Interactor->Initialize(m_Scene);
     m_Scene->SetInteractor(m_Interactor);
+//    qDebug() <<"Init GL end";
 }
 
 void igQtRenderWidget::resizeGL(int w, int h) {
@@ -158,7 +160,11 @@ void igQtRenderWidget::resizeGL(int w, int h) {
     m_Scene->Resize(width(), height(), ratio);
 }
 
-void igQtRenderWidget::paintGL() { m_Scene->Draw(); }
+void igQtRenderWidget::paintGL() {
+//    qDebug() <<"Paint start";
+    m_Scene->Draw();
+//    qDebug() <<"Paint end";
+}
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {

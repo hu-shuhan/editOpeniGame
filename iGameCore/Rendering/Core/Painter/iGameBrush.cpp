@@ -25,6 +25,7 @@ void Brush::SetColor(float red, float green, float blue) {
     if (ColorUtils::IsValid(red, green, blue)) {
         m_BrushColor = Vector3f{red, green, blue};
     } else {
+        igError("Color values must be in the range of 0.0 to 1.0");
         throw std::runtime_error(
                 "Color values must be in the range of 0.0 to 1.0");
     }
@@ -36,6 +37,7 @@ void Brush::SetColor(int red, int green, int blue) {
                                 static_cast<float>(green) / 255.0f,
                                 static_cast<float>(blue) / 255.0f};
     } else {
+        igError("Color values must be in the range of 0 to 255");
         throw std::runtime_error(
                 "Color values must be in the range of 0 to 255");
     }

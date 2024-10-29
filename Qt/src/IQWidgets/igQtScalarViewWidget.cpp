@@ -86,11 +86,11 @@ void igQtScalarViewWidget::showScalarItem() {
 void igQtScalarViewWidget::loadScalarData() {
 	//   this->currentSelectedScalarIdx = ui->scalarInfoComboBox->currentIndex();
 	//this->scalarName = ui->scalarInfoComboBox->currentText().toStdString();
-	//   this->drawItem = ui->scalarItemComboBox->currentIndex();
+	//   this->scalarDimension = ui->scalarItemComboBox->currentIndex();
 	//   modelColorManager->SetCurrentSelectedScalarIdx(currentSelectedScalarIdx - 1);
-	//   modelColorManager->SetCurrentScalarComponentIdx(drawItem - 1);
+	//   modelColorManager->SetCurrentScalarComponentIdx(scalarDimension - 1);
 	//   this->scalarData = nullptr;
-	//if (drawItem == -1 || scalarName == "Solider")return;
+	//if (scalarDimension == -1 || scalarName == "Solider")return;
 	//auto manager = iGame::iGameManager::Instance();
 	//if (manager->GetModelList().size() == 0)return;
 	//auto PointData = manager->GetCurrentModel()->DataSet->GetPointData();
@@ -116,10 +116,14 @@ void igQtScalarViewWidget::loadScalarData() {
 	this->scalarName = obj->GetAttributeSet()
 		->GetAttribute(currentSelectedScalarIdx)
 		.pointer->GetName();
-	this->drawItem = obj->GetAttributeDimension();
-	this->m_ColorMapper->InitRange(obj->GetAttributeSet()
-		->GetAttribute(currentSelectedScalarIdx)
-		.pointer, this->drawItem);
+	this->scalarDimension = obj->GetAttributeDimension();
+
+	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
+	if (dataRange) {
+		this->scalarMin = dataRange->GetValue(2 * scalarDimension + 2);
+		this->scalarMax = dataRange->GetValue(2 * scalarDimension + 3);
+	}
+
 }
 void igQtScalarViewWidget::initScalarRange() {
 
@@ -127,8 +131,6 @@ void igQtScalarViewWidget::initScalarRange() {
 		ui->widget_DataRangeSlider->hide();
 		return;
 	}
-	this->scalarMin = m_ColorMapper->GetRange()[0];
-	this->scalarMax = m_ColorMapper->GetRange()[1];
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
 	ui->widget_DataRangeSlider->show();
 }

@@ -32,13 +32,21 @@ void PainterBase::Show(IGuint handle) {
     m_PrimitivesPool->CheckHandle(handle);
 
     auto primitive = m_PrimitivesPool->GetObject(handle);
-    primitive.visible = true;
+    if (primitive.has_value()) {
+        primitive.value().visible = true;
+    } else {
+        igDebug("handle is invalid.");
+    }
 }
 void PainterBase::Hide(IGuint handle) {
     m_PrimitivesPool->CheckHandle(handle);
 
-    auto& primitive = m_PrimitivesPool->GetObject(handle);
-    primitive.visible = false;
+    auto primitive = m_PrimitivesPool->GetObject(handle);
+    if (primitive.has_value()) {
+        primitive.value().visible = false;
+    } else {
+        igDebug("handle is invalid.");
+    }
 }
 
 void PainterBase::Delete(IGuint handle) {
@@ -70,7 +78,7 @@ void PainterBase::SetBrush(const BrushStyle& style) {
 }
 
 void PainterBase::Draw(Scene* scene) {
-    if (first) {
+    if (!m_Flag) {
         m_VAO = GLVertexArray::New();
         m_VAO->Create();
 
@@ -102,7 +110,7 @@ void PainterBase::Draw(Scene* scene) {
         GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
                           GL_FALSE, 0);
 
-        first = false;
+        m_Flag = true;
     }
 
     for (auto& [handle, primitive]: *m_PrimitivesPool) {
@@ -162,7 +170,7 @@ void PainterBase::Draw(Scene* scene) {
 }
 
 void PainterBase::PackDrawableData() {
-    if (first) {
+    if (!m_Flag) {
         m_VAO->Create();
 
         m_PositionVBO->Create();
@@ -184,7 +192,7 @@ void PainterBase::PackDrawableData() {
         GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
                           GL_FALSE, 0);
 
-        first = false;
+        m_Flag = true;
     }
 
     FloatArray::Pointer packPositions = FloatArray::New();

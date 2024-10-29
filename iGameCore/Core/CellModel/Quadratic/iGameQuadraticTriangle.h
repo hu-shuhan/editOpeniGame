@@ -15,9 +15,9 @@ public:
 
 	Vector3f GetNormal() override
 	{
-		const Vector3f& v0 = this->Points->GetPoint(0);
-		const Vector3f& v1 = this->Points->GetPoint(1);
-		const Vector3f& v2 = this->Points->GetPoint(2);
+		const Vector3f& v0 = this->m_Points->GetPoint(0);
+		const Vector3f& v1 = this->m_Points->GetPoint(1);
+		const Vector3f& v2 = this->m_Points->GetPoint(2);
 		return this->Self::ComputrNormal(v0, v1, v2);
 	}
 
@@ -34,12 +34,12 @@ public:
 protected:
 	QuadraticTriangle()
 	{
-		this->Points->SetNumberOfPoints(6);
-		this->PointIds->SetNumberOfIds(6);
+		this->m_Points->SetNumberOfPoints(6);
+		this->m_PointIds->SetNumberOfIds(6);
 		for (int i = 0; i < 6; i++)
 		{
-			this->Points->SetPoint(i, 0.0, 0.0, 0.0);
-			this->PointIds->SetId(i, 0);
+			this->m_Points->SetPoint(i, 0.0, 0.0, 0.0);
+			this->m_PointIds->SetId(i, 0);
 		}
 	}
 	~QuadraticTriangle() override = default;

@@ -50,4 +50,5 @@ private:
     std::string m_ScalarName="";
     bool m_Generated = false;
     double m_IsoValue=0.0;
+    
 };

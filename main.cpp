@@ -7,15 +7,15 @@
 #include <QtCore/Qtextcodec.h>
 #endif
 
-#include <IQCore/iGameFileDialog.h>
 int main(int argc, char* argv[]) {
+
     //	::testing::InitGoogleTest(&argc, argv);
     //	// 运行所有测试
     //	return RUN_ALL_TESTS();
 
-
+    Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(
-            Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
+           Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
     QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps); // 图标高分辨率支持
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication a(argc, argv);
@@ -37,12 +37,11 @@ int main(int argc, char* argv[]) {
     // format.setStencilBufferSize(8);
 
     format.setSamples(1);
-
     QSurfaceFormat::setDefaultFormat(format);
 
     a.processEvents();
-    QTextCodec* codec = QTextCodec::codecForName("GBK");
     igQtMainWindow w;
+    QTextCodec* codec = QTextCodec::codecForName("GBK");
     w.setWindowTitle(codec->toUnicode("iGame-MeshView"));
     w.show();
     w.showMaximized();

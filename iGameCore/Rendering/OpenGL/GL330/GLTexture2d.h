@@ -15,6 +15,8 @@ public:
                                  GLenum dstTarget, GLint dstLevel, GLint dstX,
                                  GLint dstY, GLint dstZ, GLsizei srcWidth,
                                  GLsizei srcHeight, GLsizei srcDepth) {
+        igError("You called the GLTexture2d::copyImageSubData function on the "
+                "opengl330. This function is currently not supported.");
         throw std::runtime_error(
                 "You called the GLTexture2d::copyImageSubData function on the "
                 "opengl330. This function is currently not supported.");
@@ -28,9 +30,11 @@ public:
                             GLenum internal_format, unsigned first_mip_level,
                             unsigned mip_level_count, unsigned first_layer,
                             unsigned layer_count) {
-        throw std::runtime_error(
-                "You called the GLTexture2d::view function on the opengl330. "
+        igError("You called the GLTexture2d::view function on the opengl330. "
                 "This function is currently not supported.");
+        throw std::runtime_error("You called the GLTexture2d::view function on "
+                                 "the opengl330. "
+                                 "This function is currently not supported.");
         //GLuint handle;
         //glGenTextures(1, &handle);
         //glTextureView(handle, target, original, internal_format,
@@ -83,6 +87,9 @@ public:
                 type = GL_UNSIGNED_INT_24_8;
                 break;
             default:
+                igError("You called the GLTexture2d::storage function on the "
+                        "opengl330. but the internal_format you provided was "
+                        "not enumrated.");
                 throw std::runtime_error("You called the GLTexture2d::storage "
                                          "function on the opengl330. "
                                          "but the internal_format you provided "
@@ -127,6 +134,7 @@ public:
     // GL_TEXTURE0 is reserved to prevent other binding operations from being performed after a texture unit is activated.
     void Active(GLenum texture) {
         if (texture == GL_TEXTURE0) {
+            igError("GL_TEXTURE0 is reserved.");
             throw std::runtime_error("GL_TEXTURE0 is reserved.");
         }
         glActiveTexture(texture);
@@ -139,6 +147,8 @@ public:
 
     void BindImage(unsigned int binding_index, unsigned int mip_level,
                    bool layered, int layer, GLenum access, GLenum format) {
+        igError("You called the GLTexture2d::bindImage function on the "
+                "opengl330. This function is currently not supported.");
         throw std::runtime_error("You called the GLTexture2d::bindImage "
                                  "function on the opengl330. "
                                  "This function is currently not supported.");

@@ -84,7 +84,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	Cell::Pointer cell=nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
-		vhs=cell->PointIds->RawPointer();
+		vhs=cell->m_PointIds->RawPointer();
 		vcnt=cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
@@ -159,8 +159,9 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	OutMesh->SetCells(OutConn, OutType);
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
-
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 
@@ -201,21 +202,21 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 		igIndex offset=0;
 		for (CellId = 0; CellId < CellNum; CellId++) {
 			fcnt=m_VolumeMesh->GetVolumeFaceIds(CellId,fhs);
-			polyhedron->Points->Reset();
-			polyhedron->PointIds->Reset();
+			polyhedron->m_Points->Reset();
+			polyhedron->m_PointIds->Reset();
 			polyhedron->m_FaceOffset->Reset();
 			offset=0;
 			polyhedron->m_FaceOffset->AddId(offset);
 			for (i = 0; i < fcnt; i++) {
 				vcnt=faces->GetCellIds(fhs[i], faceVhs);
 				for (j = 0; j < vcnt; j++) {
-					polyhedron->PointIds->AddId(faceVhs[j]);
-					polyhedron->Points->AddPoint(Points->GetPoint(faceVhs[j]));
+					polyhedron->m_PointIds->AddId(faceVhs[j]);
+					polyhedron->m_Points->AddPoint(Points->GetPoint(faceVhs[j]));
 				}
 				offset+=vcnt;
 				polyhedron->m_FaceOffset->AddId(offset);
 			}
-			vhs = polyhedron->PointIds->RawPointer();
+			vhs = polyhedron->m_PointIds->RawPointer();
 			vcnt = polyhedron->GetNumberOfPoints();
 			for (i = 0; i < vcnt; i++) {
 				CellClipValue[i] = PointClipValue[vhs[i]];
@@ -226,7 +227,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	else {
 		for (CellId = 0; CellId < CellNum; CellId++) {
 			cell = m_VolumeMesh->GetVolume(CellId);
-			vhs = cell->PointIds->RawPointer();
+			vhs = cell->m_PointIds->RawPointer();
 			vcnt = cell->GetNumberOfPoints();
 			for (i = 0; i < vcnt; i++) {
 				CellClipValue[i] = PointClipValue[vhs[i]];
@@ -290,6 +291,8 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
@@ -322,7 +325,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	Face::Pointer cell;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_SurfaceMesh->GetFace(CellId);
-		vhs = cell->PointIds->RawPointer();
+		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
@@ -385,6 +388,8 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	OutMesh->SetPoints(OutPoints);
 	OutMesh->SetAttributeSet(outData);
 	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(originCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
 IGAME_NAMESPACE_END
