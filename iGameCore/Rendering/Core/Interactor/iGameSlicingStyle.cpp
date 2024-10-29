@@ -11,6 +11,8 @@ void SlicingStyle::Initialize(Interactor* a) {
     auto& bbox = m_DataObject->GetBoundingBox();
     Vector3d p1 = bbox.min;
     Vector3d p7 = bbox.max;
+    float len = (bbox.max - bbox.min).length();
+    pickRadius = len * 0.005;
 
     if (boxHandle != 0) { m_Painter->Delete(boxHandle); }
     m_Painter->SetPen(1);
@@ -75,11 +77,11 @@ void SlicingStyle::MousePressEvent(IEvent _event) {
     igm::vec3 point2 = GetFarWorldCoord(pos, invMVP);
     Vector3d intersection;
 
-    if (DistancePointToLine(v(center), point1, point2) < 0.1) {
+    if (DistancePointToLine(v(center), point1, point2) < pickRadius) {
         selectId = 0;
-    } else if (DistancePointToLine(v(head), point1, point2) < 0.1) {
+    } else if (DistancePointToLine(v(head), point1, point2) < pickRadius) {
         selectId = 1;
-    } else if (DistancePointToLine(v(rear), point1, point2) < 0.1) {
+    } else if (DistancePointToLine(v(rear), point1, point2) < pickRadius) {
         selectId = 2;
     } else if (IsIntersect(V(point1), V(point2), head, center, intersection)) {
         selectId = 3;
