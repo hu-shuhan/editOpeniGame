@@ -151,6 +151,26 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index, IG
 	}
 	return NONE;
 }
+    AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) {
+        for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
+            auto& attrb = m_Buffer->GetElement(i);
+            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+                return attrb;
+            }
+        }
+        return NONE;
+    }
+
+    const AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) const {
+        for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
+            auto& attrb = m_Buffer->GetElement(i);
+            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+                return attrb;
+            }
+        }
+        return NONE;
+    }
+
 
 AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& name, IGenum type)
 {
@@ -231,9 +251,6 @@ ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllCellAttribute
 }
 
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
-
-
-
 
 
 

@@ -32,8 +32,10 @@ bool iGame::StressDeformationFilter::Execute() {
         if(dataObject->HasSubDataObject()){
             for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
                 auto pointset = DynamicCast<iGame::PointSet>(it->second);
-                if(nullptr == pointset) return false;
-                auto attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+                ArrayObject::Pointer attribute_set{nullptr};
+                if(pointset == nullptr || (attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var).pointer) ==
+                                                  nullptr ) return false;
+
                 auto render_pos_set = pointset->GetRenderPoints();
                 auto pointMap = pointset->GetPointMap();
                 /* Not process Model Geometry Surface Filter, means that the points rendered are raw points
@@ -84,7 +86,9 @@ bool iGame::StressDeformationFilter::Execute() {
             if(nullptr != pointset){
                 auto render_pos_set = pointset->GetRenderPoints();
                 auto pointMap = pointset->GetPointMap();
-                auto attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+                ArrayObject::Pointer attribute_set{nullptr};
+                if(pointset == nullptr || (attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var).pointer) ==
+                                          nullptr ) return false;
                 /* Not process Model Geometry Surface Filter, means that the points rendered are raw points
                  * So we don't need to use pointMap.*/
                 if(pointMap == nullptr && render_pos_set->GetNumberOfValues() == attribute_set->GetNumberOfValues()){
@@ -132,7 +136,7 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
     float U_max = FLT_MIN;
     if(dataObject->HasSubDataObject()){
         for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
-            auto uset = it->second->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+            auto uset = it->second->GetAttributeSet()->GetAttribute(deform_var).pointer;
             if(uset == nullptr) return false;
             for(int i = 0; i < uset->GetNumberOfValues(); i += 3){
                 float x = uset->GetValue(i), y = uset->GetValue(i + 1), z = uset->GetValue(i + 2);
@@ -140,7 +144,7 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
             }
         }
     }
-    auto attribute_set = dataObject->GetAttributeSet()->GetAttribute(deform_var, IG_SCALAR).pointer;
+    auto attribute_set = dataObject->GetAttributeSet()->GetAttribute(deform_var).pointer;
     if(attribute_set == nullptr) return false;
     for(int i = 0; i < attribute_set->GetNumberOfValues(); i += 3){
         float x = attribute_set->GetValue(i), y = attribute_set->GetValue(i + 1), z = attribute_set->GetValue(i + 2);

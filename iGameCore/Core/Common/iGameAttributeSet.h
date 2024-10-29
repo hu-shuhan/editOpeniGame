@@ -109,6 +109,10 @@ public:
 	Attribute& GetAttribute(const IGsize index, IGenum type);
 	const Attribute& GetAttribute(const IGsize index, IGenum type) const;
 
+    // Get a attribute by name
+    Attribute& GetAttribute(const std::string& name);
+    const Attribute& GetAttribute(const std::string& name) const;
+
 	// Get a attribute by name and type
 	Attribute& GetAttribute(const std::string& name, IGenum type);
 	const Attribute& GetAttribute(const std::string& name, IGenum type) const;

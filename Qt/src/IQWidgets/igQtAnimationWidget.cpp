@@ -188,23 +188,8 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     if(!deformFilter->Execute()) std::cout << " error \n";
 
 
-//    /* process Object's scalar range*/
-//    IGsize scalar_size = currentDrawObject->GetAttributeSet()
-//                                 ? currentDrawObject->GetAttributeSet()
-//                                           ->GetAllAttributes()
-//                                           ->GetNumberOfElements()
-//                                 : 0;
-//    for (IGsize k = 0; k < scalar_size; k++) {
-//        auto& par_range =
-//                currentDrawObject->GetAttributeSet()->GetAttribute(k).dataRange;
-//        for (auto it = currentDrawObject->SubDataObjectIteratorBegin();
-//             it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
-//            auto& range =
-//                    it->second->GetAttributeSet()->GetAttribute(k).dataRange;
-//            range = par_range;
-//        }
-//    }
-
+    /* process Object's scalar range*/
+    currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -253,6 +238,7 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         for(const auto& obj : results_0){
             currentDrawObject->AddSubDataObject(obj);
         }
+        currentDrawObject->UpdateSubDataObjectDataRange();
     }
     auto& frameSubFiles_1 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0 + 1)
@@ -308,9 +294,12 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
                     }
                 }
             }
-
+            subObject_0->GetPoints()->Modified();
+            subObject_0->GetAttributeSet()->Modified();
+            subObject_0->ConvertToDrawableData();
         }
     }
+
     /* If obj has the deformation var and is enabled.
      * Make sure every timeStep have the deformation scale factor. */
 
