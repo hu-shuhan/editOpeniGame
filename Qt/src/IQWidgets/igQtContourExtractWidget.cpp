@@ -3,6 +3,9 @@
 #include "iGameSceneManager.h"
 #include "iGameScene.h"
 #include "iGameSmartPointer.h"
+
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent)
 	: QWidget(parent), ui(new Ui::ContourExtract) {
 
@@ -12,6 +15,8 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent)
 	m_Generated = false;
 	m_Extracter = nullptr;
 	m_PointData = nullptr;
+    QRegularExpression  rx("-?\\d*\\.?\\d+");
+    ui->lineEdit_IsoValue->setValidator(new QRegularExpressionValidator(rx, this));
 	connect(ui->btnExecute, &QPushButton::clicked, this, &igQtContourExtractWidget::ContourExtract);
 	connect(ui->comboBox_ScalarIndex, &QComboBox::currentTextChanged, this, &igQtContourExtractWidget::UpdateScalarName);
 	connect(ui->comboBox_ScalarDimension, &QComboBox::currentTextChanged, this, &igQtContourExtractWidget::UpdateScalarDimension);
