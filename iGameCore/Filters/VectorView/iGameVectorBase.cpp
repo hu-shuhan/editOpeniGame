@@ -41,7 +41,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         long long numOfPoint = allVectors.pointer->GetNumberOfElements();
         auto allPoints =
                 DynamicCast<PointSet>(obj)->GetPoints();
-        auto mapper = ScalarsToColors::New();
+        auto mapper = DynamicCast<PointSet>(obj)->GetColorMapper();
         auto array = allVectors.pointer;
         mapper->InitRange(array, -1);
         auto colors = mapper->MapScalars(array, -1);
