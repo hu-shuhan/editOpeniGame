@@ -20,9 +20,9 @@ void ColorMap::InitColorBarByTwoSegmentType()
 	ColorBar->Reset();
 	ColorBar->SetDimension(3);
 	ColorBar->Reserve(3);
-	ColorBar->AddElement3(0.0, 0.0, 1.0);
-	ColorBar->AddElement3(1.0, 1.0, 1.0);
-	ColorBar->AddElement3(1.0, 0.0, 0.0);
+	ColorBar->AddElement3(0.2,0.25,0.75);
+	ColorBar->AddElement3(0.9,0.9,0.9);
+	ColorBar->AddElement3(0.7,0,0.15);
 
 	ColorRange->Reset();
 	ColorRange->Reserve(3);
