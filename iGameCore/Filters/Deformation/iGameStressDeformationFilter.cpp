@@ -22,7 +22,7 @@ bool iGame::StressDeformationFilter::Execute() {
         return false;
     }
     if(!dataObject->GetDeformationData()->m_enable_dsf) return true;
-    if(dataObject->GetDeformationData()->m_enable_auto_compute) CalculateIdealDSF();
+    if(dataObject->GetDeformationData()->m_enable_auto_compute)  CalculateIdealDSF();
     std::string deform_var = dataObject->GetDeformationData()->m_deformation_attribute_name;
     float deform_x = dataObject->GetDeformationData()->m_deformation_scale_factor_x;
     float deform_y = dataObject->GetDeformationData()->m_deformation_scale_factor_y;
