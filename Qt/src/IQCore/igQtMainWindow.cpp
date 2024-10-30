@@ -331,6 +331,7 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         //SurfaceSimplification::Pointer filter = SurfaceSimplification::New();
 
         //filter->SetInput(
@@ -392,6 +393,7 @@ void igQtMainWindow::initAllFilters() {
     });
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         FilterPoints::Pointer fp = FilterPoints::New();
         fp->SetInput(
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
@@ -402,6 +404,7 @@ void igQtMainWindow::initAllFilters() {
 
 
     connect(ui->action_test_03, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         SurfaceMesh::Pointer mesh = SurfaceMesh::New();
         Points::Pointer points = Points::New();
         points->AddPoint(0, 0, 0);
@@ -418,6 +421,7 @@ void igQtMainWindow::initAllFilters() {
     });
 
     connect(ui->action_test_04, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         SurfaceMeshFilterTest::Pointer fp = SurfaceMeshFilterTest::New();
         fp->SetInput(
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
@@ -430,7 +434,7 @@ void igQtMainWindow::initAllFilters() {
         // fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
         // fp->Execute();
         // rendererWidget->update();
-
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog =
                 new igQtFilterDialogDockWidget(this);
         int targetId =
@@ -496,7 +500,7 @@ void igQtMainWindow::initAllFilters() {
         //      source->SetPolyLines(polylines);
         //      source->SetName("undefined_line_source");
         //      rendererWidget->AddDataObject(source);
-
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         UnstructuredMesh::Pointer mesh = UnstructuredMesh::New();
         Points::Pointer points = Points::New();
         CellArray::Pointer cells = CellArray::New();
@@ -540,35 +544,10 @@ void igQtMainWindow::initAllFilters() {
         // this->updateCurrentDataObject();
     });
 
-    connect(ui->menuTest->addAction("surfaceExtractTest"), &QAction::triggered,
-            this, [&](bool checked) {
-            for (int i = 0; i < 200; i++) {
-                auto input = rendererWidget->GetScene()
-                    ->GetCurrentModel()
-                    ->GetDataObject();
-                auto grid= DynamicCast<UnstructuredMesh>(input);
-                SurfaceMesh::Pointer mesh=nullptr;
-                auto fp = iGameModelGeometryFilter::New();
-                fp->Execute(input);
-                mesh=fp->GetExtractMesh();
-
-                //mesh =SurfaceMesh::New();     
-                //auto faces=CellArray::New();
-                //mesh->SetPoints(grid->GetPoints());
-                //int vhs[256];
-                //int vcnt=0;
-                //for (int i = 0; i < grid->GetNumberOfCells(); i++) {
-                //    grid->GetCellPointIds(i,vhs);
-                //    faces->AddCellId3(vhs[0],vhs[1],vhs[2]);
-                //}
-                //mesh->SetFaces(faces);
-                grid->SetDisplayObject(mesh);
-            }
-       
-            });
 
     auto action_subdivision = ui->menuTest->addAction("rgbscalar");
     connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto input = rendererWidget->GetScene()
             ->GetCurrentModel()
             ->GetDataObject();
@@ -591,6 +570,7 @@ void igQtMainWindow::initAllFilters() {
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto chart = new igQtCharts;
         auto dataarray = rendererWidget->GetScene()
                                  ->GetCurrentModel()
@@ -601,196 +581,12 @@ void igQtMainWindow::initAllFilters() {
         chart->drawBarChart(dataarray);
         chart->exec();
     });
-    auto action_loadtest = ui->menu_help->addAction("loadtest");
-    connect(action_loadtest, &QAction::triggered, this, [&](bool checked) {
-        // std::string filePath = "F:\\OpeniGame\\Model\\vtk\\Spherical001.vtk";
-        std::string filePath =
-                "F:\\OpeniGame\\Model\\secrecy\\DrivAer_fastback_"
-                "base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
-        // clock_t time_1 = clock();
-        // auto writer = VTKWriter::New();
-        // auto mesh =
-        // SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-        // writer->WriteToFile(mesh, filePath);
-        // clock_t time_2 = clock();
-        // std::cout << time_2 - time_1 << "ms\n";
-        // return;
 
-        CharArray::Pointer m_Buffer = CharArray::New();
-        size_t m_FileSize;
-        clock_t time1 = clock();
-
-        // auto file_ = fopen(filePath.c_str(), "rb");
-        // if (fseek(file_, SEEK_SET, SEEK_END) != 0) {
-        //	return false;
-        // }
-        // m_FileSize = static_cast<size_t>(_ftelli64(file_));
-        // rewind(file_);
-        // if (m_FileSize == 0) {
-        //	return false;
-        // }
-        // m_Buffer->Resize(m_FileSize);
-        // fread(m_Buffer->RawPointer(), 1, m_FileSize, file_) == m_FileSize;
-        // fclose(file_);
-
-        // auto m_File = std::make_unique<std::ifstream>(filePath,
-        // std::ios::binary); m_File->seekg(0, std::ios::end); m_FileSize =
-        // m_File->tellg(); m_File->seekg(0, std::ios::beg); if (m_FileSize == 0) {
-        //	return false;
-        // }
-        // m_Buffer->Resize(m_FileSize);
-        // m_File->read(m_Buffer->RawPointer(), m_FileSize);
-
-        clock_t time2 = clock();
-        std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
-    });
-
-    auto action_savetest_fwrite = ui->menu_help->addAction("savetest_fwrite");
-    connect(action_savetest_fwrite, &QAction::triggered, this,
-            [&](bool checked) {
-                std::string filePath = "F:\\OpeniGame\\Model\\common\\test.txt";
-                // 创建多个长度为一亿的 char 数组
-                const int num_arrays = 3;
-                const size_t array_size = 200000000;
-                char* data[num_arrays];
-                for (int i = 0; i < num_arrays; ++i) {
-                    data[i] = (char*) malloc(array_size * sizeof(char));
-                    if (data[i] == NULL) {
-                        _tprintf(_T("Memory allocation failed.\n"));
-                        return;
-                    }
-
-                    // 初始化数组
-                    for (size_t j = 0; j < array_size; ++j) {
-                        data[i][j] = 'A' + (j % 26);
-                    }
-                }
-                clock_t time1 = clock();
-                // 打开文件用于写入
-                FILE* file = fopen(filePath.data(), "wb");
-                if (file == NULL) {
-                    _tprintf(_T("File opening failed.\n"));
-                    return;
-                }
-
-                // 将每个数组依次写入文件
-                for (int i = 0; i < num_arrays; ++i) {
-                    size_t elements_written =
-                            fwrite(data[i], sizeof(char), array_size, file);
-                    if (elements_written != array_size) {
-                        _tprintf(_T("Error writing to file.\n"));
-                        fclose(file);
-                        return;
-                    }
-                }
-
-                // 关闭文件
-                fclose(file);
-
-                // 释放内存
-                for (int i = 0; i < num_arrays; ++i) { free(data[i]); }
-                clock_t time2 = clock();
-                std::cout << "Read file to buffer Cost " << time2 - time1
-                          << "ms\n";
-            });
-
-    connect(ui->menuTest->addAction("addTetra"), &QAction::triggered, this,
-            [&](bool checked) {
-                VolumeMesh::Pointer mesh = VolumeMesh::New();
-                Points::Pointer points = Points::New();
-                CellArray::Pointer cells = CellArray::New();
-
-                points->AddPoint(-1, -1, 0);
-                points->AddPoint(1, -1, 0);
-                points->AddPoint(1, 1, 0);
-                points->AddPoint(-1, 1, 0);
-
-                points->AddPoint(-1, -1, 2);
-                points->AddPoint(1, -1, 2);
-                points->AddPoint(1, 1, 2);
-                points->AddPoint(-1, 1, 2);
-
-                cells->AddCellId4(0, 1, 2, 4);
-                cells->AddCellId4(2, 3, 0, 4);
-
-                mesh->SetPoints(points);
-                mesh->SetVolumes(cells);
-                mesh->SetName("undefined_unstructured_mesh");
-                mesh->RequestEditStatus();
-                mesh->PrintSelf();
-                modelTreeWidget->addDataObjectToModelTree(mesh,
-                                                          ItemSource::File);
-            });
-
-    connect(ui->menuTest->addAction("addVolume"), &QAction::triggered, this,
-            [&](bool checked) {
-                VolumeMesh::Pointer mesh = VolumeMesh::New();
-                Points::Pointer points = Points::New();
-                CellArray::Pointer cells = CellArray::New();
-
-                points->AddPoint(-1, -1, 0);
-                points->AddPoint(1, -1, 0);
-                points->AddPoint(1, 1, 0);
-                points->AddPoint(-1, 1, 0);
-
-                points->AddPoint(-1, -1, 2);
-                points->AddPoint(1, -1, 2);
-                points->AddPoint(1, 1, 2);
-                points->AddPoint(-1, 1, 2);
-
-                cells->AddCellId4(0, 1, 2, 4);
-                mesh->SetPoints(points);
-                mesh->SetVolumes(cells);
-                mesh->SetName("undefined_unstructured_mesh");
-
-                mesh->RequestEditStatus();
-                igIndex v[4]{2, 3, 0, 4};
-                mesh->AddVolume(v, 4);
-                mesh->GarbageCollection();
-
-                mesh->RequestEditStatus();
-                mesh->PrintSelf();
-                modelTreeWidget->addDataObjectToModelTree(mesh,
-                                                          ItemSource::File);
-            });
-
-
-    connect(ui->menuTest->addAction("pfTest"), &QAction::triggered, this,
-            [&](bool checked) {
-                auto obj = rendererWidget->GetScene()
-                                   ->GetCurrentModel()
-                                   ->GetDataObject();
-                VolumeMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)
-                                                   ->TransferToVolumeMesh();
-                PointFinder::Pointer finder = PointFinder::New();
-                //finder->SetPoints(mesh->GetPoints());
-                finder->Initialize();
-                Point p = Point(0.234, 0.678987, 0.765);
-                int id;
-                clock_t start = clock();
-                for (int i = 0; i < 100000; i++) {
-                    finder->FindClosestPoint(p);
-                }
-                std::cout << clock() - start << std::endl;
-
-                start = clock();
-                for (int i = 0; i < 100000; i++) {
-                    id = -1;
-                    double dist = std::numeric_limits<double>::max();
-                    for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-                        auto pp = mesh->GetPoint(i);
-                        double d = (p - pp).length();
-                        if (d < dist) {
-                            id = i;
-                            dist = d;
-                        }
-                    }
-                }
-                std::cout << clock() - start << std::endl;
-            });
 
     connect(ui->menuTest->addAction("tetraSimplTest"), &QAction::triggered,
             this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
                 auto td = TetraDecimation::New();
                 auto obj = rendererWidget->GetScene()
                                    ->GetCurrentModel()
@@ -814,43 +610,11 @@ void igQtMainWindow::initAllFilters() {
                 rendererWidget->update();
             });
 
-    connect(ui->menuTest->addAction("initARAP"), &QAction::triggered, this,
-            [&](bool checked) {
-                auto test = ARAPTest::New();
-                auto model = rendererWidget->GetScene()->GetCurrentModel();
-                test->SetModel(model);
-                test->SetInput(model->GetDataObject());
-                model->SetModelFilter(test);
-                test->Initialize();
-
-                Vector3f a;
-                a.maxCoeff();
-
-                modelTreeWidget->updateAllAttriubute(model->GetDataObject());
-
-
-                rendererWidget->update();
-            });
-
-    connect(ui->menuTest->addAction("executeARAP"), &QAction::triggered, this,
-            [&](bool checked) {
-                auto model = rendererWidget->GetScene()->GetCurrentModel();
-                ARAPTest* test =
-                        dynamic_cast<ARAPTest*>(model->GetModelFilter());
-                test->Begin();
-                rendererWidget->update();
-            });
-
-    connect(ui->menuTest->addAction("cancelARAP"), &QAction::triggered, this,
-            [&](bool checked) {
-                auto model = rendererWidget->GetScene()->GetCurrentModel();
-                model->DeleteModelFilter();
-                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-            });
-
     // add test VolumeMesh
     connect(ui->menuTest->addAction("test VolumeMesh"), &QAction::triggered,
             this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
                 VolumeMesh::Pointer mesh = VolumeMesh::New();
                 Points::Pointer points = Points::New();
                 CellArray::Pointer cells = CellArray::New();
@@ -899,6 +663,8 @@ void igQtMainWindow::initAllFilters() {
     // add test UnstructuredMesh
     connect(ui->menuTest->addAction("test UnstructuredMesh"),
             &QAction::triggered, this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
                 UnstructuredMesh::Pointer mesh = UnstructuredMesh::New();
                 Points::Pointer points = Points::New();
                 CellArray::Pointer cells = CellArray::New();
@@ -948,6 +714,8 @@ void igQtMainWindow::initAllFilters() {
 
 	connect(ui->menuTest->addAction("executeMarchingCubes"),
 		&QAction::triggered, this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
@@ -976,6 +744,8 @@ void igQtMainWindow::initAllFilters() {
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
 			auto obj = rendererWidget->GetScene()
 				->GetCurrentModel()
 				->GetDataObject();
@@ -988,6 +758,8 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
             [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
+                    return;
                 auto obj = rendererWidget->GetScene()
                                    ->GetCurrentModel()
                                    ->GetDataObject();
@@ -1011,39 +783,46 @@ void igQtMainWindow::initAllFilters() {
     QMenu* view = ui->menu_filters->addMenu("viewTest");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
         auto data =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        filter->Execute();
-        modelTreeWidget->updateAllAttriubute(data);
+        if (filter->Execute()) { 
+            modelTreeWidget->updateAllAttriubute(data);
+        }
+        
     });
 
     QAction* gradient = view->addAction("Get Gradient");
     connect(gradient, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        filter->Execute();
-        modelTreeWidget->updateAllAttriubute(data);
+        if (filter->Execute()) { 
+            modelTreeWidget->updateAllAttriubute(data);
+        }
     });
 
     QAction* laplacian = view->addAction("Get Laplacian");
     connect(laplacian, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
         auto data =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        filter->Execute();
-        modelTreeWidget->updateAllAttriubute(data);
+        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
     QAction* vortex = view->addAction("Get Vortex");
     connect(vortex, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
-        UnstructuredMesh::Pointer data = DynamicCast<UnstructuredMesh>(
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        auto data =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
 
         //auto mesh = data->GetDisplayObject();
         //if (mesh) {
@@ -1059,8 +838,9 @@ void igQtMainWindow::initAllFilters() {
         //}
 
         filter->SetInput(data);
-        filter->Execute();
-        modelTreeWidget->updateAllAttriubute(data);
+        if (filter->Execute()) { 
+            modelTreeWidget->updateAllAttriubute(data);
+        }
     });
 }
 
@@ -1442,12 +1222,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             });
 
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        if (!rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+        if (!rendererWidget->GetScene() ||
+            !rendererWidget->GetScene()->GetCurrentModel()) {
             return;
         }
         auto obj =
-            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if(!obj)return;
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        if (!rendererWidget->getInteractor()->IsBase()) {
+            rendererWidget->getInteractor()->RequestBasicStyle();
+            return;
+        }
 		SliceDockWidget->show();
 		SliceWidget->SetOriginDataObject(obj);
         
@@ -1924,8 +1709,8 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->action_select_point, &QAction::triggered, this,
             [&](bool checked) {
                 if (ui->action_select_point->isChecked()) {
-                    if (ui->action_select_faces->isChecked()) {
-                        ui->action_select_faces->setChecked(false);
+                    if (ui->action_select_face->isChecked()) {
+                        ui->action_select_face->setChecked(false);
                     }
                     rendererWidget->ChangeInteractorStyle(
                             Interactor::SinglePointSelectionStyle);

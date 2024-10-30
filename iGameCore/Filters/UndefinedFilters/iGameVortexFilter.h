@@ -21,12 +21,32 @@ public:
     bool Execute() override {
 
         auto input = GetInput(0);
+        if (input == nullptr) return false;
         switch (input->GetDataObjectType()) {
             case IG_SURFACE_MESH:
                 surface_Mesh = DynamicCast<SurfaceMesh>(input);
                 break;
             case IG_VOLUME_MESH:
+            {
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
+                if (volume_Mesh) {
+                    surface_Mesh = DynamicCast<SurfaceMesh>(
+                            volume_Mesh->GetDisplayObject());
+                    if (!surface_Mesh) return false;
+
+                    attributeSet = surface_Mesh->GetAttributeSet();
+                    if (!attributeSet) return false;
+                    curIndex = surface_Mesh->GetAttributeIndex();
+                    curDim = surface_Mesh->GetAttributeDimension();
+                    if (curIndex < 0) return false;
+
+                    FloatArray::Pointer vorticities = FloatArray::New();
+                    vorticities->SetDimension(3);
+                    vorticities->SetName("vorticities");
+                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                                                               vorticities);
+                }
+            }
                 break;
             case IG_UNSTRUCTURED_MESH:
             {
@@ -38,17 +58,27 @@ public:
                     surface_Mesh = DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
 
+                    attributeSet = surface_Mesh->GetAttributeSet();
+                    if (!attributeSet) return false;
+                    curIndex = surface_Mesh->GetAttributeIndex();
+                    curDim = surface_Mesh->GetAttributeDimension();
+                    if (curIndex < 0) return false;
+
                     FloatArray::Pointer vorticities = FloatArray::New();
                     vorticities->SetDimension(3);
                     vorticities->SetName("vorticities");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT, vorticities);
+                    mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                                                               vorticities);
+                   
                 }
             } break;
             default:
                 return false;
         }
 
-        
+        curIndex = input->GetAttributeIndex();
+        curDim = input->GetAttributeDimension();
+        if (curIndex < 0) return false;
 
         if (volume_Mesh) {
             //surface_Mesh =
@@ -74,25 +104,25 @@ public:
         } 
 
         if (surface_Mesh) {
-            attributeSet = surface_Mesh->GetAttributeSet();
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
             Points::Pointer Points = surface_Mesh->GetPoints();
             surface_Mesh->RequestEditStatus();
             if (PointNum != 0 && attachmentType == 0) {
-                GetPointVortex(0, Points, PointNum);
+                return GetPointVortex(0, Points, PointNum);
             } else if (FaceNum != 0 && attachmentType == 1)
-                GetOtherVortex(0, FaceNum);
+                return GetOtherVortex(0, FaceNum);
         }
 
-        return true;
+        return false;
     }
 
     bool GetPointVortex(int type, Points::Pointer Points, int PointNum) {
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
 
         int dimension = data->GetDimension();
         // 必须为三维向量
@@ -136,12 +166,19 @@ public:
                 vorticities->AddElement3(0, 0, 0);
         }
 
+        //GetInput(0)
+        //->GetAttributeSet()
+        //->GetAttribute("vorticities")
+        //.updateAllDataRange();
+
+        //attributeSet->GetAttribute("vorticities").updateAllDataRange();
+
         return true;
     }
 
     bool GetOtherVortex(int type, int Num) {
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
         // 必须为三维向量
         if (dimension != 3) return false;
@@ -191,9 +228,12 @@ public:
             //            ATTRIBUTE_NAME_ARRAY);
             //    arr->AddElement("vorticities");
             //}
-            return true;
+            
         }
 
+        attributeSet->GetAttribute("vorticities").updateAllDataRange();
+
+        return true;
         //    bool GetPointVortex_ivd(int type, Points::Pointer Points, int PointNum){
         //
         //        PropertySet* m_PropertySet;
@@ -263,7 +303,7 @@ public:
     std::vector<std::array<float, 3>> GetPointGradient(
             int type, Points::Pointer Points, int PointNum, int dim) {
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(PointNum,
@@ -348,7 +388,7 @@ public:
     std::vector<std::array<float, 3>> GetOtherGradient(int type, int Num,
                                                         int dim) {
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(Num, {0.0f, 0.0f, 0.0f});
@@ -438,6 +478,9 @@ protected:
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet* attributeSet{nullptr};
+
+    int curIndex{-1};
+    int curDim{-1};
 };
 
 IGAME_NAMESPACE_END

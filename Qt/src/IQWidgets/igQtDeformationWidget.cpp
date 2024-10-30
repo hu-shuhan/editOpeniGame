@@ -12,6 +12,8 @@
 #include <iGameStreamingData.h>
 #include <Deformation/iGameStressDeformationFilter.h>
 
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 igQtDeformationWidget::~igQtDeformationWidget() {
 
 }
@@ -50,8 +52,8 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     });
 
     connect(ui->checkBox_enableOffset, &QCheckBox::toggled, this, [&](bool checked){
+        if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
         auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-        if(dataObject == nullptr) return;
         dataObject->GetDeformationData()->m_enable_dsf = checked;
         if(checked){
             if(ui->radioButton_Uniform->isChecked() || ui->radioButton_autoCompute->isChecked()){
@@ -62,7 +64,7 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
                 dataObject->GetDeformationData()->SetScaleFactorZ(ui->lineEdit_Nonuniform_z->text().toFloat());
             }
 
-        }else {
+        } else {
             dataObject->GetDeformationData()->SetScaleFactors(0.f);
             iGame::StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
             deformFilter->SetInput(dataObject);
@@ -75,35 +77,44 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     connect(ui->lineEdit_Uniform_val, &QLineEdit::editingFinished, this, [&]{
         if(ui->checkBox_enableOffset->isChecked()){
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+            if(dataObject == nullptr) return;
             dataObject->GetDeformationData()->SetScaleFactors(ui->lineEdit_Uniform_val->text().toFloat());
         }
     });
     connect(ui->lineEdit_Nonuniform_x, &QLineEdit::editingFinished, this, [&]{
         if(ui->checkBox_enableOffset->isChecked()){
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+            if(dataObject == nullptr) return;
             dataObject->GetDeformationData()->SetScaleFactorX(ui->lineEdit_Nonuniform_x->text().toFloat());
         }
     });
     connect(ui->lineEdit_Nonuniform_y, &QLineEdit::editingFinished, this, [&]{
         if(ui->checkBox_enableOffset->isChecked()) {
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+            if(dataObject == nullptr) return;
             dataObject->GetDeformationData()->SetScaleFactorY(ui->lineEdit_Nonuniform_y->text().toFloat());
         }
     });
     connect(ui->lineEdit_Nonuniform_z, &QLineEdit::editingFinished, this, [&]{
         if(ui->checkBox_enableOffset->isChecked()) {
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+            if(dataObject == nullptr) return;
             dataObject->GetDeformationData()->SetScaleFactorZ(ui->lineEdit_Nonuniform_z->text().toFloat());
         }
     });
 
     connect(ui->pushButton_exec, &QPushButton::clicked, this, [&]{
         iGame::StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+        if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
         auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
         deformFilter->SetInput(dataObject);
         if(!deformFilter->Execute()) std::cout << " error \n";
     });
-
+    QRegularExpression  rx("-?\\d*\\.?\\d+");
+    ui->lineEdit_Uniform_val->setValidator(new QRegularExpressionValidator(rx, this));
+    ui->lineEdit_Nonuniform_x->setValidator(new QRegularExpressionValidator(rx, this));
+    ui->lineEdit_Nonuniform_y->setValidator(new QRegularExpressionValidator(rx, this));
+    ui->lineEdit_Nonuniform_z->setValidator(new QRegularExpressionValidator(rx, this));
 }
 
 void igQtDeformationWidget::updateInfo() {
@@ -132,6 +143,8 @@ void igQtDeformationWidget::updateInfo() {
 
 void igQtDeformationWidget::CalculateCurrentDSF() {
     auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+    if(dataObject == nullptr) return;
+
     if(dataObject != nullptr){
         dataObject->GetDeformationData()->m_deformation_attribute_name = ui->comboBox_Deformation_vector->currentText().toStdString();
         iGame::StressDeformationFilter::Pointer p = iGame::StressDeformationFilter::New();

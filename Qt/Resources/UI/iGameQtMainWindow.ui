@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>30</height>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -364,9 +364,7 @@ border:2px solid #EEF1F7
    <addaction name="action_ResetCenter"/>
    <addaction name="action_PickCenter"/>
    <addaction name="action_select_point"/>
-   <addaction name="action_select_points"/>
    <addaction name="action_select_face"/>
-   <addaction name="action_select_faces"/>
    <addaction name="action_drag_point"/>
   </widget>
   <widget class="QToolBar" name="toolBar_4">
@@ -1302,7 +1300,7 @@ border:2px solid #EEF1F7
    </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/select/bbox.png</normaloff>:/Ticon/Icons/select/bbox.png</iconset>
+     <normaloff>:/Ticon/Icons/select/select_face.png</normaloff>:/Ticon/Icons/select/select_face.png</iconset>
    </property>
    <property name="text">
     <string>select face</string>
