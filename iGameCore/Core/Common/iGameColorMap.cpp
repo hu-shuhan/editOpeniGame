@@ -143,7 +143,6 @@ void ColorMap::MapColor(float value, float rgb[3])
 	float startRGB[3];
 	float finalRGB[3];
 	//std::cout << idx << std::endl;
-	ColorBar->SetDimension(3);
 	if (idx == 0) {
 		ColorBar->GetElement(idx, startRGB);
 		st_v = 0.0;
@@ -161,6 +160,8 @@ void ColorMap::MapColor(float value, float rgb[3])
 		fi_v = ColorRange->GetValue(idx);
 	}
 	local_v = (value - st_v) / (fi_v - st_v);
+
+
 	//std::cout << st_v << " " << fi_v << " " << local_v << std::endl;
 	//std::cout << startRGB[0] << " " << startRGB[1] << " " << startRGB[2] << "\n";
 	//std::cout << finalRGB[0] << " " << finalRGB[1] << " " << finalRGB[2] << "\n";
