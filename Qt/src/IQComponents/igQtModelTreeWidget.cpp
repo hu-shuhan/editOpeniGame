@@ -174,12 +174,20 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index,
 
 void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
+
     comboBox->addItem("magnitude");
-    for (int i = 0; i < length && i < 4; i++) {
-        comboBox->addItem(QString::fromUtf8(NAME[i]));
+    if (length < 2)return;
+    if (length < 4) {
+        if (length > 0) comboBox->addItem(QString::fromStdString("x"));
+        if (length > 1) comboBox->addItem(QString::fromStdString("y"));
+        if (length > 2) comboBox->addItem(QString::fromStdString("z"));
+    }
+    else {
+        for (int i = 0; i < length; i++) {
+            comboBox->addItem(QString::fromStdString("D" + std::to_string(i)));
+        }
     }
     comboBox->setCurrentIndex(0);
-
 }
 
 igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent)

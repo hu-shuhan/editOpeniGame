@@ -3,7 +3,6 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     ui->setupUi(this);
     m_VectorBase = iGame::iGameVectorBase::New();
     m_VectorBase->AddObserver(iGame::Command::DeleteEvent, [&]() -> void { 
-        std::cout << "123\n";
         isDraw = false;
         m_VectorBase->SetInit(false);
         });
@@ -118,6 +117,7 @@ void igQtVectorWidget::updateVectorNameList() {
     auto obj = currentModel->GetDataObject();
     if (masterName != obj->GetName()) {
         masterName = obj->GetName();
+        m_VectorBase->SetColorMapper(obj->GetColorMapper());
         m_VectorBase->SetInit(false);
         haveChange = true;
     }

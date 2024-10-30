@@ -161,7 +161,7 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int s
 	{
 	case COMPONENT:
 	{
-		float data[16];
+		float data[128];
 		for (int i = 0; i < input->GetNumberOfElements(); i++)
 		{
 			input->GetElement(i, data);
@@ -172,7 +172,7 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int s
 	break;
 	case MAGNITUDE:
 	{
-		float data[16];
+		float data[128];
 		for (int i = 0; i < input->GetNumberOfElements(); i++)
 		{
 			input->GetElement(i, data);
@@ -271,7 +271,7 @@ void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatAr
 		float shift, scale;
 		ComputeShiftScale(shift, scale);
 		auto func = [&](igIndex start, igIndex end) -> void {
-			float data[16];
+			float data[128];
 			float rgb[3];
 			for (int i = start; i < end; i++)
 			{
@@ -291,7 +291,7 @@ void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatAr
 		float shift, scale;
 		ComputeShiftScale(shift, scale);
 		auto func = [&](igIndex start, igIndex end) -> void {
-			float data[16];
+			float data[128];
 			float rgb[3];
 			for (int i = start; i < end; i++) {
 				input->GetElement(i, data);
@@ -313,7 +313,7 @@ void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatAr
 		if (inComponents < 3)return;
 		//std::array<unsigned char, 3> rgb;
 		auto func = [&](igIndex start, igIndex end) -> void {
-			float data[16];
+			float data[128];
 			for (int i = start; i < end; i++) {
 				input->GetElement(i, data);
 				output->SetElement(i, data);
