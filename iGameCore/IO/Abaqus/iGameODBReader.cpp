@@ -15,17 +15,58 @@
 
 IGAME_NAMESPACE_BEGIN
 
-iGame::DataObject::Pointer iGame::ODBReader::ReadFile(const std::string &filePath) {
+/* Define Internal Adaptor Class. */
+class AttributeParserHelper{
+public:
+    std::string stepName;
+    int frameIdx{0};
+    AttributeSet::Pointer m_AttributeSet{nullptr};
+
+    AttributeSet::Pointer GetResult(){ return m_AttributeSet;};
+    AttributeParserHelper(const std::string& _stepName, int _frameIdx) : stepName(_stepName), frameIdx(_frameIdx){
+        m_AttributeSet = AttributeSet::New();
+    }
+    ~AttributeParserHelper() = default;
+};
+
+/* Public API: */
+AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, const std::string& stepName, int frame_idx) {
+    SetFilePath(filePath);
+    if(ExecuteWithFieldData(stepName, frame_idx)) return m_Attribute_helper->GetResult();
+    return nullptr;
+}
+DataObject::Pointer ODBReader::ReadOdbMesh(const std::string &filePath) {
     SetFilePath(filePath);
     Execute();
     return this->GetOutput();
 }
+/* Protected API: */
 
-void iGame::ODBReader::SetFilePath(const std::string &filePath) {
-    this->m_FilePath = filePath;
-    this->m_FileName =
-            filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
-    this->m_FileDir = filePath.substr(0, filePath.find_last_of('/') + 1);
+bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) {
+    m_Attribute_helper = new AttributeParserHelper(stepName, frameIdx);
+
+    odb_initializeAPI();
+    try {
+        OpenODB();
+        std::cout <<"Open end\n";
+        ExtractHeader();
+        std::cout <<"ExtractHeader end\n";
+        ConstructMap();
+        std::cout <<"ConstructMap end\n";
+        ReadAttributes();
+        std::cout <<"ReadAttributes end\n";
+    }
+    catch (odb_BaseException& exc) {
+        odb_finalizeAPI();
+        std::cout << "Abaqus error message: " << exc.UserReport().CStr() << std::endl;
+        return false;
+    }catch (...) {
+        odb_finalizeAPI();
+        std::cout << "Unknown Exception.\n";
+        return false;
+    }
+    odb_finalizeAPI();
+    return true;
 }
 
 bool iGame::ODBReader::Execute() {
@@ -38,7 +79,7 @@ bool iGame::ODBReader::Execute() {
         ConstructMap();
         std::cout <<"ConstructMap end\n";
         ReadCoordinates();
-        ReadAttributes();
+
         CreateDataObject();
         std::cout <<"ReadCoordinates end\n";
     }
@@ -64,12 +105,19 @@ bool iGame::ODBReader::Execute() {
     return true;
 }
 
-void ODBReader::OpenODB() {
-    odb_String odbFile = odb_String(m_FilePath.c_str());
-    m_ODB = &openOdb(odbFile);
+void iGame::ODBReader::SetFilePath(const std::string &filePath) {
+    this->m_FilePath = filePath;
+    this->m_FileName =
+            filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+    this->m_FileDir = filePath.substr(0, filePath.find_last_of('/') + 1);
 }
 
-void ODBReader::ExtractHeader() {
+bool ODBReader::OpenODB() {
+    odb_String odbFile = odb_String(m_FilePath.c_str());
+    return m_ODB = &openOdb(odbFile);
+}
+
+bool ODBReader::ExtractHeader() {
     if (m_ODB != nullptr)
     {
         auto filename = m_FileDir + "header.txt";
@@ -89,9 +137,11 @@ void ODBReader::ExtractHeader() {
             }
         }
     }
+
+    return true;
 }
 
-void ODBReader::ConstructMap() {
+bool ODBReader::ConstructMap() {
     // we need to map the local label from abaqus to global index for paraview.
     // global index used in paraview for node and cell.
     int nodeIndex = 0;
@@ -117,9 +167,11 @@ void ODBReader::ConstructMap() {
             cellIndex++;
         }
     }
+
+    return true;
 }
 
-void ODBReader::ReadCoordinates() {
+bool ODBReader::ReadCoordinates() {
     auto rootAssy = m_ODB->rootAssembly();
     Points::Pointer dataSetPoints = m_Data.GetPoints();
     int nodesNumCell = 0;
@@ -173,8 +225,28 @@ void ODBReader::ReadCoordinates() {
     }
 }
 
-void ODBReader::ReadAttributes() {
+bool ODBReader::CreateDataObject() {
+        switch (m_Output->GetDataObjectType())
+        {
+            case IG_UNSTRUCTURED_MESH:
+            {
+                DynamicCast<UnstructuredMesh>(m_Output)->SetPoints(m_Data.GetPoints());
+//            DynamicCast<UnstructuredMesh>(m_Output)->SetAttributeSet(m_Data.Data);
+                return true;
+            }
+            case IG_SURFACE_MESH:{
+                DynamicCast<SurfaceMesh>(m_Output)->SetPoints(m_Data.GetPoints());
+//            DynamicCast<SurfaceMesh>(m_Output)->SetAttributeSet(m_Data.Data);
+                return true;
+            }
+        }
+        return false;
+}
 
+
+bool ODBReader::ReadAttributes() {
+
+    return false;
 }
 
 
@@ -183,10 +255,10 @@ ODBReader::ODBReader() {
     SetNumberOfOutputs(1);
 }
 
-
 ODBReader::~ODBReader() {
     if(m_ODB != nullptr)m_ODB->close();
-    std::cout << "Close\n";
+    if(m_Attribute_helper != nullptr) delete m_Attribute_helper;
+    std::cout << "Close ODB Reader\n";
 }
 
 uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
@@ -245,24 +317,6 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
 
     std::cerr << abqElementType << " not supported by the converter." << std::endl;
     return -1;
-}
-
-bool ODBReader::CreateDataObject() {
-    switch (m_Output->GetDataObjectType())
-    {
-        case IG_UNSTRUCTURED_MESH:
-        {
-            DynamicCast<UnstructuredMesh>(m_Output)->SetPoints(m_Data.GetPoints());
-//            DynamicCast<UnstructuredMesh>(m_Output)->SetAttributeSet(m_Data.Data);
-            return true;
-        }
-        case IG_SURFACE_MESH:{
-            DynamicCast<SurfaceMesh>(m_Output)->SetPoints(m_Data.GetPoints());
-//            DynamicCast<SurfaceMesh>(m_Output)->SetAttributeSet(m_Data.Data);
-            return true;
-        }
-    }
-    return false;
 }
 
 
