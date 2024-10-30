@@ -3,7 +3,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
-
+#include <QIntValidator>
 
 igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget *parent) : QDialog(parent) {
     QVBoxLayout *layout = new QVBoxLayout(this);
@@ -11,6 +11,11 @@ igQtScreenShotOptionDialog::igQtScreenShotOptionDialog(QWidget *parent) : QDialo
     QHBoxLayout* hlay_1 = new QHBoxLayout();
     m_WidthLineEdit = new QLineEdit("1920",this);
     m_HeightLineEdit = new QLineEdit("1080",this);
+    auto* validator = new QIntValidator(
+            1, 9999, this);
+    m_WidthLineEdit->setValidator(validator);
+    m_HeightLineEdit->setValidator(validator);
+
     QLabel* width_label  = new QLabel("width :", this);
     QLabel* height_label = new QLabel("height :", this);
 
