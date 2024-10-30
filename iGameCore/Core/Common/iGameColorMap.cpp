@@ -21,8 +21,8 @@ void ColorMap::InitColorBarByTwoSegmentType()
 	ColorBar->SetDimension(3);
 	ColorBar->Reserve(3);
 	ColorBar->AddElement3(0.2,0.25,0.75);
-	ColorBar->AddElement3(0.9,0.9,0.9);
-	ColorBar->AddElement3(0.7,0,0.15);
+	ColorBar->AddElement3(0.85, 0.85, 0.85);
+	ColorBar->AddElement3(0.9,0.15,0.1);
 
 	ColorRange->Reset();
 	ColorRange->Reserve(3);
@@ -161,7 +161,6 @@ void ColorMap::MapColor(float value, float rgb[3])
 		fi_v = ColorRange->GetValue(idx);
 	}
 	local_v = (value - st_v) / (fi_v - st_v);
-
 	//std::cout << st_v << " " << fi_v << " " << local_v << std::endl;
 	//std::cout << startRGB[0] << " " << startRGB[1] << " " << startRGB[2] << "\n";
 	//std::cout << finalRGB[0] << " " << finalRGB[1] << " " << finalRGB[2] << "\n";
