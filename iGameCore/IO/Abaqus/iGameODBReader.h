@@ -30,6 +30,7 @@ protected:
 
     void ReadCoordinates();
 
+    void ReadAttributes();
 
 
     static uint8_t ABAQUS_VTK_CELL_MAP(const char* abqElementType);

@@ -38,7 +38,7 @@ bool iGame::ODBReader::Execute() {
         ConstructMap();
         std::cout <<"ConstructMap end\n";
         ReadCoordinates();
-
+        ReadAttributes();
         CreateDataObject();
         std::cout <<"ReadCoordinates end\n";
     }
@@ -173,6 +173,10 @@ void ODBReader::ReadCoordinates() {
     }
 }
 
+void ODBReader::ReadAttributes() {
+
+}
+
 
 ODBReader::ODBReader() {
     SetNumberOfInputs(0);
@@ -260,6 +264,8 @@ bool ODBReader::CreateDataObject() {
     }
     return false;
 }
+
+
 
 
 IGAME_NAMESPACE_END
