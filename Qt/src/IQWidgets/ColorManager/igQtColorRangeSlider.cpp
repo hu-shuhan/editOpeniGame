@@ -225,7 +225,7 @@ void igQtColorRangeSlider::updateColorInIndex(QColor c)
 void igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
 {
     //auto colorMap = iGame::iGameModelColorManager::Instance()->GetColorMapper();
-
+    if (!m_ColorMapper) return;
     int num = this->m_TmpColorMapper->GetColorBar()->GetNumberOfElements();
     auto tmpColorBar = iGame::FloatArray::New();
     tmpColorBar->SetDimension(3);
