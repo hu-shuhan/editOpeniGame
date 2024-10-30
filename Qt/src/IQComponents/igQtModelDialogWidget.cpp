@@ -141,6 +141,8 @@ void igQtModelDialogWidget::updateItemName(DataObject::Pointer obj) {
 void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj) {
     auto item = getItemFromObject(obj);
     if (!item) return;
+    item->setCurrentChild(nullptr);
+    
     while (item->childCount() > 0) { delete item->takeChild(0); }
     auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
@@ -148,10 +150,15 @@ void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj) {
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child =
                 new AttribTreeWidgetItem(i, modelTreeWidget, item);
+        //if (obj->GetAttributeIndex() == i) { 
+        //    item->setCurrentChild(child);
+        //    child->setSelected(true);
+        //}
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
         child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
         child->setDimension(attr.pointer->GetDimension());
     }
+    item->viewAttribute(-1);
 }
 int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj,
                                                     ItemSource source) {

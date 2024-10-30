@@ -21,26 +21,36 @@ public:
     static Pointer New() { return new LaplacianFilter; }
     bool Execute() override {
 
-        surface_Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
-        volume_Mesh = DynamicCast<VolumeMesh>(GetInput(0));
-
-        if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
-            auto mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            surface_Mesh = mesh->TransferToSurfaceMesh();
-            volume_Mesh = mesh->TransferToVolumeMesh();
-
-            if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
+        auto input = GetInput(0);
+        if (input == nullptr) return false;
+        switch (input->GetDataObjectType()) {
+            case IG_SURFACE_MESH:
+                surface_Mesh = DynamicCast<SurfaceMesh>(input);
+                break;
+            case IG_VOLUME_MESH:
+                volume_Mesh = DynamicCast<VolumeMesh>(input);
+                break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(input);
+                surface_Mesh = mesh->TransferToSurfaceMesh();
+                volume_Mesh = mesh->TransferToVolumeMesh();
+            } break;
+            default:
                 return false;
-            }
         }
+
+        curIndex = input->GetAttributeIndex();
+        curDim = input->GetAttributeDimension();
+        if (curIndex < 0) return false;
 
         AttributeSet* attributeSet;
 
         if (volume_Mesh) {
             attributeSet = volume_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int VolumeNum = volume_Mesh->GetNumberOfVolumes();
             int PointNum = volume_Mesh->GetNumberOfPoints();
@@ -48,16 +58,17 @@ public:
             volume_Mesh->RequestEditStatus();
             // 附着在point
             if (PointNum != 0 && attachmentType == 0)
-                GetPointLaplacian(1, Points, PointNum);
+                return GetPointLaplacian(1, Points, PointNum);
             // 附着在cell
             else if (VolumeNum != 0 && attachmentType == 1)
-                GetOtherLaplacian(1, VolumeNum);
+                return GetOtherLaplacian(1, VolumeNum);
 
         } else if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(0).attachmentType;
+
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
@@ -65,12 +76,12 @@ public:
             surface_Mesh->RequestEditStatus();
             // 附着在point
             if (PointNum != 0 && attachmentType == 0)
-                GetPointLaplacian(0, Points, PointNum);
+                return GetPointLaplacian(0, Points, PointNum);
             // 附着在cell
             else if (FaceNum != 0 && attachmentType == 1)
-                GetOtherLaplacian(0, FaceNum);
+                return GetOtherLaplacian(0, FaceNum);
         }
-        return true;
+        return false;
     }
     // 表面/体网格：点
     bool GetPointLaplacian(int type, Points::Pointer Points, int PointNum) {
@@ -80,7 +91,7 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
 
         int dimension = data->GetDimension();
         FloatArray::Pointer Laplacians = FloatArray::New();
@@ -169,7 +180,7 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
         FloatArray::Pointer laplacians = FloatArray::New();
@@ -256,6 +267,8 @@ protected:
 
     SurfaceMesh::Pointer surface_Mesh{};
     VolumeMesh::Pointer volume_Mesh{};
+    int curIndex{-1};
+    int curDim{-1};
 };
 
 IGAME_NAMESPACE_END

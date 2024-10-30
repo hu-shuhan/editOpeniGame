@@ -35,9 +35,10 @@ public:
             }
 		}
 
+
 		auto& bbox = m_DataObject->GetBoundingBox();
 		float len = (bbox.max - bbox.min).length();
-        m_PickRadius = len * 0.005;
+        m_PickRadius = len * 0.002;
 	}
 
 	void SetPoints(Points::Pointer points)
@@ -49,7 +50,7 @@ public:
 			bbox.add(point);
 		}
 		float len = (bbox.max - bbox.min).length();
-		m_PickRadius = len * 0.005;
+		m_PickRadius = len * 0.002;
 	}
 
 	void SetPickRadius(double radius) {

@@ -24,18 +24,27 @@ public:
 
     bool Execute() override {
 
-        surface_Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
-        volume_Mesh = DynamicCast<VolumeMesh>(GetInput(0));
-
-        if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
-            auto mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            surface_Mesh = mesh->TransferToSurfaceMesh();
-            volume_Mesh = mesh->TransferToVolumeMesh();
-
-            if (surface_Mesh == nullptr && volume_Mesh == nullptr) {
+        auto input = GetInput(0);
+        if (input == nullptr) return false;
+        switch (input->GetDataObjectType()) {
+            case IG_SURFACE_MESH:
+                surface_Mesh = DynamicCast<SurfaceMesh>(input);
+                break;
+            case IG_VOLUME_MESH:
+                volume_Mesh = DynamicCast<VolumeMesh>(input);
+                break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(input);
+                surface_Mesh = mesh->TransferToSurfaceMesh();
+                volume_Mesh = mesh->TransferToVolumeMesh();
+            } break;
+            default:
                 return false;
-            }
         }
+
+        curIndex = input->GetAttributeIndex();
+        curDim = input->GetAttributeDimension();
+        if (curIndex < 0) return false;
 
         AttributeSet* attributeSet;
 
@@ -43,8 +52,9 @@ public:
 
             attributeSet = volume_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
+
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int VolumeNum = volume_Mesh->GetNumberOfVolumes();
             int PointNum = volume_Mesh->GetNumberOfPoints();
@@ -52,17 +62,18 @@ public:
 
             volume_Mesh->RequestEditStatus();
             if (PointNum != 0 && attachmentType == 0)
-                GetPointCurvature(1, Points, PointNum);
+                return GetPointCurvature(1, Points, PointNum);
 
             else if (VolumeNum != 0 && attachmentType == 1)
-                GetOtherCurvature(1, VolumeNum);
+                return GetOtherCurvature(1, VolumeNum);
 
         } else if (surface_Mesh) {
 
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
-            // 测试时默认取第一个数组
-            auto attachmentType = attributeSet->GetAttribute(1).attachmentType;
+
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
@@ -70,13 +81,13 @@ public:
             surface_Mesh->RequestEditStatus();
             // 附着在point
             if (PointNum != 0 && attachmentType == 0)
-                GetPointCurvature(0, Points, PointNum);
+                return GetPointCurvature(0, Points, PointNum);
             // 附着在cell
             else if (FaceNum != 0 && attachmentType == 1)
-                GetOtherCurvature(0, FaceNum);
+                return GetOtherCurvature(0, FaceNum);
         }
 
-        return true;
+        return false;
     }
 
     bool GetPointCurvature(int type, Points::Pointer Points, int PointNum) {
@@ -86,7 +97,7 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(1).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         //        int dimension = data->GetElementSize();
         FloatArray::Pointer curvatures = FloatArray::New();
         curvatures->SetDimension(2);
@@ -333,7 +344,7 @@ public:
             attributeSet = volume_Mesh->GetAttributeSet();
 
         // 默认取第一个数组
-        auto data = attributeSet->GetAttribute(1).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(PointNum,
@@ -389,8 +400,7 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        // 测试时默认取第一个数组
-        auto data = attributeSet->GetAttribute(0).pointer;
+        auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
         std::vector<std::array<float, 3>> gradient(Num, {0.0f, 0.0f, 0.0f});
@@ -476,6 +486,8 @@ protected:
 
     SurfaceMesh::Pointer surface_Mesh{};
     VolumeMesh::Pointer volume_Mesh{};
+    int curIndex{-1};
+    int curDim{-1};
 };
 
 IGAME_NAMESPACE_END
