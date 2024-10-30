@@ -960,9 +960,12 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId,
             for (FaceId = 0; FaceId < 4; FaceId++) {
                 FaceVerts = QuadraticTetra::faces[FaceId];
                 ptIds[0] = pts[FaceVerts[0]];
-                ptIds[1] = pts[FaceVerts[1]];
-                ptIds[2] = pts[FaceVerts[2]];
-                FaceMap->Insert(GTriangle(cellId, ptIds, isGhost), FacePool);
+                ptIds[1] = pts[FaceVerts[3]];
+                ptIds[2] = pts[FaceVerts[1]];
+                ptIds[3] = pts[FaceVerts[4]];
+                ptIds[4] = pts[FaceVerts[2]];
+                ptIds[5] = pts[FaceVerts[5]];
+                FaceMap->Insert(GHexagon(cellId, ptIds, isGhost), FacePool);
             }
             break;
         case IG_QUADRATIC_HEXAHEDRON:
