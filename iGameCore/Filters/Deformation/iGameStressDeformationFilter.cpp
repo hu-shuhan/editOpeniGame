@@ -21,8 +21,14 @@ bool iGame::StressDeformationFilter::Execute() {
     if(nullptr == dataObject) {
         return false;
     }
+
     if(!dataObject->GetDeformationData()->m_enable_dsf) return true;
-    if(dataObject->GetDeformationData()->m_enable_auto_compute)  CalculateIdealDSF();
+    if(dataObject->GetDeformationData()->m_enable_auto_compute) {
+        CalculateIdealDSF();
+        float deform_x = dataObject->GetDeformationData()->m_deformation_scale_factor_x;
+        float deform_y = dataObject->GetDeformationData()->m_deformation_scale_factor_y;
+        float deform_z = dataObject->GetDeformationData()->m_deformation_scale_factor_z;
+    }
     std::string deform_var = dataObject->GetDeformationData()->m_deformation_attribute_name;
     float deform_x = dataObject->GetDeformationData()->m_deformation_scale_factor_x;
     float deform_y = dataObject->GetDeformationData()->m_deformation_scale_factor_y;
@@ -144,14 +150,14 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
             }
         }
     }
-    if(U_max == FLT_MIN || U_max == 0) return false;
+
     auto attribute_set = dataObject->GetAttributeSet()->GetAttribute(deform_var).pointer;
     if(attribute_set == nullptr) return false;
     for(int i = 0; i < attribute_set->GetNumberOfValues(); i += 3){
         float x = attribute_set->GetValue(i), y = attribute_set->GetValue(i + 1), z = attribute_set->GetValue(i + 2);
         U_max = std::max(U_max, std::sqrt(x * x + y * y + z * z));
     }
-
+    if(U_max == FLT_MIN || U_max == 0) return false;
     auto Ds = dataObject->GetBoundingBox().max - dataObject->GetBoundingBox().min;
     float D_max = std::cbrt(Ds[0] * Ds[1] * Ds[2]);
 //    std::cout << "max_offset : " << U_max << '\n';
