@@ -66,14 +66,27 @@ namespace CellClip {
 		igIndex vh1 = 0, vh2 = 0;
 		Point v1, v2, p;
 		double deltaValue = 0.0, t = 0.0;
+		int allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < 4; i++){
+			value = cellValues[i];
+			if (value > 0.0) {
+				allOut = 0;
+			}
+			else if (value < 0.0) {
+				allIn = 0;
+			}
+			else {
+				allOut = 0;
+				allIn = 0;
+			}
+		}
+		if (!isMustClip&&(allIn || allOut)) {
+			return;
+		}
 		for (i = 0; i < 4; i++) {
 			if (cellValues[i] <= 0.0) {
 				CaseIndex |= MASK[i];
-			}
-		}
-		if (!isMustClip) {
-			if (CaseIndex == 0 || CaseIndex == 15) {
-				return;
 			}
 		}
 		auto ClipData = (tetraCases + CaseIndex)->clip;
@@ -333,14 +346,27 @@ namespace CellClip {
 		igIndex vh1 = 0, vh2 = 0;
 		Point v1, v2, p;
 		double deltaValue = 0.0, t = 0.0;
+		int allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < 3; i++) {
+			value = cellValues[i];
+			if (value > 0.0) {
+				allOut = 0;
+			}
+			else if (value < 0.0) {
+				allIn = 0;
+			}
+			else {
+				allOut = 0;
+				allIn = 0;
+			}
+		}
+		if (!isMustClip && (allIn || allOut)) {
+			return;
+		}
 		for (i = 0; i < 3; i++) {
 			if (cellValues[i] <= 0.0) {
 				CaseIndex |= MASK[i];
-			}
-		}
-		if (!isMustClip) {
-			if (CaseIndex == 0 || CaseIndex == 7) {
-				return;
 			}
 		}
 		auto ClipData = (triangleCases + CaseIndex)->clip;
@@ -440,12 +466,31 @@ namespace CellClip {
 	static void Clip(Quad::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
+		int i = 0, j = 0, allOut = 1, allIn = 1;
+		float value = 0.0;
+		for (i = 0; i < 4; i++)
+		{
+			value = cellValues[i];
+			if (value > 0.0) {
+				allOut = 0;
+			}
+			else if (value < 0.0) {
+				allIn = 0;
+			}
+			else {
+				allOut = 0;
+				allIn = 0;
+			}
+		}
+		if (allOut || allIn) {
+			return;
+		}
 		Triangle::Pointer triangle = Triangle::New();
 		float trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
-		for (int i = 0; i < nPts - 2; i++) {
-			for (int j = 0; j < 3; j++) {
+		for ( i = 0; i < nPts - 2; i++) {
+			for ( j = 0; j < 3; j++) {
 				pid = j == 0 ? 0 : i + j;
 				triangle->m_Points->SetPoint(j, cell->m_Points->GetPoint(pid));
 				triangle->m_PointIds->SetId(j,  cell->m_PointIds->GetId(pid));

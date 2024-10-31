@@ -1035,10 +1035,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
-        //if (!rendererWidget->getInteractor()->IsBase()) {
-        //    rendererWidget->getInteractor()->RequestBasicStyle();
-        //    return;
-        //}
+        if (!rendererWidget->getInteractor()->IsBase()) {
+            SliceDockWidget->show();
+            //rendererWidget->getInteractor()->RequestBasicStyle();
+            return;
+        }
         if (SliceDockWidget->isHidden() == false) {
             return;
         }
