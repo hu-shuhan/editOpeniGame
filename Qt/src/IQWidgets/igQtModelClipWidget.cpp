@@ -66,7 +66,9 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
 
     DrawClipModel(m_ResultMesh);
-    m_Generated = true;
+    m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+        this->parentWidget()->hide();
+        });
 }
 
 void igQtModelClipWidget::ClipModel() {
