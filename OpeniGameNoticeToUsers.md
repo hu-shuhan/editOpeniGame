@@ -593,7 +593,66 @@ m_TriangleIndices = triangle;
 m_Positions->Modified();
 m_TriangleIndices->Modified();
 ```
+### 模型颜色渲染功能
+支持属性云图渲染以及自定义颜色数据渲染，以下是示例文件
+```cpp
+if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)return;
+auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+//转化为自己的网格，根据自己实际情况选择
+auto mesh=DynamicCast<UnstructuredMesh>(obj);
+//生成一个属性数组，设置好名字
+FloatArray::Pointer dataArray=FloatArray::New();
+dataArray->SetName("Point_Scalar");
+//存放数据到数组里面，可以是点属性也可以是单元属性，注意好Num的统一。
+//数据可以自己自行计算，比如点曲率，单元能量，示例为手搓。
+auto PointNum=mesh->GetNumberOfPoints();
+dataArray->Resize(PointNum);
+auto dataarray= dataArray->RawPointer();
+for (int i = 0; i < PointNum; i++) {
+    dataarray[i]=i;
+}
+//添加到mesh的属性集里面，第一个是type，表面属性是什么数据，正常来说使用IG_SCALAR即可，
+//第二个是附着位置，IG_POINT表示点数据，IG_CELL表示单元数据，第三个是ArrayObject，是实际数据对象
+//如果想对颜色进行调节可以点击可视化导航栏的标量场，在生成的widget中点击edit color map对颜色表自定义调节
 
+mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, dataArray);
+//mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, dataArray);
+
+
+//如果想自定义颜色数据属性，则将颜色数据存入属性数组，需要设置好ArrayObject的Dimension为3
+//老版本可能没有IG_RGB这种type，所以这个方法可能用不了，需要使用上面的方法。
+//示例是一个单元颜色数据
+auto CellNum=mesh->GetNumberOfCells();
+FloatArray::Pointer colorArray = FloatArray::New();
+colorArray->SetName("Cell_RGB");
+colorArray->SetDimension(3);
+colorArray->Resize(CellNum);
+float rgb[3]={0,0,0};
+//生成颜色数据，有需求自己算就可以，示例是按照面片对3取余
+for (int i = 0; i < CellNum; i++) {
+    switch (i%3)
+    {
+    case 0:
+        rgb[0] = 1;rgb[1] = 0;rgb[2] = 0;
+        break;  
+    case 1:
+        rgb[0] = 0;rgb[1] = 1;rgb[2] = 0;
+        break;
+    case 2:
+        rgb[0] = 0;rgb[1] = 0;rgb[2] = 1;
+        break;
+    default:
+        break;
+    }
+    dataArray->SetElement(i,rgb);
+}
+//仍旧是存放到mesh的属性集中，需要注意的是第一个type需要修改为IG_RGB.
+//mesh->GetAttributeSet()->AddAttribute(IG_RGB, IG_POINT, dataArray);
+mesh->GetAttributeSet()->AddAttribute(IG_RGB, IG_CELL, colorArray);
+//调用一下模型树的更新属性集函数即可。
+//自己写的时候，上面代码全部在自己的算法函数里面执行，以下这句话在ui文件执行即可
+modelTreeWidget->updateAllAttriubute(obj);
+```
 ### 透明度显示功能
 
 透明度显示为高级功能，由于采用次序无关透明度(Order Independent Transparency, OIT)，因此在本项目必须在``OpenGL4.6``

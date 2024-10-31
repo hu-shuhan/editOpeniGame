@@ -32,7 +32,8 @@ public:
     float m_deformation_scale_factor_y = {0.f};
     float m_deformation_scale_factor_z = {0.f};
 
-    bool m_enable_dsf {false};
+    bool m_enable_dsf         {false};
+    bool m_enable_auto_compute{false};
     std::string m_deformation_attribute_name;
 
 

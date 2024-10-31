@@ -3,33 +3,43 @@
 
 
 #include <iGameFilter.h>
+#include <iGameAttributeSet.h>
+
 #include "iGameDataCollection.h"
 class odb_Odb;
 IGAME_NAMESPACE_BEGIN
+
+class AttributeParserHelper;
 class ODBReader : public Filter{
 public:
     I_OBJECT(ODBReader)
 
     static Pointer New(){return new ODBReader;}
 
-    DataObject::Pointer ReadFile(const std::string& filePath);
+    /* Read Odb file's raw Mesh without SPECIFIC frame's field data. */
+    DataObject::Pointer ReadOdbMesh(const std::string& filePath);
 
+    AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, const std::string& stepName, int frame_idx);
 protected:
 
-    bool Execute() override;
-
-    bool CreateDataObject();
 
     void SetFilePath(const std::string& filePath);
 
-    void OpenODB();
+    bool Execute() override;
 
-    void ExtractHeader();
+    bool ExecuteWithFieldData(const std::string& stepName, int frameIdx);
 
-    void ConstructMap();
+    bool CreateDataObject();
 
-    void ReadCoordinates();
+    bool OpenODB();
 
+    bool ExtractHeader();
+
+    bool ConstructMap();
+
+    bool ReadCoordinates();
+
+    bool ReadAttributes();
 
 
     static uint8_t ABAQUS_VTK_CELL_MAP(const char* abqElementType);
@@ -50,11 +60,11 @@ private:
     size_t  m_nodesNum{0}, m_cellsNum{0};
 
 protected:
-
+    AttributeParserHelper* m_Attribute_helper{nullptr};
 
 protected:
     ODBReader();
-    ~ODBReader() ;
+    ~ODBReader();
 
 };
 

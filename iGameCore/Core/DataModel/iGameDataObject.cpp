@@ -171,4 +171,23 @@ bool DataObject::UpdateSubDataObjectDataRange() {
     return true;
 }
 
+bool DataObject::ReCollectSubDataObjectDataRange() {
+    /* Update SubDataObject's DataRange to Global DataRange and ReConvert Drawable data. */
+    if(m_SubDataObjectsHelper == nullptr) return false;
+    for(auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++ it){
+        if(!it->second->IsDrawable()) continue;
+        const auto& obj = DynamicCast<DrawObject>(it->second);
+        const auto& display_obj = obj->GetDisplayObject();
+        auto attributes = obj->GetAttributeSet()->GetAllAttributes();
+        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+            auto& par = attributes->GetElement(i);
+            par.updateAllDataRange();
+            /* Process Display mesh's DataRange. */
+            if(display_obj != nullptr) display_obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
+        }
+        obj->ConvertToDrawableData();
+    }
+
+}
+
 IGAME_NAMESPACE_END

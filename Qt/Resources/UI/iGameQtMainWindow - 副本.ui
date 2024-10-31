@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>25</height>
+     <height>27</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -82,12 +82,19 @@ border:2px solid #EEF1F7
     <addaction name="action_SaveMesh"/>
     <addaction name="action_SaveMeshAs"/>
     <addaction name="separator"/>
+    <addaction name="action_CopyMesh"/>
+    <addaction name="action_RecoverMesh"/>
     <addaction name="separator"/>
     <addaction name="action_SaveScreenShot"/>
+    <addaction name="actionGeometry"/>
     <addaction name="action_SaveAnimation"/>
+    <addaction name="action_SaveExtracts"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
+    <addaction name="action_ExportScene"/>
+    <addaction name="actionExportAnimatedScene"/>
     <addaction name="separator"/>
+    <addaction name="action_Exit"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -136,6 +143,23 @@ border:2px solid #EEF1F7
     <property name="title">
      <string>算法处理</string>
     </property>
+    <widget class="QMenu" name="menuTest">
+     <property name="title">
+      <string>Test</string>
+     </property>
+     <addaction name="action_test_01"/>
+     <addaction name="action_test_02"/>
+     <addaction name="action_test_03"/>
+     <addaction name="action_test_04"/>
+     <addaction name="action_test_05"/>
+     <addaction name="action_test_06"/>
+    </widget>
+    <widget class="QMenu" name="menu_Source">
+     <property name="title">
+      <string>数据源</string>
+     </property>
+     <addaction name="action_LineSource"/>
+    </widget>
     <addaction name="action_EditMode"/>
     <addaction name="action_LaSmoothing"/>
     <addaction name="action_Simplification"/>
@@ -143,7 +167,9 @@ border:2px solid #EEF1F7
     <addaction name="action_Subdivision"/>
     <addaction name="action_Remeshing"/>
     <addaction name="action_Delaunay"/>
+    <addaction name="menuTest"/>
     <addaction name="action_TetSimplification"/>
+    <addaction name="menu_Source"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -168,6 +194,8 @@ border:2px solid #EEF1F7
     <addaction name="menua_ChangeEditModel"/>
     <addaction name="action_SearchInfo"/>
     <addaction name="separator"/>
+    <addaction name="action_LastMesh"/>
+    <addaction name="action_NextMesh"/>
     <addaction name="separator"/>
     <addaction name="action_ClearInfomation"/>
     <addaction name="action_ResetView"/>
@@ -199,8 +227,13 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="separator"/>
+   <addaction name="action_SaveMesh"/>
+   <addaction name="action_CopyMesh"/>
+   <addaction name="action_RecoverMesh"/>
+   <addaction name="action_LastMesh"/>
+   <addaction name="action_NextMesh"/>
    <addaction name="action_DeleteMesh"/>
+   <addaction name="separator"/>
   </widget>
   <widget class="QToolBar" name="toolBar_meshview">
    <property name="windowTitle">
@@ -232,6 +265,14 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_FaceCull"/>
+   <addaction name="action_FaceFill"/>
+   <addaction name="action_FaceFlatFill"/>
+   <addaction name="action_ShowFeature"/>
+   <addaction name="action_ViewNormal"/>
+   <addaction name="action_ClearInfomation"/>
+   <addaction name="action_ChangeBackground"/>
+   <addaction name="action_ResetView"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ModelList">
    <property name="minimumSize">
@@ -319,7 +360,9 @@ border:2px solid #EEF1F7
    </attribute>
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_ShowOrientationAxes"/>
+   <addaction name="action_ShowCenter"/>
    <addaction name="action_ResetCenter"/>
+   <addaction name="action_PickCenter"/>
    <addaction name="action_select_point"/>
    <addaction name="action_select_face"/>
    <addaction name="action_drag_point"/>
@@ -338,7 +381,7 @@ border:2px solid #EEF1F7
     <enum>TopToolBarArea</enum>
    </attribute>
    <attribute name="toolBarBreak">
-    <bool>false</bool>
+    <bool>true</bool>
    </attribute>
    <addaction name="action_setViewToPositiveX"/>
    <addaction name="action_setViewToNegativeX"/>
@@ -506,12 +549,10 @@ border:2px solid #EEF1F7
     <enum>TopToolBarArea</enum>
    </attribute>
    <attribute name="toolBarBreak">
-    <bool>true</bool>
+    <bool>false</bool>
    </attribute>
    <addaction name="action_StreamLine"/>
-   <addaction name="action_Glyph"/>
    <addaction name="action_deformation"/>
-   <addaction name="action_slice"/>
   </widget>
   <widget class="QToolBar" name="toolBar_attribute_view_dim">
    <property name="windowTitle">
@@ -523,6 +564,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_Glyph"/>
   </widget>
   <widget class="QToolBar" name="toolBar_attribute_view_index">
    <property name="windowTitle">
@@ -534,6 +576,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_slice"/>
    <addaction name="action_ContourExtract"/>
    <addaction name="action_GenerateChart"/>
   </widget>

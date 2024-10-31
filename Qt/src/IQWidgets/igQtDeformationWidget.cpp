@@ -27,9 +27,14 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     ui->lineEdit_Uniform_val->setEnabled(false);
     connect(ui->radioButton_autoCompute, &QRadioButton::toggled, this, [&](bool checked){
         if(checked){
+            CalculateCurrentDSF();
             ShowUniform();
             HideNonUniform();
             ui->lineEdit_Uniform_val->setEnabled(false);
+        }else {
+            if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
+            auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
+            dataObject->GetDeformationData()->m_enable_auto_compute = false;
         }
     });
     connect(ui->radioButton_Uniform, &QRadioButton::toggled, this, [&](bool checked){

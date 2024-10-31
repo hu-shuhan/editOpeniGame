@@ -47,7 +47,7 @@ public slots:
 signals:
     void DrawClipModel(iGame::SurfaceMesh::Pointer);
     void UpdateClipModel(iGame::SurfaceMesh::Pointer);
-
+    void ResetInteractor();
 protected:
 private:
     Ui::ModelClipWidget* ui;

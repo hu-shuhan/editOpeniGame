@@ -120,12 +120,13 @@ bool FileReader::OpenWithWindowsSystem() {
 	}
 
 	// 获取文件大小
-	this->m_FileSize = GetFileSize(m_File, NULL);
-	if (m_FileSize == INVALID_FILE_SIZE) {
-		_tprintf(_T("GetFileSize failed with error: %lu\n"), GetLastError());
+	LARGE_INTEGER fileSize;
+	if (!GetFileSizeEx(m_File, &fileSize)) {
+		_tprintf(_T("GetFileSizeEx failed with error: %lu\n"), GetLastError());
 		CloseHandle(m_File);
 		return false;
 	}
+	this->m_FileSize = fileSize.QuadPart; // 将文件大小以字节为单位赋值给 m_FileSize
 
 	// 创建文件映射对象
 	this->m_MapFile = CreateFileMapping(m_File, NULL, PAGE_READONLY, 0, 0, NULL);
