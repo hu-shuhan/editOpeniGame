@@ -163,7 +163,7 @@ bool iGameVectorBase::DrawVector(std::string VecName) {
             return false;
         };
     }
-
+    return true;
    // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
    // maxLength = (bound.max - bound.min).length();
 

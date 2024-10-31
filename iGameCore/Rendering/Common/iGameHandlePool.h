@@ -31,10 +31,10 @@ public:
         return handle;
     }
 
-    std::optional<ObjectType> GetObject(HandleType handle) const {
+    ObjectType* GetObject(HandleType handle) {
         auto it = m_HandleToObject.find(handle);
-        if (it != m_HandleToObject.end()) { return it->second; }
-        return std::nullopt;
+        if (it != m_HandleToObject.end()) { return &it->second; }
+        return nullptr;
     }
 
     void ReleaseHandle(HandleType handle) {

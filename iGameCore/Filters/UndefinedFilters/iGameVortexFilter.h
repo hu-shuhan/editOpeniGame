@@ -22,10 +22,28 @@ public:
 
         auto input = GetInput(0);
         if (input == nullptr) return false;
+
+        auto CheckType = [&]() -> bool {
+            attributeSet = input->GetAttributeSet();
+            if (!attributeSet) return false;
+            curIndex = input->GetAttributeIndex();
+            curDim = input->GetAttributeDimension();
+            if (curIndex < 0) return false;
+
+            int dim = input->GetAttributeSet()
+                              ->GetAttribute(curIndex)
+                              .pointer->GetDimension();
+            if (dim != 3) { return false; }
+            return true;
+        };
+
         switch (input->GetDataObjectType()) {
-            case IG_SURFACE_MESH:
+            case IG_SURFACE_MESH: {
                 surface_Mesh = DynamicCast<SurfaceMesh>(input);
-                break;
+                
+                if(!CheckType()) return false;
+
+            } break;
             case IG_VOLUME_MESH:
             {
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
@@ -34,16 +52,12 @@ public:
                             volume_Mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
 
-                    attributeSet = surface_Mesh->GetAttributeSet();
-                    if (!attributeSet) return false;
-                    curIndex = surface_Mesh->GetAttributeIndex();
-                    curDim = surface_Mesh->GetAttributeDimension();
-                    if (curIndex < 0) return false;
+                    if (!CheckType()) return false;
 
                     FloatArray::Pointer vorticities = FloatArray::New();
                     vorticities->SetDimension(3);
                     vorticities->SetName("vorticities");
-                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                    input->GetAttributeSet()->AddScalar(IG_POINT,
                                                                vorticities);
                 }
             }
@@ -54,31 +68,26 @@ public:
                 surface_Mesh = mesh->TransferToSurfaceMesh();
                 volume_Mesh = mesh->TransferToVolumeMesh();
 
+                if (surface_Mesh) {
+                    if (!CheckType()) return false;
+                }
+
                 if (volume_Mesh) {
                     surface_Mesh = DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
 
-                    attributeSet = surface_Mesh->GetAttributeSet();
-                    if (!attributeSet) return false;
-                    curIndex = surface_Mesh->GetAttributeIndex();
-                    curDim = surface_Mesh->GetAttributeDimension();
-                    if (curIndex < 0) return false;
+                    if (!CheckType()) return false;
 
                     FloatArray::Pointer vorticities = FloatArray::New();
                     vorticities->SetDimension(3);
                     vorticities->SetName("vorticities");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                    input->GetAttributeSet()->AddScalar(IG_POINT,
                                                                vorticities);
-                   
                 }
             } break;
             default:
                 return false;
         }
-
-        curIndex = input->GetAttributeIndex();
-        curDim = input->GetAttributeDimension();
-        if (curIndex < 0) return false;
 
         if (volume_Mesh) {
             //surface_Mesh =
@@ -104,6 +113,9 @@ public:
         } 
 
         if (surface_Mesh) {
+            attributeSet = surface_Mesh->GetAttributeSet();
+            if (attributeSet == nullptr) return false;
+
             auto attachmentType =
                     attributeSet->GetAttribute(curIndex).attachmentType;
 
@@ -310,7 +322,7 @@ public:
                                                     {0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(PointNum, 0.0f);
 
-        igIndex neighborVerts[64]{};
+        igIndex neighborVerts[256]{};
         // 计算点的梯度
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             int NeighborNum;
@@ -394,29 +406,28 @@ public:
         std::vector<std::array<float, 3>> gradient(Num, {0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(Num, 0.0f);
 
+        igIndex neighborVerts[256]{};
         // 计算点的梯度
         for (igIndex idx = 0; idx < Num; ++idx) {
 
-            igIndex* neighbors;
             int NeighborNum;
             // 获取邻接顶点
             if (type == 1)
                 // neighbors:volumeIds
-                NeighborNum =
-                        volume_Mesh->GetVolumeToNeighborVolumesWithFace(
-                                idx, neighbors);
+                NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
+                        idx, neighborVerts);
 
             else if (type == 0)
                 // neighbors:faceIds
                 NeighborNum = surface_Mesh->GetFaceToNeighborFaces(
-                        idx, neighbors);
+                        idx, neighborVerts);
 
             for (int m = 0; m < NeighborNum; m++) {
                 float x, y, z;
                 if (type == 1) {
                     igIndex* volumeIds;
                     auto v1 = volume_Mesh->GetVolume(idx);
-                    auto v2 = volume_Mesh->GetVolume(neighbors[m]);
+                    auto v2 = volume_Mesh->GetVolume(neighborVerts[m]);
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
@@ -431,7 +442,7 @@ public:
 
                 } else if (type == 0) {
                     auto v1 = surface_Mesh->GetFace(idx);
-                    auto v2 = surface_Mesh->GetFace(neighbors[m]);
+                    auto v2 = surface_Mesh->GetFace(neighborVerts[m]);
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
@@ -447,7 +458,7 @@ public:
                 // 标量计算时就算是三维数据也默认取第一维
                 double value =
                         data->GetValue(idx * dimension + dim) -
-                        data->GetValue(neighbors[m] * dimension + dim);
+                        data->GetValue(neighborVerts[m] * dimension + dim);
 
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
                 sumWeights[idx] += weight;
@@ -455,11 +466,11 @@ public:
                 gradient[idx][1] += y * weight * value;
                 gradient[idx][2] += z * weight * value;
             }
-            //            if (sumWeights[idx] > 0) {
-            //                gradient[idx][0] /= sumWeights[idx];
-            //                gradient[idx][1] /= sumWeights[idx];
-            //                gradient[idx][2] /= sumWeights[idx];
-            //            }
+            if (sumWeights[idx] > 0) {
+                gradient[idx][0] /= sumWeights[idx];
+                gradient[idx][1] /= sumWeights[idx];
+                gradient[idx][2] /= sumWeights[idx];
+            }
         }
 
         return gradient;
