@@ -91,6 +91,10 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 	m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
 	m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
 		m_Generated = false;
+		this->m_OriginDataObject=nullptr;
+		this->m_PointData=nullptr;
+		this->m_Extracter=nullptr;
+		ui->comboBox_ScalarIndex->clear();
 		this->parentWidget()->hide();
 		});
 }

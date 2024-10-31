@@ -744,16 +744,43 @@ void igQtMainWindow::initAllFilters() {
 		});
 	connect(ui->menuTest->addAction("abc"),
 		&QAction::triggered, this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-			auto obj = rendererWidget->GetScene()
-				->GetCurrentModel()
-				->GetDataObject();
-		auto res=SurfaceMesh::New();
-		auto filter=iGameModelGeometryFilter::New();
-		filter->Execute(obj,res);
-		modelTreeWidget->addDataObjectToModelTree(
-			res, ItemSource::Algorithm);
+            if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)return;
+			auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            auto mesh=DynamicCast<UnstructuredMesh>(obj);
+            FloatArray::Pointer dataArray=FloatArray::New();
+            dataArray->SetName("Point_Scalar");
+            auto PointNum=mesh->GetNumberOfPoints();
+            dataArray->Resize(PointNum);
+            auto dataarray= dataArray->RawPointer();
+            for (int i = 0; i < PointNum; i++) {
+                dataarray[i]=i;
+            }
+            mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, dataArray);
+            auto CellNum=mesh->GetNumberOfCells();
+            FloatArray::Pointer colorArray = FloatArray::New();
+            colorArray->SetName("Cell_RGB");
+            colorArray->SetDimension(3);
+            colorArray->Resize(CellNum);
+            float rgb[3]={0,0,0};
+            for (int i = 0; i < CellNum; i++) {
+                switch (i%3)
+                {
+                case 0:
+                    rgb[0] = 1;rgb[1] = 0;rgb[2] = 0;
+                    break;  
+                case 1:
+                    rgb[0] = 0;rgb[1] = 1;rgb[2] = 0;
+                    break;
+                case 2:
+                    rgb[0] = 0;rgb[1] = 0;rgb[2] = 1;
+                    break;
+                default:
+                    break;
+                }
+                dataArray->SetElement(i,rgb);
+            }
+            mesh->GetAttributeSet()->AddAttribute(IG_RGB, IG_CELL, colorArray);
+            modelTreeWidget->updateAllAttriubute(obj);
 		});
 
     connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
@@ -1229,8 +1256,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
-        if (!rendererWidget->getInteractor()->IsBase()) {
-            rendererWidget->getInteractor()->RequestBasicStyle();
+        //if (!rendererWidget->getInteractor()->IsBase()) {
+        //    rendererWidget->getInteractor()->RequestBasicStyle();
+        //    return;
+        //}
+        if (SliceDockWidget->isHidden() == false) {
             return;
         }
 		SliceDockWidget->show();
@@ -1258,7 +1288,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             modelTreeWidget->updateCurrentModelInfo();
 			rendererWidget->update();
 		});
-
+    connect(SliceWidget, &igQtModelClipWidget::ResetInteractor, this,
+        [&]() {
+            if (!rendererWidget->getInteractor()->IsBase()) {
+                rendererWidget->getInteractor()->RequestBasicStyle();
+                return;
+            }
+        });
     connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
         if(checked)DeformationDockWidget->show();
         else DeformationDockWidget->hide();
