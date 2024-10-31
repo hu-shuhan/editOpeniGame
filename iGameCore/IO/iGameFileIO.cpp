@@ -183,7 +183,9 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
     case iGame::FileIO::ODB:
 	{
 		ODBReader::Pointer reader = ODBReader::New();
-		resObj = reader->ReadFile(file_name);
+		resObj = reader->ReadOdbMesh(file_name);
+//        DynamicCast<DrawObject>(resObj)->GetAttributeSet()->Add;
+
 		break;
 	}
 #endif

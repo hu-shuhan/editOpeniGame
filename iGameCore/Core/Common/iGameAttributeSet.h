@@ -6,18 +6,6 @@
 #include <variant>
 
 IGAME_NAMESPACE_BEGIN
-//class DataRangeSet : public DoubleArray{
-//public:
-//    I_OBJECT(DataRangeSet)
-//    static Pointer New(){ return new DataRangeSet;}
-//
-//
-//protected:
-//
-//    DoubleArray::Pointer m_StoreArray;
-//    DataRangeSet();
-//};
-
 // Attributes set stores all Attribute array data, like scalar, vector etc
 class AttributeSet : public Object {
 public:

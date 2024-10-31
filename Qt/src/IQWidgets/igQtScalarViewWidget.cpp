@@ -171,8 +171,21 @@ void igQtScalarViewWidget::editColorBar() {
 }
 void igQtScalarViewWidget::rescaleRange() {
 	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper; }
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    iGame::DataObject::Pointer obj=nullptr;
+    if (scene) {
+        auto model = scene->GetCurrentModel();
+        if (model) { obj = model->GetDataObject(); }
+    }
+    if (!obj) return;
+    obj->ReCollectSubDataObjectDataRange();
+    auto attribute = obj->GetAttributeSet()->GetAttribute(currentSelectedScalarIdx);
+    scalarMin = attribute.dataRange->GetElement(scalarDimension + 1)[0];
+    scalarMax = attribute.dataRange->GetElement(scalarDimension + 1)[1];
+
 	m_ColorMapper->SetRange(scalarMin, scalarMax);
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
+    initScalarInfo();
 	updateDrawStyle();
 }
 

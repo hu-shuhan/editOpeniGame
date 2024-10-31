@@ -424,7 +424,7 @@ bool igQtAnimationWidget::saveAnimation() {
 
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
     auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
-    if (currentObject == nullptr ||
+    if (currentScene->GetCurrentModel() == nullptr ||
         currentObject->GetTimeFrames()->GetArrays().empty())
         return false;
     size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();

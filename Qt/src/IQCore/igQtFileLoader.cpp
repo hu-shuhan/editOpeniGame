@@ -118,7 +118,6 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
         }
         default:
             NurbsReader::Pointer reader = NurbsReader::New();
-            reader->SetNurbsType(readerType);
             reader->SetFilePath(filePath);
             reader->Execute();
             obj = reader->GetOutput();

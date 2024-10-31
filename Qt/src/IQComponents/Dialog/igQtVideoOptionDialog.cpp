@@ -6,31 +6,41 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
-
+#include <QIntValidator>
 
 igQtVideoOptionDialog::igQtVideoOptionDialog(QWidget *parent) : QDialog(parent) {
     QVBoxLayout *layout = new QVBoxLayout(this);
+    auto* validator = new QIntValidator(
+            1, 9999, this);
+    auto* LineValidator =
+            new QRegExpValidator(QRegExp("^[0-9]*\\.?[0-9]*$"), this);
 
     QHBoxLayout* hlay_0 = new QHBoxLayout();
     m_Width_LineEdit = new QLineEdit("1920",this);
+    m_Width_LineEdit->setValidator(validator);
     QLabel* width_label  = new QLabel("width :", this);
     hlay_0->addWidget(width_label);
     hlay_0->addWidget(m_Width_LineEdit);
 
     QHBoxLayout* hlay_1 = new QHBoxLayout();
     m_Height_LineEdit = new QLineEdit("1080",this);
+    m_Height_LineEdit->setValidator(validator);
     QLabel* height_label = new QLabel("height :", this);
     hlay_1->addWidget(height_label);
     hlay_1->addWidget(m_Height_LineEdit);
 
+
     QHBoxLayout* hlay_2 = new QHBoxLayout();
     m_frameRate_LineEdit = new QLineEdit("1",this);
+    m_frameRate_LineEdit->setValidator(LineValidator);
+
     QLabel* frameRate_label = new QLabel("Frame Rate :", this);
     hlay_2->addWidget(frameRate_label);
     hlay_2->addWidget(m_frameRate_LineEdit);
 
     QHBoxLayout* hlay_3 = new QHBoxLayout();
     m_bitRate_LineEdit = new QLineEdit("4000000",this);// 400kbps
+    m_bitRate_LineEdit->setValidator(LineValidator);
     QLabel* bitRate_label = new QLabel("Bit rate :", this);
     hlay_3->addWidget(bitRate_label);
     hlay_3->addWidget(m_bitRate_LineEdit);
