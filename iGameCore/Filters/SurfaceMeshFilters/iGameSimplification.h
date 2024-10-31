@@ -22,7 +22,7 @@ public:
     static constexpr int QEM_BOUNDARY_EDGE = 2;      // 边界边
 
     int TargetFaceNum = 0;         // 目标面数
-    double TargetReduction = 0.8;  // 减少的百分比
+    double TargetReduction = 0.95;  // 减少的百分比
     bool NormalCheck = true;       // 是否进行法线检查。
     double NormalThr = M_PI / 4.0; // 法线检查的阈值，以弧度表示。
     double CosineThr = cos(NormalThr); // 法线检查的余弦阈值。
@@ -94,18 +94,33 @@ public:
         int needEliminatedNum = nfaces - TargetFaceNum;
         blockNum = needEliminatedNum / 100;
         progress = 0;
+        double sum_pri = 0;
+        int sum = 0;
+        int ep = nfaces / 100;
+        int epi = 0;
         for (int totalEliminated = 0; totalEliminated < needEliminatedNum;) {
             heap->update();
             if (heap->empty()) { break; }
 
             igIndex edgeId = heap->top().handle;
             double pri = heap->top().priority;
+            double geo_pri = heap->top().rest;
+
             heap->pop();
 
             igIndex e[2]{};
             mesh->GetEdgePointIds(edgeId, e);
 
             if (!mesh->IsCollapsable(edgeId)) continue;
+            sum++;
+            sum_pri += pri;
+            //int d = 2.618;
+            int d = 3
+                ;
+            if (pri > d * sum_pri / sum) { 
+                //if (epi++ > ep) break;
+                break;
+            }
 
             totalEliminated += mesh->GetNumberOfLinks(edgeId, SurfaceMesh::E2F);
             if (totalEliminated >= blockNum * progress) {
@@ -193,7 +208,7 @@ public:
             }
         }
 
-        std::cout << "GarbageCollection" << std::endl;
+        std::cout << sum << std::endl;
 
         std::cout << "before: "
             << " point size: " << mesh->GetNumberOfPoints() 
@@ -283,14 +298,15 @@ protected:
             return;
         }
 
-        double priority = ComputePriority(edgeId);
+        double geo_priority;
+        double priority = ComputePriority(edgeId, geo_priority);
 
         if (priority != std::numeric_limits<double>::max()) {
-            heap->push(priority, edgeId);
+            heap->push(priority, edgeId, geo_priority);
         }
     }
 
-    double ComputePriority(igIndex edgeId) {
+    double ComputePriority(igIndex edgeId, double& geo_priority) {
         igIndex e[2]{};
         mesh->GetEdgePointIds(edgeId, e);
         Point v0 = mesh->GetPoint(e[0]);
@@ -390,11 +406,20 @@ protected:
         if (newQuality > this->QualityThr) newQuality = this->QualityThr;
 
         if (this->NormalCheck) {
+            //if (minCos > this->CosineThr) {
+            //    return std::numeric_limits<double>::max();
+            //}
             if (minCos > this->CosineThr) minCos = this->CosineThr;
             minCos = fabs((minCos + 1.0) / 2.0);
         }
 
+        //if (error > this->QuadricEpsilon) {
+        //    std::cout << error << "\n";
+        //}
         error = std::max(error, this->QuadricEpsilon);
+        //if (error > 1e-5) {
+        //    return std::numeric_limits<double>::max();
+        //}
         if (error <= this->QuadricEpsilon) { error *= (v0 - v1).norm(); }
 
         double priority = std::numeric_limits<double>::max();
@@ -409,10 +434,17 @@ protected:
         if (this->QualityCheck && this->NormalCheck)
             priority = error / (newQuality * minCos);
 
+        //int d = 2;
+        //if (minCos < 1.0 / d) {
+        //    return std::numeric_limits<double>::max();
+        //}
+
+        geo_priority = priority;
         if (this->ScalarCheck) { 
             priority *= (1 + gradient);
         }
 
+        
         return priority;
     }
     

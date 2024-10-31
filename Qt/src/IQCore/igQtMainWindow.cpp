@@ -780,7 +780,7 @@ void igQtMainWindow::initAllFilters() {
             });
 
 
-    QMenu* view = ui->menu_filters->addMenu("viewTest");
+    QMenu* view = ui->menu_filters->addMenu("特征提取");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
