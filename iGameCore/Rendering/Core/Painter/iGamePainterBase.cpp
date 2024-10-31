@@ -32,8 +32,8 @@ void PainterBase::Show(IGuint handle) {
     m_PrimitivesPool->CheckHandle(handle);
 
     auto primitive = m_PrimitivesPool->GetObject(handle);
-    if (primitive.has_value()) {
-        primitive.value().visible = true;
+    if (primitive) {
+        primitive->visible = true;
     } else {
         igDebug("handle is invalid.");
     }
@@ -42,8 +42,8 @@ void PainterBase::Hide(IGuint handle) {
     m_PrimitivesPool->CheckHandle(handle);
 
     auto primitive = m_PrimitivesPool->GetObject(handle);
-    if (primitive.has_value()) {
-        primitive.value().visible = false;
+    if (primitive) {
+        primitive->visible = false;
     } else {
         igDebug("handle is invalid.");
     }

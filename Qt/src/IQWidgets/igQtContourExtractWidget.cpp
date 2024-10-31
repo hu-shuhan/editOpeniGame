@@ -15,8 +15,8 @@ igQtContourExtractWidget::igQtContourExtractWidget(QWidget* parent)
 	m_Generated = false;
 	m_Extracter = nullptr;
 	m_PointData = nullptr;
-    QRegularExpression  rx("-?\\d*\\.?\\d+");
-    ui->lineEdit_IsoValue->setValidator(new QRegularExpressionValidator(rx, this));
+	QRegularExpression  rx("-?\\d*\\.?\\d+");
+	ui->lineEdit_IsoValue->setValidator(new QRegularExpressionValidator(rx, this));
 	connect(ui->btnExecute, &QPushButton::clicked, this, &igQtContourExtractWidget::ContourExtract);
 	connect(ui->comboBox_ScalarIndex, &QComboBox::currentTextChanged, this, &igQtContourExtractWidget::UpdateScalarName);
 	connect(ui->comboBox_ScalarDimension, &QComboBox::currentTextChanged, this, &igQtContourExtractWidget::UpdateScalarDimension);
@@ -89,6 +89,14 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 	m_ResultMesh = iGame::SurfaceMesh::New();
 	m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
 	m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
+	m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+		m_Generated = false;
+		this->m_OriginDataObject=nullptr;
+		this->m_PointData=nullptr;
+		this->m_Extracter=nullptr;
+		ui->comboBox_ScalarIndex->clear();
+		this->parentWidget()->hide();
+		});
 }
 
 void igQtContourExtractWidget::ContourExtract()

@@ -586,7 +586,7 @@ void igQtMainWindow::initAllFilters() {
 //     cp
 
 
-    QMenu* view = ui->menu_filters->addMenu("viewTest");
+    QMenu* view = ui->menu_filters->addMenu("特征提取");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1035,8 +1035,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
-        if (!rendererWidget->getInteractor()->IsBase()) {
-            rendererWidget->getInteractor()->RequestBasicStyle();
+        //if (!rendererWidget->getInteractor()->IsBase()) {
+        //    rendererWidget->getInteractor()->RequestBasicStyle();
+        //    return;
+        //}
+        if (SliceDockWidget->isHidden() == false) {
             return;
         }
 		SliceDockWidget->show();
@@ -1064,7 +1067,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             modelTreeWidget->updateCurrentModelInfo();
 			rendererWidget->update();
 		});
-
+    connect(SliceWidget, &igQtModelClipWidget::ResetInteractor, this,
+        [&]() {
+            if (!rendererWidget->getInteractor()->IsBase()) {
+                rendererWidget->getInteractor()->RequestBasicStyle();
+                return;
+            }
+        });
     connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
         if(checked)DeformationDockWidget->show();
         else DeformationDockWidget->hide();

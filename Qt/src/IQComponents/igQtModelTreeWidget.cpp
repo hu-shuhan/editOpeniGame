@@ -242,14 +242,14 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             setItemSelected(item, true);
             item->getModel()->ViewCloudPicture(-1);
             emit ChangeCurrentModel(item->getModel());
+
+            auto* current = dynamic_cast<AttribTreeWidgetItem*>(
+                    item->getCurrentChild());
+            if (current) { current->hide(); }
+            item->setCurrentChild(nullptr);
+            if (currentModelItem != item) { this->setCurrentModelItem(item); }
         }
-        auto* current =
-                dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
-        if (current) { current->hide(); }
-        item->setCurrentChild(nullptr);
-        if (currentModelItem != item) { 
-            this->setCurrentModelItem(item);
-        }
+
 
     } else if ((child = getChild(event->pos())) && child) {
         int index = child->data(0, Qt::UserRole).toInt();
