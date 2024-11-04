@@ -23,8 +23,11 @@ class Scene : public Object {
 public:
     I_OBJECT(Scene);
     static Pointer New() { return new Scene; }
+    /* Initialized Related*/
+    bool Init();
 
     /* Model Related */
+    int AddModel(DataObject::Pointer);
     int AddModel(Model::Pointer);
     void ResetCenter();
     Model::Pointer CreateModel(DataObject::Pointer);
@@ -163,6 +166,7 @@ protected:
 
     void UpdateModelsBoundingSphere();
 
+
     void InitOpenGL();
     void InitOIT();
     void InitFont();
@@ -246,6 +250,8 @@ protected:
     GLTexture2d::Pointer m_DepthPyramid;
 
     Painter3D::Pointer painter = Painter3D::New();
+
+    bool m_FinishInit { false };
 
     friend class Model;
     friend class Interactor;

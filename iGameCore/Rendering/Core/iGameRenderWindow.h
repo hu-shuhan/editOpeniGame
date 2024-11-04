@@ -25,11 +25,16 @@ public:
 
     void show();
 
-protected:
-    GLFWwindow* m_window;
+    void setSize(int width, int height);
 
-    Scene* m_scene;
-    Interactor* m_Interactor;
+    void setTitle(const char* title);
+    void setTitle(const std::string& title);
+protected:
+    GLFWwindow* m_window{nullptr};
+    std::string m_title{"OpeniGame - GLFW_OpenGL# 1"};
+
+    Scene* m_scene {nullptr};
+    Interactor* m_Interactor{nullptr};
     IEvent m_Event;
 
     int m_window_width{800}, m_window_height{600};

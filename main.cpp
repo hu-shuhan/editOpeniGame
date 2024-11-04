@@ -15,20 +15,20 @@
 int main(int argc, char* argv[]) {
 
 
-//    /* 启动窗口设置*/
-//    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-//    /* 创建场景, 目前场景创建必须在启动窗口创建之后，因为窗口用于提供上下文*/
+//    /* 创建场景*/
 //    auto scene = iGame::Scene::New();
 //    /* 读取文件测试并将其放入场景*/
-//    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\Model\\Armadillo.obj";
+//    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\sukong\\sukong.pvd";
 //    iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 //    if(obj != nullptr){
-//        auto model = scene->CreateModel(obj);
-//        scene->AddModel(model);
+//        scene->AddModel(obj);
 //    } else {
 //        std::cout << "Read ERROR!\n";
 //    }
 //
+//    /* 启动窗口设置*/
+//    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+//    window->setSize(1920, 1080);
 //    window->setScene(scene);
 //    auto basicInteractor = iGame::Interactor::New();
 //    basicInteractor->Initialize(scene);

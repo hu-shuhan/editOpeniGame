@@ -41,13 +41,27 @@ Scene::Scene() {
     m_DrawCullData = GLBuffer::New();
     m_DepthPyramid = GLTexture2d::New();
 
+
+}
+Scene::~Scene() {}
+
+bool Scene::Init() {
+    if(m_FinishInit){
+        std::cout << "Scene is already init\n";
+        return false;
+    }
     InitOpenGL();
     InitOIT();
     InitFont();
     InitAxes();
+    m_FinishInit = true;
+    return true;
 }
-Scene::~Scene() {}
-
+int Scene::AddModel(DataObject::Pointer obj) {
+    Model::Pointer model = Model::New();
+    model->m_DataObject = obj;
+    return AddModel(model);
+}
 int Scene::AddModel(Model::Pointer model) {
     int newModelId = m_IncrementModelId++;
     m_Models.insert(std::make_pair<>(newModelId, model));

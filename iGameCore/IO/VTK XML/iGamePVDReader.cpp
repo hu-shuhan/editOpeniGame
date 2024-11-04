@@ -20,7 +20,9 @@
 #include <algorithm>
 
 bool iGame::iGamePVDReader::Parsing() {
-    std::string fileDir = this->m_FilePath.substr(0, this->m_FilePath.find_last_of('/') + 1);
+    int dir_idx =  m_FilePath.find_last_of('/');
+    if(dir_idx == -1) dir_idx = m_FilePath.find_last_of('\\');
+    std::string fileDir = this->m_FilePath.substr(0, dir_idx + 1);
     const char* existAttribute;
     tinyxml2::XMLElement* elem = root->FirstChild()->FirstChildElement("DataSet");
 //    DataObject::Pointer newObj;
@@ -159,8 +161,6 @@ bool iGame::iGamePVDReader::Parsing() {
                 m_data_object->UpdateSubDataObjectDataRange();
             }
         }
-
-
 
 
     }
