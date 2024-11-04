@@ -150,6 +150,13 @@ public:
         m_DoneCurrentFunctor = std::bind(functor, args...);
     }
 
+//    void init(){
+//        InitOpenGL();
+//        InitOIT();
+//        InitFont();
+//        InitAxes();}
+//
+//    void*(* m_proc);
 protected:
     Scene();
     ~Scene() override;

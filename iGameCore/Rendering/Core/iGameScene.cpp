@@ -387,6 +387,7 @@ void Scene::InitOpenGL() {
         igError("Failed to initialize GLAD");
         throw std::runtime_error("Failed to initialize GLAD");
     }
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
