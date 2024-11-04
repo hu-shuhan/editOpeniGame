@@ -152,6 +152,7 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
 void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     using namespace iGame;
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
+    if(currentScene->GetCurrentModel() == nullptr ) return;
     auto currentDrawObject = DynamicCast<DrawObject>(
             currentScene->GetCurrentModel()->GetDataObject());
     if (currentDrawObject == nullptr ||
@@ -397,6 +398,15 @@ void igQtAnimationWidget::initAnimationComponents() {
 bool igQtAnimationWidget::saveAnimation() {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;
+    auto currentScene = SceneManager::Instance()->GetCurrentScene();
+    if (currentScene->GetCurrentModel() == nullptr ||
+        currentScene->GetCurrentModel()->GetDataObject()->GetTimeFrames()->GetArrays().empty()) {
+        QMessageBox::information(this, "", "请导入带时间帧的文件");
+        return false;
+    }
+    auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
+    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
+
     igQtRenderWidget* rendererWidget =
             igQtOpenGLManager::Instance()->getRenderWidget();
     QStringList filters = {
@@ -421,14 +431,6 @@ bool igQtAnimationWidget::saveAnimation() {
     } else
         return false;
     rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
-
-    auto currentScene = SceneManager::Instance()->GetCurrentScene();
-    auto currentObject = currentScene->GetCurrentModel()->GetDataObject();
-    if (currentObject == nullptr ||
-        currentObject->GetTimeFrames()->GetArrays().empty())
-        return false;
-    size_t timeStepSize = currentObject->GetTimeFrames()->GetTimeNum();
-
 
     for(int i = 0; i < timeStepSize; i ++)
     {

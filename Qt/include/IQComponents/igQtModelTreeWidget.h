@@ -90,7 +90,6 @@ private:
     int index;
     MComboBox* comboBox;
     ModelTreeWidgetItem* parent;
-    static constexpr const char* NAME[4] = {"x", "y", "z", "w"};
 };
 
 class IG_QT_MODULE_EXPORT igQtModelTreeWidget : public QTreeWidget {

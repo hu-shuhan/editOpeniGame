@@ -545,28 +545,28 @@ void igQtMainWindow::initAllFilters() {
     });
 
 
-    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
-    connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto input = rendererWidget->GetScene()
-            ->GetCurrentModel()
-            ->GetDataObject();
-        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
-        auto attributeset=input->GetAttributeSet();
-        double rgb[3]={0,0,0};
-        int fcnt= mesh->GetNumberOfFaces();
-        auto array = DoubleArray::New();
-        array->SetDimension(3);
-        array->Reserve(fcnt);
-        array->SetName("rgb");
-        for (int i = 0; i < fcnt; i++) {
-            rgb[1]=double(i)/double(fcnt);
-            array->AddElement(rgb);
-        }
-        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
-        modelTreeWidget->addDataObjectToModelTree(mesh,
-            ItemSource::File);
-    });
+//    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
+//    connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
+//        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+//        auto input = rendererWidget->GetScene()
+//            ->GetCurrentModel()
+//            ->GetDataObject();
+//        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
+//        auto attributeset=input->GetAttributeSet();
+//        double rgb[3]={0,0,0};
+//        int fcnt= mesh->GetNumberOfFaces();
+//        auto array = DoubleArray::New();
+//        array->SetDimension(3);
+//        array->Reserve(fcnt);
+//        array->SetName("rgb");
+//        for (int i = 0; i < fcnt; i++) {
+//            rgb[1]=double(i)/double(fcnt);
+//            array->AddElement(rgb);
+//        }
+//        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
+//        modelTreeWidget->addDataObjectToModelTree(mesh,
+//            ItemSource::File);
+//    });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
@@ -583,204 +583,10 @@ void igQtMainWindow::initAllFilters() {
     });
 
 
-    connect(ui->menuTest->addAction("tetraSimplTest"), &QAction::triggered,
-            this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-                auto td = TetraDecimation::New();
-                auto obj = rendererWidget->GetScene()
-                                   ->GetCurrentModel()
-                                   ->GetDataObject();
-                DataObject::Pointer input;
-                if (DynamicCast<UnstructuredMesh>(obj)) {
-                    input = DynamicCast<UnstructuredMesh>(obj)
-                                    ->TransferToVolumeMesh();
-                } else if (DynamicCast<VolumeMesh>(obj)) {
-                    input = DynamicCast<VolumeMesh>(obj);
-                }
-
-                td->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-                td->SetInput(input);
-                td->Execute();
-                input->SetName(obj->GetName() + "*");
-                modelTreeWidget->addDataObjectToModelTree(
-                        input, ItemSource::Algorithm);
-                modelTreeWidget->addDataObjectToModelTree(
-                        td->GetOutput(), ItemSource::Algorithm);
-                rendererWidget->update();
-            });
-
-    // add test VolumeMesh
-    connect(ui->menuTest->addAction("test VolumeMesh"), &QAction::triggered,
-            this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-                VolumeMesh::Pointer mesh = VolumeMesh::New();
-                Points::Pointer points = Points::New();
-                CellArray::Pointer cells = CellArray::New();
-
-                const int subdivision = 10;
-                const int subdivision1 = subdivision + 1;
-                const int subdivision1_2 = subdivision1 * subdivision1;
-                const float step = 1.0 / subdivision;
-                auto getIdx = [&](int i, int j, int k) -> int {
-                    return i * subdivision1_2 + j * subdivision1 + k;
-                };
-                points->Resize(subdivision1 * subdivision1 * subdivision1);
-                for (int i = 0; i <= subdivision; ++i) {
-                    for (int j = 0; j <= subdivision; ++j) {
-                        for (int k = 0; k <= subdivision; ++k) {
-                            points->SetPoint(getIdx(i, j, k), i * step,
-                                             j * step, k * step);
-                        }
-                    }
-                }
-                igIndex cell[8];
-                for (int i = 0; i < subdivision; ++i) {
-                    for (int j = 0; j < subdivision; ++j) {
-                        for (int k = 0; k < subdivision; ++k) {
-                            cell[0] = getIdx(i, j, k);
-                            cell[1] = getIdx(i + 1, j, k);
-                            cell[2] = getIdx(i + 1, j + 1, k);
-                            cell[3] = getIdx(i, j + 1, k);
-                            cell[4] = getIdx(i, j, k + 1);
-                            cell[5] = getIdx(i + 1, j, k + 1);
-                            cell[6] = getIdx(i + 1, j + 1, k + 1);
-                            cell[7] = getIdx(i, j + 1, k + 1);
-                            cells->AddCellIds(cell, 8);
-                        }
-                    }
-                }
-                mesh->SetPoints(points);
-                mesh->SetVolumes(cells);
-                mesh->SetName("Test_VolumeMesh");
-                modelTreeWidget->addDataObjectToModelTree(
-                        mesh, ItemSource::Algorithm);
-                rendererWidget->update();
-            });
+//     cp
 
 
-    // add test UnstructuredMesh
-    connect(ui->menuTest->addAction("test UnstructuredMesh"),
-            &QAction::triggered, this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-                UnstructuredMesh::Pointer mesh = UnstructuredMesh::New();
-                Points::Pointer points = Points::New();
-                CellArray::Pointer cells = CellArray::New();
-                UnsignedIntArray::Pointer types = UnsignedIntArray::New();
-
-                const int subdivision = 10;
-                const int subdivision1 = subdivision + 1;
-                const int subdivision1_2 = subdivision1 * subdivision1;
-                const float step = 1.0 / subdivision;
-                auto getIdx = [&](int i, int j, int k) -> int {
-                    return i * subdivision1_2 + j * subdivision1 + k;
-                };
-                points->Resize(subdivision1 * subdivision1 * subdivision1);
-                for (int i = 0; i <= subdivision; ++i) {
-                    for (int j = 0; j <= subdivision; ++j) {
-                        for (int k = 0; k <= subdivision; ++k) {
-                            points->SetPoint(getIdx(i, j, k), i * step,
-                                             j * step, k * step);
-                        }
-                    }
-                }
-                igIndex cell[8];
-                for (int i = 0; i < subdivision; ++i) {
-                    for (int j = 0; j < subdivision; ++j) {
-                        for (int k = 0; k < subdivision; ++k) {
-                            cell[0] = getIdx(i, j, k);
-                            cell[1] = getIdx(i + 1, j, k);
-                            cell[2] = getIdx(i + 1, j + 1, k);
-                            cell[3] = getIdx(i, j + 1, k);
-                            cell[4] = getIdx(i, j, k + 1);
-                            cell[5] = getIdx(i + 1, j, k + 1);
-                            cell[6] = getIdx(i + 1, j + 1, k + 1);
-                            cell[7] = getIdx(i, j + 1, k + 1);
-                            cells->AddCellIds(cell, 8);
-                            types->AddValue(IG_HEXAHEDRON);
-                        }
-                    }
-                }
-                mesh->SetPoints(points);
-                mesh->SetCells(cells, types);
-                mesh->SetName("Test_UnstructuredMesh");
-                modelTreeWidget->addDataObjectToModelTree(
-                        mesh, ItemSource::Algorithm);
-
-                rendererWidget->update();
-            });
-
-	connect(ui->menuTest->addAction("executeMarchingCubes"),
-		&QAction::triggered, this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-			auto obj = rendererWidget->GetScene()
-				->GetCurrentModel()
-				->GetDataObject();
-         auto mesh=DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
-         //mesh->RequestEditStatus();
-         auto res=SurfaceMesh::New();
-         auto res_points=Points::New();
-         auto res_faces=CellArray::New();
- auto faces=mesh->GetFaces();
- int vhs[512]={0};
- int vcnt=0;
- int index=0;
- for (int i = 0; i < faces->GetNumberOfCells(); i++) {
-   vcnt= faces->GetCellIds(i,vhs);
-   for (int j = 2; j < vcnt; j++) {
-       res_points->AddPoint(mesh->GetPoint(vhs[0]));
-       res_points->AddPoint(mesh->GetPoint(vhs[j-1]));
-       res_points->AddPoint(mesh->GetPoint(vhs[j]));
-       res_faces->AddCellId3(index++,index++,index++);
-   }
- }
- res->SetPoints(res_points);
- res->SetFaces(res_faces);
- modelTreeWidget->addDataObjectToModelTree(
-     res, ItemSource::Algorithm);
-		});
-	connect(ui->menuTest->addAction("abc"),
-		&QAction::triggered, this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-			auto obj = rendererWidget->GetScene()
-				->GetCurrentModel()
-				->GetDataObject();
-		auto res=SurfaceMesh::New();
-		auto filter=iGameModelGeometryFilter::New();
-		filter->Execute(obj,res);
-		modelTreeWidget->addDataObjectToModelTree(
-			res, ItemSource::Algorithm);
-		});
-
-    connect(ui->menuTest->addAction("executeClip"), &QAction::triggered, this,
-            [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)
-                    return;
-                auto obj = rendererWidget->GetScene()
-                                   ->GetCurrentModel()
-                                   ->GetDataObject();
-                auto box = obj->GetBoundingBox();
-                auto center = (box.min + box.max) * 0.5;
-                float n[3] = {1, 0, 0};
-                float o[3] = {(float) center[0], (float) center[1],
-                              (float) center[2]};
-                auto filter = ModelClip::New();
-                filter->SetIsSlice(true);
-                filter->SetPlane(o, n);
-                filter->SetInput(0, obj);
-                filter->Execute();
-                auto result = filter->GetOutput(0);
-                modelTreeWidget->addDataObjectToModelTree(
-                        result, ItemSource::Algorithm);
-                rendererWidget->update();
-            });
-
-
-    QMenu* view = ui->menu_filters->addMenu("viewTest");
+    QMenu* view = ui->menu_filters->addMenu("特征提取");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1230,7 +1036,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return;
         if (!rendererWidget->getInteractor()->IsBase()) {
-            rendererWidget->getInteractor()->RequestBasicStyle();
+            SliceDockWidget->show();
+            //rendererWidget->getInteractor()->RequestBasicStyle();
+            return;
+        }
+        if (SliceDockWidget->isHidden() == false) {
             return;
         }
 		SliceDockWidget->show();
@@ -1258,7 +1068,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             modelTreeWidget->updateCurrentModelInfo();
 			rendererWidget->update();
 		});
-
+    connect(SliceWidget, &igQtModelClipWidget::ResetInteractor, this,
+        [&]() {
+            if (!rendererWidget->getInteractor()->IsBase()) {
+                rendererWidget->getInteractor()->RequestBasicStyle();
+                return;
+            }
+        });
     connect(ui->action_deformation, &QAction::triggered, this, [&](bool checked){
         if(checked)DeformationDockWidget->show();
         else DeformationDockWidget->hide();

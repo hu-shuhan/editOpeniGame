@@ -191,7 +191,9 @@ void Model::DrawWithTransparency(Scene* scene) {
             drawObject->m_PointVAO->Release();
         }
         if (viewStyle & IG_POINTS) {
-            scene->GetShader(Scene::NOLIGHT)->Use();
+            auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
+            shader->Use();
+            shader->SetUniform(shader->GetUniformLocation("colorMode"), 1);
 
             drawObject->m_PointVAO->Bind();
             {

@@ -23,7 +23,6 @@ void igQtAnimationVcrController::initController(int keyframeSum, int stepsize) {
 void igQtAnimationVcrController::onTick() {
 
     int step = isForward ? stepSize : -stepSize;
-//    qDebug() << current_keyframe_index << ' ' << step;
     if (current_keyframe_index + step < 0 && !isForward) {
         if (isLoop) step = keyframe_sum - 1 - stepSize;
         else step = -current_keyframe_index;
@@ -60,7 +59,7 @@ void igQtAnimationVcrController::onLoop(bool checked) {
 }
 
 void igQtAnimationVcrController::startTimer() {
-    if (keyframe_sum) timer->start(10);
+    if (keyframe_sum) timer->start(100);
 }
 
 void igQtAnimationVcrController::stopTimer() {

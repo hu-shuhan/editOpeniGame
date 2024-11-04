@@ -23,47 +23,90 @@ public:
 
         auto input = GetInput(0);
         if (input == nullptr) return false;
+
+        auto CheckType = [&]() -> bool {
+            attributeSet = input->GetAttributeSet();
+            if (!attributeSet) return false;
+            curIndex = input->GetAttributeIndex();
+            curDim = input->GetAttributeDimension();
+            if (curIndex < 0) return false;
+
+            int dim = input->GetAttributeSet()
+                              ->GetAttribute(curIndex)
+                              .pointer->GetDimension();
+            if (dim != 1) { return false; }
+            return true;
+        };
+
         switch (input->GetDataObjectType()) {
-            case IG_SURFACE_MESH:
+            case IG_SURFACE_MESH: {
                 surface_Mesh = DynamicCast<SurfaceMesh>(input);
-                break;
-            case IG_VOLUME_MESH:
+                if (!CheckType()) return false;
+            } break;
+            case IG_VOLUME_MESH: {
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
-                break;
+                if (volume_Mesh) {
+                    surface_Mesh = DynamicCast<SurfaceMesh>(
+                            volume_Mesh->GetDisplayObject());
+                    if (!surface_Mesh) return false;
+
+                    if (!CheckType()) return false;
+
+                    FloatArray::Pointer Laplacians = FloatArray::New();
+                    Laplacians->SetDimension(1);
+                    Laplacians->SetName("laplacians");
+                    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
+                }
+            } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
                 surface_Mesh = mesh->TransferToSurfaceMesh();
                 volume_Mesh = mesh->TransferToVolumeMesh();
+
+                if (surface_Mesh) {
+                    if (!CheckType()) return false;
+                }
+
+                if (volume_Mesh) {
+                    surface_Mesh =
+                            DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    if (!surface_Mesh) return false;
+
+                    if (!CheckType()) return false;
+
+                    FloatArray::Pointer Laplacians = FloatArray::New();
+                    Laplacians->SetDimension(1);
+                    Laplacians->SetName("laplacians");
+                    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
+                }
             } break;
             default:
                 return false;
         }
 
-        curIndex = input->GetAttributeIndex();
-        curDim = input->GetAttributeDimension();
-        if (curIndex < 0) return false;
 
-        AttributeSet* attributeSet;
 
         if (volume_Mesh) {
-            attributeSet = volume_Mesh->GetAttributeSet();
-            if (attributeSet == nullptr) return false;
+            //attributeSet = volume_Mesh->GetAttributeSet();
+            //if (attributeSet == nullptr) return false;
 
-            auto attachmentType =
-                    attributeSet->GetAttribute(curIndex).attachmentType;
+            //auto attachmentType =
+            //        attributeSet->GetAttribute(curIndex).attachmentType;
 
-            int VolumeNum = volume_Mesh->GetNumberOfVolumes();
-            int PointNum = volume_Mesh->GetNumberOfPoints();
-            Points::Pointer Points = volume_Mesh->GetPoints();
-            volume_Mesh->RequestEditStatus();
-            // 附着在point
-            if (PointNum != 0 && attachmentType == 0)
-                return GetPointLaplacian(1, Points, PointNum);
-            // 附着在cell
-            else if (VolumeNum != 0 && attachmentType == 1)
-                return GetOtherLaplacian(1, VolumeNum);
+            //int VolumeNum = volume_Mesh->GetNumberOfVolumes();
+            //int PointNum = volume_Mesh->GetNumberOfPoints();
+            //Points::Pointer Points = volume_Mesh->GetPoints();
+            //volume_Mesh->RequestEditStatus();
+            //// 附着在point
+            //if (PointNum != 0 && attachmentType == 0)
+            //    return GetPointLaplacian(1, Points, PointNum);
+            //// 附着在cell
+            //else if (VolumeNum != 0 && attachmentType == 1)
+            //    return GetOtherLaplacian(1, VolumeNum);
 
-        } else if (surface_Mesh) {
+        } 
+        
+        if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
 
@@ -102,7 +145,7 @@ public:
 
         std::vector<float> laplacian(PointNum, 0.0f);
 
-        igIndex neighborVerts[64]{};
+        igIndex neighborVerts[256]{};
         // 计算点的梯度
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             int NeighborNum;
@@ -189,20 +232,20 @@ public:
         laplacians->SetName("laplacians");
         attributeSet->AddScalar(IG_POINT, laplacians);
 
+
+        igIndex neighborVerts[256]{};
         std::vector<float> laplacian(Num, 0.0f);
         for (igIndex idx = 0; idx < Num; ++idx) {
-
-            igIndex* neighbors;
             int NeighborNum;
             // 获取邻接顶点
             if (type == 1)
                 // neighbors:volumeIds
                 NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
-                        idx, neighbors);
+                        idx, neighborVerts);
             else if (type == 0)
                 // neighbors:faceIds
-                NeighborNum =
-                        surface_Mesh->GetFaceToNeighborFaces(idx, neighbors);
+                NeighborNum = surface_Mesh->GetFaceToNeighborFaces(
+                        idx, neighborVerts);
 
             for (int m = 0; m < NeighborNum; m++) {
                 float temp = 0.0;
@@ -211,7 +254,7 @@ public:
                 if (type == 1) {
                     igIndex* volumeIds;
                     auto v1 = volume_Mesh->GetVolume(idx);
-                    auto v2 = volume_Mesh->GetVolume(neighbors[m]);
+                    auto v2 = volume_Mesh->GetVolume(neighborVerts[m]);
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
@@ -226,7 +269,7 @@ public:
 
                 } else if (type == 0) {
                     auto v1 = surface_Mesh->GetFace(idx);
-                    auto v2 = surface_Mesh->GetFace(neighbors[m]);
+                    auto v2 = surface_Mesh->GetFace(neighborVerts[m]);
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
@@ -241,7 +284,7 @@ public:
                 }
                 // 标量计算时就算是三维数据也默认取第一维
                 auto value = data->GetValue(idx * dimension) -
-                             data->GetValue(neighbors[m] * dimension);
+                             data->GetValue(neighborVerts[m] * dimension);
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
 
                 weightSum += weight;
@@ -267,6 +310,8 @@ protected:
 
     SurfaceMesh::Pointer surface_Mesh{};
     VolumeMesh::Pointer volume_Mesh{};
+    AttributeSet* attributeSet{nullptr};
+
     int curIndex{-1};
     int curDim{-1};
 };

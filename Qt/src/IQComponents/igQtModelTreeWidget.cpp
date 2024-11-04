@@ -174,12 +174,20 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index,
 
 void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
+
     comboBox->addItem("magnitude");
-    for (int i = 0; i < length && i < 4; i++) {
-        comboBox->addItem(QString::fromUtf8(NAME[i]));
+    if (length < 2)return;
+    if (length < 4) {
+        if (length > 0) comboBox->addItem(QString::fromStdString("x"));
+        if (length > 1) comboBox->addItem(QString::fromStdString("y"));
+        if (length > 2) comboBox->addItem(QString::fromStdString("z"));
+    }
+    else {
+        for (int i = 0; i < length; i++) {
+            comboBox->addItem(QString::fromStdString("D" + std::to_string(i)));
+        }
     }
     comboBox->setCurrentIndex(0);
-
 }
 
 igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent)
@@ -234,14 +242,14 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             setItemSelected(item, true);
             item->getModel()->ViewCloudPicture(-1);
             emit ChangeCurrentModel(item->getModel());
+
+            auto* current = dynamic_cast<AttribTreeWidgetItem*>(
+                    item->getCurrentChild());
+            if (current) { current->hide(); }
+            item->setCurrentChild(nullptr);
+            if (currentModelItem != item) { this->setCurrentModelItem(item); }
         }
-        auto* current =
-                dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
-        if (current) { current->hide(); }
-        item->setCurrentChild(nullptr);
-        if (currentModelItem != item) { 
-            this->setCurrentModelItem(item);
-        }
+
 
     } else if ((child = getChild(event->pos())) && child) {
         int index = child->data(0, Qt::UserRole).toInt();
