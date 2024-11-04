@@ -17,9 +17,20 @@ void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
     std::cout << "change:" << hR << "," << hL << "," << tR << std::endl;
     return;
 }
+std::vector<float> iGameVectorBase::GetArrow() {
+    std::vector<float> result;
+    result.emplace_back(hR);
+    result.emplace_back(hL);
+    result.emplace_back(tR);
+    result.emplace_back(tL);
+    return result;
+}
 void iGameVectorBase::SetInit(bool init) {
     isInit = init;
     return;
+}
+bool iGameVectorBase::GetInit() {
+    return isInit;
 }
 void iGameVectorBase::ComputeBoundingBox() {
     if (m_Bounding.isNull() ||
@@ -167,6 +178,43 @@ bool iGameVectorBase::DrawVector(std::string VecName) {
    // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
    // maxLength = (bound.max - bound.min).length();
 
+}
+bool iGameVectorBase::DrawVector(std::string VecName, iGame::Model* _model) {
+    if (!isInit) {
+        model = _model;
+        if (!model) return false;
+        isInit = true;
+    }
+    auto obj = model->GetDataObject();
+    if (!obj) return false;
+    iGame::AttributeSet* _AttributeSet;
+    m_Triangles->Reset();
+    m_PositionColors->Reset();
+    index->Reset();
+    count = 0;
+    if (obj->HasSubDataObject()) {
+        auto it = obj->SubDataObjectIteratorBegin();
+        bool canDraw = false;
+        for (; it != obj->SubDataObjectIteratorEnd(); it++) {
+            auto subObj = it->second;
+            if (addArrow2Draw(subObj, VecName)) { canDraw = true; }
+        }
+        if (canDraw) {
+            ConvertToDrawableData();
+        } else {
+            return false;
+        }
+    } else {
+        if (addArrow2Draw(obj, VecName)) {
+            ConvertToDrawableData();
+            return true;
+        } else {
+            return false;
+        };
+    }
+
+    // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
+    // maxLength = (bound.max - bound.min).length();
 }
 void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
                                          Vector3f RGB) {

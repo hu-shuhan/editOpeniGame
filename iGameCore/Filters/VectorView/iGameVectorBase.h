@@ -37,8 +37,11 @@ private:
 
 public:
     void SetArrow(float _hR, float _hL, float _tR, float _tL);
+    std::vector<float> GetArrow();
     void SetInit(bool init);
+    bool GetInit();
     bool DrawVector(std::string VecName);
+    bool DrawVector(std::string VecName,iGame::Model* _model);
     bool addArrow2Draw(iGame::DataObject* obj, std::string VecName);
     void convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB);
     //void Draw(Scene*) override;
