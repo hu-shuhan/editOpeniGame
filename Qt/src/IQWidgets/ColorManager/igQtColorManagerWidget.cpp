@@ -66,7 +66,7 @@ void igQtColorManagerWidget::updataManagerColorBar()
 }
 void igQtColorManagerWidget::resetColorRange()
 {
-	ui->widget_ColorRangeSlider->initColorRanges();
+	ui->widget_ColorRangeSlider->InitColorRangeSlider();
 }
 
 void igQtColorManagerWidget::slotColorItemSel(QColor c)

@@ -12,47 +12,41 @@ public:
 	static Pointer New() { return new ScalarsToColors; }
 
 	/*Get the range of scaled data*/
-	virtual float* GetRange();
-	virtual void InitRange(ArrayObject::Pointer input) {
-		if(this->VectorMode== RGBCOLORS)return;
-		this->SetVectorModeToMagnitude();
-		InitRange(input, 0, -1);
-	}
-	/*Init the range of scaled data,the data is input,the component is the scaled component*/
-	virtual void InitRange(ArrayObject::Pointer input, int component) {
-		if (this->VectorMode == RGBCOLORS)return;
-		if (component < 0) {
-			return InitRange(input);
-		}
-		this->SetVectorModeToComponent();
-		InitRange(input, component, 1);
-	}
-	/*Init the range of scaled data,the data is input,
-	the component is the scaled component,the size is the length to scale*/
-	virtual void InitRange(ArrayObject::Pointer input, int component, int size);
+	float* GetRange();
+	/*Init the range of scaled data with magnitude mode,
+	if current mode is RGB , this will do nothing*/
+	void InitRange(ArrayObject::Pointer input);
+	/*Init the range of scaled data with component mode,
+	if current mode is RGB , this will do nothing*/
+	void InitRange(ArrayObject::Pointer input, int component);
+	/*Init the range of scaled data, the data is input,
+	the component is the scaled component, the size is the length to scale, 
+	if current mode is RGB , this will do nothing*/
+	void InitRange(ArrayObject::Pointer input, int component, int size);
+
 	/*Set the range of scaled data*/
-	virtual void SetRange(float min, float max);
-	virtual void SetRange(const float rng[2]) { this->SetRange(rng[0], rng[1]); }
+	void SetRange(float min, float max);
+	void SetRange(const float rng[2]) { this->SetRange(rng[0], rng[1]); }
 	/*Map the value to rgb,return the unsignend char array,means the rgb data with range 0-255
 	  note the value is not scaled,so you need give the shift and scale to scale the value*/
-	virtual const unsigned char* MapValue(float v, float& shift, float& scale);
+	const unsigned char* MapValue(float v, float& shift, float& scale);
 	/*Map the value to rgb,return the float array,means the rgb data with range 0.0-1.0
 	  note the value is not scaled,so you need give the shift and scale to scale the value*/
-	virtual const float* MapValueToRGB(float v, float& shift, float& scale);
-	virtual void MapValueToRGB(float v, float* rgb, float& shift, float& scale);
+	const float* MapValueToRGB(float v, float& shift, float& scale);
+	void MapValueToRGB(float v, float* rgb, float& shift, float& scale);
 	/*Compute the shift and scale*/
 	void ComputeShiftScale(float& shift, float& scale);
 	/*Get Color with the value, shift and scale*/
-	virtual void GetColor(float v, float rgb[3], float& shift, float& scale);
-	virtual void GetColor(float v, float rgb[3]) {
+	void GetColor(float v, float rgb[3], float& shift, float& scale);
+	void GetColor(float v, float rgb[3]) {
 		float shift = 0.0, scale = 1.0;
 		this->ComputeShiftScale(shift, scale);
 		GetColor(v, rgb, shift, scale);
 	}
 	/*Get the opacity of value v,temporarily fixed return 1.0 */
-	virtual float GetOpacity(float v) { return 1.0; };
+	float GetOpacity(float v) { return 1.0; };
 	/*Set the opacity*/
-	virtual void SetAlpha(float alpha);
+	void SetAlpha(float alpha);
 	/*Get the luminance with no scaled value x,note the value is not scaled,
 	so you need give the shift and scale to scale the value*/
 	float GetLuminance(float x, float& shift, float& scale)
@@ -66,9 +60,9 @@ public:
 	the outputFormat is the color's dimension that return,
 	3 means the rgb, 4 means the rgba, 1 means the Grayscale
 	*/
-	virtual FloatArray::Pointer MapScalars(
+	FloatArray::Pointer MapScalars(
 		ArrayObject::Pointer scalars, int component, int outputFormat = 3);
-	virtual FloatArray::Pointer MapScalars(ArrayObject::Pointer scalars) {
+	FloatArray::Pointer MapScalars(ArrayObject::Pointer scalars) {
 		return MapScalars(scalars, -1, 3);
 	}
 	/*Map scalars, return the color array with unsigned char type,
@@ -76,7 +70,7 @@ public:
 	the outputFormat is the color's dimension that return,
 	3 means the rgb, 4 means the rgba, 1 means the Grayscale
 	*/
-	//virtual iGameUnsignedCharArray* MapScalars(
+	//  iGameUnsignedCharArray* MapScalars(
 	//	iGameAbstractArray* scalars, int component, int outputFormat = 3);
 
 	/*Set map mode, component means the single-dimensional,
@@ -98,10 +92,10 @@ public:
 	/*vectorComponent means the start dimension,
 	vectorSize means the size to compute,for example,
 	vectorComponent=0，vectorSize=1 means the first dimension to compute color*/
-	void MapVectorsThroughTable(ArrayObject::Pointer input, FloatArray::Pointer output, int outputFormat,
+	void MapVectorsToColors(ArrayObject::Pointer input, FloatArray::Pointer output, int outputFormat,
 		int vectorComponent, int vectorSize);
-	void MapVectorsThroughTable(ArrayObject::Pointer input, FloatArray::Pointer output, int outputFormat) {
-		this->MapVectorsThroughTable(input, output, outputFormat, -1, -1);
+	void MapVectorsToColors(ArrayObject::Pointer input, FloatArray::Pointer output, int outputFormat) {
+		this->MapVectorsToColors(input, output, outputFormat, -1, -1);
 	}
 	/*change real rgb (range 0.0 to 1.0)to unsigned char type (0,255)*/
 	template <typename T>
@@ -110,8 +104,8 @@ public:
 		return static_cast<unsigned char>(t);
 	}
 	template <typename T>
-	static void ColorToUChar(T t, unsigned char* dest) {
-		*dest = ColorToUChar(t);
+	static void ColorToUChar(T t, unsigned char* ct) {
+		*ct = ColorToUChar(t);
 	}
 	/*Get the info with compute data*/
 	int GetVectorMode() { return this->VectorMode; };
