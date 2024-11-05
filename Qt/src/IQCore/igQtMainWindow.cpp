@@ -545,30 +545,26 @@ void igQtMainWindow::initAllFilters() {
     });
 
 
-//    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
-//    connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-//        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-//        auto input = rendererWidget->GetScene()
-//            ->GetCurrentModel()
-//            ->GetDataObject();
-//        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
-//        auto attributeset=input->GetAttributeSet();
-//        double rgb[3]={0,0,0};
-//        int fcnt= mesh->GetNumberOfFaces();
-//        auto array = DoubleArray::New();
-//        array->SetDimension(3);
-//        array->Reserve(fcnt);
-//        array->SetName("rgb");
-//        for (int i = 0; i < fcnt; i++) {
-//            rgb[1]=double(i)/double(fcnt);
-//            array->AddElement(rgb);
-//        }
-//        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
-//        modelTreeWidget->addDataObjectToModelTree(mesh,
-//            ItemSource::File);
-//    });
+    auto action_subdivision = ui->menu_filters->addAction("rgbscalar");
+    connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto input = rendererWidget->GetScene()
+            ->GetCurrentModel()
+            ->GetDataObject();
+        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
+       auto Points=mesh->GetPoints();
+       auto finder=PointFinder::New();
+       finder->Initialize(Points::New(),mesh->GetBoundingBox(),100,100);
+       for (int i = 0; i < Points->GetNumberOfPoints(); i++) {
+           auto p=Points->GetPoint(i);
+           int pid=finder->InsertUniquePoint(p);
+           std::cout<<pid<<std::endl;
+           pid = finder->InsertUniquePoint(p);
+           std::cout << pid << std::endl;
+       }
+    });
 
-    auto action_tensorview = ui->menu_help->addAction("tensorview");
+    auto action_tensorview = ui->menu_filters->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto chart = new igQtCharts;
