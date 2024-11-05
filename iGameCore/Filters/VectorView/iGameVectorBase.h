@@ -32,6 +32,7 @@ private:
     float hL;
     float tR;
     float tL;
+    std::pair<int, int> CellIndexRange = std::pair<int, int>(0, 600);
    // float maxLength;
     unsigned int count;
 
@@ -40,6 +41,8 @@ public:
     std::vector<float> GetArrow();
     void SetInit(bool init);
     bool GetInit();
+    void SetCellRange(int min, int max);
+    std::pair<int,int> GetCellRange();
     bool DrawVector(std::string VecName);
     bool DrawVector(std::string VecName,iGame::Model* _model);
     bool addArrow2Draw(iGame::DataObject* obj, std::string VecName);

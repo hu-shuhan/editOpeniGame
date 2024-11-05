@@ -32,6 +32,7 @@ void iGameVectorBase::SetInit(bool init) {
 bool iGameVectorBase::GetInit() {
     return isInit;
 }
+
 void iGameVectorBase::ComputeBoundingBox() {
     if (m_Bounding.isNull() ||
         m_BoundingHelper->GetMTime() < m_Triangles->GetMTime()) {
@@ -87,7 +88,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         Vector1->SetDimension(3);
         Vector1->Resize(0);
         igIndex index = 0;
-        for (int i = 0; i < 600; i++) {
+        for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
             float v[4] = {0.0f};
             allVectors.pointer->GetElement(i, v);
             Vector1->AddElement3(v[0], v[1], v[2]);
@@ -120,7 +121,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
             auto allVolume = volumeMesh->GetVolumes();
             auto allPoints = volumeMesh->GetPoints();
          //   int temCount = 0;
-            for (int i = 0; i < 600; i++) {
+            for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
                 float v[4] = {0.0f};
                 allVectors.pointer->GetElement(i, v);
                 auto center = centerCul.GetCenter(allPoints, allVolume, i);
@@ -137,11 +138,17 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         return false;
     }
 }
-bool iGameVectorBase::DrawVector(std::string VecName) {
+void iGameVectorBase::SetCellRange(int min, int max) {
+    CellIndexRange.first = min;
+    CellIndexRange.second = max;
+}
+std::pair<int,int> iGameVectorBase::GetCellRange() { return CellIndexRange; }
+    bool iGameVectorBase::DrawVector(std::string VecName) {
     if (!isInit) {
         auto sceneManager = iGame::SceneManager::Instance();
         auto scene = sceneManager->GetCurrentScene();
         if (!scene) return false;
+       // scene->AddModel(scene->CreateModel(this));
         model = scene->GetCurrentModel();
         if (!model) return false;
         isInit = true;
