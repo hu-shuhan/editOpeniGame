@@ -7,11 +7,34 @@
 #include <QtCore/Qtextcodec.h>
 #endif
 
+#include <iGameScene.h>
+#include <iGameRenderWindow.h>
+#include <iGameInteractor.h>
+#include <iGameFileIO.h>
+
 int main(int argc, char* argv[]) {
 
-    //	::testing::InitGoogleTest(&argc, argv);
-    //	// 运行所有测试
-    //	return RUN_ALL_TESTS();
+
+//    /* 创建场景*/
+//    auto scene = iGame::Scene::New();
+//    /* 读取文件测试并将其放入场景*/
+//    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\sukong\\sukong.pvd";
+//    iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
+//    if(obj != nullptr){
+//        scene->AddModel(obj);
+//    } else {
+//        std::cout << "Read ERROR!\n";
+//    }
+//
+//    /* 启动窗口设置*/
+//    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+//    window->setSize(1920, 1080);
+//    window->setScene(scene);
+//    auto basicInteractor = iGame::Interactor::New();
+//    basicInteractor->Initialize(scene);
+//    window->setInteractor(basicInteractor);
+//    window->show();
+
 
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(

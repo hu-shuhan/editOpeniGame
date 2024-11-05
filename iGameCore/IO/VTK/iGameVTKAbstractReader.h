@@ -14,8 +14,7 @@ class VTKAbstractReader : public FileReader {
 public:
 	I_OBJECT(VTKAbstractReader);
 
-	//virtual void ParseBufferWithFileType() = 0;
-	//virtual void GenerateBufferWithFileType() = 0;
+
 
 	//VTKTYPE
 	enum VTKTYPE {
@@ -79,12 +78,13 @@ public:
 	int ReadNormalData(int num);
 	int ReadTensorData(int num, int numComp = 9);
 	int ReadCoScalarData(int num);
-	int ReadLutData();
+
 	int ReadTCoordsData(int num);
 	int ReadGlobalIds(int num);
 	int ReadPedigreeIds(int num);
 	int ReadEdgeFlags(int num);
-
+	// temporarily not used ,wil be processed in fulturt
+	int ReadLutData();
 	//read cells with offset type, that means cells load with cellId(offset) and cell connectivity
 	int ReadCellsWithOffsetType(int& CellNum,ArrayObject::Pointer& CellsId, ArrayObject::Pointer& CellsConnect);
 	//read cells with offset type, that means cells load with cellsize and cell vert set

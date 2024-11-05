@@ -17,24 +17,27 @@ namespace
 igQtColorRangeSlider::igQtColorRangeSlider(QWidget* aParent)
     : QWidget(aParent)
 {
-    this->setAttribute(Qt::WA_TranslucentBackground, true);//设置窗口背景透明，好像没效果
+    this->setAttribute(Qt::WA_TranslucentBackground, true);
     this->colorBarHeight = SliderBarHeight;
     setMouseTracking(true);
-    initColorRanges();
+    InitColorRangeSlider();
 }
-void igQtColorRangeSlider::initColorRanges() {
-    //auto iGameColorBar = iGame::iGameModelColorManager::Instance()->GetColorMapper();
+void igQtColorRangeSlider::InitColorRangeSlider() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
     if (scene) {
         auto model = scene->GetCurrentModel();
         if (model && model->GetDataObject()) {
-            m_ColorMapper = model->GetDataObject()->GetColorMapper();
+            this->UpdateSliderWithColorBar(model->GetDataObject()->GetColorMapper());
+          
         }
     }
-    if (!m_ColorMapper) { m_ColorMapper = iGame::ColorMap::NewInstance(); }
 
-    this->m_TmpColorMapper = iGame::ColorMap::NewInstance();
+}
+void igQtColorRangeSlider::UpdateSliderWithColorBar(iGame::ColorMap::Pointer colorMap) {
+    m_ColorMapper = colorMap;
+    if (!m_ColorMapper) { m_ColorMapper = iGame::ColorMap::New(); }
+    this->m_TmpColorMapper = iGame::ColorMap::New();
     auto tmpColorBar = iGame::FloatArray::New();
     tmpColorBar->SetDimension(3);
     auto tmpColorRange = iGame::FloatArray::New();
@@ -49,9 +52,9 @@ void igQtColorRangeSlider::initColorRanges() {
     for (int i = 0; i < n; i++) {
         tmpColorRange->AddValue(m_ColorMapper->GetColorRange()->GetValue(i));
     }
-    m_TmpColorMapper->UpdateColorMap(tmpColorBar, tmpColorRange);
+    m_TmpColorMapper->SetColorMap(tmpColorBar, tmpColorRange);
 }
-void igQtColorRangeSlider::updateColorBarDrawInfo() {
+void igQtColorRangeSlider::updateSliderDrawInfo() {
 
     // 计算colors
     this->colorBarLength = this->width() - 2 * LeftRightMargin;
@@ -70,7 +73,7 @@ void igQtColorRangeSlider::updateColorBarDrawInfo() {
 void igQtColorRangeSlider::paintEvent(QPaintEvent* aEvent)
 {
     Q_UNUSED(aEvent);
-    updateColorBarDrawInfo();
+    updateSliderDrawInfo();
     QPainter painter(this);
     int height = this->height();
     int width = this->width();
@@ -154,8 +157,7 @@ void igQtColorRangeSlider::mousePressEvent(QMouseEvent* aEvent)
         }
         float rgb[3] = { 0 };
         m_TmpColorMapper->MapColor(rangeValue, rgb);
-        m_TmpColorMapper->AddColorRange(idx, rangeValue);
-        m_TmpColorMapper->AddColorBar(idx, rgb);
+        m_TmpColorMapper->InsetIndexColorBar(idx, rangeValue,rgb);
         PressedHandle = idx;
         update();
     }
@@ -216,7 +218,7 @@ void igQtColorRangeSlider::mouseReleaseEvent(QMouseEvent* aEvent)
 void igQtColorRangeSlider::updateColorInIndex(QColor c)
 {
     if (PressedHandle != -1) {
-        this->m_TmpColorMapper->SetColorBar(PressedHandle, c.red() / 255.0, c.green() / 255.0, c.blue() / 255.0);
+        this->m_TmpColorMapper->SetIndexColor(PressedHandle, c.red() / 255.0, c.green() / 255.0, c.blue() / 255.0);
     }
     update();
     Q_EMIT rangeChanges();
@@ -236,7 +238,7 @@ void igQtColorRangeSlider::updataManagerColorBarWithMyCorlorBar()
         tmpColorBar->AddElement(rgb);
         tmpColorRange->AddValue(m_TmpColorMapper->GetColorRange()->GetValue(i));
     }
-    m_ColorMapper->UpdateColorMap(tmpColorBar, tmpColorRange);
+    m_ColorMapper->SetColorMap(tmpColorBar, tmpColorRange);
 
 
 }
@@ -245,19 +247,19 @@ void igQtColorRangeSlider::changeColorBarWithDefaultMode(int mode)
     switch (mode)
     {
     case 0:
-        this->initColorRanges();
+        this->InitColorRangeSlider();
         break;
     case 1:
-        this->m_TmpColorMapper->ResetColorBar(1);//灰度
+        this->m_TmpColorMapper->InitColorBarWithGrayScaleType();//灰度
         break;
     case 2:
-        this->m_TmpColorMapper->ResetColorBar(2);//蓝红
+        this->m_TmpColorMapper->InitColorBarWithBlueWhiteRedType();//蓝红
         break;
     case 3:
-        this->m_TmpColorMapper->ResetColorBar(4);//蓝绿黄红
+        this->m_TmpColorMapper->InitColorBarWithBlueCyanGreenYellowRedType();//蓝绿黄红
         break;
     case 4:
-        this->m_TmpColorMapper->ResetColorBar(5);//蓝绿黄红紫
+        this->m_TmpColorMapper->InitColorBarWithBlueCyanGreenYellowRedMagentaType();//蓝绿黄红紫
         break;
     default:
         break;

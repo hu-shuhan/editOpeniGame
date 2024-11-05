@@ -4,7 +4,7 @@ add_subdirectory(freetype-2.13.3)
 add_subdirectory(eigen-3.4.0)
 add_subdirectory(meshoptimizer-0.21)
 add_subdirectory(vtkkwiml)
-
+add_subdirectory(glfw-3.4)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 

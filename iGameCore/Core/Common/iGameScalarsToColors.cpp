@@ -3,7 +3,7 @@
 #include <time.h>
 
 IGAME_NAMESPACE_BEGIN
-//------------------------------------------------------------------------------
+ 
 ScalarsToColors::ScalarsToColors()
 {
 	this->Alpha = 1.0;
@@ -16,40 +16,54 @@ ScalarsToColors::ScalarsToColors()
 	this->InputRange[1] = 255.0;
 }
 
-//------------------------------------------------------------------------------
+ 
 ScalarsToColors::~ScalarsToColors()
 {
 
 }
 
 
-//------------------------------------------------------------------------------
+ 
 void ScalarsToColors::SetVectorModeToComponent()
 {
 	this->SetVectorMode(ScalarsToColors::COMPONENT);
 }
 
-//------------------------------------------------------------------------------
+ 
 void ScalarsToColors::SetVectorModeToMagnitude()
 {
 	this->SetVectorMode(ScalarsToColors::MAGNITUDE);
 }
 
-//------------------------------------------------------------------------------
+ 
 void ScalarsToColors::SetVectorModeToRGBColors()
 {
 	this->SetVectorMode(ScalarsToColors::RGBCOLORS);
 }
 
 
-//------------------------------------------------------------------------------
+ 
 // do not use SetMacro() because we do not want the table to rebuild.
 void ScalarsToColors::SetAlpha(float alpha)
 {
 	this->Alpha = (alpha < 0.0 ? 0.0 : (alpha > 1.0 ? 1.0 : alpha));
 }
 
-//------------------------------------------------------------------------------
+void ScalarsToColors::InitRange(ArrayObject::Pointer input) {
+	if (this->VectorMode == RGBCOLORS)return;
+	this->SetVectorModeToMagnitude();
+	InitRange(input, 0, -1);
+}
+
+void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component) {
+	if (this->VectorMode == RGBCOLORS)return;
+	if (component < 0) {
+		return InitRange(input);
+	}
+	this->SetVectorModeToComponent();
+	InitRange(input, component, 1);
+}
+
 void ScalarsToColors::SetRange(float minval, float maxval)
 {
 	if (this->InputRange[0] != minval || this->InputRange[1] != maxval)
@@ -58,12 +72,12 @@ void ScalarsToColors::SetRange(float minval, float maxval)
 		this->InputRange[1] = maxval;
 	}
 }
-//------------------------------------------------------------------------------
+ 
 float* ScalarsToColors::GetRange()
 {
 	return this->InputRange;
 }
-//------------------------------------------------------------------------------
+ 
 void ScalarsToColors::ComputeShiftScale(float& shift, float& scale)
 {
 	constexpr float minscale = -1e17;
@@ -78,7 +92,7 @@ void ScalarsToColors::ComputeShiftScale(float& shift, float& scale)
 		scale = (scale < 0.0 ? minscale : maxscale);
 	}
 }
-//------------------------------------------------------------------------------
+ 
 void ScalarsToColors::GetColor(float v, float rgb[3], float& shift, float& scale)
 {
 	constexpr float minval = 0.0;
@@ -90,7 +104,7 @@ void ScalarsToColors::GetColor(float v, float rgb[3], float& shift, float& scale
 }
 
 
-//------------------------------------------------------------------------------
+ 
 const unsigned char* ScalarsToColors::MapValue(float v, float& shift, float& scale)
 {
 	float rgb[3];
@@ -112,11 +126,11 @@ void ScalarsToColors::MapValueToRGB(float v, float* rgb, float& shift, float& sc
 {
 	this->GetColor(v, rgb, shift, scale);
 }
-//------------------------------------------------------------------------------
+ 
 
 void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component, int size)
 {
-	if (this->VectorMode == IG_RGB)return;
+	if (this->VectorMode == RGBCOLORS)return;
 	float minv = FLT_MAX;
 	float maxv = -FLT_MAX;
 	int vectorMode = this->GetVectorMode();
@@ -201,12 +215,12 @@ FloatArray::Pointer ScalarsToColors::MapScalars(
 	newColors->SetDimension(outputFormat);
 	newColors->Resize(scalars->GetNumberOfElements());
 	if (this->VectorMode == RGBCOLORS) {
-		this->MapVectorsThroughTable(scalars, newColors, outputFormat);
+		this->MapVectorsToColors(scalars, newColors, outputFormat);
 		return newColors;
 	}
 	if (component < 0 && numberOfComponents>1) {
 		this->SetVectorModeToMagnitude();
-		this->MapVectorsThroughTable(scalars, newColors, outputFormat);
+		this->MapVectorsToColors(scalars, newColors, outputFormat);
 	}
 	else {
 		if (component < 0) {
@@ -216,13 +230,13 @@ FloatArray::Pointer ScalarsToColors::MapScalars(
 			component = numberOfComponents - 1;
 		}
 		// Map the scalars to colors
-		this->MapVectorsThroughTable(scalars, newColors, outputFormat, component, 1);
+		this->MapVectorsToColors(scalars, newColors, outputFormat, component, 1);
 	}
 	return newColors;
 }
-//------------------------------------------------------------------------------
+ 
 // Map a set of vector values through the table
-void ScalarsToColors::MapVectorsThroughTable(ArrayObject::Pointer input, FloatArray::Pointer output,
+void ScalarsToColors::MapVectorsToColors(ArrayObject::Pointer input, FloatArray::Pointer output,
 	int outputFormat, int vectorComponent, int vectorSize)
 {
 	clock_t time1 = clock();
