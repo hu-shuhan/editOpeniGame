@@ -145,6 +145,7 @@ void igQtRenderWidget::initializeGL() {
     // 目前当窗口
     SceneManager::Pointer sceneManager = SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
+    m_Scene->Init();
     m_Scene->SetUpdateFunctor(&igQtRenderWidget::update, this);
     m_Scene->SetMakeCurrentFunctor(&igQtRenderWidget::makeCurrent, this);
     m_Scene->SetDoneCurrentFunctor(&igQtRenderWidget::doneCurrent, this);
