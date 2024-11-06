@@ -206,6 +206,9 @@ void Scene::ResetCenter() {
 }
 
 void Scene::ChangeModelVisibility(Model* model, bool visibility) {
+    auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+    drawObject->SetVisibility(visibility);
+
     UpdateModelsBoundingSphere();
 
     if (visibility) {
