@@ -5,37 +5,43 @@
 
 #include "iGameRenderWindow.h"
 
-#include "iGameScene.h"
 #include "iGameInteractor.h"
+#include "iGameScene.h"
 
-#include<GLFW/glfw3.h>
+#include <GLFW/glfw3.h>
 iGame::RenderWindow::RenderWindow() {
-    //³õÊ¼»¯glfw
+    //ï¿½ï¿½Ê¼ï¿½ï¿½glfw
     glfwInit();
-    //Éè¶¨glfw°æ±¾
+    //ï¿½è¶¨glfwï¿½æ±¾
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    //Éè¶¨glfwÎªºËÐÄ×´Ì¬
+    //ï¿½è¶¨glfwÎªï¿½ï¿½ï¿½ï¿½×´Ì¬
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    m_window = glfwCreateWindow(m_window_width, m_window_height, m_title.c_str(), NULL, NULL);
-    //  Éè¶¨Ö÷´°¿Ú
+    m_window = glfwCreateWindow(m_window_width, m_window_height,
+                                m_title.c_str(), NULL, NULL);
+    //  ï¿½è¶¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     glfwMakeContextCurrent(m_window);
-    // ÉèÖÃ¶ÔÏóÖ¸Õë£¬·½±ãÔÚ»Øµ÷ÖÐ·ÃÎÊ
+    // ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½ï¿½Ö¸ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ú»Øµï¿½ï¿½Ð·ï¿½ï¿½ï¿½
     glfwSetWindowUserPointer(m_window, this);
-    // ÉèÖÃ framebuffer »Øµ÷
-    glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
-        auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
-        if(!this_window) return;
-        // µ÷ÓÃäÖÈ¾Æ÷µÄ resize ·½·¨
+    // ï¿½ï¿½ï¿½ï¿½ framebuffer ï¿½Øµï¿½
+    glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width,
+                                                int height) {
+        auto* this_window =
+                static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
+        if (!this_window) return;
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ resize ï¿½ï¿½ï¿½ï¿½
         this_window->resizeScene();
     });
 
-    glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int button, int action, int height){
-        auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
-        if(this_window == nullptr || this_window->m_Interactor == nullptr) return;
+    glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int button,
+                                            int action, int height) {
+        auto* this_window =
+                static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
+        if (this_window == nullptr || this_window->m_Interactor == nullptr)
+            return;
         IEvent event;
-        switch (action){
+        switch (action) {
             case GLFW_PRESS:
                 event.type = IEvent::MousePress;
                 break;
@@ -64,9 +70,12 @@ iGame::RenderWindow::RenderWindow() {
         this_window->m_Interactor->FilterEvent(event);
     });
 
-    glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double xoffset, double yoffset){
-        auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
-        if(this_window == nullptr || this_window->m_Interactor == nullptr) return;
+    glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double xoffset,
+                                          double yoffset) {
+        auto* this_window =
+                static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
+        if (this_window == nullptr || this_window->m_Interactor == nullptr)
+            return;
         auto M_Event = this_window->m_Event;
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
@@ -76,9 +85,12 @@ iGame::RenderWindow::RenderWindow() {
         this_window->m_Interactor->FilterEvent(M_Event);
     });
 
-    glfwSetScrollCallback(m_window, [](GLFWwindow* window, double xoffset, double yoffset){
-        auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
-        if(this_window == nullptr || this_window->m_Interactor == nullptr) return;
+    glfwSetScrollCallback(m_window, [](GLFWwindow* window, double xoffset,
+                                       double yoffset) {
+        auto* this_window =
+                static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
+        if (this_window == nullptr || this_window->m_Interactor == nullptr)
+            return;
         auto M_Event = this_window->m_Event;
         M_Event.type = IEvent::Wheel;
         M_Event.delta = 120 * yoffset;
@@ -86,41 +98,36 @@ iGame::RenderWindow::RenderWindow() {
     });
 }
 
-iGame::RenderWindow::~RenderWindow() {
-
-}
+iGame::RenderWindow::~RenderWindow() {}
 
 void iGame::RenderWindow::show() {
-    while (!glfwWindowShouldClose(m_window))
-    {
+    while (!glfwWindowShouldClose(m_window)) {
         /* Render here */
-        if(m_scene) m_scene->Draw();
+        if (m_scene) m_scene->Draw();
         /* Swap front and back buffers */
         glfwSwapBuffers(m_window);
         /* Poll for and process events */
         glfwPollEvents();
     }
-
 }
 
-void iGame::RenderWindow::setScene(iGame::Scene *_scene) {
+void iGame::RenderWindow::setScene(iGame::Scene* _scene) {
     m_scene = _scene;
-    m_scene->Init();
+    m_scene->Initialize();
     resizeScene();
 }
 
-void iGame::RenderWindow::setInteractor(iGame::Interactor *_interactor) {
+void iGame::RenderWindow::setInteractor(iGame::Interactor* _interactor) {
     m_Interactor = _interactor;
     m_Event = IEvent();
 }
-
 
 
 void iGame::RenderWindow::resizeScene() {
     glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
     int frameBufferWidth, frameBufferHeight;
     glfwGetFramebufferSize(m_window, &frameBufferWidth, &frameBufferHeight);
-    if(m_scene == nullptr) return ;
+    if (m_scene == nullptr) return;
     int pixelRatio = frameBufferWidth / m_window_width;
     m_scene->Resize(m_window_width, m_window_height, pixelRatio);
 }
@@ -130,12 +137,12 @@ void iGame::RenderWindow::setSize(int width, int height) {
     resizeScene();
 }
 
-void iGame::RenderWindow::setTitle(const char *title) {
+void iGame::RenderWindow::setTitle(const char* title) {
     m_title = title;
     glfwSetWindowTitle(m_window, m_title.c_str());
 }
 
-void iGame::RenderWindow::setTitle(const std::string &title) {
+void iGame::RenderWindow::setTitle(const std::string& title) {
     m_title = title;
     glfwSetWindowTitle(m_window, m_title.c_str());
 }

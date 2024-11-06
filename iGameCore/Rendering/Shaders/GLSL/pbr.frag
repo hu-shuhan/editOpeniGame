@@ -5,6 +5,7 @@
 
 layout(std140, binding = 0) uniform CameraDataBlock {
     vec3 viewPos;
+    int isOrtho;
     mat4 view;
     mat4 proj;
     mat4 proj_view;// proj * view
@@ -18,14 +19,15 @@ layout(std140, binding = 1) uniform ObjectDataBLock {
 } objectData;
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
-    bool useColor;
-    bool useNormalSmooth;
+    int useColor;
+    int useNormalSmooth;
 } ubo;
 
-layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Color;
-layout(location = 2) in vec3 in_Normal;
-layout(location = 3) in vec2 in_UV;
+layout(location = 0) in vec3 in_MCPosition;
+layout(location = 1) in vec3 in_VCPosition;
+layout(location = 2) in vec3 in_Color;
+layout(location = 3) in vec3 in_Normal;
+layout(location = 4) in vec2 in_UV;
 
 layout(location = 0) out vec4 out_ScreenColor;
 
@@ -93,14 +95,25 @@ void main()
 {
     //    vec3 N = normalize(in_Normal);
     vec3 N = vec3(0.0, 0.0, 0.0);
-    if (ubo.useNormalSmooth) {
+    if (ubo.useNormalSmooth == 1) {
         // continuous patch
         N = normalize(in_Normal);
     } else {
         // discrete patch
-        N = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+        float scale = 1.0 / length(fwidth(in_VCPosition));
+        vec3 fdx = dFdx(in_VCPosition) * scale;
+        vec3 fdy = dFdy(in_VCPosition) * scale;
+        N = normalize(cross(fdx, fdy));
     }
-    vec3 V = normalize(cameraData.viewPos - in_Position);
+    // correct normal orientation
+    if (cameraData.isOrtho == 1 && N.z < 0.0f) {
+        N = -1.0 * N;
+    }
+    if (cameraData.isOrtho == 0 && dot(N, in_VCPosition) > 0.0f) {
+        N = -1.0 * N;
+    }
+
+    vec3 V = normalize(cameraData.viewPos - in_MCPosition);
 
     // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0 
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
