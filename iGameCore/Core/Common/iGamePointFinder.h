@@ -157,7 +157,7 @@ public:
 		int pId = FindClosestPoint(x);
 		if (pId != -1) {
 			auto p = m_Points->GetPoint(pId);
-			if ((x - p).squaredLength() > 1e-10) {
+			if ((x - p).squaredLength() !=0.0) {
 				pId = -1;
 			}
 		}

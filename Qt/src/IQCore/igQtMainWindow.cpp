@@ -551,17 +551,48 @@ void igQtMainWindow::initAllFilters() {
         auto input = rendererWidget->GetScene()
             ->GetCurrentModel()
             ->GetDataObject();
-        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
-       auto Points=mesh->GetPoints();
-       auto finder=PointFinder::New();
-       finder->Initialize(Points::New(),mesh->GetBoundingBox(),100,100);
-       for (int i = 0; i < Points->GetNumberOfPoints(); i++) {
-           auto p=Points->GetPoint(i);
-           int pid=finder->InsertUniquePoint(p);
-           std::cout<<pid<<std::endl;
-           pid = finder->InsertUniquePoint(p);
-           std::cout << pid << std::endl;
-       }
+        auto filter=iGame::ModelClip::New();
+        filter->SetInput(input);
+        auto bound=input->GetBoundingBox();
+        auto ori=(bound.min+bound.max)/2;
+        float n[3]={0,1,0};
+        float o[3]={ori[0],ori[1],ori[2]};
+        filter->SetPlane(o,n);
+        filter->SetIsSlice(false);
+        filter->Execute();
+        auto res=DynamicCast<UnstructuredMesh>(filter->GetOutput());
+        auto ori_points=res->GetPoints();
+        auto ori_cells=res->GetCells();
+        auto new_points= iGame::Points::New();
+        auto new_cells=iGame::CellArray::New();
+        auto Finder=iGame::PointFinder::New();
+        int pNum=ori_points->GetNumberOfPoints();
+        int cNum= ori_cells->GetNumberOfCells();
+        Finder->Initialize(new_points,res->GetBoundingBox(),std::sqrt(pNum)*2, std::sqrt(pNum)*2);
+        Point p;
+        igIndex pId=0,vcnt=0;
+        igIndex vhs[IGAME_CELL_MAX_SIZE]={0};
+        std::vector<int>o2n(pNum);
+        for (int i = 0; i < pNum; i++) {
+            p=ori_points->GetPoint(i);
+            pId =Finder->InsertUniquePoint(p);
+            o2n[i]=pId;
+        }
+        for (int i = 0; i < cNum; i++) {
+            vcnt=ori_cells->GetCellIds(i,vhs);
+            for (int j = 0; j < vcnt; j++) {
+                vhs[j]=o2n[vhs[j]];
+            }
+            new_cells->AddCellIds(vhs,vcnt);
+        }
+        auto merging_res= iGame::VolumeMesh::New();
+        merging_res->SetPoints(new_points);
+        merging_res->SetVolumes(new_cells);
+        res->SetName("No merging");
+        merging_res->SetName("Merging");
+        modelTreeWidget->addDataObjectToModelTree(res, ItemSource::File);
+        modelTreeWidget->addDataObjectToModelTree(merging_res, ItemSource::File);
+
     });
 
     auto action_tensorview = ui->menu_filters->addAction("tensorview");
@@ -694,6 +725,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             auto dataObject = CurrentModel->GetDataObject();
             if(!dataObject)return;
             ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+            scene->ChangeModelVisibility(CurrentModel, false);
         	});
     connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool
         checked) {
@@ -1024,13 +1056,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             });
 
 	connect(ui->action_slice, &QAction::triggered, this, [&](bool checked) {
-        if (!rendererWidget->GetScene() ||
-            !rendererWidget->GetScene()->GetCurrentModel()) {
-            return;
-        }
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene)return;
+        auto CurrentModel = scene->GetCurrentModel();
+        if (!CurrentModel)return;
+        auto obj = CurrentModel->GetDataObject();
+        if (!obj)return;
         if (!rendererWidget->getInteractor()->IsBase()) {
             SliceDockWidget->show();
             //rendererWidget->getInteractor()->RequestBasicStyle();
@@ -1041,7 +1072,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
 		SliceDockWidget->show();
 		SliceWidget->SetOriginDataObject(obj);
-        
+        scene->ChangeModelVisibility(CurrentModel, false);
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter(
                 rendererWidget->GetScene()->GetCurrentModel()->GetPainter());

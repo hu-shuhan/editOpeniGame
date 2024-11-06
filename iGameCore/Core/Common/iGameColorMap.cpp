@@ -4,7 +4,7 @@ ColorMap::ColorMap() {
 	this->m_ColorBar = FloatArray::New();
 	this->m_ColorRange = FloatArray::New();
 	InitColorBarWithBlueWhiteRedType();
-	this->m_MapType=IG_MAPPER_RGB_STEP;
+	this->m_MapType=IG_MAPPER_RGB_LINER;
 }
 ColorMap::~ColorMap() {
 	m_ColorBar=nullptr;
@@ -176,7 +176,7 @@ void ColorMap::MapColor(float value, float rgb[3])
 	//std::cout << st_v << " " << fi_v << " " << local_v << std::endl;
 	//std::cout << startRGB[0] << " " << startRGB[1] << " " << startRGB[2] << "\n";
 	//std::cout << finalRGB[0] << " " << finalRGB[1] << " " << finalRGB[2] << "\n";
-	if (this->m_MapType == IG_MAPPER_RGB_STEP){
+	if (this->m_MapType == IG_MAPPER_RGB_LINER){
 		//double s = local_v;
 		//double sharpness = 0.0;
 		//if (s < .5){
