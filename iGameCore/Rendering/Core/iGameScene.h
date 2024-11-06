@@ -37,6 +37,8 @@ public:
     void SetCurrentModel(int index);
     void SetCurrentModel(Model*);
 
+    Painter3D::Pointer GetPainter() { return m_Painter3D; }
+
     /* Interactor Related */
     void SetInteractor(Interactor* i);
     Interactor* GetInteractor();
@@ -154,13 +156,6 @@ public:
         m_DoneCurrentFunctor = std::bind(functor, args...);
     }
 
-//    void init(){
-//        InitOpenGL();
-//        InitOIT();
-//        InitFont();
-//        InitAxes();}
-//
-//    void*(* m_proc);
 protected:
     Scene();
     ~Scene() override;
@@ -250,9 +245,9 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
-    Painter3D::Pointer painter = Painter3D::New();
+    Painter3D::Pointer m_Painter3D = Painter3D::New();
 
-    bool m_FinishInit { false };
+    bool m_FinishInit{false};
 
     friend class Model;
     friend class Interactor;

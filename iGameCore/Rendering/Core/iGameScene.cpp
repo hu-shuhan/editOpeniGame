@@ -40,13 +40,11 @@ Scene::Scene() {
 
     m_DrawCullData = GLBuffer::New();
     m_DepthPyramid = GLTexture2d::New();
-
-
 }
 Scene::~Scene() {}
 
 bool Scene::Init() {
-    if(m_FinishInit){
+    if (m_FinishInit) {
         std::cout << "Scene is already init\n";
         return false;
     }
@@ -479,7 +477,7 @@ void Scene::InitOpenGL() {
     //Point p1{-1.0f, 0.0f, 0.0f};
     //Point p2{1.0f, 0.0f, 0.0f};
     //Point p3{0.0f, 1.0f, 0.0f};
-
+    //
     //pen->SetColor(Color{White});
     //pen->SetWidth(10);
     //std::cout << painter->DrawPoint(Point{0.0f, -0.5f, 0.0f}) << std::endl;
