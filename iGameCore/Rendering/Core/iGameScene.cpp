@@ -193,22 +193,14 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
 }
 
 void Scene::ResetCenter() {
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //float radius = m_ModelsBoundingSphere.w;
-    //m_Camera->SetCameraPos(centerInWorld.x, centerInWorld.y,
-    //                       centerInWorld.z + 2.0f * radius);
-    //m_Camera->SetCameraFocal(centerInWorld);
-
-    //std::cout << "centerInWorld: " << centerInWorld << std::endl;
-
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetCameraPos(center.x, center.y, center.z + 2.0f * radius);
-    m_Camera->SetFarPlane(center.z + 3.0f * radius);
+    m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
+    m_Camera->SetNearPlane(2.0f * radius);
+    m_Camera->SetFarPlane(4.0f * radius);
     m_Camera->SetCameraFocal(center);
 }
 
@@ -724,6 +716,9 @@ void Scene::ResizeDepthPyramid() {
 }
 
 void Scene::Draw() {
+    //std::cout << std::format("near: {}, far: {}", m_Camera->GetNearPlane(),
+    //                         m_Camera->GetFarPlane())
+    //          << std::endl;
     auto viewport = m_Camera->GetScaledViewPort();
 
     // save default framebuffer, because it is not 0 in Qt
@@ -1036,6 +1031,7 @@ void Scene::ShadowPass() { GLCheckError(); }
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
     m_CameraData.camera_position = m_Camera->GetCameraPos();
+    m_CameraData.isOrtho = m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC;
     m_CameraData.view = m_Camera->GetViewMatrix();
     m_CameraData.proj = m_Camera->GetProjectionMatrix();
     m_CameraData.proj_view =
@@ -1293,6 +1289,7 @@ void Scene::UpdateModelsBoundingSphere() {
 
     // update camera setting
     auto dist = (m_Camera->GetCameraPos() - center).length();
+    m_Camera->SetNearPlane(dist - radius);
     m_Camera->SetFarPlane(dist + radius);
 }
 

@@ -52,6 +52,7 @@ public:
     /* Rendering Related */
     struct CameraDataBuffer {
         alignas(16) igm::vec3 camera_position;
+        alignas(4) int isOrtho;
         alignas(16) igm::mat4 view;
         alignas(16) igm::mat4 proj;
         alignas(16) igm::mat4 proj_view; // proj * view
@@ -225,7 +226,7 @@ protected:
     GLVertexArray::Pointer m_EmptyVAO;
 
 #ifdef MSAA
-    GLint samples = 4;
+    GLint samples = 8;
     GLFramebuffer::Pointer m_FramebufferMultisampled;
     GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
     GLTexture2dMultisample::Pointer m_DepthTextureMultisampled;
