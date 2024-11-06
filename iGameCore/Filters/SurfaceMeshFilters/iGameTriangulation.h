@@ -114,7 +114,7 @@ public:
             //        if (area > 0) {
             //            bool isEar = true;
 
-            //            //// 检查其他点是否在三角形内部
+            //            //// 妫�鏌ュ叾浠栫偣鏄惁鍦ㄤ笁瑙掑舰鍐呴儴
             //            //for (int k = 0; k < size; k++) {
             //            //    if (k != prev && k != j && k != next &&
             //            //        IsPointInTriangle(mesh->GetPoint(face[k]), a, b, c)) {
@@ -180,14 +180,14 @@ protected:
 
     bool IsPointInTriangle(const Point& pt, const Point& a, const Point& b,
                            const Point& c) {
-        // 计算向量和叉积来判断
+        // 璁＄畻鍚戦噺鍜屽弶绉潵鍒ゆ柇
         double areaABC = GetArea(a, b, c);
         double areaABP = GetArea(a, b, pt);
         double areaBCP = GetArea(b, c, pt);
         double areaCAP = GetArea(c, a, pt);
 
         return std::abs(areaABC - (areaABP + areaBCP + areaCAP)) <
-               1e-9; // 允许的小误差
+               1e-9; // 鍏佽鐨勫皬璇樊
     }
 
     SurfaceMesh::Pointer mesh{};

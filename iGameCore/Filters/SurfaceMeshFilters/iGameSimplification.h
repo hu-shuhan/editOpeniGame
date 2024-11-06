@@ -17,21 +17,21 @@ public:
     static constexpr int QEM_FASTEST = 0;
     static constexpr int QEM_NICEST = 1;
 
-    static constexpr int QEM_INTERIOR_EDGE = 0;      // ƒ⁄≤ø±ﬂ
-    static constexpr int QEM_HALF_BOUNDARY_EDGE = 1; // ±ﬂΩÁ∞Î±ﬂ
-    static constexpr int QEM_BOUNDARY_EDGE = 2;      // ±ﬂΩÁ±ﬂ
+    static constexpr int QEM_INTERIOR_EDGE = 0;      // ÂÜÖÈÉ®Ëæπ
+    static constexpr int QEM_HALF_BOUNDARY_EDGE = 1; // ËæπÁïåÂçäËæπ
+    static constexpr int QEM_BOUNDARY_EDGE = 2;      // ËæπÁïåËæπ
 
-    int TargetFaceNum = 0;         // ƒø±Í√Ê ˝
-    double TargetReduction = 0.95;  // ºı…Ÿµƒ∞Ÿ∑÷±»
-    bool NormalCheck = true;       //  «∑ÒΩ¯––∑®œﬂºÏ≤È°£
-    double NormalThr = M_PI / 4.0; // ∑®œﬂºÏ≤Èµƒ„–÷µ£¨“‘ª°∂»±Ì æ°£
-    double CosineThr = cos(NormalThr); // ∑®œﬂºÏ≤Èµƒ”‡œ“„–÷µ°£
-    bool OptimalPosition = true;       //  «∑Ò π”√◊Ó”≈Œª÷√°£
-    bool PreserveBoundary = false;     //  «∑Ò±£≥÷±ﬂΩÁ°£
-    double QuadricEpsilon = 1e-15;     // ∂˛¥Œ–Õµƒ„–÷µ°£
-    bool QualityCheck = true;          //  «∑ÒΩ¯––÷ ¡øºÏ≤È°£
-    double QualityThr = 0.3;           // ”√”⁄÷ ¡øºÏ≤Èµƒ÷ ¡ø„–÷µ°£
-    bool ScalarCheck = true;          //  «∑ÒΩ¯––±Í¡øºÏ≤È°£
+    int TargetFaceNum = 0;         // ÁõÆÊ†áÈù¢Êï∞
+    double TargetReduction = 0.8;  // ÂáèÂ∞ëÁöÑÁôæÂàÜÊØî
+    bool NormalCheck = true;       // ÊòØÂê¶ËøõË°åÊ≥ïÁ∫øÊ£ÄÊü•„ÄÇ
+    double NormalThr = M_PI / 4.0; // Ê≥ïÁ∫øÊ£ÄÊü•ÁöÑÈòàÂÄºÔºå‰ª•ÂºßÂ∫¶Ë°®Á§∫„ÄÇ
+    double CosineThr = cos(NormalThr); // Ê≥ïÁ∫øÊ£ÄÊü•ÁöÑ‰ΩôÂº¶ÈòàÂÄº„ÄÇ
+    bool OptimalPosition = true;       // ÊòØÂê¶‰ΩøÁî®ÊúÄ‰ºò‰ΩçÁΩÆ„ÄÇ
+    bool PreserveBoundary = false;     // ÊòØÂê¶‰øùÊåÅËæπÁïå„ÄÇ
+    double QuadricEpsilon = 1e-15;     // ‰∫åÊ¨°ÂûãÁöÑÈòàÂÄº„ÄÇ
+    bool QualityCheck = true;          // ÊòØÂê¶ËøõË°åË¥®ÈáèÊ£ÄÊü•„ÄÇ
+    double QualityThr = 0.3;           // Áî®‰∫éË¥®ÈáèÊ£ÄÊü•ÁöÑË¥®ÈáèÈòàÂÄº„ÄÇ
+    bool ScalarCheck = true;          // ÊòØÂê¶ËøõË°åÊ†áÈáèÊ£ÄÊü•„ÄÇ
 
     double GetArea(Vector3d a, Vector3d b, Vector3d c) {
         return CrossProduct(a - b, a - c).length() / 2;
@@ -73,6 +73,65 @@ public:
             this->TargetFaceNum = nfaces * (1 - this->TargetReduction);
         }
 
+        {
+            double T = 0;
+            igIndex ids[8]{};
+            int count = 0;
+            for (int i = 0; i < nedges; i++) {
+                int size = mesh->GetEdgeToNeighborFaces(i, ids);
+                if (size == 2) { 
+                    Vector3d n1 = Normal(ids[0]);
+                    Vector3d n2 = Normal(ids[1]);
+                    double theta = GetCosTheta(n1, n2);
+                    T += theta * theta;
+                    count++;
+                }
+            }
+            T /= count;
+            T = std::sqrt(T);
+            double Smax = 0.9;
+            double al = 1;
+            double S = Smax * std::exp(-al * T);
+            this->TargetReduction = S;
+            //std::cout << S << std::endl;
+        }
+
+
+        //for (int i = 0; i < nfaces; i++) { 
+        //    double area;
+        //    Vector3d n;
+        //    if (GetNormalAndArea(i, area, n)) {
+
+        //    }
+        //}
+
+        {
+            max_range = 0;
+            for (int i = 0; i < npts; i++) { 
+                double val = GetMeanValue(i);
+                max_range = std::max(val, max_range);
+            }
+            //auto arr = attrbs->GetAttribute(scalarIndex).pointer;
+            //int dim = arr->GetDimension();
+            //scalarRange.resize(dim);
+            //for (int i = 0; i < dim; i++) {
+            //    scalarRange[i][0] = std::numeric_limits<double>::max();
+            //    scalarRange[i][1] = -std::numeric_limits<double>::max();
+            //}
+            //for (int j = 0; j < npts; j++) {
+            //    double val = arr->GetValue(j);
+            //    scalarRange[0][0] = std::min(scalarRange[0][0], val);
+            //    scalarRange[0][1] = std::max(scalarRange[0][1], val);
+            //    //for (int i = 0; i < dim; i++) {
+            //    //    double val = arr->GetValue(j * dim + i);
+            //    //    scalarRange[i][0] = std::min(scalarRange[i][0], val);
+            //    //    scalarRange[i][1] = std::max(scalarRange[i][1], val);
+            //    //}
+            //}
+        }
+
+
+
         UpdateProgress(0.01);
         InitQuadric();
         UpdateProgress(0.05);
@@ -112,15 +171,14 @@ public:
             mesh->GetEdgePointIds(edgeId, e);
 
             if (!mesh->IsCollapsable(edgeId)) continue;
-            sum++;
-            sum_pri += pri;
-            //int d = 2.618;
-            int d = 3
-                ;
-            if (pri > d * sum_pri / sum) { 
-                //if (epi++ > ep) break;
-                break;
-            }
+            //sum++;
+            //sum_pri += pri;
+            ////int d = 2.618;
+            //int d = 3;
+            //if (pri > d * sum_pri / sum) { 
+            //    //if (epi++ > ep) break;
+            //    break;
+            //}
 
             totalEliminated += mesh->GetNumberOfLinks(edgeId, SurfaceMesh::E2F);
             if (totalEliminated >= blockNum * progress) {
@@ -151,19 +209,50 @@ public:
                 }
             }
 
-            mesh->CollapseEdge(edgeId);
-            mesh->SetPoint(e[1], optimalPos[edgeId]);
-
             if (this->ScalarCheck) {
                 auto arr = attrbs->GetAttribute(scalarIndex).pointer;
+                double minD = std::numeric_limits<double>::max();
+                igIndex fid = -1;
+                Vector3d p;
+                for (int i = 0; i < 2; ++i) {
+                    mesh->GetPointToNeighborFaces(e[i], container);
+                    for (int j = 0; j < container.size(); j++) {
+                        double d;
+                        Vector3d proj;
+                        if (Projection(optimalPos[edgeId], container[j], d,
+                            proj)) {
+                            if (d < minD) { 
+                                minD = d;
+                                fid = container[j];
+                                p = proj;
+                            }
+                        }
+                    }
+                }
                 int dim = arr->GetDimension();
-                for (int i = 0; i < dim; i++) {
-                    double newScalar = arr->GetValue(e[0] * dim + i) +
-                                       arr->GetValue(e[1] * dim + i);
-                    newScalar /= 2;
-                    arr->SetValue(e[1] * dim + i, newScalar);
+                if (fid != -1) {
+                    auto param = GetCentroidParam(p, fid);
+                    igIndex f[3]{};
+                    mesh->GetFacePointIds(fid, f);
+                    for (int i = 0; i < dim; i++) {
+                        double newValue =
+                                param[0] * arr->GetValue(f[0] * dim + i) +
+                                param[1] * arr->GetValue(f[1] * dim + i) +
+                                param[2] * arr->GetValue(f[2] * dim + i);
+                        arr->SetValue(e[1] * dim + i, newValue);
+                    }
+                } else {
+                    for (int i = 0; i < dim; i++) {
+                        double newValue = arr->GetValue(e[0] * dim + i) +
+                                           arr->GetValue(e[1] * dim + i);
+                        newValue /= 2;
+                        arr->SetValue(e[1] * dim + i, newValue);
+                    }
                 }
             }
+
+            mesh->CollapseEdge(edgeId);
+            mesh->SetPoint(e[1], optimalPos[edgeId]);
 
             if (mode == QEM_FASTEST) {
                 mesh->GetPointToNeighborEdges(e[1], container);
@@ -207,8 +296,6 @@ public:
                 }
             }
         }
-
-        std::cout << sum << std::endl;
 
         std::cout << "before: "
             << " point size: " << mesh->GetNumberOfPoints() 
@@ -341,8 +428,12 @@ protected:
 
         double gradient = 0;
         if (this->ScalarCheck) { 
+
             gradient += this->GetMeanValue(e[0]);
             gradient += this->GetMeanValue(e[1]);
+
+            //gradient += this->GetMeanValue(e[0]) / max_range;
+            //gradient += this->GetMeanValue(e[1]) / max_range;
         }
 
 
@@ -556,6 +647,106 @@ protected:
         }
     }
 
+    bool IsInTriangle(const Point& p, const Point& a, const Point& b,
+        const Point& c) {
+
+        Vector3d ab = b - a;
+        Vector3d bc = c - b;
+        Vector3d ca = a - c;
+
+        Vector3d ap = p - a;
+        Vector3d bp = p - b;
+        Vector3d cp = p - c;
+  
+        Vector3d cross1 = ab.cross(ap); // Cross product of (b-a) and (p-a)
+        Vector3d cross2 = bc.cross(bp); // Cross product of (c-b) and (p-b)
+        Vector3d cross3 = ca.cross(cp); // Cross product of (a-c) and (p-c)
+
+        bool sameSign1 = cross1.dot(cross2) > 0;
+        bool sameSign2 = cross2.dot(cross3) > 0;
+        bool sameSign3 = cross3.dot(cross1) > 0;
+
+        return sameSign1 && sameSign2 && sameSign3;
+    }
+
+    bool Projection(const Point& p, igIndex faceId, double& d, Vector3d& proj) { 
+        igIndex f[3]{};
+        mesh->GetFacePointIds(faceId, f);
+        Point v0 = mesh->GetPoint(f[0]);
+        Point v1 = mesh->GetPoint(f[1]);
+        Point v2 = mesh->GetPoint(f[2]);
+
+        Vector3d d10 = v1 - v0;
+        Vector3d d20 = v2 - v0;
+
+        Vector3d normal = CrossProduct(d10, d20);
+        normal.normalize();
+
+        d = (p - v0) * normal;
+        proj = p - d * normal;
+
+        return IsInTriangle(proj, v0, v1, v2);
+    }
+
+    Vector3d GetCentroidParam(const Point& p, igIndex faceId) {
+        igIndex f[3]{};
+        mesh->GetFacePointIds(faceId, f);
+        Point a = mesh->GetPoint(f[0]);
+        Point b = mesh->GetPoint(f[1]);
+        Point c = mesh->GetPoint(f[2]);
+
+        // ËÆ°ÁÆóÂêëÈáè
+        Vector3d ab = b - a;
+        Vector3d ac = c - a;
+        Vector3d ap = p - a;
+        Vector3d bp = p - b;
+        Vector3d cp = p - c;
+
+        // ËÆ°ÁÆóÂèâÁßØ
+        Vector3d crossAB_AC = ab.cross(ac); 
+        Vector3d crossBP_CP = bp.cross(cp); 
+        Vector3d crossCP_AP = cp.cross(ap); 
+        Vector3d crossAP_BP = ap.cross(bp); 
+
+        // ËÆ°ÁÆóÊØè‰∏™ÈáçÂøÉÂùêÊ†á
+        double lambda1 =
+                crossBP_CP.dot(crossAB_AC) / crossAB_AC.squaredNorm();
+        double lambda2 =
+                crossCP_AP.dot(crossAB_AC) / crossAB_AC.squaredNorm();
+        double lambda3 =
+                crossAP_BP.dot(crossAB_AC) / crossAB_AC.squaredNorm();
+
+        return Vector3d(lambda1, lambda2, lambda3);
+        
+    }
+
+    bool GetNormalAndArea(igIndex faceId, double& area, Vector3d& n) {
+        igIndex f[3]{};
+        mesh->GetFacePointIds(faceId, f);
+        Point v0 = mesh->GetPoint(f[0]);
+        Point v1 = mesh->GetPoint(f[1]);
+        Point v2 = mesh->GetPoint(f[2]);
+
+        Vector3f d10 = v1 - v0;
+        Vector3f d20 = v2 - v0;
+
+        n = CrossProduct(d10, d20);
+        if (n.squaredNorm() == 0.0) return false;
+        area = n.norm() / 2;
+
+        return true;
+    }
+
+    double GetCosTheta(Vector3d n1, Vector3d n2) {
+        double dotProduct = n1.dot(n2);
+        double lengths = n1.length() * n2.length();
+        if (lengths == 0) return 0.0;
+        double cosTheta = dotProduct / lengths;
+        cosTheta = std::max(
+                -1.0, std::min(1.0, cosTheta)); // ÈôêÂà∂cosThetaÂú®[-1, 1]ËåÉÂõ¥ÂÜÖ
+        return std::acos(cosTheta); // ËøîÂõûÂ§πËßíÔºåÂçï‰Ωç‰∏∫ÂºßÂ∫¶
+    }
+
 	SurfaceMesh::Pointer mesh{};
     PriorityQueue::Pointer heap{};
     std::vector<Quadric<double>> quadrics;
@@ -564,8 +755,11 @@ protected:
     IGenum mode{QEM_NICEST};
     AttributeSet::Pointer newAttrs{}, oldAttrs{}, attrbs{};
     int scalarIndex{-1};
+    std::vector<Vector2d> scalarRange;
+    double max_range;
 
     IGsize npts{}, nedges{}, nfaces{};
+
 };
 IGAME_NAMESPACE_END
 #endif

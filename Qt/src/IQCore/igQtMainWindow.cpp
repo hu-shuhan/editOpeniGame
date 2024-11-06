@@ -330,7 +330,9 @@ void igQtMainWindow::initAllComponents() {
 igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
-    connect(ui->action_test_01, &QAction::triggered, this, [&](bool checked) {
+    QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
+            this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         //SurfaceSimplification::Pointer filter = SurfaceSimplification::New();
 

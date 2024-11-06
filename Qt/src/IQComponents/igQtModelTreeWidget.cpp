@@ -205,7 +205,7 @@ void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
     //std::cout << "change\n";
 }
 
-ModelTreeWidgetItem* igQtModelTreeWidget::setCurrentModelItem() {
+ModelTreeWidgetItem* igQtModelTreeWidget::getCurrentModelItem() {
     return currentModelItem;
 }
 
@@ -223,8 +223,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
     bool call = true;
     ModelTreeWidgetItem* item = getItem(event->pos());
     QTreeWidgetItem* child = nullptr;
-    
-                          if (item) {
+
+    if (item) {
         // Gets the position of the click and the position of the icon
         QRect iconItem = visualItemRect(item);
         QSize iconSize = item->icon(0).actualSize(QSize(20, 24));
