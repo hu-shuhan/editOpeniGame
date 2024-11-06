@@ -43,18 +43,21 @@ Scene::Scene() {
 }
 Scene::~Scene() {}
 
-bool Scene::Init() {
+bool Scene::Initialize() {
     if (m_FinishInit) {
-        std::cout << "Scene is already init\n";
+        std::cout << "Scene is already init.\n";
         return false;
     }
+
     InitOpenGL();
     InitOIT();
     InitFont();
     InitAxes();
     m_FinishInit = true;
+
     return true;
 }
+
 int Scene::AddModel(DataObject::Pointer obj) {
     Model::Pointer model = Model::New();
     model->m_DataObject = obj;
@@ -848,7 +851,7 @@ void Scene::DrawFrame() {
         ShadowPass();
 
         // draw scene painter
-        painter->Draw(this);
+        m_Painter3D->Draw(this);
     }
 
     // draw axes in bottom left
@@ -1128,7 +1131,7 @@ void Scene::RefreshDrawCullDataBuffer() {
     m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
-void Scene::lookAtPositiveX() {
+void Scene::LookAtPositiveX() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1144,7 +1147,7 @@ void Scene::lookAtPositiveX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeX() {
+void Scene::LookAtNegativeX() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1160,7 +1163,7 @@ void Scene::lookAtNegativeX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtPositiveY() {
+void Scene::LookAtPositiveY() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1175,7 +1178,7 @@ void Scene::lookAtPositiveY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeY() {
+void Scene::LookAtNegativeY() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1191,7 +1194,7 @@ void Scene::lookAtNegativeY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtPositiveZ() {
+void Scene::LookAtPositiveZ() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1206,7 +1209,7 @@ void Scene::lookAtPositiveZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeZ() {
+void Scene::LookAtNegativeZ() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1219,7 +1222,7 @@ void Scene::lookAtNegativeZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtIsometric() {
+void Scene::LookAtIsometric() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1235,7 +1238,7 @@ void Scene::lookAtIsometric() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::rotateNinetyClockwise() {
+void Scene::RotateNinetyClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
@@ -1249,7 +1252,7 @@ void Scene::rotateNinetyClockwise() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::rotateNinetyCounterClockwise() {
+void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);

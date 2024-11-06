@@ -23,8 +23,6 @@ class Scene : public Object {
 public:
     I_OBJECT(Scene);
     static Pointer New() { return new Scene; }
-    /* Initialized Related*/
-    bool Init();
 
     /* Model Related */
     int AddModel(DataObject::Pointer);
@@ -117,22 +115,22 @@ public:
     bool HasShader(IGenum type);
     void UseShader(IGenum type);
 
+    bool Initialize();
     void Draw();
     void Resize(int width, int height, int pixelRatio);
     void Update();
 
-    void lookAtPositiveX();
-    void lookAtNegativeX();
-    void lookAtPositiveY();
-    void lookAtNegativeY();
-    void lookAtPositiveZ();
-    void lookAtNegativeZ();
-    void lookAtIsometric();
-    void rotateNinetyClockwise();
-    void rotateNinetyCounterClockwise();
+    void LookAtPositiveX();
+    void LookAtNegativeX();
+    void LookAtPositiveY();
+    void LookAtNegativeY();
+    void LookAtPositiveZ();
+    void LookAtNegativeZ();
+    void LookAtIsometric();
+    void RotateNinetyClockwise();
+    void RotateNinetyCounterClockwise();
 
     unsigned char* CaptureOffScreenBuffer(int width, int height);
-
 
     template<typename Functor, typename... Args>
     void SetUpdateFunctor(Functor&& functor, Args&&... args) {
