@@ -725,7 +725,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             auto dataObject = CurrentModel->GetDataObject();
             if(!dataObject)return;
             ui->widget_ContourExtract->SetOriginDataObject(dataObject);
-            scene->ChangeModelVisibility(CurrentModel, false);
+            modelTreeWidget->getItemFromObject(dataObject)->changeVisibility(false);
         	});
     connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool
         checked) {
@@ -1072,8 +1072,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
 		SliceDockWidget->show();
 		SliceWidget->SetOriginDataObject(obj);
-        scene->ChangeModelVisibility(CurrentModel, false);
+        modelTreeWidget->getItemFromObject(obj)->changeVisibility(false);
+
         rendererWidget->getInteractor()->SetDataObject(obj);
+
         rendererWidget->getInteractor()->SetPainter(
                 rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
 
