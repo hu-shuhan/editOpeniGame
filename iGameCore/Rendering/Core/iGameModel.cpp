@@ -45,8 +45,8 @@ void Model::Draw(Scene* scene) {
                 float u;
                 drawObject->GetPointOffsetParameters(u);
 
-                glEnable(GL_POLYGON_OFFSET_POINT);
-                glPolygonOffset(0.0f, u);
+                //glEnable(GL_POLYGON_OFFSET_POINT);
+                //glPolygonOffset(0.0f, u);
                 if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
                     glad_glDrawArrays(
                             GL_POINTS, 0,
@@ -57,7 +57,7 @@ void Model::Draw(Scene* scene) {
                             drawObject->m_PointIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                 }
-                glDisable(GL_POLYGON_OFFSET_POINT);
+                //glDisable(GL_POLYGON_OFFSET_POINT);
             }
             drawObject->m_PointVAO->Release();
         }
@@ -77,13 +77,13 @@ void Model::Draw(Scene* scene) {
                 float f, u;
                 drawObject->GetLineOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_LINE);
-                glPolygonOffset(f, u);
+                //glEnable(GL_POLYGON_OFFSET_LINE);
+                //glPolygonOffset(f, u);
                 glad_glDrawElements(
                         GL_LINES,
                         drawObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_LINE);
+                //glDisable(GL_POLYGON_OFFSET_LINE);
             }
             drawObject->m_LineVAO->Release();
         }
@@ -181,33 +181,19 @@ void Model::DrawWithTransparency(Scene* scene) {
                 float u;
                 drawObject->GetPointOffsetParameters(u);
 
-                glEnable(GL_POLYGON_OFFSET_POINT);
-                glPolygonOffset(0.0f, u);
-                glad_glDrawArrays(
-                        GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements());
-                glDisable(GL_POLYGON_OFFSET_POINT);
-            }
-            drawObject->m_PointVAO->Release();
-        }
-        if (viewStyle & IG_POINTS) {
-            auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
-            shader->Use();
-            shader->SetUniform(shader->GetUniformLocation("colorMode"), 1);
-
-            drawObject->m_PointVAO->Bind();
-            {
-                glad_glPointSize(drawObject->m_PointSize);
-
-                float u;
-                drawObject->GetPointOffsetParameters(u);
-
-                glEnable(GL_POLYGON_OFFSET_POINT);
-                glPolygonOffset(0.0f, u);
-                glad_glDrawArrays(
-                        GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements());
-                glDisable(GL_POLYGON_OFFSET_POINT);
+                //glEnable(GL_POLYGON_OFFSET_POINT);
+                //glPolygonOffset(0.0f, u);
+                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                    glad_glDrawArrays(
+                            GL_POINTS, 0,
+                            drawObject->m_Positions->GetNumberOfElements());
+                } else {
+                    glad_glDrawElements(
+                            GL_POINTS,
+                            drawObject->m_PointIndices->GetNumberOfValues(),
+                            GL_UNSIGNED_INT, 0);
+                }
+                //glDisable(GL_POLYGON_OFFSET_POINT);
             }
             drawObject->m_PointVAO->Release();
         }
@@ -232,13 +218,13 @@ void Model::DrawWithTransparency(Scene* scene) {
                 float f, u;
                 drawObject->GetLineOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_LINE);
-                glPolygonOffset(f, u);
+                //glEnable(GL_POLYGON_OFFSET_LINE);
+                //glPolygonOffset(f, u);
                 glad_glDrawElements(
                         GL_LINES,
                         drawObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_LINE);
+                //glDisable(GL_POLYGON_OFFSET_LINE);
             }
             drawObject->m_LineVAO->Release();
         }

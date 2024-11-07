@@ -509,7 +509,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
                                                     attr.GetDataRange(),
                                                     m_AttributeDimension);
                     }
-                
+
             } else if (attr.attachmentType == IG_CELL) {
                 if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
                     m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {

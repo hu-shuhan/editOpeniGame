@@ -4,6 +4,8 @@
 #include "iGameFlatArray.h"
 
 IGAME_NAMESPACE_BEGIN
+#define IG_MAPPER_RGB_LINER 0
+#define IG_MAPPER_RGB_STEP 1
 class ColorMap :public Object {
 public:
 	I_OBJECT(ColorMap);
@@ -79,17 +81,18 @@ public:
 	/*return the colorbar's size,Note that the number of segments is returned,
 	not the size of the array*/
 	int GetColorBarSize() { return this->m_ColorBar->GetNumberOfElements() - 1; }
+
+	//Set map type, IG_MAPPER_RGB_LINER means liner map
+	void SetMapTypeToRGBLiner() { this->m_MapType = IG_MAPPER_RGB_LINER; }
+	//Set map type, IG_MAPPER_RGB_STEP means step map
+	void SetMapTypeToRGBSTEP() { this->m_MapType = IG_MAPPER_RGB_STEP; }
 protected:
-	ColorMap()
-	{
-		this->m_ColorBar = FloatArray::New();
-		this->m_ColorRange = FloatArray::New();
-		InitColorBarWithBlueWhiteRedType();
-	}
-	~ColorMap() override = default;
+	ColorMap();
+	~ColorMap();
 
 	FloatArray::Pointer m_ColorBar = { nullptr };
 	FloatArray::Pointer m_ColorRange = { nullptr };
+	int m_MapType = IG_MAPPER_RGB_LINER;
 private:
 	void SetColorBar(FloatArray::Pointer colorbar) {
 		this->m_ColorBar = colorbar;

@@ -65,11 +65,26 @@ protected:
     Pen::Pointer m_Pen{};
     Brush::Pointer m_Brush{};
 
+    Object::Pointer m_PrimitivesUpdateHelper{};
     HandlePool<Primitive>::Pointer m_PrimitivesPool{};
 
-    GLVertexArray::Pointer m_VAO;
-    GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
-    GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
+    std::unordered_map<float, GLVertexArray::Pointer> m_VAOs;
+    std::unordered_map<float, GLBuffer::Pointer> m_PositionVBOs;
+    std::unordered_map<float, GLBuffer::Pointer> m_ColorVBOs;
+    std::unordered_map<float, GLBuffer::Pointer> m_PointEBOs;
+    std::unordered_map<float, GLBuffer::Pointer> m_LineEBOs;
+    std::unordered_map<float, GLBuffer::Pointer> m_TriangleEBOs;
+
+    std::unordered_map<float, IGsize> m_PointEBOSizes;
+    std::unordered_map<float, IGsize> m_LineEBOSizes;
+    std::unordered_map<float, IGsize> m_TriangleEBOSizes;
+
+    //GLVertexArray::Pointer m_VAO;
+    //GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
+    //GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
+
+private:
+    void CreateDrawBuffer(float penWidth);
 };
 
 IGAME_NAMESPACE_END

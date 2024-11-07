@@ -60,14 +60,39 @@ public:
     static Pointer New() { return new Viewer; }
 
 public:
-    void SetNearPlane(float nearz) { m_NearZ = nearz; }
+    void SetNearPlane(float nearz) {
+        if (nearz < 0.01f) {
+            igDebug("near z provided is less than 0.01f. The near plane is set "
+                    "to 0.01f.");
+            m_NearZ = 0.01f;
+        } else {
+            m_NearZ = nearz;
+        }
+    }
     float GetNearPlane() { return m_NearZ; }
 
-    void SetFarPlane(float farz) { m_FarZ = farz; }
+    void SetFarPlane(float farz) {
+        if (farz <= m_NearZ) {
+            igDebug("far z provided is less than or equal to near z. The far "
+                    "plane is set to near z + 1.0f.");
+            m_FarZ = m_NearZ + 1.0f;
+        } else {
+            m_FarZ = farz;
+        }
+    }
     float GetFarPlane() { return m_FarZ; }
 
-    void SetFov(float fov) { m_Fov = fov; }
+    void SetFov(float fov) {
+        if (fov < 1.0f || fov > 179.0f) {
+            igDebug("fov provided is out of range (1.0 - 179.0 degrees). "
+                    "Clamping to valid range.");
+            m_Fov = std::clamp(fov, 1.0f, 179.0f);
+        } else {
+            m_Fov = fov;
+        }
+    }
     float GetFov() const { return m_Fov; }
+
 
     /** Depth Map Visualization:
     *          -far           -near              near            far
@@ -187,11 +212,11 @@ public:
                     m_NearZ);
         } else if (m_CameraType == ORTHOGRAPHIC) {
             float dist = GetLengthToFocal();
-            float orthoHeight = dist * 0.5f;
+            float orthoHeight = dist / 3.0f;
             float orthoWidth = orthoHeight * aspect<float>();
 
             return igm::orthoRH_OZ(-orthoWidth, orthoWidth, -orthoHeight,
-                                   orthoHeight, m_NearZ, m_FarZ);
+                                   orthoHeight, -m_FarZ, m_FarZ);
         }
         return igm::mat4(1.0f);
     }

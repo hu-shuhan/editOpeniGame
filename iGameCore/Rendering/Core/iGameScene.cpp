@@ -40,23 +40,24 @@ Scene::Scene() {
 
     m_DrawCullData = GLBuffer::New();
     m_DepthPyramid = GLTexture2d::New();
-
-
 }
 Scene::~Scene() {}
 
-bool Scene::Init() {
-    if(m_FinishInit){
-        std::cout << "Scene is already init\n";
+bool Scene::Initialize() {
+    if (m_FinishInit) {
+        std::cout << "Scene is already init.\n";
         return false;
     }
+
     InitOpenGL();
     InitOIT();
     InitFont();
     InitAxes();
     m_FinishInit = true;
+
     return true;
 }
+
 int Scene::AddModel(DataObject::Pointer obj) {
     Model::Pointer model = Model::New();
     model->m_DataObject = obj;
@@ -193,22 +194,14 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
 }
 
 void Scene::ResetCenter() {
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //float radius = m_ModelsBoundingSphere.w;
-    //m_Camera->SetCameraPos(centerInWorld.x, centerInWorld.y,
-    //                       centerInWorld.z + 2.0f * radius);
-    //m_Camera->SetCameraFocal(centerInWorld);
-
-    //std::cout << "centerInWorld: " << centerInWorld << std::endl;
-
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetCameraPos(center.x, center.y, center.z + 2.0f * radius);
-    m_Camera->SetFarPlane(center.z + 3.0f * radius);
+    m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
+    m_Camera->SetNearPlane(2.0f * radius);
+    m_Camera->SetFarPlane(4.0f * radius);
     m_Camera->SetCameraFocal(center);
 }
 
@@ -490,7 +483,7 @@ void Scene::InitOpenGL() {
     //Point p1{-1.0f, 0.0f, 0.0f};
     //Point p2{1.0f, 0.0f, 0.0f};
     //Point p3{0.0f, 1.0f, 0.0f};
-
+    //
     //pen->SetColor(Color{White});
     //pen->SetWidth(10);
     //std::cout << painter->DrawPoint(Point{0.0f, -0.5f, 0.0f}) << std::endl;
@@ -727,6 +720,9 @@ void Scene::ResizeDepthPyramid() {
 }
 
 void Scene::Draw() {
+    //std::cout << std::format("near: {}, far: {}", m_Camera->GetNearPlane(),
+    //                         m_Camera->GetFarPlane())
+    //          << std::endl;
     auto viewport = m_Camera->GetScaledViewPort();
 
     // save default framebuffer, because it is not 0 in Qt
@@ -858,7 +854,7 @@ void Scene::DrawFrame() {
         ShadowPass();
 
         // draw scene painter
-        painter->Draw(this);
+        m_Painter3D->Draw(this);
     }
 
     // draw axes in bottom left
@@ -1039,6 +1035,7 @@ void Scene::ShadowPass() { GLCheckError(); }
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
     m_CameraData.camera_position = m_Camera->GetCameraPos();
+    m_CameraData.isOrtho = m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC;
     m_CameraData.view = m_Camera->GetViewMatrix();
     m_CameraData.proj = m_Camera->GetProjectionMatrix();
     m_CameraData.proj_view =
@@ -1137,7 +1134,7 @@ void Scene::RefreshDrawCullDataBuffer() {
     m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
-void Scene::lookAtPositiveX() {
+void Scene::LookAtPositiveX() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1153,7 +1150,7 @@ void Scene::lookAtPositiveX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeX() {
+void Scene::LookAtNegativeX() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1169,7 +1166,7 @@ void Scene::lookAtNegativeX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtPositiveY() {
+void Scene::LookAtPositiveY() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1184,7 +1181,7 @@ void Scene::lookAtPositiveY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeY() {
+void Scene::LookAtNegativeY() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1200,7 +1197,7 @@ void Scene::lookAtNegativeY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtPositiveZ() {
+void Scene::LookAtPositiveZ() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1215,7 +1212,7 @@ void Scene::lookAtPositiveZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtNegativeZ() {
+void Scene::LookAtNegativeZ() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1228,7 +1225,7 @@ void Scene::lookAtNegativeZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::lookAtIsometric() {
+void Scene::LookAtIsometric() {
     ResetCenter();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1244,7 +1241,7 @@ void Scene::lookAtIsometric() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::rotateNinetyClockwise() {
+void Scene::RotateNinetyClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
@@ -1258,7 +1255,7 @@ void Scene::rotateNinetyClockwise() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
-void Scene::rotateNinetyCounterClockwise() {
+void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
@@ -1296,6 +1293,7 @@ void Scene::UpdateModelsBoundingSphere() {
 
     // update camera setting
     auto dist = (m_Camera->GetCameraPos() - center).length();
+    m_Camera->SetNearPlane(dist - radius);
     m_Camera->SetFarPlane(dist + radius);
 }
 

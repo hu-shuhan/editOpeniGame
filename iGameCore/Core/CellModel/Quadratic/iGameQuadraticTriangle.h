@@ -30,6 +30,11 @@ public:
 		normal.normalize();
 		return normal;
 	}
+	static int constexpr SubTriangles[4][3] = { 
+  { 0, 3, 5 },
+  { 3, 1, 4 },
+  { 5, 4, 2 },
+  { 4, 5, 3 } };
 
 protected:
 	QuadraticTriangle()

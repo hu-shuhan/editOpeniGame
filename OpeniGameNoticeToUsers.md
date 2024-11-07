@@ -572,8 +572,10 @@ IdArray::Pointer m_CellIndices{IdArray::New()};
 
 ```cpp
 FloatArray::Pointer position = FloatArray::New();
+UnsignedIntArray::Pointer triangle = UnsignedIntArray::New();
+
 position->SetDimension(3);
-IdArray::Pointer triangle = IdArray::New();
+triangle->SetDimension(3);
 
 float point_1[3]{-0.5f, -0.5f, 0.0f};
 float point_2[3]{0.0f, 0.5f, 0.0f};
@@ -583,9 +585,7 @@ position->AddElement(point_1);
 position->AddElement(point_2);
 position->AddElement(point_3);
 
-triangle->AddId(0);
-triangle->AddId(1);
-triangle->AddId(2);
+triangle->AddElement3(0, 1, 2);
 
 m_Positions = position;
 m_TriangleIndices = triangle;
@@ -593,8 +593,11 @@ m_TriangleIndices = triangle;
 m_Positions->Modified();
 m_TriangleIndices->Modified();
 ```
+
 ### 模型颜色渲染功能
+
 支持属性云图渲染以及自定义颜色数据渲染，以下是示例文件
+
 ```cpp
 if (rendererWidget->GetScene()->GetCurrentModel() == nullptr)return;
 auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -653,6 +656,7 @@ mesh->GetAttributeSet()->AddAttribute(IG_RGB, IG_CELL, colorArray);
 //自己写的时候，上面代码全部在自己的算法函数里面执行，以下这句话在ui文件执行即可
 modelTreeWidget->updateAllAttriubute(obj);
 ```
+
 ### 透明度显示功能
 
 透明度显示为高级功能，由于采用次序无关透明度(Order Independent Transparency, OIT)，因此在本项目必须在``OpenGL4.6``
@@ -672,7 +676,20 @@ modelTreeWidget->updateAllAttriubute(obj);
 
 ``Painter``类用于在场景中绘制各种图元，如点、线、三角形、矩形和立方体等。
 
-创建``Painter``实例：
+每个``Model``拥有一个独立的``painter``，存在于场景``Scene``
+中，如果需要在指定模型中绘制图元（跟随模型的显示/隐藏），可以采用以下方式获取``painter``：
+
+```cpp
+auto painter = m_Manager->GetCurrentScene()->GetCurrentModel()->GetPainter();
+```
+
+若需要在场景``Scene``中绘制图元（不跟随某个模型的显示/隐藏），可以采取以下方式获取``painter``：
+
+```cpp
+auto painter = m_Manager->GetCurrentScene()->GetPainter();
+```
+
+``painter``中保存了绘制的所有图元，因此也可以自行创建``Painter``实例：
 
 ```cpp
 Painter::Pointer painter = Painter::New();
