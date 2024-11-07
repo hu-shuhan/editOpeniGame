@@ -119,7 +119,7 @@ protected:
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
 
-    unsigned int m_ViewStyle{0};
+    unsigned int m_ViewStyle{IG_SURFACE};
     bool m_Visibility{true};
 
     bool m_Flag{false};
