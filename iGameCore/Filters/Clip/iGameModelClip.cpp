@@ -1,5 +1,6 @@
 #include "iGameModelClip.h"
 #include "iGameCellClip.h"
+#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 
 ModelClip::ModelClip()
@@ -37,15 +38,37 @@ bool ModelClip::Execute()
 	case IG_NONE:
 		return true;
 	case IG_VOLUME_MESH:
-		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
+		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
+		break;
 	case IG_SURFACE_MESH:
-		return this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input));
+		if (!this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input)))return false;
+		break;
 	case IG_UNSTRUCTURED_MESH:
-		return this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input));
+		if (!this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input)))return false;
+		break;
 	case IG_STRUCTURED_MESH:
-		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
+		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
+		break;
 	default:
 		break;
+	}
+
+
+	if (this->GetIsSlice() == false) {
+		auto ResultMesh = iGame::DrawObject::New();
+		ResultMesh->AddSubDataObject(this->GetOutput());
+		auto Result_ExtractPart = iGame::SurfaceMesh::New();
+		double o[3];
+		double n[3];
+		this->GetPlane(o, n);
+		iGame::iGameModelGeometryFilter::Pointer surfaceextract =
+			iGame::iGameModelGeometryFilter::New();
+		surfaceextract->SetClipPlane(o, n);
+		surfaceextract->Execute(input, Result_ExtractPart);
+		if (Result_ExtractPart) {
+			ResultMesh->AddSubDataObject(Result_ExtractPart);
+		}
+		this->SetOutput(0, ResultMesh);
 	}
 	return true;
 }
@@ -224,7 +247,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 			polyhedron->m_FaceOffset->Reset();
 			offset = 0;
 			polyhedron->m_FaceOffset->AddId(offset);
-	
+
 			for (i = 0; i < fcnt; i++) {
 				vcnt = faces->GetCellIds(fhs[i], faceVhs);
 				for (j = 0; j < vcnt; j++) {
@@ -371,7 +394,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Face::Pointer cell;
-	int allIn=1,allOut=1;
+	int allIn = 1, allOut = 1;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_SurfaceMesh->GetFace(CellId);
 		vhs = cell->m_PointIds->RawPointer();
@@ -445,7 +468,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 				}
 
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray,attr.GetDataRange());
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 	}
 	OutMesh->SetCells(OutConn, OutType);
