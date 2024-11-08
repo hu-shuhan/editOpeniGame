@@ -70,8 +70,11 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
 }
 
 bool iGame::ODBReader::Execute() {
+    std::cout << "Init Odb start\n";
     odb_initializeAPI();
+    std::cout << "Init Odb end\n";
     try {
+        std::cout << "Open Odb start\n";
         OpenODB();
         std::cout <<"Open end\n";
         ExtractHeader();
@@ -223,6 +226,8 @@ bool ODBReader::ReadCoordinates() {
         VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, cellOffsets, cellConnectivity, cellTypes);
         m_Output->GetBoundingBox();
     }
+
+    return true;
 }
 
 bool ODBReader::CreateDataObject() {

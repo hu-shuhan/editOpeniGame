@@ -28,10 +28,15 @@ public:
     void setSize(int width, int height);
 
     void setTitle(const char* title);
+
     void setTitle(const std::string& title);
+
+    Scene* getScene();
+
+    GLFWwindow* getRawWindowPtr();
 protected:
     GLFWwindow* m_window{nullptr};
-    std::string m_title{"OpeniGame - GLFW_OpenGL# 1"};
+    std::string m_title{"OpeniGame - GLFW_OpenGL"};
 
     Scene* m_scene {nullptr};
     Interactor* m_Interactor{nullptr};

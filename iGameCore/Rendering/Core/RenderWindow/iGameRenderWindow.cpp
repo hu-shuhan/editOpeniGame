@@ -5,29 +5,32 @@
 
 #include "iGameRenderWindow.h"
 
+#include "iGameMultiRenderWindowManager.h"
 #include "iGameScene.h"
 #include "iGameInteractor.h"
 
-#include<GLFW/glfw3.h>
+#include <GLFW/glfw3.h>
+
+IGAME_NAMESPACE_BEGIN
+
 iGame::RenderWindow::RenderWindow() {
-    //初始化glfw
+    /* init glfw */
     glfwInit();
-    //设定glfw版本
+    /* set glfw version */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    //设定glfw为核心状态
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    /* set glfw to core profile */
+   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    m_window = glfwCreateWindow(m_window_width, m_window_height, m_title.c_str(), NULL, NULL);
-    //  设定主窗口
+   m_window = glfwCreateWindow(m_window_width, m_window_height, m_title.c_str(), NULL, NULL);
+    /* set main window */
     glfwMakeContextCurrent(m_window);
-    // 设置对象指针，方便在回调中访问
+    /* set user pointer to use object in GLFW recall function. */
     glfwSetWindowUserPointer(m_window, this);
-    // 设置 framebuffer 回调
+    /* set framebuffer recall */
     glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
         auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
         if(!this_window) return;
-        // 调用渲染器的 resize 方法
         this_window->resizeScene();
     });
 
@@ -84,15 +87,17 @@ iGame::RenderWindow::RenderWindow() {
         M_Event.delta = 120 * yoffset;
         this_window->m_Interactor->FilterEvent(M_Event);
     });
+
 }
 
 iGame::RenderWindow::~RenderWindow() {
-
+    glfwDestroyWindow(m_window);
 }
 
 void iGame::RenderWindow::show() {
     while (!glfwWindowShouldClose(m_window))
     {
+        glfwMakeContextCurrent(m_window);
         /* Render here */
         if(m_scene) m_scene->Draw();
         /* Swap front and back buffers */
@@ -104,6 +109,7 @@ void iGame::RenderWindow::show() {
 }
 
 void iGame::RenderWindow::setScene(iGame::Scene *_scene) {
+    glfwMakeContextCurrent(m_window);
     m_scene = _scene;
     m_scene->Init();
     resizeScene();
@@ -117,6 +123,7 @@ void iGame::RenderWindow::setInteractor(iGame::Interactor *_interactor) {
 
 
 void iGame::RenderWindow::resizeScene() {
+    glfwMakeContextCurrent(m_window);
     glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
     int frameBufferWidth, frameBufferHeight;
     glfwGetFramebufferSize(m_window, &frameBufferWidth, &frameBufferHeight);
@@ -139,3 +146,13 @@ void iGame::RenderWindow::setTitle(const std::string &title) {
     m_title = title;
     glfwSetWindowTitle(m_window, m_title.c_str());
 }
+
+Scene *RenderWindow::getScene() {
+    return m_scene;
+}
+
+GLFWwindow *RenderWindow::getRawWindowPtr() {
+    return m_window;
+}
+
+IGAME_NAMESPACE_END

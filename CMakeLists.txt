@@ -2,18 +2,29 @@ cmake_minimum_required(VERSION 3.19)
 #--------------------------------------------------------------------
 # Set Cmake Option to On/OFF.
 #--------------------------------------------------------------------
-#
+
 # Add an option that the user can set with the -D parameter
 
+#--------------------------------------------------------------------
 # if need to Enable remote ThirdParty module. Follow this step:
-# 1. use git command1(git submodule init) and command2(git submodule update) to clone remote Submodule which are defined in .gitmodules file
+# 1. use git command1(git submodule init) and command2(git submodule update)
+# to clone remote Submodule which are defined in .gitmodules file.
 # 2. Switch OFF to On.
+#--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
-
+set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+
+#--------------------------------------------------------------------
+# If external application want to use Core Module lib.
+# Set Core Module install Option to ON
+#--------------------------------------------------------------------
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+
+
+
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
@@ -58,8 +69,10 @@ endif ()
 add_subdirectory(ThirdParty)
 #导入iGame核心后处理组件
 add_subdirectory(iGameCore)
+target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
 add_subdirectory(Qt)
+target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
 #if (WIN32)

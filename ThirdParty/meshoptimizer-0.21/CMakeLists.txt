@@ -20,4 +20,7 @@ set(SOURCES
 
 add_library(meshoptimizer STATIC ${SOURCES})
 
-target_include_directories(meshoptimizer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_include_directories(meshoptimizer PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<INSTALL_INTERFACE:include/meshoptimizer-0.21/src>
+)

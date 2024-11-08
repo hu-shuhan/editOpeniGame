@@ -1,0 +1,144 @@
+set(MODULE_NAME "@MODULE_NAME@")
+
+set(OPENIGAME_INSTALL_DIR "${CMAKE_CURRENT_LIST_DIR}/../../..")
+set(OPENIGAME_CORE_PRIVATE_INCLUDE_DIR "${OPENIGAME_INSTALL_DIR}/include")
+set(OPENIGAME_CORE_PRIVATE_LIB "${OPENIGAME_INSTALL_DIR}/lib")
+#find_path(OPENIGAME_CORE_PRIVATE_INCLUDE_DIR
+#        NAMES
+#        Filters
+#        PATHS
+#        /usr/local/include/x86_64-linux-gnu
+#        /usr/local/include
+#        /usr/include
+#
+#        "${CMAKE_CURRENT_LIST_DIR}/../../../include"
+#        "C:/Program Files (x86)/OpeniGame/include"
+#)
+#find_path(OPENIGAME_INSTALL_DIR
+#    NAMES
+#    OpeniGame
+#    HINTS
+#    "${CMAKE_CURRENT_LIST_DIR}/../../.."
+#     NO_DEFAULT_PATH
+#)
+
+#if(WIN32)
+#    find_path(OPENIGAME_CORE_PRIVATE_LIB
+#            NAMES
+#            iGameCore_module.lib
+#            PATHS
+#            "../../lib"
+#            "C:/Program Files (x86)/OpeniGame/lib"
+#    )
+#elseif(UNIX)
+#    if(APPLE)
+#        message(WARNING "OpeniGameCore Cmake is not support in this framework currently.")
+#    else()
+#        find_path(OPENIGAME_CORE_PRIVATE_LIB
+#                NAMES
+#                 iGameCore_module.lib
+#                            PATHS
+#                "../../lib"
+#                "usr/OpeniGame/lib"
+#                "usr/lib/OpeniGame/lib"
+#        )
+#    endif()
+#endif ()
+
+set(OPENIGAME_CORE_INCLUDE_DIRS
+ # @OPENIGAME_INTERFACE_INCLUDE_DIRS@
+
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Core/CellModel
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Core/Common
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Core/DataModel
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/IO
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Filters
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Common
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core/Interactor
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core/Painter
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core/RenderWindow
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/OpenGL
+
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CGNS/src
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/eigen-3.4.0
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/freetype-2.13.3/include
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/glad/glad460/include
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.21/src
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
+
+
+)
+
+file(GLOB_RECURSE OPENIGAME_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${OPENIGAME_INSTALL_DIR}/bin/*.dll)
+file(COPY ${OPENIGAME_CORE_3RD_DLL_FILES} DESTINATION ${CMAKE_BINARY_DIR})
+
+set(RENDERING_ASSESTS_SOURCE_DIR ${OPENIGAME_INSTALL_DIR}/Resources/Assests)
+set(RENDERING_SHADERS_SOURCE_DIR ${OPENIGAME_INSTALL_DIR}/Resources/Shaders/GLSL)
+set(RENDERING_RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
+
+file(MAKE_DIRECTORY ${RENDERING_RESOURCES_OUTPUT_DIR})
+file(COPY ${RENDERING_ASSESTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Assests)
+file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders)
+
+
+mark_as_advanced(OPENIGAME_CORE_PRIVATE_INCLUDE_DIR)
+mark_as_advanced(OPENIGAME_CORE_INCLUDE_DIRS)
+mark_as_advanced(OPENIGAME_CORE_PRIVATE_LIB)
+
+set(OpeniGame_CORE_LIB_LIST
+        @MODULE_NAME@
+        @ThirdParty_lib_dependency@
+        glfw3
+        cgns
+)
+set(FOUND_OPENIGAME_CORE_LIB_FULL_PATH)
+set(OPENIGAME_CORE_LIB_TARGETS)
+
+#----------------------------------------------
+# Find CGNS Package
+#----------------------------------------------
+#if(@ENABLE_CGNS_MODULE@)
+#set(cgns_DIR "${CMAKE_CURRENT_LIST_DIR}/../cgns")
+#find_package(cgns REQUIRED)
+#list(APPEND OPENIGAME_CORE_LIB_TARGETS CGNS::cgns_static)
+#endif()
+
+#----------------------------------------------
+# Find ThirdParty lib and Core Components Lib
+#----------------------------------------------
+foreach(LIB ${OpeniGame_CORE_LIB_LIST})
+    set(temp${LIB})
+    find_library(temp${LIB}
+            NAMES
+            "${LIB}.lib"
+ #           PATHS
+            HINTS
+            ${OPENIGAME_CORE_PRIVATE_LIB}
+ #           NO_CMAKE_FIND_ROOT_PATH
+    )
+    if(temp${LIB})
+        mark_as_advanced(temp${LIB})
+            list(APPEND FOUND_OPENIGAME_CORE_LIB_FULL_PATH ${temp${LIB}})
+
+            if (NOT TARGET @MODULE_NAME@::${LIB})
+                add_library(@MODULE_NAME@::${LIB} UNKNOWN IMPORTED)
+                set_target_properties(@MODULE_NAME@::${LIB}
+                        PROPERTIES
+                        IMPORTED_LOCATION ${temp${LIB}}
+                        INTERFACE_INCLUDE_DIRECTORIES "${OPENIGAME_CORE_INCLUDE_DIRS}")
+                list(APPEND OPENIGAME_CORE_LIB_TARGETS @MODULE_NAME@::${LIB})
+            endif ()
+    endif()
+endforeach()
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(@MODULE_NAME@
+        REQUIRED_VARS
+        FOUND_OPENIGAME_CORE_LIB_FULL_PATH
+        OPENIGAME_CORE_INCLUDE_DIRS)
