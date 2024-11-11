@@ -884,8 +884,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
                 triangleIndices->AddElement3(cell[1], cell[2], cell[3]);
                 triangleIndices->AddElement3(cell[3], cell[4], cell[5]);
                 triangleIndices->AddElement3(cell[5], cell[3], cell[1]);
-            }
-            else {
+            } else {
                 for (int j = 2; j < ncell; j++) {
                     triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
                 }

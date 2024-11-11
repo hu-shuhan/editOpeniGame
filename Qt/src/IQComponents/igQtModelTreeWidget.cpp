@@ -71,7 +71,14 @@ void ModelTreeWidgetItem::changeVisibility() {
         show();
     }
 }
-
+void ModelTreeWidgetItem::changeVisibility(bool vis) {
+    if (!vis) {
+        hide();
+    }
+    else {
+        show();
+    }
+}
 void ModelTreeWidgetItem::viewAttribute(int index, int dim) {
     model->ViewCloudPicture(index, dim);
     Q_EMIT dynamic_cast<igQtModelTreeWidget*>(this->parent)->ViewCloudPicture();

@@ -56,7 +56,9 @@ void igQtModelClipWidget::UpdatePlane() {
 }
 void igQtModelClipWidget::SetIsSlice(bool s) {
     m_Clipper->SetIsSlice(s);
-    if (m_Generated) { ClipModel(); }
+    if (m_Generated) {
+        ClipModel();
+    }
 }
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     this->m_OriginDataObject = m_d;
@@ -64,9 +66,11 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     m_ResultMesh->SetName(m_OriginDataObject->GetName()+"_Clip");
     m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
     DrawClipModel(m_ResultMesh);
+    m_Generated=true;
     m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
         this->m_OriginDataObject=nullptr;
         this->parentWidget()->hide();
+        this->m_Generated = false;
         ResetInteractor();
         });
 }
@@ -89,26 +93,14 @@ void igQtModelClipWidget::ClipModel() {
             auto Result_ClipPart = iGame::SurfaceMesh::New();
             m_Clipper->SetInput(childObject);
             m_Clipper->Execute();
-            iGame::iGameModelGeometryFilter::Pointer surfaceextract =
-                iGame::iGameModelGeometryFilter::New();
-            surfaceextract->Execute(m_Clipper->GetOutput(), Result_ClipPart);
-            if (Result_ClipPart) {
-                Result_ClipPart->SetViewStyle(m_ResultMesh->GetViewStyle());
-                Result_ClipPart->ConvertToDrawableData();
-                m_ResultMesh->AddSubDataObject(Result_ClipPart);
+            if (m_Clipper->GetIsSlice() == false) {
+               auto out= m_Clipper->GetOutput();
+               for (auto it = out->SubDataObjectIteratorBegin(); it != out->SubDataObjectIteratorEnd(); it++) {
+                   m_ResultMesh->AddSubDataObject(it->second);
+               }
             }
-            if (!m_Clipper->GetIsSlice()) {
-                auto Result_ExtractPart = iGame::SurfaceMesh::New();
-                double o[3];
-                double n[3];
-                m_Clipper->GetPlane(o, n);
-                surfaceextract->SetClipPlane(o, n);
-                surfaceextract->Execute(childObject, Result_ExtractPart);
-                if (Result_ExtractPart) {
-                    Result_ExtractPart->SetViewStyle(m_ResultMesh->GetViewStyle());
-                    Result_ExtractPart->ConvertToDrawableData();
-                    m_ResultMesh->AddSubDataObject(Result_ExtractPart);
-                }
+            else {
+                m_ResultMesh->AddSubDataObject(m_Clipper->GetOutput());
             }
         }
     }
@@ -116,7 +108,16 @@ void igQtModelClipWidget::ClipModel() {
         auto Result_ClipPart = iGame::SurfaceMesh::New();
         m_Clipper->SetInput(m_OriginDataObject);
         m_Clipper->Execute();
-        iGame::iGameModelGeometryFilter::Pointer surfaceextract =
+        if (m_Clipper->GetIsSlice() == false) {
+            auto out = m_Clipper->GetOutput();
+            for (auto it = out->SubDataObjectIteratorBegin(); it != out->SubDataObjectIteratorEnd(); it++) {
+                m_ResultMesh->AddSubDataObject(it->second);
+            }
+        }
+        else {
+            m_ResultMesh->AddSubDataObject(m_Clipper->GetOutput());
+        }
+ /*       iGame::iGameModelGeometryFilter::Pointer surfaceextract =
             iGame::iGameModelGeometryFilter::New();
         surfaceextract->Execute(m_Clipper->GetOutput(), Result_ClipPart);
         if (Result_ClipPart) {
@@ -137,10 +138,10 @@ void igQtModelClipWidget::ClipModel() {
                 Result_ExtractPart->ConvertToDrawableData();
                 m_ResultMesh->AddSubDataObject(Result_ExtractPart);
             }
-        }
+        }*/
     }
 
-
+    m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
     m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex,
                                    oldAttributeDimension);
 

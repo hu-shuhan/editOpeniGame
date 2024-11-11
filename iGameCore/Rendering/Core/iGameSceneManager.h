@@ -15,6 +15,14 @@ public:
 
     Scene::Pointer GetScene(int id);
     Scene::Pointer NewScene();
+//    Scene::Pointer NewScene(void*(*proc) ){
+//        Scene::Pointer scene = Scene::New();
+//        scene->m_proc = proc;
+//        scene->init();
+//        m_Scenes.push_back(scene);
+//        m_CurrentScene = scene;
+//        return scene;
+//    };
     void DeleteScene(int id);
     void DeleteScene(Scene::Pointer p);
 

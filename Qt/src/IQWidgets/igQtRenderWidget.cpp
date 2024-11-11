@@ -47,9 +47,7 @@ void igQtRenderWidget::ChangeInteractor(SmartPointer<Interactor> it) {
 }
 
 void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
-    if (!m_Scene || !m_Scene->GetCurrentModel()) {
-        return;
-    }
+    if (!m_Scene || !m_Scene->GetCurrentModel()) { return; }
     switch (style) {
         case Interactor::BasicStyle:
             m_Interactor->RequestBasicStyle();
@@ -141,10 +139,11 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
-//    qDebug() <<"Init GL start";
+    //    qDebug() <<"Init GL start";
     // 目前当窗口
     SceneManager::Pointer sceneManager = SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
+    m_Scene->Initialize();
     m_Scene->SetUpdateFunctor(&igQtRenderWidget::update, this);
     m_Scene->SetMakeCurrentFunctor(&igQtRenderWidget::makeCurrent, this);
     m_Scene->SetDoneCurrentFunctor(&igQtRenderWidget::doneCurrent, this);
@@ -152,7 +151,7 @@ void igQtRenderWidget::initializeGL() {
     m_Interactor = Interactor::New();
     m_Interactor->Initialize(m_Scene);
     m_Scene->SetInteractor(m_Interactor);
-//    qDebug() <<"Init GL end";
+    //    qDebug() <<"Init GL end";
 }
 
 void igQtRenderWidget::resizeGL(int w, int h) {
@@ -161,9 +160,9 @@ void igQtRenderWidget::resizeGL(int w, int h) {
 }
 
 void igQtRenderWidget::paintGL() {
-//    qDebug() <<"Paint start";
+    //    qDebug() <<"Paint start";
     m_Scene->Draw();
-//    qDebug() <<"Paint end";
+    //    qDebug() <<"Paint end";
 }
 
 

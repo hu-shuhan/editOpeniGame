@@ -35,6 +35,7 @@ public:
     }
 
     void FilterEvent(IEvent _event) {
+        if(m_Scene == nullptr) return;
         if (!m_Internal) {
             CreateDefaultStyle();
         }

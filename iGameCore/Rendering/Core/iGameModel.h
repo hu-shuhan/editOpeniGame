@@ -17,6 +17,7 @@ public:
     I_OBJECT(Model);
     static Pointer New() { return new Model; }
 
+    void draw(Scene*, const DataObject::Pointer&);
     void Draw(Scene*);
     void DrawWithTransparency(Scene*);
     void DrawPhase1(Scene*);

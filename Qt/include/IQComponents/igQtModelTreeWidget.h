@@ -28,6 +28,8 @@ public:
 
     void changeVisibility();
 
+    void changeVisibility(bool );
+
     void viewAttribute(int index, int dim = -1);
 
     void setCurrentChild(QTreeWidgetItem* child);

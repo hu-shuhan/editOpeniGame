@@ -62,6 +62,7 @@ void BasicStyle::WheelEvent(IEvent _event) {
     auto oldPos = m_Camera->GetCameraPos();
     auto newPos = oldPos + igm::vec3{0.0f, 0.0f, moveSize};
     m_Camera->SetCameraPos(newPos);
+    m_Camera->SetNearPlane(dist + moveSize - m_Scene->ModelsBoundingSphere().w);
     m_Camera->SetFarPlane(dist + moveSize + m_Scene->ModelsBoundingSphere().w);
 
     UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());

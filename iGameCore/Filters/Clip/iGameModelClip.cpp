@@ -1,5 +1,6 @@
 #include "iGameModelClip.h"
 #include "iGameCellClip.h"
+#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 
 ModelClip::ModelClip()
@@ -37,15 +38,37 @@ bool ModelClip::Execute()
 	case IG_NONE:
 		return true;
 	case IG_VOLUME_MESH:
-		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
+		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
+		break;
 	case IG_SURFACE_MESH:
-		return this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input));
+		if (!this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input)))return false;
+		break;
 	case IG_UNSTRUCTURED_MESH:
-		return this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input));
+		if (!this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input)))return false;
+		break;
 	case IG_STRUCTURED_MESH:
-		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
+		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
+		break;
 	default:
 		break;
+	}
+
+
+	if (this->GetIsSlice() == false) {
+		auto ResultMesh = iGame::DrawObject::New();
+		ResultMesh->AddSubDataObject(this->GetOutput());
+		auto Result_ExtractPart = iGame::SurfaceMesh::New();
+		double o[3];
+		double n[3];
+		this->GetPlane(o, n);
+		iGame::iGameModelGeometryFilter::Pointer surfaceextract =
+			iGame::iGameModelGeometryFilter::New();
+		surfaceextract->SetClipPlane(o, n);
+		surfaceextract->Execute(input, Result_ExtractPart);
+		if (Result_ExtractPart) {
+			ResultMesh->AddSubDataObject(Result_ExtractPart);
+		}
+		this->SetOutput(0, ResultMesh);
 	}
 	return true;
 }
@@ -74,20 +97,36 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	PointClipArray->Resize(PointNum);
 	float* PointClipValue = PointClipArray->RawPointer();
 	for (PointId = 0; PointId < PointNum; PointId++) {
-		PointClipValue[PointId]=GetPointValue(PointId, Points);
+		PointClipValue[PointId] = GetPointValue(PointId, Points);
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
-	igIndex* vhs=nullptr;
+	igIndex* vhs = nullptr;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Cell::Pointer cell=nullptr;
+	Cell::Pointer cell = nullptr;
+	int allIn = 1, allOut = 1;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_UnstructuredMesh->GetCell(CellId);
-		vhs=cell->m_PointIds->RawPointer();
-		vcnt=cell->GetNumberOfPoints();
+		vhs = cell->m_PointIds->RawPointer();
+		vcnt = cell->GetNumberOfPoints();
+		allIn = 1;
+		allOut = 1;
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
+			if (CellClipValue[i] < 0.0) {
+				allOut = 0;
+			}
+			else if (CellClipValue[i] > 0.0) {
+				allIn = 0;
+			}
+			else {
+				allIn = 0;
+				allOut = 0;
+			}
+		}
+		if (allIn || allOut) {
+			continue;
 		}
 		switch (cell->GetCellType())
 		{
@@ -111,7 +150,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue,m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, PointClipValue, m_Slice);
 			}
 			break;
 		}
@@ -135,7 +174,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 				inArray->GetElement(originCell[j], values);
 				outArray->SetElement(j, values);
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
@@ -146,14 +185,14 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 					outArray->SetElement(j, values_1);
 				}
 				else {
-					inArray->GetElement(OriginEdge[j].vh2, values_2);	
+					inArray->GetElement(OriginEdge[j].vh2, values_2);
 					for (k = 0; k < dimension; k++) {
 						values[k] = values_1[k] + OriginEdge[j].t * (values_2[k] - values_1[k]);
 					}
 					outArray->SetElement(j, values);
 				}
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 	}
 	OutMesh->SetCells(OutConn, OutType);
@@ -193,33 +232,50 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Cell::Pointer cell;
+	int allIn = 1, allOut = 1;
 	if (m_VolumeMesh->GetIsPolyhedronType()) {
-		auto faces=m_VolumeMesh->GetFaces();
-		igIndex fhs[IGAME_CELL_MAX_SIZE]={0};
-		igIndex fcnt=0;
-		igIndex faceVhs[IGAME_CELL_MAX_SIZE]={0};
-		Polyhedron::Pointer polyhedron=Polyhedron::New();
-		igIndex offset=0;
+		auto faces = m_VolumeMesh->GetFaces();
+		igIndex fhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		igIndex fcnt = 0;
+		igIndex faceVhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		Polyhedron::Pointer polyhedron = Polyhedron::New();
+		igIndex offset = 0;
 		for (CellId = 0; CellId < CellNum; CellId++) {
-			fcnt=m_VolumeMesh->GetVolumeFaceIds(CellId,fhs);
+			fcnt = m_VolumeMesh->GetVolumeFaceIds(CellId, fhs);
 			polyhedron->m_Points->Reset();
 			polyhedron->m_PointIds->Reset();
 			polyhedron->m_FaceOffset->Reset();
-			offset=0;
+			offset = 0;
 			polyhedron->m_FaceOffset->AddId(offset);
+
 			for (i = 0; i < fcnt; i++) {
-				vcnt=faces->GetCellIds(fhs[i], faceVhs);
+				vcnt = faces->GetCellIds(fhs[i], faceVhs);
 				for (j = 0; j < vcnt; j++) {
 					polyhedron->m_PointIds->AddId(faceVhs[j]);
 					polyhedron->m_Points->AddPoint(Points->GetPoint(faceVhs[j]));
 				}
-				offset+=vcnt;
+				offset += vcnt;
 				polyhedron->m_FaceOffset->AddId(offset);
 			}
 			vhs = polyhedron->m_PointIds->RawPointer();
 			vcnt = polyhedron->GetNumberOfPoints();
+			allIn = 1;
+			allOut = 1;
 			for (i = 0; i < vcnt; i++) {
 				CellClipValue[i] = PointClipValue[vhs[i]];
+				if (CellClipValue[i] < 0.0) {
+					allOut = 0;
+				}
+				else if (CellClipValue[i] > 0.0) {
+					allIn = 0;
+				}
+				else {
+					allIn = 0;
+					allOut = 0;
+				}
+			}
+			if (allIn || allOut) {
+				continue;
 			}
 			CellClip::Clip(polyhedron, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, originCell, m_Slice);
 		}
@@ -229,8 +285,23 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 			cell = m_VolumeMesh->GetVolume(CellId);
 			vhs = cell->m_PointIds->RawPointer();
 			vcnt = cell->GetNumberOfPoints();
+			allIn = 1;
+			allOut = 1;
 			for (i = 0; i < vcnt; i++) {
 				CellClipValue[i] = PointClipValue[vhs[i]];
+				if (CellClipValue[i] < 0.0) {
+					allOut = 0;
+				}
+				else if (CellClipValue[i] > 0.0) {
+					allIn = 0;
+				}
+				else {
+					allIn = 0;
+					allOut = 0;
+				}
+			}
+			if (allIn || allOut) {
+				continue;
 			}
 			switch (cell->GetCellType())
 			{
@@ -265,7 +336,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 				inArray->GetElement(originCell[j], values);
 				outArray->SetElement(j, values);
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
@@ -284,7 +355,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 				}
 
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 	}
 	OutMesh->SetCells(OutConn, OutType);
@@ -319,16 +390,32 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	}
 	igIndex CellId = 0;
 	IGsize CellNum = m_SurfaceMesh->GetNumberOfFaces();
-	igIndex* vhs=nullptr;
+	igIndex* vhs = nullptr;
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Face::Pointer cell;
+	int allIn = 1, allOut = 1;
 	for (CellId = 0; CellId < CellNum; CellId++) {
 		cell = m_SurfaceMesh->GetFace(CellId);
 		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
+		allIn = 1;
+		allOut = 1;
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
+			if (CellClipValue[i] < 0.0) {
+				allOut = 0;
+			}
+			else if (CellClipValue[i] > 0.0) {
+				allIn = 0;
+			}
+			else {
+				allIn = 0;
+				allOut = 0;
+			}
+		}
+		if (allIn || allOut) {
+			continue;
 		}
 		switch (cell->GetNumberOfPoints())
 		{
@@ -362,7 +449,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 				inArray->GetElement(originCell[j], values);
 				outArray->SetElement(j, values);
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 		else if (attr.attachmentType == IG_POINT) {
 			outArray->Resize(outPointNum);
@@ -381,7 +468,7 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 				}
 
 			}
-			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.dataRange);
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 	}
 	OutMesh->SetCells(OutConn, OutType);

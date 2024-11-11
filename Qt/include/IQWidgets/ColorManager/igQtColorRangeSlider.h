@@ -15,10 +15,13 @@ public:
 
 	QSize minimumSizeHint() const override;
 
-	void initColorRanges();
+	//	Obtain Color Bar from the scene, then init slider
+	void InitColorRangeSlider();
+	//  Obtain Color Bar from the input, then update slider
+	void UpdateSliderWithColorBar(iGame::ColorMap::Pointer);
 
 protected:
-	void updateColorBarDrawInfo();
+	void updateSliderDrawInfo();
 
 	void paintEvent(QPaintEvent* aEvent) override;
 	void mousePressEvent(QMouseEvent* aEvent) override;

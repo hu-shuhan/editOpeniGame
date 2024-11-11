@@ -26,10 +26,10 @@ FileWriter::~FileWriter()
 }
 bool FileWriter::WriteToFile()
 {
-	//if (!GenerateBuffers()) {
-	//	igError("Could not generate buffer to load.");
-	//	return false;
-	//}
+	if (!GenerateBuffers()) {
+		igError("Could not generate buffer to load.");
+		return false;
+	}
 	return SaveBufferDataToFile();
 
 }

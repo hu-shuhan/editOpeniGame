@@ -65,6 +65,8 @@ public:
 	int ReadString(char result[256]);
 	int ReadString(std::string& str);
 	char* LowerCase(char* str, const size_t len = 256);
+	//read array data, need input data type, some times will 
+	//have space in file string with %20, so you need to decode it in advance
 	ArrayObject::Pointer ReadArray(const char* dataType, int numTuples, int numComp);
 	void SkipNullData();
 	void SkipDataToSpace();

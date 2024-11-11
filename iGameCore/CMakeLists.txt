@@ -38,6 +38,8 @@ target_link_libraries(${MODULE_NAME} PUBLIC
         meshoptimizer
         tinyXML2
         vtkkwiml
+
+        glfw
 )
 
 # copy resources to the build directory
@@ -54,7 +56,7 @@ IF (WIN32)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
 ELSEIF (APPLE)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
-ELSE()
+ELSE ()
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ENDIF ()
 

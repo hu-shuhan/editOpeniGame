@@ -538,11 +538,25 @@ void DrawObject::GetPointOffsetParameters(float& units) {
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
+    // Copy object status
+    m_DisplayObject->m_ViewStyle = this->m_ViewStyle;
+    m_DisplayObject->m_Visibility = this->m_Visibility;
+    m_DisplayObject->m_UseNormalSmooth = this->m_UseNormalSmooth;
+    m_DisplayObject->m_ColorWithCell = this->m_ColorWithCell;
+    m_DisplayObject->m_PointSize = this->m_PointSize;
+    m_DisplayObject->m_LineWidth = this->m_LineWidth;
+    m_DisplayObject->m_Transparency = this->m_Transparency;
+    m_DisplayObject->m_AttributeIndex=this->m_AttributeIndex;
+    m_DisplayObject->m_AttributeDimension=this->m_AttributeDimension;
+    // The original should be invisible, and it should remain invisible after conversion.
+    m_DisplayObject->SetVisibility(this->GetVisibility());
+    m_DisplayObject->m_UseColor = this->m_UseColor;
     // After the first extraction, there is no data for rendering "m_Positions"
     m_DisplayObject->ConvertToDrawableData();
     // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
     m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
+    
 }
 
 DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }

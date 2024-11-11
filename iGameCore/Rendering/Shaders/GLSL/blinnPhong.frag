@@ -7,6 +7,7 @@
 
 layout(std140, binding = 0) uniform CameraDataBlock {
     vec3 viewPos;
+    int isOrtho;
     mat4 view;
     mat4 proj;
     mat4 proj_view;// proj * view
@@ -20,17 +21,18 @@ layout(std140, binding = 1) uniform ObjectDataBlock {
 } objectData;
 
 layout(std140, binding = 2) uniform UniformBufferObjectBlock {
-    bool useColor;
-    bool useNormalSmooth;
+    int useColor;
+    int useNormalSmooth;
 } ubo;
 
 //layout(binding = 3) uniform sampler2D texSampler;
 uniform sampler2D texSampler;
 
-layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Color;
-layout(location = 2) in vec3 in_Normal;
-layout(location = 3) in vec2 in_UV;
+layout(location = 0) in vec3 in_MCPosition;
+layout(location = 1) in vec3 in_VCPosition;
+layout(location = 2) in vec3 in_Color;
+layout(location = 3) in vec3 in_Normal;
+layout(location = 4) in vec2 in_UV;
 
 layout(location = 0) out vec4 out_ScreenColor;
 
@@ -69,18 +71,28 @@ void main() {
     vec3 color = vec3(0.0, 0.0, 0.0);
 
     vec3 normal = vec3(0.0, 0.0, 0.0);
-    if (ubo.useNormalSmooth) {
+    if (ubo.useNormalSmooth == 1) {
         // continuous patch
         normal = normalize(in_Normal);
     } else {
         // discrete patch
-        normal = normalize(cross(dFdx(in_Position), dFdy(in_Position)));
+        float scale = 1.0 / length(fwidth(in_VCPosition));
+        vec3 fdx = dFdx(in_VCPosition) * scale;
+        vec3 fdy = dFdy(in_VCPosition) * scale;
+        normal = normalize(cross(fdx, fdy));
+    }
+    // correct normal orientation
+    if (cameraData.isOrtho == 1 && normal.z < 0.0f) {
+        normal = -1.0 * normal;
+    }
+    if (cameraData.isOrtho == 0 && dot(normal, in_VCPosition) > 0.0f) {
+        normal = -1.0 * normal;
     }
 
     // ambient
     color += ambient * in_Color;
     // lighting
-    vec3 lighting = BlinnPhong(normal, in_Position, light);
+    vec3 lighting = BlinnPhong(normal, in_MCPosition, light);
     color += lighting * in_Color;
 
     if (gamma) {

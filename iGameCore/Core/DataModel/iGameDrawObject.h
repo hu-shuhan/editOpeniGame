@@ -119,7 +119,7 @@ protected:
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
 
-    unsigned int m_ViewStyle{0};
+    unsigned int m_ViewStyle{IG_SURFACE};
     bool m_Visibility{true};
 
     bool m_Flag{false};
@@ -130,16 +130,17 @@ protected:
     int m_LineWidth{1};
     int m_CellPositionSize{};
 
-    //float m_PolygonFactor{-1.0f};
-    //float m_PolygonOffset{-1.0f};
-    //float m_LineFactor{-1.0f};
-    //float m_LineOffset{-1.0f};
-    //float m_PointOffset{-1.0f};
-    float m_PolygonFactor{0.0f};
-    float m_PolygonOffset{0.0f};
-    float m_LineFactor{0.0f};
-    float m_LineOffset{-4.0f};
-    float m_PointOffset{-8.0f};
+    // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines
+    float m_PolygonFactor{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_PolygonOffset{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_LineFactor{-1.0f};   // now not implemented
+    float m_LineOffset{-1.0f};   // now not implemented
+    float m_PointOffset{-1.0f};  // now not implemented
+    //float m_PolygonFactor{0.0f};
+    //float m_PolygonOffset{0.0f};
+    //float m_LineFactor{0.0f};
+    //float m_LineOffset{-4.0f};
+    //float m_PointOffset{-8.0f};
 
     float m_Transparency{1.0f};
 

@@ -25,6 +25,7 @@ public:
     static Pointer New() { return new Scene; }
 
     /* Model Related */
+    int AddModel(DataObject::Pointer);
     int AddModel(Model::Pointer);
     void ResetCenter();
     Model::Pointer CreateModel(DataObject::Pointer);
@@ -33,6 +34,8 @@ public:
     void RemoveCurrentModel();
     void SetCurrentModel(int index);
     void SetCurrentModel(Model*);
+
+    Painter3D::Pointer GetPainter() { return m_Painter3D; }
 
     /* Interactor Related */
     void SetInteractor(Interactor* i);
@@ -49,6 +52,7 @@ public:
     /* Rendering Related */
     struct CameraDataBuffer {
         alignas(16) igm::vec3 camera_position;
+        alignas(4) int isOrtho;
         alignas(16) igm::mat4 view;
         alignas(16) igm::mat4 proj;
         alignas(16) igm::mat4 proj_view; // proj * view
@@ -111,22 +115,22 @@ public:
     bool HasShader(IGenum type);
     void UseShader(IGenum type);
 
+    bool Initialize();
     void Draw();
     void Resize(int width, int height, int pixelRatio);
     void Update();
 
-    void lookAtPositiveX();
-    void lookAtNegativeX();
-    void lookAtPositiveY();
-    void lookAtNegativeY();
-    void lookAtPositiveZ();
-    void lookAtNegativeZ();
-    void lookAtIsometric();
-    void rotateNinetyClockwise();
-    void rotateNinetyCounterClockwise();
+    void LookAtPositiveX();
+    void LookAtNegativeX();
+    void LookAtPositiveY();
+    void LookAtNegativeY();
+    void LookAtPositiveZ();
+    void LookAtNegativeZ();
+    void LookAtIsometric();
+    void RotateNinetyClockwise();
+    void RotateNinetyCounterClockwise();
 
     unsigned char* CaptureOffScreenBuffer(int width, int height);
-
 
     template<typename Functor, typename... Args>
     void SetUpdateFunctor(Functor&& functor, Args&&... args) {
@@ -155,6 +159,7 @@ protected:
     ~Scene() override;
 
     void UpdateModelsBoundingSphere();
+
 
     void InitOpenGL();
     void InitOIT();
@@ -214,7 +219,7 @@ protected:
     GLVertexArray::Pointer m_EmptyVAO;
 
 #ifdef MSAA
-    GLint samples = 4;
+    GLint samples = 8;
     GLFramebuffer::Pointer m_FramebufferMultisampled;
     GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
     GLTexture2dMultisample::Pointer m_DepthTextureMultisampled;
@@ -238,7 +243,9 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
-    Painter3D::Pointer painter = Painter3D::New();
+    Painter3D::Pointer m_Painter3D = Painter3D::New();
+
+    bool m_FinishInit{false};
 
     friend class Model;
     friend class Interactor;

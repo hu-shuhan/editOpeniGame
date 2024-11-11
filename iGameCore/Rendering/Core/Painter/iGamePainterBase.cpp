@@ -11,6 +11,7 @@ PainterBase::PainterBase() {
     m_Pen = Pen::New();
     m_Brush = Brush::New();
 
+    m_PrimitivesUpdateHelper = Object::New();
     m_PrimitivesPool = HandlePool<Primitive>::New();
 
     Clear();
@@ -78,176 +79,220 @@ void PainterBase::SetBrush(const BrushStyle& style) {
 }
 
 void PainterBase::Draw(Scene* scene) {
-    if (!m_Flag) {
-        m_VAO = GLVertexArray::New();
-        m_VAO->Create();
+    this->PackDrawableData();
 
-        m_PositionVBO = GLBuffer::New();
-        m_PositionVBO->Create();
-        m_PositionVBO->Target(GL_ARRAY_BUFFER);
-
-        m_ColorVBO = GLBuffer::New();
-        m_ColorVBO->Create();
-        m_ColorVBO->Target(GL_ARRAY_BUFFER);
-
-        m_PointEBO = GLBuffer::New();
-        m_PointEBO->Create();
-        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_LineEBO = GLBuffer::New();
-        m_LineEBO->Create();
-        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_TriangleEBO = GLBuffer::New();
-        m_TriangleEBO->Create();
-        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_VAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-        m_VAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-
-        GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                          GL_FALSE, 0);
-        GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
-                          GL_FALSE, 0);
-
-        m_Flag = true;
-    }
-
-    for (auto& [handle, primitive]: *m_PrimitivesPool) {
-        if (!primitive.visible) { continue; }
-
-        auto& points = primitive.points;
-        auto& colors = primitive.colors;
-        auto& indexes = primitive.indices;
-
-        m_PositionVBO->Allocate(points.size() * sizeof(Vector3f), points.data(),
-                                GL_STATIC_DRAW);
-        m_ColorVBO->Allocate(colors.size() * sizeof(Vector3f), colors.data(),
-                             GL_STATIC_DRAW);
+    for (const auto& pair: m_VAOs) {
+        float penWidth = pair.first;
 
         scene->UBO().useColor = true;
         scene->UpdateUniformBuffer();
         scene->GetShader(Scene::NOLIGHT)->Use();
 
-        m_VAO->Bind();
-
-        if (indexes[0].size() != 0) {
-            m_PointEBO->Allocate(indexes[0].size() * sizeof(iguIndex),
-                                 indexes[0].data(), GL_STATIC_DRAW);
-            m_VAO->ElementBuffer(m_PointEBO);
-
-            m_VAO->Bind();
-            glad_glPointSize(primitive.penWidth);
+        m_VAOs[penWidth]->Bind();
+        {
+            // draw point
+            m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
+            glad_glPointSize(penWidth);
             glad_glDepthRange(0.000001, 1);
-            glad_glDrawElements(GL_POINTS, indexes[0].size(), GL_UNSIGNED_INT,
-                                0);
+            glad_glDrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
+                                GL_UNSIGNED_INT, 0);
             glad_glDepthRange(0, 1);
-        }
-        if (indexes[1].size() != 0) {
-            m_LineEBO->Allocate(indexes[1].size() * sizeof(iguIndex),
-                                indexes[1].data(), GL_STATIC_DRAW);
-            m_VAO->ElementBuffer(m_LineEBO);
 
-            m_VAO->Bind();
-            GLCheckError();
-            glad_glLineWidth(primitive.penWidth);
-            GLCheckError();
-            glad_glDrawElements(GL_LINES, indexes[1].size(), GL_UNSIGNED_INT,
-                                0);
-        }
-        if (indexes[2].size() != 0) {
-            m_TriangleEBO->Allocate(indexes[2].size() * sizeof(iguIndex),
-                                    indexes[2].data(), GL_STATIC_DRAW);
-            m_VAO->ElementBuffer(m_TriangleEBO);
+            // draw line
+            m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
+            glad_glLineWidth(penWidth);
+            glad_glDrawElements(GL_LINES, m_LineEBOSizes[penWidth],
+                                GL_UNSIGNED_INT, 0);
 
-            m_VAO->Bind();
-            glad_glDrawElements(GL_TRIANGLES, indexes[2].size(),
+            // draw triangle
+            m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
+            glad_glDrawElements(GL_TRIANGLES, m_TriangleEBOSizes[penWidth],
                                 GL_UNSIGNED_INT, 0);
         }
-
-        m_VAO->Release();
+        m_VAOs[penWidth]->Release();
     }
+
+    //for (auto& [handle, primitive]: *m_PrimitivesPool) {
+    //    if (!primitive.visible) { continue; }
+    //
+    //    auto& points = primitive.points;
+    //    auto& colors = primitive.colors;
+    //    auto& indexes = primitive.indices;
+    //
+    //    m_PositionVBO->Allocate(points.size() * sizeof(Vector3f), points.data(),
+    //                            GL_STATIC_DRAW);
+    //    m_ColorVBO->Allocate(colors.size() * sizeof(Vector3f), colors.data(),
+    //                         GL_STATIC_DRAW);
+    //
+    //    scene->UBO().useColor = true;
+    //    scene->UpdateUniformBuffer();
+    //    scene->GetShader(Scene::NOLIGHT)->Use();
+    //
+    //    m_VAO->Bind();
+    //
+    //    if (indexes[0].size() != 0) {
+    //        m_PointEBO->Allocate(indexes[0].size() * sizeof(iguIndex),
+    //                             indexes[0].data(), GL_STATIC_DRAW);
+    //        m_VAO->ElementBuffer(m_PointEBO);
+    //
+    //        m_VAO->Bind();
+    //        glad_glPointSize(primitive.penWidth);
+    //        glad_glDepthRange(0.000001, 1);
+    //        glad_glDrawElements(GL_POINTS, indexes[0].size(), GL_UNSIGNED_INT,
+    //                            0);
+    //        glad_glDepthRange(0, 1);
+    //    }
+    //    if (indexes[1].size() != 0) {
+    //        m_LineEBO->Allocate(indexes[1].size() * sizeof(iguIndex),
+    //                            indexes[1].data(), GL_STATIC_DRAW);
+    //        m_VAO->ElementBuffer(m_LineEBO);
+    //
+    //        m_VAO->Bind();
+    //        GLCheckError();
+    //        glad_glLineWidth(primitive.penWidth);
+    //        GLCheckError();
+    //        glad_glDrawElements(GL_LINES, indexes[1].size(), GL_UNSIGNED_INT,
+    //                            0);
+    //    }
+    //    if (indexes[2].size() != 0) {
+    //        m_TriangleEBO->Allocate(indexes[2].size() * sizeof(iguIndex),
+    //                                indexes[2].data(), GL_STATIC_DRAW);
+    //        m_VAO->ElementBuffer(m_TriangleEBO);
+    //
+    //        m_VAO->Bind();
+    //        glad_glDrawElements(GL_TRIANGLES, indexes[2].size(),
+    //                            GL_UNSIGNED_INT, 0);
+    //    }
+    //
+    //    m_VAO->Release();
+    //}
 }
 
 void PainterBase::PackDrawableData() {
-    if (!m_Flag) {
-        m_VAO->Create();
-
-        m_PositionVBO->Create();
-        m_PositionVBO->Target(GL_ARRAY_BUFFER);
-        m_ColorVBO->Create();
-        m_ColorVBO->Target(GL_ARRAY_BUFFER);
-        m_PointEBO->Create();
-        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-        m_LineEBO->Create();
-        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-        m_TriangleEBO->Create();
-        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_VAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0, 3 * sizeof(float));
-        m_VAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
-
-        GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                          GL_FALSE, 0);
-        GLSetVertexAttrib(m_VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
-                          GL_FALSE, 0);
-
-        m_Flag = true;
+    if (m_PrimitivesPool->GetMTime() < m_PrimitivesUpdateHelper->GetMTime()) {
+        return;
     }
+    m_PrimitivesUpdateHelper->Modified();
 
-    FloatArray::Pointer packPositions = FloatArray::New();
-    FloatArray::Pointer packColors = FloatArray::New();
-    UnsignedIntArray::Pointer packPointIndices = UnsignedIntArray::New();
-    UnsignedIntArray::Pointer packLineIndices = UnsignedIntArray::New();
-    UnsignedIntArray::Pointer packTriangleIndices = UnsignedIntArray::New();
+    std::unordered_map<float, FloatArray::Pointer> packPositions;
+    std::unordered_map<float, FloatArray::Pointer> packColors;
+    std::unordered_map<float, UnsignedIntArray::Pointer> packPointIndices;
+    std::unordered_map<float, UnsignedIntArray::Pointer> packLineIndices;
+    std::unordered_map<float, UnsignedIntArray::Pointer> packTriangleIndices;
 
-    packPositions->SetDimension(3);
-    packColors->SetDimension(3);
-    packPointIndices->SetDimension(1);
-    packLineIndices->SetDimension(1);
-    packTriangleIndices->SetDimension(1);
-
+    // create buffer array
     for (auto& [handle, primitive]: *m_PrimitivesPool) {
         if (!primitive.visible) { continue; }
 
-        unsigned int offset = packPositions->GetNumberOfElements();
+        float penWidth = primitive.penWidth;
+        if (packPositions.find(penWidth) == packPositions.end()) {
+            packPositions[penWidth] = FloatArray::New();
+            packColors[penWidth] = FloatArray::New();
+            packPointIndices[penWidth] = UnsignedIntArray::New();
+            packLineIndices[penWidth] = UnsignedIntArray::New();
+            packTriangleIndices[penWidth] = UnsignedIntArray::New();
 
-        for (auto point: primitive.points) {
-            packPositions->AddElement3(point[0], point[1], point[2]);
-        }
-        for (auto color: primitive.colors) {
-            packColors->AddElement3(color[0], color[1], color[2]);
-        }
-        for (auto index: primitive.indices[0]) {
-            packPointIndices->AddValue(index + offset);
-        }
-        for (auto index: primitive.indices[1]) {
-            packLineIndices->AddValue(index + offset);
-        }
-        for (auto index: primitive.indices[2]) {
-            packTriangleIndices->AddValue(index + offset);
+            packPositions[penWidth]->SetDimension(3);
+            packColors[penWidth]->SetDimension(3);
+            packPointIndices[penWidth]->SetDimension(1);
+            packLineIndices[penWidth]->SetDimension(1);
+            packTriangleIndices[penWidth]->SetDimension(1);
         }
     }
 
-    GLAllocateGLBuffer(m_PositionVBO,
-                       packPositions->GetNumberOfValues() * sizeof(float),
-                       packPositions->RawPointer());
-    GLAllocateGLBuffer(m_ColorVBO,
-                       packColors->GetNumberOfValues() * sizeof(float),
-                       packColors->RawPointer());
-    GLAllocateGLBuffer(m_PointEBO,
-                       packPointIndices->GetNumberOfValues() * sizeof(iguIndex),
-                       packPointIndices->RawPointer());
-    GLAllocateGLBuffer(m_LineEBO,
-                       packLineIndices->GetNumberOfValues() * sizeof(iguIndex),
-                       packLineIndices->RawPointer());
-    GLAllocateGLBuffer(m_TriangleEBO,
-                       packTriangleIndices->GetNumberOfValues() *
-                               sizeof(iguIndex),
-                       packTriangleIndices->RawPointer());
+    // pack data
+    for (auto& [handle, primitive]: *m_PrimitivesPool) {
+        if (!primitive.visible) { continue; }
+
+        float penWidth = primitive.penWidth;
+        unsigned int offset = packPositions[penWidth]->GetNumberOfElements();
+
+        for (auto point: primitive.points) {
+            packPositions[penWidth]->AddElement3(point[0], point[1], point[2]);
+        }
+        for (auto color: primitive.colors) {
+            packColors[penWidth]->AddElement3(color[0], color[1], color[2]);
+        }
+        for (auto index: primitive.indices[0]) {
+            packPointIndices[penWidth]->AddValue(index + offset);
+        }
+        for (auto index: primitive.indices[1]) {
+            packLineIndices[penWidth]->AddValue(index + offset);
+        }
+        for (auto index: primitive.indices[2]) {
+            packTriangleIndices[penWidth]->AddValue(index + offset);
+        }
+    }
+
+    // allocate buffer
+    IGsize size = 0;
+    for (const auto& pair: packPositions) {
+        float penWidth = pair.first;
+        if (m_VAOs.find(penWidth) == m_VAOs.end()) {
+            this->CreateDrawBuffer(penWidth);
+        }
+
+        size = packPositions[penWidth]->GetNumberOfValues();
+        GLAllocateGLBuffer(m_PositionVBOs[penWidth], size * sizeof(float),
+                           packPositions[penWidth]->RawPointer());
+
+        size = packColors[penWidth]->GetNumberOfValues();
+        GLAllocateGLBuffer(m_ColorVBOs[penWidth], size * sizeof(float),
+                           packColors[penWidth]->RawPointer());
+
+        size = packPointIndices[penWidth]->GetNumberOfValues();
+        GLAllocateGLBuffer(m_PointEBOs[penWidth], size * sizeof(iguIndex),
+                           packPointIndices[penWidth]->RawPointer());
+        m_PointEBOSizes[penWidth] = size;
+
+        size = packLineIndices[penWidth]->GetNumberOfValues();
+        GLAllocateGLBuffer(m_LineEBOs[penWidth], size * sizeof(iguIndex),
+                           packLineIndices[penWidth]->RawPointer());
+        m_LineEBOSizes[penWidth] = size;
+
+        size = packTriangleIndices[penWidth]->GetNumberOfValues();
+        GLAllocateGLBuffer(m_TriangleEBOs[penWidth], size * sizeof(iguIndex),
+                           packTriangleIndices[penWidth]->RawPointer());
+        m_TriangleEBOSizes[penWidth] = size;
+    }
 }
 
 void PainterBase::Clear() { m_PrimitivesPool->Clear(); }
+
+void PainterBase::CreateDrawBuffer(float penWidth) {
+    m_VAOs[penWidth] = GLVertexArray::New();
+    m_VAOs[penWidth]->Create();
+
+    m_PositionVBOs[penWidth] = GLBuffer::New();
+    m_PositionVBOs[penWidth]->Create();
+    m_PositionVBOs[penWidth]->Target(GL_ARRAY_BUFFER);
+
+    m_ColorVBOs[penWidth] = GLBuffer::New();
+    m_ColorVBOs[penWidth]->Create();
+    m_ColorVBOs[penWidth]->Target(GL_ARRAY_BUFFER);
+
+    m_PointEBOs[penWidth] = GLBuffer::New();
+    m_PointEBOs[penWidth]->Create();
+    m_PointEBOs[penWidth]->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_LineEBOs[penWidth] = GLBuffer::New();
+    m_LineEBOs[penWidth]->Create();
+    m_LineEBOs[penWidth]->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_TriangleEBOs[penWidth] = GLBuffer::New();
+    m_TriangleEBOs[penWidth]->Create();
+    m_TriangleEBOs[penWidth]->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_VAOs[penWidth]->VertexBuffer(GL_VBO_IDX_0, m_PositionVBOs[penWidth], 0,
+                                   3 * sizeof(float));
+    m_VAOs[penWidth]->VertexBuffer(GL_VBO_IDX_1, m_ColorVBOs[penWidth], 0,
+                                   3 * sizeof(float));
+
+    GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+                      GL_FLOAT, GL_FALSE, 0);
+    GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+                      GL_FLOAT, GL_FALSE, 0);
+}
 
 //void Painter::ExpandVBO(GLBuffer& vbo, size_t oldSize, size_t newSize) {
 //    GLBuffer tmp;
