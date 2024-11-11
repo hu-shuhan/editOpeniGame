@@ -488,7 +488,7 @@ protected:
 		}
 
 		if (priority != 0.0) {
-			heap->push(-priority, faceId);
+			heap->push(-priority, faceId, 1);
 			return true;
 		}
 		return false;

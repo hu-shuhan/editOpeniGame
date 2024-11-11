@@ -274,11 +274,11 @@ protected:
             return;
         }
 
-        double priority = ComputePriority(edgeId);
+        //double priority = ComputePriority(edgeId);
 
-        if (priority != std::numeric_limits<double>::max()) {
-            heap->push(priority, edgeId);
-        }
+        //if (priority != std::numeric_limits<double>::max()) {
+        //    heap->push(priority, edgeId);
+        //}
     }
 
     double ComputePriority(igIndex edgeId) {

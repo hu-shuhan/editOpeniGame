@@ -24,12 +24,12 @@ public:
     int TargetFaceNum = 0;         // 目标面数
     double TargetReduction = 0.8;  // 减少的百分比
     bool NormalCheck = true;       // 是否进行法线检查。
-    double NormalThr = M_PI / 4.0; // 法线检查的阈值，以弧度表示。
+    double NormalThr = M_PI / 36.0; // 法线检查的阈值，以弧度表示。
     double CosineThr = cos(NormalThr); // 法线检查的余弦阈值。
     bool OptimalPosition = true;       // 是否使用最优位置。
     bool PreserveBoundary = false;     // 是否保持边界。
     double QuadricEpsilon = 1e-15;     // 二次型的阈值。
-    bool QualityCheck = true;          // 是否进行质量检查。
+    bool QualityCheck = false;          // 是否进行质量检查。
     double QualityThr = 0.3;           // 用于质量检查的质量阈值。
     bool ScalarCheck = true;          // 是否进行标量检查。
 
@@ -49,7 +49,7 @@ public:
                 }
             }
         }
-
+        //painter = m_Model->GetPainter();
         attrbs = mesh->GetAttributeSet();
         scalarIndex = 0;
         //auto temp = mesh;
@@ -69,9 +69,30 @@ public:
 
         heap = PriorityQueue::New();
         optimalPos.resize(nedges);
-        if (this->TargetReduction != 0) {
-            this->TargetFaceNum = nfaces * (1 - this->TargetReduction);
-        }
+        mergeCount.resize(npts, 0);
+        isCollapsable.resize(nedges, 1);
+
+        //{
+        //    painter->SetPen(2);
+        //    painter->SetBrush(Red);
+        //    igIndex e[2]{};
+        //    igIndex ids[8]{};
+        //    for (int i = 0; i < nedges; i++) {
+        //        mesh->GetEdgePointIds(i, e);
+        //        int size = mesh->GetEdgeToNeighborFaces(i, ids);
+        //        if (size == 2) {
+        //            Vector3d n1 = Normal(ids[0]).normalized();
+        //            Vector3d n2 = Normal(ids[1]).normalized();
+        //            if (n1 * n2 < cos(M_PI / 3)) { 
+        //                isCollapsable[i] = 0;
+        //                painter->DrawLine(mesh->GetPoint(e[0]),
+        //                                  mesh->GetPoint(e[1]));
+        //            }
+        //        }
+        //    }
+        //}
+        
+
 
         {
             double T = 0;
@@ -82,6 +103,7 @@ public:
                 if (size == 2) { 
                     Vector3d n1 = Normal(ids[0]);
                     Vector3d n2 = Normal(ids[1]);
+
                     double theta = GetCosTheta(n1, n2);
                     T += theta * theta;
                     count++;
@@ -90,27 +112,26 @@ public:
             T /= count;
             T = std::sqrt(T);
             double Smax = 0.9;
-            double al = 1;
+            double al = 2;
             double S = Smax * std::exp(-al * T);
             this->TargetReduction = S;
-            //std::cout << S << std::endl;
+            std::cout << T << " " <<  S << std::endl;
         }
 
-
-        //for (int i = 0; i < nfaces; i++) { 
-        //    double area;
-        //    Vector3d n;
-        //    if (GetNormalAndArea(i, area, n)) {
-
-        //    }
-        //}
+        if (this->TargetReduction != 0) {
+            this->TargetFaceNum = nfaces * (1 - this->TargetReduction);
+        }
 
         {
             max_range = 0;
+            double sum = 0;
             for (int i = 0; i < npts; i++) { 
                 double val = GetMeanValue(i);
                 max_range = std::max(val, max_range);
+                sum += val;
             }
+            sum /= npts;
+            mean = sum;
             //auto arr = attrbs->GetAttribute(scalarIndex).pointer;
             //int dim = arr->GetDimension();
             //scalarRange.resize(dim);
@@ -129,8 +150,6 @@ public:
             //    //}
             //}
         }
-
-
 
         UpdateProgress(0.01);
         InitQuadric();
@@ -153,32 +172,28 @@ public:
         int needEliminatedNum = nfaces - TargetFaceNum;
         blockNum = needEliminatedNum / 100;
         progress = 0;
-        double sum_pri = 0;
-        int sum = 0;
-        int ep = nfaces / 100;
-        int epi = 0;
         for (int totalEliminated = 0; totalEliminated < needEliminatedNum;) {
             heap->update();
             if (heap->empty()) { break; }
-
+  
             igIndex edgeId = heap->top().handle;
             double pri = heap->top().priority;
             double geo_pri = heap->top().rest;
+            int count = heap->top().count;
 
             heap->pop();
+
+            if (this->ScalarCheck) {
+                if (geo_pri * (11 - count) * 0.1 > 2 * mean) {
+                    heap->push(pri * 1.1, edgeId, count + 1, geo_pri);
+                    continue;
+                }
+            }
 
             igIndex e[2]{};
             mesh->GetEdgePointIds(edgeId, e);
 
             if (!mesh->IsCollapsable(edgeId)) continue;
-            //sum++;
-            //sum_pri += pri;
-            ////int d = 2.618;
-            //int d = 3;
-            //if (pri > d * sum_pri / sum) { 
-            //    //if (epi++ > ep) break;
-            //    break;
-            //}
 
             totalEliminated += mesh->GetNumberOfLinks(edgeId, SurfaceMesh::E2F);
             if (totalEliminated >= blockNum * progress) {
@@ -253,6 +268,7 @@ public:
 
             mesh->CollapseEdge(edgeId);
             mesh->SetPoint(e[1], optimalPos[edgeId]);
+            mergeCount[e[1]]++;
 
             if (mode == QEM_FASTEST) {
                 mesh->GetPointToNeighborEdges(e[1], container);
@@ -275,7 +291,7 @@ public:
                 mesh->GetPointToOneRingPoints(e[1], container);
                 for (int i = 0; i < container.size(); i++) {
                     quadrics[container[i]].setZero();
-                    igIndex ids[32]{};
+                    igIndex ids[64]{};
                     int size = mesh->GetPointToNeighborFaces(container[i], ids);
                     for (int j = 0; j < size; j++) {
                         Quadric q = QuadricFace(ids[j]);
@@ -284,7 +300,7 @@ public:
                 }
 
                 quadrics[e[1]].setZero();
-                igIndex ids[32]{};
+                igIndex ids[64]{};
                 int size = mesh->GetPointToNeighborFaces(e[1], ids);
                 for (int j = 0; j < size; j++) {
                     Quadric q = QuadricFace(ids[j]);
@@ -313,7 +329,6 @@ public:
                 k++;
             }
         }
-
         arr->Resize(k);
 
         mesh->GarbageCollection();
@@ -378,6 +393,8 @@ protected:
     }
 
     void InsertEdgeToHeap(igIndex edgeId) {
+        //if (!isCollapsable[edgeId]) return;
+
         int type = EvaluateEdge(edgeId);
 
         if ((type == QEM_BOUNDARY_EDGE || type == QEM_HALF_BOUNDARY_EDGE) &&
@@ -389,7 +406,7 @@ protected:
         double priority = ComputePriority(edgeId, geo_priority);
 
         if (priority != std::numeric_limits<double>::max()) {
-            heap->push(priority, edgeId, geo_priority);
+            heap->push(priority, edgeId, 1, geo_priority);
         }
     }
 
@@ -399,20 +416,42 @@ protected:
         Point v0 = mesh->GetPoint(e[0]);
         Point v1 = mesh->GetPoint(e[1]);
 
+        {
+            for (int i = 0; i < 2; i++) {
+                igIndex ids[64]{};
+                int size = mesh->GetPointToNeighborEdges(e[i], ids);
+                for (int j = 0; j < size; j++) {
+                    igIndex ids2[64]{};
+                    int size2 = mesh->GetEdgeToNeighborFaces(ids[j], ids2);
+                    if (size2 == 2) {
+                        Vector3d n1 = Normal(ids2[0]).normalized();
+                        Vector3d n2 = Normal(ids2[1]).normalized();
+                        if (n1 * n2 < cos(M_PI / 4)) {
+                            return std::numeric_limits<double>::max();
+                        }
+                    }
+                }
+            }
+
+
+        }
+
+
         igIndex ef[8]{};
         int size = mesh->GetEdgeToNeighborFaces(edgeId, ef);
         igIndex fid0 = size > 0 ? ef[0] : -1;
         igIndex fid1 = size > 1 ? ef[1] : -1;
 
-        FlexArray<Vector3d, 64> origNormal;
+        FlexArray<Vector3d, 128> origNormal;
         SurfaceMesh::ReturnContainer eorf; 
         mesh->GetEdgeToOneRingFaces(edgeId, eorf);
-        origNormal.resize(eorf.size());
+        //origNormal.resize(eorf.size());
         if (this->NormalCheck) {
             for (int i = 0; i < eorf.size(); ++i) {
                 if (eorf[i] != fid0 && eorf[i] != fid1) {
-                    origNormal[i] = Normal(eorf[i]);
-                    origNormal[i].normalize();
+                    origNormal.push_back(Normal(eorf[i]).normalized());
+                } else {
+                    origNormal.push_back(Vector3d());
                 }
             }
         }
@@ -497,20 +536,21 @@ protected:
         if (newQuality > this->QualityThr) newQuality = this->QualityThr;
 
         if (this->NormalCheck) {
-            //if (minCos > this->CosineThr) {
-            //    return std::numeric_limits<double>::max();
-            //}
-            if (minCos > this->CosineThr) minCos = this->CosineThr;
+            //if (minCos > this->CosineThr) minCos = this->CosineThr;
+            if (minCos < cos(M_PI / 4.0)) 
+                return std::numeric_limits<double>::max();
+            
+            else if (minCos < this->CosineThr)
+                /*return std::numeric_limits<double>::max();*/
+                minCos *= 0.8;
+
+                //if (mergeCount[e[0]] < 3 && mergeCount[e[1]] < 3)
+                //    return std::numeric_limits<double>::max();
+            
             minCos = fabs((minCos + 1.0) / 2.0);
         }
 
-        //if (error > this->QuadricEpsilon) {
-        //    std::cout << error << "\n";
-        //}
         error = std::max(error, this->QuadricEpsilon);
-        //if (error > 1e-5) {
-        //    return std::numeric_limits<double>::max();
-        //}
         if (error <= this->QuadricEpsilon) { error *= (v0 - v1).norm(); }
 
         double priority = std::numeric_limits<double>::max();
@@ -530,10 +570,10 @@ protected:
         //    return std::numeric_limits<double>::max();
         //}
 
-        geo_priority = priority;
-        if (this->ScalarCheck) { 
-            priority *= (1 + gradient);
-        }
+        geo_priority = gradient;
+        //if (this->ScalarCheck) { 
+        //    priority *= (1 + gradient);
+        //}
 
         
         return priority;
@@ -752,11 +792,15 @@ protected:
     std::vector<Quadric<double>> quadrics;
     std::vector<Vector3f> optimalPos;
     FloatArray::Pointer optimalScalar{};
-    IGenum mode{QEM_NICEST};
+    IGenum mode{QEM_FASTEST};
     AttributeSet::Pointer newAttrs{}, oldAttrs{}, attrbs{};
     int scalarIndex{-1};
     std::vector<Vector2d> scalarRange;
+    std::vector<int> mergeCount;
+    std::vector<int> isCollapsable;
     double max_range;
+    double mean;
+    Painter3D::Pointer painter{nullptr};
 
     IGsize npts{}, nedges{}, nfaces{};
 

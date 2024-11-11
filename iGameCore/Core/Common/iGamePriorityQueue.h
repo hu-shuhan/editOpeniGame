@@ -16,20 +16,21 @@ public:
 
 	struct Item {
 		double priority, rest;
-		int handle, uniqueId;
+		int handle, uniqueId, count;
 		Item() : priority(static_cast<double>(1.0e+299)), handle(-1), uniqueId(-1) {};
-        Item(double priority, int handle, double rest)
-            : priority(priority), handle(handle), uniqueId(-1), rest(rest){};
-        Item(double priority, int handle, int uniqueId, double rest)
-            : priority(priority), handle(handle), uniqueId(uniqueId),
+        Item(double priority, int handle, int count, double rest)
+            : priority(priority), handle(handle), uniqueId(-1), count(count),
               rest(rest){};
+        Item(double priority, int handle, int uniqueId, int count, double rest)
+            : priority(priority), handle(handle), uniqueId(uniqueId),
+              count(count), rest(rest){};
 		bool operator<(const Item& other) const {
 			return priority > other.priority;
 		}
 	};
 
-	void push(double priority, int id, double rest = 0.0) {
-		Item item(priority, id, currentId, rest);
+	void push(double priority, int id, int count, double rest = 0.0) {
+        Item item(priority, id, currentId, count, rest);
 		queue.push(item);
 		uniqueId_map.push_back(uint8_t(1));
 		handle_to_uniqueId_map[item.handle] = currentId++;
