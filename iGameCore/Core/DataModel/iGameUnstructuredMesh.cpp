@@ -320,7 +320,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
         // shell algorithm
         SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-        if (extract->Execute(this, surfaceMesh) && false) {
+        if (extract->Execute(this, surfaceMesh)) {
             SetDisplayObject(surfaceMesh);
             m_PointMap = extract->GetPointMap();
         } else {
