@@ -311,6 +311,27 @@ GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
                                  GL_FRAGMENT_SHADER);
             sp->AddShaders(fullScreenTriangle_vert, transparencySort_frag);
         } break;
+        case VOLUMERENDERINGLINK: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer volumeRenderingLink_frag =
+                    CreateShader(std::string("./Resources/Shaders/"
+                                             "volumeRenderingLink.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, volumeRenderingLink_frag);
+        } break;
+        case VOLUMERENDERINGSORT: {
+            GLShader::Pointer fullScreenTriangle_vert =
+                    CreateShader(std::string("./Resources/Shaders/"
+                                             "fullScreenTriangle.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer volumeRenderingSort_frag =
+                    CreateShader(std::string("./Resources/Shaders/"
+                                             "volumeRenderingSort.frag"),
+                                 GL_FRAGMENT_SHADER);
+            sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
+        } break;
         case AXES: {
             GLShader::Pointer axis_vert =
                     CreateShader(std::string("./Resources/Shaders/axis.vert"),
@@ -448,9 +469,16 @@ void Scene::InitOpenGL() {
             shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
         }
-        // map pure color shader block
+        // map transparency link shader block
         {
             auto shader = this->GetShader(TRANSPARENCYLINK);
+            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        }
+        // map volume rendering link shader block
+        {
+            auto shader = this->GetShader(VOLUMERENDERINGLINK);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
             shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
             shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
@@ -849,9 +877,10 @@ void Scene::DrawFrame() {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GREATER);
 
-        ForwardPass();
-        TransparentForwardPass();
         ShadowPass();
+        ForwardPass();
+        TransparentPass();
+        //VolumeRenderingPass();
 
         // draw scene painter
         m_Painter3D->Draw(this);
@@ -959,14 +988,19 @@ void Scene::ForwardPass() {
         RefreshDepthPyramid();
     } else {
         for (auto& [id, model]: m_Models) {
+            // draw mesh
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
+
+            // draw painter(since painter does not support transparency)
+            model->GetPainter()->Draw(this);
         }
     }
 #endif
     GLCheckError();
 }
-void Scene::TransparentForwardPass() {
+
+void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // 1.reset oit pipeline status
     {
@@ -1030,6 +1064,72 @@ void Scene::TransparentForwardPass() {
 #endif
     GLCheckError();
 }
+
+void Scene::VolumeRenderingPass() {
+#ifdef IGAME_OPENGL_VERSION_460
+    // 1.reset oit pipeline status
+    {
+        auto shader = GetShader(Scene::VOLUMERENDERINGLINK);
+        shader->Use();
+
+        m_OITAtomicCounterBuffer->BindBase(0);
+        const GLuint zero = 0;
+        m_OITAtomicCounterBuffer->SubData(0, sizeof(zero), &zero);
+
+        m_OITHeadPointerInitializer->Bind();
+        m_OITHeadPointerTexture->Bind();
+        m_OITHeadPointerTexture->SubImage(
+                0, 0, 0, MAX_FRAMEBUFFER_WIDTH, MAX_FRAMEBUFFER_HEIGHT,
+                GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+        m_OITHeadPointerTexture->Release();
+        m_OITHeadPointerInitializer->Release();
+
+        m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_WRITE,
+                                           GL_R32UI);
+        m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_READ_WRITE,
+                                          GL_RGBA32UI);
+    }
+
+    // 2.build the oit link list
+    glDepthMask(GL_FALSE);
+    {
+        // add the result of drawing opaque objects
+        auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
+        shader->Use();
+
+        shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+        shader->SetUniform(shader->GetUniformLocation("forwardPassColorMS"), 1);
+
+        for (auto& [id, model]: m_Models) {
+            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+            if (drawObject->GetTransparency() != 1.0f) {
+                model->DrawWithVolume(this);
+            }
+        }
+    }
+    glDepthMask(GL_TRUE);
+
+    // 3.sorting and blending colors
+    glDisable(GL_DEPTH_TEST);
+    {
+        auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
+        shader->Use();
+
+        m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
+                                           GL_R32UI);
+        m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_READ_ONLY,
+                                          GL_RGBA32UI);
+
+        m_EmptyVAO->Bind();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        m_EmptyVAO->Release();
+    }
+    glEnable(GL_DEPTH_TEST);
+#endif
+    GLCheckError();
+}
+
 void Scene::ShadowPass() { GLCheckError(); }
 
 void Scene::UpdateCameraDataBlock() {

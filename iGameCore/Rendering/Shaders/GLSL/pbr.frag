@@ -32,9 +32,9 @@ layout(location = 4) in vec2 in_UV;
 layout(location = 0) out vec4 out_ScreenColor;
 
 // material parameters
-const vec3 albedo = vec3(0.5f, 0.5f, 0.5f);
+const vec3 albedo = vec3(1.0f, 1.0f, 1.0f);
 const float metallic = 0.0f;
-const float roughness = 0.8f;
+const float roughness = 1.0f;
 const float ao = 1.0f;
 
 // lights
@@ -116,7 +116,7 @@ void main()
     vec3 V = normalize(cameraData.viewPos - in_MCPosition);
 
     // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0 
-    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
+    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 
@@ -157,7 +157,6 @@ void main()
     // add to outgoing radiance Lo
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;// note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
 
-
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ao;
@@ -167,7 +166,7 @@ void main()
     // HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct
-    color = pow(color, vec3(1.0/2.2));
+    color = pow(color, vec3(1.0 / 2.2));
 
     out_ScreenColor = vec4(color, 1.0);
 }

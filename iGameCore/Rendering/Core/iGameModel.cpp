@@ -132,8 +132,6 @@ void Model::Draw(Scene* scene) {
             }
         }
     }
-
-    m_Painter3D->Draw(scene);
 }
 
 void Model::DrawWithTransparency(Scene* scene) {
@@ -274,8 +272,89 @@ void Model::DrawWithTransparency(Scene* scene) {
             }
         }
     }
+}
 
-    m_Painter3D->Draw(scene);
+void Model::DrawWithVolume(Scene* scene) {
+    auto draw = [&](const DataObject::Pointer& dataObject) {
+        scene->UpdateObjectDataBlock(dataObject);
+        scene->UpdateUniformBufferObjectBlock(dataObject);
+
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        auto visibility = drawObject->m_Visibility;
+        auto useColor = drawObject->m_UseColor;
+        auto colorWithCell = drawObject->m_ColorWithCell;
+        auto viewStyle = drawObject->m_ViewStyle;
+
+        if (!visibility) { return; }
+
+        if (useColor && colorWithCell) {
+            auto shader = scene->GetShader(Scene::VOLUMERENDERINGLINK);
+            shader->Use();
+
+            drawObject->m_CellVAO->Bind();
+            {
+                float f, u;
+                drawObject->GetPolygonOffsetParameters(f, u);
+
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(f, u);
+                glad_glDrawArrays(GL_TRIANGLES, 0,
+                                  drawObject->m_CellPositionSize);
+                glDisable(GL_POLYGON_OFFSET_FILL);
+            }
+            drawObject->m_CellVAO->Release();
+            return;
+        }
+
+        if (viewStyle & IG_POINTS) {}
+
+        if (viewStyle & IG_WIREFRAME) {}
+
+        if (viewStyle & IG_SURFACE) {
+            auto shader = scene->GetShader(Scene::VOLUMERENDERINGLINK);
+            shader->Use();
+
+            drawObject->m_TriangleVAO->Bind();
+            {
+                float f, u;
+                drawObject->GetPolygonOffsetParameters(f, u);
+
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(f, u);
+                glad_glDrawElements(
+                        GL_TRIANGLES,
+                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT, 0);
+                glDisable(GL_POLYGON_OFFSET_FILL);
+            }
+            drawObject->m_TriangleVAO->Release();
+        }
+    };
+
+    auto dataObject = m_DataObject;
+    auto drawObject = DynamicCast<DrawObject>(dataObject);
+
+    if (drawObject->m_DisplayObject != nullptr) {
+        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
+        drawObject = DynamicCast<DrawObject>(dataObject);
+    }
+
+    if (!drawObject->m_Visibility) { return; }
+
+    if (!dataObject->HasSubDataObject()) {
+        draw(dataObject);
+    } else {
+        for (auto it = dataObject->SubDataObjectIteratorBegin();
+             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+            auto subDataObj = it->second;
+            auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
+            if (subDrawObj->m_DisplayObject == nullptr) {
+                draw(subDataObj);
+            } else {
+                draw(subDrawObj->m_DisplayObject);
+            }
+        }
+    }
 }
 
 void Model::DrawPhase1(Scene* scene) {
