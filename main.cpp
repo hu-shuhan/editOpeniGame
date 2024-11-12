@@ -18,8 +18,8 @@ int main(int argc, char* argv[]) {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
     /* 读取文件测试并将其放入场景*/
-    //const std::string fileName = "D:\\lab\\build\\StreamTest.vtk";
-    const std::string fileName = "D:\\lab\\build\\DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
+    const std::string fileName = "D:\\lab\\build\\StreamTest.vtk";
+    //const std::string fileName = "D:\\lab\\build\\DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
     //const std::string fileName = "D:\\lab\\model\\CAD11\\_frames.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
@@ -65,13 +65,13 @@ int main(int argc, char* argv[]) {
     //set vectorBase 
     m_VectorBase->SetInit(false);
     //set drawtype: 1.AllCell 2.CellInRange 3.EveryNth
-    m_VectorBase->SetDrawMode(iGameVectorBase::DrawType::CellInRange);
+    m_VectorBase->SetDrawMode(iGameVectorBase::DrawType::AllCell);
     m_VectorBase->SetCellRange(0, 600);
    // m_VectorBase->SetNth(5);
     m_VectorBase->DrawVector(VectorName[0], currentModel->GetDataObject());
     scene->AddModel(m_VectorBase);
     //Set the original model to be invisible
-    scene->ChangeModelVisibility(0, false);
+   // scene->ChangeModelVisibility(0, false);
 
     /* 启动窗口设置*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
