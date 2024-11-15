@@ -23,6 +23,7 @@ public:
 	* @brief Constructor for iGameStreamTracer.
 	*/
 	iGameStreamTracer() {};
+    std::vector<Vector3f> seedLineGenerate(int numOfseed);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data

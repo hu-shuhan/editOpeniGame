@@ -138,7 +138,7 @@
      <item>
       <widget class="QLabel" name="label_12">
        <property name="text">
-        <string>     </string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#f0f0f0;&quot;&gt;11111&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </item>
