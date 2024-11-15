@@ -84,6 +84,8 @@ public:
         PURECOLOR,
         TRANSPARENCYLINK,
         TRANSPARENCYSORT,
+        VOLUMERENDERINGLINK,
+        VOLUMERENDERINGSORT,
         AXES,
         FONT,
         ATTACHMENTRESOLVE,
@@ -175,7 +177,8 @@ protected:
     void ResolveFrame();
     void RenderToQtFrame();
     void ForwardPass();
-    void TransparentForwardPass();
+    void TransparentPass();
+    void VolumeRenderingPass();
     void ShadowPass();
 
     void UpdateCameraDataBlock();

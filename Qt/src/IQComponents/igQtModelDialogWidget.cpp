@@ -252,15 +252,21 @@ int igQtModelDialogWidget::updateCloudPicture() {
 void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem
-    QTreeWidgetItem* currentItem = modelTreeWidget->setCurrentModelItem();
+    QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     if (currentItem == nullptr) return;
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }
 
     iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
     iGame::SceneManager::Instance()->GetCurrentScene()->Update();
-
-    modelTreeWidget->setCurrentModelItem(nullptr);
+    
+    if (dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem())) {
+        modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(
+                modelTreeWidget->currentItem()));
+    } else {
+        modelTreeWidget->setCurrentModelItem(nullptr);
+    }
+    
 }
 
 void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
