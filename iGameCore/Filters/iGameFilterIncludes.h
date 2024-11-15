@@ -14,3 +14,5 @@
 #include "MarchingCubes/iGameMarchingCubes.h"
 #include "IsoLineExtract/iGameIsoLineExtraction.h"
 #include "Clip/iGameModelClip.h"
+#include "iGameMeshCodec/iGameMeshEncoder.h"
+#include "iGameMeshCodec/iGameMeshDecoder.h"
