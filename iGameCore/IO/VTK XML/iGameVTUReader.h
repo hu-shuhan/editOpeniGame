@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "iGameXMLFileReader.h"
+#include "XML/iGameXMLFileReader.h"
 
 IGAME_NAMESPACE_BEGIN
 class iGameVTUReader : public iGameXMLFileReader {

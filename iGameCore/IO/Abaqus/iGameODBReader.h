@@ -6,6 +6,8 @@
 #include <iGameAttributeSet.h>
 
 #include "iGameDataCollection.h"
+#include <odb_API.h>
+
 class odb_Odb;
 IGAME_NAMESPACE_BEGIN
 
@@ -20,6 +22,13 @@ public:
     DataObject::Pointer ReadOdbMesh(const std::string& filePath);
 
     AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, const std::string& stepName, int frame_idx);
+
+protected:
+    enum DataArrayType{
+        PointData,
+        CellData
+    } ;
+
 protected:
 
 
@@ -34,15 +43,31 @@ protected:
     bool OpenODB();
 
     bool ExtractHeader();
+    bool ExtractAllInstance();
+    bool ExtractAllStep();
 
     bool ConstructMap();
 
     bool ReadCoordinates();
 
     bool ReadAttributes();
+    void ReadDataArrayWithSectionPoints(const std::vector<odb_SectionPoint>& sectionPoints,
+                                   const odb_FieldOutput& fldOutput,
+                                   const odb_Enum::odb_ResultPositionEnum& pos,
+                                   const odb_String& fieldName,
+                                   int maxNumOfIntergrationPoints,
+                                   const DataArrayType& dataArrayType);
 
+    void ReadDataArray(const odb_FieldOutput& fldOutput,
+                       const odb_Enum::odb_ResultPositionEnum& pos,
+                       int maxNumOfIntergrationPoints,
+                       const odb_String& arrayName,
+                       const ODBReader::DataArrayType& dataArrayType
+                       );
 
     static uint8_t ABAQUS_VTK_CELL_MAP(const char* abqElementType);
+
+
 private:
     DataObject::Pointer m_Output;
     DataCollection m_Data;
@@ -60,6 +85,7 @@ private:
     size_t  m_nodesNum{0}, m_cellsNum{0};
 
 protected:
+    friend class AttributeParserHelper;
     AttributeParserHelper* m_Attribute_helper{nullptr};
 
 protected:

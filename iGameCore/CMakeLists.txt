@@ -21,6 +21,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/FilterModel>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO/XML>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Filters>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common>
@@ -36,6 +37,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Core/FilterModel>
         $<INSTALL_INTERFACE:include/Core/Mapper>
         $<INSTALL_INTERFACE:include/IO>
+        $<INSTALL_INTERFACE:include/IO/XML>
         $<INSTALL_INTERFACE:include/Filters>
         $<INSTALL_INTERFACE:include/Rendering>
         $<INSTALL_INTERFACE:include/Rendering/Common>
@@ -70,7 +72,7 @@ IF (WIN32)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
 ELSEIF (APPLE)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
-ELSE()
+ELSE ()
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ENDIF ()
 #--------------------------------------------------------------------

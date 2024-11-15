@@ -126,7 +126,20 @@ public:
 	  { 2, 0, 4, -1, 3 },
 	  { 0, 1, 2, 3 , 4 },
 	};
-
+	static constexpr int SubPyramids[10][5] = {
+		// 6 pyramids
+		{ 0, 5, 13, 8, 9 },
+		{ 5, 1, 6, 13, 10 },
+		{ 8, 13, 7, 3, 12 },
+		{ 13, 6, 2, 7, 11 },
+		{ 9, 10, 11, 12, 4 },
+		{ 9, 12, 11, 10, 13 },
+		// 4 tets
+		{ 5, 13, 9, 10, 0 },
+		{ 6, 13, 10, 11, 0 },
+		{ 7, 13, 11, 12, 0 },
+		{ 8, 13, 12, 9, 0 },
+	};
 	int GetEdgePointIds(const int edgeId, const igIndex*& pts) override {
 		pts = edges[edgeId];
 		return 3;

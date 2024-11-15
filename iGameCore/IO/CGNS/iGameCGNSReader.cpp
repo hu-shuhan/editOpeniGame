@@ -33,7 +33,20 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
 	int result;
 	int file_type;
 	result = cgio_check_file(fileName.c_str(), &file_type);
-
+	if (file_type == CG_FILE_NONE) {
+		std::cout << "Not a CGNS file." << std::endl;
+		return nullptr;
+	}
+	else if (file_type == CG_FILE_ADF) {
+		std::cout << "ADF (Advanced Data Format) file." << std::endl;
+	}
+	else if (file_type == CG_FILE_HDF5) {
+		std::cout << "HDF5 (Hierarchical Data Format) file." << std::endl;
+	}
+	else {
+		std::cout << "Unknown file type." << std::endl;
+		return nullptr;
+	}
 	int index_file;
 	result = cg_open(fileName.data(), CG_MODE_READ, &index_file);
 	if (CG_OK != result) {

@@ -1,12 +1,11 @@
 if (CORE_MODULE_INSTALL)
-    # 安装模块库
     install(TARGETS ${MODULE_NAME}
-            EXPORT ${MODULE_NAME}Targets           # 导出名称为 ModuleTargets.cmake
+            EXPORT ${MODULE_NAME}Targets
             LIBRARY DESTINATION lib
             RUNTIME DESTINATION bin
             INCLUDES DESTINATION include)
     install(TARGETS ${ThirdParty_lib_dependency}
-            EXPORT ${MODULE_NAME}Targets           # 导出名称为 ModuleTargets.cmake
+            EXPORT ${MODULE_NAME}Targets
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
     if(${AbqSDK_FOUND})

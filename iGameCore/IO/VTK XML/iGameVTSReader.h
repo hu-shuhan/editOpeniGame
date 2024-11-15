@@ -6,7 +6,7 @@
 #define iGameVTSReader_h
 
 
-#include "iGameXMLFileReader.h"
+#include "XML/iGameXMLFileReader.h"
 
 IGAME_NAMESPACE_BEGIN
 class iGameVTSReader : public iGameXMLFileReader{

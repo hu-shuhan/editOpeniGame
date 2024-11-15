@@ -184,8 +184,20 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	{
 		ODBReader::Pointer reader = ODBReader::New();
 		resObj = reader->ReadOdbMesh(file_name);
-//        DynamicCast<DrawObject>(resObj)->GetAttributeSet()->Add;
-
+        AttributeSet::Pointer attributeSet = reader->ReadOdbFieldData(file_name, "Step-1", 2);
+//
+//        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
+//            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
+//            attribute.updateAllDataRange();
+//            auto range = attribute.GetDataRange();
+//            std::cout << "===================\n";
+//            for(int i = 200; i < 215; i += 3){
+//                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
+//            }
+//            std::cout << attribute.pointer->GetName()<< " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
+//        }
+        resObj->SetAttributeSet(attributeSet);
+        resObj->Modified();
 		break;
 	}
 #endif
@@ -215,6 +227,18 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		reader->SetFilePath(file_name);
 		reader->Execute();
 		resObj = reader->GetOutput();
+
+//        auto attributeSet = resObj->GetAttributeSet();
+//        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
+//            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
+//            attribute.updateAllDataRange();
+//            auto range = attribute.GetDataRange();
+//            std::cout << "===================\n";
+//            for(int i = 200; i < 215; i += 3){
+//                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
+//            }
+//            std::cout << attribute.pointer->GetName() << " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
+//        }
 		break;
 	}
 

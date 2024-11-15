@@ -448,7 +448,6 @@ char* FileReader::LowerCase(char* str, const size_t len) {
 	return str;
 }
 
-// General templated function to read data of various types.
 // Please ensure *self->IS is data, not '\r' or '\n'
 template <class T>
 int iGameReadBinaryData(FileReader::Pointer self, T* data, int numTuples,
@@ -459,14 +458,13 @@ int iGameReadBinaryData(FileReader::Pointer self, T* data, int numTuples,
 	}
 	char line[256];
 	if (!self->Read((char*)data, sizeof(T) * numComp * numTuples)) {
-		igDebug("Error reading binary data!");
+		igDebug("Error reading binary data");
 		return 0;
 	}
 	data = (T*)data;
 	return 1;
 }
 
-// General templated function to read data of various types.
 template <class T>
 int iGameReadASCIIData(FileReader::Pointer self, T* data, int numTuples,
 	int numComp) {
@@ -475,8 +473,7 @@ int iGameReadASCIIData(FileReader::Pointer self, T* data, int numTuples,
 	for (i = 0; i < numTuples; i++) {
 		for (j = 0; j < numComp; j++) {
 			if (!self->Read(data)) {
-				igDebug("Error reading ascii data. Possible mismatch of "
-					"datasize with declaration.");
+				igDebug("Error reading ascii data");
 				return 0;
 			}
 			data++;
@@ -485,266 +482,184 @@ int iGameReadASCIIData(FileReader::Pointer self, T* data, int numTuples,
 	return 1;
 }
 
-ArrayObject::Pointer FileReader::ReadArray(const char *dataType, int numTuples,
-                                           int numComp) {
-  char *type = strdup(dataType);
-  type = this->LowerCase(type);
-  this->SkipNullData();
-  ArrayObject::Pointer array{nullptr};
-  if (!strncmp(type, "bit", 3)) {
-    /*	array = vtkBitArray::New();
-            array->SetDimension(numComp);
-            if (numTuples != 0 && numComp != 0)
-            {
-                    unsigned char* ptr = ((vtkBitArray*)array)->WritePointer(0,
-       numTuples * numComp); if (this->FileType == IGAME_BINARY)
-                    {
-                            char line[256];
-                            this->IS->getline(line, 256);
-                            this->IS->read((char*)ptr, sizeof(unsigned char) *
-       (numTuples * numComp + 7) / 8); if (this->IS->eof())
-                            {
-                                    igError( "Error reading binary bit array!");
-                                    free(type);
-                                    array->Delete();
-                                    return nullptr;
-                            }
-                    }
-                    else
-                    {
-                            int b;
-                            for (int i = 0; i < numTuples; i++)
-                            {
-                                    for (int j = 0; j < numComp; j++)
-                                    {
-                                            if (!this->Read(&b))
-                                            {
-                                                    vtkErrorMacro("Error reading
-       ascii bit array! tuple: " << i << ", component: " << j); free(type);
-                                                    array->Delete();
-                                                    return nullptr;
-                                            }
-                                            else
-                                            {
-                                                    ((vtkBitArray*)array)->SetValue(i
-       * numComp + j, b);
-                                            }
-                                    }
-                            }
-                    }
-            }*/
-  }
-
-  else if (!strcmp(type, "char") || !strcmp(type, "signed_char")) {
-    CharArray::Pointer arr = CharArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    char *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "unsigned_char", 13)) {
-    UnsignedCharArray::Pointer arr = UnsignedCharArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    unsigned char *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "short", 5)) {
-    ShortArray::Pointer arr = ShortArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    short *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap2BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "unsigned_short", 14)) {
-    UnsignedShortArray::Pointer arr = UnsignedShortArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    unsigned short *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap2BERange((short *)ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  } else if (!strncmp(type, "vtkidtype", 9)) {
-    // currently writing vtkidtype as int.
-    // may be long long,need to transfer
-    IntArray::Pointer arr = IntArray::New();
-    arr->SetDimension(numComp);
-    std::vector<int> buffer(numTuples * numComp);
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, buffer.data(), numTuples, numComp);
-      ByteSwap::Swap4BERange(buffer.data(), numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, buffer.data(), numTuples, numComp);
-    }
-    arr->Resize(numTuples);
-    int *ptr2 = arr->RawPointer();
-    for (int idx = 0; idx < numTuples * numComp; idx++) {
-      ptr2[idx] = buffer[idx];
-    }
-    array = arr;
-  } else if (!strncmp(type, "int", 3)) {
-    IntArray::Pointer arr = IntArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    int *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap4BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  } else if (!strncmp(type, "unsigned_int", 12)) {
-    UnsignedIntArray::Pointer arr = UnsignedIntArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    unsigned int *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap4BERange((int *)ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "vtktypeint64", 12)) {
-    LongLongArray::Pointer arr = LongLongArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    long long *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap8BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  } else if (!strncmp(type, "vtktypeuint64", 13)) {
-    UnsignedLongLongArray::Pointer arr = UnsignedLongLongArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    unsigned long long *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap8BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "float", 5)) {
-    FloatArray::Pointer arr = FloatArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    float *ptr = arr->RawPointer();
-    if (m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap4BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  }
-
-  else if (!strncmp(type, "double", 6)) {
-    DoubleArray::Pointer arr = DoubleArray::New();
-    arr->SetDimension(numComp);
-    arr->Resize(numTuples);
-    double *ptr = arr->RawPointer();
-    if (this->m_FileType == IGAME_BINARY) {
-      iGameReadBinaryData(this, ptr, numTuples, numComp);
-      ByteSwap::Swap8BERange(ptr, numTuples * numComp);
-    } else {
-      iGameReadASCIIData(this, ptr, numTuples, numComp);
-    }
-    array = arr;
-  } else if (!strncmp(type, "variant", 7)) {
-    /*	array = iGameVariantArray::New();
-            array->SetDimension(numComp);
-            for (int i = 0; i < numTuples; i++)
-            {
-                    for (int j = 0; j < numComp; j++)
-                    {
-                            int t;
-                            std::string str;
-                            this->Read(&t);
-                            this->ReadString(str);
-                            std::vector<char> decoded(str.length() + 1);
-                            int decodedLength =
-       this->DecodeString(decoded.data(), str.c_str()); std::string
-       decodedStr(decoded.data(), decodedLength); iGameVariant sv(decodedStr);
-                            iGameVariant v;
-                            switch (t)
-                            {
-                            case IG_CHAR:
-                                    v = sv.ToChar();
-                                    break;
-                            case IG_UNSIGNED_CHAR:
-                                    v = sv.ToUnsignedChar();
-                                    break;
-                            case IG_SHORT:
-                                    v = sv.ToShort();
-                                    break;
-                            case IG_UNSIGNED_SHORT:
-                                    v = sv.ToUnsignedShort();
-                                    break;
-                            case IG_INT:
-                                    v = sv.ToInt();
-                                    break;
-                            case IG_UNSIGNED_INT:
-                                    v = sv.ToUnsignedInt();
-                                    break;
-                            case IG_FLOAT:
-                                    v = sv.ToFloat();
-                                    break;
-                            case IG_DOUBLE:
-                                    v = sv.ToDouble();
-                                    break;
-                            case IG_LONG_LONG:
-                                    v = sv.ToLongLong();
-                                    break;
-                            case IG_UNSIGNED_LONG_LONG:
-                                    v = sv.ToUnsignedLongLong();
-                                    break;
-                            default:
-                                    igError("Unknown variant type " << t);
-                            }
-                            ((iGameVariantArray*)array)->InsertNextValue(v);
-                    }
-            }*/
-  } else {
-    igError("Unsupported data type: " << type);
-    free(type);
-    return nullptr;
-  }
-  free(type);
-  // this->UpdateReadProgress();
-  return array;
+ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, int numComp) {
+	char* type = strdup(dataType);
+	type = this->LowerCase(type);
+	this->SkipNullData();
+	ArrayObject::Pointer array{ nullptr };
+	if (!strncmp(type, "bit", 3)) {
+		// process in fulture
+	}
+	else if (!strncmp(type, "unsigned_char", 13) || !strncmp(type, "unsigned char", 13)) {
+		UnsignedCharArray::Pointer arr = UnsignedCharArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		unsigned char* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "char", 4) || !strncmp(type, "signed_char", 11) || !strncmp(type, "signed char", 11)) {
+		CharArray::Pointer arr = CharArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		char* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "unsigned_short", 14) || !strncmp(type, "unsigned short", 14)) {
+		UnsignedShortArray::Pointer arr = UnsignedShortArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		unsigned short* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap2BERange((short*)ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "short", 5)) {
+		ShortArray::Pointer arr = ShortArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		short* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap2BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	//when read vtk file, it will maybe exist vtkidtype, 
+	//this type usually means int ,and some times may be long long, it need be process in fulture
+	else if (!strncmp(type, "vtkidtype", 9)) {
+		IntArray::Pointer arr = IntArray::New();
+		arr->SetDimension(numComp);
+		std::vector<int> buffer(numTuples * numComp);
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, buffer.data(), numTuples, numComp);
+			ByteSwap::Swap4BERange(buffer.data(), numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, buffer.data(), numTuples, numComp);
+		}
+		arr->Resize(numTuples);
+		int* ptr2 = arr->RawPointer();
+		for (int idx = 0; idx < numTuples * numComp; idx++) {
+			ptr2[idx] = buffer[idx];
+		}
+		array = arr;
+	}
+	else if ((!strncmp(type, "unsigned_int", 12)) || (!strncmp(type, "unsigned int", 12))) {
+		UnsignedIntArray::Pointer arr = UnsignedIntArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		unsigned int* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap4BERange((int*)ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "int", 3)) {
+		IntArray::Pointer arr = IntArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		int* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap4BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	//when read vtk file, it will maybe exist vtktypeint64, 
+	//this type  means unsigned long long
+	else if (!strncmp(type, "vtktypeuint64", 13)) {
+		UnsignedLongLongArray::Pointer arr = UnsignedLongLongArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		unsigned long long* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap8BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	//when read vtk file, it will maybe exist vtktypeint64, 
+	//this type  means long long
+	else if (!strncmp(type, "vtktypeint64", 12)) {
+		LongLongArray::Pointer arr = LongLongArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		long long* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap8BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "float", 5)) {
+		FloatArray::Pointer arr = FloatArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		float* ptr = arr->RawPointer();
+		if (m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap4BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else if (!strncmp(type, "double", 6)) {
+		DoubleArray::Pointer arr = DoubleArray::New();
+		arr->SetDimension(numComp);
+		arr->Resize(numTuples);
+		double* ptr = arr->RawPointer();
+		if (this->m_FileType == IGAME_BINARY) {
+			iGameReadBinaryData(this, ptr, numTuples, numComp);
+			ByteSwap::Swap8BERange(ptr, numTuples * numComp);
+		}
+		else {
+			iGameReadASCIIData(this, ptr, numTuples, numComp);
+		}
+		array = arr;
+	}
+	else {
+		igError("Unsupported data type: " << type);
+		free(type);
+		return nullptr;
+	}
+	free(type);
+	this->UpdateReadProgress();
+	return array;
 }
 
 void FileReader::SetFilePath(const std::string& filePath) {

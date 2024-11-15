@@ -28,6 +28,8 @@ public:
         if (!m_FreeHandles.empty()) { m_FreeHandles.pop(); }
         m_ActiveHandles.insert(handle);
         m_HandleToObject[handle] = object;
+
+        this->Modified();
         return handle;
     }
 
@@ -41,6 +43,7 @@ public:
         if (m_ActiveHandles.erase(handle)) {
             m_FreeHandles.push(handle);
             m_HandleToObject.erase(handle);
+            this->Modified();
         }
     }
 
@@ -53,6 +56,7 @@ public:
         m_ActiveHandles.clear();                  // Clear the set
         m_HandleToObject.clear();                 // Clear the map
         m_CurrentHandle = 1; // Optionally reset handle counter if needed
+        this->Modified();
     }
 
     Iterator begin() { return m_HandleToObject.begin(); }

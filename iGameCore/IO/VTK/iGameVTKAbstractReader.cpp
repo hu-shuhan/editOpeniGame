@@ -403,14 +403,11 @@ int VTKAbstractReader::ReadScalarData(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		/*igError("Cannot read scalar header!" << " for file: " << (fname ? fname : "(Null FileName)"));*/
 		return 0;
 	}
 	this->DecodeString(name, buffer);
 
 	if (!this->ReadString(key)) {
-		//igError("Cannot read scalar header!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 
@@ -419,21 +416,15 @@ int VTKAbstractReader::ReadScalarData(int PointsNum)
 		numComp = atoi(key);
 		if (numComp < 1 || !this->ReadString(key))
 		{
-			//igError("Cannot read scalar header!"
-			//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 			return 0;
 		}
 	}
 
 	if (strcmp(this->LowerCase(key), "lookup_table") != 0) {
-		//igError("Lookup table must be specified with scalar.\n"
-		//	<< "Use \"LOOKUP_TABLE default\" to use default table.");
 		return 0;
 	}
 
 	if (!this->ReadString(tableName)) {
-		//igError("Cannot read scalar header!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 
@@ -464,8 +455,6 @@ int VTKAbstractReader::ReadVectorData(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read vector data!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -498,8 +487,6 @@ int VTKAbstractReader::ReadNormalData(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read normal data!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -531,8 +518,6 @@ int VTKAbstractReader::ReadTensorData(int PointsNum, int numComp)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read tensor data!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -607,7 +592,7 @@ int VTKAbstractReader::ReadCoScalarData(int PointsNum)
 				m_Data.GetData()->AddAttribute(IG_SCALAR, IG_POINT, scalars);
 			}
 			else if (this->DataType == CELL_TYPE) {
-
+				m_Data.GetData()->AddAttribute(IG_SCALAR, IG_CELL, scalars);
 			}
 		}
 		else {
@@ -630,15 +615,11 @@ int VTKAbstractReader::ReadTCoordsData(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->Read(&dim) && this->ReadString(line))) {
-		//igError("Cannot read texture data!"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
 
 	if (dim < 1 || dim > 3) {
-		//igError("Unsupported texture coordinates dimension: " << dim
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 
@@ -670,8 +651,6 @@ int VTKAbstractReader::ReadGlobalIds(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read global id data"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -679,10 +658,10 @@ int VTKAbstractReader::ReadGlobalIds(int PointsNum)
 	if (data != nullptr) {
 		data->SetName(name);
 		if (this->DataType == POINT_TYPE) {
-			//this->DataSet->GetPointData()->SetGlobalIds(data);
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_POINT, data);
 		}
 		else if (this->DataType == CELL_TYPE) {
-
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_CELL, data);
 		}
 	}
 	else {
@@ -703,8 +682,6 @@ int VTKAbstractReader::ReadPedigreeIds(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read global id data"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -713,10 +690,10 @@ int VTKAbstractReader::ReadPedigreeIds(int PointsNum)
 	if (data != nullptr) {
 		data->SetName(name);
 		if (this->DataType == POINT_TYPE) {
-			//this->DataSet->GetPointData()->SetPedigreeIds(data);
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_POINT, data);
 		}
 		else if (this->DataType == CELL_TYPE) {
-
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_CELL, data);
 		}
 	}
 	else {
@@ -737,8 +714,6 @@ int VTKAbstractReader::ReadEdgeFlags(int PointsNum)
 	char buffer[256];
 
 	if (!(this->ReadString(buffer) && this->ReadString(line))) {
-		//igError("Cannot read edge flags data"
-		//	<< " for file: " << (fname ? fname : "(Null FileName)"));
 		return 0;
 	}
 	this->DecodeString(name, buffer);
@@ -747,10 +722,10 @@ int VTKAbstractReader::ReadEdgeFlags(int PointsNum)
 	if (data != nullptr) {
 		data->SetName(name);
 		if (this->DataType == POINT_TYPE) {
-			//this->DataSet->GetPointData()->AddAttribute(EDGEFLAG, data);
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_POINT, data);
 		}
 		else if (this->DataType == CELL_TYPE) {
-
+			m_Data.GetData()->AddAttribute(IG_SCALAR, IG_CELL, data);
 		}
 
 	}
@@ -766,6 +741,8 @@ int VTKAbstractReader::ReadEdgeFlags(int PointsNum)
 // Read lookup table. Return 0 if error.
 int VTKAbstractReader::ReadLutData()
 {
+	// temporarily not used ,wil be processed in fulturt
+	igDebug("temporarily not process this type");
 	this->UpdateReadProgress();
 	return 1;
 }
@@ -780,7 +757,6 @@ int VTKAbstractReader::ReadFieldData()
 	ArrayObject::Pointer data;
 
 	if (!(this->ReadString(name) && this->Read(&numArrays))) {
-		/*igError("Cannot read field header!" << " for file: " << (fname ? fname : "(Null FileName)"));*/
 		return 0;
 	}
 	// Read the number of arrays specified

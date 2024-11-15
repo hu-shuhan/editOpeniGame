@@ -25,7 +25,7 @@ public:
     void SetScaleFactorY(float dsf){ m_deformation_scale_factor_y = dsf;}
     void SetScaleFactorZ(float dsf){ m_deformation_scale_factor_z = dsf;}
 
-    void SetAttributeName(std::string& name){ m_deformation_attribute_name = name;}
+    void SetAttributeName(const std::string& name){ m_deformation_attribute_name = name;}
 
 public:
     float m_deformation_scale_factor_x = {0.f};

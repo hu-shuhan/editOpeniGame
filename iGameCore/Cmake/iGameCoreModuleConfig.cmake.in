@@ -53,6 +53,7 @@ set(OPENIGAME_CORE_INCLUDE_DIRS
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Core/Common
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Core/DataModel
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/IO
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/IO/XML
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Filters
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Common
@@ -95,7 +96,7 @@ set(OpeniGame_CORE_LIB_LIST
         @MODULE_NAME@
         @ThirdParty_lib_dependency@
         glfw3
-        cgns
+#        cgns
 )
 set(FOUND_OPENIGAME_CORE_LIB_FULL_PATH)
 set(OPENIGAME_CORE_LIB_TARGETS)
@@ -108,6 +109,13 @@ set(OPENIGAME_CORE_LIB_TARGETS)
 #find_package(cgns REQUIRED)
 #list(APPEND OPENIGAME_CORE_LIB_TARGETS CGNS::cgns_static)
 #endif()
+
+if(@AbqSDK_FOUND@)
+
+
+endif()
+
+
 
 #----------------------------------------------
 # Find ThirdParty lib and Core Components Lib

@@ -184,9 +184,11 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     /* If obj has the deformation var and is enabled.
      * Make sure every timeStep have the deformation scale factor. */
 
-    StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
-    deformFilter->SetInput(currentDrawObject);
-    if(!deformFilter->Execute()) std::cout << " error \n";
+    if(currentDrawObject->GetDeformationData()->m_enable_dsf){
+        StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+        deformFilter->SetInput(currentDrawObject);
+        if(!deformFilter->Execute()) std::cout << " error \n";
+    }
 
 
     /* process Object's scalar range*/
