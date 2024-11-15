@@ -632,6 +632,8 @@ void SurfaceMesh::GarbageCollection() {
         newFaceEdges->AddCellIds(edgeIds, size);
     }
 
+
+
     m_Edges = newEdges;
     m_Faces = newFaces;
     m_FaceEdges = newFaceEdges;

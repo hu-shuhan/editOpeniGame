@@ -20,6 +20,7 @@ public:
     void draw(Scene*, const DataObject::Pointer&);
     void Draw(Scene*);
     void DrawWithTransparency(Scene*);
+    void DrawWithVolume(Scene*);
     void DrawPhase1(Scene*);
     void DrawPhase2(Scene*);
     void TestOcclusionResults(Scene*);
@@ -51,9 +52,9 @@ public:
     void ViewCloudPicture(int index, int dimension = -1) {
         auto drawObject = DynamicCast<DrawObject>(m_DataObject);
 
-//        if (drawObject->GetDisplayObject() != nullptr) {
-//            drawObject->GetDisplayObject()->ViewCloudPicture(m_Scene, index, dimension);
-//        }
+        //        if (drawObject->GetDisplayObject() != nullptr) {
+        //            drawObject->GetDisplayObject()->ViewCloudPicture(m_Scene, index, dimension);
+        //        }
 
         if (drawObject != nullptr)
             drawObject->ViewCloudPicture(m_Scene, index, dimension);

@@ -13,10 +13,10 @@
 
 IGAME_NAMESPACE_BEGIN
 
-//·µ»Ø¶şÎ¬Êı¾İ
-//µÚÒ»Î¬£º(k1 + k2) / 2.0;
-//µÚ¶şÎ¬£ºk1 * k2;
-//ÏÖÔÚÄ¬ÈÏÈ¡µÚÒ»¸öÊı×é£ºm_AttributeSet->GetAttribute(0)
+//è¿”å›äºŒç»´æ•°æ®
+//ç¬¬ä¸€ç»´ï¼š(k1 + k2) / 2.0;
+//ç¬¬äºŒç»´ï¼šk1 * k2;
+//ç°åœ¨é»˜è®¤å–ç¬¬ä¸€ä¸ªæ•°ç»„ï¼šm_AttributeSet->GetAttribute(0)
 class CurvatureFilter : public Filter {
 public:
     I_OBJECT(CurvatureFilter);
@@ -123,10 +123,10 @@ public:
             int PointNum = surface_Mesh->GetNumberOfPoints();
             Points::Pointer Points = surface_Mesh->GetPoints();
             surface_Mesh->RequestEditStatus();
-            // ¸½×ÅÔÚpoint
+            // é™„ç€åœ¨point
             if (PointNum != 0 && attachmentType == 0)
                 return GetPointCurvature(0, Points, PointNum);
-            // ¸½×ÅÔÚcell
+            // é™„ç€åœ¨cell
             else if (FaceNum != 0 && attachmentType == 1)
                 return GetOtherCurvature(0, FaceNum);
         }
@@ -173,7 +173,7 @@ public:
                     float weightSum = 0.0;
 
                     int NeighborNum;
-                    // »ñÈ¡ÁÚ½Ó¶¥µã
+                    // è·å–é‚»æ¥é¡¶ç‚¹
                     if (type == 1)
                         NeighborNum = volume_Mesh->GetPointToOneRingPoints(
                                 idx, neighborVerts);
@@ -295,7 +295,7 @@ public:
                     float weightSum = 0.0;
 
                     int NeighborNum;
-                    // »ñÈ¡ÁÚ½Ó¶¥µã
+                    // è·å–é‚»æ¥é¡¶ç‚¹
                     if (type == 1)
                         // neighbors:volumeIds
                         NeighborNum =
@@ -392,10 +392,10 @@ public:
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
-        // ¼ÆËãµãµÄÌİ¶È
+        // è®¡ç®—ç‚¹çš„æ¢¯åº¦
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             int NeighborNum;
-            // »ñÈ¡ÁÚ½Ó¶¥µã
+            // è·å–é‚»æ¥é¡¶ç‚¹
             if (type == 1)
                 NeighborNum = volume_Mesh->GetPointToOneRingPoints(
                         idx, neighborVerts);
@@ -447,10 +447,10 @@ public:
         std::vector<float> sumWeights(Num, 0.0f);
 
         igIndex neighborVerts[256]{};
-        // ¼ÆËãµãµÄÌİ¶È
+        // è®¡ç®—ç‚¹çš„æ¢¯åº¦
         for (igIndex idx = 0; idx < Num; ++idx) {
             int NeighborNum;
-            // »ñÈ¡ÁÚ½Ó¶¥µã
+            // è·å–é‚»æ¥é¡¶ç‚¹
             if (type == 1)
                 // neighbors:volumeIds
                 NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
@@ -494,7 +494,7 @@ public:
                     y = v1_position[1] - v2_position[1];
                     z = v1_position[2] - v2_position[2];
                 }
-                // ±êÁ¿¼ÆËãÊ±¾ÍËãÊÇÈıÎ¬Êı¾İÒ²Ä¬ÈÏÈ¡µÚÒ»Î¬
+                // æ ‡é‡è®¡ç®—æ—¶å°±ç®—æ˜¯ä¸‰ç»´æ•°æ®ä¹Ÿé»˜è®¤å–ç¬¬ä¸€ç»´
                 double value = data->GetValue(idx * dimension) -
                                data->GetValue(neighborVerts[m] * dimension);
 
@@ -516,7 +516,7 @@ public:
 
 protected:
     CurvatureFilter()
-    //ÊäÈëÊä³ö¸öÊı
+    //è¾“å…¥è¾“å‡ºä¸ªæ•°
     {
         SetNumberOfInputs(1);
         SetNumberOfOutputs(1);

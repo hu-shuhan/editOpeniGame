@@ -104,7 +104,7 @@ public:
     QTreeWidgetItem* getChild(const QPoint& p) const;
 
     void setCurrentModelItem(ModelTreeWidgetItem* item);
-    ModelTreeWidgetItem* setCurrentModelItem();
+    ModelTreeWidgetItem* getCurrentModelItem();
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
