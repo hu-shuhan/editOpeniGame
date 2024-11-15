@@ -16,7 +16,7 @@ IGAME_NAMESPACE_BEGIN
 
 FileWriter::FileWriter()
 {
-
+	this->m_FileSize=0;
 }
 FileWriter::~FileWriter()
 {
@@ -33,7 +33,7 @@ bool FileWriter::WriteToFile()
 	return SaveBufferDataToFile();
 
 }
-bool FileWriter::WriteToFile(DataObject::Pointer dataObject, std::string filePath)
+bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string filePath)
 {
 	this->m_DataObject = dataObject;
 	this->m_FilePath = filePath;

@@ -153,6 +153,8 @@ private:
 iGameVolumeMeshClipper::iGameVolumeMeshClipper() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(3);
+    this->m_BoxClipper={};
+    this->m_PlaneClipper={};
 }
 
 void iGameVolumeMeshClipper::InitializeResultMesh(Points::Pointer points) {
