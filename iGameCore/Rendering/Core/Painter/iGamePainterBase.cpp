@@ -111,61 +111,6 @@ void PainterBase::Draw(Scene* scene) {
         }
         m_VAOs[penWidth]->Release();
     }
-
-    //for (auto& [handle, primitive]: *m_PrimitivesPool) {
-    //    if (!primitive.visible) { continue; }
-    //
-    //    auto& points = primitive.points;
-    //    auto& colors = primitive.colors;
-    //    auto& indexes = primitive.indices;
-    //
-    //    m_PositionVBO->Allocate(points.size() * sizeof(Vector3f), points.data(),
-    //                            GL_STATIC_DRAW);
-    //    m_ColorVBO->Allocate(colors.size() * sizeof(Vector3f), colors.data(),
-    //                         GL_STATIC_DRAW);
-    //
-    //    scene->UBO().useColor = true;
-    //    scene->UpdateUniformBuffer();
-    //    scene->GetShader(Scene::NOLIGHT)->Use();
-    //
-    //    m_VAO->Bind();
-    //
-    //    if (indexes[0].size() != 0) {
-    //        m_PointEBO->Allocate(indexes[0].size() * sizeof(iguIndex),
-    //                             indexes[0].data(), GL_STATIC_DRAW);
-    //        m_VAO->ElementBuffer(m_PointEBO);
-    //
-    //        m_VAO->Bind();
-    //        glad_glPointSize(primitive.penWidth);
-    //        glad_glDepthRange(0.000001, 1);
-    //        glad_glDrawElements(GL_POINTS, indexes[0].size(), GL_UNSIGNED_INT,
-    //                            0);
-    //        glad_glDepthRange(0, 1);
-    //    }
-    //    if (indexes[1].size() != 0) {
-    //        m_LineEBO->Allocate(indexes[1].size() * sizeof(iguIndex),
-    //                            indexes[1].data(), GL_STATIC_DRAW);
-    //        m_VAO->ElementBuffer(m_LineEBO);
-    //
-    //        m_VAO->Bind();
-    //        GLCheckError();
-    //        glad_glLineWidth(primitive.penWidth);
-    //        GLCheckError();
-    //        glad_glDrawElements(GL_LINES, indexes[1].size(), GL_UNSIGNED_INT,
-    //                            0);
-    //    }
-    //    if (indexes[2].size() != 0) {
-    //        m_TriangleEBO->Allocate(indexes[2].size() * sizeof(iguIndex),
-    //                                indexes[2].data(), GL_STATIC_DRAW);
-    //        m_VAO->ElementBuffer(m_TriangleEBO);
-    //
-    //        m_VAO->Bind();
-    //        glad_glDrawElements(GL_TRIANGLES, indexes[2].size(),
-    //                            GL_UNSIGNED_INT, 0);
-    //    }
-    //
-    //    m_VAO->Release();
-    //}
 }
 
 void PainterBase::PackDrawableData() {
