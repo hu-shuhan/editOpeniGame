@@ -38,7 +38,7 @@ target_link_libraries(${MODULE_NAME} PUBLIC
         meshoptimizer
         tinyXML2
         vtkkwiml
-
+        lzma
         glfw
 )
 

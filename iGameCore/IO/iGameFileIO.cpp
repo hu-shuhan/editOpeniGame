@@ -1,6 +1,7 @@
 #include "iGameFileIO.h"
 
 #include "VTK/iGameVTKReader.h"
+#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "VTK/iGameVTKWriter.h"
 #include "OFF/iGameOFFReader.h"
 #include "OFF/iGameOFFWriter.h"
@@ -32,7 +33,10 @@ IGenum FileIO::GetFileType(const std::string& file_name)
 	}
 	if (FileSuffix == "vtk") {
 		return VTK;
-	}
+	} 
+	else if (FileSuffix == "igc") {
+        return IGC;
+    }
 	else if (FileSuffix == "obj") {
 		return OBJ;
 	}
@@ -126,6 +130,11 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		resObj = reader->ReadFile(file_name);
 		break;
 	}
+    case IGC: {
+        MeshDecoder::Pointer reader = MeshDecoder::New();
+        resObj = reader->ReadFile(file_name);
+        break;
+    }
 	case OBJ:
 	{
 		OBJReader::Pointer reader = OBJReader::New();
