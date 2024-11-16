@@ -11,6 +11,7 @@
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLShader.h"
 #include "OpenGL/GLTexture2d.h"
+#include "OpenGL/GLTextureBUffer.h"
 #include "OpenGL/GLVertexArray.h"
 
 #include "iGameMeshlet.h"
@@ -30,6 +31,7 @@ protected:
 public:
     bool IsDrawable() override { return true; }
     virtual void ConvertToDrawableData();
+    virtual bool IsUseSinglePassWireframeRendering() { return true; }
     void CreateDrawBuffer();
     void ReAllocateDisplayBuffer();
     IGenum GetDataObjectType() const override;
@@ -114,6 +116,11 @@ protected:
     UnsignedIntArray::Pointer m_PointIndices;
     UnsignedIntArray::Pointer m_LineIndices;
     UnsignedIntArray::Pointer m_TriangleIndices;
+
+    bool m_UseSinglePassWireframeRendering{true};
+    UnsignedCharArray::Pointer m_TriangleEdgeMasks;
+    GLBuffer::Pointer m_EdgeMaskBuffer;
+    GLTextureBuffer::Pointer m_EdgeMaskTexture;
 
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;

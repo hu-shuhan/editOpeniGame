@@ -44,7 +44,6 @@ protected:
         if (!success) {
             glGetShaderInfoLog(handle, BUFSIZ, NULL, infoLog.data());
             igError("ERROR::SHADER_COMPILATION_ERROR\n" + infoLog);
-            throw std::runtime_error("Shader compilation failed");
         }
     }
 
@@ -60,7 +59,6 @@ protected:
             return contents;
         }
         igError("failed to open file");
-        throw std::runtime_error("failed to open file");
     }
 
     GLuint handle;
@@ -112,71 +110,119 @@ public:
 
     GLuint ProgramID() const { return handle; }
 
-    void SetUniform(const GLUniform::Pointer uniform, int value) const {
+    // SetUniform1
+    void SetUniformi(const char* const name, int value) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniform1i(handle, uniform->Index(), value);
     }
 
-    void SetUniform(const GLUniform::Pointer uniform,
-                    unsigned int value) const {
-        glProgramUniform1ui(handle, uniform->Index(), value);
-    }
-
-    void GetUniformValue(const GLUniform::Pointer uniform,
-                         unsigned int& value) const {
-        glGetUniformuiv(handle, uniform->Index(), &value);
-    }
-
-    void SetUniform(const GLUniform::Pointer uniform, float value) const {
+    void SetUniformf(const char* const name, float value) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniform1f(handle, uniform->Index(), value);
     }
 
-    void SetUniform(const GLUniform::Pointer uniform,
-                    const igm::uvec2& vec2) const {
+    void SetUniformui(const char* const name, unsigned int value) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform1ui(handle, uniform->Index(), value);
+    }
+
+    // SetUniform2
+    void SetUniform2i(const char* const name, const igm::ivec2& vec2) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform2iv(handle, uniform->Index(), 1, vec2.data());
+    }
+
+    void SetUniform2f(const char* const name, const igm::vec2& vec2) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform2fv(handle, uniform->Index(), 1, vec2.data());
+    }
+
+    void SetUniform2ui(const char* const name, const igm::uvec2& vec2) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniform2uiv(handle, uniform->Index(), 1, vec2.data());
     }
 
-    void SetUniform(const GLUniform::Pointer uniform,
-                    const igm::vec3& vec3) const {
+    // SetUniform3
+    void SetUniform3i(const char* const name, const igm::ivec3& vec3) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform3iv(handle, uniform->Index(), 1, vec3.data());
+    }
+
+    void SetUniform3f(const char* const name, const igm::vec3& vec3) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniform3fv(handle, uniform->Index(), 1, vec3.data());
     }
 
-    void SetUniform(const GLUniform::Pointer uniform,
-                    const igm::vec4& vec4) const {
+    void SetUniform3ui(const char* const name, const igm::uvec3& vec3) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform3uiv(handle, uniform->Index(), 1, vec3.data());
+    }
+
+    // SetUniform4
+    void SetUniform4i(const char* const name, const igm::ivec4& vec4) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform4iv(handle, uniform->Index(), 1, vec4.data());
+    }
+
+    void SetUniform4f(const char* const name, const igm::vec4& vec4) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniform4fv(handle, uniform->Index(), 1, vec4.data());
     }
 
-    void SetUniform(const GLUniform::Pointer uniform,
-                    const igm::mat4& mat4) const {
+    void SetUniform4ui(const char* const name, const igm::uvec4& vec4) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniform4uiv(handle, uniform->Index(), 1, vec4.data());
+    }
+
+    // SetUniformMatrix
+    void SetUniformMatrix3x3(const char* const name,
+                             const igm::mat3& mat3) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniformMatrix3fv(handle, uniform->Index(), 1, false,
+                                  mat3.data());
+    }
+
+    void SetUniformMatrix4x4(const char* const name,
+                             const igm::mat4& mat4) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
         glProgramUniformMatrix4fv(handle, uniform->Index(), 1, false,
                                   mat4.data());
     }
 
-    void SetUniform(const GLUniform::Pointer uniform, bool transpose,
-                    const igm::mat4& mat4) const {
-        glProgramUniformMatrix4fv(handle, uniform->Index(), 1, transpose,
-                                  mat4.data());
+    void SetUniformMatrix4x4(const char* const name, bool transpose,
+                             const igm::mat4& mat4) const {
+        GLUniform::Pointer uniform = GetUniformLocation(name);
+        glProgramUniformMatrix4fv(handle, uniform->Index(), 1,
+                                  transpose ? GL_TRUE : GL_FALSE, mat4.data());
     }
 
     void MapUniformBlock(const char* uniformBlockName,
                          uint32_t uniformBlockBinding,
-                         GLBuffer::Pointer m_UBOBlock) {
+                         GLBuffer::Pointer m_UBOBlock) const {
         GLuint blockIndex = glGetUniformBlockIndex(handle, uniformBlockName);
-        assert(blockIndex != GL_INVALID_INDEX);
+        if (blockIndex == GL_INVALID_INDEX) {
+            igError("Uniform block does not exist: " << uniformBlockName);
+        }
 
         glUniformBlockBinding(handle, blockIndex, uniformBlockBinding);
         m_UBOBlock->Target(GL_UNIFORM_BUFFER);
         m_UBOBlock->BindBase(uniformBlockBinding);
     }
 
-    GLVertexAttribute GetAttribLocation(const char* const name) {
+    GLVertexAttribute GetAttribLocation(const char* const name) const {
         int location = glGetAttribLocation(handle, name);
-        assert(location != -1);
+        if (location == -1) {
+            igError("Could not get attribute (does not exist) " << name);
+        }
+
         return GLVertexAttribute{static_cast<unsigned int>(location)};
     }
 
-    GLUniform::Pointer GetUniformLocation(const char* const name) {
+    GLUniform::Pointer GetUniformLocation(const char* const name) const {
         int location = glGetUniformLocation(handle, name);
-        assert(location != -1);
+        if (location == -1) {
+            igError("Could not set uniform (does not exist) " << name);
+        }
 
         GLUniform::Pointer uniform = GLUniform::New();
         uniform->m_index = static_cast<unsigned int>(location);
@@ -202,8 +248,6 @@ protected:
         if (!success) {
             glGetProgramInfoLog(handle, BUFSIZ, NULL, infoLog.data());
             igError("shader program linkage failed: " + infoLog);
-            throw std::runtime_error("shader program linkage failed: " +
-                                     infoLog);
         }
     }
 

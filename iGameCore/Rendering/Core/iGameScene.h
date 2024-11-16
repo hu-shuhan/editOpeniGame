@@ -82,6 +82,7 @@ public:
         PBR,
         NOLIGHT,
         PURECOLOR,
+        SINGLEPASSWIREFRAME,
         TRANSPARENCYLINK,
         TRANSPARENCYSORT,
         VOLUMERENDERINGLINK,

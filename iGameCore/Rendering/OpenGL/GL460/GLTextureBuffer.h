@@ -24,10 +24,7 @@ public:
     // GLenum texture: GL_TEXTURE1 - GL_TEXTURE15
     // GL_TEXTURE0 is reserved to prevent other binding operations from being performed after a texture unit is activated.
     void Active(GLenum texture) {
-        if (texture == GL_TEXTURE0) {
-            igError("GL_TEXTURE0 is reserved.");
-            throw std::runtime_error("GL_TEXTURE0 is reserved.");
-        }
+        if (texture == GL_TEXTURE0) { igError("GL_TEXTURE0 is reserved."); }
         glActiveTexture(texture);
         glBindTexture(GL_TEXTURE_BUFFER, handle);
         glActiveTexture(GL_TEXTURE0);

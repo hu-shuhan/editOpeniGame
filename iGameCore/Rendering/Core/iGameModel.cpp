@@ -35,6 +35,7 @@ void Model::Draw(Scene* scene) {
             drawObject->m_CellVAO->Release();
             return;
         }
+
         if (viewStyle & IG_POINTS) {
             scene->GetShader(Scene::NOLIGHT)->Use();
 
@@ -45,8 +46,6 @@ void Model::Draw(Scene* scene) {
                 float u;
                 drawObject->GetPointOffsetParameters(u);
 
-                //glEnable(GL_POLYGON_OFFSET_POINT);
-                //glPolygonOffset(0.0f, u);
                 if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
                     glad_glDrawArrays(
                             GL_POINTS, 0,
@@ -57,54 +56,84 @@ void Model::Draw(Scene* scene) {
                             drawObject->m_PointIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                 }
-                //glDisable(GL_POLYGON_OFFSET_POINT);
             }
             drawObject->m_PointVAO->Release();
         }
-        if (viewStyle & IG_WIREFRAME) {
-            if (useColor) {
-                scene->GetShader(Scene::NOLIGHT)->Use();
-            } else {
-                auto shader = scene->GetShader(Scene::PURECOLOR);
-                shader->Use();
-                shader->SetUniform(shader->GetUniformLocation("inputColor"),
-                                   igm::vec3{0.0f, 0.0f, 0.0f});
-            }
-            drawObject->m_LineVAO->Bind();
-            {
-                glLineWidth(drawObject->m_LineWidth);
 
-                float f, u;
-                drawObject->GetLineOffsetParameters(f, u);
-
-                //glEnable(GL_POLYGON_OFFSET_LINE);
-                //glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_LINES,
-                        drawObject->m_LineIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                //glDisable(GL_POLYGON_OFFSET_LINE);
-            }
-            drawObject->m_LineVAO->Release();
-        }
-        if (viewStyle & IG_SURFACE) {
-            auto shader = scene->GetShader(Scene::BLINNPHONG);
+        // whether to use single-pass wireframe rendering
+        if (viewStyle & IG_WIREFRAME && viewStyle & IG_SURFACE &&
+            drawObject->IsUseSinglePassWireframeRendering()) {
+            auto shader = scene->GetShader(Scene::SINGLEPASSWIREFRAME);
             shader->Use();
 
-            drawObject->m_TriangleVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            shader->SetUniformf("lineWidth", drawObject->GetLineWidth());
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_TRIANGLES,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
+            drawObject->m_EdgeMaskTexture->Active(GL_TEXTURE1);
+            shader->SetUniformi("edgeMasks", 1);
+
+            if (useColor) {
+                shader->SetUniformi("edgeColorMode", 0);
+            } else {
+                shader->SetUniformi("edgeColorMode", 1);
+                shader->SetUniform3f("edgeColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
+
+            int vp[4];
+            glGetIntegerv(GL_VIEWPORT, vp);
+            igm::vec4 dims{(float) vp[0], (float) vp[1], (float) vp[2],
+                           (float) vp[3]};
+            shader->SetUniform4f("vpDims", dims);
+
+            drawObject->m_TriangleVAO->Bind();
+            glad_glDrawElements(
+                    GL_TRIANGLES,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT, 0);
             drawObject->m_TriangleVAO->Release();
+        } else {
+            if (viewStyle & IG_SURFACE) {
+                auto shader = scene->GetShader(Scene::BLINNPHONG);
+                shader->Use();
+
+                drawObject->m_TriangleVAO->Bind();
+                {
+                    float f, u;
+                    drawObject->GetPolygonOffsetParameters(f, u);
+
+                    glEnable(GL_POLYGON_OFFSET_FILL);
+                    glPolygonOffset(f, u);
+                    glad_glDrawElements(
+                            GL_TRIANGLES,
+                            drawObject->m_TriangleIndices->GetNumberOfValues(),
+                            GL_UNSIGNED_INT, 0);
+                    glDisable(GL_POLYGON_OFFSET_FILL);
+                }
+                drawObject->m_TriangleVAO->Release();
+            }
+
+            if (viewStyle & IG_WIREFRAME) {
+                if (useColor) {
+                    scene->GetShader(Scene::NOLIGHT)->Use();
+                } else {
+                    auto shader = scene->GetShader(Scene::PURECOLOR);
+                    shader->Use();
+                    shader->SetUniform3f("inputColor",
+                                         igm::vec3{0.0f, 0.0f, 0.0f});
+                }
+                drawObject->m_LineVAO->Bind();
+                {
+                    glLineWidth(drawObject->m_LineWidth);
+
+                    float f, u;
+                    drawObject->GetLineOffsetParameters(f, u);
+
+                    glad_glDrawElements(
+                            GL_LINES,
+                            drawObject->m_LineIndices->GetNumberOfValues(),
+                            GL_UNSIGNED_INT, 0);
+                }
+                drawObject->m_LineVAO->Release();
+            }
         }
     };
 
@@ -150,7 +179,7 @@ void Model::DrawWithTransparency(Scene* scene) {
         if (useColor && colorWithCell) {
             auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
             shader->Use();
-            shader->SetUniform(shader->GetUniformLocation("colorMode"), 0);
+            shader->SetUniformi("colorMode", 0);
 
             drawObject->m_CellVAO->Bind();
             {
@@ -170,7 +199,7 @@ void Model::DrawWithTransparency(Scene* scene) {
         if (viewStyle & IG_POINTS) {
             auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
             shader->Use();
-            shader->SetUniform(shader->GetUniformLocation("colorMode"), 1);
+            shader->SetUniformi("colorMode", 1);
 
             drawObject->m_PointVAO->Bind();
             {
@@ -200,13 +229,12 @@ void Model::DrawWithTransparency(Scene* scene) {
             if (useColor) {
                 auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
                 shader->Use();
-                shader->SetUniform(shader->GetUniformLocation("colorMode"), 1);
+                shader->SetUniformi("colorMode", 1);
             } else {
                 auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
                 shader->Use();
-                shader->SetUniform(shader->GetUniformLocation("colorMode"), 2);
-                shader->SetUniform(shader->GetUniformLocation("inputColor"),
-                                   igm::vec3{0.0f, 0.0f, 0.0f});
+                shader->SetUniformi("colorMode", 2);
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
 
             drawObject->m_LineVAO->Bind();
@@ -229,7 +257,7 @@ void Model::DrawWithTransparency(Scene* scene) {
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(Scene::TRANSPARENCYLINK);
             shader->Use();
-            shader->SetUniform(shader->GetUniformLocation("colorMode"), 0);
+            shader->SetUniformi("colorMode", 0);
 
             drawObject->m_TriangleVAO->Bind();
             {
@@ -451,9 +479,7 @@ void Model::DrawPhase2(Scene* scene) {
                 auto shader = scene->GetShader(Scene::MESHLETCULL);
                 shader->Use();
 
-                GLUniform::Pointer workMode =
-                        shader->GetUniformLocation("workMode");
-                shader->SetUniform(workMode, 0);
+                shader->SetUniformi("workMode", 0);
 
                 meshlets->MeshletsBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
                 meshlets->MeshletsBuffer()->BindBase(1);
@@ -476,8 +502,7 @@ void Model::DrawPhase2(Scene* scene) {
                 scene->GetDrawCullDataBuffer()->BindBase(5);
 
                 scene->DepthPyramid()->Active(GL_TEXTURE1);
-                shader->SetUniform(shader->GetUniformLocation("depthPyramid"),
-                                   1);
+                shader->SetUniformi("depthPyramid", 1);
 
                 auto count = meshlets->MeshletsCount();
                 glDispatchCompute(((count + 255) / 256), 1, 1);
@@ -555,9 +580,7 @@ void Model::TestOcclusionResults(Scene* scene) {
                 auto shader = scene->GetShader(Scene::MESHLETCULL);
                 shader->Use();
 
-                GLUniform::Pointer workMode =
-                        shader->GetUniformLocation("workMode");
-                shader->SetUniform(workMode, 1);
+                shader->SetUniformi("workMode", 1);
 
                 meshlets->MeshletsBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
                 meshlets->MeshletsBuffer()->BindBase(1);
@@ -580,8 +603,7 @@ void Model::TestOcclusionResults(Scene* scene) {
                 scene->GetDrawCullDataBuffer()->BindBase(5);
 
                 scene->DepthPyramid()->Active(GL_TEXTURE1);
-                shader->SetUniform(shader->GetUniformLocation("depthPyramid"),
-                                   1);
+                shader->SetUniformi("depthPyramid", 1);
 
                 auto count = meshlets->MeshletsCount();
                 glDispatchCompute(((count + 255) / 256), 1, 1);

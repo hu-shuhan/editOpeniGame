@@ -38,10 +38,6 @@ layout(location = 0) out vec4 out_ScreenColor;
 
 #define MAX_FRAGMENTS 256
 
-float length(vec3 v) {
-    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
 void main() {
     vec4 fragColor = vec4(in_Color, objectData.transparent);
 
