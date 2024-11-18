@@ -13,6 +13,7 @@ public:
 	enum FileType {
 		NONE = 0,
 		VTK,
+		IGC,
 		OBJ,
 		OFF,
 		MESH,

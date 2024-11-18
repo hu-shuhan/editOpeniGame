@@ -354,7 +354,7 @@ private:
 
 public:
     //void Draw(Scene*) override;
-    void ConvertToDrawableData() override;
+    void ConvertToDrawableData                () override;
     //void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
     //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
     //void SetAttributeWithPointData(ArrayObject::Pointer attr,

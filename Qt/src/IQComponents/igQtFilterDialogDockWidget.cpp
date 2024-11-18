@@ -54,7 +54,7 @@ int igQtFilterDialogDockWidget::addParameter(WidgetType type,
                                              const QString& defaultValue) {
 
     QWidget* widget = nullptr;
-
+    
     switch (type) {
     case QT_LINE_EDIT:
     {

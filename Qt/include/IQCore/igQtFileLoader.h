@@ -25,6 +25,7 @@ public:
     void OpenSplineFile(const std::string& fileName);
 	void SaveFile();
 	void SaveFileAs();
+    bool Compress(int, int, int, int);
 	void SaveCurrentFileToRecentFile(QString file_name);
 	void AddCurrentFileToRecentFilePath(QString lastPath);
 	void InitRecentFilePaths();
