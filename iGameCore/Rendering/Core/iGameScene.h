@@ -249,6 +249,7 @@ protected:
     Painter3D::Pointer m_Painter3D = Painter3D::New();
 
     bool m_FinishInit{false};
+    bool m_Enable_VolumeRendering{false};
 
     friend class Model;
     friend class Interactor;

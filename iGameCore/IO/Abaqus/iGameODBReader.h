@@ -18,10 +18,15 @@ public:
 
     static Pointer New(){return new ODBReader;}
 
+    /* Read Odb file's Mesh With first keyframe's field data. */
+    DataObject::Pointer ReadOdbFirstFrameMesh(const std::string& filePath);
+
     /* Read Odb file's raw Mesh without SPECIFIC frame's field data. */
     DataObject::Pointer ReadOdbMesh(const std::string& filePath);
 
     AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, const std::string& stepName, int frame_idx);
+
+    AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, int frame_idx);
 
 protected:
     enum DataArrayType{
@@ -36,7 +41,11 @@ protected:
 
     bool Execute() override;
 
+    /* Get Target Step's target frame Field data. */
     bool ExecuteWithFieldData(const std::string& stepName, int frameIdx);
+
+    /* Get First Step's target frame Field data. */
+    bool ExecuteWithFieldData(int frameIdx);
 
     bool CreateDataObject();
 
@@ -84,6 +93,9 @@ private:
     std::map<const char*, std::map<int, int>> m_CellsMap;
     size_t  m_nodesNum{0}, m_cellsNum{0};
 
+    bool m_NeedRequestMap {true};
+    bool m_NeedRequestStep {true};
+    bool m_NeedRequestInstance {true};
 protected:
     friend class AttributeParserHelper;
     AttributeParserHelper* m_Attribute_helper{nullptr};

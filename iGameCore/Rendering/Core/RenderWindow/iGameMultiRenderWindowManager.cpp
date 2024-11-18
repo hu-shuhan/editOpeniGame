@@ -37,13 +37,12 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
 //    }
 
     while (!m_GLFW_WindowPointerPool.empty()){
-        // ¼ì²éÃ¿¸ö´°¿ÚÊÇ·ñÓ¦¹Ø±Õ
+         /* check all window should be closed */
         for (auto it = m_GLFW_WindowPointerPool.begin(); it != m_GLFW_WindowPointerPool.end();) {
             GLFWwindow* window_ptr = *it;
-            // ¼ì²é´°¿ÚÊÇ·ñ±»¹Ø±Õ
             if (glfwWindowShouldClose(window_ptr)) {
-                glfwDestroyWindow(window_ptr);  // Ïú»Ù´°¿Ú
-                it = m_GLFW_WindowPointerPool.erase(it);     // ´ÓÁĞ±íÖĞÒÆ³ı
+                glfwDestroyWindow(window_ptr);  // é”€æ¯çª—å£
+                it = m_GLFW_WindowPointerPool.erase(it);     // ä»åˆ—è¡¨ä¸­ç§»é™¤
             } else {
                 /* set current Context */
                 glfwMakeContextCurrent(window_ptr);
@@ -57,12 +56,12 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
             }
         }
 
-        // ´¦ÀíËùÓĞ´°¿ÚÊÂ¼ş
+        /* Process all window events */
         glfwPollEvents();
 
     }
 
-    // ÇåÀí²¢ÖÕÖ¹ GLFW
+    /* Terminate and clean glfw cache. */
     glfwTerminate();
 }
 

@@ -113,17 +113,71 @@ public:
 };
 
 /* Public API: */
-AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, const std::string& stepName, int frame_idx) {
-    SetFilePath(filePath);
-    if(ExecuteWithFieldData(stepName, frame_idx)) return m_Attribute_helper->GetResult();
-    return nullptr;
-}
 DataObject::Pointer ODBReader::ReadOdbMesh(const std::string &filePath) {
+    m_NeedRequestMap = m_NeedRequestInstance = true;
+    m_NeedRequestStep = false;
     SetFilePath(filePath);
     Execute();
     return this->GetOutput();
 }
+DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath) {
+    m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = true;
+    SetFilePath(filePath);
+    Execute();
+    m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = false;
+    auto outputObj = this->GetOutput();
+    int frameIdx = 5;
+    if(ExecuteWithFieldData(frameIdx)) {
+        auto attributeSet = m_Attribute_helper->GetResult();
+        outputObj->SetAttributeSet(attributeSet);
+    }
+    return outputObj;
+}
+AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, int frame_idx) {
+    SetFilePath(filePath);
+    m_NeedRequestInstance = m_NeedRequestStep = true;
+    m_NeedRequestMap = true;
+    if(ExecuteWithFieldData(frame_idx)) return m_Attribute_helper->GetResult();
+    return nullptr;
+}
+AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, const std::string& stepName, int frame_idx) {
+    SetFilePath(filePath);
+    m_NeedRequestInstance = true;
+    m_NeedRequestStep = false;
+    m_NeedRequestMap = true;
+    if(ExecuteWithFieldData(stepName, frame_idx)) return m_Attribute_helper->GetResult();
+    return nullptr;
+}
+
 /* Protected API: */
+bool ODBReader::ExecuteWithFieldData(int frameIdx) {
+        odb_initializeAPI();
+        try {
+            if(!OpenODB()){
+                std::cout << "Fail to Open ODB dataBase \n";
+                return false;
+            }
+            std::cout <<"Open end\n";
+            ExtractHeader();
+            std::cout <<"ExtractHeader end\n";
+            ConstructMap();
+            m_Attribute_helper = new AttributeParserHelper(m_StepFrameMap.begin()->first, frameIdx);
+            std::cout <<"ConstructMap end\n";
+            ReadAttributes();
+            std::cout <<"ReadAttributes end\n";
+        }
+        catch (odb_BaseException& exc) {
+            odb_finalizeAPI();
+            std::cout << "Abaqus error message: " << exc.UserReport().CStr() << std::endl;
+            return false;
+        }catch (...) {
+            odb_finalizeAPI();
+            std::cout << "Unknown Exception.\n";
+            return false;
+        }
+        odb_finalizeAPI();
+        return true;
+}
 
 bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) {
     m_Attribute_helper = new AttributeParserHelper(stepName, frameIdx);
@@ -135,7 +189,7 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
             return false;
         }
         std::cout <<"Open end\n";
-        ExtractHeader();
+        ExtractAllInstance();
         std::cout <<"ExtractHeader end\n";
         ConstructMap();
         std::cout <<"ConstructMap end\n";
@@ -205,6 +259,7 @@ bool ODBReader::OpenODB() {
     return m_ODB = &openOdb(odbFile);
 }
 bool ODBReader::ExtractAllInstance() {
+    if(!m_NeedRequestInstance) return true;
     odb_InstanceRepositoryIT instIter(m_ODB->rootAssembly().instances());
     m_Instance_names.clear();
     for (instIter.first(); !instIter.isDone(); instIter.next())
@@ -215,6 +270,7 @@ bool ODBReader::ExtractAllInstance() {
 }
 
 bool ODBReader::ExtractAllStep() {
+    if(!m_NeedRequestStep) return true;
     odb_StepRepositoryIT stepIter(m_ODB->steps());
     m_StepFrameMap.clear();
     for (stepIter.first(); !stepIter.isDone(); stepIter.next())
@@ -235,6 +291,7 @@ bool ODBReader::ExtractHeader() {
 }
 
 bool ODBReader::ConstructMap() {
+    if(!m_NeedRequestMap) return true;
     // we need to map the local label from abaqus to global index for paraview.
     // global index used in paraview for node and cell.
     int nodeIndex = 0;
@@ -296,23 +353,23 @@ bool ODBReader::ReadCoordinates() {
         cellTypes->Reserve(cellTypes->GetArrayTypedSize() + elem_size);
         for (int i = 0; i < elem_size; i++)
         {
-//            auto t1 = std::chrono::steady_clock::now();
+            auto t1 = std::chrono::steady_clock::now();
             const auto& cell = inst.elements(i);
-//            auto t2 = std::chrono::steady_clock::now();
+            auto t2 = std::chrono::steady_clock::now();
             // connectivity
             const int* conn = cell.connectivity(nodesNumCell);
-//            auto t3 = std::chrono::steady_clock::now();
+            auto t3 = std::chrono::steady_clock::now();
             for (int j = 0; j < nodesNumCell; j++)
             {
                 cellConnectivity->AddValue(current_nodeMap[conn[j]]);
             }
-//            auto t4 = std::chrono::steady_clock::now();
+            auto t4 = std::chrono::steady_clock::now();
             // offset
             offset += nodesNumCell;
             cellOffsets->AddValue(offset);
             // CellType
             cellTypes->AddValue(ABAQUS_VTK_CELL_MAP(cell.type().cStr()));
-//            auto t5 = std::chrono::steady_clock::now();
+            auto t5 = std::chrono::steady_clock::now();
 //            std::cout << "===================\n";
 //            std::cout << "cost 1 : " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << '\n';
 //            std::cout << "cost 2 : " << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() << '\n';
@@ -335,16 +392,25 @@ bool ODBReader::CreateDataObject() {
             case IG_UNSTRUCTURED_MESH:
             {
                 DynamicCast<UnstructuredMesh>(m_Output)->SetPoints(m_Data.GetPoints());
-//            DynamicCast<UnstructuredMesh>(m_Output)->SetAttributeSet(m_Data.Data);
-                return true;
+                break;
+                //            DynamicCast<UnstructuredMesh>(m_Output)->SetAttributeSet(m_Data.Data);
             }
             case IG_SURFACE_MESH:{
                 DynamicCast<SurfaceMesh>(m_Output)->SetPoints(m_Data.GetPoints());
+                break;
 //            DynamicCast<SurfaceMesh>(m_Output)->SetAttributeSet(m_Data.Data);
-                return true;
             }
         }
-        return false;
+
+        // TODO: Current only support first step file's timeStep
+        auto firstStep = m_StepFrameMap.begin();
+        for(int i = 0; i < firstStep->second; i ++){
+            double time_val = m_ODB->steps().constGet(firstStep->first.c_str()).frames()[i].frameValue();
+            StringArray::Pointer array = StringArray::New();
+            array->AddElement(m_FilePath);
+            m_Output->GetTimeFrames()->AddTimeStep(time_val, array, StreamingType::SingleFieldAttributes);
+        }
+        return true;
 }
 
 
@@ -371,7 +437,7 @@ bool ODBReader::ReadAttributes() {
         int maxNumIntegrationPoints = 1;
         for (const auto& inst_name : m_Instance_names)
         {
-            auto inst = m_ODB->rootAssembly().instances().constGet(inst_name);
+            auto& inst = m_ODB->rootAssembly().instances().constGet(inst_name);
             //get data block of the instance
             //filter by position
             //note that subset.bulkDataBlocks may have more than one
@@ -614,7 +680,6 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
     std::cerr << abqElementType << " not supported by the converter." << std::endl;
     return -1;
 }
-
 
 
 

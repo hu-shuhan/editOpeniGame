@@ -182,22 +182,25 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 #if defined(AbqSDK_ENABLE)
     case iGame::FileIO::ODB:
 	{
-		ODBReader::Pointer reader = ODBReader::New();
-		resObj = reader->ReadOdbMesh(file_name);
-        AttributeSet::Pointer attributeSet = reader->ReadOdbFieldData(file_name, "Step-1", 2);
-//
-//        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
-//            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
-//            attribute.updateAllDataRange();
-//            auto range = attribute.GetDataRange();
-//            std::cout << "===================\n";
-//            for(int i = 200; i < 215; i += 3){
-//                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
-//            }
-//            std::cout << attribute.pointer->GetName()<< " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
-//        }
-        resObj->SetAttributeSet(attributeSet);
-        resObj->Modified();
+        ODBReader::Pointer reader = ODBReader::New();
+        resObj = reader->ReadOdbFirstFrameMesh(file_name);
+
+//		ODBReader::Pointer reader = ODBReader::New();
+//		resObj = reader->ReadOdbMesh(file_name);
+//        AttributeSet::Pointer attributeSet = reader->ReadOdbFieldData(file_name, "Step-1", 2);
+////
+////        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
+////            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
+////            attribute.updateAllDataRange();
+////            auto range = attribute.GetDataRange();
+////            std::cout << "===================\n";
+////            for(int i = 200; i < 215; i += 3){
+////                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
+////            }
+////            std::cout << attribute.pointer->GetName()<< " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
+////        }
+//        resObj->SetAttributeSet(attributeSet);
+//        resObj->Modified();
 		break;
 	}
 #endif
@@ -383,5 +386,4 @@ bool  FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataOb
 	std::cout << out << std::endl;
 	return result;
 }
-
 IGAME_NAMESPACE_END

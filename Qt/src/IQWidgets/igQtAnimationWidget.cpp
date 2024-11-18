@@ -149,6 +149,9 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             &igQtAnimationVcrController::updateCurrentKeyframe);
 }
 
+#include <iGameType.h>
+#include <iGamePointSet.h>
+#include <Abaqus/iGameODBReader.h>
 void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     using namespace iGame;
     auto currentScene = SceneManager::Instance()->GetCurrentScene();
@@ -158,20 +161,22 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     if (currentDrawObject == nullptr ||
         currentDrawObject->GetTimeFrames()->GetArrays().empty())
         return;
-    auto& frameSubFiles = currentDrawObject->GetTimeFrames()
-                                  ->GetTargetTimeFrame(keyframe_idx)
-                                  .SubFileNames;
+    auto currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
+    auto& frameData = currentFrame.metaData;
+
+    /* If the timeframe data store MultiSubFile's Path, the job is to Parse the sub File. */
+    if(currentFrame.type == StreamingType::MultiSubFiles)
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
-        std::vector<iGame::DataObject::Pointer> results(frameSubFiles->GetNumberOfElements());
-        for (int i = 0; i < frameSubFiles->GetNumberOfElements(); i++) {
+        std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
+        for (int i = 0; i < frameData->GetNumberOfElements(); i++) {
             tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
                     [i, &results](const std::string& fileName) {
                         auto res = FileIO::ReadFile(fileName);
                         results[i] = res;
                         return res;
                     },
-                    frameSubFiles->GetElement(i)));
+                    frameData->GetElement(i)));
         }
         currentDrawObject->ClearSubDataObject();
         for (auto& task: tasks) {
@@ -180,7 +185,25 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         for(auto& subObj : results){
             currentDrawObject->AddSubDataObject(subObj);
         }
+    } /* If the timeframe data store SingleField Attributes' Path,
+    *   the job is to Parse the target File's Field Attribute replace of the original one. */
+    else if(currentFrame.type == StreamingType::SingleFieldAttributes)
+    {
+        const auto& filePath = currentFrame.metaData->GetElement(0);
+        auto fileType = FileIO::GetFileType(filePath);
+        if(fileType == FileIO::FileType::ODB){
+            #if defined(AbqSDK_ENABLE)
+            ODBReader::Pointer reader = ODBReader::New();
+            auto attributeSet = reader->ReadOdbFieldData(filePath, keyframe_idx);
+            currentDrawObject->SetAttributeSet(attributeSet);
+            DynamicCast<iGame::PointSet>(currentDrawObject)->GetPoints()->Modified();
+            currentDrawObject->ConvertToDrawableData();
+            #endif
+        }
     }
+
+
+
     /* If obj has the deformation var and is enabled.
      * Make sure every timeStep have the deformation scale factor. */
 
@@ -219,7 +242,7 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         return;
     auto& frameSubFiles_0 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0)
-            .SubFileNames;
+            .metaData;
     std::vector<iGame::DataObject::Pointer> results_0(frameSubFiles_0->GetNumberOfElements());
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
@@ -245,7 +268,7 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     }
     auto& frameSubFiles_1 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0 + 1)
-            .SubFileNames;
+            .metaData;
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameSubFiles_1->GetNumberOfElements());

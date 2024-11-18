@@ -191,7 +191,10 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
-
+    QAction* VolumeAction = new QAction(this);
+    connect(VolumeAction, &QAction::triggered, this, [&](){
+        
+    });
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
