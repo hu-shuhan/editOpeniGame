@@ -24,7 +24,7 @@ public:
             return false;
         }
 
-        // Ë³Ğò
+        // é¡ºåº
         // props destLength data
         size_t propsSize = LZMA_PROPS_SIZE;
         size_t sourceSizeSize = sizeof(size_t);
@@ -45,8 +45,8 @@ public:
         ISzAlloc sz = { &LzmaAlloc ,&LzmaFree };
         ICompressProgress progressCallback = { &OnProgress };
 
-        // ¹ÜÓÃÊÖ·¨ °ÑpropĞ´Èëlzma±àÂëµÄ¿ªÍ·
-        // ÓĞÒ»¸ö±È½ÏÇ¿ÆÈÖ¢µÄÏë·¨ÊÇ°ÑÕâÁ½¸öÒ²Ğ´ÈëparamSet ²»¹ıÒÔºó¿´Çé¿öÔÙËµ
+        // ç®¡ç”¨æ‰‹æ³• æŠŠpropå†™å…¥lzmaç¼–ç çš„å¼€å¤´
+        // æœ‰ä¸€ä¸ªæ¯”è¾ƒå¼ºè¿«ç—‡çš„æƒ³æ³•æ˜¯æŠŠè¿™ä¸¤ä¸ªä¹Ÿå†™å…¥paramSet ä¸è¿‡ä»¥åçœ‹æƒ…å†µå†è¯´
         SRes ret =
             LzmaEncode(
                 destPointer + propsSize + sourceSizeSize, &destSize,
@@ -104,7 +104,7 @@ public:
     }
    
 private:
-    // lzma2µÄµ÷ÓÃÉæ¼°µ½Öî¶àµÄ»Øµ÷º¯Êı
+    // lzma2çš„è°ƒç”¨æ¶‰åŠåˆ°è¯¸å¤šçš„å›è°ƒå‡½æ•°
     static void* LzmaAlloc(ISzAllocPtr, size_t size)
     {
         return new uint8_t[size];
@@ -120,7 +120,7 @@ private:
 
     static SRes OnProgress(ICompressProgressPtr p, UInt64 inSize, UInt64 outSize)
     {
-        // ¸üĞÂ½ø¶ÈÌõ
+        // æ›´æ–°è¿›åº¦æ¡
 
         return SZ_OK;
     }

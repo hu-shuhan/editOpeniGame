@@ -103,7 +103,7 @@ public:
             // min3 range bits pn
         }
 
-        // µã
+        // ç‚¹
         for (auto it = blocks.begin(); it != blocks.end(); it++) {
             Vector3d min = it->min;
             op = Store(op, static_cast<float>(min[0]));

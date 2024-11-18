@@ -140,8 +140,8 @@ protected:
     int m_CellPositionSize{};
 
     // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines
-    float m_PolygonFactor{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
-    float m_PolygonOffset{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_PolygonFactor{-1.0f}; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_PolygonOffset{-1.0f}; // now implement with GL_POLYGON_OFFSET_FILL
     float m_LineFactor{-1.0f};   // now not implemented
     float m_LineOffset{-1.0f};   // now not implemented
     float m_PointOffset{-1.0f};  // now not implemented

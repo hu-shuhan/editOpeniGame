@@ -49,7 +49,7 @@ public:
 		// worst-case encoding is 2 header bytes + 3 varint-7 encoded index deltas
 		unsigned int vertex_groups = (vertex_bits + 1 + 6) / 7;
 
-		// modified 预留位置给rotate order -----------------------------
+		// modified 棰勭暀浣嶇疆缁檙otate order -----------------------------
 		return 1 + (index_count / 3) * (2 + 3 * vertex_groups) + 16
 			+ index_count / 12;
 		// -----------------------------------------------------------
@@ -83,7 +83,7 @@ private:
 	{
 		assert(index_count % 3 == 0);
 		
-		// modified 先保护主代码---------------------------
+		// modified 鍏堜繚鎶や富浠ｇ爜---------------------------
 		buffer_size -= index_count / 12;
 		// ----------------------------------------------
 
