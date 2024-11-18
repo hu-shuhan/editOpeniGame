@@ -200,7 +200,11 @@ bool iGame::iGameVTUReader::Parsing() {
 	}
 
 	// find Piece's Cell data.
-    elem = FindTargetItem(root, "CellData")->FirstChildElement("DataArray");
+    elem = FindTargetItem(root, "CellData");
+    if(elem != nullptr){
+        elem = elem->FirstChildElement("DataArray");
+    }
+
     //  use while loop to find point's multiple scala data.
     while (elem) {
 

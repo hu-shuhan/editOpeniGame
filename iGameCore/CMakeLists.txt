@@ -15,23 +15,40 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
 
 target_include_directories(${MODULE_NAME} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/Common
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/FilterModel
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper
-        ${CMAKE_CURRENT_SOURCE_DIR}/IO
-        ${CMAKE_CURRENT_SOURCE_DIR}/Filters
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Common>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/FilterModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO/XML>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Filters>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Interactor>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Painter>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/RenderWindow>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/OpenGL>
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Interactor
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Painter
-        ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/OpenGL
-
+        $<INSTALL_INTERFACE:include/Core/CellModel>
+        $<INSTALL_INTERFACE:include/Core/Common>
+        $<INSTALL_INTERFACE:include/Core/DataModel>
+        $<INSTALL_INTERFACE:include/Core/FilterModel>
+        $<INSTALL_INTERFACE:include/Core/Mapper>
+        $<INSTALL_INTERFACE:include/IO>
+        $<INSTALL_INTERFACE:include/IO/XML>
+        $<INSTALL_INTERFACE:include/Filters>
+        $<INSTALL_INTERFACE:include/Rendering>
+        $<INSTALL_INTERFACE:include/Rendering/Common>
+        $<INSTALL_INTERFACE:include/Rendering/Core>
+        $<INSTALL_INTERFACE:include/Rendering/Core/Interactor>
+        $<INSTALL_INTERFACE:include/Rendering/Core/Painter>
+        $<INSTALL_INTERFACE:include/Rendering/Core/RenderWindow>
+        $<INSTALL_INTERFACE:include/Rendering/OpenGL>
 )
-target_link_libraries(${MODULE_NAME} PUBLIC
+set(ThirdParty_lib_dependency)
+list(APPEND ThirdParty_lib_dependency
         glad
         freetype
         eigen
@@ -59,14 +76,13 @@ ELSEIF (APPLE)
 ELSE ()
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 ENDIF ()
-
-
 #--------------------------------------------------------------------
 # Find or Enable ThirdParty Components' Stuff.
 #--------------------------------------------------------------------
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
+    #    list(APPEND ThirdParty_lib_dependency cgns_static)
 ENDIF ()
 
 #find_package(AbqSDK)
@@ -97,11 +113,9 @@ if (ENABLE_GPSCUDA_MODULE)
 
     target_link_libraries(${MODULE_NAME} PUBLIC
             CommonLib
-            helper_opencascade
             Geom
             GPHelperIO
             GPSplineLib
-
     )
 
     file(GLOB_RECURSE EXDLL ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
@@ -111,6 +125,10 @@ if (ENABLE_GPSCUDA_MODULE)
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
     )
 endif ()
+#--------------------------------------------------------------------
+# Target link Module needed ThirdParty's lib
+#--------------------------------------------------------------------
+target_link_libraries(${MODULE_NAME} PUBLIC ${ThirdParty_lib_dependency})
 
 if (WIN32)
     #  内部库在cmake构建时定义IGAME_COMPILE_EXPORT，使得模式切换为dllexport, 否则外部库在使用编译这个动态库代码时将其模式切换为dllimport
@@ -126,6 +144,10 @@ if (WIN32)
     set_property(TARGET ${MODULE_NAME} PROPERTY RUNTIME_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
     set_property(TARGET ${MODULE_NAME} PROPERTY LIBRARY_OUTPUT_DIRECTORY_RELEASE ${PROJECT_BINARY_DIR})
-
 endif ()
-target_link_libraries(${PROJECT_NAME} PUBLIC ${MODULE_NAME})
+
+#--------------------------------------------------------------------
+# Exec Install OpeniGame Core Module's CMake
+#--------------------------------------------------------------------
+#include(Cmake/CoreModuleInstall.cmake)
+#--------------------------------------------------------------------

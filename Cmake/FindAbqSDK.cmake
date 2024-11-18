@@ -1,5 +1,6 @@
 # - Find Abaqus SDK library
 # Find the Abaqus SDK includes and library
+
 find_path(AbqSDK_PRIVATE_INCLUDE_DIR
         NAMES
         odb_API.h
@@ -24,6 +25,13 @@ find_path(AbqSDK_PRIVATE_LIB
         PATHS
         "D:/SIMULIA/EstProducts/2024/win_b64/code/lib"
 )
+find_path(AbqSDK_DLL_DIR
+        NAMES
+        ABQSMAAbuGeom.dll
+        PATHS
+        "D:/SIMULIA/EstProducts/2024/win_b64/code/bin"
+)
+mark_as_advanced(AbqSDK_DLL_DIR)
 
 mark_as_advanced(AbqSDK_PRIVATE_INCLUDE_DIR)
 mark_as_advanced(AbqSDK_PRIVATE_PUBLIC_DIR)
@@ -64,68 +72,8 @@ set(ABQ_LIB_LIST
         "ABQSMASrvBasic"
         "ABQSMASrvSimXmlConverters"
         "ABQSMAUzlZlib"
-#        "CATBBMagic"
-#        "CATComBase"
-#        "CATComDrvBB"
-#        "CATComHTTPEndPoint"
-#        "CATComServices"
-#        "CATComSidl"
-#        "CATComSidlFile"
-#        "CATLic"
-#        "CATLMjni"
-#        "CATP2PBaseUUID"
-#        "CATP2PCore"
-#        "CATPLMDispatcherItf"
-#        "CATPLMDispatcherSpecificItf"
-#        "CATScriptEngine"
-#        "CATSysCATIAAI"
-#        "CATSysCATIASF"
-#        "CATSysCommunication"
-#        "CATSysDbSettings"
-#        "CATSysExternApp"
-#        "CATSysMotifDrv"
-#        "CATSysMultiThreadingSecured"
-#        "CATSysPreview"
-#        "CATSysProxy"
-#        "CATSysRunBrw"
-#        "CATSysTS"
-#        "CATSysTSObjectModeler"
-#        "CommunicationsUUID"
-#        "DSYApplicationMainArch"
-#        "DSYSysCnxExit"
-#        "DSYSysDlg"
-#        "DSYSysDlgWebView"
-#        "DSYSysIRDriver"
-#        "DSYSysIRManagerPlus"
-#        "DSYSysIRMSysAdapter"
-#        "DSYSysIRSendReport00"
-#        "DSYSysIRSendReportCom"
-#        "DSYSysIRSendReportItfPlugin"
-#        "DSYSysProgressHandler"
-#        "DSYSysTrayIcon"
-#        "DSYSysWatchDogHelp"
-#        "DSYSysWatchDogRegisterKeys"
-#        "DSYSysWMIDriver"
-#        "HTTPArch"
-#        "InstArch"
-#        "JS0CRYPTEXIT"
-#        "JS0DLK"
-#        "JS0FM"
-#        "JS0GROUP"
-#        "JS0PCC"
-#        "JS0SMT"
-#        "lz4_static"
-#        "SecurityContext"
-#        "SMAAbuCodeGen"
-#        "SMABasCodeGen"
-#        "SMASimCodeGen"
-#        "StringUtilities"
-#        "SysSqlite"
-#        "SystemTSUUID"
-#        "SystemUUID"
-#        "WebView2LoaderStatic"
-
 )
+mark_as_advanced(ABQ_LIB_LIST)
 set(AbqSDK_PRIVATE_INCLUDE_DIRS "${AbqSDK_PRIVATE_INCLUDE_DIR}" "${AbqSDK_PRIVATE_PUBLIC_DIR}")
 
 
@@ -143,7 +91,8 @@ foreach(LIB ${ABQ_LIB_LIST})
     list(APPEND FOUND_ABQ_LIB_FULL_PATH ${temp${LIB}})
 
     if (NOT TARGET AbqSDK::${LIB})
-        add_library(AbqSDK::${LIB} UNKNOWN IMPORTED)
+        add_library(AbqSDK::${LIB} UNKNOWN IMPORTED
+                ../main.cpp)
         set_target_properties(AbqSDK::${LIB}
                 PROPERTIES
                 IMPORTED_LOCATION ${temp${LIB}}

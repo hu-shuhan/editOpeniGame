@@ -27,7 +27,7 @@ protected:
 
     
 
-    // 写入相关 代码改造自 tmc
+    // 鍐欏叆鐩稿叧 浠ｇ爜鏀归�犺嚜 tmc
     enum class PayloadType
     {
         kParameterSet = 0,

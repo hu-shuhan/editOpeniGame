@@ -21,8 +21,6 @@ bool iGame::StressDeformationFilter::Execute() {
     if(nullptr == dataObject) {
         return false;
     }
-
-    if(!dataObject->GetDeformationData()->m_enable_dsf) return true;
     if(dataObject->GetDeformationData()->m_enable_auto_compute) {
         CalculateIdealDSF();
     }
@@ -123,7 +121,6 @@ bool iGame::StressDeformationFilter::Execute() {
             render_pos_set->Modified();
         }
     }
-    iGame::SceneManager::Instance()->GetCurrentScene()->Update();
 
     return true;
 }
@@ -157,9 +154,9 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
     if(U_max == FLT_MIN || U_max == 0) return false;
     auto Ds = dataObject->GetBoundingBox().max - dataObject->GetBoundingBox().min;
     float D_max = std::cbrt(Ds[0] * Ds[1] * Ds[2]);
-//    std::cout << "max_offset : " << U_max << '\n';
-//    std::cout << "max_D : " << D_max << '\n';
-//    std::cout << "res : " << D_max / U_max << '\n';
+    std::cout << "max_offset : " << U_max << '\n';
+    std::cout << "max_D : " << D_max << '\n';
+    std::cout << "res : " << m_K_factor * D_max / U_max << '\n';
     dataObject->GetDeformationData()->SetScaleFactors(m_K_factor * D_max / U_max);
     return true;
 }

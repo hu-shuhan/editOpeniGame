@@ -290,6 +290,20 @@ GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
                     GL_FRAGMENT_SHADER);
             sp->AddShaders(vertex_vert, pureColor_frag);
         } break;
+        case SINGLEPASSWIREFRAME: {
+            GLShader::Pointer vertex_vert =
+                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
+                                 GL_VERTEX_SHADER);
+            GLShader::Pointer wireframe_geom = CreateShader(
+                    std::string(
+                            "./Resources/Shaders/single-passWireframe.geom"),
+                    GL_GEOMETRY_SHADER);
+            GLShader::Pointer wireframe_frag = CreateShader(
+                    std::string(
+                            "./Resources/Shaders/single-passWireframe.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
+        } break;
         case TRANSPARENCYLINK: {
             GLShader::Pointer vertex_vert =
                     CreateShader(std::string("./Resources/Shaders/vertex.vert"),
@@ -502,30 +516,18 @@ void Scene::InitOpenGL() {
     // init framebuffer
     ResizeFrameBuffer();
 
-    //Pen::Pointer pen = Pen::New();
-    //Brush::Pointer brush = Brush::New();
-    //painter->SetPen(pen);
-    //painter->SetBrush(brush);
-    //
     //Point p{0.0f, 0.0f, 0.0f};
     //Point p1{-1.0f, 0.0f, 0.0f};
     //Point p2{1.0f, 0.0f, 0.0f};
     //Point p3{0.0f, 1.0f, 0.0f};
     //
-    //pen->SetColor(Color{White});
-    //pen->SetWidth(10);
-    //std::cout << painter->DrawPoint(Point{0.0f, -0.5f, 0.0f}) << std::endl;
-    //
-    //pen->SetColor(Color{LightBlue});
-    //pen->SetWidth(3);
-    //std::cout << painter->DrawLine(Point{-1.0f, -1.0f, 0.0f},
-    //                               Point{1.0f, -1.0f, 0.0f})
-    //          << std::endl;
-    //
-    //pen->SetColor(Color{LightBlue});
-    //pen->SetWidth(3);
-    //brush->SetColor(Color{Red});
-    //std::cout << painter->DrawTriangle(p1, p2, p3) << std::endl;
+    //m_Painter3D->SetPen(Color::Black);
+    //m_Painter3D->SetBrush(Color::Black);
+    //m_Painter3D->DrawTriangle(Point{-1.0f, -1.0f, 0.0f},
+    //                          Point{-1.0f, 1.0f, 0.0f},
+    //                          Point{1.0f, -1.0f, 0.0f});
+
+    GLCheckError();
 }
 
 void Scene::InitOIT() {
@@ -560,26 +562,25 @@ void Scene::InitOIT() {
     m_OITLinkedListTexture->Create();
     m_OITLinkedListTexture->Buffer(GL_RGBA32UI, m_OITLinkedListBuffer);
 #endif
+    GLCheckError();
 }
 
 void Scene::InitFont() {
     const wchar_t* text = L"XYZ";
     FontSet::Instance().RegisterWords(text);
+    GLCheckError();
 }
 
 void Scene::InitAxes() {
     auto axesShader = this->GetShader(AXES);
-    GLUniform::Pointer viewLocation = axesShader->GetUniformLocation("view");
-    GLUniform::Pointer projLocation = axesShader->GetUniformLocation("proj");
-    GLUniform::Pointer viewPosLocation =
-            axesShader->GetUniformLocation("viewPos");
 
     axesShader->Use();
-    axesShader->SetUniform(viewLocation, Axes::ViewMatrix());
-    axesShader->SetUniform(projLocation, Axes::ProjMatrix());
-    axesShader->SetUniform(viewPosLocation, Axes::CameraPos());
+    axesShader->SetUniformMatrix4x4("view", Axes::ViewMatrix());
+    axesShader->SetUniformMatrix4x4("proj", Axes::ProjMatrix());
+    axesShader->SetUniform3f("viewPos", Axes::CameraPos());
 
     m_Axes = Axes::New();
+    GLCheckError();
 }
 
 void Scene::ResizeFrameBuffer() {
@@ -617,9 +618,7 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferMultisampled = fbo;
 
         if (m_FramebufferMultisampled->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
-                         "complete!"
-                      << std::endl;
+            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
     }
 
     // resize resolve framebuffer(form multisamples to single sample)
@@ -748,9 +747,6 @@ void Scene::ResizeDepthPyramid() {
 }
 
 void Scene::Draw() {
-    //std::cout << std::format("near: {}, far: {}", m_Camera->GetNearPlane(),
-    //                         m_Camera->GetFarPlane())
-    //          << std::endl;
     auto viewport = m_Camera->GetScaledViewPort();
 
     // save default framebuffer, because it is not 0 in Qt
@@ -794,8 +790,8 @@ void Scene::RefreshDepthPyramid() {
     shader->Use();
     m_DepthTextureMultisampled->Active(GL_TEXTURE1);
     m_DepthPyramid->Active(GL_TEXTURE2);
-    shader->SetUniform(shader->GetUniformLocation("screenDepthMS"), 1);
-    shader->SetUniform(shader->GetUniformLocation("myDepthPyramid"), 2);
+    shader->SetUniformi("screenDepthMS", 1);
+    shader->SetUniformi("myDepthPyramid", 2);
 
     // generate level 0
     {
@@ -803,9 +799,8 @@ void Scene::RefreshDepthPyramid() {
         uint32_t width = m_DepthPyramidWidth;
         uint32_t height = m_DepthPyramidHeight;
         shader->Use();
-        shader->SetUniform(shader->GetUniformLocation("level"), level);
-        shader->SetUniform(shader->GetUniformLocation("outDepthPyramidSize"),
-                           igm::uvec2{width, height});
+        shader->SetUniformui("level", level);
+        shader->SetUniform2ui("outDepthPyramidSize", igm::uvec2{width, height});
         m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
                                   GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
@@ -827,9 +822,8 @@ void Scene::RefreshDepthPyramid() {
         shader->Use();
 
         shader->Use();
-        shader->SetUniform(shader->GetUniformLocation("level"), level);
-        shader->SetUniform(shader->GetUniformLocation("inDepthPyramidSize"),
-                           igm::uvec2{width, height});
+        shader->SetUniformui("level", level);
+        shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
         m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
                                   GL_R32F);
 
@@ -875,12 +869,15 @@ void Scene::DrawFrame() {
 
         // use reversed-z buffer
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_GREATER);
+        glDepthFunc(GL_GEQUAL);
 
-        ShadowPass();
-        ForwardPass();
-        TransparentPass();
-        //VolumeRenderingPass();
+        if (!m_EnableVolumeRendering) {
+            ShadowPass();
+            ForwardPass();
+            TransparentPass();
+        } else {
+            VolumeRenderingPass();
+        }
 
         // draw scene painter
         m_Painter3D->Draw(this);
@@ -892,6 +889,7 @@ void Scene::DrawFrame() {
         int scale = static_cast<int>(std::max(viewport.x, viewport.y)) / 10.0f;
         igm::ivec4 drawRange = igm::ivec4{0, 0, scale, scale};
 
+        // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
         glClear(GL_DEPTH_BUFFER_BIT);
         glViewport(drawRange.x, drawRange.y, drawRange.z, drawRange.w);
         DrawAxes(drawRange);
@@ -909,11 +907,11 @@ void Scene::ResolveFrame() {
     auto shader = GetShader(Scene::ATTACHMENTRESOLVE);
     shader->Use();
 
-    shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+    shader->SetUniformi("numSamples", samples);
     m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-    shader->SetUniform(shader->GetUniformLocation("colorTextureMS"), 1);
+    shader->SetUniformi("colorTextureMS", 1);
     m_DepthTextureMultisampled->Active(GL_TEXTURE2);
-    shader->SetUniform(shader->GetUniformLocation("depthTextureMS"), 2);
+    shader->SetUniformi("depthTextureMS", 2);
 
     m_EmptyVAO->Bind();
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -929,6 +927,7 @@ void Scene::RenderToQtFrame() {
     glDisable(GL_DEPTH_TEST);
 
     auto shader = GetShader(Scene::SCREEN);
+    //auto shader = GetShader(Scene::FXAA);
     shader->Use();
 
 #ifdef MSAA
@@ -936,18 +935,26 @@ void Scene::RenderToQtFrame() {
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
     m_DepthPyramid->Active(GL_TEXTURE3);
-    shader->SetUniform(shader->GetUniformLocation("screenColorSampler"), 1);
+
+    // Note:
+    // 1. To enable depth rendering, ensure the screen.frag file is updated to handle the depth texture input.
+    //    Specifically, the shader should read from the depth sampler and implement the desired depth-based operations.
+    // 2. Additionally, disable any depth-buffer-clearing code in the coordinate axis rendering logic.
+    //    Failing to do so could overwrite or invalidate the depth information required for rendering.
+    shader->SetUniformi("screenColorSampler", 1);
 #else
     m_ColorTexture->Active(GL_TEXTURE1);
     m_DepthTexture->Active(GL_TEXTURE2);
     m_DepthPyramid->Active(GL_TEXTURE3);
-    shader->SetUniform(shader->GetUniformLocation("screenColorSampler"), 1);
+    shader->SetUniformi("screenColorSampler", 1);
 #endif
 
     m_EmptyVAO->Bind();
     glDrawArrays(GL_TRIANGLES, 0, 3);
     m_EmptyVAO->Release();
 }
+
+void Scene::ShadowPass() { GLCheckError(); }
 
 void Scene::ForwardPass() {
 #ifdef IGAME_OPENGL_VERSION_330
@@ -1032,9 +1039,9 @@ void Scene::TransparentPass() {
         auto shader = GetShader(Scene::TRANSPARENCYSORT);
         shader->Use();
 
-        shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+        shader->SetUniformi("numSamples", samples);
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniform(shader->GetUniformLocation("forwardPassColorMS"), 1);
+        shader->SetUniformi("forwardPassColorMS", 1);
 
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
@@ -1097,16 +1104,11 @@ void Scene::VolumeRenderingPass() {
         auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
         shader->Use();
 
-        shader->SetUniform(shader->GetUniformLocation("numSamples"), samples);
+        shader->SetUniformi("numSamples", samples);
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniform(shader->GetUniformLocation("forwardPassColorMS"), 1);
+        shader->SetUniformi("forwardPassColorMS", 1);
 
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() != 1.0f) {
-                model->DrawWithVolume(this);
-            }
-        }
+        for (auto& [id, model]: m_Models) { model->DrawWithVolume(this); }
     }
     glDepthMask(GL_TRUE);
 
@@ -1129,8 +1131,6 @@ void Scene::VolumeRenderingPass() {
 #endif
     GLCheckError();
 }
-
-void Scene::ShadowPass() { GLCheckError(); }
 
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
@@ -1184,29 +1184,20 @@ void Scene::DrawAxes(igm::ivec4 drawRange) {
     auto axesShader = this->GetShader(Scene::AXES);
     axesShader->Use();
 
-    GLUniform::Pointer modelLocation = axesShader->GetUniformLocation("model");
-    axesShader->SetUniform(modelLocation, m_ModelRotate);
-
-    GLUniform::Pointer isFontLocation =
-            axesShader->GetUniformLocation("isDrawFont");
+    axesShader->SetUniformMatrix4x4("model", m_ModelRotate);
 
     // draw Axes
     {
-        axesShader->SetUniform(isFontLocation, false);
+        axesShader->SetUniformi("isDrawFont", 0);
         m_Axes->DrawAxes();
     }
 
     // draw Axes Font
     {
-        axesShader->SetUniform(isFontLocation, true);
-        GLUniform::Pointer textureUniform =
-                axesShader->GetUniformLocation("fontSampler");
-        GLUniform::Pointer colorUniform =
-                axesShader->GetUniformLocation("textColor");
-
+        axesShader->SetUniformi("isDrawFont", 1);
         m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
                        {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
-        m_Axes->DrawXYZ(axesShader, textureUniform, colorUniform);
+        m_Axes->DrawXYZ(axesShader);
     }
 }
 
@@ -1369,6 +1360,16 @@ void Scene::RotateNinetyCounterClockwise() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+}
+
+void Scene::SetVolumeRendering(bool toggled) {
+    m_EnableVolumeRendering = toggled;
+    for (auto& [id, model]: m_Models) {
+        if (!model->m_DataObject->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        drawObject->SetShellRenderingOption(!toggled);
+    }
+    Update();
 }
 
 void Scene::UpdateModelsBoundingSphere() {

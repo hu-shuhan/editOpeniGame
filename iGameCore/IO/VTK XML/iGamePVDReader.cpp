@@ -53,7 +53,7 @@ bool iGame::iGamePVDReader::Parsing() {
     }
 
     for(auto& [val, strArray] : child_map){
-        m_Data.GetTimeData()->AddTimeStep(val, strArray);
+        m_Data.GetTimeData()->AddTimeStep(val, strArray, StreamingType::MultiSubFiles);
     }
     /* if the pvd data have keyframe. */
     if(!m_Data.GetTimeData()->GetArrays().empty()){
@@ -67,9 +67,9 @@ bool iGame::iGamePVDReader::Parsing() {
         {
             std::string fileName, fileSuffix;
             auto t2 = std::chrono::steady_clock::now();
-            std::vector<DataObject::Pointer> results(firstFrame.SubFileNames->Size());
+            std::vector<DataObject::Pointer> results(firstFrame.metaData->Size());
             std::vector<std::future<DataObject::Pointer>> readTaskList;
-            for(int i = 0; i < firstFrame.SubFileNames->Size(); i ++){
+            for(int i = 0; i < firstFrame.metaData->Size(); i ++){
                 readTaskList.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
                     DataObject::Pointer newObj;
                     const char* pos = strrchr(fileName.data(), '.');
@@ -95,7 +95,7 @@ bool iGame::iGamePVDReader::Parsing() {
                     }
                     results[i] = newObj;
                     return newObj;
-                }, firstFrame.SubFileNames->GetElement(i)));
+                }, firstFrame.metaData->GetElement(i)));
             }
             for(auto& task : readTaskList){
                 task.get();
