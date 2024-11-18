@@ -13,6 +13,8 @@ public:
 public:
     IGenum GetDataObjectType() const { return IG_NURBS_GEOMETRY; }
 
+    bool IsUseSinglePassWireframeRendering() { return false; }
+
     void SetPatch(std::vector<NurbsSDK::Geometry>& geometrys);
     void SetBoundary(std::vector<std::array<int, 2>> boundary);
     void SetType(NurbsSDK::NurbsType type);

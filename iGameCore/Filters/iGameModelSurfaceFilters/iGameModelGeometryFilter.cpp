@@ -27,14 +27,16 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
     this->PointClipping = false;
     this->CellClipping = false;
     this->ExtentClipping = false;
+    this->ExtentClippingFlip=false;
     this->PlaneClipping = false;
-
+    this->PlaneClippingFlip=false;
 
     this->Merging = true;
 
     this->RemoveGhostInterfaces = true;
 
     this->m_PointMap = nullptr;
+
 }
 iGameModelGeometryFilter::~iGameModelGeometryFilter() {
     this->m_PointMap = nullptr;
@@ -157,11 +159,11 @@ class GFace {
 public:
     GFace* Next = nullptr;
     //父亲cell，用于对cell attribute的map
-    igIndex OriginalCellId;
-    igIndex* PointIds;
-    int NumberOfPoints;
+    igIndex OriginalCellId=0;
+    igIndex* PointIds=nullptr;
+    int NumberOfPoints=0;
     //是否是幽灵面
-    bool IsGhost;
+    bool IsGhost=false;
 
     GFace() = default;
     GFace(const igIndex& originalCellId, const igIndex& numberOfPoints,

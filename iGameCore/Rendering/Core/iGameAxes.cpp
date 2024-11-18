@@ -55,9 +55,7 @@ void Axes::DrawAxes() {
     glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
     m_TriangleVAO->Release();
 }
-void Axes::DrawXYZ(const GLShaderProgram::Pointer shader,
-                   const GLUniform::Pointer texture,
-                   const GLUniform::Pointer color) {
+void Axes::DrawXYZ(const GLShaderProgram::Pointer shader) {
     // draw xyz
     m_FontVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -73,17 +71,17 @@ void Axes::DrawXYZ(const GLShaderProgram::Pointer shader,
     auto textureZ = FontSet::Instance().GetTexture(L'Z');
     textureZ->Active(GL_TEXTURE3);
 
-    shader->SetUniform(texture, 1);
-    shader->SetUniform(color, red);
+    shader->SetUniformi("fontSampler", 1);
+    shader->SetUniform3f("textColor", red);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-    shader->SetUniform(texture, 2);
-    shader->SetUniform(color, green);
+    shader->SetUniformi("fontSampler", 2);
+    shader->SetUniform3f("textColor", green);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                    (void*) (6 * sizeof(GLuint)));
 
-    shader->SetUniform(texture, 3);
-    shader->SetUniform(color, blue);
+    shader->SetUniformi("fontSampler", 3);
+    shader->SetUniform3f("textColor", blue);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                    (void*) (12 * sizeof(GLuint)));
 
