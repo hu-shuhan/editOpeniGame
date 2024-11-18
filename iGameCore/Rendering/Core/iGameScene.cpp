@@ -871,7 +871,7 @@ void Scene::DrawFrame() {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GEQUAL);
 
-        if (!m_Enable_VolumeRendering) {
+        if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
             TransparentPass();
@@ -1108,9 +1108,7 @@ void Scene::VolumeRenderingPass() {
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColorMS", 1);
 
-        for (auto& [id, model]: m_Models) {
-            model->DrawWithVolume(this);
-        }
+        for (auto& [id, model]: m_Models) { model->DrawWithVolume(this); }
     }
     glDepthMask(GL_TRUE);
 
@@ -1362,6 +1360,16 @@ void Scene::RotateNinetyCounterClockwise() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+}
+
+void Scene::SetVolumeRendering(bool toggled) {
+    m_EnableVolumeRendering = toggled;
+    for (auto& [id, model]: m_Models) {
+        if (!model->m_DataObject->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        drawObject->SetShellRenderingOption(!toggled);
+    }
+    Update();
 }
 
 void Scene::UpdateModelsBoundingSphere() {

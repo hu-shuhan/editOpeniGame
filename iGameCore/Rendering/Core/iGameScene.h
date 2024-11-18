@@ -108,15 +108,6 @@ public:
     igm::mat4& ModelRotate() { return m_ModelRotate; }
     igm::mat4& ModelMatrix() { return m_ModelMatrix; }
 
-    void ChangeToVolumeRendering(bool toggled) {
-        m_Enable_VolumeRendering = toggled;
-        for (auto& [id, model]: m_Models) {
-            if (!model->m_DataObject->IsDrawable()) { continue; }
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            drawObject->SetShellRenderingOption(!toggled);
-        }
-    }
-
     //void UseColor();
     void UpdateUniformBuffer();
 
@@ -141,6 +132,8 @@ public:
     void LookAtIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
+
+    void SetVolumeRendering(bool toggled);
 
     unsigned char* CaptureOffScreenBuffer(int width, int height);
 
@@ -259,7 +252,7 @@ protected:
     Painter3D::Pointer m_Painter3D = Painter3D::New();
 
     bool m_FinishInit{false};
-    bool m_Enable_VolumeRendering{false};
+    bool m_EnableVolumeRendering{false};
 
     friend class Model;
     friend class Interactor;
