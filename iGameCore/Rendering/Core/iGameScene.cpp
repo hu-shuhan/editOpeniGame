@@ -516,16 +516,23 @@ void Scene::InitOpenGL() {
     // init framebuffer
     ResizeFrameBuffer();
 
-    //Point p{0.0f, 0.0f, 0.0f};
-    //Point p1{-1.0f, 0.0f, 0.0f};
-    //Point p2{1.0f, 0.0f, 0.0f};
-    //Point p3{0.0f, 1.0f, 0.0f};
-    //
-    //m_Painter3D->SetPen(Color::Black);
-    //m_Painter3D->SetBrush(Color::Black);
+    Point p{0.0f, 0.0f, 0.0f};
+    Point p1{-1.0f, 0.0f, 0.0f};
+    Point p2{1.0f, 0.0f, 0.0f};
+    Point p3{0.0f, 1.0f, 0.0f};
+
+    m_Painter3D->SetPen(Color::Red);
+    //m_Painter3D->SetPen(10);
+    m_Painter3D->SetBrush(Color::Green);
+    
+    //m_Painter3D->DrawPoint(Point{-1.0f, -1.0f, 0.0f});
+    //m_Painter3D->DrawLine(p, p2);
     //m_Painter3D->DrawTriangle(Point{-1.0f, -1.0f, 0.0f},
     //                          Point{-1.0f, 1.0f, 0.0f},
     //                          Point{1.0f, -1.0f, 0.0f});
+    //m_Painter3D->DrawRect(p, {1.0f, 1.0f, 0.0f});
+    //m_Painter3D->DrawCube(p, {1.0f, 1.0f, -1.0f});
+    //m_Painter3D->DrawCircle(p, {0.0f, 0.0f, -1.0f}, 1, 100);
 
     GLCheckError();
 }
