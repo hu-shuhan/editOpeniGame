@@ -35,59 +35,33 @@ bool ModelClip::Execute()
 	}
 	//return this->ExecuteTest(input);
 	//return this->ExecuteTest2(DynamicCast<UnstructuredMesh>(input));
-	clock_t time1 = clock();
 	switch (input->GetDataObjectType())
 	{
 	case IG_NONE:
 		return true;
 	case IG_VOLUME_MESH:
-		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
-		break;
+		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
 	case IG_SURFACE_MESH:
-		if (!this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input)))return false;
-		break;
+		return this->ExecuteWithSurfaceMesh(DynamicCast<SurfaceMesh>(input));
 	case IG_UNSTRUCTURED_MESH:
-		if (!this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input)))return false;
-		break;
+		return this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input));
 	case IG_STRUCTURED_MESH:
-		if (!this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input)))return false;
-		break;
+		return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
 	default:
-		break;
+		return false;
 	}
-
-	clock_t time2 = clock();
-	std::cout << "first part cost " << time2 - time1 << '\n';
-
-	if (this->GetIsSlice() == false) {
-		auto ResultMesh = iGame::DrawObject::New();
-		ResultMesh->AddSubDataObject(this->GetOutput());
-		auto Result_ExtractPart = iGame::SurfaceMesh::New();
-		double o[3];
-		double n[3];
-		this->GetPlane(o, n);
-		iGame::iGameModelGeometryFilter::Pointer surfaceextract =
-			iGame::iGameModelGeometryFilter::New();
-		surfaceextract->SetClipPlane(o, n);
-		surfaceextract->Execute(input, Result_ExtractPart);
-		if (Result_ExtractPart) {
-			ResultMesh->AddSubDataObject(Result_ExtractPart);
-		}
-		this->SetOutput(0, ResultMesh);
-	}
-
-
-	clock_t time3 = clock();
-	std::cout << "second part cost " << time3 - time2 << '\n';
 	return true;
 }
 
 
 bool ModelClip::ExecuteTest(DataObject::Pointer obj)
 {
-	m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(obj);
-	if (!m_UnstructuredMesh)return false;
-	AttributeSet::Pointer inData = m_UnstructuredMesh->GetAttributeSet();
+	m_VolumeMesh = DynamicCast<VolumeMesh>(obj);
+	if (!m_VolumeMesh)return false;
+	if (m_VolumeMesh->GetIsPolyhedronType()) {
+		return this->ExecuteWithVolumeMeshWithPolyhedronType(m_VolumeMesh);
+	}
+	AttributeSet::Pointer inData = m_VolumeMesh->GetAttributeSet();
 	AttributeSet::Pointer outData = AttributeSet::New();
 
 	CellArray::Pointer OutConn = CellArray::New();
@@ -96,87 +70,118 @@ bool ModelClip::ExecuteTest(DataObject::Pointer obj)
 	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
 	std::vector<CellClip::InterpolateEdge>OriginEdge;
 	std::vector<igIndex> OriginCell;
+	auto inPoints = m_VolumeMesh->GetPoints();
+	auto inPointNum = m_VolumeMesh->GetNumberOfPoints();
+	auto inCells = m_VolumeMesh->GetVolumes();
 
-	auto inPoints = m_UnstructuredMesh->GetPoints();
-	auto PointNum = m_UnstructuredMesh->GetNumberOfPoints();
-	PointFinder::Pointer OutPointFinder = PointFinder::New();
-	OutPointFinder->Initialize(OutPoints, m_UnstructuredMesh->GetBoundingBox(), PointNum, PointNum);
+
+
 	igIndex PointId = 0;
 	FloatArray::Pointer PointClipArray = FloatArray::New();
-	PointClipArray->Resize(PointNum);
+	PointClipArray->Resize(inPointNum);
 	float* PointClipValue = PointClipArray->RawPointer();
-	for (PointId = 0; PointId < PointNum; PointId++) {
+	for (PointId = 0; PointId < inPointNum; PointId++) {
 		PointClipValue[PointId] = GetPointValue(PointId, inPoints);
 	}
+
 	igIndex CellId = 0;
-	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
+	IGsize CellNum = m_VolumeMesh->GetNumberOfVolumes();
 	igIndex vcnt = 0, i = 0, j = 0, k = 0;
-	igIndex* vhs = nullptr;
 	float CellClipValue[IGAME_CELL_MAX_SIZE];
 	Cell::Pointer cell = nullptr;
 	int allIn = 1, allOut = 1;
-	igIndex insertVhs[IGAME_CELL_MAX_SIZE] = { 0 };
+
+	CharArray::Pointer CellVisible = CharArray::New();
+	CellVisible->Resize(CellNum);
+	auto cellVisible = CellVisible->RawPointer();
+	std::fill(cellVisible, cellVisible + CellNum, 0);
+
+	auto func = [&](igIndex start, igIndex end) -> void {
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		igIndex vcnt = 0;
+		igIndex allIn = 1, allOut = 1;
+		double value = 0;
+		igIndex i = 0;
+		for (cellId = start; cellId < end; cellId++) {
+			vcnt = m_VolumeMesh->GetVolumePointIds(cellId, vhs);
+			allIn = 1;
+			allOut = 1;
+			for (i = 0; i < vcnt; i++) {
+				value = PointClipValue[vhs[i]];
+				if (value < 0.0) {
+					allOut = 0;
+				}
+				else if (value > 0.0) {
+					allIn = 0;
+				}
+				else {
+					allIn = 0;
+					allOut = 0;
+				}
+			}
+			if (allIn) {
+				cellVisible[cellId] = 1;
+			}
+			else if (allOut) {
+				cellVisible[cellId] = 2;
+			}
+		}
+	};
+	ThreadPool::parallelFor(0, CellNum, func);
+
+	if (this->GetIsSlice() == false) {
+		auto Result_ExtractPart = iGame::UnstructuredMesh::New();
+		auto ExtractCells = CellArray::New();
+		auto ExtractTypes = UnsignedIntArray::New();
+		ExtractCells->Reserve(m_VolumeMesh->GetCells()->GetNumberOfCellIds() * 2 / 3);
+		ExtractTypes->Reserve(CellNum * 2 / 3);
+		OriginCell.reserve(CellNum * 2 / 3);
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		for (cellId = 0; cellId < CellNum; cellId++) {
+			if (cellVisible[cellId] == 1) {
+				vcnt = inCells->GetCellIds(cellId, vhs);
+				ExtractCells->AddCellIds(vhs, vcnt);
+				ExtractTypes->AddValue(VolumeMesh::GetVolumeTypeWithPointNum(vcnt));
+				OriginCell.emplace_back(cellId);
+			}
+		}
+		OutPoints->Resize(inPointNum);
+		std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
+		OriginEdge.reserve(inPointNum * 1.2);
+		for (int pointId = 0; pointId < inPointNum; pointId++) {
+			OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
+		}
+		Result_ExtractPart->SetPoints(OutPoints);
+		Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
+		OutConn = ExtractCells;
+		OutType = ExtractTypes;
+	}
+
+	igIndex* vhs = nullptr;
 	for (CellId = 0; CellId < CellNum; CellId++) {
-		cell = m_UnstructuredMesh->GetCell(CellId);
+		if (cellVisible[CellId]) {
+			continue;
+		}
+		cell = m_VolumeMesh->GetCell(CellId);
 		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
-		allIn = 1;
-		allOut = 1;
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
-			if (CellClipValue[i] < 0.0) {
-				allOut = 0;
-			}
-			else if (CellClipValue[i] > 0.0) {
-				allIn = 0;
-			}
-			else {
-				allIn = 0;
-				allOut = 0;
-			}
-		}
-		if (allOut) {
-			continue;
-		}
-		if (allIn) {
-			if (m_Slice)continue;
-			for (i = 0; i < vcnt; i++) {
-				insertVhs[i] = OutPointFinder->InsertUniquePoint(inPoints->GetPoint(vhs[i]));
-				OriginEdge.emplace_back(CellClip::InterpolateEdge::InterpolateEdge(vhs[i]));
-			}
-			OutConn->AddCellIds(insertVhs, vcnt);
-			OutType->AddValue(m_UnstructuredMesh->GetCellType(CellId));
-			OriginCell.emplace_back(CellId);
-			continue;
 		}
 		switch (cell->GetCellType())
 		{
-		case IG_TRIANGLE:
-			CellClip::Clip(DynamicCast<Triangle>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-			break;
-		case IG_QUAD:
-			CellClip::Clip(DynamicCast<Quad>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-			break;
-		case IG_POLYGON:
-			CellClip::Clip(DynamicCast<Polygon>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-			break;
 		case IG_TETRA:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-			break;
-		case IG_QUADRATIC_TETRA:
-			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-			break;
-		case IG_POLYHEDRON:
-			CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPointFinder, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
 			}
 			break;
 		}
 	}
-
 	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
 
 	OutMesh->SetCells(OutConn, OutType);
@@ -185,6 +190,7 @@ bool ModelClip::ExecuteTest(DataObject::Pointer obj)
 	this->SetOutput(0, OutMesh);
 	std::vector<igIndex>().swap(OriginCell);
 	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+
 	return true;
 }
 
@@ -370,78 +376,24 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	auto inPointNum = m_UnstructuredMesh->GetNumberOfPoints();
 	auto inCells = m_UnstructuredMesh->GetCells();
 	auto inTypes = m_UnstructuredMesh->GetCellTypes();
+	igIndex inCellNum = m_UnstructuredMesh->GetNumberOfCells();
 
-
-
-	igIndex PointId = 0;
 	FloatArray::Pointer PointClipArray = FloatArray::New();
-	PointClipArray->Resize(inPointNum);
-	float* PointClipValue = PointClipArray->RawPointer();
-	clock_t time__1 = clock();
-	for (PointId = 0; PointId < inPointNum; PointId++) {
-		PointClipValue[PointId] = GetPointValue(PointId, inPoints);
-	}
-	clock_t time__2 = clock();
-	std::cout << "compute point vis cost  " << time__2 - time__1 << '\n';
-	igIndex CellId = 0;
-	IGsize CellNum = m_UnstructuredMesh->GetNumberOfCells();
-	igIndex vcnt = 0, i = 0, j = 0, k = 0;
-	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Cell::Pointer cell = nullptr;
-	int allIn = 1, allOut = 1;
-
 	CharArray::Pointer CellVisible = CharArray::New();
-	CellVisible->Resize(CellNum);
+	ComputePointValueAndCellVisible(inPoints, inCells, PointClipArray, CellVisible);
+	auto PointClipValue = PointClipArray->RawPointer();
 	auto cellVisible = CellVisible->RawPointer();
-	std::fill(cellVisible, cellVisible + CellNum, 0);
-
-	clock_t time1 = clock();
-	auto func = [&](igIndex start, igIndex end) -> void {
-		igIndex cellId = 0;
-		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
-		igIndex vcnt = 0;
-		igIndex allIn = 1, allOut = 1;
-		double value = 0;
-		igIndex i = 0;
-		for (cellId = start; cellId < end; cellId++) {
-			vcnt = m_UnstructuredMesh->GetCellPointIds(cellId, vhs);
-			allIn = 1;
-			allOut = 1;
-			for (i = 0; i < vcnt; i++) {
-				value = PointClipValue[vhs[i]];
-				if (value < 0.0) {
-					allOut = 0;
-				}
-				else if (value > 0.0) {
-					allIn = 0;
-				}
-				else {
-					allIn = 0;
-					allOut = 0;
-				}
-			}
-			if (allIn) {
-				cellVisible[cellId] = 1;
-			}
-			else if (allOut) {
-				cellVisible[cellId] = 2;
-			}
-		}
-	};
-	ThreadPool::parallelFor(0, CellNum, func);
-	clock_t time2 = clock();
-	std::cout << "compute cell vis cost  " << time2 - time1 << '\n';
+	igIndex vcnt = 0;
 	if (this->GetIsSlice() == false) {
 		auto Result_ExtractPart = iGame::UnstructuredMesh::New();
 		auto ExtractCells = CellArray::New();
 		auto ExtractTypes = UnsignedIntArray::New();
-		ExtractCells->Reserve(m_UnstructuredMesh->GetCells()->GetNumberOfCellIds() * 2 / 3);
-		ExtractTypes->Reserve(CellNum * 2 / 3);
-		OriginCell.reserve(CellNum * 2 / 3);
-		clock_t time_1 = clock();
+		ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+		ExtractTypes->Reserve(inCellNum * 2 / 3);
+		OriginCell.reserve(inCellNum * 2 / 3);
 		igIndex cellId = 0;
 		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
-		for (cellId = 0; cellId < CellNum; cellId++) {
+		for (cellId = 0; cellId < inCellNum; cellId++) {
 			if (cellVisible[cellId] == 1) {
 				vcnt = inCells->GetCellIds(cellId, vhs);
 				ExtractCells->AddCellIds(vhs, vcnt);
@@ -449,8 +401,6 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 				OriginCell.emplace_back(cellId);
 			}
 		}
-		clock_t time_2 = clock();
-		//std::cout << "process extract cost" << time_2 - time_1 << '\n';
 		OutPoints->Resize(inPointNum);
 		std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
 		OriginEdge.reserve(inPointNum * 1.2);
@@ -462,10 +412,12 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		OutConn = ExtractCells;
 		OutType = ExtractTypes;
 	}
-	clock_t time3 = clock();
-	std::cout << "compute Result_ExtractPart cost  " << time3 - time2 << '\n';
 	igIndex* vhs = nullptr;
-	for (CellId = 0; CellId < CellNum; CellId++) {
+	igIndex CellId = 0;
+	igIndex i = 0;
+	Cell::Pointer cell = nullptr;
+	float CellClipValue[IGAME_CELL_MAX_SIZE] = { 0 };
+	for (CellId = 0; CellId < inCellNum; CellId++) {
 		if (cellVisible[CellId]) {
 			continue;
 		}
@@ -502,11 +454,7 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			break;
 		}
 	}
-	clock_t time4 = clock();
-	std::cout << "compute clip part cost  " << time4 - time3 << '\n';
 	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
-
-
 
 	OutMesh->SetCells(OutConn, OutType);
 	OutMesh->SetPoints(OutPoints);
@@ -518,11 +466,12 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 	return true;
 }
 
-
-bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
+bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 {
+	if (!vm || vm->GetIsPolyhedronType() == false) {
+		return false;
+	}
 	m_VolumeMesh = vm;
-	if (!m_VolumeMesh)return false;
 	AttributeSet::Pointer inData = m_VolumeMesh->GetAttributeSet();
 	AttributeSet::Pointer outData = AttributeSet::New();
 	CellArray::Pointer OutConn = CellArray::New();
@@ -531,107 +480,78 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
 	std::vector<CellClip::InterpolateEdge>OriginEdge;
 	std::vector<igIndex> OriginCell;
-	auto Points = m_VolumeMesh->GetPoints();
-	auto PointNum = m_VolumeMesh->GetNumberOfPoints();
-	igIndex PointId = 0;
+	auto inPoints = m_VolumeMesh->GetPoints();
+	auto inPointNum = m_VolumeMesh->GetNumberOfPoints();
+	auto inVolumes = m_VolumeMesh->GetVolumes();
+	auto inFaces = m_VolumeMesh->GetFaces();
+	auto inVolumeNum = m_VolumeMesh->GetNumberOfVolumes();
+
 	FloatArray::Pointer PointClipArray = FloatArray::New();
-	PointClipArray->Resize(PointNum);
-	float* PointClipValue = PointClipArray->RawPointer();
-	for (PointId = 0; PointId < PointNum; PointId++) {
-		PointClipValue[PointId] = GetPointValue(PointId, Points);
-	}
-	igIndex CellId = 0;
-	IGsize CellNum = m_VolumeMesh->GetNumberOfVolumes();
-	igIndex* vhs = nullptr;
-	igIndex vcnt = 0, i = 0, j = 0, k = 0;
-	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Cell::Pointer cell;
-	int allIn = 1, allOut = 1;
-	if (m_VolumeMesh->GetIsPolyhedronType()) {
-		auto faces = m_VolumeMesh->GetFaces();
-		igIndex fhs[IGAME_CELL_MAX_SIZE] = { 0 };
+	CharArray::Pointer CellVisible = CharArray::New();
+	ComputePointValueAndCellVisible(inPoints, inVolumes, PointClipArray, CellVisible);
+	auto PointClipValue = PointClipArray->RawPointer();
+	auto cellVisible = CellVisible->RawPointer();
+
+	igIndex vcnt = 0;
+	igIndex i = 0, j = 0;
+	if (this->GetIsSlice() == false) {
+		auto Result_ExtractPart = iGame::UnstructuredMesh::New();
+		auto ExtractCells = CellArray::New();
+		auto ExtractTypes = UnsignedIntArray::New();
+		ExtractCells->Reserve(inFaces->GetNumberOfCellIds());
+		ExtractTypes->Reserve(inVolumeNum * 2 / 3);
+		OriginCell.reserve(inVolumeNum * 2 / 3);
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 		igIndex fcnt = 0;
-		igIndex faceVhs[IGAME_CELL_MAX_SIZE] = { 0 };
-		Polyhedron::Pointer polyhedron = Polyhedron::New();
-		igIndex offset = 0;
-		for (CellId = 0; CellId < CellNum; CellId++) {
-			fcnt = m_VolumeMesh->GetVolumeFaceIds(CellId, fhs);
-			polyhedron->m_Points->Reset();
-			polyhedron->m_PointIds->Reset();
-			polyhedron->m_FaceOffset->Reset();
-			offset = 0;
-			polyhedron->m_FaceOffset->AddId(offset);
+		igIndex fhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		igIndex realVhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		igIndex realVcnt = 0;
 
-			for (i = 0; i < fcnt; i++) {
-				vcnt = faces->GetCellIds(fhs[i], faceVhs);
-				for (j = 0; j < vcnt; j++) {
-					polyhedron->m_PointIds->AddId(faceVhs[j]);
-					polyhedron->m_Points->AddPoint(Points->GetPoint(faceVhs[j]));
+		for (cellId = 0; cellId < inVolumeNum; cellId++) {
+			if (cellVisible[cellId] == 1) {
+				fcnt = m_VolumeMesh->GetVolumeFaceIds(cellId, fhs);
+				for (i = 0; i < fcnt; i++) {
+					vcnt = inFaces->GetCellIds(fhs[i], vhs);
+					realVhs[realVcnt++] = vcnt;
+					for (j = 0; j < vcnt; j++) {
+						realVhs[realVcnt++] = vhs[j];
+					}
 				}
-				offset += vcnt;
-				polyhedron->m_FaceOffset->AddId(offset);
-			}
-			vhs = polyhedron->m_PointIds->RawPointer();
-			vcnt = polyhedron->GetNumberOfPoints();
-			allIn = 1;
-			allOut = 1;
-			for (i = 0; i < vcnt; i++) {
-				CellClipValue[i] = PointClipValue[vhs[i]];
-				if (CellClipValue[i] < 0.0) {
-					allOut = 0;
-				}
-				else if (CellClipValue[i] > 0.0) {
-					allIn = 0;
-				}
-				else {
-					allIn = 0;
-					allOut = 0;
-				}
-			}
-			if (allIn || allOut) {
-				continue;
-			}
-			CellClip::Clip(polyhedron, CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-		}
-	}
-	else {
-		for (CellId = 0; CellId < CellNum; CellId++) {
-			cell = m_VolumeMesh->GetVolume(CellId);
-			vhs = cell->m_PointIds->RawPointer();
-			vcnt = cell->GetNumberOfPoints();
-			allIn = 1;
-			allOut = 1;
-			for (i = 0; i < vcnt; i++) {
-				CellClipValue[i] = PointClipValue[vhs[i]];
-				if (CellClipValue[i] < 0.0) {
-					allOut = 0;
-				}
-				else if (CellClipValue[i] > 0.0) {
-					allIn = 0;
-				}
-				else {
-					allIn = 0;
-					allOut = 0;
-				}
-			}
-			if (allIn || allOut) {
-				continue;
-			}
-			switch (cell->GetCellType())
-			{
-			case IG_TETRA:
-				CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
-				break;
-			default:
-				if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-					CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
-				}
-				break;
+				ExtractCells->AddCellIds(realVhs, realVcnt);
+				ExtractTypes->AddValue(IG_POLYHEDRON);
+				OriginCell.emplace_back(cellId);
 			}
 		}
-
+		OutPoints->Resize(inPointNum);
+		std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
+		OriginEdge.reserve(inPointNum * 1.2);
+		for (int pointId = 0; pointId < inPointNum; pointId++) {
+			OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
+		}
+		Result_ExtractPart->SetPoints(OutPoints);
+		Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
+		OutConn = ExtractCells;
+		OutType = ExtractTypes;
 	}
 
+	igIndex* vhs = nullptr;
+	igIndex CellId = 0;
+	Cell::Pointer cell = nullptr;
+	float CellClipValue[IGAME_CELL_MAX_SIZE] = { 0 };
+
+	for (CellId = 0; CellId < inVolumeNum; CellId++) {
+		if (cellVisible[CellId]) {
+			continue;
+		}
+		cell = m_VolumeMesh->GetCell(CellId);
+		vhs = cell->m_PointIds->RawPointer();
+		vcnt = cell->GetNumberOfPoints();
+		for (i = 0; i < vcnt; i++) {
+			CellClipValue[i] = PointClipValue[vhs[i]];
+		}
+		CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+	}
 
 	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
 
@@ -641,6 +561,102 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 	this->SetOutput(0, OutMesh);
 	std::vector<igIndex>().swap(OriginCell);
 	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+
+	return true;
+
+}
+bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
+{
+	m_VolumeMesh = vm;
+	if (!m_VolumeMesh)return false;
+	if (m_VolumeMesh->GetIsPolyhedronType()) {
+		return this->ExecuteWithVolumeMeshWithPolyhedronType(m_VolumeMesh);
+	}
+	AttributeSet::Pointer inData = m_VolumeMesh->GetAttributeSet();
+	AttributeSet::Pointer outData = AttributeSet::New();
+
+	CellArray::Pointer OutConn = CellArray::New();
+	UnsignedIntArray::Pointer OutType = UnsignedIntArray::New();
+	Points::Pointer OutPoints = Points::New();
+	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
+	std::vector<CellClip::InterpolateEdge>OriginEdge;
+	std::vector<igIndex> OriginCell;
+	auto inPoints = m_VolumeMesh->GetPoints();
+	auto inPointNum = m_VolumeMesh->GetNumberOfPoints();
+	auto inCells = m_VolumeMesh->GetVolumes();
+	auto inCellNum = m_VolumeMesh->GetNumberOfVolumes();
+
+
+	FloatArray::Pointer PointClipArray = FloatArray::New();
+	CharArray::Pointer CellVisible = CharArray::New();
+	ComputePointValueAndCellVisible(inPoints, inCells, PointClipArray, CellVisible);
+	auto PointClipValue = PointClipArray->RawPointer();
+	auto cellVisible = CellVisible->RawPointer();
+	igIndex vcnt = 0;
+	if (this->GetIsSlice() == false) {
+		auto Result_ExtractPart = iGame::UnstructuredMesh::New();
+		auto ExtractCells = CellArray::New();
+		auto ExtractTypes = UnsignedIntArray::New();
+		ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+		ExtractTypes->Reserve(inCellNum * 2 / 3);
+		OriginCell.reserve(inCellNum * 2 / 3);
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		for (cellId = 0; cellId < inCellNum; cellId++) {
+			if (cellVisible[cellId] == 1) {
+				vcnt = inCells->GetCellIds(cellId, vhs);
+				ExtractCells->AddCellIds(vhs, vcnt);
+				ExtractTypes->AddValue(VolumeMesh::GetVolumeTypeWithPointNum(vcnt));
+				OriginCell.emplace_back(cellId);
+			}
+		}
+		OutPoints->Resize(inPointNum);
+		std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
+		OriginEdge.reserve(inPointNum * 1.2);
+		for (int pointId = 0; pointId < inPointNum; pointId++) {
+			OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
+		}
+		Result_ExtractPart->SetPoints(OutPoints);
+		Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
+		OutConn = ExtractCells;
+		OutType = ExtractTypes;
+	}
+	igIndex* vhs = nullptr;
+	igIndex CellId = 0;
+	igIndex i = 0;
+	Cell::Pointer cell = nullptr;
+	float CellClipValue[IGAME_CELL_MAX_SIZE] = { 0 };
+	for (CellId = 0; CellId < inCellNum; CellId++) {
+		if (cellVisible[CellId]) {
+			continue;
+		}
+		cell = m_VolumeMesh->GetCell(CellId);
+		vhs = cell->m_PointIds->RawPointer();
+		vcnt = cell->GetNumberOfPoints();
+		for (i = 0; i < vcnt; i++) {
+			CellClipValue[i] = PointClipValue[vhs[i]];
+		}
+		switch (cell->GetCellType())
+		{
+		case IG_TETRA:
+			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			break;
+		default:
+			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
+			}
+			break;
+		}
+	}
+	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
+
+	OutMesh->SetCells(OutConn, OutType);
+	OutMesh->SetPoints(OutPoints);
+	OutMesh->SetAttributeSet(outData);
+	this->SetOutput(0, OutMesh);
+	std::vector<igIndex>().swap(OriginCell);
+	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+
 	return true;
 }
 bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
@@ -656,43 +672,60 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
 	std::vector<CellClip::InterpolateEdge>OriginEdge;
 	std::vector<igIndex> OriginCell;
-	auto Points = m_SurfaceMesh->GetPoints();
-	auto PointNum = m_SurfaceMesh->GetNumberOfPoints();
-	igIndex PointId = 0;
+	auto inPoints = m_SurfaceMesh->GetPoints();
+	auto inPointNum = m_SurfaceMesh->GetNumberOfPoints();
+	auto inCells = m_SurfaceMesh->GetFaces();
+	auto inCellNum = m_SurfaceMesh->GetNumberOfFaces();
+
+
 	FloatArray::Pointer PointClipArray = FloatArray::New();
-	PointClipArray->Resize(PointNum);
-	float* PointClipValue = PointClipArray->RawPointer();
-	for (PointId = 0; PointId < PointNum; PointId++) {
-		PointClipValue[PointId] = GetPointValue(PointId, Points);
+	CharArray::Pointer CellVisible = CharArray::New();
+	ComputePointValueAndCellVisible(inPoints, inCells, PointClipArray, CellVisible);
+	auto PointClipValue = PointClipArray->RawPointer();
+	auto cellVisible = CellVisible->RawPointer();
+	igIndex vcnt = 0;
+	if (this->GetIsSlice() == false) {
+		auto Result_ExtractPart = iGame::UnstructuredMesh::New();
+		auto ExtractCells = CellArray::New();
+		auto ExtractTypes = UnsignedIntArray::New();
+		ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+		ExtractTypes->Reserve(inCellNum * 2 / 3);
+		OriginCell.reserve(inCellNum * 2 / 3);
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		for (cellId = 0; cellId < inCellNum; cellId++) {
+			if (cellVisible[cellId] == 1) {
+				vcnt = inCells->GetCellIds(cellId, vhs);
+				ExtractCells->AddCellIds(vhs, vcnt);
+				ExtractTypes->AddValue(SurfaceMesh::GetFaceTypeWithPointNum(vcnt));
+				OriginCell.emplace_back(cellId);
+			}
+		}
+		OutPoints->Resize(inPointNum);
+		std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
+		OriginEdge.reserve(inPointNum * 1.2);
+		for (int pointId = 0; pointId < inPointNum; pointId++) {
+			OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
+		}
+		Result_ExtractPart->SetPoints(OutPoints);
+		Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
+		OutConn = ExtractCells;
+		OutType = ExtractTypes;
 	}
-	igIndex CellId = 0;
-	IGsize CellNum = m_SurfaceMesh->GetNumberOfFaces();
 	igIndex* vhs = nullptr;
-	igIndex vcnt = 0, i = 0, j = 0, k = 0;
-	float CellClipValue[IGAME_CELL_MAX_SIZE];
-	Face::Pointer cell;
-	int allIn = 1, allOut = 1;
-	for (CellId = 0; CellId < CellNum; CellId++) {
+	igIndex CellId = 0;
+	igIndex i = 0;
+	Cell::Pointer cell = nullptr;
+	float CellClipValue[IGAME_CELL_MAX_SIZE] = { 0 };
+	for (CellId = 0; CellId < inCellNum; CellId++) {
+		if (cellVisible[CellId]) {
+			continue;
+		}
 		cell = m_SurfaceMesh->GetFace(CellId);
 		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
-		allIn = 1;
-		allOut = 1;
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
-			if (CellClipValue[i] < 0.0) {
-				allOut = 0;
-			}
-			else if (CellClipValue[i] > 0.0) {
-				allIn = 0;
-			}
-			else {
-				allIn = 0;
-				allOut = 0;
-			}
-		}
-		if (allIn || allOut) {
-			continue;
 		}
 		switch (cell->GetNumberOfPoints())
 		{
@@ -707,7 +740,6 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 			break;
 		}
 	}
-
 	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
 
 	OutMesh->SetCells(OutConn, OutType);
@@ -718,7 +750,63 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 	std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
 	return true;
 }
+void ModelClip::ComputePointValueAndCellVisible(Points::Pointer inPoints, CellArray::Pointer inCells, FloatArray::Pointer PointClipArray, CharArray::Pointer CellVisible)
+{
+	igIndex PointId = 0;
+	igIndex inPointNum = inPoints->GetNumberOfPoints();
+	PointClipArray->Resize(inPointNum);
+	float* PointClipValue = PointClipArray->RawPointer();
 
+	clock_t time__1 = clock();
+	for (PointId = 0; PointId < inPointNum; PointId++) {
+		PointClipValue[PointId] = GetPointValue(PointId, inPoints);
+	}
+	clock_t time__2 = clock();
+	std::cout << "compute point vis cost  " << time__2 - time__1 << '\n';
+
+	igIndex CellId = 0;
+	IGsize CellNum = inCells->GetNumberOfCells();
+
+
+	CellVisible->Resize(CellNum);
+	auto cellVisible = CellVisible->RawPointer();
+	std::fill(cellVisible, cellVisible + CellNum, 0);
+
+	clock_t time1 = clock();
+	auto func = [&](igIndex start, igIndex end) -> void {
+		igIndex cellId = 0;
+		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+		igIndex vcnt = 0;
+		igIndex allIn = 1, allOut = 1;
+		double value = 0;
+		igIndex i = 0;
+		for (cellId = start; cellId < end; cellId++) {
+			vcnt = inCells->GetCellIds(cellId, vhs);
+			allIn = 1;
+			allOut = 1;
+			for (i = 0; i < vcnt; i++) {
+				value = PointClipValue[vhs[i]];
+				if (value < 0.0) {
+					allOut = 0;
+				}
+				else if (value > 0.0) {
+					allIn = 0;
+				}
+				else {
+					allIn = 0;
+					allOut = 0;
+				}
+			}
+			if (allIn) {
+				cellVisible[cellId] = 1;
+			}
+			else if (allOut) {
+				cellVisible[cellId] = 2;
+			}
+		}
+	};
+	ThreadPool::parallelFor(0, CellNum, func);
+}
 void ModelClip::CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 	std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell)
 {
