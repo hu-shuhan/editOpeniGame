@@ -55,6 +55,9 @@ list(APPEND  ThirdParty_lib_dependency
         meshoptimizer
         tinyXML2
         vtkkwiml
+
+
+        lzma
         glfw
 )
 
@@ -84,12 +87,12 @@ if (ENABLE_CGNS_MODULE)
 #    list(APPEND ThirdParty_lib_dependency cgns_static)
 ENDIF ()
 
-find_package(AbqSDK)
-if (${AbqSDK_FOUND})
-    message("Find abqsdk")
-    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-endif ()
+#find_package(AbqSDK)
+#if (${AbqSDK_FOUND})
+#    message("Find abqsdk")
+#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+#endif ()
 
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})
@@ -148,5 +151,5 @@ endif ()
 #--------------------------------------------------------------------
 # Exec Install OpeniGame Core Module's CMake
 #--------------------------------------------------------------------
-include(Cmake/CoreModuleInstall.cmake)
+#include(Cmake/CoreModuleInstall.cmake)
 #--------------------------------------------------------------------

@@ -8,6 +8,9 @@ IGAME_NAMESPACE_BEGIN
 FileReader::FileReader() {
 	this->SetNumberOfInputs(0);
 	this->SetNumberOfOutputs(1);
+	this->IS=nullptr;
+	this->file_=nullptr;
+	this->m_FileSize=0;
 }
 DataObject::Pointer FileReader::ReadFile(const std::string& filePath) {
 	SetFilePath(filePath);
@@ -461,7 +464,6 @@ int iGameReadBinaryData(FileReader::Pointer self, T* data, int numTuples,
 		igDebug("Error reading binary data");
 		return 0;
 	}
-	data = (T*)data;
 	return 1;
 }
 

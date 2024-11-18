@@ -5,6 +5,9 @@ IGAME_NAMESPACE_BEGIN
 VTKAbstractReader::VTKAbstractReader()
 {
 	this->Header = nullptr;
+	this->FileMajorVersion=0;
+	this->FileMinorVersion=0;
+	this->FileVersion=0;
 }
 VTKAbstractReader::~VTKAbstractReader()
 {

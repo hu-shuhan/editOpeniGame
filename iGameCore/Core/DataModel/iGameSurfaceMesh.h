@@ -214,11 +214,9 @@ public:
         //assert(IsCollapsable(edgeId) &&
         //       "Please call IsCollapsable before CollapseEdge");
 
-        if (edgeId == 971090 || edgeId == 1453665) { 
+        if (edgeId == 971090 || edgeId == 1453665) {
             int a = 0;
-            if (a == 0) { 
-                int b = 0;
-            }
+            if (a == 0) { int b = 0; }
         }
         //std::cout << edgeId << std::endl;
         igIndex e[2]{};
@@ -354,7 +352,7 @@ private:
 
 public:
     //void Draw(Scene*) override;
-    void ConvertToDrawableData() override;
+    void ConvertToDrawableData                () override;
     //void SetDisplayMesh(SurfaceMesh::Pointer& surfaceMesh);
     //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
     //void SetAttributeWithPointData(ArrayObject::Pointer attr,
@@ -366,7 +364,8 @@ public:
 
     void GetDrawableArray(FloatArray::Pointer& positions,
                           UnsignedIntArray::Pointer& lineIndices,
-                          UnsignedIntArray::Pointer& triangleIndices);
+                          UnsignedIntArray::Pointer& triangleIndices,
+                          UnsignedCharArray::Pointer& triangleEdgeMasks);
 
     //protected:
     //    SurfaceMesh::Pointer m_DrawMesh{nullptr};

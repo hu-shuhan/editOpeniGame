@@ -101,7 +101,7 @@ public:
     void SetData(IdArray* ids, UnsignedIntArray* offsets) {
         m_Buffer = ids;
         m_Offsets = offsets;
-        m_NumberOfCells = ids->GetNumberOfIds() - 1;
+        m_NumberOfCells = offsets->GetNumberOfValues() - 1;
     }
 
     void SetFixedSize(int fixedSize) {
@@ -109,7 +109,7 @@ public:
         this->m_FixedCellSize = fixedSize;
     }
     size_t GetNumberOfCellIds() {
-        return this->m_Buffer ? this->m_Buffer->GetNumberOfIds() : 0;
+        return this->GetEndOffset(this->m_NumberOfCells-1);
     };
 
     IGsize GetRealMemorySize() {

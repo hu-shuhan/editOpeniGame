@@ -11,6 +11,7 @@
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLShader.h"
 #include "OpenGL/GLTexture2d.h"
+#include "OpenGL/GLTextureBUffer.h"
 #include "OpenGL/GLVertexArray.h"
 
 #include "iGameMeshlet.h"
@@ -30,6 +31,7 @@ protected:
 public:
     bool IsDrawable() override { return true; }
     virtual void ConvertToDrawableData();
+    virtual bool IsUseSinglePassWireframeRendering() { return true; }
     void CreateDrawBuffer();
     void ReAllocateDisplayBuffer();
     IGenum GetDataObjectType() const override;
@@ -69,6 +71,8 @@ public:
 
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
+
+    void SetShellRenderingOption(bool option);
 
     FloatArray::Pointer GetRenderPoints();
     void SetRenderPoints(FloatArray::Pointer points);
@@ -115,6 +119,11 @@ protected:
     UnsignedIntArray::Pointer m_LineIndices;
     UnsignedIntArray::Pointer m_TriangleIndices;
 
+    bool m_UseSinglePassWireframeRendering{true};
+    UnsignedCharArray::Pointer m_TriangleEdgeMasks;
+    GLBuffer::Pointer m_EdgeMaskBuffer;
+    GLTextureBuffer::Pointer m_EdgeMaskTexture;
+
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
@@ -143,6 +152,8 @@ protected:
     //float m_PointOffset{-8.0f};
 
     float m_Transparency{1.0f};
+    bool m_IsShell{true};
+    bool m_Shell_flag{false};
 
     iGameClipper::Pointer m_Clipper;
 

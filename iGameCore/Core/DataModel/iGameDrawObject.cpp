@@ -36,6 +36,9 @@ DrawObject::DrawObject() {
 
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
+
+    m_TriangleEdgeMasks = UnsignedCharArray::New();
+    m_TriangleEdgeMasks->SetDimension(1);
 }
 
 void DrawObject::CreateDrawBuffer() {
@@ -91,6 +94,22 @@ void DrawObject::CreateDrawBuffer() {
         m_CellEBO = GLBuffer::New();
         m_CellEBO->Create();
         m_CellEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_EdgeMaskBuffer = GLBuffer::New();
+        m_EdgeMaskBuffer->Create();
+        m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
+        // Allocate a minimal buffer with a single byte of data.
+        // In OpenGL 3.3, binding a GL_TEXTURE_BUFFER requires the buffer to have a non-zero size.
+        // If the buffer size is zero, glTexBuffer will trigger an INVALID_OPERATION error.
+        // Allocating sizeof(unsigned char) (1 byte) ensures the buffer meets the size requirement,
+        // even if the actual data is not yet provided.
+        m_EdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr,
+                                   GL_STATIC_DRAW);
+
+
+        m_EdgeMaskTexture = GLTextureBuffer::New();
+        m_EdgeMaskTexture->Create();
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
 
 #ifdef IGAME_OPENGL_VERSION_460
         m_Meshlets->CreateBuffer();
@@ -174,6 +193,8 @@ void DrawObject::CreateDrawBuffer() {
 
         m_Flag = true;
     }
+
+    GLCheckError();
 }
 
 void DrawObject::ConvertToDrawableData() {
@@ -280,6 +301,16 @@ void DrawObject::ReAllocateDisplayBuffer() {
         m_TriangleVAO->ElementBuffer(m_TriangleEBO);
     }
 
+    if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
+        GLAllocateGLBuffer(m_EdgeMaskBuffer,
+                           m_TriangleEdgeMasks->GetNumberOfValues() *
+                                   sizeof(unsigned char),
+                           m_TriangleEdgeMasks->RawPointer());
+        m_EdgeMaskBuffer->Modified();
+
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
+    }
+
     if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_CellPositionVBO,
                            m_CellPositions->GetNumberOfValues() * sizeof(float),
@@ -306,6 +337,8 @@ void DrawObject::ReAllocateDisplayBuffer() {
 
         m_CellVAO->ElementBuffer(m_CellEBO);
     }
+
+    GLCheckError();
 }
 
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
@@ -479,6 +512,16 @@ void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
     }
 }
 
+void DrawObject::SetShellRenderingOption(bool option) {
+    if (m_IsShell != option) {
+        m_IsShell = option;
+        if (!option) {
+            m_DisplayObject = nullptr;
+        }
+        m_Shell_flag = true;
+    }
+}
+
 FloatArray::Pointer DrawObject::GetRenderPoints() {
     // return display object
     if (m_DisplayObject) { return m_DisplayObject->m_Positions; }
@@ -546,8 +589,8 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject->m_PointSize = this->m_PointSize;
     m_DisplayObject->m_LineWidth = this->m_LineWidth;
     m_DisplayObject->m_Transparency = this->m_Transparency;
-    m_DisplayObject->m_AttributeIndex=this->m_AttributeIndex;
-    m_DisplayObject->m_AttributeDimension=this->m_AttributeDimension;
+    m_DisplayObject->m_AttributeIndex = this->m_AttributeIndex;
+    m_DisplayObject->m_AttributeDimension = this->m_AttributeDimension;
     // The original should be invisible, and it should remain invisible after conversion.
     m_DisplayObject->SetVisibility(this->GetVisibility());
     m_DisplayObject->m_UseColor = this->m_UseColor;
@@ -556,7 +599,6 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
     m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
-    
 }
 
 DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }

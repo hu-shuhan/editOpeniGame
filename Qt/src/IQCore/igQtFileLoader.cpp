@@ -8,6 +8,8 @@
 #include <cstring>
 
 #include "iGameFileIO.h"
+#include "iGameMeshCodec/iGameMeshEncoder.h"
+#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
@@ -37,11 +39,12 @@ igQtFileLoader::~igQtFileLoader() {}
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
             "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-            "*.vtm *.cgns *.odb)",
+            "*.vtm *.cgns *.odb *.igc)",
             "VTK file(*.vtk)",
             "CGNS file(*.cgns)",
             "ABAQUS file(*.odb)",
             "Spline file(*.xml)",
+            "Compression file(*.igc)"
     };
     QString selectedFilter;
     std::string filePath =
@@ -193,6 +196,53 @@ void igQtFileLoader::SaveFileAs() {
     if (!iGame::FileIO::WriteFile(filePath, obj)) {
         igDebug("Save File Error\n");
     }
+}
+bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4) {
+    auto sceneManager = iGame::SceneManager::Instance();
+    auto scene = sceneManager->GetCurrentScene();
+    if (!scene) return false;
+    auto currentModel = scene->GetCurrentModel();
+    if (!currentModel) return false;
+    auto obj = currentModel->GetDataObject();
+    if (!obj) return false;
+    std::string filePath =
+            QFileDialog::getSaveFileName(
+                    nullptr, "Compress file as ", "",
+                    "Compress Mesh(*.igc)")
+                    .toStdString();
+    if (filePath.empty()) {
+        igDebug("Could not save file with error file path\n");
+        return false;
+    }
+
+    iGame::MeshEncoder::Pointer filter = MeshEncoder::New();
+    if (p1 == 0) filter->PointQuantMode = iGame::QuantMode::Float;
+    else if (p1 == 1)
+        filter->PointQuantMode = iGame::QuantMode::None;
+    else
+        return false;
+
+    if (p2 <= 0) return false;
+    filter->PointQuantizedBits = p2;
+
+    if (p3 == 1) filter->AttrbQuantMode = iGame::QuantMode::Float;
+    else if (p3 == 0)
+        filter->AttrbQuantMode = iGame::QuantMode::None;
+    else
+        return false;
+
+    if (p4 <= 0) return false;
+    filter->AttrbQuantizedBits = p4;
+
+    filter->SetNumberOfInputs(1);
+    filter->SetSaveFilePath(filePath);
+    filter->SetInput(obj);
+    
+    if (!filter->Execute()) {
+        igDebug("Compress File Error\n");
+        return false;
+    }
+    return true;
 }
 void igQtFileLoader::SaveCurrentFileToRecentFile(QString path) {
     if (path.isEmpty()) return;

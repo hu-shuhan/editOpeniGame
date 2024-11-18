@@ -108,13 +108,13 @@ const void VTKWriter::WritePointsToBuffer(Points::Pointer Points)
 	AddStringToBuffer(data, buffer);
 	m_TemporaryBuffers.emplace_back(buffer);
 	if (m_FileType == IGAME_ASCII) {
-		std::vector<CharArray::Pointer> tmpBuffrs(m_MaxThreadSize);
+		std::vector<CharArray::Pointer> tmpBuffers(m_MaxThreadSize);
 		for (int i = 0; i < m_MaxThreadSize; i++) {
-			tmpBuffrs[i] = CharArray::New();  
+			tmpBuffers[i] = CharArray::New();  
 		}
 		auto func = [&](igIndex start, igIndex end, int id) -> void {
 			Point p;
-			auto& buffer = tmpBuffrs[id];
+			auto& buffer = tmpBuffers[id];
 			for (int i = start; i < end; i++) {
 				p = Points->GetPoint(i);
 				for (int j = 0; j < 3; j++) {
@@ -125,9 +125,9 @@ const void VTKWriter::WritePointsToBuffer(Points::Pointer Points)
 			}
 		};
 		ThreadPool::parallelFor(0, VertexNum, m_MaxThreadSize, func);
-		for (int i = 0; i < tmpBuffrs.size(); i++) {
-			if (tmpBuffrs[i]->GetNumberOfValues()) {
-				m_TemporaryBuffers.emplace_back(tmpBuffrs[i]);
+		for (int i = 0; i < tmpBuffers.size(); i++) {
+			if (tmpBuffers[i]->GetNumberOfValues()) {
+				m_TemporaryBuffers.emplace_back(tmpBuffers[i]);
 			}
 		}
 	}
@@ -150,18 +150,18 @@ const void VTKWriter::WriteCellsToBuffer(CellArray::Pointer Cells)
 		data = "CELLS " + std::to_string(CellNum) + ' ';
 
 	}
-	size_t idSize = Cells->GetNumberOfCellIds() + Cells->GetNumberOfCells();
+	size_t idSize = Cells->GetNumberOfCellIds() + CellNum;
 	data += std::to_string(idSize) + '\n';
 	AddStringToBuffer(data, buffer);
 	m_TemporaryBuffers.emplace_back(buffer);
 	igIndex cellNum = Cells->GetNumberOfCells();
 	if (m_FileType == IGAME_ASCII) {
-		std::vector<CharArray::Pointer> tmpBuffrs(m_MaxThreadSize);
+		std::vector<CharArray::Pointer> tmpBuffers(m_MaxThreadSize);
 		for (int i = 0; i < m_MaxThreadSize; i++) {
-			tmpBuffrs[i] = CharArray::New();
+			tmpBuffers[i] = CharArray::New();
 		}
 		auto func = [&](igIndex start, igIndex end, int id) -> void {
-			auto& buffer = tmpBuffrs[id];
+			auto& buffer = tmpBuffers[id];
 			igIndex vcnt = 0;
 			igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 			for (igIndex i = start; i < end; i++) {
@@ -175,9 +175,9 @@ const void VTKWriter::WriteCellsToBuffer(CellArray::Pointer Cells)
 			}
 		};
 		ThreadPool::parallelFor(0, CellNum, m_MaxThreadSize, func);
-		for (int i = 0; i < tmpBuffrs.size(); i++) {
-			if (tmpBuffrs[i]->GetNumberOfValues()) {
-				m_TemporaryBuffers.emplace_back(tmpBuffrs[i]);
+		for (int i = 0; i < tmpBuffers.size(); i++) {
+			if (tmpBuffers[i]->GetNumberOfValues()) {
+				m_TemporaryBuffers.emplace_back(tmpBuffers[i]);
 			}
 		}
 	}
@@ -312,12 +312,12 @@ const void VTKWriter::WriteArrayToBuffer(ArrayObject::Pointer array)
 	auto buffer = CharArray::New();
 	if (m_FileType == IGAME_ASCII) {
 
-		std::vector<CharArray::Pointer> tmpBuffrs(m_MaxThreadSize);
+		std::vector<CharArray::Pointer> tmpBuffers(m_MaxThreadSize);
 		for (int i = 0; i < m_MaxThreadSize; i++) {
-			tmpBuffrs[i] = CharArray::New();  // 每个线程分配独立的缓冲区
+			tmpBuffers[i] = CharArray::New();  // 每个线程分配独立的缓冲区
 		}
 		auto func = [&](igIndex start, igIndex end, int id) -> void {
-			auto& buffer = tmpBuffrs[id];
+			auto& buffer = tmpBuffers[id];
 			double values[16];
 			for (int i = start; i < end; i++) {
 				array->GetElement(i, values);
@@ -329,9 +329,9 @@ const void VTKWriter::WriteArrayToBuffer(ArrayObject::Pointer array)
 			}
 		};
 		ThreadPool::parallelFor(0, Num, m_MaxThreadSize, func);
-		for (int i = 0; i < tmpBuffrs.size(); i++) {
-			if (tmpBuffrs[i]->GetNumberOfValues()) {
-				m_TemporaryBuffers.emplace_back(tmpBuffrs[i]);
+		for (int i = 0; i < tmpBuffers.size(); i++) {
+			if (tmpBuffers[i]->GetNumberOfValues()) {
+				m_TemporaryBuffers.emplace_back(tmpBuffers[i]);
 			}
 		}
 	}

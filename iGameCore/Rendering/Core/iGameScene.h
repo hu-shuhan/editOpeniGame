@@ -82,6 +82,7 @@ public:
         PBR,
         NOLIGHT,
         PURECOLOR,
+        SINGLEPASSWIREFRAME,
         TRANSPARENCYLINK,
         TRANSPARENCYSORT,
         VOLUMERENDERINGLINK,
@@ -106,6 +107,15 @@ public:
     igm::vec4& ModelsBoundingSphere() { return m_ModelsBoundingSphere; }
     igm::mat4& ModelRotate() { return m_ModelRotate; }
     igm::mat4& ModelMatrix() { return m_ModelMatrix; }
+
+    void ChangeToVolumeRendering(bool toggled) {
+        m_Enable_VolumeRendering = toggled;
+        for (auto& [id, model]: m_Models) {
+            if (!model->m_DataObject->IsDrawable()) { continue; }
+            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+            drawObject->SetShellRenderingOption(!toggled);
+        }
+    }
 
     //void UseColor();
     void UpdateUniformBuffer();

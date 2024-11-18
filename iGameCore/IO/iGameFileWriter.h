@@ -34,7 +34,7 @@ public:
 	bool WriteToFile();
 
 	// Write the specified data object to a file at the given file path.
-	bool WriteToFile(DataObject::Pointer dataobject, std::string filePath);
+	bool WriteToFile(DataObject::Pointer dataobject, const std::string filePath);
 
 	// Save the buffer data to a file using a general method.
 	bool SaveBufferDataToFile();
@@ -83,7 +83,7 @@ protected:
 	std::string m_FilePath = "default.txt";
 
 	// Size of the file to be written.
-	size_t m_FileSize;
+	size_t m_FileSize = 0;
 
 	/*
 	The char buffer used to load data into the file.

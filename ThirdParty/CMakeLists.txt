@@ -5,6 +5,7 @@ add_subdirectory(eigen-3.4.0)
 add_subdirectory(meshoptimizer-0.21)
 add_subdirectory(vtkkwiml)
 add_subdirectory(glfw-3.4)
+add_subdirectory(lzma)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 
@@ -34,8 +35,8 @@ if (ENABLE_CGNS_MODULE)
     if (DEFINED ENV{HDF5_HOME})
         set(HDF5_DIR "$ENV{HDF5_HOME}/cmake")
     else ()
-        #set(HDF5_DIR "D:/dev/HDF5/1.13.0/share/cmake")
-        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        set(HDF5_DIR "D:/dev/HDF5/1.13.0/share/cmake")
+#        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
     endif ()
     add_subdirectory(CGNS)
 endif ()

@@ -29,13 +29,14 @@ public:
     bool OptimalPosition = true;       // 是否使用最优位置。
     bool PreserveBoundary = false;     // 是否保持边界。
     double QuadricEpsilon = 1e-15;     // 二次型的阈值。
-    bool QualityCheck = false;          // 是否进行质量检查。
+    bool QualityCheck = true;          // 是否进行质量检查。
     double QualityThr = 0.3;           // 用于质量检查的质量阈值。
     bool ScalarCheck = true;          // 是否进行标量检查。
+    double DeltaThr = 2;         
 
-    double GetArea(Vector3d a, Vector3d b, Vector3d c) {
-        return CrossProduct(a - b, a - c).length() / 2;
-    }
+    //std::vector<int> activedAttribIndices{1, 3, 7};
+    std::vector<int> activedAttribIndices{0, 1, 2};
+    std::vector<double> attribute_weights{0.3, 0.3, 0.3};
 
 	bool Execute() override {
 
@@ -69,31 +70,49 @@ public:
 
         heap = PriorityQueue::New();
         optimalPos.resize(nedges);
+        optimalScalar.resize(nedges);
         mergeCount.resize(npts, 0);
         isCollapsable.resize(nedges, 1);
 
-        //{
-        //    painter->SetPen(2);
-        //    painter->SetBrush(Red);
-        //    igIndex e[2]{};
-        //    igIndex ids[8]{};
-        //    for (int i = 0; i < nedges; i++) {
-        //        mesh->GetEdgePointIds(i, e);
-        //        int size = mesh->GetEdgeToNeighborFaces(i, ids);
-        //        if (size == 2) {
-        //            Vector3d n1 = Normal(ids[0]).normalized();
-        //            Vector3d n2 = Normal(ids[1]).normalized();
-        //            if (n1 * n2 < cos(M_PI / 3)) { 
-        //                isCollapsable[i] = 0;
-        //                painter->DrawLine(mesh->GetPoint(e[0]),
-        //                                  mesh->GetPoint(e[1]));
-        //            }
-        //        }
-        //    }
-        //}
+        {
+            auto& box = mesh->GetBoundingBox();
+
+            int attributes_count = activedAttribIndices.size();
+            for (int i = 0; i < attributes_count; i++) {
+                int index = activedAttribIndices[i];
+                auto& pointer = attrbs->GetAttribute(index).pointer;
+                double minVal = 1e27;
+                double maxVal = 0;
+
+                for (int j = 0; j < npts; j++) {
+                    double val = pointer->GetValue(j) * attribute_weights[i];
+                    maxVal = std::max(val, maxVal);
+                    minVal = std::min(val, minVal);
+                }
+                double range = maxVal - minVal;
+                attribute_weights[i] =
+                        box.diag() / range * 10 / attributes_count;
+            }
+        }
+
+        {
+            int attributes_count = activedAttribIndices.size();
+            attributes = FloatArray::New();
+            attributes->SetDimension(attributes_count);
+            attributes->Resize(npts);
+            
+            for (int i = 0; i < attributes_count; i++) 
+            {
+                int index = activedAttribIndices[i];
+                auto& pointer = attrbs->GetAttribute(index).pointer;
+                for (int j = 0; j < npts; j++) { 
+                    double val = pointer->GetValue(j) * attribute_weights[i];
+                    attributes->SetValue(
+                            static_cast<IGsize>(j) * attributes_count + i, val);
+                }
+            }
+        }
         
-
-
         {
             double T = 0;
             igIndex ids[8]{};
@@ -112,8 +131,9 @@ public:
             T /= count;
             T = std::sqrt(T);
             double Smax = 0.9;
-            double al = 2;
+            double al = 1;
             double S = Smax * std::exp(-al * T);
+            //S = 0.8;
             this->TargetReduction = S;
             std::cout << T << " " <<  S << std::endl;
         }
@@ -123,15 +143,6 @@ public:
         }
 
         {
-            max_range = 0;
-            double sum = 0;
-            for (int i = 0; i < npts; i++) { 
-                double val = GetMeanValue(i);
-                max_range = std::max(val, max_range);
-                sum += val;
-            }
-            sum /= npts;
-            mean = sum;
             //auto arr = attrbs->GetAttribute(scalarIndex).pointer;
             //int dim = arr->GetDimension();
             //scalarRange.resize(dim);
@@ -151,6 +162,8 @@ public:
             //}
         }
 
+        InitCategories();
+        //return true;
         UpdateProgress(0.01);
         InitQuadric();
         UpdateProgress(0.05);
@@ -183,12 +196,12 @@ public:
 
             heap->pop();
 
-            if (this->ScalarCheck) {
-                if (geo_pri * (11 - count) * 0.1 > 2 * mean) {
-                    heap->push(pri * 1.1, edgeId, count + 1, geo_pri);
-                    continue;
-                }
-            }
+            //if (this->ScalarCheck) {
+            //    if (geo_pri * (11 - count) * 0.1 > 2 * mean) {
+            //        heap->push(pri * 1.1, edgeId, count + 1, geo_pri);
+            //        continue;
+            //    }
+            //}
 
             igIndex e[2]{};
             mesh->GetEdgePointIds(edgeId, e);
@@ -224,51 +237,16 @@ public:
                 }
             }
 
-            if (this->ScalarCheck) {
-                auto arr = attrbs->GetAttribute(scalarIndex).pointer;
-                double minD = std::numeric_limits<double>::max();
-                igIndex fid = -1;
-                Vector3d p;
-                for (int i = 0; i < 2; ++i) {
-                    mesh->GetPointToNeighborFaces(e[i], container);
-                    for (int j = 0; j < container.size(); j++) {
-                        double d;
-                        Vector3d proj;
-                        if (Projection(optimalPos[edgeId], container[j], d,
-                            proj)) {
-                            if (d < minD) { 
-                                minD = d;
-                                fid = container[j];
-                                p = proj;
-                            }
-                        }
-                    }
-                }
-                int dim = arr->GetDimension();
-                if (fid != -1) {
-                    auto param = GetCentroidParam(p, fid);
-                    igIndex f[3]{};
-                    mesh->GetFacePointIds(fid, f);
-                    for (int i = 0; i < dim; i++) {
-                        double newValue =
-                                param[0] * arr->GetValue(f[0] * dim + i) +
-                                param[1] * arr->GetValue(f[1] * dim + i) +
-                                param[2] * arr->GetValue(f[2] * dim + i);
-                        arr->SetValue(e[1] * dim + i, newValue);
-                    }
-                } else {
-                    for (int i = 0; i < dim; i++) {
-                        double newValue = arr->GetValue(e[0] * dim + i) +
-                                           arr->GetValue(e[1] * dim + i);
-                        newValue /= 2;
-                        arr->SetValue(e[1] * dim + i, newValue);
-                    }
-                }
-            }
-
             mesh->CollapseEdge(edgeId);
             mesh->SetPoint(e[1], optimalPos[edgeId]);
             mergeCount[e[1]]++;
+            {
+                int attributes_count = activedAttribIndices.size();
+                for (int i = 0; i < attributes_count; i++) {
+                    attributes->SetValue(e[1] * attributes_count + i,
+                                         optimalScalar[edgeId][i]);
+                }
+            }
 
             if (mode == QEM_FASTEST) {
                 mesh->GetPointToNeighborEdges(e[1], container);
@@ -286,7 +264,6 @@ public:
                 for (int i = 0; i < container.size(); i++) {
                     edgeIds.push_back(GetOppEdge(e[1], container[i]));
                 }
-
 
                 mesh->GetPointToOneRingPoints(e[1], container);
                 for (int i = 0; i < container.size(); i++) {
@@ -318,18 +295,24 @@ public:
             << " face size: " << mesh->GetNumberOfFaces() 
             << std::endl;
 
-        auto arr = attrbs->GetAttribute(scalarIndex).pointer;
-        int dim = arr->GetDimension();
-        int k = 0;
-        for (int d = 0; d < arr->GetDimension(); d++) {
-            k = 0;
-            for (int i = 0; i < npts; i++) {
-                if (mesh->IsPointDeleted(i)) continue;
-                arr->SetValue(k * dim + d, arr->GetValue(i * dim + d));
-                k++;
+        {
+            int attributes_count = activedAttribIndices.size();
+
+            for (int id = 0; id < attributes_count; id++) {
+                int index = activedAttribIndices[id];
+                auto& arr = attrbs->GetAttribute(index).pointer;
+                
+                int k = 0;
+                for (int i = 0; i < npts; i++) {
+                    if (mesh->IsPointDeleted(i)) continue;
+                    double val = attributes->GetValue(
+                            static_cast<IGsize>(i) * attributes_count + id);
+                    arr->SetValue(k, val / attribute_weights[id]);
+                    k++;
+                }
+                arr->Resize(k);
             }
         }
-        arr->Resize(k);
 
         mesh->GarbageCollection();
         //SetOutput(mesh);
@@ -347,6 +330,109 @@ protected:
 		SetNumberOfOutputs(1);
 	}
     ~Simplification() override = default;
+
+    void InitCategories() { 
+        //double mean = 0;
+        //double s_delta = 0;
+        //double delta = 0;
+        //auto arr = attrbs->GetAttribute(scalarIndex).pointer;
+        //int dim = arr->GetDimension();
+        //scalarRange.resize(dim);
+        //for (int i = 0; i < dim; i++) {
+        //    scalarRange[i][0] = std::numeric_limits<double>::max();
+        //    scalarRange[i][1] = -std::numeric_limits<double>::max();
+        //}
+        //for (int i = 0; i < npts; i++) {
+        //    double val = arr->GetValue(i);
+        //    mean += val;
+        //    scalarRange[0][0] = std::min(scalarRange[0][0], val);
+        //    scalarRange[0][1] = std::max(scalarRange[0][1], val);
+        //    //for (int i = 0; i < dim; i++) {
+        //    //    double val = arr->GetValue(j * dim + i);
+        //    //    scalarRange[i][0] = std::min(scalarRange[i][0], val);
+        //    //    scalarRange[i][1] = std::max(scalarRange[i][1], val);
+        //    //}
+        //}
+        //mean /= npts;
+        //for (int i = 0; i < npts; i++) {
+        //    double val = arr->GetValue(i);
+        //    s_delta += (val - mean) * (val - mean);
+        //}
+        //s_delta /= npts;
+        //delta = std::sqrt(s_delta);
+
+        //IntArray::Pointer a = IntArray::New();
+        //a->SetName("a");
+        //faceType.resize(nfaces, 0);
+        //igIndex f[3]{};
+        //for (int i = 0; i < nfaces; i++) {
+        //    mesh->GetFacePointIds(i, f);
+        //    double val0 = arr->GetValue(f[0]);
+        //    double val1 = arr->GetValue(f[1]);
+        //    double val2 = arr->GetValue(f[2]);
+        //    int count = 0;
+        //    if (std::abs(val0 - val1) >= DeltaThr * delta) count++;
+        //    if (std::abs(val1 - val2) >= DeltaThr * delta) count++;
+        //    if (std::abs(val0 - val2) >= DeltaThr * delta) count++;
+        //    faceType[i] = count;
+        //    if (count == 1 || count == 2) count = 1;
+        //    if (count == 3) count = 2;
+        //    
+        //    a->AddValue(count);
+        //}
+        //mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, a);
+
+        //double sum = 0;
+        //double max_val = 0;
+        //double min_val = 1e27; 
+        //cellScalar.resize(nfaces);
+        //for (int i = 0; i < nfaces; i++) { 
+        //    igIndex f[3]{};
+        //    mesh->GetFacePointIds(i, f);
+        //    double val = (arr->GetValue(f[0]) + arr->GetValue(f[1]) +
+        //                  arr->GetValue(f[2])) / 3;
+        //    cellScalar[i] = val;
+        //    sum += val;
+
+        //    max_val = std::max(val, max_val);
+        //    min_val = std::min(val, min_val);
+        //}
+        //mean = sum / npts;
+        //range = max_val - min_val;
+
+        //IntArray::Pointer b = IntArray::New();
+        //b->SetName("b");
+        //pointType.resize(npts);
+        //igIndex ids[64]{};
+        //for (int i = 0; i < npts; i++) {
+        //    int size = mesh->GetPointToNeighborFaces(i, ids);
+        //    //double sum = 0;
+        //    double minVal = 1e27; 
+        //    double maxVal = 0;
+        //    for (int j = 0; j < size; j++) { 
+        //        //sum += cellScalar[ids[j]];
+        //        maxVal = std::max(cellScalar[ids[j]], maxVal);
+        //        minVal = std::min(cellScalar[ids[j]], minVal);
+        //    }
+        //    if (maxVal - minVal < range * 0.03) pointType[i] = 0;
+        //    else
+        //        pointType[i] = 1;
+        //    
+        //    //double mean = sum / size;
+        //    //double delta = 0;
+        //    //for (int j = 0; j < size; j++) { 
+        //    //    delta += (cellScalar[ids[j]] - mean) *
+        //    //             (cellScalar[ids[j]] - mean);
+        //    //}
+        //    //delta /= size;
+        //    //if (delta < range * 0.05) {
+
+        //    //}
+        //    b->AddValue(pointType[i]);
+        //}
+
+        //mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, b);
+    }
 
     void InitQuadric() {
         quadrics.resize(npts);
@@ -417,25 +503,22 @@ protected:
         Point v1 = mesh->GetPoint(e[1]);
 
         {
-            for (int i = 0; i < 2; i++) {
-                igIndex ids[64]{};
-                int size = mesh->GetPointToNeighborEdges(e[i], ids);
-                for (int j = 0; j < size; j++) {
-                    igIndex ids2[64]{};
-                    int size2 = mesh->GetEdgeToNeighborFaces(ids[j], ids2);
-                    if (size2 == 2) {
-                        Vector3d n1 = Normal(ids2[0]).normalized();
-                        Vector3d n2 = Normal(ids2[1]).normalized();
-                        if (n1 * n2 < cos(M_PI / 4)) {
-                            return std::numeric_limits<double>::max();
-                        }
-                    }
-                }
-            }
-
-
+            //for (int i = 0; i < 2; i++) {
+            //    igIndex ids[64]{};
+            //    int size = mesh->GetPointToNeighborEdges(e[i], ids);
+            //    for (int j = 0; j < size; j++) {
+            //        igIndex ids2[64]{};
+            //        int size2 = mesh->GetEdgeToNeighborFaces(ids[j], ids2);
+            //        if (size2 == 2) {
+            //            Vector3d n1 = Normal(ids2[0]).normalized();
+            //            Vector3d n2 = Normal(ids2[1]).normalized();
+            //            if (n1 * n2 < cos(M_PI / 4)) {
+            //                return std::numeric_limits<double>::max();
+            //            }
+            //        }
+            //    }
+            //}
         }
-
 
         igIndex ef[8]{};
         int size = mesh->GetEdgeToNeighborFaces(edgeId, ef);
@@ -465,46 +548,107 @@ protected:
             }
         }
 
-        double gradient = 0;
-        if (this->ScalarCheck) { 
+        auto GetCellScalar = [&](igIndex faceId) -> Vector3d {
+            int attributes_count = activedAttribIndices.size();
+            igIndex f[3]{};
+            mesh->GetFacePointIds(faceId, f);
+            Vector3d val;
+            for (int i = 0; i < attributes_count; i++) {
+                val[i] = attributes->GetValue(f[0] * attributes_count + i);
+                val[i] += attributes->GetValue(f[1] * attributes_count + i);
+                val[i] += attributes->GetValue(f[2] * attributes_count + i);
+                val[i] /= 3;
+            }
 
-            gradient += this->GetMeanValue(e[0]);
-            gradient += this->GetMeanValue(e[1]);
+            return val;
+        };
 
-            //gradient += this->GetMeanValue(e[0]) / max_range;
-            //gradient += this->GetMeanValue(e[1]) / max_range;
+        FlexArray<Vector3d, 128> origValue;
+        if (this->ScalarCheck) {
+            for (int i = 0; i < eorf.size(); ++i) {
+                if (eorf[i] != fid0 && eorf[i] != fid1) {
+                    origValue.push_back(GetCellScalar(eorf[i]));
+                } else {
+                    origValue.push_back(Vector3d());
+                }
+            }
         }
 
+        //double gradient = 0;
+        //if (this->ScalarCheck) { 
+        //    gradient += this->GetMeanValue(e[0]);
+        //    gradient += this->GetMeanValue(e[1]);
+        //    
+        //    //if (gradient < this->DeltaThr * mean)
+        //        /*return std::numeric_limits<double>::max();*/
+        //        //gradient = this->DeltaThr * mean;
+        //}
 
         optimalPos[edgeId] = ComputePosition(edgeId);
         mesh->SetPoint(e[0], optimalPos[edgeId]);
         mesh->SetPoint(e[1], optimalPos[edgeId]);
 
-        //if (this->ScalarCheck) {
-        //    auto arr = newAttrs->GetAttribute(0).pointer;
-        //    int dim = arr->GetDimension();
-        //    bool flag = true;
-        //    SurfaceMesh::ReturnContainer container;
-        //    for (int i = 0; i < dim; i++) {
-        //        double newScalar = arr->GetValue(e[0] * dim + i) +
-        //                           arr->GetValue(e[1] * dim + i);
-        //        newScalar /= 2;
-        //        
-        //        GetEdgeToOneRingPoints(edgeId, container);
-        //        double sumScalar = 0;
-        //        for (int j = 0; j < container.size(); j++) {
-        //            sumScalar += arr->GetValue(container[j] * dim + i);
-        //        }
-        //        sumScalar /= container.size();
-        //        if (std::abs(newScalar - sumScalar) > 1e-1) { 
-        //            flag = false;
-        //            break;
-        //        }
-        //    }
-        //    if (!flag) {
-        //        return std::numeric_limits<double>::max();
-        //    } 
-        //}
+        std::vector<Vector2d> attrbOrigin;
+        {
+            int attributes_count = activedAttribIndices.size();
+            attrbOrigin.resize(attributes_count);
+
+            for (int i = 0; i < attributes_count; i++) {
+                attrbOrigin[i][0] = attributes->GetValue(e[0] * attributes_count + i);
+                attrbOrigin[i][1] = attributes->GetValue(e[1] * attributes_count + i);
+            }
+        }
+        
+        if (this->ScalarCheck) {
+            SurfaceMesh::ReturnContainer container;
+            double minD = std::numeric_limits<double>::max();
+            igIndex fid = -1;
+            Vector3d p;
+            for (int i = 0; i < 2; ++i) {
+                mesh->GetPointToNeighborFaces(e[i], container);
+                for (int j = 0; j < container.size(); j++) {
+                    double d;
+                    Vector3d proj;
+                    if (Projection(optimalPos[edgeId], container[j], d, proj)) {
+                        if (d < minD) {
+                            minD = d;
+                            fid = container[j];
+                            p = proj;
+                        }
+                    }
+                }
+            }
+
+            //auto arr = attrbs->GetAttribute(scalarIndex).pointer;
+            //int dim = arr->GetDimension();
+            if (fid != -1) {
+                auto param = GetCentroidParam(p, fid);
+                igIndex f[3]{};
+                mesh->GetFacePointIds(fid, f);
+
+                int attributes_count = activedAttribIndices.size();
+                for (int i = 0; i < attributes_count; i++) {
+                    double newValue =
+                            param[0] * attributes->GetValue(f[0] * attributes_count + i) +
+                            param[1] * attributes->GetValue(f[1] * attributes_count + i) +
+                            param[2] * attributes->GetValue(f[2] * attributes_count + i);
+                    attributes->SetValue(e[1] * attributes_count + i, newValue);
+                    optimalScalar[edgeId][i] = newValue;
+                }
+
+            } else {
+                int attributes_count = activedAttribIndices.size();
+                for (int i = 0; i < attributes_count; i++) {
+                    double newValue =
+                            attributes->GetValue(e[0] * attributes_count + i) +
+                            attributes->GetValue(e[1] * attributes_count + i);
+                    newValue /= 2;
+                    attributes->SetValue(e[1] * attributes_count + i, newValue);
+                    optimalScalar[edgeId][i] = newValue;
+                }
+            }
+            
+        }
 
         double minCos = std::numeric_limits<double>::max();
         if (this->NormalCheck) {
@@ -526,6 +670,30 @@ protected:
             }
         }
 
+        double scalar = 0;
+        if (this->ScalarCheck) {
+            for (int i = 0; i < eorf.size(); ++i) {
+                if (eorf[i] != fid0 && eorf[i] != fid1) {
+                    int attributes_count = activedAttribIndices.size();
+                    auto newScalar = GetCellScalar(eorf[i]);
+                    for (int j = 0; j < attributes_count; j++) {
+                        scalar += std::abs(newScalar[j] - origValue[i][j]);
+                    }
+                } 
+            }
+        }
+
+        {
+            int attributes_count = activedAttribIndices.size();
+
+            for (int i = 0; i < attributes_count; i++) {
+                attributes->SetValue(e[0] * attributes_count + i,
+                                     attrbOrigin[i][0]);
+                attributes->SetValue(e[1] * attributes_count + i,
+                                     attrbOrigin[i][1]);
+            }
+        }
+
         mesh->SetPoint(e[0], v0);
         mesh->SetPoint(e[1], v1);
 
@@ -536,16 +704,11 @@ protected:
         if (newQuality > this->QualityThr) newQuality = this->QualityThr;
 
         if (this->NormalCheck) {
-            //if (minCos > this->CosineThr) minCos = this->CosineThr;
-            if (minCos < cos(M_PI / 4.0)) 
-                return std::numeric_limits<double>::max();
-            
-            else if (minCos < this->CosineThr)
-                /*return std::numeric_limits<double>::max();*/
-                minCos *= 0.8;
-
-                //if (mergeCount[e[0]] < 3 && mergeCount[e[1]] < 3)
-                //    return std::numeric_limits<double>::max();
+            if (minCos > this->CosineThr) minCos = this->CosineThr;
+            //if (minCos < cos(M_PI / 4.0)) 
+                //return std::numeric_limits<double>::max();
+            //else if (minCos < this->CosineThr)
+                //minCos *= 0.8;
             
             minCos = fabs((minCos + 1.0) / 2.0);
         }
@@ -564,13 +727,14 @@ protected:
         if (!this->QualityCheck && this->NormalCheck) priority = error / minCos;
         if (this->QualityCheck && this->NormalCheck)
             priority = error / (newQuality * minCos);
+        if (this->ScalarCheck) priority = priority * (1 + scalar);
 
         //int d = 2;
         //if (minCos < 1.0 / d) {
         //    return std::numeric_limits<double>::max();
         //}
 
-        geo_priority = gradient;
+        //geo_priority = gradient;
         //if (this->ScalarCheck) { 
         //    priority *= (1 + gradient);
         //}
@@ -581,7 +745,7 @@ protected:
     
     double GetMeanValue(igIndex ptId) {
         double value = 0;
-        igIndex ids[64]{};
+        igIndex ids[256]{};
         int size = mesh->GetPointToOneRingPoints(ptId, ids);
         double p = attrbs->GetAttribute(scalarIndex).pointer->GetValue(ptId);
         for (int j = 0; j < size; j++) {
@@ -790,17 +954,23 @@ protected:
 	SurfaceMesh::Pointer mesh{};
     PriorityQueue::Pointer heap{};
     std::vector<Quadric<double>> quadrics;
+    std::vector<int> faceType;
+    std::vector<int> pointType;
     std::vector<Vector3f> optimalPos;
-    FloatArray::Pointer optimalScalar{};
+    std::vector<Vector3d> optimalScalar;
+    //FloatArray::Pointer optimalScalar{};
     IGenum mode{QEM_FASTEST};
     AttributeSet::Pointer newAttrs{}, oldAttrs{}, attrbs{};
     int scalarIndex{-1};
     std::vector<Vector2d> scalarRange;
     std::vector<int> mergeCount;
     std::vector<int> isCollapsable;
-    double max_range;
+    std::vector<double> cellScalar;
+    double range;
     double mean;
     Painter3D::Pointer painter{nullptr};
+
+    FloatArray::Pointer attributes{};
 
     IGsize npts{}, nedges{}, nfaces{};
 

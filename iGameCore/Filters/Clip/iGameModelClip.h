@@ -3,7 +3,7 @@
 
 #include "iGameFilter.h"
 #include "iGameUnstructuredMesh.h"
-
+#include "iGameCellClip.h"
 
 IGAME_NAMESPACE_BEGIN
 class ModelClip : public Filter {
@@ -15,9 +15,16 @@ public:
 
 	bool Execute()override;
 
+	bool ExecuteTest(DataObject::Pointer);
+	bool ExecuteTest2(UnstructuredMesh::Pointer um);
+
 	bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
 	bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
 	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
+
+
+	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
+		std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell);
 
 	enum ClipMethod {
 		IG_PLANE,
