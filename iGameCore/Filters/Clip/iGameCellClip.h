@@ -1,3 +1,6 @@
+#ifndef iGameCellClip_h
+#define iGameCellClip_h
+
 #include "iGameTetra.h"
 #include "iGamePolyhedron.h"
 #include "iGameQuad.h"
@@ -9,7 +12,7 @@
 #include "Quadratic/iGameQuadraticPyramid.h"
 #include "iGameCellArray.h"
 #include "iGameAttributeSet.h"
-#include"iGameVolumeMesh.h"
+#include "iGameVolumeMesh.h"
 #include "iGamePointFinder.h"
 IGAME_NAMESPACE_BEGIN
 
@@ -1004,3 +1007,4 @@ namespace CellClip {
 
 
 IGAME_NAMESPACE_END
+#endif iGameCellClip_h

@@ -29,7 +29,7 @@ public:
 	virtual Cell* GetEdge(const int edgeId) = 0;
 	virtual Cell* GetFace(const int faceId) = 0;
 
-	void Reset() {
+	virtual void Reset() {
 		this->m_PointIds->Reset();
 		this->m_Points->Reset();
 	}
