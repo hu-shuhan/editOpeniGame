@@ -382,187 +382,97 @@ void igQtMainWindow::initAllComponents() {
 igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
-    QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
-    connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
-            this, [&](bool checked) {
+    //QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
+    //connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
+    //        this, [&](bool checked) {
 
-            //SurfaceMesh::Pointer mesh = SurfaceMesh::New();
-            //clock_t start, end;
-            //start = clock();
-            //Points::Pointer points = Points::New();
-            //CellArray::Pointer cells = CellArray::New();
-            //for (int i = 0; i < 10000000; i++) {
-            //    points->AddPoint(Point(1, 0, 0));
-            //    points->AddPoint(Point(0, 1, 0));
-            //    points->AddPoint(Point(0, 0, 1));
-            //    igIndex face[3]{i * 3 + 0, i * 3 + 1, i * 3 + 2};
-            //    cells->AddCellIds(face, 3);
-            //}
-            //mesh->SetPoints(points);
-            //mesh->SetFaces(cells);
-            //end = clock();
-            //std::cout << end - start << std::endl;
-            //start = clock();
-            //for (int i = 0; i < 10000000; i++) {
-            //    igIndex face[3]{};
-            //    mesh->GetFacePointIds(i, face);
-            //    if (face[0] == 0) { face[0] = 1; }
-            //}
-            //end = clock();
-            //std::cout << end - start << std::endl;
-            //return;
+    //        //SurfaceMesh::Pointer mesh = SurfaceMesh::New();
+    //        //clock_t start, end;
+    //        //start = clock();
+    //        //Points::Pointer points = Points::New();
+    //        //CellArray::Pointer cells = CellArray::New();
+    //        //for (int i = 0; i < 10000000; i++) {
+    //        //    points->AddPoint(Point(1, 0, 0));
+    //        //    points->AddPoint(Point(0, 1, 0));
+    //        //    points->AddPoint(Point(0, 0, 1));
+    //        //    igIndex face[3]{i * 3 + 0, i * 3 + 1, i * 3 + 2};
+    //        //    cells->AddCellIds(face, 3);
+    //        //}
+    //        //mesh->SetPoints(points);
+    //        //mesh->SetFaces(cells);
+    //        //end = clock();
+    //        //std::cout << end - start << std::endl;
+    //        //start = clock();
+    //        //for (int i = 0; i < 10000000; i++) {
+    //        //    igIndex face[3]{};
+    //        //    mesh->GetFacePointIds(i, face);
+    //        //    if (face[0] == 0) { face[0] = 1; }
+    //        //}
+    //        //end = clock();
+    //        //std::cout << end - start << std::endl;
+    //        //return;
 
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+    //    if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-        Triangulation::Pointer triangulation = Triangulation::New();
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    //    Triangulation::Pointer triangulation = Triangulation::New();
+    //    auto obj =
+    //            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        bool flag = false;
-        switch (obj->GetDataObjectType()) {
-            case IG_SURFACE_MESH:
-                flag = true;
-                break;
-            case IG_UNSTRUCTURED_MESH:
-            {
-                auto mesh = DynamicCast<UnstructuredMesh>(obj)
-                                    ->TransferToSurfaceMesh();
-                if (mesh) {
-                    obj = mesh;
-                    flag = true;
-                    break;
-                }
-                else {
-                    mesh = DynamicCast<UnstructuredMesh>(obj)
-                                   ->TransferToVolumeMesh();
-                    if (mesh) { 
-                        auto show = DynamicCast<UnstructuredMesh>(obj)
-                                            ->GetDisplayObject();
-                        if (show) { 
-                            flag = true;
-                            obj = show;
-                        }
-                    }
-                }
-            }
-                break;
-            default:
-                break;
-        }
+    //    bool flag = false;
+    //    switch (obj->GetDataObjectType()) {
+    //        case IG_SURFACE_MESH:
+    //            flag = true;
+    //            break;
+    //        case IG_UNSTRUCTURED_MESH:
+    //        {
+    //            auto mesh = DynamicCast<UnstructuredMesh>(obj)
+    //                                ->TransferToSurfaceMesh();
+    //            if (mesh) {
+    //                obj = mesh;
+    //                flag = true;
+    //                break;
+    //            }
+    //            else {
+    //                mesh = DynamicCast<UnstructuredMesh>(obj)
+    //                               ->TransferToVolumeMesh();
+    //                if (mesh) { 
+    //                    auto show = DynamicCast<UnstructuredMesh>(obj)
+    //                                        ->GetDisplayObject();
+    //                    if (show) { 
+    //                        flag = true;
+    //                        obj = show;
+    //                    }
+    //                }
+    //            }
+    //        }
+    //            break;
+    //        default:
+    //            break;
+    //    }
 
-        triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-        triangulation->SetInput(obj);
-        triangulation->Execute();
+    //    triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+    //    triangulation->SetInput(obj);
+    //    triangulation->Execute();
 
-        obj = triangulation->GetOutput();
-        
+    //    obj = triangulation->GetOutput();
+    //    
 
-        Simplification::Pointer filter = Simplification::New();
-        //Gradient::Pointer filter = Gradient::New();
-        filter->SetInput(obj);
-        //filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-        filter->Execute();
+    //    Simplification::Pointer filter = Simplification::New();
+    //    //Gradient::Pointer filter = Gradient::New();
+    //    filter->SetInput(obj);
+    //    //filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+    //    filter->Execute();
 
-        //auto mesh = DynamicCast<SurfaceMesh>(obj);
-        //mesh->RequestEditStatus();
-        //igIndex ids[8]{};
-        //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
-        //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
-        //    if (size > 2) { std::cout << "123\n"; }
-        //}
-        modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-        rendererWidget->update();
-    });
-
-    connect(mesh_processing->addAction("encoder"), &QAction::triggered,
-        this, [&](bool checked) { 
-            Encoder::Pointer encoder = Encoder::New();
-            auto obj = rendererWidget->GetScene()
-                                ->GetCurrentModel()
-                                ->GetDataObject();
-            encoder->SetInput(obj);
-            encoder->Execute();
-            auto& buffer = encoder->GetBuffer();
-
-            std::string filePath("H:\\iGameProjects\\model\\a.txt");
-            FILE* file = fopen(filePath.c_str(), "wb");
-
-            if (file == nullptr) { return; }
-
-            fwrite(buffer.data(), 1, buffer.size(), file);
-            fclose(file);
-
-            Decoder::Pointer decoder = Decoder::New();
-            decoder->SetBuffer(buffer);
-            decoder->Execute();
-            modelTreeWidget->addDataObjectToModelTree(decoder->GetOutput(),
-                                                        File);
-        });
-
-    QMenu* mesh_autocoder =
-            ui->menu_filters->addMenu("Mesh Autocoder");
-    connect(mesh_autocoder->addAction("Encoder"), &QAction::triggered,
-            this,
-            [&](bool checked) {
-                {
-                    MeshEncoder::Pointer filter = MeshEncoder::New();
-                    DataObject::Pointer dataobj = rendererWidget->GetScene()
-                                                          ->GetCurrentModel()
-                                                          ->GetDataObject();
-                    filter->SetNumberOfInputs(1);
-                    filter->SetInput(dataobj);
-                    filter->Execute();
-                }
-
-                {
-                    MeshDecoder::Pointer filter = MeshDecoder::New();
-                    DataObject::Pointer dataobj = DataObject::New();
-                    filter->SetNumberOfInputs(1);
-                    filter->SetInput(dataobj);
-                    filter->Execute();
-
-                    for (int i = 0; i < filter->GetNumberOfOutputs(); i++) {
-                        auto mesh = filter->GetOutput(i);
-                        mesh->SetName(std::to_string(i));
-
-                        modelTreeWidget->addDataObjectToModelTree(
-                                mesh, ItemSource::File);
-                    }
-                }
-
-                rendererWidget->update();
-            });
-
-        connect(mesh_autocoder->addAction("Autocoder"), &QAction::triggered, this,
-            [&](bool checked) {
-                {
-                    MeshEncoder::Pointer filter = MeshEncoder::New();
-                    DataObject::Pointer dataobj = rendererWidget->GetScene()
-                                                          ->GetCurrentModel()
-                                                          ->GetDataObject();
-                    filter->SetNumberOfInputs(1);
-                    filter->SetInput(dataobj);
-                    filter->Execute();
-                }
-
-                {
-                    MeshDecoder::Pointer filter = MeshDecoder::New();
-                    DataObject::Pointer dataobj = DataObject::New();
-                    filter->SetNumberOfInputs(1);
-                    filter->SetInput(dataobj);
-                    filter->Execute();
-
-                    for (int i = 0; i < filter->GetNumberOfOutputs(); i++) {
-                        auto mesh = filter->GetOutput(i);
-                        mesh->SetName(std::to_string(i));
-
-                        modelTreeWidget->addDataObjectToModelTree(
-                                mesh, ItemSource::File);
-                    }
-                }
-
-                rendererWidget->update();
-            });
+    //    //auto mesh = DynamicCast<SurfaceMesh>(obj);
+    //    //mesh->RequestEditStatus();
+    //    //igIndex ids[8]{};
+    //    //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
+    //    //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
+    //    //    if (size > 2) { std::cout << "123\n"; }
+    //    //}
+    //    modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+    //    rendererWidget->update();
+    //});
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;

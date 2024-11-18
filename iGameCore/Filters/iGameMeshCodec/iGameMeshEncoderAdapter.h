@@ -58,6 +58,7 @@ public:
         default:
             break;
         }
+        return 0;
     }
 
     IGsize GetNumberOfPoints()
@@ -68,7 +69,7 @@ public:
 
     bool IsFixedCellSize()
     {
-        // ÓÐ0ºÅË÷Òý
+        // æœ‰0å·ç´¢å¼•
         return this->GetCellIdOffset()->GetNumberOfValues() != this->GetNumberOfCells() + 1;
     }
 
@@ -81,7 +82,7 @@ public:
     {
         if (! this->IsFixedCellSize())
         {
-            return 0; // ÕâÖÖÒì³£Çé¿öËµÃ÷meshÊ¹ÓÃµÄÊÇ·Ç¶¨³¤offset
+            return 0; // è¿™ç§å¼‚å¸¸æƒ…å†µè¯´æ˜Žmeshä½¿ç”¨çš„æ˜¯éžå®šé•¿offset
         }
 
         switch (this->GetMeshType())
@@ -113,6 +114,7 @@ public:
         default:
             break;
         }
+        return 0;
     }
 
 	IGsize GetCellIdBufferSize()
@@ -153,6 +155,7 @@ public:
         default:
             break;
         }
+        return nullptr;
 	}
 
 	UnsignedIntArray::Pointer GetCellIdBuffer()
@@ -199,7 +202,7 @@ public:
         return uintIds;
     }
 
-    // ½öÏÞ UnstructuredMesh
+    // ä»…é™ UnstructuredMesh
     UnsignedIntArray::Pointer GetCellTypes()
     {
         assert(this->GetMeshType() == IG_UNSTRUCTURED_MESH);

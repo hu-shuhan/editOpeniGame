@@ -146,7 +146,6 @@ border:2px solid #EEF1F7
     <addaction name="action_Subdivision"/>
     <addaction name="action_Remeshing"/>
     <addaction name="action_Delaunay"/>
-    <addaction name="action_TetSimplification"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
