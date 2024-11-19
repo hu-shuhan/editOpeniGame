@@ -516,23 +516,37 @@ void Scene::InitOpenGL() {
     // init framebuffer
     ResizeFrameBuffer();
 
-    Point p{0.0f, 0.0f, 0.0f};
-    Point p1{-1.0f, 0.0f, 0.0f};
-    Point p2{1.0f, 0.0f, 0.0f};
-    Point p3{0.0f, 1.0f, 0.0f};
+    // painter2d test
+    {
+        m_Painter2D->SetPen(Color::Red);
+        m_Painter2D->SetPen(5);
+        m_Painter2D->SetBrush(Color::Green);
 
-    m_Painter3D->SetPen(Color::Red);
-    //m_Painter3D->SetPen(10);
-    m_Painter3D->SetBrush(Color::Green);
-    
-    //m_Painter3D->DrawPoint(Point{-1.0f, -1.0f, 0.0f});
-    //m_Painter3D->DrawLine(p, p2);
-    //m_Painter3D->DrawTriangle(Point{-1.0f, -1.0f, 0.0f},
-    //                          Point{-1.0f, 1.0f, 0.0f},
-    //                          Point{1.0f, -1.0f, 0.0f});
-    //m_Painter3D->DrawRect(p, {1.0f, 1.0f, 0.0f});
-    //m_Painter3D->DrawCube(p, {1.0f, 1.0f, -1.0f});
-    //m_Painter3D->DrawCircle(p, {0.0f, 0.0f, -1.0f}, 1, 100);
+        //m_Painter2D->DrawPoint({300, 300});
+        //m_Painter2D->DrawLine({100, 100}, {200, 200});
+        //m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
+        //m_Painter2D->DrawRect({100, 100}, {200, 200});
+        //m_Painter2D->DrawCircle({100, 100}, 100, 100);
+    }
+
+    // painter3d test
+    {
+        m_Painter3D->SetPen(Color::Red);
+        m_Painter3D->SetPen(1);
+        m_Painter3D->SetBrush(Color::Green);
+
+        //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
+        //m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f},
+        //                          {-1.0f, 1.0f, 0.0f},
+        //                          {1.0f, -1.0f, 0.0f});
+        //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
+        //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
+        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1, 100);
+        //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
+        //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
+        //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
+    }
 
     GLCheckError();
 }
@@ -887,6 +901,7 @@ void Scene::DrawFrame() {
         }
 
         // draw scene painter
+        m_Painter2D->Draw(this);
         m_Painter3D->Draw(this);
     }
 
@@ -1007,7 +1022,9 @@ void Scene::ForwardPass() {
             if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
 
             // draw painter(since painter does not support transparency)
-            model->GetPainter()->Draw(this);
+            if (drawObject->GetVisibility()) {
+                model->GetPainter()->Draw(this);
+            }
         }
     }
 #endif

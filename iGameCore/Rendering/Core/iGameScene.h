@@ -2,14 +2,12 @@
 // Created by Sumzeek on 7/4/2024.
 //
 
-#ifndef OPENIGAME_SCENCE_H
-#define OPENIGAME_SCENCE_H
+#pragma once
 
-#include <GLFramebuffer.h>
-#include <GLIndirectCommand.h>
-#include <GLShader.h>
-#include <GLTextureBuffer.h>
-
+#include "OpenGL/GLFramebuffer.h"
+#include "OpenGL/GLIndirectCommand.h"
+#include "OpenGL/GLShader.h"
+#include "OpenGL/GLTextureBUffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameFontSet.h"
@@ -165,7 +163,6 @@ protected:
 
     void UpdateModelsBoundingSphere();
 
-
     void InitOpenGL();
     void InitOIT();
     void InitFont();
@@ -249,15 +246,14 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
-    Painter3D::Pointer m_Painter3D = Painter3D::New();
+    Painter2D::Pointer m_Painter2D{Painter2D::New()};
+    Painter3D::Pointer m_Painter3D{Painter3D::New()};
 
     bool m_FinishInit{false};
     bool m_EnableVolumeRendering{false};
 
     friend class Model;
     friend class Interactor;
-    friend class BasicInteractor;
 };
 
 IGAME_NAMESPACE_END
-#endif // OPENIGAME_SCENC

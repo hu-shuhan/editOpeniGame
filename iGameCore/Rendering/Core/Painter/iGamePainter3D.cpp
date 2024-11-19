@@ -1,11 +1,18 @@
-#include "iGamePainter3D.h"
 //
 // Created by Sumzeek on 10/9/2024.
 //
 
 #include "iGamePainter3D.h"
+#include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
+
+void Painter3D::Draw(Scene* scene) {
+    scene->ObjectData().model = scene->ModelMatrix();
+    scene->CameraData().view = scene->Camera()->GetViewMatrix();
+    scene->CameraData().proj = scene->Camera()->GetProjectionMatrix();
+    PainterBase::Draw(scene);
+}
 
 IGuint Painter3D::DrawPoint(const Point& point) {
     if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
@@ -19,7 +26,7 @@ IGuint Painter3D::DrawPoint(const Point& point) {
 
     auto color = m_Pen->GetColor();
 
-    auto source = DataSource::RequestPoint(point);
+    auto source = DataSource3D::RequestPoint(point);
     points.insert(points.end(), source.points.begin(), source.points.end());
     colors.insert(colors.end(), source.points.size(), color);
     indices[0].insert(indices[0].end(), source.indices[0].begin(),
@@ -41,7 +48,7 @@ IGuint Painter3D::DrawLine(const Point& p1, const Point& p2) {
 
     auto color = m_Pen->GetColor();
 
-    auto source = DataSource::RequestLine(p1, p2);
+    auto source = DataSource3D::RequestLine(p1, p2);
     points.insert(points.end(), source.points.begin(), source.points.end());
     colors.insert(colors.end(), source.points.size(), color);
     indices[1].insert(indices[1].end(), source.indices[1].begin(),
@@ -68,7 +75,7 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
     if (ColorUtils::IsValid(m_Pen->GetColor())) {
         auto color = m_Pen->GetColor();
 
-        auto source = DataSource::RequestTriangle(p1, p2, p3);
+        auto source = DataSource3D::RequestTriangle(p1, p2, p3);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[1].insert(indices[1].end(), source.indices[1].begin(),
@@ -79,7 +86,7 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
-        auto source = DataSource::RequestTriangle(p1, p2, p3, offset);
+        auto source = DataSource3D::RequestTriangle(p1, p2, p3, offset);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
@@ -103,13 +110,10 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    auto p2 = Point{p1[0], p3[1], p1[2]};
-    auto p4 = Point{p3[0], p1[1], p3[2]};
-
     if (ColorUtils::IsValid(m_Pen->GetColor())) {
         auto color = m_Pen->GetColor();
 
-        auto source = DataSource::RequestRect(p1, p3);
+        auto source = DataSource3D::RequestRect(p1, p3);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[1].insert(indices[1].end(), source.indices[1].begin(),
@@ -120,7 +124,7 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
-        auto source = DataSource::RequestRect(p1, p3, offset);
+        auto source = DataSource3D::RequestRect(p1, p3, offset);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
@@ -147,7 +151,7 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
     if (ColorUtils::IsValid(m_Pen->GetColor())) {
         auto color = m_Pen->GetColor();
 
-        auto source = DataSource::RequestCube(p1, p7);
+        auto source = DataSource3D::RequestCube(p1, p7);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[1].insert(indices[1].end(), source.indices[1].begin(),
@@ -158,7 +162,7 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
-        auto source = DataSource::RequestCube(p1, p7, offset);
+        auto source = DataSource3D::RequestCube(p1, p7, offset);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
@@ -187,7 +191,7 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
         auto color = m_Pen->GetColor();
 
         auto source =
-                DataSource::RequestCircle(center, normal, radius, resolution);
+                DataSource3D::RequestCircle(center, normal, radius, resolution);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[1].insert(indices[1].end(), source.indices[1].begin(),
@@ -198,8 +202,8 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
-        auto source = DataSource::RequestCircle(center, normal, radius,
-                                                resolution, offset);
+        auto source = DataSource3D::RequestCircle(center, normal, radius,
+                                                  resolution, offset);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
@@ -209,4 +213,128 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
+
+IGuint Painter3D::DrawSphere(const Point& center, double radius,
+                             int sectorCount, int stackCount) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = SphereSource::RequestSphere(center, radius, sectorCount,
+                                                  stackCount);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source = SphereSource::RequestSphere(center, radius, sectorCount,
+                                                  stackCount, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawIcoSphere(const Point& center, double radius,
+                                unsigned int subdivision) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source =
+                SphereSource::RequestIcoSphere(center, radius, subdivision);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source = SphereSource::RequestIcoSphere(center, radius,
+                                                     subdivision, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawCubeSphere(const Point& center, double radius,
+                                 unsigned int vertexCountPerRow) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = SphereSource::RequestCubeSphere(center, radius,
+                                                      vertexCountPerRow);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source = SphereSource::RequestCubeSphere(
+                center, radius, vertexCountPerRow, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
 IGAME_NAMESPACE_END

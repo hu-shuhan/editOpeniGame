@@ -13,7 +13,6 @@
 #ifndef OPENIGAME_CAMERA_H
 #define OPENIGAME_CAMERA_H
 
-
 #include "iGameObject.h"
 #include "iGameRenderingMacro.h"
 #include "igm/igm.h"
@@ -209,7 +208,7 @@ public:
         if (m_CameraType == PERSPECTIVE) {
             return igm::perspectiveRH_OZ(
                     static_cast<float>(igm::radians(m_Fov)), aspect<float>(),
-                    m_NearZ);
+                    /*m_NearZ*/ 0.01f);
         } else if (m_CameraType == ORTHOGRAPHIC) {
             float dist = GetLengthToFocal();
             float orthoHeight = dist / 3.0f;

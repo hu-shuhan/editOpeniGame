@@ -3,23 +3,23 @@
 //
 
 /**
- * @class    iGameDataSource
- * @brief    iGameDataSource's brief
+ * @class    iGameDataSource3D
+ * @brief    iGameDataSource3D's brief
  */
-#include "iGameDataSource.h"
+#include "iGameDataSource3D.h"
 
 IGAME_NAMESPACE_BEGIN
-DataSource::DataSource() {}
+DataSource3D::DataSource3D() {}
 
-DataSource::~DataSource(){};
+DataSource3D::~DataSource3D(){};
 
-DataSource::DataSourceOutputInfo DataSource::RequestPoint(const Point& point,
-                                                          const size_t offset) {
+DataSource::DataSourceOutputInfo DataSource3D::RequestPoint(const Point& point,
+                                                            size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
     Points points = {point};
     output.points.insert(output.points.end(), points.begin(), points.end());
-
+    
     std::vector<iguIndex> index0 = {0};
     std::for_each(index0.begin(), index0.end(),
                   [offset](iguIndex& value) { value += offset; });
@@ -30,7 +30,7 @@ DataSource::DataSourceOutputInfo DataSource::RequestPoint(const Point& point,
 }
 
 DataSource::DataSourceOutputInfo
-DataSource::RequestLine(const Point& p1, const Point& p2, const size_t offset) {
+DataSource3D::RequestLine(const Point& p1, const Point& p2, size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
     Points points = {p1, p2};
@@ -51,9 +51,10 @@ DataSource::RequestLine(const Point& p1, const Point& p2, const size_t offset) {
     return output;
 }
 
-DataSource::DataSourceOutputInfo
-DataSource::RequestTriangle(const Point& p1, const Point& p2, const Point& p3,
-                            const size_t offset) {
+DataSource::DataSourceOutputInfo DataSource3D::RequestTriangle(const Point& p1,
+                                                               const Point& p2,
+                                                               const Point& p3,
+                                                               size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
     Points points = {p1, p2, p3};
@@ -81,11 +82,11 @@ DataSource::RequestTriangle(const Point& p1, const Point& p2, const Point& p3,
 }
 
 DataSource::DataSourceOutputInfo
-DataSource::RequestRect(const Point& p1, const Point& p3, const size_t offset) {
+DataSource3D::RequestRect(const Point& p1, const Point& p3, size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
-    auto p2 = Point{p1[0], p3[1], p1[2]};
-    auto p4 = Point{p3[0], p1[1], p3[2]};
+    Point p2 = Point{p1[0], p3[1], p1[2]};
+    Point p4 = Point{p3[0], p1[1], p3[2]};
 
     Points points = {p1, p2, p3, p4};
     output.points.insert(output.points.end(), points.begin(), points.end());
@@ -112,15 +113,15 @@ DataSource::RequestRect(const Point& p1, const Point& p3, const size_t offset) {
 }
 
 DataSource::DataSourceOutputInfo
-DataSource::RequestCube(const Point& p1, const Point& p7, const size_t offset) {
+DataSource3D::RequestCube(const Point& p1, const Point& p7, size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
-    auto p2 = Point{p1[0], p1[1], p7[2]};
-    auto p3 = Point{p7[0], p1[1], p7[2]};
-    auto p4 = Point{p7[0], p1[1], p1[2]};
-    auto p5 = Point{p1[0], p7[1], p1[2]};
-    auto p6 = Point{p1[0], p7[1], p7[2]};
-    auto p8 = Point{p7[0], p7[1], p1[2]};
+    Point p2 = Point{p1[0], p1[1], p7[2]};
+    Point p3 = Point{p7[0], p1[1], p7[2]};
+    Point p4 = Point{p7[0], p1[1], p1[2]};
+    Point p5 = Point{p1[0], p7[1], p1[2]};
+    Point p6 = Point{p1[0], p7[1], p7[2]};
+    Point p8 = Point{p7[0], p7[1], p1[2]};
 
     Points points = {p1, p2, p3, p4, p5, p6, p7, p8};
     output.points.insert(output.points.end(), points.begin(), points.end());
@@ -150,8 +151,8 @@ DataSource::RequestCube(const Point& p1, const Point& p7, const size_t offset) {
 }
 
 DataSource::DataSourceOutputInfo
-DataSource::RequestCircle(const Point& center, const Vector3f& normal,
-                          double radius, int resolution, const size_t offset) {
+DataSource3D::RequestCircle(const Point& center, const Point& normal,
+                            double radius, int resolution, size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
     normal.normalized();
