@@ -1,7 +1,5 @@
 //
 // Created by Sumzeek on 11/19/2024.
-// SphereSource class provides methods to generate different types of sphere geometries
-// for game objects, including a standard sphere, an icosphere, and a cube-mapped sphere.
 //
 
 #pragma once
