@@ -537,8 +537,7 @@ void Scene::InitOpenGL() {
 
         //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
-        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f},
-        //                          {-1.0f, 1.0f, 0.0f},
+        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
         //                          {1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
         //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
