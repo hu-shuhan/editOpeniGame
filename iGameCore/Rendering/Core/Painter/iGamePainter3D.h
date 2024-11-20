@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "DataSource/iGameConeSource.h"
+#include "DataSource/iGameCylinderSource.h"
 #include "DataSource/iGameDataSource3D.h"
 #include "DataSource/iGameSphereSource.h"
 #include "iGamePainterBase.h"
@@ -31,14 +33,24 @@ public:
     IGuint DrawTriangle(const Point& p1, const Point& p2, const Point& p3);
     IGuint DrawRect(const Point& p1, const Point& p3);
     IGuint DrawCube(const Point& p1, const Point& p7);
-    IGuint DrawCircle(const Point& center, const Vector3f& normal,
-                      double radius, int resolution);
-    IGuint DrawSphere(const Point& center, double radius, int sectorCount,
-                      int stackCount);
-    IGuint DrawIcoSphere(const Point& center, double radius,
+    IGuint DrawCircle(const Point& center, const Vector3f& normal, float radius,
+                      int resolution);
+    IGuint DrawSphere(const Point& center, float radius,
+                      unsigned int stackCount, unsigned int sectorCount);
+    IGuint DrawIcoSphere(const Point& center, float radius,
                          unsigned int subdivision);
-    IGuint DrawCubeSphere(const Point& center, double radius,
+    IGuint DrawCubeSphere(const Point& center, float radius,
                           unsigned int vertexCountPerRow);
+    IGuint DrawCylinder(const Point& center, const Vector3f& normal,
+                        float height, float radius, unsigned int resolution);
+    IGuint DrawCone(const Point& center, const Vector3f& normal, float height,
+                    float radius, unsigned int resolution);
+    IGuint DrawPyramid(const Point& center, const Vector3f& normal,
+                       float height, float radius, unsigned int stackCount,
+                       unsigned int sectorCount);
+    IGuint DrawFrustum(const Point& center, const Vector3f& normal,
+                       float height, float baseRadius, float topRadius,
+                       unsigned int resolution);
 
 protected:
     Painter3D() = default;

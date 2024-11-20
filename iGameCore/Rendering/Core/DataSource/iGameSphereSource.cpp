@@ -15,8 +15,9 @@ SphereSource::SphereSource() {}
 SphereSource::~SphereSource() {}
 
 DataSource::DataSourceOutputInfo
-SphereSource::RequestSphere(const Point& center, double radius, int sectorCount,
-                            int stackCount, size_t offset) {
+SphereSource::RequestSphere(const Point& center, float radius,
+                            unsigned int stackCount, unsigned int sectorCount,
+                            size_t offset) {
     DataSource::DataSourceOutputInfo output;
 
     Points points;
@@ -106,7 +107,7 @@ SphereSource::RequestSphere(const Point& center, double radius, int sectorCount,
 }
 
 DataSource::DataSourceOutputInfo
-SphereSource::RequestIcoSphere(const Point& center, double radius,
+SphereSource::RequestIcoSphere(const Point& center, float radius,
                                unsigned int subdivision, size_t offset) {
     DataSourceOutputInfo output;
 
@@ -320,6 +321,13 @@ SphereSource::RequestIcoSphere(const Point& center, double radius,
                   [center](Point& p) { p += center; });
     output.points.insert(output.points.end(), points.begin(), points.end());
 
+    std::vector<iguIndex> index0;
+    for (int i = 0; i < output.points.size(); ++i) { index0.push_back(i); }
+    std::for_each(index0.begin(), index0.end(),
+                  [offset](iguIndex& value) { value += offset; });
+    output.indices[0].insert(output.indices[0].end(), index0.begin(),
+                             index0.end());
+
     std::for_each(lineIndices.begin(), lineIndices.end(),
                   [offset](iguIndex& value) { value += offset; });
     output.indices[1].insert(output.indices[1].end(), lineIndices.begin(),
@@ -334,7 +342,7 @@ SphereSource::RequestIcoSphere(const Point& center, double radius,
 }
 
 DataSource::DataSourceOutputInfo
-SphereSource::RequestCubeSphere(const Point& center, double radius,
+SphereSource::RequestCubeSphere(const Point& center, float radius,
                                 unsigned int vertexCountPerRow, size_t offset) {
     DataSourceOutputInfo output;
 
@@ -484,6 +492,13 @@ SphereSource::RequestCubeSphere(const Point& center, double radius,
     std::for_each(points.begin(), points.end(),
                   [center](Point& p) { p += center; });
     output.points.insert(output.points.end(), points.begin(), points.end());
+
+    std::vector<iguIndex> index0;
+    for (int i = 0; i < output.points.size(); ++i) { index0.push_back(i); }
+    std::for_each(index0.begin(), index0.end(),
+                  [offset](iguIndex& value) { value += offset; });
+    output.indices[0].insert(output.indices[0].end(), index0.begin(),
+                             index0.end());
 
     std::for_each(lineIndices.begin(), lineIndices.end(),
                   [offset](iguIndex& value) { value += offset; });

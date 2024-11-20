@@ -142,7 +142,7 @@ public:
      */
     static DataSourceOutputInfo RequestCircle(const Point& center,
                                               const Vector3f& normal,
-                                              double radius, int resolution,
+                                              float radius, int resolution,
                                               size_t offset = 0);
 
 protected:

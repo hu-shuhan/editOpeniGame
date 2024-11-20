@@ -32,9 +32,9 @@ public:
      * @param offset Index offset for vertices.
      * @return DataSourceOutputInfo containing the vertices and indices.
      */
-    static DataSourceOutputInfo RequestSphere(const Point& center,
-                                              double radius, int sectorCount,
-                                              int stackCount,
+    static DataSourceOutputInfo RequestSphere(const Point& center, float radius,
+                                              unsigned int stackCount,
+                                              unsigned int sectorCount,
                                               size_t offset = 0);
 
     /**
@@ -47,7 +47,7 @@ public:
      * @return DataSourceOutputInfo containing the vertices and indices.
      */
     static DataSourceOutputInfo RequestIcoSphere(const Point& center,
-                                                 double radius,
+                                                 float radius,
                                                  unsigned int subdivision,
                                                  size_t offset = 0);
 
@@ -61,7 +61,7 @@ public:
      * @return DataSourceOutputInfo containing the vertices and indices.
      */
     static DataSourceOutputInfo
-    RequestCubeSphere(const Point& center, double radius,
+    RequestCubeSphere(const Point& center, float radius,
                       unsigned int vertexCountPerRow, size_t offset = 0);
 
 protected:

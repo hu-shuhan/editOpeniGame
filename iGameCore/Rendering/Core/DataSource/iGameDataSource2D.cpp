@@ -43,8 +43,8 @@ DataSource2D::RequestRect(const Point2D& p1, const Point2D& p3, size_t offset) {
 }
 
 DataSource::DataSourceOutputInfo
-DataSource2D::RequestCircle(const Point2D& center, double radius,
-                            int resolution, size_t offset) {
+DataSource2D::RequestCircle(const Point2D& center, float radius, int resolution,
+                            size_t offset) {
     Point3D center_3d = Point3D{center[0], center[1], 0.0f};
     Point3D normal = Point3D{0.0f, 0.0f, -1.0f};
     return DataSource3D::RequestCircle(center_3d, normal, radius, resolution,

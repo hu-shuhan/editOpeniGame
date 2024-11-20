@@ -532,7 +532,7 @@ void Scene::InitOpenGL() {
     // painter3d test
     {
         m_Painter3D->SetPen(Color::Red);
-        m_Painter3D->SetPen(1);
+        m_Painter3D->SetPen(5);
         m_Painter3D->SetBrush(Color::Green);
 
         //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
@@ -545,6 +545,14 @@ void Scene::InitOpenGL() {
         //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
         //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
         //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
+        //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                          1.0f, 16);
+        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //                      16);
+        //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                         1.0f, 8, 8);
+        //m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
+        //                         1.0f, 0.5f, 8);
     }
 
     GLCheckError();

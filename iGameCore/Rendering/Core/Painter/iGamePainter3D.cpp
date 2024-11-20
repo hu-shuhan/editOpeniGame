@@ -174,7 +174,7 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
 }
 
 IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
-                             double radius, int resolution) {
+                             float radius, int resolution) {
     if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
         !ColorUtils::IsValid(m_Brush->GetColor())) {
         return 0;
@@ -214,8 +214,9 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
     return handle;
 }
 
-IGuint Painter3D::DrawSphere(const Point& center, double radius,
-                             int sectorCount, int stackCount) {
+IGuint Painter3D::DrawSphere(const Point& center, float radius,
+                             unsigned int stackCount,
+                             unsigned int sectorCount) {
     if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
         !ColorUtils::IsValid(m_Brush->GetColor())) {
         return 0;
@@ -255,7 +256,7 @@ IGuint Painter3D::DrawSphere(const Point& center, double radius,
     return handle;
 }
 
-IGuint Painter3D::DrawIcoSphere(const Point& center, double radius,
+IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
                                 unsigned int subdivision) {
     if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
         !ColorUtils::IsValid(m_Brush->GetColor())) {
@@ -296,7 +297,7 @@ IGuint Painter3D::DrawIcoSphere(const Point& center, double radius,
     return handle;
 }
 
-IGuint Painter3D::DrawCubeSphere(const Point& center, double radius,
+IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
                                  unsigned int vertexCountPerRow) {
     if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
         !ColorUtils::IsValid(m_Brush->GetColor())) {
@@ -327,6 +328,179 @@ IGuint Painter3D::DrawCubeSphere(const Point& center, double radius,
 
         auto source = SphereSource::RequestCubeSphere(
                 center, radius, vertexCountPerRow, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
+                               float height, float radius,
+                               unsigned int resolution) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = CylinderSource::RequestCylinder(center, normal, height,
+                                                      radius, resolution);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source = CylinderSource::RequestCylinder(
+                center, normal, height, radius, resolution, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawCone(const Point& center, const Vector3f& normal,
+                           float height, float radius,
+                           unsigned int resolution) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = ConeSource::RequestCone(center, normal, height, radius,
+                                              resolution);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source = ConeSource::RequestCone(center, normal, height, radius,
+                                              resolution, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
+                              float height, float radius,
+                              unsigned int stackCount,
+                              unsigned int sectorCount) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = ConeSource::RequestPyramid(center, normal, height, radius,
+                                                 stackCount, sectorCount);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source =
+                ConeSource::RequestPyramid(center, normal, height, radius,
+                                           stackCount, sectorCount, offset);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[2].insert(indices[2].end(), source.indices[2].begin(),
+                          source.indices[2].end());
+    }
+
+    auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    return handle;
+}
+
+IGuint Painter3D::DrawFrustum(const Point& center, const Vector3f& normal,
+                              float height, float baseRadius, float topRadius,
+                              unsigned int resolution) {
+    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
+        !ColorUtils::IsValid(m_Brush->GetColor())) {
+        return 0;
+    }
+
+    Primitive primitive{};
+    primitive.penWidth = m_Pen->GetWidth();
+
+    auto& points = primitive.points;
+    auto& colors = primitive.colors;
+    auto& indices = primitive.indices;
+
+    auto color = m_Pen->GetColor();
+
+    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+        auto color = m_Pen->GetColor();
+
+        auto source = ConeSource::RequestFrustum(
+                center, normal, height, baseRadius, topRadius, resolution);
+        points.insert(points.end(), source.points.begin(), source.points.end());
+        colors.insert(colors.end(), source.points.size(), color);
+        indices[1].insert(indices[1].end(), source.indices[1].begin(),
+                          source.indices[1].end());
+    }
+
+    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+        int offset = points.size();
+        auto color = m_Brush->GetColor();
+
+        auto source =
+                ConeSource::RequestFrustum(center, normal, height, baseRadius,
+                                           topRadius, resolution, offset);
         points.insert(points.end(), source.points.begin(), source.points.end());
         colors.insert(colors.end(), source.points.size(), color);
         indices[2].insert(indices[2].end(), source.indices[2].begin(),

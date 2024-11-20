@@ -123,7 +123,7 @@ public:
      * @return Information about the generated circle data.
      */
     static DataSourceOutputInfo RequestCircle(const Point2D& center,
-                                              double radius, int resolution,
+                                              float radius, int resolution,
                                               size_t offset = 0);
 
 protected:
