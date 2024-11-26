@@ -15,8 +15,9 @@ public:
         igm::vec3 operator()(const Vector3f& v) {
             return igm::vec3{v[0], v[1], v[2]};
         }
-        igm::dvec3 operator()(const Vector3d& v) {
-            return igm::dvec3{v[0], v[1], v[2]};
+        igm::vec3 operator()(const Vector3d& v) {
+            return igm::vec3{static_cast<float>(v[0]), static_cast<float>(v[1]),
+                             static_cast<float>(v[2])};
         }
     };
     struct vec3ToVector3d {
