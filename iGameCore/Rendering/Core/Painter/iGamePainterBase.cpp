@@ -100,8 +100,10 @@ void PainterBase::Draw(Scene* scene) {
             // draw line
             m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
             glad_glLineWidth(penWidth);
+            glad_glDepthRange(0.000001, 1);
             glad_glDrawElements(GL_LINES, m_LineEBOSizes[penWidth],
                                 GL_UNSIGNED_INT, 0);
+            glad_glDepthRange(0, 1);
 
             // draw triangle
             m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);

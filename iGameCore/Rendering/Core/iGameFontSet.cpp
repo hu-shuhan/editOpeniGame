@@ -21,13 +21,14 @@ void FontSet::RegisterWords(const wchar_t* text) {
             "./Resources/Assests/Fonts/SourceHanSansCN-Normal.otf";
 
     FT_Library ft;
-    if (FT_Init_FreeType(&ft))
-        std::cout << "ERROR::FREETYPE: Could not init FreeType Library"
-                  << std::endl;
+    if (FT_Init_FreeType(&ft)) {
+        igError("ERROR::FREETYPE: Could not init FreeType Library");
+    }
 
     FT_Face face;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
-        std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
+    if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
+        igError("ERROR::FREETYPE: Failed to load font");
+    }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
     FT_Set_Pixel_Sizes(face, 0, 1024);
@@ -44,8 +45,7 @@ void FontSet::RegisterWords(const wchar_t* text) {
 
         // Loading the glyphs for characters
         if (FT_Load_Char(face, wchar, FT_LOAD_RENDER)) {
-            std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-            continue;
+            igError("ERROR::FREETYTPE: Failed to load Glyph");
         }
 
         // Font size
@@ -94,7 +94,7 @@ void FontSet::FlipVertically(unsigned char* data, int width, int height) {
         unsigned char* currentRow = data + i * rowSize;
         unsigned char* reverseRow = data + (height - 1 - i) * rowSize;
 
-        unsigned char* tempRow = new unsigned char[rowSize];
+        auto* tempRow = new unsigned char[rowSize];
         std::memcpy(tempRow, currentRow, rowSize);
         std::memcpy(currentRow, reverseRow, rowSize);
         std::memcpy(reverseRow, tempRow, rowSize);
@@ -102,16 +102,21 @@ void FontSet::FlipVertically(unsigned char* data, int width, int height) {
     }
 }
 
-
 Character& FontSet::GetCharacter(const wchar_t wchar) {
     auto it = m_Characters.find(wchar);
-    assert(it != m_Characters.end());
+    if (it == m_Characters.end()) {
+        igError("Character not found for wchar: " /*<< wchar*/);
+    }
     return it->second;
 }
+
 GLTexture2d::Pointer FontSet::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
-    assert(it != m_Textures.end());
+    if (it == m_Textures.end()) {
+        igError("Texture not generated for wchar: " /*<< wchar*/);
+    }
     return it->second;
 }
+
 
 IGAME_NAMESPACE_END

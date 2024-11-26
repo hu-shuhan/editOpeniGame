@@ -1446,29 +1446,33 @@ void Scene::CalculateFrameRate() {
     }
 }
 
-unsigned char* Scene::CaptureOffScreenBuffer(int width, int height) {
-    //    unsigned char * screenPixel = new unsigned char [width * height * 3];
-    //    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
+std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
+                                                int height) {
+    std::vector<unsigned char> colorBuffer(width * height * 3);
 
-    auto old_viewport = this->m_Camera->GetViewPort();
-    GLCheckError();
-    Resize(width, height, m_Camera->GetDevicePixelRatio());
-    glFinish();
-    //    GLCheckError();
-    //    Draw();
-    //    Draw();
-    //    GLCheckError();
-    //    glFinish();
-    unsigned char* screenPixel = new unsigned char[width * height * 3];
-    //    GLint defaultFramebuffer = GL_NONE;
-    //    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
-    //    std::cout << "default frame : " << defaultFramebuffer << '\n';
-    //    glBindFramebuffer(GL_FRAMEBUFFER, 1);
-    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
-    //    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GLCheckError();
-    Resize(old_viewport.x, old_viewport.y, m_Camera->GetDevicePixelRatio());
-    GLCheckError();
-    return screenPixel;
+    m_FramebufferResolved->Bind();
+    {
+        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        //
+        //  y↑
+        //   |
+        //   |
+        //   +-----→x
+        //
+        glReadPixels(x, y, width, height, GL_BGR, GL_UNSIGNED_BYTE,
+                     colorBuffer.data());
+    }
+    m_FramebufferResolved->Release();
+
+    return colorBuffer;
 }
+
+void Scene::MakeCurrent() {
+    if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
+}
+
+void Scene::DoneCurrent() {
+    if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
+}
+
 IGAME_NAMESPACE_END

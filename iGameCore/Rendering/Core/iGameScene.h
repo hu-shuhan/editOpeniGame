@@ -17,6 +17,7 @@
 
 IGAME_NAMESPACE_BEGIN
 class Interactor;
+
 class Scene : public Object {
 public:
     I_OBJECT(Scene);
@@ -132,29 +133,26 @@ public:
     void RotateNinetyCounterClockwise();
 
     void SetVolumeRendering(bool toggled);
-
-    unsigned char* CaptureOffScreenBuffer(int width, int height);
-
-    template<typename Functor, typename... Args>
-    void SetUpdateFunctor(Functor&& functor, Args&&... args) {
-        m_UpdateFunctor = std::bind(functor, args...);
-    }
-
+    std::vector<unsigned char> CaptureScreen(int x, int y, int width,
+                                             int height);
     GLBuffer::Pointer GetDrawCullDataBuffer() { return m_DrawCullData; }
 
-    void MakeCurrent() {
-        if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
-    }
-    void DoneCurrent() {
-        if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
+    void MakeCurrent();
+    void DoneCurrent();
+    template<typename Functor, typename... Args>
+    void SetUpdateFunctor(Functor&& functor, Args&&... args) {
+        m_UpdateFunctor = std::bind(std::forward<Functor>(functor),
+                                    std::forward<Args>(args)...);
     }
     template<typename Functor, typename... Args>
     void SetMakeCurrentFunctor(Functor&& functor, Args&&... args) {
-        m_MakeCurrentFunctor = std::bind(functor, args...);
+        m_MakeCurrentFunctor = std::bind(std::forward<Functor>(functor),
+                                         std::forward<Args>(args)...);
     }
     template<typename Functor, typename... Args>
     void SetDoneCurrentFunctor(Functor&& functor, Args&&... args) {
-        m_DoneCurrentFunctor = std::bind(functor, args...);
+        m_DoneCurrentFunctor = std::bind(std::forward<Functor>(functor),
+                                         std::forward<Args>(args)...);
     }
 
 protected:
@@ -176,17 +174,18 @@ protected:
     void DrawFrame();
     void ResolveFrame();
     void RenderToQtFrame();
+
+    void ShadowPass();
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
-    void ShadowPass();
 
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(DataObject* obj);
     void UpdateUniformBufferObjectBlock(DataObject* obj);
 
     void DrawAxes(igm::ivec4 drawRange);
-    void CalculateFrameRate();
+    static void CalculateFrameRate();
 
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;

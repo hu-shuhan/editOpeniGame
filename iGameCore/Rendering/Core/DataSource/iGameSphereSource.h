@@ -67,7 +67,7 @@ public:
 protected:
     // Protected constructor and destructor to prevent direct instantiation.
     SphereSource();
-    ~SphereSource();
+    ~SphereSource() override;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Helper methods for internal geometry computation
