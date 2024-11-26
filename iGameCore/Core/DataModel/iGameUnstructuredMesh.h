@@ -31,7 +31,7 @@ IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh : public PointSet {
 public:
     I_OBJECT(UnstructuredMesh);
-    static Pointer New() { return new UnstructuredMesh; }
+    static SmartPointer<UnstructuredMesh> New() { return new UnstructuredMesh; }
 
     void SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type);
     CellArray::Pointer GetCells() { return this->m_Cells; };

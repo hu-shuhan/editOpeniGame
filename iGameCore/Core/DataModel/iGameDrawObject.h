@@ -90,14 +90,10 @@ public:
     DrawObject::Pointer GetDisplayObject();
 
 private:
-    static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
-                                       GLBuffer::Pointer VBO);
-    static void SetColorBufferToVAO(GLVertexArray::Pointer VAO,
-                                    GLBuffer::Pointer VBO);
-    static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO,
-                                     GLBuffer::Pointer VBO);
-    static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO,
-                                      GLBuffer::Pointer VBO);
+    static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
+    static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
+    static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
+    static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
 protected:
     bool m_AutoUpdateDrawData{true};
@@ -142,9 +138,9 @@ protected:
     // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines
     float m_PolygonFactor{-1.0f}; // now implement with GL_POLYGON_OFFSET_FILL
     float m_PolygonOffset{-1.0f}; // now implement with GL_POLYGON_OFFSET_FILL
-    float m_LineFactor{-1.0f};   // now not implemented
-    float m_LineOffset{-1.0f};   // now not implemented
-    float m_PointOffset{-1.0f};  // now not implemented
+    float m_LineFactor{-1.0f};    // now not implemented
+    float m_LineOffset{-1.0f};    // now not implemented
+    float m_PointOffset{-1.0f};   // now not implemented
     //float m_PolygonFactor{0.0f};
     //float m_PolygonOffset{0.0f};
     //float m_LineFactor{0.0f};
@@ -152,8 +148,8 @@ protected:
     //float m_PointOffset{-8.0f};
 
     float m_Transparency{1.0f};
-    bool m_IsShell{true};
-    bool m_Shell_flag{false};
+    bool m_ExecuteShell{true};
+    bool m_ReConvertToDrawableData{false};
 
     iGameClipper::Pointer m_Clipper;
 
@@ -170,13 +166,10 @@ protected:
 };
 
 template<typename Functor, typename... Args>
-inline void DrawObject::ProcessSubDataObjects(Functor&& functor,
-                                              Args&&... args) {
+inline void DrawObject::ProcessSubDataObjects(Functor&& functor, Args&&... args) {
     if (HasSubDataObject()) {
-        for (auto it = m_SubDataObjectsHelper->Begin();
-             it != m_SubDataObjectsHelper->End(); ++it) {
-            (DynamicCast<DrawObject>(it->second)->*functor)(
-                    std::forward<Args>(args)...);
+        for (auto it = m_SubDataObjectsHelper->Begin(); it != m_SubDataObjectsHelper->End(); ++it) {
+            (DynamicCast<DrawObject>(it->second)->*functor)(std::forward<Args>(args)...);
         }
     }
 }

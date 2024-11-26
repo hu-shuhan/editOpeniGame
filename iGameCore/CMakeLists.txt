@@ -15,21 +15,21 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
 
 target_include_directories(${MODULE_NAME} PUBLIC
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Common>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/FilterModel>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO/XML>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Filters>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Interactor>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Painter>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/RenderWindow>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/OpenGL>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Common>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/FilterModel>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Mapper>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/IO/XML>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Filters>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Common>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Interactor>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/Painter>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Core/RenderWindow>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Rendering/OpenGL>
 
         $<INSTALL_INTERFACE:include/Core/CellModel>
         $<INSTALL_INTERFACE:include/Core/Common>
@@ -48,15 +48,13 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Rendering/OpenGL>
 )
 set(ThirdParty_lib_dependency)
-list(APPEND  ThirdParty_lib_dependency
+list(APPEND ThirdParty_lib_dependency
         glad
         freetype
         eigen
         meshoptimizer
         tinyXML2
         vtkkwiml
-
-
         lzma
         glfw
 )
@@ -85,7 +83,6 @@ if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
     list(APPEND ThirdParty_lib_dependency cgns_static)
-
 ENDIF ()
 
 #find_package(AbqSDK)

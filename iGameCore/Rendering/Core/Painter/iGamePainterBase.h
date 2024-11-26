@@ -43,7 +43,7 @@ public:
     void SetBrush(float red, float green, float blue);
     void SetBrush(const BrushStyle& style);
 
-    void Draw(Scene*);
+    virtual void Draw(Scene*);
     void PackDrawableData();
     void Clear();
 
@@ -52,6 +52,7 @@ protected:
         float penWidth;
         std::vector<Vector3f> points;
         std::vector<Vector3f> colors;
+        //std::vector<Vector3f> normals;
         std::array<std::vector<iguIndex>, 3> indices;
         bool visible = true;
     };
@@ -59,8 +60,6 @@ protected:
 protected:
     PainterBase();
     ~PainterBase() override;
-
-    bool m_Flag{false};
 
     Pen::Pointer m_Pen{};
     Brush::Pointer m_Brush{};
@@ -71,6 +70,7 @@ protected:
     std::unordered_map<float, GLVertexArray::Pointer> m_VAOs;
     std::unordered_map<float, GLBuffer::Pointer> m_PositionVBOs;
     std::unordered_map<float, GLBuffer::Pointer> m_ColorVBOs;
+    //std::unordered_map<float, GLBuffer::Pointer> m_NormalVBOs;
     std::unordered_map<float, GLBuffer::Pointer> m_PointEBOs;
     std::unordered_map<float, GLBuffer::Pointer> m_LineEBOs;
     std::unordered_map<float, GLBuffer::Pointer> m_TriangleEBOs;
@@ -78,10 +78,6 @@ protected:
     std::unordered_map<float, IGsize> m_PointEBOSizes;
     std::unordered_map<float, IGsize> m_LineEBOSizes;
     std::unordered_map<float, IGsize> m_TriangleEBOSizes;
-
-    //GLVertexArray::Pointer m_VAO;
-    //GLBuffer::Pointer m_PositionVBO, m_ColorVBO;
-    //GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
 
 private:
     void CreateDrawBuffer(float penWidth);

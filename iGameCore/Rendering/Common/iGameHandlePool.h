@@ -27,7 +27,7 @@ public:
                                                   : m_FreeHandles.front();
         if (!m_FreeHandles.empty()) { m_FreeHandles.pop(); }
         m_ActiveHandles.insert(handle);
-        m_HandleToObject[handle] = object;
+        m_HandleToObject[handle] = std::move(object);
 
         this->Modified();
         return handle;

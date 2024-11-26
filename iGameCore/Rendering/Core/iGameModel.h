@@ -1,10 +1,9 @@
-#ifndef OPENIGAME_MODEL_H
-#define OPENIGAME_MODEL_H
-
+#pragma once
 #include <utility>
 
 #include "iGameDrawObject.h"
 #include "iGameObject.h"
+#include "iGamePainter2D.h"
 #include "iGamePainter3D.h"
 #include "iGamePoints.h"
 #include "iGameSelection.h"
@@ -17,7 +16,6 @@ public:
     I_OBJECT(Model);
     static Pointer New() { return new Model; }
 
-    void draw(Scene*, const DataObject::Pointer&);
     void Draw(Scene*);
     void DrawWithTransparency(Scene*);
     void DrawWithVolume(Scene*);
@@ -51,11 +49,6 @@ public:
 
     void ViewCloudPicture(int index, int dimension = -1) {
         auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-
-        //        if (drawObject->GetDisplayObject() != nullptr) {
-        //            drawObject->GetDisplayObject()->ViewCloudPicture(m_Scene, index, dimension);
-        //        }
-
         if (drawObject != nullptr)
             drawObject->ViewCloudPicture(m_Scene, index, dimension);
     }
@@ -89,4 +82,3 @@ protected:
 };
 
 IGAME_NAMESPACE_END
-#endif // OPENIGAME_SCENCE_H
