@@ -9,8 +9,8 @@ IGAME_NAMESPACE_BEGIN
 
 void Painter3D::Draw(Scene* scene) {
     scene->ObjectData().model = scene->ModelMatrix();
-    scene->CameraData().view = scene->Camera()->GetViewMatrix();
-    scene->CameraData().proj = scene->Camera()->GetProjectionMatrix();
+    scene->CameraData().view = scene->GetCamera()->GetViewMatrix();
+    scene->CameraData().proj = scene->GetCamera()->GetProjectionMatrix();
     PainterBase::Draw(scene);
 }
 

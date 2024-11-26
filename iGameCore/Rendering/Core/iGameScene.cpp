@@ -193,7 +193,7 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
     if (model != nullptr) { ChangeModelVisibility(model, visibility); }
 }
 
-void Scene::ResetCenter() {
+void Scene::ResetCameraView() {
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
@@ -213,14 +213,14 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
 
     if (visibility) {
         m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 1) { ResetCenter(); }
+        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
     } else {
         m_VisibleModelsCount--;
     }
 }
 
 void Scene::ChangeCameraType(IGenum type) {
-    ResetCenter();
+    ResetCameraView();
     switch (type) {
         case Camera::CameraType::PERSPECTIVE: {
             m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
@@ -1257,7 +1257,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 }
 
 void Scene::LookAtPositiveX() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1273,7 +1273,7 @@ void Scene::LookAtPositiveX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeX() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1289,7 +1289,7 @@ void Scene::LookAtNegativeX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtPositiveY() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1304,7 +1304,7 @@ void Scene::LookAtPositiveY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeY() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1320,7 +1320,7 @@ void Scene::LookAtNegativeY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtPositiveZ() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1335,7 +1335,7 @@ void Scene::LookAtPositiveZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeZ() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1348,7 +1348,7 @@ void Scene::LookAtNegativeZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtIsometric() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);

@@ -26,7 +26,7 @@ public:
     /* Model Related */
     int AddModel(DataObject::Pointer);
     int AddModel(Model::Pointer);
-    void ResetCenter();
+    void ResetCameraView();
     Model::Pointer CreateModel(DataObject::Pointer);
     void RemoveModel(int index);
     void RemoveModel(Model*);
@@ -96,7 +96,7 @@ public:
         SHADERTYPE_COUNT
     };
 
-    Camera::Pointer Camera() { return m_Camera; }
+    Camera::Pointer GetCamera() { return m_Camera; }
     void ChangeCameraType(IGenum type);
     GLTexture2d::Pointer DepthPyramid() { return m_DepthPyramid; }
 

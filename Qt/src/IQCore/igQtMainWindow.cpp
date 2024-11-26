@@ -251,8 +251,8 @@ void igQtMainWindow::initAllComponents() {
         }
         rendererWidget->update();
     });
-    connect(ui->action_ResetCenter, &QAction::triggered, this, [&]() {
-        SceneManager::Instance()->GetCurrentScene()->ResetCenter();
+    connect(ui->action_ResetCameraView, &QAction::triggered, this, [&]() {
+        SceneManager::Instance()->GetCurrentScene()->ResetCameraView();
         rendererWidget->update();
     });
     // connect(ui->action_PickCenter, &QAction::triggered, this, [&]() {
