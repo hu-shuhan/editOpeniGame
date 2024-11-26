@@ -2,7 +2,7 @@ set(MODULE_NAME "@MODULE_NAME@")
 
 set(OPENIGAME_INSTALL_DIR "${CMAKE_CURRENT_LIST_DIR}/../../..")
 set(OPENIGAME_CORE_PRIVATE_INCLUDE_DIR "${OPENIGAME_INSTALL_DIR}/include")
-set(OPENIGAME_CORE_PRIVATE_LIB "${OPENIGAME_INSTALL_DIR}/lib")
+set(OPENIGAME_CORE_PRIVATE_LIB "${OPENIGAME_INSTALL_DIR}/lib" "${OPENIGAME_INSTALL_DIR}/lib/ThirdParty")
 #find_path(OPENIGAME_CORE_PRIVATE_INCLUDE_DIR
 #        NAMES
 #        Filters
@@ -70,11 +70,20 @@ set(OPENIGAME_CORE_INCLUDE_DIRS
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.21/src
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
-     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
-     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
-
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/lzma
 
 )
+if(@AbqSDK_FOUND@)
+    list(APPEND OPENIGAME_CORE_INCLUDE_DIRS
+    ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
+    ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/2024
+)
+endif()
+if(@FFMPEG_FOUND@)
+    list(APPEND OPENIGAME_CORE_INCLUDE_DIRS
+    ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
+)
+endif()
 
 file(GLOB_RECURSE OPENIGAME_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${OPENIGAME_INSTALL_DIR}/bin/*.dll)
 file(COPY ${OPENIGAME_CORE_3RD_DLL_FILES} DESTINATION ${CMAKE_BINARY_DIR})
@@ -96,7 +105,7 @@ set(OpeniGame_CORE_LIB_LIST
         @MODULE_NAME@
         @ThirdParty_lib_dependency@
         glfw3
-#        cgns
+
 )
 set(FOUND_OPENIGAME_CORE_LIB_FULL_PATH)
 set(OPENIGAME_CORE_LIB_TARGETS)
@@ -104,16 +113,19 @@ set(OPENIGAME_CORE_LIB_TARGETS)
 #----------------------------------------------
 # Find CGNS Package
 #----------------------------------------------
-#if(@ENABLE_CGNS_MODULE@)
-#set(cgns_DIR "${CMAKE_CURRENT_LIST_DIR}/../cgns")
-#find_package(cgns REQUIRED)
-#list(APPEND OPENIGAME_CORE_LIB_TARGETS CGNS::cgns_static)
-#endif()
+if(@ENABLE_CGNS_MODULE@)
+list(APPEND OpeniGame_CORE_LIB_LIST
+    cgns
 
-if(@AbqSDK_FOUND@)
-
-
+    libhdf5
+    libaec
+    libhdf5_hl
+    libhdf5_tools
+    libzlib
+    libsz
+)
 endif()
+
 
 
 

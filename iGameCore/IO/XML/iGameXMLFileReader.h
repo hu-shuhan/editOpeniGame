@@ -1,7 +1,7 @@
 /**
  * @class   iGameXMLFileReader
- * @brief   Currently, iGameXMLFileReader only support UTF-8 encoded files,
- *          the files mixed with machine code and UTF-8 are not supported.
+ * @brief   Currently, iGameXMLFileReader only support ASCII encoded files,
+ *          the file which mixed with binary and ASCII is not supported.
  */
 
 #pragma once

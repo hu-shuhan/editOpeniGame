@@ -419,7 +419,7 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
 #include <IQComponents/Dialog/igQtVideoOptionDialog.h>
-
+#include <qDebug>
 bool igQtAnimationWidget::saveAnimation() {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;
@@ -437,12 +437,14 @@ bool igQtAnimationWidget::saveAnimation() {
     QStringList filters = {
             "Mp4 File(*.mp4)",
             "GIF File(*.gif)",
+            "PNG Files(*.png)",
     };
 
     QString SelectedFilter;
     QString path =
             QFileDialog::getSaveFileName(nullptr, "Save Animation As ", "",
                                          filters.join(";;"), &SelectedFilter);
+
     igQtVideoOptionDialog dialog(this);
     dialog.setWindowTitle("Save Animation Option.");
     int oldwidth = rendererWidget->width(),
@@ -456,11 +458,31 @@ bool igQtAnimationWidget::saveAnimation() {
     } else
         return false;
     rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
+    int selected_idx = filters.indexOf(SelectedFilter);
 
+    switch (selected_idx) {
+        case 0:
+            if (!path.contains(".mp4")) path += ".mp4";
+            break;
+        case 1:
+            if (!path.contains(".gif")) path += ".gif";
+            break;
+        case 2:
+            if (!path.contains(".png")) path += ".png";
+            break;
+        default:
+            break;
+    }
+    QFileInfo info(path);
     for(int i = 0; i < timeStepSize; i ++)
     {
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
+        if(filters.indexOf(SelectedFilter) == 2){
+            qDebug() << QString(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+            image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+        }
+
         std::vector<uint8_t> tmp(image.bits(),
                                  image.bits() + image.sizeInBytes());
         inputInfo.bytes_per_line = image.bytesPerLine();
@@ -469,17 +491,7 @@ bool igQtAnimationWidget::saveAnimation() {
     rendererWidget->resize(oldwidth, oldheight);
 
 
-    int selected_idx = filters.indexOf(SelectedFilter);
-    switch (selected_idx) {
-        case 0:
-            if (!path.contains(".mp4")) path += ".mp4";
-            break;
-        case 1:
-            if (!path.contains(".gif")) path += ".gif";
-            break;
-        default:
-            break;
-    }
+
     FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
     inputInfo.output_path = path.toStdString();
     videoWriter->SetVideoInputInfo(inputInfo);
@@ -491,6 +503,9 @@ bool igQtAnimationWidget::saveAnimation() {
             break;
         case 1:
             sc = videoWriter->SaveGIF();
+            break;
+        case 2:
+            sc = true;
             break;
         default:
             break;

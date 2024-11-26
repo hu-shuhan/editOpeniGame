@@ -4,7 +4,9 @@ add_library(lzma STATIC ${srcs})
 
 
 set_target_properties(lzma PROPERTIES LINKER_LANGUAGE CXX)
-target_include_directories(lzma PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(lzma PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include/ThirdParty/lzma>)
 
 if(UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "-fPIC")
