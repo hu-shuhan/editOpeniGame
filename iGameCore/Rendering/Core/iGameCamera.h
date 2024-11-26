@@ -61,8 +61,8 @@ public:
 public:
     void SetNearPlane(float nearz) {
         if (nearz < 0.01f) {
-            igDebug("near z provided is less than 0.01f. The near plane is set "
-                    "to 0.01f.");
+            //igDebug("near z provided is less than 0.01f. The near plane is set "
+            //        "to 0.01f.");
             m_NearZ = 0.01f;
         } else {
             m_NearZ = nearz;

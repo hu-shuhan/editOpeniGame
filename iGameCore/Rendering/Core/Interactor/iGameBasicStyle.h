@@ -1,22 +1,22 @@
 ﻿#ifndef OPENIGAME_BASIC_STYLE_H
 #define OPENIGAME_BASIC_STYLE_H
 
+#include "iGameCamera.h"
 #include "iGameInteractorStyle.h"
 #include "iGameScene.h"
-#include "iGameCamera.h"
 
 IGAME_NAMESPACE_BEGIN
 class BasicStyle : public InteractorStyle {
 public:
     I_OBJECT(BasicStyle);
     static Pointer New() { return new BasicStyle; }
-    
+
     struct Vector3Tovec3 {
         igm::vec3 operator()(const Vector3f& v) {
-            return igm::vec3(v[0], v[1], v[2]);
+            return igm::vec3{v[0], v[1], v[2]};
         }
-        igm::vec3 operator()(const Vector3d& v) {
-            return igm::vec3(v[0], v[1], v[2]);
+        igm::dvec3 operator()(const Vector3d& v) {
+            return igm::dvec3{v[0], v[1], v[2]};
         }
     };
     struct vec3ToVector3d {
@@ -48,7 +48,7 @@ protected:
     void UpdateCameraMoveSpeed(const igm::vec4& center);
 
     // 计算直线与平面的交点
-    bool LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B, 
+    bool LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
                                const igm::vec3& P1, const igm::vec3& P2,
                                const igm::vec3& P3, igm::vec3& intersection) {
         // 直线的方向向量
@@ -111,7 +111,6 @@ protected:
     float m_CameraScaleSpeed{1.0f};
     float m_CameraMoveSpeed{0.01f};
     MouseButton m_MouseMode{NoButton};
-    
 };
 IGAME_NAMESPACE_END
 #endif

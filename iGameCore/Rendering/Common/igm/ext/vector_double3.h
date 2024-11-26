@@ -10,7 +10,7 @@
 namespace igm
 {
 // Define a typedef for a 3-dimensional vector specialized for double type.
-typedef vec<2, double> dvec3;
+typedef vec<3, double> dvec3;
 } // namespace igm
 
 #endif // OPENIGAME_IGM_VECTOR_DOUBLE3_H
