@@ -510,6 +510,7 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 
 		for (cellId = 0; cellId < inVolumeNum; cellId++) {
 			if (cellVisible[cellId] == 1) {
+				realVcnt=0;
 				fcnt = m_VolumeMesh->GetVolumeFaceIds(cellId, fhs);
 				for (i = 0; i < fcnt; i++) {
 					vcnt = inFaces->GetCellIds(fhs[i], vhs);
