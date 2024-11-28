@@ -36,6 +36,9 @@ DrawObject::DrawObject() {
 
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
+
+    m_TriangleEdgeMasks = UnsignedCharArray::New();
+    m_TriangleEdgeMasks->SetDimension(1);
 }
 
 void DrawObject::CreateDrawBuffer() {
@@ -91,6 +94,21 @@ void DrawObject::CreateDrawBuffer() {
         m_CellEBO = GLBuffer::New();
         m_CellEBO->Create();
         m_CellEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_EdgeMaskBuffer = GLBuffer::New();
+        m_EdgeMaskBuffer->Create();
+        m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
+        // Allocate a minimal buffer with a single byte of data.
+        // In OpenGL 3.3, binding a GL_TEXTURE_BUFFER requires the buffer to have a non-zero size.
+        // If the buffer size is zero, glTexBuffer will trigger an INVALID_OPERATION error.
+        // Allocating sizeof(unsigned char) (1 byte) ensures the buffer meets the size requirement,
+        // even if the actual data is not yet provided.
+        m_EdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr, GL_STATIC_DRAW);
+
+
+        m_EdgeMaskTexture = GLTextureBuffer::New();
+        m_EdgeMaskTexture->Create();
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
 
 #ifdef IGAME_OPENGL_VERSION_460
         m_Meshlets->CreateBuffer();
@@ -174,6 +192,8 @@ void DrawObject::CreateDrawBuffer() {
 
         m_Flag = true;
     }
+
+    GLCheckError();
 }
 
 void DrawObject::ConvertToDrawableData() {
@@ -184,9 +204,7 @@ void DrawObject::ConvertToDrawableData() {
     }
 
     // process this object
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ConvertToDrawableData);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ConvertToDrawableData); }
 }
 
 void DrawObject::ReAllocateDisplayBuffer() {
@@ -197,9 +215,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     // process this object
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer); }
     this->CreateDrawBuffer();
 
     if (m_AutoUpdateDrawData) {
@@ -208,9 +224,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_PositionVBO,
-                           m_Positions->GetNumberOfValues() * sizeof(float),
-                           m_Positions->RawPointer());
+        GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());
         m_PositionVBO->Modified();
 
         SetPositionBufferToVAO(m_PointVAO, m_PositionVBO);
@@ -219,9 +233,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_Colors->GetMTime() > m_ColorVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_ColorVBO,
-                           m_Colors->GetNumberOfValues() * sizeof(float),
-                           m_Colors->RawPointer());
+        GLAllocateGLBuffer(m_ColorVBO, m_Colors->GetNumberOfValues() * sizeof(float), m_Colors->RawPointer());
         m_ColorVBO->Modified();
 
         SetColorBufferToVAO(m_PointVAO, m_ColorVBO);
@@ -230,9 +242,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_Normals->GetMTime() > m_NormalVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_NormalVBO,
-                           m_Normals->GetNumberOfValues() * sizeof(float),
-                           m_Normals->RawPointer());
+        GLAllocateGLBuffer(m_NormalVBO, m_Normals->GetNumberOfValues() * sizeof(float), m_Normals->RawPointer());
         m_NormalVBO->Modified();
 
         SetNormalBufferToVAO(m_PointVAO, m_NormalVBO);
@@ -241,9 +251,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_Textures->GetMTime() > m_TextureVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_TextureVBO,
-                           m_Textures->GetNumberOfValues() * sizeof(float),
-                           m_Textures->RawPointer());
+        GLAllocateGLBuffer(m_TextureVBO, m_Textures->GetNumberOfValues() * sizeof(float), m_Textures->RawPointer());
         m_TextureVBO->Modified();
 
         SetTextureBufferToVAO(m_PointVAO, m_TextureVBO);
@@ -252,9 +260,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_PointIndices->GetMTime() > m_PointEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_PointEBO,
-                           m_PointIndices->GetNumberOfValues() *
-                                   sizeof(igIndex),
+        GLAllocateGLBuffer(m_PointEBO, m_PointIndices->GetNumberOfValues() * sizeof(igIndex),
                            m_PointIndices->RawPointer());
         m_PointEBO->Modified();
 
@@ -262,8 +268,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_LineIndices->GetMTime() > m_LineEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_LineEBO,
-                           m_LineIndices->GetNumberOfValues() * sizeof(igIndex),
+        GLAllocateGLBuffer(m_LineEBO, m_LineIndices->GetNumberOfValues() * sizeof(igIndex),
                            m_LineIndices->RawPointer());
         m_LineEBO->Modified();
 
@@ -271,18 +276,23 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_TriangleIndices->GetMTime() > m_TriangleEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_TriangleEBO,
-                           m_TriangleIndices->GetNumberOfValues() *
-                                   sizeof(igIndex),
+        GLAllocateGLBuffer(m_TriangleEBO, m_TriangleIndices->GetNumberOfValues() * sizeof(igIndex),
                            m_TriangleIndices->RawPointer());
         m_TriangleEBO->Modified();
 
         m_TriangleVAO->ElementBuffer(m_TriangleEBO);
     }
 
+    if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
+        GLAllocateGLBuffer(m_EdgeMaskBuffer, m_TriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
+                           m_TriangleEdgeMasks->RawPointer());
+        m_EdgeMaskBuffer->Modified();
+
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
+    }
+
     if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellPositionVBO,
-                           m_CellPositions->GetNumberOfValues() * sizeof(float),
+        GLAllocateGLBuffer(m_CellPositionVBO, m_CellPositions->GetNumberOfValues() * sizeof(float),
                            m_CellPositions->RawPointer());
         m_CellPositionVBO->Modified();
 
@@ -290,8 +300,7 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_CellColors->GetMTime() > m_CellColorVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellColorVBO,
-                           m_CellColors->GetNumberOfValues() * sizeof(float),
+        GLAllocateGLBuffer(m_CellColorVBO, m_CellColors->GetNumberOfValues() * sizeof(float),
                            m_CellColors->RawPointer());
         m_CellColorVBO->Modified();
 
@@ -299,13 +308,13 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     if (m_CellIndices->GetMTime() > m_CellEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellEBO,
-                           m_CellIndices->GetNumberOfValues() * sizeof(float),
-                           m_CellIndices->RawPointer());
+        GLAllocateGLBuffer(m_CellEBO, m_CellIndices->GetNumberOfValues() * sizeof(float), m_CellIndices->RawPointer());
         m_CellEBO->Modified();
 
         m_CellVAO->ElementBuffer(m_CellEBO);
     }
+
+    GLCheckError();
 }
 
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
@@ -321,9 +330,7 @@ void DrawObject::SetVisibility(bool f) {
 
     // process this object
     this->m_Visibility = f;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SetVisibility, f);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetVisibility, f); }
 }
 
 bool DrawObject::GetVisibility() { return m_Visibility; }
@@ -338,9 +345,7 @@ void DrawObject::SetViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle = mode;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SetViewStyle, mode);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetViewStyle, mode); }
 }
 
 void DrawObject::AddViewStyle(IGenum mode) {
@@ -349,9 +354,7 @@ void DrawObject::AddViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle |= mode;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::AddViewStyle, mode);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::AddViewStyle, mode); }
 }
 
 void DrawObject::RemoveViewStyle(IGenum mode) {
@@ -360,9 +363,7 @@ void DrawObject::RemoveViewStyle(IGenum mode) {
 
     // process this object
     m_ViewStyle &= ~mode;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::RemoveViewStyle, mode);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::RemoveViewStyle, mode); }
 }
 
 unsigned int DrawObject::GetViewStyle() { return m_ViewStyle; }
@@ -389,9 +390,7 @@ unsigned int DrawObject::GetViewStyleOfModel() {
     }
 }
 
-bool DrawObject::GetClipped() {
-    return false;
-}; // Gets whether this can be clipped.
+bool DrawObject::GetClipped() { return false; }; // Gets whether this can be clipped.
 
 void DrawObject::SetPointSize(int size) {
     // process display object
@@ -399,9 +398,7 @@ void DrawObject::SetPointSize(int size) {
 
     // process this object
     m_PointSize = size;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SetPointSize, size);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetPointSize, size); }
 }
 
 int DrawObject::GetPointSize() { return m_PointSize; }
@@ -412,9 +409,7 @@ void DrawObject::SetLineWidth(int size) {
 
     // process this object
     m_LineWidth = size;
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SetLineWidth, size);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetLineWidth, size); }
 }
 
 int DrawObject::GetLineWidth() { return m_LineWidth; }
@@ -424,29 +419,20 @@ void DrawObject::SetTransparency(float transparency) {
     if (m_DisplayObject) { m_DisplayObject->SetTransparency(transparency); }
 
     // process this object
-    if (transparency < 0.0f || transparency > 1.0f) {
-        throw std::runtime_error("Transparency must be between 0-1");
-    }
+    if (transparency < 0.0f || transparency > 1.0f) { throw std::runtime_error("Transparency must be between 0-1"); }
     m_Transparency = transparency;
 
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SetTransparency, transparency);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetTransparency, transparency); }
 }
 
 float DrawObject::GetTransparency() { return m_Transparency; }
 
 void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     // process display object
-    if (m_DisplayObject) {
-        m_DisplayObject->ViewCloudPicture(scene, index, dimension);
-    }
+    if (m_DisplayObject) { m_DisplayObject->ViewCloudPicture(scene, index, dimension); }
 
     // process this object
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index,
-                              dimension);
-    }
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index, dimension); }
 
     if (index == -1) {
         m_AttributeIndex = -1;
@@ -463,12 +449,9 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     scene->Update();
 }
 
-void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
-                                         int dimension) {
+void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index, int dimension) {
     // process display object
-    if (m_DisplayObject) {
-        m_DisplayObject->ViewCloudPictureOfModel(scene, index, dimension);
-    }
+    if (m_DisplayObject) { m_DisplayObject->ViewCloudPictureOfModel(scene, index, dimension); }
 
     // process this object
     auto* parent = dynamic_cast<DrawObject*>(FindParent());
@@ -479,6 +462,14 @@ void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index,
     }
 }
 
+void DrawObject::SetShellRenderingOption(bool option) {
+    if (m_ExecuteShell != option) {
+        m_ExecuteShell = option;
+        if (!option) { m_DisplayObject = nullptr; }
+        m_ReConvertToDrawableData = true;
+    }
+}
+
 FloatArray::Pointer DrawObject::GetRenderPoints() {
     // return display object
     if (m_DisplayObject) { return m_DisplayObject->m_Positions; }
@@ -486,14 +477,10 @@ FloatArray::Pointer DrawObject::GetRenderPoints() {
     // return this object
     return m_Positions;
 }
-void DrawObject::SetRenderPoints(FloatArray::Pointer points) {
-    m_Positions = std::move(points);
-}
+void DrawObject::SetRenderPoints(FloatArray::Pointer points) { m_Positions = std::move(points); }
 void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
     // process display object
-    if (m_DisplayObject) {
-        m_DisplayObject->SetPolygonOffsetParameters(factor, units);
-    }
+    if (m_DisplayObject) { m_DisplayObject->SetPolygonOffsetParameters(factor, units); }
 
     // process this object
     this->m_PolygonFactor = factor;
@@ -508,9 +495,7 @@ void DrawObject::GetPolygonOffsetParameters(float& factor, float& units) {
 
 void DrawObject::SetLineOffsetParameters(float factor, float units) {
     // process display object
-    if (m_DisplayObject) {
-        m_DisplayObject->SetLineOffsetParameters(factor, units);
-    }
+    if (m_DisplayObject) { m_DisplayObject->SetLineOffsetParameters(factor, units); }
 
     // process this object
     this->m_LineFactor = factor;
@@ -532,9 +517,7 @@ void DrawObject::SetPointOffsetParameters(float units) {
     this->Modified();
 }
 
-void DrawObject::GetPointOffsetParameters(float& units) {
-    units = this->m_PointOffset;
-}
+void DrawObject::GetPointOffsetParameters(float& units) { units = this->m_PointOffset; }
 
 void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject = DynamicCast<DrawObject>(dataObject);
@@ -546,8 +529,8 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     m_DisplayObject->m_PointSize = this->m_PointSize;
     m_DisplayObject->m_LineWidth = this->m_LineWidth;
     m_DisplayObject->m_Transparency = this->m_Transparency;
-    m_DisplayObject->m_AttributeIndex=this->m_AttributeIndex;
-    m_DisplayObject->m_AttributeDimension=this->m_AttributeDimension;
+    m_DisplayObject->m_AttributeIndex = this->m_AttributeIndex;
+    m_DisplayObject->m_AttributeDimension = this->m_AttributeDimension;
     // The original should be invisible, and it should remain invisible after conversion.
     m_DisplayObject->SetVisibility(this->GetVisibility());
     m_DisplayObject->m_UseColor = this->m_UseColor;
@@ -556,34 +539,25 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
     // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
     m_Positions->Modified();
     m_DisplayObject->SetColorMapper(this->GetColorMapper());
-    
 }
 
 DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }
 
-void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO,
-                                        GLBuffer::Pointer VBO) {
+void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_0, VBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
-                      GL_FALSE, 0);
+    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT, GL_FALSE, 0);
 }
-void DrawObject::SetColorBufferToVAO(GLVertexArray::Pointer VAO,
-                                     GLBuffer::Pointer VBO) {
+void DrawObject::SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_1, VBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT,
-                      GL_FALSE, 0);
+    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3, GL_FLOAT, GL_FALSE, 0);
 }
-void DrawObject::SetNormalBufferToVAO(GLVertexArray::Pointer VAO,
-                                      GLBuffer::Pointer VBO) {
+void DrawObject::SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_2, VBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3, GL_FLOAT,
-                      GL_FALSE, 0);
+    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3, GL_FLOAT, GL_FALSE, 0);
 }
-void DrawObject::SetTextureBufferToVAO(GLVertexArray::Pointer VAO,
-                                       GLBuffer::Pointer VBO) {
+void DrawObject::SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_3, VBO, 0, 2 * sizeof(float));
-    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2, GL_FLOAT,
-                      GL_FALSE, 0);
+    GLSetVertexAttrib(VAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2, GL_FLOAT, GL_FALSE, 0);
 }
 
 IGAME_NAMESPACE_END

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "iGameXMLFileReader.h"
+#include "XML/iGameXMLFileReader.h"
 #include <iGameDataObject.h>
 
 IGAME_NAMESPACE_BEGIN

@@ -48,7 +48,7 @@ const char* OFFReader::ReadNums(const char* left, int& VertexNum, int& FaceNum, 
 	while (*left == ' ')left++;
 	left = mAtoi(left, FaceNum) + 1;
 	while (*left == ' ')left++;
-	left = mAtoi(left, LineNum) + 1;
+	mAtoi(left, LineNum) + 1;
 	return lineEnd;
 }
 

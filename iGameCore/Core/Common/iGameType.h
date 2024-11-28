@@ -90,6 +90,13 @@ enum {
     IG_CELL,
 };
 
+// Streaming Data's String Type
+enum StreamingType{
+    NONE,
+    MultiSubFiles,
+    SingleFieldAttributes
+};
+
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };
 

@@ -16,16 +16,27 @@ public:
     // GLenum internal_format(Sized Internal Format): GL_DEPTH32F_STENCIL8, GL_DEPTH24_STENCIL8
     // GLenum internal_format(Sized Internal Format): GL_STENCIL_INDEX8
     void Buffer(GLenum internalformat, const GLBuffer::Pointer buffer) {
+        glBindTexture(GL_TEXTURE_BUFFER, this->handle);
         glTexBuffer(GL_TEXTURE_BUFFER, internalformat, buffer->Handle());
+        glBindTexture(GL_TEXTURE_BUFFER, 0);
     }
+
+    // GLenum texture: GL_TEXTURE1 - GL_TEXTURE15
+    // GL_TEXTURE0 is reserved to prevent other binding operations from being performed after a texture unit is activated.
+    void Active(GLenum texture) {
+        if (texture == GL_TEXTURE0) { igError("GL_TEXTURE0 is reserved."); }
+        glActiveTexture(texture);
+        glBindTexture(GL_TEXTURE_BUFFER, handle);
+        glActiveTexture(GL_TEXTURE0);
+    };
+
+    void Bind() const { glBindTexture(GL_TEXTURE_BUFFER, handle); }
+    void Release() const { glBindTexture(GL_TEXTURE_BUFFER, 0); }
 
     void BindImage(unsigned int binding_index, unsigned int mip_level,
                    bool layered, int layer, GLenum access, GLenum format) {
         igError("You called the GLTextureBuffer::bindImage function on the "
                 "opengl330. This function is currently not supported.");
-        throw std::runtime_error("You called the GLTextureBuffer::bindImage "
-                                 "function on the opengl330. "
-                                 "This function is currently not supported.");
         //glBindImageTexture(binding_index, handle, mip_level, layered, layer,
         //                   access, format);
     }

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "iGameDataSource.h"
 #include "iGamePainterBase.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -59,25 +60,8 @@ public:
     * @param radius: The radius of circle
     * @param n: The number of discrete points on the edge of a circle
     */
-    IGuint DrawCircle(const Point& center, const Vector3f& normal, double radius,
-                      int num);
-
-    /* draw sphere (3D)
-    *            *******
-    *         **         **
-    *       **             **  
-    *      *                 *
-    *     *        * center   *
-    *      *                 *
-    *       **             **
-    *         **         **
-    *            *******
-    * 
-    * @param center: Center of a sphere
-    * @param radius: The radius of sphere
-    * @param n: The degree of discretization
-    */
-    IGuint DrawSphere(const Point& center, double radius, int num);
+    IGuint DrawCircle(const Point& center, const Vector3f& normal,
+                      double radius, int resolution);
 
 protected:
     Painter3D() = default;

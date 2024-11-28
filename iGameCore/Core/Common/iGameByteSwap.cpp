@@ -121,12 +121,7 @@ void ByteSwap::Swap8LE(void* p) {
 }
 
 void ByteSwap::Swap2LERange(void* p, size_t num) {
-	uint16_t* data = static_cast<uint16_t*>(p);
-	uint16_t temp = 0;
-	for (size_t i = 0; i < num; ++i) {
-		temp = data[i];
-		data[i] = temp; // 小端不需要交换
-	}
+	return;// 小端不需要交换
 }
 
 void ByteSwap::Swap4LERange(void* p, size_t num) {
@@ -153,11 +148,9 @@ void ByteSwap::Swap8LERange(void* p, size_t num) {
 
 bool ByteSwap::SwapWrite2LERange(const void* p, size_t num, FILE* f) {
 	const uint16_t* data = static_cast<const uint16_t*>(p);
-	uint16_t temp = 0;
 	for (size_t i = 0; i < num; ++i) {
-		temp = data[i];
 		// 小端不需要交换
-		if (fwrite(&temp, sizeof(uint16_t), 1, f) != 1) {
+		if (fwrite(&data[i], sizeof(uint16_t), 1, f) != 1) {
 			return false;
 		}
 	}
@@ -196,11 +189,9 @@ bool ByteSwap::SwapWrite8LERange(const void* p, size_t num, FILE* f) {
 
 void ByteSwap::SwapWrite2LERange(const void* p, size_t num, std::ostream* os) {
 	const uint16_t* data = static_cast<const uint16_t*>(p);
-	uint16_t temp=0;
 	for (size_t i = 0; i < num; ++i) {
-	    temp = data[i];
 		// 小端不需要交换
-		*os << temp;
+		*os << data[i];
 	}
 }
 

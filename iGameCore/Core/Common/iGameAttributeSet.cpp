@@ -271,7 +271,10 @@ iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
 }
 
 bool iGame::AttributeSet::Attribute::updateAllDataRange() {
-    if(dataRange == nullptr) GetDataRange();
+    if(dataRange == nullptr) {
+        GetDataRange();
+        return true;
+    }
     int dim = this->pointer->GetDimension();
     double dimensionRanges[128];
     for(int i = 0; i < 2 * (dim + 1); i += 2){

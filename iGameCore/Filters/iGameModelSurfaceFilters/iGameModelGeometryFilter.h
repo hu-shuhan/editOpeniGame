@@ -13,10 +13,6 @@ struct ExtractCellBoundaries;
 class iGameModelGeometryFilter : public Filter {
 public:
 	I_OBJECT(iGameModelGeometryFilter);
-	///@{
-	/**
-	 * Standard methods for instantiation, type information, and printing.
-	 */
 	static iGameModelGeometryFilter::Pointer New() {
 		return new iGameModelGeometryFilter;
 	};
@@ -67,7 +63,7 @@ public:
 		SurfaceMesh::Pointer& output,
 		bool* extractFace = nullptr);
 
-	///@}
+
 	void SetInput(DataObject::Pointer ip) { this->input = ip; }
 	SurfaceMesh::Pointer GetExtractMesh() { return this->output; }
 	DataObject::Pointer GetOutput() override { return this->output; }

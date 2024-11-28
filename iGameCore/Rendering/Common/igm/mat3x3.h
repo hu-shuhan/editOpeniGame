@@ -12,6 +12,6 @@
 #ifndef OPENIGAME_IGM_MAT3x3_H
 #define OPENIGAME_IGM_MAT3x3_H
 
-#include "./gtc/clip_space.h"
+#include "./ext/matrix_float3x3.h"
 
 #endif // OPENIGAME_IGM_MAT3x3_H

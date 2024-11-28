@@ -7,7 +7,7 @@
 
 #include "NurbsSDK/MultiGeo.h"
 #include "iGameNurbsGeometry.h"
-#include <iGameXMLFileReader.h>
+#include <XML/iGameXMLFileReader.h>
 
 IGAME_NAMESPACE_BEGIN
 class NurbsReader : public iGameXMLFileReader {

@@ -152,40 +152,40 @@ public:
         switch (i) {
             case 0:
                 node->voxel = VoxelType(bbox.min, center);
-                break; // ×óºóÏÂ
+                break; // å·¦åä¸‹
             case 1:
                 node->voxel = VoxelType(
-                        Vector3d(bbox.min[0], bbox.min[1], center[2]), // ×óºóÉÏ
+                        Vector3d(bbox.min[0], bbox.min[1], center[2]), // å·¦åä¸Š
                         Vector3d(center[0], center[1], bbox.max[2]));
                 break;
             case 2:
                 node->voxel = VoxelType(
-                        Vector3d(bbox.min[0], center[1], bbox.min[2]), // ÓÒºóÏÂ
+                        Vector3d(bbox.min[0], center[1], bbox.min[2]), // å³åä¸‹
                         Vector3d(center[0], bbox.max[1], center[2]));
                 break;
             case 3:
                 node->voxel = VoxelType(
-                        Vector3d(bbox.min[0], center[1], center[2]), // ÓÒºóÉÏ
+                        Vector3d(bbox.min[0], center[1], center[2]), // å³åä¸Š
                         Vector3d(center[0], bbox.max[1], bbox.max[2]));
                 break;
             case 4:
                 node->voxel = VoxelType(
-                        Vector3d(center[0], bbox.min[1], bbox.min[2]), // ×óÇ°ÏÂ
+                        Vector3d(center[0], bbox.min[1], bbox.min[2]), // å·¦å‰ä¸‹
                         Vector3d(bbox.max[0], center[1], center[2]));
                 break;
             case 5:
                 node->voxel = VoxelType(
-                        Vector3d(center[0], bbox.min[1], center[2]), // ×óÇ°ÉÏ
+                        Vector3d(center[0], bbox.min[1], center[2]), // å·¦å‰ä¸Š
                         Vector3d(bbox.max[0], center[1], bbox.max[2]));
                 break;
             case 6:
                 node->voxel = VoxelType(
-                        Vector3d(center[0], center[1], bbox.min[2]), // ÓÒÇ°ÏÂ
+                        Vector3d(center[0], center[1], bbox.min[2]), // å³å‰ä¸‹
                         Vector3d(bbox.max[0], bbox.max[1], center[2]));
                 break;
             case 7:
                 node->voxel = VoxelType(center, bbox.max);
-                break; // ÓÒÇ°ÉÏ
+                break; // å³å‰ä¸Š
             default:
                 break;
         }
@@ -467,9 +467,9 @@ inline void Copy128(const void* src, void* dst) {
 }
 
 
-// ¸¡µãÊıÁ¿»¯
-// ÀıÈç½«32Î»floatÁ¿»¯Îª16Îªint£¬Init(range, (1 << 16) - 1)£¬range = max(abs(valus))
-// ·µ»Ø32Î»ÕûÊı£¬µ«ÊÇ¸ß16Î»¶¼ÊÇ0
+// æµ®ç‚¹æ•°é‡åŒ–
+// ä¾‹å¦‚å°†32ä½floaté‡åŒ–ä¸º16ä¸ºintï¼ŒInit(range, (1 << 16) - 1)ï¼Œrange = max(abs(valus))
+// è¿”å›32ä½æ•´æ•°ï¼Œä½†æ˜¯é«˜16ä½éƒ½æ˜¯0
 class Quantizer {
 public:
     Quantizer() : inverse_delta(1.f) {}
@@ -486,7 +486,7 @@ public:
 private:
     float inverse_delta;
 };
-// ·´¸¡µãÊıÁ¿»¯£¬²ÎÊı±ØĞëºÍQuantizerÒ»ÖÂ
+// åæµ®ç‚¹æ•°é‡åŒ–ï¼Œå‚æ•°å¿…é¡»å’ŒQuantizerä¸€è‡´
 class Dequantizer {
 public:
     Dequantizer() : delta(1.f) {}

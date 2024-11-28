@@ -17,18 +17,20 @@ public:
     I_OBJECT(StreamingData)
     struct TimeFrame{
         float timeValue{-1};
-        StringArray::Pointer SubFileNames{nullptr};
+        StringArray::Pointer metaData{nullptr};
+        StreamingType type;
 
         TimeFrame()= default;
 
-        TimeFrame(float _t,  StringArray::Pointer f_names) : timeValue(_t), SubFileNames(std::move(f_names)){}
+        TimeFrame(float _t,  StringArray::Pointer f_names, StreamingType _type) : timeValue(_t), metaData(std::move(f_names)), type(_type){}
+        TimeFrame(float _t,  StringArray::Pointer f_names) : timeValue(_t), metaData(std::move(f_names)), type(NONE){}
     };
 
     static Pointer New() { return new StreamingData; }
 
-    void AddTimeStep(float timeVal, const StringArray::Pointer& f_names)
+    void AddTimeStep(float timeVal, const StringArray::Pointer& f_names, StreamingType type)
     {
-        m_Data.emplace_back(timeVal, f_names);
+        m_Data.emplace_back(timeVal, f_names, type);
     }
 
 

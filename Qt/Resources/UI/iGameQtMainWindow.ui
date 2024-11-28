@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>27</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menua">
@@ -146,7 +146,6 @@ border:2px solid #EEF1F7
     <addaction name="action_Subdivision"/>
     <addaction name="action_Remeshing"/>
     <addaction name="action_Delaunay"/>
-    <addaction name="action_TetSimplification"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -556,6 +555,7 @@ border:2px solid #EEF1F7
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_VolumeRendering"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="windowTitle">
@@ -1396,6 +1396,21 @@ border:2px solid #EEF1F7
   <action name="action_uncompress">
    <property name="text">
     <string>解压缩</string>
+   </property>
+  </action>
+  <action name="action_VolumeRendering">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/VolumeRendering.svg</normaloff>:/Ticon/Icons/VolumeRendering.svg</iconset>
+   </property>
+   <property name="text">
+    <string>action_VolumeRendering</string>
+   </property>
+   <property name="toolTip">
+    <string>启用体绘制</string>
    </property>
   </action>
  </widget>

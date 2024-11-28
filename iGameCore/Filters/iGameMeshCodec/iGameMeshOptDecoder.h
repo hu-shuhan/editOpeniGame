@@ -33,7 +33,7 @@ public:
             {
             case PayloadType::kParameterSet:
             {
-                // ËäÈ»ÕâÀïÃ»ÓĞ¿ØÖÆË³Ğò µ«±àÂëÊ±Ó¦ÑÏ¸ñÒªÇóÊ×ÏÈĞ´Èëparams
+                // è™½ç„¶è¿™é‡Œæ²¡æœ‰æ§åˆ¶é¡ºåº ä½†ç¼–ç æ—¶åº”ä¸¥æ ¼è¦æ±‚é¦–å…ˆå†™å…¥params
                 this->ParamsDecoder(bufDecompressed);
                 break;
             }
@@ -60,7 +60,7 @@ public:
             //{
             //case PayloadType::kParameterSet:
             //{
-            //    // ËäÈ»ÕâÀïÃ»ÓĞ¿ØÖÆË³Ğò µ«±àÂëÊ±Ó¦ÑÏ¸ñÒªÇóÊ×ÏÈĞ´Èëparams
+            //    // è™½ç„¶è¿™é‡Œæ²¡æœ‰æ§åˆ¶é¡ºåº ä½†ç¼–ç æ—¶åº”ä¸¥æ ¼è¦æ±‚é¦–å…ˆå†™å…¥params
             //    this->ParamsDecoder(buf);
             //    break;
             //}
@@ -97,7 +97,7 @@ public:
     {
         IGsize staticSize = sizeof(MeshOptParametersWithoutAttr);
 
-        // ¶ÁÈ¡¾²Ì¬Êı¾İ
+        // è¯»å–é™æ€æ•°æ®
         MeshOptParametersWithoutAttr paramsWoAttr;
         std::memcpy(&paramsWoAttr, buf.data(), staticSize);
 
@@ -109,17 +109,17 @@ public:
 
         this->m_Params.attrCount = paramsWoAttr.attrCount;
 
-        // ¶ÁÈ¡¶¯Ì¬Êı¾İ
+        // è¯»å–åŠ¨æ€æ•°æ®
         this->m_Params.attrParams.resize(paramsWoAttr.attrCount);
         IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(MeshOptAttrParameters);
 
         std::memcpy(this->m_Params.attrParams.data(), buf.data() + staticSize, dynamicSize);
 
-        // ³õÊ¼adapter
+        // åˆå§‹adapter
         this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_Params.meshType);
     }
 
-    // destĞèÒªÔÚÍâ²¿ÏÈ¿ª±ÙºÃ¿Õ¼ä
+    // destéœ€è¦åœ¨å¤–éƒ¨å…ˆå¼€è¾Ÿå¥½ç©ºé—´
     void FloatDecoder(void* dest,
         const std::vector<unsigned char>& source,
         const MeshOptFloatParameters& floatParams)
@@ -168,16 +168,16 @@ public:
         }
         case QuantMode::FP16:
         {
-            // ÕâÖÖÇé¿öµÄÊä³öÖ»ÓĞfloat
-            floatBuffer.resize(valueCount); // ¿ª¶àÁËÃ»ÎÊÌâ ±ğ¿ªÉÙÁË¾ÍĞĞ
+            // è¿™ç§æƒ…å†µçš„è¾“å‡ºåªæœ‰float
+            floatBuffer.resize(valueCount); // å¼€å¤šäº†æ²¡é—®é¢˜ åˆ«å¼€å°‘äº†å°±è¡Œ
             floatFlag = true;
 
-            // ÓÉÓÚÁ¿»¯ÊÇÁ½¸öfloat²¢Ò»¸ö´æ µ¼ÖÂ²»Ò»¶¨Êä³ö»¹ÊÇÔ­Ê¼dimensionµÄ±¶Êı
-            // ËùÒÔÖ»ºÃ·ÖÀëµÄ±àÂë ¶ø²»ÄÜ³É×é±àÂë
+            // ç”±äºé‡åŒ–æ˜¯ä¸¤ä¸ªfloatå¹¶ä¸€ä¸ªå­˜ å¯¼è‡´ä¸ä¸€å®šè¾“å‡ºè¿˜æ˜¯åŸå§‹dimensionçš„å€æ•°
+            // æ‰€ä»¥åªå¥½åˆ†ç¦»çš„ç¼–ç  è€Œä¸èƒ½æˆç»„ç¼–ç 
             IGsize vertexSize = sizeof(float); 
             size_t quantValueCount = (size_t)ceil(valueCount / 2.);
 
-            // ÏÈ°ÑÁ¿»¯ºóµÄĞòÁĞ¶Áµ½floatBuffer
+            // å…ˆæŠŠé‡åŒ–åçš„åºåˆ—è¯»åˆ°floatBuffer
             meshopt_decodeVertexBuffer(
                 floatBuffer.data(),
                 quantValueCount,
@@ -186,7 +186,7 @@ public:
                 source.size()
             );
 
-            // ·´Á¿»¯
+            // åé‡åŒ–
             std::vector<float> dequantBuffer(valueCount);
             
             const size_t blockSize = 65536;
@@ -194,13 +194,13 @@ public:
             int tpCount = (size_t)ceil(quantValueCount / (double)blockSize);
             std::vector<std::future<void>> tpResult(tpCount);
 
-            for (int i = 0, tpCursor = 0; i < quantValueCount; i += blockSize, tpCursor++) // ÕâÀïquantiValueCountÊÇquantizeºóµÄĞòÁĞµÄÔªËØÊıÁ¿
+            for (int i = 0, tpCursor = 0; i < quantValueCount; i += blockSize, tpCursor++) // è¿™é‡ŒquantiValueCountæ˜¯quantizeåçš„åºåˆ—çš„å…ƒç´ æ•°é‡
             {
                 size_t length = std::min(quantValueCount - i, blockSize);
                 tpResult[tpCursor] = tp->Commit([&](int start, int end) ->void {
                     for (int j = start; j < end; j++)
                     {
-                        // ¶ÁÈ¡Ò»¸öÖµ
+                        // è¯»å–ä¸€ä¸ªå€¼
                         uint32_t group;
                         std::memcpy(&group, &floatBuffer[j], sizeof(uint32_t));
                         int shift = sizeof(unsigned short) * 8;
@@ -220,7 +220,7 @@ public:
 
             for (int i = 0; i < tpCount; i++) { tpResult[i].wait(); }
 
-            // ×ªÒÆ½á¹û
+            // è½¬ç§»ç»“æœ
             floatBuffer.clear();
             floatBuffer.resize(valueCount);
             std::memcpy(floatBuffer.data(), dequantBuffer.data(), valueCount * sizeof(float));
@@ -229,7 +229,7 @@ public:
         }
         case QuantMode::Float:
         {
-            // ÕâÖÖÇé¿öµÄÊä³öÖ»ÓĞfloat
+            // è¿™ç§æƒ…å†µçš„è¾“å‡ºåªæœ‰float
             IGsize vertexSize = sizeof(float) * floatParams.dimension;
             floatFlag = true;
 
@@ -248,8 +248,8 @@ public:
             break;
         }
 
-        // Ğ´Èëdest
-        // Á½ÖÖÆÕÍ¨ÇéĞÎ Êµ¼Ê²úÉúµÄÊı¾İÀàĞÍºÍdest¶ÔÓ¦
+        // å†™å…¥dest
+        // ä¸¤ç§æ™®é€šæƒ…å½¢ å®é™…äº§ç”Ÿçš„æ•°æ®ç±»å‹å’Œdestå¯¹åº”
         if (floatFlag && floatParams.valueSize == sizeof(float))
         {
             std::memcpy(static_cast<float*>(dest), floatBuffer.data(), valueCount * sizeof(float));
@@ -259,8 +259,8 @@ public:
             std::memcpy(static_cast<double*>(dest), doubleBuffer.data(), valueCount * sizeof(double));
         }
 
-        // ÌØÊâÇéĞÎ Ö»ÓĞfloatÊı¾İÇÒÊµ¼ÊĞèÒªµÄÊÇdouble 
-        // ÕâÖÖ´íÅäÊÇÁ¿»¯µ¼ÖÂµÄ ËùÒÔÃ»ÓĞÖ»ÓĞdoubleµ«Êµ¼ÊĞèÒªfloatµÄÇéĞÎ
+        // ç‰¹æ®Šæƒ…å½¢ åªæœ‰floatæ•°æ®ä¸”å®é™…éœ€è¦çš„æ˜¯double 
+        // è¿™ç§é”™é…æ˜¯é‡åŒ–å¯¼è‡´çš„ æ‰€ä»¥æ²¡æœ‰åªæœ‰doubleä½†å®é™…éœ€è¦floatçš„æƒ…å½¢
         
         if (floatFlag && floatParams.valueSize == sizeof(double))
         {
@@ -324,7 +324,7 @@ public:
         //        )
         //    );
 
-        //    // ÊÜµ½fp16¾«¶ÈÏŞÖÆ ·µ»ØµÄÖ»ÄÜÊÇvector<float>
+        //    // å—åˆ°fp16ç²¾åº¦é™åˆ¶ è¿”å›çš„åªèƒ½æ˜¯vector<float>
         //    std::transform(
         //        convertFloatBuffer.begin(),
         //        convertFloatBuffer.end(),
@@ -335,16 +335,16 @@ public:
         //}
         //case QuantMode::Float:
         //{
-        //    // Ã»ÓĞdequantize ÕâÖÖµÄº¯Êı£¬GG
+        //    // æ²¡æœ‰dequantize è¿™ç§çš„å‡½æ•°ï¼ŒGG
         //    break;
         //}
         //default:
         //    break;
         //}
 
-        //// ¶¨µãÊıÎª²»¿ÉÄæ²Ù×÷ ËùÒÔÎŞĞè´¦Àí
+        //// å®šç‚¹æ•°ä¸ºä¸å¯é€†æ“ä½œ æ‰€ä»¥æ— éœ€å¤„ç†
 
-        //// Êä³ö floatÒ»¶¨¿ÉÒÔÈ¡µÃ µ«ÊÇdouble²»Ò»¶¨
+        //// è¾“å‡º floatä¸€å®šå¯ä»¥å–å¾— ä½†æ˜¯doubleä¸ä¸€å®š
         //if (floatParams.valueSize == sizeof(float))
         //{
         //    memcpy(static_cast<float*>(dest),
@@ -422,7 +422,7 @@ public:
                 this->FloatDecoder(decodedDouble->RawPointer(), inputBuffer, params);
             }
 
-            // ÉèÖÃattribute
+            // è®¾ç½®attribute
             ArrayObject::Pointer data =
                 (params.valueSize == sizeof(float) ?
                     DynamicCast<ArrayObject>(decodedFloat) :
@@ -466,15 +466,15 @@ public:
 
         while(true)
         {
-            // ¶ÁÊı¾İ
+            // è¯»æ•°æ®
             uint32_t readInt;
             std::memcpy(&readInt, source, sizeof(uint32_t));
             source += sizeof(uint32_t);
 
-            // ¶Á³¤¶È
+            // è¯»é•¿åº¦
             unsigned int length = this->decodeVByte(source);
 
-            // Ğ´Èë
+            // å†™å…¥
             for (int j = 0; j < length; j++)
             {
                 dest.push_back(readInt);
@@ -527,7 +527,7 @@ public:
         std::vector<unsigned char> inputTopo(buf.size());
         std::memcpy(inputTopo.data(), buf.data(), buf.size());
         int inputCursor = 0;
-        // ½âÂëcellbuffer
+        // è§£ç cellbuffer
         outCellBuffer.resize(this->m_Params.topoParams.cellBufferSize + this->m_Params.topoParams.cellBufferPadding);
         this->CellBufferDecoder(
             outCellBuffer, 
@@ -536,7 +536,7 @@ public:
         );
         inputCursor += this->m_Params.topoParams.cellBufferBinaryCount;
 
-        // ½âÂësize
+        // è§£ç size
         if (!fixedCellSize)
         {
             this->CellSizeDecoder(
@@ -547,7 +547,7 @@ public:
             inputCursor += this->m_Params.topoParams.cellSizeBinaryCount;
         }
 
-        // Èç¹ûÊÇ·Ç½á¹¹»¯Íø¸ñ »¹Òª¿¼ÂÇtypes
+        // å¦‚æœæ˜¯éç»“æ„åŒ–ç½‘æ ¼ è¿˜è¦è€ƒè™‘types
         if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
         {
             this->CellTypeDecoder(
@@ -558,12 +558,12 @@ public:
             inputCursor += this->m_Params.topoParams.cellTypeBinaryCount;
         }
 
-        // Ğ´ÈëÍø¸ñ
+        // å†™å…¥ç½‘æ ¼
         bool sizeFlag = fixedCellSize != 0;
         bool unstructuredFlag = this->m_Params.meshType == IG_UNSTRUCTURED_MESH;
         bool structuredFlag = this->m_Params.meshType == IG_STRUCTURED_MESH;
 
-        // ·Ç½á¹¹»¯Íø¸ñ
+        // éç»“æ„åŒ–ç½‘æ ¼
         if (unstructuredFlag)
         {
             if (sizeFlag)
@@ -605,7 +605,7 @@ public:
         //    std::vector<unsigned int> outBuffer;
         //    int baseSize = this->m_Params.topoParams.cellBufferSize + this->m_Params.topoParams.cellCount + 1;
         //    
-        //    // ÔİÊ±ÈÏÎª·Ç½á¹¹»¯Íø¸ñÖ»ÓĞ¿ÉÄÜÔÚ·Ç¹Ì¶¨offsetÀï³öÏÖ
+        //    // æš‚æ—¶è®¤ä¸ºéç»“æ„åŒ–ç½‘æ ¼åªæœ‰å¯èƒ½åœ¨éå›ºå®šoffseté‡Œå‡ºç°
         //    if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
         //    {
         //        outBuffer.resize(baseSize + this->m_Params.topoParams.cellCount);

@@ -5,32 +5,32 @@
 
 #include "iGameRenderWindow.h"
 
-#include "iGameInteractor.h"
+#include "iGameMultiRenderWindowManager.h"
 #include "iGameScene.h"
+#include "iGameInteractor.h"
 
 #include <GLFW/glfw3.h>
+
+IGAME_NAMESPACE_BEGIN
+
 iGame::RenderWindow::RenderWindow() {
-    //��ʼ��glfw
+    /* init glfw */
     glfwInit();
-    //�趨glfw�汾
+    /* set glfw version */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    //�趨glfwΪ����״̬
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    /* set glfw to core profile */
+   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    m_window = glfwCreateWindow(m_window_width, m_window_height,
-                                m_title.c_str(), NULL, NULL);
-    //  �趨������
+   m_window = glfwCreateWindow(m_window_width, m_window_height, m_title.c_str(), NULL, NULL);
+    /* set main window */
     glfwMakeContextCurrent(m_window);
-    // ���ö���ָ�룬�����ڻص��з���
+    /* set user pointer to use object in GLFW recall function. */
     glfwSetWindowUserPointer(m_window, this);
-    // ���� framebuffer �ص�
-    glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width,
-                                                int height) {
-        auto* this_window =
-                static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
-        if (!this_window) return;
-        // ������Ⱦ���� resize ����
+    /* set framebuffer recall */
+    glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
+        auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window));
+        if(!this_window) return;
         this_window->resizeScene();
     });
 
@@ -96,12 +96,17 @@ iGame::RenderWindow::RenderWindow() {
         M_Event.delta = 120 * yoffset;
         this_window->m_Interactor->FilterEvent(M_Event);
     });
+
 }
 
-iGame::RenderWindow::~RenderWindow() {}
+iGame::RenderWindow::~RenderWindow() {
+    glfwDestroyWindow(m_window);
+}
 
 void iGame::RenderWindow::show() {
-    while (!glfwWindowShouldClose(m_window)) {
+    while (!glfwWindowShouldClose(m_window))
+    {
+        glfwMakeContextCurrent(m_window);
         /* Render here */
         if (m_scene) m_scene->Draw();
         /* Swap front and back buffers */
@@ -111,7 +116,8 @@ void iGame::RenderWindow::show() {
     }
 }
 
-void iGame::RenderWindow::setScene(iGame::Scene* _scene) {
+void iGame::RenderWindow::setScene(iGame::Scene *_scene) {
+    glfwMakeContextCurrent(m_window);
     m_scene = _scene;
     m_scene->Initialize();
     resizeScene();
@@ -124,6 +130,7 @@ void iGame::RenderWindow::setInteractor(iGame::Interactor* _interactor) {
 
 
 void iGame::RenderWindow::resizeScene() {
+    glfwMakeContextCurrent(m_window);
     glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
     int frameBufferWidth, frameBufferHeight;
     glfwGetFramebufferSize(m_window, &frameBufferWidth, &frameBufferHeight);
@@ -146,3 +153,13 @@ void iGame::RenderWindow::setTitle(const std::string& title) {
     m_title = title;
     glfwSetWindowTitle(m_window, m_title.c_str());
 }
+
+Scene *RenderWindow::getScene() {
+    return m_scene;
+}
+
+GLFWwindow *RenderWindow::getRawWindowPtr() {
+    return m_window;
+}
+
+IGAME_NAMESPACE_END

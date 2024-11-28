@@ -190,4 +190,9 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
 
 }
 
+void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
+        m_Attributes = p;
+        m_AttributeHelper->Modified();
+}
+
 IGAME_NAMESPACE_END

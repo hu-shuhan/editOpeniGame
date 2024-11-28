@@ -82,6 +82,7 @@ public:
         PBR,
         NOLIGHT,
         PURECOLOR,
+        SINGLEPASSWIREFRAME,
         TRANSPARENCYLINK,
         TRANSPARENCYSORT,
         VOLUMERENDERINGLINK,
@@ -131,6 +132,8 @@ public:
     void LookAtIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
+
+    void SetVolumeRendering(bool toggled);
 
     unsigned char* CaptureOffScreenBuffer(int width, int height);
 
@@ -194,9 +197,9 @@ protected:
     int m_CurrentModelId{-1};
     Model* m_CurrentModel{nullptr};
 
-    std::function<void()> m_UpdateFunctor;
-    std::function<void()> m_MakeCurrentFunctor;
-    std::function<void()> m_DoneCurrentFunctor;
+    std::function<void()> m_UpdateFunctor{nullptr};
+    std::function<void()> m_MakeCurrentFunctor{nullptr};
+    std::function<void()> m_DoneCurrentFunctor{nullptr};
 
     Camera::Pointer m_Camera{};
     Light::Pointer m_Light{};
@@ -249,6 +252,7 @@ protected:
     Painter3D::Pointer m_Painter3D = Painter3D::New();
 
     bool m_FinishInit{false};
+    bool m_EnableVolumeRendering{false};
 
     friend class Model;
     friend class Interactor;

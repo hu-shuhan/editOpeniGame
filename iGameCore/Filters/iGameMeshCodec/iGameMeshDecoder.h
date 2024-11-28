@@ -25,7 +25,7 @@ public:
         if (!m_FilePath.empty() && !this->OpenStream(m_FilePath)) { return false; }
         // ---------------------------------------------------------
         
-        // ½âÂë
+        // è§£ç 
         MeshOptParameters params;
         MeshOptDecoder decoder(this->m_BytestreamFile, params);
         DataObject::Pointer dataObj = decoder.Execute();
@@ -42,7 +42,7 @@ public:
         if (!this->OpenStream(filePath)) { return nullptr; }
         // ---------------------------------------------------------
 
-        // ½âÂë
+        // è§£ç 
         MeshOptParameters params;
         MeshOptDecoder decoder(this->m_BytestreamFile, params);
         DataObject::Pointer dataObj = decoder.Execute();

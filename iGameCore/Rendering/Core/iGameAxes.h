@@ -18,9 +18,7 @@ protected:
 
 public:
     void DrawAxes();
-    void DrawXYZ(const GLShaderProgram::Pointer shader,
-                 const GLUniform::Pointer texture,
-                 const GLUniform::Pointer color);
+    void DrawXYZ(const GLShaderProgram::Pointer shader);
 
     static igm::vec3 CameraPos();
     static igm::mat4 ViewMatrix();

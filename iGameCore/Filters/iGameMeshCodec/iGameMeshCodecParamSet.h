@@ -9,38 +9,38 @@ IGAME_NAMESPACE_BEGIN
 typedef enum {
 	None = 0,
 	FP16 = 1, 
-	Float = 2 // ÔİÊ±½ûÓÃ
+	Float = 2 // æš‚æ—¶ç¦ç”¨
 } QuantMode;
 
 struct MeshOptFloatParameters {
-	double scale; // Ğ¡Êıµãºó¾«¶È¿ØÖÆ Èç¹û-1´ú±í²»ÆôÓÃ
-	QuantMode quantMode; // Á¿»¯Ä£Ê½
-	int quantParam; // Á¿»¯²ÎÊı ½öÔÚFloatĞÎÊ½ÓĞĞ§
+	double scale; // å°æ•°ç‚¹åç²¾åº¦æ§åˆ¶ å¦‚æœ-1ä»£è¡¨ä¸å¯ç”¨
+	QuantMode quantMode; // é‡åŒ–æ¨¡å¼
+	int quantParam; // é‡åŒ–å‚æ•° ä»…åœ¨Floatå½¢å¼æœ‰æ•ˆ
 
-	// element ÓÉÒ»×évalue×é³É µ±È»Ò²ÓĞ¿ÉÄÜÊÇµ¥¸ö
-	IGsize valueSize; // µ¥¸ö·ÖÁ¿³ß´ç µ¥Î»byte
-	IGsize elementCount; // ÔªËØÊıÁ¿ elementCount * dimension = valueCount
-	int dimension; // Î¬¶È
+	// element ç”±ä¸€ç»„valueç»„æˆ å½“ç„¶ä¹Ÿæœ‰å¯èƒ½æ˜¯å•ä¸ª
+	IGsize valueSize; // å•ä¸ªåˆ†é‡å°ºå¯¸ å•ä½byte
+	IGsize elementCount; // å…ƒç´ æ•°é‡ elementCount * dimension = valueCount
+	int dimension; // ç»´åº¦
 };
 
 struct MeshOptGeomParameters : MeshOptFloatParameters {};
 
 struct MeshOptAttrParameters : MeshOptFloatParameters {
-	char name[256]; // Ãû³Æ
+	char name[256]; // åç§°
 	
-	IGenum type; // ÀàĞÍ IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
-	IGenum attachmentType; // ¸½×ÅÀàĞÍ IG_POINT, IG_CELL
+	IGenum type; // ç±»å‹ IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
+	IGenum attachmentType; // é™„ç€ç±»å‹ IG_POINT, IG_CELL
 
-	IGsize binaryCount; // ÔÚ¶ş½øÖÆÁ÷ÖĞµÄ³¤¶È
+	IGsize binaryCount; // åœ¨äºŒè¿›åˆ¶æµä¸­çš„é•¿åº¦
 };
 
 struct MeshOptTopoParameters {
-	int fixedCellSize; // µÈÓÚ0Ê±´ú±íÆôÓÃoffset buffer ·´Ö®Ôò´ú±í¹Ì¶¨offset
-	IGsize cellBufferSize; //´æ´¢cellµÄ¶¥µãidµÄarrayµÄ³ß´ç ²»°üÀ¨padding
+	int fixedCellSize; // ç­‰äº0æ—¶ä»£è¡¨å¯ç”¨offset buffer åä¹‹åˆ™ä»£è¡¨å›ºå®šoffset
+	IGsize cellBufferSize; //å­˜å‚¨cellçš„é¡¶ç‚¹idçš„arrayçš„å°ºå¯¸ ä¸åŒ…æ‹¬padding
 	IGsize cellCount;
 	int cellBufferPadding;
 
-	// ÓÉÓÚbuffer offset typeÊ¹ÓÃÁË²»Í¬µÄ±àÂë¼¼Êõ ËùÒÔĞèÒª·Ö¿ª¼ÇÂ¼ËüÃÇµÄ¶ş½øÖÆ½áÊøÎ»ÖÃ
+	// ç”±äºbuffer offset typeä½¿ç”¨äº†ä¸åŒçš„ç¼–ç æŠ€æœ¯ æ‰€ä»¥éœ€è¦åˆ†å¼€è®°å½•å®ƒä»¬çš„äºŒè¿›åˆ¶ç»“æŸä½ç½®
 	IGsize cellBufferBinaryCount;
 	IGsize cellSizeBinaryCount;
 	IGsize cellTypeBinaryCount;
@@ -50,21 +50,21 @@ struct MeshOptStructuredMeshParameters {
 	int axisSize[3];
 };
 
-// ½öÓÃÓÚ¶ş½øÖÆĞ´Èë
+// ä»…ç”¨äºäºŒè¿›åˆ¶å†™å…¥
 struct MeshOptParametersWithoutAttr {
-	int meshType; // Íø¸ñÀàĞÍ 
+	int meshType; // ç½‘æ ¼ç±»å‹ 
 	// IG_SURFACE_MESH,
 	// IG_VOLUME_MESH,
 	// IG_UNSTRUCTURED_MESH,
 	// IG_STRUCTURED_MESH,
 
-	// ½á¹¹»¯Íø¸ñ±È½ÏÌØÊâ ÏÈ°ÑËüµÄ²ÎÊı·ÅÔÚÕâÀï
+	// ç»“æ„åŒ–ç½‘æ ¼æ¯”è¾ƒç‰¹æ®Š å…ˆæŠŠå®ƒçš„å‚æ•°æ”¾åœ¨è¿™é‡Œ
 	MeshOptStructuredMeshParameters structuredMeshParams;
 
 	MeshOptGeomParameters geomParams;
 	MeshOptTopoParameters topoParams;
 
-	int attrCount; // ÊôĞÔÊıÁ¿
+	int attrCount; // å±æ€§æ•°é‡
 };
 
 struct MeshOptParameters : MeshOptParametersWithoutAttr {

@@ -633,7 +633,6 @@ void SurfaceMesh::GarbageCollection() {
     }
 
 
-
     m_Edges = newEdges;
     m_Faces = newFaces;
     m_FaceEdges = newFaceEdges;
@@ -795,10 +794,12 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 void SurfaceMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() ||
         m_Clipper->GetMTime() > m_Positions->GetMTime()) {
-        GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices);
+        GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices,
+                         m_TriangleEdgeMasks);
         m_Positions->Modified();
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
+        m_TriangleEdgeMasks->Modified();
 
 #ifdef IGAME_OPENGL_VERSION_460
         bool debug = false;
@@ -847,9 +848,10 @@ void SurfaceMesh::ConvertToDrawableData() {
     }
 }
 
-void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
-                                   UnsignedIntArray::Pointer& lineIndices,
-                                   UnsignedIntArray::Pointer& triangleIndices) {
+void SurfaceMesh::GetDrawableArray(
+        FloatArray::Pointer& positions, UnsignedIntArray::Pointer& lineIndices,
+        UnsignedIntArray::Pointer& triangleIndices,
+        UnsignedCharArray::Pointer& triangleEdgeMasks) {
     positions = m_Points->ConvertToArray();
 
     lineIndices->Reset();
@@ -857,6 +859,9 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
 
     triangleIndices->Reset();
     triangleIndices->SetDimension(3);
+
+    triangleEdgeMasks->Reset();
+    triangleEdgeMasks->SetDimension(1);
 
     // set line indices
     if (this->GetEdges() == nullptr) { this->BuildEdges(); }
@@ -870,7 +875,6 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
                 igError("The index of the edge is negative.");
-                throw std::runtime_error("The index of the edge is negative.");
             } else {
                 lineIndices->AddElement2(static_cast<iguIndex>(cell[0]),
                                          static_cast<iguIndex>(cell[1]));
@@ -881,32 +885,26 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
             ncell = this->GetFacePointIds(i, cell);
             if (ncell == 6) {
                 triangleIndices->AddElement3(cell[0], cell[1], cell[5]);
+                triangleEdgeMasks->AddValue(5);
                 triangleIndices->AddElement3(cell[1], cell[2], cell[3]);
+                triangleEdgeMasks->AddValue(3);
                 triangleIndices->AddElement3(cell[3], cell[4], cell[5]);
+                triangleEdgeMasks->AddValue(3);
                 triangleIndices->AddElement3(cell[5], cell[3], cell[1]);
+                triangleEdgeMasks->AddValue(0);
             } else {
-                for (int j = 2; j < ncell; j++) {
-                    triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
+                for (int j = 1; j < ncell - 1; j++) {
+                    triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
+                    // add edge mask
+                    int mask = ncell == 3       ? 7
+                               : j == 1         ? 3
+                               : j == ncell - 2 ? 6
+                                                : 2;
+                    triangleEdgeMasks->AddValue(mask);
                 }
             }
         }
     } else {
-        //igIndex edge[2];
-        //for (int i = 0; i < this->GetEdges()->GetNumberOfCells(); ++i) {
-        //    this->GetEdges()->GetCellIds(i, edge);
-        //    bool visible = true;
-        //    for (int j = 0; j < 2; ++j) {
-        //        const auto& point = this->GetPoint(edge[j]);
-        //        if (!m_Clipper->IsVisible(point.pointer())) {
-        //            visible = false;
-        //            break;
-        //        }
-        //    }
-        //    if (!visible) continue;
-        //    lineIndices->AddId(edge[0]);
-        //    lineIndices->AddId(edge[1]);
-        //}
-
         // set triangle indices
         int i, ncell;
         igIndex cell[32]{};
@@ -932,8 +930,26 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions,
                 }
             }
             if (!visible) continue;
-            for (int j = 2; j < ncell; j++) {
-                triangleIndices->AddElement3(cell[0], cell[j - 1], cell[j]);
+
+            if (ncell == 6) {
+                triangleIndices->AddElement3(cell[0], cell[1], cell[5]);
+                triangleEdgeMasks->AddValue(5);
+                triangleIndices->AddElement3(cell[1], cell[2], cell[3]);
+                triangleEdgeMasks->AddValue(3);
+                triangleIndices->AddElement3(cell[3], cell[4], cell[5]);
+                triangleEdgeMasks->AddValue(3);
+                triangleIndices->AddElement3(cell[5], cell[3], cell[1]);
+                triangleEdgeMasks->AddValue(0);
+            } else {
+                for (int j = 1; j < ncell - 1; j++) {
+                    triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
+                    // add edge mask
+                    int mask = ncell == 3       ? 7
+                               : j == 1         ? 3
+                               : j == ncell - 2 ? 6
+                                                : 2;
+                    triangleEdgeMasks->AddValue(mask);
+                }
             }
         }
     }
