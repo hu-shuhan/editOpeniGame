@@ -11,7 +11,7 @@
 
 #include <fstream>
 #if defined(PLATFORM_WINDOWS)
-#include <wingdi.h>
+#include <windows.h>
 #endif
 bool iGame::BMPWriter::Execute() {
     if(m_IMG_height * m_IMG_width * 3 != m_BufferLength) {

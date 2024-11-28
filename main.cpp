@@ -6,13 +6,13 @@
 #include <QtCore/Qtextcodec.h>
 #endif
 
-#include <iGameScene.h>
-#include <iGameFileIO.h>
-#include <RenderWindow/iGameRenderWindow.h>
-#include <iGameInteractor.h>
-#include <RenderingFilters/iGameWindowToImageFilter.h>
-
-#include <IMAGE/iGameBMPWriter.h>
+//#include <iGameScene.h>
+//#include <iGameFileIO.h>
+//#include <RenderWindow/iGameRenderWindow.h>
+//#include <iGameInteractor.h>
+//#include <RenderingFilters/iGameWindowToImageFilter.h>
+//
+//#include <IMAGE/iGameBMPWriter.h>
 int main(int argc, char* argv[]) {
 
     Q_INIT_RESOURCE(iGameQtMainWindow);
