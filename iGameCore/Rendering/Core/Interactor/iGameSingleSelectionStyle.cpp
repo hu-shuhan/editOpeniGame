@@ -21,9 +21,7 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
 }
 
 void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
-    if (m_Model == nullptr) { 
-        return; 
-    }
+    if (m_Model == nullptr) { return; }
     auto mvp = m_Interactor->GetMVP();
     auto mvp_invert = mvp.invert();
 
@@ -119,7 +117,7 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
 
         auto painter = m_Model->GetPainter();
         painter->SetPen(3);
-        painter->SetPen(Color::None);
+        painter->SetPen(Color::Black);
         painter->SetBrush(Color::Red);
 
         for (int j = 2; j < size; j++) {

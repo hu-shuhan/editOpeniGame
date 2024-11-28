@@ -49,7 +49,7 @@ public:
     void MakeEditStatusOff();
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
-
+    /* Return original mesh with Display mesh's point index mapping. */
     FlatArray<igIndex>::Pointer GetPointMap();
 protected:
     PointSet();

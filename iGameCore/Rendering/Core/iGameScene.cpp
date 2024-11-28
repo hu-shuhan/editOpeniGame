@@ -71,10 +71,8 @@ int Scene::AddModel(Model::Pointer model) {
     model->m_Scene = this;
 
     ChangeModelVisibility(model.get(), true);
-    UpdateModelsBoundingSphere();
 
     this->Update();
-
     return newModelId;
 }
 
@@ -193,7 +191,7 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
     if (model != nullptr) { ChangeModelVisibility(model, visibility); }
 }
 
-void Scene::ResetCenter() {
+void Scene::ResetCameraView() {
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
@@ -209,18 +207,18 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
     auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
     drawObject->SetVisibility(visibility);
 
-    UpdateModelsBoundingSphere();
-
     if (visibility) {
         m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 1) { ResetCenter(); }
+        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
     } else {
         m_VisibleModelsCount--;
     }
+
+    UpdateModelsBoundingSphere();
 }
 
 void Scene::ChangeCameraType(IGenum type) {
-    ResetCenter();
+    ResetCameraView();
     switch (type) {
         case Camera::CameraType::PERSPECTIVE: {
             m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
@@ -516,16 +514,44 @@ void Scene::InitOpenGL() {
     // init framebuffer
     ResizeFrameBuffer();
 
-    //Point p{0.0f, 0.0f, 0.0f};
-    //Point p1{-1.0f, 0.0f, 0.0f};
-    //Point p2{1.0f, 0.0f, 0.0f};
-    //Point p3{0.0f, 1.0f, 0.0f};
-    //
-    //m_Painter3D->SetPen(Color::Black);
-    //m_Painter3D->SetBrush(Color::Black);
-    //m_Painter3D->DrawTriangle(Point{-1.0f, -1.0f, 0.0f},
-    //                          Point{-1.0f, 1.0f, 0.0f},
-    //                          Point{1.0f, -1.0f, 0.0f});
+    // painter2d test
+    {
+        m_Painter2D->SetPen(Color::Red);
+        m_Painter2D->SetPen(5);
+        m_Painter2D->SetBrush(Color::Green);
+
+        //m_Painter2D->DrawPoint({300, 300});
+        //m_Painter2D->DrawLine({100, 100}, {200, 200});
+        //m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
+        //m_Painter2D->DrawRect({100, 100}, {200, 200});
+        //m_Painter2D->DrawCircle({100, 100}, 100, 100);
+    }
+
+    // painter3d test
+    {
+        m_Painter3D->SetPen(Color::Red);
+        m_Painter3D->SetPen(5);
+        m_Painter3D->SetBrush(Color::Green);
+
+        //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
+        //m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
+        //                          {1.0f, -1.0f, 0.0f});
+        //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
+        //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
+        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1, 100);
+        //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
+        //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
+        //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
+        //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                          1.0f, 16);
+        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //                      16);
+        //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                         1.0f, 8, 8);
+        //m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
+        //                         1.0f, 0.5f, 8);
+    }
 
     GLCheckError();
 }
@@ -871,12 +897,16 @@ void Scene::DrawFrame() {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GEQUAL);
 
-        ShadowPass();
-        ForwardPass();
-        TransparentPass();
-        //VolumeRenderingPass();
+        if (!m_EnableVolumeRendering) {
+            ShadowPass();
+            ForwardPass();
+            TransparentPass();
+        } else {
+            VolumeRenderingPass();
+        }
 
         // draw scene painter
+        m_Painter2D->Draw(this);
         m_Painter3D->Draw(this);
     }
 
@@ -997,7 +1027,9 @@ void Scene::ForwardPass() {
             if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
 
             // draw painter(since painter does not support transparency)
-            model->GetPainter()->Draw(this);
+            if (drawObject->GetVisibility()) {
+                model->GetPainter()->Draw(this);
+            }
         }
     }
 #endif
@@ -1105,12 +1137,7 @@ void Scene::VolumeRenderingPass() {
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColorMS", 1);
 
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() != 1.0f) {
-                model->DrawWithVolume(this);
-            }
-        }
+        for (auto& [id, model]: m_Models) { model->DrawWithVolume(this); }
     }
     glDepthMask(GL_TRUE);
 
@@ -1228,7 +1255,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 }
 
 void Scene::LookAtPositiveX() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1244,7 +1271,7 @@ void Scene::LookAtPositiveX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeX() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1260,7 +1287,7 @@ void Scene::LookAtNegativeX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtPositiveY() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1275,7 +1302,7 @@ void Scene::LookAtPositiveY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeY() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1291,7 +1318,7 @@ void Scene::LookAtNegativeY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtPositiveZ() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1306,7 +1333,7 @@ void Scene::LookAtPositiveZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtNegativeZ() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1319,7 +1346,7 @@ void Scene::LookAtNegativeZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 void Scene::LookAtIsometric() {
-    ResetCenter();
+    ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
@@ -1362,6 +1389,16 @@ void Scene::RotateNinetyCounterClockwise() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+}
+
+void Scene::SetVolumeRendering(bool toggled) {
+    m_EnableVolumeRendering = toggled;
+    for (auto& [id, model]: m_Models) {
+        if (!model->m_DataObject->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        drawObject->SetShellRenderingOption(!toggled);
+    }
+    Update();
 }
 
 void Scene::UpdateModelsBoundingSphere() {
@@ -1407,29 +1444,33 @@ void Scene::CalculateFrameRate() {
     }
 }
 
-unsigned char* Scene::CaptureOffScreenBuffer(int width, int height) {
-    //    unsigned char * screenPixel = new unsigned char [width * height * 3];
-    //    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
+std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
+                                                int height) {
+    std::vector<unsigned char> colorBuffer(width * height * 3);
 
-    auto old_viewport = this->m_Camera->GetViewPort();
-    GLCheckError();
-    Resize(width, height, m_Camera->GetDevicePixelRatio());
-    glFinish();
-    //    GLCheckError();
-    //    Draw();
-    //    Draw();
-    //    GLCheckError();
-    //    glFinish();
-    unsigned char* screenPixel = new unsigned char[width * height * 3];
-    //    GLint defaultFramebuffer = GL_NONE;
-    //    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
-    //    std::cout << "default frame : " << defaultFramebuffer << '\n';
-    //    glBindFramebuffer(GL_FRAMEBUFFER, 1);
-    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, screenPixel);
-    //    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GLCheckError();
-    Resize(old_viewport.x, old_viewport.y, m_Camera->GetDevicePixelRatio());
-    GLCheckError();
-    return screenPixel;
+    m_FramebufferResolved->Bind();
+    {
+        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        //
+        //  y↑
+        //   |
+        //   |
+        //   +-----→x
+        //
+        glReadPixels(x, y, width, height, GL_BGR, GL_UNSIGNED_BYTE,
+                     colorBuffer.data());
+    }
+    m_FramebufferResolved->Release();
+
+    return colorBuffer;
 }
+
+void Scene::MakeCurrent() {
+    if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
+}
+
+void Scene::DoneCurrent() {
+    if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
+}
+
 IGAME_NAMESPACE_END

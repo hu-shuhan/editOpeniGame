@@ -74,7 +74,7 @@ static T Base64_Convert_TargetValue(const char* p) {
     int i = 0;
     unsigned char char_array_4[4], char_array_3[3];
     int type_size = sizeof(T);
-    unsigned char* target_bytes = new unsigned char[type_size];
+    auto* target_bytes = new unsigned char[type_size];
 
     T res = 0;
     int target_byte_count = 0;
@@ -92,7 +92,7 @@ static T Base64_Convert_TargetValue(const char* p) {
                 target_bytes[target_byte_count++] = char_array_3[i];
                 if (target_byte_count == type_size) {
                     res  = bytes_to_target<T>(target_bytes);
-                    delete [] target_bytes;
+                    delete[] target_bytes;
                     return res;
                 }
             }

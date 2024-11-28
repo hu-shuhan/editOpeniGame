@@ -29,10 +29,16 @@ elseif(UNIX)
         )
     endif()
 endif ()
-
+find_path(FFMPEG_DLL_DIR
+        NAMES
+        avcodec-61.dll
+        PATHS
+        "D:/dev/FFMPEG/bin"
+)
 
 mark_as_advanced(FFMPEG_PRIVATE_INCLUDE_DIR)
 mark_as_advanced(FFMPEG_PRIVATE_LIB)
+mark_as_advanced(FFMPEG_DLL_DIR)
 
 set(FFMPEG_LIB_LIST
         avcodec
@@ -44,7 +50,7 @@ set(FFMPEG_LIB_LIST
         swresample
         swscale
 )
-
+mark_as_advanced(FFMPEG_LIB_LIST)
 
 set(FOUND_FFMPEG_LIB_FULL_PATH)
 set(FFMPEG_LIB_TARGETS)

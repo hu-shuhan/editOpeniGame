@@ -20,9 +20,10 @@ public:
 
 	bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
 	bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
+	bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
 	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 
-
+	void ComputePointValueAndCellVisible(Points::Pointer ,CellArray::Pointer,FloatArray::Pointer,CharArray::Pointer);
 	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 		std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell);
 

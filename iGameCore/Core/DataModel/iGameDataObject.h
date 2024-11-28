@@ -31,7 +31,7 @@ public:
     void SetTimeFrames(StreamingData::Pointer p) { m_TimeFrames = p; }
     void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
 
-    void SetAttributeSet(AttributeSet::Pointer p) { m_Attributes = p; }
+    void SetAttributeSet(AttributeSet::Pointer p);
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
     Metadata* GetMetadata() { return m_Metadata.get(); }
     PropertyTree* GetPropertys() { return m_Propertys.get(); }

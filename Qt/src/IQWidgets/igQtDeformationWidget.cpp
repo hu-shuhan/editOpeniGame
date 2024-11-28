@@ -114,6 +114,7 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
         auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
         deformFilter->SetInput(dataObject);
         if(!deformFilter->Execute()) std::cout << " error \n";
+        iGame::SceneManager::Instance()->GetCurrentScene()->Update();
     });
     QRegularExpression  rx("-?\\d*\\.?\\d+");
     ui->lineEdit_Uniform_val->setValidator(new QRegularExpressionValidator(rx, this));

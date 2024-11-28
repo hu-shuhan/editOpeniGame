@@ -108,6 +108,7 @@
         <file>Icons/Slice.svg</file>
         <file>Icons/Deformation.svg</file>
         <file>Icons/contourline.svg</file>
+        <file>Icons/VolumeRendering.svg</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>

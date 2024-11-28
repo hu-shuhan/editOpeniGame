@@ -2,14 +2,12 @@
 // Created by Sumzeek on 7/4/2024.
 //
 
-#ifndef OPENIGAME_SCENCE_H
-#define OPENIGAME_SCENCE_H
+#pragma once
 
-#include <GLFramebuffer.h>
-#include <GLIndirectCommand.h>
-#include <GLShader.h>
-#include <GLTextureBuffer.h>
-
+#include "OpenGL/GLFramebuffer.h"
+#include "OpenGL/GLIndirectCommand.h"
+#include "OpenGL/GLShader.h"
+#include "OpenGL/GLTextureBUffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameFontSet.h"
@@ -19,6 +17,7 @@
 
 IGAME_NAMESPACE_BEGIN
 class Interactor;
+
 class Scene : public Object {
 public:
     I_OBJECT(Scene);
@@ -27,7 +26,7 @@ public:
     /* Model Related */
     int AddModel(DataObject::Pointer);
     int AddModel(Model::Pointer);
-    void ResetCenter();
+    void ResetCameraView();
     Model::Pointer CreateModel(DataObject::Pointer);
     void RemoveModel(int index);
     void RemoveModel(Model*);
@@ -97,7 +96,7 @@ public:
         SHADERTYPE_COUNT
     };
 
-    Camera::Pointer Camera() { return m_Camera; }
+    Camera::Pointer GetCamera() { return m_Camera; }
     void ChangeCameraType(IGenum type);
     GLTexture2d::Pointer DepthPyramid() { return m_DepthPyramid; }
 
@@ -133,28 +132,27 @@ public:
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
 
-    unsigned char* CaptureOffScreenBuffer(int width, int height);
-
-    template<typename Functor, typename... Args>
-    void SetUpdateFunctor(Functor&& functor, Args&&... args) {
-        m_UpdateFunctor = std::bind(functor, args...);
-    }
-
+    void SetVolumeRendering(bool toggled);
+    std::vector<unsigned char> CaptureScreen(int x, int y, int width,
+                                             int height);
     GLBuffer::Pointer GetDrawCullDataBuffer() { return m_DrawCullData; }
 
-    void MakeCurrent() {
-        if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
-    }
-    void DoneCurrent() {
-        if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
+    void MakeCurrent();
+    void DoneCurrent();
+    template<typename Functor, typename... Args>
+    void SetUpdateFunctor(Functor&& functor, Args&&... args) {
+        m_UpdateFunctor = std::bind(std::forward<Functor>(functor),
+                                    std::forward<Args>(args)...);
     }
     template<typename Functor, typename... Args>
     void SetMakeCurrentFunctor(Functor&& functor, Args&&... args) {
-        m_MakeCurrentFunctor = std::bind(functor, args...);
+        m_MakeCurrentFunctor = std::bind(std::forward<Functor>(functor),
+                                         std::forward<Args>(args)...);
     }
     template<typename Functor, typename... Args>
     void SetDoneCurrentFunctor(Functor&& functor, Args&&... args) {
-        m_DoneCurrentFunctor = std::bind(functor, args...);
+        m_DoneCurrentFunctor = std::bind(std::forward<Functor>(functor),
+                                         std::forward<Args>(args)...);
     }
 
 protected:
@@ -162,7 +160,6 @@ protected:
     ~Scene() override;
 
     void UpdateModelsBoundingSphere();
-
 
     void InitOpenGL();
     void InitOIT();
@@ -177,17 +174,18 @@ protected:
     void DrawFrame();
     void ResolveFrame();
     void RenderToQtFrame();
+
+    void ShadowPass();
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
-    void ShadowPass();
 
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(DataObject* obj);
     void UpdateUniformBufferObjectBlock(DataObject* obj);
 
     void DrawAxes(igm::ivec4 drawRange);
-    void CalculateFrameRate();
+    static void CalculateFrameRate();
 
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;
@@ -195,9 +193,9 @@ protected:
     int m_CurrentModelId{-1};
     Model* m_CurrentModel{nullptr};
 
-    std::function<void()> m_UpdateFunctor;
-    std::function<void()> m_MakeCurrentFunctor;
-    std::function<void()> m_DoneCurrentFunctor;
+    std::function<void()> m_UpdateFunctor{nullptr};
+    std::function<void()> m_MakeCurrentFunctor{nullptr};
+    std::function<void()> m_DoneCurrentFunctor{nullptr};
 
     Camera::Pointer m_Camera{};
     Light::Pointer m_Light{};
@@ -247,14 +245,14 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
-    Painter3D::Pointer m_Painter3D = Painter3D::New();
+    Painter2D::Pointer m_Painter2D{Painter2D::New()};
+    Painter3D::Pointer m_Painter3D{Painter3D::New()};
 
     bool m_FinishInit{false};
+    bool m_EnableVolumeRendering{false};
 
     friend class Model;
     friend class Interactor;
-    friend class BasicInteractor;
 };
 
 IGAME_NAMESPACE_END
-#endif // OPENIGAME_SCENC
