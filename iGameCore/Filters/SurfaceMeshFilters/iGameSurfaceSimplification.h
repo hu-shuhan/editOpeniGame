@@ -21,6 +21,7 @@ public:
     static constexpr int QEM_HALF_BOUNDARY_EDGE = 1; // 边界半边
     static constexpr int QEM_BOUNDARY_EDGE = 2;      // 边界边
 
+private:
     int TargetFaceNum = 0;         // 目标面数
     double TargetReduction = 0.5;  // 减少的百分比
     bool NormalCheck = true;       // 是否进行法线检查。
@@ -33,6 +34,7 @@ public:
     double QualityThr = 0.3;           // 用于质量检查的质量阈值。
     bool ScalarCheck = true;          // 是否进行标量检查。
 
+public:
 	bool Execute() override {
 
         AttributeSet* att;

@@ -378,6 +378,18 @@ void igQtMainWindow::initAllFilters() {
         auto obj =
                 rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        obj = triangulation->GetOutput();
+
+        Simplification::Pointer filter = Simplification::New();
+        filter->SetTargetReduction(0.5);
+        filter->SetInput(obj);
+        filter->Execute();
+
+        modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        rendererWidget->update();
+        return;
         bool flag = false;
         switch (obj->GetDataObjectType()) {
             case IG_SURFACE_MESH:
@@ -449,21 +461,21 @@ void igQtMainWindow::initAllFilters() {
     //    obj = triangulation->GetOutput();
     //
 
-        Simplification::Pointer filter = Simplification::New();
-        //Gradient::Pointer filter = Gradient::New();
-        filter->SetInput(obj);
-        //filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-        filter->Execute();
+        //Simplification::Pointer filter = Simplification::New();
+        ////Gradient::Pointer filter = Gradient::New();
+        //filter->SetInput(obj);
+        ////filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+        //filter->Execute();
 
-        //auto mesh = DynamicCast<SurfaceMesh>(obj);
-        //mesh->RequestEditStatus();
-        //igIndex ids[8]{};
-        //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
-        //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
-        //    if (size > 2) { std::cout << "123\n"; }
-        //}
-        modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-        rendererWidget->update();
+        ////auto mesh = DynamicCast<SurfaceMesh>(obj);
+        ////mesh->RequestEditStatus();
+        ////igIndex ids[8]{};
+        ////for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
+        ////    int size = mesh->GetEdgeToNeighborFaces(i, ids);
+        ////    if (size > 2) { std::cout << "123\n"; }
+        ////}
+        //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        //rendererWidget->update();
     });
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
