@@ -71,10 +71,8 @@ int Scene::AddModel(Model::Pointer model) {
     model->m_Scene = this;
 
     ChangeModelVisibility(model.get(), true);
-    UpdateModelsBoundingSphere();
 
     this->Update();
-
     return newModelId;
 }
 
@@ -209,14 +207,14 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
     auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
     drawObject->SetVisibility(visibility);
 
-    UpdateModelsBoundingSphere();
-
     if (visibility) {
         m_VisibleModelsCount++;
         if (m_VisibleModelsCount == 1) { ResetCameraView(); }
     } else {
         m_VisibleModelsCount--;
     }
+
+    UpdateModelsBoundingSphere();
 }
 
 void Scene::ChangeCameraType(IGenum type) {
