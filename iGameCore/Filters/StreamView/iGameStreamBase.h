@@ -12,10 +12,15 @@ public:
     static iGameStreamBase* New() { return new iGameStreamBase; }
     ~iGameStreamBase();
     iGameStreamTracer* streamFilter;
-    void SetStreamLine(std::vector<std::vector<float>> streamLine) {
-        auto tmp = std::vector<std::vector<float>>();
-        m_StreamLine.swap(tmp);
+    void SetStreamLine(std::vector<std::vector<float>> streamLine,
+                       std::vector<std::vector<float>> streamLineColor) {
+        auto tmp1 = std::vector<std::vector<float>>();
+        m_StreamLine.swap(tmp1);
         m_StreamLine = streamLine;
+        auto tmp2 = std::vector<std::vector<float>>();
+        m_StreamLineColor.swap(tmp2);
+        m_StreamLineColor = streamLineColor;
+        isUpdate = true;
     }
 
 protected:
@@ -24,13 +29,15 @@ protected:
 private:
     // Point array
     Points::Pointer m_Points;
+    UnsignedIntArray::Pointer index;
     // color array
     FloatArray::Pointer m_PositionColors;
-
+    bool isUpdate = false;
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
     std::vector<std::vector<float>> m_StreamLine;
+    std::vector<std::vector<float>> m_StreamLineColor;
 };
 IGAME_NAMESPACE_END
 #endif

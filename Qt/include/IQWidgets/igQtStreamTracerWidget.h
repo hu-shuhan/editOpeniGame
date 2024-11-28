@@ -4,6 +4,7 @@
 #include <iostream>
 #include <StreamView/iGameStreamBase.h>
 #include <iGameUnstructuredMesh.h>
+#include<iGameStructuredMesh.h>
 #include<iGamePointFinder.h>
 class igQtStreamTracerWidget : public QWidget {
 
@@ -38,6 +39,8 @@ private:
     float terminalSpeed;
     bool haveDraw;
     bool haveClicked;
+    std::string masterName;
+    std::string vectorName;
     UnstructuredMesh::Pointer streamlineResult{};
     PointFinder::Pointer ptFinder{};
     iGameStreamBase* m_StreamBase{ nullptr };

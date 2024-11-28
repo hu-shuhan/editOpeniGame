@@ -94,35 +94,40 @@ void igQtStreamTracerWidget::generateStreamline() {
 	iGameStreamTracer* streamtracer=m_StreamBase->streamFilter;
 	Model::Pointer model = scene->GetCurrentModel();
 	VolumeMesh::Pointer mesh;
-	if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+    std::cout << model->GetDataObject()->GetName() << std::endl;
+	auto tem=model->GetDataObject();
+   // if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+        if (false) {
 		 mesh = DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh();
 	}
 	else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
 		mesh = DynamicCast<VolumeMesh>(model->GetDataObject());
-	}
+	} 
 	else { return; }
 
 	streamtracer->SetMesh(mesh);
+    streamtracer->seedLineGenerate(numOfSeeds);
+    masterName = model->GetDataObject()->GetName();
 	if (!ptFinder)
 	{
 		ptFinder = PointFinder::New();
 		//ptFinder->SetPoints(mesh->GetPoints());
 		ptFinder->Initialize();
 	}
-	streamtracer->SetPtFinder(ptFinder);
+	streamtracer->AddPtFinder(ptFinder);
 	auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;
 	std::vector<std::vector<float>> streamline;
 	if (mesh->GetIsPolyhedronType()) {
-		 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+		 streamline = streamtracer->showStreamLineCellData(seeds, "Deformation", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 	}
 	else {
-		 streamline = streamtracer->showStreamLineHex(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+		 streamline = streamtracer->showStreamLineHex(seeds, "Deformation", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 	}
-	m_StreamBase->SetStreamLine(streamline);
+	m_StreamBase->SetStreamLine(streamline,streamlineColor);
 
 	if (!haveDraw) {
-		m_StreamBase->DataObject::SetName("SONGGENB");
+		m_StreamBase->DataObject::SetName(masterName+"_StreamLine");
 		Q_EMIT AddStreamObject(m_StreamBase);
 		haveDraw = true;
 	}

@@ -15,6 +15,17 @@ float DC[6] = {37.0 / 378.0 - 2825.0 / 27648.0,
                125.0 / 594.0 - 13525.0 / 55296.0,
                -277.0 / 14336.0,
                512.0 / 1771.0 - 1.0 / 4.0};
+std::vector<Vector3f> iGameStreamTracer::seedLineGenerate(int numOfseed){
+    std::vector<Vector3f> tem;
+    auto boundBox = this->mesh->GetBoundingBox();
+    Vector3f maxPosition(boundBox.max);
+    Vector3f minPosition(boundBox.min);
+    Vector3f V=(maxPosition-minPosition)/numOfseed;
+    for (int i = 0; i < numOfseed; i++) {
+        tem.emplace_back(minPosition +V*i);
+    }
+    return tem;
+}
 std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control,
                                                       float proportion,
                                                       int numOfseed) { // face
@@ -81,6 +92,7 @@ iGameStreamTracer::streamSeedGenerate(int control, float proportion,
     // auto HexMesh =
     // iGameHexMesh::SafeDownCast(model->RenderMeshes[0]);//Subsequent update
     // options
+    
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPoints = mesh->GetPoints();
     int numOfPoints = mesh->GetNumberOfPoints();
@@ -1049,8 +1061,8 @@ Vector3f iGameStreamTracer::interpolationVectorMixWithMeanV(
             Point a = mesh->GetPoint(i);
             if ((a - coord).length() <= 0.001) { return _vector[i]; }
         }
-        if (ptFinder) {
-            igIndex temPointId = ptFinder->FindClosestPoint(coord);
+        if (ptFinder[0]) {
+            igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
             igIndex nearVolume[128];
             int find = mesh->GetPointToNeighborVolumes(temPointId, nearVolume);
             for (int i = 0; i < find; i++) { tem.emplace_back(nearVolume[i]); }
