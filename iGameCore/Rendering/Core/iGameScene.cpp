@@ -1457,7 +1457,7 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         //   |
         //   +-----→x
         //
-        glReadPixels(x, y, width, height, GL_BGR, GL_UNSIGNED_BYTE,
+        glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
                      colorBuffer.data());
     }
     m_FramebufferResolved->Release();

@@ -67,9 +67,9 @@ bool iGame::iGamePVDReader::Parsing() {
         {
             std::string fileName, fileSuffix;
             auto t2 = std::chrono::steady_clock::now();
-            std::vector<DataObject::Pointer> results(firstFrame.metaData->Size());
+            std::vector<DataObject::Pointer> results(firstFrame.GetMetaData()->Size());
             std::vector<std::future<DataObject::Pointer>> readTaskList;
-            for(int i = 0; i < firstFrame.metaData->Size(); i ++){
+            for(int i = 0; i < firstFrame.GetMetaData()->Size(); i ++){
                 readTaskList.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
                     DataObject::Pointer newObj;
                     const char* pos = strrchr(fileName.data(), '.');
@@ -95,7 +95,7 @@ bool iGame::iGamePVDReader::Parsing() {
                     }
                     results[i] = newObj;
                     return newObj;
-                }, firstFrame.metaData->GetElement(i)));
+                }, firstFrame.GetMetaData()->GetElement(i)));
             }
             for(auto& task : readTaskList){
                 task.get();

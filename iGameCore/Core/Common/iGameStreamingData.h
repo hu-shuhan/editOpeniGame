@@ -16,14 +16,19 @@ class StreamingData : public Object{
 public:
     I_OBJECT(StreamingData)
     struct TimeFrame{
-        float timeValue{-1};
-        StringArray::Pointer metaData{nullptr};
-        StreamingType type;
+    protected:
+            float timeValue{-1};
+            StringArray::Pointer metaData{nullptr};
+            StreamingType type;
 
+    public:
         TimeFrame()= default;
-
         TimeFrame(float _t,  StringArray::Pointer f_names, StreamingType _type) : timeValue(_t), metaData(std::move(f_names)), type(_type){}
         TimeFrame(float _t,  StringArray::Pointer f_names) : timeValue(_t), metaData(std::move(f_names)), type(NONE){}
+
+        float GetTimeValue(){return timeValue;}
+        StringArray::Pointer GetMetaData(){return metaData;}
+        StreamingType GetFrameType(){return type;}
     };
 
     static Pointer New() { return new StreamingData; }
