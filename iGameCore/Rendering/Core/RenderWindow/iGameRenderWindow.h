@@ -19,21 +19,21 @@ public:
 
     static Pointer New(){return new RenderWindow;}
 
-    void setScene(Scene* scene);
+    void SetScene(Scene* scene);
 
-    void setInteractor(Interactor* _interactor);
+    void SetInteractor(Interactor* _interactor);
 
-    void show();
+    void Show();
 
-    void setSize(int width, int height);
+    void SetSize(int width, int height);
 
-    void setTitle(const char* title);
+    void SetTitle(const char* title);
 
-    void setTitle(const std::string& title);
+    void SetTitle(const std::string& title);
 
-    Scene* getScene();
+    Scene* GetScene();
 
-    GLFWwindow* getRawWindowPtr();
+    GLFWwindow* GetRawWindowPtr();
 protected:
     GLFWwindow* m_window{nullptr};
     std::string m_title{"OpeniGame - GLFW_OpenGL"};
@@ -44,7 +44,7 @@ protected:
 
     int m_window_width{800}, m_window_height{600};
 protected:
-    void resizeScene();
+    void ResizeScene();
 
 private:
 

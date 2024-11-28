@@ -96,7 +96,13 @@ enum StreamingType{
     MultiSubFiles,
     SingleFieldAttributes
 };
+// Output frameBuffer's Type
+enum FrameBufferType{
+    RGBA,
+    RGB,
+    ZBuffer,
 
+};
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };
 
