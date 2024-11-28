@@ -50,3 +50,9 @@ static void SetViewStyle() {
     // Start the render loop
     window->show();
 }
+
+
+int main() { 
+
+    return 0;
+}
