@@ -96,15 +96,13 @@ void igQtStreamTracerWidget::generateStreamline() {
 	VolumeMesh::Pointer mesh;
     std::cout << model->GetDataObject()->GetName() << std::endl;
 	auto tem=model->GetDataObject();
-	if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+   // if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+        if (false) {
 		 mesh = DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh();
 	}
 	else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
 		mesh = DynamicCast<VolumeMesh>(model->GetDataObject());
 	} 
-	else if (DynamicCast<StructuredMesh>(model->GetDataObject())) {
-        mesh = DynamicCast<VolumeMesh>(model->GetDataObject());
-    }
 	else { return; }
 
 	streamtracer->SetMesh(mesh);
@@ -116,7 +114,7 @@ void igQtStreamTracerWidget::generateStreamline() {
 		//ptFinder->SetPoints(mesh->GetPoints());
 		ptFinder->Initialize();
 	}
-	streamtracer->SetPtFinder(ptFinder);
+	streamtracer->AddPtFinder(ptFinder);
 	auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;
 	std::vector<std::vector<float>> streamline;

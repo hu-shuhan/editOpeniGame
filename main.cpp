@@ -13,6 +13,7 @@
 #include <iGameRenderWindow.h>
 #include <iGameScene.h>
 int main(int argc, char* argv[]) {
+    
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(
             Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
@@ -28,13 +29,13 @@ int main(int argc, char* argv[]) {
     format.setRedBufferSize(8); // RGBA8
     format.setGreenBufferSize(8);
     format.setBlueBufferSize(8);
-    //format.setAlphaBufferSize(8); // This will cause the OpenGLWidget window to be transparent
+    format.setAlphaBufferSize(8); // This will cause the OpenGLWidget window to be transparent
 
     // If the depth buffer is set to 24, the line width can only be set to 1
     format.setDepthBufferSize(32);
 
     // If the template buffer is turned on, the line width can only be set to 1
-    // format.setStencilBufferSize(8);
+     format.setStencilBufferSize(8);
 
     format.setSamples(1);
     QSurfaceFormat::setDefaultFormat(format);
