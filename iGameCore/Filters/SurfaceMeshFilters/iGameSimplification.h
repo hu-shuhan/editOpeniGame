@@ -23,16 +23,16 @@ public:
 
     int TargetFaceNum = 0;         // 目标面数
     double TargetReduction = 0.8;  // 减少的百分比
-    bool NormalCheck = true;       // 是否进行法线检查。
+    bool NormalCheck = true;      // 是否进行法线检查。
     double NormalThr = M_PI / 6.0; // 法线检查的阈值，以弧度表示。
     double CosineThr = cos(NormalThr); // 法线检查的余弦阈值。
     bool OptimalPosition = true;       // 是否使用最优位置。
     bool PreserveBoundary = false;     // 是否保持边界。
     double QuadricEpsilon = 1e-15;     // 二次型的阈值。
-    bool QualityCheck = true;          // 是否进行质量检查。
+    bool QualityCheck = false;          // 是否进行质量检查。
     double QualityThr = 0.3;           // 用于质量检查的质量阈值。
     bool ScalarCheck = true;          // 是否进行标量检查。      
-    bool IsAllScalarCheck = true;
+    bool IsAllScalarCheck = false;
 
     struct AttribInfo {
         int mapId;
@@ -398,8 +398,7 @@ protected:
         }
         for (int i = 0; i < attributes_count; i++) {
             attributes[i].weights /= attributes_count;
-            std::cout << attributes[i].weights << std::endl;
-            //attributes[i].weights *= 0.05;
+            //std::cout << attributes[i].weights << std::endl;
         }
         origValue->SetDimension(attributes_count);
         origValue->Resize(256);

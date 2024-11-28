@@ -768,7 +768,7 @@ painter->SetBrush(Color::Red);
 ```cmake
 add_custom_target(uninstall
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/EigenUninstall.cmake)
-``` 
+```
 
 目前有两个外部库添加卸载指令，任意选择其一注释相关代码即可（在各自根目录的``CmakeLists.txt``中）：
 
