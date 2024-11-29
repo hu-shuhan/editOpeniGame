@@ -146,10 +146,10 @@ public:
 	void DeleteVolume(const IGsize volumeId);
 
 	CellArray* GetCells() { return this->GetVolumes(); };
-	void GetCell(igIndex cellId, Cell* cell) {
+	void GetCell(igIndex cellId, Cell::Pointer& cell) {
 		cell = this->GetVolume(cellId);
 	};
-	Cell* GetCell(igIndex cellId) { 		
+	Cell::Pointer GetCell(igIndex cellId) { 		
 		return this->GetVolume(cellId); 
 	}
 	igIndex GetCellDimension(igIndex CellTyp) { return 3; };
@@ -162,8 +162,6 @@ public:
 	bool IsCornerPoint(const IGsize ptId) override;
 
 	void ReplacePointReference(const IGsize fromPtId, const IGsize toPtId) {
-		assert(fromPtId < GetNumberOfPoints() && "ptId too large");
-		assert(toPtId < GetNumberOfPoints() && "ptId too large");
 		if (fromPtId == toPtId) { return; }
 		if (!InEditStatus()) { RequestEditStatus(); }
 		igIndex edgeIds[64]{}, faceIds[64]{}, volumeIds[64]{};

@@ -231,7 +231,7 @@ int SurfaceMesh::GetNumberOfLinks(const IGsize id, Type type) {
     return size;
 }
 int SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId, igIndex* ptIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     auto& link = m_EdgeLinks->GetLink(ptId);
     igIndex e[2]{};
     for (int i = 0; i < link.size; i++) {
@@ -243,7 +243,7 @@ int SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId, igIndex* ptIds) {
 }
 bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
                                           IdArray::Pointer ptIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     ptIds->Reset();
     auto& link = m_EdgeLinks->GetLink(ptId);
     igIndex e[2]{};
@@ -256,7 +256,7 @@ bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
 }
 bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
                                           ReturnContainer& ptIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     ptIds.reset();
     auto& link = m_EdgeLinks->GetLink(ptId);
     igIndex e[2]{};
@@ -268,21 +268,21 @@ bool SurfaceMesh::GetPointToOneRingPoints(const IGsize ptId,
     return true;
 }
 int SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     auto& link = m_EdgeLinks->GetLink(ptId);
     for (int i = 0; i < link.size; i++) { edgeIds[i] = link.pointer[i]; }
     return link.size;
 }
 bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
                                           const igIndex*& edgeIds, int& size) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     edgeIds = m_EdgeLinks->GetLinkPointer(ptId);
     size = m_EdgeLinks->GetLinkSize(ptId);
     return true;
 }
 bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds,
                                           int& size) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     auto& link = m_EdgeLinks->GetLink(ptId);
     for (int i = 0; i < link.size; i++) { edgeIds[i] = link.pointer[i]; }
     size = link.size;
@@ -291,7 +291,7 @@ bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId, igIndex* edgeIds,
 
 bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
                                           IdArray::Pointer edgeIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     const igIndex* pt = m_EdgeLinks->GetLinkPointer(ptId);
     int size = m_EdgeLinks->GetLinkSize(ptId);
     edgeIds->Reset();
@@ -307,21 +307,21 @@ bool SurfaceMesh::GetPointToNeighborEdges(const IGsize ptId,
     return true;
 }
 int SurfaceMesh::GetPointToNeighborFaces(const IGsize ptId, igIndex* faceIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     auto& link = m_FaceLinks->GetLink(ptId);
     for (int i = 0; i < link.size; i++) { faceIds[i] = link.pointer[i]; }
     return link.size;
 }
 bool SurfaceMesh::GetPointToNeighborFaces(const IGsize ptId,
                                           const igIndex*& faceIds, int& size) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     faceIds = m_FaceLinks->GetLinkPointer(ptId);
     size = m_FaceLinks->GetLinkSize(ptId);
     return true;
 }
 bool SurfaceMesh::GetPointToNeighborFaces(const IGsize ptId,
                                           IdArray::Pointer faceIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     const igIndex* pt = m_FaceLinks->GetLinkPointer(ptId);
     int size = m_FaceLinks->GetLinkSize(ptId);
     faceIds->Reset();
@@ -330,7 +330,7 @@ bool SurfaceMesh::GetPointToNeighborFaces(const IGsize ptId,
 }
 bool SurfaceMesh::GetPointToNeighborFaces(const IGsize ptId,
                                           ReturnContainer& faceIds) {
-    assert(ptId < GetNumberOfPoints() && "ptId too large");
+    
     const igIndex* pt = m_FaceLinks->GetLinkPointer(ptId);
     int size = m_FaceLinks->GetLinkSize(ptId);
     faceIds.reset();
@@ -759,8 +759,6 @@ bool SurfaceMesh::IsCornerPoint(const IGsize PointId) {
 
 void SurfaceMesh::ReplacePointReference(const IGsize fromPtId,
                                         const IGsize toPtId) {
-    assert(fromPtId < GetNumberOfPoints() && "ptId too large");
-    assert(toPtId < GetNumberOfPoints() && "ptId too large");
     if (fromPtId == toPtId) { return; }
     if (!InEditStatus()) { RequestEditStatus(); }
     igIndex edgeIds[64]{}, faceIds[64]{};

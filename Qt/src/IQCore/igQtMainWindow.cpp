@@ -342,41 +342,85 @@ void igQtMainWindow::initAllComponents() {
 igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
-    //QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
-    //connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
-    //        this, [&](bool checked) {
+    QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
+            this, [&](bool checked) {
 
-    //        //SurfaceMesh::Pointer mesh = SurfaceMesh::New();
-    //        //clock_t start, end;
-    //        //start = clock();
-    //        //Points::Pointer points = Points::New();
-    //        //CellArray::Pointer cells = CellArray::New();
-    //        //for (int i = 0; i < 10000000; i++) {
-    //        //    points->AddPoint(Point(1, 0, 0));
-    //        //    points->AddPoint(Point(0, 1, 0));
-    //        //    points->AddPoint(Point(0, 0, 1));
-    //        //    igIndex face[3]{i * 3 + 0, i * 3 + 1, i * 3 + 2};
-    //        //    cells->AddCellIds(face, 3);
-    //        //}
-    //        //mesh->SetPoints(points);
-    //        //mesh->SetFaces(cells);
-    //        //end = clock();
-    //        //std::cout << end - start << std::endl;
-    //        //start = clock();
-    //        //for (int i = 0; i < 10000000; i++) {
-    //        //    igIndex face[3]{};
-    //        //    mesh->GetFacePointIds(i, face);
-    //        //    if (face[0] == 0) { face[0] = 1; }
-    //        //}
-    //        //end = clock();
-    //        //std::cout << end - start << std::endl;
-    //        //return;
+            //SurfaceMesh::Pointer mesh = SurfaceMesh::New();
+            //clock_t start, end;
+            //start = clock();
+            //Points::Pointer points = Points::New();
+            //CellArray::Pointer cells = CellArray::New();
+            //for (int i = 0; i < 10000000; i++) {
+            //    points->AddPoint(Point(1, 0, 0));
+            //    points->AddPoint(Point(0, 1, 0));
+            //    points->AddPoint(Point(0, 0, 1));
+            //    igIndex face[3]{i * 3 + 0, i * 3 + 1, i * 3 + 2};
+            //    cells->AddCellIds(face, 3);
+            //}
+            //mesh->SetPoints(points);
+            //mesh->SetFaces(cells);
+            //end = clock();
+            //std::cout << end - start << std::endl;
+            //start = clock();
+            //for (int i = 0; i < 10000000; i++) {
+            //    igIndex face[3]{};
+            //    mesh->GetFacePointIds(i, face);
+            //    if (face[0] == 0) { face[0] = 1; }
+            //}
+            //end = clock();
+            //std::cout << end - start << std::endl;
+            //return;
 
-    //    if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-    //    Triangulation::Pointer triangulation = Triangulation::New();
-    //    auto obj =
-    //            rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        Triangulation::Pointer triangulation = Triangulation::New();
+        auto obj =
+                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        obj = triangulation->GetOutput();
+
+        Simplification::Pointer filter = Simplification::New();
+        filter->SetTargetReduction(0.5);
+        filter->SetInput(obj);
+        filter->Execute();
+
+        modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        rendererWidget->update();
+        return;
+        bool flag = false;
+        switch (obj->GetDataObjectType()) {
+            case IG_SURFACE_MESH:
+                flag = true;
+                break;
+            case IG_UNSTRUCTURED_MESH:
+            {
+                auto mesh = DynamicCast<UnstructuredMesh>(obj)
+                                    ->TransferToSurfaceMesh();
+                if (mesh) {
+                    obj = mesh;
+                    flag = true;
+                    break;
+                }
+                else {
+                    mesh = DynamicCast<UnstructuredMesh>(obj)
+                                   ->TransferToVolumeMesh();
+                    if (mesh) { 
+                        auto show = DynamicCast<UnstructuredMesh>(obj)
+                                            ->GetDisplayObject();
+                        if (show) { 
+                            flag = true;
+                            obj = show;
+                        }
+                    }
+                }
+            }
+                break;
+            default:
+                break;
+        }
 
     //    bool flag = false;
     //    switch (obj->GetDataObjectType()) {
@@ -417,22 +461,22 @@ void igQtMainWindow::initAllFilters() {
     //    obj = triangulation->GetOutput();
     //
 
-    //    Simplification::Pointer filter = Simplification::New();
-    //    //Gradient::Pointer filter = Gradient::New();
-    //    filter->SetInput(obj);
-    //    //filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-    //    filter->Execute();
+        //Simplification::Pointer filter = Simplification::New();
+        ////Gradient::Pointer filter = Gradient::New();
+        //filter->SetInput(obj);
+        ////filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+        //filter->Execute();
 
-    //    //auto mesh = DynamicCast<SurfaceMesh>(obj);
-    //    //mesh->RequestEditStatus();
-    //    //igIndex ids[8]{};
-    //    //for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
-    //    //    int size = mesh->GetEdgeToNeighborFaces(i, ids);
-    //    //    if (size > 2) { std::cout << "123\n"; }
-    //    //}
-    //    modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-    //    rendererWidget->update();
-    //});
+        ////auto mesh = DynamicCast<SurfaceMesh>(obj);
+        ////mesh->RequestEditStatus();
+        ////igIndex ids[8]{};
+        ////for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
+        ////    int size = mesh->GetEdgeToNeighborFaces(i, ids);
+        ////    if (size > 2) { std::cout << "123\n"; }
+        ////}
+        //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        //rendererWidget->update();
+    });
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;

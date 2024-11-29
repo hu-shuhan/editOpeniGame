@@ -8,7 +8,9 @@ set(iGameCore_module_DIR "C:/Program Files (x86)/OpeniGame/lib/cmake/iGameCore_m
 #set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpeniGame/lib/cmake/iGameCore_module")
 find_package(iGameCore_module REQUIRED)
 
-file(COPY "Models" DESTINATION ${CMAKE_BINARY_DIR} )
+set(RENDERING_ASSESTS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests)
+
+file(COPY "Models" DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
 add_executable (testSetRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/TestRendering/RenderWindow/SetRenderWindow.cpp")
 add_executable (testSetMultiRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/TestRendering/RenderWindow/SetMultiWindow.cpp")
 add_executable (testResetCameraView "${CMAKE_CURRENT_SOURCE_DIR}/TestRendering/ResetCameraView.cpp")

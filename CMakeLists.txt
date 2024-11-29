@@ -13,7 +13,7 @@ cmake_minimum_required(VERSION 3.19)
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
@@ -23,6 +23,9 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
+
+
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
@@ -51,7 +54,7 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
 add_executable(${PROJECT_NAME}
-        main.cpp)
+        main.cpp "Examples/Compression/Simplification.h" "Examples/Compression/Encoder.h" "Examples/Compression/Decoder.h")
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -70,6 +73,11 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
+
+#if(EXAMPLE_COMPILE )
+if(EXAMPLE_COMPILE AND ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    add_subdirectory(Examples)
+endif ()
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
 #if (WIN32)

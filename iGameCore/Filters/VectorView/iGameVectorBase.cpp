@@ -7,6 +7,12 @@ iGameVectorBase::iGameVectorBase() {
     this->m_PositionColors->SetDimension(3);
     this->index = UnsignedIntArray::New();
     this->index->SetDimension(3);
+    this->hL=0.0;
+    this->hR=0.0;
+    this->tL = 0;
+    this->tR=0.0;
+    this->count=0;
+
     this->SetTransparency(0.99f);
 }
 iGameVectorBase::~iGameVectorBase() {}

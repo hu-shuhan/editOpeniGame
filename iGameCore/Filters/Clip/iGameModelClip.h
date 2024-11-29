@@ -23,7 +23,7 @@ public:
 	bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
 	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 
-	void ComputePointValueAndCellVisible(Points::Pointer ,CellArray::Pointer,FloatArray::Pointer,CharArray::Pointer);
+	void ComputePointValueAndCellVisible(Points::Pointer, CellArray::Pointer, FloatArray::Pointer, CharArray::Pointer);
 	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 		std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell);
 
@@ -62,7 +62,7 @@ public:
 	}
 	void SetPlane(float o[3], float n[3]) {
 		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-		if(sum<1e-40){sum=1e-40;};
+		if (sum < 1e-40) { sum = 1e-40; };
 		m_Normal[0] = n[0] / sum;
 		m_Normal[1] = n[1] / sum;
 		m_Normal[2] = n[2] / sum;
@@ -73,7 +73,7 @@ public:
 	}
 	void SetPlane(double o[3], double n[3]) {
 		double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-		if (sum < 1e-40) { sum = 1e-40;};
+		if (sum < 1e-40) { sum = 1e-40; };
 		m_Normal[0] = n[0] / sum;
 		m_Normal[1] = n[1] / sum;
 		m_Normal[2] = n[2] / sum;
@@ -120,7 +120,7 @@ protected:
 	float m_Normal[3];
 	float m_Origin[3];
 
-	ArrayObject::Pointer m_SelectedScalar = nullptr;
+	ArrayObject::Pointer m_SelectedScalar{ nullptr };
 	int m_SeletectDimension = -1;
 	float m_IsoValue = 0.0;
 
