@@ -82,7 +82,13 @@ ENDIF ()
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    #    list(APPEND ThirdParty_lib_dependency cgns_static)
+    find_package(HDF5)
+    target_link_libraries(
+            ${MODULE_NAME} PUBLIC
+
+            ${HDF5_LIBRARIES}/../libzlib.lib
+            ${HDF5_LIBRARIES}/../libsz.lib
+            ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 #find_package(AbqSDK)
@@ -100,30 +106,30 @@ if (${FFMPEG_FOUND})
 endif ()
 
 if (ENABLE_GPSCUDA_MODULE)
-    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
-    message("Enable GPSCuda Module.")
-    target_include_directories(${MODULE_NAME} PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/wmma_extension/include
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/include
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
-            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/glm)
+target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
+message("Enable GPSCuda Module.")
+target_include_directories(${MODULE_NAME} PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/wmma_extension/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
+        ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/glm)
 
-    target_link_libraries(${MODULE_NAME} PUBLIC
-            CommonLib
-            Geom
-            GPHelperIO
-            GPSplineLib
-    )
+target_link_libraries(${MODULE_NAME} PUBLIC
+        CommonLib
+        Geom
+        GPHelperIO
+        GPSplineLib
+)
 
-    file(GLOB_RECURSE EXDLL ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
-    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${EXDLL}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
+file(GLOB_RECURSE EXDLL ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
+add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${EXDLL}
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)
 endif ()
 #--------------------------------------------------------------------
 # Target link Module needed ThirdParty's lib
@@ -149,5 +155,5 @@ endif ()
 #--------------------------------------------------------------------
 # Exec Install OpeniGame Core Module's CMake
 #--------------------------------------------------------------------
-#include(Cmake/CoreModuleInstall.cmake)
+include(Cmake/CoreModuleInstall.cmake)
 #--------------------------------------------------------------------

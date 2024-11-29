@@ -162,10 +162,10 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         currentDrawObject->GetTimeFrames()->GetArrays().empty())
         return;
     auto currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
-    auto& frameData = currentFrame.metaData;
+    auto frameData = currentFrame.GetMetaData();
 
     /* If the timeframe data store MultiSubFile's Path, the job is to Parse the sub File. */
-    if(currentFrame.type == StreamingType::MultiSubFiles)
+    if(currentFrame.GetFrameType() == StreamingType::MultiSubFiles)
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
@@ -187,9 +187,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         }
     } /* If the timeframe data store SingleField Attributes' Path,
     *   the job is to Parse the target File's Field Attribute replace of the original one. */
-    else if(currentFrame.type == StreamingType::SingleFieldAttributes)
+    else if(currentFrame.GetFrameType() == StreamingType::SingleFieldAttributes)
     {
-        const auto& filePath = currentFrame.metaData->GetElement(0);
+        const auto& filePath = currentFrame.GetMetaData()->GetElement(0);
         auto fileType = FileIO::GetFileType(filePath);
         if(fileType == FileIO::FileType::ODB){
             #if defined(AbqSDK_ENABLE)
@@ -207,7 +207,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     /* If obj has the deformation var and is enabled.
      * Make sure every timeStep have the deformation scale factor. */
 
-    if(currentDrawObject->GetDeformationData()->m_enable_dsf){
+    if(currentDrawObject->GetDeformationData()->GetEnableStatus()){
         StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
         deformFilter->SetInput(currentDrawObject);
         if(!deformFilter->Execute()) std::cout << " error \n";
@@ -240,9 +240,9 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     ||  currentDrawObject->GetTimeFrames()->GetArrays().empty()
     ||  keyframe_0 + 1 == currentDrawObject->GetTimeFrames()->GetArrays().size())
         return;
-    auto& frameSubFiles_0 = currentDrawObject->GetTimeFrames()
+    auto frameSubFiles_0 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0)
-            .metaData;
+            .GetMetaData();
     std::vector<iGame::DataObject::Pointer> results_0(frameSubFiles_0->GetNumberOfElements());
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
@@ -266,9 +266,9 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
         }
         currentDrawObject->UpdateSubDataObjectDataRange();
     }
-    auto& frameSubFiles_1 = currentDrawObject->GetTimeFrames()
+    auto frameSubFiles_1 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0 + 1)
-            .metaData;
+            .GetMetaData();
     {
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameSubFiles_1->GetNumberOfElements());
@@ -395,7 +395,7 @@ void igQtAnimationWidget::initAnimationComponents() {
     if (timeArrays.empty()) return;
     std::vector<float> timeValues;
     timeValues.reserve(timeArrays.size());
-    for (auto& timeArray: timeArrays) timeValues.push_back(timeArray.timeValue);
+    for (auto& timeArray: timeArrays) timeValues.push_back(timeArray.GetTimeValue());
     VcrController->initController(static_cast<int>(timeValues.size()), 1);
     ui->treeWidget_snap->initAnimationTreeWidget(timeValues);
     ui->treeWidget_interpolate->initAnimationTreeWidget(timeValues);
@@ -419,7 +419,7 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
 #include <IQComponents/Dialog/igQtVideoOptionDialog.h>
-
+#include <qDebug>
 bool igQtAnimationWidget::saveAnimation() {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;
@@ -437,12 +437,14 @@ bool igQtAnimationWidget::saveAnimation() {
     QStringList filters = {
             "Mp4 File(*.mp4)",
             "GIF File(*.gif)",
+            "PNG Files(*.png)",
     };
 
     QString SelectedFilter;
     QString path =
             QFileDialog::getSaveFileName(nullptr, "Save Animation As ", "",
                                          filters.join(";;"), &SelectedFilter);
+
     igQtVideoOptionDialog dialog(this);
     dialog.setWindowTitle("Save Animation Option.");
     int oldwidth = rendererWidget->width(),
@@ -455,12 +457,33 @@ bool igQtAnimationWidget::saveAnimation() {
         width = inputInfo.width, height = inputInfo.height;
     } else
         return false;
-    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
 
+    rendererWidget->resize(width / ratio_pixel, height / ratio_pixel);
+    int selected_idx = filters.indexOf(SelectedFilter);
+
+    switch (selected_idx) {
+        case 0:
+            if (!path.contains(".mp4")) path += ".mp4";
+            break;
+        case 1:
+            if (!path.contains(".gif")) path += ".gif";
+            break;
+        case 2:
+            if (!path.contains(".png")) path += ".png";
+            break;
+        default:
+            break;
+    }
+    QFileInfo info(path);
     for(int i = 0; i < timeStepSize; i ++)
     {
         this->playAnimation_snap(i);
         QImage image = rendererWidget->grabFramebuffer();
+        if(filters.indexOf(SelectedFilter) == 2){
+            qDebug() << QString(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+            image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+        }
+
         std::vector<uint8_t> tmp(image.bits(),
                                  image.bits() + image.sizeInBytes());
         inputInfo.bytes_per_line = image.bytesPerLine();
@@ -469,17 +492,7 @@ bool igQtAnimationWidget::saveAnimation() {
     rendererWidget->resize(oldwidth, oldheight);
 
 
-    int selected_idx = filters.indexOf(SelectedFilter);
-    switch (selected_idx) {
-        case 0:
-            if (!path.contains(".mp4")) path += ".mp4";
-            break;
-        case 1:
-            if (!path.contains(".gif")) path += ".gif";
-            break;
-        default:
-            break;
-    }
+
     FFMPEGVideoWriter::Pointer videoWriter = FFMPEGVideoWriter::New();
     inputInfo.output_path = path.toStdString();
     videoWriter->SetVideoInputInfo(inputInfo);
@@ -492,6 +505,9 @@ bool igQtAnimationWidget::saveAnimation() {
         case 1:
             sc = videoWriter->SaveGIF();
             break;
+        case 2:
+            sc = true;
+            break;
         default:
             break;
     }
@@ -503,33 +519,34 @@ bool igQtAnimationWidget::saveAnimation() {
 #endif
 
 
-    ////    currentScene
-    //    int width = 1920, height = 1080;
-    //    currentScene->MakeCurrent();
-    //    auto* bits = currentScene->CaptureOffScreenBuffer(width, height);
-    //    currentScene->DoneCurrent();
-    ////    for(auto i = 0; i )
-    //    FILE* pfile = fopen(file_path.toStdString().c_str(), "wb");
-    //    if(pfile){
-    //        BITMAPFILEHEADER  bfh;
-    //        memset(&bfh, 0, sizeof (BITMAPFILEHEADER));
-    //        bfh.bfType = 0x4D42;
-    //        bfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof (BITMAPINFOHEADER) + width * height * 3;
-    //        bfh.bfOffBits = sizeof (BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-    //        fwrite(&bfh, sizeof(BITMAPFILEHEADER), 1, pfile);
-    //
-    //        BITMAPINFOHEADER  bih;
-    //        memset(&bih, 0, sizeof (BITMAPINFOHEADER));
-    //        bih.biWidth = width;
-    //        bih.biHeight = height;
-    //        bih.biBitCount = 24;
-    //        bih.biSize = sizeof(BITMAPINFOHEADER);
-    //        fwrite(&bih, sizeof(BITMAPINFOHEADER), 1, pfile);
-    //
-    //        fwrite(bits, 1, width * height * 3, pfile);
-    //        fclose(pfile);
-    //    }
-    //    delete[] bits;
+//    //    currentScene
+//        int width = 1920, height = 1080;
+//        currentScene->MakeCurrent();
+////        currentScene->Resize()
+//        auto* bits = currentScene->CaptureOffScreenBuffer(width, height);
+//        currentScene->DoneCurrent();
+//    //    for(auto i = 0; i )
+//        FILE* pfile = fopen(file_path.toStdString().c_str(), "wb");
+//        if(pfile){
+//            BITMAPFILEHEADER  bfh;
+//            memset(&bfh, 0, sizeof (BITMAPFILEHEADER));
+//            bfh.bfType = 0x4D42;
+//            bfh.bfSize = sizeof(BITMAPFILEHEADER) + sizeof (BITMAPINFOHEADER) + width * height * 3;
+//            bfh.bfOffBits = sizeof (BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+//            fwrite(&bfh, sizeof(BITMAPFILEHEADER), 1, pfile);
+//
+//            BITMAPINFOHEADER  bih;
+//            memset(&bih, 0, sizeof (BITMAPINFOHEADER));
+//            bih.biWidth = width;
+//            bih.biHeight = height;
+//            bih.biBitCount = 24;
+//            bih.biSize = sizeof(BITMAPINFOHEADER);
+//            fwrite(&bih, sizeof(BITMAPINFOHEADER), 1, pfile);
+//
+//            fwrite(bits, 1, width * height * 3, pfile);
+//            fclose(pfile);
+//        }
+//        delete[] bits;
 
     return true;
 }

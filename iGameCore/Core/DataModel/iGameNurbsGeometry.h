@@ -11,13 +11,13 @@ public:
     static Pointer New() { return new NurbsGeometry; }
 
 public:
-    IGenum GetDataObjectType() const { return IG_NURBS_GEOMETRY; }
-
-    bool IsUseSinglePassWireframeRendering() { return false; }
+    IGenum GetDataObjectType() const override;
+    bool IsUseSinglePassWireframeRendering() override;
 
     void SetPatch(std::vector<NurbsSDK::Geometry>& geometrys);
     void SetBoundary(std::vector<std::array<int, 2>> boundary);
     void SetType(NurbsSDK::NurbsType type);
+    void SetSamples(size_t number);
 
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
@@ -36,8 +36,7 @@ protected:
     void ComputeBoundingBox() override;
 
     NurbsSDK::MultiGeo::Pointer m_Geometry;
-
-    //void Draw(Scene* scene) override;
+    size_t m_SampleNumber = 0;
 };
 
 IGAME_NAMESPACE_END

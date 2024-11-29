@@ -1,15 +1,34 @@
 if (CORE_MODULE_INSTALL)
     install(TARGETS ${MODULE_NAME}
             EXPORT ${MODULE_NAME}Targets
+            ARCHIVE DESTINATION lib
             LIBRARY DESTINATION lib
             RUNTIME DESTINATION bin
             INCLUDES DESTINATION include)
     install(TARGETS ${ThirdParty_lib_dependency}
             EXPORT ${MODULE_NAME}Targets
+            ARCHIVE DESTINATION lib/ThirdParty
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
+    if(ENABLE_CGNS_MODULE)
+        find_package(HDF5)
+        install(FILES
+                ${HDF5_LIBRARIES}/../libhdf5.lib
+                ${HDF5_LIBRARIES}/../libhdf5_hl.lib
+                ${HDF5_LIBRARIES}/../libhdf5_tools.lib
+                ${HDF5_LIBRARIES}/../libzlib.lib
+                ${HDF5_LIBRARIES}/../libsz.lib
+                ${HDF5_LIBRARIES}/../libaec.lib
+                DESTINATION lib/ThirdParty)
+#        file(GLOB )
+    endif ()
+
     if(${AbqSDK_FOUND})
-        install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/AbaqusSDK FILES_MATCHING PATTERN "*.h")
+        install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/AbaqusSDK
+                FILES_MATCHING PATTERN "*.h"
+                PATTERN "*/" EXCLUDE
+                PATTERN "2024/win_b64" EXCLUDE
+        )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
@@ -22,6 +41,7 @@ if (CORE_MODULE_INSTALL)
     if(${FFMPEG_FOUND})
         install(DIRECTORY ${FFMPEG_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/FFMPEG FILES_MATCHING PATTERN "*.h")
         file(GLOB DLL_FILES "${FFMPEG_DLL_DIR}/*.dll")
+
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/FFMPEG)
         list(APPEND ThirdParty_lib_dependency ${FFMPEG_LIB_LIST})
 

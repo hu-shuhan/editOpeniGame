@@ -34,7 +34,7 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
         }else {
             if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-            dataObject->GetDeformationData()->m_enable_auto_compute = false;
+            dataObject->GetDeformationData()->SetAutoCompute(false);
         }
     });
     connect(ui->radioButton_Uniform, &QRadioButton::toggled, this, [&](bool checked){
@@ -59,7 +59,7 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     connect(ui->checkBox_enableOffset, &QCheckBox::toggled, this, [&](bool checked){
         if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
         auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-        dataObject->GetDeformationData()->m_enable_dsf = checked;
+        dataObject->GetDeformationData()->SetEnableDeformation(checked);
         if(checked){
             if(ui->radioButton_Uniform->isChecked() || ui->radioButton_autoCompute->isChecked()){
                 dataObject->GetDeformationData()->SetScaleFactors(ui->lineEdit_Uniform_val->text().toFloat());
@@ -152,12 +152,12 @@ void igQtDeformationWidget::CalculateCurrentDSF() {
     if(dataObject == nullptr) return;
 
     if(dataObject != nullptr){
-        dataObject->GetDeformationData()->m_deformation_attribute_name = ui->comboBox_Deformation_vector->currentText().toStdString();
+        dataObject->GetDeformationData()->SetAttributeName(ui->comboBox_Deformation_vector->currentText().toStdString());
         iGame::StressDeformationFilter::Pointer p = iGame::StressDeformationFilter::New();
         p->SetInput(dataObject);
         p->CalculateIdealDSF();
     }
-    QString val = QString::number(dataObject->GetDeformationData()->m_deformation_scale_factor_x, 'f', 5);
+    QString val = QString::number(dataObject->GetDeformationData()->GetScaleFactorX(), 'f', 5);
     ui->lineEdit_Uniform_val->setText(val);
     ui->lineEdit_Nonuniform_x->setText(val);
     ui->lineEdit_Nonuniform_y->setText(val);

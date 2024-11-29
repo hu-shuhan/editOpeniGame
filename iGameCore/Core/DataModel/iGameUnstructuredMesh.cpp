@@ -81,6 +81,7 @@ SurfaceMesh::Pointer UnstructuredMesh::TransferToSurfaceMesh() {
     }
     if (CouldTransfer == false) { return nullptr; }
     SurfaceMesh::Pointer mesh = SurfaceMesh::New();
+    mesh->SetName(this->GetName());
     mesh->SetPoints(this->m_Points);
     mesh->SetFaces(this->m_Cells);
     mesh->SetAttributeSet(this->m_Attributes);

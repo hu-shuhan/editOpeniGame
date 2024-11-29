@@ -13,7 +13,6 @@
 #ifndef OPENIGAME_CAMERA_H
 #define OPENIGAME_CAMERA_H
 
-
 #include "iGameObject.h"
 #include "iGameRenderingMacro.h"
 #include "igm/igm.h"
@@ -62,8 +61,8 @@ public:
 public:
     void SetNearPlane(float nearz) {
         if (nearz < 0.01f) {
-            igDebug("near z provided is less than 0.01f. The near plane is set "
-                    "to 0.01f.");
+            //igDebug("near z provided is less than 0.01f. The near plane is set "
+            //        "to 0.01f.");
             m_NearZ = 0.01f;
         } else {
             m_NearZ = nearz;
@@ -209,7 +208,7 @@ public:
         if (m_CameraType == PERSPECTIVE) {
             return igm::perspectiveRH_OZ(
                     static_cast<float>(igm::radians(m_Fov)), aspect<float>(),
-                    m_NearZ);
+                    /*m_NearZ*/ 0.01f);
         } else if (m_CameraType == ORTHOGRAPHIC) {
             float dist = GetLengthToFocal();
             float orthoHeight = dist / 3.0f;

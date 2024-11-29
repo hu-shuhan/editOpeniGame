@@ -2,7 +2,6 @@
 // Created by Sumzeek on 9/12/2024.
 //
 
-#include "iGamePainter3D.h"
 #include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -101,8 +100,10 @@ void PainterBase::Draw(Scene* scene) {
             // draw line
             m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
             glad_glLineWidth(penWidth);
+            glad_glDepthRange(0.000001, 1);
             glad_glDrawElements(GL_LINES, m_LineEBOSizes[penWidth],
                                 GL_UNSIGNED_INT, 0);
+            glad_glDepthRange(0, 1);
 
             // draw triangle
             m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
@@ -121,6 +122,7 @@ void PainterBase::PackDrawableData() {
 
     std::unordered_map<float, FloatArray::Pointer> packPositions;
     std::unordered_map<float, FloatArray::Pointer> packColors;
+    //std::unordered_map<float, FloatArray::Pointer> packNormals;
     std::unordered_map<float, UnsignedIntArray::Pointer> packPointIndices;
     std::unordered_map<float, UnsignedIntArray::Pointer> packLineIndices;
     std::unordered_map<float, UnsignedIntArray::Pointer> packTriangleIndices;
@@ -133,12 +135,14 @@ void PainterBase::PackDrawableData() {
         if (packPositions.find(penWidth) == packPositions.end()) {
             packPositions[penWidth] = FloatArray::New();
             packColors[penWidth] = FloatArray::New();
+            //packNormals[penWidth] = FloatArray::New();
             packPointIndices[penWidth] = UnsignedIntArray::New();
             packLineIndices[penWidth] = UnsignedIntArray::New();
             packTriangleIndices[penWidth] = UnsignedIntArray::New();
 
             packPositions[penWidth]->SetDimension(3);
             packColors[penWidth]->SetDimension(3);
+            //packNormals[penWidth]->SetDimension(3);
             packPointIndices[penWidth]->SetDimension(1);
             packLineIndices[penWidth]->SetDimension(1);
             packTriangleIndices[penWidth]->SetDimension(1);
@@ -158,6 +162,9 @@ void PainterBase::PackDrawableData() {
         for (auto color: primitive.colors) {
             packColors[penWidth]->AddElement3(color[0], color[1], color[2]);
         }
+        //for (auto normal: primitive.normals) {
+        //    packNormals[penWidth]->AddElement3(normal[0], normal[1], normal[2]);
+        //}
         for (auto index: primitive.indices[0]) {
             packPointIndices[penWidth]->AddValue(index + offset);
         }
@@ -184,6 +191,10 @@ void PainterBase::PackDrawableData() {
         size = packColors[penWidth]->GetNumberOfValues();
         GLAllocateGLBuffer(m_ColorVBOs[penWidth], size * sizeof(float),
                            packColors[penWidth]->RawPointer());
+
+        //size = packNormals[penWidth]->GetNumberOfValues();
+        //GLAllocateGLBuffer(m_NormalVBOs[penWidth], size * sizeof(float),
+        //                   packNormals[penWidth]->RawPointer());
 
         size = packPointIndices[penWidth]->GetNumberOfValues();
         GLAllocateGLBuffer(m_PointEBOs[penWidth], size * sizeof(iguIndex),
@@ -216,6 +227,10 @@ void PainterBase::CreateDrawBuffer(float penWidth) {
     m_ColorVBOs[penWidth]->Create();
     m_ColorVBOs[penWidth]->Target(GL_ARRAY_BUFFER);
 
+    //m_NormalVBOs[penWidth] = GLBuffer::New();
+    //m_NormalVBOs[penWidth]->Create();
+    //m_NormalVBOs[penWidth]->Target(GL_ARRAY_BUFFER);
+
     m_PointEBOs[penWidth] = GLBuffer::New();
     m_PointEBOs[penWidth]->Create();
     m_PointEBOs[penWidth]->Target(GL_ELEMENT_ARRAY_BUFFER);
@@ -232,11 +247,15 @@ void PainterBase::CreateDrawBuffer(float penWidth) {
                                    3 * sizeof(float));
     m_VAOs[penWidth]->VertexBuffer(GL_VBO_IDX_1, m_ColorVBOs[penWidth], 0,
                                    3 * sizeof(float));
+    //m_VAOs[penWidth]->VertexBuffer(GL_VBO_IDX_2, m_NormalVBOs[penWidth], 0,
+    //                               3 * sizeof(float));
 
     GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
                       GL_FLOAT, GL_FALSE, 0);
     GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
                       GL_FLOAT, GL_FALSE, 0);
+    //GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
+    //                  GL_FLOAT, GL_FALSE, 0);
 }
 
 //void Painter::ExpandVBO(GLBuffer& vbo, size_t oldSize, size_t newSize) {

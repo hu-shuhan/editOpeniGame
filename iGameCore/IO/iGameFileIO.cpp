@@ -1,5 +1,7 @@
 #include "iGameFileIO.h"
 
+#include "iGameFileReader.h"
+#include "iGameFileWriter.h"
 #include "VTK/iGameVTKReader.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "VTK/iGameVTKWriter.h"

@@ -41,17 +41,6 @@ bool iGameXMLFileReader::Execute() {
 		std::cerr << "Not create mesh\n";
 		return false;
 	}
-	int size = m_Output->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
-//    auto pointset = DynamicCast<iGame::PointSet>(m_Output);
-//    auto uset = pointset->GetAttributeSet()->GetAttribute("U", IG_SCALAR).pointer;
-
-	if (size > 0) {
-		StringArray::Pointer attrbNameArray = StringArray::New();
-		for (int i = 0; i < size; i++) {
-			auto& data = m_Output->GetAttributeSet()->GetAttribute(i);
-			attrbNameArray->AddElement(data.pointer->GetName());
-		}
-	}
 	m_Output->SetName(m_FileName);
 	delete doc;
 	SetOutput(0, m_Output);

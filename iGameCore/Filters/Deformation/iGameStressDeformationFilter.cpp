@@ -21,13 +21,13 @@ bool iGame::StressDeformationFilter::Execute() {
     if(nullptr == dataObject) {
         return false;
     }
-    if(dataObject->GetDeformationData()->m_enable_auto_compute) {
+    if(dataObject->GetDeformationData()->GetAutoComputeStatus()) {
         CalculateIdealDSF();
     }
-    std::string deform_var = dataObject->GetDeformationData()->m_deformation_attribute_name;
-    float deform_x = dataObject->GetDeformationData()->m_deformation_scale_factor_x;
-    float deform_y = dataObject->GetDeformationData()->m_deformation_scale_factor_y;
-    float deform_z = dataObject->GetDeformationData()->m_deformation_scale_factor_z;
+    const std::string& deform_var = dataObject->GetDeformationData()->GetDeformationAttributeName();
+    float deform_x = dataObject->GetDeformationData()->GetScaleFactorX();
+    float deform_y = dataObject->GetDeformationData()->GetScaleFactorY();
+    float deform_z = dataObject->GetDeformationData()->GetScaleFactorZ();
 //        std::cout << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
 
     /* Process SubDataObject's Deformation. */
@@ -130,8 +130,8 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
     if(nullptr == dataObject) {
         return false;
     }
-    std::string deform_var = dataObject->GetDeformationData()->m_deformation_attribute_name;
-    dataObject->GetDeformationData()->m_enable_auto_compute = true;
+    const std::string& deform_var = dataObject->GetDeformationData()->GetDeformationAttributeName();
+    dataObject->GetDeformationData()->SetAutoCompute(true);
 
     float U_max = FLT_MIN;
     if(dataObject->HasSubDataObject()){

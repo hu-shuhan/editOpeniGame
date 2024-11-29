@@ -47,8 +47,8 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
                 /* set current Context */
                 glfwMakeContextCurrent(window_ptr);
                 auto* this_window = static_cast<RenderWindow*>(glfwGetWindowUserPointer(window_ptr));
-                if(this_window != nullptr && this_window->getScene() != nullptr){
-                    this_window->getScene()->Draw();
+                if(this_window != nullptr && this_window->GetScene() != nullptr){
+                    this_window->GetScene()->Draw();
                 }
                 /* Swap front and back buffers */
                 glfwSwapBuffers(window_ptr);
@@ -77,6 +77,6 @@ void MultiRenderWindowManager::Register(GLFWwindow *_win_ptr) {
 }
 
 void iGame::MultiRenderWindowManager::Register(iGame::RenderWindow *_win_ptr) {
-    m_GLFW_WindowPointerPool.emplace_back(_win_ptr->getRawWindowPtr());
+    m_GLFW_WindowPointerPool.emplace_back(_win_ptr->GetRawWindowPtr());
 }
 IGAME_NAMESPACE_END

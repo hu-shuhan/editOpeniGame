@@ -1,22 +1,23 @@
 ﻿#include <IQCore/igQtMainWindow.h>
 #include <QApplication>
-
 #if __linux__
 #include <qtextcodec.h>
 #else
 #include <QtCore/Qtextcodec.h>
 #endif
 
-#include <VectorView/iGameVectorBase.h>
-#include <iGameFileIO.h>
-#include <iGameInteractor.h>
-#include <iGameRenderWindow.h>
-#include <iGameScene.h>
+//#include <iGameScene.h>
+//#include <iGameFileIO.h>
+//#include <RenderWindow/iGameRenderWindow.h>
+//#include <iGameInteractor.h>
+//#include <RenderingFilters/iGameWindowToImageFilter.h>
+//
+//#include <IMAGE/iGameBMPWriter.h>
 int main(int argc, char* argv[]) {
+
     Q_INIT_RESOURCE(iGameQtMainWindow);
-    QCoreApplication::setAttribute(
-            Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
-    QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps); // 图标高分辨率支持
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
+    QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);     // 图标高分辨率支持
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication a(argc, argv);
 
@@ -28,13 +29,13 @@ int main(int argc, char* argv[]) {
     format.setRedBufferSize(8); // RGBA8
     format.setGreenBufferSize(8);
     format.setBlueBufferSize(8);
-    //format.setAlphaBufferSize(8); // This will cause the OpenGLWidget window to be transparent
+    format.setAlphaBufferSize(8); // This will cause the OpenGLWidget window to be transparent
 
     // If the depth buffer is set to 24, the line width can only be set to 1
     format.setDepthBufferSize(32);
 
     // If the template buffer is turned on, the line width can only be set to 1
-    // format.setStencilBufferSize(8);
+     format.setStencilBufferSize(8);
 
     format.setSamples(1);
     QSurfaceFormat::setDefaultFormat(format);

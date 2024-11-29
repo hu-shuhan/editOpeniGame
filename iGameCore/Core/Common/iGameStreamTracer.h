@@ -23,6 +23,7 @@ public:
 	* @brief Constructor for iGameStreamTracer.
 	*/
 	iGameStreamTracer() {};
+    std::vector<Vector3f> seedLineGenerate(int numOfseed);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data
@@ -55,9 +56,15 @@ public:
 	void SetMesh(VolumeMesh::Pointer mesh) {
 		this->mesh = mesh;
 	};
-	void SetPtFinder(PointFinder::Pointer ptf) {
-		this->ptFinder = ptf;
+	void AddPtFinder(PointFinder::Pointer ptf) {
+		this->ptFinder.emplace_back(ptf);
 	};
+    void ClearPtFinder(){ 
+		this->ptFinder.clear();
+	
+	}
+    bool PtFinderEmpty() { return this->ptFinder.empty();
+	}
 	std::vector<std::vector<float>> showStreamLineMix(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	std::vector<std::vector<float>> showStreamLineHex(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	/**
@@ -151,6 +158,6 @@ private:
 */
 	bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
 	VolumeMesh::Pointer mesh{};
-	PointFinder::Pointer ptFinder{};
+	std::vector<PointFinder::Pointer> ptFinder;
 	FloatArray::Pointer tranform{};
 };
