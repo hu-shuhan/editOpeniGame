@@ -18,7 +18,7 @@ public:
     struct TimeFrame{
         float timeValue{-1};
         StringArray::Pointer metaData{nullptr};
-        StreamingType type;
+        StreamingType type{NONE};
 
         TimeFrame()= default;
 

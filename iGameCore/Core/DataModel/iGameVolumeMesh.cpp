@@ -229,21 +229,18 @@ int VolumeMesh::GetNumberOfLinks(const IGsize id, Type type) {
 }
 
 int VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, igIndex* volumeIds) {
-	assert(ptId < GetNumberOfPoints() && "ptId too large");
 	auto& link = m_VolumeLinks->GetLink(ptId);
 	for (int i = 0; i < link.size; i++) { volumeIds[i] = link.pointer[i]; }
 	return link.size;
 }
 
 bool VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, const igIndex*& volumeIds, int& size) {
-	assert(ptId < GetNumberOfPoints() && "ptId too large");
 	volumeIds = m_VolumeLinks->GetLinkPointer(ptId);
 	size = m_VolumeLinks->GetLinkSize(ptId);
 	return true;
 }
 
 bool VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, IdArray::Pointer volumeIds) {
-	assert(ptId < GetNumberOfPoints() && "ptId too large");
 	const igIndex* pt = m_VolumeLinks->GetLinkPointer(ptId);
 	int size = m_VolumeLinks->GetLinkSize(ptId);
 	volumeIds->Reset();
@@ -252,7 +249,6 @@ bool VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, IdArray::Pointer v
 }
 
 bool VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, ReturnContainer& volumeIds) {
-	assert(ptId < GetNumberOfPoints() && "ptId too large");
 	const igIndex* pt = m_VolumeLinks->GetLinkPointer(ptId);
 	int size = m_VolumeLinks->GetLinkSize(ptId);
 	volumeIds.reset();
@@ -261,21 +257,18 @@ bool VolumeMesh::GetPointToNeighborVolumes(const IGsize ptId, ReturnContainer& v
 }
 
 int VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, igIndex* volumeIds) {
-	assert(edgeId < GetNumberOfEdges() && "edgeId too large");
 	auto& link = m_VolumeEdgeLinks->GetLink(edgeId);
 	for (int i = 0; i < link.size; i++) { volumeIds[i] = link.pointer[i]; }
 	return link.size;
 }
 
 bool VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, const igIndex*& volumeIds, int& size) {
-	assert(edgeId < GetNumberOfEdges() && "edgeId too large");
 	volumeIds = m_VolumeEdgeLinks->GetLinkPointer(edgeId);
 	size = m_VolumeEdgeLinks->GetLinkSize(edgeId);
 	return true;
 }
 
 bool VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, IdArray::Pointer volumeIds) {
-	assert(edgeId < GetNumberOfEdges() && "edgeId too large");
 	const igIndex* pt = m_VolumeEdgeLinks->GetLinkPointer(edgeId);
 	int size = m_VolumeEdgeLinks->GetLinkSize(edgeId);
 	volumeIds->Reset();
@@ -284,7 +277,6 @@ bool VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, IdArray::Pointer 
 }
 
 bool VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, ReturnContainer& volumeIds) {
-	assert(edgeId < GetNumberOfEdges() && "edgeId too large");
 	const igIndex* pt = m_VolumeEdgeLinks->GetLinkPointer(edgeId);
 	int size = m_VolumeEdgeLinks->GetLinkSize(edgeId);
 	volumeIds.reset();
@@ -293,21 +285,18 @@ bool VolumeMesh::GetEdgeToNeighborVolumes(const IGsize edgeId, ReturnContainer& 
 }
 
 int VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, igIndex* volumeIds) {
-	assert(faceId < GetNumberOfFaces() && "faceId too large");
 	auto& link = m_VolumeFaceLinks->GetLink(faceId);
 	for (int i = 0; i < link.size; i++) { volumeIds[i] = link.pointer[i]; }
 	return link.size;
 }
 
 bool VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, const igIndex*& volumeIds, int& size) {
-	assert(faceId < GetNumberOfFaces() && "faceId too large");
 	volumeIds = m_VolumeFaceLinks->GetLinkPointer(faceId);
 	size = m_VolumeFaceLinks->GetLinkSize(faceId);
 	return true;
 }
 
 bool VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, IdArray::Pointer volumeIds) {
-	assert(faceId < GetNumberOfFaces() && "faceId too large");
 	const igIndex* pt = m_VolumeFaceLinks->GetLinkPointer(faceId);
 	int size = m_VolumeFaceLinks->GetLinkSize(faceId);
 	volumeIds->Reset();
@@ -316,7 +305,6 @@ bool VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, IdArray::Pointer 
 }
 
 bool VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, ReturnContainer& volumeIds) {
-	assert(faceId < GetNumberOfFaces() && "faceId too large");
 	const igIndex* pt = m_VolumeFaceLinks->GetLinkPointer(faceId);
 	int size = m_VolumeFaceLinks->GetLinkSize(faceId);
 	volumeIds.reset();
@@ -325,7 +313,6 @@ bool VolumeMesh::GetFaceToNeighborVolumes(const IGsize faceId, ReturnContainer& 
 }
 
 int VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, igIndex* volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumePointIds(vid, ids);
 	std::set<igIndex> st;
@@ -341,7 +328,6 @@ int VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, igIndex* v
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, IdArray::Pointer volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumePointIds(vid, ids);
 	std::set<igIndex> st;
@@ -357,7 +343,6 @@ bool VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, IdArray::
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, ReturnContainer& volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumePointIds(vid, ids);
 	std::set<igIndex> st;
@@ -373,7 +358,6 @@ bool VolumeMesh::GetVolumeToNeighborVolumesWithPoint(const IGsize vid, ReturnCon
 }
 
 int VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, igIndex* volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeEdgeIds(vid, ids);
 	std::set<igIndex> st;
@@ -389,7 +373,6 @@ int VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, igIndex* vo
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, IdArray::Pointer volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeEdgeIds(vid, ids);
 	std::set<igIndex> st;
@@ -405,7 +388,6 @@ bool VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, IdArray::P
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, ReturnContainer& volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeEdgeIds(vid, ids);
 	std::set<igIndex> st;
@@ -421,7 +403,6 @@ bool VolumeMesh::GetVolumeToNeighborVolumesWithEdge(const IGsize vid, ReturnCont
 }
 
 int VolumeMesh::GetVolumeToNeighborVolumesWithFace(const IGsize vid, igIndex* volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeFaceIds(vid, ids);
 	std::set<igIndex> st;
@@ -437,7 +418,6 @@ int VolumeMesh::GetVolumeToNeighborVolumesWithFace(const IGsize vid, igIndex* vo
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithFace(const IGsize vid, IdArray::Pointer volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeFaceIds(vid, ids);
 	std::set<igIndex> st;
@@ -453,7 +433,6 @@ bool VolumeMesh::GetVolumeToNeighborVolumesWithFace(const IGsize vid, IdArray::P
 }
 
 bool VolumeMesh::GetVolumeToNeighborVolumesWithFace(const IGsize vid, ReturnContainer& volumeIds) {
-	assert(vid < GetNumberOfVolumes() && "volumeId too large");
 	igIndex ids[32]{};
 	int size = GetVolumeFaceIds(vid, ids);
 	std::set<igIndex> st;
@@ -828,7 +807,6 @@ IGsize VolumeMesh::AddVolume(igIndex* ptIds, int size) {
 }
 
 bool VolumeMesh::ReplaceEdgeReference(const IGsize edgeId, igIndex ptId1, igIndex ptId2) {
-	assert(IsEdgeDeleted(edgeId));
 	//assert(GetEdgeIdFormPointIds(ptId1, ptId2) == -1);
 	igIndex e[2]{ ptId1, ptId2 };
 	m_Edges->SetCellIds(edgeId, e, 2);
@@ -841,7 +819,6 @@ bool VolumeMesh::ReplaceEdgeReference(const IGsize edgeId, igIndex ptId1, igInde
 }
 
 bool VolumeMesh::ReplaceFaceReference(const IGsize faceId, igIndex* ptIds, int npts, igIndex* edgeIds) {
-	assert(IsFaceDeleted(faceId));
 	//assert(GetFaceIdFormPointIds(ptIds, npts) == -1);
 	m_Faces->SetCellIds(faceId, ptIds, npts);
 	m_FaceEdges->SetCellIds(faceId, edgeIds, npts);
@@ -856,7 +833,6 @@ bool VolumeMesh::ReplaceFaceReference(const IGsize faceId, igIndex* ptIds, int n
 
 bool VolumeMesh::ReplaceVolumeReference(const IGsize volumeId, igIndex* ptIds, int npts, igIndex* edgeIds, int nedges,
 	igIndex* faceIds, int nfaces) {
-	assert(IsVolumeDeleted(volumeId));
 	//assert(GetVolumeIdFormPointIds(ptIds, npts) == -1);
 	m_Volumes->SetCellIds(volumeId, ptIds, npts);
 	m_VolumeEdges->SetCellIds(volumeId, edgeIds, nedges);
