@@ -49,7 +49,6 @@ protected:
 
     std::string ReadFile(const char* file_path) {
         std::ifstream file(file_path, std::ios::in | std::ios::binary);
-        std::cout << "Shader Path " << file_path << '\n';
         if (file) {
             std::string contents;
             file.seekg(0, std::ios::end);
