@@ -29,7 +29,7 @@ std::vector<uint8_t> WindowToImageFilter::GetOutputData() {
     auto wh = m_RenderWindow->GetScene()->GetCamera()->GetViewPort();
     return m_RenderWindow->GetScene()->CaptureScreen(0, 0,
                                                      wh[0] / m_RenderWindow->GetScene()->GetCamera()->GetDevicePixelRatio(),
-                                                     wh[1] / m_RenderWindow->GetScene()->GetCamera()->GetDevicePixelRatio());
+                                                     wh[1] / m_RenderWindow->GetScene()->GetCamera()->GetDevicePixelRatio(), m_FrameBufferType);
 }
 
 IGAME_NAMESPACE_END

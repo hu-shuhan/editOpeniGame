@@ -474,21 +474,40 @@ bool igQtAnimationWidget::saveAnimation() {
         default:
             break;
     }
-    QFileInfo info(path);
-    for(int i = 0; i < timeStepSize; i ++)
-    {
-        this->playAnimation_snap(i);
-        QImage image = rendererWidget->grabFramebuffer();
-        if(filters.indexOf(SelectedFilter) == 2){
-            qDebug() << QString(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
-            image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
-        }
+    int ratio = currentScene->GetCamera()->GetDevicePixelRatio();
+    auto wh = currentScene->GetCamera()->GetViewPort();
 
-        std::vector<uint8_t> tmp(image.bits(),
-                                 image.bits() + image.sizeInBytes());
-        inputInfo.bytes_per_line = image.bytesPerLine();
-        inputInfo.raw_image_data.emplace_back(tmp);
+
+    /* RGBA Type , means that one pixel's size is 4 byte.*/
+    inputInfo.bytes_per_line = height * 4;
+
+    for(size_t i = 0; i < timeStepSize; i ++){
+        this->playAnimation_snap(i);
+        std::vector<uint8_t> currentFrameBuffer = currentScene->CaptureScreen(0, 0, width, height, RGBA);
+        std::cout << "size " << currentFrameBuffer.size() << '\n';
+        for(int i = 0; i < currentFrameBuffer.size(); i ++){
+            if(currentFrameBuffer[i]) std::cout << i << '\n';
+        }
+        inputInfo.raw_image_data.emplace_back(currentFrameBuffer);
     }
+
+
+
+//    QFileInfo info(path);
+//    for(int i = 0; i < timeStepSize; i ++)
+//    {
+//        this->playAnimation_snap(i);
+//        QImage image = rendererWidget->grabFramebuffer();
+//        if(filters.indexOf(SelectedFilter) == 2){
+//            qDebug() << QString(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+//            image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
+//        }
+//
+//        std::vector<uint8_t> tmp(image.bits(),
+//                                 image.bits() + image.sizeInBytes());
+//        inputInfo.bytes_per_line = image.bytesPerLine();
+//        inputInfo.raw_image_data.emplace_back(tmp);
+//    }
     rendererWidget->resize(oldwidth, oldheight);
 
 

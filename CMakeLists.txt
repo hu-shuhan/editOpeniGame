@@ -23,6 +23,9 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
+
+
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
@@ -71,8 +74,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
-#   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-if (WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+#if(EXAMPLE_COMPILE )
+if(EXAMPLE_COMPILE AND ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    add_subdirectory(Examples)
 endif ()
+
+#   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
+#if (WIN32)
+#    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+#endif ()

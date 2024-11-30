@@ -1445,8 +1445,40 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height) {
-    std::vector<unsigned char> colorBuffer(width * height * 3);
+                                                int height, FrameBufferType type) {
+
+    std::vector<unsigned char> colorBuffer;
+    m_FramebufferResolved->Bind();
+    {
+        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        //
+        //  y↑
+        //   |
+        //   |
+        //   +-----→x
+        //
+        switch (type) {
+            case RGBA:
+                colorBuffer.resize(width * height * 4);
+                glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
+                             colorBuffer.data());
+                break;
+            case RGB:
+                colorBuffer.resize(width * height * 3);
+                glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
+                             colorBuffer.data());
+                break;
+            default:
+                break;
+        }
+
+    }
+    m_FramebufferResolved->Release();
+
+    return colorBuffer;
+}
+std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int height) {
+    std::vector<float> ZBuffer(width * height);
 
     m_FramebufferResolved->Bind();
     {
@@ -1457,12 +1489,13 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         //   |
         //   +-----→x
         //
-        glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
-                     colorBuffer.data());
+        glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
+                     ZBuffer.data());
+
     }
     m_FramebufferResolved->Release();
 
-    return colorBuffer;
+    return ZBuffer;
 }
 
 void Scene::MakeCurrent() {
@@ -1472,5 +1505,7 @@ void Scene::MakeCurrent() {
 void Scene::DoneCurrent() {
     if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
 }
+
+
 
 IGAME_NAMESPACE_END

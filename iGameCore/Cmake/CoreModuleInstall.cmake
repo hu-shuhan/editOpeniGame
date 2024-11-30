@@ -24,7 +24,7 @@ if (CORE_MODULE_INSTALL)
     endif ()
 
     if(${AbqSDK_FOUND})
-        install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/AbaqusSDK
+        install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIRS} DESTINATION include/ThirdParty/AbaqusSDK
                 FILES_MATCHING PATTERN "*.h"
                 PATTERN "*/" EXCLUDE
                 PATTERN "2024/win_b64" EXCLUDE
