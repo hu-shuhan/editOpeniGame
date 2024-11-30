@@ -134,7 +134,7 @@ public:
 
     void SetVolumeRendering(bool toggled);
     std::vector<unsigned char> CaptureScreen(int x, int y, int width,
-                                             int height, FrameBufferType type);
+                                             int height, FrameBufferType type, bool mirrored);
     std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width, int height);
 
     GLBuffer::Pointer GetDrawCullDataBuffer() { return m_DrawCullData; }

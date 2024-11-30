@@ -1445,7 +1445,7 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height, FrameBufferType type) {
+                                                int height, FrameBufferType type, bool mirrored) {
 
     std::vector<unsigned char> colorBuffer;
     m_FramebufferResolved->Bind();
@@ -1474,7 +1474,18 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
 
     }
     m_FramebufferResolved->Release();
-
+    if(mirrored){
+        std::vector<unsigned char> tmp_flip(colorBuffer.size());
+        // Flip data Line
+        for (int row = 0; row < height; ++row) {
+            std::copy(
+                    colorBuffer.begin() + row * width * 4,
+                    colorBuffer.begin() + (row + 1) * width * 4,
+                    tmp_flip.begin() + (height - 1 - row) * width * 4
+            );
+        }
+        colorBuffer = tmp_flip;
+    }
     return colorBuffer;
 }
 std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int height) {

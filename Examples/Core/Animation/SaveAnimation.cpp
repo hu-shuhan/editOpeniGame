@@ -80,11 +80,11 @@ void SaveAnimationToMP4(iGame::Scene* currentScene ,const std::string& outputPat
     inputInfo.bit_rate = 1000000;
     inputInfo.frame_rate = 1;
     /* RGBA Type , means that one pixel's size is 4 byte.*/
-    inputInfo.bytes_per_line = height * 4;
+    inputInfo.bytes_per_line = width * 4;
 
     for(size_t i = 0; i < timeStepSize; i ++){
         PlayAnimation(currentObject, currentScene, i);
-        std::vector<uint8_t> currentFrameBuffer = currentScene->CaptureScreen(0, 0, width, height, RGBA);
+        std::vector<uint8_t> currentFrameBuffer = currentScene->CaptureScreen(0, 0, width, height, RGBA, true);
         inputInfo.raw_image_data.emplace_back(currentFrameBuffer);
     }
     iGame::FFMPEGVideoWriter::Pointer videoWriter = iGame::FFMPEGVideoWriter::New();
@@ -102,8 +102,10 @@ int main(int argn, char** args){
     } else {
         scene->AddModel(obj);
     }
+    /* Scene rendering needs to be done in the OpenGL context provided by GLFW,
+     * so the window needs to be created first */
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetScene(scene);
-    window->SetSize(800, 600);
+    window->SetSize(1920, 1080);
     SaveAnimationToMP4(scene, "./AnimationExample.mp4");
 }
