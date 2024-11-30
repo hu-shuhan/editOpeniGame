@@ -10,7 +10,7 @@ int main(){
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "H:/iGameProject9/editOpeniGame/Examples/Models/dfs.vtk";
+    const std::string fileName = "H:/iGameProjects/model/dfs.vtk";
     auto dataObj = iGame::FileIO::ReadFile(fileName);
 
     // If model is triangle mesh
@@ -24,6 +24,8 @@ int main(){
     filter->SetInput(obj);
     filter->Execute();
 
+    auto drawObj = DynamicCast<iGame::DrawObject>(obj);
+    drawObj->ViewCloudPicture(scene, 1, -1);
     scene->AddModel(obj);
 
     // Set up the render window
