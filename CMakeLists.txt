@@ -13,7 +13,7 @@ cmake_minimum_required(VERSION 3.19)
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
@@ -53,8 +53,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
-add_executable(${PROJECT_NAME}
-        main.cpp "Examples/Compression/Simplification.h" "Examples/Compression/Encoder.h" "Examples/Compression/Decoder.h")
+add_executable(${PROJECT_NAME} main.cpp)
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
