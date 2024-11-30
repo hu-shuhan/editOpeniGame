@@ -15,6 +15,7 @@ public:
 protected:
 	OBJReader() = default;
 	~OBJReader() override = default;
+
 };
 
 IGAME_NAMESPACE_END

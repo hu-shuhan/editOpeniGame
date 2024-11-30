@@ -215,6 +215,9 @@ CellArray::CellArray() {
     m_Offsets->AddValue(0);
 };
 
+IGuint CellArray::GetStartOffset(const IGsize cellId) const {
+    return this->GetBeginOffset(cellId);
+}
 	// Get cell's begin offset
 IGuint CellArray::GetBeginOffset(const IGsize cellId) const {
     return m_UseOffsets ? m_Offsets->GetValue(cellId)

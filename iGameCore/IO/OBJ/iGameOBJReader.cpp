@@ -13,7 +13,13 @@ bool OBJReader::Parsing()
 	float coord[3] = { .0 };
 	igIndex size = 0;
 	const char* lineEnd = nullptr;
+	igIndex lineNum=0;
+	int UpdateSize=100000;
 	while (this->IS<this->FILEEND&& this->ReadString(line)) {
+		if (lineNum++ == UpdateSize) {
+			lineNum = 0;
+			this->UpdateReadProgress();
+		}
 		if (line[0] == '\0') {
 			continue;
 		}
@@ -44,6 +50,7 @@ bool OBJReader::Parsing()
 			FaceNum++;
 		}
 	}
+	this->UpdateProgress(1.0);
 	return true;
 
 
