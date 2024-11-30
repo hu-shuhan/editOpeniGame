@@ -18,7 +18,7 @@ public:
     I_OBJECT(MeshEncoder);
     static Pointer New() { return new MeshEncoder; }
 
-    MeshEncoder(){};
+    MeshEncoder() { SetNumberOfInputs(1); };
 
     iGame::QuantMode PointQuantMode = iGame::QuantMode::Float;
     int PointQuantizedBits = 16;

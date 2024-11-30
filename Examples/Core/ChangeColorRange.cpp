@@ -8,6 +8,7 @@ int main() {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
     const std::string fileName = "./Models/Tet_Plane.vtk";
+
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
         scene->AddModel(obj);
