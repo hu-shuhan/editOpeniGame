@@ -7,6 +7,8 @@ void UnstructuredMesh::SetCells(CellArray::Pointer cell, UnsignedIntArray::Point
     this->Modified();
 }
 
+CellArray::Pointer UnstructuredMesh::GetCells() { return this->m_Cells; };
+
 void UnstructuredMesh::AddCell(igIndex* cell, int size, IGenum type) {
     m_Cells->AddCellIds(cell, size);
     m_Types->AddValue(type);

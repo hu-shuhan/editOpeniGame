@@ -54,7 +54,7 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
 add_executable(${PROJECT_NAME}
-        main.cpp "Examples/Compression/Simplification.h" "Examples/Compression/Encoder.h" "Examples/Compression/Decoder.h")
+        main.cpp)
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -75,7 +75,7 @@ add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 #if(EXAMPLE_COMPILE )
-if(EXAMPLE_COMPILE AND ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if(EXAMPLE_COMPILE)
     add_subdirectory(Examples)
 endif ()
 

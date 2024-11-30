@@ -34,7 +34,7 @@ public:
     static SmartPointer<UnstructuredMesh> New() { return new UnstructuredMesh; }
 
     void SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type);
-    CellArray::Pointer GetCells() { return this->m_Cells; };
+    CellArray::Pointer GetCells();
     void AddCell(igIndex* cell, int size, IGenum type);
 
     IGsize GetNumberOfCells() const noexcept;
@@ -82,10 +82,10 @@ protected:
     // Get cell object according to cell type.
     Cell* GetTypedCell(const IGsize cellId);
 
-    CellArray::Pointer m_Cells;        // Stores the PointIds of all cells
-    UnsignedIntArray::Pointer m_Types; // Stores the Type of all cells
-
 private:
+    CellArray::Pointer m_Cells{};        // Stores the PointIds of all cells
+    UnsignedIntArray::Pointer m_Types{}; // Stores the Type of all cells
+
     // Used for the returned cell object, which is Thread-Unsafe
     EmptyCell::Pointer m_EmptyCell{};
     Vertex::Pointer m_Vertex{};
