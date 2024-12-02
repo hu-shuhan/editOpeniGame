@@ -120,7 +120,10 @@ public:
         return res + sizeof(m_NumberOfCells) + sizeof(m_FixedCellSize) +
                sizeof(m_UseOffsets);
     }
-
+    //Get cell's start offset
+    IGuint GetStartOffset(const IGsize cellId) const;
+    // Get cell's size
+    IGuint GetCellSize(const IGsize cellId) const;
 protected:
     CellArray();
     ~CellArray() override = default;
@@ -129,8 +132,7 @@ protected:
     IGuint GetBeginOffset(const IGsize cellId) const;
     // Get cell's end offset
     IGuint GetEndOffset(const IGsize cellId) const;
-    // Get cell's size
-    IGuint GetCellSize(const IGsize cellId) const;
+
 
 
     IdArray::Pointer m_Buffer{}; // The cell's index array

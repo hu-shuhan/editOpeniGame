@@ -9,12 +9,15 @@
 #include <VectorView/iGameVectorBase.h>
 
 int main(){
+
     /* 创建场景*/
     auto scene = iGame::Scene::New();
-    const std::string fileName = "./Models/Tet_Plane.vtk";
+    const std::string fileName = "H:/iGameProject9/editOpeniGame/Examples/Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
+    iGame::UnstructuredMesh::Pointer mesh = DynamicCast<iGame::UnstructuredMesh>(obj);
     if (obj == nullptr) {
         std::cout << "Read ERROR!\n";
+        return 0;
     }
     auto input = obj;
     //新建切割的filter

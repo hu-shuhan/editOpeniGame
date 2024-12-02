@@ -13,7 +13,7 @@ IGAME_NAMESPACE_BEGIN
 class MeshEncoderAdapter
 {
 public:
-	MeshEncoderAdapter(DataObject::Pointer& dataObj) :
+	MeshEncoderAdapter(DataObject::Pointer dataObj) :
 		m_DataObj(dataObj)
 	{};
 
@@ -149,6 +149,9 @@ public:
         case IG_UNSTRUCTURED_MESH:
         {
             UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(this->m_DataObj);
+            std::cout << m_DataObj->GetBoundingBox().center() << std::endl;
+            std::cout << mesh->GetCells() << std::endl;
+            std::cout << mesh->GetCells()->GetNumberOfCellIds() << std::endl;
             return mesh->GetCells()->GetOffset();
             break;
         }
@@ -188,7 +191,6 @@ public:
         {
             UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(this->m_DataObj);
             ids = mesh->GetCells()->GetCellIdArray();
-            
             break;
         }
         default:
@@ -212,7 +214,7 @@ public:
     }
 
 private:
-	DataObject::Pointer& m_DataObj;
+	DataObject::Pointer m_DataObj;
 
     // template ------------------------------------------------------------------
     //switch (this->GetMeshType())

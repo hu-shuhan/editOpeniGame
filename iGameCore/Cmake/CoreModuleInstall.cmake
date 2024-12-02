@@ -23,6 +23,9 @@ if (CORE_MODULE_INSTALL)
 #        file(GLOB )
     endif ()
 
+    
+    install(DIRECTORY ${Eigen_INCLUDE_DIRS} DESTINATION include/ThirdParty/eigen-3.4.0/Eigen)
+
     if(${AbqSDK_FOUND})
         install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIRS} DESTINATION include/ThirdParty/AbaqusSDK
                 FILES_MATCHING PATTERN "*.h"
@@ -39,6 +42,7 @@ if (CORE_MODULE_INSTALL)
         endforeach ()
     endif ()
     if(${FFMPEG_FOUND})
+      
         install(DIRECTORY ${FFMPEG_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/FFMPEG FILES_MATCHING PATTERN "*.h")
         file(GLOB DLL_FILES "${FFMPEG_DLL_DIR}/*.dll")
 

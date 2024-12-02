@@ -18,7 +18,7 @@ class MeshOptEncoder : public MeshOptCodec{
 public:
     MeshOptEncoder(
         std::ofstream& bytestreamFile,
-        DataObject::Pointer& dataObj,
+        DataObject::Pointer dataObj,
         MeshOptParameters& params, 
         ParamInformation& inputParams) : // TODO: 临时添加，和m_DataObj定义在一起
         MeshOptCodec(params), 
