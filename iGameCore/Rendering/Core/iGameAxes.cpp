@@ -33,7 +33,15 @@ Axes::Axes() {
     m_FontTextureEBO->Create();
     m_FontTextureEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
 
-    initialize();
+    m_Mvp = igm::mat4{1.0f};
+    m_MvpInv = igm::mat4{1.0f};
+
+    m_ShaftLength = 1.0f;
+    m_ShaftSize = 0.03f;
+    m_ArrowSize = 0.06f;
+    m_OriginSize = 0.05f;
+
+    Initialize();
 }
 
 Axes::~Axes() {
@@ -55,7 +63,7 @@ void Axes::DrawAxes() {
     glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
     m_TriangleVAO->Release();
 }
-void Axes::DrawXYZ(const GLShaderProgram::Pointer shader) {
+void Axes::DrawXYZ(GLShaderProgram::Pointer shader) {
     // draw xyz
     m_FontVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -89,8 +97,8 @@ void Axes::DrawXYZ(const GLShaderProgram::Pointer shader) {
 }
 
 void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
-    mvp = _mvp;
-    inv_mvp = _mvp.invert();
+    m_Mvp = _mvp;
+    m_MvpInv = _mvp.invert();
 
     Viewport[0] = viewPort[0];
     Viewport[1] = viewPort[1];
@@ -113,31 +121,31 @@ void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
     fontVertices.reserve(36);
     for (auto& text: texts) {
         igm::vec4 dc;
-        worldCoordToDisplayCoord(text, dc);
+        WorldCoordToDisplayCoord(text, dc);
 
         igm::vec4 tmpWc;
 
         //  first point
-        displayCoordToWorldCoord(dc, tmpWc);
+        DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
 
         // second point
         dc.x = dc.x + 20;
-        displayCoordToWorldCoord(dc, tmpWc);
+        DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
 
         // third point
         dc.x = dc.x - 20;
         dc.y = dc.y + 20;
-        displayCoordToWorldCoord(dc, tmpWc);
+        DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
 
         // fourth point
         dc.x = dc.x + 20;
-        displayCoordToWorldCoord(dc, tmpWc);
+        DisplayCoordToWorldCoord(dc, tmpWc);
         fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
                 fontVertices.push_back(tmpWc.z);
     }
@@ -159,7 +167,7 @@ igm::mat4 Axes::ProjMatrix() {
     return igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f);
 }
 
-void Axes::initialize() {
+void Axes::Initialize() {
     // generate axis VBO data
     std::vector<igm::vec3> vertices;
     std::vector<igm::vec3> colors;
@@ -175,7 +183,7 @@ void Axes::initialize() {
             46, 45, 45, 46, 43, 45, 43, 44, 43, 44, 40, 43, 40, 39, 39, 42, 46,
             39, 46, 43, 40, 41, 45, 40, 45, 44,
     };
-    requestData(vertices, colors);
+    RequestData(vertices, colors);
     m_PositionVBO->Allocate(vertices.size() * sizeof(igm::vec3),
                             vertices.data(), GL_STATIC_DRAW);
     m_ColorVBO->Allocate(colors.size() * sizeof(igm::vec3), colors.data(),
@@ -227,7 +235,7 @@ void Axes::initialize() {
     m_FontVAO->ElementBuffer(m_FontTextureEBO);
 }
 
-void Axes::requestData(std::vector<igm::vec3>& vertices,
+void Axes::RequestData(std::vector<igm::vec3>& vertices,
                        std::vector<igm::vec3>& colors) {
     vertices.resize(47);
     colors.resize(47);
@@ -288,18 +296,18 @@ void Axes::requestData(std::vector<igm::vec3>& vertices,
     for (int i = 39; i <= 46; ++i) { colors[i] = igm::vec3{1.0f, 1.0f, 1.0f}; }
 }
 
-void Axes::displayCoordToWorldCoord(igm::vec4& dc, igm::vec4& wc) {
+void Axes::DisplayCoordToWorldCoord(igm::vec4& dc, igm::vec4& wc) {
     float t[4] = {dc.x, dc.y, dc.z, 1};
 
     //  reverse of viewPort transport
     t[0] = (t[0] - Viewport[0]) / (0.5 * Viewport[2]) - 1;
     t[1] = 1.f - (t[1] - Viewport[1]) / (0.5 * Viewport[3]);
-    wc = inv_mvp * igm::vec4{t[0], t[1], t[2], t[3]};
+    wc = m_MvpInv * igm::vec4{t[0], t[1], t[2], t[3]};
     wc /= wc.w;
 }
 
-void Axes::worldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc) {
-    dc = mvp * wc;
+void Axes::WorldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc) {
+    dc = m_Mvp * wc;
     dc /= dc.w;
 
     //  x = (x + 1) / 2 * width + bottom_left_x

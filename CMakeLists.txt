@@ -78,7 +78,7 @@ if (EXAMPLE_COMPILE)
 endif ()
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-#if (WIN32)
-#    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-#endif ()
+if (WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+endif ()

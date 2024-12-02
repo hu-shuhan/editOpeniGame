@@ -12,8 +12,6 @@ PainterBase::PainterBase() {
 
     m_PrimitivesUpdateHelper = Object::New();
     m_PrimitivesPool = HandlePool<Primitive>::New();
-
-    Clear();
 }
 
 PainterBase::~PainterBase() {}
@@ -22,11 +20,13 @@ void PainterBase::ShowAll() {
     for (auto& [handle, primitive]: *m_PrimitivesPool) {
         primitive.visible = true;
     }
+    m_PrimitivesPool->Modified();
 }
 void PainterBase::HideAll() {
     for (auto& [handle, primitive]: *m_PrimitivesPool) {
         primitive.visible = false;
     }
+    m_PrimitivesPool->Modified();
 }
 void PainterBase::Show(IGuint handle) {
     m_PrimitivesPool->CheckHandle(handle);
@@ -34,6 +34,7 @@ void PainterBase::Show(IGuint handle) {
     auto primitive = m_PrimitivesPool->GetObject(handle);
     if (primitive) {
         primitive->visible = true;
+        m_PrimitivesPool->Modified();
     } else {
         igDebug("handle is invalid.");
     }
@@ -44,6 +45,7 @@ void PainterBase::Hide(IGuint handle) {
     auto primitive = m_PrimitivesPool->GetObject(handle);
     if (primitive) {
         primitive->visible = false;
+        m_PrimitivesPool->Modified();
     } else {
         igDebug("handle is invalid.");
     }
@@ -55,25 +57,34 @@ void PainterBase::Delete(IGuint handle) {
 }
 
 void PainterBase::SetPen(const Pen::Pointer& pen) { m_Pen = pen; }
+
 void PainterBase::SetPen(const Color& color) { m_Pen->SetColor(color); }
+
 void PainterBase::SetPen(int red, int green, int blue) {
     m_Pen->SetColor(red, green, blue);
 }
+
 void PainterBase::SetPen(float red, float green, float blue) {
     m_Pen->SetColor(red, green, blue);
 }
-void PainterBase::SetPen(const PenStyle& style) { m_Pen->SetStyle(style); }
+
+void PainterBase::SetPen(const Pen::Style& style) { m_Pen->SetStyle(style); }
+
 void PainterBase::SetPen(float width) { m_Pen->SetWidth(width); }
 
 void PainterBase::SetBrush(const Color& color) { m_Brush->SetColor(color); }
+
 void PainterBase::SetBrush(const Brush::Pointer& brush) { m_Brush = brush; }
+
 void PainterBase::SetBrush(int red, int green, int blue) {
     m_Brush->SetColor(red, green, blue);
 }
+
 void PainterBase::SetBrush(float red, float green, float blue) {
     m_Brush->SetColor(red, green, blue);
 }
-void PainterBase::SetBrush(const BrushStyle& style) {
+
+void PainterBase::SetBrush(const Brush::Style& style) {
     m_Brush->SetStyle(style);
 }
 
@@ -176,13 +187,15 @@ void PainterBase::PackDrawableData() {
         }
     }
 
-    // allocate buffer
-    IGsize size = 0;
+    // re-allocate buffer
+    m_VAOs.clear();
     for (const auto& pair: packPositions) {
         float penWidth = pair.first;
         if (m_VAOs.find(penWidth) == m_VAOs.end()) {
             this->CreateDrawBuffer(penWidth);
         }
+
+        IGsize size = 0;
 
         size = packPositions[penWidth]->GetNumberOfValues();
         GLAllocateGLBuffer(m_PositionVBOs[penWidth], size * sizeof(float),

@@ -6,7 +6,6 @@
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
     m_Camera = Camera::New();
-    m_Camera->Initialize(igm::vec3{0.0f, 0.0f, 1.0f});
 
     m_ModelRotate = igm::mat4{};
     m_ModelMatrix = igm::mat4{};
@@ -221,11 +220,11 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
 void Scene::ChangeCameraType(IGenum type) {
     ResetCameraView();
     switch (type) {
-        case Camera::CameraType::PERSPECTIVE: {
-            m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+        case Camera::Type::PERSPECTIVE: {
+            m_Camera->ChangeCameraType(Camera::Type::PERSPECTIVE);
         } break;
-        case Camera::CameraType::ORTHOGRAPHIC: {
-            m_Camera->ChangeCameraType(Camera::CameraType::ORTHOGRAPHIC);
+        case Camera::Type::ORTHOGRAPHIC: {
+            m_Camera->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
         } break;
         default:
             break;
@@ -1500,6 +1499,12 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
     return ZBuffer;
 }
 
+GLBuffer::Pointer Scene::GetDrawCullDataBuffer() { return m_DrawCullData; }
+
+Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
+
+Painter3D::Pointer Scene::GetPainter3D() { return m_Painter3D; }
+
 void Scene::MakeCurrent() {
     if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
 }
@@ -1507,6 +1512,5 @@ void Scene::MakeCurrent() {
 void Scene::DoneCurrent() {
     if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
 }
-
 
 IGAME_NAMESPACE_END
