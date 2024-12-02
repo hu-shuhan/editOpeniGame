@@ -7,11 +7,21 @@ bool Simplification::Execute() {
     if (mesh == nullptr) {
         if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
             mesh = DynamicCast<UnstructuredMesh>(GetInput(0))->TransferToSurfaceMesh();
-            if (mesh == nullptr) { return false; }
         }
     }
+    if (mesh == nullptr) { return false; }
 
     if (TargetReduction < 0 || TargetReduction > 1) { return false; }
+    
+    {
+        igIndex face[16]{};
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
+            int size = mesh->GetFacePointIds(i, face);
+            if (size != 3) { 
+                return false;
+            }
+        }
+    }
 
     if (this->IsAllScalarCheck) {
         activedAttribIndices.clear();
