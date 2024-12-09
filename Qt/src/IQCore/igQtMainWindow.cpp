@@ -480,10 +480,22 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        FilterPoints::Pointer fp = FilterPoints::New();
-        fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        fp->SetFilterRate(0.5);
-        fp->Execute();
+        QuickModelClip::Pointer filter = QuickModelClip::New();
+        auto input= rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto bound = input->GetBoundingBox();
+        auto ori = (bound.min + bound.max) / 2;
+        double n[3] = { 0, 1, 0 };
+        double o[3] = { ori[0], ori[1], ori[2] };
+        //设置切割的平面
+        filter->SetPlane(o, n);
+        //设置切割模式是clip还是slice
+        filter->SetIsSlice(false);
+        //执行切割
+        filter->Execute();
+        //返回结果
+        auto res = filter->GetOutput();
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         rendererWidget->update();
     });
 
