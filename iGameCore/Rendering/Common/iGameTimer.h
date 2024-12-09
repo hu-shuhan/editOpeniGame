@@ -9,7 +9,6 @@ public:
     I_OBJECT(Timer);
     static Pointer New() { return new Timer; }
 
-public:
     enum class TimeUnit { Microseconds, Milliseconds, Seconds };
 
     void Reset() { start = std::chrono::high_resolution_clock::now(); }
@@ -46,8 +45,7 @@ public:
 protected:
     Timer() { Reset(); }
     ~Timer() override = default;
-
-private:
+    
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 IGAME_NAMESPACE_END

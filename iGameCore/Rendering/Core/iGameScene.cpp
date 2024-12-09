@@ -6,7 +6,6 @@
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
     m_Camera = Camera::New();
-    m_Camera->Initialize(igm::vec3{0.0f, 0.0f, 1.0f});
 
     m_ModelRotate = igm::mat4{};
     m_ModelMatrix = igm::mat4{};
@@ -192,6 +191,7 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
 }
 
 void Scene::ResetCameraView() {
+    UpdateModelsBoundingSphere();
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
@@ -220,11 +220,11 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
 void Scene::ChangeCameraType(IGenum type) {
     ResetCameraView();
     switch (type) {
-        case Camera::CameraType::PERSPECTIVE: {
-            m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+        case Camera::Type::PERSPECTIVE: {
+            m_Camera->ChangeCameraType(Camera::Type::PERSPECTIVE);
         } break;
-        case Camera::CameraType::ORTHOGRAPHIC: {
-            m_Camera->ChangeCameraType(Camera::CameraType::ORTHOGRAPHIC);
+        case Camera::Type::ORTHOGRAPHIC: {
+            m_Camera->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
         } break;
         default:
             break;
@@ -1406,8 +1406,9 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 min(FLT_MAX);
     igm::vec3 max(-FLT_MAX);
 
+    int cnt = 0;
     for (auto& [id, model]: m_Models) {
-        if (!model->GetVisibility()) continue;
+        if (!model->GetVisibility()) { continue; }
 
         auto box = model->m_DataObject->GetBoundingBox();
         Vector3f boxMin = box.min;
@@ -1445,12 +1446,13 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height, FrameBufferType type) {
-
+                                                int height,
+                                                FrameBufferType type) {
     std::vector<unsigned char> colorBuffer;
+
     m_FramebufferResolved->Bind();
     {
-        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        // Read pixels from the OpenGL buffer (bottom-left corner)
         //
         //  y↑
         //   |
@@ -1471,18 +1473,18 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
             default:
                 break;
         }
-
     }
     m_FramebufferResolved->Release();
 
     return colorBuffer;
 }
-std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int height) {
+std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
+                                                   int height) {
     std::vector<float> ZBuffer(width * height);
 
     m_FramebufferResolved->Bind();
     {
-        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        // Read pixels from the OpenGL buffer (bottom-left corner)
         //
         //  y↑
         //   |
@@ -1491,12 +1493,17 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int 
         //
         glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
                      ZBuffer.data());
-
     }
     m_FramebufferResolved->Release();
 
     return ZBuffer;
 }
+
+GLBuffer::Pointer Scene::GetDrawCullDataBuffer() { return m_DrawCullData; }
+
+Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
+
+Painter3D::Pointer Scene::GetPainter3D() { return m_Painter3D; }
 
 void Scene::MakeCurrent() {
     if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
@@ -1505,7 +1512,5 @@ void Scene::MakeCurrent() {
 void Scene::DoneCurrent() {
     if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
 }
-
-
 
 IGAME_NAMESPACE_END

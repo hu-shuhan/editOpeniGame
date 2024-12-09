@@ -11,11 +11,8 @@
 IGAME_NAMESPACE_BEGIN
 
 class ColorUtils : public Object {
-private:
-    ColorUtils() = default;
-
 public:
-    static bool IsValid(igm::vec3 color) {
+    static bool IsValid(const igm::vec3 color) {
         if (color.r < 0.0f || color.r > 1.0f || color.g < 0.0f ||
             color.g > 1.0f || color.b < 0.0f || color.b > 1.0f) {
             return false;
@@ -84,10 +81,13 @@ public:
             case Color::Gold:
                 return igm::vec3{1.0f, 0.843f, 0.0f};
             default:
-                assert(false && "Color not mapped!");
-                return igm::vec3{0.0f, 0.0f, 0.0f};
+                igError("Color not mapped!");
         }
     }
+
+private:
+    ColorUtils() = default;
+    ~ColorUtils() override = default;
 };
 
 IGAME_NAMESPACE_END

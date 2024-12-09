@@ -6,7 +6,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-Brush::Brush() : m_BrushStyle(BrushStyle::SolidPattern), m_BrushOpacity(1.0f) {
+Brush::Brush() : m_BrushStyle(Style::SolidPattern), m_BrushOpacity(1.0f) {
     SetColor(Color::White);
 }
 
@@ -45,9 +45,9 @@ void Brush::SetColor(int red, int green, int blue) {
 
 Vector3f Brush::GetColor() const { return m_BrushColor; }
 
-void Brush::SetStyle(BrushStyle style) { m_BrushStyle = style; }
+void Brush::SetStyle(Style style) { m_BrushStyle = style; }
 
-BrushStyle Brush::GetStyle() const { return m_BrushStyle; }
+Brush::Style Brush::GetStyle() const { return m_BrushStyle; }
 
 //void Brush::SetOpacity(float opacity) { m_BrushOpacity = opacity; }
 

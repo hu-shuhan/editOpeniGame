@@ -15,13 +15,6 @@
 
 IGAME_NAMESPACE_BEGIN
 
-struct Character {
-    GLuint TextureID;   // font texture id
-    igm::ivec2 Size;    // font size
-    igm::ivec2 Bearing; // Offset from the baseline to the left/top of the glyph
-    GLuint Advance;     // The distance from the origin to the next glyph origin
-};
-
 class FontSet : public Object {
 public:
     I_OBJECT(FontSet)
@@ -30,6 +23,14 @@ public:
         static FontSet instance;
         return instance;
     }
+
+    struct Character {
+        GLuint TextureID; // font texture id
+        igm::ivec2 Size;  // font size
+        igm::ivec2
+                Bearing; // Offset from the baseline to the left/top of the glyph
+        GLuint Advance; // The distance from the origin to the next glyph origin
+    };
 
     void RegisterWords(const wchar_t* text);
 
@@ -40,10 +41,10 @@ protected:
     FontSet();
     ~FontSet() override;
 
+    static void FlipVertically(unsigned char* data, int width, int height);
+
     std::map<wchar_t, Character> m_Characters;
     std::map<wchar_t, GLTexture2d::Pointer> m_Textures;
-
-    static void FlipVertically(unsigned char* data, int width, int height);
 };
 
 IGAME_NAMESPACE_END

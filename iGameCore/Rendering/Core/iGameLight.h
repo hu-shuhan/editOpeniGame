@@ -1,17 +1,15 @@
 #pragma once
-#include "iGameObject.h"
 
+#include "iGameObject.h"
 
 IGAME_NAMESPACE_BEGIN
 class Light : public Object {
 public:
     I_OBJECT(Light);
 
-
 protected:
-    Light() {}
-    ~Light() override {}
-
+    Light();
+    ~Light() override;
 
 private:
 };
