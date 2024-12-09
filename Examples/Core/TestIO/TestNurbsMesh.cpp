@@ -13,9 +13,9 @@ static void ImportNurbsMesh() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "../Examples/Models/circle.xml";
-    //const std::string fileName = "../Examples/Models/surface.xml";
-    //const std::string fileName = "../Examples/Models/hand.xml";
+    const std::string fileName = "./Models/circle.xml";
+    //const std::string fileName = "./Models/surface.xml";
+    //const std::string fileName = "./Models/hand.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
     iGame::NurbsReader::Pointer reader = iGame::NurbsReader::New();
@@ -34,7 +34,7 @@ static void ImportNurbsMesh() {
     if (nurbsObj) {
         // Set the display style to combine wireframe and surface modes for the object
         nurbsObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Surface mode
-        nurbsObj->SetSamples(10);
+        nurbsObj->SetSamples(0);
     } else {
         igError("Not a nurbs object"); // Error if the object is not drawable
     }

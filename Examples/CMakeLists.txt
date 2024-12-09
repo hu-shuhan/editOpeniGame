@@ -4,8 +4,8 @@ add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 project ("test")
-set(iGameCore_module_DIR "C:/Program Files (x86)/OpeniGame/lib/cmake/iGameCore_module")
-#set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpeniGame/lib/cmake/iGameCore_module")
+#set(iGameCore_module_DIR "C:/Program Files (x86)/OpeniGame/lib/cmake/iGameCore_module")
+set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpeniGame/lib/cmake/iGameCore_module")
 find_package(iGameCore_module REQUIRED)
 
 
@@ -35,12 +35,12 @@ add_executable (testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression
 add_executable (testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression/TestEncoder.cpp")
 add_executable (testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression/TestSimplification.cpp")
 
-#add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestCGNSReader.cpp")
+add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestCGNSReader.cpp")
 add_executable (testNurbsMesh "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestNurbsMesh.cpp")
-#add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestODBReader.cpp")
+add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestODBReader.cpp")
 
 add_executable (testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/TestAnimation.cpp")
-#add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/SaveAnimation.cpp")
+add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/SaveAnimation.cpp")
 
 add_executable(testClip "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/TestClip.cpp")
 add_executable(testDeformation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/TestStressDeformationFilter.cpp")
@@ -48,13 +48,6 @@ add_executable(testContourLine "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/TestCont
 
 add_executable(testChangeColorRange "${CMAKE_CURRENT_SOURCE_DIR}/Core/ChangeColorRange.cpp")
 add_executable(testChangeColorBar "${CMAKE_CURRENT_SOURCE_DIR}/Core/ChangeColorBar.cpp")
-
-
-
-
-
-
-
 
 target_link_libraries(testSetMultiRenderWindow PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testResetCameraView PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
@@ -82,7 +75,7 @@ target_link_libraries(testClip PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testDeformation PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testContourLine PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 
-#target_link_libraries(testSaveAnimation PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
+target_link_libraries(testSaveAnimation PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testNurbsMesh PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
@@ -91,6 +84,6 @@ target_link_libraries(testChangeColorRange PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
-#target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
-#target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
-#target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
+target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
+target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
+target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
