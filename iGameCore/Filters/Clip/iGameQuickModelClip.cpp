@@ -679,20 +679,15 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 	for (i = 0; i < m_CellTypeNum; i++) {
 		int nlists = m_Cells[i]->GetNumberOfLists();
 		int npts_per_shape = m_Cells[i]->GetCellSize();
-		for (j = 0; j < nlists; j++)
-		{
+		for (j = 0; j < nlists; j++){
 			const igIndex* list;
 			int listSize = m_Cells[i]->GetList(j, list);
-			for (k = 0; k < listSize; k++)
-			{
+			for (k = 0; k < listSize; k++){
 				list++; // skip the cell id entry
-				for (l = 0; l < npts_per_shape; l++)
-				{
+				for (l = 0; l < npts_per_shape; l++){
 					int pt = *list++;
-					if (pt >= 0 && pt < m_PrevPointsNum)
-					{
-						if (ptLookup[pt] == -1)
-						{
+					if (pt >= 0 && pt < m_PrevPointsNum){
+						if (ptLookup[pt] == -1){
 							ptLookup[pt] = numUsed++;
 						}
 					}
@@ -860,7 +855,7 @@ QuickModelClip::QuickModelClip()
 QuickModelClip::~QuickModelClip()
 {
 }
-bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
+bool QuickModelClip::ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer um)
 {
 	m_UnstructuredMesh = um;
 	if (!m_UnstructuredMesh)return false;
@@ -985,7 +980,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 				edgeVtxs = nullptr;
 				break;
 			}
-			int intrpIds[4];
+			int intrpIds[4] = { -1,-1,-1,-1 };
 			for (j = 0; j < nOutputs; j++) {
 				int nCellPts = 0;
 				int theColor = -1;
@@ -1027,6 +1022,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 					theColor = *thisCase++;
 					break;
 				case ST_PNT:
+					//插入的点，一般为均值插值得到的质心点
 					intrpIdx = *thisCase++;
 					theColor = *thisCase++;
 					nCellPts = *thisCase++;
@@ -1034,24 +1030,320 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 				default:
 					igError("invalid cell type!");
 				}
-				if ((!this->m_InsideOut && theColor == COLOR0) || (this->m_InsideOut && theColor == COLOR1))
-				{
+				if ((!this->m_InsideOut && theColor == COLOR0) || (this->m_InsideOut && theColor == COLOR1)) {
 					thisCase += nCellPts;
 					continue;
 				}
 				igIndex cellIds[8] = { 0 };
 				for (k = 0; k < nCellPts; k++) {
 					unsigned char pntIndex = *thisCase++;
-					if (pntIndex <= P7)
-					{
+					if (pntIndex <= P7) {
 						cellIds[k] = vhs[pntIndex];
 					}
 					else if (pntIndex >= EA && pntIndex <= EL)
 					{
 						int pt1Index = edgeVtxs[pntIndex - EA][0];
 						int pt2Index = edgeVtxs[pntIndex - EA][1];
-						if (pt2Index < pt1Index)
-						{
+						if (pt2Index < pt1Index) {
+							int temp = pt2Index;
+							pt2Index = pt1Index;
+							pt1Index = temp;
+						}
+						double pt1ToPt2 = cellValues[pt2Index] - cellValues[pt1Index];
+						double pt1ToIso = 0.0 - cellValues[pt1Index];
+						double p1Weight = 1.0 - pt1ToIso / pt1ToPt2;
+
+						igIndex pntIndx1 = vhs[pt1Index];
+						igIndex pntIndx2 = vhs[pt2Index];
+
+						cellIds[k] = VFV->AddPoint(pntIndx1, pntIndx2, p1Weight);
+					}
+					else if (pntIndex >= N0 && pntIndex <= N3) {
+						cellIds[k] = intrpIds[pntIndex - N0];
+					}
+					else {
+						igError("An invalid output case was found in the ClipCases.");
+					}
+				}
+				switch (theShape)
+				{
+				case ST_HEX:
+					VFV->AddHex(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4],
+						cellIds[5], cellIds[6], cellIds[7]);
+					break;
+
+				case ST_WDG:
+					VFV->AddPrism(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4], cellIds[5]);
+					break;
+
+				case ST_PYR:
+					VFV->AddPyramid(
+						i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4]);
+					break;
+
+				case ST_TET:
+					VFV->AddTetra(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3]);
+					break;
+
+				case ST_QUA:
+					VFV->AddQuad(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3]);
+					break;
+
+				case ST_TRI:
+					VFV->AddTriangle(i, cellIds[0], cellIds[1], cellIds[2]);
+					break;
+
+				case ST_LIN:
+					VFV->AddLine(i, cellIds[0], cellIds[1]);
+					break;
+
+				case ST_VTX:
+					VFV->AddVertex(i, cellIds[0]);
+					break;
+
+				case ST_PNT:
+					intrpIds[intrpIdx] = VFV->AddCenterPoint(nCellPts, cellIds);
+					break;
+				}
+			}
+			edgeVtxs = nullptr;
+			thisCase = nullptr;
+		}
+		else if (cellType == IG_POLYHEDRON)
+		{
+		}
+		else {
+
+		}
+		vhs = nullptr;
+	}
+
+	if (RestNum > 0) {
+
+	}
+	else {
+		VFV->ConstructUM(m_UnstructuredMesh, OutMesh, inPoints);
+	}
+	this->SetOutput(0, OutMesh);
+	return true;
+}
+bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
+{
+	m_UnstructuredMesh = um;
+	if (!m_UnstructuredMesh)return false;
+
+	//不能使用打表速切的部分
+	UnstructuredMesh::Pointer RestPart = nullptr;
+	igIndex RestNum = 0;
+
+	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
+
+	auto inPoints = m_UnstructuredMesh->GetPoints();
+	auto inPointNum = m_UnstructuredMesh->GetNumberOfPoints();
+	auto inCells = m_UnstructuredMesh->GetCells();
+	auto inTypes = m_UnstructuredMesh->GetCellTypes();
+	igIndex inCellNum = m_UnstructuredMesh->GetNumberOfCells();
+
+
+	DoubleArray::Pointer PointClipArray = DoubleArray::New();
+	CharArray::Pointer CellVisible = CharArray::New();
+	ComputePointValueAndCellVisible(inPoints, inCells, PointClipArray, CellVisible);
+	auto PointClipValue = PointClipArray->RawPointer();
+	auto cellVisible = CellVisible->RawPointer();
+
+
+	//auto Result_ExtractPart = iGame::UnstructuredMesh::New();
+	//auto ExtractCells = CellArray::New();
+	//auto ExtractTypes = UnsignedIntArray::New();
+	//ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+	//ExtractTypes->Reserve(inCellNum * 2 / 3);
+	//igIndex cellId = 0;
+	const igIndex* vhs = nullptr;
+	int vcnt = 0;
+	//for (cellId = 0; cellId < inCellNum; cellId++) {
+	//	if (cellVisible[cellId] == 1) {
+	//		vcnt = inCells->GetCellIds(cellId, vhs);
+	//		ExtractCells->AddCellIds(vhs, vcnt);
+	//		ExtractTypes->AddValue(inTypes->GetValue(cellId));
+
+	//	}
+	//}
+	//OutPoints->Resize(inPointNum);
+	//std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
+	//Result_ExtractPart->SetPoints(OutPoints);
+	//Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
+
+
+
+
+	QuickClipperVolumeFromVolume* VFV = new QuickClipperVolumeFromVolume(0, inPointNum,
+		int(pow(double(inCellNum), double(0.6667f))) * 5 + 100);
+
+
+	igIndex i = 0, j = 0, k = 0;
+
+	bool couldClip = false;
+
+	for (i = 0; i < inCellNum; i++) {
+		if (cellVisible[i]) {
+			continue;
+		}
+		auto cellType = IGCellType(inTypes->GetValue(i));
+		vcnt = inCells->GetCellIds(i, vhs);
+		switch (cellType)
+		{
+		case IG_TETRA:
+		case IG_PYRAMID:
+		case IG_PRISM:
+		case IG_HEXAHEDRON:
+		case IG_TRIANGLE:
+		case IG_QUAD:
+		case IG_LINE:
+		case IG_VERTEX:
+			couldClip = true;
+			break;
+		default:
+			couldClip = false;
+			break;
+		}
+		if (couldClip) {
+			int caseIndex = 0;
+			double cellValues[8] = { 0 };
+			for (j = vcnt - 1; j >= 0; j--) {
+				cellValues[j] = PointClipValue[vhs[j]];
+				caseIndex += (cellValues[j] >= 0 ? 1 : 0);
+				caseIndex <<= j ? 1 : 0;
+			}
+			int startIdx = 0;
+			int nOutputs = 0;
+			typedef const int EDGEIDXS[2];
+			EDGEIDXS* edgeVtxs = nullptr;
+			unsigned char* thisCase = nullptr;
+			switch (cellType)
+			{
+			case IG_TETRA:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesTet[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesTet[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesTet[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::TetVerticesFromEdges;
+				break;
+
+			case IG_PYRAMID:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesPyr[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesPyr[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesPyr[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::PyramidVerticesFromEdges;
+				break;
+
+			case IG_PRISM:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesWdg[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesWdg[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesWdg[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::WedgeVerticesFromEdges;
+				break;
+
+			case IG_HEXAHEDRON:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesHex[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesHex[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesHex[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::HexVerticesFromEdges;
+				break;
+
+
+			case IG_TRIANGLE:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesTri[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesTri[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesTri[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::TriVerticesFromEdges;
+				break;
+
+			case IG_QUAD:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesQua[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesQua[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesQua[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::QuadVerticesFromEdges;
+				break;
+
+
+			case IG_LINE:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesLin[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesLin[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesLin[caseIndex];
+				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::LineVerticesFromEdges;
+				break;
+
+			case IG_VERTEX:
+				startIdx = vtkTableBasedClipperClipTables::StartClipShapesVtx[caseIndex];
+				thisCase = &vtkTableBasedClipperClipTables::ClipShapesVtx[startIdx];
+				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesVtx[caseIndex];
+				edgeVtxs = nullptr;
+				break;
+			}
+			int intrpIds[4]={-1,-1,-1,-1};
+			for (j = 0; j < nOutputs; j++) {
+				int nCellPts = 0;
+				int theColor = -1;
+				int intrpIdx = -1;
+				unsigned char theShape = *thisCase++;
+				switch (theShape)
+				{
+				case ST_HEX:
+					nCellPts = 8;
+					theColor = *thisCase++;
+					break;
+				case ST_WDG:
+					nCellPts = 6;
+					theColor = *thisCase++;
+					break;
+				case ST_PYR:
+					nCellPts = 5;
+					theColor = *thisCase++;
+					break;
+				case ST_TET:
+					nCellPts = 4;
+					theColor = *thisCase++;
+					break;
+				case ST_QUA:
+					nCellPts = 4;
+					theColor = *thisCase++;
+					break;
+				case ST_TRI:
+					nCellPts = 3;
+					theColor = *thisCase++;
+					break;
+				case ST_LIN:
+					nCellPts = 2;
+					theColor = *thisCase++;
+					break;
+
+				case ST_VTX:
+					nCellPts = 1;
+					theColor = *thisCase++;
+					break;
+				case ST_PNT:
+					//插入的点，一般为均值插值得到的质心点
+					intrpIdx = *thisCase++;
+					theColor = *thisCase++;
+					nCellPts = *thisCase++;
+					break;
+				default:
+					igError("invalid cell type!");
+				}
+				if ((!this->m_InsideOut && theColor == COLOR0) || (this->m_InsideOut && theColor == COLOR1)){
+					thisCase += nCellPts;
+					continue;
+				}
+				igIndex cellIds[8] = { 0 };
+				for (k = 0; k < nCellPts; k++) {
+					unsigned char pntIndex = *thisCase++;
+					if (pntIndex <= P7){
+						cellIds[k] = vhs[pntIndex];
+					}
+					else if (pntIndex >= EA && pntIndex <= EL)
+					{
+						int pt1Index = edgeVtxs[pntIndex - EA][0];
+						int pt2Index = edgeVtxs[pntIndex - EA][1];
+						if (pt2Index < pt1Index){
 							int temp = pt2Index;
 							pt2Index = pt1Index;
 							pt1Index = temp;
