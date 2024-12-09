@@ -10,8 +10,7 @@
 *    v1.0.0: Sumzeek, 4/13/2024, first create this file\n
 */
 
-#ifndef OPENIGAME_CAMERA_H
-#define OPENIGAME_CAMERA_H
+#pragma once
 
 #include "iGameObject.h"
 #include "iGameRenderingMacro.h"
@@ -25,32 +24,23 @@ public:
     I_OBJECT(Viewport)
     static Pointer New() { return new Viewport; }
 
-public:
-    void SetViewPort(uint32_t width, uint32_t height) {
-        m_Size.x = width;
-        m_Size.y = height;
-    };
-    void SetDevicePixelRatio(int devicePixelRatio) {
-        m_DevicePixelRatio = devicePixelRatio;
-    };
+    void SetViewPort(uint32_t width, uint32_t height);
+    igm::ivec2 GetViewPort();
+    igm::ivec2 GetScaledViewPort();
 
-    igm::ivec2 GetViewPort() { return m_Size; };
-    int GetDevicePixelRatio() { return m_DevicePixelRatio; };
-    igm::ivec2 GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+    void SetDevicePixelRatio(int devicePixelRatio);
+    int GetDevicePixelRatio();
 
     template<typename FloatT>
-    FloatT aspect() const {
-        return FloatT(m_Size.x) / FloatT(m_Size.y);
-    }
+    FloatT aspect() const;
 
 protected:
-    igm::ivec2 m_Offset = igm::ivec2{0, 0};
-    igm::ivec2 m_Size = igm::ivec2{800, 600};
-    int m_DevicePixelRatio = 1;
+    Viewport();
+    ~Viewport() override;
 
-protected:
-    Viewport() = default;
-    ~Viewport() override = default;
+    igm::ivec2 m_Offset;
+    igm::ivec2 m_Size;
+    int m_DevicePixelRatio;
 };
 
 class Viewer : public Viewport {
@@ -58,82 +48,25 @@ public:
     I_OBJECT(Viewer)
     static Pointer New() { return new Viewer; }
 
-public:
-    void SetNearPlane(float nearz) {
-        if (nearz < 0.01f) {
-            //igDebug("near z provided is less than 0.01f. The near plane is set "
-            //        "to 0.01f.");
-            m_NearZ = 0.01f;
-        } else {
-            m_NearZ = nearz;
-        }
-    }
-    float GetNearPlane() { return m_NearZ; }
+    void SetNearPlane(float nearz);
+    float GetNearPlane();
 
-    void SetFarPlane(float farz) {
-        if (farz <= m_NearZ) {
-            igDebug("far z provided is less than or equal to near z. The far "
-                    "plane is set to near z + 1.0f.");
-            m_FarZ = m_NearZ + 1.0f;
-        } else {
-            m_FarZ = farz;
-        }
-    }
-    float GetFarPlane() { return m_FarZ; }
+    void SetFarPlane(float farz);
+    float GetFarPlane();
 
-    void SetFov(float fov) {
-        if (fov < 1.0f || fov > 179.0f) {
-            igDebug("fov provided is out of range (1.0 - 179.0 degrees). "
-                    "Clamping to valid range.");
-            m_Fov = std::clamp(fov, 1.0f, 179.0f);
-        } else {
-            m_Fov = fov;
-        }
-    }
-    float GetFov() const { return m_Fov; }
-
-
-    /** Depth Map Visualization:
-    *          -far           -near              near            far
-    *           |--------------|------->eye------->|--------------|
-    *           1              2      INF/-INF     0              1
-    */
-    //float LinearizeDepth(float z) {
-    //    float ndcZ = z * 2.0f - 1.0f; // back to NDC
-    //    float depth = 2.0f * nearPlane / (1.0f - ndcZ);
-    //    return depth;
-    //};
+    void SetFov(float fov);
+    float GetFov() const;
 
     // depth range: 0.0(near plane) -> 1.0(far plane)
-    virtual igm::mat4 GetProjectionMatrix() {
-        return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
-                                     aspect<float>(), m_NearZ, m_FarZ);
-    };
-
-    /** Depth Map Visualization:
-    *          -far           -near              near            far
-    *           |--------------|------->eye------->|--------------|
-    *           0             -1     -INF/INF      1              0
-    */
-    //float LinearizeDepthReverseZ(float z) const {
-    //    float depth = nearPlane / z;
-    //    return depth;
-    //}
-
-    // depth range: 1.0(near plane) -> 0.0(far plane)
-    //igm::mat4 GetProjectionMatrixReversedZ() {
-    //    return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
-    //                                 aspect<float>(), nearPlane);
-    //}
+    virtual igm::mat4 GetProjectionMatrix();
 
 protected:
-    float m_Fov = 45.0f;
-    float m_NearZ = 0.01f;
-    float m_FarZ = 1000.01f;
+    Viewer();
+    ~Viewer() override;
 
-protected:
-    Viewer() = default;
-    ~Viewer() override = default;
+    float m_Fov;
+    float m_NearZ;
+    float m_FarZ;
 };
 
 class Camera : public Viewer {
@@ -141,96 +74,36 @@ public:
     I_OBJECT(Camera)
     static Pointer New() { return new Camera; }
 
-public:
-    enum CameraType { PERSPECTIVE = 0, ORTHOGRAPHIC, CAMERATYPE_COUNT };
+    enum Type { PERSPECTIVE = 0, ORTHOGRAPHIC, CAMERATYPE_COUNT };
 
-public:
-    void Initialize(igm::vec3 position = igm::vec3(0.0f, 0.0f, 1.0f),
-                    igm::vec3 focal = igm::vec3{0.0f, 0.0f, 0.0f},
-                    igm::vec3 up = igm::vec3(0.0f, 1.0f, 0.0f)) {
-        m_Position = position;
-        m_Focal = focal;
-        m_WorldUp = up;
-        updateCameraVectors();
-    }
+    void ChangeCameraType(Type type);
 
-    void Initialize(float posX, float posY, float posZ, float focalX,
-                    float focalY, float focalZ, float upX, float upY,
-                    float upZ) {
-        m_Position = igm::vec3(posX, posY, posZ);
-        m_Focal = igm::vec3{focalX, focalY, focalZ};
-        m_WorldUp = igm::vec3(upX, upY, upZ);
-        updateCameraVectors();
-    }
+    float GetLengthToFocal();
 
-    void ChangeCameraType(CameraType type) { m_CameraType = type; }
+    void SetCameraPos(igm::vec3 pos);
+    void SetCameraPos(float posX, float posY, float posZ);
+    igm::vec3 GetCameraPos() const;
 
-    float GetLengthToFocal() { return (m_Focal - m_Position).length(); }
+    void SetCameraFocal(igm::vec3 focal);
+    void SetCameraFocal(float focalX, float focalY, float focalZ);
+    igm::vec3 GetCameraFocal() const;
 
-    void SetCameraPos(igm::vec3 pos) {
-        m_Position = pos;
-        updateCameraVectors();
-    }
-    void SetCameraPos(float posX, float posY, float posZ) {
-        m_Position = {posX, posY, posZ};
-        updateCameraVectors();
-    }
-    igm::vec3 GetCameraPos() const { return m_Position; }
+    void SetCameraUp(igm::vec3 up);
+    void SetCameraUp(float upX, float upY, float upZ);
+    igm::vec3 GetCameraUp() const;
 
-    void SetCameraFocal(igm::vec3 focal) {
-        m_Focal = focal;
-        updateCameraVectors();
-    }
-    void SetCameraFocal(float focalX, float focalY, float focalZ) {
-        m_Focal = {focalX, focalY, focalZ};
-        updateCameraVectors();
-    }
-    igm::vec3 GetCameraFocal() const { return m_Focal; }
+    void SetCameraType(Type type);
+    Type GetCameraType() const;
 
-    void SetCameraUp(igm::vec3 up) {
-        m_WorldUp = up;
-        updateCameraVectors();
-    }
-    void SetCameraUp(float upX, float upY, float upZ) {
-        m_WorldUp = {upX, upY, upZ};
-        updateCameraVectors();
-    }
-    igm::vec3 GetCameraUp() const { return m_Up; }
+    igm::mat4 GetViewMatrix();
 
-    void SetCameraType(CameraType type) { m_CameraType = type; }
-    CameraType GetCameraType() const { return m_CameraType; }
+    igm::mat4 GetProjectionMatrix() override;
 
-    igm::mat4 GetViewMatrix() {
-        return igm::lookAtRH(m_Position, m_Focal, m_Up);
-    }
+protected:
+    Camera();
+    ~Camera() override;
 
-    igm::mat4 GetProjectionMatrix() override {
-        if (m_CameraType == PERSPECTIVE) {
-            return igm::perspectiveRH_OZ(
-                    static_cast<float>(igm::radians(m_Fov)), aspect<float>(),
-                    /*m_NearZ*/ 0.01f);
-        } else if (m_CameraType == ORTHOGRAPHIC) {
-            float dist = GetLengthToFocal();
-            float orthoHeight = dist / 3.0f;
-            float orthoWidth = orthoHeight * aspect<float>();
-
-            return igm::orthoRH_OZ(-orthoWidth, orthoWidth, -orthoHeight,
-                                   orthoHeight, -m_FarZ, m_FarZ);
-        }
-        return igm::mat4(1.0f);
-    }
-
-private:
-    Camera() { Initialize(); }
-    ~Camera() override = default;
-
-    void updateCameraVectors() {
-        // Calculate the new m_Front vector
-        m_Front = (m_Focal - m_Position).normalized();
-        // Also re-calculate the Right and Up vector
-        m_Right = (igm::cross(m_Front, m_WorldUp)).normalized();
-        m_Up = (igm::cross(m_Right, m_Front)).normalized();
-    }
+    void UpdateCameraVectors();
 
     // Camera attributes
     igm::vec3 m_Position;
@@ -242,8 +115,7 @@ private:
     igm::vec3 m_Up;
 
     // Camera type
-    CameraType m_CameraType = CameraType::PERSPECTIVE;
+    Type m_CameraType;
 };
-IGAME_NAMESPACE_END
 
-#endif // OPENIGAME_CAMERA_H
+IGAME_NAMESPACE_END

@@ -5,11 +5,14 @@ IGAME_NAMESPACE_BEGIN
 #ifdef IGAME_OPENGL_VERSION_460
 
 Meshlet::Meshlet() {
+    m_MeshletsCount = 0;
     m_MeshletsBuffer = GLBuffer::New();
     m_DrawCommandBuffer = GLBuffer::New();
     m_VisibleMeshletBuffer = GLBuffer::New();
     m_FinalDrawCommandBuffer = GLBuffer::New();
 }
+
+Meshlet::~Meshlet() {}
 
 void Meshlet::CreateBuffer() {
     m_MeshletsBuffer->Create();

@@ -659,9 +659,38 @@ void Model::TestOcclusionResults(Scene* scene) {
 #endif
 }
 
+DataObject::Pointer Model::GetDataObject() { return m_DataObject; }
+
+bool Model::GetVisibility() {
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    return drawObject->GetVisibility();
+}
+
+Filter* Model::GetModelFilter() { return m_Filter; }
+
+Painter3D::Pointer Model::GetPainter() { return m_Painter3D; }
+
+void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
+
+void Model::DeleteModelFilter() { m_Filter = nullptr; }
+
+void Model::SetDataObject(DataObject::Pointer dataObject) {
+    m_DataObject = dataObject;
+}
+
 void Model::Update() {
     if (m_Scene) { m_Scene->Update(); }
 }
+
+void Model::ViewCloudPicture(int index, int dimension) {
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (drawObject != nullptr)
+        drawObject->ViewCloudPicture(m_Scene, index, dimension);
+}
+
+void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
+
+std::string Model::GetFilePath() { return this->m_FilePath; }
 
 Selection* Model::GetSelection() {
     if (m_Selection == nullptr) { m_Selection = Selection::New(); }
@@ -681,10 +710,6 @@ void Model::RequestDragPoint(Points* p, Selection* s) {
     s->m_Model = this;
     m_Scene->GetInteractor()->RequestDragPointStyle(s);
 }
-
-Filter* Model::GetModelFilter() { return m_Filter; }
-void Model::DeleteModelFilter() { m_Filter = nullptr; }
-void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
 
 void Model::Show() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
@@ -761,5 +786,15 @@ void Model::SetViewFillSwitch(bool action) {
 Model::Model() {
     SwitchOff(ViewSwitch::BoundingBox);
     SwitchOn(ViewSwitch::PickedItem);
+
+    m_Selection = Selection::New();
+    m_DataObject = DataObject::New();
+    m_Scene = nullptr;
+
+    m_Painter3D = Painter3D::New();
+    m_BboxHandle = 0;
+    m_Switch = 0ull;
 }
+
+Model::~Model() {}
 IGAME_NAMESPACE_END

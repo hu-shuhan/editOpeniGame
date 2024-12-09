@@ -1,8 +1,8 @@
 ﻿#ifndef iGameType_h
 #define iGameType_h
 
-#include <vtkkwiml/abi.h>
 #include <cstdint>
+#include <vtkkwiml/abi.h>
 #define IGAME_SIZEOF_CHAR KWIML_ABI_SIZEOF_CHAR
 #define IGAME_SIZEOF_SHORT KWIML_ABI_SIZEOF_SHORT
 #define IGAME_SIZEOF_INT KWIML_ABI_SIZEOF_INT
@@ -91,18 +91,9 @@ enum {
 };
 
 // Streaming Data's String Type
-enum StreamingType{
-    NONE,
-    MultiSubFiles,
-    SingleFieldAttributes
-};
+enum StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
 // Output frameBuffer's Type
-enum FrameBufferType{
-    RGBA,
-    RGB,
-    ZBuffer,
-
-};
+enum FrameBufferType { RGBA, RGB, ZBuffer };
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };
 

@@ -52,8 +52,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+<<<<<<< HEAD
 
 add_executable(${PROJECT_NAME} main.cpp)
+=======
+add_executable(${PROJECT_NAME}
+        main.cpp)
+>>>>>>> 965d5d1ef0f3d54fa094762bf75c9f216c96792d
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -74,12 +79,12 @@ add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 #if(EXAMPLE_COMPILE )
-if(EXAMPLE_COMPILE)
+if (EXAMPLE_COMPILE)
     add_subdirectory(Examples)
 endif ()
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-#if (WIN32)
-#    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-#endif ()
+if (WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+endif ()

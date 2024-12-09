@@ -23,18 +23,14 @@ public:
     void DrawPhase2(Scene*);
     void TestOcclusionResults(Scene*);
 
-    DataObject::Pointer GetDataObject() { return m_DataObject; }
-    bool GetVisibility() {
-        auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-        return drawObject->GetVisibility();
-    }
+    DataObject::Pointer GetDataObject();
+    bool GetVisibility();
     Filter* GetModelFilter();
-    Painter3D::Pointer GetPainter() { return m_Painter3D; }
-    void DeleteModelFilter();
+    Painter3D::Pointer GetPainter();
+
     void SetModelFilter(SmartPointer<Filter> _filter);
-    void SetDataObject(DataObject::Pointer dataObject) {
-        m_DataObject = dataObject;
-    }
+    void DeleteModelFilter();
+    void SetDataObject(DataObject::Pointer dataObject);
     void Modified() { m_DataObject->Modified(); }
 
     void Show();
@@ -47,13 +43,9 @@ public:
 
     void Update();
 
-    void ViewCloudPicture(int index, int dimension = -1) {
-        auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-        if (drawObject != nullptr)
-            drawObject->ViewCloudPicture(m_Scene, index, dimension);
-    }
-    void SetFilePath(std::string filePath) { m_FilePath = filePath; }
-    std::string GetFilePath() { return this->m_FilePath; }
+    void ViewCloudPicture(int index, int dimension = -1);
+    void SetFilePath(std::string filePath);
+    std::string GetFilePath();
 
     Selection* GetSelection();
     void RequestPointSelection(Points* p, Selection* s);
@@ -61,7 +53,7 @@ public:
 
 protected:
     Model();
-    ~Model() override = default;
+    ~Model() override;
 
     enum ViewSwitch { BoundingBox = 0, PickedItem };
 
@@ -69,14 +61,14 @@ protected:
     void SwitchOff(ViewSwitch type) { m_Switch &= ~(1ull << type); }
     bool GetSwitch(ViewSwitch type) { return m_Switch & (1ull << type); }
 
-    Selection::Pointer m_Selection{Selection::New()};
-    SmartPointer<Filter> m_Filter{};
-    DataObject::Pointer m_DataObject{DataObject::New()};
+    Selection::Pointer m_Selection;
+    SmartPointer<Filter> m_Filter;
+    DataObject::Pointer m_DataObject;
     std::string m_FilePath;
-    Scene* m_Scene{nullptr};
-    Painter3D::Pointer m_Painter3D{Painter3D::New()};
-    IGuint m_BboxHandle = 0;
-    unsigned long long m_Switch{0ull};
+    Scene* m_Scene;
+    Painter3D::Pointer m_Painter3D;
+    IGuint m_BboxHandle;
+    unsigned long long m_Switch;
 
     friend class Scene;
 };

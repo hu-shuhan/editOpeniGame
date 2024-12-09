@@ -84,7 +84,7 @@ void NurbsGeometry::ConvertToCurveData() {
     UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
     triangleIndices->SetDimension(3);
 
-    int SAMPLE_NUM = (1000 / m_Geometry->GetPatchSize());
+    size_t SAMPLE_NUM = (1000 / m_Geometry->GetPatchSize());
     if (m_SampleNumber != 0) { SAMPLE_NUM = m_SampleNumber; }
 
     // 1. 传入控制顶点
@@ -107,7 +107,7 @@ void NurbsGeometry::ConvertToCurveData() {
         for (int u_id = 0; u_id < u_control_cnt - 1; ++u_id) { edgeIndices->AddElement2(u_id, u_id + 1); }
     }
 
-    // 3. 传入离散化面片
+    // 3. 传入离散化线
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
         double sample_gap = 1.f / SAMPLE_NUM;
@@ -120,7 +120,11 @@ void NurbsGeometry::ConvertToCurveData() {
             std::vector<std::vector<double>*> tempV{&v0};
             for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
 
-            if (u_sample != SAMPLE_NUM - 1) { edgeIndices->AddElement2(offset + u_sample, offset + u_sample + 1); }
+            if (u_sample == SAMPLE_NUM - 1) {
+                edgeIndices->AddElement2(offset + u_sample, offset);
+            } else {
+                edgeIndices->AddElement2(offset + u_sample, offset + u_sample + 1);
+            }
         }
     }
 

@@ -6,8 +6,10 @@
 
 IGAME_NAMESPACE_BEGIN
 
-Pen::Pen()
-    : m_PenWidth(1), m_PenStyle(PenStyle::SolidLine), m_PenOpacity(1.0f) {
+Pen::Pen() {
+    m_PenWidth = 1;
+    m_PenStyle = Style::SolidLine;
+    m_PenOpacity = 1.0f;
     SetColor(Color::Black);
 }
 
@@ -50,9 +52,9 @@ void Pen::SetWidth(float width) { m_PenWidth = width; }
 
 int Pen::GetWidth() const { return m_PenWidth; }
 
-void Pen::SetStyle(PenStyle style) { m_PenStyle = style; }
+void Pen::SetStyle(Style style) { m_PenStyle = style; }
 
-PenStyle Pen::GetStyle() const { return m_PenStyle; }
+Pen::Style Pen::GetStyle() const { return m_PenStyle; }
 
 //void Pen::SetOpacity(float opacity) { m_PenOpacity = opacity; }
 

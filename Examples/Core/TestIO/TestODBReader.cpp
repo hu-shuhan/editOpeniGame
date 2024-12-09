@@ -2,7 +2,7 @@
 #include <iGameRenderWindow.h>
 #include <iGameInteractor.h>
 int main(){
-    /* 创建场景*/
+    /* 创建场
     auto scene = iGame::Scene::New();
     const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
     iGame::ODBReader::Pointer reader = iGame::ODBReader::New();
