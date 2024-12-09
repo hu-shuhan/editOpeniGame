@@ -9,12 +9,12 @@
  *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
  */
 
-#ifndef OPENIGAME_IGM_VEC3_H
-#define OPENIGAME_IGM_VEC3_H
+#ifndef IGM_VEC3_H
+#define IGM_VEC3_H
 
-#include "./ext/vector_float3.h"
 #include "./ext/vector_double3.h"
+#include "./ext/vector_float3.h"
 #include "./ext/vector_int3.h"
 #include "./ext/vector_uint3.h"
 
-#endif // OPENIGAME_IGM_VEC3_H
+#endif // IGM_VEC3_H

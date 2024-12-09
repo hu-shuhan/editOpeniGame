@@ -1,7 +1,26 @@
+//
+// Created by Sumzeek on 7/21/2024.
+//
+
 #pragma once
 
-#ifdef IGAME_OPENGL_VERSION_330
-#include "GL330/GLIndirectCommand.h"
-#else
-#include "GL460/GLIndirectCommand.h"
-#endif
+#include "GLVendor.h"
+
+IGAME_NAMESPACE_BEGIN
+
+typedef struct DrawArraysIndirectCommand_t {
+    GLuint count;
+    GLuint primCount;
+    GLuint first;
+    GLuint baseInstance;
+} DrawArraysIndirectCommand;
+
+typedef struct DrawElementsIndirectCommand_t {
+    GLuint count;
+    GLuint primCount;
+    GLuint firstIndex;
+    GLuint baseVertex;
+    GLuint baseInstance;
+} DrawElementsIndirectCommand;
+
+IGAME_NAMESPACE_END

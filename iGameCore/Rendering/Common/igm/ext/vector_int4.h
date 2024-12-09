@@ -2,8 +2,8 @@
 // Created by Sumzeek on 10/5/2024.
 //
 
-#ifndef OPENIGAME_IGM_VECTOR_INT4_H
-#define OPENIGAME_IGM_VECTOR_INT4_H
+#ifndef IGM_VECTOR_INT4_H
+#define IGM_VECTOR_INT4_H
 
 #include "../detail/type_vec4.h"
 
@@ -13,4 +13,4 @@ namespace igm
 typedef vec<4, int> ivec4;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_VECTOR_INT4_H
+#endif // IGM_VECTOR_INT4_H

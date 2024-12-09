@@ -2,8 +2,8 @@
 // Created by Sumzeek on 6/26/2024.
 //
 
-#ifndef OPENIGAME_IGM_MATRIX_FLOAT4x4_H
-#define OPENIGAME_IGM_MATRIX_FLOAT4x4_H
+#ifndef IGM_MATRIX_FLOAT4x4_H
+#define IGM_MATRIX_FLOAT4x4_H
 
 #include "../detail/type_mat4x4.h"
 
@@ -16,4 +16,4 @@ typedef mat<4, 4, float> fmat4;
 typedef mat<4, 4, float> fmat4x4;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_MATRIX_FLOAT4x4_H
+#endif // IGM_MATRIX_FLOAT4x4_H
