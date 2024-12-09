@@ -48,11 +48,8 @@ public:
     I_OBJECT(Viewer)
     static Pointer New() { return new Viewer; }
 
-    void SetNearPlane(float nearz);
-    float GetNearPlane();
-
-    void SetFarPlane(float farz);
-    float GetFarPlane();
+    void SetClippngRange(float nearz, float farz);
+    igm::vec2 GetClippingRange();
 
     void SetFov(float fov);
     float GetFov() const;
@@ -64,9 +61,8 @@ protected:
     Viewer();
     ~Viewer() override;
 
+    igm::vec2 m_ClippingRange;
     float m_Fov;
-    float m_NearZ;
-    float m_FarZ;
 };
 
 class Camera : public Viewer {
@@ -108,11 +104,10 @@ protected:
     // Camera attributes
     igm::vec3 m_Position;
     igm::vec3 m_Focal;
-    igm::vec3 m_WorldUp;
+    igm::vec3 m_Up;
 
     igm::vec3 m_Front;
     igm::vec3 m_Right;
-    igm::vec3 m_Up;
 
     // Camera type
     Type m_CameraType;

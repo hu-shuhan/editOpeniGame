@@ -17,13 +17,17 @@ PainterBase::PainterBase() {
 PainterBase::~PainterBase() {}
 
 void PainterBase::ShowAll() {
-    for (auto& [handle, primitive]: *m_PrimitivesPool) {
+    for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+         ++it) {
+        auto& primitive = it->second;
         primitive.visible = true;
     }
     m_PrimitivesPool->Modified();
 }
 void PainterBase::HideAll() {
-    for (auto& [handle, primitive]: *m_PrimitivesPool) {
+    for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+         ++it) {
+        auto& primitive = it->second;
         primitive.visible = false;
     }
     m_PrimitivesPool->Modified();
@@ -139,7 +143,10 @@ void PainterBase::PackDrawableData() {
     std::unordered_map<float, UnsignedIntArray::Pointer> packTriangleIndices;
 
     // create buffer array
-    for (auto& [handle, primitive]: *m_PrimitivesPool) {
+    for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+         ++it) {
+        auto& primitive = it->second;
+
         if (!primitive.visible) { continue; }
 
         float penWidth = primitive.penWidth;
@@ -161,7 +168,10 @@ void PainterBase::PackDrawableData() {
     }
 
     // pack data
-    for (auto& [handle, primitive]: *m_PrimitivesPool) {
+    for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+         ++it) {
+        auto& primitive = it->second;
+
         if (!primitive.visible) { continue; }
 
         float penWidth = primitive.penWidth;

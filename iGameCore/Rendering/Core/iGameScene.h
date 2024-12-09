@@ -188,6 +188,7 @@ protected:
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(DataObject* obj);
     void UpdateUniformBufferObjectBlock(DataObject* obj);
+    void UpdateCameraClippingRange();
 
     void DrawAxes(igm::ivec4 drawRange);
     static void CalculateFrameRate();
