@@ -10,7 +10,6 @@
 #include "Sources/iGamePointsSource.h"
 #include "Sources/iGameLineTypePointsSource.h"
 #include "TensorViewFilter/iGameTensorWidgetBase.h"
-#include "TestFilter/iGameTestFilter.h"
 #include "Clip/iGameModelClip.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"

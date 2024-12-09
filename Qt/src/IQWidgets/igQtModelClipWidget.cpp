@@ -10,7 +10,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 	ui->setupUi(this);
 
 	m_Generated = false;
-	m_Clipper = iGame::ModelClip::New();
+	m_Clipper = iGame::QuickModelClip::New();
 	connect(ui->pushButton, &QPushButton::clicked, this, [&]() {
 		this->UpdatePlane();
 		this->ClipModel();

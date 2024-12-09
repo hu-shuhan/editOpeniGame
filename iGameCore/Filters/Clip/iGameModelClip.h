@@ -52,7 +52,7 @@ protected:
 	SurfaceMesh::Pointer m_SurfaceMesh{ nullptr };
 	VolumeMesh::Pointer m_VolumeMesh{ nullptr };
 	bool m_Slice = false;
-	bool m_InsideOut = false;
+	bool m_InsideOut = true;
 
 	void ComputePointValueAndCellVisible(Points::Pointer, CellArray::Pointer, DoubleArray::Pointer, CharArray::Pointer);
 	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
