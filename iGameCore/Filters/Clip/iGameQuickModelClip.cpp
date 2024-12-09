@@ -127,8 +127,8 @@ protected:
 class QuickClipperEdgeHashMemoryManager
 {
 public:
-	QuickClipperEdgeHashMemoryManager(){};
-	virtual ~QuickClipperEdgeHashMemoryManager(){
+	QuickClipperEdgeHashMemoryManager() {};
+	virtual ~QuickClipperEdgeHashMemoryManager() {
 		int npools = static_cast<int>(edgeHashEntrypool.size());
 		for (int i = 0; i < npools; i++)
 		{
@@ -700,17 +700,17 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 			}
 		}
 	}
-	Points::Pointer outPoins = Points::New();
+	Points::Pointer outPoints = Points::New();
 	igIndex centerStart = numUsed + m_PointList.GetNumberOfPoints();
 	igIndex outPointNum = centerStart + m_CenterPoints.GetNumberOfPoints();
-	outPoins->Resize(outPointNum);
+	outPoints->Resize(outPointNum);
 
 	for (i = 0; i < m_PrevPointsNum; i++)
 	{
 		if (ptLookup[i] == -1) {
 			continue;
 		}
-		outPoins->SetPoint(ptLookup[i], inPoints->GetPoint(i));
+		outPoints->SetPoint(ptLookup[i], inPoints->GetPoint(i));
 	}
 
 	igIndex ptIdx = numUsed;
@@ -738,20 +738,56 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 			pt[0] = pt1[0] * p + pt2[0] * bp;
 			pt[1] = pt1[1] * p + pt2[1] * bp;
 			pt[2] = pt1[2] * p + pt2[2] * bp;
-			outPoins->SetPoint(ptIdx, pt);
+			outPoints->SetPoint(ptIdx, pt);
 			ptIdx++;
 		}
 	}
 	//
 // Now construct the new "centroid" points and add them to the points list.
 //
+	nLists = m_CenterPoints.GetNumberOfLists();
+	for (i = 0; i < nLists; i++)
+	{
+		const QuickClipperCenterPoint* ce_list = nullptr;
+		int nPts = m_CenterPoints.GetList(i, ce_list);
+		for (j = 0; j < nPts; j++)
+		{
+			const QuickClipperCenterPoint& ce = ce_list[j];
+			Point pts[8];
+			Point pt = { 0.0, 0.0, 0.0 };
+			double weights[8];
+			double weight_factor = 1.0 / ce.pointNum;
+			for (k = 0; k < ce.pointNum; k++)
+			{
+				weights[k] = 1.0 * weight_factor;
+				igIndex id = 0;
+				if (ce.pIds[k] < 0){
+					id = centerStart - 1 - ce.pIds[k];
+				}
+				else if (ce.pIds[k] >= m_PrevPointsNum){
+					id = numUsed + (ce.pIds[k] - m_PrevPointsNum);
+				}
+				else{
+					id = ptLookup[ce.pIds[k]];
+				}
+				outPoints->GetPoint(id, pts[k]);
+				pt[0] += pts[k][0];
+				pt[1] += pts[k][1];
+				pt[2] += pts[k][2];
+			}
+			pt[0] *= weight_factor;
+			pt[1] *= weight_factor;
+			pt[2] *= weight_factor;
+			outPoints->SetPoint(ptIdx, pt);
+			ptIdx++;
+		}
+	}
 
-
-	  //
-  // We are finally done constructing the points list.  Set it with our
-  // output and clean up memory.
-  //
-	output->SetPoints(outPoins);
+	//
+// We are finally done constructing the points list.  Set it with our
+// output and clean up memory.
+//
+	output->SetPoints(outPoints);
 
 
 
@@ -854,12 +890,12 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 
 	igIndex i = 0, j = 0, k = 0;
 	const igIndex* vhs = nullptr;
-	const int vcnt = 0;
+	int vcnt = 0;
 	bool couldClip = false;
 
 	for (i = 0; i < inCellNum; i++) {
 		auto cellType = IGCellType(inTypes->GetValue(i));
-		inCells->GetCellIds(i, vhs);
+		vcnt = inCells->GetCellIds(i, vhs);
 		switch (cellType)
 		{
 		case IG_TETRA:

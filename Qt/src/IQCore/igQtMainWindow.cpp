@@ -480,23 +480,7 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        QuickModelClip::Pointer filter = QuickModelClip::New();
-        auto input= rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(input);
-        auto bound = input->GetBoundingBox();
-        auto ori = (bound.min + bound.max) / 2;
-        double n[3] = { 0, 1, 0 };
-        double o[3] = { ori[0], ori[1], ori[2] };
-        //设置切割的平面
-        filter->SetPlane(o, n);
-        //设置切割模式是clip还是slice
-        filter->SetIsSlice(false);
-        //执行切割
-        filter->Execute();
-        //返回结果
-        auto res = filter->GetOutput();
-        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
-        rendererWidget->update();
+
     });
 
 
@@ -658,15 +642,45 @@ void igQtMainWindow::initAllFilters() {
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto chart = new igQtCharts;
-        auto dataarray = rendererWidget->GetScene()
-                                 ->GetCurrentModel()
-                                 ->GetDataObject()
-                                 ->GetAttributeSet()
-                                 ->GetAttribute(0)
-                                 .pointer;
-        chart->drawBarChart(dataarray);
-        chart->exec();
+        //auto chart = new igQtCharts;
+        //auto dataarray = rendererWidget->GetScene()
+        //                         ->GetCurrentModel()
+        //                         ->GetDataObject()
+        //                         ->GetAttributeSet()
+        //                         ->GetAttribute(0)
+        //                         .pointer;
+        //chart->drawBarChart(dataarray);
+        //chart->exec();
+        QuickModelClip::Pointer filter = QuickModelClip::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto bound = input->GetBoundingBox();
+        auto ori = (bound.min + bound.max) / 2;
+        double n[3] = { 0, 1, 0 };
+        double o[3] = { ori[0], ori[1], ori[2] };
+        //设置切割的平面
+        filter->SetPlane(o, n);
+        //设置切割模式是clip还是slice
+        filter->SetIsSlice(false);
+        //执行切割
+        filter->Execute();
+        //返回结果
+        auto res = filter->GetOutput();
+        res->SetName("Quick Clip");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        ModelClip::Pointer filter2= ModelClip::New();
+        filter2->SetInput(input);
+        //设置切割的平面
+        filter2->SetPlane(o, n);
+        //设置切割模式是clip还是slice
+        filter2->SetIsSlice(false);
+        //执行切割
+        filter2->Execute();
+        //返回结果
+        auto res2= filter2->GetOutput();
+        res2->SetName("Old Clip");
+        modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();
     });
 
 
