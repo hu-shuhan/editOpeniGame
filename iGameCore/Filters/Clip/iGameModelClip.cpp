@@ -203,7 +203,7 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 
 		for (cellId = 0; cellId < inVolumeNum; cellId++) {
 			if (cellVisible[cellId] == 1) {
-				realVcnt=0;
+				realVcnt = 0;
 				fcnt = m_VolumeMesh->GetVolumeFaceIds(cellId, fhs);
 				for (i = 0; i < fcnt; i++) {
 					vcnt = inFaces->GetCellIds(fhs[i], vhs);
@@ -543,5 +543,94 @@ void ModelClip::CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, At
 			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
 		}
 	}
+}
+
+void ModelClip::SetClipMethod(ClipMethod CM) {
+	this->m_ClipMethod = CM;
+}
+double ModelClip::GetCutValue(float x[3]) {
+	return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
+		this->m_Normal[2] * (x[2] - this->m_Origin[2]));
+}
+double ModelClip::GetCutValue(double x[3]) {
+	return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
+		this->m_Normal[2] * (x[2] - this->m_Origin[2]));
+}
+double ModelClip::GetCutValue(float x0, float x1, float x2) {
+	return (this->m_Normal[0] * (x0 - this->m_Origin[0]) + this->m_Normal[1] * (x1 - this->m_Origin[1]) +
+		this->m_Normal[2] * (x2 - this->m_Origin[2]));
+}
+double ModelClip::GetCutValue(double x0, double x1, double x2) {
+	return (this->m_Normal[0] * (x0 - this->m_Origin[0]) + this->m_Normal[1] * (x1 - this->m_Origin[1]) +
+		this->m_Normal[2] * (x2 - this->m_Origin[2]));
+}
+double ModelClip::GetCutValue(Point x) {
+	return (this->m_Normal[0] * (x[0] - this->m_Origin[0]) + this->m_Normal[1] * (x[1] - this->m_Origin[1]) +
+		this->m_Normal[2] * (x[2] - this->m_Origin[2]));
+}
+double ModelClip::GetPointValue(igIndex pId, Points::Pointer points) {
+	switch (m_ClipMethod)
+	{
+	case iGame::ModelClip::IG_PLANE:
+		return this->GetCutValue(points->GetPoint(pId));
+		break;
+	case iGame::ModelClip::IG_SCALAR:
+		return this->m_SelectedScalar->GetElementValue(pId, m_SeletectDimension) - m_IsoValue;
+		break;
+	default:
+		break;
+	}
+	return -1;
+}
+void ModelClip::SetPlane(float o[3], float n[3]) {
+	double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+	if (sum < 1e-40) { sum = 1e-40; };
+	m_Normal[0] = n[0] / sum;
+	m_Normal[1] = n[1] / sum;
+	m_Normal[2] = n[2] / sum;
+	m_Origin[0] = o[0];
+	m_Origin[1] = o[1];
+	m_Origin[2] = o[2];
+	this->SetClipMethod(IG_PLANE);
+}
+void ModelClip::SetPlane(double o[3], double n[3]) {
+	double sum = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+	if (sum < 1e-40) { sum = 1e-40; };
+	m_Normal[0] = n[0] / sum;
+	m_Normal[1] = n[1] / sum;
+	m_Normal[2] = n[2] / sum;
+	m_Origin[0] = o[0];
+	m_Origin[1] = o[1];
+	m_Origin[2] = o[2];
+	this->SetClipMethod(IG_PLANE);
+}
+void ModelClip::SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension) {
+	this->m_SelectedScalar = array;
+	this->m_SeletectDimension = dimension;
+	this->m_IsoValue = value;
+	this->SetClipMethod(IG_SCALAR);
+	this->m_Slice = true;
+}
+void ModelClip::GetPlane(float o[3], float n[3]) {
+	n[0] = m_Normal[0];
+	n[1] = m_Normal[1];
+	n[2] = m_Normal[2];
+	o[0] = m_Origin[0];
+	o[1] = m_Origin[1];
+	o[2] = m_Origin[2];
+}
+void ModelClip::GetPlane(double o[3], double n[3]) {
+	n[0] = m_Normal[0];
+	n[1] = m_Normal[1];
+	n[2] = m_Normal[2];
+	o[0] = m_Origin[0];
+	o[1] = m_Origin[1];
+	o[2] = m_Origin[2];
+}
+void ModelClip::SetIsSlice(bool s) {
+	this->m_Slice = s;
+}
+bool ModelClip::GetIsSlice() {
+	return this->m_Slice;
 }
 IGAME_NAMESPACE_END

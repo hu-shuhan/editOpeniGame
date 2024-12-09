@@ -82,9 +82,7 @@ public:
 	void ProcessPointMergin(ExtractCellBoundaries* extract,
 		Points::Pointer inPoints, Points::Pointer& outPoints, CellArray::Pointer Polygons,
 		AttributeSet::Pointer outAllDataArray);
-	FlatArray<igIndex>::Pointer GetPointMap() {
-		return m_PointMap;
-	}
+	FlatArray<igIndex>::Pointer GetPointMap() {return m_PointMap;}
 protected:
 	iGameModelGeometryFilter();
 	//有时候在文件里会有标注表面信息，如果有则不需要这边运算，
