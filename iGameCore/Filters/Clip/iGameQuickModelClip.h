@@ -12,11 +12,9 @@ public:
 	static Pointer New() { return new QuickModelClip; }
 	~QuickModelClip();
 
-	bool ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer um);
 
 	bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)override;
 	bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)override;
-	bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)override;
 	bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)override;
 
 

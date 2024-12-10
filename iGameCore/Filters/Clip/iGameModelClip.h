@@ -14,7 +14,7 @@ public:
 	~ModelClip();
 
 	bool Execute()override;
-
+	UnstructuredMesh::Pointer GetClipMesh() { return DynamicCast<UnstructuredMesh>(this->GetOutput()); };
 
 	virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
 	virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
@@ -28,12 +28,12 @@ public:
 	};
 	void SetClipMethod(ClipMethod CM);
 
-	void SetPlane(float o[3], float n[3]) ;
+	void SetPlane(float o[3], float n[3]);
 	void SetPlane(double o[3], double n[3]);
-	void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension =0) ;
-	void GetPlane(float o[3], float n[3]) ;
+	void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension = 0);
+	void GetPlane(float o[3], float n[3]);
 	void GetPlane(double o[3], double n[3]);
-	void SetIsSlice(bool s) ;
+	void SetIsSlice(bool s);
 	bool GetIsSlice();
 
 protected:
@@ -48,9 +48,6 @@ protected:
 	int m_SeletectDimension = -1;
 	double m_IsoValue = 0.0;
 
-	UnstructuredMesh::Pointer m_UnstructuredMesh{ nullptr };
-	SurfaceMesh::Pointer m_SurfaceMesh{ nullptr };
-	VolumeMesh::Pointer m_VolumeMesh{ nullptr };
 	bool m_Slice = false;
 	bool m_InsideOut = true;
 

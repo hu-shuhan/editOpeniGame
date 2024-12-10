@@ -624,8 +624,9 @@ public:
 	void AddVertex(igIndex cellId, igIndex p0) {
 		this->m_Vertices.AddVertex(cellId, p0);
 	}
-	void ConstructUM(DataObject::Pointer, UnstructuredMesh::Pointer, Points::Pointer);
-
+	void ConstructUM(UnstructuredMesh::Pointer, AttributeSet::Pointer inData, Points::Pointer, CellArray::Pointer, UnsignedIntArray::Pointer, CharArray::Pointer);
+	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
+		igIndex* ptLookup, igIndex edgePointStart, igIndex centerStart, igIndex* originCell);
 protected:
 	QuickClipperCenterPointList m_CenterPoints;
 	QuickClipperHexList m_Hexes;
@@ -659,35 +660,40 @@ QuickClipperVolumeFromVolume::QuickClipperVolumeFromVolume(int precision, igInde
 	m_Cells[7] = &m_Vertices;
 }
 
-void QuickClipperVolumeFromVolume::ConstructUM(
-	DataObject::Pointer input, UnstructuredMesh::Pointer output, Points::Pointer inPoints)
+void QuickClipperVolumeFromVolume::ConstructUM(UnstructuredMesh::Pointer output, AttributeSet::Pointer inData,
+	Points::Pointer inPoints, CellArray::Pointer inCells, UnsignedIntArray::Pointer inTypes, CharArray::Pointer CellVisible)
 {
 	igIndex i = 0, j = 0, k = 0, l = 0;
-	if (!output || !input)return;
-	auto inPD = input->GetAttributeSet()->GetAllPointAttributes();
-	auto inCD = input->GetAttributeSet()->GetAllCellAttributes();
-
-	auto outPD = output->GetAttributeSet()->GetAllPointAttributes();
-	auto outCD = output->GetAttributeSet()->GetAllCellAttributes();
-
-
+	if (!output)return;
+	auto cellVisible = CellVisible->RawPointer();
+	auto inCellNum = inCells->GetNumberOfCells();
 	igIndex* ptLookup = new igIndex[m_PrevPointsNum];
-	for (i = 0; i < m_PrevPointsNum; i++) {
-		ptLookup[i] = -1;
-	}
+	std::fill(ptLookup, ptLookup + m_PrevPointsNum, -1);
 	igIndex numUsed = 0;
+	const igIndex* pts = nullptr;
+	igIndex pNum = 0;
+	for (i = 0; i < inCellNum; i++) {
+		if (cellVisible[i] == 1) {
+			pNum = inCells->GetCellIds(i, pts);
+			for (j = 0; j < pNum; j++) {
+				if (ptLookup[pts[j]] == -1) {
+					ptLookup[pts[j]] = numUsed++;
+				}
+			}
+		}
+	}
 	for (i = 0; i < m_CellTypeNum; i++) {
 		int nlists = m_Cells[i]->GetNumberOfLists();
 		int npts_per_shape = m_Cells[i]->GetCellSize();
-		for (j = 0; j < nlists; j++){
+		for (j = 0; j < nlists; j++) {
 			const igIndex* list;
 			int listSize = m_Cells[i]->GetList(j, list);
-			for (k = 0; k < listSize; k++){
+			for (k = 0; k < listSize; k++) {
 				list++; // skip the cell id entry
-				for (l = 0; l < npts_per_shape; l++){
+				for (l = 0; l < npts_per_shape; l++) {
 					int pt = *list++;
-					if (pt >= 0 && pt < m_PrevPointsNum){
-						if (ptLookup[pt] == -1){
+					if (pt >= 0 && pt < m_PrevPointsNum) {
+						if (ptLookup[pt] == -1) {
 							ptLookup[pt] = numUsed++;
 						}
 					}
@@ -699,9 +705,9 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 	igIndex centerStart = numUsed + m_PointList.GetNumberOfPoints();
 	igIndex outPointNum = centerStart + m_CenterPoints.GetNumberOfPoints();
 	outPoints->Resize(outPointNum);
+	//std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPoints->GetNumberOfPoints() * 3, outPoints->RawPointer());
 
-	for (i = 0; i < m_PrevPointsNum; i++)
-	{
+	for (i = 0; i < m_PrevPointsNum; i++) {
 		if (ptLookup[i] == -1) {
 			continue;
 		}
@@ -718,51 +724,49 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 	{
 		const QuickClipperInterpolatePoint* pe_list = nullptr;
 		int nPts = m_PointList.GetList(i, pe_list);
+		Point pt = { .0,.0,.0 };
+		double p = .0, bp = .0;
 		for (j = 0; j < nPts; j++)
 		{
 			const QuickClipperInterpolatePoint& pe = pe_list[j];
-			double pt[3];
-			int idx1 = pe.m_PointId[0];
-			int idx2 = pe.m_PointId[1];
-			Point pt1 = inPoints->GetPoint(idx1);
-			Point pt2 = inPoints->GetPoint(idx2);
-
+			Point& pt1 = inPoints->GetPoint(pe.m_PointId[0]);
+			Point& pt2 = inPoints->GetPoint(pe.m_PointId[1]);
 			// Now that we have the original points, calculate the new one.
-			double p = pe.m_Percent;
-			double bp = 1.0 - p;
+			p = pe.m_Percent;
+			bp = 1.0 - p;
 			pt[0] = pt1[0] * p + pt2[0] * bp;
 			pt[1] = pt1[1] * p + pt2[1] * bp;
 			pt[2] = pt1[2] * p + pt2[2] * bp;
-			outPoints->SetPoint(ptIdx, pt);
-			ptIdx++;
+			outPoints->SetPoint(ptIdx++, pt);
 		}
 	}
 	//
-// Now construct the new "centroid" points and add them to the points list.
-//
+	// Now construct the new "centroid" points and add them to the points list.
+	//
 	nLists = m_CenterPoints.GetNumberOfLists();
 	for (i = 0; i < nLists; i++)
 	{
 		const QuickClipperCenterPoint* ce_list = nullptr;
 		int nPts = m_CenterPoints.GetList(i, ce_list);
+
 		for (j = 0; j < nPts; j++)
 		{
-			const QuickClipperCenterPoint& ce = ce_list[j];
 			Point pts[8];
 			Point pt = { 0.0, 0.0, 0.0 };
-			double weights[8];
-			double weight_factor = 1.0 / ce.pointNum;
+			double weights[8] = { .0 };
+			double weight_factor;
+			const QuickClipperCenterPoint& ce = ce_list[j];
+			weight_factor = 1.0 / ce.pointNum;
 			for (k = 0; k < ce.pointNum; k++)
 			{
-				weights[k] = 1.0 * weight_factor;
 				igIndex id = 0;
-				if (ce.pIds[k] < 0){
+				if (ce.pIds[k] < 0) {
 					id = centerStart - 1 - ce.pIds[k];
 				}
-				else if (ce.pIds[k] >= m_PrevPointsNum){
+				else if (ce.pIds[k] >= m_PrevPointsNum) {
 					id = numUsed + (ce.pIds[k] - m_PrevPointsNum);
 				}
-				else{
+				else {
 					id = ptLookup[ce.pIds[k]];
 				}
 				outPoints->GetPoint(id, pts[k]);
@@ -773,78 +777,184 @@ void QuickClipperVolumeFromVolume::ConstructUM(
 			pt[0] *= weight_factor;
 			pt[1] *= weight_factor;
 			pt[2] *= weight_factor;
-			outPoints->SetPoint(ptIdx, pt);
-			ptIdx++;
+			outPoints->SetPoint(ptIdx++, pt);
 		}
 	}
 
-	//
-// We are finally done constructing the points list.  Set it with our
-// output and clean up memory.
-//
-	output->SetPoints(outPoints);
-
-
-
-	//
 	// Now set up the shapes and the cell data.
 	//
-	int cellId = 0;
 	int nlists;
-	igIndex ncells = 0;
+	igIndex outCellNum = 0;
 	igIndex conn_size = 0;
+	for (i = 0; i < inCellNum; i++) {
+		if (cellVisible[i] == 1) {
+			outCellNum++;
+			conn_size += inCells->GetCellSize(i);
+		}
+	}
 	for (i = 0; i < m_CellTypeNum; i++) {
 		igIndex ns = m_Cells[i]->GetNumberOfCells();
-		ncells += ns;
-		conn_size += static_cast<igIndex>(m_Cells[i]->GetCellSize() + 1) * ns;
+		outCellNum += ns;
+		conn_size += static_cast<igIndex>(m_Cells[i]->GetCellSize()) * ns;
+	}
+	IdArray::Pointer OutConn = IdArray::New();
+	OutConn->Resize(conn_size);
+	UnsignedIntArray::Pointer OutOffset = UnsignedIntArray::New();
+	OutOffset->Resize(outCellNum + 1);
+	UnsignedIntArray::Pointer OutType = UnsignedIntArray::New();
+	OutType->Resize(outCellNum);
+	auto outConn = OutConn->RawPointer();
+	auto outOffset = OutOffset->RawPointer();
+	auto outType = OutType->RawPointer();
+	igIndex* ocLookup = new igIndex[outCellNum];
+
+	unsigned int offset = 0;
+	for (i = 0; i < inCellNum; i++) {
+		if (cellVisible[i] == 1) {
+			pNum = inCells->GetCellIds(i, pts);
+			for (j = 0; j < pNum; j++) {
+				*outConn++ = ptLookup[pts[j]];
+			}
+			*outOffset++ = offset;
+			offset += static_cast<unsigned int>(pNum);
+			*outType++ = inTypes->GetValue(i);
+			*ocLookup++ = i;
+		}
 	}
 
-	CellArray::Pointer OutConn = CellArray::New();
-	OutConn->GetCellIdArray()->Reserve(conn_size - ncells);
-	auto outConn = OutConn->GetCellIdArray()->RawPointer();
-	UnsignedIntArray::Pointer OutType = UnsignedIntArray::New();
-	OutType->Resize(ncells);
-	auto outType = OutType->RawPointer();
 	igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
-
 	for (i = 0; i < m_CellTypeNum; i++)
 	{
 		const igIndex* list;
 		nlists = m_Cells[i]->GetNumberOfLists();
 		int shapesize = m_Cells[i]->GetCellSize();
 		int cell_type = m_Cells[i]->GetIGAMEType();
-
-		for (j = 0; j < nlists; j++)
-		{
+		for (j = 0; j < nlists; j++) {
 			int listSize = m_Cells[i]->GetList(j, list);
-
-			for (k = 0; k < listSize; k++)
-			{
-
-				for (l = 0; l < shapesize; l++)
-				{
-					if (list[l + 1] < 0)
-					{
+			for (k = 0; k < listSize; k++) {
+				*ocLookup++ = *list;
+				for (l = 0; l < shapesize; l++) {
+					if (list[l + 1] < 0) {
 						vhs[l] = centerStart - 1 - list[l + 1];
 					}
-					else if (list[l + 1] >= m_PrevPointsNum)
-					{
+					else if (list[l + 1] >= m_PrevPointsNum) {
 						vhs[l] = numUsed + (list[l + 1] - m_PrevPointsNum);
 					}
-					else
-					{
+					else {
 						vhs[l] = ptLookup[list[l + 1]];
 					}
 				}
 				list += shapesize + 1;
-				OutConn->AddCellIds(vhs, shapesize);
+				for (l = 0; l < shapesize; l++) {
+					*outConn++ = vhs[l];
+				}
+				*outOffset++ = offset;
+				offset += static_cast<unsigned int>(shapesize);
 				*outType++ = static_cast<unsigned int>(cell_type);
-				cellId++;
 			}
 		}
 	}
-	output->SetCells(OutConn, OutType);
-	delete ptLookup;
+	*outOffset++ = offset;
+	auto OutCells = CellArray::New();
+	OutCells->SetData(OutConn, OutOffset);
+	output->SetPoints(outPoints);
+	output->SetCells(OutCells, OutType);
+	ocLookup -= outCellNum;
+	auto outData = AttributeSet::New();
+	this->CopyAttributeSetData(outPointNum, outCellNum, inData, outData, ptLookup, numUsed, centerStart, ocLookup);
+	output->SetAttributeSet(outData);
+
+	delete[] ptLookup;
+	delete[] ocLookup;
+}
+
+void QuickClipperVolumeFromVolume::CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
+	igIndex* ptLookup, igIndex edgePointStart, igIndex centerStart, igIndex* originCell)
+{
+	igIndex i = 0, j = 0, k = 0, l = 0, arrayId = 0;
+	int dimension = 0;
+	auto inAllAttr = inData->GetAllAttributes();
+	double values[IGAME_CELL_MAX_SIZE] = { 0 };
+	double values_1[IGAME_CELL_MAX_SIZE] = { 0 };
+	double values_2[IGAME_CELL_MAX_SIZE] = { 0 };
+	for (arrayId = 0; arrayId < inAllAttr->GetNumberOfElements(); arrayId++) {
+		auto attr = inAllAttr->GetElement(arrayId);
+		auto inArray = attr.pointer;
+		auto outArray = FloatArray::New();
+		outArray->SetName(inArray->GetName());
+		outArray->SetDimension(inArray->GetDimension());
+		if (attr.attachmentType == IG_CELL) {
+			outArray->Resize(outCellNum);
+			for (i = 0; i < outCellNum; i++) {
+				inArray->GetElement(originCell[i], values);
+				outArray->SetElement(i, values);
+			}
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
+		}
+		else if (attr.attachmentType == IG_POINT) {
+			outArray->Resize(outPointNum);
+			dimension = inArray->GetDimension();
+			for (i = 0; i < m_PrevPointsNum; i++) {
+				if (ptLookup[i] != -1) {
+					inArray->GetElement(i, values);
+					outArray->SetElement(ptLookup[i], values);
+				}
+			}
+			igIndex ptIdx = edgePointStart;
+			auto nLists = m_PointList.GetNumberOfLists();
+			for (i = 0; i < nLists; i++)
+			{
+				const QuickClipperInterpolatePoint* pe_list = nullptr;
+				int nPts = m_PointList.GetList(i, pe_list);
+				double p = .0, bp = .0;
+				for (j = 0; j < nPts; j++)
+				{
+					const QuickClipperInterpolatePoint& pe = pe_list[j];
+					p = pe.m_Percent;
+					bp = 1.0 - p;
+					inArray->GetElement(pe.m_PointId[0], values_1);
+					inArray->GetElement(pe.m_PointId[1], values_2);
+					for (k = 0; k < dimension; k++) {
+						values[k] = values_1[k] * p + values_2[k] * bp;
+					}
+					outArray->SetElement(ptIdx++, values);
+				}
+			}
+			nLists = m_CenterPoints.GetNumberOfLists();
+			for (i = 0; i < nLists; i++)
+			{
+				const QuickClipperCenterPoint* ce_list = nullptr;
+				int nPts = m_CenterPoints.GetList(i, ce_list);
+				for (j = 0; j < nPts; j++) {
+					double weight_factor;
+					const QuickClipperCenterPoint& ce = ce_list[j];
+					weight_factor = 1.0 / ce.pointNum;
+					double avg_values[IGAME_CELL_MAX_SIZE] = { 0 };
+					for (k = 0; k < ce.pointNum; k++) {
+						igIndex id = 0;
+						if (ce.pIds[k] < 0) {
+							id = centerStart - 1 - ce.pIds[k];
+						}
+						else if (ce.pIds[k] >= m_PrevPointsNum) {
+							id = edgePointStart + (ce.pIds[k] - m_PrevPointsNum);
+						}
+						else {
+							id = ptLookup[ce.pIds[k]];
+						}
+						outArray->GetElement(id, values);
+						for (l = 0; l < dimension; l++) {
+							avg_values[l] += values[l];
+						}
+					}
+					for (l = 0; l < dimension; l++) {
+						avg_values[l] *= weight_factor;
+					}
+					outArray->SetElement(ptIdx++, avg_values);
+				}
+			}
+			outData->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
+		}
+	}
 }
 // ============================================================================
 // ======================= QuickModelClip ( begin) ============================
@@ -855,9 +965,11 @@ QuickModelClip::QuickModelClip()
 QuickModelClip::~QuickModelClip()
 {
 }
-bool QuickModelClip::ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer um)
+
+bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 {
-	m_UnstructuredMesh = um;
+	if (this->m_Slice) { return this->ModelClip::ExecuteWithUnstructuredMesh(um); }
+	auto m_UnstructuredMesh = um;
 	if (!m_UnstructuredMesh)return false;
 
 	//不能使用打表速切的部分
@@ -866,6 +978,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer u
 
 	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
 
+	auto inData = m_UnstructuredMesh->GetAttributeSet();
 	auto inPoints = m_UnstructuredMesh->GetPoints();
 	auto inPointNum = m_UnstructuredMesh->GetNumberOfPoints();
 	auto inCells = m_UnstructuredMesh->GetCells();
@@ -879,16 +992,20 @@ bool QuickModelClip::ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer u
 	auto PointClipValue = PointClipArray->RawPointer();
 	auto cellVisible = CellVisible->RawPointer();
 
-	QuickClipperVolumeFromVolume* VFV = new QuickClipperVolumeFromVolume(0, inPointNum,
-		int(pow(double(inCellNum), double(0.6667f))) * 5 + 100);
-
 
 	igIndex i = 0, j = 0, k = 0;
 	const igIndex* vhs = nullptr;
 	int vcnt = 0;
-	bool couldClip = false;
 
+
+	QuickClipperVolumeFromVolume* VFV = new QuickClipperVolumeFromVolume(0, inPointNum,
+		int(pow(double(inCellNum), double(0.6667f))) * 5 + 100);
+
+	bool couldClip = false;
 	for (i = 0; i < inCellNum; i++) {
+		if (cellVisible[i]) {
+			continue;
+		}
 		auto cellType = IGCellType(inTypes->GetValue(i));
 		vcnt = inCells->GetCellIds(i, vhs);
 		switch (cellType)
@@ -1122,321 +1239,77 @@ bool QuickModelClip::ExecuteWithUnstructuredMeshTest(UnstructuredMesh::Pointer u
 
 	}
 	else {
-		VFV->ConstructUM(m_UnstructuredMesh, OutMesh, inPoints);
+		VFV->ConstructUM(OutMesh, inData, inPoints, inCells, inTypes, CellVisible);
 	}
 	this->SetOutput(0, OutMesh);
+	delete VFV;
+	VFV = nullptr;
 	return true;
 }
-bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
+bool QuickModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer m_VolumeMesh)
 {
-	m_UnstructuredMesh = um;
-	if (!m_UnstructuredMesh)return false;
-
-	//不能使用打表速切的部分
-	UnstructuredMesh::Pointer RestPart = nullptr;
-	igIndex RestNum = 0;
-
-	UnstructuredMesh::Pointer OutMesh = UnstructuredMesh::New();
-
-	auto inPoints = m_UnstructuredMesh->GetPoints();
-	auto inPointNum = m_UnstructuredMesh->GetNumberOfPoints();
-	auto inCells = m_UnstructuredMesh->GetCells();
-	auto inTypes = m_UnstructuredMesh->GetCellTypes();
-	igIndex inCellNum = m_UnstructuredMesh->GetNumberOfCells();
-
-
-	DoubleArray::Pointer PointClipArray = DoubleArray::New();
-	CharArray::Pointer CellVisible = CharArray::New();
-	ComputePointValueAndCellVisible(inPoints, inCells, PointClipArray, CellVisible);
-	auto PointClipValue = PointClipArray->RawPointer();
-	auto cellVisible = CellVisible->RawPointer();
-
-
-	//auto Result_ExtractPart = iGame::UnstructuredMesh::New();
-	//auto ExtractCells = CellArray::New();
-	//auto ExtractTypes = UnsignedIntArray::New();
-	//ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
-	//ExtractTypes->Reserve(inCellNum * 2 / 3);
-	//igIndex cellId = 0;
-	const igIndex* vhs = nullptr;
+	if (!m_VolumeMesh)return false;
+	if (m_VolumeMesh->GetIsPolyhedronType()) {
+		return this->ExecuteWithVolumeMeshWithPolyhedronType(m_VolumeMesh);
+	}
+	UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
+	auto inCells = m_VolumeMesh->GetVolumes();
+	auto inCcnt = m_VolumeMesh->GetNumberOfVolumes();
+	Types->Resize(inCcnt);
+	unsigned int type = 0;
 	int vcnt = 0;
-	//for (cellId = 0; cellId < inCellNum; cellId++) {
-	//	if (cellVisible[cellId] == 1) {
-	//		vcnt = inCells->GetCellIds(cellId, vhs);
-	//		ExtractCells->AddCellIds(vhs, vcnt);
-	//		ExtractTypes->AddValue(inTypes->GetValue(cellId));
-
-	//	}
-	//}
-	//OutPoints->Resize(inPointNum);
-	//std::copy(inPoints->RawPointer(), inPoints->RawPointer() + inPointNum * 3, OutPoints->RawPointer());
-	//Result_ExtractPart->SetPoints(OutPoints);
-	//Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
-
-
-
-
-	QuickClipperVolumeFromVolume* VFV = new QuickClipperVolumeFromVolume(0, inPointNum,
-		int(pow(double(inCellNum), double(0.6667f))) * 5 + 100);
-
-
-	igIndex i = 0, j = 0, k = 0;
-
-	bool couldClip = false;
-
-	for (i = 0; i < inCellNum; i++) {
-		if (cellVisible[i]) {
-			continue;
+	for (int i = 0; i < inCcnt; i++) {
+		vcnt = inCells->GetCellSize(i);
+		if (vcnt == 4) {
+			type = IG_TETRA;
 		}
-		auto cellType = IGCellType(inTypes->GetValue(i));
-		vcnt = inCells->GetCellIds(i, vhs);
-		switch (cellType)
-		{
-		case IG_TETRA:
-		case IG_PYRAMID:
-		case IG_PRISM:
-		case IG_HEXAHEDRON:
-		case IG_TRIANGLE:
-		case IG_QUAD:
-		case IG_LINE:
-		case IG_VERTEX:
-			couldClip = true;
-			break;
-		default:
-			couldClip = false;
-			break;
+		else if (vcnt == 5) {
+			type = IG_PYRAMID;
 		}
-		if (couldClip) {
-			int caseIndex = 0;
-			double cellValues[8] = { 0 };
-			for (j = vcnt - 1; j >= 0; j--) {
-				cellValues[j] = PointClipValue[vhs[j]];
-				caseIndex += (cellValues[j] >= 0 ? 1 : 0);
-				caseIndex <<= j ? 1 : 0;
-			}
-			int startIdx = 0;
-			int nOutputs = 0;
-			typedef const int EDGEIDXS[2];
-			EDGEIDXS* edgeVtxs = nullptr;
-			unsigned char* thisCase = nullptr;
-			switch (cellType)
-			{
-			case IG_TETRA:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesTet[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesTet[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesTet[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::TetVerticesFromEdges;
-				break;
-
-			case IG_PYRAMID:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesPyr[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesPyr[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesPyr[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::PyramidVerticesFromEdges;
-				break;
-
-			case IG_PRISM:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesWdg[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesWdg[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesWdg[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::WedgeVerticesFromEdges;
-				break;
-
-			case IG_HEXAHEDRON:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesHex[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesHex[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesHex[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::HexVerticesFromEdges;
-				break;
-
-
-			case IG_TRIANGLE:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesTri[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesTri[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesTri[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::TriVerticesFromEdges;
-				break;
-
-			case IG_QUAD:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesQua[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesQua[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesQua[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::QuadVerticesFromEdges;
-				break;
-
-
-			case IG_LINE:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesLin[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesLin[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesLin[caseIndex];
-				edgeVtxs = (EDGEIDXS*)vtkTableBasedClipperTriangulationTables::LineVerticesFromEdges;
-				break;
-
-			case IG_VERTEX:
-				startIdx = vtkTableBasedClipperClipTables::StartClipShapesVtx[caseIndex];
-				thisCase = &vtkTableBasedClipperClipTables::ClipShapesVtx[startIdx];
-				nOutputs = vtkTableBasedClipperClipTables::NumClipShapesVtx[caseIndex];
-				edgeVtxs = nullptr;
-				break;
-			}
-			int intrpIds[4]={-1,-1,-1,-1};
-			for (j = 0; j < nOutputs; j++) {
-				int nCellPts = 0;
-				int theColor = -1;
-				int intrpIdx = -1;
-				unsigned char theShape = *thisCase++;
-				switch (theShape)
-				{
-				case ST_HEX:
-					nCellPts = 8;
-					theColor = *thisCase++;
-					break;
-				case ST_WDG:
-					nCellPts = 6;
-					theColor = *thisCase++;
-					break;
-				case ST_PYR:
-					nCellPts = 5;
-					theColor = *thisCase++;
-					break;
-				case ST_TET:
-					nCellPts = 4;
-					theColor = *thisCase++;
-					break;
-				case ST_QUA:
-					nCellPts = 4;
-					theColor = *thisCase++;
-					break;
-				case ST_TRI:
-					nCellPts = 3;
-					theColor = *thisCase++;
-					break;
-				case ST_LIN:
-					nCellPts = 2;
-					theColor = *thisCase++;
-					break;
-
-				case ST_VTX:
-					nCellPts = 1;
-					theColor = *thisCase++;
-					break;
-				case ST_PNT:
-					//插入的点，一般为均值插值得到的质心点
-					intrpIdx = *thisCase++;
-					theColor = *thisCase++;
-					nCellPts = *thisCase++;
-					break;
-				default:
-					igError("invalid cell type!");
-				}
-				if ((!this->m_InsideOut && theColor == COLOR0) || (this->m_InsideOut && theColor == COLOR1)){
-					thisCase += nCellPts;
-					continue;
-				}
-				igIndex cellIds[8] = { 0 };
-				for (k = 0; k < nCellPts; k++) {
-					unsigned char pntIndex = *thisCase++;
-					if (pntIndex <= P7){
-						cellIds[k] = vhs[pntIndex];
-					}
-					else if (pntIndex >= EA && pntIndex <= EL)
-					{
-						int pt1Index = edgeVtxs[pntIndex - EA][0];
-						int pt2Index = edgeVtxs[pntIndex - EA][1];
-						if (pt2Index < pt1Index){
-							int temp = pt2Index;
-							pt2Index = pt1Index;
-							pt1Index = temp;
-						}
-						double pt1ToPt2 = cellValues[pt2Index] - cellValues[pt1Index];
-						double pt1ToIso = 0.0 - cellValues[pt1Index];
-						double p1Weight = 1.0 - pt1ToIso / pt1ToPt2;
-
-						igIndex pntIndx1 = vhs[pt1Index];
-						igIndex pntIndx2 = vhs[pt2Index];
-
-						cellIds[k] = VFV->AddPoint(pntIndx1, pntIndx2, p1Weight);
-					}
-					else if (pntIndex >= N0 && pntIndex <= N3) {
-						cellIds[k] = intrpIds[pntIndex - N0];
-					}
-					else {
-						igError("An invalid output case was found in the ClipCases.");
-					}
-				}
-				switch (theShape)
-				{
-				case ST_HEX:
-					VFV->AddHex(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4],
-						cellIds[5], cellIds[6], cellIds[7]);
-					break;
-
-				case ST_WDG:
-					VFV->AddPrism(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4], cellIds[5]);
-					break;
-
-				case ST_PYR:
-					VFV->AddPyramid(
-						i, cellIds[0], cellIds[1], cellIds[2], cellIds[3], cellIds[4]);
-					break;
-
-				case ST_TET:
-					VFV->AddTetra(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3]);
-					break;
-
-				case ST_QUA:
-					VFV->AddQuad(i, cellIds[0], cellIds[1], cellIds[2], cellIds[3]);
-					break;
-
-				case ST_TRI:
-					VFV->AddTriangle(i, cellIds[0], cellIds[1], cellIds[2]);
-					break;
-
-				case ST_LIN:
-					VFV->AddLine(i, cellIds[0], cellIds[1]);
-					break;
-
-				case ST_VTX:
-					VFV->AddVertex(i, cellIds[0]);
-					break;
-
-				case ST_PNT:
-					intrpIds[intrpIdx] = VFV->AddCenterPoint(nCellPts, cellIds);
-					break;
-				}
-			}
-			edgeVtxs = nullptr;
-			thisCase = nullptr;
+		else if (vcnt == 6) {
+			type = IG_PRISM;
 		}
-		else if (cellType == IG_POLYHEDRON)
-		{
+		else if (vcnt == 8) {
+			type = IG_HEXAHEDRON;
 		}
 		else {
-
+			return this->ModelClip::ExecuteWithVolumeMesh(m_VolumeMesh);
 		}
-		vhs = nullptr;
+		Types->SetValue(i, type);
 	}
-
-	if (RestNum > 0) {
-
+	auto um = UnstructuredMesh::New();
+	um->SetPoints(m_VolumeMesh->GetPoints());
+	um->SetCells(inCells, Types);
+	um->SetAttributeSet(m_VolumeMesh->GetAttributeSet());
+	return ExecuteWithUnstructuredMesh(um);
+}
+bool QuickModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer m_SurfaceMesh)
+{
+	if (!m_SurfaceMesh)return false;
+	UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
+	auto inFaces = m_SurfaceMesh->GetFaces();
+	auto inFcnt = m_SurfaceMesh->GetNumberOfFaces();
+	Types->Resize(inFcnt);
+	unsigned int type = 0;
+	int vcnt = 0;
+	for (int i = 0; i < inFcnt; i++) {
+		vcnt = inFaces->GetCellSize(i);
+		if (vcnt == 3) {
+			type = IG_TRIANGLE;
+		}
+		else if (vcnt == 4) {
+			type = IG_QUAD;
+		}
+		else {
+			return this->ModelClip::ExecuteWithSurfaceMesh(m_SurfaceMesh);
+		}
+		Types->SetValue(i, type);
 	}
-	else {
-		VFV->ConstructUM(m_UnstructuredMesh, OutMesh, inPoints);
-	}
-	this->SetOutput(0, OutMesh);
-	return true;
-}
-bool QuickModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
-{
-	return true;
-}
-bool QuickModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
-{
-	return true;
-}
-bool QuickModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
-{
-	return true;
+	auto um = UnstructuredMesh::New();
+	um->SetPoints(m_SurfaceMesh->GetPoints());
+	um->SetCells(inFaces, Types);
+	um->SetAttributeSet(m_SurfaceMesh->GetAttributeSet());
+	return ExecuteWithUnstructuredMesh(um);
 }
 
 

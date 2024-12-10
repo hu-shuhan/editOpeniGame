@@ -62,7 +62,7 @@ void igQtModelClipWidget::SetIsSlice(bool s) {
 }
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
 	this->m_OriginDataObject = m_d;
-	m_ResultMesh = iGame::SurfaceMesh::New();
+	m_ResultMesh = iGame::UnstructuredMesh::New();
 	m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Clip");
 	m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
 	DrawClipModel(m_ResultMesh);
@@ -83,8 +83,6 @@ void igQtModelClipWidget::ClipModel() {
 	m_ResultMesh->ClearSubDataObject();
 	// recover attribute
 	m_ResultMesh->ViewCloudPicture(scene, -1, -1);
-
-
 	if (m_OriginDataObject->HasSubDataObject()) {
 		for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin(); it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
 			auto childObject = it->second;
@@ -94,13 +92,8 @@ void igQtModelClipWidget::ClipModel() {
 			auto Result_ClipPart = iGame::SurfaceMesh::New();
 			m_Clipper->SetInput(childObject);
 			m_Clipper->Execute();
-			auto out = m_Clipper->GetOutput();
-			if (out->HasSubDataObject()) {
-				for (auto it = out->SubDataObjectIteratorBegin(); it != out->SubDataObjectIteratorEnd(); it++) {
-					m_ResultMesh->AddSubDataObject(it->second);
-				}
-			}
-			else {
+			auto out = m_Clipper->GetClipMesh();
+			if (out) {
 				m_ResultMesh->AddSubDataObject(out);
 			}
 		}
@@ -108,48 +101,22 @@ void igQtModelClipWidget::ClipModel() {
 	else {
 		auto Result_ClipPart = iGame::SurfaceMesh::New();
 		m_Clipper->SetInput(m_OriginDataObject);
-		clock_t time_1=clock();
 		m_Clipper->Execute();
-		clock_t time_2 = clock();
-		std::cout<<"clip cost "<<time_2-time_1<<'\n';
-		auto out = m_Clipper->GetOutput();
-		if (out->HasSubDataObject()) {
-			for (auto it = out->SubDataObjectIteratorBegin(); it != out->SubDataObjectIteratorEnd(); it++) {
-				m_ResultMesh->AddSubDataObject(it->second);
-			}
+		auto out = m_Clipper->GetClipMesh();
+		if (out) {
+			//m_ResultMesh->AddSubDataObject(out);
+			m_ResultMesh->SetPoints(out->GetPoints());
+			m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
+			m_ResultMesh->SetAttributeSet(out->GetAttributeSet());
 		}
-		else {
-			m_ResultMesh->AddSubDataObject(out);
-		}
-		/*       iGame::iGameModelGeometryFilter::Pointer surfaceextract =
-				   iGame::iGameModelGeometryFilter::New();
-			   surfaceextract->Execute(m_Clipper->GetOutput(), Result_ClipPart);
-			   if (Result_ClipPart) {
-				   Result_ClipPart->SetViewStyle(m_ResultMesh->GetViewStyle());
-				   Result_ClipPart->ConvertToDrawableData();
-				   m_ResultMesh->AddSubDataObject(Result_ClipPart);
-			   }
-
-			   if (!m_Clipper->GetIsSlice()) {
-				   auto Result_ExtractPart = iGame::SurfaceMesh::New();
-				   double o[3];
-				   double n[3];
-				   m_Clipper->GetPlane(o, n);
-				   surfaceextract->SetClipPlane(o, n);
-				   surfaceextract->Execute(m_OriginDataObject, Result_ExtractPart);
-				   if (Result_ExtractPart) {
-					   Result_ExtractPart->SetViewStyle(m_ResultMesh->GetViewStyle());
-					   Result_ExtractPart->ConvertToDrawableData();
-					   m_ResultMesh->AddSubDataObject(Result_ExtractPart);
-				   }
-			   }*/
 	}
-
+	clock_t time_clip = clock();
+	std::cout << "clip cost " << time_clip - time_1 << '\n';
 	m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
 	m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex,
 		oldAttributeDimension);
-	clock_t time_2 = clock();
-	std::cout << time_2 - time_1 << "\n";
+	m_ResultMesh->ConvertToDrawableData();
+	auto time_view = clock();
+	std::cout << "all time  " << time_view - time_1 << "\n";
 	UpdateClipModel(m_ResultMesh);
-
 }

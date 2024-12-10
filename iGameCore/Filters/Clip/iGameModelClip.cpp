@@ -54,8 +54,9 @@ bool ModelClip::Execute()
 
 bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 {
-	m_UnstructuredMesh = um;
-	if (!m_UnstructuredMesh)return false;
+
+	if (!um)return false;
+	auto m_UnstructuredMesh = um;
 	AttributeSet::Pointer inData = m_UnstructuredMesh->GetAttributeSet();
 	AttributeSet::Pointer outData = AttributeSet::New();
 
@@ -164,7 +165,7 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 	if (!vm || vm->GetIsPolyhedronType() == false) {
 		return false;
 	}
-	m_VolumeMesh = vm;
+	auto m_VolumeMesh = vm;
 	AttributeSet::Pointer inData = m_VolumeMesh->GetAttributeSet();
 	AttributeSet::Pointer outData = AttributeSet::New();
 	CellArray::Pointer OutConn = CellArray::New();
@@ -261,7 +262,7 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 }
 bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 {
-	m_VolumeMesh = vm;
+	auto m_VolumeMesh = vm;
 	if (!m_VolumeMesh)return false;
 	if (m_VolumeMesh->GetIsPolyhedronType()) {
 		return this->ExecuteWithVolumeMeshWithPolyhedronType(m_VolumeMesh);
@@ -355,7 +356,7 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 }
 bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 {
-	m_SurfaceMesh = sm;
+	auto m_SurfaceMesh = sm;
 	if (!m_SurfaceMesh)return false;
 	AttributeSet::Pointer inData = m_SurfaceMesh->GetAttributeSet();
 	AttributeSet::Pointer outData = AttributeSet::New();
@@ -450,22 +451,14 @@ void ModelClip::ComputePointValueAndCellVisible(Points::Pointer inPoints, CellAr
 	igIndex inPointNum = inPoints->GetNumberOfPoints();
 	PointClipArray->Resize(inPointNum);
 	double* PointClipValue = PointClipArray->RawPointer();
-
-	clock_t time__1 = clock();
 	for (PointId = 0; PointId < inPointNum; PointId++) {
 		PointClipValue[PointId] = GetPointValue(PointId, inPoints);
 	}
-	clock_t time__2 = clock();
-	std::cout << "compute point vis cost  " << time__2 - time__1 << '\n';
-
 	igIndex CellId = 0;
 	IGsize CellNum = inCells->GetNumberOfCells();
-
-
 	CellVisible->Resize(CellNum);
 	auto cellVisible = CellVisible->RawPointer();
 	std::fill(cellVisible, cellVisible + CellNum, 0);
-
 	clock_t time1 = clock();
 	auto func = [&](igIndex start, igIndex end) -> void {
 		igIndex cellId = 0;
@@ -500,6 +493,7 @@ void ModelClip::ComputePointValueAndCellVisible(Points::Pointer inPoints, CellAr
 		}
 	};
 	ThreadPool::parallelFor(0, CellNum, func);
+	PointClipValue=nullptr;
 }
 void ModelClip::CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 	std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell)
