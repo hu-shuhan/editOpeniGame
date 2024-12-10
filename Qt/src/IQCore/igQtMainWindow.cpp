@@ -31,7 +31,7 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
-#include <fcntl.h> // ç”¨äº open
+#include <fcntl.h> // ÓÃÓÚ open
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
@@ -87,7 +87,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
 
     SliceDockWidget = new QDockWidget(this);
-    SliceDockWidget->setWindowTitle("ç½‘æ ¼åˆ‡å‰²");
+    SliceDockWidget->setWindowTitle("Íø¸ñÇĞ¸î");
     SliceWidget = new igQtModelClipWidget(SliceDockWidget);
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
@@ -95,7 +95,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::LeftDockWidgetArea, SliceDockWidget);
 
     DeformationDockWidget = new QDockWidget(this);
-    DeformationDockWidget->setWindowTitle("ç»“æ„å½¢å˜");
+    DeformationDockWidget->setWindowTitle("½á¹¹ĞÎ±ä");
     DeformationWidget = new igQtDeformationWidget(DeformationDockWidget);
     DeformationDockWidget->setWidget(DeformationWidget);
     DeformationDockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
@@ -114,14 +114,14 @@ void igQtMainWindow::initToolbarComponent() {
 
     // viewStyleCombox->setStyleSheet("QComboBox {"
     //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // è®¾ç½®æ–‡æœ¬é¢œè‰²ä¸ºæµ…ç™½è‰²
-    //	"border: 1px solid #ffffff;"   // è®¾ç½®è¾¹æ¡†æ ·å¼ä¸ºç°è‰²å®çº¿è¾¹æ¡†
-    //	"padding: 5px;"                // è®¾ç½®å†…è¾¹è·
-    //	"font-size: 16px;"              // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“å¤§å°ä¸º14px
+    //	"color: #202020;"              // ÉèÖÃÎÄ±¾ÑÕÉ«ÎªÇ³°×É«
+    //	"border: 1px solid #ffffff;"   // ÉèÖÃ±ß¿òÑùÊ½Îª»ÒÉ«ÊµÏß±ß¿ò
+    //	"padding: 5px;"                // ÉèÖÃÄÚ±ß¾à
+    //	"font-size: 16px;"              // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌå´óĞ¡Îª14px
     //	"}"
     //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“ä¸ºArial
-    //	"color: #404040;"               // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“é¢œè‰²ä¸ºæµ…ç°è‰²
+    //	"font-family: Arial;"           // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÎªArial
+    //	"color: #404040;"               // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÑÕÉ«ÎªÇ³»ÒÉ«
     //	"}"
     //	"QComboBox::drop-down {"
     //	"subcontrol-origin: padding;"
@@ -139,14 +139,14 @@ void igQtMainWindow::initToolbarComponent() {
     // attributeViewIndexCombox->addItem("None        ");
     // attributeViewIndexCombox->setStyleSheet("QComboBox {"
     //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // è®¾ç½®æ–‡æœ¬é¢œè‰²ä¸ºæµ…ç™½è‰²
-    //	"border: 1px solid #ffffff;"   // è®¾ç½®è¾¹æ¡†æ ·å¼ä¸ºç°è‰²å®çº¿è¾¹æ¡†
-    //	"padding: 5px;"                // è®¾ç½®å†…è¾¹è·
-    //	"font-size: 16px;"              // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“å¤§å°ä¸º14px
+    //	"color: #202020;"              // ÉèÖÃÎÄ±¾ÑÕÉ«ÎªÇ³°×É«
+    //	"border: 1px solid #ffffff;"   // ÉèÖÃ±ß¿òÑùÊ½Îª»ÒÉ«ÊµÏß±ß¿ò
+    //	"padding: 5px;"                // ÉèÖÃÄÚ±ß¾à
+    //	"font-size: 16px;"              // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌå´óĞ¡Îª14px
     //	"}"
     //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“ä¸ºArial
-    //	"color: #404040;"               // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“é¢œè‰²ä¸ºæµ…ç°è‰²
+    //	"font-family: Arial;"           // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÎªArial
+    //	"color: #404040;"               // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÑÕÉ«ÎªÇ³»ÒÉ«
     //	"}"
     //	"QComboBox::drop-down {"
     //	"subcontrol-origin: padding;"
@@ -165,14 +165,14 @@ void igQtMainWindow::initToolbarComponent() {
     // attributeViewDimCombox->addItem("magnitude");
     // attributeViewDimCombox->setStyleSheet("QComboBox {"
     //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // è®¾ç½®æ–‡æœ¬é¢œè‰²ä¸ºæµ…ç™½è‰²
-    //	"border: 1px solid #ffffff;"   // è®¾ç½®è¾¹æ¡†æ ·å¼ä¸ºç°è‰²å®çº¿è¾¹æ¡†
-    //	"padding: 5px;"                // è®¾ç½®å†…è¾¹è·
-    //	"font-size: 16px;"              // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“å¤§å°ä¸º14px
+    //	"color: #202020;"              // ÉèÖÃÎÄ±¾ÑÕÉ«ÎªÇ³°×É«
+    //	"border: 1px solid #ffffff;"   // ÉèÖÃ±ß¿òÑùÊ½Îª»ÒÉ«ÊµÏß±ß¿ò
+    //	"padding: 5px;"                // ÉèÖÃÄÚ±ß¾à
+    //	"font-size: 16px;"              // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌå´óĞ¡Îª14px
     //	"}"
     //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“ä¸ºArial
-    //	"color: #404040;"               // è®¾ç½®ä¸‹æ‹‰èœå•é¡¹å­—ä½“é¢œè‰²ä¸ºæµ…ç°è‰²
+    //	"font-family: Arial;"           // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÎªArial
+    //	"color: #404040;"               // ÉèÖÃÏÂÀ­²Ëµ¥Ïî×ÖÌåÑÕÉ«ÎªÇ³»ÒÉ«
     //	"}"
     //	"QComboBox::drop-down {"
     //	"subcontrol-origin: padding;"
@@ -199,9 +199,8 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
 
-        dialog->setFilterTitle("å‹ç¼©");
-        dialog->setFilterDescription(
-                "æ³¨æ„ï¼šå‹ç¼©æ–¹å¼å–Noneæ—¶ï¼Œè¡¨ç¤ºä¸è¿›è¡Œé‡åŒ–ï¼›å‹ç¼©æ–¹å¼å–Floatæ—¶ï¼Œè¡¨ç¤ºè¿›è¡Œæµ®ç‚¹æ•°é‡åŒ–ï¼Œä¸”é‡åŒ–ä½æ•°å–å€¼ç”Ÿæ•ˆ");
+        dialog->setFilterTitle("Ñ¹Ëõ");
+        dialog->setFilterDescription("×¢Òâ£ºÑ¹Ëõ·½Ê½È¡NoneÊ±£¬±íÊ¾²»½øĞĞÁ¿»¯£»Ñ¹Ëõ·½Ê½È¡FloatÊ±£¬±íÊ¾½øĞĞ¸¡µãÊıÁ¿»¯£¬ÇÒÁ¿»¯Î»ÊıÈ¡ÖµÉúĞ§");
         std::vector<QString> defaultValue1;
         defaultValue1.push_back("Float");
         defaultValue1.push_back("None");
@@ -210,13 +209,13 @@ void igQtMainWindow::initAllComponents() {
         defaultValue2.push_back("None");
         defaultValue2.push_back("Float");
 
-        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "ç‚¹åæ ‡å‹ç¼©æ–¹å¼", defaultValue1);
+        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "µã×ø±êÑ¹Ëõ·½Ê½", defaultValue1);
 
-        int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "ç‚¹åæ ‡é‡åŒ–ä½æ•°", "16");
+        int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "µã×ø±êÁ¿»¯Î»Êı", "16");
 
-        int id3 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "å±æ€§å‹ç¼©æ–¹å¼", defaultValue2);
+        int id3 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "ÊôĞÔÑ¹Ëõ·½Ê½", defaultValue2);
 
-        int id4 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "å±æ€§é‡åŒ–ä½æ•°", "16");
+        int id4 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "ÊôĞÔÁ¿»¯Î»Êı", "16");
 
         dialog->show();
         dialog->setApplyFunctor([=]() {
@@ -224,10 +223,10 @@ void igQtMainWindow::initAllComponents() {
             ok = fileLoader->Compress(dialog->getComboIndex(id1, ok), dialog->getInt(id2, ok),
                                       dialog->getComboIndex(id3, ok), dialog->getInt(id4, ok));
             if (ok) {
-                QMessageBox::information(this, "", "å‹ç¼©æˆåŠŸ");
+                QMessageBox::information(this, "", "Ñ¹Ëõ³É¹¦");
                 dialog->close();
             } else
-                QMessageBox::information(this, "", "å‹ç¼©å¤±è´¥");
+                QMessageBox::information(this, "", "Ñ¹ËõÊ§°Ü");
         });
     });
 
@@ -327,9 +326,9 @@ void igQtMainWindow::initAllComponents() {
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
         if (saved_image.save(path, "BMP")) {
-            QMessageBox::information(this, "", "ä¿å­˜æˆåŠŸ");
+            QMessageBox::information(this, "", "±£´æ³É¹¦");
         } else {
-            QMessageBox::information(this, "", "ä¿å­˜å¤±è´¥");
+            QMessageBox::information(this, "", "±£´æÊ§°Ü");
         }
     });
 
@@ -652,7 +651,7 @@ void igQtMainWindow::initAllFilters() {
     //     cp
 
 
-    QMenu* view = ui->menu_filters->addMenu("ç‰¹å¾æå–");
+    QMenu* view = ui->menu_filters->addMenu("ÌØÕ÷ÌáÈ¡");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -808,9 +807,9 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                                                              igQtModelDialogWidget* modelTreeWidget) {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
-        const std::string OVName = "__" + mainName + "_OV";   // ä¸´æ—¶æ¨¡å‹
-        const std::string IVName = "__" + mainName + "_IV";   // ä¸´æ—¶æ¨¡å‹
-        const std::string OIVName = "__" + mainName + "_OIV"; // ä¸´æ—¶æ¨¡å‹
+        const std::string OVName = "__" + mainName + "_OV";   // ÁÙÊ±Ä£ĞÍ
+        const std::string IVName = "__" + mainName + "_IV";   // ÁÙÊ±Ä£ĞÍ
+        const std::string OIVName = "__" + mainName + "_OIV"; // ÁÙÊ±Ä£ĞÍ
         const float OVColor[3]{1.f, 1.f, 1.f};
         const float IVColor[3]{1.f, 1.f, 0.f};
         const float OIVColor[3]{1.f, 1.f, 1.f};
@@ -1174,9 +1173,9 @@ void igQtMainWindow::initAllMySignalConnections() {
         inputMesh->GetClipper()->DisableAll();
         inputMesh->SetVisibility(true);
 
-        const std::string OVName = "__" + inputMesh->GetName() + "_OV";   // ä¸´æ—¶æ¨¡å‹
-        const std::string IVName = "__" + inputMesh->GetName() + "_IV";   // ä¸´æ—¶æ¨¡å‹
-        const std::string OIVName = "__" + inputMesh->GetName() + "_OIV"; // ä¸´æ—¶æ¨¡å‹
+        const std::string OVName = "__" + inputMesh->GetName() + "_OV";   // ÁÙÊ±Ä£ĞÍ
+        const std::string IVName = "__" + inputMesh->GetName() + "_IV";   // ÁÙÊ±Ä£ĞÍ
+        const std::string OIVName = "__" + inputMesh->GetName() + "_OIV"; // ÁÙÊ±Ä£ĞÍ
         bool exist[3]{false, false, false};
         //for (auto& [id, model]: scene->GetModelList()) {
         //    if (model->GetDataObject()->GetName() == OVName) {

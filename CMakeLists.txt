@@ -52,13 +52,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-<<<<<<< HEAD
-
 add_executable(${PROJECT_NAME} main.cpp)
-=======
-add_executable(${PROJECT_NAME}
-        main.cpp)
->>>>>>> 965d5d1ef0f3d54fa094762bf75c9f216c96792d
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 

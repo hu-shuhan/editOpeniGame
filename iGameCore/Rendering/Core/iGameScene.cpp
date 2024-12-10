@@ -1446,13 +1446,8 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-<<<<<<< HEAD
                                                 int height, FrameBufferType type, bool mirrored) {
 
-=======
-                                                int height,
-                                                FrameBufferType type) {
->>>>>>> 965d5d1ef0f3d54fa094762bf75c9f216c96792d
     std::vector<unsigned char> colorBuffer;
 
     m_FramebufferResolved->Bind();
