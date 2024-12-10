@@ -1029,7 +1029,7 @@ void Scene::ForwardPass() {
 
             // draw painter(since painter does not support transparency)
             if (drawObject->GetVisibility()) {
-                model->GetPainter()->Draw(this);
+                model->GetPainter3D()->Draw(this);
             }
         }
     }
@@ -1200,6 +1200,9 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
 }
 
 void Scene::UpdateCameraClippingRange() {
+    // If a model is changed, bounding-box will not be notified to Scene
+    UpdateModelsBoundingSphere();
+
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
     igm::vec3 cameraPos = m_Camera->GetCameraPos();
@@ -1423,17 +1426,20 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 min(FLT_MAX);
     igm::vec3 max(-FLT_MAX);
 
-    int cnt = 0;
+    auto box = BoundingBox{};
     for (auto& [id, model]: m_Models) {
         if (!model->GetVisibility()) { continue; }
 
-        auto box = model->m_DataObject->GetBoundingBox();
+        box.reset();
+        box.combine(model->m_DataObject->GetBoundingBox());
+        box.combine(model->GetPainter3D()->GetBoundingBox());
         Vector3f boxMin = box.min;
         Vector3f boxMax = box.max;
 
         min = igm::min(igm::vec3{boxMin[0], boxMin[1], boxMin[2]}, min);
         max = igm::max(igm::vec3{boxMax[0], boxMax[1], boxMax[2]}, max);
-    };
+    }
+
     igm::vec3 center = (min + max) / 2;
     float radius = (max - min).length() / 2;
 
@@ -1458,7 +1464,9 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height, FrameBufferType type, bool mirrored) {
+                                                int height,
+                                                FrameBufferType type,
+                                                bool mirrored) {
 
     std::vector<unsigned char> colorBuffer;
 
@@ -1487,15 +1495,13 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         }
     }
     m_FramebufferResolved->Release();
-    if(mirrored){
+    if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
         // Flip data Line
         for (int row = 0; row < height; ++row) {
-            std::copy(
-                    colorBuffer.begin() + row * width * 4,
-                    colorBuffer.begin() + (row + 1) * width * 4,
-                    tmp_flip.begin() + (height - 1 - row) * width * 4
-            );
+            std::copy(colorBuffer.begin() + row * width * 4,
+                      colorBuffer.begin() + (row + 1) * width * 4,
+                      tmp_flip.begin() + (height - 1 - row) * width * 4);
         }
         colorBuffer = tmp_flip;
     }

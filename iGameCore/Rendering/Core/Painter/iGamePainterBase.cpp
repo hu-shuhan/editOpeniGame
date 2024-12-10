@@ -10,6 +10,8 @@ PainterBase::PainterBase() {
     m_Pen = Pen::New();
     m_Brush = Brush::New();
 
+    m_BoundingHelper = Object::New();
+
     m_PrimitivesUpdateHelper = Object::New();
     m_PrimitivesPool = HandlePool<Primitive>::New();
 }
@@ -90,6 +92,11 @@ void PainterBase::SetBrush(float red, float green, float blue) {
 
 void PainterBase::SetBrush(const Brush::Style& style) {
     m_Brush->SetStyle(style);
+}
+
+const BoundingBox& PainterBase::GetBoundingBox() {
+    ComputeBoundingBox();
+    return m_Bounding;
 }
 
 void PainterBase::Draw(Scene* scene) {
@@ -237,6 +244,18 @@ void PainterBase::PackDrawableData() {
 }
 
 void PainterBase::Clear() { m_PrimitivesPool->Clear(); }
+
+void PainterBase::ComputeBoundingBox() {
+    if (m_BoundingHelper->GetMTime() < m_PrimitivesPool->GetMTime()) {
+        m_Bounding.reset();
+        for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+             ++it) {
+            auto& primitive = it->second;
+            if (primitive.visible) { m_Bounding.add(primitive.bounding); }
+        }
+        m_BoundingHelper->Modified();
+    }
+}
 
 void PainterBase::CreateDrawBuffer(float penWidth) {
     m_VAOs[penWidth] = GLVertexArray::New();

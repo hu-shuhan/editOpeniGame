@@ -32,6 +32,9 @@ IGuint Painter3D::DrawPoint(const Point& point) {
     indices[0].insert(indices[0].end(), source.indices[0].begin(),
                       source.indices[0].end());
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -53,6 +56,9 @@ IGuint Painter3D::DrawLine(const Point& p1, const Point& p2) {
     colors.insert(colors.end(), source.points.size(), color);
     indices[1].insert(indices[1].end(), source.indices[1].begin(),
                       source.indices[1].end());
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
@@ -93,6 +99,9 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -131,6 +140,9 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -168,6 +180,9 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
                           source.indices[2].end());
     }
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
@@ -209,6 +224,9 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
                           source.indices[2].end());
     }
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
@@ -252,6 +270,9 @@ IGuint Painter3D::DrawSphere(const Point& center, float radius,
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -293,6 +314,9 @@ IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -333,6 +357,9 @@ IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
                           source.indices[2].end());
     }
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
@@ -376,6 +403,9 @@ IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -417,6 +447,9 @@ IGuint Painter3D::DrawCone(const Point& center, const Vector3f& normal,
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
                           source.indices[2].end());
     }
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
@@ -462,6 +495,9 @@ IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
                           source.indices[2].end());
     }
 
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
+
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;
 }
@@ -506,6 +542,9 @@ IGuint Painter3D::DrawFrustum(const Point& center, const Vector3f& normal,
         indices[2].insert(indices[2].end(), source.indices[2].begin(),
                           source.indices[2].end());
     }
+
+    primitive.bounding.reset();
+    for (const auto& p: points) { primitive.bounding.add(p); }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
     return handle;

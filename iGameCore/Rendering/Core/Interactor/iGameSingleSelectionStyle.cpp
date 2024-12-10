@@ -42,7 +42,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     //m_Model->GetPointPainter()->Clear();
     if (id != -1) {
         //std::cout << "pick point id: " << id << std::endl;
-        auto painter = m_Model->GetPainter();
+        auto painter = m_Model->GetPainter3D();
         painter->SetPen(10);
         painter->SetPen(Color::Red);
         //painter->DrawPoint(m_Points->GetPoint(id));
@@ -115,7 +115,7 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
         int size = m_Cells->GetCellIds(id, face);
         auto& p0 = m_Points->GetPoint(face[0]);
 
-        auto painter = m_Model->GetPainter();
+        auto painter = m_Model->GetPainter3D();
         painter->SetPen(3);
         painter->SetPen(Color::Black);
         painter->SetBrush(Color::Red);

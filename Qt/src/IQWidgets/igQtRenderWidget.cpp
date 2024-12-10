@@ -59,7 +59,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(obj);
                 m_Interactor->SetPainter(
-                        m_Scene->GetCurrentModel()->GetPainter());
+                        m_Scene->GetCurrentModel()->GetPainter3D());
                 m_Interactor->RequestPointSelectionStyle(s);
 
             } else {
@@ -74,7 +74,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(ps);
                 m_Interactor->SetPainter(
-                        m_Scene->GetCurrentModel()->GetPainter());
+                        m_Scene->GetCurrentModel()->GetPainter3D());
                 m_Interactor->RequestPointSelectionStyle(s);
             }
         } break;
@@ -108,7 +108,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             s->SetCells(faces);
             s->SetModel(model);
             m_Interactor->SetDataObject(obj);
-            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
+            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter3D());
             m_Interactor->RequestFaceSelectionStyle(s);
         } break;
         case Interactor::MultiPointSelectionStyle:
@@ -128,7 +128,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             s->SetPoints(ps->GetPoints());
             s->SetModel(m_Scene->GetCurrentModel());
             m_Interactor->SetDataObject(ps);
-            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter());
+            m_Interactor->SetPainter(m_Scene->GetCurrentModel()->GetPainter3D());
             m_Interactor->RequestDragPointStyle(s);
         } break;
         default:

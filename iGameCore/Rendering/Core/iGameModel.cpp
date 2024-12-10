@@ -668,7 +668,7 @@ bool Model::GetVisibility() {
 
 Filter* Model::GetModelFilter() { return m_Filter; }
 
-Painter3D::Pointer Model::GetPainter() { return m_Painter3D; }
+Painter3D::Pointer Model::GetPainter3D() { return m_Painter3D; }
 
 void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
 
