@@ -191,24 +191,20 @@ void igQtMainWindow::initToolbarComponent() {
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
-
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-
         dialog->setFilterTitle("Ñ¹Ëõ");
-        dialog->setFilterDescription("×¢Òâ£ºÑ¹Ëõ·½Ê½È¡NoneÊ±£¬±íÊ¾²»½øĞĞÁ¿»¯£»Ñ¹Ëõ·½Ê½È¡FloatÊ±£¬±íÊ¾½øĞĞ¸¡µãÊıÁ¿»¯£¬ÇÒÁ¿»¯Î»ÊıÈ¡ÖµÉúĞ§");
+        dialog->setFilterDescription("×¢Òâ:Ñ¹Ëõ·½Ê½È¡NoneÊ±,±íÊ¾²»½øĞĞÁ¿»¯;Ñ¹Ëõ·½Ê½È¡FloatÊ±,±íÊ¾½øĞĞ¸¡µãÊıÁ¿»¯,ÇÒÁ¿»¯Î»ÊıÈ¡ÖµÉúĞ§");
         std::vector<QString> defaultValue1;
         defaultValue1.push_back("Float");
         defaultValue1.push_back("None");
-
         std::vector<QString> defaultValue2;
         defaultValue2.push_back("None");
         defaultValue2.push_back("Float");
-
         int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "µã×ø±êÑ¹Ëõ·½Ê½", defaultValue1);
 
         int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "µã×ø±êÁ¿»¯Î»Êı", "16");
@@ -648,25 +644,17 @@ void igQtMainWindow::initAllFilters() {
         auto ori = (bound.min + bound.max) / 2;
         double n[3] = { 0, 1, 0 };
         double o[3] = { ori[0], ori[1], ori[2] };
-        //è®¾ç½®åˆ‡å‰²çš„å¹³é¢
         filter->SetPlane(o, n);
-        //è®¾ç½®åˆ‡å‰²æ¨¡å¼æ˜¯clipè¿˜æ˜¯slice
         filter->SetIsSlice(false);
-        //æ‰§è¡Œåˆ‡å‰²
         filter->Execute();
-        //è¿”å›ç»“æœ
         auto res = filter->GetOutput();
         res->SetName("Quick Clip");
         modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         ModelClip::Pointer filter2= ModelClip::New();
         filter2->SetInput(input);
-        //è®¾ç½®åˆ‡å‰²çš„å¹³é¢
         filter2->SetPlane(o, n);
-        //è®¾ç½®åˆ‡å‰²æ¨¡å¼æ˜¯clipè¿˜æ˜¯slice
         filter2->SetIsSlice(false);
-        //æ‰§è¡Œåˆ‡å‰²
         filter2->Execute();
-        //è¿”å›ç»“æœ
         auto res2= filter2->GetOutput();
         res2->SetName("Old Clip");
         modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
