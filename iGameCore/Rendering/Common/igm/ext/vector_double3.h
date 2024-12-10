@@ -2,8 +2,8 @@
 // Created by Sumzeek on 10/5/2024.
 //
 
-#ifndef OPENIGAME_IGM_VECTOR_DOUBLE3_H
-#define OPENIGAME_IGM_VECTOR_DOUBLE3_H
+#ifndef IGM_VECTOR_DOUBLE3_H
+#define IGM_VECTOR_DOUBLE3_H
 
 #include "../detail/type_vec3.h"
 
@@ -13,4 +13,4 @@ namespace igm
 typedef vec<3, double> dvec3;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_VECTOR_DOUBLE3_H
+#endif // IGM_VECTOR_DOUBLE3_H

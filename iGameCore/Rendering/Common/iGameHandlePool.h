@@ -55,10 +55,10 @@ public:
         this->Modified();
     }
 
-    Iterator begin() { return m_HandleToObject.begin(); }
-    Iterator end() { return m_HandleToObject.end(); }
-    ConstIterator begin() const { return m_HandleToObject.begin(); }
-    ConstIterator end() const { return m_HandleToObject.end(); }
+    Iterator Begin() { return m_HandleToObject.begin(); }
+    Iterator End() { return m_HandleToObject.end(); }
+    ConstIterator Begin() const { return m_HandleToObject.begin(); }
+    ConstIterator End() const { return m_HandleToObject.end(); }
 
 protected:
     HandlePool() : m_CurrentHandle(1) {}

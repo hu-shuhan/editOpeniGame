@@ -9,8 +9,8 @@
 *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
 */
 
-#ifndef OPENIGAME_IGM_TYPE_MAT3x3_H
-#define OPENIGAME_IGM_TYPE_MAT3x3_H
+#ifndef IGM_TYPE_MAT3x3_H
+#define IGM_TYPE_MAT3x3_H
 
 #include "common.h"
 #include "type_vec3.h"
@@ -356,4 +356,4 @@ mat<3, 3, T> transpose(mat<3, 3, T>& m);
 
 #include "type_mat3x3.inl"
 
-#endif // OPENIGAME_IGM_TYPE_MAT3x3_H
+#endif // IGM_TYPE_MAT3x3_H

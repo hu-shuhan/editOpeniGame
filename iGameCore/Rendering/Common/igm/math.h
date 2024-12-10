@@ -1,5 +1,5 @@
-#ifndef OPENIGAME_IGM_MATH_H
-#define OPENIGAME_IGM_MATH_H
+#ifndef IGM_MATH_H
+#define IGM_MATH_H
 
 #include "mat2x2.h"
 #include "mat3x3.h"
@@ -16,7 +16,7 @@ inline double computePointToLineDis(const igm::vec3& linePoint,
     return std::fabs(igm::cross(dir, point - linePoint).length() /
                      dir.length());
 }
-}
+} // namespace igm
 
 
-#endif // OPENIGAME_IGM_IGM_H
+#endif // IGM_IGM_H

@@ -43,7 +43,7 @@ namespace CellClip {
 	struct InterpolateEdge {
 		igIndex vh1;
 		igIndex vh2;
-		float t;
+		double t;
 
 		InterpolateEdge() : vh1(-1), vh2(-1), t(0.0f) {}
 		InterpolateEdge(igIndex vh) {
@@ -51,14 +51,14 @@ namespace CellClip {
 			vh2 = -1;
 			t = 0.0f;
 		}
-		InterpolateEdge(igIndex _vh1, igIndex _vh2, float _t) {
+		InterpolateEdge(igIndex _vh1, igIndex _vh2, double _t) {
 			vh1 = _vh1;
 			vh2 = _vh2;
 			t = _t;
 		}
 	};
 
-	static void Clip(Tetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Tetra::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 		int MASK[4] = { 1,2,4,8 };
@@ -161,7 +161,7 @@ namespace CellClip {
 
 
 
-	static void Clip(Tetra::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Tetra::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int MASK[4] = { 1,2,4,8 };
@@ -261,7 +261,7 @@ namespace CellClip {
 
 
 
-	static void Clip(Polyhedron::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Polyhedron::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
@@ -275,7 +275,7 @@ namespace CellClip {
 		igIndex ed = 0;
 		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = { 0 };
+		double tetvalues[4] = { 0 };
 		tetra->m_PointIds->SetId(3, topVh);
 		tetra->m_Points->SetPoint(3, cell->GetPoint(0));
 		tetvalues[3] = cellValues[0];
@@ -305,7 +305,7 @@ namespace CellClip {
 		}
 	}
 
-	static void Clip(Polyhedron::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Polyhedron::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
@@ -318,7 +318,7 @@ namespace CellClip {
 		igIndex ed = 0;
 		igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = { 0 };
+		double tetvalues[4] = { 0 };
 		tetra->m_PointIds->SetId(3, topVh);
 		tetra->m_Points->SetPoint(3, cell->GetPoint(0));
 		tetvalues[3] = cellValues[0];
@@ -349,11 +349,11 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Volume::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
-		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, float* pointValues, bool m_slice = false)
+	static void Clip(Volume::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, double* pointValues, bool m_slice = false)
 	{
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		int PointNum = cell->GetNumberOfPoints();
 		int i = 0, j = 0;
 		auto tetras = cell->clipCelltoTetra();
@@ -368,11 +368,11 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Volume::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
-		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, float* pointValues, bool m_slice = false)
+	static void Clip(Volume::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, double* pointValues, bool m_slice = false)
 	{
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		int PointNum = cell->GetNumberOfPoints();
 		int i = 0, j = 0;
 		auto tetras = cell->clipCelltoTetra();
@@ -387,12 +387,12 @@ namespace CellClip {
 	}
 
 
-	static void Clip(QuadraticTetra::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticTetra::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 		for (i = 0; i < 8; i++)
 		{
@@ -407,12 +407,12 @@ namespace CellClip {
 		}
 	}
 	
-	static void Clip(QuadraticTetra::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticTetra::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 		for (i = 0; i < 8; i++)
 		{
@@ -428,64 +428,64 @@ namespace CellClip {
 	}
 
 	
-	static void Clip(QuadraticPrism::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticPrism::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 
 	}
 
-	static void Clip(QuadraticPrism::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticPrism::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 
 	}
 
-	static void Clip(QuadraticPyramid::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticPyramid::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 	}
 
-	static void Clip(QuadraticPyramid::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder , CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticPyramid::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder , CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 	}
 
-	static void Clip(QuadraticHexahedron::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticHexahedron::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 	}
 
-	static void Clip(QuadraticHexahedron::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticHexahedron::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0, vcnt = cell->GetNumberOfPoints();
 		Tetra::Pointer tetra = Tetra::New();
-		float tetvalues[4] = {};
+		double tetvalues[4] = {};
 		igIndex pid = 0;
 
 	}
@@ -504,7 +504,7 @@ namespace CellClip {
            { { 0, 101, 2, 2, 101, 102, -1 } },   // 6
            { { 100, 101, 102, -1, -1, -1, -1 } } // 7
 	};
-	static void Clip(Triangle::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Triangle::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 		int MASK[3] = { 1,2,4 };
@@ -593,7 +593,7 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Triangle::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Triangle::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false, bool isMustClip = false)
 	{
 		int MASK[3] = { 1,2,4 };
@@ -699,12 +699,12 @@ namespace CellClip {
 	       { { 3, 0, 101, 102, 3, 0, 102, 3, 3, 102, 103, 3, -1, -1 } },      // 14
 	       { { 4, 100, 101, 102, 103, -1, -1, -1, -1, -1, -1, -1, -1, -1 } }, // 15
 	};
-	static void Clip(Quad::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Quad::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0;
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
 		for (i = 0; i < nPts - 2; i++) {
@@ -790,12 +790,12 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Quad::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Quad::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		int i = 0, j = 0;
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
 		for (i = 0; i < nPts - 2; i++) {
@@ -880,11 +880,11 @@ namespace CellClip {
 	}
 
 
-	static void Clip(Polygon::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Polygon::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
 		for (int i = 0; i < nPts - 2; i++)
@@ -901,11 +901,11 @@ namespace CellClip {
 	}
 	
 
-	static void Clip(Polygon::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(Polygon::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		int nPts = cell->GetNumberOfPoints();
 		for (int i = 0; i < nPts - 2; i++)
@@ -923,11 +923,11 @@ namespace CellClip {
 
 
 
-	static void Clip(QuadraticTriangle::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticTriangle::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		for (int i = 0; i < 4; i++)
 		{
@@ -943,11 +943,11 @@ namespace CellClip {
 	}
 	
 
-	static void Clip(QuadraticTriangle::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticTriangle::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		for (int i = 0; i < 4; i++)
 		{
@@ -963,11 +963,11 @@ namespace CellClip {
 	}
 
 
-	static void Clip(QuadraticQuad::Pointer cell, float* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticQuad::Pointer cell, double* cellValues, Points::Pointer points, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		for (int i = 0; i < 6; i++)
 		{
@@ -983,11 +983,11 @@ namespace CellClip {
 	}
 	
 
-	static void Clip(QuadraticQuad::Pointer cell, float* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
+	static void Clip(QuadraticQuad::Pointer cell, double* cellValues, PointFinder::Pointer pointFinder, CellArray::Pointer connectivity, UnsignedIntArray::Pointer types,
 		AttributeSet::Pointer inData, AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge, std::vector<igIndex>& originCell, bool m_slice = false)
 	{
 		Triangle::Pointer triangle = Triangle::New();
-		float trivalues[3] = {};
+		double trivalues[3] = {};
 		igIndex pid = 0;
 		for (int i = 0; i < 6; i++)
 		{

@@ -9,8 +9,8 @@
 *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
 */
 
-#ifndef OPENIGAME_IGM_TYPE_VEC2_H
-#define OPENIGAME_IGM_TYPE_VEC2_H
+#ifndef IGM_TYPE_VEC2_H
+#define IGM_TYPE_VEC2_H
 
 #include "common.h"
 
@@ -345,4 +345,4 @@ T dot(const vec<2, T>& v1, const vec<2, T>& v2);
 //
 //} // namespace std
 
-#endif // OPENIGAME_IGM_TYPE_VEC2_H
+#endif // IGM_TYPE_VEC2_H

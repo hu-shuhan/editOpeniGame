@@ -5,6 +5,8 @@
 
 #pragma once
 #include "Clip/iGameModelClip.h"
+#include "Clip/iGameQuickModelClip.h"
+
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
 
