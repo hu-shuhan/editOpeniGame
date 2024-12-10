@@ -29,8 +29,6 @@ set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compi
 if (NOT ENABLE_GPSCUDA_MODULE)
     project(OpeniGame LANGUAGES C CXX)
     if (WIN32)
-        add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-        add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
         add_definitions(-D_WINDOWS_SOURCE)
         # Or for a specific target:
         # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
@@ -42,6 +40,8 @@ else ()
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif ()
 
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
