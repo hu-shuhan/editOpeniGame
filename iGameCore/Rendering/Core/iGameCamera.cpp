@@ -35,36 +35,31 @@ FloatT Viewport::aspect() const {
 }
 
 Viewer::Viewer() {
+    m_ClippingRange.x = 0.01f;
+    m_ClippingRange.y = 100.01f;
     m_Fov = 45.0f;
-    m_NearZ = 0.01f;
-    m_FarZ = 1000.01f;
 }
 
 Viewer::~Viewer() {}
 
-void Viewer::SetNearPlane(float nearz) {
-    if (nearz < 0.01f) {
-        //igDebug("near z provided is less than 0.01f. The near plane is set "
-        //        "to 0.01f.");
-        m_NearZ = 0.01f;
-    } else {
-        m_NearZ = nearz;
+void Viewer::SetClippngRange(float nearz, float farz) {
+    if (nearz <= 0.0f) {
+        igError("Near plane value must be greater than 0.0f.");
     }
+
+    if (nearz > farz) {
+        igError("Near plane value cannot be greater than the far plane value.");
+    }
+
+    if (farz - nearz < 1e-10f) {
+        igError("The difference between the near and far planes is too small.");
+    }
+
+    m_ClippingRange.x = nearz;
+    m_ClippingRange.y = farz;
 }
 
-float Viewer::GetNearPlane() { return m_NearZ; }
-
-void Viewer::SetFarPlane(float farz) {
-    if (farz <= m_NearZ) {
-        igDebug("far z provided is less than or equal to near z. The far "
-                "plane is set to near z + 1.0f.");
-        m_FarZ = m_NearZ + 1.0f;
-    } else {
-        m_FarZ = farz;
-    }
-}
-
-float Viewer::GetFarPlane() { return m_FarZ; }
+igm::vec2 Viewer::GetClippingRange() { return m_ClippingRange; }
 
 void Viewer::SetFov(float fov) {
     if (fov < 1.0f || fov > 179.0f) {
@@ -93,7 +88,8 @@ float Viewer::GetFov() const { return m_Fov; }
 // depth range: 0.0(near plane) -> 1.0(far plane)
 igm::mat4 Viewer::GetProjectionMatrix() {
     return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
-                                 aspect<float>(), m_NearZ, m_FarZ);
+                                 aspect<float>(), m_ClippingRange.x,
+                                 m_ClippingRange.y);
 };
 
 /** Depth Map Visualization:
@@ -106,18 +102,12 @@ igm::mat4 Viewer::GetProjectionMatrix() {
 //    return depth;
 //}
 
-// depth range: 1.0(near plane) -> 0.0(far plane)
-//igm::mat4 GetProjectionMatrixReversedZ() {
-//    return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(fov)),
-//                                 aspect<float>(), nearPlane);
-//}
-
 Camera::Camera() {
     m_CameraType = Type::PERSPECTIVE;
 
     m_Position = igm::vec3(0.0f, 0.0f, 1.0f);
     m_Focal = igm::vec3(0.0f, 0.0f, 0.0f);
-    m_WorldUp = igm::vec3(0.0f, 1.0f, 0.0f);
+    m_Up = igm::vec3(0.0f, 1.0f, 0.0f);
     UpdateCameraVectors();
 }
 
@@ -148,11 +138,11 @@ void Camera::SetCameraFocal(float focalX, float focalY, float focalZ) {
 igm::vec3 Camera::GetCameraFocal() const { return m_Focal; }
 
 void Camera::SetCameraUp(igm::vec3 up) {
-    m_WorldUp = up;
+    m_Up = up;
     UpdateCameraVectors();
 }
 void Camera::SetCameraUp(float upX, float upY, float upZ) {
-    m_WorldUp = {upX, upY, upZ};
+    m_Up = {upX, upY, upZ};
     UpdateCameraVectors();
 }
 igm::vec3 Camera::GetCameraUp() const { return m_Up; }
@@ -167,15 +157,16 @@ igm::mat4 Camera::GetViewMatrix() {
 igm::mat4 Camera::GetProjectionMatrix() {
     if (m_CameraType == PERSPECTIVE) {
         return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(m_Fov)),
-                                     aspect<float>(),
-                                     /*m_NearZ*/ 0.01f);
+                                     aspect<float>(), m_ClippingRange.x,
+                                     m_ClippingRange.y);
     } else if (m_CameraType == ORTHOGRAPHIC) {
         float dist = GetLengthToFocal();
         float orthoHeight = dist / 3.0f;
         float orthoWidth = orthoHeight * aspect<float>();
 
         return igm::orthoRH_OZ(-orthoWidth, orthoWidth, -orthoHeight,
-                               orthoHeight, -m_FarZ, m_FarZ);
+                               orthoHeight, -m_ClippingRange.y,
+                               m_ClippingRange.y);
     }
     return igm::mat4(1.0f);
 }
@@ -184,8 +175,7 @@ void Camera::UpdateCameraVectors() {
     // Calculate the new m_Front vector
     m_Front = (m_Focal - m_Position).normalized();
     // Also re-calculate the Right and Up vector
-    m_Right = (igm::cross(m_Front, m_WorldUp)).normalized();
-    m_Up = (igm::cross(m_Right, m_Front)).normalized();
+    m_Right = (igm::cross(m_Front, m_Up)).normalized();
 }
 
 IGAME_NAMESPACE_END

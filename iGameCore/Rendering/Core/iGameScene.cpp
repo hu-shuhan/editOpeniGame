@@ -198,8 +198,7 @@ void Scene::ResetCameraView() {
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
-    m_Camera->SetNearPlane(2.0f * radius);
-    m_Camera->SetFarPlane(4.0f * radius);
+    m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
     m_Camera->SetCameraFocal(center);
 }
 
@@ -539,13 +538,14 @@ void Scene::InitOpenGL() {
         //                          {1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
         //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
-        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1, 100);
+        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
+        //                        100);
         //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
         //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
         //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
         //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
         //                          1.0f, 16);
-        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
         //                      16);
         //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
         //                         1.0f, 8, 8);
@@ -773,7 +773,8 @@ void Scene::ResizeDepthPyramid() {
 }
 
 void Scene::Draw() {
-    auto viewport = m_Camera->GetScaledViewPort();
+    // reset camera
+    UpdateCameraClippingRange();
 
     // save default framebuffer, because it is not 0 in Qt
     GLint defaultFramebuffer = GL_NONE;
@@ -1198,6 +1199,22 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
 }
 
+void Scene::UpdateCameraClippingRange() {
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    float radius = m_ModelsBoundingSphere.w;
+    igm::vec3 cameraPos = m_Camera->GetCameraPos();
+
+    float dist = (cameraPos - center).length();
+    float nearPlane = dist - radius;
+    float farPlane = dist + radius;
+
+    // https://3dgumshoe.com/maya-fixing-z-fighting/
+    const float minGap = 0.0001f;
+    if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
+
+    m_Camera->SetClippngRange(nearPlane, farPlane);
+}
+
 void Scene::UpdateUniformBuffer() {
     // update camera data matrix
     m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &m_CameraData);
@@ -1421,11 +1438,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-
-    // update camera setting
-    auto dist = (m_Camera->GetCameraPos() - center).length();
-    m_Camera->SetNearPlane(dist - radius);
-    m_Camera->SetFarPlane(dist + radius);
 }
 
 void Scene::CalculateFrameRate() {
@@ -1446,8 +1458,8 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height,
-                                                FrameBufferType type) {
+                                                int height, FrameBufferType type, bool mirrored) {
+
     std::vector<unsigned char> colorBuffer;
 
     m_FramebufferResolved->Bind();
@@ -1475,7 +1487,18 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         }
     }
     m_FramebufferResolved->Release();
-
+    if(mirrored){
+        std::vector<unsigned char> tmp_flip(colorBuffer.size());
+        // Flip data Line
+        for (int row = 0; row < height; ++row) {
+            std::copy(
+                    colorBuffer.begin() + row * width * 4,
+                    colorBuffer.begin() + (row + 1) * width * 4,
+                    tmp_flip.begin() + (height - 1 - row) * width * 4
+            );
+        }
+        colorBuffer = tmp_flip;
+    }
     return colorBuffer;
 }
 std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,

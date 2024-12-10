@@ -9,8 +9,8 @@
  *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
  */
 
-#ifndef OPENIGAME_IGM_CLIP_H
-#define OPENIGAME_IGM_CLIP_H
+#ifndef IGM_CLIP_H
+#define IGM_CLIP_H
 
 #include "../detail/type_mat4x4.h"
 #include "../detail/type_vec3.h"
@@ -242,4 +242,4 @@ mat<4, 4, T> ortho(T left, T right, T bottom, T top, T zNear, T zFar);
 
 #include "clip_space.inl"
 
-#endif // OPENIGAME_IGM_CLIP_H
+#endif // IGM_CLIP_H

@@ -189,28 +189,23 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
-	connect(ui->action_VolumeRendering, &QAction::triggered, this,
-		[&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+    connect(ui->action_VolumeRendering, &QAction::triggered, this,
+            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+    // init ProgressBar
+    progressBarWidget = new igQtProgressBarWidget(this);
+    this->statusBar()->addPermanentWidget(progressBarWidget);
 
-	// init ProgressBar
-	progressBarWidget = new igQtProgressBarWidget(this);
-	this->statusBar()->addPermanentWidget(progressBarWidget);
-
-	connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-		igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-
-		dialog->setFilterTitle("压缩");
-		dialog->setFilterDescription(
-			"注意：压缩方式取None时，表示不进行量化；压缩方式取Float时，表示进行浮点数量化，且量化位数取值生效");
-		std::vector<QString> defaultValue1;
-		defaultValue1.push_back("Float");
-		defaultValue1.push_back("None");
-
-		std::vector<QString> defaultValue2;
-		defaultValue2.push_back("None");
-		defaultValue2.push_back("Float");
-
-		int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "点坐标压缩方式", defaultValue1);
+    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        dialog->setFilterTitle("压缩");
+        dialog->setFilterDescription("注意:压缩方式取None时,表示不进行量化;压缩方式取Float时,表示进行浮点数量化,且量化位数取值生效");
+        std::vector<QString> defaultValue1;
+        defaultValue1.push_back("Float");
+        defaultValue1.push_back("None");
+        std::vector<QString> defaultValue2;
+        defaultValue2.push_back("None");
+        defaultValue2.push_back("Float");
+        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "点坐标压缩方式", defaultValue1);
 
 		int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "点坐标量化位数", "16");
 
@@ -634,26 +629,41 @@ void igQtMainWindow::initAllFilters() {
 	//            ItemSource::File);
 	//    });
 
-	auto action_tensorview = ui->menu_help->addAction("tensorview");
-	connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-		if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-		//auto chart = new igQtCharts;
-		//auto dataarray = rendererWidget->GetScene()
-		//                         ->GetCurrentModel()
-		//                         ->GetDataObject()
-		//                         ->GetAttributeSet()
-		//                         ->GetAttribute(0)
-		//                         .pointer;
-		//chart->drawBarChart(dataarray);
-		//chart->exec();
-		auto input= rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-		for (int i = 0; i < 50; i++) {
-			std::cout<<i<<'\n';
-			iGameModelGeometryFilter::Pointer filter = iGameModelGeometryFilter::New();
-			filter->SetInput(input);
-			filter->Execute();
-		}
-		});
+    auto action_tensorview = ui->menu_help->addAction("tensorview");
+    connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        //auto chart = new igQtCharts;
+        //auto dataarray = rendererWidget->GetScene()
+        //                         ->GetCurrentModel()
+        //                         ->GetDataObject()
+        //                         ->GetAttributeSet()
+        //                         ->GetAttribute(0)
+        //                         .pointer;
+        //chart->drawBarChart(dataarray);
+        //chart->exec();
+        QuickModelClip::Pointer filter = QuickModelClip::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto bound = input->GetBoundingBox();
+        auto ori = (bound.min + bound.max) / 2;
+        double n[3] = { 0, 1, 0 };
+        double o[3] = { ori[0], ori[1], ori[2] };
+        filter->SetPlane(o, n);
+        filter->SetIsSlice(false);
+        filter->Execute();
+        auto res = filter->GetOutput();
+        res->SetName("Quick Clip");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        ModelClip::Pointer filter2= ModelClip::New();
+        filter2->SetInput(input);
+        filter2->SetPlane(o, n);
+        filter2->SetIsSlice(false);
+        filter2->Execute();
+        auto res2= filter2->GetOutput();
+        res2->SetName("Old Clip");
+        modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();
+    });
 
 
 	//     cp

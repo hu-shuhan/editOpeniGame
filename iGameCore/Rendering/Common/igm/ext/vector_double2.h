@@ -2,8 +2,8 @@
 // Created by Sumzeek on 10/5/2024.
 //
 
-#ifndef OPENIGAME_IGM_VECTOR_DOUBLE2_H
-#define OPENIGAME_IGM_VECTOR_DOUBLE2_H
+#ifndef IGM_VECTOR_DOUBLE2_H
+#define IGM_VECTOR_DOUBLE2_H
 
 #include "../detail/type_vec2.h"
 
@@ -13,4 +13,4 @@ namespace igm
 typedef vec<2, double> dvec2;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_VECTOR_DOUBLE2_H
+#endif // IGM_VECTOR_DOUBLE2_H

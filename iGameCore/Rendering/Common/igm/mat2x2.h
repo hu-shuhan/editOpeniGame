@@ -9,9 +9,9 @@
  *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
  */
 
-#ifndef OPENIGAME_IGM_MAT2x2_H
-#define OPENIGAME_IGM_MAT2x2_H
+#ifndef IGM_MAT2x2_H
+#define IGM_MAT2x2_H
 
 #include "./ext/matrix_float2x2.h"
 
-#endif // OPENIGAME_IGM_MAT2x2_H
+#endif // IGM_MAT2x2_H

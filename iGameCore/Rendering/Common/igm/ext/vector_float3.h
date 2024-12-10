@@ -2,8 +2,8 @@
 // Created by Sumzeek on 6/26/2024.
 //
 
-#ifndef OPENIGAME_IGM_VECTOR_FLOAT3_H
-#define OPENIGAME_IGM_VECTOR_FLOAT3_H
+#ifndef IGM_VECTOR_FLOAT3_H
+#define IGM_VECTOR_FLOAT3_H
 
 #include "../detail/type_vec3.h"
 
@@ -14,4 +14,4 @@ typedef vec<3, float> vec3;
 typedef vec<3, float> fvec3;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_VECTOR_FLOAT3_H
+#endif // IGM_VECTOR_FLOAT3_H

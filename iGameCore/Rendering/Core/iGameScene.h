@@ -133,9 +133,8 @@ public:
 
     void SetVolumeRendering(bool toggled);
     std::vector<unsigned char> CaptureScreen(int x, int y, int width,
-                                             int height, FrameBufferType type);
-    std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width,
-                                                int height);
+                                             int height, FrameBufferType type, bool mirrored);
+    std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width, int height);
 
     GLBuffer::Pointer GetDrawCullDataBuffer();
 
@@ -188,6 +187,7 @@ protected:
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(DataObject* obj);
     void UpdateUniformBufferObjectBlock(DataObject* obj);
+    void UpdateCameraClippingRange();
 
     void DrawAxes(igm::ivec4 drawRange);
     static void CalculateFrameRate();
