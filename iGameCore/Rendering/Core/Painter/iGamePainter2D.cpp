@@ -7,6 +7,10 @@
 
 IGAME_NAMESPACE_BEGIN
 
+Painter2D::Painter2D() {}
+
+Painter2D::~Painter2D() {}
+
 void Painter2D::Draw(Scene* scene) {
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
@@ -42,6 +46,7 @@ IGuint Painter2D::DrawPoint(const Vector2ui& point) {
                       source.indices[0].end());
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    this->Modified();
     return handle;
 }
 
@@ -64,6 +69,7 @@ IGuint Painter2D::DrawLine(const Vector2ui& p1, const Vector2ui& p2) {
                       source.indices[1].end());
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    this->Modified();
     return handle;
 }
 
@@ -103,6 +109,7 @@ IGuint Painter2D::DrawTriangle(const Vector2ui& p1, const Vector2ui& p2,
     }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    this->Modified();
     return handle;
 }
 
@@ -141,6 +148,7 @@ IGuint Painter2D::DrawRect(const Vector2ui& p1, const Vector2ui& p3) {
     }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    this->Modified();
     return handle;
 }
 
@@ -181,6 +189,7 @@ IGuint Painter2D::DrawCircle(const Vector2ui& center, double radius,
     }
 
     auto handle = m_PrimitivesPool->AllocateObject(primitive);
+    this->Modified();
     return handle;
 }
 

@@ -197,9 +197,9 @@ void Scene::ResetCameraView() {
 
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
+    m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
     m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
-    m_Camera->SetCameraFocal(center);
+    m_Camera->SetFocal(center);
 }
 
 void Scene::ChangeModelVisibility(Model* model, bool visibility) {
@@ -220,10 +220,10 @@ void Scene::ChangeCameraType(IGenum type) {
     ResetCameraView();
     switch (type) {
         case Camera::Type::PERSPECTIVE: {
-            m_Camera->ChangeCameraType(Camera::Type::PERSPECTIVE);
+            m_Camera->SetType(Camera::Type::PERSPECTIVE);
         } break;
         case Camera::Type::ORTHOGRAPHIC: {
-            m_Camera->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
+            m_Camera->SetType(Camera::Type::ORTHOGRAPHIC);
         } break;
         default:
             break;
@@ -1164,8 +1164,8 @@ void Scene::VolumeRenderingPass() {
 
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
-    m_CameraData.camera_position = m_Camera->GetCameraPos();
-    m_CameraData.isOrtho = m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC;
+    m_CameraData.camera_position = m_Camera->GetPosition();
+    m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
     m_CameraData.view = m_Camera->GetViewMatrix();
     m_CameraData.proj = m_Camera->GetProjectionMatrix();
     m_CameraData.proj_view =
@@ -1205,9 +1205,12 @@ void Scene::UpdateCameraClippingRange() {
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-    igm::vec3 cameraPos = m_Camera->GetCameraPos();
+    igm::vec3 cameraPos = m_Camera->GetPosition();
 
-    float dist = (cameraPos - center).length();
+    igm::vec3 front = m_Camera->GetFront();
+    igm::vec3 v = center - cameraPos;
+    float dist = std::abs(front.dot(v) / front.length());
+
     float nearPlane = dist - radius;
     float farPlane = dist + radius;
 

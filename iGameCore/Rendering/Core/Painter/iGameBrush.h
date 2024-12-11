@@ -43,8 +43,8 @@ public:
     void SetColor(float red, float green, float blue);
     Vector3f GetColor() const;
 
-    void SetStyle(Style style);
-    Style GetStyle() const;
+    void SetStyle(Brush::Style style);
+    Brush::Style GetStyle() const;
 
     //void SetOpacity(float opacity);
     //float GetOpacity() const;
@@ -54,7 +54,7 @@ protected:
     ~Brush() override;
 
     Vector3f m_BrushColor;
-    Style m_BrushStyle;
+    Brush::Style m_BrushStyle;
     float m_BrushOpacity;
 };
 

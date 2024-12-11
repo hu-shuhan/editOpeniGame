@@ -85,6 +85,8 @@ void FontSet::RegisterWords(const wchar_t* text) {
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
+
+    this->Modified();
 }
 
 void FontSet::FlipVertically(unsigned char* data, int width, int height) {

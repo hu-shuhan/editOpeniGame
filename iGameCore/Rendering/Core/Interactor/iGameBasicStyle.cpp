@@ -41,7 +41,8 @@ void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
 
 void BasicStyle::MiddleButtonMouseMove() {}
 
-void BasicStyle::MouseReleaseEvent(IEvent _event) { m_MouseMode = NoButton; };
+void BasicStyle::MouseReleaseEvent(IEvent _event) { m_MouseMode = NoButton; }
+
 void BasicStyle::WheelEvent(IEvent _event) {
     float wheelMoveDirection = 0.0;
     if (_event.delta == 0) {
@@ -59,12 +60,12 @@ void BasicStyle::WheelEvent(IEvent _event) {
 
     auto moveSize =
             static_cast<float>(-wheelMoveDirection * m_CameraScaleSpeed);
-    auto oldPos = m_Camera->GetCameraPos();
+    auto oldPos = m_Camera->GetPosition();
     auto newPos = oldPos + igm::vec3{0.0f, 0.0f, moveSize};
-    m_Camera->SetCameraPos(newPos);
+    m_Camera->SetPosition(newPos);
 
     UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
-};
+}
 
 void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
     if (m_Interactor) { m_Interactor->RequestSignal(signal, callData); }
@@ -114,12 +115,12 @@ void BasicStyle::ViewTranslation() {
         auto offset = m_NewPoint2D - m_OldPoint2D;
         auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
                                     offset.y * m_CameraMoveSpeed, 0.0f};
-        auto oldPos = m_Camera->GetCameraPos();
-        auto oldFocal = m_Camera->GetCameraFocal();
+        auto oldPos = m_Camera->GetPosition();
+        auto oldFocal = m_Camera->GetFocal();
         auto newPos = oldPos + moveOffset;
         auto newFocal = oldFocal + moveOffset;
-        m_Camera->SetCameraPos(newPos);
-        m_Camera->SetCameraFocal(newFocal);
+        m_Camera->SetPosition(newPos);
+        m_Camera->SetFocal(newFocal);
     }
 }
 void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
@@ -176,7 +177,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     auto viewportF = igm::vec2{static_cast<float>(viewport.x),
                                static_cast<float>(viewport.y)};
 
-    if (m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC) {
+    if (m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC) {
         // Step 1: Calculate the world size of one pixel
         float orthoHeight = m_Camera->GetLengthToFocal() * 0.5f;
         float pixelSizeWorld =
@@ -184,49 +185,24 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
 
         // Step 2: Apply the pixel offset to the world coordinates
         m_CameraMoveSpeed = pixelSizeWorld;
-
-        //// Step 1: Calculate the world size of one pixel
-        //float orthoHeight = m_Camera->GetLengthToFocal() * 0.5f;
-        //float pixelSizeWorld = orthoHeight / viewportF.y;
-        //
-        //// Step 2: Apply the pixel offset to the world coordinates
-        //igm::vec3 pWorldCoord =
-        //        igm::vec3(center) + igm::vec3(0, pixelSizeWorld, 0);
-        //
-        //m_CameraMoveSpeed = (pWorldCoord - igm::vec3(center)).length();
-    } else if (m_Camera->GetCameraType() == Camera::PERSPECTIVE) {
+    } else if (m_Camera->GetType() == Camera::Type::PERSPECTIVE) {
         igm::mat4 model = m_Scene->ModelMatrix();
         igm::mat4 view = m_Camera->GetViewMatrix();
         igm::mat4 proj = m_Camera->GetProjectionMatrix();
         auto mvp = proj * view * model;
 
-        auto centerMvp = mvp * igm::vec4{center.xyz(), 1.0f};
-        centerMvp /= centerMvp.w;
-        auto bz = centerMvp.z;
-
-        // the center of the bounding-sphere is located behind the near plane
-        if (bz > 1.0f || bz < 0.0f) {
-            auto cameraFront =
-                    (m_Camera->GetCameraFocal() - m_Camera->GetCameraPos())
-                            .normalized();
-            auto boundingBehind = center.xyz() + cameraFront * center.w;
-            auto boundingBehindMvp = mvp * igm::vec4{boundingBehind, 1.0f};
-            boundingBehindMvp /= boundingBehindMvp.w;
-            bz = boundingBehindMvp.z;
-
-            // the bounding-sphere is behind camera
-            if (bz > 1.0f) return;
-        }
+        auto focal = m_Camera->GetFocal();
+        auto focalMvp = mvp * igm::vec4{focal, 1.0f};
+        focalMvp /= focalMvp.w;
 
         // p is the screen coordinate of the center offset one pixel upwards
-        auto p = igm::vec3{centerMvp.x, centerMvp.y + 2.0f / viewportF.y,
-                           centerMvp.z};
+        auto p = igm::vec3{focalMvp.x, focalMvp.y + 2.0f / viewportF.y,
+                           focalMvp.z};
         auto pWorldCoord = mvp.invert() * igm::vec4{p, 1.0f};
         pWorldCoord /= pWorldCoord.w;
 
-        m_CameraMoveSpeed =
-                (igm::vec3(pWorldCoord) - igm::vec3(center)).length();
-
+        m_CameraMoveSpeed = (pWorldCoord.xyz() - focal).length();
+        
         /*
         Eigen::Matrix4f A;
         Eigen::Vector4f b;

@@ -25,11 +25,11 @@ public:
     static Pointer New() { return new Viewport; }
 
     void SetViewPort(uint32_t width, uint32_t height);
-    igm::ivec2 GetViewPort();
-    igm::ivec2 GetScaledViewPort();
+    igm::uvec2 GetViewPort();
+    igm::uvec2 GetScaledViewPort();
 
-    void SetDevicePixelRatio(int devicePixelRatio);
-    int GetDevicePixelRatio();
+    void SetDevicePixelRatio(unsigned int devicePixelRatio);
+    unsigned int GetDevicePixelRatio() const;
 
     template<typename FloatT>
     FloatT aspect() const;
@@ -38,9 +38,9 @@ protected:
     Viewport();
     ~Viewport() override;
 
-    igm::ivec2 m_Offset;
-    igm::ivec2 m_Size;
-    int m_DevicePixelRatio;
+    igm::uvec2 m_Offset;
+    igm::uvec2 m_Size;
+    unsigned int m_DevicePixelRatio;
 };
 
 class Viewer : public Viewport {
@@ -48,7 +48,7 @@ public:
     I_OBJECT(Viewer)
     static Pointer New() { return new Viewer; }
 
-    void SetClippngRange(float nearz, float farz);
+    void SetClippngRange(float near, float far);
     igm::vec2 GetClippingRange();
 
     void SetFov(float fov);
@@ -72,24 +72,25 @@ public:
 
     enum Type { PERSPECTIVE = 0, ORTHOGRAPHIC, CAMERATYPE_COUNT };
 
-    void ChangeCameraType(Type type);
-
     float GetLengthToFocal();
 
-    void SetCameraPos(igm::vec3 pos);
-    void SetCameraPos(float posX, float posY, float posZ);
-    igm::vec3 GetCameraPos() const;
+    void SetPosition(const igm::vec3& pos);
+    void SetPosition(float posX, float posY, float posZ);
+    igm::vec3 GetPosition() const;
 
-    void SetCameraFocal(igm::vec3 focal);
-    void SetCameraFocal(float focalX, float focalY, float focalZ);
-    igm::vec3 GetCameraFocal() const;
+    void SetFocal(const igm::vec3& focal);
+    void SetFocal(float focalX, float focalY, float focalZ);
+    igm::vec3 GetFocal() const;
 
-    void SetCameraUp(igm::vec3 up);
-    void SetCameraUp(float upX, float upY, float upZ);
-    igm::vec3 GetCameraUp() const;
+    void SetUp(const igm::vec3& up);
+    void SetUp(float upX, float upY, float upZ);
+    igm::vec3 GetUp() const;
 
-    void SetCameraType(Type type);
-    Type GetCameraType() const;
+    void SetType(Type type);
+    Type GetType() const;
+
+    igm::vec3 GetFront() const;
+    igm::vec3 GetRight() const;
 
     igm::mat4 GetViewMatrix();
 
@@ -99,7 +100,7 @@ protected:
     Camera();
     ~Camera() override;
 
-    void UpdateCameraVectors();
+    void UpdateVectors();
 
     // Camera attributes
     igm::vec3 m_Position;
@@ -110,7 +111,7 @@ protected:
     igm::vec3 m_Right;
 
     // Camera type
-    Type m_CameraType;
+    Type m_Type;
 };
 
 IGAME_NAMESPACE_END
