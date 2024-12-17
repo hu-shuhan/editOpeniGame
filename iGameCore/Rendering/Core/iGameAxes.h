@@ -12,6 +12,9 @@ public:
     I_OBJECT(Axes);
     static Pointer New() { return new Axes; }
 
+    // need opengl context
+    void Initialize();
+
     void DrawAxes();
 
     void DrawXYZ(GLShaderProgram::Pointer shader);
@@ -26,8 +29,6 @@ protected:
     Axes();
     ~Axes() override;
 
-    void Initialize();
-
     void RequestData(std::vector<igm::vec3>& vertices,
                      std::vector<igm::vec3>& colors);
 
@@ -41,10 +42,10 @@ protected:
 
     GLVertexArray::Pointer m_FontVAO;
     GLBuffer::Pointer m_TextureCoordVBO, m_WorldCoordVBO, m_FontTextureEBO;
-    
+
     double Viewport[4];
-    igm::mat4 m_Mvp{1.0f};
-    igm::mat4 m_MvpInv{1.0f};
+    igm::mat4 m_Mvp;
+    igm::mat4 m_MvpInv;
 
     float m_ShaftLength;
     float m_ShaftSize;

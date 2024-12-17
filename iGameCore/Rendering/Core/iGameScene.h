@@ -83,6 +83,8 @@ public:
     void SetCurrentModel(int index);
     void SetCurrentModel(Model*);
 
+    void SetBackGround(const Color& color);
+
     /* Interactor Related */
     void SetInteractor(Interactor* i);
     Interactor* GetInteractor();
@@ -133,8 +135,10 @@ public:
 
     void SetVolumeRendering(bool toggled);
     std::vector<unsigned char> CaptureScreen(int x, int y, int width,
-                                             int height, FrameBufferType type, bool mirrored);
-    std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width, int height);
+                                             int height, FrameBufferType type,
+                                             bool mirrored);
+    std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width,
+                                                int height);
 
     GLBuffer::Pointer GetDrawCullDataBuffer();
 
@@ -169,6 +173,7 @@ protected:
     void InitOIT();
     void InitFont();
     void InitAxes();
+    void InitInterator();
 
     void ResizeFrameBuffer();
     void ResizeDepthPyramid();
@@ -194,39 +199,41 @@ protected:
 
     /* Data Object Related */
     std::map<int, Model::Pointer> m_Models;
-    int m_IncrementModelId{0};
-    int m_CurrentModelId{-1};
-    Model* m_CurrentModel{nullptr};
+    int m_IncrementModelId;
+    int m_CurrentModelId;
+    Model* m_CurrentModel;
 
-    std::function<void()> m_UpdateFunctor{nullptr};
-    std::function<void()> m_MakeCurrentFunctor{nullptr};
-    std::function<void()> m_DoneCurrentFunctor{nullptr};
+    std::function<void()> m_UpdateFunctor;
+    std::function<void()> m_MakeCurrentFunctor;
+    std::function<void()> m_DoneCurrentFunctor;
 
-    Camera::Pointer m_Camera{};
-    Light::Pointer m_Light{};
-    Axes::Pointer m_Axes{};
-    Interactor* m_Interactor{nullptr};
+    Camera::Pointer m_Camera;
+    //Light::Pointer m_Light;
+    Axes::Pointer m_Axes;
+
+    Interactor* m_Interactor;
 
     /* Rendering related */
     CameraDataBuffer m_CameraData;
     ObjectDataBuffer m_ObjectData;
     UniformBufferObjectBuffer m_UBO;
 
-    igm::mat4 m_ModelRotate{}; //Rotation matrix passing through the origin
-    igm::mat4 m_ModelMatrix{};
-    igm::vec3 m_BackgroundColor{};
+    igm::mat4 m_ModelRotate; //Rotation matrix passing through the origin
+    igm::mat4 m_ModelMatrix;
+    igm::vec3 m_BackgroundColor;
 
-    uint32_t m_VisibleModelsCount = 0;
-    igm::vec4 m_ModelsBoundingSphere{0.0f, 0.0f, 0.0f, 1.0f};
+    uint32_t m_VisibleModelsCount;
+    igm::vec4 m_ModelsBoundingSphere;
 
     GLBuffer::Pointer m_CameraDataBlock, m_ObjectDataBlock, m_UBOBlock;
+
     std::map<IGenum, GLShaderProgram::Pointer> m_ShaderPrograms;
 
     // used to draw full-screen triangle
     GLVertexArray::Pointer m_EmptyVAO;
 
 #ifdef MSAA
-    GLint samples = 8;
+    GLint samples;
     GLFramebuffer::Pointer m_FramebufferMultisampled;
     GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
     GLTexture2dMultisample::Pointer m_DepthTextureMultisampled;
@@ -250,11 +257,11 @@ protected:
     int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
-    Painter2D::Pointer m_Painter2D{Painter2D::New()};
-    Painter3D::Pointer m_Painter3D{Painter3D::New()};
+    Painter2D::Pointer m_Painter2D;
+    Painter3D::Pointer m_Painter3D;
 
-    bool m_FinishInit{false};
-    bool m_EnableVolumeRendering{false};
+    bool m_FinishInit;
+    bool m_EnableVolumeRendering;
 
     friend class Model;
     friend class Interactor;

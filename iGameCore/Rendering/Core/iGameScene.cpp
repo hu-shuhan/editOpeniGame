@@ -5,11 +5,30 @@
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
-    m_Camera = Camera::New();
+    m_IncrementModelId = 0;
+    m_CurrentModelId = 1;
+    m_CurrentModel = nullptr;
 
-    m_ModelRotate = igm::mat4{};
-    m_ModelMatrix = igm::mat4{};
+    m_UpdateFunctor = nullptr;
+    m_MakeCurrentFunctor = nullptr;
+    m_DoneCurrentFunctor = nullptr;
+
+    m_Camera = Camera::New();
+    //m_Light = Light::New();
+    m_Axes = Axes::New();
+
+    m_Interactor = iGame::Interactor::New();
+
+    m_CameraData = CameraDataBuffer{};
+    m_ObjectData = ObjectDataBuffer{};
+    m_UBO = UniformBufferObjectBuffer{};
+
+    m_ModelRotate = igm::mat4{1.0f};
+    m_ModelMatrix = igm::mat4{1.0f};
     m_BackgroundColor = {0.5f, 0.5f, 0.5f};
+
+    m_VisibleModelsCount = 0;
+    m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
 
     m_CameraDataBlock = GLBuffer::New();
     m_ObjectDataBlock = GLBuffer::New();
@@ -18,6 +37,7 @@ Scene::Scene() {
     m_EmptyVAO = GLVertexArray::New();
 
 #ifdef MSAA
+    samples = 8;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
     m_DepthTextureMultisampled = GLTexture2dMultisample::New();
@@ -38,7 +58,16 @@ Scene::Scene() {
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
     m_DrawCullData = GLBuffer::New();
+    m_DepthPyramidWidth = 0;
+    m_DepthPyramidHeight = 0;
+    m_DepthPyramidLevels = 0;
     m_DepthPyramid = GLTexture2d::New();
+
+    m_Painter2D = Painter2D::New();
+    m_Painter3D = Painter3D::New();
+
+    m_FinishInit = false;
+    m_EnableVolumeRendering = false;
 }
 Scene::~Scene() {}
 
@@ -62,6 +91,7 @@ int Scene::AddModel(DataObject::Pointer obj) {
     model->m_DataObject = obj;
     return AddModel(model);
 }
+
 int Scene::AddModel(Model::Pointer model) {
     int newModelId = m_IncrementModelId++;
     m_Models.insert(std::make_pair<>(newModelId, model));
@@ -138,14 +168,6 @@ void Scene::SetCurrentModel(int index) {
             m_CurrentModel = model.get();
             return;
         }
-        //if (obj->m_DataObject->Has->SubDataObject()) {
-        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
-        //    if (subObj != nullptr) {
-        //        m_CurrentModelId = index;
-        //        m_CurrentObject = subObj.get();
-        //        return true;
-        //    }
-        //}
     }
 }
 
@@ -159,6 +181,12 @@ void Scene::SetCurrentModel(Model* _model) {
     }
 }
 
+void Scene::SetBackGround(const Color& color) {
+    auto c = ColorUtils::Map(color);
+    m_BackgroundColor = c;
+    this->Modified();
+}
+
 void Scene::SetInteractor(Interactor* i) { m_Interactor = i; }
 
 Interactor* Scene::GetInteractor() { return m_Interactor; }
@@ -168,10 +196,6 @@ Model* Scene::GetCurrentModel() { return m_CurrentModel; }
 Model* Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
-        //if (obj->m_DataObject->Has->SubDataObject()) {
-        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
-        //    if (subObj != nullptr) { return subObj.get(); }
-        //}
     }
     return nullptr;
 }
@@ -598,6 +622,8 @@ void Scene::InitFont() {
 }
 
 void Scene::InitAxes() {
+    m_Axes->Initialize();
+
     auto axesShader = this->GetShader(AXES);
 
     axesShader->Use();
@@ -605,8 +631,12 @@ void Scene::InitAxes() {
     axesShader->SetUniformMatrix4x4("proj", Axes::ProjMatrix());
     axesShader->SetUniform3f("viewPos", Axes::CameraPos());
 
-    m_Axes = Axes::New();
     GLCheckError();
+}
+
+void Scene::InitInterator() {
+    m_Interactor->Initialize(this);
+    m_Interactor->CreateDefaultStyle();
 }
 
 void Scene::ResizeFrameBuffer() {
@@ -689,9 +719,7 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferResolved = fbo;
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
-                         "complete!"
-                      << std::endl;
+            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
     }
 #else
     //resize resolve framebuffer(form multisamples to single sample)
@@ -1293,6 +1321,7 @@ void Scene::LookAtPositiveX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeX() {
     ResetCameraView();
 
@@ -1309,6 +1338,7 @@ void Scene::LookAtNegativeX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtPositiveY() {
     ResetCameraView();
 
@@ -1324,6 +1354,7 @@ void Scene::LookAtPositiveY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeY() {
     ResetCameraView();
 
@@ -1340,6 +1371,7 @@ void Scene::LookAtNegativeY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtPositiveZ() {
     ResetCameraView();
 
@@ -1355,6 +1387,7 @@ void Scene::LookAtPositiveZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeZ() {
     ResetCameraView();
 
@@ -1368,6 +1401,7 @@ void Scene::LookAtNegativeZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtIsometric() {
     ResetCameraView();
 
@@ -1384,6 +1418,7 @@ void Scene::LookAtIsometric() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::RotateNinetyClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
@@ -1398,6 +1433,7 @@ void Scene::RotateNinetyClockwise() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();

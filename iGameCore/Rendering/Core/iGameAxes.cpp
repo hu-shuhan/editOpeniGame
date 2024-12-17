@@ -3,35 +3,10 @@
 IGAME_NAMESPACE_BEGIN
 
 Axes::Axes() {
-    m_TriangleVAO = GLVertexArray::New();
-    m_TriangleVAO->Create();
-
-    m_PositionVBO = GLBuffer::New();
-    m_PositionVBO->Create();
-    m_PositionVBO->Target(GL_ARRAY_BUFFER);
-
-    m_ColorVBO = GLBuffer::New();
-    m_ColorVBO->Create();
-    m_ColorVBO->Target(GL_ARRAY_BUFFER);
-
-    m_TriangleEBO = GLBuffer::New();
-    m_TriangleEBO->Create();
-    m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-    m_FontVAO = GLVertexArray::New();
-    m_FontVAO->Create();
-
-    m_TextureCoordVBO = GLBuffer::New();
-    m_TextureCoordVBO->Create();
-    m_TextureCoordVBO->Target(GL_ARRAY_BUFFER);
-
-    m_WorldCoordVBO = GLBuffer::New();
-    m_WorldCoordVBO->Create();
-    m_WorldCoordVBO->Target(GL_ARRAY_BUFFER);
-
-    m_FontTextureEBO = GLBuffer::New();
-    m_FontTextureEBO->Create();
-    m_FontTextureEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+    Viewport[0] = 0;
+    Viewport[1] = 0;
+    Viewport[2] = 200;
+    Viewport[3] = 200;
 
     m_Mvp = igm::mat4{1.0f};
     m_MvpInv = igm::mat4{1.0f};
@@ -40,8 +15,6 @@ Axes::Axes() {
     m_ShaftSize = 0.03f;
     m_ArrowSize = 0.06f;
     m_OriginSize = 0.05f;
-
-    Initialize();
 }
 
 Axes::~Axes() {
@@ -54,7 +27,7 @@ Axes::~Axes() {
     m_TextureCoordVBO->Destroy();
     m_WorldCoordVBO->Destroy();
     m_FontTextureEBO->Destroy();
-};
+}
 
 void Axes::DrawAxes() {
     // draw axes
@@ -63,6 +36,7 @@ void Axes::DrawAxes() {
     glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
     m_TriangleVAO->Release();
 }
+
 void Axes::DrawXYZ(GLShaderProgram::Pointer shader) {
     // draw xyz
     m_FontVAO->Bind();
@@ -168,6 +142,36 @@ igm::mat4 Axes::ProjMatrix() {
 }
 
 void Axes::Initialize() {
+    m_TriangleVAO = GLVertexArray::New();
+    m_TriangleVAO->Create();
+
+    m_PositionVBO = GLBuffer::New();
+    m_PositionVBO->Create();
+    m_PositionVBO->Target(GL_ARRAY_BUFFER);
+
+    m_ColorVBO = GLBuffer::New();
+    m_ColorVBO->Create();
+    m_ColorVBO->Target(GL_ARRAY_BUFFER);
+
+    m_TriangleEBO = GLBuffer::New();
+    m_TriangleEBO->Create();
+    m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_FontVAO = GLVertexArray::New();
+    m_FontVAO->Create();
+
+    m_TextureCoordVBO = GLBuffer::New();
+    m_TextureCoordVBO->Create();
+    m_TextureCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_WorldCoordVBO = GLBuffer::New();
+    m_WorldCoordVBO->Create();
+    m_WorldCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_FontTextureEBO = GLBuffer::New();
+    m_FontTextureEBO->Create();
+    m_FontTextureEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
     // generate axis VBO data
     std::vector<igm::vec3> vertices;
     std::vector<igm::vec3> colors;
@@ -184,6 +188,7 @@ void Axes::Initialize() {
             39, 46, 43, 40, 41, 45, 40, 45, 44,
     };
     RequestData(vertices, colors);
+
     m_PositionVBO->Allocate(vertices.size() * sizeof(igm::vec3),
                             vertices.data(), GL_STATIC_DRAW);
     m_ColorVBO->Allocate(colors.size() * sizeof(igm::vec3), colors.data(),
