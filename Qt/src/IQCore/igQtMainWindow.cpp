@@ -6,13 +6,14 @@
 #include "Compression/iGameEncoder.h"
 #include "SurfaceMeshFilters/iGameGradient.h"
 #include "SurfaceMeshFilters/iGameSimplification.h"
+#include "SurfaceMeshFilters/iGameSimplification2.h"
 #include "SurfaceMeshFilters/iGameSurfaceSimplification.h"
 #include "SurfaceMeshFilters/iGameTriangulation.h"
 #include "UndefinedFilters/iGameCurvatureFilter.h"
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-
+#include <meshoptimizer.h>
 #include "Interactor/iGameInteractor.h"
 #include "iGameARAPTest.h"
 #include "iGameFileIO.h"
@@ -343,6 +344,62 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
+        connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
+            this, [&](bool checked) {
+
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
+        if (index == -1) index = 0;
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        obj = triangulation->GetOutput();
+        auto mesh = DynamicCast<SurfaceMesh>(obj);
+
+        unsigned int* destination;
+        unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
+        const size_t index_count = mesh->GetNumberOfFaces() * 3;
+        const float* vertex_positions = mesh->GetPoints()->RawPointer();
+        size_t vertex_count = mesh->GetNumberOfPoints();
+        size_t vertex_positions_stride = sizeof(float) * 3;
+        float* vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
+        size_t vertex_attributes_stride = sizeof(float);
+        float attribute_weights[1]{5};
+        size_t attribute_count = 1;
+        unsigned char* vertex_lock = nullptr;
+        size_t target_index_count = index_count * 0.1;
+        float target_error = 0.01f;
+        unsigned int options = 0;
+        float out_error = 0.0f;
+        float* result_error = &out_error;
+
+        destination = new unsigned int[index_count];
+        size_t result_size = meshopt_simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
+                                       vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
+                                       attribute_weights, attribute_count, vertex_lock, target_index_count,
+                                       target_error, options, result_error);
+
+        //size_t result_size =
+        //        meshopt_simplify(destination, indices, index_count, vertex_positions, vertex_count,
+        //                         vertex_positions_stride, target_index_count, target_error, options, result_error);
+        
+
+        //size_t result_size =
+        //        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, target_index_count, target_error, result_error);
+        auto Mesh = SurfaceMesh::New();
+        auto Faces = CellArray::New();
+        std::cout << result_size << std::endl;
+        for (int i = 0; i < target_index_count / 3; i++) { 
+            Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
+        }
+
+        Mesh->SetPoints(mesh->GetPoints());
+        Mesh->SetFaces(Faces);
+        Mesh->SetAttributeSet(mesh->GetAttributeSet());
+        modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
+        rendererWidget->update();
+            });
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
             this, [&](bool checked) {
 
@@ -371,6 +428,145 @@ void igQtMainWindow::initAllFilters() {
             //end = clock();
             //std::cout << end - start << std::endl;
             //return;
+            if(false){
+                auto getCot = [](const Vector3d& a, const Vector3d& b, const Vector3d& c) -> double {
+                        auto ba = a - b;
+                        auto ca = a - c;
+                        return ba.dot(ca) / ba.cross(ca).length();
+                };
+                auto getArea = [](const Vector3d& a, const Vector3d& b, const Vector3d& c) -> double {
+                    Vector3d d10 = b - a;
+                    Vector3d d20 = c - a;
+
+                    return CrossProduct(d10, d20).norm() / 2;
+                };
+                
+                
+                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
+                if (index == -1) index = 0;
+                Triangulation::Pointer triangulation = Triangulation::New();
+                triangulation->SetInput(obj);
+                triangulation->Execute();
+                obj = triangulation->GetOutput();
+                auto mesh = DynamicCast<SurfaceMesh>(obj);
+
+                //auto mesh = DynamicCast<SurfaceMesh>(DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh());
+                
+                auto& attrb = mesh->GetAttributeSet()->GetAttribute(index).pointer;
+                int d = attrb->GetDimension();
+                FloatArray::Pointer scalar = FloatArray::New();
+                scalar->SetDimension(d);
+                mesh->RequestEditStatus();
+
+                std::vector<double> L(mesh->GetNumberOfPoints());
+
+                for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+                    double area = 0.0;
+                    double val[8]{0.0};
+                    double sum_cot = 0.0;
+                    igIndex ids[64]{0};
+                    int size = mesh->GetPointToNeighborEdges(i, ids);
+                    for (int j = 0; j < size; j++) { 
+                        igIndex e[2]{0}, id[2]{0}, f[3]{0};
+                        mesh->GetEdgePointIds(ids[j], e);
+                        int size1 = mesh->GetEdgeToNeighborFaces(ids[j], id);
+                        double cot = 0.0;
+                        for (int k = 0; k < size1; k++) { 
+                            mesh->GetFacePointIds(id[k], f);
+                            cot += getCot(mesh->GetPoint(f[0] + f[1] + f[2] - e[0] - e[1]), mesh->GetPoint(e[0]),
+                                   mesh->GetPoint(e[1]));
+                        }
+                        cot /= size1;
+                        sum_cot += cot;
+                        
+                        for (int k = 0; k < d; k++) {
+                            val[k] += cot *
+                                      (attrb->GetValue(i * d + k) - attrb->GetValue((e[0] + e[1] - i) * d + k));
+                        }
+                    }
+                    for (int k = 0; k < d; k++) { 
+                        val[k] = val[k] / sum_cot;
+                    }
+                    scalar->AddElement(val);
+                    L[i] = val[0];
+                    //igIndex ids[64]{0};
+                    //int size = mesh->GetPointToNeighborFaces(i, ids);
+                    //double p = attrb->GetValue(i);
+                    //Point v = mesh->GetPoint(i);
+                    //for (int j = 0; j < size; j++) { 
+                    //    igIndex f[3]{0};
+                    //    mesh->GetFacePointIds(ids[j], f);
+                    //    val += (p - (attrb->GetValue(f[0]) + attrb->GetValue(f[1]) + attrb->GetValue(f[2])) / 3) /
+                    //           (v - (mesh->GetPoint(f[0]) + mesh->GetPoint(f[1]) + mesh->GetPoint(f[2])) / 3).norm();
+                    //}
+                    //val /= size;
+                    //scalar->AddValue(val);
+                }
+                //double minVal = 1e27;
+                //double maxVal = -1e27;
+                //for (int i = 0; i < scalar->GetNumberOfValues(); i++) { 
+                //    //if (std::abs(scalar->GetValue(i)) > 100) {
+                //    //    scalar->SetValue(i, 100 * scalar->GetValue(i) / std::abs(scalar->GetValue(i)));
+                //    //}
+                //    double val = scalar->GetValue(i);
+                //    minVal = std::min(minVal, val);
+                //    maxVal = std::max(maxVal, val);
+                //}
+                //for (int i = 0; i < scalar->GetNumberOfValues(); i++) {
+                //    scalar->SetValue(i, (scalar->GetValue(i) - minVal) / (maxVal - minVal));
+                //}
+
+
+                //SurfaceMesh::Pointer Mesh = SurfaceMesh::New();
+                //igIndex edgeId = 34523;
+                //igIndex e[2]{0};
+                //mesh->GetEdgePointIds(edgeId, e);
+                //double L1 = L[e[0]];
+                //double L2 = L[e[1]];
+                //auto& p1 = mesh->GetPoint(e[0]);
+                //auto& p2 = mesh->GetPoint(e[1]);
+                //igIndex ids[64]{}, f[2]{}, fids[3]{};
+                //auto new_p = (p1 + p2) / 2;
+                //int size = mesh->GetEdgeToOneRingFaces(edgeId, ids);
+                //mesh->GetEdgeToNeighborFaces(edgeId, f);
+                //CellArray::Pointer cells = CellArray::New();
+                //std::vector<int> visited(mesh->GetNumberOfFaces(), 0);
+                //for (int i = 0; i < size; i++) { 
+                //    if (ids[i] != f[0] && ids[i] != f[1]) { 
+                //        mesh->GetFacePointIds(ids[i], fids);
+                //        for (int j = 0; j < 3; j++) { 
+                //            if (fids[j] == e[0] || fids[j] == e[1]) { 
+                //                fids[j] = e[0];
+                //                break;
+                //            }
+                //        }
+                //        visited[ids[i]] = 1;
+                //        cells->AddCellIds(fids, 3);
+                //    }
+                //}
+                //mesh->SetPoint(e[0], new_p);
+                //mesh->SetPoint(e[1], new_p);
+                //for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
+                //    if (visited[i] == 0) { 
+                //        mesh->DeleteFace(i);
+                //    }
+                //}
+                //
+                //mesh->GarbageCollection();
+                mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, scalar);
+                modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+                rendererWidget->update();
+
+                
+                //Mesh->SetPoints(mesh->GetPoints());
+                //Mesh->SetFaces(cells);
+                //modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
+                //rendererWidget->update();
+
+                return;
+            }
+
 
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
@@ -383,8 +579,10 @@ void igQtMainWindow::initAllFilters() {
         obj = triangulation->GetOutput();
 
         Simplification::Pointer filter = Simplification::New();
-        filter->SetTargetReduction(0.5);
+        filter->SetTargetReduction(0.9);
         filter->SetInput(obj);
+        filter->SetAllScalarCheck(false);
+        filter->SetActivedAttribIndices({0});
         filter->Execute();
 
         modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
