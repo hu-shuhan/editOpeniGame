@@ -5,6 +5,8 @@
 
 #pragma once
 #include "Clip/iGameModelClip.h"
+#include "Clip/iGameQuickModelClip.h"
+
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
 
@@ -45,16 +47,15 @@ public slots:
     }
 
 signals:
-    void DrawClipModel(iGame::SurfaceMesh::Pointer);
-    void UpdateClipModel(iGame::SurfaceMesh::Pointer);
+    void DrawClipModel(iGame::DrawObject::Pointer);
+    void UpdateClipModel(iGame::DrawObject::Pointer);
     void ResetInteractor();
 protected:
 private:
     Ui::ModelClipWidget* ui;
 
 	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
-    iGame::SurfaceMesh::Pointer m_ResultMesh{nullptr};
+    iGame::UnstructuredMesh::Pointer m_ResultMesh{nullptr};
     iGame::ModelClip::Pointer m_Clipper{nullptr};
 	bool m_Generated=false;
-    iGame::DrawObject::Pointer m_tmp{nullptr};
 };

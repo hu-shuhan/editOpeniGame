@@ -9,8 +9,8 @@
  *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
  */
 
-#ifndef OPENIGAME_IGM_COMMON_H
-#define OPENIGAME_IGM_COMMON_H
+#ifndef IGM_COMMON_H
+#define IGM_COMMON_H
 
 #include <cassert>
 #include <cmath> // Necessary for std::sqrt
@@ -69,4 +69,4 @@ double determinant3x3(T a1, T a2, T a3, T b1, T b2, T b3, T c1, T c2, T c3);
 
 #include "common.inl"
 
-#endif // OPENIGAME_IGM_COMMON_H
+#endif // IGM_COMMON_H

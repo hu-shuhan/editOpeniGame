@@ -215,7 +215,10 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     // process this object
-    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer); }
+    if (this->HasSubDataObject()) { 
+        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer); 
+    return;
+    }
     this->CreateDrawBuffer();
 
     if (m_AutoUpdateDrawData) {

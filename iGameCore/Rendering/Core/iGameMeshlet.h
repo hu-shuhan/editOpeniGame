@@ -1,4 +1,5 @@
 #pragma once
+
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLIndirectCommand.h"
 #include "iGameFlatArray.h"
@@ -14,16 +15,11 @@ public:
     I_OBJECT(Meshlet);
     static Pointer New() { return new Meshlet; }
 
-protected:
-    Meshlet();
-    ~Meshlet() override {}
-
     struct MeshletData {
         igm::vec4 spherebounds;
         igm::vec4 extents;
     };
 
-public:
     void CreateBuffer();
     void BuildMeshlet(const float* vertex_positions, size_t vertex_count,
                       const unsigned int* indices, size_t index_count,
@@ -35,13 +31,16 @@ public:
     GLBuffer::Pointer VisibleMeshletBuffer();
     GLBuffer::Pointer FinalDrawCommandBuffer();
 
-private:
+protected:
+    Meshlet();
+    ~Meshlet() override;
+
     const size_t m_MaxVertices = 64;
     const size_t m_MaxTriangles = 124;
     const float m_ConeWeight = 0.0f;
 
     // use for indirect draw
-    size_t m_MeshletsCount = 0;
+    size_t m_MeshletsCount;
     GLBuffer::Pointer m_MeshletsBuffer;
     GLBuffer::Pointer m_DrawCommandBuffer;
     GLBuffer::Pointer m_VisibleMeshletBuffer;

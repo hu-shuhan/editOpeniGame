@@ -1,9 +1,7 @@
 #pragma once
 
 #include "iGameObject.h"
-#include <optional>
 #include <queue>
-#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -15,13 +13,11 @@ public:
     I_OBJECT(HandlePool);
     static Pointer New() { return new HandlePool; }
 
-public:
     using HandleType = IGuint;
     using MapType = std::unordered_map<HandleType, ObjectType>;
     using Iterator = typename MapType::iterator;
     using ConstIterator = typename MapType::const_iterator;
 
-public:
     HandleType AllocateObject(const ObjectType& object) {
         HandleType handle = m_FreeHandles.empty() ? m_CurrentHandle++
                                                   : m_FreeHandles.front();
@@ -59,12 +55,12 @@ public:
         this->Modified();
     }
 
-    Iterator begin() { return m_HandleToObject.begin(); }
-    Iterator end() { return m_HandleToObject.end(); }
-    ConstIterator begin() const { return m_HandleToObject.begin(); }
-    ConstIterator end() const { return m_HandleToObject.end(); }
+    Iterator Begin() { return m_HandleToObject.begin(); }
+    Iterator End() { return m_HandleToObject.end(); }
+    ConstIterator Begin() const { return m_HandleToObject.begin(); }
+    ConstIterator End() const { return m_HandleToObject.end(); }
 
-private:
+protected:
     HandlePool() : m_CurrentHandle(1) {}
     ~HandlePool() override = default;
 

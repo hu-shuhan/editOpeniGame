@@ -23,32 +23,6 @@ public:
     I_OBJECT(Scene);
     static Pointer New() { return new Scene; }
 
-    /* Model Related */
-    int AddModel(DataObject::Pointer);
-    int AddModel(Model::Pointer);
-    void ResetCameraView();
-    Model::Pointer CreateModel(DataObject::Pointer);
-    void RemoveModel(int index);
-    void RemoveModel(Model*);
-    void RemoveCurrentModel();
-    void SetCurrentModel(int index);
-    void SetCurrentModel(Model*);
-
-    Painter3D::Pointer GetPainter() { return m_Painter3D; }
-
-    /* Interactor Related */
-    void SetInteractor(Interactor* i);
-    Interactor* GetInteractor();
-
-    Model* GetCurrentModel();
-    Model* GetModelById(int index);
-    DataObject* GetDataObjectById(int index);
-    std::map<int, Model::Pointer>& GetModelList();
-
-    void ChangeModelVisibility(int index, bool visibility);
-    void ChangeModelVisibility(Model* m, bool visibility);
-
-    /* Rendering Related */
     struct CameraDataBuffer {
         alignas(16) igm::vec3 camera_position;
         alignas(4) int isOrtho;
@@ -56,12 +30,14 @@ public:
         alignas(16) igm::mat4 proj;
         alignas(16) igm::mat4 proj_view; // proj * view
     };
+
     struct ObjectDataBuffer {
         alignas(4) float transparent;
         alignas(16) igm::mat4 model;
         alignas(16) igm::mat4 normal; // transpose(inverse(model))
         alignas(16) igm::vec4 sphereBounds;
     };
+
     struct UniformBufferObjectBuffer {
         alignas(4) int useColor{0};
         alignas(4) int useNormalSmooth{0};
@@ -95,6 +71,29 @@ public:
         FXAA,
         SHADERTYPE_COUNT
     };
+
+    /* Model Related */
+    int AddModel(DataObject::Pointer);
+    int AddModel(Model::Pointer);
+    void ResetCameraView();
+    Model::Pointer CreateModel(DataObject::Pointer);
+    void RemoveModel(int index);
+    void RemoveModel(Model*);
+    void RemoveCurrentModel();
+    void SetCurrentModel(int index);
+    void SetCurrentModel(Model*);
+
+    /* Interactor Related */
+    void SetInteractor(Interactor* i);
+    Interactor* GetInteractor();
+
+    Model* GetCurrentModel();
+    Model* GetModelById(int index);
+    DataObject* GetDataObjectById(int index);
+    std::map<int, Model::Pointer>& GetModelList();
+
+    void ChangeModelVisibility(int index, bool visibility);
+    void ChangeModelVisibility(Model* m, bool visibility);
 
     Camera::Pointer GetCamera() { return m_Camera; }
     void ChangeCameraType(IGenum type);
@@ -134,10 +133,13 @@ public:
 
     void SetVolumeRendering(bool toggled);
     std::vector<unsigned char> CaptureScreen(int x, int y, int width,
-                                             int height, FrameBufferType type);
+                                             int height, FrameBufferType type, bool mirrored);
     std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width, int height);
 
-    GLBuffer::Pointer GetDrawCullDataBuffer() { return m_DrawCullData; }
+    GLBuffer::Pointer GetDrawCullDataBuffer();
+
+    Painter2D::Pointer GetPainter2D();
+    Painter3D::Pointer GetPainter3D();
 
     void MakeCurrent();
     void DoneCurrent();
@@ -185,6 +187,7 @@ protected:
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(DataObject* obj);
     void UpdateUniformBufferObjectBlock(DataObject* obj);
+    void UpdateCameraClippingRange();
 
     void DrawAxes(igm::ivec4 drawRange);
     static void CalculateFrameRate();

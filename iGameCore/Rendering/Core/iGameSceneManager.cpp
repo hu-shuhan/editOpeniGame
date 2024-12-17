@@ -3,7 +3,8 @@
 
 IGAME_NAMESPACE_BEGIN
 
-SceneManager::SceneManager() {}
+SceneManager::SceneManager() { m_CurrentScene = nullptr; }
+
 SceneManager::~SceneManager() {}
 
 Scene::Pointer SceneManager::GetScene(int id) {
@@ -22,6 +23,7 @@ void SceneManager::DeleteScene(int id) {
     if (id < 0 || id >= m_Scenes.size()) { return; }
     m_Scenes[id] = nullptr;
 }
+
 void SceneManager::DeleteScene(Scene::Pointer p) {
     if (p == nullptr) { return; }
     for (int i = 0; i < m_Scenes.size(); i++) {
@@ -32,14 +34,12 @@ void SceneManager::DeleteScene(Scene::Pointer p) {
     }
 }
 
-void SceneManager::MakeCurrentScene(int id) 
-{
+void SceneManager::MakeCurrentScene(int id) {
     if (id < 0 || id >= m_Scenes.size() || m_Scenes[id] == nullptr) { return; }
     m_CurrentScene = m_Scenes[id];
 }
 
-void SceneManager::MakeCurrentScene(Scene::Pointer p) 
-{
+void SceneManager::MakeCurrentScene(Scene::Pointer p) {
     if (p == nullptr) { return; }
     for (int i = 0; i < m_Scenes.size(); i++) {
         if (p == m_Scenes[i]) {

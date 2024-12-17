@@ -9,9 +9,9 @@
 *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
 */
 
-#ifndef OPENIGAME_TRANSFORM_H
-#define OPENIGAME_TRANSFORM_H
+#ifndef IGM_TRANSFORM_H
+#define IGM_TRANSFORM_H
 
 #include "gtc/clip_space.h"
 
-#endif // OPENIGAME_TRANSFORM_H
+#endif // IGM_TRANSFORM_H

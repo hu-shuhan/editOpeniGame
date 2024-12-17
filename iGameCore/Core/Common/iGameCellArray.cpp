@@ -46,7 +46,6 @@ IGsize CellArray::GetNumberOfCells() const noexcept { return m_NumberOfCells; }
 // Get cell's index sequence.
 // @Return: the size of sequence.
 int CellArray::GetCellIds(const IGsize cellId, igIndex* cell) {
-    assert(!this->IsDeleted(cellId));
     int ncells = this->GetCellSize(cellId);
     igIndex* ptr = m_Buffer->RawPointer() + this->GetBeginOffset(cellId);
     for (int i = 0; i < ncells; i++) { cell[i] = ptr[i]; }
@@ -55,14 +54,12 @@ int CellArray::GetCellIds(const IGsize cellId, igIndex* cell) {
 
 // Get cell's index sequence. Return the size of sequence.
 int CellArray::GetCellIds(const IGsize cellId, const igIndex*& cell) {
-    assert(!this->IsDeleted(cellId));
     cell = m_Buffer->RawPointer() + this->GetBeginOffset(cellId);
     return this->GetCellSize(cellId);
 }
 
 // Get cell's index sequence.
 void CellArray::GetCellIds(const IGsize cellId, IdArray::Pointer cell) {
-    assert(!this->IsDeleted(cellId));
     cell->Reset();
     IGuint begin = this->GetBeginOffset(cellId);
     int size = this->GetCellSize(cellId);
@@ -74,8 +71,6 @@ void CellArray::GetCellIds(const IGsize cellId, IdArray::Pointer cell) {
 // @param cell: index sequence
 // @param ncell: the size of index sequence
 void CellArray::SetCellIds(const IGsize cellId, igIndex* cell, int ncell) {
-    assert(!this->IsDeleted(cellId));
-    assert(this->GetCellSize(cellId) == ncell);
     IGuint begin = this->GetBeginOffset(cellId);
     igIndex* ptr = m_Buffer->RawPointer() + begin;
     for (int i = 0; i < ncell; i++) { ptr[i] = cell[i]; }
@@ -110,7 +105,35 @@ IGsize CellArray::AddCellIds(igIndex* cell, int ncell) {
 
     return m_NumberOfCells++;
 }
+IGsize CellArray::AddCellIds(const igIndex* cell, int ncell) {
+    IGuint beginOffset = this->GetBeginOffset(m_NumberOfCells);
+    IGuint endOffset = beginOffset + ncell;
+    if (endOffset > m_Buffer->GetNumberOfIds()) {
+        const IGsize newSize = std::max(endOffset, (beginOffset * 2));
+        m_Buffer->Resize(newSize);
+    }
 
+    igIndex* ptr = m_Buffer->RawPointer() + beginOffset;
+    for (int i = 0; i < ncell; i++) { ptr[i] = cell[i]; }
+    m_DeleteMasker->AddTag();
+    if (m_UseOffsets) {
+        m_Offsets->AddValue(endOffset);
+    }
+    else {
+        if (m_NumberOfCells == 0) {
+            m_FixedCellSize = ncell;
+        }
+        else if (m_FixedCellSize != ncell) {
+            for (int i = 0; i < m_NumberOfCells; i++) {
+                m_Offsets->AddValue((i + 1) * m_FixedCellSize);
+            }
+            m_Offsets->AddValue(endOffset);
+            m_UseOffsets = true;
+        }
+    }
+
+    return m_NumberOfCells++;
+}
 IGsize CellArray::AddCellIds(IdArray::Pointer ids) {
     if (ids == nullptr) return IGsize(-1);
     return AddCellIds(ids->RawPointer(), ids->GetNumberOfIds());

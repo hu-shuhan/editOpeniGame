@@ -680,13 +680,13 @@ modelTreeWidget->updateAllAttriubute(obj);
 中，如果需要在指定模型中绘制图元（跟随模型的显示/隐藏），可以采用以下方式获取``painter``：
 
 ```cpp
-auto painter = m_Manager->GetCurrentScene()->GetCurrentModel()->GetPainter();
+auto painter = m_Manager->GetCurrentScene()->GetCurrentModel()->GetPainter3D();
 ```
 
 若需要在场景``Scene``中绘制图元（不跟随某个模型的显示/隐藏），可以采取以下方式获取``painter``：
 
 ```cpp
-auto painter = m_Manager->GetCurrentScene()->GetPainter();
+auto painter = m_Manager->GetCurrentScene()->GetPainter3D();
 ```
 
 ``painter``中保存了绘制的所有图元，因此也可以自行创建``Painter``实例：

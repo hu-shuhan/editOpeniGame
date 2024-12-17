@@ -85,6 +85,8 @@ void FontSet::RegisterWords(const wchar_t* text) {
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
+
+    this->Modified();
 }
 
 void FontSet::FlipVertically(unsigned char* data, int width, int height) {
@@ -102,7 +104,7 @@ void FontSet::FlipVertically(unsigned char* data, int width, int height) {
     }
 }
 
-Character& FontSet::GetCharacter(const wchar_t wchar) {
+FontSet::Character& FontSet::GetCharacter(const wchar_t wchar) {
     auto it = m_Characters.find(wchar);
     if (it == m_Characters.end()) {
         igError("Character not found for wchar: " /*<< wchar*/);

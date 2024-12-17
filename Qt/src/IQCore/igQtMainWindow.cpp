@@ -192,25 +192,21 @@ void igQtMainWindow::initToolbarComponent() {
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
-
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-
         dialog->setFilterTitle("压缩");
         dialog->setFilterDescription(
-                "注意：压缩方式取None时，表示不进行量化；压缩方式取Float时，表示进行浮点数量化，且量化位数取值生效");
+                "注意:压缩方式取None时,表示不进行量化;压缩方式取Float时,表示进行浮点数量化,且量化位数取值生效");
         std::vector<QString> defaultValue1;
         defaultValue1.push_back("Float");
         defaultValue1.push_back("None");
-
         std::vector<QString> defaultValue2;
         defaultValue2.push_back("None");
         defaultValue2.push_back("Float");
-
         int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "点坐标压缩方式", defaultValue1);
 
         int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "点坐标量化位数", "16");
@@ -246,9 +242,9 @@ void igQtMainWindow::initAllComponents() {
     //	});
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
-            SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::CameraType::ORTHOGRAPHIC);
+            SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
         } else {
-            SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+            SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::Type::PERSPECTIVE);
         }
         rendererWidget->update();
     });
@@ -571,8 +567,7 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
         Triangulation::Pointer triangulation = Triangulation::New();
-        auto obj =
-                rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         triangulation->SetInput(obj);
         triangulation->Execute();
@@ -593,71 +588,65 @@ void igQtMainWindow::initAllFilters() {
             case IG_SURFACE_MESH:
                 flag = true;
                 break;
-            case IG_UNSTRUCTURED_MESH:
-            {
-                auto mesh = DynamicCast<UnstructuredMesh>(obj)
-                                    ->TransferToSurfaceMesh();
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
                 if (mesh) {
                     obj = mesh;
                     flag = true;
                     break;
-                }
-                else {
-                    mesh = DynamicCast<UnstructuredMesh>(obj)
-                                   ->TransferToVolumeMesh();
-                    if (mesh) { 
-                        auto show = DynamicCast<UnstructuredMesh>(obj)
-                                            ->GetDisplayObject();
-                        if (show) { 
+                } else {
+                    mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
+                    if (mesh) {
+                        auto show = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
+                        if (show) {
                             flag = true;
                             obj = show;
                         }
                     }
                 }
-            }
-                break;
+            } break;
             default:
                 break;
         }
 
-    //    bool flag = false;
-    //    switch (obj->GetDataObjectType()) {
-    //        case IG_SURFACE_MESH:
-    //            flag = true;
-    //            break;
-    //        case IG_UNSTRUCTURED_MESH:
-    //        {
-    //            auto mesh = DynamicCast<UnstructuredMesh>(obj)
-    //                                ->TransferToSurfaceMesh();
-    //            if (mesh) {
-    //                obj = mesh;
-    //                flag = true;
-    //                break;
-    //            }
-    //            else {
-    //                mesh = DynamicCast<UnstructuredMesh>(obj)
-    //                               ->TransferToVolumeMesh();
-    //                if (mesh) {
-    //                    auto show = DynamicCast<UnstructuredMesh>(obj)
-    //                                        ->GetDisplayObject();
-    //                    if (show) {
-    //                        flag = true;
-    //                        obj = show;
-    //                    }
-    //                }
-    //            }
-    //        }
-    //            break;
-    //        default:
-    //            break;
-    //    }
+        //    bool flag = false;
+        //    switch (obj->GetDataObjectType()) {
+        //        case IG_SURFACE_MESH:
+        //            flag = true;
+        //            break;
+        //        case IG_UNSTRUCTURED_MESH:
+        //        {
+        //            auto mesh = DynamicCast<UnstructuredMesh>(obj)
+        //                                ->TransferToSurfaceMesh();
+        //            if (mesh) {
+        //                obj = mesh;
+        //                flag = true;
+        //                break;
+        //            }
+        //            else {
+        //                mesh = DynamicCast<UnstructuredMesh>(obj)
+        //                               ->TransferToVolumeMesh();
+        //                if (mesh) {
+        //                    auto show = DynamicCast<UnstructuredMesh>(obj)
+        //                                        ->GetDisplayObject();
+        //                    if (show) {
+        //                        flag = true;
+        //                        obj = show;
+        //                    }
+        //                }
+        //            }
+        //        }
+        //            break;
+        //        default:
+        //            break;
+        //    }
 
-    //    triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-    //    triangulation->SetInput(obj);
-    //    triangulation->Execute();
+        //    triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
+        //    triangulation->SetInput(obj);
+        //    triangulation->Execute();
 
-    //    obj = triangulation->GetOutput();
-    //
+        //    obj = triangulation->GetOutput();
+        //
 
         //Simplification::Pointer filter = Simplification::New();
         ////Gradient::Pointer filter = Gradient::New();
@@ -678,11 +667,6 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        FilterPoints::Pointer fp = FilterPoints::New();
-        fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        fp->SetFilterRate(0.5);
-        fp->Execute();
-        rendererWidget->update();
     });
 
 
@@ -844,15 +828,37 @@ void igQtMainWindow::initAllFilters() {
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto chart = new igQtCharts;
-        auto dataarray = rendererWidget->GetScene()
-                                 ->GetCurrentModel()
-                                 ->GetDataObject()
-                                 ->GetAttributeSet()
-                                 ->GetAttribute(0)
-                                 .pointer;
-        chart->drawBarChart(dataarray);
-        chart->exec();
+        //auto chart = new igQtCharts;
+        //auto dataarray = rendererWidget->GetScene()
+        //                         ->GetCurrentModel()
+        //                         ->GetDataObject()
+        //                         ->GetAttributeSet()
+        //                         ->GetAttribute(0)
+        //                         .pointer;
+        //chart->drawBarChart(dataarray);
+        //chart->exec();
+        QuickModelClip::Pointer filter = QuickModelClip::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto bound = input->GetBoundingBox();
+        auto ori = (bound.min + bound.max) / 2;
+        double n[3] = {0, 1, 0};
+        double o[3] = {ori[0], ori[1], ori[2]};
+        filter->SetPlane(o, n);
+        filter->SetIsSlice(false);
+        filter->Execute();
+        auto res = filter->GetOutput();
+        res->SetName("Quick Clip");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        ModelClip::Pointer filter2 = ModelClip::New();
+        filter2->SetInput(input);
+        filter2->SetPlane(o, n);
+        filter2->SetIsSlice(false);
+        filter2->Execute();
+        auto res2 = filter2->GetOutput();
+        res2->SetName("Old Clip");
+        modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();
     });
 
 
@@ -1053,7 +1059,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         if (!exist[2]) modelTreeWidget->addDataObjectToModelTree(OIV, ItemSource::Algorithm);
 
-        DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter(), IVColor);
+        DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter3D(), IVColor);
 
         //OV->SetFaceColor(OVColor);
         OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
@@ -1205,7 +1211,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         SliceWidget->SetOriginDataObject(obj);
 
         rendererWidget->getInteractor()->SetDataObject(obj);
-        rendererWidget->getInteractor()->SetPainter(rendererWidget->GetScene()->GetCurrentModel()->GetPainter());
+        rendererWidget->getInteractor()->SetPainter(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
 
         if (rendererWidget->GetScene()->GetInteractor()) {
             rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
@@ -1214,8 +1220,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle();
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](SurfaceMesh::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](SurfaceMesh::Pointer mesh) {
+            [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
+    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
     });

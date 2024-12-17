@@ -1,7 +1,15 @@
-#pragma once
+//
+// Created by Sumzeek on 6/29/2024.
+//
 
-#ifdef IGAME_OPENGL_VERSION_330
-#include "GL330/GLVendor.h"
-#else
-#include "GL460/GLVendor.h"
-#endif
+#ifndef OPENIGAME_GLVENDOR_H
+#define OPENIGAME_GLVENDOR_H
+
+#include "glad/glad.h"
+#include "iGameMacro.h"
+#include "iGameObject.h"
+#include "iGameRenderingMacro.h"
+#include "igm/igm.h"
+#include "igm/transform.h"
+
+#endif //OPENIGAME_GLVENDOR_H

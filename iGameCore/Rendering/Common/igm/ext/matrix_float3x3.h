@@ -2,8 +2,8 @@
 // Created by Sumzeek on 6/26/2024.
 //
 
-#ifndef OPENIGAME_IGM_MATRIX_FLOAT3x3_H
-#define OPENIGAME_IGM_MATRIX_FLOAT3x3_H
+#ifndef IGM_MATRIX_FLOAT3x3_H
+#define IGM_MATRIX_FLOAT3x3_H
 
 #include "../detail/type_mat3x3.h"
 
@@ -16,4 +16,4 @@ typedef mat<3, 3, float> fmat3;
 typedef mat<3, 3, float> fmat3x3;
 } // namespace igm
 
-#endif // OPENIGAME_IGM_MATRIX_FLOAT3x3_H
+#endif // IGM_MATRIX_FLOAT3x3_H

@@ -6,7 +6,6 @@
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
     m_Camera = Camera::New();
-    m_Camera->Initialize(igm::vec3{0.0f, 0.0f, 1.0f});
 
     m_ModelRotate = igm::mat4{};
     m_ModelMatrix = igm::mat4{};
@@ -192,15 +191,15 @@ void Scene::ChangeModelVisibility(int index, bool visibility) {
 }
 
 void Scene::ResetCameraView() {
+    UpdateModelsBoundingSphere();
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
 
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
-    m_Camera->SetNearPlane(2.0f * radius);
-    m_Camera->SetFarPlane(4.0f * radius);
-    m_Camera->SetCameraFocal(center);
+    m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
+    m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
+    m_Camera->SetFocal(center);
 }
 
 void Scene::ChangeModelVisibility(Model* model, bool visibility) {
@@ -220,11 +219,11 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
 void Scene::ChangeCameraType(IGenum type) {
     ResetCameraView();
     switch (type) {
-        case Camera::CameraType::PERSPECTIVE: {
-            m_Camera->ChangeCameraType(Camera::CameraType::PERSPECTIVE);
+        case Camera::Type::PERSPECTIVE: {
+            m_Camera->SetType(Camera::Type::PERSPECTIVE);
         } break;
-        case Camera::CameraType::ORTHOGRAPHIC: {
-            m_Camera->ChangeCameraType(Camera::CameraType::ORTHOGRAPHIC);
+        case Camera::Type::ORTHOGRAPHIC: {
+            m_Camera->SetType(Camera::Type::ORTHOGRAPHIC);
         } break;
         default:
             break;
@@ -539,13 +538,14 @@ void Scene::InitOpenGL() {
         //                          {1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
         //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
-        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1, 100);
+        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
+        //                        100);
         //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
         //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
         //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
         //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
         //                          1.0f, 16);
-        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
         //                      16);
         //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
         //                         1.0f, 8, 8);
@@ -773,7 +773,8 @@ void Scene::ResizeDepthPyramid() {
 }
 
 void Scene::Draw() {
-    auto viewport = m_Camera->GetScaledViewPort();
+    // reset camera
+    UpdateCameraClippingRange();
 
     // save default framebuffer, because it is not 0 in Qt
     GLint defaultFramebuffer = GL_NONE;
@@ -1028,7 +1029,7 @@ void Scene::ForwardPass() {
 
             // draw painter(since painter does not support transparency)
             if (drawObject->GetVisibility()) {
-                model->GetPainter()->Draw(this);
+                model->GetPainter3D()->Draw(this);
             }
         }
     }
@@ -1163,8 +1164,8 @@ void Scene::VolumeRenderingPass() {
 
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
-    m_CameraData.camera_position = m_Camera->GetCameraPos();
-    m_CameraData.isOrtho = m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC;
+    m_CameraData.camera_position = m_Camera->GetPosition();
+    m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
     m_CameraData.view = m_Camera->GetViewMatrix();
     m_CameraData.proj = m_Camera->GetProjectionMatrix();
     m_CameraData.proj_view =
@@ -1196,6 +1197,28 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
 
     // update other ubo
     m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+}
+
+void Scene::UpdateCameraClippingRange() {
+    // If a model is changed, bounding-box will not be notified to Scene
+    UpdateModelsBoundingSphere();
+
+    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    float radius = m_ModelsBoundingSphere.w;
+    igm::vec3 cameraPos = m_Camera->GetPosition();
+
+    igm::vec3 front = m_Camera->GetFront();
+    igm::vec3 v = center - cameraPos;
+    float dist = std::abs(front.dot(v) / front.length());
+
+    float nearPlane = dist - radius;
+    float farPlane = dist + radius;
+
+    // https://3dgumshoe.com/maya-fixing-z-fighting/
+    const float minGap = 0.0001f;
+    if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
+
+    m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
 void Scene::UpdateUniformBuffer() {
@@ -1406,25 +1429,24 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 min(FLT_MAX);
     igm::vec3 max(-FLT_MAX);
 
+    auto box = BoundingBox{};
     for (auto& [id, model]: m_Models) {
-        if (!model->GetVisibility()) continue;
+        if (!model->GetVisibility()) { continue; }
 
-        auto box = model->m_DataObject->GetBoundingBox();
+        box.reset();
+        box.combine(model->m_DataObject->GetBoundingBox());
+        box.combine(model->GetPainter3D()->GetBoundingBox());
         Vector3f boxMin = box.min;
         Vector3f boxMax = box.max;
 
         min = igm::min(igm::vec3{boxMin[0], boxMin[1], boxMin[2]}, min);
         max = igm::max(igm::vec3{boxMax[0], boxMax[1], boxMax[2]}, max);
-    };
+    }
+
     igm::vec3 center = (min + max) / 2;
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-
-    // update camera setting
-    auto dist = (m_Camera->GetCameraPos() - center).length();
-    m_Camera->SetNearPlane(dist - radius);
-    m_Camera->SetFarPlane(dist + radius);
 }
 
 void Scene::CalculateFrameRate() {
@@ -1445,12 +1467,15 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height, FrameBufferType type) {
+                                                int height,
+                                                FrameBufferType type,
+                                                bool mirrored) {
 
     std::vector<unsigned char> colorBuffer;
+
     m_FramebufferResolved->Bind();
     {
-        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        // Read pixels from the OpenGL buffer (bottom-left corner)
         //
         //  y↑
         //   |
@@ -1471,18 +1496,27 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
             default:
                 break;
         }
-
     }
     m_FramebufferResolved->Release();
-
+    if (mirrored) {
+        std::vector<unsigned char> tmp_flip(colorBuffer.size());
+        // Flip data Line
+        for (int row = 0; row < height; ++row) {
+            std::copy(colorBuffer.begin() + row * width * 4,
+                      colorBuffer.begin() + (row + 1) * width * 4,
+                      tmp_flip.begin() + (height - 1 - row) * width * 4);
+        }
+        colorBuffer = tmp_flip;
+    }
     return colorBuffer;
 }
-std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int height) {
+std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
+                                                   int height) {
     std::vector<float> ZBuffer(width * height);
 
     m_FramebufferResolved->Bind();
     {
-        // Read pixels from the OpenGL buffer (bottom-left corner, BGR format)
+        // Read pixels from the OpenGL buffer (bottom-left corner)
         //
         //  y↑
         //   |
@@ -1491,12 +1525,17 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width, int 
         //
         glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
                      ZBuffer.data());
-
     }
     m_FramebufferResolved->Release();
 
     return ZBuffer;
 }
+
+GLBuffer::Pointer Scene::GetDrawCullDataBuffer() { return m_DrawCullData; }
+
+Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
+
+Painter3D::Pointer Scene::GetPainter3D() { return m_Painter3D; }
 
 void Scene::MakeCurrent() {
     if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }
@@ -1505,7 +1544,5 @@ void Scene::MakeCurrent() {
 void Scene::DoneCurrent() {
     if (m_DoneCurrentFunctor) { m_DoneCurrentFunctor(); }
 }
-
-
 
 IGAME_NAMESPACE_END

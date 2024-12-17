@@ -10,21 +10,21 @@
 
 IGAME_NAMESPACE_BEGIN
 
-// Only SolidLine has been implemented
-enum class PenStyle {
-    NoPen,
-    SolidLine,
-    //DashLine,
-    //DotLine,
-    //DashDotLine,
-    //DashDotDotLine,
-    //CustomDashLine
-};
-
 class Pen : public Object {
 public:
     I_OBJECT(Pen);
     static Pointer New() { return new Pen; }
+
+    // Only SolidLine has been implemented
+    enum class Style {
+        NoPen,
+        SolidLine,
+        //DashLine,
+        //DotLine,
+        //DashDotLine,
+        //DashDotDotLine,
+        //CustomDashLine
+    };
 
     void SetColor(const Color& color);
     void SetColor(int red, int green, int blue);
@@ -32,10 +32,10 @@ public:
     Vector3f GetColor() const;
 
     void SetWidth(float width);
-    int GetWidth() const;
+    float GetWidth() const;
 
-    void SetStyle(PenStyle style);
-    PenStyle GetStyle() const;
+    void SetStyle(Style style);
+    Style GetStyle() const;
 
     //void SetOpacity(float opacity);
     //float GetOpacity() const;
@@ -46,7 +46,7 @@ protected:
 
     Vector3f m_PenColor;
     float m_PenWidth;
-    PenStyle m_PenStyle;
+    Pen::Style m_PenStyle;
     float m_PenOpacity;
 };
 

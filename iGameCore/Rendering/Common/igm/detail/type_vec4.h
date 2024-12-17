@@ -9,8 +9,8 @@
 *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
 */
 
-#ifndef OPENIGAME_IGM_TYPE_VEC4_H
-#define OPENIGAME_IGM_TYPE_VEC4_H
+#ifndef IGM_TYPE_VEC4_H
+#define IGM_TYPE_VEC4_H
 
 #include "common.h"
 #include "type_vec2.h"
@@ -613,4 +613,4 @@ T dot(const vec<4, T>& v1, const vec<4, T>& v2);
 
 #include "type_vec4.inl"
 
-#endif // OPENIGAME_IGM_TYPE_VEC4_H
+#endif // IGM_TYPE_VEC4_H

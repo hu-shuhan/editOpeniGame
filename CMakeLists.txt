@@ -22,17 +22,13 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
-
-
+set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
     project(OpeniGame LANGUAGES C CXX)
     if (WIN32)
-        add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-        add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
         add_definitions(-D_WINDOWS_SOURCE)
         # Or for a specific target:
         # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
@@ -44,6 +40,8 @@ else ()
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif ()
 
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -52,9 +50,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-
-add_executable(${PROJECT_NAME}
-        main.cpp )
+add_executable(${PROJECT_NAME} main.cpp)
 
 set(OPENIGAME_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -75,12 +71,12 @@ add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 #if(EXAMPLE_COMPILE )
-if(EXAMPLE_COMPILE)
+if (EXAMPLE_COMPILE)
     add_subdirectory(Examples)
 endif ()
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-#if (WIN32)
-#    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-#endif ()
+if (WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+endif ()
