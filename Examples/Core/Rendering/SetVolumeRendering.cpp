@@ -30,6 +30,7 @@ static void SetVolumeRendering() {
 
         // Visualize the object as a point cloud with the specified settings
         drawObj->ViewCloudPicture(scene, 0, -1); // Render the point cloud with the given parameters
+        drawObj->SetTransparency(0.2f);
     } else {
         igError("The object is not drawable"); // Error if the object is not drawable
     }

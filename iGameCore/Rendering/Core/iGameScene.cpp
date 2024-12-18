@@ -919,8 +919,7 @@ void Scene::DrawFrame() {
         glViewport(0, 0, viewport.x, viewport.y);
 
         // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
-        glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-                     m_BackgroundColor.b, 1.0f);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

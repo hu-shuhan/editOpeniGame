@@ -29,7 +29,17 @@ static void SetScalarField() {
         drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Combined mode: Wireframe + Surface
 
         // Visualize the object as a point cloud with the specified settings
-        drawObj->ViewCloudPicture(scene, 0, -1); // Render the point cloud with the given parameters
+        drawObj->ViewCloudPicture(scene, 1, -1); // Render the point cloud with the given parameters
+        auto attributes = drawObj->GetAttributeSet()->GetAllAttributes();
+        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+            std::cout << "scalar " << i   << "======\n";
+            std::cout << attributes->GetElement(i).pointer->GetName() << '\n';
+            std::cout << attributes->GetElement(i).type << '\n';
+            std::cout << attributes->GetElement(i).attachmentType << '\n';
+            std::cout << attributes->GetElement(i).pointer->GetDimension() << '\n';
+            std::cout << attributes->GetElement(i).GetDataRange()->GetValue(0) << ' '
+            << attributes->GetElement(i).GetDataRange()->GetValue(1) << '\n';
+        }
     } else {
         igError("Not a drawable object"); // Error if the object is not drawable
     }

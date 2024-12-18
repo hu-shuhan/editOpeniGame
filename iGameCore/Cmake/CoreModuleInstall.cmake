@@ -33,6 +33,7 @@ if (CORE_MODULE_INSTALL)
                 PATTERN "2024/win_b64" EXCLUDE
         )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
+        message(WARNING ${AbqSDK_DLL_DIR})
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 

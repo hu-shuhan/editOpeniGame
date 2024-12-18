@@ -33,7 +33,6 @@ static void ResetCameraView() {
 
     // Reset the camera view based on the model's bounding sphere
     scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
-
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);

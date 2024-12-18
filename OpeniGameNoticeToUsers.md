@@ -105,7 +105,7 @@ IGAME_NAMESPACE_END
 
 #### DataObject
 
-DataObject是最基本的数据对象，所有可渲染的数据对象都需要继承DataObject。成员变量有：
+DataObject是最基本的数据对象，所有可渲染的数据对象都需要继承DataObject，现在主要用于存储维护模型的属性信息和子块信息。成员变量有：
 
 1. m_UniqueId：该对象的唯一标识
 2. m_PropertySet：保存所有的属性数组，如标量、矢量、张量数组等
@@ -113,7 +113,9 @@ DataObject是最基本的数据对象，所有可渲染的数据对象都需要�
 4. m_BoundingBox和m_BoundingHelper：保存数据对象的包围盒
 5. m_SubDataObjectsHelper：管理所有的子数据节点，如果该对象是分支数据节点的话，最好该对象的类型就是DataObject或者专门用于管理子数据节点的对象（还未定义）
 6. m_Parent：指向父数据节点的指针
-7. 与渲染相关的成员：m_Visibility（可见性）、m_Drawable（是否可渲染）等
+
+#### DrawObject
+
 
 ####PointSet
 

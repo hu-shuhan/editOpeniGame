@@ -33,12 +33,12 @@ add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression/
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression/TestEncoder.cpp")
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Compression/TestSimplification.cpp")
 
-#add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestCGNSReader.cpp")
+add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestCGNSReader.cpp")
 add_executable(testNurbsMesh "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestNurbsMesh.cpp")
-#add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestODBReader.cpp")
+add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/Core/TestIO/TestODBReader.cpp")
 
 add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/TestAnimation.cpp")
-#add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/SaveAnimation.cpp")
+add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Animation/SaveAnimation.cpp")
 
 add_executable(testClip "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/TestClip.cpp")
 add_executable(testDeformation "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/TestStressDeformationFilter.cpp")

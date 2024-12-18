@@ -188,6 +188,7 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
         obj->ConvertToDrawableData();
     }
 
+    return true;
 }
 
 void DataObject::SetAttributeSet(AttributeSet::Pointer p) {

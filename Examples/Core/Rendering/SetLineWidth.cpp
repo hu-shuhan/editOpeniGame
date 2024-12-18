@@ -26,10 +26,12 @@ static void SetLineWidth() {
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
         // Set the rendering style to combine wireframe and surface display
-        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Enable wireframe and surface rendering
-
+//        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Enable wireframe and surface rendering
+        drawObj->SetViewStyle(IG_SURFACE); // Enable wireframe and surface rendering
+        drawObj->AddViewStyle(IG_WIREFRAME);
+        drawObj->RemoveViewStyle(IG_WIREFRAME);
         // Set the line width for wireframe rendering
-        drawObj->SetLineWidth(3); // Set the line width to 3 for wireframe lines
+        drawObj->SetLineWidth(10); // Set the line width to 3 for wireframe lines
     } else {
         igError("The object is not drawable");
     }

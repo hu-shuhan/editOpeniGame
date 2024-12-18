@@ -31,7 +31,7 @@ int main(){
     //设置切割的平面
     filter->SetPlane(o, n);
     //设置切割模式是clip还是slice
-    filter->SetIsSlice(false);
+    filter->SetIsSlice(true);
     //执行切割
     filter->Execute();
     //返回结果

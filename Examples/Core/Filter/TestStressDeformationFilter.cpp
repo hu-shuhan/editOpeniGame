@@ -11,14 +11,15 @@
 #include <Deformation/iGameStressDeformationFilter.h>
 int main(){
     iGame::StressDeformationFilter::Pointer  filter = iGame::StressDeformationFilter::New();
-    const std::string fileName = ".\\Models\\sukong_Step-1_2.vtu";
+//    const std::string fileName = ".\\Models\\sukong_Step-1_2.vtu";
+    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\sukong\\sukong_Step-1_2.vtu";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 
-    obj->GetDeformationData()->SetAttributeName("U");
-    DynamicCast<iGame::DrawObject>(obj)->ConvertToDrawableData();
-    filter->SetInput(obj);
-    filter->CalculateIdealDSF();
-    filter->Execute();
+//    obj->GetDeformationData()->SetAttributeName("U");
+//    DynamicCast<iGame::DrawObject>(obj)->ConvertToDrawableData();
+//    filter->SetInput(obj);
+//    filter->CalculateIdealDSF();
+//    filter->Execute();
     /* 创建场景*/
     auto scene = iGame::Scene::New();
     if (obj != nullptr) {
