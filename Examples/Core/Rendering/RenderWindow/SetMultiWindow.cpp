@@ -21,17 +21,22 @@ int main(){
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     /* Multi-window Test(There is a problem with temporary rendering) */
     iGame::RenderWindow::Pointer window_2 = iGame::RenderWindow::New();
     auto scene2 = iGame::Scene::New();
     window_2->SetScene(scene2);
-    auto basicInteractor2 = iGame::Interactor::New();
-    basicInteractor2->Initialize(scene2);
-    window_2->SetInteractor(basicInteractor2);
+
+    auto interactor2 = iGame::Interactor::New();
+    interactor2->Initialize(scene);
+    interactor2->CreateDefaultStyle();
+    window_2->SetInteractor(interactor2);
+
     iGame::DataObject::Pointer obj2 = iGame::FileIO::ReadFile(".\\Models\\StreamTest.vtk");
     scene2->AddModel(obj2);
 

@@ -9,7 +9,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void SetLineWidth() {
+static void SetPointSize() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -22,14 +22,16 @@ static void SetLineWidth() {
         igError("Error reading the file");
     }
 
-    // Set the display style and line width for the object
+    scene->ResetCameraView();
+
+    // Set the display style and point size for the object
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
-        // Set the rendering style to combine wireframe and surface display
-        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Enable wireframe and surface rendering
+        // Set the view style to combine points, wireframe, and surface rendering
+        drawObj->SetViewStyle(IG_POINTS); // Enable points rendering
 
-        // Set the line width for wireframe rendering
-        drawObj->SetLineWidth(3); // Set the line width to 3 for wireframe lines
+        // Set the point size for point rendering
+        drawObj->SetPointSize(5); // Set the point size to 5 for point-based rendering
     } else {
         igError("The object is not drawable");
     }
@@ -40,14 +42,15 @@ static void SetLineWidth() {
     window->SetScene(scene);
 
     // Set up the interactor
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     // Start the render loop
     window->Show();
 }
 
 int main() {
-    SetLineWidth();
+    SetPointSize();
 }

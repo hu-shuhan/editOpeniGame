@@ -9,7 +9,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void ResetCameraView() {
+static void SetTransparency() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -22,17 +22,17 @@ static void ResetCameraView() {
         igError("Error reading the file");
     }
 
-    // Change the display style to wireframe and surface mode
+    // Change the transparency of the object
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
-        // Set the display style to combine wireframe and surface modes for the object
-        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Combined mode: Wireframe + Surface
-    } else {
-        igError("Not a drawable object"); // Error if the object is not drawable
-    }
+        // Set the view style to surface rendering mode
+        drawObj->SetViewStyle(IG_SURFACE); // Render the model as a surface (filled polygons)
 
-    // Reset the camera view based on the model's bounding sphere
-    scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
+        // Set the transparency to 0.5 for semi-transparency
+        drawObj->SetTransparency(0.5); // Set the model transparency to 50% (semi-transparent)
+    } else {
+        igError("The object is not drawable");
+    }
 
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
@@ -40,14 +40,15 @@ static void ResetCameraView() {
     window->SetScene(scene);
 
     // Set up the interactor
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     // Start the render loop
     window->Show();
 }
 
 int main() {
-    ResetCameraView();
+    SetTransparency();
 }

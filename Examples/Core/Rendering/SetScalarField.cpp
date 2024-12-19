@@ -9,12 +9,12 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void SetVolumeRendering() {
+static void SetScalarField() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/Tet_Plane.vtk";
+    const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);
@@ -22,22 +22,17 @@ static void SetVolumeRendering() {
         igError("Error reading the file");
     }
 
-    // Set the display style and render the first scalar data
+    // Change the display style to wireframe and surface mode
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
-        // Set the display style to surface mode
-        drawObj->SetViewStyle(IG_SURFACE); // Display the object as a surface
+        // Set the display style to combine wireframe and surface modes for the object
+        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Combined mode: Wireframe + Surface
 
         // Visualize the object as a point cloud with the specified settings
         drawObj->ViewCloudPicture(scene, 0, -1); // Render the point cloud with the given parameters
     } else {
-        igError("The object is not drawable"); // Error if the object is not drawable
+        igError("Not a drawable object"); // Error if the object is not drawable
     }
-
-    // Change the scene rendering mode to volume rendering
-    // Note: Volume rendering is currently suitable only for small-scale data and small screens.
-    // Rendering larger datasets or using full-screen mode may cause rendering errors or performance issues.
-    scene->SetVolumeRendering(true); // Enable volume rendering for 3D visualization
 
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
@@ -45,14 +40,15 @@ static void SetVolumeRendering() {
     window->SetScene(scene);
 
     // Set up the interactor
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     // Start the render loop
     window->Show();
 }
-
-int main() {
-    SetVolumeRendering();
+int main(){
+    SetScalarField();
+    return 0;
 }

@@ -9,12 +9,12 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void SetScalarField() {
+static void SetLineWidth() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
+    const std::string fileName = "./Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);
@@ -22,16 +22,16 @@ static void SetScalarField() {
         igError("Error reading the file");
     }
 
-    // Change the display style to wireframe and surface mode
+    // Set the display style and line width for the object
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
-        // Set the display style to combine wireframe and surface modes for the object
-        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Combined mode: Wireframe + Surface
+        // Set the rendering style to combine wireframe and surface display
+        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Enable wireframe and surface rendering
 
-        // Visualize the object as a point cloud with the specified settings
-        drawObj->ViewCloudPicture(scene, 0, -1); // Render the point cloud with the given parameters
+        // Set the line width for wireframe rendering
+        drawObj->SetLineWidth(3); // Set the line width to 3 for wireframe lines
     } else {
-        igError("Not a drawable object"); // Error if the object is not drawable
+        igError("The object is not drawable");
     }
 
     // Set up the render window
@@ -40,14 +40,15 @@ static void SetScalarField() {
     window->SetScene(scene);
 
     // Set up the interactor
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     // Start the render loop
     window->Show();
 }
-int main(){
-    SetScalarField();
-    return 0;
+
+int main() {
+    SetLineWidth();
 }
