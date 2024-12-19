@@ -53,8 +53,8 @@ public:
                        unsigned int resolution);
 
 protected:
-    Painter3D() = default;
-    ~Painter3D() override = default;
+    Painter3D();
+    ~Painter3D() override;
 };
 
 IGAME_NAMESPACE_END

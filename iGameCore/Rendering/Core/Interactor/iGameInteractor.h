@@ -5,12 +5,12 @@
 #ifndef OPENIGAME_INTERACTOR_H
 #define OPENIGAME_INTERACTOR_H
 
-#include "iGameScene.h"
-#include "iGameInteractorStyle.h"
 #include "iGameBasicStyle.h"
-#include "iGameSingleSelectionStyle.h"
+#include "iGameInteractorStyle.h"
 #include "iGameMultiSelectionStyle.h"
+#include "iGameScene.h"
 #include "iGameSingleDragStyle.h"
+#include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -20,30 +20,8 @@ public:
     I_OBJECT(Interactor);
     static Pointer New() { return new Interactor; }
 
-    void Initialize(Scene::Pointer scene) { 
-        if (scene) {
-            m_Scene = scene;
-            m_Camera = m_Scene->m_Camera; 
-            CreateDefaultStyle();
-        }
-    }
-
-    void CreateDefaultStyle() { 
-        BasicStyle::Pointer style = BasicStyle::New();
-        style->Initialize(this);
-        m_Internal = style;
-    }
-
-    void FilterEvent(IEvent _event) {
-        if(m_Scene == nullptr) return;
-        if (!m_Internal) {
-            CreateDefaultStyle();
-        }
-        m_Internal->FilterEvent(_event);
-    }
-
     enum Style {
-        BasicStyle = 0, 
+        BasicStyle = 0,
         SinglePointSelectionStyle,
         SingleFaceSelectionStyle,
         MultiPointSelectionStyle,
@@ -52,73 +30,31 @@ public:
         SlicingStyle,
     };
 
-    void RequestBasicStyle() {
-        //InitModel();
-        m_Internal = BasicStyle::New();
-        m_Internal->Initialize(this);
-        is_Base = true;
-    }
+    void Initialize(Scene::Pointer scene);
 
-    void RequestDragPointStyle(Selection* s) {
-        if (!s) 
-            return;
-        //InitModel();
-        auto act = SingleDragStyle::New();
-        act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
-        act->Initialize(this, s);
-        m_Internal = act;
-        is_Base = false;
-    }
+    void CreateDefaultStyle();
 
-    void RequestPointSelectionStyle(Selection* s) {
-        if (!s) return;
-        //InitModel();
-        auto act = SingleSelectionStyle::New();
-        act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
-        act->Initialize(this, s);
-        m_Internal = act;
-        is_Base = false;
-    }
+    void FilterEvent(IEvent _event);
 
-    void RequestFaceSelectionStyle(Selection* s) {
-        if (!s) return;
-        //InitModel();
-        auto act = SingleSelectionStyle::New();
-        act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
-        act->Initialize(this, s);
-        m_Internal = act;
-        is_Base = false;
-    }
+    void RequestBasicStyle();
 
-    void LoadSelectionStyleRequired(Selection* s) {
-        if (!m_Internal) {
-            return;
-        }
-        SelectionStyle::Pointer act;
-        if ((act = DynamicCast<SelectionStyle>(m_Internal)) = nullptr) {
-            return;
-        }
-        act->Initialize(this, s);
-    }
+    void RequestDragPointStyle(Selection* s);
 
-    void RequestSlicingStyle() {
-        auto act = SlicingStyle::New();
-        //InitModel();
-        act->Initialize(this);
-        m_Internal = act;
-        is_Base = false;
-    }
+    void RequestPointSelectionStyle(Selection* s);
 
+    void RequestFaceSelectionStyle(Selection* s);
 
-    float GetWidth() const { return m_Camera->GetViewPort().x; }
-    float GetHeight() const { return m_Camera->GetViewPort().y; }
-    igm::mat4 GetMVP() const {
-        return m_Scene->CameraData().proj_view * m_Scene->ObjectData().model;
-    }
-    //Model* GetModel() { return m_Model.get(); }
-    Scene* GetScene() { return m_Scene.get(); }
-    Camera* GetCamera() { return m_Camera.get(); }
-    
+    void LoadSelectionStyleRequired(Selection* s);
+
+    void RequestSlicingStyle();
+
+    float GetWidth() const;
+    float GetHeight() const;
+    igm::mat4 GetMVP() const;
+
+    Scene* GetScene();
+    Camera* GetCamera();
+
     template<typename Functor, typename... Args>
     void SetCallBack(Functor&& functor, Args&&... args) {
         this->m_CallBack = std::bind(
@@ -126,25 +62,17 @@ public:
                 std::placeholders::_1, std::placeholders::_2);
     }
 
-    void RequestSignal(InteractorStyle::Signal signal, void* callData) {
-        if (m_CallBack) { m_CallBack(signal, callData); }
-    }
+    void RequestSignal(InteractorStyle::Signal signal, void* callData);
 
-    void SetDataObject(DataObject::Pointer obj) { m_DataObject = obj; }
-    DataObject::Pointer GetDataObject() { return m_DataObject; }
-    void SetPainter(Painter3D::Pointer p) { m_Painter = p; }
-    Painter3D::Pointer GetPainter() { return m_Painter; }
-    bool IsBase() const { return is_Base; }
+    void SetDataObject(DataObject::Pointer obj);
+    DataObject::Pointer GetDataObject();
+    void SetPainter(Painter3D::Pointer p);
+    Painter3D::Pointer GetPainter();
+    bool IsBase() const;
 
 protected:
     Interactor() = default;
     ~Interactor() override = default;
-
-    //void InitModel() {
-    //    if (m_Scene) { 
-    //        m_Model = m_Scene->GetCurrentModel();
-    //    }
-    //}
 
     std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 

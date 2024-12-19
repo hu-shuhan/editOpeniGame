@@ -26,7 +26,7 @@ public:
     DataObject::Pointer GetDataObject();
     bool GetVisibility();
     Filter* GetModelFilter();
-    Painter3D::Pointer GetPainter();
+    Painter3D::Pointer GetPainter3D();
 
     void SetModelFilter(SmartPointer<Filter> _filter);
     void DeleteModelFilter();

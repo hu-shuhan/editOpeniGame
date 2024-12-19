@@ -10,6 +10,8 @@ PainterBase::PainterBase() {
     m_Pen = Pen::New();
     m_Brush = Brush::New();
 
+    m_BoundingHelper = Object::New();
+
     m_PrimitivesUpdateHelper = Object::New();
     m_PrimitivesPool = HandlePool<Primitive>::New();
 }
@@ -23,6 +25,8 @@ void PainterBase::ShowAll() {
         primitive.visible = true;
     }
     m_PrimitivesPool->Modified();
+
+    this->Modified();
 }
 void PainterBase::HideAll() {
     for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
@@ -31,65 +35,156 @@ void PainterBase::HideAll() {
         primitive.visible = false;
     }
     m_PrimitivesPool->Modified();
+
+    this->Modified();
 }
 void PainterBase::Show(IGuint handle) {
-    m_PrimitivesPool->CheckHandle(handle);
+    if (!m_PrimitivesPool->CheckHandle(handle)) {
+        igDebug("handle is invalid.");
+        return;
+    }
 
     auto primitive = m_PrimitivesPool->GetObject(handle);
-    if (primitive) {
-        primitive->visible = true;
-        m_PrimitivesPool->Modified();
-    } else {
-        igDebug("handle is invalid.");
-    }
+
+    if (primitive->visible) { return; }
+
+    primitive->visible = true;
+    m_PrimitivesPool->Modified();
+
+    this->Modified();
 }
 void PainterBase::Hide(IGuint handle) {
-    m_PrimitivesPool->CheckHandle(handle);
+    if (!m_PrimitivesPool->CheckHandle(handle)) {
+        igDebug("handle is invalid.");
+        return;
+    }
 
     auto primitive = m_PrimitivesPool->GetObject(handle);
-    if (primitive) {
-        primitive->visible = false;
-        m_PrimitivesPool->Modified();
-    } else {
-        igDebug("handle is invalid.");
-    }
+
+    if (!primitive->visible) { return; }
+
+    primitive->visible = false;
+    m_PrimitivesPool->Modified();
+
+    this->Modified();
 }
 
 void PainterBase::Delete(IGuint handle) {
-    m_PrimitivesPool->CheckHandle(handle);
+    if (!m_PrimitivesPool->CheckHandle(handle)) {
+        igDebug("handle is invalid.");
+        return;
+    }
+
     m_PrimitivesPool->ReleaseHandle(handle);
+    this->Modified();
 }
 
-void PainterBase::SetPen(const Pen::Pointer& pen) { m_Pen = pen; }
+void PainterBase::SetPen(const Pen::Pointer& pen) {
+    if (pen == m_Pen) { return; }
 
-void PainterBase::SetPen(const Color& color) { m_Pen->SetColor(color); }
+    m_Pen = pen;
+    this->Modified();
+}
+
+void PainterBase::SetPen(const Color& color) {
+    auto c = ColorUtils::Map(color);
+    auto penColor = m_Pen->GetColor();
+
+    if (c.x == penColor[0] && c.y == penColor[1] && c.z == penColor[2]) {
+        return;
+    }
+
+    m_Pen->SetColor(color);
+    this->Modified();
+}
 
 void PainterBase::SetPen(int red, int green, int blue) {
+    float r = static_cast<float>(red) / 255.0f;
+    float g = static_cast<float>(green) / 255.0f;
+    float b = static_cast<float>(blue) / 255.0f;
+    auto penColor = m_Pen->GetColor();
+
+    if (r == penColor[0] && g == penColor[1] && b == penColor[2]) { return; }
+
     m_Pen->SetColor(red, green, blue);
+    this->Modified();
 }
 
 void PainterBase::SetPen(float red, float green, float blue) {
+    auto penColor = m_Pen->GetColor();
+
+    if (red == penColor[0] && green == penColor[1] && blue == penColor[2]) {
+        return;
+    }
+
     m_Pen->SetColor(red, green, blue);
+    this->Modified();
 }
 
-void PainterBase::SetPen(const Pen::Style& style) { m_Pen->SetStyle(style); }
+void PainterBase::SetPen(const Pen::Style& style) {
+    if (style == m_Pen->GetStyle()) { return; }
 
-void PainterBase::SetPen(float width) { m_Pen->SetWidth(width); }
+    m_Pen->SetStyle(style);
+    this->Modified();
+}
 
-void PainterBase::SetBrush(const Color& color) { m_Brush->SetColor(color); }
+void PainterBase::SetPen(float width) {
+    if (width == m_Pen->GetWidth()) { return; }
+
+    m_Pen->SetWidth(width);
+    this->Modified();
+}
 
 void PainterBase::SetBrush(const Brush::Pointer& brush) { m_Brush = brush; }
 
+void PainterBase::SetBrush(const Color& color) {
+    auto c = ColorUtils::Map(color);
+    auto brushColor = m_Brush->GetColor();
+
+    if (c.x == brushColor[0] && c.y == brushColor[1] && c.z == brushColor[2]) {
+        return;
+    }
+
+    m_Brush->SetColor(color);
+    this->Modified();
+}
+
 void PainterBase::SetBrush(int red, int green, int blue) {
+    float r = static_cast<float>(red) / 255.0f;
+    float g = static_cast<float>(green) / 255.0f;
+    float b = static_cast<float>(blue) / 255.0f;
+    auto brushColor = m_Brush->GetColor();
+
+    if (r == brushColor[0] && g == brushColor[1] && b == brushColor[2]) {
+        return;
+    }
+
     m_Brush->SetColor(red, green, blue);
+    this->Modified();
 }
 
 void PainterBase::SetBrush(float red, float green, float blue) {
+    auto brushColor = m_Brush->GetColor();
+
+    if (red == brushColor[0] && green == brushColor[1] &&
+        blue == brushColor[2]) {
+        return;
+    }
+
     m_Brush->SetColor(red, green, blue);
+    this->Modified();
 }
 
 void PainterBase::SetBrush(const Brush::Style& style) {
+    if (style == m_Brush->GetStyle()) { return; }
+
     m_Brush->SetStyle(style);
+    this->Modified();
+}
+
+const BoundingBox& PainterBase::GetBoundingBox() {
+    ComputeBoundingBox();
+    return m_Bounding;
 }
 
 void PainterBase::Draw(Scene* scene) {
@@ -133,6 +228,7 @@ void PainterBase::PackDrawableData() {
     if (m_PrimitivesPool->GetMTime() < m_PrimitivesUpdateHelper->GetMTime()) {
         return;
     }
+
     m_PrimitivesUpdateHelper->Modified();
 
     std::unordered_map<float, FloatArray::Pointer> packPositions;
@@ -234,9 +330,27 @@ void PainterBase::PackDrawableData() {
                            packTriangleIndices[penWidth]->RawPointer());
         m_TriangleEBOSizes[penWidth] = size;
     }
+
+    this->Modified();
 }
 
-void PainterBase::Clear() { m_PrimitivesPool->Clear(); }
+void PainterBase::Clear() {
+    m_PrimitivesPool->Clear();
+    this->Modified();
+}
+
+void PainterBase::ComputeBoundingBox() {
+    if (m_BoundingHelper->GetMTime() < m_PrimitivesPool->GetMTime()) {
+        m_Bounding.reset();
+        for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();
+             ++it) {
+            auto& primitive = it->second;
+            if (primitive.visible) { m_Bounding.add(primitive.bounding); }
+        }
+        m_BoundingHelper->Modified();
+        this->Modified();
+    }
+}
 
 void PainterBase::CreateDrawBuffer(float penWidth) {
     m_VAOs[penWidth] = GLVertexArray::New();
@@ -279,6 +393,8 @@ void PainterBase::CreateDrawBuffer(float penWidth) {
                       GL_FLOAT, GL_FALSE, 0);
     //GLSetVertexAttrib(m_VAOs[penWidth], GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
     //                  GL_FLOAT, GL_FALSE, 0);
+
+    this->Modified();
 }
 
 //void Painter::ExpandVBO(GLBuffer& vbo, size_t oldSize, size_t newSize) {

@@ -42,14 +42,15 @@ int main() {
 	mapper->Modified();
 	scene->Update();
 
-	/* 启动窗口设置*/
-	iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-	window->SetSize(1920, 1080);
-	window->SetScene(scene);
-	auto basicInteractor = iGame::Interactor::New();
-	basicInteractor->Initialize(scene);
-	window->SetInteractor(basicInteractor);
-	window->Show();
+    /* 启动窗口设置*/
+    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+    window->SetSize(1920, 1080);
+    window->SetScene(scene);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
+    window->Show();
 
 	return 0;
 }

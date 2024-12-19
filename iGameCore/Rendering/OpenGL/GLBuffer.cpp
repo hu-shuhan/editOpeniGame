@@ -54,10 +54,7 @@ void* GLBuffer::MapRange(size_t offset, size_t length,
     return ptr;
 #elif IGAME_OPENGL_VERSION_460
     void* ptr = glMapNamedBufferRange(m_Handle, offset, length, access);
-    if (ptr == nullptr) {
-        igError("Map buffer range is nullptr.");
-        throw std::runtime_error("Map buffer range is nullptr.");
-    }
+    if (ptr == nullptr) { igError("Map buffer range is nullptr."); }
     return ptr;
 #endif
 }

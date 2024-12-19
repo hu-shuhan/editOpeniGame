@@ -8,12 +8,15 @@
 #include <Clip/iGameModelClip.h>
 #include <VectorView/iGameVectorBase.h>
 int main() {
-    /* 创建场景*/
+
     auto scene = iGame::Scene::New();
-    /* 读取文件测试并将其放入场景*/
-    const std::string fileName = "D:\\lab\\build\\DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
+
+    std::cout << 1 << std::endl;
+    const std::string fileName = "D:\\Study\\iGame\\Model\\DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
+    std::cout << 1 << std::endl;
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
+      std::cout<<obj->GetDataObjectType()<<'\n';
         scene->AddModel(obj);
     } else {
         std::cout << "Read ERROR!\n";
@@ -61,13 +64,16 @@ int main() {
     //Set the original model to be invisible
     scene->ChangeModelVisibility(0, false);
 
-    /* 启动窗口设置*/
+    scene->ResetCameraView();
+
+    /* 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
     window->Show();
     return 0;
 }

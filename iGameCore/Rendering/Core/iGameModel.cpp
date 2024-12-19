@@ -37,7 +37,9 @@ void Model::Draw(Scene* scene) {
         }
 
         if (viewStyle & IG_POINTS) {
-            scene->GetShader(Scene::NOLIGHT)->Use();
+            auto shader = scene->GetShader(Scene::PURECOLOR);
+            shader->Use();
+            shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
 
             drawObject->m_PointVAO->Bind();
             {
@@ -668,7 +670,7 @@ bool Model::GetVisibility() {
 
 Filter* Model::GetModelFilter() { return m_Filter; }
 
-Painter3D::Pointer Model::GetPainter() { return m_Painter3D; }
+Painter3D::Pointer Model::GetPainter3D() { return m_Painter3D; }
 
 void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
 

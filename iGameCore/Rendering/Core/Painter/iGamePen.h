@@ -32,7 +32,7 @@ public:
     Vector3f GetColor() const;
 
     void SetWidth(float width);
-    int GetWidth() const;
+    float GetWidth() const;
 
     void SetStyle(Style style);
     Style GetStyle() const;
@@ -46,7 +46,7 @@ protected:
 
     Vector3f m_PenColor;
     float m_PenWidth;
-    Style m_PenStyle;
+    Pen::Style m_PenStyle;
     float m_PenOpacity;
 };
 

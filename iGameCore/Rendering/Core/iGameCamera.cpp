@@ -7,27 +7,35 @@
 IGAME_NAMESPACE_BEGIN
 
 Viewport::Viewport() {
-    m_Offset = igm::ivec2{0, 0};
-    m_Size = igm::ivec2{800, 600};
+    m_Offset = igm::uvec2{0, 0};
+    m_Size = igm::uvec2{800, 600};
     m_DevicePixelRatio = 1;
 }
 
 Viewport::~Viewport() {}
 
 void Viewport::SetViewPort(uint32_t width, uint32_t height) {
+    if (width == m_Size.x && height == m_Size.y) { return; }
+
     m_Size.x = width;
     m_Size.y = height;
+    this->Modified();
 }
 
-void Viewport::SetDevicePixelRatio(int devicePixelRatio) {
+igm::uvec2 Viewport::GetViewPort() { return m_Size; }
+
+igm::uvec2 Viewport::GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+
+void Viewport::SetDevicePixelRatio(unsigned int devicePixelRatio) {
+    if (devicePixelRatio == m_DevicePixelRatio) { return; }
+
     m_DevicePixelRatio = devicePixelRatio;
+    this->Modified();
 }
 
-igm::ivec2 Viewport::GetViewPort() { return m_Size; }
-
-int Viewport::GetDevicePixelRatio() { return m_DevicePixelRatio; }
-
-igm::ivec2 Viewport::GetScaledViewPort() { return m_Size * m_DevicePixelRatio; }
+unsigned int Viewport::GetDevicePixelRatio() const {
+    return m_DevicePixelRatio;
+}
 
 template<typename FloatT>
 FloatT Viewport::aspect() const {
@@ -42,26 +50,31 @@ Viewer::Viewer() {
 
 Viewer::~Viewer() {}
 
-void Viewer::SetClippngRange(float nearz, float farz) {
-    if (nearz <= 0.0f) {
+void Viewer::SetClippngRange(float near, float far) {
+    if (near == m_ClippingRange.x && far == m_ClippingRange.y) { return; }
+
+    if (near <= 0.0f) {
         igError("Near plane value must be greater than 0.0f.");
     }
 
-    if (nearz > farz) {
+    if (near > far) {
         igError("Near plane value cannot be greater than the far plane value.");
     }
 
-    if (farz - nearz < 1e-10f) {
+    if (far - near < 1e-10f) {
         igError("The difference between the near and far planes is too small.");
     }
 
-    m_ClippingRange.x = nearz;
-    m_ClippingRange.y = farz;
+    m_ClippingRange.x = near;
+    m_ClippingRange.y = far;
+    this->Modified();
 }
 
 igm::vec2 Viewer::GetClippingRange() { return m_ClippingRange; }
 
 void Viewer::SetFov(float fov) {
+    if (fov == m_Fov) { return; }
+
     if (fov < 1.0f || fov > 179.0f) {
         igDebug("fov provided is out of range (1.0 - 179.0 degrees). "
                 "Clamping to valid range.");
@@ -69,6 +82,8 @@ void Viewer::SetFov(float fov) {
     } else {
         m_Fov = fov;
     }
+
+    this->Modified();
 }
 
 float Viewer::GetFov() const { return m_Fov; }
@@ -103,63 +118,99 @@ igm::mat4 Viewer::GetProjectionMatrix() {
 //}
 
 Camera::Camera() {
-    m_CameraType = Type::PERSPECTIVE;
+    m_Type = Type::PERSPECTIVE;
 
     m_Position = igm::vec3(0.0f, 0.0f, 1.0f);
     m_Focal = igm::vec3(0.0f, 0.0f, 0.0f);
     m_Up = igm::vec3(0.0f, 1.0f, 0.0f);
-    UpdateCameraVectors();
+    UpdateVectors();
 }
 
 Camera::~Camera() {}
 
-void Camera::ChangeCameraType(Type type) { m_CameraType = type; }
-
 float Camera::GetLengthToFocal() { return (m_Focal - m_Position).length(); }
 
-void Camera::SetCameraPos(igm::vec3 pos) {
+void Camera::SetPosition(const igm::vec3& pos) {
+    if (pos == m_Position) { return; }
+
     m_Position = pos;
-    UpdateCameraVectors();
+    UpdateVectors();
+    this->Modified();
 }
-void Camera::SetCameraPos(float posX, float posY, float posZ) {
+
+void Camera::SetPosition(float posX, float posY, float posZ) {
+    if (posX == m_Position.x && posY == m_Position.y && posZ == m_Position.z) {
+        return;
+    }
+
     m_Position = {posX, posY, posZ};
-    UpdateCameraVectors();
+    UpdateVectors();
+    this->Modified();
 }
-igm::vec3 Camera::GetCameraPos() const { return m_Position; }
 
-void Camera::SetCameraFocal(igm::vec3 focal) {
+igm::vec3 Camera::GetPosition() const { return m_Position; }
+
+void Camera::SetFocal(const igm::vec3& focal) {
+    if (focal == m_Focal) { return; }
+
     m_Focal = focal;
-    UpdateCameraVectors();
+    UpdateVectors();
+    this->Modified();
 }
-void Camera::SetCameraFocal(float focalX, float focalY, float focalZ) {
+
+void Camera::SetFocal(float focalX, float focalY, float focalZ) {
+    if (focalX == m_Focal.x && focalY == m_Focal.y && focalZ == m_Focal.z) {
+        return;
+    }
+
     m_Focal = {focalX, focalY, focalZ};
-    UpdateCameraVectors();
+    UpdateVectors();
+    this->Modified();
 }
-igm::vec3 Camera::GetCameraFocal() const { return m_Focal; }
 
-void Camera::SetCameraUp(igm::vec3 up) {
+igm::vec3 Camera::GetFocal() const { return m_Focal; }
+
+void Camera::SetUp(const igm::vec3& up) {
+    if (up == m_Up) { return; }
+
     m_Up = up;
-    UpdateCameraVectors();
+    UpdateVectors();
+    this->Modified();
 }
-void Camera::SetCameraUp(float upX, float upY, float upZ) {
-    m_Up = {upX, upY, upZ};
-    UpdateCameraVectors();
-}
-igm::vec3 Camera::GetCameraUp() const { return m_Up; }
 
-void Camera::SetCameraType(Type type) { m_CameraType = type; }
-Camera::Type Camera::GetCameraType() const { return m_CameraType; }
+void Camera::SetUp(float upX, float upY, float upZ) {
+    if (upX == m_Up.x && upY == m_Up.y && upZ == m_Up.z) { return; }
+
+    m_Up = igm::vec3{upX, upY, upZ};
+    UpdateVectors();
+    this->Modified();
+}
+
+igm::vec3 Camera::GetUp() const { return m_Up; }
+
+void Camera::SetType(Type type) {
+    if (type == m_Type) { return; }
+
+    m_Type = type;
+    this->Modified();
+}
+
+Camera::Type Camera::GetType() const { return m_Type; }
+
+igm::vec3 Camera::GetFront() const { return m_Front; }
+
+igm::vec3 Camera::GetRight() const { return m_Right; }
 
 igm::mat4 Camera::GetViewMatrix() {
     return igm::lookAtRH(m_Position, m_Focal, m_Up);
 }
 
 igm::mat4 Camera::GetProjectionMatrix() {
-    if (m_CameraType == PERSPECTIVE) {
+    if (m_Type == Camera::Type::PERSPECTIVE) {
         return igm::perspectiveRH_OZ(static_cast<float>(igm::radians(m_Fov)),
                                      aspect<float>(), m_ClippingRange.x,
                                      m_ClippingRange.y);
-    } else if (m_CameraType == ORTHOGRAPHIC) {
+    } else if (m_Type == Camera::Type::ORTHOGRAPHIC) {
         float dist = GetLengthToFocal();
         float orthoHeight = dist / 3.0f;
         float orthoWidth = orthoHeight * aspect<float>();
@@ -171,11 +222,12 @@ igm::mat4 Camera::GetProjectionMatrix() {
     return igm::mat4(1.0f);
 }
 
-void Camera::UpdateCameraVectors() {
+void Camera::UpdateVectors() {
     // Calculate the new m_Front vector
     m_Front = (m_Focal - m_Position).normalized();
     // Also re-calculate the Right and Up vector
     m_Right = (igm::cross(m_Front, m_Up)).normalized();
+    this->Modified();
 }
 
 IGAME_NAMESPACE_END

@@ -6,46 +6,64 @@
 
 IGAME_NAMESPACE_BEGIN
 
-Brush::Brush() : m_BrushStyle(Style::SolidPattern), m_BrushOpacity(1.0f) {
+Brush::Brush() {
+    m_BrushStyle = Brush::Style::SolidPattern;
+    m_BrushOpacity = 1.0f;
     SetColor(Color::White);
 }
 
 Brush::~Brush() {}
 
 void Brush::SetColor(const Color& color) {
-    if (color == Color::None) {
-        m_BrushColor = Vector3f{-1.0f, -1.0f, -1.0f};
+    auto c = ColorUtils::Map(color);
+    if (c.x == m_BrushColor[0] && c.y == m_BrushColor[1] &&
+        c.z == m_BrushColor[2]) {
         return;
     }
-    auto c = ColorUtils::Map(color);
+
     m_BrushColor = Vector3f{c.x, c.y, c.z};
+    this->Modified();
 }
 
 void Brush::SetColor(float red, float green, float blue) {
-    if (ColorUtils::IsValid(red, green, blue)) {
-        m_BrushColor = Vector3f{red, green, blue};
-    } else {
+    if (!ColorUtils::IsValid(red, green, blue)) {
         igError("Color values must be in the range of 0.0 to 1.0");
-        throw std::runtime_error(
-                "Color values must be in the range of 0.0 to 1.0");
     }
+
+    if (red == m_BrushColor[0] && green == m_BrushColor[1] &&
+        blue == m_BrushColor[2]) {
+        return;
+    }
+
+    m_BrushColor = Vector3f{red, green, blue};
+    this->Modified();
 }
 
 void Brush::SetColor(int red, int green, int blue) {
-    if (ColorUtils::IsValid(red, green, blue)) {
-        m_BrushColor = Vector3f{static_cast<float>(red) / 255.0f,
-                                static_cast<float>(green) / 255.0f,
-                                static_cast<float>(blue) / 255.0f};
-    } else {
+    if (!ColorUtils::IsValid(red, green, blue)) {
         igError("Color values must be in the range of 0 to 255");
-        throw std::runtime_error(
-                "Color values must be in the range of 0 to 255");
     }
+
+    float r = static_cast<float>(red) / 255.0f;
+    float g = static_cast<float>(green) / 255.0f;
+    float b = static_cast<float>(blue) / 255.0f;
+
+    if (r == m_BrushColor[0] && g == m_BrushColor[1] && b == m_BrushColor[2]) {
+        return;
+    }
+
+    m_BrushColor = Vector3f{r, g, b};
+    this->Modified();
 }
 
 Vector3f Brush::GetColor() const { return m_BrushColor; }
 
-void Brush::SetStyle(Style style) { m_BrushStyle = style; }
+void Brush::SetStyle(Brush::Style style) {
+    if (style == m_BrushStyle) { return; }
+
+    m_BrushStyle = style;
+    this->Modified();
+}
 
 Brush::Style Brush::GetStyle() const { return m_BrushStyle; }
 

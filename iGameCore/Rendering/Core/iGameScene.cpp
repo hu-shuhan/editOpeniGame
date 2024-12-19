@@ -5,11 +5,32 @@
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
-    m_Camera = Camera::New();
+    m_IncrementModelId = 0;
+    m_CurrentModelId = 1;
+    m_CurrentModel = nullptr;
 
-    m_ModelRotate = igm::mat4{};
-    m_ModelMatrix = igm::mat4{};
-    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
+    m_UpdateFunctor = nullptr;
+    m_MakeCurrentFunctor = nullptr;
+    m_DoneCurrentFunctor = nullptr;
+
+    m_Camera = Camera::New();
+    //m_Light = Light::New();
+    m_Axes = Axes::New();
+
+    m_Interactor = Interactor::New();
+
+    m_FontManager = FontManager::New();
+
+    m_CameraData = CameraDataBuffer{};
+    m_ObjectData = ObjectDataBuffer{};
+    m_UBO = UniformBufferObjectBuffer{};
+
+    m_ModelRotate = igm::mat4{1.0f};
+    m_ModelMatrix = igm::mat4{1.0f};
+    m_BackgroundColor = {1.0f, 1.0f, 1.0f};
+
+    m_VisibleModelsCount = 0;
+    m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
 
     m_CameraDataBlock = GLBuffer::New();
     m_ObjectDataBlock = GLBuffer::New();
@@ -18,6 +39,7 @@ Scene::Scene() {
     m_EmptyVAO = GLVertexArray::New();
 
 #ifdef MSAA
+    samples = 8;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
     m_DepthTextureMultisampled = GLTexture2dMultisample::New();
@@ -38,7 +60,16 @@ Scene::Scene() {
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
     m_DrawCullData = GLBuffer::New();
+    m_DepthPyramidWidth = 0;
+    m_DepthPyramidHeight = 0;
+    m_DepthPyramidLevels = 0;
     m_DepthPyramid = GLTexture2d::New();
+
+    m_Painter2D = Painter2D::New();
+    m_Painter3D = Painter3D::New();
+
+    m_FinishInit = false;
+    m_EnableVolumeRendering = false;
 }
 Scene::~Scene() {}
 
@@ -62,6 +93,7 @@ int Scene::AddModel(DataObject::Pointer obj) {
     model->m_DataObject = obj;
     return AddModel(model);
 }
+
 int Scene::AddModel(Model::Pointer model) {
     int newModelId = m_IncrementModelId++;
     m_Models.insert(std::make_pair<>(newModelId, model));
@@ -138,14 +170,6 @@ void Scene::SetCurrentModel(int index) {
             m_CurrentModel = model.get();
             return;
         }
-        //if (obj->m_DataObject->Has->SubDataObject()) {
-        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
-        //    if (subObj != nullptr) {
-        //        m_CurrentModelId = index;
-        //        m_CurrentObject = subObj.get();
-        //        return true;
-        //    }
-        //}
     }
 }
 
@@ -159,6 +183,12 @@ void Scene::SetCurrentModel(Model* _model) {
     }
 }
 
+void Scene::SetBackGround(const Color& color) {
+    auto c = ColorUtils::Map(color);
+    m_BackgroundColor = c;
+    this->Modified();
+}
+
 void Scene::SetInteractor(Interactor* i) { m_Interactor = i; }
 
 Interactor* Scene::GetInteractor() { return m_Interactor; }
@@ -168,10 +198,6 @@ Model* Scene::GetCurrentModel() { return m_CurrentModel; }
 Model* Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
-        //if (obj->m_DataObject->Has->SubDataObject()) {
-        //    auto subObj = obj->m_DataObject->Get->SubDataObject(index);
-        //    if (subObj != nullptr) { return subObj.get(); }
-        //}
     }
     return nullptr;
 }
@@ -197,9 +223,9 @@ void Scene::ResetCameraView() {
 
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetCameraPos(center.x, center.y, center.z + 3.0f * radius);
+    m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
     m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
-    m_Camera->SetCameraFocal(center);
+    m_Camera->SetFocal(center);
 }
 
 void Scene::ChangeModelVisibility(Model* model, bool visibility) {
@@ -220,10 +246,10 @@ void Scene::ChangeCameraType(IGenum type) {
     ResetCameraView();
     switch (type) {
         case Camera::Type::PERSPECTIVE: {
-            m_Camera->ChangeCameraType(Camera::Type::PERSPECTIVE);
+            m_Camera->SetType(Camera::Type::PERSPECTIVE);
         } break;
         case Camera::Type::ORTHOGRAPHIC: {
-            m_Camera->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
+            m_Camera->SetType(Camera::Type::ORTHOGRAPHIC);
         } break;
         default:
             break;
@@ -593,11 +619,13 @@ void Scene::InitOIT() {
 
 void Scene::InitFont() {
     const wchar_t* text = L"XYZ";
-    FontSet::Instance().RegisterWords(text);
+    m_FontManager->RegisterWords(text);
     GLCheckError();
 }
 
 void Scene::InitAxes() {
+    m_Axes->Initialize();
+
     auto axesShader = this->GetShader(AXES);
 
     axesShader->Use();
@@ -605,8 +633,12 @@ void Scene::InitAxes() {
     axesShader->SetUniformMatrix4x4("proj", Axes::ProjMatrix());
     axesShader->SetUniform3f("viewPos", Axes::CameraPos());
 
-    m_Axes = Axes::New();
     GLCheckError();
+}
+
+void Scene::InitInterator() {
+    m_Interactor->Initialize(this);
+    m_Interactor->CreateDefaultStyle();
 }
 
 void Scene::ResizeFrameBuffer() {
@@ -689,9 +721,7 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferResolved = fbo;
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
-                         "complete!"
-                      << std::endl;
+            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
     }
 #else
     //resize resolve framebuffer(form multisamples to single sample)
@@ -1029,7 +1059,7 @@ void Scene::ForwardPass() {
 
             // draw painter(since painter does not support transparency)
             if (drawObject->GetVisibility()) {
-                model->GetPainter()->Draw(this);
+                model->GetPainter3D()->Draw(this);
             }
         }
     }
@@ -1164,8 +1194,8 @@ void Scene::VolumeRenderingPass() {
 
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
-    m_CameraData.camera_position = m_Camera->GetCameraPos();
-    m_CameraData.isOrtho = m_Camera->GetCameraType() == Camera::ORTHOGRAPHIC;
+    m_CameraData.camera_position = m_Camera->GetPosition();
+    m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
     m_CameraData.view = m_Camera->GetViewMatrix();
     m_CameraData.proj = m_Camera->GetProjectionMatrix();
     m_CameraData.proj_view =
@@ -1200,11 +1230,17 @@ void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
 }
 
 void Scene::UpdateCameraClippingRange() {
+    // If a model is changed, bounding-box will not be notified to Scene
+    UpdateModelsBoundingSphere();
+
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-    igm::vec3 cameraPos = m_Camera->GetCameraPos();
+    igm::vec3 cameraPos = m_Camera->GetPosition();
 
-    float dist = (cameraPos - center).length();
+    igm::vec3 front = m_Camera->GetFront();
+    igm::vec3 v = center - cameraPos;
+    float dist = std::abs(front.dot(v) / front.length());
+
     float nearPlane = dist - radius;
     float farPlane = dist + radius;
 
@@ -1243,7 +1279,9 @@ void Scene::DrawAxes(igm::ivec4 drawRange) {
         axesShader->SetUniformi("isDrawFont", 1);
         m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
                        {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
-        m_Axes->DrawXYZ(axesShader);
+        m_Axes->DrawXYZ(axesShader, m_FontManager->GetTexture(L'X'),
+                        m_FontManager->GetTexture(L'Y'),
+                        m_FontManager->GetTexture(L'Z'));
     }
 }
 
@@ -1287,6 +1325,7 @@ void Scene::LookAtPositiveX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeX() {
     ResetCameraView();
 
@@ -1303,6 +1342,7 @@ void Scene::LookAtNegativeX() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtPositiveY() {
     ResetCameraView();
 
@@ -1318,6 +1358,7 @@ void Scene::LookAtPositiveY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeY() {
     ResetCameraView();
 
@@ -1334,6 +1375,7 @@ void Scene::LookAtNegativeY() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtPositiveZ() {
     ResetCameraView();
 
@@ -1349,6 +1391,7 @@ void Scene::LookAtPositiveZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtNegativeZ() {
     ResetCameraView();
 
@@ -1362,6 +1405,7 @@ void Scene::LookAtNegativeZ() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::LookAtIsometric() {
     ResetCameraView();
 
@@ -1378,6 +1422,7 @@ void Scene::LookAtIsometric() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::RotateNinetyClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
@@ -1392,6 +1437,7 @@ void Scene::RotateNinetyClockwise() {
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
 }
+
 void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
@@ -1423,17 +1469,20 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 min(FLT_MAX);
     igm::vec3 max(-FLT_MAX);
 
-    int cnt = 0;
+    auto box = BoundingBox{};
     for (auto& [id, model]: m_Models) {
         if (!model->GetVisibility()) { continue; }
 
-        auto box = model->m_DataObject->GetBoundingBox();
+        box.reset();
+        box.combine(model->m_DataObject->GetBoundingBox());
+        box.combine(model->GetPainter3D()->GetBoundingBox());
         Vector3f boxMin = box.min;
         Vector3f boxMax = box.max;
 
         min = igm::min(igm::vec3{boxMin[0], boxMin[1], boxMin[2]}, min);
         max = igm::max(igm::vec3{boxMax[0], boxMax[1], boxMax[2]}, max);
-    };
+    }
+
     igm::vec3 center = (min + max) / 2;
     float radius = (max - min).length() / 2;
 
@@ -1458,7 +1507,9 @@ void Scene::CalculateFrameRate() {
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
-                                                int height, FrameBufferType type, bool mirrored) {
+                                                int height,
+                                                FrameBufferType type,
+                                                bool mirrored) {
 
     std::vector<unsigned char> colorBuffer;
 
@@ -1487,15 +1538,13 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         }
     }
     m_FramebufferResolved->Release();
-    if(mirrored){
+    if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
         // Flip data Line
         for (int row = 0; row < height; ++row) {
-            std::copy(
-                    colorBuffer.begin() + row * width * 4,
-                    colorBuffer.begin() + (row + 1) * width * 4,
-                    tmp_flip.begin() + (height - 1 - row) * width * 4
-            );
+            std::copy(colorBuffer.begin() + row * width * 4,
+                      colorBuffer.begin() + (row + 1) * width * 4,
+                      tmp_flip.begin() + (height - 1 - row) * width * 4);
         }
         colorBuffer = tmp_flip;
     }

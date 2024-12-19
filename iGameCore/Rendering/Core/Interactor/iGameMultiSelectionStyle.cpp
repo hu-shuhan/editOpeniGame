@@ -70,7 +70,7 @@ void MultiSelectionStyle::LeftButtonMouseMove() {
 void MultiSelectionStyle::SelectPoints(const std::vector<igm::vec4>& planes) {
     //m_Model->GetPointPainter()->Clear();
 
-    auto painter = m_Model->GetPainter();
+    auto painter = m_Model->GetPainter3D();
     painter->SetPen(10);
     painter->SetPen(Color::Red);
 
@@ -104,7 +104,7 @@ void MultiSelectionStyle::SelectFaces(const std::vector<igm::vec4>& planes) {
             }
         }
         if (flag) {
-            auto painter = m_Model->GetPainter();
+            auto painter = m_Model->GetPainter3D();
             painter->SetPen(3);
             painter->SetPen(Color::Green);
             painter->SetBrush(Color::Red);

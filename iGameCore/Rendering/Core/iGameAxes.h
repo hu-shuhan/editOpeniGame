@@ -4,17 +4,22 @@
 #include "OpenGL/GLShader.h"
 #include "OpenGL/GLTexture2d.h"
 #include "OpenGL/GLVertexArray.h"
-#include "iGameFontSet.h"
+#include "iGameFontManager.h"
 
 IGAME_NAMESPACE_BEGIN
+class Scene;
 class Axes : public Object {
 public:
     I_OBJECT(Axes);
     static Pointer New() { return new Axes; }
 
+    // need opengl context
+    void Initialize();
+
     void DrawAxes();
 
-    void DrawXYZ(GLShaderProgram::Pointer shader);
+    void DrawXYZ(GLShaderProgram::Pointer shader, GLTexture2d::Pointer textureX,
+                 GLTexture2d::Pointer textureY, GLTexture2d::Pointer textureZ);
 
     void Update(const igm::mat4& _mvp, const igm::ivec4& viewPort);
 
@@ -25,8 +30,6 @@ public:
 protected:
     Axes();
     ~Axes() override;
-
-    void Initialize();
 
     void RequestData(std::vector<igm::vec3>& vertices,
                      std::vector<igm::vec3>& colors);
@@ -41,10 +44,10 @@ protected:
 
     GLVertexArray::Pointer m_FontVAO;
     GLBuffer::Pointer m_TextureCoordVBO, m_WorldCoordVBO, m_FontTextureEBO;
-    
+
     double Viewport[4];
-    igm::mat4 m_Mvp{1.0f};
-    igm::mat4 m_MvpInv{1.0f};
+    igm::mat4 m_Mvp;
+    igm::mat4 m_MvpInv;
 
     float m_ShaftLength;
     float m_ShaftSize;

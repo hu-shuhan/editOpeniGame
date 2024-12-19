@@ -9,7 +9,7 @@ IGAME_NAMESPACE_BEGIN
 ColorUtils::ColorUtils(){};
 ColorUtils::~ColorUtils(){};
 
-bool ColorUtils::IsValid(const igm::vec3 color) {
+bool ColorUtils::IsValid(const igm::vec3& color) {
     if (color.r < 0.0f || color.r > 1.0f || color.g < 0.0f || color.g > 1.0f ||
         color.b < 0.0f || color.b > 1.0f) {
         return false;
@@ -43,6 +43,8 @@ bool ColorUtils::IsValid(int red, int green, int blue) {
 
 igm::vec3 ColorUtils::Map(Color color) {
     switch (color) {
+        case Color::None:
+            return igm::vec3{-1.0f, -1.0f, -1.0f};
         case Color::Red:
             return igm::vec3{1.0f, 0.0f, 0.0f};
         case Color::Green:

@@ -15,14 +15,10 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class FontSet : public Object {
+class FontManager : public Object {
 public:
-    I_OBJECT(FontSet)
-
-    static FontSet& Instance() {
-        static FontSet instance;
-        return instance;
-    }
+    I_OBJECT(FontManager)
+    static Pointer New() { return new FontManager; }
 
     struct Character {
         GLuint TextureID; // font texture id
@@ -38,8 +34,8 @@ public:
     GLTexture2d::Pointer GetTexture(wchar_t wchar);
 
 protected:
-    FontSet();
-    ~FontSet() override;
+    FontManager();
+    ~FontManager() override;
 
     static void FlipVertically(unsigned char* data, int width, int height);
 

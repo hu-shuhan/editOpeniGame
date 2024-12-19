@@ -31,9 +31,10 @@ int main(){
     window->SetSize(1920, 1080);
     window->SetScene(scene);
 
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
     window->Show();
 
     return 0;

@@ -45,8 +45,8 @@ public:
     IGuint DrawCircle(const Vector2ui& center, double radius, int resolution);
 
 protected:
-    Painter2D() = default;
-    ~Painter2D() override = default;
+    Painter2D();
+    ~Painter2D() override;
 };
 
 IGAME_NAMESPACE_END

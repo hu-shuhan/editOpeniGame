@@ -8,6 +8,7 @@
 
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLVertexArray.h"
+#include "iGameBoundingBox.h"
 #include "iGameBrush.h"
 #include "iGameColorUtils.h"
 #include "iGameHandlePool.h"
@@ -29,6 +30,7 @@ public:
         //std::vector<Vector3f> normals;
         std::array<std::vector<iguIndex>, 3> indices;
         bool visible = true;
+        BoundingBox bounding;
     };
 
     void ShowAll();
@@ -50,6 +52,7 @@ public:
     void SetBrush(float red, float green, float blue);
     void SetBrush(const Brush::Style& style);
 
+    const BoundingBox& GetBoundingBox();
     virtual void Draw(Scene*);
     void Clear();
 
@@ -57,11 +60,15 @@ protected:
     PainterBase();
     ~PainterBase() override;
 
+    void ComputeBoundingBox();
     void CreateDrawBuffer(float penWidth);
     void PackDrawableData();
 
     Pen::Pointer m_Pen;
     Brush::Pointer m_Brush;
+
+    BoundingBox m_Bounding;
+    Object::Pointer m_BoundingHelper;
 
     Object::Pointer m_PrimitivesUpdateHelper;
     HandlePool<Primitive>::Pointer m_PrimitivesPool;

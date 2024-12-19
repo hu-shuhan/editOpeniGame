@@ -8,9 +8,9 @@
 #include <Clip/iGameModelClip.h>
 #include <VectorView/iGameVectorBase.h>
 int main() {
-    /* ´´½¨³¡¾°*/
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½*/
     auto scene = iGame::Scene::New();
-    /* ¶ÁÈ¡ÎÄ¼þ²âÊÔ²¢½«Æä·ÅÈë³¡¾°*/
+    /* ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë³¡ï¿½ï¿½*/
     const std::string fileName = ".\\Models\\CAD11\\_frames.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
@@ -60,13 +60,14 @@ int main() {
     //Set the original model to be invisible
     scene->ChangeModelVisibility(0, false);
 
-    /* Æô¶¯´°¿ÚÉèÖÃ*/
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
     window->Show();
     return 0;
 }
