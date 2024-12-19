@@ -96,15 +96,18 @@ void NurbsGeometry::ConvertToCurveData() {
             auto v = patch->m_ControlPoints[u_id];
             points->AddPoint(v[0], v[1], v[2]);
         }
-
-        for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
     }
+    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 2. 传入控制顶点连线
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
         int u_control_cnt = patch->m_Basis[0].getControlSize();
-        for (int u_id = 0; u_id < u_control_cnt - 1; ++u_id) { edgeIndices->AddElement2(u_id, u_id + 1); }
+
+        auto offset = i * u_control_cnt;
+        for (int u_id = 0; u_id < u_control_cnt - 1; ++u_id) {
+            edgeIndices->AddElement2(offset + u_id, offset + u_id + 1);
+        }
     }
 
     // 3. 传入离散化线
@@ -166,9 +169,8 @@ void NurbsGeometry::ConvertToSurfaceData() {
                 points->AddPoint(v[0], v[1], v[2]);
             }
         }
-
-        for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
     }
+    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 2. 传入控制顶点连线
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
@@ -176,10 +178,13 @@ void NurbsGeometry::ConvertToSurfaceData() {
         int u_control_cnt = patch->m_Basis[0].getControlSize();
         int v_control_cnt = patch->m_Basis[1].getControlSize();
 
+        auto offset = i * u_control_cnt * v_control_cnt;
         for (int u_id = 0; u_id < u_control_cnt; ++u_id) {
             for (int v_id = 0; v_id < v_control_cnt - 1; ++v_id) {
-                edgeIndices->AddElement2(u_id * u_control_cnt + v_id, u_id * u_control_cnt + v_id + 1);
-                edgeIndices->AddElement2(v_id * u_control_cnt + u_id, v_id * u_control_cnt + u_id + u_control_cnt);
+                edgeIndices->AddElement2(offset + u_id * u_control_cnt + v_id,
+                                         offset + u_id * u_control_cnt + v_id + 1);
+                edgeIndices->AddElement2(offset + v_id * u_control_cnt + u_id,
+                                         offset + v_id * u_control_cnt + u_id + u_control_cnt);
             }
         }
     }
@@ -243,6 +248,7 @@ void NurbsGeometry::ConvertToVolumeData() {
         int u_control_cnt = patch->m_Basis[0].getControlSize();
         int v_control_cnt = patch->m_Basis[1].getControlSize();
         int w_control_cnt = patch->m_Basis[2].getControlSize();
+
         // 创建三维数组存储
         int uvCnt = u_control_cnt * v_control_cnt, uCnt = u_control_cnt;
 
@@ -273,9 +279,8 @@ void NurbsGeometry::ConvertToVolumeData() {
                 }
             }
         }
-
-        for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
     }
+    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 3. 传入离散化面片
     double sample_gap = 1.f / SAMPLE_NUM;
