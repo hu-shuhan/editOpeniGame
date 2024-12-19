@@ -17,7 +17,9 @@ Scene::Scene() {
     //m_Light = Light::New();
     m_Axes = Axes::New();
 
-    m_Interactor = iGame::Interactor::New();
+    m_Interactor = Interactor::New();
+
+    m_FontManager = FontManager::New();
 
     m_CameraData = CameraDataBuffer{};
     m_ObjectData = ObjectDataBuffer{};
@@ -25,7 +27,7 @@ Scene::Scene() {
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
-    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
+    m_BackgroundColor = {1.0f, 1.0f, 1.0f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
@@ -617,7 +619,7 @@ void Scene::InitOIT() {
 
 void Scene::InitFont() {
     const wchar_t* text = L"XYZ";
-    FontSet::Instance().RegisterWords(text);
+    m_FontManager->RegisterWords(text);
     GLCheckError();
 }
 
@@ -1277,7 +1279,9 @@ void Scene::DrawAxes(igm::ivec4 drawRange) {
         axesShader->SetUniformi("isDrawFont", 1);
         m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
                        {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
-        m_Axes->DrawXYZ(axesShader);
+        m_Axes->DrawXYZ(axesShader, m_FontManager->GetTexture(L'X'),
+                        m_FontManager->GetTexture(L'Y'),
+                        m_FontManager->GetTexture(L'Z'));
     }
 }
 

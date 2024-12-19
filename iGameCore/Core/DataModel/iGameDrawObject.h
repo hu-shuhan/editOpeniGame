@@ -63,10 +63,10 @@ public:
     void SetTransparency(float transparency);
     float GetTransparency();
 
-    void SetPointSize(int size);
+    void SetPointSize(float size);
     int GetPointSize();
 
-    void SetLineWidth(int size);
+    void SetLineWidth(float size);
     int GetLineWidth();
 
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
@@ -131,8 +131,8 @@ protected:
     bool m_UseColor{false};
     bool m_UseNormalSmooth{false};
     bool m_ColorWithCell{false};
-    int m_PointSize{8};
-    int m_LineWidth{1};
+    float m_PointSize{8.0f};
+    float m_LineWidth{1.0f};
     int m_CellPositionSize{};
 
     // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines

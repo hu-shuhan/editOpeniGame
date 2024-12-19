@@ -37,7 +37,9 @@ void Model::Draw(Scene* scene) {
         }
 
         if (viewStyle & IG_POINTS) {
-            scene->GetShader(Scene::NOLIGHT)->Use();
+            auto shader = scene->GetShader(Scene::PURECOLOR);
+            shader->Use();
+            shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
 
             drawObject->m_PointVAO->Bind();
             {

@@ -2,13 +2,13 @@
 // Created by Sumzeek on 7/1/2024.
 //
 
-#include "iGameFontSet.h"
+#include "iGameFontManager.h"
 
 IGAME_NAMESPACE_BEGIN
 
-FontSet::FontSet() {}
+FontManager::FontManager() {}
 
-FontSet::~FontSet() {
+FontManager::~FontManager() {
     //for (const auto& pair: m_Textures) {
     //    const GLTexture2d& texture = pair.second;
     //    auto handle = texture.getTextureHandle();
@@ -16,7 +16,7 @@ FontSet::~FontSet() {
     //}
 }
 
-void FontSet::RegisterWords(const wchar_t* text) {
+void FontManager::RegisterWords(const wchar_t* text) {
     std::string fontPath =
             "./Resources/Assests/Fonts/SourceHanSansCN-Normal.otf";
 
@@ -89,7 +89,7 @@ void FontSet::RegisterWords(const wchar_t* text) {
     this->Modified();
 }
 
-void FontSet::FlipVertically(unsigned char* data, int width, int height) {
+void FontManager::FlipVertically(unsigned char* data, int width, int height) {
     int rowSize = width * sizeof(unsigned char);
 
     for (int i = 0; i < height / 2; ++i) {
@@ -104,7 +104,7 @@ void FontSet::FlipVertically(unsigned char* data, int width, int height) {
     }
 }
 
-FontSet::Character& FontSet::GetCharacter(const wchar_t wchar) {
+FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
     auto it = m_Characters.find(wchar);
     if (it == m_Characters.end()) {
         igError("Character not found for wchar: " /*<< wchar*/);
@@ -112,7 +112,7 @@ FontSet::Character& FontSet::GetCharacter(const wchar_t wchar) {
     return it->second;
 }
 
-GLTexture2d::Pointer FontSet::GetTexture(const wchar_t wchar) {
+GLTexture2d::Pointer FontManager::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
     if (it == m_Textures.end()) {
         igError("Texture not generated for wchar: " /*<< wchar*/);

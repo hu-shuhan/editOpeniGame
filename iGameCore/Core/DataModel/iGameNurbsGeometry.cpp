@@ -39,6 +39,7 @@ void NurbsGeometry::ComputeBoundingBox() {
 
 void NurbsGeometry::ConvertToDrawableData() {
     if (m_Geometry->GetMTime() > m_Positions->GetMTime()) {
+
         if (m_Geometry->GetPatchSize() == 0) return;
 
         if (m_Geometry->GetType() == NurbsSDK::NurbsType::CURVE) {
@@ -50,11 +51,6 @@ void NurbsGeometry::ConvertToDrawableData() {
         }
     }
 
-    //if (m_Points->GetMTime() > m_Positions->GetMTime()) {
-    //    m_Positions = m_Points->ConvertToArray();
-    //    m_Positions->Modified();
-    //}
-    //
     //// convert scalar data
     //if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
     //    if (m_AttributeIndex == -1) {
@@ -100,14 +96,16 @@ void NurbsGeometry::ConvertToCurveData() {
     for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 2. 传入控制顶点连线
+    int patchOffset = 0;
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
         int u_control_cnt = patch->m_Basis[0].getControlSize();
 
-        auto offset = i * u_control_cnt;
         for (int u_id = 0; u_id < u_control_cnt - 1; ++u_id) {
-            edgeIndices->AddElement2(offset + u_id, offset + u_id + 1);
+            edgeIndices->AddElement2(patchOffset + u_id, patchOffset + u_id + 1);
         }
+
+        patchOffset += u_control_cnt;
     }
 
     // 3. 传入离散化线
@@ -173,20 +171,22 @@ void NurbsGeometry::ConvertToSurfaceData() {
     for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 2. 传入控制顶点连线
+    int patchOffset = 0;
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
         int u_control_cnt = patch->m_Basis[0].getControlSize();
         int v_control_cnt = patch->m_Basis[1].getControlSize();
 
-        auto offset = i * u_control_cnt * v_control_cnt;
         for (int u_id = 0; u_id < u_control_cnt; ++u_id) {
             for (int v_id = 0; v_id < v_control_cnt - 1; ++v_id) {
-                edgeIndices->AddElement2(offset + u_id * u_control_cnt + v_id,
-                                         offset + u_id * u_control_cnt + v_id + 1);
-                edgeIndices->AddElement2(offset + v_id * u_control_cnt + u_id,
-                                         offset + v_id * u_control_cnt + u_id + u_control_cnt);
+                edgeIndices->AddElement2(patchOffset + u_id * v_control_cnt + v_id,
+                                         patchOffset + u_id * v_control_cnt + v_id + 1);
+                edgeIndices->AddElement2(patchOffset + v_id * u_control_cnt + u_id,
+                                         patchOffset + v_id * u_control_cnt + u_id + u_control_cnt);
             }
         }
+
+        patchOffset += u_control_cnt * v_control_cnt;
     }
 
     // 3.传入离散化面片
@@ -208,6 +208,16 @@ void NurbsGeometry::ConvertToSurfaceData() {
                 auto v3 = patch->getPointAtParam(v_3);
 
                 std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
+
+                //bool visible = true;
+                //for (auto v: tempV) {
+                //    if (!m_Clipper->IsVisible(v->data())) {
+                //        visible = false;
+                //        break;
+                //    }
+                //}
+                //if (!visible) { continue; }
+
                 auto offset = points->GetNumberOfPoints();
                 for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
                 triangleIndices->AddElement3(offset, offset + 1, offset + 2);
@@ -288,10 +298,10 @@ void NurbsGeometry::ConvertToVolumeData() {
         int patch_id = arr[0];
         auto currentPatch = m_Geometry->PatchPointer(patch_id);
         if (arr[1] == 0) {
-            // u=0oru=1,固定u的大小
+            // u=0 or u=1, 固定u的大小
             for (int v_sample = 0; v_sample < SAMPLE_NUM; ++v_sample) {
                 for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
-                    //����ɢ�������û��Ƶ�
+                    // 用离散采样点获取绘制店
                     std::vector<double> v_0{0, w_sample * sample_gap, v_sample * sample_gap, 0};
                     auto v0 = currentPatch->getPointAtParam(v_0);
 

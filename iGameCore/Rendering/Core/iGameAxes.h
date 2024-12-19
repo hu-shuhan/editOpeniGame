@@ -4,9 +4,10 @@
 #include "OpenGL/GLShader.h"
 #include "OpenGL/GLTexture2d.h"
 #include "OpenGL/GLVertexArray.h"
-#include "iGameFontSet.h"
+#include "iGameFontManager.h"
 
 IGAME_NAMESPACE_BEGIN
+class Scene;
 class Axes : public Object {
 public:
     I_OBJECT(Axes);
@@ -17,7 +18,8 @@ public:
 
     void DrawAxes();
 
-    void DrawXYZ(GLShaderProgram::Pointer shader);
+    void DrawXYZ(GLShaderProgram::Pointer shader, GLTexture2d::Pointer textureX,
+                 GLTexture2d::Pointer textureY, GLTexture2d::Pointer textureZ);
 
     void Update(const igm::mat4& _mvp, const igm::ivec4& viewPort);
 

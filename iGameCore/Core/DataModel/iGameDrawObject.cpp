@@ -215,9 +215,9 @@ void DrawObject::ReAllocateDisplayBuffer() {
     }
 
     // process this object
-    if (this->HasSubDataObject()) { 
-        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer); 
-    return;
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
+        return;
     }
     this->CreateDrawBuffer();
 
@@ -395,7 +395,13 @@ unsigned int DrawObject::GetViewStyleOfModel() {
 
 bool DrawObject::GetClipped() { return false; }; // Gets whether this can be clipped.
 
-void DrawObject::SetPointSize(int size) {
+void DrawObject::SetPointSize(float size) {
+    if (size < 0) {
+        igDebug("Point size cannot be negative. Provided size: " << size
+                                                                 << ". Point size has been set to default value: 8.");
+        size = 8.0f;
+    }
+
     // process display object
     if (m_DisplayObject) { m_DisplayObject->SetPointSize(size); }
 
@@ -406,7 +412,13 @@ void DrawObject::SetPointSize(int size) {
 
 int DrawObject::GetPointSize() { return m_PointSize; }
 
-void DrawObject::SetLineWidth(int size) {
+void DrawObject::SetLineWidth(float size) {
+    if (size < 0) {
+        igDebug("Line width cannot be negative. Provided size: " << size
+                                                                 << ". Line width has been set to default value: 1.");
+        size = 1.0f;
+    }
+
     // process display object
     if (m_DisplayObject) { m_DisplayObject->SetLineWidth(size); }
 

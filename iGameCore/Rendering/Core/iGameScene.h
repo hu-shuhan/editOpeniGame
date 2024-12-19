@@ -10,7 +10,7 @@
 #include "OpenGL/GLTextureBUffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
-#include "iGameFontSet.h"
+#include "iGameFontManager.h"
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameSelection.h"
@@ -212,6 +212,8 @@ protected:
     Axes::Pointer m_Axes;
 
     Interactor* m_Interactor;
+
+    FontManager::Pointer m_FontManager;
 
     /* Rendering related */
     CameraDataBuffer m_CameraData;

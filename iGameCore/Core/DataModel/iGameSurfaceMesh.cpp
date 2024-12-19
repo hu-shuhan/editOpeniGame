@@ -775,7 +775,8 @@ void SurfaceMesh::ConvertToDrawableData() {
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntArray::Pointer& lineIndices,
                                    UnsignedIntArray::Pointer& triangleIndices,
                                    UnsignedCharArray::Pointer& triangleEdgeMasks) {
-    clock_t time1 = clock();
+    Timer::Pointer timer = Timer::New();
+
     positions = m_Points->ConvertToArray();
 
     lineIndices->Reset();
@@ -887,7 +888,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
-                throw std::runtime_error("The index of the edge is negative.");
+                igError("The index of the edge is negative.");
             } else {
                 lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
             }
@@ -924,8 +925,8 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
             }
         }
     }
-    clock_t time2 = clock();
-    std::cout << "Get draw array cost " << time2 - time1 << "ms\n";
+
+    std::cout << "Get draw array cost " << timer->ElapsedMilliseconds() << "ms\n";
 }
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,

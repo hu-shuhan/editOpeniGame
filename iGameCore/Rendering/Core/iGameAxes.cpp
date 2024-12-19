@@ -37,7 +37,9 @@ void Axes::DrawAxes() {
     m_TriangleVAO->Release();
 }
 
-void Axes::DrawXYZ(GLShaderProgram::Pointer shader) {
+void Axes::DrawXYZ(GLShaderProgram::Pointer shader,
+                   GLTexture2d::Pointer textureX, GLTexture2d::Pointer textureY,
+                   GLTexture2d::Pointer textureZ) {
     // draw xyz
     m_FontVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -46,11 +48,8 @@ void Axes::DrawXYZ(GLShaderProgram::Pointer shader) {
     igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
     igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
 
-    auto textureX = FontSet::Instance().GetTexture(L'X');
     textureX->Active(GL_TEXTURE1);
-    auto textureY = FontSet::Instance().GetTexture(L'Y');
     textureY->Active(GL_TEXTURE2);
-    auto textureZ = FontSet::Instance().GetTexture(L'Z');
     textureZ->Active(GL_TEXTURE3);
 
     shader->SetUniformi("fontSampler", 1);
