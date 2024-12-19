@@ -910,6 +910,7 @@ static bool hasTriangleFlips(const EdgeAdjacency& adjacency, const Vector3* vert
 	const Vector3& v0 = vertex_positions[i0];
 	const Vector3& v1 = vertex_positions[i1];
 
+
 	const EdgeAdjacency::Edge* edges = &adjacency.data[adjacency.offsets[i0]];
 	size_t count = adjacency.offsets[i0 + 1] - adjacency.offsets[i0];
 

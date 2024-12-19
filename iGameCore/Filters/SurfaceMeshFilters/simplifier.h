@@ -483,4 +483,437 @@ static void fillAttributeQuadrics(Quadric* attribute_quadrics, QuadricGrad* attr
     }
 }
 
+static size_t boundEdgeCollapses(const EdgeAdjacency& adjacency, size_t vertex_count, size_t index_count,
+                                 unsigned char* vertex_kind) {
+    size_t dual_count = 0;
+
+    for (size_t i = 0; i < vertex_count; ++i) {
+        unsigned char k = vertex_kind[i];
+        unsigned int e = adjacency.offsets[i + 1] - adjacency.offsets[i];
+
+        dual_count += e;
+    }
+
+    assert(dual_count <= index_count);
+
+    // pad capacity by 3 so that we can check for overflow once per triangle instead of once per edge
+    return (index_count - dual_count / 2) + 3;
+}
+
+struct Collapse {
+    unsigned int v0;
+    unsigned int v1;
+
+    union {
+        unsigned int bidi;
+        float error;
+        unsigned int errorui;
+    };
+};
+
+static size_t pickEdgeCollapses(Collapse* collapses, size_t collapse_capacity, const unsigned int* indices,
+                                size_t index_count, const unsigned int* remap, const unsigned char* vertex_kind,
+                                const unsigned int* loop, const unsigned int* loopback) {
+    size_t collapse_count = 0;
+
+    for (size_t i = 0; i < index_count; i += 3) {
+        static const int next[3] = {1, 2, 0};
+
+        // this should never happen as boundEdgeCollapses should give an upper bound for the collapse count, but in an unlikely event it does we can just drop extra collapses
+        if (collapse_count + 3 > collapse_capacity) break;
+
+        for (int e = 0; e < 3; ++e) {
+            unsigned int i0 = indices[i + e];
+            unsigned int i1 = indices[i + next[e]];
+
+            // this can happen either when input has a zero-length edge, or when we perform collapses for complex
+            // topology w/seams and collapse a manifold vertex that connects to both wedges onto one of them
+            // we leave edges like this alone since they may be important for preserving mesh integrity
+            if (remap[i0] == remap[i1]) continue;
+
+            unsigned char k0 = vertex_kind[i0];
+            unsigned char k1 = vertex_kind[i1];
+
+            // the edge has to be collapsible in at least one direction
+            //if (!(kCanCollapse[k0][k1] | kCanCollapse[k1][k0])) continue;
+
+            // manifold and seam edges should occur twice (i0->i1 and i1->i0) - skip redundant edges
+            //if (kHasOpposite[k0][k1] && remap[i1] > remap[i0]) continue;
+
+            // two vertices are on a border or a seam, but there's no direct edge between them
+            // this indicates that they belong to two different edge loops and we should not collapse this edge
+            // loop[] tracks half edges so we only need to check i0->i1
+            //if (k0 == k1 && (k0 == Kind_Border || k0 == Kind_Seam) && loop[i0] != i1) continue;
+
+            //if (k0 == Kind_Locked || k1 == Kind_Locked) {
+                // the same check as above, but for border/seam -> locked collapses
+                // loop[] and loopback[] track half edges so we only need to check one of them
+                //if ((k0 == Kind_Border || k0 == Kind_Seam) && loop[i0] != i1) continue;
+                //if ((k1 == Kind_Border || k1 == Kind_Seam) && loopback[i1] != i0) continue;
+            //}
+
+            // edge can be collapsed in either direction - we will pick the one with minimum error
+            // note: we evaluate error later during collapse ranking, here we just tag the edge as bidirectional
+            //if (kCanCollapse[k0][k1] & kCanCollapse[k1][k0]) {
+                Collapse c = {i0, i1, {/* bidi= */ 1}};
+                collapses[collapse_count++] = c;
+            //} else {
+                // edge can only be collapsed in one direction
+            //    unsigned int e0 = kCanCollapse[k0][k1] ? i0 : i1;
+            //    unsigned int e1 = kCanCollapse[k0][k1] ? i1 : i0;
+
+            //    Collapse c = {e0, e1, {/* bidi= */ 0}};
+            //    collapses[collapse_count++] = c;
+            //}
+        }
+    }
+
+    return collapse_count;
+}
+
+static float quadricEval(const Quadric& Q, const Vector3& v) {
+    float rx = Q.b0;
+    float ry = Q.b1;
+    float rz = Q.b2;
+
+    rx += Q.a10 * v.y;
+    ry += Q.a21 * v.z;
+    rz += Q.a20 * v.x;
+
+    rx *= 2;
+    ry *= 2;
+    rz *= 2;
+
+    rx += Q.a00 * v.x;
+    ry += Q.a11 * v.y;
+    rz += Q.a22 * v.z;
+
+    float r = Q.c;
+    r += rx * v.x;
+    r += ry * v.y;
+    r += rz * v.z;
+
+    return r;
+}
+
+static float quadricError(const Quadric& Q, const Vector3& v) {
+    float r = quadricEval(Q, v);
+    float s = Q.w == 0.f ? 0.f : 1.f / Q.w;
+
+    return fabsf(r) * s;
+}
+
+static float quadricError(const Quadric& Q, const QuadricGrad* G, size_t attribute_count, const Vector3& v,
+                          const float* va) {
+    float r = quadricEval(Q, v);
+
+    // see quadricFromAttributes for general derivation; here we need to add the parts of (eval(pos) - attr)^2 that depend on attr
+    for (size_t k = 0; k < attribute_count; ++k) {
+        float a = va[k];
+        float g = v.x * G[k].gx + v.y * G[k].gy + v.z * G[k].gz + G[k].gw;
+
+        r += a * (a * Q.w - 2 * g);
+    }
+
+    // note: unlike position error, we do not normalize by Q.w to retain edge scaling as described in quadricFromAttributes
+    return fabsf(r);
+}
+
+static void rankEdgeCollapses(Collapse* collapses, size_t collapse_count, const Vector3* vertex_positions,
+                              const float* vertex_attributes, const Quadric* vertex_quadrics,
+                              const Quadric* attribute_quadrics, const QuadricGrad* attribute_gradients,
+                              size_t attribute_count, const unsigned int* remap) {
+    for (size_t i = 0; i < collapse_count; ++i) {
+        Collapse& c = collapses[i];
+
+        unsigned int i0 = c.v0;
+        unsigned int i1 = c.v1;
+
+        // most edges are bidirectional which means we need to evaluate errors for two collapses
+        // to keep this code branchless we just use the same edge for unidirectional edges
+        unsigned int j0 = c.bidi ? i1 : i0;
+        unsigned int j1 = c.bidi ? i0 : i1;
+
+        float ei = quadricError(vertex_quadrics[remap[i0]], vertex_positions[i1]);
+        float ej = quadricError(vertex_quadrics[remap[j0]], vertex_positions[j1]);
+
+
+        if (attribute_count) {
+                // note: ideally we would evaluate max/avg of attribute errors for seam edges, but it's not clear if it's worth the extra cost
+                ei += quadricError(attribute_quadrics[i0], &attribute_gradients[i0 * attribute_count], attribute_count,
+                                   vertex_positions[i1], &vertex_attributes[i1 * attribute_count]);
+                ej += quadricError(attribute_quadrics[j0], &attribute_gradients[j0 * attribute_count], attribute_count,
+                                   vertex_positions[j1], &vertex_attributes[j1 * attribute_count]);
+        }
+
+        // pick edge direction with minimal error
+        c.v0 = ei <= ej ? i0 : j0;
+        c.v1 = ei <= ej ? i1 : j1;
+        c.error = ei <= ej ? ei : ej;
+    }
+}
+
+static void sortEdgeCollapses(unsigned int* sort_order, const Collapse* collapses, size_t collapse_count) {
+    // we use counting sort to order collapses by error; since the exact sort order is not as critical,
+    // only top 12 bits of exponent+mantissa (8 bits of exponent and 4 bits of mantissa) are used.
+    // to avoid excessive stack usage, we clamp the exponent range as collapses with errors much higher than 1 are not useful.
+    const unsigned int sort_bits = 12;
+    const unsigned int sort_bins = 2048 + 512; // exponent range [-127, 32)
+
+    // fill histogram for counting sort
+    unsigned int histogram[sort_bins];
+    memset(histogram, 0, sizeof(histogram));
+
+    for (size_t i = 0; i < collapse_count; ++i) {
+        // skip sign bit since error is non-negative
+        unsigned int error = collapses[i].errorui;
+        unsigned int key = (error << 1) >> (32 - sort_bits);
+        key = key < sort_bins ? key : sort_bins - 1;
+
+        histogram[key]++;
+    }
+
+    // compute offsets based on histogram data
+    size_t histogram_sum = 0;
+
+    for (size_t i = 0; i < sort_bins; ++i) {
+        size_t count = histogram[i];
+        histogram[i] = unsigned(histogram_sum);
+        histogram_sum += count;
+    }
+
+    assert(histogram_sum == collapse_count);
+
+    // compute sort order based on offsets
+    for (size_t i = 0; i < collapse_count; ++i) {
+        // skip sign bit since error is non-negative
+        unsigned int error = collapses[i].errorui;
+        unsigned int key = (error << 1) >> (32 - sort_bits);
+        key = key < sort_bins ? key : sort_bins - 1;
+
+        sort_order[histogram[key]++] = unsigned(i);
+    }
+}
+
+// does triangle ABC flip when C is replaced with D?
+static bool hasTriangleFlip(const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d) {
+    Vector3 eb = {b.x - a.x, b.y - a.y, b.z - a.z};
+    Vector3 ec = {c.x - a.x, c.y - a.y, c.z - a.z};
+    Vector3 ed = {d.x - a.x, d.y - a.y, d.z - a.z};
+
+    Vector3 nbc = {eb.y * ec.z - eb.z * ec.y, eb.z * ec.x - eb.x * ec.z, eb.x * ec.y - eb.y * ec.x};
+    Vector3 nbd = {eb.y * ed.z - eb.z * ed.y, eb.z * ed.x - eb.x * ed.z, eb.x * ed.y - eb.y * ed.x};
+
+    float ndp = nbc.x * nbd.x + nbc.y * nbd.y + nbc.z * nbd.z;
+    float abc = nbc.x * nbc.x + nbc.y * nbc.y + nbc.z * nbc.z;
+    float abd = nbd.x * nbd.x + nbd.y * nbd.y + nbd.z * nbd.z;
+
+    // scale is cos(angle); somewhat arbitrarily set to ~75 degrees
+    // note that the "pure" check is ndp <= 0 (90 degree cutoff) but that allows flipping through a series of close-to-90 collapses
+    return ndp <= 0.25f * sqrtf(abc * abd);
+}
+
+static bool hasTriangleFlips(const EdgeAdjacency& adjacency, const Vector3* vertex_positions,
+                             const unsigned int* collapse_remap, unsigned int i0, unsigned int i1) {
+    assert(collapse_remap[i0] == i0);
+    assert(collapse_remap[i1] == i1);
+
+    const Vector3& v0 = vertex_positions[i0];
+    const Vector3& v1 = vertex_positions[i1];
+
+
+    const EdgeAdjacency::Edge* edges = &adjacency.data[adjacency.offsets[i0]];
+    size_t count = adjacency.offsets[i0 + 1] - adjacency.offsets[i0];
+
+    for (size_t i = 0; i < count; ++i) {
+        unsigned int a = collapse_remap[edges[i].next];
+        unsigned int b = collapse_remap[edges[i].prev];
+
+        // skip triangles that will get collapsed by i0->i1 collapse or already got collapsed previously
+        if (a == i1 || b == i1 || a == b) continue;
+
+        // early-out when at least one triangle flips due to a collapse
+        if (hasTriangleFlip(vertex_positions[a], vertex_positions[b], v0, v1)) {
+#if TRACE >= 2
+                printf("edge block %d -> %d: flip welded %d %d %d\n", i0, i1, a, i0, b);
+#endif
+
+                return true;
+        }
+    }
+
+    return false;
+}
+
+static size_t performEdgeCollapses(unsigned int* collapse_remap, unsigned char* collapse_locked,
+                                   const Collapse* collapses, size_t collapse_count, const unsigned int* collapse_order,
+                                   const unsigned int* remap, const unsigned int* wedge,
+                                   const unsigned char* vertex_kind, const unsigned int* loop,
+                                   const unsigned int* loopback, const Vector3* vertex_positions,
+                                   const EdgeAdjacency& adjacency, size_t triangle_collapse_goal, float error_limit,
+                                   float& result_error) {
+    size_t edge_collapses = 0;
+    size_t triangle_collapses = 0;
+
+    //大多数折叠移除2个三角形；用它来建立一个错误限制的边界
+    // edge_collapse_goal是一个估计值；Triangle_collapse_goal将用于实际限制崩溃
+    size_t edge_collapse_goal = triangle_collapse_goal / 2;
+
+#if TRACE
+    size_t stats[7] = {};
+#endif
+
+    for (size_t i = 0; i < collapse_count; ++i) {
+        const Collapse& c = collapses[collapse_order[i]];
+
+
+        if (c.error > error_limit) {
+            break;
+        }
+
+        if (triangle_collapses >= triangle_collapse_goal) {
+            break;
+        }
+
+        //我们根据最优最后一次崩溃的误差来限制每次传递的误差；因为许多坍塌将被锁定
+        //由于它们将与其他成功的折叠共享顶点，我们需要将可接受误差增加一些因子
+        float error_goal = edge_collapse_goal < collapse_count
+                                   ? 1.5f * collapses[collapse_order[edge_collapse_goal]].error
+                                   : FLT_MAX;
+
+        // on average, each collapse is expected to lock 6 other collapses; to avoid degenerate passes on meshes with odd
+        // topology, we only abort if we got over 1/6 collapses accordingly.
+        if (c.error > error_goal && c.error > result_error && triangle_collapses > triangle_collapse_goal / 6) {
+                break;
+        }
+
+        unsigned int i0 = c.v0;
+        unsigned int i1 = c.v1;
+
+        unsigned int r0 = remap[i0];
+        unsigned int r1 = remap[i1];
+
+        unsigned char kind = vertex_kind[i0];
+
+        // we don't collapse vertices that had source or target vertex involved in a collapse
+        // it's important to not move the vertices twice since it complicates the tracking/remapping logic
+        // it's important to not move other vertices towards a moved vertex to preserve error since we don't re-rank collapses mid-pass
+        if (collapse_locked[r0] | collapse_locked[r1]) {
+                continue;
+        }
+
+        if (hasTriangleFlips(adjacency, vertex_positions, collapse_remap, r0, r1)) {
+                // adjust collapse goal since this collapse is invalid and shouldn't factor into error goal
+                edge_collapse_goal++;
+                continue;
+        }
+
+#if TRACE >= 2
+        printf("edge commit %d -> %d: kind %d->%d, error %f\n", i0, i1, vertex_kind[i0], vertex_kind[i1],
+               sqrtf(c.error));
+#endif
+
+        assert(collapse_remap[r0] == r0);
+        assert(collapse_remap[r1] == r1);
+
+        //if (kind == Kind_Complex) {
+        //        // remap all vertices in the complex to the target vertex
+        //        unsigned int v = i0;
+
+        //        do {
+        //            collapse_remap[v] = i1;
+        //            v = wedge[v];
+        //        } while (v != i0);
+        //} else if (kind == Kind_Seam) {
+        //        // for seam collapses we need to move the seam pair together; this is a bit tricky to compute since we need to rely on edge loops as target vertex may be locked (and thus have more than two wedges)
+        //        unsigned int s0 = wedge[i0];
+        //        unsigned int s1 = loop[i0] == i1 ? loopback[s0] : loop[s0];
+        //        assert(s0 != i0 && wedge[s0] == i0);
+        //        assert(s1 != ~0u && remap[s1] == r1);
+
+        //        // additional asserts to verify that the seam pair is consistent
+        //        assert(kind != vertex_kind[i1] || s1 == wedge[i1]);
+        //        assert(loop[i0] == i1 || loopback[i0] == i1);
+        //        assert(loop[s0] == s1 || loopback[s0] == s1);
+
+        //        // note: this should never happen due to the assertion above, but when disabled if we ever hit this case we'll get a memory safety issue; for now play it safe
+        //        s1 = (s1 != ~0u) ? s1 : wedge[i1];
+
+        //        collapse_remap[i0] = i1;
+        //        collapse_remap[s0] = s1;
+        //} else 
+        {
+                //assert(wedge[i0] == i0);
+
+                collapse_remap[i0] = i1;
+        }
+
+        // note: we technically don't need to lock r1 if it's a locked vertex, as it can't move and its quadric won't be used
+        // however, this results in slightly worse error on some meshes because the locked collapses get an unfair advantage wrt scheduling
+        collapse_locked[r0] = 1;
+        collapse_locked[r1] = 1;
+
+        // border edges collapse 1 triangle, other edges collapse 2 or more
+        triangle_collapses += 2;
+        edge_collapses++;
+
+        result_error = result_error < c.error ? c.error : result_error;
+    }
+
+    return edge_collapses;
+}
+
+static void updateQuadrics(const unsigned int* collapse_remap, size_t vertex_count, Quadric* vertex_quadrics,
+                           Quadric* attribute_quadrics, QuadricGrad* attribute_gradients, size_t attribute_count,
+                           const Vector3* vertex_positions, const unsigned int* remap, float& vertex_error) {
+    for (size_t i = 0; i < vertex_count; ++i) {
+        if (collapse_remap[i] == i) continue;
+
+        unsigned int i0 = unsigned(i);
+        unsigned int i1 = collapse_remap[i];
+
+        unsigned int r0 = remap[i0];
+        unsigned int r1 = remap[i1];
+
+        // ensure we only update vertex_quadrics once: primary vertex must be moved if any wedge is moved
+        if (i0 == r0) quadricAdd(vertex_quadrics[r1], vertex_quadrics[r0]);
+
+        if (attribute_count) {
+                quadricAdd(attribute_quadrics[i1], attribute_quadrics[i0]);
+                quadricAdd(&attribute_gradients[i1 * attribute_count], &attribute_gradients[i0 * attribute_count],
+                           attribute_count);
+
+                if (i0 == r0) {
+                    // when attributes are used, distance error needs to be recomputed as collapses don't track it; it is safe to do this after the quadric adjustment
+                    float derr = quadricError(vertex_quadrics[r0], vertex_positions[r1]);
+                    vertex_error = vertex_error < derr ? derr : vertex_error;
+                }
+        }
+    }
+}
+
+static size_t remapIndexBuffer(unsigned int* indices, size_t index_count, const unsigned int* collapse_remap) {
+    size_t write = 0;
+
+    for (size_t i = 0; i < index_count; i += 3) {
+        unsigned int v0 = collapse_remap[indices[i + 0]];
+        unsigned int v1 = collapse_remap[indices[i + 1]];
+        unsigned int v2 = collapse_remap[indices[i + 2]];
+
+        // we never move the vertex twice during a single pass
+        assert(collapse_remap[v0] == v0);
+        assert(collapse_remap[v1] == v1);
+        assert(collapse_remap[v2] == v2);
+
+        if (v0 != v1 && v0 != v2 && v1 != v2) {
+                indices[write + 0] = v0;
+                indices[write + 1] = v1;
+                indices[write + 2] = v2;
+                write += 3;
+        }
+    }
+
+    return write;
+}
+
 }

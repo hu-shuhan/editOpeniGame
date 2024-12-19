@@ -338,6 +338,7 @@ void igQtMainWindow::initAllComponents() {
 }
 igQtMainWindow::~igQtMainWindow() {}
 
+#include "SurfaceMeshFilters/simplifier.h"
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
         connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
@@ -360,7 +361,7 @@ void igQtMainWindow::initAllFilters() {
         size_t vertex_positions_stride = sizeof(float) * 3;
         float* vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
         size_t vertex_attributes_stride = sizeof(float);
-        float attribute_weights[1]{5};
+        float attribute_weights[1]{1};
         size_t attribute_count = 1;
         unsigned char* vertex_lock = nullptr;
         size_t target_index_count = index_count * 0.1;
@@ -370,7 +371,7 @@ void igQtMainWindow::initAllFilters() {
         float* result_error = &out_error;
 
         destination = new unsigned int[index_count];
-        size_t result_size = meshopt_simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
+        size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
                                        vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
                                        attribute_weights, attribute_count, vertex_lock, target_index_count,
                                        target_error, options, result_error);
