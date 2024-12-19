@@ -123,13 +123,13 @@ public:
     void Resize(int width, int height, int pixelRatio);
     void Update();
 
-    void LookAtPositiveX();
-    void LookAtNegativeX();
-    void LookAtPositiveY();
-    void LookAtNegativeY();
-    void LookAtPositiveZ();
-    void LookAtNegativeZ();
-    void LookAtIsometric();
+    void ResetCameraViewToPositiveX();
+    void ResetCameraViewToNegativeX();
+    void ResetCameraViewToPositiveY();
+    void ResetCameraViewToNegativeY();
+    void ResetCameraViewToPositiveZ();
+    void ResetCameraViewToNegativeZ();
+    void ResetCameraViewToIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
 

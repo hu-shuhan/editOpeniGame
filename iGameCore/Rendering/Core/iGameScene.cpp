@@ -1309,7 +1309,7 @@ void Scene::RefreshDrawCullDataBuffer() {
     m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
-void Scene::LookAtPositiveX() {
+void Scene::ResetCameraViewToPositiveX() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1326,7 +1326,7 @@ void Scene::LookAtPositiveX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtNegativeX() {
+void Scene::ResetCameraViewToNegativeX() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1343,7 +1343,7 @@ void Scene::LookAtNegativeX() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtPositiveY() {
+void Scene::ResetCameraViewToPositiveY() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1359,7 +1359,7 @@ void Scene::LookAtPositiveY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtNegativeY() {
+void Scene::ResetCameraViewToNegativeY() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1376,7 +1376,7 @@ void Scene::LookAtNegativeY() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtPositiveZ() {
+void Scene::ResetCameraViewToPositiveZ() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1392,7 +1392,7 @@ void Scene::LookAtPositiveZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtNegativeZ() {
+void Scene::ResetCameraViewToNegativeZ() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
@@ -1406,7 +1406,7 @@ void Scene::LookAtNegativeZ() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
-void Scene::LookAtIsometric() {
+void Scene::ResetCameraViewToIsometric() {
     ResetCameraView();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};

@@ -270,31 +270,31 @@ void igQtMainWindow::initAllComponents() {
     // &igQtModelDrawWidget::changeCurrentModel2Last);
 
     connect(ui->action_setViewToPositiveX, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveX();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveX();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeX, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeX();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeX();
         rendererWidget->update();
     });
     connect(ui->action_setViewToPositiveY, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveY();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveY();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeY, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeY();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeY();
         rendererWidget->update();
     });
     connect(ui->action_setViewToPositiveZ, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveZ();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveZ();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeZ, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeZ();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeZ();
         rendererWidget->update();
     });
     connect(ui->action_setViewToIsometric, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtIsometric();
+        rendererWidget->GetScene()->ResetCameraViewToIsometric();
         rendererWidget->update();
     });
     connect(ui->action_rotateNinetyClockwise, &QAction::triggered, this, [&](bool checked) {
