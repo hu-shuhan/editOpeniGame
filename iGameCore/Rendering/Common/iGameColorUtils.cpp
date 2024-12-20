@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 12/9/2024.
-//
-
 #include "iGameColorUtils.h"
 
 IGAME_NAMESPACE_BEGIN

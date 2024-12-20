@@ -1,12 +1,7 @@
 /**
  * @file
- * @brief    Related basic data structures for two-dimensional vectors.
- * @author   Sumzeek
- * @date     4/12/2024
- * @version  v1.0.0
- * @par      Copyright(c): Hangzhou Dianzi University iGame Laboratory
- * @par      History:
- *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
+ * @brief    iGame-Matrix库二维向量头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
  */
 
 #ifndef IGM_VEC2_H

@@ -1,6 +1,8 @@
-//
-// Created by Sumzeek on 10/5/2024.
-//
+/**
+ * @file
+ * @brief    iGame-Matrix库整型三维向量头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
 
 #ifndef IGM_VECTOR_INT3_H
 #define IGM_VECTOR_INT3_H

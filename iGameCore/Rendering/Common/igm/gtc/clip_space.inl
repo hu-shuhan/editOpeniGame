@@ -43,12 +43,6 @@ mat<4, 4, T> rotate(mat<4, 4, T> const& m, T angle, vec<3, T> const& v) {
     return Result;
 }
 
-//template<typename T>
-//mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
-//                    const vec<3, T>& up) {
-//    return lookAtRH(eye, center, up);
-//}
-
 template<typename T>
 mat<4, 4, T> lookAtRH(const vec<3, T>& eye, const vec<3, T>& center,
                       const vec<3, T>& up) {
@@ -94,26 +88,6 @@ mat<4, 4, T> lookAtLH(const vec<3, T>& eye, const vec<3, T>& center,
     Result[3][2] = dot(f, eye);
     return Result;
 }
-
-//template<typename T>
-//mat<4, 4, T> perspective(T fovy, T aspect, T zNear) {
-//    return perspectiveRH_ZO(fovy, aspect, zNear);
-//}
-//
-//template<typename T>
-//mat<4, 4, T> perspective(T fovy, T aspect, T zNear, T zFar) {
-//    return perspectiveRH_ZO(fovy, aspect, zNear, zFar);
-//}
-//
-//template<typename T>
-//mat<4, 4, T> perspectiveReversedZ(T fovy, T aspect, T zNear) {
-//    return perspectiveRH_OZ(fovy, aspect, zNear);
-//}
-//
-//template<typename T>
-//mat<4, 4, T> perspectiveReversedZ(T fovy, T aspect, T zNear, T zFar) {
-//    return perspectiveRH_OZ(fovy, aspect, zNear, zFar);
-//}
 
 template<typename T>
 // depth range: 0.0(near plane) -> 1.0(far plane)
@@ -298,11 +272,6 @@ mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear) {
     Result[3][2] = zNear;
     return Result;
 }
-
-//template<typename T>
-//mat<4, 4, T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
-//    return orthoRH_NO(left, right, bottom, top, zNear, zFar);
-//}
 
 template<typename T>
 // depth range: 0.0(near plane) -> 1.0(far plane)

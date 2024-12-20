@@ -1,66 +1,63 @@
 /**
  * @file
- * @brief    Public functions used by iGame Matrix module.
- * @author   Sumzeek
- * @date     4/12/2024
- * @version  v1.0.0
- * @par      Copyright(c): Hangzhou Dianzi University iGame Laboratory
- * @par      History:
- *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
+ * @brief    iGame-Matrix库常用函数
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
  */
 
 #ifndef IGM_COMMON_H
 #define IGM_COMMON_H
 
 #include <cassert>
-#include <cmath> // Necessary for std::sqrt
+#include <cmath> // 必需的头文件，包含 std::sqrt
 #include <iostream>
 
-/** Pi value used by iGame Matrix */
+/** iGame Matrix 使用的 Pi 常量 */
 #define IGM_PI 3.14159265358979323846
 
 namespace igm
 {
 
+// 模板类定义，用于表示向量（尺寸为 N）
 template<int N, typename T>
 class vec {};
 
-template<int N, int M, typename T>
+// 模板类定义，用于表示矩阵（尺寸为 M×N）
+template<int M, int N, typename T>
 class mat {};
 
 /**
- * Converts an angle in degrees to radians.
- * @param degrees The angle in degrees.
- * @return The angle in radians.
+ * 将角度从度数转换为弧度。
+ * @param degrees 输入的角度（单位：度）。
+ * @return 返回转换后的角度（单位：弧度）。
  */
 template<typename T>
 double radians(T degrees);
 
 /**
- * Calculates the determinant of a 2×2 matrix.
- * @note The matrix is in column-major order.
- * @param a The element at the first row and first column.
- * @param b The element at the second row and first column.
- * @param c The element at the first row and second column.
- * @param d The element at the second row and second column.
- * @return The determinant of the 2×2 matrix.
+ * 计算一个 2×2 矩阵的行列式。
+ * @note 矩阵采用列主序（column-major）排列。
+ * @param a 第1行第1列的元素。
+ * @param b 第2行第1列的元素。
+ * @param c 第1行第2列的元素。
+ * @param d 第2行第2列的元素。
+ * @return 返回 2×2 矩阵的行列式。
  */
 template<typename T>
 double determinant2x2(T a, T b, T c, T d);
 
 /**
- * Calculates the determinant of a 3×3 matrix.
- * @note The matrix is in column-major order.
- * @param a1 The element at the first row and first column.
- * @param a2 The element at the second row and first column.
- * @param a3 The element at the third row and first column.
- * @param b1 The element at the first row and second column.
- * @param b2 The element at the second row and second column.
- * @param b3 The element at the third row and second column.
- * @param c1 The element at the first row and third column.
- * @param c2 The element at the second row and third column.
- * @param c3 The element at the third row and third column.
- * @return The determinant of the 3×3 matrix.
+ * 计算一个 3×3 矩阵的行列式。
+ * @note 矩阵采用列主序（column-major）排列。
+ * @param a1 第1行第1列的元素。
+ * @param a2 第2行第1列的元素。
+ * @param a3 第3行第1列的元素。
+ * @param b1 第1行第2列的元素。
+ * @param b2 第2行第2列的元素。
+ * @param b3 第3行第2列的元素。
+ * @param c1 第1行第3列的元素。
+ * @param c2 第2行第3列的元素。
+ * @param c3 第3行第3列的元素。
+ * @return 返回 3×3 矩阵的行列式。
  */
 template<typename T>
 double determinant3x3(T a1, T a2, T a3, T b1, T b2, T b3, T c1, T c2, T c3);

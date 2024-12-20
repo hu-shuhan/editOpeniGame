@@ -1,12 +1,7 @@
 /**
  * @file
- * @brief    Contains cutting-related usage of iGame Matrix.
- * @author   Sumzeek
- * @date     4/12/2024
- * @version  v1.0.0
- * @par      Copyright(c): Hangzhou Dianzi University iGame Laboratory
- * @par      History:
- *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
+ * @brief    iGame-Matrix库矩阵裁减函数头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
  */
 
 #ifndef IGM_CLIP_H
@@ -17,227 +12,252 @@
 
 namespace igm
 {
+
 /**
- * Performs a translation operation on the given 4×4 matrix.
- * @param m The original matrix to be translated.
- * @param v The translation vector.
- * @return A new matrix that represents the original matrix translated by the
- * vector.
+ * @brief 对给定的四阶矩阵执行平移操作。
+ * @param m 需要平移的原始矩阵。
+ * @param v 平移向量。
+ * @return 一个新的四阶矩阵，表示原始矩阵经过平移向量变换后的结果。
  */
 template<typename T>
 mat<4, 4, T> translate(mat<4, 4, T> const& m, vec<3, T> const& v);
 
 /**
- * Performs a rotation operation on the given 4×4 matrix.
- * @param m The original matrix to be rotated.
- * @param angle The angle of rotation in radians.
- * @param v The axis vector around which the rotation occurs.
- * @return A new matrix that represents the original matrix rotated by the given
- * angle around the axis vector.
+ * @brief 对给定的四阶矩阵执行旋转操作。
+ * @param m 需要旋转的原始四阶矩阵。
+ * @param angle 旋转角度（单位：弧度）。
+ * @param v 旋转轴向量。
+ * @return 一个新的四阶矩阵，表示原始四阶矩阵围绕给定的轴向量旋转指定角度后的结果。
  */
 template<typename T>
 mat<4, 4, T> rotate(mat<4, 4, T> const& m, T angle, vec<3, T> const& v);
 
 /**
- * Creates a view matrix for a right-handed coordinate system.
- * @param eye The position of the camera.
- * @param center The point to look at.
- * @param up The up direction vector.
- * @return A view matrix for a right-handed coordinate system.
+ * @brief 为右手坐标系创建视图矩阵。
+ * @param eye 相机的位置。
+ * @param center 观察的目标点。
+ * @param up 向上的方向向量。
+ * @return 一个用于右手坐标系的视图矩阵。
  */
 template<typename T>
 mat<4, 4, T> lookAtRH(const vec<3, T>& eye, const vec<3, T>& center,
                       const vec<3, T>& up);
 
 /**
- * Creates a view matrix for a left-handed coordinate system.
- * @param eye The position of the camera.
- * @param center The point to look at.
- * @param up The up direction vector.
- * @return A view matrix for a left-handed coordinate system.
+ * @brief 为左手坐标系创建视图矩阵。
+ * @param eye 相机的位置。
+ * @param center 观察的目标点。
+ * @param up 向上的方向向量。
+ * @return 一个用于左手坐标系的视图矩阵。
  */
 template<typename T>
 mat<4, 4, T> lookAtLH(const vec<3, T>& eye, const vec<3, T>& center,
                       const vec<3, T>& up);
 
-///**
-// * Creates a view matrix. The handedness of the coordinate system is
-// * implementation-defined.
-// * @param eye The position of the camera.
-// * @param center The point to look at.
-// * @param up The up direction vector.
-// * @return A view matrix.
-// * @note Default right-handed coordinate system
-// */
-//template<typename T>
-//mat<4, 4, T> lookAt(const vec<3, T>& eye, const vec<3, T>& center,
-//                    const vec<3, T>& up);
-
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a zero to one depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从0到1。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_ZO(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a zero to one depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从0到1，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_ZO(T fovy, T aspect, T zNear);
 
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a near to one depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从-1到1。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_NO(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a near to one depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从-1到1，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_NO(T fovy, T aspect, T zNear);
 
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a one to zero depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从1到0。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_OZ(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a right-handed coordinate system
- * with a one to zero depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为右手坐标系创建一个透视投影矩阵，深度范围为从1到0，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveRH_OZ(T fovy, T aspect, T zNear);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a zero to one depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围为从0到1。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_ZO(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a zero to one depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围为从0到1，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_ZO(T fovy, T aspect, T zNear);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a near to one depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围从-1到1。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_NO(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a near to one depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围从-1到1，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_NO(T fovy, T aspect, T zNear);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a one to zero depth range.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @param zFar The far clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围从1到0。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @param zFar 远裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear, T zFar);
 
 /**
- * Creates a perspective projection matrix for a left-handed coordinate system
- * with a one to zero depth range and default infinite far plane.
- * @param fovy Field of view in the y direction, in radians.
- * @param aspect Aspect ratio, defined as width divided by height.
- * @param zNear The near clipping plane.
- * @return A perspective projection matrix.
+ * @brief 为左手坐标系创建一个透视投影矩阵，深度范围从1到0，且具有无限远裁剪平面。
+ * @param fovy 视野角度，在y轴方向的弧度值。
+ * @param aspect 纵横比，定义为宽度除以高度。
+ * @param zNear 近裁剪平面。
+ * @return 一个透视投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> perspectiveLH_OZ(T fovy, T aspect, T zNear);
 
 /**
- * Creates an orthogonal projection matrix for a right-handed coordinate system
- * with a normalized device coordinate depth range of -1 to 1.
- * @param left The coordinate for the left vertical clipping plane.
- * @param right The coordinate for the right vertical clipping plane.
- * @param bottom The coordinate for the bottom horizontal clipping plane.
- * @param top The coordinate for the top horizontal clipping plane.
- * @param zNear The near depth clipping plane.
- * @param zFar The far depth clipping plane.
- * @return An orthogonal projection matrix.
+ * @brief 为右手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的0到1。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
+ */
+template<typename T>
+mat<4, 4, T> orthoRH_ZO(T left, T right, T bottom, T top, T zNear, T zFar);
+
+/**
+ * @brief 为右手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的-1到1。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
  */
 template<typename T>
 mat<4, 4, T> orthoRH_NO(T left, T right, T bottom, T top, T zNear, T zFar);
 
 /**
- * Computes an orthogonal matrix for given parameters. The handedness of the
- * coordinate system and depth range are implementation-defined.
- * @param left The coordinate for the left vertical clipping plane.
- * @param right The coordinate for the right vertical clipping plane.
- * @param bottom The coordinate for the bottom horizontal clipping plane.
- * @param top The coordinate for the top horizontal clipping plane.
- * @param zNear The near depth clipping plane.
- * @param zFar The far depth clipping plane.
- * @return An orthogonal projection matrix.
+ * @brief 为右手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的1到0。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
  */
 template<typename T>
-mat<4, 4, T> ortho(T left, T right, T bottom, T top, T zNear, T zFar);
+mat<4, 4, T> orthoRH_OZ(T left, T right, T bottom, T top, T zNear, T zFar);
+
+/**
+ * @brief 为左手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的0到1。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
+ */
+template<typename T>
+mat<4, 4, T> orthoLH_ZO(T left, T right, T bottom, T top, T zNear, T zFar);
+
+/**
+ * @brief 为左手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的-1到1。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
+ */
+template<typename T>
+mat<4, 4, T> orthoLH_NO(T left, T right, T bottom, T top, T zNear, T zFar);
+
+/**
+ * @brief 为左手坐标系创建一个正交投影矩阵，深度范围为标准化设备坐标的1到0。
+ * @param left 左侧垂直裁剪平面的坐标。
+ * @param right 右侧垂直裁剪平面的坐标。
+ * @param bottom 底部水平裁剪平面的坐标。
+ * @param top 顶部水平裁剪平面的坐标。
+ * @param zNear 近深度裁剪平面。
+ * @param zFar 远深度裁剪平面。
+ * @return 一个正交投影矩阵。
+ */
+template<typename T>
+mat<4, 4, T> orthoLH_OZ(T left, T right, T bottom, T top, T zNear, T zFar);
+
 } // namespace igm
 
 #include "clip_space.inl"

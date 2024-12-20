@@ -1,6 +1,8 @@
-//
-// Created by Sumzeek on 6/26/2024.
-//
+/**
+ * @file
+ * @brief    iGame-Matrix库单浮点型三阶矩阵头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
 
 #ifndef IGM_MATRIX_FLOAT3x3_H
 #define IGM_MATRIX_FLOAT3x3_H

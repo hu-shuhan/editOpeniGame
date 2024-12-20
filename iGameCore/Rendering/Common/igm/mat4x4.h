@@ -1,13 +1,8 @@
 /**
- * @file
- * @brief    Related basic data structures for 4×4 matrix.
- * @author   Sumzeek
- * @date     4/12/2024
- * @version  v1.0.0
- * @par      Copyright(c): Hangzhou Dianzi University iGame Laboratory
- * @par      History:
- *	       v1.0.0: Sumzeek, 4/12/2024, first create this file\n
- */
+* @file
+* @brief    iGame-Matrix库四阶矩阵头文件
+* @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+*/
 
 #ifndef IGM_MAT4x4_H
 #define IGM_MAT4x4_H
