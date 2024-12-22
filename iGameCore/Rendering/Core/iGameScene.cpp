@@ -83,8 +83,10 @@ bool Scene::Initialize() {
     InitOIT();
     InitFont();
     InitAxes();
-    m_FinishInit = true;
 
+    ResetCameraView();
+    
+    m_FinishInit = true;
     return true;
 }
 
@@ -1469,19 +1471,21 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 min(FLT_MAX);
     igm::vec3 max(-FLT_MAX);
 
-    auto box = BoundingBox{};
+    auto box = m_Painter3D->GetBoundingBox();
     for (auto& [id, model]: m_Models) {
         if (!model->GetVisibility()) { continue; }
-
-        box.reset();
         box.combine(model->m_DataObject->GetBoundingBox());
-        box.combine(model->GetPainter3D()->GetBoundingBox());
-        Vector3f boxMin = box.min;
-        Vector3f boxMax = box.max;
-
-        min = igm::min(igm::vec3{boxMin[0], boxMin[1], boxMin[2]}, min);
-        max = igm::max(igm::vec3{boxMax[0], boxMax[1], boxMax[2]}, max);
     }
+
+    if (box.isNull()) {
+        m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        return;
+    }
+
+    Vector3f boxMin = box.min;
+    Vector3f boxMax = box.max;
+    min = igm::vec3{boxMin[0], boxMin[1], boxMin[2]};
+    max = igm::vec3{boxMax[0], boxMax[1], boxMax[2]};
 
     igm::vec3 center = (min + max) / 2;
     float radius = (max - min).length() / 2;

@@ -739,7 +739,7 @@ void Model::SetBoundingBoxSwitch(bool action) {
         if (m_BboxHandle != 0) { m_Painter3D->Delete(m_BboxHandle); }
         m_Painter3D->SetPen(5);
         m_Painter3D->SetPen(Color::LightBlue);
-        m_Painter3D->SetBrush(Color::None);
+        m_Painter3D->SetBrush(Brush::Style::NoBrush);
         m_BboxHandle = m_Painter3D->DrawCube(p1, p7);
     } else {
         SwitchOff(ViewSwitch::BoundingBox);

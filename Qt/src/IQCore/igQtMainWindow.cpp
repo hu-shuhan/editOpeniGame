@@ -792,7 +792,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter3D* painter, const float color[3]) -> void {
         // 1. draw faces
-        painter->SetPen(Color::None);
+        painter->SetPen(Pen::Style::NoPen);
         painter->SetBrush(color[0], color[1], color[2]);
         igIndex cell[32]{};
         for (int i = 0; i < m->GetNumberOfFaces(); i++) {
@@ -803,7 +803,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         // 2. draw lines
         painter->SetPen(Color::Black);
-        painter->SetBrush(Color::None);
+        painter->SetBrush(Brush::Style::NoBrush);
         if (m->GetEdges() == nullptr) { m->BuildEdges(); }
         for (int i = 0; i < m->GetNumberOfEdges(); i++) {
             int ncell = m->GetEdgePointIds(i, cell);

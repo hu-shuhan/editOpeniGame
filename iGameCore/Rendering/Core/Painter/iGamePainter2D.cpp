@@ -28,7 +28,7 @@ void Painter2D::Draw(Scene* scene) {
 }
 
 IGuint Painter2D::DrawPoint(const Vector2ui& point) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
+    if (m_Pen->GetStyle() == Pen::Style::NoPen) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -51,7 +51,7 @@ IGuint Painter2D::DrawPoint(const Vector2ui& point) {
 }
 
 IGuint Painter2D::DrawLine(const Vector2ui& p1, const Vector2ui& p2) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
+    if (m_Pen->GetStyle() == Pen::Style::NoPen) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -75,8 +75,8 @@ IGuint Painter2D::DrawLine(const Vector2ui& p1, const Vector2ui& p2) {
 
 IGuint Painter2D::DrawTriangle(const Vector2ui& p1, const Vector2ui& p2,
                                const Vector2ui& p3) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -87,7 +87,7 @@ IGuint Painter2D::DrawTriangle(const Vector2ui& p1, const Vector2ui& p2,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource2D::RequestTriangle(p1, p2, p3);
@@ -97,7 +97,7 @@ IGuint Painter2D::DrawTriangle(const Vector2ui& p1, const Vector2ui& p2,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -114,8 +114,8 @@ IGuint Painter2D::DrawTriangle(const Vector2ui& p1, const Vector2ui& p2,
 }
 
 IGuint Painter2D::DrawRect(const Vector2ui& p1, const Vector2ui& p3) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -126,7 +126,7 @@ IGuint Painter2D::DrawRect(const Vector2ui& p1, const Vector2ui& p3) {
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource2D::RequestRect(p1, p3);
@@ -136,7 +136,7 @@ IGuint Painter2D::DrawRect(const Vector2ui& p1, const Vector2ui& p3) {
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -154,8 +154,8 @@ IGuint Painter2D::DrawRect(const Vector2ui& p1, const Vector2ui& p3) {
 
 IGuint Painter2D::DrawCircle(const Vector2ui& center, double radius,
                              int resolution) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -166,7 +166,7 @@ IGuint Painter2D::DrawCircle(const Vector2ui& center, double radius,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource2D::RequestCircle(center, radius, resolution);
@@ -176,7 +176,7 @@ IGuint Painter2D::DrawCircle(const Vector2ui& center, double radius,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 

@@ -19,7 +19,7 @@ void Painter3D::Draw(Scene* scene) {
 }
 
 IGuint Painter3D::DrawPoint(const Point& point) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
+    if (m_Pen->GetStyle() == Pen::Style::NoPen) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -45,7 +45,7 @@ IGuint Painter3D::DrawPoint(const Point& point) {
 }
 
 IGuint Painter3D::DrawLine(const Point& p1, const Point& p2) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor())) { return 0; }
+    if (m_Pen->GetStyle() == Pen::Style::NoPen) { return 0; }
 
     Primitive primitive{};
     primitive.penWidth = m_Pen->GetWidth();
@@ -72,8 +72,8 @@ IGuint Painter3D::DrawLine(const Point& p1, const Point& p2) {
 
 IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
                                const Point& p3) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -84,7 +84,7 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource3D::RequestTriangle(p1, p2, p3);
@@ -94,7 +94,7 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -114,8 +114,8 @@ IGuint Painter3D::DrawTriangle(const Point& p1, const Point& p2,
 }
 
 IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -126,7 +126,7 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource3D::RequestRect(p1, p3);
@@ -136,7 +136,7 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -156,8 +156,8 @@ IGuint Painter3D::DrawRect(const Point& p1, const Point& p3) {
 }
 
 IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -168,7 +168,7 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = DataSource3D::RequestCube(p1, p7);
@@ -178,7 +178,7 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -199,8 +199,8 @@ IGuint Painter3D::DrawCube(const Point& p1, const Point& p7) {
 
 IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
                              float radius, int resolution) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -211,7 +211,7 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source =
@@ -222,7 +222,7 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -245,8 +245,8 @@ IGuint Painter3D::DrawCircle(const Point& center, const Vector3f& normal,
 IGuint Painter3D::DrawSphere(const Point& center, float radius,
                              unsigned int stackCount,
                              unsigned int sectorCount) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -257,7 +257,7 @@ IGuint Painter3D::DrawSphere(const Point& center, float radius,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = SphereSource::RequestSphere(center, radius, sectorCount,
@@ -268,7 +268,7 @@ IGuint Painter3D::DrawSphere(const Point& center, float radius,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -290,8 +290,8 @@ IGuint Painter3D::DrawSphere(const Point& center, float radius,
 
 IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
                                 unsigned int subdivision) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -302,7 +302,7 @@ IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source =
@@ -313,7 +313,7 @@ IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -335,8 +335,8 @@ IGuint Painter3D::DrawIcoSphere(const Point& center, float radius,
 
 IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
                                  unsigned int vertexCountPerRow) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -347,7 +347,7 @@ IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = SphereSource::RequestCubeSphere(center, radius,
@@ -358,7 +358,7 @@ IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -381,8 +381,8 @@ IGuint Painter3D::DrawCubeSphere(const Point& center, float radius,
 IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
                                float height, float radius,
                                unsigned int resolution) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -393,7 +393,7 @@ IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = CylinderSource::RequestCylinder(center, normal, height,
@@ -404,7 +404,7 @@ IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -427,8 +427,8 @@ IGuint Painter3D::DrawCylinder(const Point& center, const Vector3f& normal,
 IGuint Painter3D::DrawCone(const Point& center, const Vector3f& normal,
                            float height, float radius,
                            unsigned int resolution) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -439,7 +439,7 @@ IGuint Painter3D::DrawCone(const Point& center, const Vector3f& normal,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = ConeSource::RequestCone(center, normal, height, radius,
@@ -450,7 +450,7 @@ IGuint Painter3D::DrawCone(const Point& center, const Vector3f& normal,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -474,8 +474,8 @@ IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
                               float height, float radius,
                               unsigned int stackCount,
                               unsigned int sectorCount) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -486,7 +486,7 @@ IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
     auto& colors = primitive.colors;
     auto& indices = primitive.indices;
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = ConeSource::RequestPyramid(center, normal, height, radius,
@@ -497,7 +497,7 @@ IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 
@@ -521,8 +521,8 @@ IGuint Painter3D::DrawPyramid(const Point& center, const Vector3f& normal,
 IGuint Painter3D::DrawFrustum(const Point& center, const Vector3f& normal,
                               float height, float baseRadius, float topRadius,
                               unsigned int resolution) {
-    if (!ColorUtils::IsValid(m_Pen->GetColor()) &&
-        !ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Pen->GetStyle() == Pen::Style::NoPen &&
+        m_Brush->GetStyle() == Brush::Style::NoBrush) {
         return 0;
     }
 
@@ -535,7 +535,7 @@ IGuint Painter3D::DrawFrustum(const Point& center, const Vector3f& normal,
 
     auto color = m_Pen->GetColor();
 
-    if (ColorUtils::IsValid(m_Pen->GetColor())) {
+    if (m_Pen->GetStyle() != Pen::Style::NoPen) {
         auto color = m_Pen->GetColor();
 
         auto source = ConeSource::RequestFrustum(
@@ -546,7 +546,7 @@ IGuint Painter3D::DrawFrustum(const Point& center, const Vector3f& normal,
                           source.indices[1].end());
     }
 
-    if (ColorUtils::IsValid(m_Brush->GetColor())) {
+    if (m_Brush->GetStyle() != Brush::Style::NoBrush) {
         int offset = points.size();
         auto color = m_Brush->GetColor();
 

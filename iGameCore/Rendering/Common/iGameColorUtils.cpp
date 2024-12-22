@@ -39,8 +39,6 @@ bool ColorUtils::IsValid(int red, int green, int blue) {
 
 igm::vec3 ColorUtils::Map(Color color) {
     switch (color) {
-        case Color::None:
-            return igm::vec3{-1.0f, -1.0f, -1.0f};
         case Color::Red:
             return igm::vec3{1.0f, 0.0f, 0.0f};
         case Color::Green:
