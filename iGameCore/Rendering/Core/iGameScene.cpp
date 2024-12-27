@@ -85,7 +85,7 @@ bool Scene::Initialize() {
     InitAxes();
 
     ResetCameraView();
-    
+
     m_FinishInit = true;
     return true;
 }
@@ -458,6 +458,8 @@ void Scene::InitOpenGL() {
         throw std::runtime_error("Failed to initialize GLAD");
     }
 
+    PrintOpenGLInfo();
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
@@ -582,6 +584,25 @@ void Scene::InitOpenGL() {
     }
 
     GLCheckError();
+}
+
+void Scene::PrintOpenGLInfo() {
+    igDebug("==================== OpenGL Info ====================");
+
+    const GLubyte* vendor = glGetString(GL_VENDOR);
+    igDebug("Vendor:   " << reinterpret_cast<const char*>(vendor));
+
+    const GLubyte* renderer = glGetString(GL_RENDERER);
+    igDebug("Renderer: " << reinterpret_cast<const char*>(renderer));
+
+    const GLubyte* version = glGetString(GL_VERSION);
+    igDebug("Version:  " << reinterpret_cast<const char*>(version));
+
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+
+
+    igDebug("=====================================================");
 }
 
 void Scene::InitOIT() {
@@ -1098,13 +1119,6 @@ void Scene::TransparentPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        auto shader = GetShader(Scene::TRANSPARENCYSORT);
-        shader->Use();
-
-        shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("forwardPassColorMS", 1);
-
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() != 1.0f) {
@@ -1119,6 +1133,10 @@ void Scene::TransparentPass() {
     {
         auto shader = GetShader(Scene::TRANSPARENCYSORT);
         shader->Use();
+
+        shader->SetUniformi("numSamples", samples);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+        shader->SetUniformi("forwardPassColorMS", 1);
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);
@@ -1163,13 +1181,6 @@ void Scene::VolumeRenderingPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
-        shader->Use();
-
-        shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("forwardPassColorMS", 1);
-
         for (auto& [id, model]: m_Models) { model->DrawWithVolume(this); }
     }
     glDepthMask(GL_TRUE);
@@ -1179,6 +1190,10 @@ void Scene::VolumeRenderingPass() {
     {
         auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
         shader->Use();
+
+        shader->SetUniformi("numSamples", samples);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+        shader->SetUniformi("forwardPassColorMS", 1);
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);

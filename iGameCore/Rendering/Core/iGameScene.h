@@ -170,6 +170,7 @@ protected:
     void UpdateModelsBoundingSphere();
 
     void InitOpenGL();
+    void PrintOpenGLInfo();
     void InitOIT();
     void InitFont();
     void InitAxes();
