@@ -69,6 +69,7 @@ public:
         MESHLETCULL,
         SCREEN,
         FXAA,
+        MESHSHADER,
         SHADERTYPE_COUNT
     };
 

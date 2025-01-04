@@ -1,6 +1,7 @@
 #include "iGameScene.h"
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
+#include "iGameMeshleter.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -434,6 +435,15 @@ GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
                     CreateShader(std::string("./Resources/Shaders/fxaa.frag"),
                                  GL_FRAGMENT_SHADER);
             sp->AddShaders(fxaa_vert, fxaa_frag);
+        } break;
+        case MESHSHADER: {
+            GLShader::Pointer shader_mesh = CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/shader.mesh"),
+                    GL_MESH_SHADER_NV);
+            GLShader::Pointer shader_frag = CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/shader.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(shader_mesh, shader_frag);
         } break;
         default:
             break;
@@ -952,6 +962,96 @@ void Scene::DrawFrame() {
         glDepthFunc(GL_GEQUAL);
 
         if (!m_EnableVolumeRendering) {
+            // mesh shader test
+            //{
+            //    auto shader = GetShader(Scene::MESHSHADER);
+            //    shader->Use();
+            //    //shader->SetUniformf("scale", 1.0f);
+            //
+            //    GLBuffer::Pointer meshletBuffer = GLBuffer::New();
+            //    GLBuffer::Pointer meshletVertexBuffer = GLBuffer::New();
+            //    GLBuffer::Pointer meshletTriangleBuffer = GLBuffer::New();
+            //    GLBuffer::Pointer positionBuffer = GLBuffer::New();
+            //
+            //    std::vector<Meshleter::Meshlet> meshlets(4);
+            //
+            //    //std::vector<float> positions = {
+            //    //        -0.5f, 0.5f, 0.0f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,
+            //    //        0.0f,  0.0f, 0.5f, 0.0f,  0.0f, 0.0f, 0.0f,  0.0f,
+            //    //        -0.5f, 0.0f, 0.5f, 0.0f,  0.0f, 0.5f, -0.5f, 0.0f};
+            //    //
+            //    //std::vector<unsigned int> vertices = {0, 1, 4, 1, 2, 5,
+            //    //                                      3, 4, 6, 4, 5, 7};
+            //    //
+            //    //std::vector<unsigned char> indices = {0, 1, 2, 0, 1, 2,
+            //    //                                      0, 1, 2, 0, 1, 2};
+            //
+            //    std::vector<float> positions = {-1.0f, -1.0f, 0.0f,  0.0f, 1.0f,
+            //                                    0.0f,  1.0f,  -1.0f, 0.0f};
+            //
+            //    std::vector<unsigned int> vertices = {0, 1, 2};
+            //
+            //    std::vector<unsigned char> indices = {0, 1, 2};
+            //
+            //    meshlets[0].vertex_offset = 0;
+            //    meshlets[0].triangle_offset = 0;
+            //    meshlets[0].vertex_count = 3;
+            //    meshlets[0].triangle_count = 1;
+            //
+            //    //meshlets[1].vertex_offset = 3;
+            //    //meshlets[1].triangle_offset = 3;
+            //    //meshlets[1].vertex_count = 3;
+            //    //meshlets[1].triangle_count = 1;
+            //
+            //    //meshlets[2].vertex_offset = 6;
+            //    //meshlets[2].triangle_offset = 6;
+            //    //meshlets[2].vertex_count = 3;
+            //    //meshlets[2].triangle_count = 1;
+            //    //
+            //    //meshlets[3].vertex_offset = 9;
+            //    //meshlets[3].triangle_offset = 9;
+            //    //meshlets[3].vertex_count = 3;
+            //    //meshlets[3].triangle_count = 1;
+            //
+            //    meshletBuffer->Create();
+            //    meshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            //    meshletBuffer->Allocate(meshlets.size() *
+            //                                    sizeof(Meshleter::Meshlet),
+            //                            meshlets.data(), GL_STATIC_DRAW);
+            //    meshletBuffer->BindBase(1);
+            //
+            //    meshletVertexBuffer->Create();
+            //    meshletVertexBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            //    meshletVertexBuffer->Allocate(vertices.size() *
+            //                                          sizeof(unsigned int),
+            //                                  vertices.data(), GL_STATIC_DRAW);
+            //    meshletVertexBuffer->BindBase(2);
+            //
+            //    meshletTriangleBuffer->Create();
+            //    meshletTriangleBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            //    meshletTriangleBuffer->Allocate(indices.size() *
+            //                                            sizeof(unsigned char),
+            //                                    indices.data(), GL_STATIC_DRAW);
+            //    meshletTriangleBuffer->BindBase(3);
+            //
+            //    positionBuffer->Create();
+            //    positionBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            //    positionBuffer->Allocate(positions.size() * sizeof(float),
+            //                             positions.data(), GL_STATIC_DRAW);
+            //    positionBuffer->BindBase(4);
+            //
+            //    //GLBuffer::Pointer colorBuffer = GLBuffer::New();
+            //    //std::vector<float> colors = {1.0f, 0.0f, 0.0f};
+            //    //colorBuffer->Create();
+            //    //colorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            //    //colorBuffer->Allocate(colors.size() * sizeof(float),
+            //    //                      colors.data(), GL_STATIC_DRAW);
+            //    //colorBuffer->BindBase(5);
+            //
+            //    int offset = 0;
+            //    int count = 4;
+            //    glDrawMeshTasksNV(offset, count);
+            //}
             ShadowPass();
             ForwardPass();
             TransparentPass();
