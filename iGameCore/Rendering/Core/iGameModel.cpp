@@ -419,9 +419,9 @@ void Model::DrawPhase1(Scene* scene) {
             meshlets->FinalDrawCommandBuffer()->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
-            std::cout << "Draw phase 1: [render count: " << count;
-            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-                      << std::endl;
+            // std::cout << "Draw phase 1: [render count: " << count;
+            // std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
+            //           << std::endl;
             drawObject->m_TriangleVAO->Release();
         }
     };
@@ -523,9 +523,9 @@ void Model::DrawPhase2(Scene* scene) {
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
 
-            std::cout << "Draw phase 2: [render count: " << count;
-            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-                      << std::endl;
+            // std::cout << "Draw phase 2: [render count: " << count;
+            // std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
+            //           << std::endl;
 
             drawObject->m_TriangleVAO->Release();
         }

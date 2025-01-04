@@ -1,12 +1,10 @@
-//
-// Created by Sumzeek on 11/19/2024.
-//
-
 /**
  * @class    iGameSphereSource
  * @brief    iGameSphereSource's brief
  */
+
 #include "iGameSphereSource.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 

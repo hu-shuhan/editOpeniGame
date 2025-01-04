@@ -1,5 +1,6 @@
 ﻿#include "iGameSlicingStyle.h"
 #include "iGameInteractor.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 void SlicingStyle::Initialize(Interactor* a) {

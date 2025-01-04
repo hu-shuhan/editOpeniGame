@@ -3,6 +3,7 @@
 //
 
 #include "iGameCamera.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 
