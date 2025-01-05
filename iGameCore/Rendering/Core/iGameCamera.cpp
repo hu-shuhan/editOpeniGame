@@ -90,7 +90,7 @@ void Viewer::SetFov(float fov) {
 float Viewer::GetFov() const { return m_Fov; }
 
 
-/** Depth Map Visualization:
+/** Depth Map Visualization(farz is infinite):
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           1              2      INF/-INF     0              1
@@ -102,13 +102,13 @@ float Viewer::GetFov() const { return m_Fov; }
 //};
 
 // depth range: 0.0(near plane) -> 1.0(far plane)
-igm::mat4 Viewer::GetProjectionMatrix() {
-    return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
-                                 aspect<float>(), m_ClippingRange.x,
-                                 m_ClippingRange.y);
-};
+//igm::mat4 Viewer::GetProjectionMatrix() {
+//    return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
+//                                 aspect<float>(), m_ClippingRange.x,
+//                                 m_ClippingRange.y);
+//};
 
-/** Depth Map Visualization:
+/** Depth Map Visualization(farz is infinite):
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           0             -1     -INF/INF      1              0

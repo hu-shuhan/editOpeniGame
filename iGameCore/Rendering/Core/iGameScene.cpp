@@ -499,7 +499,7 @@ void Scene::InitOpenGL() {
         m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
                              GL_STATIC_DRAW);
 
-        // map shader block
+        // map blinnphong shader block
         {
             auto shader = this->GetShader(BLINNPHONG);
             shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
@@ -975,43 +975,36 @@ void Scene::DrawFrame() {
             //
             //    std::vector<Meshleter::Meshlet> meshlets(4);
             //
-            //    //std::vector<float> positions = {
-            //    //        -0.5f, 0.5f, 0.0f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,
-            //    //        0.0f,  0.0f, 0.5f, 0.0f,  0.0f, 0.0f, 0.0f,  0.0f,
-            //    //        -0.5f, 0.0f, 0.5f, 0.0f,  0.0f, 0.5f, -0.5f, 0.0f};
-            //    //
-            //    //std::vector<unsigned int> vertices = {0, 1, 4, 1, 2, 5,
-            //    //                                      3, 4, 6, 4, 5, 7};
-            //    //
-            //    //std::vector<unsigned char> indices = {0, 1, 2, 0, 1, 2,
-            //    //                                      0, 1, 2, 0, 1, 2};
+            //    std::vector<float> positions = {
+            //            -0.5f, 0.5f, 0.0f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,
+            //            0.0f,  0.0f, 0.5f, 0.0f,  0.0f, 0.0f, 0.0f,  0.0f,
+            //            -0.5f, 0.0f, 0.5f, 0.0f,  0.0f, 0.5f, -0.5f, 0.0f};
             //
-            //    std::vector<float> positions = {-1.0f, -1.0f, 0.0f,  0.0f, 1.0f,
-            //                                    0.0f,  1.0f,  -1.0f, 0.0f};
+            //    std::vector<unsigned int> vertices = {0, 1, 4, 1, 2, 5,
+            //                                          3, 4, 6, 4, 5, 7};
             //
-            //    std::vector<unsigned int> vertices = {0, 1, 2};
-            //
-            //    std::vector<unsigned char> indices = {0, 1, 2};
+            //    std::vector<unsigned char> indices = {0, 1, 2, 0, 1, 2,
+            //                                          0, 1, 2, 0, 1, 2};
             //
             //    meshlets[0].vertex_offset = 0;
             //    meshlets[0].triangle_offset = 0;
             //    meshlets[0].vertex_count = 3;
             //    meshlets[0].triangle_count = 1;
             //
-            //    //meshlets[1].vertex_offset = 3;
-            //    //meshlets[1].triangle_offset = 3;
-            //    //meshlets[1].vertex_count = 3;
-            //    //meshlets[1].triangle_count = 1;
+            //    meshlets[1].vertex_offset = 3;
+            //    meshlets[1].triangle_offset = 3;
+            //    meshlets[1].vertex_count = 3;
+            //    meshlets[1].triangle_count = 1;
             //
-            //    //meshlets[2].vertex_offset = 6;
-            //    //meshlets[2].triangle_offset = 6;
-            //    //meshlets[2].vertex_count = 3;
-            //    //meshlets[2].triangle_count = 1;
-            //    //
-            //    //meshlets[3].vertex_offset = 9;
-            //    //meshlets[3].triangle_offset = 9;
-            //    //meshlets[3].vertex_count = 3;
-            //    //meshlets[3].triangle_count = 1;
+            //    meshlets[2].vertex_offset = 6;
+            //    meshlets[2].triangle_offset = 6;
+            //    meshlets[2].vertex_count = 3;
+            //    meshlets[2].triangle_count = 1;
+            //
+            //    meshlets[3].vertex_offset = 9;
+            //    meshlets[3].triangle_offset = 9;
+            //    meshlets[3].vertex_count = 3;
+            //    meshlets[3].triangle_count = 1;
             //
             //    meshletBuffer->Create();
             //    meshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
@@ -1141,7 +1134,7 @@ void Scene::ForwardPass() {
 #ifdef IGAME_OPENGL_VERSION_330
     for (auto& [id, model]: m_Models) { model->Draw(this); }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = false;
+    bool debug = true;
     if (debug) {
         //std::cout << "-------:Draw:-------" << std::endl;
         RefreshDrawCullDataBuffer();
@@ -1415,7 +1408,9 @@ void Scene::RefreshDrawCullDataBuffer() {
     cullData.view_model = m_Camera->GetViewMatrix() * m_ModelMatrix;
     cullData.P00 = projection[0][0];
     cullData.P11 = projection[1][1];
-    cullData.zNear = projection[3][2];
+    //cullData.zNear = projection[3][2];
+    cullData.zNear = m_Camera->GetClippingRange().x;
+    cullData.zFar = m_Camera->GetClippingRange().y;
     cullData.frustum[0] = frustumX.x;
     cullData.frustum[1] = frustumX.z;
     cullData.frustum[2] = frustumY.y;

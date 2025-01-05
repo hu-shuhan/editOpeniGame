@@ -419,9 +419,9 @@ void Model::DrawPhase1(Scene* scene) {
             meshlets->FinalDrawCommandBuffer()->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
-            // std::cout << "Draw phase 1: [render count: " << count;
-            // std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-            //           << std::endl;
+            std::cout << "Draw phase 1: [render count: " << count;
+            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
+                      << std::endl;
             drawObject->m_TriangleVAO->Release();
         }
     };
@@ -523,9 +523,9 @@ void Model::DrawPhase2(Scene* scene) {
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
 
-            // std::cout << "Draw phase 2: [render count: " << count;
-            // std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-            //           << std::endl;
+            std::cout << "Draw phase 2: [render count: " << count;
+            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
+                      << std::endl;
 
             drawObject->m_TriangleVAO->Release();
         }
@@ -607,8 +607,9 @@ void Model::TestOcclusionResults(Scene* scene) {
                 scene->DepthPyramid()->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
-                auto count = meshlets->MeshletsCount();
-                glDispatchCompute(((count + 255) / 256), 1, 1);
+                size_t count = meshlets->MeshletsCount();
+                glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
+                                  1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }

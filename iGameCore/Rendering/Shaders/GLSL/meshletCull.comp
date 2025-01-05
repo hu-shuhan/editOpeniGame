@@ -9,6 +9,8 @@ uniform int workMode;
 
 // Camera buffer
 layout(std140, binding = 0) uniform CameraDataBlock {
+    vec3 viewPos;
+    int isOrtho;
     mat4 view;
     mat4 proj;
     mat4 proj_view;// proj * view
@@ -49,7 +51,7 @@ layout(std430, binding = 4) buffer FinalDrawCommandBuffer {
 // Draw Cull Data
 layout(std140, binding = 5) uniform DrawCullDataBlock {
     mat4 view_model;
-    float P00, P11, zNear;// symmetric projection parameters
+    float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
     float pyramidWidth, pyramidHeight;// depth pyramid size in texels
 } drawCullData;
@@ -119,7 +121,15 @@ bool IsVisible(MeshletData meshlet) {
         float epsilon = 1e-7;
         depth -= epsilon;
 
-        float depthSphere = drawCullData.zNear / (-center.z - radius);
+        float z = center.z + radius;// From the camera's perspective, z is negative.
+
+        // Unlimited viewing distance
+        // float depthSphere = drawCullData.zNear / -z;
+
+        // Limited viewing distance
+        float n = drawCullData.zNear;
+        float f = drawCullData.zFar;
+        float depthSphere = (n + n * f / z) / (n - f);
 
         visible = visible && depthSphere >= depth;
     }

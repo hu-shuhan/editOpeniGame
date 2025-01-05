@@ -45,7 +45,8 @@ public:
 
     struct DrawCullData {
         alignas(16) igm::mat4 view_model;
-        alignas(4) float P00, P11, zNear; // symmetric projection parameters
+        alignas(4) float P00, P11, zNear,
+                zFar; // symmetric projection parameters
         alignas(16) igm::vec4
                 frustum; // data for left/right/top/bottom frustum planes
         alignas(4) float pyramidWidth,

@@ -18,6 +18,8 @@ layout(max_vertices = MAX_VERTEX_COUNT, max_primitives = MAX_PRIMITIVE_COUNT) ou
 
 // Camera buffer
 layout(std140, binding = 0) uniform CameraDataBlock {
+    vec3 viewPos;
+    int isOrtho;
     mat4 view;
     mat4 proj;
     mat4 proj_view;// proj * view
@@ -45,19 +47,19 @@ layout(std430, binding = 3) readonly buffer MeshletTriangleBuffer {
 
 // in vertex information
 layout(std430, binding = 4) readonly buffer PositionBuffer {
-    vec3 positions[];
+    float data[];// vec3
 } positionBuffer;
 
 layout(std430, binding = 5) readonly buffer ColorBuffer {
-    vec3 colors[];
+    float data[];// vec3
 } colorBuffer;
 
 layout(std430, binding = 6) readonly buffer NormalBuffer {
-    vec3 normals[];
+    float data[];// vec3
 } normalBuffer;
 
 layout(std430, binding = 7) readonly buffer UVBuffer {
-    vec2 uvs[];
+    float data[];// vec2
 } uvBuffer;
 
 //// out for fargment shader
@@ -83,7 +85,11 @@ void main()
 
         uint vertexIndex = meshletVertexBuffer.meshlet_vertices[meshlet.vertex_offset + localVertexIndex];
 
-        vec4 vertexPosition = vec4(positionBuffer.positions[vertexIndex], 1.0f);
+        uint offset = vertexIndex * 3;
+        float x = positionBuffer.data[offset];
+        float y = positionBuffer.data[offset + 1];
+        float z = positionBuffer.data[offset + 2];
+        vec4 vertexPosition = vec4(x, y, z, 1.0f);
         gl_MeshVerticesNV[localVertexIndex].gl_Position = vertexPosition;
     }
 
