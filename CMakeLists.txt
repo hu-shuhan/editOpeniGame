@@ -67,8 +67,8 @@ add_subdirectory(ThirdParty)
 add_subdirectory(iGameCore)
 target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
-add_subdirectory(Qt)
-target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
+#add_subdirectory(Qt)
+#target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 #if(EXAMPLE_COMPILE )
 if (EXAMPLE_COMPILE)
@@ -76,7 +76,7 @@ if (EXAMPLE_COMPILE)
 endif ()
 
 #   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-if (WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-endif ()
+# if (WIN32)
+#     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+# endif ()

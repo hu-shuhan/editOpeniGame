@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "atomic": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "sstream": "c",
+        "regex": "c"
+    }
+}
