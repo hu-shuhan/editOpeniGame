@@ -11,6 +11,9 @@ Meshleter::Meshleter() {
     m_MeshletVertexBuffer = GLBuffer::New();
     m_MeshletTriangleBuffer = GLBuffer::New();
 
+    m_MeshletDescriptor = GLBuffer::New();
+    m_VisibleMeshletCounter = GLBuffer::New();
+
     m_PositionBuffer = GLBuffer::New();
     m_ColorBuffer = GLBuffer::New();
     m_NormalBuffer = GLBuffer::New();
@@ -28,8 +31,8 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
 
     Timer::Pointer timer = Timer::New();
 
-    FloatArray::Pointer positions;
-    UnsignedIntArray::Pointer triangleIndices;
+    FloatArray::Pointer positions = FloatArray::New();
+    UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
 
     // convert to draw date
     timer->Reset();
@@ -37,14 +40,14 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
         auto mesh = DynamicCast<SurfaceMesh>(dataObject);
 
         // positions
-        FloatArray::Pointer positions = mesh->GetPoints()->ConvertToArray();
+        positions = mesh->GetPoints()->ConvertToArray();
         // indices
-        UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
         triangleIndices->SetDimension(3);
 
         int i, ncell;
         igIndex cell[32]{};
         for (i = 0; i < mesh->GetNumberOfFaces(); i++) {
+            ncell = mesh->GetFacePointIds(i, cell);
             for (int j = 1; j < ncell - 1; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
                 // add edge mask
@@ -92,6 +95,7 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
                 meshletTriangles.data(), optimized_indices.data(), index_count,
                 vertex_positions, vertex_count, sizeof(float) * 3,
                 m_MaxVertices, m_MaxTriangles, m_ConeWeight);
+        m_MeshletCount = meshlet_count;
 
         // Resize the vector to fit the actual generated meshlet data
         const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
@@ -118,6 +122,15 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
                     vertex_positions, vertex_count, sizeof(float) * 3);
         }
 
+        // Prepare MeshletDescriptors array to store meshlet descriptors
+        std::vector<MeshletDescriptor> MeshletDescriptors(meshlet_count);
+        for (size_t i = 0; i < meshlet_count; ++i) {
+            const meshopt_Bounds& b = meshlet_bounds[i];
+            MeshletDescriptors[i] = {
+                    igm::vec4{b.center[0], b.center[1], b.center[2], b.radius},
+                    igm::vec4{0.0f}};
+        }
+
         // create buffer
         {
             m_MeshletBuffer->Create();
@@ -136,6 +149,17 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
             m_MeshletTriangleBuffer->Allocate(
                     meshletTriangles.size() * sizeof(unsigned char),
                     meshletTriangles.data(), GL_STATIC_DRAW);
+
+            m_MeshletDescriptor->Create();
+            m_MeshletDescriptor->Target(GL_SHADER_STORAGE_BUFFER);
+            m_MeshletDescriptor->Allocate(
+                    MeshletDescriptors.size() * sizeof(MeshletDescriptor),
+                    MeshletDescriptors.data(), GL_STATIC_DRAW);
+
+            m_VisibleMeshletCounter->Create();
+            m_VisibleMeshletCounter->Target(GL_SHADER_STORAGE_BUFFER);
+            m_VisibleMeshletCounter->Allocate(sizeof(unsigned int), nullptr,
+                                              GL_DYNAMIC_DRAW);
 
             m_PositionBuffer->Create();
             m_PositionBuffer->Target(GL_SHADER_STORAGE_BUFFER);

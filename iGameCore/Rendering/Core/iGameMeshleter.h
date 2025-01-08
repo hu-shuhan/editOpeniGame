@@ -11,14 +11,17 @@
 #include "meshoptimizer.h"
 
 IGAME_NAMESPACE_BEGIN
+
+class Model;
+
 class Meshleter : public Object {
 public:
     I_OBJECT(Meshleter);
     static Pointer New() { return new Meshleter; }
 
-    struct MeshletData {
+    struct MeshletDescriptor {
         igm::vec4 spherebounds;
-        igm::vec4 extents;
+        igm::vec4 extents; // not use now
     };
 
     struct Meshlet {
@@ -39,13 +42,20 @@ protected:
     const size_t m_MaxTriangles = 124;
     const float m_ConeWeight = 0.0f;
 
+    size_t m_MeshletCount;
+
     GLBuffer::Pointer m_MeshletBuffer;
     GLBuffer::Pointer m_MeshletVertexBuffer;
     GLBuffer::Pointer m_MeshletTriangleBuffer;
+
+    GLBuffer::Pointer m_MeshletDescriptor;
+    GLBuffer::Pointer m_VisibleMeshletCounter;
 
     GLBuffer::Pointer m_PositionBuffer;
     GLBuffer::Pointer m_ColorBuffer;
     GLBuffer::Pointer m_NormalBuffer;
     GLBuffer::Pointer m_UVBuffer;
+
+    friend class Model;
 };
 IGAME_NAMESPACE_END

@@ -14,6 +14,7 @@
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameSelection.h"
+#include "iGameShaderManager.h"
 
 IGAME_NAMESPACE_BEGIN
 class Interactor;
@@ -23,62 +24,40 @@ public:
     I_OBJECT(Scene);
     static Pointer New() { return new Scene; }
 
-    struct CameraDataBuffer {
-        alignas(16) igm::vec3 camera_position;
-        alignas(4) int isOrtho;
-        alignas(16) igm::mat4 view;
-        alignas(16) igm::mat4 proj;
-        alignas(16) igm::mat4 proj_view; // proj * view
-    };
-
-    struct ObjectDataBuffer {
-        alignas(4) float transparent;
-        alignas(16) igm::mat4 model;
-        alignas(16) igm::mat4 normal; // transpose(inverse(model))
-        alignas(16) igm::vec4 sphereBounds;
-    };
-
-    struct UniformBufferObjectBuffer {
-        alignas(4) int useColor{0};
-        alignas(4) int useNormalSmooth{0};
-    };
-
-    struct DrawCullData {
-        alignas(16) igm::mat4 view_model;
-        alignas(4) float P00, P11, zNear,
-                zFar; // symmetric projection parameters
-        alignas(16) igm::vec4
-                frustum; // data for left/right/top/bottom frustum planes
-        alignas(4) float pyramidWidth,
-                pyramidHeight; // depth pyramid size in texels
-    };
-
-    enum ShaderType {
-        BLINNPHONG = 0,
-        PBR,
-        NOLIGHT,
-        PURECOLOR,
-        SINGLEPASSWIREFRAME,
-        TRANSPARENCYLINK,
-        TRANSPARENCYSORT,
-        VOLUMERENDERINGLINK,
-        VOLUMERENDERINGSORT,
-        AXES,
-        FONT,
-        ATTACHMENTRESOLVE,
-        DEPTHREDUCE,
-        MESHLETCULL,
-        SCREEN,
-        FXAA,
-        MESHSHADER,
-        SHADERTYPE_COUNT
-    };
+    //struct CameraDataBuffer {
+    //    alignas(16) igm::vec3 camera_position;
+    //    alignas(4) int isOrtho;
+    //    alignas(16) igm::mat4 view;
+    //    alignas(16) igm::mat4 proj;
+    //    alignas(16) igm::mat4 proj_view; // proj * view
+    //};
+    //
+    //struct ObjectDataBuffer {
+    //    alignas(4) float transparent;
+    //    alignas(16) igm::mat4 model;
+    //    alignas(16) igm::mat4 normal; // transpose(inverse(model))
+    //    alignas(16) igm::vec4 sphereBounds;
+    //};
+    //
+    //struct UniformBufferObjectBuffer {
+    //    alignas(4) int useColor{0};
+    //    alignas(4) int useNormalSmooth{0};
+    //};
+    //
+    //struct DrawCullData {
+    //    alignas(16) igm::mat4 view_model;
+    //    alignas(4) float P00, P11, zNear,
+    //            zFar; // symmetric projection parameters
+    //    alignas(16) igm::vec4
+    //            frustum; // data for left/right/top/bottom frustum planes
+    //    alignas(4) float pyramidWidth,
+    //            pyramidHeight; // depth pyramid size in texels
+    //};
 
     /* Model Related */
     int AddModel(DataObject::Pointer);
     int AddModel(Model::Pointer);
     void ResetCameraView();
-    Model::Pointer CreateModel(DataObject::Pointer);
     void RemoveModel(int index);
     void RemoveModel(Model*);
     void RemoveCurrentModel();
@@ -103,22 +82,17 @@ public:
     void ChangeCameraType(IGenum type);
     GLTexture2d::Pointer DepthPyramid() { return m_DepthPyramid; }
 
-    CameraDataBuffer& CameraData() { return m_CameraData; }
-    ObjectDataBuffer& ObjectData() { return m_ObjectData; }
-    UniformBufferObjectBuffer& UBO() { return m_UBO; }
+    //CameraDataBuffer& CameraData() { return m_CameraData; }
+    //ObjectDataBuffer& ObjectData() { return m_ObjectData; }
+    //UniformBufferObjectBuffer& UBO() { return m_UBO; }
     igm::vec4& ModelsBoundingSphere() { return m_ModelsBoundingSphere; }
     igm::mat4& ModelRotate() { return m_ModelRotate; }
     igm::mat4& ModelMatrix() { return m_ModelMatrix; }
 
     //void UseColor();
-    void UpdateUniformBuffer();
+    //void UpdateUniformBuffer();
 
-    void SetShader(IGenum type, GLShaderProgram::Pointer);
-    GLShaderProgram::Pointer GenShader(IGenum type);
-    GLShaderProgram::Pointer GetShaderWithType(IGenum type);
-    GLShaderProgram::Pointer GetShader(IGenum type);
-    bool HasShader(IGenum type);
-    void UseShader(IGenum type);
+    GLShaderProgram::Pointer GetShader(ShaderType type);
 
     bool Initialize();
     void Draw();
@@ -193,8 +167,8 @@ protected:
     void VolumeRenderingPass();
 
     void UpdateCameraDataBlock();
-    void UpdateObjectDataBlock(DataObject* obj);
-    void UpdateUniformBufferObjectBlock(DataObject* obj);
+    void UpdateObjectDataBlock(DataObject::Pointer obj);
+    void UpdateUniformBufferObjectBlock(DataObject::Pointer obj);
     void UpdateCameraClippingRange();
 
     void DrawAxes(igm::ivec4 drawRange);
@@ -217,11 +191,15 @@ protected:
     Interactor* m_Interactor;
 
     FontManager::Pointer m_FontManager;
+    ShaderManager::Pointer m_ShaderManager;
+    //ShaderManager::CameraDataBuffer m_CameraData;
+    //ShaderManager::ObjectDataBuffer m_ObjectData;
+    //ShaderManager::UniformBufferObjectBuffer m_UBO;
 
     /* Rendering related */
-    CameraDataBuffer m_CameraData;
-    ObjectDataBuffer m_ObjectData;
-    UniformBufferObjectBuffer m_UBO;
+    //CameraDataBuffer m_CameraData;
+    //ObjectDataBuffer m_ObjectData;
+    //UniformBufferObjectBuffer m_UBO;
 
     igm::mat4 m_ModelRotate; //Rotation matrix passing through the origin
     igm::mat4 m_ModelMatrix;
@@ -230,14 +208,14 @@ protected:
     uint32_t m_VisibleModelsCount;
     igm::vec4 m_ModelsBoundingSphere;
 
-    GLBuffer::Pointer m_CameraDataBlock, m_ObjectDataBlock, m_UBOBlock;
+    //GLBuffer::Pointer m_CameraDataBlock, m_ObjectDataBlock, m_UBOBlock;
 
-    std::map<IGenum, GLShaderProgram::Pointer> m_ShaderPrograms;
+    //std::map<IGenum, GLShaderProgram::Pointer> m_ShaderPrograms;
 
     // used to draw full-screen triangle
     GLVertexArray::Pointer m_EmptyVAO;
 
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     GLint samples;
     GLFramebuffer::Pointer m_FramebufferMultisampled;
     GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
@@ -258,8 +236,9 @@ protected:
     GLBuffer::Pointer m_OITLinkedListBuffer;
     GLTextureBuffer::Pointer m_OITLinkedListTexture;
 
-    GLBuffer::Pointer m_DrawCullData;
-    int m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
+    //GLBuffer::Pointer m_DrawCullData;
+    unsigned int m_DepthPyramidWidth, m_DepthPyramidHeight,
+            m_DepthPyramidLevels;
     GLTexture2d::Pointer m_DepthPyramid;
 
     Painter2D::Pointer m_Painter2D;
@@ -270,6 +249,8 @@ protected:
 
     friend class Model;
     friend class Interactor;
+    friend class Painter2D;
+    friend class Painter3D;
 };
 
 IGAME_NAMESPACE_END

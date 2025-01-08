@@ -732,7 +732,7 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_TriangleEdgeMasks->Modified();
 
 #ifdef IGAME_OPENGL_VERSION_460
-        bool debug = true;
+        bool debug = false;
         if (debug) {
             m_Meshlets->BuildMeshlet(m_Positions->RawPointer(), m_Positions->GetNumberOfElements(),
                                      m_TriangleIndices->RawPointer(), m_TriangleIndices->GetNumberOfValues(),

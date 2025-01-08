@@ -17,10 +17,15 @@ void Painter2D::Draw(Scene* scene) {
     auto width = static_cast<float>(vp[2]);
     auto height = static_cast<float>(vp[3]);
 
-    scene->ObjectData().model = igm::mat4{1.0f};
-    scene->CameraData().view = igm::mat4{1.0f};
-    scene->CameraData().proj =
-            igm::orthoRH_OZ(0.0f, width, 0.0f, height, -1.0f, 1.0f);
+    igm::mat4 model = igm::mat4{1.0f};
+    igm::mat4 view = igm::mat4{1.0f};
+    igm::mat4 proj = igm::orthoRH_OZ(0.0f, width, 0.0f, height, -1.0f, 1.0f);
+
+    scene->m_ShaderManager->UpdateCameraBlock(
+            {igm::vec3{0.0f}, 1, view, proj, proj * view});
+    scene->m_ShaderManager->UpdateObjectBlock(
+            {1.0f, model, model.invert().transpose(), igm::vec4{}});
+    scene->m_ShaderManager->UpdateUBOBlock({1, 0});
 
     glDisable(GL_DEPTH_TEST);
     PainterBase::Draw(scene);

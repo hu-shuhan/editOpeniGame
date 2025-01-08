@@ -1,0 +1,200 @@
+#version 460
+
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_vote : require
+
+#define WORKGROUP_SIZE 32
+#define MESHLET_PER_TASK 32
+
+const uint meshletLoops = (MESHLET_PER_TASK + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+// Meshlet Descriptors
+struct MeshletDescriptor {
+    vec4 spherebounds;
+    vec4 extents;
+};
+layout(std430, binding = 10) buffer MeshletDescriptorBuffer {
+    MeshletDescriptor meshletDescs[];
+} meshletDescriptorBuffer;
+
+layout(std140, binding = 11) uniform DrawCullDataBlock {
+    mat4 view_model;
+    float P00, P11, zNear, zFar;// symmetric projection parameters
+    vec4 frustum;// data for left/right/top/bottom frustum planes
+    uint pyramidWidth, pyramidHeight;// depth pyramid size in texels
+} drawCullData;
+
+taskNV out Task {
+    uint      baseID;
+    uint8_t   deltaIDs[MESHLET_PER_TASK];
+} task_out;
+
+uniform uint meshletCount;
+
+// hierarchical z-buffer
+uniform sampler2D depthPyramid;
+
+bool IsVisible(MeshletDescriptor meshletDescriptor);
+
+layout(std430, binding = 20) coherent buffer VisibleMeshletCounter {
+    uint visibleMeshletCount;
+};
+
+void main() {
+    uint baseID = gl_WorkGroupID.x * MESHLET_PER_TASK;
+    uint laneID = gl_LocalInvocationID.x;
+
+    uint outMeshletCount = 0;
+    for (uint loop = 0; loop < meshletLoops; loop++) {
+        uint meshletLocal = laneID + loop * WORKGROUP_SIZE;
+        uint meshletGlobal = baseID + meshletLocal;
+
+        // we padded the buffer to ensure we don't access it out of bounds
+        MeshletDescriptor desc = meshletDescriptorBuffer.meshletDescs[meshletGlobal];
+
+        // implement some early culling function
+        bool render = meshletGlobal < meshletCount && IsVisible(desc);
+
+        uvec4 voteMeshlets  = subgroupBallot(render);
+        uint numMeshlets = subgroupBallotBitCount(voteMeshlets);
+        uint idxOffset = subgroupBallotExclusiveBitCount(voteMeshlets) + outMeshletCount;
+        if (render) {
+            atomicAdd(visibleMeshletCount, 1);
+            task_out.deltaIDs[idxOffset] = uint8_t(meshletLocal);
+        }
+
+        outMeshletCount += numMeshlets;
+    }
+
+    if (laneID == 0) {
+        // write the number of surviving meshlets, i.e.
+        // mesh workgroups to spawn
+        gl_TaskCountNV = outMeshletCount;
+
+        // where the meshletIDs started from for this task workgroup
+        task_out.baseID = baseID;
+    }
+}
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 aabb) {
+    if (-C.z - r < zNear) {
+        return false;
+    }
+    P11 = -P11;
+
+    vec2 cx = -C.xz;
+    vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
+    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+    vec2 cy = -C.yz;
+    vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
+    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+    aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+    aabb = vec4(0.5f, 0.5f, 0.5f, 0.5f) - vec4(0.5f, 0.5f, 0.5f, 0.5f) * aabb;// clip space -> uv space
+
+    // Vulkan uv -> OpenGL uv
+    aabb = vec4(aabb.x, 1.0f - aabb.w, aabb.z, 1.0f - aabb.y);
+
+    return true;
+}
+
+uint GetMipLevelFromAABB(vec4 aabb, uint desiredFootprintPixels) {
+    vec2 pyramidSize = vec2(drawCullData.pyramidWidth, drawCullData.pyramidHeight);
+    float width = (aabb.z - aabb.x) * pyramidSize.x;
+    float height = (aabb.w - aabb.y) * pyramidSize.y;
+
+    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
+    // Start by calculating separate x and y mip level requirements.
+    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
+    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
+    // So k = floor( log2( n - 1 )
+    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
+
+    float n = max(width, height);
+    uint k = uint(floor(log2(n - 1)));
+    uint mipLevel = max(k - mipOffset, 0);
+
+    return mipLevel;
+}
+
+float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
+    float minDepth = 1.0f;
+
+    if (bSample4x4) {
+        float level = float(GetMipLevelFromAABB(aabb, 4));
+
+        vec2 minCoord = aabb.xy;
+        vec2 maxCoord = aabb.zw;
+
+        vec2 stepSize = (maxCoord - minCoord) / 3.0f;
+
+        for (uint y = 0; y < 4; ++y) {
+            for (uint x = 0; x < 4; ++x) {
+                vec2 sampleCoord = minCoord + vec2(x, y) * stepSize;
+                float depth = textureLod(depthPyramid, sampleCoord, level).r;
+                minDepth = min(minDepth, depth);
+            }
+        }
+    } else {
+        float level = float(GetMipLevelFromAABB(aabb, 2));
+
+        float depth_0 = textureLod(depthPyramid, aabb.xy, level).r;
+        float depth_1 = textureLod(depthPyramid, aabb.xw, level).r;
+        float depth_2 = textureLod(depthPyramid, aabb.zw, level).r;
+        float depth_3 = textureLod(depthPyramid, aabb.zy, level).r;
+
+        minDepth = min(min(depth_0, depth_1), min(depth_2, depth_3));
+    }
+
+    // float epsilon = 1e-7;
+    // minDepth -= epsilon;
+
+    return minDepth;
+}
+
+// Function to perform occlusion culling
+bool IsVisible(MeshletDescriptor meshletDescriptor) {
+    vec4 sphereBounds = meshletDescriptor.spherebounds;
+
+    // in the right-handed coordinate system, the z value of the view coordinate is negative
+    vec3 center = sphereBounds.xyz;
+    center = (drawCullData.view_model * vec4(center, 1.f)).xyz;
+    float radius = sphereBounds.w;
+
+    bool visible = true;
+
+    // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
+    visible = visible && center.z * drawCullData.frustum[1] - abs(center.x) * drawCullData.frustum[0] > -radius;
+    visible = visible && center.z * drawCullData.frustum[3] - abs(center.y) * drawCullData.frustum[2] > -radius;
+
+    // dist culling
+    // visible = visible && -center.z + radius > drawCullData.zNear && -center.z - radius < drawCullData.zFar;
+
+    vec4 aabb;
+    if (ProjectSphere(center, radius, drawCullData.zNear, drawCullData.P00, drawCullData.P11, aabb)) {
+        float depth = GetMinDepthFromHZB(aabb, true);
+
+        float z = center.z + radius;// From the camera's perspective, z is negative.
+
+        // Unlimited viewing distance
+        // float depthSphere = drawCullData.zNear / -z;
+
+        // Limited viewing distance
+        float n = drawCullData.zNear;
+        float f = drawCullData.zFar;
+        float depthSphere = (n + n * f / z) / (n - f);
+
+        visible = visible && depthSphere >= depth;
+    }
+
+    return visible;
+}

@@ -12,9 +12,12 @@ Painter3D::Painter3D() {}
 Painter3D::~Painter3D() {}
 
 void Painter3D::Draw(Scene* scene) {
-    scene->ObjectData().model = scene->ModelMatrix();
-    scene->CameraData().view = scene->GetCamera()->GetViewMatrix();
-    scene->CameraData().proj = scene->GetCamera()->GetProjectionMatrix();
+    igm::mat4 model = scene->m_ModelMatrix;
+
+    scene->UpdateCameraDataBlock();
+    scene->m_ShaderManager->UpdateObjectBlock(
+            {1.0f, model, model.invert().transpose(), igm::vec4{}});
+    scene->m_ShaderManager->UpdateUBOBlock({1, 0});
     PainterBase::Draw(scene);
 }
 
