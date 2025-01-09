@@ -1,6 +1,7 @@
 #pragma once
 
-#define MSAA
+#define GL_SUPPORTS_MSAA
+#define GL_SUPPORTS_MESH_SHADER
 
 #define MAX_FRAMEBUFFER_WIDTH 7680
 #define MAX_FRAMEBUFFER_HEIGHT 4320

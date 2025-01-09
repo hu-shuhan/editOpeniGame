@@ -21,10 +21,11 @@ Scene::Scene() {
     m_Interactor = Interactor::New();
 
     m_FontManager = FontManager::New();
+    m_ShaderManager = ShaderManager::New();
 
-    m_CameraData = CameraDataBuffer{};
-    m_ObjectData = ObjectDataBuffer{};
-    m_UBO = UniformBufferObjectBuffer{};
+    //m_CameraData = CameraDataBuffer{};
+    //m_ObjectData = ObjectDataBuffer{};
+    //m_UBO = UniformBufferObjectBuffer{};
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
@@ -33,13 +34,13 @@ Scene::Scene() {
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
 
-    m_CameraDataBlock = GLBuffer::New();
-    m_ObjectDataBlock = GLBuffer::New();
-    m_UBOBlock = GLBuffer::New();
+    //m_CameraDataBlock = GLBuffer::New();
+    //m_ObjectDataBlock = GLBuffer::New();
+    //m_UBOBlock = GLBuffer::New();
 
     m_EmptyVAO = GLVertexArray::New();
 
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     samples = 8;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
@@ -60,7 +61,7 @@ Scene::Scene() {
     m_OITLinkedListBuffer = GLBuffer::New();
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
-    m_DrawCullData = GLBuffer::New();
+    //m_DrawCullData = GLBuffer::New();
     m_DepthPyramidWidth = 0;
     m_DepthPyramidHeight = 0;
     m_DepthPyramidLevels = 0;
@@ -93,7 +94,7 @@ bool Scene::Initialize() {
 
 int Scene::AddModel(DataObject::Pointer obj) {
     Model::Pointer model = Model::New();
-    model->m_DataObject = obj;
+    model->SetDataObject(obj);
     return AddModel(model);
 }
 
@@ -108,12 +109,6 @@ int Scene::AddModel(Model::Pointer model) {
 
     this->Update();
     return newModelId;
-}
-
-Model::Pointer Scene::CreateModel(DataObject::Pointer obj) {
-    Model::Pointer model = Model::New();
-    model->m_DataObject = obj;
-    return model;
 }
 
 void Scene::RemoveModel(int index) {
@@ -259,208 +254,9 @@ void Scene::ChangeCameraType(IGenum type) {
     }
 }
 
-GLShaderProgram::Pointer Scene::GetShader(IGenum type) {
-    GLShaderProgram::Pointer sp = this->GetShaderWithType(type);
-    if (sp != nullptr) { return sp; }
-
-    sp = this->GenShader(type);
-    if (sp == nullptr) {
-        // std::cout << "Error for GenShader\n";
-    }
-    this->SetShader(type, sp);
-    return sp;
+GLShaderProgram::Pointer Scene::GetShader(ShaderType type) {
+    return m_ShaderManager->GetShader(type);
 }
-
-GLShaderProgram::Pointer Scene::GetShaderWithType(IGenum type) {
-    auto it = m_ShaderPrograms.find(type);
-    if (it == m_ShaderPrograms.end()) { return nullptr; }
-    return it->second;
-}
-
-GLShaderProgram::Pointer Scene::GenShader(IGenum type) {
-    GLShaderProgram::Pointer sp = GLShaderProgram::New();
-    switch (type) {
-        case BLINNPHONG: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer blinnPhong_frag = CreateShader(
-                    std::string("./Resources/Shaders/blinnPhong.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, blinnPhong_frag);
-        } break;
-        case PBR: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer pbr_frag =
-                    CreateShader(std::string("./Resources/Shaders/pbr.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, pbr_frag);
-        } break;
-        case NOLIGHT: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer noLight_frag = CreateShader(
-                    std::string("./Resources/Shaders/noLight.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, noLight_frag);
-        } break;
-        case PURECOLOR: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer pureColor_frag = CreateShader(
-                    std::string("./Resources/Shaders/pureColor.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, pureColor_frag);
-        } break;
-        case SINGLEPASSWIREFRAME: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer wireframe_geom = CreateShader(
-                    std::string(
-                            "./Resources/Shaders/single-passWireframe.geom"),
-                    GL_GEOMETRY_SHADER);
-            GLShader::Pointer wireframe_frag = CreateShader(
-                    std::string(
-                            "./Resources/Shaders/single-passWireframe.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
-        } break;
-        case TRANSPARENCYLINK: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer transparencyLink_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "transparencyLink.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, transparencyLink_frag);
-        } break;
-        case TRANSPARENCYSORT: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer transparencySort_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "transparencySort.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(fullScreenTriangle_vert, transparencySort_frag);
-        } break;
-        case VOLUMERENDERINGLINK: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer volumeRenderingLink_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "volumeRenderingLink.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(vertex_vert, volumeRenderingLink_frag);
-        } break;
-        case VOLUMERENDERINGSORT: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer volumeRenderingSort_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "volumeRenderingSort.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
-        } break;
-        case AXES: {
-            GLShader::Pointer axis_vert =
-                    CreateShader(std::string("./Resources/Shaders/axis.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer axis_frag =
-                    CreateShader(std::string("./Resources/Shaders/axis.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(axis_vert, axis_frag);
-        } break;
-        case FONT: {
-            GLShader::Pointer font_vert =
-                    CreateShader(std::string("./Resources/Shaders/font.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer font_frag =
-                    CreateShader(std::string("./Resources/Shaders/font.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(font_vert, font_frag);
-        } break;
-        case ATTACHMENTRESOLVE: {
-            GLShader::Pointer attachmentResolve_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "attachmentResolve.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer attachmentResolve_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "attachmentResolve.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(attachmentResolve_vert, attachmentResolve_frag);
-        } break;
-        case DEPTHREDUCE: {
-#ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer depthReduce_comp = CreateShader(
-                    std::string("./Resources/Shaders/depthReduce.comp"),
-                    GL_COMPUTE_SHADER);
-            sp->AddShaders(depthReduce_comp);
-#endif
-        } break;
-        case MESHLETCULL: {
-#ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer meshletCull_comp = CreateShader(
-                    std::string("./Resources/Shaders/meshletCull.comp"),
-                    GL_COMPUTE_SHADER);
-            sp->AddShaders(meshletCull_comp);
-#endif
-        } break;
-        case SCREEN: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer screenShader_frag = CreateShader(
-                    std::string("./Resources/Shaders/screenShader.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(fullScreenTriangle_vert, screenShader_frag);
-        } break;
-        case FXAA: {
-            GLShader::Pointer fxaa_vert =
-                    CreateShader(std::string("./Resources/Shaders/fxaa.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer fxaa_frag =
-                    CreateShader(std::string("./Resources/Shaders/fxaa.frag"),
-                                 GL_FRAGMENT_SHADER);
-            sp->AddShaders(fxaa_vert, fxaa_frag);
-        } break;
-        case MESHSHADER: {
-            GLShader::Pointer shader_mesh = CreateShader(
-                    std::string("./Resources/Shaders/mesh_shader/shader.mesh"),
-                    GL_MESH_SHADER_NV);
-            GLShader::Pointer shader_frag = CreateShader(
-                    std::string("./Resources/Shaders/mesh_shader/shader.frag"),
-                    GL_FRAGMENT_SHADER);
-            sp->AddShaders(shader_mesh, shader_frag);
-        } break;
-        default:
-            break;
-    }
-    return sp;
-}
-
-void Scene::SetShader(IGenum type, GLShaderProgram::Pointer sp) {
-    if (sp == nullptr) { return; }
-    m_ShaderPrograms[type] = sp;
-}
-
-bool Scene::HasShader(IGenum type) {
-    return this->GetShaderWithType(type) != nullptr;
-}
-
-void Scene::UseShader(IGenum type) { this->GetShader(type)->Use(); }
 
 void Scene::InitOpenGL() {
     if (!gladLoadGL()) {
@@ -482,73 +278,82 @@ void Scene::InitOpenGL() {
     m_EmptyVAO->Create();
 
     // allocate memory
+    m_ShaderManager->MapBufferBlock();
     {
 
-        m_CameraDataBlock->Create();
-        m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
-        m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
-                                    GL_STATIC_DRAW);
+        //m_CameraDataBlock->Create();
+        //m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
+        //m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
+        //                            GL_STATIC_DRAW);
+        //
+        //m_ObjectDataBlock->Create();
+        //m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
+        //m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
+        //                            GL_STATIC_DRAW);
+        //
+        //m_UBOBlock->Create();
+        //m_UBOBlock->Target(GL_UNIFORM_BUFFER);
+        //m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
+        //                     GL_STATIC_DRAW);
 
-        m_ObjectDataBlock->Create();
-        m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
-        m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
-                                    GL_STATIC_DRAW);
-
-        m_UBOBlock->Create();
-        m_UBOBlock->Target(GL_UNIFORM_BUFFER);
-        m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
-                             GL_STATIC_DRAW);
-
-        // map blinnphong shader block
-        {
-            auto shader = this->GetShader(BLINNPHONG);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        }
-        // map no light shader block
-        {
-            auto shader = this->GetShader(NOLIGHT);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        }
-        // map pure color shader block
-        {
-            auto shader = this->GetShader(PURECOLOR);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        }
-        // map transparency link shader block
-        {
-            auto shader = this->GetShader(TRANSPARENCYLINK);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        }
-        // map volume rendering link shader block
-        {
-            auto shader = this->GetShader(VOLUMERENDERINGLINK);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        }
-        // map culling computer shader block
-        {
-#ifdef IGAME_OPENGL_VERSION_460
-            auto shader = this->GetShader(MESHLETCULL);
-            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-#endif
-        }
+        //        // map blinnphong shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::BLINNPHONG);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
+        //        // map no light shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::NOLIGHT);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
+        //        // map pure color shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::PURECOLOR);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
+        //        // map transparency link shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
+        //        // map volume rendering link shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
+        //        // map culling computer shader block
+        //        {
+        //#ifdef IGAME_OPENGL_VERSION_460
+        //            auto shader = this->GetShader(ShaderType::MESHLETCULL);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //#endif
+        //        }
+        //        // map mesh shader block
+        //        {
+        //            auto shader = this->GetShader(ShaderType::MESHSHADER);
+        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+        //            //shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+        //        }
     }
 
-    m_UBO.useColor = false;
+    //m_UBO.useColor = false;
 
     // init drawculldata buffer
-    m_DrawCullData->Create();
-    m_DrawCullData->Target(GL_UNIFORM_BUFFER);
-    m_DrawCullData->Allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
+    //m_DrawCullData->Create();
+    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
+    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
+    //m_DrawCullData->Allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -611,7 +416,6 @@ void Scene::PrintOpenGLInfo() {
     GLint numExtensions = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
 
-
     igDebug("=====================================================");
 }
 
@@ -659,7 +463,7 @@ void Scene::InitFont() {
 void Scene::InitAxes() {
     m_Axes->Initialize();
 
-    auto axesShader = this->GetShader(AXES);
+    auto axesShader = this->GetShader(ShaderType::AXES);
 
     axesShader->Use();
     axesShader->SetUniformMatrix4x4("view", Axes::ViewMatrix());
@@ -679,7 +483,7 @@ void Scene::ResizeFrameBuffer() {
     uint32_t width = viewport.x;
     uint32_t height = viewport.y;
 
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     // resize multisample framebuffer
     {
         //glGetIntegerv(GL_MAX_SAMPLES, &samples);
@@ -708,8 +512,10 @@ void Scene::ResizeFrameBuffer() {
         m_DepthTextureMultisampled = depthTexture;
         m_FramebufferMultisampled = fbo;
 
-        if (m_FramebufferMultisampled->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
+        if (m_FramebufferMultisampled->CheckStatus() !=
+            GL_FRAMEBUFFER_COMPLETE) {
             igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+        }
     }
 
     // resize resolve framebuffer(form multisamples to single sample)
@@ -753,8 +559,9 @@ void Scene::ResizeFrameBuffer() {
         m_DepthTextureResolved = depthTexture;
         m_FramebufferResolved = fbo;
 
-        if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
+        if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
             igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+        }
     }
 #else
     //resize resolve framebuffer(form multisamples to single sample)
@@ -843,7 +650,7 @@ void Scene::Draw() {
     GLint defaultFramebuffer = GL_NONE;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
 
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     // render to multisample framebuffer
     m_FramebufferMultisampled->Bind();
     DrawFrame();
@@ -876,7 +683,7 @@ void Scene::Draw() {
 
 void Scene::RefreshDepthPyramid() {
 #ifdef IGAME_OPENGL_VERSION_460
-    auto shader = GetShader(DEPTHREDUCE);
+    auto shader = this->GetShader(ShaderType::DEPTHREDUCE);
     shader->Use();
     m_DepthTextureMultisampled->Active(GL_TEXTURE1);
     m_DepthPyramid->Active(GL_TEXTURE2);
@@ -962,89 +769,6 @@ void Scene::DrawFrame() {
         glDepthFunc(GL_GEQUAL);
 
         if (!m_EnableVolumeRendering) {
-            // mesh shader test
-            //{
-            //    auto shader = GetShader(Scene::MESHSHADER);
-            //    shader->Use();
-            //    //shader->SetUniformf("scale", 1.0f);
-            //
-            //    GLBuffer::Pointer meshletBuffer = GLBuffer::New();
-            //    GLBuffer::Pointer meshletVertexBuffer = GLBuffer::New();
-            //    GLBuffer::Pointer meshletTriangleBuffer = GLBuffer::New();
-            //    GLBuffer::Pointer positionBuffer = GLBuffer::New();
-            //
-            //    std::vector<Meshleter::Meshlet> meshlets(4);
-            //
-            //    std::vector<float> positions = {
-            //            -0.5f, 0.5f, 0.0f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,
-            //            0.0f,  0.0f, 0.5f, 0.0f,  0.0f, 0.0f, 0.0f,  0.0f,
-            //            -0.5f, 0.0f, 0.5f, 0.0f,  0.0f, 0.5f, -0.5f, 0.0f};
-            //
-            //    std::vector<unsigned int> vertices = {0, 1, 4, 1, 2, 5,
-            //                                          3, 4, 6, 4, 5, 7};
-            //
-            //    std::vector<unsigned char> indices = {0, 1, 2, 0, 1, 2,
-            //                                          0, 1, 2, 0, 1, 2};
-            //
-            //    meshlets[0].vertex_offset = 0;
-            //    meshlets[0].triangle_offset = 0;
-            //    meshlets[0].vertex_count = 3;
-            //    meshlets[0].triangle_count = 1;
-            //
-            //    meshlets[1].vertex_offset = 3;
-            //    meshlets[1].triangle_offset = 3;
-            //    meshlets[1].vertex_count = 3;
-            //    meshlets[1].triangle_count = 1;
-            //
-            //    meshlets[2].vertex_offset = 6;
-            //    meshlets[2].triangle_offset = 6;
-            //    meshlets[2].vertex_count = 3;
-            //    meshlets[2].triangle_count = 1;
-            //
-            //    meshlets[3].vertex_offset = 9;
-            //    meshlets[3].triangle_offset = 9;
-            //    meshlets[3].vertex_count = 3;
-            //    meshlets[3].triangle_count = 1;
-            //
-            //    meshletBuffer->Create();
-            //    meshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            //    meshletBuffer->Allocate(meshlets.size() *
-            //                                    sizeof(Meshleter::Meshlet),
-            //                            meshlets.data(), GL_STATIC_DRAW);
-            //    meshletBuffer->BindBase(1);
-            //
-            //    meshletVertexBuffer->Create();
-            //    meshletVertexBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            //    meshletVertexBuffer->Allocate(vertices.size() *
-            //                                          sizeof(unsigned int),
-            //                                  vertices.data(), GL_STATIC_DRAW);
-            //    meshletVertexBuffer->BindBase(2);
-            //
-            //    meshletTriangleBuffer->Create();
-            //    meshletTriangleBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            //    meshletTriangleBuffer->Allocate(indices.size() *
-            //                                            sizeof(unsigned char),
-            //                                    indices.data(), GL_STATIC_DRAW);
-            //    meshletTriangleBuffer->BindBase(3);
-            //
-            //    positionBuffer->Create();
-            //    positionBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            //    positionBuffer->Allocate(positions.size() * sizeof(float),
-            //                             positions.data(), GL_STATIC_DRAW);
-            //    positionBuffer->BindBase(4);
-            //
-            //    //GLBuffer::Pointer colorBuffer = GLBuffer::New();
-            //    //std::vector<float> colors = {1.0f, 0.0f, 0.0f};
-            //    //colorBuffer->Create();
-            //    //colorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            //    //colorBuffer->Allocate(colors.size() * sizeof(float),
-            //    //                      colors.data(), GL_STATIC_DRAW);
-            //    //colorBuffer->BindBase(5);
-            //
-            //    int offset = 0;
-            //    int count = 4;
-            //    glDrawMeshTasksNV(offset, count);
-            //}
             ShadowPass();
             ForwardPass();
             TransparentPass();
@@ -1064,21 +788,21 @@ void Scene::DrawFrame() {
         igm::ivec4 drawRange = igm::ivec4{0, 0, scale, scale};
 
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
-        glClear(GL_DEPTH_BUFFER_BIT);
+        //glClear(GL_DEPTH_BUFFER_BIT);
         glViewport(drawRange.x, drawRange.y, drawRange.z, drawRange.w);
         DrawAxes(drawRange);
     }
 }
 
 void Scene::ResolveFrame() {
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     auto viewport = m_Camera->GetScaledViewPort();
 
     glViewport(0, 0, viewport.x, viewport.y);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    auto shader = GetShader(Scene::ATTACHMENTRESOLVE);
+    auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
     shader->Use();
 
     shader->SetUniformi("numSamples", samples);
@@ -1100,11 +824,11 @@ void Scene::RenderToQtFrame() {
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    auto shader = GetShader(Scene::SCREEN);
+    auto shader = this->GetShader(ShaderType::SCREEN);
     //auto shader = GetShader(Scene::FXAA);
     shader->Use();
 
-#ifdef MSAA
+#ifdef GL_SUPPORTS_MSAA
     m_ColorTextureResolved->GenerateMipmap();
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
@@ -1116,6 +840,8 @@ void Scene::RenderToQtFrame() {
     // 2. Additionally, disable any depth-buffer-clearing code in the coordinate axis rendering logic.
     //    Failing to do so could overwrite or invalidate the depth information required for rendering.
     shader->SetUniformi("screenColorSampler", 1);
+    //shader->SetUniformf("near", m_Camera->GetClippingRange().x);
+    //shader->SetUniformf("far", m_Camera->GetClippingRange().y);
 #else
     m_ColorTexture->Active(GL_TEXTURE1);
     m_DepthTexture->Active(GL_TEXTURE2);
@@ -1132,13 +858,39 @@ void Scene::ShadowPass() { GLCheckError(); }
 
 void Scene::ForwardPass() {
 #ifdef IGAME_OPENGL_VERSION_330
-    for (auto& [id, model]: m_Models) { model->Draw(this); }
+    for (auto& [id, model]: m_Models) {
+        model->Draw(this);
+        model->GetPainter3D()->Draw(this);
+    }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = true;
+    bool debug = false;
     if (debug) {
         //std::cout << "-------:Draw:-------" << std::endl;
         RefreshDrawCullDataBuffer();
 
+#ifdef GL_SUPPORTS_MESH_SHADER
+        // draw phase1: draw visible meshlet
+        for (auto& [id, model]: m_Models) {
+            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+            if (drawObject->GetTransparency() == 1.0f) {
+                model->DrawPhase1(this);
+            }
+        }
+
+        // refresh phase1: generate loacl hierarchical z-buffer
+        RefreshDepthPyramid();
+
+        // draw phase2: draw invisible meshlet
+        for (auto& [id, model]: m_Models) {
+            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+            if (drawObject->GetTransparency() == 1.0f) {
+                model->DrawPhase2(this);
+            }
+        }
+
+        // refresh phase2: generate global hierarchical z-buffer
+        RefreshDepthPyramid();
+#else
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() == 1.0f) {
@@ -1167,6 +919,7 @@ void Scene::ForwardPass() {
 
         // refresh phase2: generate global hierarchical z-buffer
         RefreshDepthPyramid();
+#endif
     } else {
         for (auto& [id, model]: m_Models) {
             // draw mesh
@@ -1179,6 +932,7 @@ void Scene::ForwardPass() {
             }
         }
     }
+
 #endif
     GLCheckError();
 }
@@ -1187,7 +941,7 @@ void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // 1.reset oit pipeline status
     {
-        auto shader = GetShader(Scene::TRANSPARENCYLINK);
+        auto shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
         shader->Use();
 
         m_OITAtomicCounterBuffer->BindBase(0);
@@ -1224,7 +978,7 @@ void Scene::TransparentPass() {
     // 3.sorting and blending colors
     glDisable(GL_DEPTH_TEST);
     {
-        auto shader = GetShader(Scene::TRANSPARENCYSORT);
+        auto shader = this->GetShader(ShaderType::TRANSPARENCYSORT);
         shader->Use();
 
         shader->SetUniformi("numSamples", samples);
@@ -1249,7 +1003,7 @@ void Scene::VolumeRenderingPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // 1.reset oit pipeline status
     {
-        auto shader = GetShader(Scene::VOLUMERENDERINGLINK);
+        auto shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
         shader->Use();
 
         m_OITAtomicCounterBuffer->BindBase(0);
@@ -1281,7 +1035,7 @@ void Scene::VolumeRenderingPass() {
     // 3.sorting and blending colors
     glDisable(GL_DEPTH_TEST);
     {
-        auto shader = GetShader(Scene::VOLUMERENDERINGSORT);
+        auto shader = this->GetShader(ShaderType::VOLUMERENDERINGSORT);
         shader->Use();
 
         shader->SetUniformi("numSamples", samples);
@@ -1304,39 +1058,41 @@ void Scene::VolumeRenderingPass() {
 
 void Scene::UpdateCameraDataBlock() {
     // update camera data matrix
-    m_CameraData.camera_position = m_Camera->GetPosition();
-    m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
-    m_CameraData.view = m_Camera->GetViewMatrix();
-    m_CameraData.proj = m_Camera->GetProjectionMatrix();
-    m_CameraData.proj_view =
-            m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
+    //m_CameraData.camera_position = m_Camera->GetPosition();
+    //m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
+    //m_CameraData.view = m_Camera->GetViewMatrix();
+    //m_CameraData.proj = m_Camera->GetProjectionMatrix();
+    //m_CameraData.proj_view =
+    //        m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
 
     // update camera data matrix
-    m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &m_CameraData);
+    m_ShaderManager->UpdateCameraBlock(m_Camera);
 }
-void Scene::UpdateObjectDataBlock(DataObject* obj) {
+void Scene::UpdateObjectDataBlock(DataObject::Pointer obj) {
     // update object data matrix
-    auto drawObject = DynamicCast<DrawObject>(obj);
-    auto box = obj->GetBoundingBox();
-    Vector3f center = box.center();
-
-    m_ObjectData.transparent = drawObject->GetTransparency();
-    m_ObjectData.model = m_ModelMatrix;
-    m_ObjectData.normal = m_ObjectData.model.invert().transpose();
-    m_ObjectData.sphereBounds = igm::vec4{center[0], center[1], center[2],
-                                          static_cast<float>(box.diag() / 2)};
+    //auto drawObject = DynamicCast<DrawObject>(obj);
+    //auto box = obj->GetBoundingBox();
+    //Vector3f center = box.center();
+    //
+    //m_ObjectData.transparent = drawObject->GetTransparency();
+    //m_ObjectData.model = m_ModelMatrix;
+    //m_ObjectData.normal = m_ObjectData.model.invert().transpose();
+    //m_ObjectData.sphereBounds = igm::vec4{center[0], center[1], center[2],
+    //                                      static_cast<float>(box.diag() / 2)};
 
     // update object data matrix
-    m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
+    //m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
+    m_ShaderManager->UpdateObjectBlock(obj, m_ModelMatrix);
 }
-void Scene::UpdateUniformBufferObjectBlock(DataObject* obj) {
-    auto drawObject = DynamicCast<DrawObject>(obj);
-
-    m_UBO.useColor = drawObject->IsUseColor();
-    m_UBO.useNormalSmooth = drawObject->IsUseNormalSmooth();
-
-    // update other ubo
-    m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+void Scene::UpdateUniformBufferObjectBlock(DataObject::Pointer obj) {
+    //auto drawObject = DynamicCast<DrawObject>(obj);
+    //
+    //m_UBO.useColor = drawObject->IsUseColor();
+    //m_UBO.useNormalSmooth = drawObject->IsUseNormalSmooth();
+    //
+    //// update other ubo
+    ////m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+    m_ShaderManager->UpdateUBOBlock(obj);
 }
 
 void Scene::UpdateCameraClippingRange() {
@@ -1361,19 +1117,14 @@ void Scene::UpdateCameraClippingRange() {
     m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
-void Scene::UpdateUniformBuffer() {
-    // update camera data matrix
-    m_CameraDataBlock->SubData(0, sizeof(CameraDataBuffer), &m_CameraData);
-
-    // update object data matrix
-    m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
-
-    // update other ubo
-    m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
-}
+//void Scene::UpdateUniformBuffer() {
+//    m_ShaderManager->UpdateCameraBlock(m_Camera);
+//    m_ShaderManager->UpdateObjectBlock(m_ObjectData);
+//    m_ShaderManager->UpdateBlock(m_UBO);
+//}
 
 void Scene::DrawAxes(igm::ivec4 drawRange) {
-    auto axesShader = this->GetShader(Scene::AXES);
+    auto axesShader = this->GetShader(ShaderType::AXES);
     axesShader->Use();
 
     axesShader->SetUniformMatrix4x4("model", m_ModelRotate);
@@ -1396,29 +1147,31 @@ void Scene::DrawAxes(igm::ivec4 drawRange) {
 }
 
 void Scene::RefreshDrawCullDataBuffer() {
-    igm::mat4 projection = m_Camera->GetProjectionMatrix();
-    igm::mat4 projectionT = projection.transpose();
-
-    igm::vec4 frustumX =
-            (projectionT[3] + projectionT[0]).normalized(); // x + w < 0
-    igm::vec4 frustumY =
-            (projectionT[3] + projectionT[1]).normalized(); // y + w < 0
-
-    DrawCullData cullData = {};
-    cullData.view_model = m_Camera->GetViewMatrix() * m_ModelMatrix;
-    cullData.P00 = projection[0][0];
-    cullData.P11 = projection[1][1];
-    //cullData.zNear = projection[3][2];
-    cullData.zNear = m_Camera->GetClippingRange().x;
-    cullData.zFar = m_Camera->GetClippingRange().y;
-    cullData.frustum[0] = frustumX.x;
-    cullData.frustum[1] = frustumX.z;
-    cullData.frustum[2] = frustumY.y;
-    cullData.frustum[3] = frustumY.z;
-    cullData.pyramidWidth = static_cast<float>(m_DepthPyramidWidth);
-    cullData.pyramidHeight = static_cast<float>(m_DepthPyramidHeight);
-
-    m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
+    m_ShaderManager->UpdateCullDataBuffer(
+            m_Camera, m_ModelMatrix, m_DepthPyramidWidth, m_DepthPyramidHeight);
+    //igm::mat4 projection = m_Camera->GetProjectionMatrix();
+    //igm::mat4 projectionT = projection.transpose();
+    //
+    //igm::vec4 frustumX =
+    //        (projectionT[3] + projectionT[0]).normalized(); // x + w < 0
+    //igm::vec4 frustumY =
+    //        (projectionT[3] + projectionT[1]).normalized(); // y + w < 0
+    //
+    //DrawCullData cullData = {};
+    //cullData.view_model = m_Camera->GetViewMatrix() * m_ModelMatrix;
+    //cullData.P00 = projection[0][0];
+    //cullData.P11 = projection[1][1];
+    ////cullData.zNear = projection[3][2];
+    //cullData.zNear = m_Camera->GetClippingRange().x;
+    //cullData.zFar = m_Camera->GetClippingRange().y;
+    //cullData.frustum[0] = frustumX.x;
+    //cullData.frustum[1] = frustumX.z;
+    //cullData.frustum[2] = frustumY.y;
+    //cullData.frustum[3] = frustumY.z;
+    //cullData.pyramidWidth = static_cast<float>(m_DepthPyramidWidth);
+    //cullData.pyramidHeight = static_cast<float>(m_DepthPyramidHeight);
+    //
+    //m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
 void Scene::ResetCameraViewToPositiveX() {
@@ -1685,7 +1438,9 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
     return ZBuffer;
 }
 
-GLBuffer::Pointer Scene::GetDrawCullDataBuffer() { return m_DrawCullData; }
+GLBuffer::Pointer Scene::GetDrawCullDataBuffer() {
+    return m_ShaderManager->GetCullDataBuffer();
+}
 
 Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
 
