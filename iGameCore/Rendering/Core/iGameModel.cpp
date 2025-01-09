@@ -438,10 +438,10 @@ void Model::DrawPhase1(Scene* scene) {
         if (viewStyle & IG_POINTS) {}
         if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
-            auto shader = scene->GetShader(ShaderType::MESHSHADER);
+            auto shader = scene->GetShader(ShaderType::CULLINGPHASE1);
             shader->Use();
 
-            int meshletCount = m_Meshleter->m_MeshletCount;
+            unsigned int meshletCount = m_Meshleter->m_MeshletCount;
             shader->SetUniformui("meshletCount", meshletCount);
 
             scene->DepthPyramid()->Active(GL_TEXTURE1);
@@ -451,29 +451,31 @@ void Model::DrawPhase1(Scene* scene) {
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
-            m_Meshleter->m_MeshletDescriptor->BindBase(10);
+            m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
             scene->GetDrawCullDataBuffer()->BindBase(11);
 
             unsigned int data = 0;
-            m_Meshleter->m_VisibleMeshletCounter->SubData(
+            m_Meshleter->m_InvisibleMeshletBuffer->SubData(
                     0, sizeof(unsigned int), &data);
-            m_Meshleter->m_VisibleMeshletCounter->BindBase(20);
+            m_Meshleter->m_InvisibleMeshletBuffer->BindBase(12);
 
             const int meshletPerTask = 32;
 
-            int offset = 0;
-            int count = (meshletCount + meshletPerTask + 1) / meshletPerTask;
+            unsigned int offset = 0;
+            unsigned int count =
+                    (meshletCount + meshletPerTask - 1) / meshletPerTask;
             glDrawMeshTasksNV(offset, count);
 
-            glMemoryBarrier(GL_ATOMIC_COUNTER_BARRIER_BIT);
-
-            unsigned int c = 0;
-            m_Meshleter->m_VisibleMeshletCounter->GetSubData(
-                    0, sizeof(unsigned int), &c);
+            // add barrier when read SSBO
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            unsigned int invisibleMeshletCount = 0;
+            m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
+                    0, sizeof(unsigned int), &invisibleMeshletCount);
 
             std::cout << std::format("Draw phase 1: [visiable count:{}, "
                                      "meshlet count:{}]",
-                                     c, meshletCount)
+                                     meshletCount - invisibleMeshletCount,
+                                     meshletCount)
                       << std::endl;
         }
     };
@@ -565,11 +567,16 @@ void Model::DrawPhase2(Scene* scene) {
         if (viewStyle & IG_POINTS) {}
         if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
-            auto shader = scene->GetShader(ShaderType::MESHSHADER);
+            auto shader = scene->GetShader(ShaderType::CULLINGPHASE2);
             shader->Use();
 
-            int meshletCount = m_Meshleter->m_MeshletCount;
-            shader->SetUniformui("meshletCount", meshletCount);
+            // add barrier when read SSBO
+            unsigned int invisibleMeshletCount = 0;
+            m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
+                    0, sizeof(unsigned int), &invisibleMeshletCount);
+
+            shader->SetUniformui("invisibleMeshletCount",
+                                 invisibleMeshletCount);
 
             scene->DepthPyramid()->Active(GL_TEXTURE1);
             shader->SetUniformi("depthPyramid", 1);
@@ -578,28 +585,31 @@ void Model::DrawPhase2(Scene* scene) {
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
-            m_Meshleter->m_MeshletDescriptor->BindBase(10);
+            m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
             scene->GetDrawCullDataBuffer()->BindBase(11);
 
             unsigned int data = 0;
-            m_Meshleter->m_VisibleMeshletCounter->SubData(
+            m_Meshleter->m_InvisibleMeshletBuffer->SubData(
                     0, sizeof(unsigned int), &data);
-            m_Meshleter->m_VisibleMeshletCounter->BindBase(20);
+            m_Meshleter->m_InvisibleMeshletBuffer->BindBase(12);
 
             const int meshletPerTask = 32;
 
-            int offset = 0;
-            int count = (meshletCount + meshletPerTask + 1) / meshletPerTask;
+            unsigned int offset = 0;
+            unsigned int count = (invisibleMeshletCount + meshletPerTask - 1) /
+                                 meshletPerTask;
             glDrawMeshTasksNV(offset, count);
 
-            glMemoryBarrier(GL_ATOMIC_COUNTER_BARRIER_BIT);
+            // add barrier when read SSBO
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             unsigned int c = 0;
-            m_Meshleter->m_VisibleMeshletCounter->GetSubData(
+            m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
             std::cout << std::format("Draw phase 2: [visiable count:{}, "
                                      "meshlet count:{}]",
-                                     c, meshletCount)
+                                     invisibleMeshletCount - c,
+                                     invisibleMeshletCount)
                       << std::endl;
         }
     };

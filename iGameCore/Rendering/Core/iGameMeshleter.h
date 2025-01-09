@@ -48,8 +48,8 @@ protected:
     GLBuffer::Pointer m_MeshletVertexBuffer;
     GLBuffer::Pointer m_MeshletTriangleBuffer;
 
-    GLBuffer::Pointer m_MeshletDescriptor;
-    GLBuffer::Pointer m_VisibleMeshletCounter;
+    GLBuffer::Pointer m_MeshletDescriptorBuffer;
+    GLBuffer::Pointer m_InvisibleMeshletBuffer;
 
     GLBuffer::Pointer m_PositionBuffer;
     GLBuffer::Pointer m_ColorBuffer;

@@ -1,0 +1,148 @@
+#version 460
+
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : require
+
+#define WORKGROUP_SIZE 32
+#define MESHLET_PER_TASK 32
+#define MAX_VERTEX_COUNT 64
+#define MAX_PRIMITIVE_COUNT 124
+
+const uint vertexLoops = (MAX_VERTEX_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+const uint primreadLoops = (MAX_PRIMITIVE_COUNT * 3 + WORKGROUP_SIZE * 4 - 1) / (WORKGROUP_SIZE * 4);
+
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+layout(triangles) out;
+
+layout(max_vertices = MAX_VERTEX_COUNT, max_primitives = MAX_PRIMITIVE_COUNT) out;
+
+// Camera buffer
+layout(std140, binding = 0) uniform CameraDataBlock {
+    vec3 viewPos;
+    int isOrtho;
+    mat4 view;
+    mat4 proj;
+    mat4 proj_view;// proj * view
+} cameraData;
+
+layout(std140, binding = 1) uniform ObjectDataBlock {
+    float transparent;
+    mat4 model;
+    mat4 normal;// transpose(inverse(model))
+    vec4 sphereBounds;
+} objectData;
+
+layout(std140, binding = 2) uniform UniformBufferObjectBlock {
+    int useColor;
+    int useNormalSmooth;
+} ubo;
+
+// Meshlets Buffer
+struct Meshlet {
+    uint vertex_offset;
+    uint triangle_offset;
+
+    uint vertex_count;
+    uint triangle_count;
+};
+layout(std430, binding = 3) readonly buffer MeshletsBuffer {
+    Meshlet meshlets[];
+} meshletsBuffer;
+
+layout(std430, binding = 4) readonly buffer MeshletVertexBuffer {
+    uint meshlet_vertices[];
+} meshletVertexBuffer;
+
+layout(std430, binding = 5) readonly buffer MeshletTriangleBuffer {
+    uint meshlet_triangles[];
+} meshletTriangleBuffer;
+
+// in vertex information
+layout(std430, binding = 6) readonly buffer PositionBuffer {
+    float data[];// vec3
+} positionBuffer;
+
+layout(std430, binding = 7) readonly buffer ColorBuffer {
+    float data[];// vec3
+} colorBuffer;
+
+layout(std430, binding = 8) readonly buffer NormalBuffer {
+    float data[];// vec3
+} normalBuffer;
+
+layout(std430, binding = 9) readonly buffer UVBuffer {
+    float data[];// vec2
+} uvBuffer;
+
+// out for fargment shader
+out PerVertexData {
+    vec3 mcPosition;
+    vec3 vcPosition;
+    vec3 color;
+    vec3 normal;
+    vec2 uv;
+} v_out[];
+
+taskNV in Task {
+    uint      baseID;
+    uint8_t   deltaIDs[MESHLET_PER_TASK];
+} task_in;
+
+void main() {
+    uint groupIndex = gl_WorkGroupID.x;
+    uint groupThreadIndex = gl_LocalInvocationID.x;
+
+    uint meshletID = task_in.baseID + task_in.deltaIDs[groupIndex];
+    Meshlet meshlet = meshletsBuffer.meshlets[meshletID];
+
+    for (uint loop = 0; loop < vertexLoops; ++loop) {
+        uint localVertexIndex = groupThreadIndex + loop * WORKGROUP_SIZE;
+        localVertexIndex = min(localVertexIndex, meshlet.vertex_count - 1);
+
+        uint vertexIndex = meshletVertexBuffer.meshlet_vertices[meshlet.vertex_offset + localVertexIndex];
+
+        // position
+        uint offset = vertexIndex * 3;
+        float x = positionBuffer.data[offset];
+        float y = positionBuffer.data[offset + 1];
+        float z = positionBuffer.data[offset + 2];
+
+        vec4 mcPosition = objectData.model * vec4(x, y, z, 1.0f);
+        vec4 vcPosition = cameraData.view * mcPosition;
+
+        v_out[localVertexIndex].mcPosition = vec3(mcPosition);
+        v_out[localVertexIndex].vcPosition = vec3(vcPosition);
+        gl_MeshVerticesNV[localVertexIndex].gl_Position = cameraData.proj * vcPosition;
+
+        // color
+        v_out[localVertexIndex].color = vec3(1.0f, 1.0f, 1.0f);
+
+        // normal
+        float nx = normalBuffer.data[offset];
+        float ny = normalBuffer.data[offset + 1];
+        float nz = normalBuffer.data[offset + 2];
+        v_out[localVertexIndex].normal = mat3(objectData.normal) * vec3(nx, ny, nz);
+
+        // uv
+        offset = vertexIndex * 2;
+        float u = uvBuffer.data[offset];
+        float v = uvBuffer.data[offset + 1];
+        v_out[localVertexIndex].uv = vec2(u, v);
+    }
+
+    // triangle index
+    uint packedTriangleBegin = meshlet.triangle_offset / 4;
+    uint packedTriangleMax = (3 * meshlet.triangle_count - 1) / 4;
+    for (uint loop = 0; loop < primreadLoops; ++loop) {
+        uint localTriangleIndex = groupThreadIndex + loop * WORKGROUP_SIZE;
+        localTriangleIndex = min(localTriangleIndex, packedTriangleMax);
+
+        uint offset = packedTriangleBegin + localTriangleIndex;
+        writePackedPrimitiveIndices4x8NV(4 * localTriangleIndex, meshletTriangleBuffer.meshlet_triangles[offset]);
+    }
+
+    if (groupThreadIndex == 0) {
+        gl_PrimitiveCountNV = meshlet.triangle_count;
+    }
+}

@@ -87,12 +87,16 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
 #endif
 
-    // map mesh shader block
+    // map meshlet culling shader block
 #ifdef IGAME_OPENGL_VERSION_460
-    shader = this->GetShader(ShaderType::MESHSHADER);
+    shader = this->GetShader(ShaderType::CULLINGPHASE1);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-    //shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+    shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+    shader = this->GetShader(ShaderType::CULLINGPHASE2);
+    shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
+    shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
+    shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
 #endif
 }
 
@@ -369,15 +373,31 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
                                  GL_FRAGMENT_SHADER);
             sp->AddShaders(fxaa_vert, fxaa_frag);
         } break;
-        case ShaderType::MESHSHADER: {
-            GLShader::Pointer shader_task = CreateShader(
-                    std::string("./Resources/Shaders/mesh_shader/shader.task"),
-                    GL_TASK_SHADER_NV);
-            GLShader::Pointer shader_mesh = CreateShader(
-                    std::string("./Resources/Shaders/mesh_shader/shader.mesh"),
-                    GL_MESH_SHADER_NV);
+        case ShaderType::CULLINGPHASE1: {
+            GLShader::Pointer shader_task =
+                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
+                                             "cullingPhase1.task"),
+                                 GL_TASK_SHADER_NV);
+            GLShader::Pointer shader_mesh =
+                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
+                                             "cullingPhase1.mesh"),
+                                 GL_MESH_SHADER_NV);
             GLShader::Pointer shader_frag = CreateShader(
-                    std::string("./Resources/Shaders/mesh_shader/shader.frag"),
+                    std::string("./Resources/Shaders/mesh_shader/culling.frag"),
+                    GL_FRAGMENT_SHADER);
+            sp->AddShaders(shader_task, shader_mesh, shader_frag);
+        } break;
+        case ShaderType::CULLINGPHASE2: {
+            GLShader::Pointer shader_task =
+                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
+                                             "cullingPhase2.task"),
+                                 GL_TASK_SHADER_NV);
+            GLShader::Pointer shader_mesh =
+                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
+                                             "cullingPhase2.mesh"),
+                                 GL_MESH_SHADER_NV);
+            GLShader::Pointer shader_frag = CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/culling.frag"),
                     GL_FRAGMENT_SHADER);
             sp->AddShaders(shader_task, shader_mesh, shader_frag);
         } break;

@@ -11,8 +11,8 @@ Meshleter::Meshleter() {
     m_MeshletVertexBuffer = GLBuffer::New();
     m_MeshletTriangleBuffer = GLBuffer::New();
 
-    m_MeshletDescriptor = GLBuffer::New();
-    m_VisibleMeshletCounter = GLBuffer::New();
+    m_MeshletDescriptorBuffer = GLBuffer::New();
+    m_InvisibleMeshletBuffer = GLBuffer::New();
 
     m_PositionBuffer = GLBuffer::New();
     m_ColorBuffer = GLBuffer::New();
@@ -150,16 +150,17 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
                     meshletTriangles.size() * sizeof(unsigned char),
                     meshletTriangles.data(), GL_STATIC_DRAW);
 
-            m_MeshletDescriptor->Create();
-            m_MeshletDescriptor->Target(GL_SHADER_STORAGE_BUFFER);
-            m_MeshletDescriptor->Allocate(
+            m_MeshletDescriptorBuffer->Create();
+            m_MeshletDescriptorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_MeshletDescriptorBuffer->Allocate(
                     MeshletDescriptors.size() * sizeof(MeshletDescriptor),
                     MeshletDescriptors.data(), GL_STATIC_DRAW);
 
-            m_VisibleMeshletCounter->Create();
-            m_VisibleMeshletCounter->Target(GL_SHADER_STORAGE_BUFFER);
-            m_VisibleMeshletCounter->Allocate(sizeof(unsigned int), nullptr,
-                                              GL_DYNAMIC_DRAW);
+            m_InvisibleMeshletBuffer->Create();
+            m_InvisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_InvisibleMeshletBuffer->Allocate((1 + meshlets.size()) *
+                                                       sizeof(unsigned int),
+                                               nullptr, GL_DYNAMIC_DRAW);
 
             m_PositionBuffer->Create();
             m_PositionBuffer->Target(GL_SHADER_STORAGE_BUFFER);

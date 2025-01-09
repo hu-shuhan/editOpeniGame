@@ -22,12 +22,17 @@ layout(std430, binding = 10) buffer MeshletDescriptorBuffer {
     MeshletDescriptor meshletDescs[];
 } meshletDescriptorBuffer;
 
-layout(std140, binding = 11) uniform DrawCullDataBlock {
+layout(std140, binding = 11) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
     uint pyramidWidth, pyramidHeight;// depth pyramid size in texels
-} drawCullData;
+} cullData;
+
+layout(std430, binding = 12) /*coherent*/ buffer InvisibleMeshletBuffer {
+    uint count;
+    uint deltaIDs[];
+} invisibleMeshletBuffer;
 
 taskNV out Task {
     uint      baseID;
@@ -41,10 +46,6 @@ uniform sampler2D depthPyramid;
 
 bool IsVisible(MeshletDescriptor meshletDescriptor);
 
-layout(std430, binding = 20) coherent buffer VisibleMeshletCounter {
-    uint visibleMeshletCount;
-};
-
 void main() {
     uint baseID = gl_WorkGroupID.x * MESHLET_PER_TASK;
     uint laneID = gl_LocalInvocationID.x;
@@ -54,18 +55,22 @@ void main() {
         uint meshletLocal = laneID + loop * WORKGROUP_SIZE;
         uint meshletGlobal = baseID + meshletLocal;
 
+        if (meshletGlobal >= meshletCount) { return; }
+
         // we padded the buffer to ensure we don't access it out of bounds
         MeshletDescriptor desc = meshletDescriptorBuffer.meshletDescs[meshletGlobal];
 
         // implement some early culling function
-        bool render = meshletGlobal < meshletCount && IsVisible(desc);
+        bool render = IsVisible(desc);
 
         uvec4 voteMeshlets  = subgroupBallot(render);
         uint numMeshlets = subgroupBallotBitCount(voteMeshlets);
         uint idxOffset = subgroupBallotExclusiveBitCount(voteMeshlets) + outMeshletCount;
         if (render) {
-            atomicAdd(visibleMeshletCount, 1);
             task_out.deltaIDs[idxOffset] = uint8_t(meshletLocal);
+        } else {
+            uint oldValue = atomicAdd(invisibleMeshletBuffer.count, 1);
+            invisibleMeshletBuffer.deltaIDs[oldValue] = meshletGlobal;
         }
 
         outMeshletCount += numMeshlets;
@@ -108,7 +113,7 @@ bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 
 }
 
 uint GetMipLevelFromAABB(vec4 aabb, uint desiredFootprintPixels) {
-    vec2 pyramidSize = vec2(drawCullData.pyramidWidth, drawCullData.pyramidHeight);
+    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
     float width = (aabb.z - aabb.x) * pyramidSize.x;
     float height = (aabb.w - aabb.y) * pyramidSize.y;
 
@@ -167,30 +172,30 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
 
     // in the right-handed coordinate system, the z value of the view coordinate is negative
     vec3 center = sphereBounds.xyz;
-    center = (drawCullData.view_model * vec4(center, 1.f)).xyz;
+    center = (cullData.view_model * vec4(center, 1.f)).xyz;
     float radius = sphereBounds.w;
 
     bool visible = true;
 
     // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
-    visible = visible && center.z * drawCullData.frustum[1] - abs(center.x) * drawCullData.frustum[0] > -radius;
-    visible = visible && center.z * drawCullData.frustum[3] - abs(center.y) * drawCullData.frustum[2] > -radius;
+    visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+    visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
 
     // dist culling
-    // visible = visible && -center.z + radius > drawCullData.zNear && -center.z - radius < drawCullData.zFar;
+    // visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
 
     vec4 aabb;
-    if (ProjectSphere(center, radius, drawCullData.zNear, drawCullData.P00, drawCullData.P11, aabb)) {
+    if (ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb)) {
         float depth = GetMinDepthFromHZB(aabb, true);
 
         float z = center.z + radius;// From the camera's perspective, z is negative.
 
         // Unlimited viewing distance
-        // float depthSphere = drawCullData.zNear / -z;
+        // float depthSphere = cullData.zNear / -z;
 
         // Limited viewing distance
-        float n = drawCullData.zNear;
-        float f = drawCullData.zFar;
+        float n = cullData.zNear;
+        float f = cullData.zFar;
         float depthSphere = (n + n * f / z) / (n - f);
 
         visible = visible && depthSphere >= depth;

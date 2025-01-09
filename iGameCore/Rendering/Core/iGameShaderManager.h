@@ -29,7 +29,8 @@ enum class ShaderType {
     MESHLETCULL,
     SCREEN,
     FXAA,
-    MESHSHADER
+    CULLINGPHASE1,
+    CULLINGPHASE2
 };
 
 class Scene;

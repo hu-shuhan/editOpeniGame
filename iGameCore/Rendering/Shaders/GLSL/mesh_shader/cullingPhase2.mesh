@@ -85,16 +85,15 @@ out PerVertexData {
 } v_out[];
 
 taskNV in Task {
-    uint      baseID;
-    uint8_t   deltaIDs[MESHLET_PER_TASK];
+    uint   meshletIDs[MESHLET_PER_TASK];
 } task_in;
 
-void main()
-{
+void main() {
     uint groupIndex = gl_WorkGroupID.x;
     uint groupThreadIndex = gl_LocalInvocationID.x;
 
-    uint meshletID = task_in.baseID + task_in.deltaIDs[groupIndex];
+    //    uint meshletID = task_in.baseID + task_in.deltaIDs[groupIndex];
+    uint meshletID = task_in.meshletIDs[groupIndex];
     Meshlet meshlet = meshletsBuffer.meshlets[meshletID];
 
     for (uint loop = 0; loop < vertexLoops; ++loop) {
