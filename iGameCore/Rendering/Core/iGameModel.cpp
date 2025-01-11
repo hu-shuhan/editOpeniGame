@@ -828,7 +828,7 @@ void Model::DeleteModelFilter() { m_Filter = nullptr; }
 void Model::SetDataObject(DataObject::Pointer dataObject) {
     m_DataObject = dataObject;
 
-    bool debug = true;
+    bool debug = false;
     if (debug) { m_Meshleter->Build(dataObject); }
 }
 

@@ -110,23 +110,38 @@ bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 
     return true;
 }
 
-uint GetMipLevelFromAABB(vec4 aabb, uint desiredFootprintPixels) {
+int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
     vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    float width = (aabb.z - aabb.x) * pyramidSize.x;
-    float height = (aabb.w - aabb.y) * pyramidSize.y;
+    ivec4 aabbPixels = ivec4(aabb * pyramidSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
 
-    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
-    // Start by calculating separate x and y mip level requirements.
-    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
-    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
-    // So k = floor( log2( n - 1 )
-    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
+    const int maxPixelOffset = desiredFootprintPixels - 1;
+    const int mipOffset = int(log2(float(desiredFootprintPixels))) - 1;
 
-    float n = max(width, height);
-    uint k = uint(floor(log2(n - 1)));
-    uint mipLevel = max(k - mipOffset, 0);
+    ivec2 mipLevelXY = ivec2(findMSB(aabbPixels.z - aabbPixels.x), findMSB(aabbPixels.w - aabbPixels.y));
+
+    int mipLevel = max(max(mipLevelXY.x, mipLevelXY.y) - mipOffset, 0);
+
+    ivec2 mipLevelAdjustedSize = (aabbPixels.zw >> mipLevel) - (aabbPixels.xy >> mipLevel);
+    mipLevel += (mipLevelAdjustedSize.x > maxPixelOffset || mipLevelAdjustedSize.y > maxPixelOffset) ? 1 : 0;
 
     return mipLevel;
+
+    //    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //    float width = (aabb.z - aabb.x) * pyramidSize.x;
+    //    float height = (aabb.w - aabb.y) * pyramidSize.y;
+    //
+    //    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
+    //    // Start by calculating separate x and y mip level requirements.
+    //    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
+    //    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
+    //    // So k = floor( log2( n - 1 )
+    //    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
+    //
+    //    float n = max(width, height);
+    //    uint k = uint(floor(log2(n - 1)));
+    //    uint mipLevel = max(k - mipOffset, 0);
+    //
+    //    return mipLevel;
 }
 
 float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
@@ -184,19 +199,19 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
     // visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
 
     vec4 aabb;
+    if (visible) {
+        visible = ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
+    }
 
     // small meshlet culling(less than one pixel)
-    //    if (visible) {
-    //        if (ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb)) {
-    //            const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //            const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //            visible = !any(round(minScreenPosition) == round(maxScreenPosition));
-    //        }
-    //    }
+    if (visible) {
+        const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    }
 
     // occlusion culling
     if (visible) {
-        ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
         float depth = GetMinDepthFromHZB(aabb, true);
 
         float z = center.z + radius;// From the camera's perspective, z is negative.

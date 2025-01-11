@@ -863,7 +863,7 @@ void Scene::ForwardPass() {
         model->GetPainter3D()->Draw(this);
     }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = true;
+    bool debug = false;
     if (debug) {
         //std::cout << "-------:Draw:-------" << std::endl;
 
