@@ -22,6 +22,7 @@ layout(std430, binding = 10) buffer MeshletDescriptorBuffer {
     MeshletDescriptor meshletDescs[];
 } meshletDescriptorBuffer;
 
+// Note: The first HZB culling pass must use the previous frame's data
 layout(std140, binding = 11) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
@@ -178,14 +179,30 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
     bool visible = true;
 
     // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
-    visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
-    visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+    if (visible) {
+        visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+        visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+    }
 
     // dist culling
-    // visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+    // if (visible) {
+    //     visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+    // }
 
     vec4 aabb;
-    if (ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb)) {
+
+    // small meshlet culling(less than one pixel)
+    //    if (visible) {
+    //        if (ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb)) {
+    //            const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //            const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //            visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    //        }
+    //    }
+
+    // occlusion culling
+    if (visible) {
+        ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
         float depth = GetMinDepthFromHZB(aabb, true);
 
         float z = center.z + radius;// From the camera's perspective, z is negative.
@@ -198,7 +215,7 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
         float f = cullData.zFar;
         float depthSphere = (n + n * f / z) / (n - f);
 
-        visible = visible && depthSphere >= depth;
+        visible = depthSphere >= depth;
     }
 
     return visible;

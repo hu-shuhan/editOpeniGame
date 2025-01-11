@@ -863,13 +863,13 @@ void Scene::ForwardPass() {
         model->GetPainter3D()->Draw(this);
     }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = false;
+    bool debug = true;
     if (debug) {
         //std::cout << "-------:Draw:-------" << std::endl;
-        RefreshDrawCullDataBuffer();
 
 #ifdef GL_SUPPORTS_MESH_SHADER
         // draw phase1: draw visible meshlet
+        // Note: The first HZB culling pass must use the previous frame's data
         for (auto& [id, model]: m_Models) {
             auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
             if (drawObject->GetTransparency() == 1.0f) {
@@ -877,8 +877,9 @@ void Scene::ForwardPass() {
             }
         }
 
-        // refresh phase1: generate loacl hierarchical z-buffer
+        // refresh phase 1: generate loacl hierarchical z-buffer & cull data
         RefreshDepthPyramid();
+        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
         for (auto& [id, model]: m_Models) {
@@ -908,6 +909,7 @@ void Scene::ForwardPass() {
 
         // refresh phase1: generate loacl hierarchical z-buffer
         RefreshDepthPyramid();
+        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
         for (auto& [id, model]: m_Models) {
@@ -1149,29 +1151,6 @@ void Scene::DrawAxes(igm::ivec4 drawRange) {
 void Scene::RefreshDrawCullDataBuffer() {
     m_ShaderManager->UpdateCullDataBuffer(
             m_Camera, m_ModelMatrix, m_DepthPyramidWidth, m_DepthPyramidHeight);
-    //igm::mat4 projection = m_Camera->GetProjectionMatrix();
-    //igm::mat4 projectionT = projection.transpose();
-    //
-    //igm::vec4 frustumX =
-    //        (projectionT[3] + projectionT[0]).normalized(); // x + w < 0
-    //igm::vec4 frustumY =
-    //        (projectionT[3] + projectionT[1]).normalized(); // y + w < 0
-    //
-    //DrawCullData cullData = {};
-    //cullData.view_model = m_Camera->GetViewMatrix() * m_ModelMatrix;
-    //cullData.P00 = projection[0][0];
-    //cullData.P11 = projection[1][1];
-    ////cullData.zNear = projection[3][2];
-    //cullData.zNear = m_Camera->GetClippingRange().x;
-    //cullData.zFar = m_Camera->GetClippingRange().y;
-    //cullData.frustum[0] = frustumX.x;
-    //cullData.frustum[1] = frustumX.z;
-    //cullData.frustum[2] = frustumY.y;
-    //cullData.frustum[3] = frustumY.z;
-    //cullData.pyramidWidth = static_cast<float>(m_DepthPyramidWidth);
-    //cullData.pyramidHeight = static_cast<float>(m_DepthPyramidHeight);
-    //
-    //m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
 }
 
 void Scene::ResetCameraViewToPositiveX() {
