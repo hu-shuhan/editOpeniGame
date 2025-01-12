@@ -429,7 +429,6 @@ void Model::DrawPhase1(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -662,8 +661,8 @@ void Model::DrawPhase2(Scene* scene) {
                 scene->GetDrawCullDataBuffer()->Target(GL_UNIFORM_BUFFER);
                 scene->GetDrawCullDataBuffer()->BindBase(5);
 
-                //scene->DepthPyramid()->Active(GL_TEXTURE1);
-                //shader->SetUniformi("depthPyramid", 1);
+                scene->DepthPyramid()->Active(GL_TEXTURE1);
+                shader->SetUniformi("depthPyramid", 1);
 
                 auto count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(((count + 255) / 256), 1, 1);
@@ -754,8 +753,8 @@ void Model::TestOcclusionResults(Scene* scene) {
 
                 scene->GetDrawCullDataBuffer()->BindBase(5);
 
-                //scene->DepthPyramid()->Active(GL_TEXTURE1);
-                //shader->SetUniformi("depthPyramid", 1);
+                scene->DepthPyramid()->Active(GL_TEXTURE1);
+                shader->SetUniformi("depthPyramid", 1);
 
                 size_t count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,

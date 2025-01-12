@@ -39,7 +39,6 @@ void Meshleter::SetInput(DataObject::Pointer obj) { m_DataObject = obj; }
 
 void Meshleter::Update() {
     if (m_DataObject && m_DataObject->GetMTime() > this->GetMTime()) {
-        std::cout << 1 << std::endl;
         Build();
     }
 }

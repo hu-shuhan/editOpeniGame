@@ -743,12 +743,16 @@ void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     // convert to drawable data
+
+#ifndef GL_DEBUG_CULLING
     for (auto& [id, model]: m_Models) {
         if (!model->m_DataObject->IsDrawable()) { continue; }
 
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
         drawObject->ReAllocateDisplayBuffer();
     }
+#endif
+
 
     // update camera data block in GPU
     UpdateCameraDataBlock();
