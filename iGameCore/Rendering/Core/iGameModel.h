@@ -1,8 +1,8 @@
 #pragma once
 #include <utility>
 
+#include "Meshleter/iGameSurfaceMeshMeshleter.h"
 #include "iGameDrawObject.h"
-#include "iGameMeshleter.h"
 #include "iGameObject.h"
 #include "iGamePainter2D.h"
 #include "iGamePainter3D.h"
@@ -51,6 +51,8 @@ public:
     Selection* GetSelection();
     void RequestPointSelection(Points* p, Selection* s);
     void RequestDragPoint(Points* p, Selection* s);
+
+    void SetMeshleter(Meshleter::Pointer meshleter);
 
 protected:
     Model();

@@ -281,7 +281,7 @@ GLUniform::Pointer GLShaderProgram::GetUniformLocation(const char* name) const {
     int location = glGetUniformLocation(m_Handle, name);
     if (location == -1) {
         igError(this->GetName()
-                << "could not get uniform (does not exist), " << name);
+                << ", could not get uniform (does not exist), " << name);
     }
 
     GLUniform::Pointer uniform = GLUniform::New();

@@ -730,15 +730,6 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
         m_TriangleEdgeMasks->Modified();
-
-#ifdef IGAME_OPENGL_VERSION_460
-        bool debug = false;
-        if (debug) {
-            m_Meshlets->BuildMeshlet(m_Positions->RawPointer(), m_Positions->GetNumberOfElements(),
-                                     m_TriangleIndices->RawPointer(), m_TriangleIndices->GetNumberOfValues(),
-                                     m_TriangleIndices);
-        }
-#endif
     }
 
     // convert scalar data
@@ -746,6 +737,7 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_UseColor = false;
         m_ColorWithCell = false;
     } else {
+        m_UseColor = true;
         m_UseColor = true;
 
         auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);

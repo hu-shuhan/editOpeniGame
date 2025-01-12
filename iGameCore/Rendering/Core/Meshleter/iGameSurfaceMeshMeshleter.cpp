@@ -1,4 +1,4 @@
-#include "iGameMeshleter.h"
+#include "iGameSurfaceMeshMeshleter.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnStructuredMesh.h"
@@ -6,27 +6,15 @@
 
 IGAME_NAMESPACE_BEGIN
 
-Meshleter::Meshleter() {
-    m_MeshletBuffer = GLBuffer::New();
-    m_MeshletVertexBuffer = GLBuffer::New();
-    m_MeshletTriangleBuffer = GLBuffer::New();
+SurfaceMeshMeshleter::SurfaceMeshMeshleter() {}
 
-    m_MeshletDescriptorBuffer = GLBuffer::New();
-    m_InvisibleMeshletBuffer = GLBuffer::New();
+SurfaceMeshMeshleter::~SurfaceMeshMeshleter() {}
 
-    m_PositionBuffer = GLBuffer::New();
-    m_ColorBuffer = GLBuffer::New();
-    m_NormalBuffer = GLBuffer::New();
-    m_UVBuffer = GLBuffer::New();
-}
-
-Meshleter::~Meshleter() {}
-
-void Meshleter::Build(DataObject::Pointer dataObject) {
-    if (DynamicCast<UnstructuredMesh>(dataObject) ||
-        DynamicCast<StructuredMesh>(dataObject) ||
-        DynamicCast<VolumeMesh>(dataObject)) {
-        igError("Now only support surface mesh.");
+void SurfaceMeshMeshleter::Build() {
+    if (DynamicCast<UnstructuredMesh>(m_DataObject) ||
+        DynamicCast<StructuredMesh>(m_DataObject) ||
+        DynamicCast<VolumeMesh>(m_DataObject)) {
+        igError("SurfaceMeshMeshleter only support surface mesh.");
     }
 
     Timer::Pointer timer = Timer::New();
@@ -37,7 +25,7 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
     // convert to draw date
     timer->Reset();
     {
-        auto mesh = DynamicCast<SurfaceMesh>(dataObject);
+        auto mesh = DynamicCast<SurfaceMesh>(m_DataObject);
 
         // positions
         positions = mesh->GetPoints()->ConvertToArray();
@@ -95,7 +83,6 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
                 meshletTriangles.data(), optimized_indices.data(), index_count,
                 vertex_positions, vertex_count, sizeof(float) * 3,
                 m_MaxVertices, m_MaxTriangles, m_ConeWeight);
-        m_MeshletCount = meshlet_count;
 
         // Resize the vector to fit the actual generated meshlet data
         const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
@@ -122,11 +109,14 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
                     vertex_positions, vertex_count, sizeof(float) * 3);
         }
 
+        m_MeshletCount = meshlet_count;
+
+#ifdef GL_SUPPORTS_MESH_SHADER
         // Prepare MeshletDescriptors array to store meshlet descriptors
-        std::vector<MeshletDescriptor> MeshletDescriptors(meshlet_count);
+        std::vector<MeshletDescriptor> meshletDescriptors(meshlet_count);
         for (size_t i = 0; i < meshlet_count; ++i) {
             const meshopt_Bounds& b = meshlet_bounds[i];
-            MeshletDescriptors[i] = {
+            meshletDescriptors[i] = {
                     igm::vec4{b.center[0], b.center[1], b.center[2], b.radius},
                     igm::vec4{0.0f}};
         }
@@ -153,8 +143,8 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
             m_MeshletDescriptorBuffer->Create();
             m_MeshletDescriptorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
             m_MeshletDescriptorBuffer->Allocate(
-                    MeshletDescriptors.size() * sizeof(MeshletDescriptor),
-                    MeshletDescriptors.data(), GL_STATIC_DRAW);
+                    meshletDescriptors.size() * sizeof(MeshletDescriptor),
+                    meshletDescriptors.data(), GL_STATIC_DRAW);
 
             m_InvisibleMeshletBuffer->Create();
             m_InvisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
@@ -167,12 +157,82 @@ void Meshleter::Build(DataObject::Pointer dataObject) {
             m_PositionBuffer->Allocate(vertex_count * 3 * sizeof(float),
                                        vertex_positions, GL_STATIC_DRAW);
         }
+#else
+        // Record indirect Command
+        std::vector<unsigned int> meshletIndices(meshletTriangles.size());
+        std::vector<MeshletDescriptor> meshletDescriptors(meshlet_count);
+        std::vector<DrawElementsIndirectCommand> drawCommands(meshlet_count);
+        for (size_t i = 0; i < meshlet_count; ++i) {
+            const meshopt_Meshlet& m = meshlets[i];
+            const meshopt_Bounds& b = meshlet_bounds[i];
+
+            for (auto j = m.triangle_offset;
+                 j < m.triangle_offset + m.triangle_count * 3; j++) {
+                meshletIndices[j] =
+                        meshletVertices[m.vertex_offset + meshletTriangles[j]];
+            }
+
+            meshletDescriptors[i] = {
+                    igm::vec4{b.center[0], b.center[1], b.center[2], b.radius},
+                    igm::vec4{0.0f}};
+
+            drawCommands[i] = {m.triangle_count * 3, 0, m.triangle_offset, 0,
+                               0};
+        }
+
+        // create buffer
+        {
+            m_MeshletDescriptorBuffer->Create();
+            m_MeshletDescriptorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_MeshletDescriptorBuffer->Allocate(
+                    meshlet_count * sizeof(MeshletDescriptor),
+                    meshletDescriptors.data(), GL_STATIC_DRAW);
+
+            m_DrawCommandBuffer->Create();
+            m_DrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_DrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawElementsIndirectCommand),
+                    drawCommands.data(), GL_STATIC_DRAW);
+
+            m_VisibleMeshletBuffer->Create();
+            m_VisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_VisibleMeshletBuffer->Allocate(meshlet_count *
+                                                     sizeof(unsigned int),
+                                             nullptr, GL_DYNAMIC_DRAW);
+
+            m_FinalDrawCommandBuffer->Create();
+            m_FinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
+            m_FinalDrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawElementsIndirectCommand),
+                    nullptr, GL_DYNAMIC_DRAW);
+
+            m_PositionVBO->Create();
+            m_PositionVBO->Target(GL_ARRAY_BUFFER);
+            m_PositionVBO->Allocate(vertex_count * 3 * sizeof(float),
+                                    vertex_positions, GL_STATIC_DRAW);
+
+            m_TriangleEBO->Create();
+            m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+            m_TriangleEBO->Allocate(meshletIndices.size() *
+                                            sizeof(unsigned int),
+                                    meshletIndices.data(), GL_STATIC_DRAW);
+
+            m_TriangleVAO->Create();
+            m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+                                        3 * sizeof(float));
+            GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+                              GL_FLOAT, GL_FALSE, 0);
+            m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+        }
+#endif
 
         std::cout << std::format("Build meshlets [count: {}, time: {}]",
                                  meshlet_count,
                                  FormatTime(timer->ElapsedMilliseconds()))
                   << std::endl;
     }
+
+    this->Modified();
 }
 
 IGAME_NAMESPACE_END

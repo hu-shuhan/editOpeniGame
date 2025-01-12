@@ -145,23 +145,6 @@ int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
     mipLevel += (mipLevelAdjustedSize.x > maxPixelOffset || mipLevelAdjustedSize.y > maxPixelOffset) ? 1 : 0;
 
     return mipLevel;
-
-    //    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //    float width = (aabb.z - aabb.x) * pyramidSize.x;
-    //    float height = (aabb.w - aabb.y) * pyramidSize.y;
-    //
-    //    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
-    //    // Start by calculating separate x and y mip level requirements.
-    //    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
-    //    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
-    //    // So k = floor( log2( n - 1 )
-    //    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
-    //
-    //    float n = max(width, height);
-    //    uint k = uint(floor(log2(n - 1)));
-    //    uint mipLevel = max(k - mipOffset, 0);
-    //
-    //    return mipLevel;
 }
 
 float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {

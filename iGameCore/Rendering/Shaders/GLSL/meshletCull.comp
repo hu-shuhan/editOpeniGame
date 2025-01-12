@@ -16,14 +16,14 @@ layout(std140, binding = 0) uniform CameraDataBlock {
     mat4 proj_view;// proj * view
 } cameraData;
 
-// Meshlets Buffer
-struct MeshletData {
+// Meshlet Descriptors
+struct MeshletDescriptor {
     vec4 spherebounds;
     vec4 extents;
 };
-layout(std430, binding = 1) buffer MeshletsBuffer {
-    MeshletData meshlets[];
-} meshletsBuffer;
+layout(std430, binding = 1) buffer MeshletDescriptorBuffer {
+    MeshletDescriptor meshletDescs[];
+} meshletDescriptorBuffer;
 
 // Indirect command buffer
 struct DrawElementsIndirectCommand {
@@ -49,101 +49,25 @@ layout(std430, binding = 4) buffer FinalDrawCommandBuffer {
 } finalDrawCommandBuffer;
 
 // Draw Cull Data
-layout(std140, binding = 5) uniform DrawCullDataBlock {
+layout(std140, binding = 5) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
     float pyramidWidth, pyramidHeight;// depth pyramid size in texels
-} drawCullData;
+} cullData;
 
 // hierarchical z-buffer
 uniform sampler2D depthPyramid;
 
-// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
-bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 aabb) {
-    if (-C.z - r < zNear) {
-        return false;
-    }
-    P11 = -P11;
-
-    vec2 cx = -C.xz;
-    vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
-    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
-    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
-
-    vec2 cy = -C.yz;
-    vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
-    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
-    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
-
-    aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
-    aabb = vec4(0.5f, 0.5f, 0.5f, 0.5f) - vec4(0.5f, 0.5f, 0.5f, 0.5f) * aabb;// clip space -> uv space
-
-    // Vulkan uv -> OpenGL uv
-    aabb = vec4(aabb.x, 1.0f - aabb.w, aabb.z, 1.0f - aabb.y);
-
-    return true;
-}
-
-// Function to perform occlusion culling
-bool IsVisible(MeshletData meshlet) {
-    vec4 sphereBounds = meshlet.spherebounds;
-
-    // in the right-handed coordinate system, the z value of the view coordinate is negative
-    vec3 center = sphereBounds.xyz;
-    center = (drawCullData.view_model * vec4(center, 1.f)).xyz;
-    float radius = sphereBounds.w;
-
-    bool visible = true;
-
-    // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
-    visible = visible && center.z * drawCullData.frustum[1] - abs(center.x) * drawCullData.frustum[0] > -radius;
-    visible = visible && center.z * drawCullData.frustum[3] - abs(center.y) * drawCullData.frustum[2] > -radius;
-
-    // dist culling
-    // visible = visible && -center.z + radius > drawCullData.zNear && -center.z - radius < drawCullData.zFar;
-
-    vec4 aabb;
-    if (ProjectSphere(center, radius, drawCullData.zNear, drawCullData.P00, drawCullData.P11, aabb)) {
-        float width = (aabb.z - aabb.x) * float(drawCullData.pyramidWidth);
-        float height = (aabb.w - aabb.y) * float(drawCullData.pyramidHeight);
-
-        //        float level = floor(log2(max(width, height)));
-        float level = ceil(log2(max(width, height)));
-
-        //Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
-        float depth_0 = textureLod(depthPyramid, aabb.xy, level).r;
-        float depth_1 = textureLod(depthPyramid, aabb.xw, level).r;
-        float depth_2 = textureLod(depthPyramid, aabb.zw, level).r;
-        float depth_3 = textureLod(depthPyramid, aabb.zy, level).r;
-        float depth = min(min(depth_0, depth_1), min(depth_2, depth_3));
-
-        float epsilon = 1e-7;
-        depth -= epsilon;
-
-        float z = center.z + radius;// From the camera's perspective, z is negative.
-
-        // Unlimited viewing distance
-        // float depthSphere = drawCullData.zNear / -z;
-
-        // Limited viewing distance
-        float n = drawCullData.zNear;
-        float f = drawCullData.zFar;
-        float depthSphere = (n + n * f / z) / (n - f);
-
-        visible = visible && depthSphere >= depth;
-    }
-
-    return visible;
-}
+bool IsVisible(MeshletDescriptor meshletDescriptor);
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= meshletsBuffer.meshlets.length()) {
+    if (id >= meshletDescriptorBuffer.meshletDescs.length()) {
         return;// Prevent out-of-bounds access
     }
 
-    MeshletData meshlet = meshletsBuffer.meshlets[id];
+    MeshletDescriptor meshlet = meshletDescriptorBuffer.meshletDescs[id];
 
     if (workMode == 0) {
         if (drawCommandBuffer.commands[id].primCount == 0) {
@@ -175,4 +99,170 @@ void main() {
             drawCommandBuffer.commands[id].primCount = 0;
         }
     }
+}
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 aabb) {
+    if (-C.z - r < zNear) {
+        return false;
+    }
+    P11 = -P11;
+
+    vec2 cx = -C.xz;
+    vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
+    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+    vec2 cy = -C.yz;
+    vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
+    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+    aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+    aabb = vec4(0.5f, 0.5f, 0.5f, 0.5f) - vec4(0.5f, 0.5f, 0.5f, 0.5f) * aabb;// clip space -> uv space
+
+    // Vulkan uv -> OpenGL uv
+    aabb = vec4(aabb.x, 1.0f - aabb.w, aabb.z, 1.0f - aabb.y);
+
+    return true;
+}
+
+int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
+    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    ivec4 aabbPixels = ivec4(aabb * pyramidSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
+
+    const int maxPixelOffset = desiredFootprintPixels - 1;
+    const int mipOffset = int(log2(float(desiredFootprintPixels))) - 1;
+
+    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
+    // Start by calculating separate x and y mip level requirements.
+    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
+    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
+    // So k = floor( log2( n - 1 )
+    // For integer n>1: floor( log2( n ) ) = findMSB( n )
+    // So k = findMSB( n - 1 )
+    // As aabbPixels min/max are both inclusive their difference is one less than number of pixels (n - 1), so applying findMSB to this difference gives the minimum required mip.
+    // NOTE: findMSB(firstbithigh) is a FULL rate instruction on GCN while log2 is QUARTER rate instruction.
+    ivec2 mipLevelXY = ivec2(findMSB(aabbPixels.z - aabbPixels.x), findMSB(aabbPixels.w - aabbPixels.y));
+
+    // Mip level needs to be big enough to cover both x and y requirements. Go one extra level down for 4x4 sampling.
+    // findMSB(0) = -1, so clamping with 0 here also handles the n=1 case where mip 0 footprint is just 1 pixel wide/tall.
+    int mipLevel = max(max(mipLevelXY.x, mipLevelXY.y) - mipOffset, 0);
+
+    // MipLevel now contains the minimum MipLevel that can cover a number of pixels equal to the size of the rectangle footprint, but the HZB footprint alignments are quantized to powers of two.
+    // The quantization can translate down the start of the represented range by up to 2^k-1 pixels, which can decrease the number of usable pixels down to 2^(k+1) - 2^k-1.
+    // Depending on the alignment of the rectangle this might require us to pick one level higher to cover all rectangle footprint pixels.
+    // Note that testing one level higher is always enough as this guarantees 2^(k+2) - 2^k usable pixels after alignment, which is more than the 2^(k+1) required pixels.
+
+    // Transform coordinates down to coordinates of selected mip level and if they are not within reach increase level by one.
+    ivec2 mipLevelAdjustedSize = (aabbPixels.zw >> mipLevel) - (aabbPixels.xy >> mipLevel);
+    mipLevel += (mipLevelAdjustedSize.x > maxPixelOffset || mipLevelAdjustedSize.y > maxPixelOffset) ? 1 : 0;
+
+    return mipLevel;
+
+    //    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //    float width = (aabb.z - aabb.x) * pyramidSize.x;
+    //    float height = (aabb.w - aabb.y) * pyramidSize.y;
+    //
+    //    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
+    //    // Start by calculating separate x and y mip level requirements.
+    //    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
+    //    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
+    //    // So k = floor( log2( n - 1 )
+    //    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
+    //
+    //    float n = max(width, height);
+    //    uint k = uint(floor(log2(n - 1)));
+    //    uint mipLevel = max(k - mipOffset, 0);
+    //
+    //    return mipLevel;
+}
+
+float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
+    float minDepth = 1.0f;
+
+    if (bSample4x4) {
+        float level = float(GetMipLevelFromAABB(aabb, 4));
+
+        vec2 minCoord = aabb.xy;
+        vec2 maxCoord = aabb.zw;
+
+        vec2 stepSize = (maxCoord - minCoord) / 3.0f;
+
+        for (uint y = 0; y < 4; ++y) {
+            for (uint x = 0; x < 4; ++x) {
+                vec2 sampleCoord = minCoord + vec2(x, y) * stepSize;
+                float depth = textureLod(depthPyramid, sampleCoord, level).r;
+                minDepth = min(minDepth, depth);
+            }
+        }
+    } else {
+        float level = float(GetMipLevelFromAABB(aabb, 2));
+
+        float depth_0 = textureLod(depthPyramid, aabb.xy, level).r;
+        float depth_1 = textureLod(depthPyramid, aabb.xw, level).r;
+        float depth_2 = textureLod(depthPyramid, aabb.zw, level).r;
+        float depth_3 = textureLod(depthPyramid, aabb.zy, level).r;
+
+        minDepth = min(min(depth_0, depth_1), min(depth_2, depth_3));
+    }
+
+    // float epsilon = 1e-7;
+    // minDepth -= epsilon;
+
+    return minDepth;
+}
+
+// Function to perform occlusion culling
+bool IsVisible(MeshletDescriptor meshletDescriptor) {
+    vec4 sphereBounds = meshletDescriptor.spherebounds;
+
+    // in the right-handed coordinate system, the z value of the view coordinate is negative
+    vec3 center = sphereBounds.xyz;
+    center = (cullData.view_model * vec4(center, 1.f)).xyz;
+    float radius = sphereBounds.w;
+
+    bool visible = true;
+
+    // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
+    if (visible) {
+        visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+        visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+    }
+
+    // dist culling
+    // if (visible) {
+    //     visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+    // }
+
+    vec4 aabb;
+    if (visible) {
+        visible = ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
+    }
+
+    // small meshlet culling(less than one pixel)
+    // if (visible) {
+    //     const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //     const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //     visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    // }
+
+    // occlusion culling
+    if (visible) {
+        float depth = GetMinDepthFromHZB(aabb, true);
+
+        float z = center.z + radius;// From the camera's perspective, z is negative.
+
+        // Unlimited viewing distance
+        // float depthSphere = cullData.zNear / -z;
+
+        // Limited viewing distance
+        float n = cullData.zNear;
+        float f = cullData.zFar;
+        float depthSphere = (n + n * f / z) / (n - f);
+
+        visible = depthSphere >= depth;
+    }
+
+    return visible;
 }

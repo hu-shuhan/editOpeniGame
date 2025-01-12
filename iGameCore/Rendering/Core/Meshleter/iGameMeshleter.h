@@ -5,10 +5,9 @@
 #pragma once
 
 #include "OpenGL/GLBuffer.h"
+#include "OpenGL/GLVertexArray.h"
 #include "iGameDataObject.h"
 #include "iGameObject.h"
-#include "igm/igm.h"
-#include "meshoptimizer.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -32,18 +31,23 @@ public:
         unsigned int triangle_count;
     };
 
-    void Build(DataObject::Pointer dataObject);
+    void SetInput(DataObject::Pointer obj);
+    void Update();
 
 protected:
     Meshleter();
     ~Meshleter() override;
 
+    virtual void Build();
+
     const size_t m_MaxVertices = 64;
     const size_t m_MaxTriangles = 124;
     const float m_ConeWeight = 0.0f;
 
+    DataObject::Pointer m_DataObject;
     size_t m_MeshletCount;
 
+#ifdef GL_SUPPORTS_MESH_SHADER
     GLBuffer::Pointer m_MeshletBuffer;
     GLBuffer::Pointer m_MeshletVertexBuffer;
     GLBuffer::Pointer m_MeshletTriangleBuffer;
@@ -55,6 +59,20 @@ protected:
     GLBuffer::Pointer m_ColorBuffer;
     GLBuffer::Pointer m_NormalBuffer;
     GLBuffer::Pointer m_UVBuffer;
+#else
+    GLVertexArray::Pointer m_TriangleVAO;
+    GLBuffer::Pointer m_TriangleEBO;
+
+    GLBuffer::Pointer m_PositionVBO;
+    GLBuffer::Pointer m_ColorVBO;
+    GLBuffer::Pointer m_NormalVBO;
+    GLBuffer::Pointer m_UVVBO;
+
+    GLBuffer::Pointer m_MeshletDescriptorBuffer;
+    GLBuffer::Pointer m_DrawCommandBuffer;
+    GLBuffer::Pointer m_VisibleMeshletBuffer;
+    GLBuffer::Pointer m_FinalDrawCommandBuffer;
+#endif
 
     friend class Model;
 };

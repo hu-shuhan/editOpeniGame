@@ -1,6 +1,8 @@
 #pragma once
 
 #define GL_SUPPORTS_MSAA
+
+//#define GL_DEBUG_CULLING
 #define GL_SUPPORTS_MESH_SHADER
 
 #define MAX_FRAMEBUFFER_WIDTH 7680

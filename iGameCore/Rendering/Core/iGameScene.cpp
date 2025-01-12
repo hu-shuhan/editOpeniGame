@@ -1,7 +1,6 @@
 #include "iGameScene.h"
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
-#include "iGameMeshleter.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -863,77 +862,65 @@ void Scene::ForwardPass() {
         model->GetPainter3D()->Draw(this);
     }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = false;
-    if (debug) {
-        //std::cout << "-------:Draw:-------" << std::endl;
 
+#ifdef GL_DEBUG_CULLING
 #ifdef GL_SUPPORTS_MESH_SHADER
-        // draw phase1: draw visible meshlet
-        // Note: The first HZB culling pass must use the previous frame's data
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase1(this);
-            }
-        }
+    // draw phase1: draw visible meshlet
+    // Note: The first HZB culling pass must use the previous frame's data
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
+    }
 
-        // refresh phase 1: generate loacl hierarchical z-buffer & cull data
-        RefreshDepthPyramid();
-        RefreshDrawCullDataBuffer();
+    // refresh phase 1: generate loacl hierarchical z-buffer & cull data
+    RefreshDepthPyramid();
+    RefreshDrawCullDataBuffer();
 
-        // draw phase2: draw invisible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase2(this);
-            }
-        }
+    // draw phase2: draw invisible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
+    }
 
-        // refresh phase2: generate global hierarchical z-buffer
-        RefreshDepthPyramid();
+    // refresh phase2: generate global hierarchical z-buffer
+    RefreshDepthPyramid();
 #else
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->TestOcclusionResults(this);
-            }
-        }
-
-        // draw phase1: draw visible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase1(this);
-            }
-        }
-
-        // refresh phase1: generate loacl hierarchical z-buffer
-        RefreshDepthPyramid();
-        RefreshDrawCullDataBuffer();
-
-        // draw phase2: draw invisible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase2(this);
-            }
-        }
-
-        // refresh phase2: generate global hierarchical z-buffer
-        RefreshDepthPyramid();
-#endif
-    } else {
-        for (auto& [id, model]: m_Models) {
-            // draw mesh
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
-
-            // draw painter(since painter does not support transparency)
-            if (drawObject->GetVisibility()) {
-                model->GetPainter3D()->Draw(this);
-            }
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) {
+            model->TestOcclusionResults(this);
         }
     }
+
+    // draw phase1: draw visible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
+    }
+
+    // refresh phase1: generate loacl hierarchical z-buffer
+    RefreshDepthPyramid();
+    RefreshDrawCullDataBuffer();
+
+    // draw phase2: draw invisible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
+    }
+
+    // refresh phase2: generate global hierarchical z-buffer
+    RefreshDepthPyramid();
+#endif // GL_SUPPORTS_MESH_SHADER
+#else
+    for (auto& [id, model]: m_Models) {
+        // draw mesh
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
+
+        // draw painter(since painter does not support transparency)
+        if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(this); }
+    }
+#endif // GL_DEBUG_CULLING
 
 #endif
     GLCheckError();
@@ -1059,41 +1046,12 @@ void Scene::VolumeRenderingPass() {
 }
 
 void Scene::UpdateCameraDataBlock() {
-    // update camera data matrix
-    //m_CameraData.camera_position = m_Camera->GetPosition();
-    //m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
-    //m_CameraData.view = m_Camera->GetViewMatrix();
-    //m_CameraData.proj = m_Camera->GetProjectionMatrix();
-    //m_CameraData.proj_view =
-    //        m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
-
-    // update camera data matrix
     m_ShaderManager->UpdateCameraBlock(m_Camera);
 }
 void Scene::UpdateObjectDataBlock(DataObject::Pointer obj) {
-    // update object data matrix
-    //auto drawObject = DynamicCast<DrawObject>(obj);
-    //auto box = obj->GetBoundingBox();
-    //Vector3f center = box.center();
-    //
-    //m_ObjectData.transparent = drawObject->GetTransparency();
-    //m_ObjectData.model = m_ModelMatrix;
-    //m_ObjectData.normal = m_ObjectData.model.invert().transpose();
-    //m_ObjectData.sphereBounds = igm::vec4{center[0], center[1], center[2],
-    //                                      static_cast<float>(box.diag() / 2)};
-
-    // update object data matrix
-    //m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
     m_ShaderManager->UpdateObjectBlock(obj, m_ModelMatrix);
 }
 void Scene::UpdateUniformBufferObjectBlock(DataObject::Pointer obj) {
-    //auto drawObject = DynamicCast<DrawObject>(obj);
-    //
-    //m_UBO.useColor = drawObject->IsUseColor();
-    //m_UBO.useNormalSmooth = drawObject->IsUseNormalSmooth();
-    //
-    //// update other ubo
-    ////m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
     m_ShaderManager->UpdateUBOBlock(obj);
 }
 
