@@ -19,7 +19,7 @@ public:
     /**
      * @brief 默认构造函数，将矩阵初始化为单位矩阵。
      */
-    mat<4, 4, T>() : value{} { setToIdentity(); }
+    mat() : value{} { setToIdentity(); }
 
     /**
      * @brief 使用指定值初始化矩阵的构造函数。
@@ -28,7 +28,7 @@ public:
      * @param x2, y2, z2, w2 第三个列向量的值。
      * @param x3, y3, z3, w3 第四个列向量的值。
      */
-    mat<4, 4, T>(const T& x0, const T& y0, const T& z0, const T& w0,
+    mat(const T& x0, const T& y0, const T& z0, const T& w0,
                  const T& x1, const T& y1, const T& z1, const T& w1,
                  const T& x2, const T& y2, const T& z2, const T& w2,
                  const T& x3, const T& y3, const T& z3, const T& w3)
@@ -42,7 +42,7 @@ public:
      * @param v2 第三个列向量。
      * @param v3 第四个列向量。
      */
-    mat<4, 4, T>(const vec<4, T>& v0, const vec<4, T>& v1, const vec<4, T>& v2,
+    mat(const vec<4, T>& v0, const vec<4, T>& v1, const vec<4, T>& v2,
                  const vec<4, T>& v3)
         : value{v0, v1, v2, v3} {}
 
@@ -50,7 +50,7 @@ public:
      * @brief 构造函数，将矩阵初始化为对角矩阵。
      * @param diagonal 设置对角线上的值。
      */
-    explicit mat<4, 4, T>(const T& diagonal) : value{} {
+    explicit mat(const T& diagonal) : value{} {
         this->value[0] = vec<4, T>(diagonal, 0, 0, 0);
         this->value[1] = vec<4, T>(0, diagonal, 0, 0);
         this->value[2] = vec<4, T>(0, 0, diagonal, 0);
@@ -61,7 +61,7 @@ public:
      * @brief 拷贝构造函数。
      * @param other 要拷贝的矩阵。
      */
-    mat<4, 4, T>(const mat<4, 4, T>& other)
+    mat(const mat<4, 4, T>& other)
         : value{other.value[0], other.value[1], other.value[2],
                 other.value[3]} {}
 

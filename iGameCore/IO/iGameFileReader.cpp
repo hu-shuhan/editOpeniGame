@@ -155,7 +155,7 @@ bool FileReader::OpenWithWindowsSystem() {
 bool FileReader::OpenWithLinuxOrMacSystem() {
 #if defined(PLATFORM_LINUX) || defined(PLATFORM_MAC)
 	// 打开文件
-	m_File = open(filePath, O_RDONLY);
+	m_File = open(m_FilePath.c_str(), O_RDONLY);
 	if (m_File == -1) {
 		perror("open");
 		return false;
@@ -178,7 +178,9 @@ bool FileReader::OpenWithLinuxOrMacSystem() {
 		return false;
 	}
 	this->IS = this->FILESTART;
-	FILEEND = FILESTART + FILEEND;
+	FILEEND = FILESTART + m_FileSize;
+
+	std::cout<<*FILEEND<<' '<<*FILESTART<<"\n";
 #endif
 	return true;
 }
@@ -376,6 +378,10 @@ int FileReader::ReadString(char result[256]) {
 	this->SkipNullData();
 	const char* op = strchr(this->IS, ' ');
 	const char* lineEnd = strchr(this->IS, '\n');
+
+	if(lineEnd == nullptr) {
+		lineEnd = FILEEND;
+	}
 	if (!op || op > lineEnd) {
 		op = lineEnd;
 	}

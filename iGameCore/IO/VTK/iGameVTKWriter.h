@@ -13,7 +13,7 @@ File output and file processing are serial.
 */
 
 #include "iGameFileWriter.h"
-#include "iGameVTKabstractReader.h"
+#include "iGameVTKAbstractReader.h"
 
 IGAME_NAMESPACE_BEGIN
 

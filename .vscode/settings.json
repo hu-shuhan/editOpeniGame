@@ -4,6 +4,15 @@
         "*.tcc": "c",
         "fstream": "c",
         "sstream": "c",
-        "regex": "c"
+        "regex": "c",
+        "mman.h": "c",
+        "fcntl.h": "c",
+        "cmath": "cpp",
+        "random": "cpp",
+        "limits": "cpp",
+        "functional": "cpp",
+        "variant": "cpp",
+        "string": "cpp",
+        "iostream": "cpp"
     }
 }

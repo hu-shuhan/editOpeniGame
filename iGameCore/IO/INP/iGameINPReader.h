@@ -4,7 +4,7 @@
 #include "iGameFileReader.h"
 #include <iGameVolumeMesh.h>
 #include <iGameStructuredMesh.h>
-#include <iGameUnStructuredMesh.h>
+#include <iGameUnstructuredMesh.h>
 IGAME_NAMESPACE_BEGIN
 
 class INPReader :public FileReader {

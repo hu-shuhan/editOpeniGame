@@ -19,7 +19,7 @@ public:
     /**
      * @brief 默认构造函数，将矩阵初始化为单位矩阵。
      */
-    mat<2, 2, T>() : value{} { setToIdentity(); }
+    mat() : value{} { setToIdentity(); }
 
     /**
      * @brief  构造函数，用指定的值初始化二阶矩阵。
@@ -28,7 +28,7 @@ public:
      * @param  x1  第二列，第一行的值。
      * @param  y1  第二列，第二行的值。
      */
-    mat<2, 2, T>(const T& x0, const T& y0, const T& x1, const T& y1)
+    mat(const T& x0, const T& y0, const T& x1, const T& y1)
         : value{vec<2, T>(x0, y0), vec<2, T>(x1, y1)} {}
 
     /**
@@ -36,7 +36,7 @@ public:
      * @param  v0  第一个列向量。
      * @param  v1  第二个列向量。
      */
-    mat<2, 2, T>(const vec<2, T>& v0, const vec<2, T>& v1) : value{} {
+    mat(const vec<2, T>& v0, const vec<2, T>& v1) : value{} {
         this->value[0] = v0;
         this->value[1] = v1;
     }
@@ -45,7 +45,7 @@ public:
      * @brief  构造函数，将矩阵初始化为对角矩阵。
      * @param  diagonal  设置在对角线上的值。
      */
-    explicit mat<2, 2, T>(const T& diagonal) : value{} {
+    explicit mat(const T& diagonal) : value{} {
         this->value[0] = vec<2, T>(diagonal, 0);
         this->value[1] = vec<2, T>(0, diagonal);
     }
@@ -54,7 +54,7 @@ public:
      * @brief  拷贝构造函数。
      * @param  other  要拷贝的矩阵。
      */
-    mat<2, 2, T>(const mat<2, 2, T>& other) : value{} {
+    mat(const mat<2, 2, T>& other) : value{} {
         this->value[0] = other.value[0];
         this->value[1] = other.value[1];
     }

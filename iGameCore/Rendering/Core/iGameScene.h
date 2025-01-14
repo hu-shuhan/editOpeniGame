@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "OpenGL/GLFramebuffer.h"
+#include "OpenGL/GLFrameBuffer.h"
 #include "OpenGL/GLIndirectCommand.h"
 #include "OpenGL/GLShader.h"
-#include "OpenGL/GLTextureBUffer.h"
+#include "OpenGL/GLTextureBuffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameFontManager.h"

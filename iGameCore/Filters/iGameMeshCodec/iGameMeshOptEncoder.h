@@ -387,7 +387,7 @@ private:
 
                 if (floatFlag) {
                     for (int i = 0, tpCursor = 0; i < valueCount; i += blockSize, tpCursor++) {
-                        size_t length = std::min(valueCount - i, blockSize);
+                        size_t length = std::min(valueCount - i, (IGsize)blockSize);
                         tpResult[tpCursor] = tp->Commit(
                                 [&](int start, int end) -> void {
                                     for (int j = start; j < end; j += 2) {
@@ -404,7 +404,7 @@ private:
                     }
                 } else {
                     for (int i = 0, tpCursor = 0; i < valueCount; i += blockSize, tpCursor++) {
-                        size_t length = std::min(valueCount - i, blockSize);
+                        size_t length = std::min(valueCount - i, (IGsize)blockSize);
                         tpResult[tpCursor] = tp->Commit(
                                 [&](int start, int end) -> void {
                                     for (int j = start; j < end; j += 2) {

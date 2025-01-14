@@ -5,7 +5,10 @@
 #include "igm/igm.h"
 #include "igm/transform.h"
 //#include <Eigen/Dense>
-#include <format>
+
+
+/* Temprary not suit in Linux platform. */
+// #include <format>
 
 IGAME_NAMESPACE_BEGIN
 enum MouseButton {
@@ -58,21 +61,21 @@ public:
         }
     };
     virtual void MousePressEvent(IEvent _event) {
-        std::cout << std::format(
-                "Mouse press event at ({}, {}) with button {}\n", _event.pos.x,
-                _event.pos.y, static_cast<int>(_event.button));
+        // std::cout << std::format(
+        //         "Mouse press event at ({}, {}) with button {}\n", _event.pos.x,
+        //         _event.pos.y, static_cast<int>(_event.button));
     };
     virtual void MouseMoveEvent(IEvent _event) {
-        std::cout << std::format("Mouse move event at ({}, {})\n", _event.pos.x,
-                                 _event.pos.y);
+        // std::cout << std::format("Mouse move event at ({}, {})\n", _event.pos.x,
+        //                          _event.pos.y);
     };
     virtual void MouseReleaseEvent(IEvent _event) {
-        std::cout << std::format("Mouse release event at ({}, {})\n",
-                                 _event.pos.x, _event.pos.y);
+        // std::cout << std::format("Mouse release event at ({}, {})\n",
+        //                          _event.pos.x, _event.pos.y);
     };
     virtual void WheelEvent(IEvent _event) {
-        std::cout << std::format("Mouse wheel event with delta {}\n",
-                                 _event.delta);
+        // std::cout << std::format("Mouse wheel event with delta {}\n",
+        //                          _event.delta);
     };
 
 protected:
