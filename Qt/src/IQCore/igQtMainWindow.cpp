@@ -637,7 +637,9 @@ void igQtMainWindow::initAllFilters() {
         //                         .pointer;
         //chart->drawBarChart(dataarray);
         //chart->exec();
-        QuickModelClip::Pointer filter = QuickModelClip::New();
+
+
+     /*   QuickModelClip::Pointer filter = QuickModelClip::New();
         auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(input);
         auto bound = input->GetBoundingBox();
@@ -658,6 +660,19 @@ void igQtMainWindow::initAllFilters() {
         auto res2 = filter2->GetOutput();
         res2->SetName("Old Clip");
         modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();*/
+
+        ContourFilter::Pointer filter=ContourFilter::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto m_ScalarArray=input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
+        auto m_IsoValue=0.5;
+        auto m_ScalarDimension=0;
+        filter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+        filter->Execute();
+        auto res = filter->GetOutput();
+        res->SetName("Contour Result");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         rendererWidget->update();
     });
 

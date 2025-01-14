@@ -180,7 +180,6 @@ bool FileReader::OpenWithLinuxOrMacSystem() {
 	this->IS = this->FILESTART;
 	FILEEND = FILESTART + m_FileSize;
 
-	std::cout<<*FILEEND<<' '<<*FILESTART<<"\n";
 #endif
 	return true;
 }

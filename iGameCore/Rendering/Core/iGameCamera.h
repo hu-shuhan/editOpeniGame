@@ -54,9 +54,6 @@ public:
     void SetFov(float fov);
     float GetFov() const;
 
-    // depth range: 0.0(near plane) -> 1.0(far plane)
-    virtual igm::mat4 GetProjectionMatrix();
-
 protected:
     Viewer();
     ~Viewer() override;
@@ -94,7 +91,7 @@ public:
 
     igm::mat4 GetViewMatrix();
 
-    igm::mat4 GetProjectionMatrix() override;
+    igm::mat4 GetProjectionMatrix();
 
 protected:
     Camera();

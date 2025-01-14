@@ -110,10 +110,6 @@ void DrawObject::CreateDrawBuffer() {
         m_EdgeMaskTexture->Create();
         m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
 
-#ifdef IGAME_OPENGL_VERSION_460
-        m_Meshlets->CreateBuffer();
-#endif
-
         //// set point drawing format
         //{
         //    m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,

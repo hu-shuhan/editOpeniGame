@@ -1,12 +1,10 @@
-//
-// Created by Sumzeek on 11/20/2024.
-//
-
 /**
  * @class    iGameConeSource
  * @brief    iGameConeSource's brief
  */
+
 #include "iGameConeSource.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 

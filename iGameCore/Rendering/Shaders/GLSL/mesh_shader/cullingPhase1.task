@@ -1,60 +1,46 @@
 #version 460
-//#extension GL_ARB_bindless_texture : require
 
-layout (local_size_x = 256) in;
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_vote : require
 
-// 0: Determine the visibility of the invisible meshlet in the previous frame in this frame
-// 1: Determine the visibility of all meshlets in this frame
-uniform int workMode;
+#define WORKGROUP_SIZE 32
+#define MESHLET_PER_TASK 32
 
-// Camera buffer
-layout(std140, binding = 0) uniform CameraDataBlock {
-    vec3 viewPos;
-    int isOrtho;
-    mat4 view;
-    mat4 proj;
-    mat4 proj_view;// proj * view
-} cameraData;
+const uint meshletLoops = (MESHLET_PER_TASK + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+
+layout(local_size_x = WORKGROUP_SIZE) in;
 
 // Meshlet Descriptors
 struct MeshletDescriptor {
     vec4 spherebounds;
     vec4 extents;
 };
-layout(std430, binding = 1) buffer MeshletDescriptorBuffer {
+layout(std430, binding = 10) buffer MeshletDescriptorBuffer {
     MeshletDescriptor meshletDescs[];
 } meshletDescriptorBuffer;
 
-// Indirect command buffer
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint primCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-layout(std430, binding = 2) buffer DrawCommandBuffer {
-    DrawElementsIndirectCommand commands[];
-} drawCommandBuffer;
-
-// Final visible meshlet info
-layout(std430, binding = 3)  buffer VisibleMeshletBuffer{
-    uint count;
-    uint IDs[];
-} visibleMeshletBuffer;
-
-// Final indirect draw command buffer
-layout(std430, binding = 4) buffer FinalDrawCommandBuffer {
-    DrawElementsIndirectCommand commands[];
-} finalDrawCommandBuffer;
-
-// Draw Cull Data
-layout(std140, binding = 5) uniform CullDataBlock {
+// Note: The first HZB culling pass must use the previous frame's data
+layout(std140, binding = 11) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
-    float pyramidWidth, pyramidHeight;// depth pyramid size in texels
+    uint pyramidWidth, pyramidHeight;// depth pyramid size in texels
 } cullData;
+
+layout(std430, binding = 12) /*coherent*/ buffer InvisibleMeshletBuffer {
+    uint count;
+    uint deltaIDs[];
+} invisibleMeshletBuffer;
+
+taskNV out Task {
+    uint      baseID;
+    uint8_t   deltaIDs[MESHLET_PER_TASK];
+} task_out;
+
+uniform uint meshletCount;
 
 // hierarchical z-buffer
 uniform sampler2D depthPyramid;
@@ -62,42 +48,42 @@ uniform sampler2D depthPyramid;
 bool IsVisible(MeshletDescriptor meshletDescriptor);
 
 void main() {
-    uint id = gl_GlobalInvocationID.x;
-    if (id >= meshletDescriptorBuffer.meshletDescs.length()) {
-        return;// Prevent out-of-bounds access
+    uint baseID = gl_WorkGroupID.x * MESHLET_PER_TASK;
+    uint laneID = gl_LocalInvocationID.x;
+
+    uint outMeshletCount = 0;
+    for (uint loop = 0; loop < meshletLoops; loop++) {
+        uint meshletLocal = laneID + loop * WORKGROUP_SIZE;
+        uint meshletGlobal = baseID + meshletLocal;
+
+        if (meshletGlobal >= meshletCount) { return; }
+
+        // we padded the buffer to ensure we don't access it out of bounds
+        MeshletDescriptor desc = meshletDescriptorBuffer.meshletDescs[meshletGlobal];
+
+        // implement some early culling function
+        bool render = IsVisible(desc);
+
+        uvec4 voteMeshlets  = subgroupBallot(render);
+        uint numMeshlets = subgroupBallotBitCount(voteMeshlets);
+        uint idxOffset = subgroupBallotExclusiveBitCount(voteMeshlets) + outMeshletCount;
+        if (render) {
+            task_out.deltaIDs[idxOffset] = uint8_t(meshletLocal);
+        } else {
+            uint oldValue = atomicAdd(invisibleMeshletBuffer.count, 1);
+            invisibleMeshletBuffer.deltaIDs[oldValue] = meshletGlobal;
+        }
+
+        outMeshletCount += numMeshlets;
     }
 
-    MeshletDescriptor meshlet = meshletDescriptorBuffer.meshletDescs[id];
+    if (laneID == 0) {
+        // write the number of surviving meshlets, i.e.
+        // mesh workgroups to spawn
+        gl_TaskCountNV = outMeshletCount;
 
-    if (workMode == 0) {
-        if (drawCommandBuffer.commands[id].primCount == 0) {
-            if (IsVisible(meshlet)) {
-                uint oldValue = atomicAdd(visibleMeshletBuffer.count, 1);
-                visibleMeshletBuffer.IDs[oldValue] = id;
-
-                finalDrawCommandBuffer.commands[oldValue].count = drawCommandBuffer.commands[id].count;
-                finalDrawCommandBuffer.commands[oldValue].primCount = 1;
-                finalDrawCommandBuffer.commands[oldValue].firstIndex = drawCommandBuffer.commands[id].firstIndex;
-                finalDrawCommandBuffer.commands[oldValue].baseVertex = drawCommandBuffer.commands[id].baseVertex;
-                finalDrawCommandBuffer.commands[oldValue].baseInstance = drawCommandBuffer.commands[id].baseInstance;
-            }
-        }
-    } else if (workMode == 1) {
-        if (IsVisible(meshlet)) {
-            // Write a draw command if the meshlet is visible
-            drawCommandBuffer.commands[id].primCount = 1;
-            uint oldValue = atomicAdd(visibleMeshletBuffer.count, 1);
-            visibleMeshletBuffer.IDs[oldValue] = id;
-
-            finalDrawCommandBuffer.commands[oldValue].count = drawCommandBuffer.commands[id].count;
-            finalDrawCommandBuffer.commands[oldValue].primCount = 1;
-            finalDrawCommandBuffer.commands[oldValue].firstIndex = drawCommandBuffer.commands[id].firstIndex;
-            finalDrawCommandBuffer.commands[oldValue].baseVertex = drawCommandBuffer.commands[id].baseVertex;
-            finalDrawCommandBuffer.commands[oldValue].baseInstance = drawCommandBuffer.commands[id].baseInstance;
-        } else {
-            // Set draw command count to 0 if the meshlet is not visible
-            drawCommandBuffer.commands[id].primCount = 0;
-        }
+        // where the meshletIDs started from for this task workgroup
+        task_out.baseID = baseID;
     }
 }
 
@@ -159,23 +145,6 @@ int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
     mipLevel += (mipLevelAdjustedSize.x > maxPixelOffset || mipLevelAdjustedSize.y > maxPixelOffset) ? 1 : 0;
 
     return mipLevel;
-
-    //    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //    float width = (aabb.z - aabb.x) * pyramidSize.x;
-    //    float height = (aabb.w - aabb.y) * pyramidSize.y;
-    //
-    //    // Calculate lowest mip level that allows us to cover footprint of the desired size in pixels.
-    //    // Start by calculating separate x and y mip level requirements.
-    //    // 2 pixels of mip k cover 2^(k+1) pixels of mip 0. To cover at least n pixels of mip 0 by two pixels of mip k we need k to be at least k = ceil( log2( n ) ) - 1.
-    //    // For integer n>1: ceil( log2( n ) ) = floor( log2( n - 1 ) ) + 1.
-    //    // So k = floor( log2( n - 1 )
-    //    const uint mipOffset = uint(log2(float(desiredFootprintPixels))) - 1;
-    //
-    //    float n = max(width, height);
-    //    uint k = uint(floor(log2(n - 1)));
-    //    uint mipLevel = max(k - mipOffset, 0);
-    //
-    //    return mipLevel;
 }
 
 float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
@@ -241,11 +210,11 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
     }
 
     // small meshlet culling(less than one pixel)
-    // if (visible) {
-    //     const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //     const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //     visible = !any(round(minScreenPosition) == round(maxScreenPosition));
-    // }
+    if (visible) {
+        const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    }
 
     // occlusion culling
     if (visible) {

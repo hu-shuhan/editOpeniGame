@@ -1,12 +1,10 @@
-//
-// Created by Sumzeek on 11/19/2024.
-//
-
 /**
  * @class    iGameDataSource2D
  * @brief    iGameDataSource2D's brief
  */
+
 #include "iGameDataSource2D.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 DataSource2D::DataSource2D() {}

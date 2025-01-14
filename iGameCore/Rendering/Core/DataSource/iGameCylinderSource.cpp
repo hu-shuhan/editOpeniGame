@@ -1,12 +1,10 @@
-//
-// Created by Sumzeek on 11/20/2024.
-//
-
 /**
  * @class    iGameCylinderSource
  * @brief    iGameCylinderSource's brief
  */
+
 #include "iGameCylinderSource.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 

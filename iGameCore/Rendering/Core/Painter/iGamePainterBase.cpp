@@ -193,9 +193,7 @@ void PainterBase::Draw(Scene* scene) {
     for (const auto& pair: m_VAOs) {
         float penWidth = pair.first;
 
-        scene->UBO().useColor = true;
-        scene->UpdateUniformBuffer();
-        scene->GetShader(Scene::NOLIGHT)->Use();
+        scene->GetShader(ShaderType::NOLIGHT)->Use();
 
         m_VAOs[penWidth]->Bind();
         {
