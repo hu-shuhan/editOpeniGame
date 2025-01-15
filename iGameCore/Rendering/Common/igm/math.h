@@ -29,8 +29,7 @@ namespace igm
 inline double computePointToLineDis(const igm::vec3& linePoint,
                                     const igm::vec3& dir,
                                     const igm::vec3& point) {
-    return std::fabs(igm::cross(dir, point - linePoint).length() /
-                     dir.length());
+    return std::abs(igm::cross(dir, point - linePoint).length() / dir.length());
 }
 
 } // namespace igm
