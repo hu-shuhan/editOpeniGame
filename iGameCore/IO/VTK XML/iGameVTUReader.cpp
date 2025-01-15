@@ -211,7 +211,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     else /* Int64*/ {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
-                        ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                        ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         array = arr;
                     }
                 }
@@ -331,7 +331,7 @@ bool iGameVTUReader::ReadCellData() {
                     else /* Int64*/ {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
-                        ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                        ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         array = arr;
                     }
                 }
@@ -410,7 +410,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
             }
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
-                ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 CellConnects = arr;
             }
         }
@@ -460,7 +460,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 arr->AddValue(0);
-                ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 CellOffsets = arr;
             }
         }

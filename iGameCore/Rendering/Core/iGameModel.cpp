@@ -68,8 +68,9 @@ void Model::Draw(Scene* scene) {
                             GL_POINTS, 0,
                             drawObject->m_Positions->GetNumberOfElements());
                 } else {
-                    glad_glDrawElements(
-                            GL_POINTS,
+                    glad_glDrawRangeElements(
+                            GL_POINTS, 0,
+                            drawObject->m_Positions->GetNumberOfElements() - 1,
                             drawObject->m_PointIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                 }
@@ -102,8 +103,9 @@ void Model::Draw(Scene* scene) {
             shader->SetUniform4f("vpDims", dims);
 
             drawObject->m_TriangleVAO->Bind();
-            glad_glDrawElements(
-                    GL_TRIANGLES,
+            glad_glDrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT, 0);
             drawObject->m_TriangleVAO->Release();
@@ -119,8 +121,9 @@ void Model::Draw(Scene* scene) {
 
                     glEnable(GL_POLYGON_OFFSET_FILL);
                     glPolygonOffset(f, u);
-                    glad_glDrawElements(
-                            GL_TRIANGLES,
+                    glad_glDrawRangeElements(
+                            GL_TRIANGLES, 0,
+                            drawObject->m_Positions->GetNumberOfElements() - 1,
                             drawObject->m_TriangleIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -144,8 +147,9 @@ void Model::Draw(Scene* scene) {
                     float f, u;
                     drawObject->GetLineOffsetParameters(f, u);
 
-                    glad_glDrawElements(
-                            GL_LINES,
+                    glad_glDrawRangeElements(
+                            GL_LINES, 0,
+                            drawObject->m_Positions->GetNumberOfElements() - 1,
                             drawObject->m_LineIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                 }
@@ -232,8 +236,9 @@ void Model::DrawWithTransparency(Scene* scene) {
                             GL_POINTS, 0,
                             drawObject->m_Positions->GetNumberOfElements());
                 } else {
-                    glad_glDrawElements(
-                            GL_POINTS,
+                    glad_glDrawRangeElements(
+                            GL_POINTS, 0,
+                            drawObject->m_Positions->GetNumberOfElements() - 1,
                             drawObject->m_PointIndices->GetNumberOfValues(),
                             GL_UNSIGNED_INT, 0);
                 }
@@ -263,8 +268,9 @@ void Model::DrawWithTransparency(Scene* scene) {
 
                 //glEnable(GL_POLYGON_OFFSET_LINE);
                 //glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_LINES,
+                glad_glDrawRangeElements(
+                        GL_LINES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
                         drawObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
                 //glDisable(GL_POLYGON_OFFSET_LINE);
@@ -283,8 +289,9 @@ void Model::DrawWithTransparency(Scene* scene) {
 
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_TRIANGLES,
+                glad_glDrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
                         drawObject->m_TriangleIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
                 glDisable(GL_POLYGON_OFFSET_FILL);
@@ -366,8 +373,9 @@ void Model::DrawWithVolume(Scene* scene) {
 
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_TRIANGLES,
+                glad_glDrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
                         drawObject->m_TriangleIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT, 0);
                 glDisable(GL_POLYGON_OFFSET_FILL);
@@ -511,11 +519,11 @@ void Model::DrawPhase1(Scene* scene) {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            std::cout << std::format("Draw phase 1: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     visibleMeshletCount,
-                                     m_Meshleter->m_MeshletCount)
-                      << std::endl;
+            // std::cout << std::format("Draw phase 1: [visiable count:{}, "
+            //                          "meshlet count:{}]",
+            //                          visibleMeshletCount,
+            //                          m_Meshleter->m_MeshletCount)
+            //           << std::endl;
         }
     };
 #endif
@@ -682,12 +690,12 @@ void Model::DrawPhase2(Scene* scene) {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            std::cout << std::format("Draw phase 2: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     count,
-                                     m_Meshleter->m_MeshletCount -
-                                             lastVisibleMeshletCount)
-                      << std::endl;
+            // std::cout << std::format("Draw phase 2: [visiable count:{}, "
+            //                          "meshlet count:{}]",
+            //                          count,
+            //                          m_Meshleter->m_MeshletCount -
+            //                                  lastVisibleMeshletCount)
+            //           << std::endl;
         }
     };
 #endif

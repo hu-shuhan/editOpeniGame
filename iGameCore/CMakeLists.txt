@@ -1,5 +1,5 @@
 set(MODULE_NAME iGameCore_module)
-
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DPLATFORM_WINDOWS)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")

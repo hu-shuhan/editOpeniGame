@@ -15,6 +15,9 @@
  *
  */
 
+#include <fcntl.h>  
+#include <unistd.h>
+#include <stdio.h>  
 
 #include <ft2build.h>
   /* we use our special ftconfig.h file, not the standard one */

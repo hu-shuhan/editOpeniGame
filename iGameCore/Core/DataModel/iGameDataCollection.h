@@ -14,7 +14,7 @@
 IGAME_NAMESPACE_BEGIN
 class DataCollection {
 public:
-    Points::Pointer Points{};
+    Points::Pointer P_Points{};
 
     AttributeSet::Pointer Data{};
 
@@ -33,8 +33,8 @@ public:
     IGenum Type{};
 
     Points::Pointer GetPoints() {
-        if (Points == nullptr) { Points = Points::New(); }
-        return Points;
+        if (P_Points == nullptr) { P_Points = Points::New(); }
+        return P_Points;
     }
     AttributeSet::Pointer GetData() {
         if (Data == nullptr) { Data = AttributeSet::New(); }
@@ -59,7 +59,7 @@ public:
 
 
     unsigned int GetNumberOfPoints() {
-        return Points ? Points->GetNumberOfPoints() : 0;
+        return P_Points ? P_Points->GetNumberOfPoints() : 0;
     }
     unsigned int GetNumberOfLines() {
         return Lines ? Lines->GetNumberOfCells() : 0;

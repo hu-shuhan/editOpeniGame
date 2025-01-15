@@ -15,14 +15,23 @@ IGAME_NAMESPACE_BEGIN
 
 iGame::RenderWindow::RenderWindow() {
     /* init glfw */
-    glfwInit();
+    if(!glfwInit()){
+        std::cout << "INIT GLFW ERROR\n";
+    }
+     // 设置 GLFW 错误回调
+    glfwSetErrorCallback([](int error, const char* description) {
+        std::cerr << "GLFW Error " << error << ": " << description << std::endl;
+    });
     /* set glfw version */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     /* set glfw to core profile */
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
    m_window = glfwCreateWindow(m_window_width, m_window_height, m_title.c_str(), NULL, NULL);
+   if(m_window == nullptr) {
+    std::cout << "GLFW NULLPTR\n";
+   }
     /* set main window */
     glfwMakeContextCurrent(m_window);
     /* set user pointer to use object in GLFW recall function. */

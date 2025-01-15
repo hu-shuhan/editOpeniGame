@@ -722,10 +722,10 @@ void Scene::RefreshDepthPyramid() {
         shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
         m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
                                   GL_R32F);
-
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
+    std::cout << "=========================\n";
 #endif
 }
 
@@ -790,7 +790,7 @@ void Scene::DrawFrame() {
         igm::ivec4 drawRange = igm::ivec4{0, 0, scale, scale};
 
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
-        //glClear(GL_DEPTH_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
         glViewport(drawRange.x, drawRange.y, drawRange.z, drawRange.w);
         DrawAxes(drawRange);
     }
@@ -799,9 +799,7 @@ void Scene::DrawFrame() {
 void Scene::ResolveFrame() {
 #ifdef GL_SUPPORTS_MSAA
     auto viewport = m_Camera->GetScaledViewPort();
-
     glViewport(0, 0, viewport.x, viewport.y);
-    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
     auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
@@ -823,7 +821,6 @@ void Scene::RenderToQtFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     glViewport(0, 0, viewport.x, viewport.y);
-    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
     auto shader = this->GetShader(ShaderType::SCREEN);

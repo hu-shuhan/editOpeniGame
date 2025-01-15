@@ -10,7 +10,7 @@
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLShader.h"
 #include "OpenGL/GLTexture2d.h"
-#include "OpenGL/GLTextureBUffer.h"
+#include "OpenGL/GLTextureBuffer.h"
 #include "OpenGL/GLVertexArray.h"
 
 IGAME_NAMESPACE_BEGIN

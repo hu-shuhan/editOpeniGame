@@ -1,7 +1,7 @@
 //
 // Created by Sumzeek on 12/9/2024.
 //
-#include "GLFramebuffer.h"
+#include "GLFrameBuffer.h"
 
 IGAME_NAMESPACE_BEGIN
 

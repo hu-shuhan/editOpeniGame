@@ -1,4 +1,4 @@
-#include "iGameOBJWriter.h"
+#include <OBJ/iGameOBJWriter.h>
 
 IGAME_NAMESPACE_BEGIN
 

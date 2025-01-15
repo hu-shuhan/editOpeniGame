@@ -2,7 +2,7 @@
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameTimer.h"
-#include "iGameUnStructuredMesh.h"
+#include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN

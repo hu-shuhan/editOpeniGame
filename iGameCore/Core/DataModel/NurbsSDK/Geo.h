@@ -3,6 +3,7 @@
 #include "Basis.h"
 #include <array>
 #include <vector>
+#include <cmath>
 
 IGAME_NAMESPACE_BEGIN
 IGAME_NURBS_NAMESPACE_BEGIN
