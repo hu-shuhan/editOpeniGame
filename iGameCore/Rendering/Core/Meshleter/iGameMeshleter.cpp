@@ -38,7 +38,7 @@ Meshleter::~Meshleter() {}
 void Meshleter::SetInput(DataObject::Pointer obj) { m_DataObject = obj; }
 
 void Meshleter::Update() {
-#ifdef IGAME_OPENGL_VERSION_330
+#ifndef IGAME_OPENGL_VERSION_460
     igError("The OpenGL330 version does not support meshleter accelerated "
             "rendering function");
 #else

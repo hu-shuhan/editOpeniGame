@@ -23,4 +23,5 @@ protected:
 
     void Build() override;
 };
+
 IGAME_NAMESPACE_END
