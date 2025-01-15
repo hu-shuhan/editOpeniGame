@@ -2,6 +2,7 @@
 #include "iGameFilter.h"
 #include "iGameInteractor.h"
 #include "iGameScene.h"
+#include <format>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -519,11 +520,11 @@ void Model::DrawPhase1(Scene* scene) {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            // std::cout << std::format("Draw phase 1: [visiable count:{}, "
-            //                          "meshlet count:{}]",
-            //                          visibleMeshletCount,
-            //                          m_Meshleter->m_MeshletCount)
-            //           << std::endl;
+            std::cout << std::format("Draw phase 1: [visiable count:{}, "
+                                     "meshlet count:{}]",
+                                     visibleMeshletCount,
+                                     m_Meshleter->m_MeshletCount)
+                      << std::endl;
         }
     };
 #endif
@@ -690,12 +691,12 @@ void Model::DrawPhase2(Scene* scene) {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            // std::cout << std::format("Draw phase 2: [visiable count:{}, "
-            //                          "meshlet count:{}]",
-            //                          count,
-            //                          m_Meshleter->m_MeshletCount -
-            //                                  lastVisibleMeshletCount)
-            //           << std::endl;
+            std::cout << std::format("Draw phase 2: [visiable count:{}, "
+                                     "meshlet count:{}]",
+                                     count,
+                                     m_Meshleter->m_MeshletCount -
+                                             lastVisibleMeshletCount)
+                      << std::endl;
         }
     };
 #endif
