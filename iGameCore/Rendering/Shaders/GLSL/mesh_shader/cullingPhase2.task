@@ -1,0 +1,214 @@
+#version 460
+
+#extension GL_NV_mesh_shader : require
+#extension GL_NV_gpu_shader5 : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_vote : require
+
+#define WORKGROUP_SIZE 32
+#define MESHLET_PER_TASK 32
+
+const uint meshletLoops = (MESHLET_PER_TASK + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+// Meshlet Descriptors
+struct MeshletDescriptor {
+    vec4 spherebounds;
+    vec4 extents;
+};
+layout(std430, binding = 10) buffer MeshletDescriptorBuffer {
+    MeshletDescriptor meshletDescs[];
+} meshletDescriptorBuffer;
+
+// Note: The second HZB culling pass uses the current frame's data.
+layout(std140, binding = 11) uniform CullDataBlock {
+    mat4 view_model;
+    float P00, P11, zNear, zFar;// symmetric projection parameters
+    vec4 frustum;// data for left/right/top/bottom frustum planes
+    uint pyramidWidth, pyramidHeight;// depth pyramid size in texels
+} cullData;
+
+layout(std430, binding = 12) /*coherent*/ buffer InvisibleMeshletBuffer {
+    uint count;
+    uint deltaIDs[];
+} invisibleMeshletBuffer;
+
+taskNV out Task {
+    uint   meshletIDs[MESHLET_PER_TASK];
+} task_out;
+
+uniform uint invisibleMeshletCount;
+
+// hierarchical z-buffer
+uniform sampler2D depthPyramid;
+
+bool IsVisible(MeshletDescriptor meshletDescriptor);
+
+void main() {
+    uint baseID = gl_WorkGroupID.x * MESHLET_PER_TASK;
+    uint laneID = gl_LocalInvocationID.x;
+
+    uint outMeshletCount = 0;
+    for (uint loop = 0; loop < meshletLoops; loop++) {
+        uint LocalID = laneID + loop * WORKGROUP_SIZE;
+        uint GlobalID = baseID + LocalID;
+
+        if (GlobalID >= invisibleMeshletCount) { return; }
+
+        uint meshletID = invisibleMeshletBuffer.deltaIDs[GlobalID];
+
+        // we padded the buffer to ensure we don't access it out of bounds
+        MeshletDescriptor desc = meshletDescriptorBuffer.meshletDescs[meshletID];
+
+        // implement some early culling function
+        bool render = GlobalID < invisibleMeshletCount && IsVisible(desc);
+
+        uvec4 voteMeshlets  = subgroupBallot(render);
+        uint numMeshlets = subgroupBallotBitCount(voteMeshlets);
+        uint idxOffset = subgroupBallotExclusiveBitCount(voteMeshlets) + outMeshletCount;
+        if (render) {
+            task_out.meshletIDs[idxOffset] = meshletID;
+        } else {
+            atomicAdd(invisibleMeshletBuffer.count, 1);
+        }
+
+        outMeshletCount += numMeshlets;
+    }
+
+    if (laneID == 0) {
+        // write the number of surviving meshlets, i.e.
+        // mesh workgroups to spawn
+        gl_TaskCountNV = outMeshletCount;
+    }
+}
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 aabb) {
+    if (-C.z - r < zNear) {
+        return false;
+    }
+    P11 = -P11;
+
+    vec2 cx = -C.xz;
+    vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
+    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+    vec2 cy = -C.yz;
+    vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
+    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+    aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+    aabb = vec4(0.5f, 0.5f, 0.5f, 0.5f) - vec4(0.5f, 0.5f, 0.5f, 0.5f) * aabb;// clip space -> uv space
+
+    // Vulkan uv -> OpenGL uv
+    aabb = vec4(aabb.x, 1.0f - aabb.w, aabb.z, 1.0f - aabb.y);
+
+    return true;
+}
+
+int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
+    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    ivec4 aabbPixels = ivec4(aabb * pyramidSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
+
+    const int maxPixelOffset = desiredFootprintPixels - 1;
+    const int mipOffset = int(log2(float(desiredFootprintPixels))) - 1;
+
+    ivec2 mipLevelXY = ivec2(findMSB(aabbPixels.z - aabbPixels.x), findMSB(aabbPixels.w - aabbPixels.y));
+
+    int mipLevel = max(max(mipLevelXY.x, mipLevelXY.y) - mipOffset, 0);
+
+    ivec2 mipLevelAdjustedSize = (aabbPixels.zw >> mipLevel) - (aabbPixels.xy >> mipLevel);
+    mipLevel += (mipLevelAdjustedSize.x > maxPixelOffset || mipLevelAdjustedSize.y > maxPixelOffset) ? 1 : 0;
+
+    return mipLevel;
+}
+
+float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
+    float minDepth = 1.0f;
+
+    if (bSample4x4) {
+        float level = float(GetMipLevelFromAABB(aabb, 4));
+
+        vec2 minCoord = aabb.xy;
+        vec2 maxCoord = aabb.zw;
+
+        vec2 stepSize = (maxCoord - minCoord) / 3.0f;
+
+        for (uint y = 0; y < 4; ++y) {
+            for (uint x = 0; x < 4; ++x) {
+                vec2 sampleCoord = minCoord + vec2(x, y) * stepSize;
+                float depth = textureLod(depthPyramid, sampleCoord, level).r;
+                minDepth = min(minDepth, depth);
+            }
+        }
+    } else {
+        float level = float(GetMipLevelFromAABB(aabb, 2));
+
+        float depth_0 = textureLod(depthPyramid, aabb.xy, level).r;
+        float depth_1 = textureLod(depthPyramid, aabb.xw, level).r;
+        float depth_2 = textureLod(depthPyramid, aabb.zw, level).r;
+        float depth_3 = textureLod(depthPyramid, aabb.zy, level).r;
+
+        minDepth = min(min(depth_0, depth_1), min(depth_2, depth_3));
+    }
+
+    // float epsilon = 1e-7;
+    // minDepth -= epsilon;
+
+    return minDepth;
+}
+
+// Function to perform occlusion culling
+bool IsVisible(MeshletDescriptor meshletDescriptor) {
+    vec4 sphereBounds = meshletDescriptor.spherebounds;
+
+    // in the right-handed coordinate system, the z value of the view coordinate is negative
+    vec3 center = sphereBounds.xyz;
+    center = (cullData.view_model * vec4(center, 1.f)).xyz;
+    float radius = sphereBounds.w;
+
+    bool visible = true;
+
+    // the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
+    if (visible) {
+        visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
+        visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
+    }
+    // dist culling
+    // visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+
+    vec4 aabb;
+    if (visible) {
+        visible = ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
+    }
+
+    // small meshlet culling(less than one pixel)
+    if (visible) {
+        const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    }
+
+    // occlusion culling
+    if (visible) {
+        float depth = GetMinDepthFromHZB(aabb, true);
+
+        float z = center.z + radius;// From the camera's perspective, z is negative.
+
+        // Unlimited viewing distance
+        // float depthSphere = cullData.zNear / -z;
+
+        // Limited viewing distance
+        float n = cullData.zNear;
+        float f = cullData.zFar;
+        float depthSphere = (n + n * f / z) / (n - f);
+
+        visible = depthSphere >= depth;
+    }
+
+    return visible;
+}

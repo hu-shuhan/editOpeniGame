@@ -178,6 +178,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
                     },
                     frameData->GetElement(i)));
         }
+//        for(int i = 0; i < frameData->GetNumberOfElements(); i ++){
+//            results[i] = FileIO::ReadFile(frameData->GetElement(i));
+//        }
         currentDrawObject->ClearSubDataObject();
         for (auto& task: tasks) {
             task.get();
@@ -185,6 +188,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         for(auto& subObj : results){
             currentDrawObject->AddSubDataObject(subObj);
         }
+        results.clear();
     } /* If the timeframe data store SingleField Attributes' Path,
     *   the job is to Parse the target File's Field Attribute replace of the original one. */
     else if(currentFrame.GetFrameType() == StreamingType::SingleFieldAttributes)

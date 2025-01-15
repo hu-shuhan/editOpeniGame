@@ -106,5 +106,7 @@ void main() {
     if (fragCount != 0) {
         SortFragmentList(fragCount);
         out_ScreenColor = vec4(CalculateFinalColor(fragCount), 1.0f);
+    } else {
+        out_ScreenColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 }

@@ -730,7 +730,9 @@ painter->Show(handle);
 painter->Delete(handle);
 ```
 
-如果只想绘制边框则需要把画刷颜色设置为``None``，例如绘制Bounding-Box时只需要绘制立方体边框。
+如果只想绘制边框则需要把画刷样式设置为``Brush::Style::NoBrush``，例如绘制Bounding-Box时只需要绘制立方体边框。
+
+同理，将画笔样式设置为``Pen::Style::NoPen``将不绘制边框。
 
 ```cpp
 Painter::Pointer painter = Painter::New();
@@ -739,8 +741,8 @@ Painter::Pointer painter = Painter::New();
 painter->SetPen(3);
 // 设置画笔颜色
 painter->SetPen(Color::LightBlue);
-// 设置画刷颜色为无填充
-painter->SetBrush(Color::None);
+// 设置画刷样式为无画刷
+painter->SetBrush(Brush::Style::NoBrush);
 
 // 绘制Bounding-Box
 Point p1{0.0f, 0.0f, 0.0f};

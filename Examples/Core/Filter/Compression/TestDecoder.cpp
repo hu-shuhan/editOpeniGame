@@ -1,8 +1,8 @@
-#include <iGameRenderWindow.h>
 #include <iGameInteractor.h>
 #include <iGameMeshCodec/iGameMeshDecoder.h>
+#include <iGameRenderWindow.h>
 
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 

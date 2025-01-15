@@ -80,7 +80,8 @@ float Interactor::GetWidth() const { return m_Camera->GetViewPort().x; }
 float Interactor::GetHeight() const { return m_Camera->GetViewPort().y; }
 
 igm::mat4 Interactor::GetMVP() const {
-    return m_Scene->CameraData().proj_view * m_Scene->ObjectData().model;
+    return m_Scene->m_Camera->GetProjectionMatrix() *
+           m_Scene->m_Camera->GetViewMatrix() * m_Scene->m_ModelMatrix;
 }
 
 Scene* Interactor::GetScene() { return m_Scene.get(); }

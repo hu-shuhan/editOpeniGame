@@ -8,12 +8,20 @@ layout(location = 0) out vec4 out_ScreenColor;
 
 uniform sampler2D screenColorSampler;
 
-float near = 0.01;
-float far  = 300.0;
+//uniform float near;
+//uniform float far;
+const float near = 0.01;
+const float far = 300;
 
 // depth range: 1.0(near plane) -> 0.0(far plane)
+// depth \in (near, +infinite)
+//float ReverseZLinearizeDepth(float depth) {
+//    return near / depth;
+//}
+
+// depth \in (0, 1)
 float ReverseZLinearizeDepth(float depth) {
-    return near / depth;
+    return (near * far) / ((near - far) * depth - near);
 }
 
 void main() {

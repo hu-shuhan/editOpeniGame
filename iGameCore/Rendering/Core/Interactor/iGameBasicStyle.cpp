@@ -15,7 +15,8 @@ void BasicStyle::Initialize(Interactor* a) {
 void BasicStyle::MousePressEvent(IEvent _event) {
     m_OldPoint2D = _event.pos;
     m_MouseMode = _event.button;
-};
+}
+
 void BasicStyle::MouseMoveEvent(IEvent _event) {
     m_NewPoint2D = _event.pos;
     //if (m_OldPoint2D == m_NewPoint2D) { return; }
@@ -202,7 +203,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         pWorldCoord /= pWorldCoord.w;
 
         m_CameraMoveSpeed = (pWorldCoord.xyz() - focal).length();
-        
+
         /*
         Eigen::Matrix4f A;
         Eigen::Vector4f b;

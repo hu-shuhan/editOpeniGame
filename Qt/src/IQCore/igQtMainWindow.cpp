@@ -637,7 +637,9 @@ void igQtMainWindow::initAllFilters() {
         //                         .pointer;
         //chart->drawBarChart(dataarray);
         //chart->exec();
-        QuickModelClip::Pointer filter = QuickModelClip::New();
+
+
+     /*   QuickModelClip::Pointer filter = QuickModelClip::New();
         auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(input);
         auto bound = input->GetBoundingBox();
@@ -658,6 +660,19 @@ void igQtMainWindow::initAllFilters() {
         auto res2 = filter2->GetOutput();
         res2->SetName("Old Clip");
         modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();*/
+
+        ContourFilter::Pointer filter=ContourFilter::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto m_ScalarArray=input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
+        auto m_IsoValue=0.5;
+        auto m_ScalarDimension=0;
+        filter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+        filter->Execute();
+        auto res = filter->GetOutput();
+        res->SetName("Contour Result");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         rendererWidget->update();
     });
 
@@ -792,7 +807,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter3D* painter, const float color[3]) -> void {
         // 1. draw faces
-        painter->SetPen(Color::None);
+        painter->SetPen(Pen::Style::NoPen);
         painter->SetBrush(color[0], color[1], color[2]);
         igIndex cell[32]{};
         for (int i = 0; i < m->GetNumberOfFaces(); i++) {
@@ -803,7 +818,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         // 2. draw lines
         painter->SetPen(Color::Black);
-        painter->SetBrush(Color::None);
+        painter->SetBrush(Brush::Style::NoBrush);
         if (m->GetEdges() == nullptr) { m->BuildEdges(); }
         for (int i = 0; i < m->GetNumberOfEdges(); i++) {
             int ncell = m->GetEdgePointIds(i, cell);

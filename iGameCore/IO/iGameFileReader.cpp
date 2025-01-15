@@ -178,7 +178,7 @@ bool FileReader::OpenWithLinuxOrMacSystem() {
 		return false;
 	}
 	this->IS = this->FILESTART;
-	FILEEND = FILESTART + FILEEND;
+	FILEEND = FILESTART + m_FileSize;
 #endif
 	return true;
 }

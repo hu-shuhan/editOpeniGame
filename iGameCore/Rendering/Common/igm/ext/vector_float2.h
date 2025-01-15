@@ -1,6 +1,8 @@
-//
-// Created by Sumzeek on 6/26/2024.
-//
+/**
+ * @file
+ * @brief    iGame-Matrix库单浮点型二维向量头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
 
 #ifndef IGM_VECTOR_FLOAT2_H
 #define IGM_VECTOR_FLOAT2_H

@@ -15,7 +15,7 @@ if (CORE_MODULE_INSTALL)
         message(WARNING ${HDF5_LIBRARIES})
         install(FILES
                 ${HDF5_LIBRARIES}/../libhdf5.lib
-                ${HDF5_LIBRARIES}/../libhdf5_hl.lib
+                ${HDF5_LIB RARIES}/../libhdf5_hl.lib
                 ${HDF5_LIBRARIES}/../libhdf5_tools.lib
                 ${HDF5_LIBRARIES}/../libzlib.lib
                 ${HDF5_LIBRARIES}/../libsz.lib

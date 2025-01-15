@@ -1,78 +1,60 @@
 ﻿#ifndef iGameEdgeTable_h
 #define iGameEdgeTable_h
 
-#include "iGameObject.h"
 #include "iGameCellArray.h"
+#include "iGameObject.h"
 
 IGAME_NAMESPACE_BEGIN
 class EdgeTable : public Object {
 public:
     I_OBJECT(EdgeTable);
-    static constexpr int BLOCK_SIZE = 8;
+    static constexpr int BLOCK_SIZE = 1;
     static Pointer New() { return new EdgeTable; }
 
-    void Initialize(int vertices_num) {
-        this->NodeHead.resize(vertices_num);
-    }
+    void Initialize(int vertices_num) { this->NodeHead.resize(vertices_num); }
 
-    igIndex IsEdge(igIndex p1, igIndex p2)
-    {
+    igIndex IsEdge(igIndex p1, igIndex p2) {
         igIndex index, search, sum;
         sum = p1 + p2;
-        if (p1 < p2)
-        {
+        if (p1 < p2) {
             index = p1;
             search = p2;
-        }
-        else
-        {
+        } else {
             index = p2;
             search = p1;
         }
 
-        if (index >= this->NodeHead.size() || GetBlockHead(index).NodeId == -1)
-        {
-            return (-1);
-        }
+        if (index >= this->NodeHead.size() || GetBlockHead(index).NodeId == -1) { return (-1); }
 
         igIndex i, j, nodeId, size;
-        
+
         BlockHead& Head = GetBlockHead(index);
         nodeId = Head.NodeId;
-        for (i = 0; i < Head.BlockNum; i++)
-        {
+        for (i = 0; i < Head.BlockNum; i++) {
             BlockNode& node = GetBlockNode(nodeId);
             igIndex* Data = GetBlockPointer(node.BlockId);
-            for (j = 0; j < (i == Head.BlockNum - 1 ? (Head.Size - 1) % BLOCK_SIZE + 1 : BLOCK_SIZE); j++)
-            {
+            for (j = 0; j < (i == Head.BlockNum - 1 ? (Head.Size - 1) % BLOCK_SIZE + 1 : BLOCK_SIZE); j++) {
                 igIndex idx = Data[j];
                 this->Edges->GetCellIds(idx, e);
-                if (sum == e->GetId(0) + e->GetId(1)) {
-                    return idx;
-                }
+                if (sum == e->GetId(0) + e->GetId(1)) { return idx; }
             }
             nodeId = node.NextNodeId;
         }
         return (-1);
     }
 
-    void InsertEdge(igIndex p1, igIndex p2)
-    {
+    void InsertEdge(igIndex p1, igIndex p2) {
         igIndex index, search;
 
-        if (p1 < p2)
-        {
+        if (p1 < p2) {
             index = p1;
             search = p2;
-        }
-        else
-        {
+        } else {
             index = p2;
             search = p1;
         }
 
-        if (index >= this->NodeHead.size())
-        {
+        if (index >= this->NodeHead.size()) {
             size_t newSize = std::max(index + 1, igIndex(this->NodeHead.size() * 1.5));
             this->NodeHead.resize(newSize);
         }
@@ -101,7 +83,7 @@ public:
         Data[Head.Size % BLOCK_SIZE] = this->NumberOfEdges;
         Head.Size++;
 
-        igIndex e[2]{ p1,p2 };
+        igIndex e[2]{p1, p2};
         this->Edges->AddCellIds(e, 2);
         this->NumberOfEdges++;
     }
@@ -110,8 +92,7 @@ public:
     CellArray::Pointer GetOutput() { return this->Edges; }
 
 protected:
-    EdgeTable() 
-    {
+    EdgeTable() {
         this->Edges = CellArray::New();
         this->NumberOfEdges = 0;
         this->Mp.SetBlockSize(BLOCK_SIZE);
@@ -125,9 +106,7 @@ protected:
         MemoryPool() {}
         ~MemoryPool() {}
 
-        void SetBlockSize(int blockSize) {
-            this->BlockSize = blockSize;
-        }
+        void SetBlockSize(int blockSize) { this->BlockSize = blockSize; }
 
         int Allocate() {
             if (this->BlockId >= this->NumberOfBlocks) {
@@ -136,9 +115,7 @@ protected:
             return this->BlockId++;
         }
 
-        ValueType* GetBlock(int index) {
-            return &Memptr[index * this->BlockSize];
-        }
+        ValueType* GetBlock(int index) { return &Memptr[index * this->BlockSize]; }
 
     private:
         void Resize(int newSize) {
@@ -147,31 +124,25 @@ protected:
         }
 
         std::vector<ValueType> Memptr;
-        int BlockId{ 0 };
+        int BlockId{0};
 
-        int NumberOfBlocks{ 0 };
-        int BlockSize{ 0 };
+        int NumberOfBlocks{0};
+        int BlockSize{0};
     };
 
     struct BlockNode {
-        int BlockId{ -1 }, NextNodeId{ -1 };
-        BlockNode(int BlockId, int NextNodeId) :BlockId(BlockId), NextNodeId(NextNodeId) {}
+        int BlockId{-1}, NextNodeId{-1};
+        BlockNode(int BlockId, int NextNodeId) : BlockId(BlockId), NextNodeId(NextNodeId) {}
     };
     struct BlockHead {
-        int NodeId{ -1 }, RearId{ -1 };
-        uint8_t BlockNum{ 0 }, Size{ 0 };
+        int NodeId{-1}, RearId{-1};
+        uint8_t BlockNum{0}, Size{0};
     };
 
-    igIndex* GetBlockPointer(int blockId) {
-        return Mp.GetBlock(blockId);
-    }
+    igIndex* GetBlockPointer(int blockId) { return Mp.GetBlock(blockId); }
 
-    BlockNode& GetBlockNode(int id) {
-        return this->Nodes[id];
-    }
-    BlockHead& GetBlockHead(int id) {
-        return this->NodeHead[id];
-    }
+    BlockNode& GetBlockNode(int id) { return this->Nodes[id]; }
+    BlockHead& GetBlockHead(int id) { return this->NodeHead[id]; }
 
     MemoryPool<igIndex> Mp;
 

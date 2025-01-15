@@ -16,31 +16,33 @@
 #include <Deformation/iGameStressDeformationFilter.h>
 
 int main(int argc, char* argv[]) {
-//    iGame::StressDeformationFilter::Pointer  filter = iGame::StressDeformationFilter::New();
-//    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\sukong\\sukong_Step-1_2.vtu";
-//    iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
-//
-//    obj->GetDeformationData()->SetAttributeName("U");
-//    DynamicCast<iGame::DrawObject>(obj)->ConvertToDrawableData();
-//    filter->SetInput(obj);
-//    filter->CalculateIdealDSF();
-//    filter->Execute();
-//    /* 创建场景*/
+//    using namespace iGame;
+//    /* init scene*/
 //    auto scene = iGame::Scene::New();
-//    if (obj != nullptr) {
+//    /* Read the file Test and put it into the scene */
+//    const std::string fileName = "../Examples/Models/StreamTest.vtk";
+//    iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
+//    DynamicCast<iGame::DrawObject>(obj)->AddViewStyle(IG_WIREFRAME);
+//    if(obj != nullptr){
 //        scene->AddModel(obj);
-//    } else{
-//        std::cout << "error\n";
+//    } else {
+//        std::cout << "Read ERROR!\n";
 //    }
 //
+//    /* Launch window Settings */
 //    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
 //    window->SetSize(1920, 1080);
 //    window->SetScene(scene);
 //
-//    auto basicInteractor = iGame::Interactor::New();
-//    basicInteractor->Initialize(scene);
-//    window->SetInteractor(basicInteractor);
+//    auto interactor = iGame::Interactor::New();
+//    interactor->Initialize(scene);
+//    interactor->CreateDefaultStyle();
+//    window->SetInteractor(interactor);
+//
+//    /* show single window */
 //    window->Show();
+//
+//    return 0;
 
 
     Q_INIT_RESOURCE(iGameQtMainWindow);

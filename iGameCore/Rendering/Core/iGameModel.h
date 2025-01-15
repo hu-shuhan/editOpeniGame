@@ -1,6 +1,7 @@
 #pragma once
 #include <utility>
 
+#include "Meshleter/iGameSurfaceMeshMeshleter.h"
 #include "iGameDrawObject.h"
 #include "iGameObject.h"
 #include "iGamePainter2D.h"
@@ -51,6 +52,8 @@ public:
     void RequestPointSelection(Points* p, Selection* s);
     void RequestDragPoint(Points* p, Selection* s);
 
+    void SetMeshleter(Meshleter::Pointer meshleter);
+
 protected:
     Model();
     ~Model() override;
@@ -60,6 +63,8 @@ protected:
     void SwitchOn(ViewSwitch type) { m_Switch |= (1ull << type); }
     void SwitchOff(ViewSwitch type) { m_Switch &= ~(1ull << type); }
     bool GetSwitch(ViewSwitch type) { return m_Switch & (1ull << type); }
+
+    Meshleter::Pointer m_Meshleter;
 
     Selection::Pointer m_Selection;
     SmartPointer<Filter> m_Filter;

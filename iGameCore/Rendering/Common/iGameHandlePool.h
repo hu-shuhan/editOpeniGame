@@ -1,3 +1,9 @@
+/**
+ * @class    HandlePool
+ * @brief    HandlePool类是一个对象管理的工具类，支持动态分配和释放对象的句柄。
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
+
 #pragma once
 
 #include "iGameObject.h"
@@ -10,59 +16,92 @@ IGAME_NAMESPACE_BEGIN
 template<typename ObjectType>
 class HandlePool : public Object {
 public:
-    I_OBJECT(HandlePool);
+    I_OBJECT(HandlePool); ///< 声明对象类型的宏。
+
+    /**
+     * @brief 创建一个新的 HandlePool 实例。
+     * @return 指向新 HandlePool 实例的指针。
+     */
     static Pointer New() { return new HandlePool; }
 
+    /// 定义句柄类型。
     using HandleType = IGuint;
+
+    /// 定义存储句柄到对象的映射类型。
     using MapType = std::unordered_map<HandleType, ObjectType>;
+
+    /// 定义映射的迭代器类型。
     using Iterator = typename MapType::iterator;
+
+    /// 定义映射的常量迭代器类型。
     using ConstIterator = typename MapType::const_iterator;
 
-    HandleType AllocateObject(const ObjectType& object) {
-        HandleType handle = m_FreeHandles.empty() ? m_CurrentHandle++
-                                                  : m_FreeHandles.front();
-        if (!m_FreeHandles.empty()) { m_FreeHandles.pop(); }
-        m_ActiveHandles.insert(handle);
-        m_HandleToObject[handle] = std::move(object);
+    /**
+     * @brief 为一个新对象分配句柄。
+     * @param object 要分配的对象。
+     * @return 分配的句柄。
+     */
+    HandleType AllocateObject(const ObjectType& object);
 
-        this->Modified();
-        return handle;
-    }
+    /**
+     * @brief 获取与句柄关联的对象。
+     * @param handle 要查询的句柄。
+     * @return 指向对象的指针，如果句柄无效则返回 nullptr。
+     */
+    ObjectType* GetObject(HandleType handle);
 
-    ObjectType* GetObject(HandleType handle) {
-        auto it = m_HandleToObject.find(handle);
-        if (it != m_HandleToObject.end()) { return &it->second; }
-        return nullptr;
-    }
+    /**
+     * @brief 释放指定的句柄及其关联的对象。
+     * @param handle 要释放的句柄。
+     */
+    void ReleaseHandle(HandleType handle);
 
-    void ReleaseHandle(HandleType handle) {
-        if (m_ActiveHandles.erase(handle)) {
-            m_FreeHandles.push(handle);
-            m_HandleToObject.erase(handle);
-            this->Modified();
-        }
-    }
+    /**
+     * @brief 检查句柄是否有效。
+     * @param handle 要检查的句柄。
+     * @return 如果句柄有效返回 true，否则返回 false。
+     */
+    bool CheckHandle(HandleType handle) const;
 
-    bool CheckHandle(HandleType handle) const {
-        return m_ActiveHandles.find(handle) != m_ActiveHandles.end();
-    }
+    /**
+     * @brief 清空句柄池，包括所有分配的句柄和对象。
+     */
+    void Clear();
 
-    void Clear() {
-        m_FreeHandles = std::queue<HandleType>(); // Reset the queue
-        m_ActiveHandles.clear();                  // Clear the set
-        m_HandleToObject.clear();                 // Clear the map
-        m_CurrentHandle = 1; // Optionally reset handle counter if needed
-        this->Modified();
-    }
+    /**
+     * @brief 获取对象映射的开始迭代器。
+     * @return 开始迭代器。
+     */
+    Iterator Begin();
 
-    Iterator Begin() { return m_HandleToObject.begin(); }
-    Iterator End() { return m_HandleToObject.end(); }
-    ConstIterator Begin() const { return m_HandleToObject.begin(); }
-    ConstIterator End() const { return m_HandleToObject.end(); }
+    /**
+     * @brief 获取对象映射的结束迭代器。
+     * @return 结束迭代器。
+     */
+    Iterator End();
+
+    /**
+     * @brief 获取对象映射的常量开始迭代器。
+     * @return 常量开始迭代器。
+     */
+    ConstIterator Begin() const;
+
+    /**
+     * @brief 获取对象映射的常量结束迭代器。
+     * @return 常量结束迭代器。
+     */
+    ConstIterator End() const;
 
 protected:
-    HandlePool() : m_CurrentHandle(1) {}
-    ~HandlePool() override = default;
+    /**
+     * @brief 构造一个 HandlePool 对象。
+     */
+    HandlePool();
+
+    /**
+     * @brief 销毁 HandlePool 对象。
+     */
+    ~HandlePool() override;
 
     HandleType m_CurrentHandle;
     std::queue<HandleType> m_FreeHandles;
@@ -71,3 +110,5 @@ protected:
 };
 
 IGAME_NAMESPACE_END
+
+#include "iGameHandlePool.inl"

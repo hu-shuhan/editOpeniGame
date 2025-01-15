@@ -46,7 +46,7 @@ protected:
     DataCollection m_Data;
 protected:
     iGameXMLFileReader();
-    ~iGameXMLFileReader() override = default;
+    ~iGameXMLFileReader() override;
 
 
 };

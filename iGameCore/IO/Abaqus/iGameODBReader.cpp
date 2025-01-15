@@ -12,7 +12,7 @@
 #include <VTK/iGameVTKAbstractReader.h>
 
 #include <utility>
-
+#include <chrono>
 IGAME_NAMESPACE_BEGIN
 
 /* Define Internal Adaptor Class. */

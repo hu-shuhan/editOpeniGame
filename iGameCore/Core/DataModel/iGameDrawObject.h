@@ -5,7 +5,6 @@
 #include "iGameDataObject.h"
 #include "iGameIdArray.h"
 #include "iGameMarker.h"
-#include "iGameMeshlet.h"
 #include "iGamePoints.h"
 
 #include "OpenGL/GLBuffer.h"
@@ -13,8 +12,6 @@
 #include "OpenGL/GLTexture2d.h"
 #include "OpenGL/GLTextureBUffer.h"
 #include "OpenGL/GLVertexArray.h"
-
-#include "iGameMeshlet.h"
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
@@ -155,10 +152,6 @@ protected:
 
     friend class Model;
     friend class UnstructuredMesh;
-
-#ifdef IGAME_OPENGL_VERSION_460
-    Meshlet::Pointer m_Meshlets{Meshlet::New()};
-#endif
 
 protected:
     template<typename Functor, typename... Args>

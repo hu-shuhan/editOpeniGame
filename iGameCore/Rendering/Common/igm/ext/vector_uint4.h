@@ -1,6 +1,8 @@
-//
-// Created by Sumzeek on 10/5/2024.
-//
+/**
+ * @file
+ * @brief    iGame-Matrix库无符号整型四维向量头文件
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
 
 #ifndef IGM_VECTOR_UINT4_H
 #define IGM_VECTOR_UINT4_H

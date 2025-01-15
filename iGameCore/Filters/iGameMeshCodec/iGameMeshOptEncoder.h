@@ -17,10 +17,10 @@ IGAME_NAMESPACE_BEGIN
 class MeshOptEncoder : public MeshOptCodec {
 public:
     MeshOptEncoder(std::ofstream& bytestreamFile, DataObject::Pointer dataObj, MeshOptParameters& params,
-                   ParamInformation& inputParams)
+                   ParamInformation& inputParams, bool isDebugMode)
         : // TODO: 临时添加，和m_DataObj定义在一起
           MeshOptCodec(params), m_ParamInformation(inputParams), m_BytestreamFile(bytestreamFile), m_DataObj(dataObj),
-          m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
+          m_EncoderAdapter(new MeshEncoderAdapter(dataObj)), m_IsDebugMode(isDebugMode) {
         this->kVertexScoreTableStrip = {
                 {0.f, 1.000f, 1.000f, 1.000f, 0.453f, 0.561f, 0.490f, 0.459f, 0.179f, 0.526f, 0.000f, 0.227f, 0.184f,
                  0.490f, 0.112f, 0.050f, 0.131f},
@@ -222,6 +222,7 @@ private:
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
     ParamInformation m_ParamInformation;
+    bool m_IsDebugMode;
     std::function<void(double)> m_CallBack;
 
     void ParamsInit() {
@@ -298,7 +299,7 @@ private:
 
     void FloatEncoder(std::vector<unsigned char>& dest,
                       const void* source, // float* double*
-                      const MeshOptFloatParameters& floatParams) {
+                      const MeshOptFloatParameters& floatParams, std::string debugFloatName = "") {
         IGsize elementCount = floatParams.elementCount;
         int dimension = floatParams.dimension;
         IGsize valueCount = elementCount * dimension;
@@ -472,52 +473,57 @@ private:
                                                    encodeVertexSize));
         }
 
+        if (m_IsDebugMode) {
+            float err = CalError(source, dest, floatParams);
+            std::cout << "float data name: " << debugFloatName << " MAPE: " << err << std::endl;
+        }
+
         return;
 
         /*if (floatParams.scale != -1)
+    {
+        if (floatSource)
         {
-            if (floatSource)
-            {
-                convertFloatBuffer.resize(valueCount);
-                std::transform(
-                    floatSource,
-                    floatSource + valueCount,
-                    convertFloatBuffer.begin(),
-                    [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
-                );
-            }
-            else if (doubleSource)
-            {
-                convertDoubleBuffer.resize(valueCount);
-                std::transform(
-                    doubleSource,
-                    doubleSource + valueCount,
-                    convertFloatBuffer.begin(),
-                    [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
-                );
-            }
+            convertFloatBuffer.resize(valueCount);
+            std::transform(
+                floatSource,
+                floatSource + valueCount,
+                convertFloatBuffer.begin(),
+                [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
+            );
         }
-        else
+        else if (doubleSource)
         {
-            if (floatSource)
-            {
-                convertFloatBuffer.resize(valueCount);
-                std::transform(
-                    floatSource,
-                    floatSource + valueCount,
-                    convertFloatBuffer.begin(),
-                    [&](float x) {return static_cast<double>(x); }
-                );
-            }
-            else if (doubleSource)
-            {
-                convertDoubleBuffer.resize(valueCount);
-                convertDoubleBuffer.assign(
-                    doubleSource,
-                    doubleSource + valueCount
-                );
-            }
-        }*/
+            convertDoubleBuffer.resize(valueCount);
+            std::transform(
+                doubleSource,
+                doubleSource + valueCount,
+                convertFloatBuffer.begin(),
+                [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
+            );
+        }
+    }
+    else
+    {
+        if (floatSource)
+        {
+            convertFloatBuffer.resize(valueCount);
+            std::transform(
+                floatSource,
+                floatSource + valueCount,
+                convertFloatBuffer.begin(),
+                [&](float x) {return static_cast<double>(x); }
+            );
+        }
+        else if (doubleSource)
+        {
+            convertDoubleBuffer.resize(valueCount);
+            convertDoubleBuffer.assign(
+                doubleSource,
+                doubleSource + valueCount
+            );
+        }
+    }*/
 
         //// 量化和编码
         //switch (floatParams.quantMode)
@@ -627,6 +633,140 @@ private:
         //return;
     }
 
+    float CalError(const void* source, const std::vector<unsigned char>& encoded,
+                   const MeshOptFloatParameters& floatParams) {
+        IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+
+        std::vector<float> sourceFloat(valueCount);
+        std::vector<float> encodedFloat(valueCount);
+
+        if (floatParams.valueSize == sizeof(float)) {
+            ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                for (int i = start; i < end; i++) { sourceFloat[i] = static_cast<const float*>(source)[i]; }
+            });
+        } else if (floatParams.valueSize == sizeof(double)) {
+            ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                for (int i = start; i < end; i++) { sourceFloat[i] = static_cast<const double*>(source)[i]; }
+            });
+        }
+
+
+        // decode
+        std::vector<float> encodedFloatBuffer;
+        std::vector<double> encodedDoubleBuffer;
+
+        bool encodedFloatFlag = false;
+        bool encodedDoubleFlag = false;
+
+
+        switch (floatParams.quantMode) {
+            case QuantMode::None: {
+                IGsize vertexSize = floatParams.valueSize * floatParams.dimension;
+                if (floatParams.valueSize == sizeof(float)) {
+                    encodedFloatBuffer.resize(valueCount);
+                    encodedFloatFlag = true;
+
+                    meshopt_decodeVertexBuffer(encodedFloatBuffer.data(), floatParams.elementCount, vertexSize,
+                                               encoded.data(), encoded.size());
+                } else {
+                    encodedDoubleBuffer.resize(valueCount);
+                    encodedDoubleFlag = true;
+
+                    meshopt_decodeVertexBuffer(encodedDoubleBuffer.data(), floatParams.elementCount, vertexSize,
+                                               encoded.data(), encoded.size());
+                }
+
+                break;
+            }
+            case QuantMode::FP16: {
+                // 这种情况的输出只有float
+                encodedFloatBuffer.resize(valueCount); // 开多了没问题 别开少了就行
+                encodedFloatFlag = true;
+
+                // 由于量化是两个float并一个存 导致不一定输出还是原始dimension的倍数
+                // 所以只好分离的编码 而不能成组编码
+                IGsize vertexSize = sizeof(float);
+                size_t quantValueCount = (size_t) ceil(valueCount / 2.);
+
+                // 先把量化后的序列读到floatBuffer
+                meshopt_decodeVertexBuffer(encodedFloatBuffer.data(), quantValueCount, vertexSize, encoded.data(),
+                                           encoded.size());
+
+                // 反量化
+                std::vector<float> dequantBuffer(valueCount);
+
+                const size_t blockSize = 65536;
+                ThreadPool::Pointer tp = ThreadPool::Instance();
+                int tpCount = (size_t) ceil(quantValueCount / (double) blockSize);
+                std::vector<std::future<void>> tpResult(tpCount);
+
+                for (int i = 0, tpCursor = 0; i < quantValueCount;
+                     i += blockSize, tpCursor++) // 这里quantiValueCount是quantize后的序列的元素数量
+                {
+                    size_t length = std::min(quantValueCount - i, blockSize);
+                    tpResult[tpCursor] = tp->Commit(
+                            [&](int start, int end) -> void {
+                                for (int j = start; j < end; j++) {
+                                    // 读取一个值
+                                    uint32_t group;
+                                    std::memcpy(&group, &encodedFloatBuffer[j], sizeof(uint32_t));
+                                    int shift = sizeof(unsigned short) * 8;
+
+                                    float a = meshopt_dequantizeHalf((unsigned short) (group >> shift));
+                                    float b = meshopt_dequantizeHalf((unsigned short) (group & ((1 << shift) - 1)));
+
+                                    dequantBuffer[j * 2] = a;
+                                    if (j * 2 + 1 != valueCount) { dequantBuffer[j * 2 + 1] = b; }
+                                }
+                            },
+                            i, i + length);
+                }
+
+                for (int i = 0; i < tpCount; i++) { tpResult[i].wait(); }
+
+                // 转移结果
+                encodedFloatBuffer.clear();
+                encodedFloatBuffer.resize(valueCount);
+                std::memcpy(encodedFloatBuffer.data(), dequantBuffer.data(), valueCount * sizeof(float));
+
+                break;
+            }
+            case QuantMode::Float: {
+                // 这种情况的输出只有float
+                IGsize vertexSize = sizeof(float) * floatParams.dimension;
+                encodedFloatFlag = true;
+
+                encodedFloatBuffer.resize(valueCount);
+                meshopt_decodeVertexBuffer(encodedFloatBuffer.data(), floatParams.elementCount, vertexSize,
+                                           encoded.data(), encoded.size());
+
+                break;
+            }
+            default:
+                break;
+        }
+
+
+        // 写入dest
+        // 两种普通情形 实际产生的数据类型和dest对应
+        if (encodedFloatFlag) {
+            encodedFloat = encodedFloatBuffer;
+        } else if (encodedDoubleFlag) {
+            encodedFloat.assign(encodedDoubleBuffer.begin(), encodedDoubleBuffer.end());
+        }
+
+        return CalMAPE(sourceFloat.data(), encodedFloat.data(), floatParams);
+    }
+
+    float CalMAPE(const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) {
+        float globalError = 0;
+        IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+
+        for (int i = 0; i < valueCount; i++) { globalError += std::abs(source[i] - encoded[i]) / std::abs(source[i]); }
+
+        return globalError / valueCount;
+    }
+
     void GeomEncoder(PayloadBuffer& payload, std::vector<unsigned int>& pointIdRemap) {
         Points::Pointer points = this->m_EncoderAdapter->GetPoints();
         IGsize pointCount = this->m_Params.geomParams.elementCount;
@@ -642,7 +782,7 @@ private:
                                   pointIdRemap.data());
 
         std::vector<unsigned char> encodedFloat;
-        this->FloatEncoder(encodedFloat, remappedPointBuffer.data(), this->m_Params.geomParams);
+        this->FloatEncoder(encodedFloat, remappedPointBuffer.data(), this->m_Params.geomParams, "geom");
 
         payload.resize(encodedFloat.size());
         std::memcpy(payload.data(), encodedFloat.data(), encodedFloat.size());
@@ -700,9 +840,9 @@ private:
                         // 编码
                         std::vector<unsigned char> encodedFloat;
                         if (params.valueSize == sizeof(float)) {
-                            this->FloatEncoder(encodedFloat, remappedFloatAttrBuffer.data(), params);
+                            this->FloatEncoder(encodedFloat, remappedFloatAttrBuffer.data(), params, params.name);
                         } else if (params.valueSize == sizeof(double)) {
-                            this->FloatEncoder(encodedFloat, remappedDoubleAttrBuffer.data(), params);
+                            this->FloatEncoder(encodedFloat, remappedDoubleAttrBuffer.data(), params, params.name);
                         }
 
                         // 只靠count就足以读取

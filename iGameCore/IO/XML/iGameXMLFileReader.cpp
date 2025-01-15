@@ -18,7 +18,11 @@ iGameXMLFileReader::iGameXMLFileReader() {
 	SetNumberOfOutputs(1);
     SetOutput(0, m_Output);
 }
-
+iGameXMLFileReader::~iGameXMLFileReader() {
+    if(doc != nullptr)
+        doc->Clear();
+        delete doc;
+}
 
 void iGameXMLFileReader::SetFilePath(const std::string& filePath) {
 	this->m_FilePath = filePath;
@@ -132,6 +136,8 @@ tinyxml2::XMLElement* iGameXMLFileReader::FindTargetAttributeItem(tinyxml2::XMLE
 	res = FindTargetAttributeItem(root->NextSiblingElement(), itemName, attributeName, attributeData);
 	return res;
 }
+
+
 
 
 IGAME_NAMESPACE_END
