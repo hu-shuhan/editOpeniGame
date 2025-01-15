@@ -725,7 +725,6 @@ void Scene::RefreshDepthPyramid() {
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
-    std::cout << "=========================\n";
 #endif
 }
 
