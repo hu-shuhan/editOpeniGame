@@ -16,7 +16,8 @@ void GLTexture2dMultisample::CopyImageSubData(
         GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight,
         GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
-    igError("You called the GLTexture2dMultisample::CopyImageSubData function "
+    Logger::LogError(
+            "You called the GLTexture2dMultisample::CopyImageSubData function "
             "on the opengl330. This function is currently not supported.");
 #elif IGAME_OPENGL_VERSION_460
     glCopyImageSubData(source->Handle(), GL_TEXTURE_2D_MULTISAMPLE, srcLevel,
@@ -41,7 +42,9 @@ void GLTexture2dMultisample::Storage(unsigned samples, GLenum internal_format,
 }
 
 void GLTexture2dMultisample::Active(GLenum texture) {
-    if (texture == GL_TEXTURE0) { igError("GL_TEXTURE0 is reserved."); }
+    if (texture == GL_TEXTURE0) {
+        Logger::LogError("GL_TEXTURE0 is reserved.");
+    }
     glActiveTexture(texture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_Handle);
     glActiveTexture(GL_TEXTURE0);

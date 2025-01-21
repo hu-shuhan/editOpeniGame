@@ -3,6 +3,7 @@
 //
 
 #include "iGameBrush.h"
+#include "iGameRenderingLogger.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -27,7 +28,7 @@ void Brush::SetColor(const Color& color) {
 
 void Brush::SetColor(float red, float green, float blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        igError("Color values must be in the range of 0.0 to 1.0");
+        Logger::LogError("Color values must be in the range of 0.0f to 1.0f");
     }
 
     if (red == m_BrushColor[0] && green == m_BrushColor[1] &&
@@ -41,7 +42,7 @@ void Brush::SetColor(float red, float green, float blue) {
 
 void Brush::SetColor(int red, int green, int blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        igError("Color values must be in the range of 0 to 255");
+        Logger::LogError("Color values must be in the range of 0 to 255");
     }
 
     float r = static_cast<float>(red) / 255.0f;

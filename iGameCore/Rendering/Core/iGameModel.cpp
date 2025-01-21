@@ -1,6 +1,7 @@
 #include "iGameModel.h"
 #include "iGameFilter.h"
 #include "iGameInteractor.h"
+#include "iGameRenderingLogger.h"
 #include "iGameScene.h"
 #include <format>
 
@@ -37,18 +38,15 @@ void Model::Draw(Scene* scene) {
         if (useColor && colorWithCell) {
             scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -57,26 +55,22 @@ void Model::Draw(Scene* scene) {
             shader->Use();
             shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
 
-            drawObject->m_PointVAO->Bind();
-            {
-                glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(drawObject->m_PointSize);
 
-                float u;
-                drawObject->GetPointOffsetParameters(u);
+            float u;
+            drawObject->GetPointOffsetParameters(u);
 
-                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                    glad_glDrawArrays(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements());
-                } else {
-                    glad_glDrawRangeElements(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements() - 1,
-                            drawObject->m_PointIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
+            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                drawObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements());
+            } else {
+                drawObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
-            drawObject->m_PointVAO->Release();
         }
 
         // whether to use single-pass wireframe rendering
@@ -103,33 +97,27 @@ void Model::Draw(Scene* scene) {
                            (float) vp[3]};
             shader->SetUniform4f("vpDims", dims);
 
-            drawObject->m_TriangleVAO->Bind();
-            glad_glDrawRangeElements(
+            drawObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
                     drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
-                    GL_UNSIGNED_INT, 0);
-            drawObject->m_TriangleVAO->Release();
+                    GL_UNSIGNED_INT);
         } else {
             if (viewStyle & IG_SURFACE) {
                 auto shader = scene->GetShader(ShaderType::BLINNPHONG);
                 shader->Use();
 
-                drawObject->m_TriangleVAO->Bind();
-                {
-                    float f, u;
-                    drawObject->GetPolygonOffsetParameters(f, u);
+                float f, u;
+                drawObject->GetPolygonOffsetParameters(f, u);
 
-                    glEnable(GL_POLYGON_OFFSET_FILL);
-                    glPolygonOffset(f, u);
-                    glad_glDrawRangeElements(
-                            GL_TRIANGLES, 0,
-                            drawObject->m_Positions->GetNumberOfElements() - 1,
-                            drawObject->m_TriangleIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                    glDisable(GL_POLYGON_OFFSET_FILL);
-                }
-                drawObject->m_TriangleVAO->Release();
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(f, u);
+                drawObject->m_TriangleVAO->DrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+                glDisable(GL_POLYGON_OFFSET_FILL);
             }
 
             if (viewStyle & IG_WIREFRAME) {
@@ -141,20 +129,17 @@ void Model::Draw(Scene* scene) {
                     shader->SetUniform3f("inputColor",
                                          igm::vec3{0.0f, 0.0f, 0.0f});
                 }
-                drawObject->m_LineVAO->Bind();
-                {
-                    glLineWidth(drawObject->m_LineWidth);
 
-                    float f, u;
-                    drawObject->GetLineOffsetParameters(f, u);
+                glLineWidth(drawObject->m_LineWidth);
 
-                    glad_glDrawRangeElements(
-                            GL_LINES, 0,
-                            drawObject->m_Positions->GetNumberOfElements() - 1,
-                            drawObject->m_LineIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
-                drawObject->m_LineVAO->Release();
+                float f, u;
+                drawObject->GetLineOffsetParameters(f, u);
+
+                drawObject->m_LineVAO->DrawRangeElements(
+                        GL_LINES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_LineIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
         }
     };
@@ -203,18 +188,15 @@ void Model::DrawWithTransparency(Scene* scene) {
             shader->Use();
             shader->SetUniformi("colorMode", 0);
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -223,29 +205,25 @@ void Model::DrawWithTransparency(Scene* scene) {
             shader->Use();
             shader->SetUniformi("colorMode", 1);
 
-            drawObject->m_PointVAO->Bind();
-            {
-                glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(drawObject->m_PointSize);
 
-                float u;
-                drawObject->GetPointOffsetParameters(u);
+            float u;
+            drawObject->GetPointOffsetParameters(u);
 
-                //glEnable(GL_POLYGON_OFFSET_POINT);
-                //glPolygonOffset(0.0f, u);
-                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                    glad_glDrawArrays(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements());
-                } else {
-                    glad_glDrawRangeElements(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements() - 1,
-                            drawObject->m_PointIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
-                //glDisable(GL_POLYGON_OFFSET_POINT);
+            //glEnable(GL_POLYGON_OFFSET_POINT);
+            //glPolygonOffset(0.0f, u);
+            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                drawObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements());
+            } else {
+                drawObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
-            drawObject->m_PointVAO->Release();
+            //glDisable(GL_POLYGON_OFFSET_POINT);
         }
 
         if (viewStyle & IG_WIREFRAME) {
@@ -260,44 +238,36 @@ void Model::DrawWithTransparency(Scene* scene) {
                 shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
 
-            drawObject->m_LineVAO->Bind();
-            {
-                glLineWidth(drawObject->m_LineWidth);
+            glLineWidth(drawObject->m_LineWidth);
 
-                float f, u;
-                drawObject->GetLineOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetLineOffsetParameters(f, u);
 
-                //glEnable(GL_POLYGON_OFFSET_LINE);
-                //glPolygonOffset(f, u);
-                glad_glDrawRangeElements(
-                        GL_LINES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_LineIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                //glDisable(GL_POLYGON_OFFSET_LINE);
-            }
-            drawObject->m_LineVAO->Release();
+            //glEnable(GL_POLYGON_OFFSET_LINE);
+            //glPolygonOffset(f, u);
+            drawObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            //glDisable(GL_POLYGON_OFFSET_LINE);
         }
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
             shader->SetUniformi("colorMode", 0);
 
-            drawObject->m_TriangleVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawRangeElements(
-                        GL_TRIANGLES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_TriangleVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_TriangleVAO->DrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
@@ -344,18 +314,15 @@ void Model::DrawWithVolume(Scene* scene) {
             auto shader = scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -367,21 +334,17 @@ void Model::DrawWithVolume(Scene* scene) {
             auto shader = scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
-            drawObject->m_TriangleVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawRangeElements(
-                        GL_TRIANGLES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_TriangleVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_TriangleVAO->DrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
@@ -413,8 +376,6 @@ void Model::DrawWithVolume(Scene* scene) {
 
 void Model::DrawPhase1(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-    //std::cout << "Draw phase 1: " << std::endl;
-
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
 
@@ -481,11 +442,10 @@ void Model::DrawPhase1(Scene* scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            std::cout << std::format("Draw phase 1: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     meshletCount - invisibleMeshletCount,
-                                     meshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(),
+                    meshletCount - invisibleMeshletCount, meshletCount);
         }
     };
 #else
@@ -520,11 +480,10 @@ void Model::DrawPhase1(Scene* scene) {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            std::cout << std::format("Draw phase 1: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     visibleMeshletCount,
-                                     m_Meshleter->m_MeshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), visibleMeshletCount,
+                    m_Meshleter->m_MeshletCount);
         }
     };
 #endif
@@ -548,8 +507,6 @@ void Model::DrawPhase1(Scene* scene) {
 
 void Model::DrawPhase2(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-    //std::cout << "Draw phase 2: " << std::endl;
-
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
 
@@ -618,11 +575,10 @@ void Model::DrawPhase2(Scene* scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            std::cout << std::format("Draw phase 2: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     invisibleMeshletCount - c,
-                                     invisibleMeshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), invisibleMeshletCount - c,
+                    invisibleMeshletCount);
         }
     };
 #else
@@ -691,12 +647,10 @@ void Model::DrawPhase2(Scene* scene) {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            std::cout << std::format("Draw phase 2: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     count,
-                                     m_Meshleter->m_MeshletCount -
-                                             lastVisibleMeshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), count,
+                    m_Meshleter->m_MeshletCount - lastVisibleMeshletCount);
         }
     };
 #endif
@@ -721,8 +675,6 @@ void Model::DrawPhase2(Scene* scene) {
 void Model::TestOcclusionResults(Scene* scene) {
 #ifdef IGAME_OPENGL_VERSION_460
 #ifndef GL_SUPPORTS_MESH_SHADER
-    // std::cout << "Test Occlusion:" << std::endl;
-
     // Update GPU data
     m_Meshleter->Update();
 

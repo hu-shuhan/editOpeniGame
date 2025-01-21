@@ -1,6 +1,7 @@
 #include "iGameScene.h"
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
+#include "iGameRenderingLogger.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -76,7 +77,7 @@ Scene::~Scene() {}
 
 bool Scene::Initialize() {
     if (m_FinishInit) {
-        std::cout << "Scene is already init.\n";
+        Logger::LogWarn("Scene is already init.");
         return false;
     }
 
@@ -258,10 +259,7 @@ GLShaderProgram::Pointer Scene::GetShader(ShaderType type) {
 }
 
 void Scene::InitOpenGL() {
-    if (!gladLoadGL()) {
-        igError("Failed to initialize GLAD");
-        throw std::runtime_error("Failed to initialize GLAD");
-    }
+    if (!gladLoadGL()) { Logger::LogError("Failed to initialize GLAD"); }
 
     PrintOpenGLInfo();
 
@@ -401,21 +399,21 @@ void Scene::InitOpenGL() {
 }
 
 void Scene::PrintOpenGLInfo() {
-    igDebug("==================== OpenGL Info ====================");
+    Logger::LogDebug("==================== OpenGL Info ====================");
 
     const GLubyte* vendor = glGetString(GL_VENDOR);
-    igDebug("Vendor:   " << reinterpret_cast<const char*>(vendor));
+    Logger::LogDebug("Vendor:   {}", reinterpret_cast<const char*>(vendor));
 
     const GLubyte* renderer = glGetString(GL_RENDERER);
-    igDebug("Renderer: " << reinterpret_cast<const char*>(renderer));
+    Logger::LogDebug("Renderer:   {}", reinterpret_cast<const char*>(renderer));
 
     const GLubyte* version = glGetString(GL_VERSION);
-    igDebug("Version:  " << reinterpret_cast<const char*>(version));
+    Logger::LogDebug("Version:   {}", reinterpret_cast<const char*>(version));
 
     GLint numExtensions = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
 
-    igDebug("=====================================================");
+    Logger::LogDebug("=====================================================");
 }
 
 void Scene::InitOIT() {
@@ -513,7 +511,8 @@ void Scene::ResizeFrameBuffer() {
 
         if (m_FramebufferMultisampled->CheckStatus() !=
             GL_FRAMEBUFFER_COMPLETE) {
-            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
         }
     }
 
@@ -559,7 +558,8 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferResolved = fbo;
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
-            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
         }
     }
 #else
@@ -592,10 +592,10 @@ void Scene::ResizeFrameBuffer() {
         m_DepthTexture = depthTexture;
         m_Framebuffer = fbo;
 
-        if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
-                         "complete!"
-                      << std::endl;
+        if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
+        }
     }
 #endif
 
@@ -810,9 +810,7 @@ void Scene::ResolveFrame() {
     m_DepthTextureMultisampled->Active(GL_TEXTURE2);
     shader->SetUniformi("depthTextureMS", 2);
 
-    m_EmptyVAO->Bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO->Release();
+    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 #endif
 }
 
@@ -847,9 +845,7 @@ void Scene::RenderToQtFrame() {
     shader->SetUniformi("screenColorSampler", 1);
 #endif
 
-    m_EmptyVAO->Bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO->Release();
+    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 void Scene::ShadowPass() { GLCheckError(); }
@@ -978,9 +974,7 @@ void Scene::TransparentPass() {
         m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_READ_ONLY,
                                           GL_RGBA32UI);
 
-        m_EmptyVAO->Bind();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        m_EmptyVAO->Release();
+        m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
     }
     glEnable(GL_DEPTH_TEST);
 #endif

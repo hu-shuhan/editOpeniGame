@@ -37,8 +37,8 @@ void GLShader::CheckCompileErrors() {
 
     if (!success) {
         glGetShaderInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        igError(this->GetName()
-                << ", ERROR::SHADER_COMPILATION_ERROR, " + infoLog);
+        Logger::LogError("{}, ERROR::SHADER_COMPILATION_ERROR, {}",
+                         this->GetName(), infoLog);
     }
 }
 
@@ -53,7 +53,7 @@ std::string GLShader::ReadFile(const char* file_path) {
         file.close();
         return contents;
     }
-    igError(this->GetName() << ", failed to open file");
+    Logger::LogError("Failed to open file {}", this->GetName());
 }
 
 GLShader::Pointer CreateShader(const std::string& path, GLenum shaderType) {
@@ -258,8 +258,8 @@ void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
                                       GLBuffer::Pointer m_UBOBlock) {
     GLuint blockIndex = glGetUniformBlockIndex(m_Handle, uniformBlockName);
     if (blockIndex == GL_INVALID_INDEX) {
-        igError(this->GetName()
-                << ", does not have Uniform block, " << uniformBlockName);
+        Logger::LogError("{}, does not have Uniform block, {}", this->GetName(),
+                         uniformBlockName);
     }
 
     glUniformBlockBinding(m_Handle, blockIndex, uniformBlockBinding);
@@ -270,8 +270,8 @@ void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
 GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
     int location = glGetAttribLocation(m_Handle, name);
     if (location == -1) {
-        igError(this->GetName()
-                << ", could not get attribute (does not exist), " << name);
+        Logger::LogError("{}, could not get attribute (does not exist), {}",
+                         this->GetName(), name);
     }
 
     return GLVertexAttribute{static_cast<unsigned int>(location)};
@@ -280,8 +280,8 @@ GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
 GLUniform::Pointer GLShaderProgram::GetUniformLocation(const char* name) const {
     int location = glGetUniformLocation(m_Handle, name);
     if (location == -1) {
-        igError(this->GetName()
-                << ", could not get uniform (does not exist), " << name);
+        Logger::LogError("{}, could not get uniform (does not exist), {}",
+                         this->GetName(), name);
     }
 
     GLUniform::Pointer uniform = GLUniform::New();
@@ -298,8 +298,8 @@ void GLShaderProgram::CheckCompileErrors() {
 
     if (!success) {
         glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        igError(this->GetName()
-                << ", shader program linkage failed, " + infoLog);
+        Logger::LogError("{}, shader program linkage failed, {}",
+                         this->GetName(), infoLog);
     }
 }
 

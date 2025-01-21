@@ -38,8 +38,8 @@ void GLBuffer::Allocate(size_t size, const void* data, GLenum usage) {
 
 void GLBuffer::Storage(size_t size, const void* data, GLbitfield flags) {
 #ifdef IGAME_OPENGL_VERSION_330
-    igError("You called the GLBuffer::Storage function on the opengl330. "
-            "This function is currently not supported.");
+    Logger::LogError("You called the GLBuffer::Storage function on the "
+                     "opengl330. This function is currently not supported.");
 #elif IGAME_OPENGL_VERSION_460
     glNamedBufferStorage(m_Handle, size, data, flags);
 #endif
@@ -54,7 +54,7 @@ void* GLBuffer::MapRange(size_t offset, size_t length,
     return ptr;
 #elif IGAME_OPENGL_VERSION_460
     void* ptr = glMapNamedBufferRange(m_Handle, offset, length, access);
-    if (ptr == nullptr) { igError("Map buffer range is nullptr."); }
+    if (ptr == nullptr) { Logger::LogError("Map buffer range is nullptr."); }
     return ptr;
 #endif
 }
@@ -84,14 +84,14 @@ void GLBuffer::Unmap() {
     glBindBuffer(m_Target, m_Handle);
     if (!glUnmapBuffer(m_Target)) {
         glBindBuffer(m_Target, 0);
-        igError("data store contents have become corrupt during the time "
-                "the data store was mapped");
+        Logger::LogError("data store contents have become corrupt during the "
+                         "time the data store was mapped");
     }
     glBindBuffer(m_Target, 0);
 #elif IGAME_OPENGL_VERSION_460
     if (!glUnmapNamedBuffer(m_Handle)) {
-        igError("data store contents have become corrupt during the time "
-                "the data store was mapped");
+        Logger::LogError("data store contents have become corrupt during the "
+                         "time the data store was mapped");
     }
 #endif
 }

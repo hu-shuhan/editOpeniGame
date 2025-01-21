@@ -21,13 +21,34 @@ void GLVertexArray::Bind() const { glBindVertexArray(m_Handle); }
 
 void GLVertexArray::Release() const { glBindVertexArray(0); }
 
+void GLVertexArray::DrawArrays(GLenum mode, GLint first, GLsizei count) {
+    glBindVertexArray(m_Handle);
+    glDrawArrays(mode, first, count);
+    glBindVertexArray(0);
+}
+
+void GLVertexArray::DrawElements(GLenum mode, int elementCount, GLenum type,
+                                 const void* indices) {
+    glBindVertexArray(m_Handle);
+    glDrawElements(mode, elementCount, type, indices);
+    glBindVertexArray(0);
+}
+
+void GLVertexArray::DrawRangeElements(GLenum mode, GLuint start, GLuint end,
+                                      GLsizei count, GLenum type,
+                                      const void* indices) {
+    glBindVertexArray(m_Handle);
+    glDrawRangeElements(mode, start, end, count, type, indices);
+    glBindVertexArray(0);
+}
+
 void GLVertexArray::VertexBuffer(unsigned int vbo_binding_index,
                                  GLBuffer::Pointer buffer, ptrdiff_t offset,
                                  size_t stride) {
 #ifdef IGAME_OPENGL_VERSION_330
     if (offset != 0) {
-        igError("You are trying to offset the VBO in the opengl330 "
-                "version, which is illegal. Please check your code.");
+        Logger::LogError("You are trying to offset the VBO in the opengl330 "
+                         "version, which is illegal. Please check your code.");
     }
     GLVertexArrayManager& manager = GLVertexArrayManager::Instance();
     manager.RegisterBufferToVertexArray(m_Handle, vbo_binding_index,

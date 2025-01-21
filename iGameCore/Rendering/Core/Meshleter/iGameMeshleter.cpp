@@ -1,4 +1,5 @@
 #include "iGameMeshleter.h"
+#include <format>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -35,7 +36,10 @@ Meshleter::Meshleter() {
 
 Meshleter::~Meshleter() {}
 
-void Meshleter::SetInput(DataObject::Pointer obj) { m_DataObject = obj; }
+void Meshleter::SetInput(DataObject::Pointer obj) {
+    m_DataObject = obj;
+    this->SetName(std::format("{}'s Meshleter", m_DataObject->GetName()));
+}
 
 void Meshleter::Update() {
 #ifndef IGAME_OPENGL_VERSION_460

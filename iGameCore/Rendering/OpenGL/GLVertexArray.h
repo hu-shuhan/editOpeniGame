@@ -38,6 +38,12 @@ public:
     void Bind() const;
     void Release() const;
 
+    void DrawArrays(GLenum mode, GLint first, GLsizei count);
+    void DrawElements(GLenum mode, int elementCount, GLenum type,
+                      const void* indices = 0);
+    void DrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count,
+                           GLenum type, const void* indices = 0);
+
 protected:
     GLVertexArray();
     ~GLVertexArray() override;

@@ -40,7 +40,7 @@ void PainterBase::HideAll() {
 }
 void PainterBase::Show(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -55,7 +55,7 @@ void PainterBase::Show(IGuint handle) {
 }
 void PainterBase::Hide(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -71,7 +71,7 @@ void PainterBase::Hide(IGuint handle) {
 
 void PainterBase::Delete(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -195,30 +195,25 @@ void PainterBase::Draw(Scene* scene) {
 
         scene->GetShader(ShaderType::NOLIGHT)->Use();
 
-        m_VAOs[penWidth]->Bind();
+        // draw points & lines
+        glad_glDepthRange(0.000001, 1);
         {
-            // draw point
-            m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
             glad_glPointSize(penWidth);
-            glad_glDepthRange(0.000001, 1);
-            glad_glDrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
-            glad_glDepthRange(0, 1);
+            m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
+            m_VAOs[penWidth]->DrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
+                                           GL_UNSIGNED_INT);
 
-            // draw line
-            m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
             glad_glLineWidth(penWidth);
-            glad_glDepthRange(0.000001, 1);
-            glad_glDrawElements(GL_LINES, m_LineEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
-            glad_glDepthRange(0, 1);
-
-            // draw triangle
-            m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
-            glad_glDrawElements(GL_TRIANGLES, m_TriangleEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
+            m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
+            m_VAOs[penWidth]->DrawElements(GL_LINES, m_LineEBOSizes[penWidth],
+                                           GL_UNSIGNED_INT);
         }
-        m_VAOs[penWidth]->Release();
+        glad_glDepthRange(0, 1);
+
+        // draw triangle
+        m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
+        m_VAOs[penWidth]->DrawElements(
+                GL_TRIANGLES, m_TriangleEBOSizes[penWidth], GL_UNSIGNED_INT);
     }
 }
 

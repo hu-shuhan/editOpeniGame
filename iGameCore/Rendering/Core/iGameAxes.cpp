@@ -31,17 +31,14 @@ Axes::~Axes() {
 
 void Axes::DrawAxes() {
     // draw axes
-    m_TriangleVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glDrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT, 0);
-    m_TriangleVAO->Release();
+    m_TriangleVAO->DrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT);
 }
 
 void Axes::DrawXYZ(GLShaderProgram::Pointer shader,
                    GLTexture2d::Pointer textureX, GLTexture2d::Pointer textureY,
                    GLTexture2d::Pointer textureZ) {
     // draw xyz
-    m_FontVAO->Bind();
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
@@ -54,19 +51,19 @@ void Axes::DrawXYZ(GLShaderProgram::Pointer shader,
 
     shader->SetUniformi("fontSampler", 1);
     shader->SetUniform3f("textColor", red);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT);
+
 
     shader->SetUniformi("fontSampler", 2);
     shader->SetUniform3f("textColor", green);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
-                   (void*) (6 * sizeof(GLuint)));
+    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                            (void*) (6 * sizeof(GLuint)));
+
 
     shader->SetUniformi("fontSampler", 3);
     shader->SetUniform3f("textColor", blue);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
-                   (void*) (12 * sizeof(GLuint)));
-
-    m_FontVAO->Release();
+    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                            (void*) (12 * sizeof(GLuint)));
 }
 
 void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {

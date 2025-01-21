@@ -13,7 +13,7 @@ void GLTexture2dArray::Storage(unsigned mip_levels, GLenum internal_format,
                                unsigned width, unsigned height,
                                unsigned depth) const {
 #ifdef IGAME_OPENGL_VERSION_330
-    igError("GLTexture2dArray::Storage function is not implemented.");
+    Logger::LogError("GLTexture2dArray::Storage function is not implemented.");
 #elif IGAME_OPENGL_VERSION_460
     glTextureStorage3D(m_Handle, mip_levels, internal_format, width, height,
                        depth);

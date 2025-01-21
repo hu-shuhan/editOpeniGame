@@ -22,12 +22,12 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
-        igError("ERROR::FREETYPE: Could not init FreeType Library");
+        Logger::LogError("FREETYPE: Could not init FreeType Library");
     }
 
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-        igError("ERROR::FREETYPE: Failed to load font");
+        Logger::LogError("FREETYPE: Failed to load font {}", fontPath);
     }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
@@ -45,7 +45,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
         // Loading the glyphs for characters
         if (FT_Load_Char(face, wchar, FT_LOAD_RENDER)) {
-            igError("ERROR::FREETYTPE: Failed to load Glyph");
+            Logger::LogError("FREETYPE: Failed to load Glyph");
         }
 
         // Font size
@@ -107,7 +107,7 @@ void FontManager::FlipVertically(unsigned char* data, int width, int height) {
 FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
     auto it = m_Characters.find(wchar);
     if (it == m_Characters.end()) {
-        igError("Character not found for wchar: " /*<< wchar*/);
+        Logger::LogError("Character not found for wchar: " /*, wchar*/);
     }
     return it->second;
 }
@@ -115,7 +115,7 @@ FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
 GLTexture2d::Pointer FontManager::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
     if (it == m_Textures.end()) {
-        igError("Texture not generated for wchar: " /*<< wchar*/);
+        Logger::LogError("Texture not generated for wchar: " /*, wchar*/);
     }
     return it->second;
 }

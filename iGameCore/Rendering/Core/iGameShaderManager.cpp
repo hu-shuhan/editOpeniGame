@@ -16,7 +16,7 @@ GLShaderProgram::Pointer ShaderManager::GetShader(ShaderType type) {
     if (sp != nullptr) { return sp; }
 
     sp = this->GenShader(type);
-    if (sp == nullptr) { igError("Error for GenShader\n"); }
+    if (sp == nullptr) { Logger::LogError("Error for GenShader"); }
     this->SetShader(type, sp);
 
     return sp;
