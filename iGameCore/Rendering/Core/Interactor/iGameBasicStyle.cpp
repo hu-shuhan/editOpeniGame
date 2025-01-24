@@ -65,7 +65,7 @@ void BasicStyle::WheelEvent(IEvent _event) {
     auto newPos = oldPos + igm::vec3{0.0f, 0.0f, moveSize};
     m_Camera->SetPosition(newPos);
 
-    UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
+    UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
 }
 
 void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
@@ -95,8 +95,8 @@ void BasicStyle::ModelRotation() {
     double phi = 2.0 * asin(t);
     double angle = phi * 180.0 / IGM_PI;
 
-    igm::vec4 center = igm::vec4{m_Scene->ModelsBoundingSphere().xyz(), 1.0f};
-    igm::vec3 centerInWorld = (m_Scene->ModelMatrix() * center).xyz();
+    igm::vec4 center = igm::vec4{m_Scene->m_ModelsBoundingSphere.xyz(), 1.0f};
+    igm::vec3 centerInWorld = (m_Scene->m_ModelMatrix * center).xyz();
 
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
@@ -104,14 +104,14 @@ void BasicStyle::ModelRotation() {
             igm::mat4{}, static_cast<float>(igm::radians(angle)), axis);
 
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
-    m_Scene->ModelMatrix() = rotateSelf * (m_Scene->ModelMatrix());
+    m_Scene->m_ModelMatrix = rotateSelf * (m_Scene->m_ModelMatrix);
 
     // updated the rotation matrix of the origin
-    m_Scene->ModelRotate() = rotate * (m_Scene->ModelRotate());
+    m_Scene->m_ModelRotate = rotate * m_Scene->m_ModelRotate;
 }
 void BasicStyle::ViewTranslation() {
     if (m_Camera) {
-        UpdateCameraMoveSpeed(m_Scene->ModelsBoundingSphere());
+        UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
 
         auto offset = m_NewPoint2D - m_OldPoint2D;
         auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
@@ -125,9 +125,9 @@ void BasicStyle::ViewTranslation() {
     }
 }
 void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
-    auto center = igm::vec3(m_Scene->ModelsBoundingSphere());
+    auto center = igm::vec3(m_Scene->m_ModelsBoundingSphere);
 
-    igm::mat4 model = m_Scene->ModelMatrix();
+    igm::mat4 model = m_Scene->m_ModelMatrix;
     igm::mat4 view = m_Camera->GetViewMatrix();
     igm::mat4 proj = m_Camera->GetProjectionMatrix();
 
@@ -187,7 +187,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         // Step 2: Apply the pixel offset to the world coordinates
         m_CameraMoveSpeed = pixelSizeWorld;
     } else if (m_Camera->GetType() == Camera::Type::PERSPECTIVE) {
-        igm::mat4 model = m_Scene->ModelMatrix();
+        igm::mat4 model = m_Scene->m_ModelMatrix;
         igm::mat4 view = m_Camera->GetViewMatrix();
         igm::mat4 proj = m_Camera->GetProjectionMatrix();
         auto mvp = proj * view * model;

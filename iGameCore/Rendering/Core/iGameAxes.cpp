@@ -1,12 +1,13 @@
 #include "iGameAxes.h"
+#include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
 
 Axes::Axes() {
-    Viewport[0] = 0;
-    Viewport[1] = 0;
-    Viewport[2] = 200;
-    Viewport[3] = 200;
+    m_Viewport[0] = 0;
+    m_Viewport[1] = 0;
+    m_Viewport[2] = 200;
+    m_Viewport[3] = 200;
 
     m_Mvp = igm::mat4{1.0f};
     m_MvpInv = igm::mat4{1.0f};
@@ -27,114 +28,6 @@ Axes::~Axes() {
     m_TextureCoordVBO->Destroy();
     m_WorldCoordVBO->Destroy();
     m_FontTextureEBO->Destroy();
-}
-
-void Axes::DrawAxes() {
-    // draw axes
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    m_TriangleVAO->DrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT);
-}
-
-void Axes::DrawXYZ(GLShaderProgram::Pointer shader,
-                   GLTexture2d::Pointer textureX, GLTexture2d::Pointer textureY,
-                   GLTexture2d::Pointer textureZ) {
-    // draw xyz
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
-    igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
-    igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
-
-    textureX->Active(GL_TEXTURE1);
-    textureY->Active(GL_TEXTURE2);
-    textureZ->Active(GL_TEXTURE3);
-
-    shader->SetUniformi("fontSampler", 1);
-    shader->SetUniform3f("textColor", red);
-    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT);
-
-
-    shader->SetUniformi("fontSampler", 2);
-    shader->SetUniform3f("textColor", green);
-    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
-                            (void*) (6 * sizeof(GLuint)));
-
-
-    shader->SetUniformi("fontSampler", 3);
-    shader->SetUniform3f("textColor", blue);
-    m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
-                            (void*) (12 * sizeof(GLuint)));
-}
-
-void Axes::Update(const igm::mat4& _mvp, const igm::ivec4& viewPort) {
-    m_Mvp = _mvp;
-    m_MvpInv = _mvp.invert();
-
-    Viewport[0] = viewPort[0];
-    Viewport[1] = viewPort[1];
-    Viewport[2] = viewPort[2];
-    Viewport[3] = viewPort[3];
-    /*  Vertices sequence.
-             *  2---3
-             *  |\  |
-             *  | \ |
-             *  |  \|
-             *  0---1
-             * */
-
-    std::vector<float> fontVertices;
-
-    std::vector<igm::vec4> texts = {igm::vec4{1.1, 0.1, -0.1, 1},
-                                    igm::vec4{0.0, 1.3, 0.0, 1},
-                                    igm::vec4{0.1, 0.0, 1.1, 1}};
-
-    fontVertices.reserve(36);
-    for (auto& text: texts) {
-        igm::vec4 dc;
-        WorldCoordToDisplayCoord(text, dc);
-
-        igm::vec4 tmpWc;
-
-        //  first point
-        DisplayCoordToWorldCoord(dc, tmpWc);
-        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
-                fontVertices.push_back(tmpWc.z);
-
-        // second point
-        dc.x = dc.x + 20;
-        DisplayCoordToWorldCoord(dc, tmpWc);
-        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
-                fontVertices.push_back(tmpWc.z);
-
-        // third point
-        dc.x = dc.x - 20;
-        dc.y = dc.y + 20;
-        DisplayCoordToWorldCoord(dc, tmpWc);
-        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
-                fontVertices.push_back(tmpWc.z);
-
-        // fourth point
-        dc.x = dc.x + 20;
-        DisplayCoordToWorldCoord(dc, tmpWc);
-        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
-                fontVertices.push_back(tmpWc.z);
-    }
-
-    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
-                              fontVertices.data(), GL_STATIC_DRAW);
-    m_FontVAO->VertexBuffer(0, m_WorldCoordVBO, 0, 3 * sizeof(float));
-    GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, 0, 3, GL_FLOAT, GL_FALSE,
-                      0);
-}
-
-igm::vec3 Axes::CameraPos() { return igm::vec3{0.0f, 0.0f, 3.5f}; }
-igm::mat4 Axes::ViewMatrix() {
-    return igm::lookAtRH(CameraPos(), igm::vec3{0.0f, 0.0f, 0.0f},
-                         igm::vec3{0.0f, 1.0f, 0.0f});
-}
-igm::mat4 Axes::ProjMatrix() {
-    // reversed-z buffer
-    return igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f);
 }
 
 void Axes::Initialize() {
@@ -203,10 +96,10 @@ void Axes::Initialize() {
     m_TriangleVAO->ElementBuffer(m_TriangleEBO);
 
     // billboard
-    Viewport[0] = 0;
-    Viewport[1] = 0;
-    Viewport[2] = 200;
-    Viewport[3] = 200;
+    m_Viewport[0] = 0;
+    m_Viewport[1] = 0;
+    m_Viewport[2] = 200;
+    m_Viewport[3] = 200;
 
     std::vector<float> fontVertices{0, 0,    0, 0.24, 0,    0,
                                     0, 0.24, 0, 0.24, 0.24, 0};
@@ -234,6 +127,141 @@ void Axes::Initialize() {
     GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_1, 2, GL_FLOAT,
                       GL_FALSE, 0);
     m_FontVAO->ElementBuffer(m_FontTextureEBO);
+}
+
+void Axes::Draw(Scene* scene) {
+    // update range
+    int vp[4];
+    glGetIntegerv(GL_VIEWPORT, vp);
+    int scale = std::max(vp[2] - vp[0], vp[3] - vp[1]) / 10;
+    igm::ivec4 viewport =
+            igm::ivec4{vp[0], vp[1], vp[0] + scale, vp[1] + scale};
+    glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
+
+
+    // fixed position
+    static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
+    static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
+                                          igm::vec3{0.0f, 1.0f, 0.0f});
+    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f);
+
+    igm::mat4 model = scene->m_ModelRotate;
+    igm::mat4 mvp = proj * view * model;
+
+    auto shaderManager = scene->m_ShaderManager;
+    auto fontManager = scene->m_FontManager;
+
+    // update uniform buffer
+    auto axesShader = shaderManager->GetShader(ShaderType::AXES);
+    axesShader->Use();
+    axesShader->SetUniform3f("viewPos", viewPos);
+    axesShader->SetUniformMatrix4x4("model", model);
+    axesShader->SetUniformMatrix4x4("view", view);
+    axesShader->SetUniformMatrix4x4("proj", proj);
+
+    // get texture
+    auto textureX = fontManager->GetTexture(L'X');
+    auto textureY = fontManager->GetTexture(L'Y');
+    auto textureZ = fontManager->GetTexture(L'Z');
+
+    //draw axes
+    {
+        axesShader->SetUniformi("isDrawFont", 0);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        m_TriangleVAO->DrawElements(GL_TRIANGLES, 207, GL_UNSIGNED_INT);
+    }
+
+    // draw axes font
+    {
+        axesShader->SetUniformi("isDrawFont", 1);
+        this->Update(mvp, viewport);
+
+        // draw xyz
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
+        igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
+        igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
+
+        textureX->Active(GL_TEXTURE1);
+        textureY->Active(GL_TEXTURE2);
+        textureZ->Active(GL_TEXTURE3);
+
+        axesShader->SetUniformi("fontSampler", 1);
+        axesShader->SetUniform3f("textColor", red);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT);
+
+        axesShader->SetUniformi("fontSampler", 2);
+        axesShader->SetUniform3f("textColor", green);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                                (void*) (6 * sizeof(GLuint)));
+
+        axesShader->SetUniformi("fontSampler", 3);
+        axesShader->SetUniform3f("textColor", blue);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                                (void*) (12 * sizeof(GLuint)));
+    }
+}
+
+void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {
+    m_Mvp = mvp;
+    m_MvpInv = mvp.invert();
+
+    m_Viewport[0] = viewport.x;
+    m_Viewport[1] = viewport.y;
+    m_Viewport[2] = viewport.z;
+    m_Viewport[3] = viewport.w;
+
+    /*  Vertices sequence.
+             *  2---3
+             *  |\  |
+             *  | \ |
+             *  |  \|
+             *  0---1
+             * */
+    std::vector<float> fontVertices;
+
+    std::vector<igm::vec4> texts = {igm::vec4{1.1, 0.1, -0.1, 1},
+                                    igm::vec4{0.0, 1.3, 0.0, 1},
+                                    igm::vec4{0.1, 0.0, 1.1, 1}};
+
+    fontVertices.reserve(36);
+    for (auto& text: texts) {
+        igm::vec4 dc;
+        WorldCoordToDisplayCoord(text, dc);
+
+        igm::vec4 tmpWc;
+
+        //  first point
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // second point
+        dc.x = dc.x + 20;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // third point
+        dc.x = dc.x - 20;
+        dc.y = dc.y + 20;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // fourth point
+        dc.x = dc.x + 20;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+    }
+
+    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
+                              fontVertices.data(), GL_STATIC_DRAW);
+    m_FontVAO->VertexBuffer(0, m_WorldCoordVBO, 0, 3 * sizeof(float));
+    GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, 0, 3, GL_FLOAT, GL_FALSE,
+                      0);
 }
 
 void Axes::RequestData(std::vector<igm::vec3>& vertices,
@@ -301,8 +329,8 @@ void Axes::DisplayCoordToWorldCoord(igm::vec4& dc, igm::vec4& wc) {
     float t[4] = {dc.x, dc.y, dc.z, 1};
 
     //  reverse of viewPort transport
-    t[0] = (t[0] - Viewport[0]) / (0.5 * Viewport[2]) - 1;
-    t[1] = 1.f - (t[1] - Viewport[1]) / (0.5 * Viewport[3]);
+    t[0] = (t[0] - m_Viewport[0]) / (0.5 * m_Viewport[2]) - 1;
+    t[1] = 1.f - (t[1] - m_Viewport[1]) / (0.5 * m_Viewport[3]);
     wc = m_MvpInv * igm::vec4{t[0], t[1], t[2], t[3]};
     wc /= wc.w;
 }
@@ -312,9 +340,9 @@ void Axes::WorldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc) {
     dc /= dc.w;
 
     //  x = (x + 1) / 2 * width + bottom_left_x
-    dc.x = (dc.x + 1) * 0.5 * Viewport[2] + Viewport[0];
+    dc.x = (dc.x + 1) * 0.5 * m_Viewport[2] + m_Viewport[0];
     //  y = (1 - (y + 1) / 2) * height + bottom_left_y
-    dc.y = (1 - (dc.y + 1) * 0.5) * Viewport[3] + Viewport[1];
+    dc.y = (1 - (dc.y + 1) * 0.5) * m_Viewport[3] + m_Viewport[1];
 }
 
 IGAME_NAMESPACE_END

@@ -422,7 +422,9 @@ void Model::DrawPhase1(Scene* scene) {
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
             m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
-            scene->GetDrawCullDataBuffer()->BindBase(11);
+
+            auto cullDataBuffer = scene->m_ShaderManager->GetCullDataBuffer();
+            cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
             m_Meshleter->m_InvisibleMeshletBuffer->SubData(
@@ -555,7 +557,9 @@ void Model::DrawPhase2(Scene* scene) {
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
             m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
-            scene->GetDrawCullDataBuffer()->BindBase(11);
+
+            auto cullDataBuffer = scene->m_ShaderManager->GetCullDataBuffer();
+            cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
             m_Meshleter->m_InvisibleMeshletBuffer->SubData(
@@ -623,10 +627,12 @@ void Model::DrawPhase2(Scene* scene) {
                         GL_SHADER_STORAGE_BUFFER);
                 m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
-                scene->GetDrawCullDataBuffer()->Target(GL_UNIFORM_BUFFER);
-                scene->GetDrawCullDataBuffer()->BindBase(5);
+                auto cullDataBuffer =
+                        scene->m_ShaderManager->GetCullDataBuffer();
+                cullDataBuffer->Target(GL_UNIFORM_BUFFER);
+                cullDataBuffer->BindBase(5);
 
-                scene->DepthPyramid()->Active(GL_TEXTURE1);
+                scene->m_DepthPyramid->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
                 auto count = m_Meshleter->m_MeshletCount;
@@ -712,9 +718,11 @@ void Model::TestOcclusionResults(Scene* scene) {
                         GL_SHADER_STORAGE_BUFFER);
                 m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
-                scene->GetDrawCullDataBuffer()->BindBase(5);
+                auto cullDataBuffer =
+                        scene->m_ShaderManager->GetCullDataBuffer();
+                cullDataBuffer->BindBase(5);
 
-                scene->DepthPyramid()->Active(GL_TEXTURE1);
+                scene->m_DepthPyramid->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
                 size_t count = m_Meshleter->m_MeshletCount;
@@ -797,6 +805,8 @@ void Model::SetDataObject(DataObject::Pointer dataObject) {
     m_Meshleter->SetInput(dataObject);
 #endif
 }
+
+void Model::Modified() { m_DataObject->Modified(); }
 
 void Model::Update() {
     if (m_Scene) { m_Scene->Update(); }
@@ -904,5 +914,11 @@ void Model::SetViewFillSwitch(bool action) {
         drawObject->RemoveViewStyle(IG_SURFACE);
     }
 }
+
+void Model::SwitchOn(ViewSwitch type) { m_Switch |= (1ull << type); }
+
+void Model::SwitchOff(ViewSwitch type) { m_Switch &= ~(1ull << type); }
+
+bool Model::GetSwitch(ViewSwitch type) { return m_Switch & (1ull << type); }
 
 IGAME_NAMESPACE_END

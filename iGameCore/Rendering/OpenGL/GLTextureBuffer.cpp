@@ -25,7 +25,10 @@ void GLTextureBuffer::Buffer(GLenum internalformat,
 
 void GLTextureBuffer::Active(GLenum texture) {
     if (texture == GL_TEXTURE0) {
-        Logger::LogError("GL_TEXTURE0 is reserved.");
+        Logger::LogError(
+                "[GLTextureBuffer::Active] Error: GL_TEXTURE0 is reserved and "
+                "cannot be used for binding.");
+        return;
     }
     glActiveTexture(texture);
     glBindTexture(GL_TEXTURE_BUFFER, m_Handle);
@@ -43,8 +46,8 @@ void GLTextureBuffer::BindImage(unsigned int binding_index,
                                 GLenum access, GLenum format) {
 #ifdef IGAME_OPENGL_VERSION_330
     Logger::LogError(
-            "You called the GLTextureBuffer::BindImage function on the "
-            "opengl330. This function is currently not supported.");
+            "[GLTextureBuffer::BindImage] Error: This function is not "
+            "supported in OpenGL 3.3. Please use OpenGL 4.6 or higher.");
 #elif IGAME_OPENGL_VERSION_460
     glBindImageTexture(binding_index, m_Handle, mip_level, layered, layer,
                        access, format);

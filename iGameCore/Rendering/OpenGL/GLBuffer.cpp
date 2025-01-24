@@ -38,8 +38,11 @@ void GLBuffer::Allocate(size_t size, const void* data, GLenum usage) {
 
 void GLBuffer::Storage(size_t size, const void* data, GLbitfield flags) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError("You called the GLBuffer::Storage function on the "
-                     "opengl330. This function is currently not supported.");
+    Logger::LogError(
+            "[GLBuffer::Storage] OpenGL 3.3 (Version 330) does no support "
+            "glNamedBufferStorage. Attempted to call this function with size: "
+            "{} and flags: {}. Please consider using a different method.",
+            size, flags);
 #elif IGAME_OPENGL_VERSION_460
     glNamedBufferStorage(m_Handle, size, data, flags);
 #endif
@@ -51,10 +54,23 @@ void* GLBuffer::MapRange(size_t offset, size_t length,
     glBindBuffer(m_Target, m_Handle);
     void* ptr = glMapBufferRange(m_Target, offset, length, access);
     glBindBuffer(m_Target, 0);
+
+    if (ptr == nullptr) {
+        Logger::LogError(
+                "[GLBuffer::MapRange] OpenGL 3.3: Failed to map buffer range. "
+                "Target: {}, Offset: {}, Length: {}, Access: {}",
+                m_Target, offset, length, access);
+    }
     return ptr;
 #elif IGAME_OPENGL_VERSION_460
     void* ptr = glMapNamedBufferRange(m_Handle, offset, length, access);
-    if (ptr == nullptr) { Logger::LogError("Map buffer range is nullptr."); }
+
+    if (ptr == nullptr) {
+        Logger::LogError(
+                "[GLBuffer::MapRange] OpenGL 4.6: Failed to map buffer range. "
+                "Buffer Handle: {}, Offset: {}, Length: {}, Access: {}",
+                m_Handle, offset, length, access);
+    }
     return ptr;
 #endif
 }
@@ -84,14 +100,18 @@ void GLBuffer::Unmap() {
     glBindBuffer(m_Target, m_Handle);
     if (!glUnmapBuffer(m_Target)) {
         glBindBuffer(m_Target, 0);
-        Logger::LogError("data store contents have become corrupt during the "
-                         "time the data store was mapped");
+        Logger::LogError(
+                "[GLBuffer::Unmap] OpenGL 3.3: Failed to unmap buffer. "
+                "Buffer Handle: {}, Target: {}, Data corruption detected.",
+                m_Handle, m_Target);
     }
     glBindBuffer(m_Target, 0);
 #elif IGAME_OPENGL_VERSION_460
     if (!glUnmapNamedBuffer(m_Handle)) {
-        Logger::LogError("data store contents have become corrupt during the "
-                         "time the data store was mapped");
+        Logger::LogError(
+                "[GLBuffer::Unmap] OpenGL 4.6: Failed to unmap buffer. "
+                "Buffer Handle: {}, Data corruption detected.",
+                m_Handle);
     }
 #endif
 }

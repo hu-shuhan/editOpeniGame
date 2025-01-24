@@ -15,6 +15,14 @@ GLShader::~GLShader() {
     }
 }
 
+GLShader::Pointer GLShader::CreateShader(const std::string& path,
+                                         GLenum shaderType) {
+    auto shader = GLShader::New();
+    shader->SetName(std::filesystem::path(path).filename().string());
+    shader->Compile(path.c_str(), shaderType);
+    return shader;
+}
+
 void GLShader::Compile(const char* const file_path, GLenum type) {
     m_Handle = glCreateShader(type);
 
@@ -37,7 +45,8 @@ void GLShader::CheckCompileErrors() {
 
     if (!success) {
         glGetShaderInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        Logger::LogError("{}, ERROR::SHADER_COMPILATION_ERROR, {}",
+        Logger::LogError("[GLShader::CheckCompileErrors] Shader Name: '{}', "
+                         "Error: SHADER_COMPILATION_FAILED, Details: {}",
                          this->GetName(), infoLog);
     }
 }
@@ -52,15 +61,12 @@ std::string GLShader::ReadFile(const char* file_path) {
         file.read(contents.data(), contents.size());
         file.close();
         return contents;
+    } else {
+        Logger::LogError("[GLShader::ReadFile] Failed to open file '{}', "
+                         "Shader Name: '{}'",
+                         file_path, this->GetName());
+        return std::string();
     }
-    Logger::LogError("Failed to open file {}", this->GetName());
-}
-
-GLShader::Pointer CreateShader(const std::string& path, GLenum shaderType) {
-    auto shader = GLShader::New();
-    shader->SetName(std::filesystem::path(path).filename().string());
-    shader->Compile(path.c_str(), shaderType);
-    return shader;
 }
 
 GLUniform::GLUniform(){};
@@ -258,19 +264,22 @@ void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
                                       GLBuffer::Pointer m_UBOBlock) {
     GLuint blockIndex = glGetUniformBlockIndex(m_Handle, uniformBlockName);
     if (blockIndex == GL_INVALID_INDEX) {
-        Logger::LogError("{}, does not have Uniform block, {}", this->GetName(),
-                         uniformBlockName);
+        Logger::LogError("[GLShaderProgram::MapUniformBlock] Shader '{}' does "
+                         "not contain the Uniform Block '{}'.",
+                         this->GetName(), uniformBlockName);
+        return;
     }
-
     glUniformBlockBinding(m_Handle, blockIndex, uniformBlockBinding);
     m_UBOBlock->Target(GL_UNIFORM_BUFFER);
     m_UBOBlock->BindBase(uniformBlockBinding);
 }
 
+
 GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
     int location = glGetAttribLocation(m_Handle, name);
     if (location == -1) {
-        Logger::LogError("{}, could not get attribute (does not exist), {}",
+        Logger::LogError("[GLShaderProgram::GetAttribLocation] Shader '{}' "
+                         "does not contain the attribute '{}' (location: -1).",
                          this->GetName(), name);
     }
 
@@ -280,7 +289,8 @@ GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
 GLUniform::Pointer GLShaderProgram::GetUniformLocation(const char* name) const {
     int location = glGetUniformLocation(m_Handle, name);
     if (location == -1) {
-        Logger::LogError("{}, could not get uniform (does not exist), {}",
+        Logger::LogError("[GLShaderProgram::GetUniformLocation] Shader '{}' "
+                         "does not contain the uniform '{}' (location: -1).",
                          this->GetName(), name);
     }
 
@@ -298,7 +308,8 @@ void GLShaderProgram::CheckCompileErrors() {
 
     if (!success) {
         glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        Logger::LogError("{}, shader program linkage failed, {}",
+        Logger::LogError("[GLShaderProgram::CheckCompileErrors] Shader program "
+                         "'{}' linkage failed. Error: {}",
                          this->GetName(), infoLog);
     }
 }

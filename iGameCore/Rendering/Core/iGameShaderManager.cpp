@@ -204,11 +204,11 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
     GLShaderProgram::Pointer sp = GLShaderProgram::New();
     switch (type) {
         case ShaderType::BLINNPHONG: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer blinnPhong_frag = CreateShader(
+            GLShader::Pointer blinnPhong_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/blinnPhong.frag"),
                     GL_FRAGMENT_SHADER);
 
@@ -216,25 +216,25 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(vertex_vert, blinnPhong_frag);
         } break;
         case ShaderType::PBR: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
             vertex_vert->SetName("vertex.vert");
 
-            GLShader::Pointer pbr_frag =
-                    CreateShader(std::string("./Resources/Shaders/pbr.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer pbr_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/pbr.frag"),
+                    GL_FRAGMENT_SHADER);
             pbr_frag->SetName("pbr.frag");
 
             sp->SetName("PBR");
             sp->AddShaders(vertex_vert, pbr_frag);
         } break;
         case ShaderType::NOLIGHT: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer noLight_frag = CreateShader(
+            GLShader::Pointer noLight_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/noLight.frag"),
                     GL_FRAGMENT_SHADER);
 
@@ -242,11 +242,11 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(vertex_vert, noLight_frag);
         } break;
         case ShaderType::PURECOLOR: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer pureColor_frag = CreateShader(
+            GLShader::Pointer pureColor_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/pureColor.frag"),
                     GL_FRAGMENT_SHADER);
 
@@ -254,16 +254,16 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(vertex_vert, pureColor_frag);
         } break;
         case ShaderType::SINGLEPASSWIREFRAME: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer wireframe_geom = CreateShader(
+            GLShader::Pointer wireframe_geom = GLShader::CreateShader(
                     std::string(
                             "./Resources/Shaders/single-passWireframe.geom"),
                     GL_GEOMETRY_SHADER);
 
-            GLShader::Pointer wireframe_frag = CreateShader(
+            GLShader::Pointer wireframe_frag = GLShader::CreateShader(
                     std::string(
                             "./Resources/Shaders/single-passWireframe.frag"),
                     GL_FRAGMENT_SHADER);
@@ -272,100 +272,94 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
         } break;
         case ShaderType::TRANSPARENCYLINK: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
 
             GLShader::Pointer transparencyLink_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "transparencyLink.frag"),
-                                 GL_FRAGMENT_SHADER);
+                    GLShader::CreateShader(std::string("./Resources/Shaders/"
+                                                       "transparencyLink.frag"),
+                                           GL_FRAGMENT_SHADER);
 
             sp->SetName("TRANSPARENCYLINK");
             sp->AddShaders(vertex_vert, transparencyLink_frag);
         } break;
         case ShaderType::TRANSPARENCYSORT: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer fullScreenTriangle_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/fullScreenTriangle.vert"),
+                    GL_VERTEX_SHADER);
 
             GLShader::Pointer transparencySort_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "transparencySort.frag"),
-                                 GL_FRAGMENT_SHADER);
+                    GLShader::CreateShader(std::string("./Resources/Shaders/"
+                                                       "transparencySort.frag"),
+                                           GL_FRAGMENT_SHADER);
 
             sp->SetName("TRANSPARENCYSORT");
             sp->AddShaders(fullScreenTriangle_vert, transparencySort_frag);
         } break;
         case ShaderType::VOLUMERENDERINGLINK: {
-            GLShader::Pointer vertex_vert =
-                    CreateShader(std::string("./Resources/Shaders/vertex.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer vertex_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/vertex.vert"),
+                    GL_VERTEX_SHADER);
             vertex_vert->SetName("vertex.vert");
 
-            GLShader::Pointer volumeRenderingLink_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "volumeRenderingLink.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer volumeRenderingLink_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/volumeRenderingLink.frag"),
+                    GL_FRAGMENT_SHADER);
             volumeRenderingLink_frag->SetName("volumeRenderingLink.frag");
 
             sp->SetName("VOLUMERENDERINGLINK");
             sp->AddShaders(vertex_vert, volumeRenderingLink_frag);
         } break;
         case ShaderType::VOLUMERENDERINGSORT: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer fullScreenTriangle_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/fullScreenTriangle.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer volumeRenderingSort_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "volumeRenderingSort.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer volumeRenderingSort_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/volumeRenderingSort.frag"),
+                    GL_FRAGMENT_SHADER);
 
             sp->SetName("VOLUMERENDERINGSORT");
             sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
         } break;
         case ShaderType::AXES: {
-            GLShader::Pointer axis_vert =
-                    CreateShader(std::string("./Resources/Shaders/axis.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer axis_frag =
-                    CreateShader(std::string("./Resources/Shaders/axis.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer axis_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/axis.vert"),
+                    GL_VERTEX_SHADER);
+            GLShader::Pointer axis_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/axis.frag"),
+                    GL_FRAGMENT_SHADER);
 
             sp->SetName("AXES");
             sp->AddShaders(axis_vert, axis_frag);
         } break;
         case ShaderType::FONT: {
-            GLShader::Pointer font_vert =
-                    CreateShader(std::string("./Resources/Shaders/font.vert"),
-                                 GL_VERTEX_SHADER);
-            GLShader::Pointer font_frag =
-                    CreateShader(std::string("./Resources/Shaders/font.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer font_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/font.vert"),
+                    GL_VERTEX_SHADER);
+            GLShader::Pointer font_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/font.frag"),
+                    GL_FRAGMENT_SHADER);
 
             sp->SetName("FONT");
             sp->AddShaders(font_vert, font_frag);
         } break;
         case ShaderType::ATTACHMENTRESOLVE: {
-            GLShader::Pointer attachmentResolve_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "attachmentResolve.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer attachmentResolve_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/attachmentResolve.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer attachmentResolve_frag =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "attachmentResolve.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer attachmentResolve_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/attachmentResolve.frag"),
+                    GL_FRAGMENT_SHADER);
 
             sp->SetName("ATTACHMENTRESOLVE");
             sp->AddShaders(attachmentResolve_vert, attachmentResolve_frag);
         } break;
         case ShaderType::DEPTHREDUCE: {
 #ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer depthReduce_comp = CreateShader(
+            GLShader::Pointer depthReduce_comp = GLShader::CreateShader(
                     std::string("./Resources/Shaders/depthReduce.comp"),
                     GL_COMPUTE_SHADER);
 
@@ -375,7 +369,7 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
         } break;
         case ShaderType::MESHLETCULL: {
 #ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer meshletCull_comp = CreateShader(
+            GLShader::Pointer meshletCull_comp = GLShader::CreateShader(
                     std::string("./Resources/Shaders/meshletCull.comp"),
                     GL_COMPUTE_SHADER);
 
@@ -384,12 +378,11 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
 #endif
         } break;
         case ShaderType::SCREEN: {
-            GLShader::Pointer fullScreenTriangle_vert =
-                    CreateShader(std::string("./Resources/Shaders/"
-                                             "fullScreenTriangle.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer fullScreenTriangle_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/fullScreenTriangle.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer screenShader_frag = CreateShader(
+            GLShader::Pointer screenShader_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/screenShader.frag"),
                     GL_FRAGMENT_SHADER);
 
@@ -397,30 +390,30 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
             sp->AddShaders(fullScreenTriangle_vert, screenShader_frag);
         } break;
         case ShaderType::FXAA: {
-            GLShader::Pointer fxaa_vert =
-                    CreateShader(std::string("./Resources/Shaders/fxaa.vert"),
-                                 GL_VERTEX_SHADER);
+            GLShader::Pointer fxaa_vert = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/fxaa.vert"),
+                    GL_VERTEX_SHADER);
 
-            GLShader::Pointer fxaa_frag =
-                    CreateShader(std::string("./Resources/Shaders/fxaa.frag"),
-                                 GL_FRAGMENT_SHADER);
+            GLShader::Pointer fxaa_frag = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/fxaa.frag"),
+                    GL_FRAGMENT_SHADER);
 
             sp->SetName("FXAA");
             sp->AddShaders(fxaa_vert, fxaa_frag);
         } break;
         case ShaderType::CULLINGPHASE1: {
 #ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer shader_task =
-                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
-                                             "cullingPhase1.task"),
-                                 GL_TASK_SHADER_NV);
+            GLShader::Pointer shader_task = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/"
+                                "cullingPhase1.task"),
+                    GL_TASK_SHADER_NV);
 
-            GLShader::Pointer shader_mesh =
-                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
-                                             "cullingPhase1.mesh"),
-                                 GL_MESH_SHADER_NV);
+            GLShader::Pointer shader_mesh = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/"
+                                "cullingPhase1.mesh"),
+                    GL_MESH_SHADER_NV);
 
-            GLShader::Pointer shader_frag = CreateShader(
+            GLShader::Pointer shader_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/mesh_shader/culling.frag"),
                     GL_FRAGMENT_SHADER);
 
@@ -430,17 +423,17 @@ GLShaderProgram::Pointer ShaderManager::GenShader(ShaderType type) {
         } break;
         case ShaderType::CULLINGPHASE2: {
 #ifdef IGAME_OPENGL_VERSION_460
-            GLShader::Pointer shader_task =
-                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
-                                             "cullingPhase2.task"),
-                                 GL_TASK_SHADER_NV);
+            GLShader::Pointer shader_task = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/"
+                                "cullingPhase2.task"),
+                    GL_TASK_SHADER_NV);
 
-            GLShader::Pointer shader_mesh =
-                    CreateShader(std::string("./Resources/Shaders/mesh_shader/"
-                                             "cullingPhase2.mesh"),
-                                 GL_MESH_SHADER_NV);
+            GLShader::Pointer shader_mesh = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/mesh_shader/"
+                                "cullingPhase2.mesh"),
+                    GL_MESH_SHADER_NV);
 
-            GLShader::Pointer shader_frag = CreateShader(
+            GLShader::Pointer shader_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/mesh_shader/culling.frag"),
                     GL_FRAGMENT_SHADER);
 

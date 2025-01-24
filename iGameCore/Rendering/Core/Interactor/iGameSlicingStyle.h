@@ -44,7 +44,7 @@ protected:
     bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D, double radius) {
         auto center = v(this->center);
 
-        igm::mat4 model = m_Scene->ModelMatrix();
+        igm::mat4 model = m_Scene->GetModelMatrix();
         igm::mat4 view = m_Camera->GetViewMatrix();
         igm::mat4 proj = m_Camera->GetProjectionMatrix();
 
@@ -100,7 +100,7 @@ private:
     Vector3d head;
     Vector3d rear;
     Vector3d top, left; // 切平面的上/左顶点
-    Vector3d normal; // 切平面的法向量
+    Vector3d normal;    // 切平面的法向量
     IGuint boxHandle{0};
     IGuint centerHandle{0};
     IGuint headHandle{0};

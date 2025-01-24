@@ -19,9 +19,8 @@ void GLTexture2d::CopyImageSubData(const GLTexture2d::Pointer source,
                                    GLint dstY, GLint dstZ, GLsizei srcWidth,
                                    GLsizei srcHeight, GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError(
-            "You called the GLTexture2d::CopyImageSubData function on the "
-            "opengl330. This function is currently not supported.");
+    Logger::LogError("[GLTexture2d::CopyImageSubData] Error: Function not "
+                     "supported on OpenGL 3.3.");
 #elif IGAME_OPENGL_VERSION_460
     glCopyImageSubData(source->Handle(), GL_TEXTURE_2D, srcLevel, srcX, srcY,
                        srcZ, destination->Handle(), GL_TEXTURE_2D, dstLevel,
@@ -35,9 +34,9 @@ GLTexture2d GLTexture2d::View(GLenum target,
                               unsigned mip_level_count, unsigned first_layer,
                               unsigned layer_count) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError("You called the GLTexture2d::View function on the "
-                     "opengl330. This function is currently not supported.");
-    exit(0);
+    Logger::LogError(
+            "[GLTexture2d::View] Error: Function not supported on OpenGL 3.3.");
+    return GLTexture2d(0);
 #elif IGAME_OPENGL_VERSION_460
     GLuint handle;
     glGenTextures(1, &handle);
@@ -86,9 +85,9 @@ void GLTexture2d::Storage(unsigned mip_levels, GLenum internal_format,
             type = GL_UNSIGNED_INT_24_8;
             break;
         default:
-            Logger::LogError("You called the GLTexture2d::Storage function on "
-                             "the opengl330. but the internal_format you "
-                             "provided was not enumrated.");
+            Logger::LogError("[GLTexture2d::Storage] Error: Unsupported "
+                             "internal format.");
+            return;
     }
 
     for (unsigned int level = 0; level < mip_levels; ++level) {
@@ -148,7 +147,9 @@ void GLTexture2d::GenerateMipmap() {
 
 void GLTexture2d::Active(GLenum texture) {
     if (texture == GL_TEXTURE0) {
-        Logger::LogError("GL_TEXTURE0 is reserved.");
+        Logger::LogError("[GLTexture2d::Active] Error: GL_TEXTURE0 is reserved "
+                         "and cannot be used.");
+        return;
     }
     glActiveTexture(texture);
     glBindTexture(GL_TEXTURE_2D, m_Handle);

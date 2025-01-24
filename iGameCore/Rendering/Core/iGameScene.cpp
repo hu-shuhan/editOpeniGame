@@ -83,7 +83,6 @@ bool Scene::Initialize() {
 
     InitOpenGL();
     InitOIT();
-    InitFont();
     InitAxes();
 
     ResetCameraView();
@@ -112,6 +111,13 @@ int Scene::AddModel(Model::Pointer model) {
 }
 
 void Scene::RemoveModel(int index) {
+    auto it = m_Models.find(index);
+    if (it == m_Models.end()) {
+        Logger::LogWarn("Model with index {} does not exist in the scene.",
+                        index);
+        return;
+    }
+
     m_Models.erase(index);
     if (index == m_CurrentModelId) {
         if (m_Models.empty()) {
@@ -125,7 +131,7 @@ void Scene::RemoveModel(int index) {
     UpdateModelsBoundingSphere();
 }
 
-void Scene::RemoveModel(Model* model) {
+void Scene::RemoveModel(Model::Pointer model) {
     for (auto it = m_Models.begin(); it != m_Models.end(); ++it) {
         if (it->second.get() == model) {
             m_Models.erase(it);
@@ -162,6 +168,13 @@ void Scene::RemoveCurrentModel() {
 }
 
 void Scene::SetCurrentModel(int index) {
+    auto it = m_Models.find(index);
+    if (it == m_Models.end()) {
+        Logger::LogWarn("Model with index {} does not exist in the scene.",
+                        index);
+        return;
+    }
+
     for (auto& [id, model]: m_Models) {
         if (id == index) {
             m_CurrentModelId = id;
@@ -171,11 +184,11 @@ void Scene::SetCurrentModel(int index) {
     }
 }
 
-void Scene::SetCurrentModel(Model* _model) {
-    for (auto& [id, model]: m_Models) {
-        if (model == _model) {
+void Scene::SetCurrentModel(Model::Pointer model) {
+    for (auto& [id, m]: m_Models) {
+        if (m == model) {
             m_CurrentModelId = id;
-            m_CurrentModel = model.get();
+            m_CurrentModel = m.get();
             return;
         }
     }
@@ -187,20 +200,20 @@ void Scene::SetBackGround(const Color& color) {
     this->Modified();
 }
 
-void Scene::SetInteractor(Interactor* i) { m_Interactor = i; }
+void Scene::SetInteractor(Interactor* interactor) { m_Interactor = interactor; }
 
 Interactor* Scene::GetInteractor() { return m_Interactor; }
 
-Model* Scene::GetCurrentModel() { return m_CurrentModel; }
+Model::Pointer Scene::GetCurrentModel() { return m_CurrentModel; }
 
-Model* Scene::GetModelById(int index) {
+Model::Pointer Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
     }
     return nullptr;
 }
 
-DataObject* Scene::GetDataObjectById(int index) {
+DataObject::Pointer Scene::GetDataObjectById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model->m_DataObject; }
     }
@@ -210,7 +223,7 @@ DataObject* Scene::GetDataObjectById(int index) {
 std::map<int, Model::Pointer>& Scene::GetModelList() { return m_Models; }
 
 void Scene::ChangeModelVisibility(int index, bool visibility) {
-    auto* model = GetModelById(index);
+    auto model = GetModelById(index);
     if (model != nullptr) { ChangeModelVisibility(model, visibility); }
 }
 
@@ -226,7 +239,7 @@ void Scene::ResetCameraView() {
     m_Camera->SetFocal(center);
 }
 
-void Scene::ChangeModelVisibility(Model* model, bool visibility) {
+void Scene::ChangeModelVisibility(Model::Pointer model, bool visibility) {
     auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
     drawObject->SetVisibility(visibility);
 
@@ -240,7 +253,9 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
     UpdateModelsBoundingSphere();
 }
 
-void Scene::ChangeCameraType(IGenum type) {
+Camera::Pointer Scene::GetCamera() { return m_Camera; }
+
+void Scene::ChangeCameraType(Camera::Type type) {
     ResetCameraView();
     switch (type) {
         case Camera::Type::PERSPECTIVE: {
@@ -253,6 +268,8 @@ void Scene::ChangeCameraType(IGenum type) {
             break;
     }
 }
+
+igm::mat4 Scene::GetModelMatrix() { return m_ModelMatrix; }
 
 GLShaderProgram::Pointer Scene::GetShader(ShaderType type) {
     return m_ShaderManager->GetShader(type);
@@ -451,21 +468,10 @@ void Scene::InitOIT() {
     GLCheckError();
 }
 
-void Scene::InitFont() {
+void Scene::InitAxes() {
     const wchar_t* text = L"XYZ";
     m_FontManager->RegisterWords(text);
-    GLCheckError();
-}
-
-void Scene::InitAxes() {
     m_Axes->Initialize();
-
-    auto axesShader = this->GetShader(ShaderType::AXES);
-
-    axesShader->Use();
-    axesShader->SetUniformMatrix4x4("view", Axes::ViewMatrix());
-    axesShader->SetUniformMatrix4x4("proj", Axes::ProjMatrix());
-    axesShader->SetUniform3f("viewPos", Axes::CameraPos());
 
     GLCheckError();
 }
@@ -752,7 +758,6 @@ void Scene::DrawFrame() {
     }
 #endif
 
-
     // update camera data block in GPU
     UpdateCameraDataBlock();
 
@@ -761,7 +766,8 @@ void Scene::DrawFrame() {
         glViewport(0, 0, viewport.x, viewport.y);
 
         // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
+                     m_BackgroundColor.b, 1.0f);
         glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -784,14 +790,9 @@ void Scene::DrawFrame() {
 
     // draw axes in bottom left
     {
-        auto viewport = m_Camera->GetScaledViewPort();
-        int scale = static_cast<int>(std::max(viewport.x, viewport.y)) / 10.0f;
-        igm::ivec4 drawRange = igm::ivec4{0, 0, scale, scale};
-
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
         glClear(GL_DEPTH_BUFFER_BIT);
-        glViewport(drawRange.x, drawRange.y, drawRange.z, drawRange.w);
-        DrawAxes(drawRange);
+        m_Axes->Draw(this);
     }
 }
 
@@ -1070,35 +1071,6 @@ void Scene::UpdateCameraClippingRange() {
     m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
-//void Scene::UpdateUniformBuffer() {
-//    m_ShaderManager->UpdateCameraBlock(m_Camera);
-//    m_ShaderManager->UpdateObjectBlock(m_ObjectData);
-//    m_ShaderManager->UpdateBlock(m_UBO);
-//}
-
-void Scene::DrawAxes(igm::ivec4 drawRange) {
-    auto axesShader = this->GetShader(ShaderType::AXES);
-    axesShader->Use();
-
-    axesShader->SetUniformMatrix4x4("model", m_ModelRotate);
-
-    // draw Axes
-    {
-        axesShader->SetUniformi("isDrawFont", 0);
-        m_Axes->DrawAxes();
-    }
-
-    // draw Axes Font
-    {
-        axesShader->SetUniformi("isDrawFont", 1);
-        m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
-                       {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
-        m_Axes->DrawXYZ(axesShader, m_FontManager->GetTexture(L'X'),
-                        m_FontManager->GetTexture(L'Y'),
-                        m_FontManager->GetTexture(L'Z'));
-    }
-}
-
 void Scene::RefreshDrawCullDataBuffer() {
     m_ShaderManager->UpdateCullDataBuffer(
             m_Camera, m_ModelMatrix, m_DepthPyramidWidth, m_DepthPyramidHeight);
@@ -1366,10 +1338,6 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
     m_FramebufferResolved->Release();
 
     return ZBuffer;
-}
-
-GLBuffer::Pointer Scene::GetDrawCullDataBuffer() {
-    return m_ShaderManager->GetCullDataBuffer();
 }
 
 Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }

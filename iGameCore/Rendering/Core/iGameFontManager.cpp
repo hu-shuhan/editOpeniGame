@@ -3,6 +3,8 @@
 //
 
 #include "iGameFontManager.h"
+#include <codecvt>
+#include <locale>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -89,6 +91,32 @@ void FontManager::RegisterWords(const wchar_t* text) {
     this->Modified();
 }
 
+FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
+    auto it = m_Characters.find(wchar);
+    if (it == m_Characters.end()) {
+        Logger::LogInfo(
+                "Character not found for wchar. Automatically registering.");
+
+        wchar_t text[2] = {wchar, L'\0'};
+        this->RegisterWords(text);
+        it = m_Characters.find(wchar);
+    }
+    return it->second;
+}
+
+GLTexture2d::Pointer FontManager::GetTexture(const wchar_t wchar) {
+    auto it = m_Textures.find(wchar);
+    if (it == m_Textures.end()) {
+        Logger::LogInfo(
+                "Texture not found for wchar. Automatically generating.");
+
+        wchar_t text[2] = {wchar, L'\0'};
+        this->RegisterWords(text);
+        it = m_Textures.find(wchar);
+    }
+    return it->second;
+}
+
 void FontManager::FlipVertically(unsigned char* data, int width, int height) {
     int rowSize = width * sizeof(unsigned char);
 
@@ -103,22 +131,5 @@ void FontManager::FlipVertically(unsigned char* data, int width, int height) {
         delete[] tempRow;
     }
 }
-
-FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
-    auto it = m_Characters.find(wchar);
-    if (it == m_Characters.end()) {
-        Logger::LogError("Character not found for wchar: " /*, wchar*/);
-    }
-    return it->second;
-}
-
-GLTexture2d::Pointer FontManager::GetTexture(const wchar_t wchar) {
-    auto it = m_Textures.find(wchar);
-    if (it == m_Textures.end()) {
-        Logger::LogError("Texture not generated for wchar: " /*, wchar*/);
-    }
-    return it->second;
-}
-
 
 IGAME_NAMESPACE_END
