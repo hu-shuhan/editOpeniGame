@@ -11,10 +11,10 @@ GLTexture2d::GLTexture2d(GLuint handle) : GLObject<GLTexture2d>{handle} {}
 
 GLTexture2d::~GLTexture2d() {}
 
-void GLTexture2d::CopyImageSubData(const GLTexture2d::Pointer source,
+void GLTexture2d::CopyImageSubData(const SmartPointer<GLTexture2d> source,
                                    GLenum srcTarget, GLint srcLevel, GLint srcX,
                                    GLint srcY, GLint srcZ,
-                                   const GLTexture2d::Pointer destination,
+                                   const SmartPointer<GLTexture2d> destination,
                                    GLenum dstTarget, GLint dstLevel, GLint dstX,
                                    GLint dstY, GLint dstZ, GLsizei srcWidth,
                                    GLsizei srcHeight, GLsizei srcDepth) {
@@ -29,7 +29,7 @@ void GLTexture2d::CopyImageSubData(const GLTexture2d::Pointer source,
 }
 
 GLTexture2d GLTexture2d::View(GLenum target,
-                              const GLTexture2d::Pointer original,
+                              const SmartPointer<GLTexture2d> original,
                               GLenum internal_format, unsigned first_mip_level,
                               unsigned mip_level_count, unsigned first_layer,
                               unsigned layer_count) {

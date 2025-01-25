@@ -69,15 +69,15 @@ protected:
      */
     void WorldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc);
 
-    GLVertexArray::Pointer m_TriangleVAO;
-    GLBuffer::Pointer m_PositionVBO;
-    GLBuffer::Pointer m_ColorVBO;
-    GLBuffer::Pointer m_TriangleEBO;
+    SmartPointer<GLVertexArray> m_TriangleVAO;
+    SmartPointer<GLBuffer> m_PositionVBO;
+    SmartPointer<GLBuffer> m_ColorVBO;
+    SmartPointer<GLBuffer> m_TriangleEBO;
 
-    GLVertexArray::Pointer m_FontVAO;
-    GLBuffer::Pointer m_TextureCoordVBO;
-    GLBuffer::Pointer m_WorldCoordVBO;
-    GLBuffer::Pointer m_FontTextureEBO;
+    SmartPointer<GLVertexArray> m_FontVAO;
+    SmartPointer<GLBuffer> m_TextureCoordVBO;
+    SmartPointer<GLBuffer> m_WorldCoordVBO;
+    SmartPointer<GLBuffer> m_FontTextureEBO;
 
     int m_Viewport[4];
     igm::mat4 m_Mvp;

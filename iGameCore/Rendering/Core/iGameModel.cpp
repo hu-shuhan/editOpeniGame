@@ -23,7 +23,7 @@ Model::Model() {
 Model::~Model() {}
 
 void Model::Draw(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -171,7 +171,7 @@ void Model::Draw(Scene* scene) {
 }
 
 void Model::DrawWithTransparency(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -298,7 +298,7 @@ void Model::DrawWithTransparency(Scene* scene) {
 }
 
 void Model::DrawWithVolume(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -390,7 +390,7 @@ void Model::DrawPhase1(Scene* scene) {
     m_Meshleter->Update();
 
 #ifdef GL_SUPPORTS_MESH_SHADER
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -451,7 +451,7 @@ void Model::DrawPhase1(Scene* scene) {
         }
     };
 #else
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -520,7 +520,7 @@ void Model::DrawPhase2(Scene* scene) {
     if (!drawObject->m_Visibility) { return; }
 
 #ifdef GL_SUPPORTS_MESH_SHADER
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -586,7 +586,7 @@ void Model::DrawPhase2(Scene* scene) {
         }
     };
 #else
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -684,7 +684,7 @@ void Model::TestOcclusionResults(Scene* scene) {
     // Update GPU data
     m_Meshleter->Update();
 
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         auto visibility = drawObject->m_Visibility;
         auto useColor = drawObject->m_UseColor;
@@ -782,7 +782,7 @@ void Model::TestOcclusionResults(Scene* scene) {
 #endif
 }
 
-DataObject::Pointer Model::GetDataObject() { return m_DataObject; }
+SmartPointer<DataObject> Model::GetDataObject() { return m_DataObject; }
 
 bool Model::GetVisibility() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
@@ -791,13 +791,13 @@ bool Model::GetVisibility() {
 
 Filter* Model::GetModelFilter() { return m_Filter; }
 
-Painter3D::Pointer Model::GetPainter3D() { return m_Painter3D; }
+SmartPointer<Painter3D> Model::GetPainter3D() { return m_Painter3D; }
 
 void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
 
 void Model::DeleteModelFilter() { m_Filter = nullptr; }
 
-void Model::SetDataObject(DataObject::Pointer dataObject) {
+void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
     m_DataObject = dataObject;
 
 #ifdef GL_DEBUG_CULLING
@@ -841,7 +841,7 @@ void Model::RequestDragPoint(Points* p, Selection* s) {
     m_Scene->GetInteractor()->RequestDragPointStyle(s);
 }
 
-void Model::SetMeshleter(Meshleter::Pointer meshleter) {
+void Model::SetMeshleter(SmartPointer<Meshleter> meshleter) {
     m_Meshleter = meshleter;
 }
 

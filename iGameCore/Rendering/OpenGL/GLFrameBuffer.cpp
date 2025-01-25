@@ -9,11 +9,11 @@ GLFramebuffer::GLFramebuffer() { m_Target = GL_NONE; }
 
 GLFramebuffer::~GLFramebuffer() {}
 
-void GLFramebuffer::Blit(const GLFramebuffer::Pointer source,
-                         const GLFramebuffer::Pointer destination, GLint srcX0,
-                         GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0,
-                         GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask,
-                         GLenum filter) {
+void GLFramebuffer::Blit(const SmartPointer<GLFramebuffer> source,
+                         const SmartPointer<GLFramebuffer> destination,
+                         GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+                         GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                         GLbitfield mask, GLenum filter) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindFramebuffer(GL_READ_FRAMEBUFFER, source->Handle());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination->Handle());
@@ -39,7 +39,7 @@ void GLFramebuffer::DrawBuffers(size_t count, GLenum* buffers) {
 }
 
 void GLFramebuffer::Texture(GLenum attachment,
-                            const GLTexture2d::Pointer texture,
+                            const SmartPointer<GLTexture2d> texture,
                             unsigned mip_level) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
@@ -53,7 +53,7 @@ void GLFramebuffer::Texture(GLenum attachment,
 }
 
 void GLFramebuffer::Texture(GLenum attachment,
-                            const GLTexture2dMultisample::Pointer texture,
+                            const SmartPointer<GLTexture2dMultisample> texture,
                             unsigned mip_level) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
@@ -67,7 +67,7 @@ void GLFramebuffer::Texture(GLenum attachment,
 }
 
 void GLFramebuffer::TextureLayer(GLenum attachment,
-                                 const GLTexture2dArray::Pointer texture,
+                                 const SmartPointer<GLTexture2dArray> texture,
                                  unsigned mip_level, unsigned layer) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
@@ -81,7 +81,7 @@ void GLFramebuffer::TextureLayer(GLenum attachment,
 }
 
 void GLFramebuffer::Renderbuffer(GLenum attachment, GLenum renderbuffer_target,
-                                 const GLRenderBuffer::Pointer rbo) {
+                                 const SmartPointer<GLRenderBuffer> rbo) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, renderbuffer_target,

@@ -16,8 +16,8 @@ public:
 
     // GLbitfield mask: GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT
     // GLenum filter: GL_NEAREST, GL_LINEAR
-    static void Blit(GLFramebuffer::Pointer source,
-                     GLFramebuffer::Pointer destination, GLint srcX0,
+    static void Blit(SmartPointer<GLFramebuffer> source,
+                     SmartPointer<GLFramebuffer> destination, GLint srcX0,
                      GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0,
                      GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask,
                      GLenum filter);
@@ -28,16 +28,17 @@ public:
     // GLenum attachment: GL_DEPTH_ATTACHMENT(texture need GL_DEPTH_COMPONENT)
     // GLenum attachment: GL_STENCIL_ATTACHMENT(texture need GL_STENCIL_INDEX)
     // GLenum attachment: GL_DEPTH_STENCIL_ATTACHMENT(texture need GL_DEPTH24_STENCIL8)
-    void Texture(GLenum attachment, GLTexture2d::Pointer texture,
+    void Texture(GLenum attachment, SmartPointer<GLTexture2d> texture,
                  unsigned mip_level);
-    void Texture(GLenum attachment, GLTexture2dMultisample::Pointer texture,
+    void Texture(GLenum attachment,
+                 SmartPointer<GLTexture2dMultisample> texture,
                  unsigned mip_level);
 
-    void TextureLayer(GLenum attachment, GLTexture2dArray::Pointer texture,
+    void TextureLayer(GLenum attachment, SmartPointer<GLTexture2dArray> texture,
                       unsigned mip_level, unsigned layer);
 
     void Renderbuffer(GLenum attachment, GLenum renderbuffer_target,
-                      GLRenderBuffer::Pointer rbo);
+                      SmartPointer<GLRenderBuffer> rbo);
 
     GLenum CheckStatus();
 

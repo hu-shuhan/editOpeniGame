@@ -4,21 +4,37 @@
 
 #include "iGameBasicStyle.h"
 #include "iGameInteractor.h"
+#include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
-void BasicStyle::Initialize(Interactor* a) {
-    m_Interactor = a;
-    m_Scene = a->GetScene();
-    m_Camera = a->GetCamera();
+
+BasicStyle::BasicStyle() {
+    m_Interactor = nullptr;
+    m_Scene = nullptr;
+    m_Camera = nullptr;
+
+    m_OldPoint2D = igm::vec2{0.0f};
+    m_NewPoint2D = igm::vec2{0.0f};
+    m_CameraScaleSpeed = 1.0f;
+    m_CameraMoveSpeed = 0.01f;
+    m_MouseMode = NoButton;
 }
 
-void BasicStyle::MousePressEvent(IEvent _event) {
-    m_OldPoint2D = _event.pos;
-    m_MouseMode = _event.button;
+BasicStyle::~BasicStyle() {}
+
+void BasicStyle::Initialize(SmartPointer<Interactor> interactor) {
+    m_Interactor = interactor;
+    m_Scene = interactor->GetScene();
+    m_Camera = interactor->GetCamera();
 }
 
-void BasicStyle::MouseMoveEvent(IEvent _event) {
-    m_NewPoint2D = _event.pos;
+void BasicStyle::MousePressEvent(IEvent event) {
+    m_OldPoint2D = event.pos;
+    m_MouseMode = event.button;
+}
+
+void BasicStyle::MouseMoveEvent(IEvent event) {
+    m_NewPoint2D = event.pos;
     //if (m_OldPoint2D == m_NewPoint2D) { return; }
 
     switch (m_MouseMode) {
@@ -35,22 +51,17 @@ void BasicStyle::MouseMoveEvent(IEvent _event) {
             break;
     }
     m_OldPoint2D = m_NewPoint2D;
-};
-void BasicStyle::LeftButtonMouseMove() { ModelRotation(); }
+}
 
-void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
+void BasicStyle::MouseReleaseEvent(IEvent event) { m_MouseMode = NoButton; }
 
-void BasicStyle::MiddleButtonMouseMove() {}
-
-void BasicStyle::MouseReleaseEvent(IEvent _event) { m_MouseMode = NoButton; }
-
-void BasicStyle::WheelEvent(IEvent _event) {
+void BasicStyle::WheelEvent(IEvent event) {
     float wheelMoveDirection = 0.0;
-    if (_event.delta == 0) {
+    if (event.delta == 0) {
         std::cout << "The wheel movement given to the interactor is 0"
                   << std::endl;
         return;
-    } else if (_event.delta > 0.0) {
+    } else if (event.delta > 0.0) {
         wheelMoveDirection = 1.0f;
     } else {
         wheelMoveDirection = -1.0f;
@@ -67,6 +78,12 @@ void BasicStyle::WheelEvent(IEvent _event) {
 
     UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
 }
+
+void BasicStyle::LeftButtonMouseMove() { ModelRotation(); }
+
+void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
+
+void BasicStyle::MiddleButtonMouseMove() {}
 
 void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
     if (m_Interactor) { m_Interactor->RequestSignal(signal, callData); }
@@ -255,6 +272,43 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         */
     }
 }
+
+bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
+                                       const igm::vec3& P1, const igm::vec3& P2,
+                                       const igm::vec3& P3,
+                                       igm::vec3& intersection) {
+    // 直线的方向向量
+    double u[3] = {B.x - A.x, B.y - A.y, B.z - A.z};
+
+    // 计算平面的法向量
+    double v1[3] = {P2.x - P1.x, P2.y - P1.y, P2.z - P1.z};
+    double v2[3] = {P3.x - P1.x, P3.y - P1.y, P3.z - P1.z};
+
+    // 法向量 N = v1 × v2
+    double N[3] = {v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2],
+                   v1[0] * v2[1] - v1[1] * v2[0]};
+
+    // 平面方程的 D 值
+    double D = -(N[0] * P1.x + N[1] * P1.y + N[2] * P1.z);
+
+    // 代入平面方程求交点
+    double denominator = N[0] * u[0] + N[1] * u[1] + N[2] * u[2];
+    if (denominator == 0) {
+        // 直线与平面平行
+        return false;
+    }
+
+    // 计算 t 的值
+    double t = -(N[0] * A.x + N[1] * A.y + N[2] * A.z + D) / denominator;
+
+    // 计算交点坐标
+    intersection.x = A.x + t * u[0];
+    intersection.y = A.y + t * u[1];
+    intersection.z = A.z + t * u[2];
+
+    return true;
+}
+
 
 bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
                                      igm::vec3 v0, igm::vec3 v1, igm::vec3 v2,

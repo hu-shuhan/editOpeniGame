@@ -63,7 +63,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
         FlipVertically(data, font_width, font_rows);
 
         // Generate Texture
-        GLTexture2d::Pointer texture = GLTexture2d::New();
+        SmartPointer<GLTexture2d> texture = GLTexture2d::New();
         texture->Create();
         texture->Bind();
         texture->Storage(1, GL_R8, font_width, font_rows);
@@ -76,7 +76,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
         // Store textures for later use
         m_Textures.insert(
-                std::pair<wchar_t, GLTexture2d::Pointer>(wchar, texture));
+                std::pair<wchar_t, SmartPointer<GLTexture2d>>(wchar, texture));
 
         // Store characters for later use
         Character character = {
@@ -104,7 +104,7 @@ FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
     return it->second;
 }
 
-GLTexture2d::Pointer FontManager::GetTexture(const wchar_t wchar) {
+SmartPointer<GLTexture2d> FontManager::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
     if (it == m_Textures.end()) {
         Logger::LogInfo(

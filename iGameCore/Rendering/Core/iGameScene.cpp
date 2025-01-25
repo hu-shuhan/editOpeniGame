@@ -23,20 +23,12 @@ Scene::Scene() {
     m_FontManager = FontManager::New();
     m_ShaderManager = ShaderManager::New();
 
-    //m_CameraData = CameraDataBuffer{};
-    //m_ObjectData = ObjectDataBuffer{};
-    //m_UBO = UniformBufferObjectBuffer{};
-
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
     m_BackgroundColor = {1.0f, 1.0f, 1.0f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
-
-    //m_CameraDataBlock = GLBuffer::New();
-    //m_ObjectDataBlock = GLBuffer::New();
-    //m_UBOBlock = GLBuffer::New();
 
     m_EmptyVAO = GLVertexArray::New();
 
@@ -91,13 +83,13 @@ bool Scene::Initialize() {
     return true;
 }
 
-int Scene::AddModel(DataObject::Pointer obj) {
-    Model::Pointer model = Model::New();
+int Scene::AddModel(SmartPointer<DataObject> obj) {
+    SmartPointer<Model> model = Model::New();
     model->SetDataObject(obj);
     return AddModel(model);
 }
 
-int Scene::AddModel(Model::Pointer model) {
+int Scene::AddModel(SmartPointer<Model> model) {
     int newModelId = m_IncrementModelId++;
     m_Models.insert(std::make_pair<>(newModelId, model));
     m_CurrentModelId = newModelId;
@@ -131,7 +123,7 @@ void Scene::RemoveModel(int index) {
     UpdateModelsBoundingSphere();
 }
 
-void Scene::RemoveModel(Model::Pointer model) {
+void Scene::RemoveModel(SmartPointer<Model> model) {
     for (auto it = m_Models.begin(); it != m_Models.end(); ++it) {
         if (it->second.get() == model) {
             m_Models.erase(it);
@@ -184,7 +176,7 @@ void Scene::SetCurrentModel(int index) {
     }
 }
 
-void Scene::SetCurrentModel(Model::Pointer model) {
+void Scene::SetCurrentModel(SmartPointer<Model> model) {
     for (auto& [id, m]: m_Models) {
         if (m == model) {
             m_CurrentModelId = id;
@@ -200,27 +192,29 @@ void Scene::SetBackGround(const Color& color) {
     this->Modified();
 }
 
-void Scene::SetInteractor(Interactor* interactor) { m_Interactor = interactor; }
+void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
+    m_Interactor = interactor;
+}
 
-Interactor* Scene::GetInteractor() { return m_Interactor; }
+SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-Model::Pointer Scene::GetCurrentModel() { return m_CurrentModel; }
+SmartPointer<Model> Scene::GetCurrentModel() { return m_CurrentModel; }
 
-Model::Pointer Scene::GetModelById(int index) {
+SmartPointer<Model> Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
     }
     return nullptr;
 }
 
-DataObject::Pointer Scene::GetDataObjectById(int index) {
+SmartPointer<DataObject> Scene::GetDataObjectById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model->m_DataObject; }
     }
     return nullptr;
 }
 
-std::map<int, Model::Pointer>& Scene::GetModelList() { return m_Models; }
+std::map<int, SmartPointer<Model>>& Scene::GetModelList() { return m_Models; }
 
 void Scene::ChangeModelVisibility(int index, bool visibility) {
     auto model = GetModelById(index);
@@ -239,7 +233,7 @@ void Scene::ResetCameraView() {
     m_Camera->SetFocal(center);
 }
 
-void Scene::ChangeModelVisibility(Model::Pointer model, bool visibility) {
+void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
     drawObject->SetVisibility(visibility);
 
@@ -253,7 +247,7 @@ void Scene::ChangeModelVisibility(Model::Pointer model, bool visibility) {
     UpdateModelsBoundingSphere();
 }
 
-Camera::Pointer Scene::GetCamera() { return m_Camera; }
+SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
     ResetCameraView();
@@ -271,14 +265,30 @@ void Scene::ChangeCameraType(Camera::Type type) {
 
 igm::mat4 Scene::GetModelMatrix() { return m_ModelMatrix; }
 
-GLShaderProgram::Pointer Scene::GetShader(ShaderType type) {
+SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
     return m_ShaderManager->GetShader(type);
 }
 
 void Scene::InitOpenGL() {
     if (!gladLoadGL()) { Logger::LogError("Failed to initialize GLAD"); }
 
-    PrintOpenGLInfo();
+    // log opengl info
+    {
+        Logger::LogDebug(
+                "==================== OpenGL Info ====================");
+        const GLubyte* vendor = glGetString(GL_VENDOR);
+        Logger::LogDebug("Vendor:   {}", reinterpret_cast<const char*>(vendor));
+        const GLubyte* renderer = glGetString(GL_RENDERER);
+        Logger::LogDebug("Renderer:   {}",
+                         reinterpret_cast<const char*>(renderer));
+        const GLubyte* version = glGetString(GL_VERSION);
+        Logger::LogDebug("Version:   {}",
+                         reinterpret_cast<const char*>(version));
+        GLint numExtensions = 0;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+        Logger::LogDebug(
+                "=====================================================");
+    }
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
@@ -291,83 +301,8 @@ void Scene::InitOpenGL() {
     // create empty VAO to render full-screen triangle
     m_EmptyVAO->Create();
 
-    // allocate memory
-    m_ShaderManager->MapBufferBlock();
-    {
-
-        //m_CameraDataBlock->Create();
-        //m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
-        //m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
-        //                            GL_STATIC_DRAW);
-        //
-        //m_ObjectDataBlock->Create();
-        //m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
-        //m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
-        //                            GL_STATIC_DRAW);
-        //
-        //m_UBOBlock->Create();
-        //m_UBOBlock->Target(GL_UNIFORM_BUFFER);
-        //m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
-        //                     GL_STATIC_DRAW);
-
-        //        // map blinnphong shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::BLINNPHONG);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map no light shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::NOLIGHT);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map pure color shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::PURECOLOR);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map transparency link shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map volume rendering link shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map culling computer shader block
-        //        {
-        //#ifdef IGAME_OPENGL_VERSION_460
-        //            auto shader = this->GetShader(ShaderType::MESHLETCULL);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //#endif
-        //        }
-        //        // map mesh shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::MESHSHADER);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            //shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-    }
-
-    //m_UBO.useColor = false;
-
-    // init drawculldata buffer
-    //m_DrawCullData->Create();
-    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
-    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
-    //m_DrawCullData->Allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
+    // initilize shader
+    m_ShaderManager->Initialize();
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -413,24 +348,6 @@ void Scene::InitOpenGL() {
     }
 
     GLCheckError();
-}
-
-void Scene::PrintOpenGLInfo() {
-    Logger::LogDebug("==================== OpenGL Info ====================");
-
-    const GLubyte* vendor = glGetString(GL_VENDOR);
-    Logger::LogDebug("Vendor:   {}", reinterpret_cast<const char*>(vendor));
-
-    const GLubyte* renderer = glGetString(GL_RENDERER);
-    Logger::LogDebug("Renderer:   {}", reinterpret_cast<const char*>(renderer));
-
-    const GLubyte* version = glGetString(GL_VERSION);
-    Logger::LogDebug("Version:   {}", reinterpret_cast<const char*>(version));
-
-    GLint numExtensions = 0;
-    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-
-    Logger::LogDebug("=====================================================");
 }
 
 void Scene::InitOIT() {
@@ -632,7 +549,7 @@ void Scene::ResizeDepthPyramid() {
     m_DepthPyramidLevels =
             compDepthMipLevels(m_DepthPyramidWidth, m_DepthPyramidHeight);
 
-    GLTexture2d::Pointer texture = GLTexture2d::New();
+    SmartPointer<GLTexture2d> texture = GLTexture2d::New();
     texture->Create();
     texture->Bind();
     texture->Storage(m_DepthPyramidLevels, GL_R32F, m_DepthPyramidWidth,
@@ -1042,10 +959,10 @@ void Scene::VolumeRenderingPass() {
 void Scene::UpdateCameraDataBlock() {
     m_ShaderManager->UpdateCameraBlock(m_Camera);
 }
-void Scene::UpdateObjectDataBlock(DataObject::Pointer obj) {
+void Scene::UpdateObjectDataBlock(SmartPointer<DataObject> obj) {
     m_ShaderManager->UpdateObjectBlock(obj, m_ModelMatrix);
 }
-void Scene::UpdateUniformBufferObjectBlock(DataObject::Pointer obj) {
+void Scene::UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj) {
     m_ShaderManager->UpdateUBOBlock(obj);
 }
 
@@ -1340,9 +1257,9 @@ std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
     return ZBuffer;
 }
 
-Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
+SmartPointer<Painter2D> Scene::GetPainter2D() { return m_Painter2D; }
 
-Painter3D::Pointer Scene::GetPainter3D() { return m_Painter3D; }
+SmartPointer<Painter3D> Scene::GetPainter3D() { return m_Painter3D; }
 
 void Scene::MakeCurrent() {
     if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }

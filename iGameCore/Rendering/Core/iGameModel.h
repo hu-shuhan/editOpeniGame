@@ -68,7 +68,7 @@ public:
      * @brief 获取模型关联的数据对象。
      * @return 数据对象的指针。
      */
-    DataObject::Pointer GetDataObject();
+    SmartPointer<DataObject> GetDataObject();
 
     /**
      * @brief 获取模型的可见性状态。
@@ -86,13 +86,13 @@ public:
      * @brief 获取3D绘制器。
      * @return Painter3D 对象的指针。
      */
-    Painter3D::Pointer GetPainter3D();
+    SmartPointer<Painter3D> GetPainter3D();
 
     /**
      * @brief 设置模型的过滤器。
      * @param _filter 新的过滤器。
      */
-    void SetModelFilter(SmartPointer<Filter> _filter);
+    void SetModelFilter(SmartPointer<Filter> filter);
 
     /**
      * @brief 删除模型的过滤器。
@@ -103,7 +103,7 @@ public:
      * @brief 设置数据对象。
      * @param dataObject 新的数据对象。
      */
-    void SetDataObject(DataObject::Pointer dataObject);
+    void SetDataObject(SmartPointer<DataObject> dataObject);
 
     /**
      * @brief 标记数据对象为已修改。
@@ -198,7 +198,7 @@ public:
      * @brief 设置网格重建器。
      * @param meshleter 网格重建器指针。
      */
-    void SetMeshleter(Meshleter::Pointer meshleter);
+    void SetMeshleter(SmartPointer<Meshleter> meshleter);
 
 protected:
     Model();
@@ -229,13 +229,13 @@ protected:
      */
     bool GetSwitch(ViewSwitch type);
 
-    Meshleter::Pointer m_Meshleter;
-    Selection::Pointer m_Selection;
+    SmartPointer<Meshleter> m_Meshleter;
+    SmartPointer<Selection> m_Selection;
     SmartPointer<Filter> m_Filter;
-    DataObject::Pointer m_DataObject;
+    SmartPointer<DataObject> m_DataObject;
     std::string m_FilePath;
     Scene* m_Scene;
-    Painter3D::Pointer m_Painter3D;
+    SmartPointer<Painter3D> m_Painter3D;
     IGuint m_BboxHandle;
     unsigned long long m_Switch;
 

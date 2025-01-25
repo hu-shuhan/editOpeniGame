@@ -79,7 +79,7 @@ void PainterBase::Delete(IGuint handle) {
     this->Modified();
 }
 
-void PainterBase::SetPen(const Pen::Pointer& pen) {
+void PainterBase::SetPen(const SmartPointer<Pen>& pen) {
     if (pen == m_Pen) { return; }
 
     m_Pen = pen;
@@ -135,7 +135,9 @@ void PainterBase::SetPen(float width) {
     this->Modified();
 }
 
-void PainterBase::SetBrush(const Brush::Pointer& brush) { m_Brush = brush; }
+void PainterBase::SetBrush(const SmartPointer<Brush>& brush) {
+    m_Brush = brush;
+}
 
 void PainterBase::SetBrush(const Color& color) {
     auto c = ColorUtils::Map(color);
@@ -224,12 +226,13 @@ void PainterBase::PackDrawableData() {
 
     m_PrimitivesUpdateHelper->Modified();
 
-    std::unordered_map<float, FloatArray::Pointer> packPositions;
-    std::unordered_map<float, FloatArray::Pointer> packColors;
-    //std::unordered_map<float, FloatArray::Pointer> packNormals;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packPointIndices;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packLineIndices;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packTriangleIndices;
+    std::unordered_map<float, SmartPointer<FloatArray>> packPositions;
+    std::unordered_map<float, SmartPointer<FloatArray>> packColors;
+    //std::unordered_map<float, FloatArray>> packNormals;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packPointIndices;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packLineIndices;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>>
+            packTriangleIndices;
 
     // create buffer array
     for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();

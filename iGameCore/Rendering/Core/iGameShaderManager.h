@@ -98,11 +98,17 @@ public:
     };
 
     /**
+     * @brief 初始化着色器管理器。
+     * @return 是否初始化成功。
+     */
+    bool Initialize();
+
+    /**
      * @brief 获取指定类型的Shader程序。
      * @param type Shader类型。
      * @return 对应的Shader程序指针。
      */
-    GLShaderProgram::Pointer GetShader(ShaderType type);
+    SmartPointer<GLShaderProgram> GetShader(ShaderType type);
 
     /**
      * @brief 检查是否存在指定类型的Shader程序。
@@ -118,15 +124,10 @@ public:
     void UseShader(ShaderType type);
 
     /**
-     * @brief 映射缓冲块到GPU。
-     */
-    void MapBufferBlock();
-
-    /**
      * @brief 更新相机数据块。
      * @param camera 相机指针。
      */
-    void UpdateCameraBlock(Camera::Pointer camera);
+    void UpdateCameraBlock(SmartPointer<Camera> camera);
 
     /**
      * @brief 更新相机数据块。
@@ -139,7 +140,7 @@ public:
      * @param obj 数据对象指针。
      * @param model 模型矩阵。
      */
-    void UpdateObjectBlock(DataObject::Pointer obj, igm::mat4 model);
+    void UpdateObjectBlock(SmartPointer<DataObject> obj, igm::mat4 model);
 
     /**
      * @brief 更新物体数据块。
@@ -151,7 +152,7 @@ public:
      * @brief 更新Uniform数据块。
      * @param obj 数据对象指针。
      */
-    void UpdateUBOBlock(DataObject::Pointer obj);
+    void UpdateUBOBlock(SmartPointer<DataObject> obj);
 
     /**
      * @brief 更新Uniform数据块。
@@ -166,7 +167,7 @@ public:
      * @param depthPyramidWidth 深度金字塔宽度。
      * @param depthPyramidHeight 深度金字塔高度。
      */
-    void UpdateCullDataBuffer(Camera::Pointer camera, igm::mat4 model,
+    void UpdateCullDataBuffer(SmartPointer<Camera> camera, igm::mat4 model,
                               unsigned int depthPyramidWidth,
                               unsigned int depthPyramidHeight);
 
@@ -180,39 +181,44 @@ public:
      * @brief 获取裁剪数据块的指针。
      * @return 裁剪数据块指针。
      */
-    GLBuffer::Pointer GetCullDataBuffer();
+    SmartPointer<GLBuffer> GetCullDataBuffer();
 
 protected:
     ShaderManager();
     ~ShaderManager() override;
 
     /**
+     * @brief 映射缓冲块到GPU。
+     */
+    void MapBufferBlock();
+
+    /**
      * @brief 根据Shader类型获取Shader程序（内部实现）。
      * @param type Shader类型。
      * @return 对应的Shader程序指针。
      */
-    GLShaderProgram::Pointer GetShaderWithType(ShaderType type);
+    SmartPointer<GLShaderProgram> GetShaderWithType(ShaderType type);
 
     /**
      * @brief 设置指定类型的Shader程序。
      * @param type Shader类型。
      * @param sp Shader程序指针。
      */
-    void SetShader(ShaderType type, GLShaderProgram::Pointer sp);
+    void SetShader(ShaderType type, SmartPointer<GLShaderProgram> sp);
 
     /**
      * @brief 动态生成指定类型的Shader程序。
      * @param type Shader类型。
      * @return 生成的Shader程序指针。
      */
-    GLShaderProgram::Pointer GenShader(ShaderType type);
+    SmartPointer<GLShaderProgram> GenShader(ShaderType type);
 
-    std::map<ShaderType, GLShaderProgram::Pointer> m_ShaderPrograms;
+    std::map<ShaderType, SmartPointer<GLShaderProgram>> m_ShaderPrograms;
 
-    GLBuffer::Pointer m_CameraDataBlock;
-    GLBuffer::Pointer m_ObjectDataBlock;
-    GLBuffer::Pointer m_UBOBlock;
-    GLBuffer::Pointer m_CullDataBuffer;
+    SmartPointer<GLBuffer> m_CameraDataBlock;
+    SmartPointer<GLBuffer> m_ObjectDataBlock;
+    SmartPointer<GLBuffer> m_UBOBlock;
+    SmartPointer<GLBuffer> m_CullDataBuffer;
 };
 
 IGAME_NAMESPACE_END

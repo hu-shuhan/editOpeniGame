@@ -49,7 +49,7 @@ public:
     * @brief 设置输入数据对象。
     * @param obj 数据对象指针，包含用于生成Meshlet的输入数据。
     */
-    void SetInput(DataObject::Pointer obj);
+    void SetInput(SmartPointer<DataObject> obj);
 
     /**
     * @brief 更新Meshleter，重新计算Meshlet数据。
@@ -69,35 +69,35 @@ protected:
     const size_t m_MaxTriangles = 124; ///< 每个Meshlet的最大三角形数量
     const float m_ConeWeight = 0.0f;   ///< 权重参数（当前未使用）
 
-    DataObject::Pointer m_DataObject; ///< 输入数据对象指针
-    size_t m_MeshletCount;            ///< Meshlet的数量
+    SmartPointer<DataObject> m_DataObject; ///< 输入数据对象指针
+    size_t m_MeshletCount;                 ///< Meshlet的数量
 
 #ifdef GL_SUPPORTS_MESH_SHADER
     // 如果支持OpenGL的Mesh Shader，这些缓冲被用于存储Meshlet数据
-    GLBuffer::Pointer m_MeshletBuffer;         ///< 存储Meshlet信息的缓冲
-    GLBuffer::Pointer m_MeshletVertexBuffer;   ///< Meshlet顶点缓冲
-    GLBuffer::Pointer m_MeshletTriangleBuffer; ///< Meshlet三角形缓冲
-    GLBuffer::Pointer m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
-    GLBuffer::Pointer m_InvisibleMeshletBuffer;  ///< 不可见Meshlet缓冲
+    SmartPointer<GLBuffer> m_MeshletBuffer; ///< 存储Meshlet信息的缓冲
+    SmartPointer<GLBuffer> m_MeshletVertexBuffer;   ///< Meshlet顶点缓冲
+    SmartPointer<GLBuffer> m_MeshletTriangleBuffer; ///< Meshlet三角形缓冲
+    SmartPointer<GLBuffer> m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
+    SmartPointer<GLBuffer> m_InvisibleMeshletBuffer; ///< 不可见Meshlet缓冲
 
-    GLBuffer::Pointer m_PositionBuffer; ///< 顶点位置缓冲
-    GLBuffer::Pointer m_ColorBuffer;    ///< 顶点颜色缓冲
-    GLBuffer::Pointer m_NormalBuffer;   ///< 顶点法向量缓冲
-    GLBuffer::Pointer m_UVBuffer;       ///< 顶点UV缓冲
+    SmartPointer<GLBuffer> m_PositionBuffer; ///< 顶点位置缓冲
+    SmartPointer<GLBuffer> m_ColorBuffer;    ///< 顶点颜色缓冲
+    SmartPointer<GLBuffer> m_NormalBuffer;   ///< 顶点法向量缓冲
+    SmartPointer<GLBuffer> m_UVBuffer;       ///< 顶点UV缓冲
 #else
     // 如果不支持Mesh Shader，使用VAO和EBO处理渲染
-    GLVertexArray::Pointer m_TriangleVAO; ///< 三角形顶点数组对象
-    GLBuffer::Pointer m_TriangleEBO;      ///< 三角形索引缓冲
+    SmartPointer<GLVertexArray> m_TriangleVAO; ///< 三角形顶点数组对象
+    SmartPointer<GLBuffer> m_TriangleEBO;      ///< 三角形索引缓冲
 
-    GLBuffer::Pointer m_PositionVBO; ///< 顶点位置缓冲
-    GLBuffer::Pointer m_ColorVBO;    ///< 顶点颜色缓冲
-    GLBuffer::Pointer m_NormalVBO;   ///< 顶点法向量缓冲
-    GLBuffer::Pointer m_UVVBO;       ///< 顶点UV缓冲
+    SmartPointer<GLBuffer> m_PositionVBO; ///< 顶点位置缓冲
+    SmartPointer<GLBuffer> m_ColorVBO;    ///< 顶点颜色缓冲
+    SmartPointer<GLBuffer> m_NormalVBO;   ///< 顶点法向量缓冲
+    SmartPointer<GLBuffer> m_UVVBO;       ///< 顶点UV缓冲
 
-    GLBuffer::Pointer m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
-    GLBuffer::Pointer m_DrawCommandBuffer;       ///< 绘制命令缓冲
-    GLBuffer::Pointer m_VisibleMeshletBuffer;    ///< 可见Meshlet缓冲
-    GLBuffer::Pointer m_FinalDrawCommandBuffer;  ///< 最终绘制命令缓冲
+    SmartPointer<GLBuffer> m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
+    SmartPointer<GLBuffer> m_DrawCommandBuffer;       ///< 绘制命令缓冲
+    SmartPointer<GLBuffer> m_VisibleMeshletBuffer;    ///< 可见Meshlet缓冲
+    SmartPointer<GLBuffer> m_FinalDrawCommandBuffer; ///< 最终绘制命令缓冲
 #endif
 
     friend class Model; ///< Model类可以访问Meshleter的私有成员

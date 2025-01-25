@@ -36,7 +36,7 @@ Meshleter::Meshleter() {
 
 Meshleter::~Meshleter() {}
 
-void Meshleter::SetInput(DataObject::Pointer obj) {
+void Meshleter::SetInput(SmartPointer<DataObject> obj) {
     m_DataObject = obj;
     this->SetName(std::format("{}'s Meshleter", m_DataObject->GetName()));
 }

@@ -60,7 +60,7 @@ public:
      * @param wchar 要查询的宽字符。
      * @return 返回该字符对应的GLTexture2d纹理。
      */
-    GLTexture2d::Pointer GetTexture(wchar_t wchar);
+    SmartPointer<GLTexture2d> GetTexture(wchar_t wchar);
 
 protected:
     FontManager();
@@ -75,7 +75,7 @@ protected:
     static void FlipVertically(unsigned char* data, int width, int height);
 
     std::map<wchar_t, Character> m_Characters;
-    std::map<wchar_t, GLTexture2d::Pointer> m_Textures;
+    std::map<wchar_t, SmartPointer<GLTexture2d>> m_Textures;
 };
 
 IGAME_NAMESPACE_END

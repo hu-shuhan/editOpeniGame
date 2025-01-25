@@ -15,10 +15,8 @@ public:
     void SelectFace(igm::vec2 pos);
 
 protected:
-    SingleSelectionStyle() = default;
-    ~SingleSelectionStyle() override = default;
-
-    
+    SingleSelectionStyle();
+    ~SingleSelectionStyle() override;
 };
 IGAME_NAMESPACE_END
 #endif

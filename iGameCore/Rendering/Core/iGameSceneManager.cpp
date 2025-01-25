@@ -13,13 +13,13 @@ SceneManager::SceneManager() {
 
 SceneManager::~SceneManager() {}
 
-Scene::Pointer SceneManager::GetScene(int id) {
+SmartPointer<Scene> SceneManager::GetScene(int id) {
     if (id < 0 || id >= m_Scenes.size()) { return nullptr; }
     return m_Scenes[id];
 }
 
-Scene::Pointer SceneManager::NewScene() {
-    Scene::Pointer scene = Scene::New();
+SmartPointer<Scene> SceneManager::NewScene() {
+    SmartPointer<Scene> scene = Scene::New();
 
     m_CurrentScene = scene;
     m_CurrentScene->SetName(std::format("Scene{}", m_Scenes.size()));
@@ -32,7 +32,7 @@ void SceneManager::DeleteScene(int id) {
     m_Scenes[id] = nullptr;
 }
 
-void SceneManager::DeleteScene(Scene::Pointer p) {
+void SceneManager::DeleteScene(SmartPointer<Scene> p) {
     if (p == nullptr) { return; }
     for (int i = 0; i < m_Scenes.size(); i++) {
         if (p == m_Scenes[i]) {
@@ -47,7 +47,7 @@ void SceneManager::MakeCurrentScene(int id) {
     m_CurrentScene = m_Scenes[id];
 }
 
-void SceneManager::MakeCurrentScene(Scene::Pointer p) {
+void SceneManager::MakeCurrentScene(SmartPointer<Scene> p) {
     if (p == nullptr) { return; }
     for (int i = 0; i < m_Scenes.size(); i++) {
         if (p == m_Scenes[i]) {

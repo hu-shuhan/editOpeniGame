@@ -31,14 +31,14 @@ public:
      * @brief 创建一个新场景并返回其指针。
      * @return 新创建场景的智能指针。
      */
-    Scene::Pointer NewScene();
+    SmartPointer<Scene> NewScene();
 
     /**
      * @brief 根据场景ID获取对应的场景。
      * @param id 场景ID。
      * @return 场景的智能指针。如果不存在对应ID的场景，则返回nullptr。
      */
-    Scene::Pointer GetScene(int id);
+    SmartPointer<Scene> GetScene(int id);
 
     /**
      * @brief 删除指定ID的场景。
@@ -50,7 +50,7 @@ public:
      * @brief 删除指定的场景。
      * @param p 场景的智能指针。
      */
-    void DeleteScene(Scene::Pointer p);
+    void DeleteScene(SmartPointer<Scene> p);
 
     /**
      * @brief 将指定ID的场景设为当前活动场景。
@@ -62,7 +62,7 @@ public:
      * @brief 将指定的场景设为当前活动场景。
      * @param p 场景的智能指针。
      */
-    void MakeCurrentScene(Scene::Pointer p);
+    void MakeCurrentScene(SmartPointer<Scene> p);
 
     /**
      * @brief 获取当前活动的场景。
@@ -74,8 +74,8 @@ protected:
     SceneManager();
     ~SceneManager() override;
 
-    std::vector<Scene::Pointer> m_Scenes;
-    Scene* m_CurrentScene;
+    std::vector<SmartPointer<Scene>> m_Scenes;
+    SmartPointer<Scene> m_CurrentScene;
 };
 
 IGAME_NAMESPACE_END

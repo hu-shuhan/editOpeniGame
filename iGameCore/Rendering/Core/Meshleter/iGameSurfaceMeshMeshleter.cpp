@@ -22,10 +22,10 @@ void SurfaceMeshMeshleter::Build() {
                          m_DataObject->GetName());
     }
 
-    Timer::Pointer timer = Timer::New();
+    SmartPointer<Timer> timer = Timer::New();
 
-    FloatArray::Pointer positions = FloatArray::New();
-    UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
+    SmartPointer<FloatArray> positions = FloatArray::New();
+    SmartPointer<UnsignedIntArray> triangleIndices = UnsignedIntArray::New();
 
     // convert to draw date
     timer->Reset();

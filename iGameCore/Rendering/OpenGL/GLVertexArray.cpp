@@ -43,8 +43,8 @@ void GLVertexArray::DrawRangeElements(GLenum mode, GLuint start, GLuint end,
 }
 
 void GLVertexArray::VertexBuffer(unsigned int vbo_binding_index,
-                                 GLBuffer::Pointer buffer, ptrdiff_t offset,
-                                 size_t stride) {
+                                 SmartPointer<GLBuffer> buffer,
+                                 ptrdiff_t offset, size_t stride) {
 #ifdef IGAME_OPENGL_VERSION_330
     if (offset != 0) {
         Logger::LogError("You are trying to offset the VBO in the opengl330 "
@@ -59,7 +59,7 @@ void GLVertexArray::VertexBuffer(unsigned int vbo_binding_index,
 #endif
 }
 
-void GLVertexArray::ElementBuffer(GLBuffer::Pointer buffer) {
+void GLVertexArray::ElementBuffer(SmartPointer<GLBuffer> buffer) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindVertexArray(m_Handle);
     buffer->Target(GL_ELEMENT_ARRAY_BUFFER);
@@ -123,7 +123,7 @@ void GLVertexArray::DestroyHandle(GLsizei count, GLuint* handles) {
 #endif
 }
 
-void GLSetVertexAttrib(GLVertexArray::Pointer VAO,
+void GLSetVertexAttrib(SmartPointer<GLVertexArray> VAO,
                        const GLVertexAttribute& attribute,
                        GLuint vbo_binding_index, int size, GLenum type,
                        GLboolean normalized, unsigned int offset) {

@@ -17,14 +17,12 @@
 #include "iGameAxes.h"
 #include "iGameCamera.h"
 #include "iGameFontManager.h"
+#include "iGameInteractor.h"
 #include "iGameLight.h"
 #include "iGameModel.h"
-#include "iGameSelection.h"
 #include "iGameShaderManager.h"
 
 IGAME_NAMESPACE_BEGIN
-
-class Interactor;
 
 class Scene : public Object {
 public:
@@ -41,14 +39,14 @@ public:
      * @param dataObject 数据对象指针。
      * @return 模型的唯一 ID。
      */
-    int AddModel(DataObject::Pointer dataObject);
+    int AddModel(SmartPointer<DataObject> dataObject);
 
     /**
      * @brief 添加一个模型对象。
      * @param model 模型指针。
      * @return 模型的唯一 ID。
      */
-    int AddModel(Model::Pointer model);
+    int AddModel(SmartPointer<Model> model);
 
     /**
      * @brief 根据索引移除模型。
@@ -60,7 +58,7 @@ public:
      * @brief 根据模型指针移除模型。
      * @param model 模型指针。
      */
-    void RemoveModel(Model::Pointer model);
+    void RemoveModel(SmartPointer<Model> model);
 
     /**
      * @brief 移除当前选中的模型。
@@ -77,7 +75,7 @@ public:
      * @brief 设置当前模型。
      * @param model 模型指针。
      */
-    void SetCurrentModel(Model::Pointer model);
+    void SetCurrentModel(SmartPointer<Model> model);
 
     /**
      * @brief 设置场景背景颜色。
@@ -89,39 +87,39 @@ public:
      * @brief 设置交互器。
      * @param interactor 交互器指针。
      */
-    void SetInteractor(Interactor* interactor);
+    void SetInteractor(SmartPointer<Interactor> interactor);
 
     /**
      * @brief 获取交互器。
      * @return 交互器指针。
      */
-    Interactor* GetInteractor();
+    SmartPointer<Interactor> GetInteractor();
 
     /**
      * @brief 获取当前模型。
      * @return 当前模型的指针。
      */
-    Model::Pointer GetCurrentModel();
+    SmartPointer<Model> GetCurrentModel();
 
     /**
      * @brief 根据索引获取模型。
      * @param index 模型索引。
      * @return 模型指针。
      */
-    Model::Pointer GetModelById(int index);
+    SmartPointer<Model> GetModelById(int index);
 
     /**
      * @brief 根据索引获取数据对象。
      * @param index 数据对象索引。
      * @return 数据对象指针。
      */
-    DataObject::Pointer GetDataObjectById(int index);
+    SmartPointer<DataObject> GetDataObjectById(int index);
 
     /**
      * @brief 获取模型列表。
      * @return 包含模型的映射表。
      */
-    std::map<int, Model::Pointer>& GetModelList();
+    std::map<int, SmartPointer<Model>>& GetModelList();
 
     /**
      * @brief 更改模型的可见性。
@@ -135,7 +133,7 @@ public:
      * @param m 模型指针。
      * @param visibility 是否可见。
      */
-    void ChangeModelVisibility(Model::Pointer model, bool visibility);
+    void ChangeModelVisibility(SmartPointer<Model> model, bool visibility);
 
     /**
      * @brief 重置相机视角到默认视图。
@@ -146,7 +144,7 @@ public:
      * @brief 获取相机。
      * @return 相机指针。
      */
-    Camera::Pointer GetCamera();
+    SmartPointer<Camera> GetCamera();
 
     /**
      * @brief 更改相机类型。
@@ -232,13 +230,13 @@ public:
      * @brief 获取 2D 绘制器。
      * @return Painter2D 指针。
      */
-    Painter2D::Pointer GetPainter2D();
+    SmartPointer<Painter2D> GetPainter2D();
 
     /**
      * @brief 获取 3D 绘制器。
      * @return Painter3D 指针。
      */
-    Painter3D::Pointer GetPainter3D();
+    SmartPointer<Painter3D> GetPainter3D();
 
     /**
      * @brief 设置当前 Scene 的 OpenGL 上下文为活动状态。
@@ -291,11 +289,9 @@ protected:
     Scene();
     ~Scene() override;
 
-    // 以下是受保护的内部函数，负责 OpenGL 初始化、渲染阶段处理等。
-    GLShaderProgram::Pointer GetShader(ShaderType type);
+    SmartPointer<GLShaderProgram> GetShader(ShaderType type);
     void UpdateModelsBoundingSphere();
     void InitOpenGL();
-    void PrintOpenGLInfo();
     void InitOIT();
     void InitAxes();
     void InitInterator();
@@ -315,28 +311,28 @@ protected:
     void VolumeRenderingPass();
 
     void UpdateCameraDataBlock();
-    void UpdateObjectDataBlock(DataObject::Pointer obj);
-    void UpdateUniformBufferObjectBlock(DataObject::Pointer obj);
+    void UpdateObjectDataBlock(SmartPointer<DataObject> obj);
+    void UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj);
     void UpdateCameraClippingRange();
     static void CalculateFrameRate();
 
-    std::map<int, Model::Pointer> m_Models;
+    std::map<int, SmartPointer<Model>> m_Models;
     int m_IncrementModelId;
     int m_CurrentModelId;
-    Model::Pointer m_CurrentModel;
+    SmartPointer<Model> m_CurrentModel;
 
     std::function<void()> m_UpdateFunctor;
     std::function<void()> m_MakeCurrentFunctor;
     std::function<void()> m_DoneCurrentFunctor;
 
-    Camera::Pointer m_Camera;
-    //Light::Pointer m_Light;
-    Axes::Pointer m_Axes;
+    SmartPointer<Camera> m_Camera;
+    //Light> m_Light;
+    SmartPointer<Axes> m_Axes;
 
-    Interactor* m_Interactor;
+    SmartPointer<Interactor> m_Interactor;
 
-    FontManager::Pointer m_FontManager;
-    ShaderManager::Pointer m_ShaderManager;
+    SmartPointer<FontManager> m_FontManager;
+    SmartPointer<ShaderManager> m_ShaderManager;
 
     igm::mat4 m_ModelRotate; //Rotation matrix passing through the origin
     igm::mat4 m_ModelMatrix;
@@ -346,35 +342,35 @@ protected:
     igm::vec4 m_ModelsBoundingSphere;
 
     // used to draw full-screen triangle
-    GLVertexArray::Pointer m_EmptyVAO;
+    SmartPointer<GLVertexArray> m_EmptyVAO;
 
 #ifdef GL_SUPPORTS_MSAA
     GLint samples;
-    GLFramebuffer::Pointer m_FramebufferMultisampled;
-    GLTexture2dMultisample::Pointer m_ColorTextureMultisampled;
-    GLTexture2dMultisample::Pointer m_DepthTextureMultisampled;
+    SmartPointer<GLFramebuffer> m_FramebufferMultisampled;
+    SmartPointer<GLTexture2dMultisample> m_ColorTextureMultisampled;
+    SmartPointer<GLTexture2dMultisample> m_DepthTextureMultisampled;
 
-    GLFramebuffer::Pointer m_FramebufferResolved;
-    GLTexture2d::Pointer m_ColorTextureResolved;
-    GLTexture2d::Pointer m_DepthTextureResolved;
+    SmartPointer<GLFramebuffer> m_FramebufferResolved;
+    SmartPointer<GLTexture2d> m_ColorTextureResolved;
+    SmartPointer<GLTexture2d> m_DepthTextureResolved;
 #else
-    GLFramebuffer::Pointer m_Framebuffer;
-    GLTexture2d::Pointer m_ColorTexture;
-    GLTexture2d::Pointer m_DepthTexture;
+    SmartPointer<GLFramebuffer> m_Framebuffer;
+    SmartPointer<GLTexture2d> m_ColorTexture;
+    SmartPointer<GLTexture2d> m_DepthTexture;
 #endif
 
-    GLTexture2d::Pointer m_OITHeadPointerTexture;
-    GLBuffer::Pointer m_OITHeadPointerInitializer;
-    GLBuffer::Pointer m_OITAtomicCounterBuffer;
-    GLBuffer::Pointer m_OITLinkedListBuffer;
-    GLTextureBuffer::Pointer m_OITLinkedListTexture;
+    SmartPointer<GLTexture2d> m_OITHeadPointerTexture;
+    SmartPointer<GLBuffer> m_OITHeadPointerInitializer;
+    SmartPointer<GLBuffer> m_OITAtomicCounterBuffer;
+    SmartPointer<GLBuffer> m_OITLinkedListBuffer;
+    SmartPointer<GLTextureBuffer> m_OITLinkedListTexture;
 
     unsigned int m_DepthPyramidWidth, m_DepthPyramidHeight,
             m_DepthPyramidLevels;
-    GLTexture2d::Pointer m_DepthPyramid;
+    SmartPointer<GLTexture2d> m_DepthPyramid;
 
-    Painter2D::Pointer m_Painter2D;
-    Painter3D::Pointer m_Painter3D;
+    SmartPointer<Painter2D> m_Painter2D;
+    SmartPointer<Painter3D> m_Painter3D;
 
     bool m_FinishInit;
     bool m_EnableVolumeRendering;

@@ -10,9 +10,9 @@ GLTexture2dMultisample::GLTexture2dMultisample() {}
 GLTexture2dMultisample::~GLTexture2dMultisample() {}
 
 void GLTexture2dMultisample::CopyImageSubData(
-        const GLTexture2dMultisample::Pointer source, GLint srcLevel,
+        const SmartPointer<GLTexture2dMultisample> source, GLint srcLevel,
         GLint srcX, GLint srcY, GLint srcZ,
-        const GLTexture2dMultisample::Pointer destination, GLint dstLevel,
+        const SmartPointer<GLTexture2dMultisample> destination, GLint dstLevel,
         GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight,
         GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330

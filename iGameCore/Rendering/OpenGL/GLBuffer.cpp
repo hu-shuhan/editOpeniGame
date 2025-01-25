@@ -9,8 +9,8 @@ GLBuffer::GLBuffer() { m_Target = GL_NONE; }
 
 GLBuffer::~GLBuffer() {}
 
-void GLBuffer::CopySubData(const GLBuffer::Pointer source,
-                           const GLBuffer::Pointer destination,
+void GLBuffer::CopySubData(const SmartPointer<GLBuffer> source,
+                           const SmartPointer<GLBuffer> destination,
                            size_t read_offset, size_t write_offset,
                            size_t size) {
 #ifdef IGAME_OPENGL_VERSION_330
@@ -142,7 +142,8 @@ void GLBuffer::DestroyHandle(GLsizei count, GLuint* handles) {
 #endif
 }
 
-void GLAllocateGLBuffer(GLBuffer::Pointer vbo, size_t size, const void* data) {
+void GLAllocateGLBuffer(SmartPointer<GLBuffer> vbo, size_t size,
+                        const void* data) {
     vbo->Allocate(size, data, GL_STATIC_DRAW);
 }
 

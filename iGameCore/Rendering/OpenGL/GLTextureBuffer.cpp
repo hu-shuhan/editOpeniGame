@@ -13,7 +13,7 @@ GLTextureBuffer::GLTextureBuffer(GLuint handle)
 GLTextureBuffer::~GLTextureBuffer() {}
 
 void GLTextureBuffer::Buffer(GLenum internalformat,
-                             const GLBuffer::Pointer buffer) {
+                             const SmartPointer<GLBuffer> buffer) {
 #ifdef IGAME_OPENGL_VERSION_330
     glBindTexture(GL_TEXTURE_BUFFER, this->m_Handle);
     glTexBuffer(GL_TEXTURE_BUFFER, internalformat, buffer->Handle());

@@ -13,8 +13,8 @@ public:
     I_OBJECT(GLShader);
     static Pointer New() { return new GLShader; }
 
-    static GLShader::Pointer CreateShader(const std::string& path,
-                                          GLenum shaderType);
+    static SmartPointer<GLShader> CreateShader(const std::string& path,
+                                               GLenum shaderType);
 
 protected:
     GLShader();
@@ -87,11 +87,11 @@ public:
 
     void MapUniformBlock(const char* uniformBlockName,
                          uint32_t uniformBlockBinding,
-                         GLBuffer::Pointer m_UBOBlock);
+                         SmartPointer<GLBuffer> m_UBOBlock);
 
     GLVertexAttribute GetAttribLocation(const char* name);
 
-    GLUniform::Pointer GetUniformLocation(const char* name) const;
+    SmartPointer<GLUniform> GetUniformLocation(const char* name) const;
 
 protected:
     GLShaderProgram();
