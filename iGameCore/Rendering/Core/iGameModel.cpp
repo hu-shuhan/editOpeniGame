@@ -22,7 +22,7 @@ Model::Model() {
 
 Model::~Model() {}
 
-void Model::Draw(Scene* scene) {
+void Model::Draw(SmartPointer<Scene> scene) {
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -170,7 +170,7 @@ void Model::Draw(Scene* scene) {
     }
 }
 
-void Model::DrawWithTransparency(Scene* scene) {
+void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -297,7 +297,7 @@ void Model::DrawWithTransparency(Scene* scene) {
     }
 }
 
-void Model::DrawWithVolume(Scene* scene) {
+void Model::DrawWithVolume(SmartPointer<Scene> scene) {
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -374,7 +374,7 @@ void Model::DrawWithVolume(Scene* scene) {
     }
 }
 
-void Model::DrawPhase1(Scene* scene) {
+void Model::DrawPhase1(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -507,7 +507,7 @@ void Model::DrawPhase1(Scene* scene) {
 #endif
 }
 
-void Model::DrawPhase2(Scene* scene) {
+void Model::DrawPhase2(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -678,7 +678,7 @@ void Model::DrawPhase2(Scene* scene) {
 #endif
 }
 
-void Model::TestOcclusionResults(Scene* scene) {
+void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
 #ifndef GL_SUPPORTS_MESH_SHADER
     // Update GPU data
@@ -789,11 +789,11 @@ bool Model::GetVisibility() {
     return drawObject->GetVisibility();
 }
 
-Filter* Model::GetModelFilter() { return m_Filter; }
+SmartPointer<Filter> Model::GetModelFilter() { return m_Filter; }
 
 SmartPointer<Painter3D> Model::GetPainter3D() { return m_Painter3D; }
 
-void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
+void Model::SetModelFilter(SmartPointer<Filter> filter) { m_Filter = filter; }
 
 void Model::DeleteModelFilter() { m_Filter = nullptr; }
 
@@ -806,7 +806,10 @@ void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
 #endif
 }
 
-void Model::Modified() { m_DataObject->Modified(); }
+void Model::Modified() {
+    Logger::LogFatal("[Model::Modified] not sure what this function does.");
+    m_DataObject->Modified();
+}
 
 void Model::Update() {
     if (m_Scene) { m_Scene->Update(); }
@@ -822,19 +825,21 @@ void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
 
 std::string Model::GetFilePath() { return this->m_FilePath; }
 
-Selection* Model::GetSelection() {
+SmartPointer<Selection> Model::GetSelection() {
     if (m_Selection == nullptr) { m_Selection = Selection::New(); }
     return m_Selection.get();
 }
 
-void Model::RequestPointSelection(Points* p, Selection* s) {
+void Model::RequestPointSelection(SmartPointer<Points> p,
+                                  SmartPointer<Selection> s) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
     m_Scene->GetInteractor()->RequestPointSelectionStyle(s);
 }
 
-void Model::RequestDragPoint(Points* p, Selection* s) {
+void Model::RequestDragPoint(SmartPointer<Points> p,
+                             SmartPointer<Selection> s) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;

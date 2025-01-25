@@ -29,42 +29,6 @@ public:
     static Pointer New() { return new Model; }
 
     /**
-     * @brief 渲染模型。
-     * @param scene 场景对象，提供渲染上下文。
-     */
-    void Draw(Scene* scene);
-
-    /**
-     * @brief 渲染模型的透明部分。
-     * @param scene 场景对象。
-     */
-    void DrawWithTransparency(Scene* scene);
-
-    /**
-     * @brief 渲染模型的体积。
-     * @param scene 场景对象。
-     */
-    void DrawWithVolume(Scene* scene);
-
-    /**
-     * @brief 渲染模型的第一阶段。
-     * @param scene 场景对象。
-     */
-    void DrawPhase1(Scene* scene);
-
-    /**
-     * @brief 渲染模型的第二阶段。
-     * @param scene 场景对象。
-     */
-    void DrawPhase2(Scene* scene);
-
-    /**
-     * @brief 测试遮挡结果。
-     * @param scene 场景对象。
-     */
-    void TestOcclusionResults(Scene* scene);
-
-    /**
      * @brief 获取模型关联的数据对象。
      * @return 数据对象的指针。
      */
@@ -80,7 +44,7 @@ public:
      * @brief 获取模型的过滤器。
      * @return 过滤器的指针。
      */
-    Filter* GetModelFilter();
+    SmartPointer<Filter> GetModelFilter();
 
     /**
      * @brief 获取3D绘制器。
@@ -90,7 +54,7 @@ public:
 
     /**
      * @brief 设置模型的过滤器。
-     * @param _filter 新的过滤器。
+     * @param filter 新的过滤器。
      */
     void SetModelFilter(SmartPointer<Filter> filter);
 
@@ -133,7 +97,7 @@ public:
     void SetPickedItemSwitch(bool action);
 
     /**
-     * @brief 设置是否显示视点。
+     * @brief 设置是否显示点。
      * @param action 是否启用。
      */
     void SetViewPointsSwitch(bool action);
@@ -145,7 +109,7 @@ public:
     void SetViewWireframeSwitch(bool action);
 
     /**
-     * @brief 设置是否显示填充。
+     * @brief 设置是否显示面片。
      * @param action 是否启用。
      */
     void SetViewFillSwitch(bool action);
@@ -178,21 +142,22 @@ public:
      * @brief 获取模型的选择对象。
      * @return Selection 对象的指针。
      */
-    Selection* GetSelection();
+    SmartPointer<Selection> GetSelection();
 
     /**
      * @brief 请求对点集进行选择。
      * @param p 点集对象。
      * @param s 选择对象。
      */
-    void RequestPointSelection(Points* p, Selection* s);
+    void RequestPointSelection(SmartPointer<Points> p,
+                               SmartPointer<Selection> s);
 
     /**
      * @brief 请求拖拽点集。
      * @param p 点集对象。
      * @param s 选择对象。
      */
-    void RequestDragPoint(Points* p, Selection* s);
+    void RequestDragPoint(SmartPointer<Points> p, SmartPointer<Selection> s);
 
     /**
      * @brief 设置网格重建器。
@@ -203,6 +168,42 @@ public:
 protected:
     Model();
     ~Model() override;
+
+    /**
+     * @brief 渲染模型。
+     * @param scene 场景对象。
+     */
+    void Draw(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 渲染模型的透明部分。
+     * @param scene 场景对象。
+     */
+    void DrawWithTransparency(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 渲染模型的体积。
+     * @param scene 场景对象。
+     */
+    void DrawWithVolume(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 渲染模型的第一阶段。
+     * @param scene 场景对象。
+     */
+    void DrawPhase1(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 渲染模型的第二阶段。
+     * @param scene 场景对象。
+     */
+    void DrawPhase2(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 测试遮挡结果。
+     * @param scene 场景对象。
+     */
+    void TestOcclusionResults(SmartPointer<Scene> scene);
 
     /**
      * @enum ViewSwitch
@@ -234,7 +235,7 @@ protected:
     SmartPointer<Filter> m_Filter;
     SmartPointer<DataObject> m_DataObject;
     std::string m_FilePath;
-    Scene* m_Scene;
+    SmartPointer<Scene> m_Scene;
     SmartPointer<Painter3D> m_Painter3D;
     IGuint m_BboxHandle;
     unsigned long long m_Switch;

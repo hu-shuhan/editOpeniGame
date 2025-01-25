@@ -29,8 +29,6 @@ public:
     bool IsDrawable() override { return true; }
     virtual void ConvertToDrawableData();
     virtual bool IsUseSinglePassWireframeRendering() { return true; }
-    void CreateDrawBuffer();
-    void ReAllocateDisplayBuffer();
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
@@ -55,7 +53,7 @@ public:
     unsigned int GetViewStyleOfModel();
 
     virtual bool GetClipped();
-    iGameClipper::Pointer GetClipper() { return m_Clipper; }
+    iGameClipper::Pointer GetClipper();
 
     void SetTransparency(float transparency);
     float GetTransparency();
@@ -86,15 +84,17 @@ public:
     void SetDisplayObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetDisplayObject();
 
-private:
+protected:
+    void CreateDrawBuffer();
+    void ReAllocateDisplayBuffer();
+
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
-protected:
-    bool m_AutoUpdateDrawData{true};
-    DrawObject::Pointer m_DisplayObject{nullptr};
+    bool m_AutoUpdateDrawData;
+    DrawObject::Pointer m_DisplayObject;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
@@ -121,39 +121,39 @@ protected:
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
 
-    unsigned int m_ViewStyle{IG_SURFACE};
-    bool m_Visibility{true};
+    unsigned int m_ViewStyle;
+    bool m_Visibility;
 
-    bool m_Flag{false};
-    bool m_UseColor{false};
-    bool m_UseNormalSmooth{false};
-    bool m_ColorWithCell{false};
-    float m_PointSize{8.0f};
-    float m_LineWidth{1.0f};
-    int m_CellPositionSize{};
+    bool m_Flag;
+    bool m_UseColor;
+    bool m_UseNormalSmooth;
+    bool m_ColorWithCell;
+    float m_PointSize;
+    float m_LineWidth;
+    int m_CellPositionSize;
 
     // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines
-    float m_PolygonFactor{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
-    float m_PolygonOffset{0.0f}; // now implement with GL_POLYGON_OFFSET_FILL
-    float m_LineFactor{0.0f};    // now not implemented
-    float m_LineOffset{0.0f};    // now not implemented
-    float m_PointOffset{0.0f};   // now not implemented
+    float m_PolygonFactor; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_PolygonOffset; // now implement with GL_POLYGON_OFFSET_FILL
+    float m_LineFactor;    // now not implemented
+    float m_LineOffset;    // now not implemented
+    float m_PointOffset;   // now not implemented
     //float m_PolygonFactor{0.0f};
     //float m_PolygonOffset{0.0f};
     //float m_LineFactor{0.0f};
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency{1.0f};
-    bool m_ExecuteShell{true};
-    bool m_ReConvertToDrawableData{false};
+    float m_Transparency;
+    bool m_ExecuteShell;
+    bool m_ReConvertToDrawableData;
 
     iGameClipper::Pointer m_Clipper;
 
     friend class Model;
+    friend class Scene;
     friend class UnstructuredMesh;
 
-protected:
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);
 };

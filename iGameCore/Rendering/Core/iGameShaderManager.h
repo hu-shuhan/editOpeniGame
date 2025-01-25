@@ -91,10 +91,9 @@ public:
      */
     struct CullDataBuffer {
         alignas(16) igm::mat4 view_model;       ///< 视图-模型矩阵
-        alignas(4) float P00, P11, zNear, zFar; ///< 对称投影参数
+        alignas(4) float P00, P11, zNear, zFar; ///< 相关投影参数
         alignas(16) igm::vec4 frustum;          ///< 裁剪平面数据
-        alignas(4) unsigned int pyramidWidth,
-                pyramidHeight; ///< 深度金字塔大小（像素）
+        alignas(4) unsigned int HzbWidth, HzbHeight; ///< 深度金字塔大小（像素）
     };
 
     /**
@@ -164,12 +163,11 @@ public:
      * @brief 更新裁剪数据块。
      * @param camera 相机指针。
      * @param model 模型矩阵。
-     * @param depthPyramidWidth 深度金字塔宽度。
-     * @param depthPyramidHeight 深度金字塔高度。
+     * @param HzbWidth 层级深度缓冲金字塔宽度。
+     * @param HzbHeight 层级深度缓冲金字塔高度。
      */
     void UpdateCullDataBuffer(SmartPointer<Camera> camera, igm::mat4 model,
-                              unsigned int depthPyramidWidth,
-                              unsigned int depthPyramidHeight);
+                              unsigned int HzbWidth, unsigned int HzbHeight);
 
     /**
      * @brief 更新裁剪数据块。

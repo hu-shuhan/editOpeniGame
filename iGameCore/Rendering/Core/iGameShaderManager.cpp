@@ -85,9 +85,8 @@ void ShaderManager::UpdateUBOBlock(UniformBufferObjectBuffer buffer) {
 }
 
 void ShaderManager::UpdateCullDataBuffer(SmartPointer<Camera> camera,
-                                         igm::mat4 model,
-                                         unsigned int depthPyramidWidth,
-                                         unsigned int depthPyramidHeight) {
+                                         igm::mat4 model, unsigned int HzbWidth,
+                                         unsigned int HzbHeight) {
     CullDataBuffer buffer;
 
     igm::mat4 projection = camera->GetProjectionMatrix();
@@ -108,8 +107,8 @@ void ShaderManager::UpdateCullDataBuffer(SmartPointer<Camera> camera,
     buffer.frustum[1] = frustumX.z;
     buffer.frustum[2] = frustumY.y;
     buffer.frustum[3] = frustumY.z;
-    buffer.pyramidWidth = static_cast<float>(depthPyramidWidth);
-    buffer.pyramidHeight = static_cast<float>(depthPyramidHeight);
+    buffer.HzbWidth = static_cast<float>(HzbWidth);
+    buffer.HzbHeight = static_cast<float>(HzbHeight);
 
     m_CullDataBuffer->SubData(0, sizeof(CullDataBuffer), &buffer);
 }

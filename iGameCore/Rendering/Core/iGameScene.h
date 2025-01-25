@@ -165,7 +165,7 @@ public:
     bool Initialize();
 
     /**
-     * @brief 渲染场景。
+     * @brief 渲染一帧当前场景。
      */
     void Draw();
 
@@ -178,7 +178,7 @@ public:
     void Resize(int width, int height, int pixelRatio);
 
     /**
-     * @brief 更新场景状态。
+     * @brief 更新场景状态，调用前需要调用SetUpdateFunctor绑定自定义更新函数。
      */
     void Update();
 
@@ -216,17 +216,6 @@ public:
                                              bool mirrored);
 
     /**
-     * @brief 捕获屏幕深度缓冲。
-     * @param x 起始位置 X 坐标。
-     * @param y 起始位置 Y 坐标。
-     * @param width 宽度。
-     * @param height 高度。
-     * @return 深度缓冲数据。
-     */
-    std::vector<float> CaptureScreenDepthBuffer(int x, int y, int width,
-                                                int height);
-
-    /**
      * @brief 获取 2D 绘制器。
      * @return Painter2D 指针。
      */
@@ -244,7 +233,7 @@ public:
      * @details
      * 调用此函数将当前 Scene 绑定为 OpenGL 渲染的活动上下文。
      * 在使用之前，需要通过 `SetMakeCurrentFunctor` 设置对应的函数指针。
-     * 通常用于确保在渲染操作之前，OpenGL 的上下文已经切换到当前场  景。
+     * 通常用于确保在渲染操作之前，OpenGL 的上下文已经切换到当前场景。
      */
     void MakeCurrent();
 
@@ -297,8 +286,8 @@ protected:
     void InitInterator();
 
     void ResizeFrameBuffer();
-    void ResizeDepthPyramid();
-    void RefreshDepthPyramid();
+    void ResizeHzb();
+    void RefreshHzb();
     void RefreshDrawCullDataBuffer();
 
     void DrawFrame();
@@ -365,9 +354,8 @@ protected:
     SmartPointer<GLBuffer> m_OITLinkedListBuffer;
     SmartPointer<GLTextureBuffer> m_OITLinkedListTexture;
 
-    unsigned int m_DepthPyramidWidth, m_DepthPyramidHeight,
-            m_DepthPyramidLevels;
-    SmartPointer<GLTexture2d> m_DepthPyramid;
+    unsigned int m_HzbWidth, m_HzbHeight, m_HzbLevels;
+    SmartPointer<GLTexture2d> m_HzbTexture;
 
     SmartPointer<Painter2D> m_Painter2D;
     SmartPointer<Painter3D> m_Painter3D;

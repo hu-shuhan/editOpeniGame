@@ -54,10 +54,10 @@ Scene::Scene() {
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
     //m_DrawCullData = GLBuffer::New();
-    m_DepthPyramidWidth = 0;
-    m_DepthPyramidHeight = 0;
-    m_DepthPyramidLevels = 0;
-    m_DepthPyramid = GLTexture2d::New();
+    m_HzbTextureWidth = 0;
+    m_HzbTextureHeight = 0;
+    m_HzbTextureLevels = 0;
+    m_HzbTexture = GLTexture2d::New();
 
     m_Painter2D = Painter2D::New();
     m_Painter3D = Painter3D::New();
@@ -522,16 +522,16 @@ void Scene::ResizeFrameBuffer() {
     }
 #endif
 
-    ResizeDepthPyramid();
+    ResizeHzb();
 }
-void Scene::ResizeDepthPyramid() {
+void Scene::ResizeHzb() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto width = m_Camera->GetScaledViewPort().x;
     auto height = m_Camera->GetScaledViewPort().y;
 
     static auto previousPow2 = [](uint32_t v) {
         uint32_t r = 1;
-        while (r * 2 < v) r *= 2;
+        while (r * 2 < v) { r *= 2; }
         return r;
     };
     static auto compDepthMipLevels = [](uint32_t width, uint32_t height) {
@@ -544,23 +544,21 @@ void Scene::ResizeDepthPyramid() {
         return result;
     };
 
-    m_DepthPyramidWidth = previousPow2(width);
-    m_DepthPyramidHeight = previousPow2(height);
-    m_DepthPyramidLevels =
-            compDepthMipLevels(m_DepthPyramidWidth, m_DepthPyramidHeight);
+    m_HzbWidth = previousPow2(width);
+    m_HzbHeight = previousPow2(height);
+    m_HzbLevels = compDepthMipLevels(m_HzbWidth, m_HzbHeight);
 
     SmartPointer<GLTexture2d> texture = GLTexture2d::New();
     texture->Create();
     texture->Bind();
-    texture->Storage(m_DepthPyramidLevels, GL_R32F, m_DepthPyramidWidth,
-                     m_DepthPyramidHeight);
+    texture->Storage(m_HzbLevels, GL_R32F, m_HzbWidth, m_HzbHeight);
     texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     texture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     texture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     texture->Release();
 
-    m_DepthPyramid = std::move(texture);
+    m_HzbTexture = std::move(texture);
 #endif
 }
 
@@ -603,33 +601,32 @@ void Scene::Draw() {
     GLCheckError();
 }
 
-void Scene::RefreshDepthPyramid() {
+void Scene::RefreshHzb() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto shader = this->GetShader(ShaderType::DEPTHREDUCE);
     shader->Use();
     m_DepthTextureMultisampled->Active(GL_TEXTURE1);
-    m_DepthPyramid->Active(GL_TEXTURE2);
+    m_HzbTexture->Active(GL_TEXTURE2);
     shader->SetUniformi("screenDepthMS", 1);
     shader->SetUniformi("myDepthPyramid", 2);
 
     // generate level 0
     {
         unsigned int level = 0;
-        uint32_t width = m_DepthPyramidWidth;
-        uint32_t height = m_DepthPyramidHeight;
+        uint32_t width = m_HzbWidth;
+        uint32_t height = m_HzbHeight;
         shader->Use();
         shader->SetUniformui("level", level);
         shader->SetUniform2ui("outDepthPyramidSize", igm::uvec2{width, height});
-        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
-                                  GL_R32F);
+        m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
     // generate other level
-    for (unsigned int level = 1; level < m_DepthPyramidLevels; ++level) {
-        uint32_t width = m_DepthPyramidWidth >> (level - 1);
-        uint32_t height = m_DepthPyramidHeight >> (level - 1);
+    for (unsigned int level = 1; level < m_HzbLevels; ++level) {
+        uint32_t width = m_HzbWidth >> (level - 1);
+        uint32_t height = m_HzbHeight >> (level - 1);
         if (width < 1) width = 1;
         if (height < 1) height = 1;
 
@@ -643,8 +640,7 @@ void Scene::RefreshDepthPyramid() {
         shader->Use();
         shader->SetUniformui("level", level);
         shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
-        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
-                                  GL_R32F);
+        m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
@@ -746,7 +742,7 @@ void Scene::RenderToQtFrame() {
     m_ColorTextureResolved->GenerateMipmap();
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
-    m_DepthPyramid->Active(GL_TEXTURE3);
+    m_HzbTexture->Active(GL_TEXTURE3);
 
     // Note:
     // 1. To enable depth rendering, ensure the screen.frag file is updated to handle the depth texture input.
@@ -759,7 +755,7 @@ void Scene::RenderToQtFrame() {
 #else
     m_ColorTexture->Active(GL_TEXTURE1);
     m_DepthTexture->Active(GL_TEXTURE2);
-    m_DepthPyramid->Active(GL_TEXTURE3);
+    m_HzbTexture->Active(GL_TEXTURE3);
     shader->SetUniformi("screenColorSampler", 1);
 #endif
 
@@ -786,7 +782,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase 1: generate loacl hierarchical z-buffer & cull data
-    RefreshDepthPyramid();
+    RefreshDepthHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -796,7 +792,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthPyramid();
+    RefreshDepthHzb();
 #else
     for (auto& [id, model]: m_Models) {
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
@@ -812,7 +808,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase1: generate loacl hierarchical z-buffer
-    RefreshDepthPyramid();
+    RefreshDepthHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -822,7 +818,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthPyramid();
+    RefreshDepthHzb();
 #endif // GL_SUPPORTS_MESH_SHADER
 #else
     for (auto& [id, model]: m_Models) {
@@ -989,8 +985,8 @@ void Scene::UpdateCameraClippingRange() {
 }
 
 void Scene::RefreshDrawCullDataBuffer() {
-    m_ShaderManager->UpdateCullDataBuffer(
-            m_Camera, m_ModelMatrix, m_DepthPyramidWidth, m_DepthPyramidHeight);
+    m_ShaderManager->UpdateCullDataBuffer(m_Camera, m_ModelMatrix, m_HzbWidth,
+                                          m_HzbHeight);
 }
 
 void Scene::ResetCameraViewToPositiveX() {
@@ -1219,11 +1215,16 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                 glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
                              colorBuffer.data());
                 break;
+            case ZBuffer:
+                colorBuffer.resize(width * height);
+                glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
+                             colorBuffer.data());
             default:
                 break;
         }
     }
     m_FramebufferResolved->Release();
+
     if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
         // Flip data Line
@@ -1235,26 +1236,6 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         colorBuffer = tmp_flip;
     }
     return colorBuffer;
-}
-std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
-                                                   int height) {
-    std::vector<float> ZBuffer(width * height);
-
-    m_FramebufferResolved->Bind();
-    {
-        // Read pixels from the OpenGL buffer (bottom-left corner)
-        //
-        //  y↑
-        //   |
-        //   |
-        //   +-----→x
-        //
-        glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
-                     ZBuffer.data());
-    }
-    m_FramebufferResolved->Release();
-
-    return ZBuffer;
 }
 
 SmartPointer<Painter2D> Scene::GetPainter2D() { return m_Painter2D; }
