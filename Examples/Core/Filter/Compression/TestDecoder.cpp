@@ -7,7 +7,7 @@ int main(){
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "H:\\iGameProject9\\editOpeniGame\\Examples\\Models\\comp.igc";
+    const std::string fileName = "./Models/comp.igc";
     auto decoder = iGame::MeshDecoder::New();
     decoder->SetFilePath(fileName);
     decoder->Execute();

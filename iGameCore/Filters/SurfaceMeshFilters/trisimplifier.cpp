@@ -12,9 +12,8 @@ size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* ind
                               size_t target_index_count, float target_error, unsigned int options,
                               float* out_result_error) 
 {
-
     Allocator allocator;
-
+    
     // 简化的结果索引数组
     unsigned int* result = destination;
     if (result != indices) 

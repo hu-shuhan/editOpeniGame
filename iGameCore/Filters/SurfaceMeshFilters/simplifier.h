@@ -61,6 +61,7 @@ struct EdgeAdjacency {
     Edge* data;
 };
 
+
 static void prepareEdgeAdjacency(EdgeAdjacency& adjacency, size_t index_count, size_t vertex_count,
                                  Allocator& allocator) {
     adjacency.offsets = allocator.allocate<unsigned int>(vertex_count + 1);
@@ -459,7 +460,9 @@ static void quadricFromAttributes(Quadric& Q, QuadricGrad* G, const Vector3& p0,
     }
 }
 
-static void fillAttributeQuadrics(Quadric* attribute_quadrics, QuadricGrad* attribute_gradients,
+static void 
+
+fillAttributeQuadrics(Quadric* attribute_quadrics, QuadricGrad* attribute_gradients,
                                   const unsigned int* indices, size_t index_count, const Vector3* vertex_positions,
                                   const float* vertex_attributes, size_t attribute_count) {
     for (size_t i = 0; i < index_count; i += 3) {

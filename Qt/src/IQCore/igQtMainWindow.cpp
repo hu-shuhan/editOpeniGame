@@ -338,7 +338,9 @@ void igQtMainWindow::initAllComponents() {
 }
 igQtMainWindow::~igQtMainWindow() {}
 
-#include "SurfaceMeshFilters/simplifier.h"
+
+#include "SurfaceMeshFilters/meshsimplifier/meshsimplifier.h"
+
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
         connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
@@ -356,25 +358,33 @@ void igQtMainWindow::initAllFilters() {
         unsigned int* destination;
         unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
         const size_t index_count = mesh->GetNumberOfFaces() * 3;
-        const float* vertex_positions = mesh->GetPoints()->RawPointer();
+        float* vertex_positions = mesh->GetPoints()->RawPointer();
         size_t vertex_count = mesh->GetNumberOfPoints();
         size_t vertex_positions_stride = sizeof(float) * 3;
-        float* vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
+        float* vertex_attributes = nullptr;
+        
+        // vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
         size_t vertex_attributes_stride = sizeof(float);
         float attribute_weights[1]{1};
-        size_t attribute_count = 1;
+        size_t attribute_count = 0;
         unsigned char* vertex_lock = nullptr;
         size_t target_index_count = index_count * 0.1;
         float target_error = 0.01f;
         unsigned int options = 0;
         float out_error = 0.0f;
+
+
         float* result_error = &out_error;
 
         destination = new unsigned int[index_count];
-        size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
-                                       vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
-                                       attribute_weights, attribute_count, vertex_lock, target_index_count,
-                                       target_error, options, result_error);
+        size_t result_size = meshsmp_simplifyTriMeshWithAttributes(
+                indices, index_count, vertex_positions, vertex_count, vertex_attributes, attribute_count,
+                attribute_weights, target_index_count, target_error, result_error);
+
+        //size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
+        //                               attribute_weights, attribute_count, vertex_lock, target_index_count,
+        //                               target_error, options, result_error);
 
         //size_t result_size =
         //        meshopt_simplify(destination, indices, index_count, vertex_positions, vertex_count,

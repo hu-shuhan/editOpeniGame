@@ -14,7 +14,7 @@ static void SetScalarField() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
+    const std::string fileName = "./Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);

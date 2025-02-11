@@ -10,23 +10,14 @@ int main(){
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "H:/iGameProjects/model/obj/mazewheel.obj";
+    const std::string fileName = "./Models/mazewheel.obj";
     auto dataObj = iGame::FileIO::ReadFile(fileName);
-
-    // If model is triangle mesh
-    auto triangulation = iGame::Triangulation::New();
-    triangulation->SetInput(dataObj);
-    triangulation->Execute();
-    auto obj = triangulation->GetOutput();
 
     auto filter = iGame::Simplification::New();
     filter->SetTargetReduction(0.5);
     filter->SetInput(obj);
     filter->Execute();
 
-    //auto drawObj = DynamicCast<iGame::DrawObject>(obj);
-    //if (drawObj == nullptr) return 0;
-    //drawObj->ViewCloudPicture(scene, 1, -1);
     scene->AddModel(obj);
 
     // Set up the render window
