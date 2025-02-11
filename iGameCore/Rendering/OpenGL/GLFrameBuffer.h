@@ -14,6 +14,8 @@ public:
     I_OBJECT(GLFramebuffer);
     static Pointer New() { return new GLFramebuffer; }
 
+    enum class Type { RGB = 0, RGBA, DEPTH };
+
     // GLbitfield mask: GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT
     // GLenum filter: GL_NEAREST, GL_LINEAR
     static void Blit(SmartPointer<GLFramebuffer> source,

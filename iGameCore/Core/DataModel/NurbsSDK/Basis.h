@@ -5,7 +5,7 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
+IGAME_NURBSSDK_NAMESPACE_BEGIN
 class Basis {
 public:
     Basis() {}
@@ -31,8 +31,7 @@ public:
     /// \param u 参数点
     /// \param nd 求导次数
     /// \return N 非零基函数nd次导数值
-    void getAllNurbsBasisFunsDers(int i, double u, int nd,
-                                  std::vector<std::vector<double>>& ders) const;
+    void getAllNurbsBasisFunsDers(int i, double u, int nd, std::vector<std::vector<double>>& ders) const;
 
     int getControlSize() const { return m_Knots.size() - m_Degree - 1; }
     int getKnotSize() const { return m_Knots.size(); }
@@ -44,5 +43,5 @@ private:
     int m_Degree;                // 次数
     std::vector<double> m_Knots; // 节点序列
 };
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END

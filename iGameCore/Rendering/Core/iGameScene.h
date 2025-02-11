@@ -207,12 +207,13 @@ public:
      * @param y 起始位置 Y 坐标。
      * @param width 宽度。
      * @param height 高度。
-     * @param type 帧缓冲类型，有RGBA, RGB, ZBuffer。
+     * @param type 帧缓冲类型，有RGB, RGBA, DEPTH。
      * @param mirrored 是否镜像。
      * @return 屏幕图像数据。
      */
     std::vector<unsigned char> CaptureScreen(int x, int y, int width,
-                                             int height, FrameBufferType type,
+                                             int height,
+                                             GLFramebuffer::Type type,
                                              bool mirrored);
 
     /**
