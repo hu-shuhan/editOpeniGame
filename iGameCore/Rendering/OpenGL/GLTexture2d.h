@@ -10,14 +10,15 @@ public:
     I_OBJECT(GLTexture2d);
     static Pointer New() { return new GLTexture2d; }
 
-    static void CopyImageSubData(GLTexture2d::Pointer source, GLenum srcTarget,
-                                 GLint srcLevel, GLint srcX, GLint srcY,
-                                 GLint srcZ, GLTexture2d::Pointer destination,
+    static void CopyImageSubData(SmartPointer<GLTexture2d> source,
+                                 GLenum srcTarget, GLint srcLevel, GLint srcX,
+                                 GLint srcY, GLint srcZ,
+                                 SmartPointer<GLTexture2d> destination,
                                  GLenum dstTarget, GLint dstLevel, GLint dstX,
                                  GLint dstY, GLint dstZ, GLsizei srcWidth,
                                  GLsizei srcHeight, GLsizei srcDepth);
 
-    static GLTexture2d View(GLenum target, GLTexture2d::Pointer original,
+    static GLTexture2d View(GLenum target, SmartPointer<GLTexture2d> original,
                             GLenum internal_format, unsigned first_mip_level,
                             unsigned mip_level_count, unsigned first_layer,
                             unsigned layer_count);

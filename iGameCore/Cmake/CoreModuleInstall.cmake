@@ -20,6 +20,16 @@ if (CORE_MODULE_INSTALL)
                 ${HDF5_LIBRARIES}/../libsz.lib
                 ${HDF5_LIBRARIES}/../libaec.lib
                 DESTINATION lib/ThirdParty)
+
+#        install(FILES
+#                ${HDF5_DIR}/../../lib/libhdf5.lib
+#                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
+#                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
+#                ${HDF5_DIR}/../../lib/libzlib.lib
+#                ${HDF5_DIR}/../../lib/libsz.lib
+#                ${HDF5_DIR}/../../lib/libaec.lib
+#                DESTINATION lib/ThirdParty)
+
 #        file(GLOB )
     endif ()
 
@@ -33,6 +43,7 @@ if (CORE_MODULE_INSTALL)
                 PATTERN "2024/win_b64" EXCLUDE
         )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
+#        message(WARNING ${AbqSDK_DLL_DIR})
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 

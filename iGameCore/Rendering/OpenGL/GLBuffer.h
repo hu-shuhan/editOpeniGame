@@ -10,9 +10,10 @@ public:
     I_OBJECT(GLBuffer);
     static Pointer New() { return new GLBuffer; }
 
-    static void CopySubData(GLBuffer::Pointer source,
-                            GLBuffer::Pointer destination, size_t read_offset,
-                            size_t write_offset, size_t size);
+    static void CopySubData(SmartPointer<GLBuffer> source,
+                            SmartPointer<GLBuffer> destination,
+                            size_t read_offset, size_t write_offset,
+                            size_t size);
 
     // GLenum usage: GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STREAM_DRAW
     // GLenum usage: GL_STATIC_READ, GL_DYNAMIC_READ, GL_STREAM_READ
@@ -63,7 +64,8 @@ static const unsigned int GL_VBO_IDX_1{1};
 static const unsigned int GL_VBO_IDX_2{2};
 static const unsigned int GL_VBO_IDX_3{3};
 
-void GLAllocateGLBuffer(GLBuffer::Pointer vbo, size_t size, const void* data);
+void GLAllocateGLBuffer(SmartPointer<GLBuffer> vbo, size_t size,
+                        const void* data);
 
 IGAME_NAMESPACE_END
 

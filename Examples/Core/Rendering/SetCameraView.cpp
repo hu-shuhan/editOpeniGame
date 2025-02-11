@@ -34,12 +34,12 @@ static void SetCameraView() {
     // Change the camera view angle to various predefined perspectives
     // The following functions adjust the camera's view to different orientations:
 
-    scene->LookAtPositiveX(); // Look at the scene from the positive X-axis direction
-    //scene->LookAtNegativeX(); // Look at the scene from the negative X-axis direction
+//    scene->LookAtPositiveX(); // Look at the scene from the positive X-axis direction
+//    scene->LookAtNegativeX(); // Look at the scene from the negative X-axis direction
     //scene->LookAtPositiveY(); // Look at the scene from the positive Y-axis direction
     //scene->LookAtNegativeY(); // Look at the scene from the negative Y-axis direction
     //scene->LookAtPositiveZ(); // Look at the scene from the positive Z-axis direction
-    //scene->LookAtNegativeZ(); // Look at the scene from the negative Z-axis direction
+    scene->LookAtNegativeZ(); // Look at the scene from the negative Z-axis direction
     //scene->LookAtIsometric(); // Set the camera to an isometric view (typically used for 3D models)
 
     scene->RotateNinetyClockwise(); // Rotate the camera view 90 degrees clockwise

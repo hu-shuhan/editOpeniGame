@@ -1,7 +1,7 @@
 #include "iGameScene.h"
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
-#include "iGameMeshleter.h"
+#include "iGameRenderingLogger.h"
 #include <chrono>
 
 IGAME_NAMESPACE_BEGIN
@@ -23,20 +23,12 @@ Scene::Scene() {
     m_FontManager = FontManager::New();
     m_ShaderManager = ShaderManager::New();
 
-    //m_CameraData = CameraDataBuffer{};
-    //m_ObjectData = ObjectDataBuffer{};
-    //m_UBO = UniformBufferObjectBuffer{};
-
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
     m_BackgroundColor = {1.0f, 1.0f, 1.0f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
-
-    //m_CameraDataBlock = GLBuffer::New();
-    //m_ObjectDataBlock = GLBuffer::New();
-    //m_UBOBlock = GLBuffer::New();
 
     m_EmptyVAO = GLVertexArray::New();
 
@@ -62,10 +54,10 @@ Scene::Scene() {
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
     //m_DrawCullData = GLBuffer::New();
-    m_DepthPyramidWidth = 0;
-    m_DepthPyramidHeight = 0;
-    m_DepthPyramidLevels = 0;
-    m_DepthPyramid = GLTexture2d::New();
+    m_HzbWidth = 0;
+    m_HzbHeight = 0;
+    m_HzbLevels = 0;
+    m_HzbTexture = GLTexture2d::New();
 
     m_Painter2D = Painter2D::New();
     m_Painter3D = Painter3D::New();
@@ -77,13 +69,12 @@ Scene::~Scene() {}
 
 bool Scene::Initialize() {
     if (m_FinishInit) {
-        std::cout << "Scene is already init.\n";
+        Logger::LogWarn("Scene is already init.");
         return false;
     }
 
     InitOpenGL();
     InitOIT();
-    InitFont();
     InitAxes();
 
     ResetCameraView();
@@ -92,13 +83,13 @@ bool Scene::Initialize() {
     return true;
 }
 
-int Scene::AddModel(DataObject::Pointer obj) {
-    Model::Pointer model = Model::New();
+int Scene::AddModel(SmartPointer<DataObject> obj) {
+    SmartPointer<Model> model = Model::New();
     model->SetDataObject(obj);
     return AddModel(model);
 }
 
-int Scene::AddModel(Model::Pointer model) {
+int Scene::AddModel(SmartPointer<Model> model) {
     int newModelId = m_IncrementModelId++;
     m_Models.insert(std::make_pair<>(newModelId, model));
     m_CurrentModelId = newModelId;
@@ -112,6 +103,13 @@ int Scene::AddModel(Model::Pointer model) {
 }
 
 void Scene::RemoveModel(int index) {
+    auto it = m_Models.find(index);
+    if (it == m_Models.end()) {
+        Logger::LogWarn("Model with index {} does not exist in the scene.",
+                        index);
+        return;
+    }
+
     m_Models.erase(index);
     if (index == m_CurrentModelId) {
         if (m_Models.empty()) {
@@ -125,7 +123,7 @@ void Scene::RemoveModel(int index) {
     UpdateModelsBoundingSphere();
 }
 
-void Scene::RemoveModel(Model* model) {
+void Scene::RemoveModel(SmartPointer<Model> model) {
     for (auto it = m_Models.begin(); it != m_Models.end(); ++it) {
         if (it->second.get() == model) {
             m_Models.erase(it);
@@ -162,6 +160,13 @@ void Scene::RemoveCurrentModel() {
 }
 
 void Scene::SetCurrentModel(int index) {
+    auto it = m_Models.find(index);
+    if (it == m_Models.end()) {
+        Logger::LogWarn("Model with index {} does not exist in the scene.",
+                        index);
+        return;
+    }
+
     for (auto& [id, model]: m_Models) {
         if (id == index) {
             m_CurrentModelId = id;
@@ -171,11 +176,11 @@ void Scene::SetCurrentModel(int index) {
     }
 }
 
-void Scene::SetCurrentModel(Model* _model) {
-    for (auto& [id, model]: m_Models) {
-        if (model == _model) {
+void Scene::SetCurrentModel(SmartPointer<Model> model) {
+    for (auto& [id, m]: m_Models) {
+        if (m == model) {
             m_CurrentModelId = id;
-            m_CurrentModel = model.get();
+            m_CurrentModel = m.get();
             return;
         }
     }
@@ -187,30 +192,32 @@ void Scene::SetBackGround(const Color& color) {
     this->Modified();
 }
 
-void Scene::SetInteractor(Interactor* i) { m_Interactor = i; }
+void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
+    m_Interactor = interactor;
+}
 
-Interactor* Scene::GetInteractor() { return m_Interactor; }
+SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-Model* Scene::GetCurrentModel() { return m_CurrentModel; }
+SmartPointer<Model> Scene::GetCurrentModel() { return m_CurrentModel; }
 
-Model* Scene::GetModelById(int index) {
+SmartPointer<Model> Scene::GetModelById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model; }
     }
     return nullptr;
 }
 
-DataObject* Scene::GetDataObjectById(int index) {
+SmartPointer<DataObject> Scene::GetDataObjectById(int index) {
     for (auto& [id, model]: m_Models) {
         if (id == index) { return model->m_DataObject; }
     }
     return nullptr;
 }
 
-std::map<int, Model::Pointer>& Scene::GetModelList() { return m_Models; }
+std::map<int, SmartPointer<Model>>& Scene::GetModelList() { return m_Models; }
 
 void Scene::ChangeModelVisibility(int index, bool visibility) {
-    auto* model = GetModelById(index);
+    auto model = GetModelById(index);
     if (model != nullptr) { ChangeModelVisibility(model, visibility); }
 }
 
@@ -226,7 +233,7 @@ void Scene::ResetCameraView() {
     m_Camera->SetFocal(center);
 }
 
-void Scene::ChangeModelVisibility(Model* model, bool visibility) {
+void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
     drawObject->SetVisibility(visibility);
 
@@ -240,7 +247,9 @@ void Scene::ChangeModelVisibility(Model* model, bool visibility) {
     UpdateModelsBoundingSphere();
 }
 
-void Scene::ChangeCameraType(IGenum type) {
+SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
+
+void Scene::ChangeCameraType(Camera::Type type) {
     ResetCameraView();
     switch (type) {
         case Camera::Type::PERSPECTIVE: {
@@ -254,17 +263,32 @@ void Scene::ChangeCameraType(IGenum type) {
     }
 }
 
-GLShaderProgram::Pointer Scene::GetShader(ShaderType type) {
+igm::mat4 Scene::GetModelMatrix() { return m_ModelMatrix; }
+
+SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
     return m_ShaderManager->GetShader(type);
 }
 
 void Scene::InitOpenGL() {
-    if (!gladLoadGL()) {
-        igError("Failed to initialize GLAD");
-        throw std::runtime_error("Failed to initialize GLAD");
-    }
+    if (!gladLoadGL()) { Logger::LogError("Failed to initialize GLAD"); }
 
-    PrintOpenGLInfo();
+    // log opengl info
+    {
+        Logger::LogDebug(
+                "==================== OpenGL Info ====================");
+        const GLubyte* vendor = glGetString(GL_VENDOR);
+        Logger::LogDebug("Vendor:   {}", reinterpret_cast<const char*>(vendor));
+        const GLubyte* renderer = glGetString(GL_RENDERER);
+        Logger::LogDebug("Renderer:   {}",
+                         reinterpret_cast<const char*>(renderer));
+        const GLubyte* version = glGetString(GL_VERSION);
+        Logger::LogDebug("Version:   {}",
+                         reinterpret_cast<const char*>(version));
+        GLint numExtensions = 0;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+        Logger::LogDebug(
+                "=====================================================");
+    }
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
@@ -277,83 +301,8 @@ void Scene::InitOpenGL() {
     // create empty VAO to render full-screen triangle
     m_EmptyVAO->Create();
 
-    // allocate memory
-    m_ShaderManager->MapBufferBlock();
-    {
-
-        //m_CameraDataBlock->Create();
-        //m_CameraDataBlock->Target(GL_UNIFORM_BUFFER);
-        //m_CameraDataBlock->Allocate(sizeof(CameraDataBuffer), nullptr,
-        //                            GL_STATIC_DRAW);
-        //
-        //m_ObjectDataBlock->Create();
-        //m_ObjectDataBlock->Target(GL_UNIFORM_BUFFER);
-        //m_ObjectDataBlock->Allocate(sizeof(ObjectDataBuffer), nullptr,
-        //                            GL_STATIC_DRAW);
-        //
-        //m_UBOBlock->Create();
-        //m_UBOBlock->Target(GL_UNIFORM_BUFFER);
-        //m_UBOBlock->Allocate(sizeof(UniformBufferObjectBuffer), nullptr,
-        //                     GL_STATIC_DRAW);
-
-        //        // map blinnphong shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::BLINNPHONG);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map no light shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::NOLIGHT);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map pure color shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::PURECOLOR);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map transparency link shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map volume rendering link shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-        //        // map culling computer shader block
-        //        {
-        //#ifdef IGAME_OPENGL_VERSION_460
-        //            auto shader = this->GetShader(ShaderType::MESHLETCULL);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //#endif
-        //        }
-        //        // map mesh shader block
-        //        {
-        //            auto shader = this->GetShader(ShaderType::MESHSHADER);
-        //            shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
-        //            shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
-        //            //shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
-        //        }
-    }
-
-    //m_UBO.useColor = false;
-
-    // init drawculldata buffer
-    //m_DrawCullData->Create();
-    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
-    //m_DrawCullData->Target(GL_UNIFORM_BUFFER);
-    //m_DrawCullData->Allocate(sizeof(DrawCullData), nullptr, GL_DYNAMIC_DRAW);
+    // initilize shader
+    m_ShaderManager->Initialize();
 
     // init framebuffer
     ResizeFrameBuffer();
@@ -401,24 +350,6 @@ void Scene::InitOpenGL() {
     GLCheckError();
 }
 
-void Scene::PrintOpenGLInfo() {
-    igDebug("==================== OpenGL Info ====================");
-
-    const GLubyte* vendor = glGetString(GL_VENDOR);
-    igDebug("Vendor:   " << reinterpret_cast<const char*>(vendor));
-
-    const GLubyte* renderer = glGetString(GL_RENDERER);
-    igDebug("Renderer: " << reinterpret_cast<const char*>(renderer));
-
-    const GLubyte* version = glGetString(GL_VERSION);
-    igDebug("Version:  " << reinterpret_cast<const char*>(version));
-
-    GLint numExtensions = 0;
-    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-
-    igDebug("=====================================================");
-}
-
 void Scene::InitOIT() {
 #ifdef IGAME_OPENGL_VERSION_460
     GLuint* data;
@@ -454,21 +385,10 @@ void Scene::InitOIT() {
     GLCheckError();
 }
 
-void Scene::InitFont() {
+void Scene::InitAxes() {
     const wchar_t* text = L"XYZ";
     m_FontManager->RegisterWords(text);
-    GLCheckError();
-}
-
-void Scene::InitAxes() {
     m_Axes->Initialize();
-
-    auto axesShader = this->GetShader(ShaderType::AXES);
-
-    axesShader->Use();
-    axesShader->SetUniformMatrix4x4("view", Axes::ViewMatrix());
-    axesShader->SetUniformMatrix4x4("proj", Axes::ProjMatrix());
-    axesShader->SetUniform3f("viewPos", Axes::CameraPos());
 
     GLCheckError();
 }
@@ -514,7 +434,8 @@ void Scene::ResizeFrameBuffer() {
 
         if (m_FramebufferMultisampled->CheckStatus() !=
             GL_FRAMEBUFFER_COMPLETE) {
-            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
         }
     }
 
@@ -560,7 +481,8 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferResolved = fbo;
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
-            igError("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
         }
     }
 #else
@@ -593,23 +515,23 @@ void Scene::ResizeFrameBuffer() {
         m_DepthTexture = depthTexture;
         m_Framebuffer = fbo;
 
-        if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not "
-                         "complete!"
-                      << std::endl;
+        if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
+            Logger::LogError("{}, framebuffer is not complete!",
+                             this->GetName());
+        }
     }
 #endif
 
-    ResizeDepthPyramid();
+    ResizeHzb();
 }
-void Scene::ResizeDepthPyramid() {
+void Scene::ResizeHzb() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto width = m_Camera->GetScaledViewPort().x;
     auto height = m_Camera->GetScaledViewPort().y;
 
     static auto previousPow2 = [](uint32_t v) {
         uint32_t r = 1;
-        while (r * 2 < v) r *= 2;
+        while (r * 2 < v) { r *= 2; }
         return r;
     };
     static auto compDepthMipLevels = [](uint32_t width, uint32_t height) {
@@ -622,23 +544,21 @@ void Scene::ResizeDepthPyramid() {
         return result;
     };
 
-    m_DepthPyramidWidth = previousPow2(width);
-    m_DepthPyramidHeight = previousPow2(height);
-    m_DepthPyramidLevels =
-            compDepthMipLevels(m_DepthPyramidWidth, m_DepthPyramidHeight);
+    m_HzbWidth = previousPow2(width);
+    m_HzbHeight = previousPow2(height);
+    m_HzbLevels = compDepthMipLevels(m_HzbWidth, m_HzbHeight);
 
-    GLTexture2d::Pointer texture = GLTexture2d::New();
+    SmartPointer<GLTexture2d> texture = GLTexture2d::New();
     texture->Create();
     texture->Bind();
-    texture->Storage(m_DepthPyramidLevels, GL_R32F, m_DepthPyramidWidth,
-                     m_DepthPyramidHeight);
+    texture->Storage(m_HzbLevels, GL_R32F, m_HzbWidth, m_HzbHeight);
     texture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     texture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     texture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     texture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     texture->Release();
 
-    m_DepthPyramid = std::move(texture);
+    m_HzbTexture = std::move(texture);
 #endif
 }
 
@@ -681,33 +601,32 @@ void Scene::Draw() {
     GLCheckError();
 }
 
-void Scene::RefreshDepthPyramid() {
+void Scene::RefreshHzb() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto shader = this->GetShader(ShaderType::DEPTHREDUCE);
     shader->Use();
     m_DepthTextureMultisampled->Active(GL_TEXTURE1);
-    m_DepthPyramid->Active(GL_TEXTURE2);
+    m_HzbTexture->Active(GL_TEXTURE2);
     shader->SetUniformi("screenDepthMS", 1);
     shader->SetUniformi("myDepthPyramid", 2);
 
     // generate level 0
     {
         unsigned int level = 0;
-        uint32_t width = m_DepthPyramidWidth;
-        uint32_t height = m_DepthPyramidHeight;
+        uint32_t width = m_HzbWidth;
+        uint32_t height = m_HzbHeight;
         shader->Use();
         shader->SetUniformui("level", level);
         shader->SetUniform2ui("outDepthPyramidSize", igm::uvec2{width, height});
-        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
-                                  GL_R32F);
+        m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
     // generate other level
-    for (unsigned int level = 1; level < m_DepthPyramidLevels; ++level) {
-        uint32_t width = m_DepthPyramidWidth >> (level - 1);
-        uint32_t height = m_DepthPyramidHeight >> (level - 1);
+    for (unsigned int level = 1; level < m_HzbLevels; ++level) {
+        uint32_t width = m_HzbWidth >> (level - 1);
+        uint32_t height = m_HzbHeight >> (level - 1);
         if (width < 1) width = 1;
         if (height < 1) height = 1;
 
@@ -721,9 +640,7 @@ void Scene::RefreshDepthPyramid() {
         shader->Use();
         shader->SetUniformui("level", level);
         shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
-        m_DepthPyramid->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY,
-                                  GL_R32F);
-
+        m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
@@ -744,12 +661,15 @@ void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     // convert to drawable data
+
+#ifndef GL_DEBUG_CULLING
     for (auto& [id, model]: m_Models) {
         if (!model->m_DataObject->IsDrawable()) { continue; }
 
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
         drawObject->ReAllocateDisplayBuffer();
     }
+#endif
 
     // update camera data block in GPU
     UpdateCameraDataBlock();
@@ -783,23 +703,16 @@ void Scene::DrawFrame() {
 
     // draw axes in bottom left
     {
-        auto viewport = m_Camera->GetScaledViewPort();
-        int scale = static_cast<int>(std::max(viewport.x, viewport.y)) / 10.0f;
-        igm::ivec4 drawRange = igm::ivec4{0, 0, scale, scale};
-
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
-        //glClear(GL_DEPTH_BUFFER_BIT);
-        glViewport(drawRange.x, drawRange.y, drawRange.z, drawRange.w);
-        DrawAxes(drawRange);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        m_Axes->Draw(this);
     }
 }
 
 void Scene::ResolveFrame() {
 #ifdef GL_SUPPORTS_MSAA
     auto viewport = m_Camera->GetScaledViewPort();
-
     glViewport(0, 0, viewport.x, viewport.y);
-    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
     auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
@@ -811,9 +724,7 @@ void Scene::ResolveFrame() {
     m_DepthTextureMultisampled->Active(GL_TEXTURE2);
     shader->SetUniformi("depthTextureMS", 2);
 
-    m_EmptyVAO->Bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO->Release();
+    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 #endif
 }
 
@@ -821,7 +732,6 @@ void Scene::RenderToQtFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     glViewport(0, 0, viewport.x, viewport.y);
-    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
     auto shader = this->GetShader(ShaderType::SCREEN);
@@ -832,7 +742,7 @@ void Scene::RenderToQtFrame() {
     m_ColorTextureResolved->GenerateMipmap();
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
-    m_DepthPyramid->Active(GL_TEXTURE3);
+    m_HzbTexture->Active(GL_TEXTURE3);
 
     // Note:
     // 1. To enable depth rendering, ensure the screen.frag file is updated to handle the depth texture input.
@@ -845,13 +755,11 @@ void Scene::RenderToQtFrame() {
 #else
     m_ColorTexture->Active(GL_TEXTURE1);
     m_DepthTexture->Active(GL_TEXTURE2);
-    m_DepthPyramid->Active(GL_TEXTURE3);
+    m_HzbTexture->Active(GL_TEXTURE3);
     shader->SetUniformi("screenColorSampler", 1);
 #endif
 
-    m_EmptyVAO->Bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    m_EmptyVAO->Release();
+    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 void Scene::ShadowPass() { GLCheckError(); }
@@ -863,75 +771,65 @@ void Scene::ForwardPass() {
         model->GetPainter3D()->Draw(this);
     }
 #elif IGAME_OPENGL_VERSION_460
-    bool debug = false;
-    if (debug) {
-        //std::cout << "-------:Draw:-------" << std::endl;
-        RefreshDrawCullDataBuffer();
 
+#ifdef GL_DEBUG_CULLING
 #ifdef GL_SUPPORTS_MESH_SHADER
-        // draw phase1: draw visible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase1(this);
-            }
-        }
+    // draw phase1: draw visible meshlet
+    // Note: The first HZB culling pass must use the previous frame's data
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
+    }
 
-        // refresh phase1: generate loacl hierarchical z-buffer
-        RefreshDepthPyramid();
+    // refresh phase 1: generate loacl hierarchical z-buffer & cull data
+    RefreshDepthHzb();
+    RefreshDrawCullDataBuffer();
 
-        // draw phase2: draw invisible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase2(this);
-            }
-        }
+    // draw phase2: draw invisible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
+    }
 
-        // refresh phase2: generate global hierarchical z-buffer
-        RefreshDepthPyramid();
+    // refresh phase2: generate global hierarchical z-buffer
+    RefreshDepthHzb();
 #else
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->TestOcclusionResults(this);
-            }
-        }
-
-        // draw phase1: draw visible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase1(this);
-            }
-        }
-
-        // refresh phase1: generate loacl hierarchical z-buffer
-        RefreshDepthPyramid();
-
-        // draw phase2: draw invisible meshlet
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->DrawPhase2(this);
-            }
-        }
-
-        // refresh phase2: generate global hierarchical z-buffer
-        RefreshDepthPyramid();
-#endif
-    } else {
-        for (auto& [id, model]: m_Models) {
-            // draw mesh
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-            if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
-
-            // draw painter(since painter does not support transparency)
-            if (drawObject->GetVisibility()) {
-                model->GetPainter3D()->Draw(this);
-            }
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) {
+            model->TestOcclusionResults(this);
         }
     }
+
+    // draw phase1: draw visible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
+    }
+
+    // refresh phase1: generate loacl hierarchical z-buffer
+    RefreshDepthHzb();
+    RefreshDrawCullDataBuffer();
+
+    // draw phase2: draw invisible meshlet
+    for (auto& [id, model]: m_Models) {
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
+    }
+
+    // refresh phase2: generate global hierarchical z-buffer
+    RefreshDepthHzb();
+#endif // GL_SUPPORTS_MESH_SHADER
+#else
+    for (auto& [id, model]: m_Models) {
+        // draw mesh
+        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
+
+        // draw painter(since painter does not support transparency)
+        if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(this); }
+    }
+#endif // GL_DEBUG_CULLING
 
 #endif
     GLCheckError();
@@ -990,9 +888,7 @@ void Scene::TransparentPass() {
         m_OITLinkedListTexture->BindImage(1, 0, GL_FALSE, 0, GL_READ_ONLY,
                                           GL_RGBA32UI);
 
-        m_EmptyVAO->Bind();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        m_EmptyVAO->Release();
+        m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
     }
     glEnable(GL_DEPTH_TEST);
 #endif
@@ -1057,41 +953,12 @@ void Scene::VolumeRenderingPass() {
 }
 
 void Scene::UpdateCameraDataBlock() {
-    // update camera data matrix
-    //m_CameraData.camera_position = m_Camera->GetPosition();
-    //m_CameraData.isOrtho = m_Camera->GetType() == Camera::Type::ORTHOGRAPHIC;
-    //m_CameraData.view = m_Camera->GetViewMatrix();
-    //m_CameraData.proj = m_Camera->GetProjectionMatrix();
-    //m_CameraData.proj_view =
-    //        m_Camera->GetProjectionMatrix() * m_Camera->GetViewMatrix();
-
-    // update camera data matrix
     m_ShaderManager->UpdateCameraBlock(m_Camera);
 }
-void Scene::UpdateObjectDataBlock(DataObject::Pointer obj) {
-    // update object data matrix
-    //auto drawObject = DynamicCast<DrawObject>(obj);
-    //auto box = obj->GetBoundingBox();
-    //Vector3f center = box.center();
-    //
-    //m_ObjectData.transparent = drawObject->GetTransparency();
-    //m_ObjectData.model = m_ModelMatrix;
-    //m_ObjectData.normal = m_ObjectData.model.invert().transpose();
-    //m_ObjectData.sphereBounds = igm::vec4{center[0], center[1], center[2],
-    //                                      static_cast<float>(box.diag() / 2)};
-
-    // update object data matrix
-    //m_ObjectDataBlock->SubData(0, sizeof(ObjectDataBuffer), &m_ObjectData);
+void Scene::UpdateObjectDataBlock(SmartPointer<DataObject> obj) {
     m_ShaderManager->UpdateObjectBlock(obj, m_ModelMatrix);
 }
-void Scene::UpdateUniformBufferObjectBlock(DataObject::Pointer obj) {
-    //auto drawObject = DynamicCast<DrawObject>(obj);
-    //
-    //m_UBO.useColor = drawObject->IsUseColor();
-    //m_UBO.useNormalSmooth = drawObject->IsUseNormalSmooth();
-    //
-    //// update other ubo
-    ////m_UBOBlock->SubData(0, sizeof(UniformBufferObjectBuffer), &m_UBO);
+void Scene::UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj) {
     m_ShaderManager->UpdateUBOBlock(obj);
 }
 
@@ -1117,61 +984,9 @@ void Scene::UpdateCameraClippingRange() {
     m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
-//void Scene::UpdateUniformBuffer() {
-//    m_ShaderManager->UpdateCameraBlock(m_Camera);
-//    m_ShaderManager->UpdateObjectBlock(m_ObjectData);
-//    m_ShaderManager->UpdateBlock(m_UBO);
-//}
-
-void Scene::DrawAxes(igm::ivec4 drawRange) {
-    auto axesShader = this->GetShader(ShaderType::AXES);
-    axesShader->Use();
-
-    axesShader->SetUniformMatrix4x4("model", m_ModelRotate);
-
-    // draw Axes
-    {
-        axesShader->SetUniformi("isDrawFont", 0);
-        m_Axes->DrawAxes();
-    }
-
-    // draw Axes Font
-    {
-        axesShader->SetUniformi("isDrawFont", 1);
-        m_Axes->Update(Axes::ProjMatrix() * Axes::ViewMatrix() * m_ModelRotate,
-                       {drawRange.x, drawRange.y, drawRange.z, drawRange.w});
-        m_Axes->DrawXYZ(axesShader, m_FontManager->GetTexture(L'X'),
-                        m_FontManager->GetTexture(L'Y'),
-                        m_FontManager->GetTexture(L'Z'));
-    }
-}
-
 void Scene::RefreshDrawCullDataBuffer() {
-    m_ShaderManager->UpdateCullDataBuffer(
-            m_Camera, m_ModelMatrix, m_DepthPyramidWidth, m_DepthPyramidHeight);
-    //igm::mat4 projection = m_Camera->GetProjectionMatrix();
-    //igm::mat4 projectionT = projection.transpose();
-    //
-    //igm::vec4 frustumX =
-    //        (projectionT[3] + projectionT[0]).normalized(); // x + w < 0
-    //igm::vec4 frustumY =
-    //        (projectionT[3] + projectionT[1]).normalized(); // y + w < 0
-    //
-    //DrawCullData cullData = {};
-    //cullData.view_model = m_Camera->GetViewMatrix() * m_ModelMatrix;
-    //cullData.P00 = projection[0][0];
-    //cullData.P11 = projection[1][1];
-    ////cullData.zNear = projection[3][2];
-    //cullData.zNear = m_Camera->GetClippingRange().x;
-    //cullData.zFar = m_Camera->GetClippingRange().y;
-    //cullData.frustum[0] = frustumX.x;
-    //cullData.frustum[1] = frustumX.z;
-    //cullData.frustum[2] = frustumY.y;
-    //cullData.frustum[3] = frustumY.z;
-    //cullData.pyramidWidth = static_cast<float>(m_DepthPyramidWidth);
-    //cullData.pyramidHeight = static_cast<float>(m_DepthPyramidHeight);
-    //
-    //m_DrawCullData->SubData(0, sizeof(DrawCullData), &cullData);
+    m_ShaderManager->UpdateCullDataBuffer(m_Camera, m_ModelMatrix, m_HzbWidth,
+                                          m_HzbHeight);
 }
 
 void Scene::ResetCameraViewToPositiveX() {
@@ -1400,11 +1215,16 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                 glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
                              colorBuffer.data());
                 break;
+            case ZBuffer:
+                colorBuffer.resize(width * height);
+                glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
+                             colorBuffer.data());
             default:
                 break;
         }
     }
     m_FramebufferResolved->Release();
+
     if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
         // Flip data Line
@@ -1417,34 +1237,10 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
     }
     return colorBuffer;
 }
-std::vector<float> Scene::CaptureScreenDepthBuffer(int x, int y, int width,
-                                                   int height) {
-    std::vector<float> ZBuffer(width * height);
 
-    m_FramebufferResolved->Bind();
-    {
-        // Read pixels from the OpenGL buffer (bottom-left corner)
-        //
-        //  y↑
-        //   |
-        //   |
-        //   +-----→x
-        //
-        glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
-                     ZBuffer.data());
-    }
-    m_FramebufferResolved->Release();
+SmartPointer<Painter2D> Scene::GetPainter2D() { return m_Painter2D; }
 
-    return ZBuffer;
-}
-
-GLBuffer::Pointer Scene::GetDrawCullDataBuffer() {
-    return m_ShaderManager->GetCullDataBuffer();
-}
-
-Painter2D::Pointer Scene::GetPainter2D() { return m_Painter2D; }
-
-Painter3D::Pointer Scene::GetPainter3D() { return m_Painter3D; }
+SmartPointer<Painter3D> Scene::GetPainter3D() { return m_Painter3D; }
 
 void Scene::MakeCurrent() {
     if (m_MakeCurrentFunctor) { m_MakeCurrentFunctor(); }

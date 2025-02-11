@@ -18,14 +18,19 @@ public:
 
     static Pointer New(){return new ODBReader;}
 
-    /* Read Odb file's Mesh With first keyframe's field data. */
+    /* Read Odb file's Mesh WITH first keyframe's field data without specific stepName.
+    * Therefore, the first one step is readed by default */
     DataObject::Pointer ReadOdbFirstFrameMesh(const std::string& filePath);
+    /* Read Odb file's Mesh WITH first keyframe's field data with specific stepName. */
+    DataObject::Pointer ReadOdbFirstFrameMesh(const std::string& filePath, const std::string& stepName);
 
-    /* Read Odb file's raw Mesh without SPECIFIC frame's field data. */
-    DataObject::Pointer ReadOdbMesh(const std::string& filePath);
+    /* Read raw Mesh without specific frame's field data. */
+    DataObject::Pointer ReadOdbRawMesh(const std::string& filePath);
 
+    /* Read specific frame's field data with specific stepName*/
     AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, const std::string& stepName, int frame_idx);
-
+    /* Read specific frame's field data without specific stepName.
+     * Therefore, the first one step is readed by default */
     AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, int frame_idx);
 
 protected:

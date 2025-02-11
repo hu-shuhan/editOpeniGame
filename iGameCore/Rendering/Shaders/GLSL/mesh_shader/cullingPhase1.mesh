@@ -89,6 +89,18 @@ taskNV in Task {
     uint8_t   deltaIDs[MESHLET_PER_TASK];
 } task_in;
 
+const vec3 colors[9] = {
+vec3(0.9882, 0.1647, 0.2078), // Red
+vec3(0.9882, 0.6431, 0.0824), // Orange
+vec3(1.0000, 0.9216, 0.2314), // Yellow
+vec3(0.3294, 0.9176, 0.5451), // Green
+vec3(0.0902, 0.7451, 0.8118), // Teal
+vec3(0.1882, 0.7490, 0.9333), // Blue
+vec3(0.5373, 0.5412, 0.9882), // Purple
+vec3(0.8902, 0.4667, 0.7608), // Pink
+vec3(0.9804, 0.7137, 0.8235)// Light Pink
+};
+
 void main() {
     uint groupIndex = gl_WorkGroupID.x;
     uint groupThreadIndex = gl_LocalInvocationID.x;
@@ -116,7 +128,12 @@ void main() {
         gl_MeshVerticesNV[localVertexIndex].gl_Position = cameraData.proj * vcPosition;
 
         // color
+        float r = colorBuffer.data[offset];
+        float g = colorBuffer.data[offset + 1];
+        float b = colorBuffer.data[offset + 2];
+        //         v_out[localVertexIndex].color = vec3(r, g, b);
         v_out[localVertexIndex].color = vec3(1.0f, 1.0f, 1.0f);
+        //        v_out[localVertexIndex].color = colors[meshletID % 9];
 
         // normal
         float nx = normalBuffer.data[offset];
@@ -132,6 +149,7 @@ void main() {
     }
 
     // triangle index
+    // The CPU passes the index in uint8_t format
     uint packedTriangleBegin = meshlet.triangle_offset / 4;
     uint packedTriangleMax = (3 * meshlet.triangle_count - 1) / 4;
     for (uint loop = 0; loop < primreadLoops; ++loop) {

@@ -9,7 +9,7 @@ public:
     I_OBJECT(MultiSelectionStyle);
     static Pointer New() { return new MultiSelectionStyle; }
 
-    void MousePressEvent(IEvent _event) override;
+    void MousePressEvent(IEvent event) override;
 
     void LeftButtonMouseMove() override;
 
@@ -17,13 +17,13 @@ public:
     virtual void SelectFaces(const std::vector<igm::vec4>& planes);
 
 protected:
-    MultiSelectionStyle() = default;
-    ~MultiSelectionStyle() override = default;
+    MultiSelectionStyle();
+    ~MultiSelectionStyle() override;
 
     bool IsPointInFrustum(const igm::vec3& p,
                           const std::vector<igm::vec4>& planes);
 
-    igm::mat4 InvertedMVP{};
+    igm::mat4 m_InvertedMVP;
 };
 IGAME_NAMESPACE_END
 #endif

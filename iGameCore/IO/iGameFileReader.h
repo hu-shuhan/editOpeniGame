@@ -8,7 +8,6 @@
 #include "iGameFlatArray.h"
 #include <algorithm>
 #include <cstdio>
-#include <tchar.h>
 #include <cfloat>
 
 #ifdef PLATFORM_WINDOWS

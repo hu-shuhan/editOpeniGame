@@ -5,195 +5,78 @@
 
 IGAME_NAMESPACE_BEGIN
 DrawObject::DrawObject() {
-    m_Clipper = iGameClipper::New();
+    m_AutoUpdateDrawData = true;
+    m_DisplayObject = nullptr;
+
+    m_PointVAO = GLVertexArray::New();
+    m_LineVAO = GLVertexArray::New();
+    m_TriangleVAO = GLVertexArray::New();
+
+    m_PositionVBO = GLBuffer::New();
+    m_ColorVBO = GLBuffer::New();
+    m_NormalVBO = GLBuffer::New();
+    m_TextureVBO = GLBuffer::New();
+
+    m_PointEBO = GLBuffer::New();
+    m_LineEBO = GLBuffer::New();
+    m_TriangleEBO = GLBuffer::New();
+
+    m_CellVAO = GLVertexArray::New();
+    m_CellPositionVBO = GLBuffer::New();
+    m_CellColorVBO = GLBuffer::New();
+    m_CellEBO = GLBuffer::New();
 
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
-
     m_Colors = FloatArray::New();
     m_Colors->SetDimension(3);
-
     m_Normals = FloatArray::New();
     m_Normals->SetDimension(3);
-
     m_Textures = FloatArray::New();
     m_Textures->SetDimension(2);
 
     m_PointIndices = UnsignedIntArray::New();
     m_PointIndices->SetDimension(1);
-
     m_LineIndices = UnsignedIntArray::New();
     m_LineIndices->SetDimension(2);
-
     m_TriangleIndices = UnsignedIntArray::New();
     m_TriangleIndices->SetDimension(3);
 
+    m_UseSinglePassWireframeRendering = true;
+    m_TriangleEdgeMasks = UnsignedCharArray::New();
+    m_TriangleEdgeMasks->SetDimension(1);
+    m_EdgeMaskBuffer = GLBuffer::New();
+    m_EdgeMaskTexture = GLTextureBuffer::New();
+
     m_CellPositions = FloatArray::New();
     m_CellPositions->SetDimension(3);
-
     m_CellColors = FloatArray::New();
     m_CellColors->SetDimension(3);
-
     m_CellIndices = UnsignedIntArray::New();
     m_CellIndices->SetDimension(3);
 
-    m_TriangleEdgeMasks = UnsignedCharArray::New();
-    m_TriangleEdgeMasks->SetDimension(1);
-}
+    m_ViewStyle = IG_SURFACE;
+    m_Visibility = true;
 
-void DrawObject::CreateDrawBuffer() {
-    if (!m_Flag) {
-        m_PointVAO = GLVertexArray::New();
-        m_PointVAO->Create();
+    m_Flag = false;
+    m_UseColor = false;
+    m_UseNormalSmooth = false;
+    m_ColorWithCell = false;
+    m_PointSize = 8.0f;
+    m_LineWidth = 1.0f;
+    m_CellPositionSize = 0;
 
-        m_LineVAO = GLVertexArray::New();
-        m_LineVAO->Create();
+    m_PolygonFactor = 0.0f;
+    m_PolygonOffset = 0.0f;
+    m_LineFactor = 0.0f;
+    m_LineOffset = 0.0f;
+    m_PointOffset = 0.0f;
 
-        m_TriangleVAO = GLVertexArray::New();
-        m_TriangleVAO->Create();
+    m_Transparency = 1.0f;
+    m_ExecuteShell = true;
+    m_ReConvertToDrawableData = false;
 
-        m_PositionVBO = GLBuffer::New();
-        m_PositionVBO->Create();
-        m_PositionVBO->Target(GL_ARRAY_BUFFER);
-
-        m_ColorVBO = GLBuffer::New();
-        m_ColorVBO->Create();
-        m_ColorVBO->Target(GL_ARRAY_BUFFER);
-
-        m_NormalVBO = GLBuffer::New();
-        m_NormalVBO->Create();
-        m_NormalVBO->Target(GL_ARRAY_BUFFER);
-
-        m_TextureVBO = GLBuffer::New();
-        m_TextureVBO->Create();
-        m_TextureVBO->Target(GL_ARRAY_BUFFER);
-
-        m_PointEBO = GLBuffer::New();
-        m_PointEBO->Create();
-        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_LineEBO = GLBuffer::New();
-        m_LineEBO->Create();
-        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_TriangleEBO = GLBuffer::New();
-        m_TriangleEBO->Create();
-        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_CellVAO = GLVertexArray::New();
-        m_CellVAO->Create();
-
-        m_CellPositionVBO = GLBuffer::New();
-        m_CellPositionVBO->Create();
-        m_CellPositionVBO->Target(GL_ARRAY_BUFFER);
-
-        m_CellColorVBO = GLBuffer::New();
-        m_CellColorVBO->Create();
-        m_CellColorVBO->Target(GL_ARRAY_BUFFER);
-
-        m_CellEBO = GLBuffer::New();
-        m_CellEBO->Create();
-        m_CellEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-
-        m_EdgeMaskBuffer = GLBuffer::New();
-        m_EdgeMaskBuffer->Create();
-        m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
-        // Allocate a minimal buffer with a single byte of data.
-        // In OpenGL 3.3, binding a GL_TEXTURE_BUFFER requires the buffer to have a non-zero size.
-        // If the buffer size is zero, glTexBuffer will trigger an INVALID_OPERATION error.
-        // Allocating sizeof(unsigned char) (1 byte) ensures the buffer meets the size requirement,
-        // even if the actual data is not yet provided.
-        m_EdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr, GL_STATIC_DRAW);
-
-
-        m_EdgeMaskTexture = GLTextureBuffer::New();
-        m_EdgeMaskTexture->Create();
-        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
-
-#ifdef IGAME_OPENGL_VERSION_460
-        m_Meshlets->CreateBuffer();
-#endif
-
-        //// set point drawing format
-        //{
-        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-        //                            3 * sizeof(float));
-        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-        //                            3 * sizeof(float));
-        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
-        //                            3 * sizeof(float));
-        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
-        //                            2 * sizeof(float));
-        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    m_PointVAO.elementBuffer(m_PointEBO);
-        //}
-        //
-        //// set line drawing format
-        //{
-        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-        //                           3 * sizeof(float));
-        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-        //                           3 * sizeof(float));
-        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
-        //                           3 * sizeof(float));
-        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
-        //                           2 * sizeof(float));
-        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    m_LineVAO.elementBuffer(m_LineEBO);
-        //}
-        //
-        //// set triangle drawing format
-        //{
-        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-        //                               3 * sizeof(float));
-        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-        //                               3 * sizeof(float));
-        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
-        //                               3 * sizeof(float));
-        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
-        //                               2 * sizeof(float));
-        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    m_TriangleVAO.elementBuffer(m_TriangleEBO);
-        //}
-        //
-        //// set cell drawing format
-        //{
-        //    m_CellVAO.vertexBuffer(GL_VBO_IDX_0, m_CellPositionVBO, 0,
-        //                           3 * sizeof(float));
-        //    m_CellVAO.vertexBuffer(GL_VBO_IDX_1, m_CellColorVBO, 0,
-        //                           3 * sizeof(float));
-        //    GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-        //                      GL_FLOAT, GL_FALSE, 0);
-        //    m_CellVAO.elementBuffer(m_CellEBO);
-        //}
-
-        m_Flag = true;
-    }
-
-    GLCheckError();
+    m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::ConvertToDrawableData() {
@@ -205,119 +88,6 @@ void DrawObject::ConvertToDrawableData() {
 
     // process this object
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ConvertToDrawableData); }
-}
-
-void DrawObject::ReAllocateDisplayBuffer() {
-    // process display object
-    if (m_DisplayObject) {
-        m_DisplayObject->ReAllocateDisplayBuffer();
-        return;
-    }
-
-    // process this object
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
-        return;
-    }
-    this->CreateDrawBuffer();
-
-    if (m_AutoUpdateDrawData) {
-        ConvertToDrawableData();
-        if (m_DisplayObject) { m_DisplayObject->ReAllocateDisplayBuffer(); }
-    }
-
-    if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());
-        m_PositionVBO->Modified();
-
-        SetPositionBufferToVAO(m_PointVAO, m_PositionVBO);
-        SetPositionBufferToVAO(m_LineVAO, m_PositionVBO);
-        SetPositionBufferToVAO(m_TriangleVAO, m_PositionVBO);
-    }
-
-    if (m_Colors->GetMTime() > m_ColorVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_ColorVBO, m_Colors->GetNumberOfValues() * sizeof(float), m_Colors->RawPointer());
-        m_ColorVBO->Modified();
-
-        SetColorBufferToVAO(m_PointVAO, m_ColorVBO);
-        SetColorBufferToVAO(m_LineVAO, m_ColorVBO);
-        SetColorBufferToVAO(m_TriangleVAO, m_ColorVBO);
-    }
-
-    if (m_Normals->GetMTime() > m_NormalVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_NormalVBO, m_Normals->GetNumberOfValues() * sizeof(float), m_Normals->RawPointer());
-        m_NormalVBO->Modified();
-
-        SetNormalBufferToVAO(m_PointVAO, m_NormalVBO);
-        SetNormalBufferToVAO(m_LineVAO, m_NormalVBO);
-        SetNormalBufferToVAO(m_TriangleVAO, m_NormalVBO);
-    }
-
-    if (m_Textures->GetMTime() > m_TextureVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_TextureVBO, m_Textures->GetNumberOfValues() * sizeof(float), m_Textures->RawPointer());
-        m_TextureVBO->Modified();
-
-        SetTextureBufferToVAO(m_PointVAO, m_TextureVBO);
-        SetTextureBufferToVAO(m_LineVAO, m_TextureVBO);
-        SetTextureBufferToVAO(m_TriangleVAO, m_TextureVBO);
-    }
-
-    if (m_PointIndices->GetMTime() > m_PointEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_PointEBO, m_PointIndices->GetNumberOfValues() * sizeof(igIndex),
-                           m_PointIndices->RawPointer());
-        m_PointEBO->Modified();
-
-        m_PointVAO->ElementBuffer(m_PointEBO);
-    }
-
-    if (m_LineIndices->GetMTime() > m_LineEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_LineEBO, m_LineIndices->GetNumberOfValues() * sizeof(igIndex),
-                           m_LineIndices->RawPointer());
-        m_LineEBO->Modified();
-
-        m_LineVAO->ElementBuffer(m_LineEBO);
-    }
-
-    if (m_TriangleIndices->GetMTime() > m_TriangleEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_TriangleEBO, m_TriangleIndices->GetNumberOfValues() * sizeof(igIndex),
-                           m_TriangleIndices->RawPointer());
-        m_TriangleEBO->Modified();
-
-        m_TriangleVAO->ElementBuffer(m_TriangleEBO);
-    }
-
-    if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
-        GLAllocateGLBuffer(m_EdgeMaskBuffer, m_TriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
-                           m_TriangleEdgeMasks->RawPointer());
-        m_EdgeMaskBuffer->Modified();
-
-        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
-    }
-
-    if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellPositionVBO, m_CellPositions->GetNumberOfValues() * sizeof(float),
-                           m_CellPositions->RawPointer());
-        m_CellPositionVBO->Modified();
-
-        SetPositionBufferToVAO(m_CellVAO, m_CellPositionVBO);
-    }
-
-    if (m_CellColors->GetMTime() > m_CellColorVBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellColorVBO, m_CellColors->GetNumberOfValues() * sizeof(float),
-                           m_CellColors->RawPointer());
-        m_CellColorVBO->Modified();
-
-        SetColorBufferToVAO(m_CellVAO, m_CellColorVBO);
-    }
-
-    if (m_CellIndices->GetMTime() > m_CellEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellEBO, m_CellIndices->GetNumberOfValues() * sizeof(float), m_CellIndices->RawPointer());
-        m_CellEBO->Modified();
-
-        m_CellVAO->ElementBuffer(m_CellEBO);
-    }
-
-    GLCheckError();
 }
 
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
@@ -394,6 +164,8 @@ unsigned int DrawObject::GetViewStyleOfModel() {
 }
 
 bool DrawObject::GetClipped() { return false; }; // Gets whether this can be clipped.
+
+iGameClipper::Pointer DrawObject::GetClipper() { return m_Clipper; }
 
 void DrawObject::SetPointSize(float size) {
     if (size < 0) {
@@ -557,6 +329,242 @@ void DrawObject::SetDisplayObject(DataObject::Pointer dataObject) {
 }
 
 DrawObject::Pointer DrawObject::GetDisplayObject() { return m_DisplayObject; }
+
+void DrawObject::CreateDrawBuffer() {
+    if (!m_Flag) {
+        m_PointVAO->Create();
+        m_LineVAO->Create();
+        m_TriangleVAO->Create();
+
+        m_PositionVBO->Create();
+        m_PositionVBO->Target(GL_ARRAY_BUFFER);
+        m_ColorVBO->Create();
+        m_ColorVBO->Target(GL_ARRAY_BUFFER);
+        m_NormalVBO->Create();
+        m_NormalVBO->Target(GL_ARRAY_BUFFER);
+        m_TextureVBO->Create();
+        m_TextureVBO->Target(GL_ARRAY_BUFFER);
+        m_PointEBO->Create();
+        m_PointEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+        m_LineEBO->Create();
+        m_LineEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+        m_TriangleEBO->Create();
+        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_CellVAO->Create();
+        m_CellPositionVBO->Create();
+        m_CellPositionVBO->Target(GL_ARRAY_BUFFER);
+        m_CellColorVBO->Create();
+        m_CellColorVBO->Target(GL_ARRAY_BUFFER);
+        m_CellEBO->Create();
+        m_CellEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+        m_EdgeMaskBuffer->Create();
+        m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
+        // Allocate a minimal buffer with a single byte of data.
+        // In OpenGL 3.3, binding a GL_TEXTURE_BUFFER requires the buffer to have a non-zero size.
+        // If the buffer size is zero, glTexBuffer will trigger an INVALID_OPERATION error.
+        // Allocating sizeof(unsigned char) (1 byte) ensures the buffer meets the size requirement,
+        // even if the actual data is not yet provided.
+        m_EdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr, GL_STATIC_DRAW);
+        
+        m_EdgeMaskTexture->Create();
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
+
+        //// set point drawing format
+        //{
+        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+        //                            3 * sizeof(float));
+        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+        //                            3 * sizeof(float));
+        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
+        //                            3 * sizeof(float));
+        //    m_PointVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
+        //                            2 * sizeof(float));
+        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_PointVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    m_PointVAO.elementBuffer(m_PointEBO);
+        //}
+        //
+        //// set line drawing format
+        //{
+        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+        //                           3 * sizeof(float));
+        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+        //                           3 * sizeof(float));
+        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
+        //                           3 * sizeof(float));
+        //    m_LineVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
+        //                           2 * sizeof(float));
+        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_LineVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    m_LineVAO.elementBuffer(m_LineEBO);
+        //}
+        //
+        //// set triangle drawing format
+        //{
+        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+        //                               3 * sizeof(float));
+        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+        //                               3 * sizeof(float));
+        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_2, m_NormalVBO, 0,
+        //                               3 * sizeof(float));
+        //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_3, m_TextureVBO, 0,
+        //                               2 * sizeof(float));
+        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_2, GL_VBO_IDX_2, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    m_TriangleVAO.elementBuffer(m_TriangleEBO);
+        //}
+        //
+        //// set cell drawing format
+        //{
+        //    m_CellVAO.vertexBuffer(GL_VBO_IDX_0, m_CellPositionVBO, 0,
+        //                           3 * sizeof(float));
+        //    m_CellVAO.vertexBuffer(GL_VBO_IDX_1, m_CellColorVBO, 0,
+        //                           3 * sizeof(float));
+        //    GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    GLSetVertexAttrib(m_CellVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+        //                      GL_FLOAT, GL_FALSE, 0);
+        //    m_CellVAO.elementBuffer(m_CellEBO);
+        //}
+
+        m_Flag = true;
+    }
+
+    GLCheckError();
+}
+
+void DrawObject::ReAllocateDisplayBuffer() {
+    // process display object
+    if (m_DisplayObject) {
+        m_DisplayObject->ReAllocateDisplayBuffer();
+        return;
+    }
+
+    // process this object
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
+        return;
+    }
+    this->CreateDrawBuffer();
+
+    if (m_AutoUpdateDrawData) {
+        ConvertToDrawableData();
+        if (m_DisplayObject) { m_DisplayObject->ReAllocateDisplayBuffer(); }
+    }
+
+    if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());
+        m_PositionVBO->Modified();
+
+        SetPositionBufferToVAO(m_PointVAO, m_PositionVBO);
+        SetPositionBufferToVAO(m_LineVAO, m_PositionVBO);
+        SetPositionBufferToVAO(m_TriangleVAO, m_PositionVBO);
+    }
+
+    if (m_Colors->GetMTime() > m_ColorVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_ColorVBO, m_Colors->GetNumberOfValues() * sizeof(float), m_Colors->RawPointer());
+        m_ColorVBO->Modified();
+
+        SetColorBufferToVAO(m_PointVAO, m_ColorVBO);
+        SetColorBufferToVAO(m_LineVAO, m_ColorVBO);
+        SetColorBufferToVAO(m_TriangleVAO, m_ColorVBO);
+    }
+
+    if (m_Normals->GetMTime() > m_NormalVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_NormalVBO, m_Normals->GetNumberOfValues() * sizeof(float), m_Normals->RawPointer());
+        m_NormalVBO->Modified();
+
+        SetNormalBufferToVAO(m_PointVAO, m_NormalVBO);
+        SetNormalBufferToVAO(m_LineVAO, m_NormalVBO);
+        SetNormalBufferToVAO(m_TriangleVAO, m_NormalVBO);
+    }
+
+    if (m_Textures->GetMTime() > m_TextureVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_TextureVBO, m_Textures->GetNumberOfValues() * sizeof(float), m_Textures->RawPointer());
+        m_TextureVBO->Modified();
+
+        SetTextureBufferToVAO(m_PointVAO, m_TextureVBO);
+        SetTextureBufferToVAO(m_LineVAO, m_TextureVBO);
+        SetTextureBufferToVAO(m_TriangleVAO, m_TextureVBO);
+    }
+
+    if (m_PointIndices->GetMTime() > m_PointEBO->GetMTime()) {
+        GLAllocateGLBuffer(m_PointEBO, m_PointIndices->GetNumberOfValues() * sizeof(igIndex),
+                           m_PointIndices->RawPointer());
+        m_PointEBO->Modified();
+
+        m_PointVAO->ElementBuffer(m_PointEBO);
+    }
+
+    if (m_LineIndices->GetMTime() > m_LineEBO->GetMTime()) {
+        GLAllocateGLBuffer(m_LineEBO, m_LineIndices->GetNumberOfValues() * sizeof(igIndex),
+                           m_LineIndices->RawPointer());
+        m_LineEBO->Modified();
+
+        m_LineVAO->ElementBuffer(m_LineEBO);
+    }
+
+    if (m_TriangleIndices->GetMTime() > m_TriangleEBO->GetMTime()) {
+        GLAllocateGLBuffer(m_TriangleEBO, m_TriangleIndices->GetNumberOfValues() * sizeof(igIndex),
+                           m_TriangleIndices->RawPointer());
+        m_TriangleEBO->Modified();
+
+        m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+    }
+
+    if (m_TriangleEdgeMasks->GetMTime() > m_EdgeMaskBuffer->GetMTime()) {
+        GLAllocateGLBuffer(m_EdgeMaskBuffer, m_TriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
+                           m_TriangleEdgeMasks->RawPointer());
+        m_EdgeMaskBuffer->Modified();
+
+        m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
+    }
+
+    if (m_CellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_CellPositionVBO, m_CellPositions->GetNumberOfValues() * sizeof(float),
+                           m_CellPositions->RawPointer());
+        m_CellPositionVBO->Modified();
+
+        SetPositionBufferToVAO(m_CellVAO, m_CellPositionVBO);
+    }
+
+    if (m_CellColors->GetMTime() > m_CellColorVBO->GetMTime()) {
+        GLAllocateGLBuffer(m_CellColorVBO, m_CellColors->GetNumberOfValues() * sizeof(float),
+                           m_CellColors->RawPointer());
+        m_CellColorVBO->Modified();
+
+        SetColorBufferToVAO(m_CellVAO, m_CellColorVBO);
+    }
+
+    if (m_CellIndices->GetMTime() > m_CellEBO->GetMTime()) {
+        GLAllocateGLBuffer(m_CellEBO, m_CellIndices->GetNumberOfValues() * sizeof(float), m_CellIndices->RawPointer());
+        m_CellEBO->Modified();
+
+        m_CellVAO->ElementBuffer(m_CellEBO);
+    }
+
+    GLCheckError();
+}
 
 void DrawObject::SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO) {
     VAO->VertexBuffer(GL_VBO_IDX_0, VBO, 0, 3 * sizeof(float));

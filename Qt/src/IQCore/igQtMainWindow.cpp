@@ -53,6 +53,16 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 }
+void igQtMainWindow::initArgs(const QStringList &args) {
+    int argc = args.size();
+    for(int i = 1; i < argc; ++ i){
+        const QString& cur_arg = args[i].toLower();
+        if(cur_arg == "--filepath"){
+            const QString& filePath = args[++ i];
+            fileLoader->OpenFile(filePath.toStdString());
+        }
+    }
+}
 void igQtMainWindow::initAllUnDefinedComponents() {
     rendererWidget = new igQtModelDrawWidget(this);
     igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
@@ -639,7 +649,7 @@ void igQtMainWindow::initAllFilters() {
         //chart->exec();
 
 
-     /*   QuickModelClip::Pointer filter = QuickModelClip::New();
+        /*   QuickModelClip::Pointer filter = QuickModelClip::New();
         auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(input);
         auto bound = input->GetBoundingBox();
@@ -662,12 +672,12 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
         rendererWidget->update();*/
 
-        ContourFilter::Pointer filter=ContourFilter::New();
+        ContourFilter::Pointer filter = ContourFilter::New();
         auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(input);
-        auto m_ScalarArray=input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
-        auto m_IsoValue=0.5;
-        auto m_ScalarDimension=0;
+        auto m_ScalarArray = input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
+        auto m_IsoValue = 0.5;
+        auto m_ScalarDimension = 0;
         filter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
         filter->Execute();
         auto res = filter->GetOutput();
@@ -1026,7 +1036,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         SliceWidget->SetOriginDataObject(obj);
 
         rendererWidget->getInteractor()->SetDataObject(obj);
-        rendererWidget->getInteractor()->SetPainter(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
+        rendererWidget->getInteractor()->SetPainter3D(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
 
         if (rendererWidget->GetScene()->GetInteractor()) {
             rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
@@ -1467,3 +1477,5 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+

@@ -56,7 +56,7 @@ bool STLWriter::WriteBinaryToBuffer(CharArray::Pointer& file)
 		}
 		};
 
-	sprintf_s(buffer, 256, "%s", m_SurfaceMesh->GetName().c_str());
+	snprintf(buffer, 256, "%s", m_SurfaceMesh->GetName().c_str());
 	AddChars(buffer, 80);
 
 	uint16_t trash = 0;
@@ -118,7 +118,7 @@ bool STLWriter::WriteAsciiToBuffer(CharArray::Pointer& file)
 
 		// add normal
 		AddString(key1);
-		length = sprintf_s(buffer, 256, " %.6e %.6e %.6e\n", normal[0], normal[1], normal[2]);
+		length = snprintf(buffer, 256, " %.6e %.6e %.6e\n", normal[0], normal[1], normal[2]);
 		AddChars(buffer, length);
 
 		AddString(key2);
@@ -127,7 +127,7 @@ bool STLWriter::WriteAsciiToBuffer(CharArray::Pointer& file)
 		for (int j = 0; j < 3; ++j) {
 			auto point = face->GetPoint(j);
 			AddString(key3);
-			length = sprintf_s(buffer, 256, " %.6e %.6e %.6e\n", point[0], point[1], point[2]);
+			length = snprintf(buffer, 256, " %.6e %.6e %.6e\n", point[0], point[1], point[2]);
 			AddChars(buffer, length);
 		}
 

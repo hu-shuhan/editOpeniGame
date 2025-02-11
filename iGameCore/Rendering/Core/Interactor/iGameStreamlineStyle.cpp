@@ -3,6 +3,17 @@
 #include "iGamePointPicker.h"
 
 IGAME_NAMESPACE_BEGIN
+
+StreamDragStyle::StreamDragStyle() {
+    m_SelectedPointId = -1;
+
+    Selected_NDC_Z = 0.0f;
+    MVP = igm::mat4{};
+    InvertedMVP = igm::mat4{};
+}
+
+StreamDragStyle::~StreamDragStyle() {}
+
 void StreamDragStyle::MousePressEvent(IEvent _event) {
     StreamDragStyle::MousePressEvent(_event);
     MVP = m_Interactor->GetMVP();
@@ -15,7 +26,7 @@ void StreamDragStyle::MousePressEvent(IEvent _event) {
     igm::vec3 dir = (point1 - point2).normalized();
 
     Point p;
-    PointPicker::Pointer picker = PointPicker::New();
+    SmartPointer<PointPicker> picker = PointPicker::New();
     picker->SetPoints(m_Points);
     m_SelectedPointId = picker->PickClosetPointOnLine(
             Vector3d(point1.x, point1.y, point1.z),

@@ -1418,48 +1418,48 @@ border:2px solid #EEF1F7
   <customwidget>
    <class>igQtAnimationWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtanimationwidget.h</header>
+   <header>IQWidgets/igQtAnimationWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtModelListView</class>
    <extends>QTreeView</extends>
-   <header>IQComponents/igqtmodellistview.h</header>
+   <header>IQComponents/igQtModelListView.h</header>
   </customwidget>
   <customwidget>
    <class>igQtScalarViewWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtscalarviewwidget.h</header>
+   <header>IQWidgets/igQtScalarViewWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtQualityDetectionWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtqualitydetectionwidget.h</header>
+   <header>IQWidgets/igQtQualityDetectionWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtEditModeWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqteditmodewidget.h</header>
+   <header>IQWidgets/igQtEditModeWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtColorBarWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtcolorbarwidget.h</header>
+   <header>IQWidgets/igQtColorBarWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtSearchInfoWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtsearchinfowidget.h</header>
+   <header>IQWidgets/igQtSearchInfoWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtStreamTracerWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtstreamtracerwidget.h</header>
+   <header>IQWidgets/igQtStreamTracerWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
@@ -1471,13 +1471,13 @@ border:2px solid #EEF1F7
   <customwidget>
    <class>igQtTensorWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqttensorwidget.h</header>
+   <header>IQWidgets/igQtTensorWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtContourExtractWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/igqtcontourextractwidget.h</header>
+   <header>IQWidgets/igQtContourExtractWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

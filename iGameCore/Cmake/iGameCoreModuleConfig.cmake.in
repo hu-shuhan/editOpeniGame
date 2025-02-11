@@ -67,7 +67,7 @@ set(OPENIGAME_CORE_INCLUDE_DIRS
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/eigen-3.4.0
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/freetype-2.13.3/include
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/glad/glad460/include
-     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.21/src
+     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.22/src
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
      ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/lzma
@@ -78,11 +78,13 @@ if(@AbqSDK_FOUND@)
     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/2024
 )
+    list(APPEND OPENIGAME_CORE_PRIVATE_LIB ${OPENIGAME_INSTALL_DIR}/lib/ThirdParty/AbaqusSDK)
 endif()
 if(@FFMPEG_FOUND@)
     list(APPEND OPENIGAME_CORE_INCLUDE_DIRS
     ${OPENIGAME_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
 )
+    list(APPEND OPENIGAME_CORE_PRIVATE_LIB ${OPENIGAME_INSTALL_DIR}/lib/ThirdParty/FFMPEG)
 endif()
 
 file(GLOB_RECURSE OPENIGAME_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${OPENIGAME_INSTALL_DIR}/bin/*.dll)
@@ -143,6 +145,7 @@ foreach(LIB ${OpeniGame_CORE_LIB_LIST})
  #           NO_CMAKE_FIND_ROOT_PATH
     )
     if(temp${LIB})
+#        message(WARNING ${temp${LIB}})
         mark_as_advanced(temp${LIB})
             list(APPEND FOUND_OPENIGAME_CORE_LIB_FULL_PATH ${temp${LIB}})
 

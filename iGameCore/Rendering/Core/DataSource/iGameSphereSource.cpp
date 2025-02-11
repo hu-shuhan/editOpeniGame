@@ -4,6 +4,7 @@
  */
 
 #include "iGameSphereSource.h"
+#include "iGameRenderingLogger.h"
 #include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
@@ -197,8 +198,8 @@ SphereSource::RequestIcoSphere(const Point& center, float radius,
     // subdivide icosahedron
 
     if (subdivision <= 1) {
-        igDebug("Subdivision is less than or equal to 1. Skipping further "
-                "processing.");
+        Logger::LogInfo("Subdivision is less than or equal to 1. Skipping "
+                        "further processing.");
     } else {
         unsigned int subVertexCount = (subdivision + 1) * (subdivision + 2) / 2;
         Points newVs(subVertexCount);

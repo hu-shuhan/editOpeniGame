@@ -1,15 +1,15 @@
 #include "iGameModel.h"
 #include "iGameFilter.h"
 #include "iGameInteractor.h"
+#include "iGameRenderingLogger.h"
 #include "iGameScene.h"
+#include <format>
 
 IGAME_NAMESPACE_BEGIN
 
 Model::Model() {
     SwitchOff(ViewSwitch::BoundingBox);
     SwitchOn(ViewSwitch::PickedItem);
-
-    m_Meshleter = Meshleter::New();
 
     m_Selection = Selection::New();
     m_DataObject = DataObject::New();
@@ -22,8 +22,8 @@ Model::Model() {
 
 Model::~Model() {}
 
-void Model::Draw(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+void Model::Draw(SmartPointer<Scene> scene) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -38,18 +38,15 @@ void Model::Draw(Scene* scene) {
         if (useColor && colorWithCell) {
             scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -58,25 +55,22 @@ void Model::Draw(Scene* scene) {
             shader->Use();
             shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
 
-            drawObject->m_PointVAO->Bind();
-            {
-                glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(drawObject->m_PointSize);
 
-                float u;
-                drawObject->GetPointOffsetParameters(u);
+            float u;
+            drawObject->GetPointOffsetParameters(u);
 
-                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                    glad_glDrawArrays(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements());
-                } else {
-                    glad_glDrawElements(
-                            GL_POINTS,
-                            drawObject->m_PointIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
+            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                drawObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements());
+            } else {
+                drawObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
-            drawObject->m_PointVAO->Release();
         }
 
         // whether to use single-pass wireframe rendering
@@ -103,31 +97,27 @@ void Model::Draw(Scene* scene) {
                            (float) vp[3]};
             shader->SetUniform4f("vpDims", dims);
 
-            drawObject->m_TriangleVAO->Bind();
-            glad_glDrawElements(
-                    GL_TRIANGLES,
+            drawObject->m_TriangleVAO->DrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
-                    GL_UNSIGNED_INT, 0);
-            drawObject->m_TriangleVAO->Release();
+                    GL_UNSIGNED_INT);
         } else {
             if (viewStyle & IG_SURFACE) {
                 auto shader = scene->GetShader(ShaderType::BLINNPHONG);
                 shader->Use();
 
-                drawObject->m_TriangleVAO->Bind();
-                {
-                    float f, u;
-                    drawObject->GetPolygonOffsetParameters(f, u);
+                float f, u;
+                drawObject->GetPolygonOffsetParameters(f, u);
 
-                    glEnable(GL_POLYGON_OFFSET_FILL);
-                    glPolygonOffset(f, u);
-                    glad_glDrawElements(
-                            GL_TRIANGLES,
-                            drawObject->m_TriangleIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                    glDisable(GL_POLYGON_OFFSET_FILL);
-                }
-                drawObject->m_TriangleVAO->Release();
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(f, u);
+                drawObject->m_TriangleVAO->DrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+                glDisable(GL_POLYGON_OFFSET_FILL);
             }
 
             if (viewStyle & IG_WIREFRAME) {
@@ -139,19 +129,17 @@ void Model::Draw(Scene* scene) {
                     shader->SetUniform3f("inputColor",
                                          igm::vec3{0.0f, 0.0f, 0.0f});
                 }
-                drawObject->m_LineVAO->Bind();
-                {
-                    glLineWidth(drawObject->m_LineWidth);
 
-                    float f, u;
-                    drawObject->GetLineOffsetParameters(f, u);
+                glLineWidth(drawObject->m_LineWidth);
 
-                    glad_glDrawElements(
-                            GL_LINES,
-                            drawObject->m_LineIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
-                drawObject->m_LineVAO->Release();
+                float f, u;
+                drawObject->GetLineOffsetParameters(f, u);
+
+                drawObject->m_LineVAO->DrawRangeElements(
+                        GL_LINES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_LineIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
         }
     };
@@ -182,8 +170,8 @@ void Model::Draw(Scene* scene) {
     }
 }
 
-void Model::DrawWithTransparency(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -200,18 +188,15 @@ void Model::DrawWithTransparency(Scene* scene) {
             shader->Use();
             shader->SetUniformi("colorMode", 0);
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -220,28 +205,25 @@ void Model::DrawWithTransparency(Scene* scene) {
             shader->Use();
             shader->SetUniformi("colorMode", 1);
 
-            drawObject->m_PointVAO->Bind();
-            {
-                glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(drawObject->m_PointSize);
 
-                float u;
-                drawObject->GetPointOffsetParameters(u);
+            float u;
+            drawObject->GetPointOffsetParameters(u);
 
-                //glEnable(GL_POLYGON_OFFSET_POINT);
-                //glPolygonOffset(0.0f, u);
-                if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                    glad_glDrawArrays(
-                            GL_POINTS, 0,
-                            drawObject->m_Positions->GetNumberOfElements());
-                } else {
-                    glad_glDrawElements(
-                            GL_POINTS,
-                            drawObject->m_PointIndices->GetNumberOfValues(),
-                            GL_UNSIGNED_INT, 0);
-                }
-                //glDisable(GL_POLYGON_OFFSET_POINT);
+            //glEnable(GL_POLYGON_OFFSET_POINT);
+            //glPolygonOffset(0.0f, u);
+            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
+                drawObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements());
+            } else {
+                drawObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
             }
-            drawObject->m_PointVAO->Release();
+            //glDisable(GL_POLYGON_OFFSET_POINT);
         }
 
         if (viewStyle & IG_WIREFRAME) {
@@ -256,42 +238,36 @@ void Model::DrawWithTransparency(Scene* scene) {
                 shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
 
-            drawObject->m_LineVAO->Bind();
-            {
-                glLineWidth(drawObject->m_LineWidth);
+            glLineWidth(drawObject->m_LineWidth);
 
-                float f, u;
-                drawObject->GetLineOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetLineOffsetParameters(f, u);
 
-                //glEnable(GL_POLYGON_OFFSET_LINE);
-                //glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_LINES,
-                        drawObject->m_LineIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                //glDisable(GL_POLYGON_OFFSET_LINE);
-            }
-            drawObject->m_LineVAO->Release();
+            //glEnable(GL_POLYGON_OFFSET_LINE);
+            //glPolygonOffset(f, u);
+            drawObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            //glDisable(GL_POLYGON_OFFSET_LINE);
         }
         if (viewStyle & IG_SURFACE) {
             auto shader = scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
             shader->SetUniformi("colorMode", 0);
 
-            drawObject->m_TriangleVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_TRIANGLES,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_TriangleVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_TriangleVAO->DrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
@@ -321,8 +297,8 @@ void Model::DrawWithTransparency(Scene* scene) {
     }
 }
 
-void Model::DrawWithVolume(Scene* scene) {
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+void Model::DrawWithVolume(SmartPointer<Scene> scene) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -338,18 +314,15 @@ void Model::DrawWithVolume(Scene* scene) {
             auto shader = scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
-            drawObject->m_CellVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawArrays(GL_TRIANGLES, 0,
-                                  drawObject->m_CellPositionSize);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_CellVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
+                                              drawObject->m_CellPositionSize);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
             return;
         }
 
@@ -361,20 +334,17 @@ void Model::DrawWithVolume(Scene* scene) {
             auto shader = scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
-            drawObject->m_TriangleVAO->Bind();
-            {
-                float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+            float f, u;
+            drawObject->GetPolygonOffsetParameters(f, u);
 
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
-                glad_glDrawElements(
-                        GL_TRIANGLES,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
-                        GL_UNSIGNED_INT, 0);
-                glDisable(GL_POLYGON_OFFSET_FILL);
-            }
-            drawObject->m_TriangleVAO->Release();
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(f, u);
+            drawObject->m_TriangleVAO->DrawRangeElements(
+                    GL_TRIANGLES, 0,
+                    drawObject->m_Positions->GetNumberOfElements() - 1,
+                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+            glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
@@ -404,10 +374,8 @@ void Model::DrawWithVolume(Scene* scene) {
     }
 }
 
-void Model::DrawPhase1(Scene* scene) {
+void Model::DrawPhase1(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-    //std::cout << "Draw phase 1: " << std::endl;
-
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
 
@@ -418,8 +386,11 @@ void Model::DrawPhase1(Scene* scene) {
 
     if (!drawObject->m_Visibility) { return; }
 
+    // Update GPU data
+    m_Meshleter->Update();
+
 #ifdef GL_SUPPORTS_MESH_SHADER
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -428,7 +399,6 @@ void Model::DrawPhase1(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -452,7 +422,9 @@ void Model::DrawPhase1(Scene* scene) {
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
             m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
-            scene->GetDrawCullDataBuffer()->BindBase(11);
+
+            auto cullDataBuffer = scene->m_ShaderManager->GetCullDataBuffer();
+            cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
             m_Meshleter->m_InvisibleMeshletBuffer->SubData(
@@ -472,15 +444,14 @@ void Model::DrawPhase1(Scene* scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            std::cout << std::format("Draw phase 1: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     meshletCount - invisibleMeshletCount,
-                                     meshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(),
+                    meshletCount - invisibleMeshletCount, meshletCount);
         }
     };
 #else
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -489,7 +460,6 @@ void Model::DrawPhase1(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -500,18 +470,22 @@ void Model::DrawPhase1(Scene* scene) {
         if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
             scene->GetShader(ShaderType::BLINNPHONG)->Use();
-            drawObject->m_TriangleVAO->Bind();
-            unsigned int count = 0;
-            meshlets->VisibleMeshletBuffer()->GetSubData(
-                    0, sizeof(unsigned int), &count);
-            meshlets->FinalDrawCommandBuffer()->Target(GL_DRAW_INDIRECT_BUFFER);
-            meshlets->FinalDrawCommandBuffer()->Bind();
+
+            m_Meshleter->m_TriangleVAO->Bind();
+            unsigned int visibleMeshletCount = 0;
+            m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
+                    0, sizeof(unsigned int), &visibleMeshletCount);
+            m_Meshleter->m_FinalDrawCommandBuffer->Target(
+                    GL_DRAW_INDIRECT_BUFFER);
+            m_Meshleter->m_FinalDrawCommandBuffer->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                        count, 0);
-            std::cout << "Draw phase 1: [render count: " << count;
-            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-                      << std::endl;
-            drawObject->m_TriangleVAO->Release();
+                                        visibleMeshletCount, 0);
+            m_Meshleter->m_TriangleVAO->Release();
+
+            Logger::LogDebug(
+                    "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), visibleMeshletCount,
+                    m_Meshleter->m_MeshletCount);
         }
     };
 #endif
@@ -533,10 +507,8 @@ void Model::DrawPhase1(Scene* scene) {
 #endif
 }
 
-void Model::DrawPhase2(Scene* scene) {
+void Model::DrawPhase2(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-    //std::cout << "Draw phase 2: " << std::endl;
-
     auto dataObject = m_DataObject;
     auto drawObject = DynamicCast<DrawObject>(dataObject);
 
@@ -548,7 +520,7 @@ void Model::DrawPhase2(Scene* scene) {
     if (!drawObject->m_Visibility) { return; }
 
 #ifdef GL_SUPPORTS_MESH_SHADER
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -557,7 +529,6 @@ void Model::DrawPhase2(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -586,7 +557,9 @@ void Model::DrawPhase2(Scene* scene) {
             m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
             m_Meshleter->m_PositionBuffer->BindBase(6);
             m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
-            scene->GetDrawCullDataBuffer()->BindBase(11);
+
+            auto cullDataBuffer = scene->m_ShaderManager->GetCullDataBuffer();
+            cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
             m_Meshleter->m_InvisibleMeshletBuffer->SubData(
@@ -606,15 +579,14 @@ void Model::DrawPhase2(Scene* scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            std::cout << std::format("Draw phase 2: [visiable count:{}, "
-                                     "meshlet count:{}]",
-                                     invisibleMeshletCount - c,
-                                     invisibleMeshletCount)
-                      << std::endl;
+            Logger::LogDebug(
+                    "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), invisibleMeshletCount - c,
+                    invisibleMeshletCount);
         }
     };
 #else
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -623,7 +595,6 @@ void Model::DrawPhase2(Scene* scene) {
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -633,6 +604,9 @@ void Model::DrawPhase2(Scene* scene) {
         if (viewStyle & IG_POINTS) {}
         if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
+            unsigned int lastVisibleMeshletCount = 0;
+            m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
+                    0, sizeof(unsigned int), &lastVisibleMeshletCount);
             // compute culling
             {
                 auto shader = scene->GetShader(ShaderType::MESHLETCULL);
@@ -640,51 +614,50 @@ void Model::DrawPhase2(Scene* scene) {
 
                 shader->SetUniformi("workMode", 0);
 
-                meshlets->MeshletsBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
-                meshlets->MeshletsBuffer()->BindBase(1);
-
-                meshlets->DrawCommandBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
-                meshlets->DrawCommandBuffer()->BindBase(2);
+                m_Meshleter->m_MeshletDescriptorBuffer->BindBase(1);
+                m_Meshleter->m_DrawCommandBuffer->BindBase(2);
 
                 unsigned int data = 0;
-                meshlets->VisibleMeshletBuffer()->SubData(
+                m_Meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshlets->VisibleMeshletBuffer()->Target(
+                m_Meshleter->m_VisibleMeshletBuffer->BindBase(3);
+
+                // need switch to the GL_SHADER_STORAGE_BUFFER target
+                m_Meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshlets->VisibleMeshletBuffer()->BindBase(3);
+                m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
-                meshlets->FinalDrawCommandBuffer()->Target(
-                        GL_SHADER_STORAGE_BUFFER);
-                meshlets->FinalDrawCommandBuffer()->BindBase(4);
+                auto cullDataBuffer =
+                        scene->m_ShaderManager->GetCullDataBuffer();
+                cullDataBuffer->Target(GL_UNIFORM_BUFFER);
+                cullDataBuffer->BindBase(5);
 
-                scene->GetDrawCullDataBuffer()->Target(GL_UNIFORM_BUFFER);
-                scene->GetDrawCullDataBuffer()->BindBase(5);
-
-                scene->DepthPyramid()->Active(GL_TEXTURE1);
+//TODO m_DepthPyramid change to m_HzbTexture
+                scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
-                auto count = meshlets->MeshletsCount();
+                auto count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(((count + 255) / 256), 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
 
             scene->GetShader(ShaderType::BLINNPHONG)->Use();
-            drawObject->m_TriangleVAO->Bind();
 
+            m_Meshleter->m_TriangleVAO->Bind();
             unsigned int count = 0;
-            meshlets->VisibleMeshletBuffer()->GetSubData(
+            m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
-
-            meshlets->FinalDrawCommandBuffer()->Target(GL_DRAW_INDIRECT_BUFFER);
-            meshlets->FinalDrawCommandBuffer()->Bind();
+            m_Meshleter->m_FinalDrawCommandBuffer->Target(
+                    GL_DRAW_INDIRECT_BUFFER);
+            m_Meshleter->m_FinalDrawCommandBuffer->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
+            m_Meshleter->m_TriangleVAO->Release();
 
-            std::cout << "Draw phase 2: [render count: " << count;
-            std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-                      << std::endl;
-
-            drawObject->m_TriangleVAO->Release();
+            Logger::LogDebug(
+                    "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
+                    m_Meshleter->GetName(), count,
+                    m_Meshleter->m_MeshletCount - lastVisibleMeshletCount);
         }
     };
 #endif
@@ -706,17 +679,18 @@ void Model::DrawPhase2(Scene* scene) {
 #endif
 }
 
-void Model::TestOcclusionResults(Scene* scene) {
+void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-    // std::cout << "Test Occlusion:" << std::endl;
+#ifndef GL_SUPPORTS_MESH_SHADER
+    // Update GPU data
+    m_Meshleter->Update();
 
-    auto draw = [&](const DataObject::Pointer& dataObject) {
+    auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         auto visibility = drawObject->m_Visibility;
         auto useColor = drawObject->m_UseColor;
         auto colorWithCell = drawObject->m_ColorWithCell;
         auto viewStyle = drawObject->m_ViewStyle;
-        auto meshlets = drawObject->m_Meshlets;
 
         if (!visibility) { return; }
 
@@ -732,55 +706,53 @@ void Model::TestOcclusionResults(Scene* scene) {
 
                 shader->SetUniformi("workMode", 1);
 
-                meshlets->MeshletsBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
-                meshlets->MeshletsBuffer()->BindBase(1);
-
-                meshlets->DrawCommandBuffer()->Target(GL_SHADER_STORAGE_BUFFER);
-                meshlets->DrawCommandBuffer()->BindBase(2);
+                m_Meshleter->m_MeshletDescriptorBuffer->BindBase(1);
+                m_Meshleter->m_DrawCommandBuffer->BindBase(2);
 
                 unsigned int data = 0;
-                meshlets->VisibleMeshletBuffer()->SubData(
+                m_Meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshlets->VisibleMeshletBuffer()->Target(
+                m_Meshleter->m_VisibleMeshletBuffer->BindBase(3);
+
+                // need switch to the GL_SHADER_STORAGE_BUFFER target
+                m_Meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshlets->VisibleMeshletBuffer()->BindBase(3);
+                m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
-                meshlets->FinalDrawCommandBuffer()->Target(
-                        GL_SHADER_STORAGE_BUFFER);
-                meshlets->FinalDrawCommandBuffer()->BindBase(4);
-
-                scene->GetDrawCullDataBuffer()->Target(GL_UNIFORM_BUFFER);
-                scene->GetDrawCullDataBuffer()->BindBase(5);
-
-                scene->DepthPyramid()->Active(GL_TEXTURE1);
+                auto cullDataBuffer =
+                        scene->m_ShaderManager->GetCullDataBuffer();
+                cullDataBuffer->BindBase(5);
+//TODO m_DepthPyramid change to m_HzbTexture
+                scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
-                size_t count = meshlets->MeshletsCount();
+                size_t count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
                                   1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }
-
+        /*
         unsigned int count = 0;
-        meshlets->VisibleMeshletBuffer()->GetSubData(0, sizeof(unsigned int),
-                                                     &count);
-        // std::cout << "Test Occlusion: [render count: " << count;
-        // std::cout << ", meshlet count: " << meshlets->MeshletsCount() << "]"
-        //           << std::endl;
+        m_Meshleter->m_VisibleMeshletBuffer->GetSubData(0, sizeof(unsigned int),
+                                                        &count);
+        std::cout << "Test Occlusion: [render count: " << count;
+        std::cout << ", meshlet count: " << m_Meshleter->m_MeshletCount << "]"
+                  << std::endl;
 
-        // std::vector<DrawElementsIndirectCommand> readBackCommands(
-        //         meshlets->MeshletsCount());
-        // meshlets->DrawCommandBuffer().GetSubData(
-        //         0, readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
-        //         readBackCommands.data());
-        // for (const auto& cmd: readBackCommands) {
-        //     //std::cout << "count: " << cmd.count << std::endl;
-        //     std::cout << "primCount: " << cmd.primCount << std::endl;
-        //     //std::cout << "firstIndex: " << cmd.firstIndex << std::endl;
-        //     //std::cout << "baseVertex: " << cmd.baseVertex << std::endl;
-        //     //std::cout << "baseInstance: " << cmd.baseInstance << std::endl;
-        // }
+        std::vector<DrawElementsIndirectCommand> readBackCommands(
+                m_Meshleter->m_MeshletCount);
+        m_Meshleter->m_DrawCommandBuffer->GetSubData(
+                0,
+                readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
+                readBackCommands.data());
+        for (const auto& cmd: readBackCommands) {
+            //std::cout << "count: " << cmd.count << std::endl;
+            std::cout << "primCount: " << cmd.primCount << std::endl;
+            std::cout << "firstIndex: " << cmd.firstIndex << std::endl;
+            //std::cout << "baseVertex: " << cmd.baseVertex << std::endl;
+            //std::cout << "baseInstance: " << cmd.baseInstance << std::endl;
+        }*/
     };
 
     auto dataObject = m_DataObject;
@@ -808,28 +780,36 @@ void Model::TestOcclusionResults(Scene* scene) {
         }
     }
 #endif
+#endif
 }
 
-DataObject::Pointer Model::GetDataObject() { return m_DataObject; }
+SmartPointer<DataObject> Model::GetDataObject() { return m_DataObject; }
 
 bool Model::GetVisibility() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     return drawObject->GetVisibility();
 }
 
-Filter* Model::GetModelFilter() { return m_Filter; }
+SmartPointer<Filter> Model::GetModelFilter() { return m_Filter; }
 
-Painter3D::Pointer Model::GetPainter3D() { return m_Painter3D; }
+SmartPointer<Painter3D> Model::GetPainter3D() { return m_Painter3D; }
 
-void Model::SetModelFilter(SmartPointer<Filter> _filter) { m_Filter = _filter; }
+void Model::SetModelFilter(SmartPointer<Filter> filter) { m_Filter = filter; }
 
 void Model::DeleteModelFilter() { m_Filter = nullptr; }
 
-void Model::SetDataObject(DataObject::Pointer dataObject) {
+void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
     m_DataObject = dataObject;
 
-    bool debug = false;
-    if (debug) { m_Meshleter->Build(dataObject); }
+#ifdef GL_DEBUG_CULLING
+    m_Meshleter = SurfaceMeshMeshleter::New();
+    m_Meshleter->SetInput(dataObject);
+#endif
+}
+
+void Model::Modified() {
+    Logger::LogFatal("[Model::Modified] not sure what this function does.");
+    m_DataObject->Modified();
 }
 
 void Model::Update() {
@@ -846,37 +826,41 @@ void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
 
 std::string Model::GetFilePath() { return this->m_FilePath; }
 
-Selection* Model::GetSelection() {
+SmartPointer<Selection> Model::GetSelection() {
     if (m_Selection == nullptr) { m_Selection = Selection::New(); }
     return m_Selection.get();
 }
 
-void Model::RequestPointSelection(Points* p, Selection* s) {
+void Model::RequestPointSelection(SmartPointer<Points> p,
+                                  SmartPointer<Selection> s) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
     m_Scene->GetInteractor()->RequestPointSelectionStyle(s);
 }
 
-void Model::RequestDragPoint(Points* p, Selection* s) {
+void Model::RequestDragPoint(SmartPointer<Points> p,
+                             SmartPointer<Selection> s) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
     m_Scene->GetInteractor()->RequestDragPointStyle(s);
 }
 
+void Model::SetMeshleter(SmartPointer<Meshleter> meshleter) {
+    m_Meshleter = meshleter;
+}
+
 void Model::Show() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(true);
     m_Scene->ChangeModelVisibility(this, true);
-    //m_Painter3D->ShowAll();
 }
 
 void Model::Hide() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     drawObject->SetVisibility(false);
     m_Scene->ChangeModelVisibility(this, false);
-    //m_Painter3D->HideAll();
 }
 
 void Model::SetBoundingBoxSwitch(bool action) {
@@ -936,5 +920,11 @@ void Model::SetViewFillSwitch(bool action) {
         drawObject->RemoveViewStyle(IG_SURFACE);
     }
 }
+
+void Model::SwitchOn(ViewSwitch type) { m_Switch |= (1ull << type); }
+
+void Model::SwitchOff(ViewSwitch type) { m_Switch &= ~(1ull << type); }
+
+bool Model::GetSwitch(ViewSwitch type) { return m_Switch & (1ull << type); }
 
 IGAME_NAMESPACE_END

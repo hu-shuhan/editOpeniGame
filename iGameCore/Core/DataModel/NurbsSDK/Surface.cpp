@@ -65,8 +65,8 @@ void Surface::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1);
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);
 
@@ -108,8 +108,8 @@ void Surface::evalDers(std::vector<double>& u,
                                              std::vector<double>(p + 1)),
             Nv_ders(vPt + 1, std::vector<double>(q + 1));
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);
     m_Basis[0].getAllNurbsBasisFunsDers(uspan, u[0], uPt, Nu_ders);

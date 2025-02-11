@@ -31,6 +31,8 @@ public:
 
 //		std::pair<float, float> dataRange{ FLT_MIN, FLT_MAX};
         DoubleArray::Pointer GetDataRange();
+        /* Apply other data ranges to this Attribute. */
+        void SetDataRange(DoubleArray::Pointer range);
         bool updateAllDataRange();
 
         static Attribute None() {

@@ -26,7 +26,7 @@ I_OBJECT(StressDeformationFilter)
     bool CalculateIdealDSF();
 
 protected:
-    float m_K_factor{0.2f};
+    float m_K_factor{0.15f};
 
     StressDeformationFilter();
     ~StressDeformationFilter() = default;

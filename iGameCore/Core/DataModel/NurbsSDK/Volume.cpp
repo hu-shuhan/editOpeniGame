@@ -77,9 +77,9 @@ void Volume::eval(std::vector<double>& u, std::vector<double>& basisValue) {
          wknots = m_Basis[2].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1), Nw(r + 1);
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
-    if (fabs(u[2] - wknots.back()) < tol) u[2] = wknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[2] - wknots.back()) < tol) u[2] = wknots.back() - tol;
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);
     m_Basis[2].getAllNurbsBasisFuns(wspan, u[2], Nw);
@@ -133,9 +133,9 @@ void Volume::evalDers(std::vector<double>& u,
             Nv_ders(vPt + 1, std::vector<double>(q + 1)),
             Nw_ders(wPt + 1, std::vector<double>(r + 1));
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
-    if (fabs(u[2] - wknots.back()) < tol) u[2] = wknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[2] - wknots.back()) < tol) u[2] = wknots.back() - tol;
 
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);

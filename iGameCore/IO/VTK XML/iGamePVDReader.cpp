@@ -171,7 +171,6 @@ bool iGame::iGamePVDReader::Parsing() {
 bool iGame::iGamePVDReader::CreateDataObject() {
     if(m_data_object != nullptr) {
         m_Output = m_data_object;
-        m_Output->SwitchToCurrentTimeframe(0);
         return true;
     }
     return iGameXMLFileReader::CreateDataObject();
