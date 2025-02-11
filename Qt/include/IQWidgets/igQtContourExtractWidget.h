@@ -5,6 +5,7 @@
 
 #pragma once
 #include "Clip/iGameModelClip.h"
+#include "Contour/iGameContourFilter.h"
 #include "iGameSurfaceMesh.h"
 
 #include <ui_ContourExtract.h>
@@ -43,7 +44,7 @@ private:
 
     iGame::DataObject::Pointer m_OriginDataObject{ nullptr };
     iGame::SurfaceMesh::Pointer m_ResultMesh{ nullptr };
-    iGame::ModelClip::Pointer m_Extracter{ nullptr };
+    iGame::ContourFilter::Pointer m_Extracter{ nullptr };
     iGame::ElementArray<iGame::AttributeSet::Attribute>::Pointer m_PointData=nullptr;
     iGame::ArrayObject::Pointer m_ScalarArray=nullptr;
     int m_ScalarDimension=-1;

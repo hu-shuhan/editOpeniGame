@@ -5,7 +5,8 @@ IGAME_NAMESPACE_BEGIN
 ContourFilter::ContourFilter()
 {
 
-
+	this->SetNumberOfInputs(1);
+	this->SetNumberOfOutputs(1);
 
 }
 
@@ -76,9 +77,9 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
 	Cell::Pointer cell = nullptr;
 	double  CellContourValue[IGAME_CELL_MAX_SIZE] = { 0 };
 	for (CellId = 0; CellId < inCellNum; CellId++) {
-		if (cellVisible[CellId]) {
-			continue;
-		}
+		//if (cellVisible[CellId]) {
+		//	continue;
+		//}
 		cell = input->GetCell(CellId);
 		vhs = cell->m_PointIds->RawPointer();
 		vcnt = cell->GetNumberOfPoints();
@@ -98,6 +99,15 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
 			break;
 		case IG_TETRA:
 			 CellContour::Contour(DynamicCast<Tetra>(cell),  CellContourValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell );
+			break;
+		case IG_PRISM:
+			CellContour::Contour(DynamicCast<Prism>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
+			break;
+		case IG_PYRAMID:
+			CellContour::Contour(DynamicCast<Pyramid>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
+			break;
+		case IG_HEXAHEDRON:
+			CellContour::Contour(DynamicCast<Hexahedron>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_QUADRATIC_TETRA:
 			 CellContour::Contour(DynamicCast<QuadraticTetra>(cell),  CellContourValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell );
