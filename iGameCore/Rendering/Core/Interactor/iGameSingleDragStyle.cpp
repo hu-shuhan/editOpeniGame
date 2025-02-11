@@ -3,19 +3,29 @@
 #include "iGamePointPicker.h"
 
 IGAME_NAMESPACE_BEGIN
-void SingleDragStyle::MousePressEvent(IEvent _event) {
-    SelectionStyle::MousePressEvent(_event);
-    MVP = m_Interactor->GetMVP();
-    InvertedMVP = MVP.invert();
 
-    auto& pos = _event.pos;
-    igm::vec3 point1 = GetNearWorldCoord(pos, InvertedMVP);
-    igm::vec3 point2 = GetFarWorldCoord(pos, InvertedMVP);
+SingleDragStyle::SingleDragStyle() {
+    m_SelectedPointId = -1;
+
+    m_SelectedNDCZ = 0;
+    m_MVP = igm::mat4{};
+    m_InvertedMVP = igm::mat4{};
+}
+SingleDragStyle::~SingleDragStyle() {}
+
+void SingleDragStyle::MousePressEvent(IEvent event) {
+    SelectionStyle::MousePressEvent(event);
+    m_MVP = m_Interactor->GetMVP();
+    m_InvertedMVP = m_MVP.invert();
+
+    auto& pos = event.pos;
+    igm::vec3 point1 = GetNearWorldCoord(pos, m_InvertedMVP);
+    igm::vec3 point2 = GetFarWorldCoord(pos, m_InvertedMVP);
 
     igm::vec3 dir = (point1 - point2).normalized();
 
     Point p;
-    PointPicker::Pointer picker = PointPicker::New();
+    SmartPointer<PointPicker> picker = PointPicker::New();
     picker->SetPoints(m_Points);
     m_SelectedPointId = picker->PickClosetPointOnLine(
             Vector3d(point1.x, point1.y, point1.z),
@@ -26,8 +36,8 @@ void SingleDragStyle::MousePressEvent(IEvent _event) {
         //std::cout << "click point id: " << m_SelectedPointId << std::endl;
         auto& tp = m_Points->GetPoint(m_SelectedPointId);
         igm::vec4 p{tp[0], tp[1], tp[2], 1.f};
-        p = MVP * p;
-        Selected_NDC_Z = p.z / p.w;
+        p = m_MVP * p;
+        m_SelectedNDCZ = p.z / p.w;
 
         auto painter = m_Model->GetPainter3D();
         painter->Clear();
@@ -36,8 +46,9 @@ void SingleDragStyle::MousePressEvent(IEvent _event) {
         painter->DrawPoint(tp);
     }
 }
-void SingleDragStyle::MouseMoveEvent(IEvent _event) {
-    igm::vec2 pos = _event.pos;
+
+void SingleDragStyle::MouseMoveEvent(IEvent event) {
+    igm::vec2 pos = event.pos;
 
     if (m_MouseMode == MouseButton::LeftButton) {
         if (m_SelectedPointId == -1) { return; }
@@ -47,8 +58,8 @@ void SingleDragStyle::MouseMoveEvent(IEvent _event) {
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
                       1.0f - (2.0f * pos.y / m_Interactor->GetHeight()));
 
-        igm::vec4 Point_NDC{NDC, Selected_NDC_Z, 1.f};
-        igm::vec4 newPoint_WorldCoord = InvertedMVP * Point_NDC;
+        igm::vec4 Point_NDC{NDC, m_SelectedNDCZ, 1.f};
+        igm::vec4 newPoint_WorldCoord = m_InvertedMVP * Point_NDC;
         newPoint_WorldCoord /= newPoint_WorldCoord.w;
         if (m_Selection) {
             Selection::Event e;

@@ -4,6 +4,9 @@
 
 IGAME_NAMESPACE_BEGIN
 
+SingleSelectionStyle::SingleSelectionStyle() {}
+SingleSelectionStyle::~SingleSelectionStyle() {}
+
 void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     SelectionStyle::MousePressEvent(_event);
 
@@ -34,7 +37,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     igIndex id = -1;
     Point p;
     auto obj = m_Model->GetDataObject();
-    PointPicker::Pointer picker = PointPicker::New();
+    SmartPointer<PointPicker> picker = PointPicker::New();
     picker->SetDataObject(obj);
     id = picker->PickClosetPointOnLine(Vector3d(point1.x, point1.y, point1.z),
                                        Vector3d(dir.x, dir.y, dir.z), p);

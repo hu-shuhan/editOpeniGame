@@ -3,6 +3,7 @@
 
 #include "iGameBasicStyle.h"
 #include "iGameCellArray.h"
+#include "iGameSelection.h"
 
 IGAME_NAMESPACE_BEGIN
 class SelectionStyle : public BasicStyle {
@@ -10,32 +11,29 @@ public:
     I_OBJECT(SelectionStyle);
     static Pointer New() { return new SelectionStyle; }
 
-    enum SelectedType{ 
-        None = -1,
-        SelectPoint, 
-        SelectCell
-    };
+    enum SelectedType { None = -1, SelectPoint, SelectCell };
     void SetSelectedType(SelectedType type);
     SelectedType GetSelectedType() const;
 
-    void Initialize(Interactor* a, Selection* s);
+    void Initialize(SmartPointer<Interactor> interactor,
+                    SmartPointer<Selection> selection);
 
-    void MousePressEvent(IEvent _event) override;
+    void MousePressEvent(IEvent event) override;
 
     void LeftButtonMouseMove() override;
     void RightButtonMouseMove() override;
     void MiddleButtonMouseMove() override;
 
 protected:
-    SelectionStyle() = default;
-    ~SelectionStyle() override = default;
+    SelectionStyle();
+    ~SelectionStyle() override;
 
-    SelectedType m_Type{SelectedType::None};
+    SelectedType m_Type;
 
-    Points* m_Points{nullptr};
-    CellArray* m_Cells{nullptr};
-    Model* m_Model{nullptr};
-    Selection* m_Selection{nullptr};
+    SmartPointer<Points> m_Points;
+    SmartPointer<CellArray> m_Cells;
+    SmartPointer<Model> m_Model;
+    SmartPointer<Selection> m_Selection;
 };
 IGAME_NAMESPACE_END
 #endif

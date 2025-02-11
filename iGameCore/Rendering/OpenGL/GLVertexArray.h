@@ -23,10 +23,11 @@ public:
     I_OBJECT(GLVertexArray);
     static Pointer New() { return new GLVertexArray; }
 
-    void VertexBuffer(unsigned int vbo_binding_index, GLBuffer::Pointer buffer,
-                      ptrdiff_t offset, size_t stride);
+    void VertexBuffer(unsigned int vbo_binding_index,
+                      SmartPointer<GLBuffer> buffer, ptrdiff_t offset,
+                      size_t stride);
 
-    void ElementBuffer(GLBuffer::Pointer buffer);
+    void ElementBuffer(SmartPointer<GLBuffer> buffer);
 
     void EnableAttrib(const GLVertexAttribute& attribute);
 
@@ -37,6 +38,12 @@ public:
 
     void Bind() const;
     void Release() const;
+
+    void DrawArrays(GLenum mode, GLint first, GLsizei count);
+    void DrawElements(GLenum mode, int elementCount, GLenum type,
+                      const void* indices = 0);
+    void DrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count,
+                           GLenum type, const void* indices = 0);
 
 protected:
     GLVertexArray();
@@ -53,7 +60,7 @@ static const GLVertexAttribute GL_LOCATION_IDX_1{1};
 static const GLVertexAttribute GL_LOCATION_IDX_2{2};
 static const GLVertexAttribute GL_LOCATION_IDX_3{3};
 
-void GLSetVertexAttrib(GLVertexArray::Pointer VAO,
+void GLSetVertexAttrib(SmartPointer<GLVertexArray> VAO,
                        const GLVertexAttribute& attribute,
                        GLuint vbo_binding_index, int size, GLenum type,
                        GLboolean normalized, unsigned int offset);

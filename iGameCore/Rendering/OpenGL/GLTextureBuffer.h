@@ -16,7 +16,7 @@ public:
     // GLenum internal_format(Sized Internal Format): GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT24
     // GLenum internal_format(Sized Internal Format): GL_DEPTH32F_STENCIL8, GL_DEPTH24_STENCIL8
     // GLenum internal_format(Sized Internal Format): GL_STENCIL_INDEX8
-    void Buffer(GLenum internalformat, GLBuffer::Pointer buffer);
+    void Buffer(GLenum internalformat, SmartPointer<GLBuffer> buffer);
 
     // GLenum texture: GL_TEXTURE1 - GL_TEXTURE15
     // GL_TEXTURE0 is reserved to prevent other binding operations from being performed after a texture unit is activated.

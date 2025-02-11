@@ -8,7 +8,6 @@
 #include "iGameBasicStyle.h"
 #include "iGameInteractorStyle.h"
 #include "iGameMultiSelectionStyle.h"
-#include "iGameScene.h"
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
@@ -30,21 +29,21 @@ public:
         SlicingStyle,
     };
 
-    void Initialize(Scene::Pointer scene);
+    void Initialize(SmartPointer<Scene> scene);
 
     void CreateDefaultStyle();
 
-    void FilterEvent(IEvent _event);
+    void FilterEvent(IEvent event);
 
     void RequestBasicStyle();
 
-    void RequestDragPointStyle(Selection* s);
+    void RequestDragPointStyle(SmartPointer<Selection> s);
 
-    void RequestPointSelectionStyle(Selection* s);
+    void RequestPointSelectionStyle(SmartPointer<Selection> s);
 
-    void RequestFaceSelectionStyle(Selection* s);
+    void RequestFaceSelectionStyle(SmartPointer<Selection> s);
 
-    void LoadSelectionStyleRequired(Selection* s);
+    void LoadSelectionStyleRequired(SmartPointer<Selection> s);
 
     void RequestSlicingStyle();
 
@@ -64,24 +63,24 @@ public:
 
     void RequestSignal(InteractorStyle::Signal signal, void* callData);
 
-    void SetDataObject(DataObject::Pointer obj);
-    DataObject::Pointer GetDataObject();
-    void SetPainter(Painter3D::Pointer p);
-    Painter3D::Pointer GetPainter();
+    void SetDataObject(SmartPointer<DataObject> obj);
+    SmartPointer<DataObject> GetDataObject();
+    void SetPainter3D(SmartPointer<Painter3D> p);
+    SmartPointer<Painter3D> GetPainter3D();
     bool IsBase() const;
 
 protected:
-    Interactor() = default;
-    ~Interactor() override = default;
+    Interactor();
+    ~Interactor();
 
     std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
-    bool is_Base{true};
-    InteractorStyle::Pointer m_Internal{};
-    Scene::Pointer m_Scene{};
-    Camera::Pointer m_Camera{};
-    Painter3D::Pointer m_Painter{};
-    DataObject::Pointer m_DataObject{};
+    bool is_Base;
+    SmartPointer<InteractorStyle> m_Internal;
+    SmartPointer<Scene> m_Scene;
+    SmartPointer<Camera> m_Camera;
+    SmartPointer<Painter3D> m_Painter3D;
+    SmartPointer<DataObject> m_DataObject;
 };
 
 IGAME_NAMESPACE_END

@@ -4,9 +4,13 @@
 
 IGAME_NAMESPACE_BEGIN
 
-void MultiSelectionStyle::MousePressEvent(IEvent _event) {
-    SelectionStyle::MousePressEvent(_event);
-    InvertedMVP = m_Interactor->GetMVP().invert();
+MultiSelectionStyle::MultiSelectionStyle() { m_InvertedMVP = igm::mat4{}; }
+
+MultiSelectionStyle::~MultiSelectionStyle() {}
+
+void MultiSelectionStyle::MousePressEvent(IEvent event) {
+    SelectionStyle::MousePressEvent(event);
+    m_InvertedMVP = m_Interactor->GetMVP().invert();
 }
 
 void MultiSelectionStyle::LeftButtonMouseMove() {
@@ -17,17 +21,19 @@ void MultiSelectionStyle::LeftButtonMouseMove() {
     if (x2 < x1) { std::swap(x1, x2); }
     if (y2 < y1) { std::swap(y1, y2); }
 
-    igm::vec3 leftTopPoint = GetNearWorldCoord(igm::vec2(x1, y1), InvertedMVP);
+    igm::vec3 leftTopPoint =
+            GetNearWorldCoord(igm::vec2(x1, y1), m_InvertedMVP);
     igm::vec3 leftButtomPoint =
-            GetNearWorldCoord(igm::vec2(x1, y2), InvertedMVP);
-    igm::vec3 rightTopPoint = GetNearWorldCoord(igm::vec2(x2, y1), InvertedMVP);
+            GetNearWorldCoord(igm::vec2(x1, y2), m_InvertedMVP);
+    igm::vec3 rightTopPoint =
+            GetNearWorldCoord(igm::vec2(x2, y1), m_InvertedMVP);
     igm::vec3 rightButtomPoint =
-            GetNearWorldCoord(igm::vec2(x2, y2), InvertedMVP);
+            GetNearWorldCoord(igm::vec2(x2, y2), m_InvertedMVP);
 
     igm::vec3 leftTopInterPoint =
-            GetFarWorldCoord(igm::vec2(x1, y1), InvertedMVP);
+            GetFarWorldCoord(igm::vec2(x1, y1), m_InvertedMVP);
     igm::vec3 rightButtomInterPoint =
-            GetFarWorldCoord(igm::vec2(x2, y2), InvertedMVP);
+            GetFarWorldCoord(igm::vec2(x2, y2), m_InvertedMVP);
 
     igm::vec3 leftNormal = (leftButtomPoint - leftTopPoint)
                                    .cross(leftTopInterPoint - leftTopPoint);

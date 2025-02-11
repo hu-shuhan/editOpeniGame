@@ -1,4 +1,5 @@
 #include "iGameSurfaceMeshMeshleter.h"
+#include "iGameRenderingLogger.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameTimer.h"
@@ -15,13 +16,16 @@ void SurfaceMeshMeshleter::Build() {
     if (DynamicCast<UnstructuredMesh>(m_DataObject) ||
         DynamicCast<StructuredMesh>(m_DataObject) ||
         DynamicCast<VolumeMesh>(m_DataObject)) {
-        igError("SurfaceMeshMeshleter only support surface mesh.");
+
+        Logger::LogError("{} is not a SurfaceMesh, but it will be processed "
+                         "using SurfaceMeshMeshleter for meshleting.",
+                         m_DataObject->GetName());
     }
 
-    Timer::Pointer timer = Timer::New();
+    SmartPointer<Timer> timer = Timer::New();
 
-    FloatArray::Pointer positions = FloatArray::New();
-    UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
+    SmartPointer<FloatArray> positions = FloatArray::New();
+    SmartPointer<UnsignedIntArray> triangleIndices = UnsignedIntArray::New();
 
     // convert to draw date
     timer->Reset();
@@ -45,9 +49,9 @@ void SurfaceMeshMeshleter::Build() {
             }
         }
 
-        std::cout << std::format("Convert to draw data [time: {}]",
-                                 FormatTime(timer->ElapsedMilliseconds()))
-                  << std::endl;
+        Logger::LogDebug("DataObject {}, convert to rendering data [time: {}]",
+                         m_DataObject->GetName(),
+                         FormatTime(timer->ElapsedMilliseconds()));
     }
 
     // build meshlet
@@ -227,10 +231,9 @@ void SurfaceMeshMeshleter::Build() {
         }
 #endif
 
-        std::cout << std::format("Build meshlets [count: {}, time: {}]",
-                                 meshlet_count,
-                                 FormatTime(timer->ElapsedMilliseconds()))
-                  << std::endl;
+        Logger::LogDebug("DataObject {}, build meshlets [count: {}, time: {}]",
+                         m_DataObject->GetName(), meshlet_count,
+                         FormatTime(timer->ElapsedMilliseconds()));
     }
 
     this->Modified();

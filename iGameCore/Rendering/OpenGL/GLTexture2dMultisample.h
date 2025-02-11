@@ -10,13 +10,12 @@ public:
     I_OBJECT(GLTexture2dMultisample);
     static Pointer New() { return new GLTexture2dMultisample; }
 
-    static void CopyImageSubData(GLTexture2dMultisample::Pointer source,
-                                 GLint srcLevel, GLint srcX, GLint srcY,
-                                 GLint srcZ,
-                                 GLTexture2dMultisample::Pointer destination,
-                                 GLint dstLevel, GLint dstX, GLint dstY,
-                                 GLint dstZ, GLsizei srcWidth,
-                                 GLsizei srcHeight, GLsizei srcDepth);
+    static void
+    CopyImageSubData(SmartPointer<GLTexture2dMultisample> source,
+                     GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
+                     SmartPointer<GLTexture2dMultisample> destination,
+                     GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ,
+                     GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
 
     // GLenum internal_format: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
     // Sized Internal Format: GL_R8, GL_RG8, GL_RGB8, GL_RGBA8

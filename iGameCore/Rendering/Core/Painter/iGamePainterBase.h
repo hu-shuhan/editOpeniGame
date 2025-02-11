@@ -71,7 +71,7 @@ public:
      * @brief 设置画笔对象。
      * @param pen 指向 `Pen` 对象的智能指针。
      */
-    void SetPen(const Pen::Pointer& pen);
+    void SetPen(const SmartPointer<Pen>& pen);
 
     /**
      * @brief 设置画笔的颜色。
@@ -111,7 +111,7 @@ public:
      * @brief 设置画刷对象。
      * @param brush 指向 `Brush` 对象的智能指针。
      */
-    void SetBrush(const Brush::Pointer& brush);
+    void SetBrush(const SmartPointer<Brush>& brush);
 
     /**
      * @brief 设置画刷的颜色。
@@ -166,22 +166,22 @@ protected:
     void CreateDrawBuffer(float penWidth);
     void PackDrawableData();
 
-    Pen::Pointer m_Pen;
-    Brush::Pointer m_Brush;
+    SmartPointer<Pen> m_Pen;
+    SmartPointer<Brush> m_Brush;
 
     BoundingBox m_Bounding;
-    Object::Pointer m_BoundingHelper;
+    SmartPointer<Object> m_BoundingHelper;
 
-    Object::Pointer m_PrimitivesUpdateHelper;
-    HandlePool<Primitive>::Pointer m_PrimitivesPool;
+    SmartPointer<Object> m_PrimitivesUpdateHelper;
+    SmartPointer<HandlePool<Primitive>> m_PrimitivesPool;
 
-    std::unordered_map<float, GLVertexArray::Pointer> m_VAOs;
-    std::unordered_map<float, GLBuffer::Pointer> m_PositionVBOs;
-    std::unordered_map<float, GLBuffer::Pointer> m_ColorVBOs;
-    //std::unordered_map<float, GLBuffer::Pointer> m_NormalVBOs;
-    std::unordered_map<float, GLBuffer::Pointer> m_PointEBOs;
-    std::unordered_map<float, GLBuffer::Pointer> m_LineEBOs;
-    std::unordered_map<float, GLBuffer::Pointer> m_TriangleEBOs;
+    std::unordered_map<float, SmartPointer<GLVertexArray>> m_VAOs;
+    std::unordered_map<float, SmartPointer<GLBuffer>> m_PositionVBOs;
+    std::unordered_map<float, SmartPointer<GLBuffer>> m_ColorVBOs;
+    //std::unordered_map<float, SmartPointer<GLBuffer>> m_NormalVBOs;
+    std::unordered_map<float, SmartPointer<GLBuffer>> m_PointEBOs;
+    std::unordered_map<float, SmartPointer<GLBuffer>> m_LineEBOs;
+    std::unordered_map<float, SmartPointer<GLBuffer>> m_TriangleEBOs;
 
     std::unordered_map<float, IGsize> m_PointEBOSizes;
     std::unordered_map<float, IGsize> m_LineEBOSizes;

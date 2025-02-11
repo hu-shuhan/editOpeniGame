@@ -4,6 +4,10 @@
 #include "iGameBasicStyle.h"
 
 IGAME_NAMESPACE_BEGIN
+class Model;
+class DataObject;
+class Painter3D;
+
 class SlicingStyle : public BasicStyle {
 public:
     I_OBJECT(SlicingStyle);
@@ -14,7 +18,7 @@ public:
         float normal[3]{};
     };
 
-    void Initialize(Interactor* a) override;
+    void Initialize(SmartPointer<Interactor> interactor) override;
 
     void MousePressEvent(IEvent _event) override;
     void MouseMoveEvent(IEvent _event) override;
@@ -24,7 +28,7 @@ public:
     void MiddleButtonMouseMove() override;
 
 protected:
-    SlicingStyle() = default;
+    SlicingStyle();
     ~SlicingStyle() override;
 
     void ComputeSlicingPlane(std::vector<Vector3d>& plane);
@@ -41,78 +45,40 @@ protected:
     bool IsIntersect(const Vector3d& p1, const Vector3d& p2, const Vector3d& p3,
                      const Vector3d& p4, Vector3d& intersection);
 
-    bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D, double radius) {
-        auto center = v(this->center);
-
-        igm::mat4 model = m_Scene->ModelMatrix();
-        igm::mat4 view = m_Camera->GetViewMatrix();
-        igm::mat4 proj = m_Camera->GetProjectionMatrix();
-
-        auto p = igm::vec4{center, 1.0f};
-        auto p_mvp = (proj * view * model * p);
-        p_mvp /= p_mvp.w;
-
-        // if the perspective enters the model, rotate around (0,0)
-        if (p_mvp.x > 1.0f || p_mvp.x < -1.0f || p_mvp.y > 1.0f ||
-            p_mvp.y < -1.0f) {
-            // p_mvp = igm::vec4{0.0f, 0.0f, 0.0f, 0.0f};
-            return false;
-        }
-
-        auto width = m_Camera->GetViewPort().x;
-        auto height = m_Camera->GetViewPort().y;
-
-        //const double trackballradius = 0.6;
-        const double rsqr = radius * radius;
-
-        // calculate old hit sphere point3D
-        double x = (2.0 * v2D.x - width) / width - p_mvp.x;
-        double y = -(2.0 * v2D.y - height) / height - p_mvp.y;
-        double x2y2 = x * x + y * y;
-
-        v3D[0] = x;
-        v3D[1] = y;
-        if (x2y2 < 0.5 * rsqr) {
-            v3D[2] = sqrt(rsqr - x2y2);
-        } else {
-            v3D[2] = 0.5 * rsqr / sqrt(x2y2);
-        }
-
-        return true;
-    }
+    bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D, double radius);
 
     void Invoke();
 
-    Model::Pointer m_Model;
-    DataObject::Pointer m_DataObject;
-    Painter3D::Pointer m_Painter;
+    SmartPointer<Model> m_Model;
+    SmartPointer<DataObject> m_DataObject;
+    SmartPointer<Painter3D> m_Painter3D;
 
-private:
-    int selectId{-1}; // 0:center 1:head 2:rear 3:line
+    int selectId; // 0:center 1:head 2:rear 3:line
 
-    igm::mat4 mvp{};
-    igm::mat4 invMVP{};
+    igm::mat4 mvp;
+    igm::mat4 invMVP;
 
-    double pickRadius{0.0};
-    double len{0.0};
-    double radius{0.0};
+    double pickRadius;
+    double len;
+    double radius;
     Vector3d center;
     Vector3d head;
     Vector3d rear;
     Vector3d top, left; // 切平面的上/左顶点
-    Vector3d normal; // 切平面的法向量
-    IGuint boxHandle{0};
-    IGuint centerHandle{0};
-    IGuint headHandle{0};
-    IGuint rearHandle{0};
-    IGuint lineHandle{0}, circleHandle{0};
-    IGuint planeHandle[10]{0};
+    Vector3d normal;    // 切平面的法向量
+    IGuint boxHandle;
+    IGuint centerHandle;
+    IGuint headHandle;
+    IGuint rearHandle;
+    IGuint lineHandle;
+    IGuint circleHandle;
+    IGuint planeHandle[10];
     std::vector<Vector3d> plane;
 
     SlicingPlane slicingPlane;
 
-    Vector3Tovec3 v{};
-    vec3ToVector3d V{};
+    Vector3Tovec3 v;
+    vec3ToVector3d V;
 };
 IGAME_NAMESPACE_END
 #endif
