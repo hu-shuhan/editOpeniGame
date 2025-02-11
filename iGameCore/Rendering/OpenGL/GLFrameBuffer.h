@@ -1,5 +1,5 @@
-#ifndef GLFRAMEBUFFER_H
-#define GLFRAMEBUFFER_H
+#ifndef IGAMEVIS_GLFRAMEBUFFER_H
+#define IGAMEVIS_GLFRAMEBUFFER_H
 
 #include "GLObject.h"
 #include "GLRenderBuffer.h"
@@ -62,4 +62,4 @@ private:
 
 IGAME_NAMESPACE_END
 
-#endif // GLFRAMEBUFFER_H
+#endif // IGAMEVIS_GLFRAMEBUFFER_H

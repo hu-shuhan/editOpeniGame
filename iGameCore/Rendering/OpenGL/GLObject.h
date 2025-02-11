@@ -1,5 +1,5 @@
-#ifndef GLOBJECT_H
-#define GLOBJECT_H
+#ifndef IGAMEVIS_GLOBJECT_H
+#define IGAMEVIS_GLOBJECT_H
 
 #include "GLVendor.h"
 #include "iGameObject.h"
@@ -88,4 +88,4 @@ GLObject<Helper>::operator bool() const noexcept {
 
 IGAME_NAMESPACE_END
 
-#endif // GLOBJECT_H
+#endif // IGAMEVIS_GLOBJECT_H

@@ -1,5 +1,5 @@
-﻿#ifndef OPENIGAME_BASIC_STYLE_H
-#define OPENIGAME_BASIC_STYLE_H
+﻿#ifndef IGAMEVIS_BASIC_STYLE_H
+#define IGAMEVIS_BASIC_STYLE_H
 
 #include "iGameCamera.h"
 #include "iGameInteractorStyle.h"

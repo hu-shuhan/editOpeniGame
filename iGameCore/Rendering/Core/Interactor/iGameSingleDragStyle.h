@@ -1,5 +1,5 @@
-#ifndef OPENIGAME_SINGLE_DRAG_STYLE_H
-#define OPENIGAME_SINGLE_DRAG_STYLE_H
+#ifndef IGAMEVIS_SINGLE_DRAG_STYLE_H
+#define IGAMEVIS_SINGLE_DRAG_STYLE_H
 
 #include "iGamePointPicker.h"
 #include "iGameSelectionStyle.h"

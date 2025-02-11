@@ -2,8 +2,8 @@
 // Created by Sumzeek on 9/9/2024.
 //
 
-#ifndef OPENIGAME_INTERACTOR_H
-#define OPENIGAME_INTERACTOR_H
+#ifndef IGAMEVIS_INTERACTOR_H
+#define IGAMEVIS_INTERACTOR_H
 
 #include "iGameBasicStyle.h"
 #include "iGameInteractorStyle.h"
@@ -85,4 +85,4 @@ protected:
 
 IGAME_NAMESPACE_END
 
-#endif //OPENIGAME_INTERACTOR_H
+#endif //IGAMEVIS_INTERACTOR_H

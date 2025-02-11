@@ -2,8 +2,8 @@
 // Created by Sumzeek on 6/29/2024.
 //
 
-#ifndef OPENIGAME_GLVENDOR_H
-#define OPENIGAME_GLVENDOR_H
+#ifndef IGAMEVIS_GLVENDOR_H
+#define IGAMEVIS_GLVENDOR_H
 
 #include "glad/glad.h"
 #include "iGameMacro.h"
@@ -13,4 +13,4 @@
 #include "igm/igm.h"
 #include "igm/transform.h"
 
-#endif //OPENIGAME_GLVENDOR_H
+#endif //IGAMEVIS_GLVENDOR_H

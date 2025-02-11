@@ -18,7 +18,7 @@ function(compile_shader SHADERS TARGET_NAME SHADER_INCLUDE_FOLDER GENERATED_DIR 
         set(SPV_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${GENERATED_DIR}/spv/${SHADER_NAME}.spv")
         set(CPP_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${GENERATED_DIR}/cpp/${HEADER_NAME}.h")
 
-#        message("${GLSLANG_BIN} -I${SHADER_INCLUDE_FOLDER} -V100 -o ${SPV_FILE} ${SHADER}")
+        #        message("${GLSLANG_BIN} -I${SHADER_INCLUDE_FOLDER} -V100 -o ${SPV_FILE} ${SHADER}")
 
         add_custom_command(
                 OUTPUT ${SPV_FILE}
@@ -31,7 +31,7 @@ function(compile_shader SHADERS TARGET_NAME SHADER_INCLUDE_FOLDER GENERATED_DIR 
         add_custom_command(
                 OUTPUT ${CPP_FILE}
                 COMMAND ${CMAKE_COMMAND} -DPATH=${SPV_FILE} -DHEADER="${CPP_FILE}"
-                -DGLOBAL="${GLOBAL_SHADER_VAR}" -P "${OPENIGAME_ROOT_DIR}/Cmake/GenerateShaderCPPFile.cmake"
+                -DGLOBAL="${GLOBAL_SHADER_VAR}" -P "${IGAMEVIS_ROOT_DIR}/Cmake/GenerateShaderCPPFile.cmake"
                 DEPENDS ${SPV_FILE}
                 WORKING_DIRECTORY "${working_dir}")
 
