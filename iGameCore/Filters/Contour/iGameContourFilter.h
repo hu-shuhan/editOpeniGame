@@ -14,10 +14,7 @@ public:
 	~ContourFilter();
 
 	bool Execute()override;
-	virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
-	virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
-	virtual bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
-	virtual bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
+
 
 	void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension = 0);
 
@@ -30,6 +27,10 @@ protected:
 
 	double m_ContourValue{0.0};
 
+	virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
+	virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
+	virtual bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
+	virtual bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 	void ComputePointValueAndCellVisible(Points::Pointer, CellArray::Pointer, DoubleArray::Pointer, CharArray::Pointer);
 	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 		std::vector<CellContour::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell);

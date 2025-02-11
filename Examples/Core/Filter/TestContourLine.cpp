@@ -5,6 +5,7 @@
 #include <iGameInteractor.h>
 #include <iGameFileIO.h>
 #include <Clip/iGameModelClip.h>
+#include <Contour/iGameContourFilter.h>
 
 int main(){
     /* 创建场景*/
@@ -16,7 +17,7 @@ int main(){
     }
     auto input = obj;
     //新建filter用于提取等值线等值面
-    auto filter = iGame::ModelClip::New();
+    auto filter = iGame::ContourFilter::New();
     //数据的index
     int index = 0;
     auto& attr = obj->GetAttributeSet()->GetAllPointAttributes()->GetElement(index);

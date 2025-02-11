@@ -14,12 +14,9 @@ public:
 	~ModelClip();
 
 	bool Execute()override;
+	//Returns the converted output mesh, resulting in an unstructured mesh
 	UnstructuredMesh::Pointer GetClipMesh() { return DynamicCast<UnstructuredMesh>(this->GetOutput()); };
 
-	virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
-	virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
-	virtual bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
-	virtual bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 
 
 	enum ClipMethod {
@@ -54,7 +51,10 @@ protected:
 	void ComputePointValueAndCellVisible(Points::Pointer, CellArray::Pointer, DoubleArray::Pointer, CharArray::Pointer);
 	void CopyAttributeSetData(igIndex outPointNum, igIndex outCellNum, AttributeSet::Pointer inData, AttributeSet::Pointer outData,
 		std::vector<CellClip::InterpolateEdge>OriginEdge, std::vector<igIndex> OriginCell);
-
+	virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
+	virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
+	virtual bool ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm);
+	virtual bool ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm);
 private:
 	double GetCutValue(float x[3]);
 	double GetCutValue(double x[3]);
