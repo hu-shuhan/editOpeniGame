@@ -38,7 +38,12 @@ public:
 		normal.normalize();
 		return normal;
 	}
-
+	static constexpr int edges[4][2] = {
+  { 0, 1 },
+  { 1, 2 },
+  { 3, 2 },
+  { 0, 3 },
+	};
 protected:
 	Quad()
 	{
