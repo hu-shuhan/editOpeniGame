@@ -80,3 +80,7 @@ endif ()
      add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
              COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
  endif ()
+#   编译时将默认的MSVC运行时库静态链接，用于exe的打包
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()

@@ -17,9 +17,8 @@
 #include <iGameInteractor.h>
 
 int main(int argc, char* argv[]) {
-    /* 创建场景*/
     auto scene = iGame::Scene::New();
-    /* Change the Path to your MOdel storage path. */
+    /* Change the Path to your Model storage path. */
     const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\pvd\\CAD11\\_frames.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 //    auto obj = reader->ReadOdbFirstFrameMesh(fileName);
