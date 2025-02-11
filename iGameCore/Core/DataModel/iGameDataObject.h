@@ -132,7 +132,7 @@ public:
     SubConstIterator SubDataObjectIteratorEnd() const;
 
     DataObject* FindParent();
-    //Get real size of DataObject
+    //Get real size of DataObject, Only the memory of a large batch of arrays is taken into account 
     virtual IGsize GetRealMemorySize() { 
         IGsize res=0;
         if (m_Attributes) res += m_Attributes->GetRealMemorySize();
