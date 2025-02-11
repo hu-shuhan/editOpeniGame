@@ -23,6 +23,8 @@ add_executable(testSetViewStyle "${CMAKE_CURRENT_SOURCE_DIR}/Core/Rendering/SetV
 add_executable(testSetScalarField "${CMAKE_CURRENT_SOURCE_DIR}/Core/Rendering/SetScalarField.cpp")
 add_executable(testSetVolumeRendering "${CMAKE_CURRENT_SOURCE_DIR}/Core/Rendering/SetVolumeRendering.cpp")
 
+add_executable(testChangeRange "${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel/TestSubDataRangeChangeAndRecollect.cpp")
+
 add_executable(testVector "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Vector/TestVector.cpp")
 add_executable(testVectorAllCell "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Vector/TestVectorAllCell.cpp")
 add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Core/Filter/Vector/TestVectorCellInRange.cpp")
@@ -60,6 +62,9 @@ target_link_libraries(testSetTransparency PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testSetViewStyle PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testSetScalarField PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testSetVolumeRendering PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
+
+
+target_link_libraries(testChangeRange PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 
 target_link_libraries(testVector PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})
 target_link_libraries(testVectorAllCell PUBLIC ${OPENIGAME_CORE_LIB_TARGETS})

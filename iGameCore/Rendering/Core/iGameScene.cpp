@@ -1337,6 +1337,8 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                 glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
                              colorBuffer.data());
                 break;
+            case ZBuffer:
+                break;
             default:
                 break;
         }

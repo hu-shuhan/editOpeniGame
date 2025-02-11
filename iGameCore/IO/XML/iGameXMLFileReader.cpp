@@ -19,9 +19,10 @@ iGameXMLFileReader::iGameXMLFileReader() {
     SetOutput(0, m_Output);
 }
 iGameXMLFileReader::~iGameXMLFileReader() {
-    if(doc != nullptr)
+    if(doc != nullptr){
         doc->Clear();
         delete doc;
+    }
 }
 
 void iGameXMLFileReader::SetFilePath(const std::string& filePath) {
@@ -46,7 +47,8 @@ bool iGameXMLFileReader::Execute() {
 		return false;
 	}
 	m_Output->SetName(m_FileName);
-	delete doc;
+    delete doc;
+    doc = nullptr;
 	SetOutput(0, m_Output);
 //	end = clock();
 //	std::cout << "Read file success!" << std::endl;

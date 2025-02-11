@@ -26,11 +26,13 @@ public:
 
     void Register(GLFWwindow* _win_ptr);
 
-    void Register(RenderWindow* _win_ptr);
+
 
     void ShowAllRegisterWindow();
 
 protected:
+    void Register(RenderWindow* _win_ptr);
+
     std::vector<GLFWwindow* > m_GLFW_WindowPointerPool;
 
 

@@ -4,7 +4,7 @@
  */
 
 #pragma once
-#include <ui_mesheditmode.h>
+#include <ui_MeshEditMode.h>
 
 
 class igQtEditModeWidget : public QWidget {

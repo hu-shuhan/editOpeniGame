@@ -4,7 +4,7 @@
  */
 
 #pragma once
-#include <ui_qualitydetection.h>
+#include <ui_QualityDetection.h>
 //namespace iGame {
 //	class iGameFloatArray;
 //	class iGameTriMesh;

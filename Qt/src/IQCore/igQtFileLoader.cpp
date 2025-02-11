@@ -22,7 +22,7 @@
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtFileType.h>
 
-#include <QCoreApplication.h>
+#include <QCoreApplication>
 #include <QMessageBox>
 #include <iostream>
 #include <qaction.h>

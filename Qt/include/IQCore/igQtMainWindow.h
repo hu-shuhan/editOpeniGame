@@ -45,6 +45,7 @@ public:
     void initAllSources();
     void initAllInteractor();
 
+    void initArgs(const QStringList& args);
 public:
     igQtModelDrawWidget* rendererWidget;
     igQtFileLoader* fileLoader;

@@ -53,6 +53,16 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 }
+void igQtMainWindow::initArgs(const QStringList &args) {
+    int argc = args.size();
+    for(int i = 1; i < argc; ++ i){
+        const QString& cur_arg = args[i];
+        if(cur_arg.toLower() == "--filepath"){
+            const QString& filePath = args[++ i];
+            fileLoader->OpenFile(filePath.toStdString());
+        }
+    }
+}
 void igQtMainWindow::initAllUnDefinedComponents() {
     rendererWidget = new igQtModelDrawWidget(this);
     igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
@@ -1467,3 +1477,5 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+

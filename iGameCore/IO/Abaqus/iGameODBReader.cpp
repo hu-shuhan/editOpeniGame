@@ -113,7 +113,7 @@ public:
 };
 
 /* Public API: */
-DataObject::Pointer ODBReader::ReadOdbMesh(const std::string &filePath) {
+DataObject::Pointer ODBReader::ReadOdbRawMesh(const std::string &filePath) {
     m_NeedRequestMap = m_NeedRequestInstance = true;
     m_NeedRequestStep = false;
     SetFilePath(filePath);
@@ -126,13 +126,29 @@ DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath
     Execute();
     m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = false;
     auto outputObj = this->GetOutput();
-    int frameIdx = 5;
+    int frameIdx = 0;
     if(ExecuteWithFieldData(frameIdx)) {
         auto attributeSet = m_Attribute_helper->GetResult();
         outputObj->SetAttributeSet(attributeSet);
     }
     return outputObj;
 }
+DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath, const std::string &stepName) {
+    m_NeedRequestMap = m_NeedRequestInstance = true;
+    m_NeedRequestStep = false;
+    SetFilePath(filePath);
+    Execute();
+    m_NeedRequestMap = m_NeedRequestInstance = false;
+
+    auto outputObj = this->GetOutput();
+    int frameIdx = 0;
+    if(ExecuteWithFieldData(stepName, frameIdx)) {
+        auto attributeSet = m_Attribute_helper->GetResult();
+        outputObj->SetAttributeSet(attributeSet);
+    }
+    return outputObj;
+}
+
 AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, int frame_idx) {
     SetFilePath(filePath);
     m_NeedRequestInstance = m_NeedRequestStep = true;
@@ -276,6 +292,7 @@ bool ODBReader::ExtractAllStep() {
     for (stepIter.first(); !stepIter.isDone(); stepIter.next())
     {
         std::string stepName = std::string(stepIter.currentKey().CStr());
+        std::cout << "Step Name : " << stepName.c_str() << '\n';
         m_StepFrameMap[stepName] = stepIter.currentValue().frames().size();
     }
     return true;
