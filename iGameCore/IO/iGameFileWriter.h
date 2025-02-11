@@ -106,7 +106,7 @@ protected:
 	*/
 	IGenum m_FileType{ IGAME_ASCII };
 
-	int m_MaxThreadSize = 12;
+	int m_MaxThreadSize = 128;
 };
 
 IGAME_NAMESPACE_END
