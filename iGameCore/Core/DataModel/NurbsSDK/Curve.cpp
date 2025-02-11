@@ -1,9 +1,8 @@
 #include "Curve.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
-Curve::Curve(const int degree, const std::vector<Point>& controlPoints,
-             const std::vector<double>& knots,
+IGAME_NURBSSDK_NAMESPACE_BEGIN
+Curve::Curve(const int degree, const std::vector<Point>& controlPoints, const std::vector<double>& knots,
              const std::vector<double>& weights) {
     m_ControlPoints = controlPoints;
     m_Basis = {Basis(degree, knots)};
@@ -26,20 +25,16 @@ Point Curve::getPointAtParam(std::vector<double>& u) {
     return point;
 }
 
-void Curve::getConnectIndex(const std::vector<double>& u,
-                            std::vector<int>& index) {
+void Curve::getConnectIndex(const std::vector<double>& u, std::vector<int>& index) {
     int p = m_Basis[0].getDegree();
     index.resize(p + 1);
     int uspan = m_Basis[0].findSpan(u[0]);
     for (int i = 0; i <= p; i++) { index[i] = uspan - p + i; }
 }
 
-bool Curve::getPointAtParam(std::vector<std::vector<double>>& u,
-                            std::vector<Point>& points) {
+bool Curve::getPointAtParam(std::vector<std::vector<double>>& u, std::vector<Point>& points) {
     points.resize(u.size());
-    for (int i = 0; i < points.size(); ++i) {
-        points[i] = getPointAtParam(u[i]);
-    }
+    for (int i = 0; i < points.size(); ++i) { points[i] = getPointAtParam(u[i]); }
     return true;
 }
 
@@ -70,8 +65,7 @@ void Curve::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     }
 }
 
-void Curve::evalDers(std::vector<double>& u,
-                     std::vector<std::vector<double>>& basisValue) {
+void Curve::evalDers(std::vector<double>& u, std::vector<std::vector<double>>& basisValue) {
     double tol = 1e-15;
     int p = m_Basis[0].getDegree();
     int uPt = m_Basis[0].getKnotSize() - 1 - p - 1;
@@ -79,8 +73,7 @@ void Curve::evalDers(std::vector<double>& u,
     auto weight = m_Weights;
     auto u_knots = m_Basis[0].getKnots();
     std::vector<double> Nu(p + 1);
-    std::vector<std::vector<double>> Nu_ders(uPt + 1,
-                                             std::vector<double>(p + 1));
+    std::vector<std::vector<double>> Nu_ders(uPt + 1, std::vector<double>(p + 1));
 
     if (fabs(u[0] - u_knots[uPt - 1]) < tol) u[0] = u_knots.back() - tol;
     basisValue.resize(2);
@@ -104,5 +97,5 @@ void Curve::evalDers(std::vector<double>& u,
         basisValue[1][i] = (Nu_ders[1][i] * w - Nu[i] * dNdxi) * fac;
     }
 }
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END

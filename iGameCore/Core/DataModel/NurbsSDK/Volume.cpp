@@ -1,12 +1,9 @@
 #include "Volume.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
-Volume::Volume(const int udegree, const int vdegree, const int wdegree,
-               const std::vector<Point>& controlPoints,
-               const std::vector<double>& uknots,
-               const std::vector<double>& vknots,
-               const std::vector<double>& wknots,
+IGAME_NURBSSDK_NAMESPACE_BEGIN
+Volume::Volume(const int udegree, const int vdegree, const int wdegree, const std::vector<Point>& controlPoints,
+               const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& wknots,
                const std::vector<double>& weights) {
     m_Basis.resize(3);
     m_ControlPoints = controlPoints;
@@ -32,49 +29,37 @@ Point Volume::getPointAtParam(std::vector<double>& u) {
     return point;
 }
 
-void Volume::getConnectIndex(const std::vector<double>& u,
-                             std::vector<int>& index) {
-    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(),
-        r = m_Basis[2].getDegree();
+void Volume::getConnectIndex(const std::vector<double>& u, std::vector<int>& index) {
+    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(), r = m_Basis[2].getDegree();
     index.resize((p + 1) * (q + 1) * (r + 1));
-    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]),
-        wspan = m_Basis[2].findSpan(u[2]);
+    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]), wspan = m_Basis[2].findSpan(u[2]);
 
     for (int k = 0; k <= r; ++k) {
         for (int j = 0; j <= q; ++j) {
             for (int i = 0; i <= p; ++i) {
                 index[k * (p + 1) * (q + 1) + j * (p + 1) + i] =
-                        (wspan - r + k) * (m_Basis[0].getKnotSize() - p - 1) *
-                                (m_Basis[1].getKnotSize() - q - 1) +
-                        (vspan - q + j) * (m_Basis[0].getKnotSize() - p - 1) +
-                        (uspan - p + i);
+                        (wspan - r + k) * (m_Basis[0].getKnotSize() - p - 1) * (m_Basis[1].getKnotSize() - q - 1) +
+                        (vspan - q + j) * (m_Basis[0].getKnotSize() - p - 1) + (uspan - p + i);
             }
         }
     }
 }
 
-bool Volume::getPointAtParam(std::vector<std::vector<double>>& u,
-                             std::vector<Point>& points) {
+bool Volume::getPointAtParam(std::vector<std::vector<double>>& u, std::vector<Point>& points) {
     points.resize(u.size());
-    for (int i = 0; i < points.size(); ++i) {
-        points[i] = getPointAtParam(u[i]);
-    }
+    for (int i = 0; i < points.size(); ++i) { points[i] = getPointAtParam(u[i]); }
     return true;
 }
 
 void Volume::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     double tol = 1e-15;
-    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(),
-        r = m_Basis[2].getDegree();
-    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1,
-        vPt = m_Basis[1].getKnotSize() - 1 - q - 1,
+    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(), r = m_Basis[2].getDegree();
+    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1, vPt = m_Basis[1].getKnotSize() - 1 - q - 1,
         wPt = m_Basis[2].getKnotSize() - 1 - r - 1;
-    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]),
-        wspan = m_Basis[2].findSpan(u[2]);
+    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]), wspan = m_Basis[2].findSpan(u[2]);
     auto weight = m_Weights;
 
-    auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots(),
-         wknots = m_Basis[2].getKnots();
+    auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots(), wknots = m_Basis[2].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1), Nw(r + 1);
 
     if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
@@ -113,25 +98,18 @@ void Volume::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     }
 }
 
-void Volume::evalDers(std::vector<double>& u,
-                      std::vector<std::vector<double>>& basisValue) {
+void Volume::evalDers(std::vector<double>& u, std::vector<std::vector<double>>& basisValue) {
     double tol = 1e-15;
-    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(),
-        r = m_Basis[2].getDegree();
-    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1,
-        vPt = m_Basis[1].getKnotSize() - 1 - q - 1,
+    int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree(), r = m_Basis[2].getDegree();
+    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1, vPt = m_Basis[1].getKnotSize() - 1 - q - 1,
         wPt = m_Basis[2].getKnotSize() - 1 - r - 1;
-    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]),
-        wspan = m_Basis[2].findSpan(u[2]);
+    int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]), wspan = m_Basis[2].findSpan(u[2]);
     auto weight = m_Weights;
 
-    auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots(),
-         wknots = m_Basis[2].getKnots();
+    auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots(), wknots = m_Basis[2].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1), Nw(r + 1);
-    std::vector<std::vector<double>> Nu_ders(uPt + 1,
-                                             std::vector<double>(p + 1)),
-            Nv_ders(vPt + 1, std::vector<double>(q + 1)),
-            Nw_ders(wPt + 1, std::vector<double>(r + 1));
+    std::vector<std::vector<double>> Nu_ders(uPt + 1, std::vector<double>(p + 1)),
+            Nv_ders(vPt + 1, std::vector<double>(q + 1)), Nw_ders(wPt + 1, std::vector<double>(r + 1));
 
     if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
     if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
@@ -175,21 +153,14 @@ void Volume::evalDers(std::vector<double>& u,
                 fac = weight[ind] / (w * w);
 
                 basisValue[0][cnt] = Nu[i] * Nv[j] * Nw[k] * weight[ind] / w;
-                basisValue[1][3 * cnt] = (Nu_ders[1][i] * Nv[j] * Nw[k] * w -
-                                          Nu[i] * Nv[j] * Nw[k] * dNdxi) *
-                                         fac;
-                basisValue[1][3 * cnt + 1] =
-                        (Nu[i] * Nv_ders[1][j] * Nw[k] * w -
-                         Nu[i] * Nv[j] * Nw[k] * dNdeta) *
-                        fac;
+                basisValue[1][3 * cnt] = (Nu_ders[1][i] * Nv[j] * Nw[k] * w - Nu[i] * Nv[j] * Nw[k] * dNdxi) * fac;
+                basisValue[1][3 * cnt + 1] = (Nu[i] * Nv_ders[1][j] * Nw[k] * w - Nu[i] * Nv[j] * Nw[k] * dNdeta) * fac;
                 basisValue[1][3 * cnt + 2] =
-                        (Nu[i] * Nv[j] * Nw_ders[1][k] * w -
-                         Nu[i] * Nv[j] * Nw[k] * dNdzeta) *
-                        fac;
+                        (Nu[i] * Nv[j] * Nw_ders[1][k] * w - Nu[i] * Nv[j] * Nw[k] * dNdzeta) * fac;
                 cnt++;
             }
         }
     }
 }
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END
