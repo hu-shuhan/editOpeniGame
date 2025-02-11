@@ -14,6 +14,32 @@ ContourFilter::~ContourFilter()
 {
 
 }
+bool ContourFilter::SetPlane(double o[3], double n[3])
+{
+	if (m_Inputs->GetNumberOfElements() == 0) {
+		return false;
+	}
+	auto input = m_Inputs->GetElement(0);
+	if (!input) {
+		return false;
+	}
+	auto PointSet=DynamicCast<iGame::PointSet>(input);
+	if(PointSet==nullptr)return false;
+	auto Points= PointSet->GetPoints();
+	auto PointNum=PointSet->GetNumberOfPoints();
+	if(PointNum==0)return false;
+	DoubleArray::Pointer ScalarData=DoubleArray::New();
+	ScalarData->Resize(PointNum);
+	double* scalarData= ScalarData->RawPointer();
+	Point p{0,0,0};
+	for (int i = 0; i < PointNum; i++)
+	{
+		p=Points->GetPoint(i);
+		scalarData[i]= n[0] * (p[0] - o[0]) + n[1] * (p[1] - o[1]) + n[2] * (p[2] - o[2]);
+	}
+	this->SetIsoScalarData(ScalarData,0.0,0);
+	return true;
+}
 bool ContourFilter::Execute()
 {
 	
@@ -138,11 +164,15 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
 }
 bool ContourFilter::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 {
-
-	return true;
+	auto um = UnstructuredMesh::New();
+	um->GenerateFromVolumeMesh(vm);
+	return this->ExecuteWithUnstructuredMesh(um);
 }
 bool ContourFilter::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 {
+	auto um = UnstructuredMesh::New();
+	um->GenerateFromSurfaceMesh(sm);
+	return this->ExecuteWithUnstructuredMesh(um);
 	return true;
 }
 bool ContourFilter::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)

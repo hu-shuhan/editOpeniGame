@@ -150,7 +150,18 @@ VolumeMesh::Pointer UnstructuredMesh::ExtractVolumeMesh() {
     mesh->SetVolumes(volumes);
     return mesh;
 }
-
+bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
+    if (!mesh) return false;
+    int faceNum = mesh->GetNumberOfFaces();
+    auto Faces = mesh->GetFaces();
+    UnsignedIntArray::Pointer CellTypes = UnsignedIntArray::New();
+    CellTypes->Reserve(faceNum);
+    std::fill(CellTypes->RawPointer(), CellTypes->RawPointer()+faceNum, IG_POLYGON);
+    this->SetPoints(mesh->GetPoints());
+    this->SetCells(mesh->GetFaces(), CellTypes);
+    this->SetAttributeSet(mesh->GetAttributeSet());
+    return true;
+}
 bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     if (!mesh) return false;
     int volumeNum = mesh->GetNumberOfVolumes();

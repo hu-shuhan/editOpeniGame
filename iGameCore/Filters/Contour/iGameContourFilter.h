@@ -15,9 +15,15 @@ public:
 
 	bool Execute()override;
 
+	//Returns the converted output mesh, resulting in an unstructured mesh
+	UnstructuredMesh::Pointer GetContourMesh() { return DynamicCast<UnstructuredMesh>(this->GetOutput()); };
 
+	// To set equivalent data, you need to enter the corresponding equivalent data and data objects
+	// the dimension means extract the dimension of datas, dimension = 0 means the first dimension
 	void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension = 0);
 
+	//used to show slice
+    bool SetPlane(double o[3],double n[3]);
 protected:
 	ContourFilter();
 
