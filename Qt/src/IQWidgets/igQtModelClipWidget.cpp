@@ -12,7 +12,21 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent)
 		});
 	connect(ui->radioButton_Slice, &QRadioButton::toggled, this,
 		[&](bool isChecked) {
-			this->SetIsSlice(ui->radioButton_Slice->isChecked());
+			if (isChecked) {
+				this->SetViewMode(IG_SLICE_MODE);
+			}	
+		});
+	connect(ui->radioButton_Clip, &QRadioButton::toggled, this,
+		[&](bool isChecked) {
+			if (isChecked) {
+				this->SetViewMode(IG_CLIP_MODE);
+			}
+		});
+	connect(ui->radioButton_Mesh, &QRadioButton::toggled, this,
+		[&](bool isChecked) {
+			if (isChecked) {
+				this->SetViewMode(IG_MESH_MODE);
+			}
 		});
 	ui->radioButton_Slice->setChecked(true);
 
@@ -54,13 +68,9 @@ void igQtModelClipWidget::UpdatePlane() {
 void igQtModelClipWidget::SetViewMode(ViewMode vm)
 {
 	this->m_ViewMode = vm;
-}
-void igQtModelClipWidget::SetIsSlice(bool s) {
-	if (s) {
-		this->SetViewMode(IG_CONTOUR_MODE);
+	if (this->m_OriginDataObject) {
+		ClipModel();
 	}
-	else this->SetViewMode(IG_CLIP_MODE);
-	ClipModel();
 }
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
 	this->m_OriginDataObject = m_d;
@@ -127,7 +137,7 @@ void igQtModelClipWidget::ClipModel() {
 		UpdateClipModel(m_ResultMesh);
 	}
 	break;
-	case igQtModelClipWidget::IG_CONTOUR_MODE:
+	case igQtModelClipWidget::IG_SLICE_MODE:
 	{
 		clock_t time_1 = clock();
 		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
