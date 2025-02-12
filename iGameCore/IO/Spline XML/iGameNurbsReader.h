@@ -22,11 +22,7 @@ protected:
     bool Parsing() override;
     bool CreateDataObject() override;
 
-    /* 1 : Curve
-     * 2 : Surface
-     * 3 : Volume
-     * */
-    int m_NurbsType{0};
+    NurbsSDK::Type m_NurbsType;
     std::vector<NurbsSDK::Geometry> m_Patchs;
     std::vector<std::array<int, 2>> m_Boundary;
 };

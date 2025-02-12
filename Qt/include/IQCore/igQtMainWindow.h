@@ -3,8 +3,8 @@
  * @brief   igQtMainWindow's brief
  */
 
-#ifndef OPENIGAME_IGQTMAINWINDOW_H
-#define OPENIGAME_IGQTMAINWINDOW_H
+#ifndef IGAMEVIS_IGQTMAINWINDOW_H
+#define IGAMEVIS_IGQTMAINWINDOW_H
 
 #define QT_NO_OPENGL
 #include <ui_iGameQtMainWindow.h>
@@ -46,6 +46,7 @@ public:
     void initAllInteractor();
 
     void initArgs(const QStringList& args);
+
 public:
     igQtModelDrawWidget* rendererWidget;
     igQtFileLoader* fileLoader;
@@ -86,4 +87,4 @@ private:
 };
 
 
-#endif //OPENIGAME_IGQTMAINWINDOW_H
+#endif //IGAMEVIS_IGQTMAINWINDOW_H

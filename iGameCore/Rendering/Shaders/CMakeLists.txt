@@ -26,7 +26,7 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${GENERATED_SHADER_FOLDER}/spv)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${GENERATED_SHADER_FOLDER}/spv)
 endif ()
 
-include(${OPENIGAME_ROOT_DIR}/Cmake/ShaderCompile.cmake)
+include(${IGAMEVIS_ROOT_DIR}/Cmake/ShaderCompile.cmake)
 
 if (WIN32)
     set(glslangValidator_executable ${CMAKE_CURRENT_SOURCE_DIR}/GLSLangTool/Win32/glslangValidator.exe)
@@ -47,4 +47,4 @@ compile_shader(
         "${GENERATED_SHADER_FOLDER}"
         "${glslangValidator_executable}")
 
-set_target_properties("${TARGET_NAME}" PROPERTIES FOLDER "OpeniGame")
+set_target_properties("${TARGET_NAME}" PROPERTIES FOLDER "iGameVis")

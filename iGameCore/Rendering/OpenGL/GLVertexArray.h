@@ -1,5 +1,5 @@
-#ifndef GLVERTEXARRAY_H
-#define GLVERTEXARRAY_H
+#ifndef IGAMEVIS_GLVERTEXARRAY_H
+#define IGAMEVIS_GLVERTEXARRAY_H
 
 #include "GLBuffer.h"
 #include "GLObject.h"
@@ -67,4 +67,4 @@ void GLSetVertexAttrib(SmartPointer<GLVertexArray> VAO,
 
 IGAME_NAMESPACE_END
 
-#endif // GLVERTEXARRAY_H
+#endif // IGAMEVIS_GLVERTEXARRAY_H

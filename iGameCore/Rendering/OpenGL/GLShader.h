@@ -1,5 +1,5 @@
-#ifndef GLSHADER_H
-#define GLSHADER_H
+#ifndef IGAMEVIS_GLSHADER_H
+#define IGAMEVIS_GLSHADER_H
 
 #include "GLTexture2d.h"
 #include "GLVertexArray.h"
@@ -114,4 +114,4 @@ void GLShaderProgram::AddShaders(Shaders&&... shaders) {
 
 IGAME_NAMESPACE_END
 
-#endif // GLSHADER_H
+#endif // IGAMEVIS_GLSHADER_H
