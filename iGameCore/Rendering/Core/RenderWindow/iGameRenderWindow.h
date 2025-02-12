@@ -16,7 +16,6 @@ class Interactor;
 class RenderWindow : public Object {
 public:
     I_OBJECT(RenderWindow)
-
     static Pointer New() { return new RenderWindow; }
 
     void SetScene(Scene* scene);
@@ -37,6 +36,11 @@ public:
     GLFWwindow* GetRawWindowPtr();
 
 protected:
+    RenderWindow();
+    ~RenderWindow() override;
+
+    void ResizeScene();
+
     GLFWwindow* m_window{nullptr};
     std::string m_title{"iGameVis - GLFW_OpenGL"};
 
@@ -45,13 +49,5 @@ protected:
     IEvent m_Event;
 
     int m_window_width{800}, m_window_height{600};
-
-protected:
-    void ResizeScene();
-
-private:
-protected:
-    RenderWindow();
-    ~RenderWindow();
 };
 IGAME_NAMESPACE_END

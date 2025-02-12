@@ -42,7 +42,7 @@ public:
 
 protected:
     BasicStyle();
-    ~BasicStyle();
+    ~BasicStyle() override;
 
     void RequestSignal(InteractorStyle::Signal, void*);
 

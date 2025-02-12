@@ -71,7 +71,7 @@ public:
 
 protected:
     Interactor();
-    ~Interactor();
+    ~Interactor() override;
 
     std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
