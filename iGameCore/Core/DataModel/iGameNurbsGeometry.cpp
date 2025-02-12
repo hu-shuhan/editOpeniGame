@@ -15,11 +15,11 @@ void NurbsGeometry::SetPatch(std::vector<NurbsSDK::Geometry>& patchs) {
 
 void NurbsGeometry::SetBoundary(std::vector<std::array<int, 2>> boundary) { m_Geometry->SetBoundaryInfo(boundary); }
 
-void NurbsGeometry::SetType(NurbsSDK::NurbsType type) { m_Geometry->SetType(type); }
+void NurbsGeometry::SetType(NurbsSDK::Type type) { m_Geometry->SetType(type); }
 
 void NurbsGeometry::SetSamples(size_t number) {
     if (number > 100) { igDebug("Sample number is too large and may cause performance issues"); }
-    m_SampleNumber = number;
+    m_Samples = number;
 }
 
 IGsize NurbsGeometry::GetRealMemorySize() { return 0; }
@@ -42,11 +42,11 @@ void NurbsGeometry::ConvertToDrawableData() {
 
         if (m_Geometry->GetPatchSize() == 0) return;
 
-        if (m_Geometry->GetType() == NurbsSDK::NurbsType::CURVE) {
+        if (m_Geometry->GetType() == NurbsSDK::Type::CURVE) {
             ConvertToCurveData();
-        } else if (m_Geometry->GetType() == NurbsSDK::NurbsType::SURFACE) {
+        } else if (m_Geometry->GetType() == NurbsSDK::Type::SURFACE) {
             ConvertToSurfaceData();
-        } else if (m_Geometry->GetType() == NurbsSDK::NurbsType::VOLUME) {
+        } else if (m_Geometry->GetType() == NurbsSDK::Type::VOLUME) {
             ConvertToVolumeData();
         }
     }
@@ -80,8 +80,14 @@ void NurbsGeometry::ConvertToCurveData() {
     UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
     triangleIndices->SetDimension(3);
 
-    size_t SAMPLE_NUM = (1000 / m_Geometry->GetPatchSize());
-    if (m_SampleNumber != 0) { SAMPLE_NUM = m_SampleNumber; }
+    int samples = 0;
+    if (m_Samples != 0) {
+        samples = m_Samples;
+    } else {
+        samples = (1000 / m_Geometry->GetPatchSize());
+        samples = std::max(1, samples);
+        samples = std::min(100, samples);
+    }
 
     // 1. 传入控制顶点
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
@@ -111,17 +117,17 @@ void NurbsGeometry::ConvertToCurveData() {
     // 3. 传入离散化线
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
-        double sample_gap = 1.f / SAMPLE_NUM;
+        double sample_gap = 1.f / samples;
 
         auto offset = points->GetNumberOfPoints();
-        for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
+        for (int u_sample = 0; u_sample < samples; ++u_sample) {
             std::vector<double> v_0{u_sample * sample_gap};
             auto v0 = patch->getPointAtParam(v_0);
 
             std::vector<std::vector<double>*> tempV{&v0};
             for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
 
-            if (u_sample == SAMPLE_NUM - 1) {
+            if (u_sample == samples - 1) {
                 edgeIndices->AddElement2(offset + u_sample, offset);
             } else {
                 edgeIndices->AddElement2(offset + u_sample, offset + u_sample + 1);
@@ -152,8 +158,14 @@ void NurbsGeometry::ConvertToSurfaceData() {
     UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
     triangleIndices->SetDimension(3);
 
-    int SAMPLE_NUM = (1000 / m_Geometry->GetPatchSize());
-    if (m_SampleNumber != 0) { SAMPLE_NUM = m_SampleNumber; }
+    int samples = 0;
+    if (m_Samples != 0) {
+        samples = m_Samples;
+    } else {
+        samples = (1000 / m_Geometry->GetPatchSize());
+        samples = std::max(1, samples);
+        samples = std::min(100, samples);
+    }
 
     // 1. 传入控制顶点
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
@@ -192,9 +204,9 @@ void NurbsGeometry::ConvertToSurfaceData() {
     // 3.传入离散化面片
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
         auto patch = m_Geometry->PatchPointer(i);
-        double sample_gap = 1.f / SAMPLE_NUM;
-        for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
-            for (int v_sample = 0; v_sample < SAMPLE_NUM; ++v_sample) {
+        double sample_gap = 1.f / samples;
+        for (int u_sample = 0; u_sample < samples; ++u_sample) {
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
                 std::vector<double> v_0{u_sample * sample_gap, v_sample * sample_gap};
                 auto v0 = patch->getPointAtParam(v_0);
 
@@ -249,8 +261,14 @@ void NurbsGeometry::ConvertToVolumeData() {
     UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
     triangleIndices->SetDimension(3);
 
-    int SAMPLE_NUM = (1000 / m_Geometry->GetPatchSize());
-    if (m_SampleNumber != 0) { SAMPLE_NUM = m_SampleNumber; }
+    int samples = 0;
+    if (m_Samples != 0) {
+        samples = m_Samples;
+    } else {
+        samples = (1000 / m_Geometry->GetPatchSize());
+        samples = std::max(1, samples);
+        samples = std::min(100, samples);
+    }
 
     // 1. 传入控制顶点 & 传入控制顶点连线
     for (int i = 0; i < m_Geometry->GetPatchSize(); i++) {
@@ -293,14 +311,14 @@ void NurbsGeometry::ConvertToVolumeData() {
     for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 3. 传入离散化面片
-    double sample_gap = 1.f / SAMPLE_NUM;
+    double sample_gap = 1.f / samples;
     for (auto arr: m_Geometry->GetBoundaryInfo()) {
         int patch_id = arr[0];
         auto currentPatch = m_Geometry->PatchPointer(patch_id);
         if (arr[1] == 0) {
             // u=0 or u=1, 固定u的大小
-            for (int v_sample = 0; v_sample < SAMPLE_NUM; ++v_sample) {
-                for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
                     // 用离散采样点获取绘制店
                     std::vector<double> v_0{0, w_sample * sample_gap, v_sample * sample_gap, 0};
                     auto v0 = currentPatch->getPointAtParam(v_0);
@@ -323,8 +341,8 @@ void NurbsGeometry::ConvertToVolumeData() {
                 }
             }
         } else if (arr[1] == 1) {
-            for (int v_sample = 0; v_sample < SAMPLE_NUM; ++v_sample) {
-                for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
                     // 用离散采样点获得绘制点
                     std::vector<double> v_0{1, w_sample * sample_gap, v_sample * sample_gap, 0};
                     auto v0 = currentPatch->getPointAtParam(v_0);
@@ -347,8 +365,8 @@ void NurbsGeometry::ConvertToVolumeData() {
                 }
             }
         } else if (arr[1] == 2) {
-            for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
-                for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
                     // 用离散采样点获得绘制点
                     std::vector<double> v_0{u_sample * sample_gap, 0, w_sample * sample_gap};
                     auto v0 = currentPatch->getPointAtParam(v_0);
@@ -371,8 +389,8 @@ void NurbsGeometry::ConvertToVolumeData() {
                 }
             }
         } else if (arr[1] == 3) {
-            for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
-                for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
                     // 用离散采样点获得绘制点
                     std::vector<double> v_0{u_sample * sample_gap, 1, w_sample * sample_gap};
                     auto v0 = currentPatch->getPointAtParam(v_0);
@@ -395,8 +413,8 @@ void NurbsGeometry::ConvertToVolumeData() {
                 }
             }
         } else if (arr[1] == 4) {
-            for (int v_sample = 0; v_sample < SAMPLE_NUM; ++v_sample) {
-                for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
                     // 用离散采样点获得绘制点
                     std::vector<double> v_0{u_sample * sample_gap, v_sample * sample_gap, 0};
                     auto v0 = currentPatch->getPointAtParam(v_0);
@@ -420,8 +438,8 @@ void NurbsGeometry::ConvertToVolumeData() {
             }
 
         } else if (arr[1] == 5) {
-            for (int w_sample = 0; w_sample < SAMPLE_NUM; ++w_sample) {
-                for (int u_sample = 0; u_sample < SAMPLE_NUM; ++u_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
                     // 用离散采样点获得绘制点
                     std::vector<double> v_0{u_sample * sample_gap, w_sample * sample_gap, 1};
                     auto v0 = currentPatch->getPointAtParam(v_0);
