@@ -1226,11 +1226,11 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 			edgeVtxs = nullptr;
 			thisCase = nullptr;
 		}
-		else if (cellType == IG_POLYHEDRON)
-		{
+		else if (cellType == IG_POLYHEDRON){
+			return this->ModelClip::ExecuteWithUnstructuredMesh(um);
 		}
 		else {
-
+			return this->ModelClip::ExecuteWithUnstructuredMesh(um);
 		}
 		vhs = nullptr;
 	}

@@ -177,6 +177,9 @@ bool ContourFilter::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 }
 bool ContourFilter::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 {
+	auto um = UnstructuredMesh::New();
+	um->GenerateFromVolumeMesh(vm);
+	return this->ExecuteWithUnstructuredMesh(um);
 	return true;
 }
 void ContourFilter::ComputePointValueAndCellVisible(Points::Pointer inPoints, CellArray::Pointer inCells, DoubleArray::Pointer PointContourArray, CharArray::Pointer CellVisible)

@@ -83,8 +83,6 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
 		this->parentWidget()->hide();
 		ResetInteractor();
 		});
-
-
 }
 
 void igQtModelClipWidget::ClipModel() {

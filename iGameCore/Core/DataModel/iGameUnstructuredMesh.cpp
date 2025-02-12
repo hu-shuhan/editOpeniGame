@@ -170,9 +170,13 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     CellTypes->Reserve(volumeNum);
     igIndex vcnt = 0;
     igIndex vhs[IGAME_CELL_MAX_SIZE];
-    for (igIndex i = 0; i < volumeNum; i++) {
-        vcnt = Volumes->GetCellIds(i, vhs);
-        switch (vcnt) {
+    if (mesh->GetIsPolyhedronType()){
+        std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + volumeNum, IG_POLYHEDRON);
+    }
+    else {
+        for (igIndex i = 0; i < volumeNum; i++) {
+            vcnt = Volumes->GetCellIds(i, vhs);
+            switch (vcnt) {
             case 4:
                 CellTypes->AddValue(IG_TETRA);
                 break;
@@ -188,8 +192,10 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
             default:
                 igError("Not support this volume with " << vcnt << "'s verts.");
                 return false;
+            }
         }
     }
+ 
     this->SetPoints(mesh->GetPoints());
     this->SetCells(mesh->GetCells(), CellTypes);
     this->SetAttributeSet(mesh->GetAttributeSet());
