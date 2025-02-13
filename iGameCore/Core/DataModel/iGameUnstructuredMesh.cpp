@@ -152,14 +152,29 @@ VolumeMesh::Pointer UnstructuredMesh::ExtractVolumeMesh() {
 }
 bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
     if (!mesh) return false;
-    int faceNum = mesh->GetNumberOfFaces();
-    auto Faces = mesh->GetFaces();
-    UnsignedIntArray::Pointer CellTypes = UnsignedIntArray::New();
-    CellTypes->Reserve(faceNum);
-    std::fill(CellTypes->RawPointer(), CellTypes->RawPointer()+faceNum, IG_POLYGON);
-    this->SetPoints(mesh->GetPoints());
-    this->SetCells(mesh->GetFaces(), CellTypes);
-    this->SetAttributeSet(mesh->GetAttributeSet());
+    UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
+    auto inFaces = mesh->GetFaces();
+    auto inFcnt = mesh->GetNumberOfFaces();
+    Types->Resize(inFcnt);
+    unsigned int type = 0;
+    int vcnt = 0;
+    for (int i = 0; i < inFcnt; i++) {
+        vcnt = inFaces->GetCellSize(i);
+        if (vcnt == 3) {
+            type = IG_TRIANGLE;
+        }
+        else if (vcnt == 4) {
+            type = IG_QUAD;
+        }
+        else {
+           type=IG_POLYGON;
+        }
+        Types->SetValue(i, type);
+    }
+    auto um = UnstructuredMesh::New();
+    um->SetPoints(mesh->GetPoints());
+    um->SetCells(inFaces, Types);
+    um->SetAttributeSet(mesh->GetAttributeSet());
     return true;
 }
 bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
