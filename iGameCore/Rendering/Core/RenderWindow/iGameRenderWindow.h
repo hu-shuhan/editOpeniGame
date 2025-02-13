@@ -32,7 +32,8 @@ public:
     void SetTitle(const std::string& title);
 
     Scene* GetScene();
-
+    /*Gets a window pointer to the original GLFW third-party library for custom actions
+     * (currently only used for multi-window management)*/
     GLFWwindow* GetRawWindowPtr();
 protected:
     GLFWwindow* m_window{nullptr};

@@ -346,12 +346,12 @@
   <customwidget>
    <class>igQtAnimationTreeWidget_snap</class>
    <extends>QTreeWidget</extends>
-   <header>IQComponents/igqtanimationtreewidget_snap.h</header>
+   <header>IQComponents/igQtAnimationTreeWidget_snap.h</header>
   </customwidget>
   <customwidget>
    <class>igQtAnimationTreeWidget_interpolate</class>
    <extends>QTreeWidget</extends>
-   <header>IQComponents/igqtanimationtreewidget_interpolate.h</header>
+   <header>IQComponents/igQtAnimationTreeWidget_interpolate.h</header>
   </customwidget>
  </customwidgets>
  <resources>

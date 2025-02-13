@@ -92,11 +92,9 @@ enum {
 
 // Streaming Data's String Type
 enum StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
-// Output frameBuffer's Type
-enum FrameBufferType { RGBA, RGB, ZBuffer };
+
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };
-
 
 inline constexpr int IG_VOID = 0;
 inline constexpr int IG_CHAR = 1;
@@ -136,8 +134,7 @@ using DataObjectType = IGenum;
 using DataObjectId = int;
 //using IGrange = std::pair<float, float>;
 enum Color {
-    None = 0,
-    Red,
+    Red = 0,
     Green,
     Blue,
     LightBlue,

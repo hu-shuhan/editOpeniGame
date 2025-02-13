@@ -124,26 +124,26 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um)
 		switch (cell->GetCellType())
 		{
 		case IG_TRIANGLE:
-			CellClip::Clip(DynamicCast<Triangle>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Triangle>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_QUAD:
-			CellClip::Clip(DynamicCast<Quad>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Quad>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_POLYGON:
-			CellClip::Clip(DynamicCast<Polygon>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Polygon>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_TETRA:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_QUADRATIC_TETRA:
-			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<QuadraticTetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case IG_POLYHEDRON:
-			CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue);
 			}
 			break;
 		}
@@ -245,7 +245,7 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm)
 		for (i = 0; i < vcnt; i++) {
 			CellClipValue[i] = PointClipValue[vhs[i]];
 		}
-		CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+		CellClip::Clip(DynamicCast<Polyhedron>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 	}
 
 	this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge, OriginCell);
@@ -334,11 +334,11 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm)
 		switch (cell->GetCellType())
 		{
 		case IG_TETRA:
-			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Tetra>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		default:
 			if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue, m_Slice);
+				CellClip::Clip(DynamicCast<Volume>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, PointClipValue);
 			}
 			break;
 		}
@@ -425,13 +425,13 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm)
 		switch (cell->GetNumberOfPoints())
 		{
 		case 3:
-			CellClip::Clip(DynamicCast<Triangle>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Triangle>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		case 4:
-			CellClip::Clip(DynamicCast<Quad>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Quad>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		default:
-			CellClip::Clip(DynamicCast<Polygon>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell, m_Slice);
+			CellClip::Clip(DynamicCast<Polygon>(cell), CellClipValue, OutPoints, OutConn, OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
 			break;
 		}
 	}

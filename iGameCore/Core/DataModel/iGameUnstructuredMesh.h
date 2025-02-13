@@ -62,9 +62,11 @@ public:
     //a new mesh if it has other mesh's cell.
     SurfaceMesh::Pointer ExtractSurfaceMesh();
     VolumeMesh::Pointer ExtractVolumeMesh();
+    //Generate from SurfaceMesh
+    bool GenerateFromSurfaceMesh(SurfaceMesh::Pointer surfaceMesh);
+
     //Generate from VolumeMesh
     bool GenerateFromVolumeMesh(VolumeMesh::Pointer volumeMesh);
-
     static bool
     TransferVolumeMeshToUnstructuredMesh(VolumeMesh::Pointer volumeMesh,
                                          UnstructuredMesh::Pointer&);

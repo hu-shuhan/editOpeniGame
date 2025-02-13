@@ -132,7 +132,7 @@ bool iGame::iGamePVDReader::Parsing() {
                 std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
                 for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
                     auto& attr = it->second->GetAttributeSet()->GetAttribute(k);
-                    attr.updateAllDataRange();
+                    attr.UpdateAllDataRange();
                     const auto& ScalarDataRange = attr.GetDataRange();
                     for(int j = 0; j < dim + 1; j ++){
                         dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
@@ -171,7 +171,6 @@ bool iGame::iGamePVDReader::Parsing() {
 bool iGame::iGamePVDReader::CreateDataObject() {
     if(m_data_object != nullptr) {
         m_Output = m_data_object;
-        m_Output->SwitchToCurrentTimeframe(0);
         return true;
     }
     return iGameXMLFileReader::CreateDataObject();

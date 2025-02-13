@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 12/9/2024.
-//
-
 #include "iGameTimer.h"
 
 IGAME_NAMESPACE_BEGIN

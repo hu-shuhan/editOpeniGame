@@ -1,11 +1,9 @@
 #include "Surface.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
-Surface::Surface(const int udegree, const int vdegree,
-                 const std::vector<Point>& controlPoints,
-                 const std::vector<double>& uknots,
-                 const std::vector<double>& vknots,
+IGAME_NURBSSDK_NAMESPACE_BEGIN
+Surface::Surface(const int udegree, const int vdegree, const std::vector<Point>& controlPoints,
+                 const std::vector<double>& uknots, const std::vector<double>& vknots,
                  const std::vector<double>& weights) {
     m_Basis.resize(2);
     m_ControlPoints = controlPoints;
@@ -30,43 +28,36 @@ Point Surface::getPointAtParam(std::vector<double>& u) {
     return point;
 }
 
-void Surface::getConnectIndex(const std::vector<double>& u,
-                              std::vector<int>& index) {
+void Surface::getConnectIndex(const std::vector<double>& u, std::vector<int>& index) {
     int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree();
     index.resize((p + 1) * (q + 1));
     int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]);
 
     for (int j = 0; j <= q; ++j) {
         for (int i = 0; i <= p; ++i) {
-            index[j * (p + 1) + i] =
-                    (uspan - p + i) +
-                    (vspan - q + j) * (m_Basis[0].getKnotSize() - p - 1);
+            index[j * (p + 1) + i] = (uspan - p + i) + (vspan - q + j) * (m_Basis[0].getKnotSize() - p - 1);
         }
     }
 }
 
-bool Surface::getPointAtParam(std::vector<std::vector<double>>& u,
-                              std::vector<Point>& points) {
+bool Surface::getPointAtParam(std::vector<std::vector<double>>& u, std::vector<Point>& points) {
     points.resize(u.size());
-    for (int i = 0; i < points.size(); ++i) {
-        points[i] = getPointAtParam(u[i]);
-    }
+    for (int i = 0; i < points.size(); ++i) { points[i] = getPointAtParam(u[i]); }
     return true;
 }
 
 void Surface::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     double tol = 1e-15;
     int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree();
-    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1,
-        vPt = m_Basis[1].getKnotSize() - 1 - q - 1;
+    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1, vPt = m_Basis[1].getKnotSize() - 1 - q - 1;
     int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]);
     auto weight = m_Weights;
 
     auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1);
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);
 
@@ -93,23 +84,20 @@ void Surface::eval(std::vector<double>& u, std::vector<double>& basisValue) {
     }
 }
 
-void Surface::evalDers(std::vector<double>& u,
-                       std::vector<std::vector<double>>& basisValue) {
+void Surface::evalDers(std::vector<double>& u, std::vector<std::vector<double>>& basisValue) {
     double tol = 1e-15;
     int p = m_Basis[0].getDegree(), q = m_Basis[1].getDegree();
-    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1,
-        vPt = m_Basis[1].getKnotSize() - 1 - q - 1;
+    int uPt = m_Basis[0].getKnotSize() - 1 - p - 1, vPt = m_Basis[1].getKnotSize() - 1 - q - 1;
     int uspan = m_Basis[0].findSpan(u[0]), vspan = m_Basis[1].findSpan(u[1]);
     auto weight = m_Weights;
 
     auto uknots = m_Basis[0].getKnots(), vknots = m_Basis[1].getKnots();
     std::vector<double> Nu(p + 1), Nv(q + 1);
-    std::vector<std::vector<double>> Nu_ders(uPt + 1,
-                                             std::vector<double>(p + 1)),
+    std::vector<std::vector<double>> Nu_ders(uPt + 1, std::vector<double>(p + 1)),
             Nv_ders(vPt + 1, std::vector<double>(q + 1));
 
-    if (fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
-    if (fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
+    if (std::fabs(u[0] - uknots.back()) < tol) u[0] = uknots.back() - tol;
+    if (std::fabs(u[1] - vknots.back()) < tol) u[1] = vknots.back() - tol;
     m_Basis[0].getAllNurbsBasisFuns(uspan, u[0], Nu);
     m_Basis[1].getAllNurbsBasisFuns(vspan, u[1], Nv);
     m_Basis[0].getAllNurbsBasisFunsDers(uspan, u[0], uPt, Nu_ders);
@@ -140,13 +128,11 @@ void Surface::evalDers(std::vector<double>& u,
             fac = weight[ind] / (w * w);
 
             basisValue[0][cnt] = Nu[i] * Nv[j] * weight[ind] / w;
-            basisValue[1][2 * cnt] =
-                    (Nu_ders[1][i] * Nv[j] * w - Nu[i] * Nv[j] * dNdxi) * fac;
-            basisValue[1][2 * cnt + 1] =
-                    (Nu[i] * Nv_ders[1][j] * w - Nu[i] * Nv[j] * dNdeta) * fac;
+            basisValue[1][2 * cnt] = (Nu_ders[1][i] * Nv[j] * w - Nu[i] * Nv[j] * dNdxi) * fac;
+            basisValue[1][2 * cnt + 1] = (Nu[i] * Nv_ders[1][j] * w - Nu[i] * Nv[j] * dNdeta) * fac;
             cnt++;
         }
     }
 }
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END

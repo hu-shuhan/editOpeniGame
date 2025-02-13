@@ -14,14 +14,14 @@ public:
     void MouseMoveEvent(IEvent _event) override;
 
 protected:
-    StreamDragStyle() = default;
-    ~StreamDragStyle() override = default;
+    StreamDragStyle();
+    ~StreamDragStyle() override;
 
-    igIndex m_SelectedPointId{-1};
+    igIndex m_SelectedPointId;
 
-    float Selected_NDC_Z{0};
-    igm::mat4 MVP{};
-    igm::mat4 InvertedMVP{};
+    float Selected_NDC_Z;
+    igm::mat4 MVP;
+    igm::mat4 InvertedMVP;
 };
 IGAME_NAMESPACE_END
 #endif

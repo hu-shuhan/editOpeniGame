@@ -72,7 +72,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
     if (!_AttributeSet) return false;
     auto allVectors = _AttributeSet->GetVector(VecName);
     // if (allVectors.isNone() || allVectors.attachmentType != IG_POINT) return;
-    if (allVectors.isNone()) return false;
+    if (allVectors.IsNone()) return false;
     if (allVectors.attachmentType == IG_POINT) {
         long long numOfPoint = allVectors.pointer->GetNumberOfElements();
         auto allPoints =
@@ -85,7 +85,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         // Downsampling prevents stuttering 
         //int temCount = 0;
         if (drawmode==CellInRange){
-            for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
+            int minNum = (CellIndexRange.second < numOfPoint) ? CellIndexRange.second : numOfPoint;
+            for (int i = CellIndexRange.first; i < minNum; i++) {
                 float v[4] = {0.0f};
                 allVectors.pointer->GetElement(i, v);
                 Vector3f vec(v[0], v[1], v[2]);
@@ -143,7 +144,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         Vector1->Resize(0);
         igIndex index = 0;
         if (drawmode==CellInRange){
-            for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
+            int minNum = (CellIndexRange.second < numOfCell) ? CellIndexRange.second : numOfCell;
+            for (int i = CellIndexRange.first; i < minNum; i++) {
                 float v[4] = {0.0f};
                 allVectors.pointer->GetElement(i, v);
                 Vector1->AddElement3(v[0], v[1], v[2]);
@@ -164,7 +166,8 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         auto colorsPtr = colors->RawPointer();
         if (!volumeMesh->GetIsPolyhedronType()) {
             if (drawmode==CellInRange){
-                for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
+                int minNum = (CellIndexRange.second < numOfCell) ? CellIndexRange.second : numOfCell;
+                for (int i = CellIndexRange.first; i <minNum; i++) {
                     //      temCount++;
                     // if (temCount % 5 == 0) {
                     float v[4] = {0.0f};

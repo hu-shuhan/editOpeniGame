@@ -2371,7 +2371,7 @@ XMLError XMLDocument::LoadFile( const char* filename )
 XMLError XMLDocument::LoadFile( FILE* fp )
 {
     Clear();
-
+    // TODO
     TIXML_FSEEK( fp, 0, SEEK_SET );
     if ( fgetc( fp ) == EOF && ferror( fp ) != 0 ) {
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );

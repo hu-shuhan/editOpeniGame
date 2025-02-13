@@ -54,7 +54,7 @@
   <customwidget>
    <class>igQtModelTreeWidget</class>
    <extends>QTreeWidget</extends>
-   <header location="global">IQComponents/igQtmodelTreeWidget.h</header>
+   <header location="global">IQComponents/igQtModelTreeWidget.h</header>
   </customwidget>
   <customwidget>
    <class>QtTreePropertyBrowser</class>

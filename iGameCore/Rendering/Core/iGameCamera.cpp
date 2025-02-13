@@ -3,6 +3,8 @@
 //
 
 #include "iGameCamera.h"
+#include "iGameRenderingLogger.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -54,15 +56,17 @@ void Viewer::SetClippngRange(float near, float far) {
     if (near == m_ClippingRange.x && far == m_ClippingRange.y) { return; }
 
     if (near <= 0.0f) {
-        igError("Near plane value must be greater than 0.0f.");
+        Logger::LogError("Near plane value must be greater than 0.0f.");
     }
 
     if (near > far) {
-        igError("Near plane value cannot be greater than the far plane value.");
+        Logger::LogError(
+                "Near plane value cannot be greater than the far plane value.");
     }
 
     if (far - near < 1e-10f) {
-        igError("The difference between the near and far planes is too small.");
+        Logger::LogError(
+                "The difference between the near and far planes is too small.");
     }
 
     m_ClippingRange.x = near;
@@ -76,8 +80,8 @@ void Viewer::SetFov(float fov) {
     if (fov == m_Fov) { return; }
 
     if (fov < 1.0f || fov > 179.0f) {
-        igDebug("fov provided is out of range (1.0 - 179.0 degrees). "
-                "Clamping to valid range.");
+        Logger::LogInfo("fov provided is out of range (1.0 - 179.0 degrees), "
+                        "clamping to valid range.");
         m_Fov = std::clamp(fov, 1.0f, 179.0f);
     } else {
         m_Fov = fov;
@@ -89,7 +93,7 @@ void Viewer::SetFov(float fov) {
 float Viewer::GetFov() const { return m_Fov; }
 
 
-/** Depth Map Visualization:
+/** Depth Map Visualization(farz is infinite):
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           1              2      INF/-INF     0              1
@@ -101,13 +105,13 @@ float Viewer::GetFov() const { return m_Fov; }
 //};
 
 // depth range: 0.0(near plane) -> 1.0(far plane)
-igm::mat4 Viewer::GetProjectionMatrix() {
-    return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
-                                 aspect<float>(), m_ClippingRange.x,
-                                 m_ClippingRange.y);
-};
+//igm::mat4 Viewer::GetProjectionMatrix() {
+//    return igm::perspectiveRH_ZO(static_cast<float>(igm::radians(m_Fov)),
+//                                 aspect<float>(), m_ClippingRange.x,
+//                                 m_ClippingRange.y);
+//};
 
-/** Depth Map Visualization:
+/** Depth Map Visualization(farz is infinite):
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|
     *           0             -1     -INF/INF      1              0

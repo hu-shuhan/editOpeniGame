@@ -40,7 +40,7 @@ void PainterBase::HideAll() {
 }
 void PainterBase::Show(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -55,7 +55,7 @@ void PainterBase::Show(IGuint handle) {
 }
 void PainterBase::Hide(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -71,7 +71,7 @@ void PainterBase::Hide(IGuint handle) {
 
 void PainterBase::Delete(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        igDebug("handle is invalid.");
+        Logger::LogInfo("handle is invalid.");
         return;
     }
 
@@ -79,7 +79,7 @@ void PainterBase::Delete(IGuint handle) {
     this->Modified();
 }
 
-void PainterBase::SetPen(const Pen::Pointer& pen) {
+void PainterBase::SetPen(const SmartPointer<Pen>& pen) {
     if (pen == m_Pen) { return; }
 
     m_Pen = pen;
@@ -135,7 +135,9 @@ void PainterBase::SetPen(float width) {
     this->Modified();
 }
 
-void PainterBase::SetBrush(const Brush::Pointer& brush) { m_Brush = brush; }
+void PainterBase::SetBrush(const SmartPointer<Brush>& brush) {
+    m_Brush = brush;
+}
 
 void PainterBase::SetBrush(const Color& color) {
     auto c = ColorUtils::Map(color);
@@ -193,34 +195,27 @@ void PainterBase::Draw(Scene* scene) {
     for (const auto& pair: m_VAOs) {
         float penWidth = pair.first;
 
-        scene->UBO().useColor = true;
-        scene->UpdateUniformBuffer();
-        scene->GetShader(Scene::NOLIGHT)->Use();
+        scene->GetShader(ShaderType::NOLIGHT)->Use();
 
-        m_VAOs[penWidth]->Bind();
+        // draw points & lines
+        glad_glDepthRange(0.000001, 1);
         {
-            // draw point
-            m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
             glad_glPointSize(penWidth);
-            glad_glDepthRange(0.000001, 1);
-            glad_glDrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
-            glad_glDepthRange(0, 1);
+            m_VAOs[penWidth]->ElementBuffer(m_PointEBOs[penWidth]);
+            m_VAOs[penWidth]->DrawElements(GL_POINTS, m_PointEBOSizes[penWidth],
+                                           GL_UNSIGNED_INT);
 
-            // draw line
-            m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
             glad_glLineWidth(penWidth);
-            glad_glDepthRange(0.000001, 1);
-            glad_glDrawElements(GL_LINES, m_LineEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
-            glad_glDepthRange(0, 1);
-
-            // draw triangle
-            m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
-            glad_glDrawElements(GL_TRIANGLES, m_TriangleEBOSizes[penWidth],
-                                GL_UNSIGNED_INT, 0);
+            m_VAOs[penWidth]->ElementBuffer(m_LineEBOs[penWidth]);
+            m_VAOs[penWidth]->DrawElements(GL_LINES, m_LineEBOSizes[penWidth],
+                                           GL_UNSIGNED_INT);
         }
-        m_VAOs[penWidth]->Release();
+        glad_glDepthRange(0, 1);
+
+        // draw triangle
+        m_VAOs[penWidth]->ElementBuffer(m_TriangleEBOs[penWidth]);
+        m_VAOs[penWidth]->DrawElements(
+                GL_TRIANGLES, m_TriangleEBOSizes[penWidth], GL_UNSIGNED_INT);
     }
 }
 
@@ -231,12 +226,13 @@ void PainterBase::PackDrawableData() {
 
     m_PrimitivesUpdateHelper->Modified();
 
-    std::unordered_map<float, FloatArray::Pointer> packPositions;
-    std::unordered_map<float, FloatArray::Pointer> packColors;
-    //std::unordered_map<float, FloatArray::Pointer> packNormals;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packPointIndices;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packLineIndices;
-    std::unordered_map<float, UnsignedIntArray::Pointer> packTriangleIndices;
+    std::unordered_map<float, SmartPointer<FloatArray>> packPositions;
+    std::unordered_map<float, SmartPointer<FloatArray>> packColors;
+    //std::unordered_map<float, FloatArray>> packNormals;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packPointIndices;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packLineIndices;
+    std::unordered_map<float, SmartPointer<UnsignedIntArray>>
+            packTriangleIndices;
 
     // create buffer array
     for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();

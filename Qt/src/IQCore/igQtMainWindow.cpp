@@ -54,6 +54,16 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 }
+void igQtMainWindow::initArgs(const QStringList &args) {
+    int argc = args.size();
+    for(int i = 1; i < argc; ++ i){
+        const QString& cur_arg = args[i].toLower();
+        if(cur_arg == "--filepath"){
+            const QString& filePath = args[++ i];
+            fileLoader->OpenFile(filePath.toStdString());
+        }
+    }
+}
 void igQtMainWindow::initAllUnDefinedComponents() {
     rendererWidget = new igQtModelDrawWidget(this);
     igQtOpenGLManager::Instance()->setQtRenderWidget(rendererWidget);
@@ -271,31 +281,31 @@ void igQtMainWindow::initAllComponents() {
     // &igQtModelDrawWidget::changeCurrentModel2Last);
 
     connect(ui->action_setViewToPositiveX, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveX();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveX();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeX, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeX();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeX();
         rendererWidget->update();
     });
     connect(ui->action_setViewToPositiveY, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveY();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveY();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeY, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeY();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeY();
         rendererWidget->update();
     });
     connect(ui->action_setViewToPositiveZ, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtPositiveZ();
+        rendererWidget->GetScene()->ResetCameraViewToPositiveZ();
         rendererWidget->update();
     });
     connect(ui->action_setViewToNegativeZ, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtNegativeZ();
+        rendererWidget->GetScene()->ResetCameraViewToNegativeZ();
         rendererWidget->update();
     });
     connect(ui->action_setViewToIsometric, &QAction::triggered, this, [&](bool checked) {
-        rendererWidget->GetScene()->LookAtIsometric();
+        rendererWidget->GetScene()->ResetCameraViewToIsometric();
         rendererWidget->update();
     });
     connect(ui->action_rotateNinetyClockwise, &QAction::triggered, this, [&](bool checked) {
@@ -343,7 +353,48 @@ igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
-        connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
+        // VolumeMeshFilterTest::Pointer fp = VolumeMeshFilterTest::New();
+        // fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        // fp->Execute();
+        // rendererWidget->update();
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
+        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh",
+                                              "true");
+        int scalarId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ", "true");
+
+        dialog->show();
+        dialog->setApplyFunctor([=]() {
+
+            Triangulation::Pointer triangulation = Triangulation::New();
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            triangulation->SetInput(obj);
+            triangulation->Execute();
+            obj = triangulation->GetOutput();
+
+            Simplification::Pointer filter = Simplification::New();
+
+            bool ok;
+            filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
+            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
+            filter->SetInput(obj);
+            //filter->SetActivedAttribIndices({0});
+            filter->Execute();
+
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+            dialog->close();
+        });
+
+    });
+
+
+    /*
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
             this, [&](bool checked) {
 
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -585,10 +636,10 @@ void igQtMainWindow::initAllFilters() {
         obj = triangulation->GetOutput();
 
         Simplification::Pointer filter = Simplification::New();
-        filter->SetTargetReduction(0.9);
+        filter->SetTargetReduction(0.0001);
         filter->SetInput(obj);
         filter->SetAllScalarCheck(false);
-        filter->SetActivedAttribIndices({0});
+        filter->SetActivedAttribIndices({0, 1, 2});
         filter->Execute();
 
         modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
@@ -675,7 +726,7 @@ void igQtMainWindow::initAllFilters() {
         //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
         //rendererWidget->update();
     });
-
+    */
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
     });
@@ -704,29 +755,6 @@ void igQtMainWindow::initAllFilters() {
         fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
         fp->Execute();
         rendererWidget->update();
-    });
-
-    connect(ui->action_test_05, &QAction::triggered, this, [&](bool checked) {
-        // VolumeMeshFilterTest::Pointer fp = VolumeMeshFilterTest::New();
-        // fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        // fp->Execute();
-        // rendererWidget->update();
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        int targetId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target number of faces", "1000");
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0");
-        int thresholdId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Quality threshold", "0.1");
-        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh",
-                                              "false");
-        dialog->show();
-
-        bool ok;
-        std::cout << dialog->getInt(targetId, ok) << std::endl;
-        std::cout << dialog->getDouble(reductionId, ok) << std::endl;
-        std::cout << dialog->getDouble(thresholdId, ok) << std::endl;
-        std::cout << (dialog->getChecked(preserveId, ok) ? "true" : "false") << std::endl;
-
-        dialog->setApplyFunctor([&]() { std::cout << "123\n"; });
     });
 
     // connect(ui->action_test_05, &QAction::triggered, this, [&](bool checked) {
@@ -848,7 +876,9 @@ void igQtMainWindow::initAllFilters() {
         //                         .pointer;
         //chart->drawBarChart(dataarray);
         //chart->exec();
-        QuickModelClip::Pointer filter = QuickModelClip::New();
+
+
+        /*   QuickModelClip::Pointer filter = QuickModelClip::New();
         auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(input);
         auto bound = input->GetBoundingBox();
@@ -869,6 +899,19 @@ void igQtMainWindow::initAllFilters() {
         auto res2 = filter2->GetOutput();
         res2->SetName("Old Clip");
         modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
+        rendererWidget->update();*/
+
+        ContourFilter::Pointer filter = ContourFilter::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(input);
+        auto m_ScalarArray = input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
+        auto m_IsoValue = 0.5;
+        auto m_ScalarDimension = 0;
+        filter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
+        filter->Execute();
+        auto res = filter->GetOutput();
+        res->SetName("Contour Result");
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         rendererWidget->update();
     });
 
@@ -1003,7 +1046,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter3D* painter, const float color[3]) -> void {
         // 1. draw faces
-        painter->SetPen(Color::None);
+        painter->SetPen(Pen::Style::NoPen);
         painter->SetBrush(color[0], color[1], color[2]);
         igIndex cell[32]{};
         for (int i = 0; i < m->GetNumberOfFaces(); i++) {
@@ -1014,7 +1057,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         // 2. draw lines
         painter->SetPen(Color::Black);
-        painter->SetBrush(Color::None);
+        painter->SetBrush(Brush::Style::NoBrush);
         if (m->GetEdges() == nullptr) { m->BuildEdges(); }
         for (int i = 0; i < m->GetNumberOfEdges(); i++) {
             int ncell = m->GetEdgePointIds(i, cell);
@@ -1222,7 +1265,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         SliceWidget->SetOriginDataObject(obj);
 
         rendererWidget->getInteractor()->SetDataObject(obj);
-        rendererWidget->getInteractor()->SetPainter(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
+        rendererWidget->getInteractor()->SetPainter3D(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
 
         if (rendererWidget->GetScene()->GetInteractor()) {
             rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
@@ -1237,7 +1280,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->update();
     });
     connect(SliceWidget, &igQtModelClipWidget::ResetInteractor, this, [&]() {
-        if (!rendererWidget->getInteractor()->IsBase()) {
+        if (!rendererWidget->getInteractor()->IsBasicStyle()) {
             rendererWidget->getInteractor()->RequestBasicStyle();
             return;
         }
@@ -1663,3 +1706,5 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+

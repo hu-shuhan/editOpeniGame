@@ -1,5 +1,5 @@
 #pragma once
-#include<ui_igstreamtracer.h>
+#include<ui_igStreamTracer.h>
 //#include <iGameManager.h>
 #include <iostream>
 #include <StreamView/iGameStreamBase.h>

@@ -22,6 +22,7 @@ bool VTKReader::Parsing() {
 	ReadHeader();
 
 	if (!this->ReadString(line)) {
+		
 		igError("Data file ends prematurely!");
 		return false;
 	}

@@ -115,7 +115,9 @@ public:
     DataObject::Pointer GetSubDataObject(DataObjectId id);
     void SetParentDataObject(DataObject* parent) { m_Parent = parent; }
 
+    /* Recollect Sub data object's MIN/MAX DataRange to update the current dataObject's data range. */
     bool ReCollectSubDataObjectDataRange();
+    /* Update Sub data Object's data range to the parent data range. */
     bool UpdateSubDataObjectDataRange();
     DataObjectId AddSubDataObject(DataObject::Pointer obj);
     void RemoveSubDataObject(DataObjectId id);
@@ -130,7 +132,7 @@ public:
     SubConstIterator SubDataObjectIteratorEnd() const;
 
     DataObject* FindParent();
-    //Get real size of DataObject
+    //Get real size of DataObject, Only the memory of a large batch of arrays is taken into account 
     virtual IGsize GetRealMemorySize() { 
         IGsize res=0;
         if (m_Attributes) res += m_Attributes->GetRealMemorySize();
@@ -196,18 +198,15 @@ public:
     virtual bool IsDrawable() { return false; }
     virtual ScalarsToColors::Pointer GetColorMapper() { return m_ColorMapper; }
     void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper = cm; }
+
     int GetAttributeIndex();
     int GetAttributeDimension();
-
-    int GetTimeframeIndex();
-    void SwitchToCurrentTimeframe(int timeIndex);
 
 protected:
     int m_AttributeIndex{-1};
     int m_AttributeDimension{-1};
     Object::Pointer m_AttributeHelper{};
 
-    int m_CurrentTimeframeIndex{-1};
     ScalarsToColors::Pointer m_ColorMapper = ScalarsToColors::New();
 };
 

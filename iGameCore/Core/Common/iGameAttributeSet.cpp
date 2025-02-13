@@ -154,7 +154,7 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index, IG
     AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) {
         for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
             auto& attrb = m_Buffer->GetElement(i);
-            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+            if (!attrb.IsNone() && attrb.pointer->GetName() == name) {
                 return attrb;
             }
         }
@@ -164,7 +164,7 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index, IG
     const AttributeSet::Attribute &AttributeSet::GetAttribute(const std::string &name) const {
         for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
             auto& attrb = m_Buffer->GetElement(i);
-            if (!attrb.isNone() && attrb.pointer->GetName() == name) {
+            if (!attrb.IsNone() && attrb.pointer->GetName() == name) {
                 return attrb;
             }
         }
@@ -176,7 +176,7 @@ AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& name, IGe
 {
 	for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
 		auto& attrb = m_Buffer->GetElement(i);
-		if (!attrb.isNone() && attrb.type == type && attrb.pointer->GetName() == name) {
+            if (!attrb.IsNone() && attrb.type == type && attrb.pointer->GetName() == name) {
 			return attrb;
 		}
 	}
@@ -187,7 +187,7 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& nam
 {
 	for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
 		auto& attrb = m_Buffer->GetElement(i);
-		if (!attrb.isNone() && attrb.type == type && attrb.pointer->GetName() == name) {
+            if (!attrb.IsNone() && attrb.type == type && attrb.pointer->GetName() == name) {
 			return attrb;
 		}
 	}
@@ -252,7 +252,51 @@ ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllCellAttribute
 
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
 
+iGame::ArrayObject::Pointer iGame::AttributeSet::Attribute::GetPointer() { return pointer; }
+void iGame::AttributeSet::Attribute::SetPointer(ArrayObject::Pointer o) { pointer = o; }
+IGenum iGame::AttributeSet::Attribute::GetType() { return type; }
+void iGame::AttributeSet::Attribute::SetType(IGenum o) { type = o; }
+IGenum iGame::AttributeSet::Attribute::GetAttachmentType() { return attachmentType; }
+void iGame::AttributeSet::Attribute::SetAttachmentType(IGenum o) { attachmentType = o; }
+bool iGame::AttributeSet::Attribute::IsDeleted() { return isDeleted; }
+void iGame::AttributeSet::Attribute::Delete() { isDeleted = true; }
 
+bool iGame::AttributeSet::Attribute::DeepCopy(const iGame::AttributeSet::Attribute& other) {
+    if (other.isDeleted) return true;
+    if (DynamicCast<FloatArray>(other.pointer)) {
+        auto p = FloatArray::New();
+        p->DeepCopy(DynamicCast<FloatArray>(other.pointer));
+        p->SetName(other.pointer->GetName());
+        pointer = p;
+    } else if (DynamicCast<DoubleArray>(other.pointer)) {
+        auto p = DoubleArray::New();
+        p->DeepCopy(DynamicCast<DoubleArray>(other.pointer));
+        p->SetName(other.pointer->GetName());
+        pointer = p;
+    } else {
+        return false;
+    }
+    type = other.type;
+    attachmentType = other.attachmentType;
+    isDeleted = other.isDeleted;
+
+    dataRange = DoubleArray::New();
+    dataRange->DeepCopy(other.dataRange);
+    return true;
+}
+
+iGame::AttributeSet::Attribute iGame::AttributeSet::Attribute::None() {
+    Attribute att;
+    att.pointer = nullptr;
+    att.type = IG_NONE;
+    att.attachmentType = IG_NONE;
+    att.isDeleted = false;
+    return att;
+}
+
+bool iGame::AttributeSet::Attribute::IsNone() const {
+    return pointer == nullptr || type == IG_NONE || attachmentType == IG_NONE || isDeleted == true;
+}
 
 iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
     if(dataRange == nullptr){
@@ -265,12 +309,12 @@ iGame::DoubleArray::Pointer iGame::AttributeSet::Attribute::GetDataRange() {
 //            dataRange->SetElement(i, {FLT_MIN, FLT_MAX});
             dataRange->SetElement(i, {0, 0});
         }
-		updateAllDataRange();
+		UpdateAllDataRange();
     }
     return dataRange;
 }
 
-bool iGame::AttributeSet::Attribute::updateAllDataRange() {
+bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     if(dataRange == nullptr) {
         GetDataRange();
         return true;
@@ -306,5 +350,9 @@ bool iGame::AttributeSet::Attribute::updateAllDataRange() {
     }
     dataRange->Modified();
     return true;
+}
+
+void AttributeSet::Attribute::SetDataRange(DoubleArray::Pointer range) {
+    dataRange = std::move(range);
 }
 IGAME_NAMESPACE_END

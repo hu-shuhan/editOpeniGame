@@ -2,6 +2,8 @@
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 #include "iGameThreadPool.h"
+#include "iGameTimer.h"
+
 IGAME_NAMESPACE_BEGIN
 
 IGsize SurfaceMesh::GetNumberOfEdges() const noexcept { return m_Edges ? m_Edges->GetNumberOfCells() : 0; }
@@ -26,6 +28,8 @@ bool SurfaceMesh::DeepCopy(SurfaceMesh::Pointer other) {
     m_Points->DeepCopy(other->m_Points);
     m_Faces = CellArray::New();
     m_Faces->DeepCopy(other->m_Faces);
+    m_Attributes = AttributeSet::New();
+    m_Attributes->DeepCopy(other->GetAttributeSet());
     this->Modified();
     return true;
 }
@@ -730,15 +734,6 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_LineIndices->Modified();
         m_TriangleIndices->Modified();
         m_TriangleEdgeMasks->Modified();
-
-#ifdef IGAME_OPENGL_VERSION_460
-        bool debug = false;
-        if (debug) {
-            m_Meshlets->BuildMeshlet(m_Positions->RawPointer(), m_Positions->GetNumberOfElements(),
-                                     m_TriangleIndices->RawPointer(), m_TriangleIndices->GetNumberOfValues(),
-                                     m_TriangleIndices);
-        }
-#endif
     }
 
     // convert scalar data
@@ -775,7 +770,8 @@ void SurfaceMesh::ConvertToDrawableData() {
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntArray::Pointer& lineIndices,
                                    UnsignedIntArray::Pointer& triangleIndices,
                                    UnsignedCharArray::Pointer& triangleEdgeMasks) {
-    clock_t time1 = clock();
+    Timer::Pointer timer = Timer::New();
+
     positions = m_Points->ConvertToArray();
 
     lineIndices->Reset();
@@ -887,7 +883,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
-                throw std::runtime_error("The index of the edge is negative.");
+                igError("The index of the edge is negative.");
             } else {
                 lineIndices->AddElement2(static_cast<iguIndex>(cell[0]), static_cast<iguIndex>(cell[1]));
             }
@@ -924,8 +920,8 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
             }
         }
     }
-    clock_t time2 = clock();
-    std::cout << "Get draw array cost " << time2 - time1 << "ms\n";
+
+    std::cout << "Get draw array cost " << timer->ElapsedMilliseconds() << "ms\n";
 }
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,

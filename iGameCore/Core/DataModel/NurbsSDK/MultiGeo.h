@@ -7,7 +7,7 @@
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
+IGAME_NURBSSDK_NAMESPACE_BEGIN
 using Geometry = std::shared_ptr<Geo>;
 
 enum NurbsType { CURVE, SURFACE, VOLUME };
@@ -56,5 +56,5 @@ protected:
     // 曲体   0：参数点u = 0的边界   1：参数点u = 1的边界   2：参数点v = 0的边界    3：参数点v = 1的边界    4：参数点w = 0的边界    5：参数点w = 1的边界
     std::vector<std::array<int, 2>> m_Boundary;
 };
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END

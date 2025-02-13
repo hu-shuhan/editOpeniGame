@@ -14,14 +14,16 @@ IGAME_NAMESPACE_BEGIN
 class ThreadPool : public Object {
 public:
 	I_OBJECT(ThreadPool);
-
 	// 单例
 	static Pointer Instance() {
 		static Pointer ins = new ThreadPool;
 		return ins;
 	}
 
-	//// static parallelFor 函数，numThreads 默认值为 12
+	// static parallelFor 函数，numThreads 默认值为 12
+	// numThreads可人为调节，
+	// 调用的是func(int start,int end)，处理start到end的部分
+	// 希望将默认的线程数量设定为程序允许的最大线程数量，目前没改
 	template <typename Func>
 	static void parallelFor(int start, int end, Func&& process, int numThreads = 12) {
 		int range = end - start;
@@ -45,6 +47,9 @@ public:
 			future.get();
 		}
 	}
+	// static parallelFor 函数，numThreads 默认值为 12, 
+	//maxThreadSize 表示的是该func允许的最大线程数量，由用户在自定义程序里面设定
+	//这个模式调用的是func(int start,int end,int id), id用于在每个func中开辟独立的数据空间，因此id不能>=maxThreadSize
     template <typename Func>
     static void parallelFor(int start, int end, int maxThreadSize, Func&& process, int numThreads = 12) {
         if (numThreads > maxThreadSize)numThreads = maxThreadSize;
@@ -154,7 +159,7 @@ private:
 	std::atomic_int          thread_num_;    // 空闲的线程数
 	std::queue<Task>         tasks_;         // 任务队列
 	std::vector<std::thread> pool_;          // 线程队列
-
+	
 };
 
 IGAME_NAMESPACE_END

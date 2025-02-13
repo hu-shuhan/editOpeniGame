@@ -10,13 +10,9 @@ public:
     I_OBJECT(SlicingInteractor);
     static Pointer New() { return new SlicingInteractor; }
 
-
-
-
 protected:
     SlicingInteractor() = default;
     ~SlicingInteractor() override = default;
-
 };
 
 IGAME_NAMESPACE_END

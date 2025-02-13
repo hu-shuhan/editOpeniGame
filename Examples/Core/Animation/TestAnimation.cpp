@@ -19,7 +19,8 @@
 void TestAnimation(int keyframe_idx){
     /* 创建场景*/
     auto scene = iGame::Scene::New();
-    const std::string fileName = "./Models/CAD11/_frames.pvd";
+//    const std::string fileName = "./Models/CAD11/_frames.pvd";
+    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\pvd\\CAD11/_frames.pvd";
     auto obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) {
         std::cout << "Read ERROR!\n";
@@ -30,9 +31,10 @@ void TestAnimation(int keyframe_idx){
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
 
 
@@ -88,5 +90,5 @@ void TestAnimation(int keyframe_idx){
 
 
 int main(int argc, char** args){
-    TestAnimation(2);
+    TestAnimation(5);
 }

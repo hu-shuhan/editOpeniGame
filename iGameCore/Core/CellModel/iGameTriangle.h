@@ -30,6 +30,7 @@ public:
 		normal.normalize();
 		return normal;
 	}
+	static constexpr int edges[3][2] = { { 0, 1 }, { 1, 2 }, { 2, 0 } };
 
 protected:
 	Triangle()

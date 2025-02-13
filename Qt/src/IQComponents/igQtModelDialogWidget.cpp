@@ -8,8 +8,7 @@
 #include <qdebug.h>
 #include <qmenu.h>
 
-igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
-    : QDockWidget(parent), ui(new Ui::LayerDialog) {
+igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(parent), ui(new Ui::LayerDialog) {
     ui->setupUi(this);
     this->setMinimumWidth(parent->width() / 4);
 
@@ -36,9 +35,8 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
     propertyWidget->setFactoryForManager(propertyManager, editFactory);
 
     propertyWidget->removeProperty(objectGroup);
-    objectGroup = propertyManager->addProperty(
-            QtVariantPropertyManager::groupTypeId(),
-            QStringLiteral("Object propertys"));
+    objectGroup =
+            propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
     propertyWidget->addProperty(objectGroup);
 
 
@@ -58,8 +56,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
     propertyManager->setAttribute(pror_LineWidth, "maximum", 10);
     propertyManager->setAttribute(pror_LineWidth, "singleStep", 1);
 
-    prop_Transparency =
-            propertyManager->addProperty(QVariant::Double, "Transparency");
+    prop_Transparency = propertyManager->addProperty(QVariant::Double, "Transparency");
     prop_Transparency->setEnabled(false);
     prop_Transparency->setValue(0);
     objectGroup->addSubProperty(prop_Transparency);
@@ -67,8 +64,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
     propertyManager->setAttribute(prop_Transparency, "maximum", 1.0);
     propertyManager->setAttribute(prop_Transparency, "singleStep", 0.1);
 
-    connect(propertyManager, &QtVariantPropertyManager::valueChanged, this,
-            &igQtModelDialogWidget::onPropertyChanged);
+    connect(propertyManager, &QtVariantPropertyManager::valueChanged, this, &igQtModelDialogWidget::onPropertyChanged);
 
     ui->ModelInformationWidget->hide();
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::UpdateCurrentModel);
@@ -77,8 +73,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent)
     connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this,
             &igQtModelDialogWidget::updateCurrentModelInfo);
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
-    connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this,
-            &igQtModelDialogWidget::updateCloudPicture);
+    connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
 }
 
 void igQtModelDialogWidget::UpdateCurrentModel(Model::Pointer model) {
@@ -122,12 +117,10 @@ void igQtModelDialogWidget::UpdateCurrentModel(Model::Pointer model) {
     //    propertyTreeWidget->addProperty(objectGroup);
 }
 
-ModelTreeWidgetItem*
-igQtModelDialogWidget::getItemFromObject(DataObject::Pointer obj) {
+ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(DataObject::Pointer obj) {
     // 遍历子项
     for (int i = 0; i < modelTreeWidget->topLevelItemCount(); ++i) {
-        ModelTreeWidgetItem* item = dynamic_cast<ModelTreeWidgetItem*>(
-                modelTreeWidget->topLevelItem(i));
+        ModelTreeWidgetItem* item = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->topLevelItem(i));
         if (item->getModel()->GetDataObject() == obj) { return item; }
     }
     return nullptr;
@@ -142,15 +135,14 @@ void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj) {
     auto item = getItemFromObject(obj);
     if (!item) return;
     item->setCurrentChild(nullptr);
-    
+
     while (item->childCount() > 0) { delete item->takeChild(0); }
     auto attrSet = obj->GetAttributeSet()->GetAllAttributes();
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
         auto& attr = attrSet->GetElement(i);
         if (attr.isDeleted) continue;
-        AttribTreeWidgetItem* child =
-                new AttribTreeWidgetItem(i, modelTreeWidget, item);
-        //if (obj->GetAttributeIndex() == i) { 
+        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
+        //if (obj->GetAttributeIndex() == i) {
         //    item->setCurrentChild(child);
         //    child->setSelected(true);
         //}
@@ -160,12 +152,14 @@ void igQtModelDialogWidget::updateAllAttriubute(DataObject::Pointer obj) {
     }
     item->viewAttribute(-1);
 }
-int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj,
-                                                    ItemSource source) {
+int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    auto model = scene->CreateModel(obj);
+
+    Model::Pointer model = Model::New();
+    model->SetDataObject(obj);
+    
     int id = scene->AddModel(model);
     currentModel = model;
 
@@ -188,20 +182,19 @@ int igQtModelDialogWidget::addDataObjectToModelTree(DataObject::Pointer obj,
     for (int i = 0; i < attrSet->GetNumberOfElements(); i++) {
         auto& attr = attrSet->GetElement(i);
         if (attr.isDeleted) continue;
-        AttribTreeWidgetItem* child =
-                new AttribTreeWidgetItem(i, modelTreeWidget, item);
+        AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
         child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
         child->setDimension(attr.pointer->GetDimension());
     }
 
 
-	modelTreeWidget->addTopLevelItem(item);
-	modelTreeWidget->setCurrentItem(item);
+    modelTreeWidget->addTopLevelItem(item);
+    modelTreeWidget->setCurrentItem(item);
 
     updateCurrentModelProperty(model.get());
-	updateCurrentModelInfo();
-	return id;
+    updateCurrentModelInfo();
+    return id;
 }
 
 int igQtModelDialogWidget::addModelToModelTree(Model::Pointer model) {
@@ -259,24 +252,20 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
     iGame::SceneManager::Instance()->GetCurrentScene()->Update();
-    
+
     if (dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem())) {
-        modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(
-                modelTreeWidget->currentItem()));
+        modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem()));
     } else {
         modelTreeWidget->setCurrentModelItem(nullptr);
     }
-    
 }
 
-void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
-                                              const QVariant& value) {
+void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVariant& value) {
     if (property == prop_PointSize) {
         //std::cout << value.toInt() << std::endl;
         if (currentModel) {
             auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
-            if (obj && obj->GetPointSize() != value.toInt() &&
-                value.toInt() > 0) {
+            if (obj && obj->GetPointSize() != value.toInt() && value.toInt() > 0) {
                 obj->SetPointSize(value.toInt());
                 Update();
             }
@@ -285,8 +274,7 @@ void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
         //std::cout << value.toDouble() << std::endl;
         if (currentModel) {
             auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
-            if (obj && obj->GetLineWidth() != value.toInt() &&
-                value.toInt() > 0) {
+            if (obj && obj->GetLineWidth() != value.toInt() && value.toInt() > 0) {
                 obj->SetLineWidth(value.toInt());
                 Update();
             }
@@ -295,8 +283,7 @@ void igQtModelDialogWidget::onPropertyChanged(QtProperty* property,
         //std::cout << value.toDouble() << std::endl;
         if (currentModel) {
             auto obj = DynamicCast<DrawObject>(currentModel->GetDataObject());
-            if (obj && obj->GetTransparency() != value.toDouble() &&
-                value.toDouble() >= 0 && value.toDouble() <= 1.0) {
+            if (obj && obj->GetTransparency() != value.toDouble() && value.toDouble() >= 0 && value.toDouble() <= 1.0) {
                 obj->SetTransparency(value.toFloat());
                 Update();
             }

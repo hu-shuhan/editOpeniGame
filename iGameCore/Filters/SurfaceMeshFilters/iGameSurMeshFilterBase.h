@@ -59,7 +59,7 @@ inline double GetCosTheta(const Vector3d& n1, const Vector3d& n2) {
     double lengths = n1.length() * n2.length();
     if (lengths == 0) return 0.0;
     double cosTheta = dotProduct / lengths;
-    cosTheta = std::max(-1.0, std::min(1.0, cosTheta)); // ÏŞÖÆcosThetaÔÚ[-1, 1]·¶Î§ÄÚ
-    return std::acos(cosTheta);                         // ·µ»Ø¼Ğ½Ç£¬µ¥Î»Îª»¡¶È
+    cosTheta = std::max(-1.0, std::min(1.0, cosTheta)); // é™åˆ¶cosThetaåœ¨[-1, 1]èŒƒå›´å†…
+    return std::acos(cosTheta);                         // è¿”å›å¤¹è§’ï¼Œå•ä½ä¸ºå¼§åº¦
 }
 IGAME_NAMESPACE_END

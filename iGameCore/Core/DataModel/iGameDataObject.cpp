@@ -123,17 +123,7 @@ int DataObject::GetAttributeIndex() { return this->m_AttributeIndex; }
 
 int DataObject::GetAttributeDimension() { return this->m_AttributeDimension; }
 
-int DataObject::GetTimeframeIndex() { return this->m_CurrentTimeframeIndex; }
 
-void DataObject::SwitchToCurrentTimeframe(int timeIndex) {
-    if (m_TimeFrames == nullptr)
-        igError("This operation cannot be performed in this file without time "
-                "frames.");
-    if (m_TimeFrames->GetArrays().size() <= timeIndex)
-        igError("timeStep error");
-
-    m_CurrentTimeframeIndex = timeIndex;
-}
 
 StreamingData::Pointer DataObject::GetTimeFrames() {
     if (m_TimeFrames == nullptr) m_TimeFrames = StreamingData::New();
@@ -159,7 +149,7 @@ bool DataObject::UpdateSubDataObjectDataRange() {
         for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
             auto& par = attributes->GetElement(i);
             if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
-                par.updateAllDataRange();
+                par.UpdateAllDataRange();
             }
             obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
 
@@ -174,20 +164,33 @@ bool DataObject::UpdateSubDataObjectDataRange() {
 bool DataObject::ReCollectSubDataObjectDataRange() {
     /* Update SubDataObject's DataRange to Global DataRange and ReConvert Drawable data. */
     if(m_SubDataObjectsHelper == nullptr) return false;
-    for(auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++ it){
-        if(!it->second->IsDrawable()) continue;
-        const auto& obj = DynamicCast<DrawObject>(it->second);
-        const auto& display_obj = obj->GetDisplayObject();
-        auto attributes = obj->GetAttributeSet()->GetAllAttributes();
-        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
-            auto& par = attributes->GetElement(i);
-            par.updateAllDataRange();
-            /* Process Display mesh's DataRange. */
-            if(display_obj != nullptr) display_obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
+    auto attributes = this->GetAttributeSet()->GetAllAttributes();
+    for(IGsize k = 0; k < attributes->GetNumberOfElements(); k ++){
+        double dataRange_max[64]{DBL_MIN}, dataRange_min[64] {DBL_MAX};
+        auto par_attr = attributes->GetElement(k);
+        int dim = par_attr.pointer->GetDimension();
+        for(auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++ it){
+                if(!it->second->IsDrawable()) continue;
+                const auto& obj = DynamicCast<DrawObject>(it->second);
+                const auto& display_obj = obj->GetDisplayObject();
+                auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
+                subAttribute.UpdateAllDataRange();
+                const auto& ScalarDataRange = subAttribute.GetDataRange();
+                for(int j = 0; j < subAttribute.pointer->GetDimension() + 1; j ++){
+                    dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
+                    dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
+                }
         }
-        obj->ConvertToDrawableData();
+        DoubleArray::Pointer parent_dataRange = DoubleArray::New();
+        parent_dataRange->SetDimension(2);
+        parent_dataRange->Resize(dim + 1);
+        for(int j = 0; j < dim + 1; j ++){
+            parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
+        }
+        par_attr.SetDataRange(parent_dataRange);
     }
 
+    return true;
 }
 
 void DataObject::SetAttributeSet(AttributeSet::Pointer p) {

@@ -26,14 +26,24 @@ void main() {
         vec2 inputEnd = inputStart + scale;
 
         int numSamples = textureSamples(screenDepthMS);
-        for (int y = int(inputStart.y); y < int(inputEnd.y); ++y) {
-            for (int x = int(inputStart.x); x < int(inputEnd.x); ++x) {
+        for (float x = ceil(inputStart.x * 2.0) / 2.0; x < inputEnd.x; x += 0.5) {
+            for (float y = ceil(inputStart.y * 2.0) / 2.0; y < inputEnd.y; y += 0.5) {
                 for (int s = 0; s < numSamples; ++s) {
                     float sampleDepth = texelFetch(screenDepthMS, ivec2(x, y), s).r;
                     minDepth = min(minDepth, sampleDepth);
                 }
             }
         }
+
+        // int numSamples = textureSamples(screenDepthMS);
+        // for (int y = int(inputStart.y); y < int(inputEnd.y); ++y) {
+        //     for (int x = int(inputStart.x); x < int(inputEnd.x); ++x) {
+        //         for (int s = 0; s < numSamples; ++s) {
+        //             float sampleDepth = texelFetch(screenDepthMS, ivec2(x, y), s).r;
+        //             minDepth = min(minDepth, sampleDepth);
+        //         }
+        //     }
+        // }
     } else {
         // generate other level
         if (pos.x * 2 >= inDepthPyramidSize.x || pos.y * 2 >= inDepthPyramidSize.y) return;

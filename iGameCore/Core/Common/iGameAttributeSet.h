@@ -14,7 +14,7 @@ public:
 
 	struct Attribute
 	{
-		ArrayObject::Pointer pointer{};
+        ArrayObject::Pointer pointer{ nullptr };
 		IGenum type{ IG_NONE };           // IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
         IGenum attachmentType{ IG_NONE }; // IG_POINT, IG_CELL
 		bool isDeleted{ false };
@@ -28,31 +28,36 @@ public:
          * */
         DoubleArray::Pointer dataRange{nullptr};
 
-
-//		std::pair<float, float> dataRange{ FLT_MIN, FLT_MAX};
+		// Get/Set ...
+        ArrayObject::Pointer GetPointer();
+        void SetPointer(ArrayObject::Pointer o);
+        IGenum GetType();
+        void SetType(IGenum o);
+        IGenum GetAttachmentType();
+        void SetAttachmentType(IGenum o);
+        bool IsDeleted();
+        void Delete();
         DoubleArray::Pointer GetDataRange();
-        bool updateAllDataRange();
+        /* Apply other data ranges to this Attribute. */
+        void SetDataRange(DoubleArray::Pointer range);
+        bool UpdateAllDataRange();
 
-        static Attribute None() {
-            Attribute att;
-            att.pointer = nullptr;
-            att.type = IG_NONE;
-            att.attachmentType = IG_NONE;
-            att.isDeleted = false;
-            return att;
-        }
+		// Return None Attribute
+        static Attribute None();
 
-		bool isNone() const {
-			return pointer == nullptr || type == IG_NONE || attachmentType == IG_NONE || isDeleted == true;
-		}
+		bool DeepCopy(const Attribute& other);
+
+		bool IsNone() const;
 	};
 
-	bool ShallowCopy(Pointer o) { return false;
-	}
+	bool ShallowCopy(Pointer o) { return false; }
 	bool DeepCopy(Pointer o) {
         if (o == nullptr) return false;
         m_Buffer = ElementArray<Attribute>::New();
-        m_Buffer->DeepCopy(o->m_Buffer);
+        m_Buffer->Resize(o->GetNumberOfAttributes());
+        for (int i = 0; i < o->GetNumberOfAttributes(); i++) { 
+			m_Buffer->GetElement(i).DeepCopy(o->m_Buffer->GetElement(i));
+        }
         return true;
 	}
 

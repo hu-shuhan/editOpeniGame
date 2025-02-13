@@ -5,12 +5,12 @@
 #include "iGameMacro.h"
 #include "iGameSurfaceMesh.h"
 
-#include <string>
+#include "iGameMeshCodecParamSet.h"
+#include "iGameMeshOptEncoder.h"
 #include "iGameThreadPool.h"
 #include "meshoptimizer.h"
-#include "iGameMeshCodecParamSet.h"
 #include <numeric>
-#include "iGameMeshOptEncoder.h"
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 class MeshEncoder : public Filter {
@@ -20,13 +20,12 @@ public:
 
     MeshEncoder() { SetNumberOfInputs(1); };
 
-    iGame::QuantMode PointQuantMode = iGame::QuantMode::Float;
+    iGame::QuantMode PointQuantMode = iGame::QuantMode::FP16;
     int PointQuantizedBits = 16;
-    iGame::QuantMode AttrbQuantMode = iGame::QuantMode::None;
+    iGame::QuantMode AttrbQuantMode = iGame::QuantMode::Float;
     int AttrbQuantizedBits = 16;
 
-    bool Execute() override
-    {
+    bool Execute() override {
         if (this->GetNumberOfInputs() == 0) { return false; }
         this->m_DataObj = this->GetInput(0);
         if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
@@ -50,37 +49,33 @@ public:
         inputParams.AttrbQuantizedBits = this->AttrbQuantizedBits;
         // 编码
         MeshOptParameters params;
-        MeshOptEncoder encoder(this->m_BytestreamFile, this->m_DataObj, params,
-                               inputParams);
+        MeshOptEncoder encoder(this->m_BytestreamFile, this->m_DataObj, params, inputParams, m_IsDebugMode);
         encoder.SetUpdateProgress(&MeshEncoder::UpdateProgress, this);
 
         encoder.Execute();
 
         // ---------------------------------------------------------
         this->closeStream();
-	    return true;
+        return true;
     }
 
-    void SetSaveFilePath(const std::string& path) { 
-        m_SaveFilePath = path;
-    }
+    void SetSaveFilePath(const std::string& path) { m_SaveFilePath = path; }
+
+    void SetDebugModeOn() { m_IsDebugMode = true; }
 
 private:
     std::ofstream m_BytestreamFile;
     DataObject::Pointer m_DataObj;
     std::string m_SaveFilePath;
+    bool m_IsDebugMode = false;
 
-    bool OpenStream(std::string path)
-    {
+    bool OpenStream(std::string path) {
         this->m_BytestreamFile.open(path, std::ios::binary);
-        if (!this->m_BytestreamFile.is_open()) {
-            return false;
-        }
+        if (!this->m_BytestreamFile.is_open()) { return false; }
         return true;
     }
 
-    void closeStream()
-    {
+    void closeStream() {
         //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
         m_BytestreamFile.close();
     }

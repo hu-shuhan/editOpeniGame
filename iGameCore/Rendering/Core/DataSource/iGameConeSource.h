@@ -1,6 +1,12 @@
-//
-// Created by Sumzeek on 11/20/2024.
-//
+/**
+ * @class    ConeSource
+ * @brief    ConeSource类提供三维渲染数据生成。
+ *
+ * ConeSource类提供静态方法来生成类圆锥体的顶点数据和索引，
+ * 圆锥体可以由其底部中心、高度、半径和分辨率等定义。
+ *
+ * @par      Copyright(c): Hangzhou Dianzi University, iGame-Lab
+ */
 
 #pragma once
 
@@ -9,45 +15,34 @@
 
 IGAME_NAMESPACE_BEGIN
 
-/**
- * @class ConeSource
- * @brief A data source class for generating geometric shapes such as cones, pyramids, and frustums.
- *
- * This class provides static methods to generate the vertex data and indices for 3D shapes,
- * including cones, pyramids, and frustums. The generated data can be used in rendering pipelines
- * or for collision and physics simulations.
- */
 class ConeSource : public DataSource {
 public:
-    /**
-     * @brief Macro to declare the class as a game object type.
-     */
     I_OBJECT(ConeSource);
 
     /**
-     * @brief Generates a cone mesh.
-     * @param center The center point of the cone's base.
-     * @param normal The normal vector defining the cone's direction.
-     * @param height The height of the cone from base to tip.
-     * @param radius The radius of the cone's base.
-     * @param resolution The number of subdivisions around the cone's circumference.
-     * @param offset The offset for vertex indices in the final mesh.
-     * @return A structure containing the cone's vertex and index data.
+     * @brief 生成一个圆锥网格。
+     * @param center 圆锥底面的中心点。
+     * @param normal 圆锥底面的法向量。
+     * @param height 圆锥从底面到尖端的高度。
+     * @param radius 圆锥底面的半径。
+     * @param resolution 圆锥周长的分割数。
+     * @param offset 顶点的索引偏移量。
+     * @return 包含圆锥顶点和索引数据的结构体。
      */
     static DataSourceOutputInfo
     RequestCone(const Point& center, const Vector3f& normal, float height,
                 float radius, unsigned int resolution, size_t offset = 0);
 
     /**
-     * @brief Generates a pyramid mesh.
-     * @param center The center point of the pyramid's base.
-     * @param normal The normal vector defining the pyramid's direction.
-     * @param height The height of the pyramid from base to apex.
-     * @param radius The radius of the base (distance from center to a corner).
-     * @param stackCount The number of vertical subdivisions along the height.
-     * @param sectorCount The number of sides (or sectors) of the pyramid base.
-     * @param offset The offset for vertex indices in the final mesh.
-     * @return A structure containing the pyramid's vertex and index data.
+     * @brief 生成一个金字塔网格。
+     * @param center 金字塔底面的中心点。
+     * @param normal 金字塔底面的法向量。
+     * @param height 金字塔从底面到高点的高度。
+     * @param radius 金字塔底面的半径（从中心到角的距离）。
+     * @param stackCount 金字塔高度方向的分层数。
+     * @param sectorCount 金字塔底面的边数（或分部数）。
+     * @param offset 顶点的索引偏移量。
+     * @return 包含金字塔顶点和索引数据的结构体。
      */
     static DataSourceOutputInfo
     RequestPyramid(const Point& center, const Vector3f& normal, float height,
@@ -55,15 +50,15 @@ public:
                    unsigned int sectorCount, size_t offset = 0);
 
     /**
-     * @brief Generates a frustum mesh.
-     * @param center The center point of the frustum's base.
-     * @param normal The normal vector defining the frustum's direction.
-     * @param height The height of the frustum.
-     * @param baseRadius The radius of the base of the frustum.
-     * @param topRadius The radius of the top of the frustum.
-     * @param resolution The number of subdivisions around the circumference.
-     * @param offset The offset for vertex indices in the final mesh.
-     * @return A structure containing the frustum's vertex and index data.
+     * @brief 生成一个视锥体网格。
+     * @param center 视锥体底面的中心点。
+     * @param normal 视锥体底面的法向量。
+     * @param height 视锥体的高度。
+     * @param baseRadius 视锥体的半径。
+     * @param topRadius 视锥体的半径。
+     * @param resolution 视锥体周长的分割数。
+     * @param offset 顶点的索引偏移量。
+     * @return 包含视锥体顶点和索引数据的结构体。
      */
     static DataSourceOutputInfo
     RequestFrustum(const Point& center, const Vector3f& normal, float height,
@@ -71,16 +66,8 @@ public:
                    size_t offset = 0 /*, bool capped = true*/);
 
 protected:
-    /**
-     * @brief Constructor for ConeSource.
-     *
-     * Protected to ensure that instances are created only through static methods.
-     */
     ConeSource();
 
-    /**
-     * @brief Destructor for ConeSource.
-     */
     ~ConeSource() override;
 };
 

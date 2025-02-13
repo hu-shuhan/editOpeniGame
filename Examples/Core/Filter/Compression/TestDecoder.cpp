@@ -1,8 +1,8 @@
-#include <iGameRenderWindow.h>
 #include <iGameInteractor.h>
 #include <iGameMeshCodec/iGameMeshDecoder.h>
+#include <iGameRenderWindow.h>
 
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -21,9 +21,10 @@ int main(){
     window->SetScene(scene);
 
     // Set up the interactor
-    auto basicInteractor = iGame::Interactor::New();
-    basicInteractor->Initialize(scene);
-    window->SetInteractor(basicInteractor);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
 
     // Start the render loop
     window->Show();

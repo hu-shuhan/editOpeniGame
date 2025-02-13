@@ -13,3 +13,4 @@
 #include "Clip/iGameModelClip.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
+#include "Contour/iGameContourFilter.h"

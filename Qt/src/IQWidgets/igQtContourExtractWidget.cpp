@@ -85,7 +85,7 @@ void igQtContourExtractWidget::SetOriginDataObject(iGame::DataObject::Pointer m_
 	this->m_PointData = m_OriginDataObject->GetAttributeSet()->GetAllPointAttributes();
 	InitScalarName();
 	m_Generated = false;
-	m_Extracter = iGame::ModelClip::New();
+	m_Extracter = iGame::ContourFilter::New();
 	m_ResultMesh = iGame::SurfaceMesh::New();
 	m_ResultMesh->SetName(m_OriginDataObject->GetName() + "_Contour");
 	m_ResultMesh->SetAttributeSet(m_OriginDataObject->GetAttributeSet());
@@ -106,7 +106,7 @@ void igQtContourExtractWidget::ContourExtract()
 		return;
 	}
 	if (!m_Extracter) {
-		m_Extracter = iGame::ModelClip::New();
+		m_Extracter = iGame::ContourFilter::New();
 	}
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();

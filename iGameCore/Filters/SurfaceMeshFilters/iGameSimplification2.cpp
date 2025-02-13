@@ -266,7 +266,7 @@ void Simplification2::InitAttributes() {
     for (int i = 0; i < activedAttribIndices.size(); i++) {
         int index = activedAttribIndices[i];
         auto& attrb = attrbs->GetAttribute(index);
-        if (attrb.isDeleted || attrb.isNone()) continue;
+        if (attrb.isDeleted || attrb.IsNone()) continue;
 
         if (attrb.attachmentType == IG_CELL) continue;
 

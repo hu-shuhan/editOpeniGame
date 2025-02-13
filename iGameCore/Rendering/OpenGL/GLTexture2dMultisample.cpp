@@ -10,14 +10,15 @@ GLTexture2dMultisample::GLTexture2dMultisample() {}
 GLTexture2dMultisample::~GLTexture2dMultisample() {}
 
 void GLTexture2dMultisample::CopyImageSubData(
-        const GLTexture2dMultisample::Pointer source, GLint srcLevel,
+        const SmartPointer<GLTexture2dMultisample> source, GLint srcLevel,
         GLint srcX, GLint srcY, GLint srcZ,
-        const GLTexture2dMultisample::Pointer destination, GLint dstLevel,
+        const SmartPointer<GLTexture2dMultisample> destination, GLint dstLevel,
         GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight,
         GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
-    igError("You called the GLTexture2dMultisample::CopyImageSubData function "
-            "on the opengl330. This function is currently not supported.");
+    Logger::LogError(
+            "[GLTexture2dMultisample::CopyImageSubData] Error: This function "
+            "is not supported in OpenGL 3.3. Please use OpenGL 4.6 or higher.");
 #elif IGAME_OPENGL_VERSION_460
     glCopyImageSubData(source->Handle(), GL_TEXTURE_2D_MULTISAMPLE, srcLevel,
                        srcX, srcY, srcZ, destination->Handle(),
@@ -41,7 +42,11 @@ void GLTexture2dMultisample::Storage(unsigned samples, GLenum internal_format,
 }
 
 void GLTexture2dMultisample::Active(GLenum texture) {
-    if (texture == GL_TEXTURE0) { igError("GL_TEXTURE0 is reserved."); }
+    if (texture == GL_TEXTURE0) {
+        Logger::LogError("[GLTexture2dMultisample::Active] Error: GL_TEXTURE0 "
+                         "is reserved and cannot be used for binding.");
+        return;
+    }
     glActiveTexture(texture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_Handle);
     glActiveTexture(GL_TEXTURE0);
