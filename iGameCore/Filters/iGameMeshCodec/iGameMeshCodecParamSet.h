@@ -9,7 +9,7 @@ IGAME_NAMESPACE_BEGIN
 typedef enum {
 	None = 0,
 	FP16 = 1, 
-	Float = 2 // 暂时禁用
+	Float = 2
 } QuantMode;
 
 struct MeshOptFloatParameters {
@@ -81,11 +81,34 @@ struct MeshOptParameters : MeshOptParametersWithoutAttr {
 	std::vector<MeshOptAttrParameters> attrParams;
 };
 
+// --------------------------------------------------------------------------------------
+// internal codec parameters
+
+enum class ErrorStaMode {
+	None,
+	PSNR,
+	MAPE,
+	L2,
+	All
+};
+
+enum class CompactnessMode {
+	None,
+	PBV,
+	CompressRate,
+	All
+};
+
 struct ParamInformation {
     iGame::QuantMode PointQuantMode = iGame::QuantMode::Float;
     int PointQuantizedBits = 16;
     iGame::QuantMode AttrbQuantMode = iGame::QuantMode::None;
     int AttrbQuantizedBits = 16;
+
+	ErrorStaMode errorStaMode = ErrorStaMode::None;
+	std::vector<std::string>* errorStaResult = nullptr;
+	CompactnessMode cpStaMode = CompactnessMode::None;
+	std::vector<std::string>* cpStaResult = nullptr;
 };
 
 IGAME_NAMESPACE_END

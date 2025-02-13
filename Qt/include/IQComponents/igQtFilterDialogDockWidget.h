@@ -100,6 +100,11 @@ public:
         return value;
     }
 
+	QWidget* getWidget(int i) {
+		auto item = itemMap.find(i);
+		return item == itemMap.end() ? nullptr : item->second.widget;
+	}
+
     template<typename Functor, typename... Args>
     void setApplyFunctor(Functor&& functor, Args&&... args) {
         applyFunctor = std::bind(functor, args...);

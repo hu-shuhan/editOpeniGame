@@ -1,15 +1,6 @@
 #include <iGameFileIO.h>
 #include <iGameMeshCodec/iGameMeshEncoder.h>
 
-<<<<<<< HEAD
-int main(){
-    // Read the file and add it to the scene
-    const std::string fileName = "./Models/Tet_Plane.vtk";
-    iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
-    auto encoder = iGame::MeshEncoder::New();
-    encoder->SetSaveFilePath("./Models/comp.igc");
-    encoder->SetInput(dataObj);
-=======
 #include <iGameInteractor.h>
 #include <iGameMeshCodec/iGameMeshDecoder.h>
 #include <iGameRenderWindow.h>
@@ -24,9 +15,16 @@ int main() {
     // encoder test
     iGame::DataObject::Pointer sourceDataObj = iGame::FileIO::ReadFile(sourceFileName);
     auto encoder = iGame::MeshEncoder::New();
+
+    encoder->PointQuantizedMode = iGame::QuantMode::Float;
+    encoder->m_PointQuantizedBits = 16;
+    encoder->m_AttrbQuantMode = iGame::QuantMode::Float;
+    encoder->m_AttrbQuantizedBits = 16;
+    encoder->m_errorStaMode = iGame::ErrorStatusMode::MAPE;
+    std::vector<std::string> errorSta;
+    encoder->m_errorStaResult = &errorSta;
+
     encoder->SetSaveFilePath(encodedFileName);
-    encoder->SetDebugModeOn();
     encoder->SetInput(sourceDataObj);
->>>>>>> 4acf973b5f55bccdf339da3b7adc38a3cb315277
     encoder->Execute();
 }

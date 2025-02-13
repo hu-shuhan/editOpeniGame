@@ -13,14 +13,20 @@
 #include "iGameMeshCodecLZMA.h"
 #include <functional>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
+
 IGAME_NAMESPACE_BEGIN
 class MeshOptEncoder : public MeshOptCodec {
 public:
     MeshOptEncoder(std::ofstream& bytestreamFile, DataObject::Pointer dataObj, MeshOptParameters& params,
-                   ParamInformation& inputParams, bool isDebugMode)
+                   ParamInformation& inputParams)
         : // TODO: 临时添加，和m_DataObj定义在一起
           MeshOptCodec(params), m_ParamInformation(inputParams), m_BytestreamFile(bytestreamFile), m_DataObj(dataObj),
-          m_EncoderAdapter(new MeshEncoderAdapter(dataObj)), m_IsDebugMode(isDebugMode) {
+          m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
         this->kVertexScoreTableStrip = {
                 {0.f, 1.000f, 1.000f, 1.000f, 0.453f, 0.561f, 0.490f, 0.459f, 0.179f, 0.526f, 0.000f, 0.227f, 0.184f,
                  0.490f, 0.112f, 0.050f, 0.131f},
@@ -63,8 +69,8 @@ public:
         this->m_CallBack(0.8);
 
         // lzma
-        int compressLevel = 10;
-        int numThreads = 12;
+        int compressLevel = 3;
+        int numThreads = 16;
 
         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
         PayloadBuffer topoCompressed(PayloadType::kTopologyBrick);
@@ -94,6 +100,73 @@ public:
         //PayloadBuffer output;
 
         //int ret = MeshCodecLZMA::Decompress(output, result);
+
+        auto calBpv = [=]() -> void {
+            int geomSize = geomPayload.size();
+            int topoSize = topoPayload.size();
+            int attrSize = attrPayload.size();
+            int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
+
+            float geomBpv = geomSize * 8.0 / pointCount;
+            float topoBpv = topoSize * 8.0 / pointCount;
+            float attrBpv = attrSize * 8.0 / pointCount;
+            float totalBpv = geomBpv + topoBpv + attrBpv;
+
+            std::cout << "Geom BPV: " << geomBpv << std::endl;
+            std::cout << "Topo BPV: " << topoBpv << std::endl;
+            std::cout << "Attr BPV: " << attrBpv << std::endl;
+            std::cout << "Total BPV: " << totalBpv << std::endl;
+
+            this->m_ParamInformation.cpStaResult->push_back("顶点坐标BPV: " + std::to_string(geomBpv));
+            this->m_ParamInformation.cpStaResult->push_back("拓扑BPV: " + std::to_string(topoBpv));
+            this->m_ParamInformation.cpStaResult->push_back("属性BPV: " + std::to_string(attrBpv));
+            this->m_ParamInformation.cpStaResult->push_back("综合BPV: " + std::to_string(totalBpv));
+        };
+
+        auto calCR = [=]() -> void {
+			long long sourceSize = -1;
+
+            auto filePath = this->m_DataObj->GetPropertys()->GetProperty("FilePath")->Get<std::string>();
+#ifdef _WIN32
+            WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+            if (GetFileAttributesEx(filePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
+                LARGE_INTEGER size;
+                size.HighPart = fileInfo.nFileSizeHigh;
+                size.LowPart = fileInfo.nFileSizeLow;
+                sourceSize = size.QuadPart;
+            }
+            else {
+                sourceSize = -1;
+            }
+#else 
+            struct stat stat_buf;
+            int rc = stat(filePath.c_str(), &stat_buf);
+            sourceSize = (rc == 0 ? stat_buf.st_size : -1);
+#endif            
+            
+			if (sourceSize != -1) {
+                long long compressSize = geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
+                double cr = compressSize * 1.0 / sourceSize ;
+                std::cout << "compress rate: " << cr << std::endl;
+                this->m_ParamInformation.cpStaResult->push_back("压缩比: " + std::to_string(cr * 100) + "%");
+			}
+        };
+
+		switch (this->m_ParamInformation.cpStaMode) {
+        case CompactnessMode::PBV:
+			calBpv();
+			break;
+        case CompactnessMode::CompressRate:
+			calCR();
+			break;
+        case CompactnessMode::All:
+			calBpv();
+			calCR();
+			break;
+        case CompactnessMode::None:
+		default:
+			break;
+		}
 
         return true;
     }
@@ -395,7 +468,6 @@ private:
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
     ParamInformation m_ParamInformation;
-    bool m_IsDebugMode;
     std::function<void(double)> m_CallBack;
 
     void ParamsInit() {
@@ -645,9 +717,87 @@ private:
                                                    encodeVertexSize));
         }
 
-        if (m_IsDebugMode) {
-            float err = CalError(source, dest, floatParams);
-            std::cout << "float data name: " << debugFloatName << " MAPE: " << err << std::endl;
+        auto calMSE = [=] (const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+            float globalError = 0;
+            IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+
+            for (int i = 0; i < valueCount; i++) { globalError += std::pow(source[i] - encoded[i], 2); }
+
+            return globalError / valueCount;
+        };
+
+		auto calNormalizedL2 = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+			return std::sqrt(calMSE(source, encoded, floatParams));
+		};
+
+		auto calMAPE = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+			float globalError = 0;
+			IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+			for (int i = 0; i < valueCount; i++) {
+                globalError += (source[i] == 0 ? 0 : std::abs(source[i] - encoded[i]) / std::abs(source[i]));
+			}
+			return globalError / valueCount;
+		};
+
+        auto calPSNR = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+            float MAX = source[0];
+            float MIN = source[0];
+
+            IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+            for (int i = 0; i < valueCount; i++) {
+                if (source[i] > MAX) {
+                    MAX = source[i];
+                }
+                if (source[i] < MIN) {
+                    MIN = source[i];
+                }
+            }
+
+            return 10.0 * std::log10(std::pow(MAX - MIN, 2) / calMSE(source, encoded, floatParams));
+        };
+
+        switch (this->m_ParamInformation.errorStaMode)
+        {
+		case ErrorStaMode::MAPE:
+		{
+			float err = CalError(source, dest, floatParams, calMAPE);
+			std::cout << "float data name: " << debugFloatName << " MSE: " << err << std::endl;
+			this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " MAPE: " + std::to_string(err));
+			break;
+		}
+        case ErrorStaMode::L2:
+        {
+			float err = CalError(source, dest, floatParams, calNormalizedL2);
+			std::cout << "float data name: " << debugFloatName << " L2: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " 归一化L2: " + std::to_string(err));
+			break;
+        }
+        case ErrorStaMode::PSNR:
+        {
+			float err = CalError(source, dest, floatParams, calPSNR);
+			std::cout << "float data name: " << debugFloatName << " PSNR: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " PSNR: " + std::to_string(err));
+			break;
+        }
+        case ErrorStaMode::All:
+        {
+            float err = CalError(source, dest, floatParams, calMAPE);
+			std::cout << "float data name: " << debugFloatName << " MAPE: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " MAPE: " + std::to_string(err));
+
+            err = CalError(source, dest, floatParams, calNormalizedL2);
+            std::cout << "float data name: " << debugFloatName << " L2: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " 归一化L2: " + std::to_string(err));
+
+            err = CalError(source, dest, floatParams, calPSNR);
+            std::cout << "float data name: " << debugFloatName << " PSNR: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " PSNR: " + std::to_string(err));
+
+            break;
+        }
+		case ErrorStaMode::None:
+        default:
+            break;
         }
 
         return;
@@ -805,8 +955,11 @@ private:
         //return;
     }
 
-    float CalError(const void* source, const std::vector<unsigned char>& encoded,
-                   const MeshOptFloatParameters& floatParams) {
+    float CalError(const void* source,
+        const std::vector<unsigned char>& encoded,
+        const MeshOptFloatParameters& floatParams,
+		const std::function<float(const float*, const float*, const MeshOptFloatParameters&)>& CalErrorFunc = nullptr
+    ) {
         IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 
         std::vector<float> sourceFloat(valueCount);
@@ -927,16 +1080,7 @@ private:
             encodedFloat.assign(encodedDoubleBuffer.begin(), encodedDoubleBuffer.end());
         }
 
-        return CalMAPE(sourceFloat.data(), encodedFloat.data(), floatParams);
-    }
-
-    float CalMAPE(const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) {
-        float globalError = 0;
-        IGsize valueCount = floatParams.elementCount * floatParams.dimension;
-
-        for (int i = 0; i < valueCount; i++) { globalError += std::abs(source[i] - encoded[i]) / std::abs(source[i]); }
-
-        return globalError / valueCount;
+        return CalErrorFunc(sourceFloat.data(), encodedFloat.data(), floatParams);
     }
 
     void GeomEncoder(PayloadBuffer& payload, std::vector<unsigned int>& pointIdRemap) {
