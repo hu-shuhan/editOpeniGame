@@ -72,7 +72,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
     if (!_AttributeSet) return false;
     auto allVectors = _AttributeSet->GetVector(VecName);
     // if (allVectors.isNone() || allVectors.attachmentType != IG_POINT) return;
-    if (allVectors.isNone()) return false;
+    if (allVectors.IsNone()) return false;
     if (allVectors.attachmentType == IG_POINT) {
         long long numOfPoint = allVectors.pointer->GetNumberOfElements();
         auto allPoints =

@@ -1,4 +1,5 @@
 #include "iGameSimplification.h"
+#include "iGamePointFinder.h"
 IGAME_NAMESPACE_BEGIN
 
 bool Simplification::Execute() {
@@ -27,6 +28,28 @@ bool Simplification::Execute() {
         activedAttribIndices.clear();
         activedAttribIndices.resize(mesh->GetAttributeSet()->GetNumberOfAttributes());
         for (int i = 0; i < activedAttribIndices.size(); i++) { activedAttribIndices[i] = i; }
+    }
+
+    auto newMesh = SurfaceMesh::New();
+    newMesh->DeepCopy(mesh);
+    newMesh->SetName(mesh->GetName() + "_new");
+    auto oldMesh = mesh;
+    mesh = newMesh;
+    SetOutput(newMesh);
+
+    auto oldPoints = oldMesh->GetPoints();
+    PointFinder::Pointer oldPicker = PointFinder::New();
+    PointFinder::Pointer newPicker = PointFinder::New();
+
+    oldPicker->SetPoints(oldPoints);
+    oldPicker->Initialize();
+    double w1 = 0.0, w2 = 0.0;
+    {
+        // 计算原始网格的表面积
+        igIndex face[16]{};
+        for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) { 
+            w1 += Normal(i).norm() / 2.0;
+        }
     }
 
     // 初始化
@@ -143,8 +166,8 @@ bool Simplification::Execute() {
         }
     }
 
-    std::cout << "before: "
-              << " point size: " << mesh->GetNumberOfPoints() << " face size: " << mesh->GetNumberOfFaces()
+    std::cout << "Before: \n"
+              << "The Number of Point: " << mesh->GetNumberOfPoints() << " ;The Number of Face: " << mesh->GetNumberOfFaces()
               << std::endl;
 
     
@@ -179,9 +202,50 @@ bool Simplification::Execute() {
 
     mesh->SetAttributeSet(newAttrs);
     mesh->GarbageCollection();
-    std::cout << "after: "
-              << " point size: " << mesh->GetNumberOfPoints() << " face size: " << mesh->GetNumberOfFaces()
+    std::cout << "After: \n"
+              << "The Number of Point: " << mesh->GetNumberOfPoints() << " ;The Number of Face: " << mesh->GetNumberOfFaces()
               << std::endl;
+
+    auto newPoints = mesh->GetPoints();
+    newPicker->SetPoints(newPoints);
+    newPicker->Initialize();
+
+    if(false){
+        double d1 = 0.0, d2 = 0.0;
+        double d3 = 0.0, d4 = 0.0;
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
+            w2 += Normal(i).norm() / 2.0; 
+        }
+
+        // 计算平均平方距离
+        for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) { 
+            auto p = oldPoints->GetPoint(i);
+
+            igIndex id = newPicker->FindClosestPoint(p);
+            if (id != -1) { 
+                Point cp = newPoints->GetPoint(id);
+                d1 += (p - cp).squaredNorm();
+                d3 += (p - cp).norm();
+            }
+        }
+
+        for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+            auto p = newPoints->GetPoint(i);
+
+            igIndex id = oldPicker->FindClosestPoint(p);
+            if (id != -1) {
+                Point cp = oldPoints->GetPoint(id);
+                d2 += (p - cp).squaredNorm();
+                d4 += (p - cp).norm();
+            }
+        }
+
+        double d = 1.0 / w1 * d1 + 1.0 / w2 * d2;
+        double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 + 1.0 / newPoints->GetNumberOfPoints() * d4;
+        std::cout << "Squared Mean Distance: " << d << "\n" 
+                  << "Mean Distance: " << dd
+                  << std::endl;
+    }
 
     return true;
 }
@@ -251,7 +315,7 @@ void Simplification::InitAttributes() {
     for (int i = 0; i < activedAttribIndices.size(); i++) {
         int index = activedAttribIndices[i];
         auto& attrb = attrbs->GetAttribute(index);
-        if (attrb.isDeleted || attrb.isNone()) continue;
+        if (attrb.isDeleted || attrb.IsNone()) continue;
 
         if (attrb.attachmentType == IG_CELL) continue;
 

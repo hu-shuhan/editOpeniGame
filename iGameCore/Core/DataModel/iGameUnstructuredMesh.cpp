@@ -37,7 +37,7 @@ Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
             cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
         }
     } else {
-        igIndex ids[IGAME_CELL_MAX_SIZE];
+        igIndex ids[IGAME_CELL_MAX_SIZE] = {};
         igIndex size = m_Cells->GetCellIds(cellId, ids);
         Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
         polyhedron->m_FaceOffset->Reset();
@@ -185,32 +185,31 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     CellTypes->Reserve(volumeNum);
     igIndex vcnt = 0;
     igIndex vhs[IGAME_CELL_MAX_SIZE];
-    if (mesh->GetIsPolyhedronType()){
+    if (mesh->GetIsPolyhedronType()) {
         std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + volumeNum, IG_POLYHEDRON);
-    }
-    else {
+    } else {
         for (igIndex i = 0; i < volumeNum; i++) {
             vcnt = Volumes->GetCellIds(i, vhs);
             switch (vcnt) {
-            case 4:
-                CellTypes->AddValue(IG_TETRA);
-                break;
-            case 5:
-                CellTypes->AddValue(IG_PYRAMID);
-                break;
-            case 6:
-                CellTypes->AddValue(IG_PRISM);
-                break;
-            case 8:
-                CellTypes->AddValue(IG_HEXAHEDRON);
-                break;
-            default:
-                igError("Not support this volume with " << vcnt << "'s verts.");
-                return false;
+                case 4:
+                    CellTypes->AddValue(IG_TETRA);
+                    break;
+                case 5:
+                    CellTypes->AddValue(IG_PYRAMID);
+                    break;
+                case 6:
+                    CellTypes->AddValue(IG_PRISM);
+                    break;
+                case 8:
+                    CellTypes->AddValue(IG_HEXAHEDRON);
+                    break;
+                default:
+                    igError("Not support this volume with " << vcnt << "'s verts.");
+                    return false;
             }
         }
     }
- 
+
     this->SetPoints(mesh->GetPoints());
     this->SetCells(mesh->GetCells(), CellTypes);
     this->SetAttributeSet(mesh->GetAttributeSet());
@@ -336,6 +335,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 igError("Failed to execute the shell algorithm.");
             }
         } else {
+
             auto pointIndices = UnsignedIntArray::New();
             pointIndices->SetDimension(1);
             auto edgeIndices = UnsignedIntArray::New();

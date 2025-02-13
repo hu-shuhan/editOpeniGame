@@ -117,6 +117,6 @@ void Interactor::SetPainter3D(SmartPointer<Painter3D> p) { m_Painter3D = p; }
 
 SmartPointer<Painter3D> Interactor::GetPainter3D() { return m_Painter3D; }
 
-bool Interactor::IsBase() const { return is_Base; }
+bool Interactor::IsBasicStyle() const { return is_Base; }
 
 IGAME_NAMESPACE_END

@@ -149,7 +149,7 @@ bool DataObject::UpdateSubDataObjectDataRange() {
         for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
             auto& par = attributes->GetElement(i);
             if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
-                par.updateAllDataRange();
+                par.UpdateAllDataRange();
             }
             obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
 
@@ -174,7 +174,7 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
                 const auto& obj = DynamicCast<DrawObject>(it->second);
                 const auto& display_obj = obj->GetDisplayObject();
                 auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
-                subAttribute.updateAllDataRange();
+                subAttribute.UpdateAllDataRange();
                 const auto& ScalarDataRange = subAttribute.GetDataRange();
                 for(int j = 0; j < subAttribute.pointer->GetDimension() + 1; j ++){
                     dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));

@@ -77,10 +77,15 @@ const void VTKWriter::WriteWithStructuredMeshType()
 const void VTKWriter::WriteWithSurfaceMeshType()
 {
 	WriteHeaderToBuffer();
+    std::cout << "123\n";
 	WritePointsToBuffer(m_SurfaceMesh->GetPoints());
+    std::cout << "123\n";
 	WriteCellsToBuffer(m_SurfaceMesh->GetFaces());
+    std::cout << "123\n";
 	WritePointsAttributesToBuffer(m_SurfaceMesh->GetAttributeSet());
+    std::cout << "123\n";
 	WriteCellsAttributesToBuffer(m_SurfaceMesh->GetAttributeSet());
+    std::cout << "123\n";
 	this->TransferBuffer();
 }
 const void VTKWriter::WriteDimensionSizeToBuffer()
@@ -103,7 +108,9 @@ const void VTKWriter::WritePointsToBuffer(Points::Pointer Points)
 		WriteDimensionSizeToBuffer();
 	}
 	auto buffer = CharArray::New();
+
 	int VertexNum = Points ? Points->GetNumberOfPoints() : 0;
+    
 	std::string data = "POINTS " + std::to_string(VertexNum) + " float\n";
 	AddStringToBuffer(data, buffer);
 	m_TemporaryBuffers.emplace_back(buffer);
@@ -284,7 +291,7 @@ const void VTKWriter::WritePointsAttributesToBuffer(AttributeSet::Pointer Attrib
 	auto PointData = AttributeSet->GetAllPointAttributes();
 	if (!PointData || PointData->GetNumberOfElements() == 0)return;
 	auto buffer = CharArray::New();
-	int VertexNum = m_UnstructuredMesh->GetNumberOfPoints();
+    int VertexNum = PointData->GetElement(0).pointer->GetNumberOfElements();
 	std::string data = "POINT_DATA " + std::to_string(VertexNum) + "\n";
 	AddStringToBuffer(data, buffer);
 	m_TemporaryBuffers.emplace_back(buffer);

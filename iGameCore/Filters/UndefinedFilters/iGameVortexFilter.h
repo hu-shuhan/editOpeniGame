@@ -225,7 +225,7 @@ public:
             //}
         }
 
-        attributeSet->GetAttribute("vorticities").updateAllDataRange();
+        attributeSet->GetAttribute("vorticities").UpdateAllDataRange();
 
         return true;
         //    bool GetPointVortex_ivd(int type, Points::Pointer Points, int PointNum){

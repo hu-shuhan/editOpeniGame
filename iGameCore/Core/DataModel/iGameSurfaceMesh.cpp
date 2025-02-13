@@ -28,6 +28,8 @@ bool SurfaceMesh::DeepCopy(SurfaceMesh::Pointer other) {
     m_Points->DeepCopy(other->m_Points);
     m_Faces = CellArray::New();
     m_Faces->DeepCopy(other->m_Faces);
+    m_Attributes = AttributeSet::New();
+    m_Attributes->DeepCopy(other->GetAttributeSet());
     this->Modified();
     return true;
 }
@@ -739,7 +741,6 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_UseColor = false;
         m_ColorWithCell = false;
     } else {
-        m_UseColor = true;
         m_UseColor = true;
 
         auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);

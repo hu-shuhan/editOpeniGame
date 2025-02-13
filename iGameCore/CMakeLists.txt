@@ -8,6 +8,11 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DPLATFORM_MAC)
 endif ()
 
+SET(OPENMESH_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/include")
+SET(OPENMESH_LIB_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/lib")
+SET(OPENMESH_DLL_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/")
+#include_directories(${OPENMESH_PATH})
+#link_directories(${OPENMESH_LIB_PATH})
 #--------------------------------------------------------------------
 # Core Module's main Cmake
 #--------------------------------------------------------------------
