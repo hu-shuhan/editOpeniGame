@@ -62,7 +62,7 @@ DrawObject::DrawObject() {
     m_UseColor = false;
     m_UseNormalSmooth = false;
     m_ColorWithCell = false;
-    m_PointSize = 8.0f;
+    m_PointSize = 1.0f;
     m_LineWidth = 1.0f;
     m_CellPositionSize = 0;
 
@@ -367,7 +367,7 @@ void DrawObject::CreateDrawBuffer() {
         // Allocating sizeof(unsigned char) (1 byte) ensures the buffer meets the size requirement,
         // even if the actual data is not yet provided.
         m_EdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr, GL_STATIC_DRAW);
-        
+
         m_EdgeMaskTexture->Create();
         m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
 

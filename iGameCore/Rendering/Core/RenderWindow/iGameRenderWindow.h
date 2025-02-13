@@ -41,13 +41,14 @@ protected:
 
     void ResizeScene();
 
-    GLFWwindow* m_window{nullptr};
-    std::string m_title{"iGameVis - GLFW_OpenGL"};
+    GLFWwindow* m_Window;
+    std::string m_Title;
 
-    Scene* m_scene{nullptr};
-    Interactor* m_Interactor{nullptr};
+    Scene* m_Scene;
+    Interactor* m_Interactor;
     IEvent m_Event;
 
-    int m_window_width{800}, m_window_height{600};
+    int m_WindowWidth;
+    int m_WindowHeight;
 };
 IGAME_NAMESPACE_END

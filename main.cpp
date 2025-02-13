@@ -6,17 +6,9 @@
 #include <QtCore/Qtextcodec.h>
 #endif
 
-//#include <iostream>
-//#include <iGameVolume.h>
-//#include <Core/iGameScene.h>
-//#include <iGameRenderWindow.h>
-//#include <iGameInteractor.h>
-//#include <iGameFileIO.h>
-//
-//
-//#include <Abaqus/iGameODBReader.h>
-//#include <iGameRenderWindow.h>
-//#include <iGameInteractor.h>
+//#include "iGameFileIO.h"
+//#include "iGameRenderWindow.h"
+
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
@@ -52,4 +44,32 @@ int main(int argc, char* argv[]) {
     w.initArgs(a.arguments());
     a.exec();
     return 0;
+
+    /*
+    Q_INIT_RESOURCE(iGameQtMainWindow);
+    {
+        // Create a new scene
+        auto scene = iGame::Scene::New();
+
+        // Read the file and add it to the scene
+        const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
+        iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
+        if (dataObj != nullptr) {
+            scene->AddModel(dataObj);
+        } else {
+            igError("Error reading the file");
+        }
+
+        // Reset the camera view based on the model's bounding sphere
+        scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
+
+        // Set up the render window
+        iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+        window->SetSize(1920, 1080);
+        window->SetScene(scene);
+
+        // Start the render loop
+        window->Show();
+    }
+     */
 }

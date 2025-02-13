@@ -25,7 +25,7 @@ Scene::Scene() {
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
-    m_BackgroundColor = {1.0f, 1.0f, 1.0f};
+    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
@@ -292,7 +292,7 @@ void Scene::InitOpenGL() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
-    glEnable(GL_BLEND);
+    //glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
