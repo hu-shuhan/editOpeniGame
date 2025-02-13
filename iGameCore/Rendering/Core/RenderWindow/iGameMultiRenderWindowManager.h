@@ -24,15 +24,17 @@ public:
     }
     void CreateWindow(int width, int height, const char* title, GLFWmonitor* monitor = nullptr, GLFWwindow* share = nullptr);
 
-    void Register(GLFWwindow* _win_ptr);
-
-
-
     void ShowAllRegisterWindow();
 
-protected:
+    /**
+     * @brief 在多窗口管理中注册该窗口
+     */
+    void Register(GLFWwindow* _win_ptr);
+    /**
+     * @brief 在多窗口管理中注册该窗口
+     */
     void Register(RenderWindow* _win_ptr);
-
+protected:
     std::vector<GLFWwindow* > m_GLFW_WindowPointerPool;
 
 

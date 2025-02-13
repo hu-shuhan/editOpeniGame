@@ -4,8 +4,8 @@ add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 project ("test")
-#set(iGameCore_module_DIR "C:/Program Files (x86)/OpeniGame/lib/cmake/iGameCore_module")
-set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpeniGame/lib/cmake/iGameCore_module")
+set(iGameCore_module_DIR "C:/Program Files (x86)/OpeniGame/lib/cmake/iGameCore_module")
+#set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../OpeniGame/lib/cmake/iGameCore_module")
 find_package(iGameCore_module REQUIRED)
 
 

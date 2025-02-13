@@ -9,6 +9,7 @@
 #include <iGameRenderWindow.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
+#include <iGameScene.h>
 #include <iostream>
 #include <string>
 #include <Deformation/iGameStressDeformationFilter.h>

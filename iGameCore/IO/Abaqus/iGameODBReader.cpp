@@ -645,6 +645,10 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
     {
         return 10;
     }
+    else if (strcmp(abqElementType, "C3D8R") == 0)
+    {
+        return 12;
+    }
     else if (strcmp(abqElementType, "C3D6") == 0)
     {
         return 13;

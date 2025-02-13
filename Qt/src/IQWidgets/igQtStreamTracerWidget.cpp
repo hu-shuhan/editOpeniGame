@@ -104,7 +104,6 @@ void igQtStreamTracerWidget::generateStreamline() {
 		mesh = DynamicCast<VolumeMesh>(model->GetDataObject());
 	} 
 	else { return; }
-
 	streamtracer->SetMesh(mesh);
     streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();

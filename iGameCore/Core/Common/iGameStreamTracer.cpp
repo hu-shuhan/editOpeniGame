@@ -429,6 +429,9 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(
     CellData2PointData(vectorName);
     this->mesh->GetAttributeSet()->TransformScalars2VectorArray();
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
+     auto timex = clock();
+    mesh->BuildVolumeLinks();
+    std::cout<<"jianlihuafei"<<clock()-timex<<std::endl;
     auto allPolyhedrons = mesh->GetVolumes();
     auto allPoints = mesh->GetPoints();
     auto allFaces = mesh->GetFaces();
