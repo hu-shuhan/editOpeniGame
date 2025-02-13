@@ -1,5 +1,5 @@
-#ifndef GLTEXTUREBUFFER_H
-#define GLTEXTUREBUFFER_H
+#ifndef IGAMEVIS_GLTEXTUREBUFFER_H
+#define IGAMEVIS_GLTEXTUREBUFFER_H
 
 #include "GLBuffer.h"
 #include "GLObject.h"
@@ -39,4 +39,4 @@ protected:
 
 IGAME_NAMESPACE_END
 
-#endif // GLTEXTUREBUFFER_H
+#endif // IGAMEVIS_GLTEXTUREBUFFER_H

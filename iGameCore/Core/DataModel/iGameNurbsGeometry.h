@@ -16,7 +16,7 @@ public:
 
     void SetPatch(std::vector<NurbsSDK::Geometry>& geometrys);
     void SetBoundary(std::vector<std::array<int, 2>> boundary);
-    void SetType(NurbsSDK::NurbsType type);
+    void SetType(NurbsSDK::Type type);
     void SetSamples(size_t number);
 
     //Get real size of DataObject
@@ -36,7 +36,7 @@ protected:
     void ComputeBoundingBox() override;
 
     NurbsSDK::MultiGeo::Pointer m_Geometry;
-    size_t m_SampleNumber = 0;
+    int m_Samples = 0;
 };
 
 IGAME_NAMESPACE_END

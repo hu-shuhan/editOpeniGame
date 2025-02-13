@@ -16,6 +16,23 @@ bool Triangulation::Execute() {
     }
     if (mesh == nullptr) { return false; }
 
+    {
+        bool f = true;
+        igIndex face[16]{};
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+            int size = mesh->GetFacePointIds(i, face);
+            if (size != 3) { 
+                f = false;
+                break;
+            }
+        }
+        
+        if (f) { 
+            SetOutput(mesh);
+            return true;
+        }
+    }
+
     auto attrbs = mesh->GetAttributeSet();
 
     CellArray::Pointer Faces = CellArray::New();

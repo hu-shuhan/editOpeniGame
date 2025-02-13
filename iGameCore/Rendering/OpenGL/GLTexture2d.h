@@ -1,5 +1,5 @@
-#ifndef GLTEXTURE2D_H
-#define GLTEXTURE2D_H
+#ifndef IGAMEVIS_GLTEXTURE2D_H
+#define IGAMEVIS_GLTEXTURE2D_H
 
 #include "GLObject.h"
 
@@ -72,4 +72,4 @@ protected:
 
 IGAME_NAMESPACE_END
 
-#endif // GLTEXTURE2D_H
+#endif // IGAMEVIS_GLTEXTURE2D_H

@@ -1,5 +1,5 @@
-#ifndef OPENIGAME_SELECTION_STYLE_H
-#define OPENIGAME_SELECTION_STYLE_H
+#ifndef IGAMEVIS_SELECTION_STYLE_H
+#define IGAMEVIS_SELECTION_STYLE_H
 
 #include "iGameBasicStyle.h"
 #include "iGameCellArray.h"

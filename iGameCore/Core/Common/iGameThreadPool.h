@@ -14,16 +14,28 @@ IGAME_NAMESPACE_BEGIN
 class ThreadPool : public Object {
 public:
 	I_OBJECT(ThreadPool);
-
 	// 单例
 	static Pointer Instance() {
 		static Pointer ins = new ThreadPool;
 		return ins;
 	}
 
-	//// static parallelFor 函数，numThreads 默认值为 12
+	// 静态方法用于设置默认线程数量
+	static void SetDefaultThreadCount(int numThreads) {
+		defaultThreadCount = numThreads;
+	}
+
+	// 获取默认线程数量
+	static int GetDefaultThreadCount() {
+		return defaultThreadCount;
+	}
+	// static parallelFor 函数，numThreads 默认值为 12
+	// numThreads可人为调节，
+	// 调用的是func(int start,int end)，处理start到end的部分
+	// parallelFor 函数
 	template <typename Func>
-	static void parallelFor(int start, int end, Func&& process, int numThreads = 12) {
+	static void parallelFor(int start, int end, Func&& process, int numThreads = GetDefaultThreadCount()) {
+		//std::cout<<"The number of threads uesd  is "<<numThreads<<'\n';
 		int range = end - start;
 		int chunkSize = range / numThreads;
 		if (range < numThreads) {
@@ -34,7 +46,7 @@ public:
 		for (int i = 0; i < numThreads; ++i) {
 			int chunkStart = start + i * chunkSize;
 			int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
-			if (chunkStart == chunkEnd)continue;
+			if (chunkStart == chunkEnd) continue;
 			// 使用线程池提交任务
 			futures.emplace_back(ThreadPool::Instance()->Commit([=]() {
 				process(chunkStart, chunkEnd);
@@ -45,9 +57,13 @@ public:
 			future.get();
 		}
 	}
+	// static parallelFor 函数，numThreads 默认值为 12, 
+	//maxThreadSize 表示的是该func允许的最大线程数量，由用户在自定义程序里面设定
+	//这个模式调用的是func(int start,int end,int id), id用于在每个func中开辟独立的数据空间，因此id不能>=maxThreadSize
     template <typename Func>
-    static void parallelFor(int start, int end, int maxThreadSize, Func&& process, int numThreads = 12) {
+    static void parallelFor(int start, int end, int maxThreadSize, Func&& process, int numThreads = GetDefaultThreadCount()) {
         if (numThreads > maxThreadSize)numThreads = maxThreadSize;
+		//std::cout<<"The number of threads uesd  is "<<numThreads<<'\n';
         int range = end - start;
         int chunkSize = range / numThreads;
         if (range < numThreads) {
@@ -110,42 +126,9 @@ private:
 		this->Stop();
 	}
 
-	void Start() {
-		for (int i = 0; i < thread_num_; ++i) {
-			pool_.emplace_back([this]() {
-				// 如果停止则退出循环
-				while (!this->stop_.load()) { // while(stop_ == false)
-					Task task;
-					{
-						std::unique_lock<std::mutex> cv_mt(cv_mt_);
-						// 如果stop == false && tasks_.empty()，条件变量wait不会返回，线程将挂起。
-						this->cv_lock_.wait(cv_mt, [this] {
-							return this->stop_.load() || !this->tasks_.empty();
-							});
-						if (this->tasks_.empty())
-							return;
+	void Start() ;
 
-						task = std::move(this->tasks_.front());
-						this->tasks_.pop();
-					}
-					this->thread_num_--;
-					task();
-					this->thread_num_++;
-				}
-				});
-		}
-	}
-
-	void Stop() {
-		stop_.store(true);
-		cv_lock_.notify_all();
-		for (auto& td : pool_) {
-			if (td.joinable()) {
-				//std::cout << "join thread " << td.get_id() << std::endl;
-				td.join();
-			}
-		}
-	}
+	void Stop();
 
 private:
 	std::mutex               cv_mt_;
@@ -155,6 +138,8 @@ private:
 	std::queue<Task>         tasks_;         // 任务队列
 	std::vector<std::thread> pool_;          // 线程队列
 
+	// 静态变量存储默认线程数量
+	static int defaultThreadCount;
 };
 
 IGAME_NAMESPACE_END

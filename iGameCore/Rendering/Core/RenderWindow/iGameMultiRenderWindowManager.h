@@ -14,15 +14,18 @@ class GLFWmonitor;
 IGAME_NAMESPACE_BEGIN
 
 class RenderWindow;
-class MultiRenderWindowManager : public Object{
+class MultiRenderWindowManager : public Object {
 public:
     I_OBJECT(MultiRenderWindowManager)
 
-    static MultiRenderWindowManager* Instance(){
+    static MultiRenderWindowManager* Instance() {
         static MultiRenderWindowManager manager = MultiRenderWindowManager();
         return &manager;
     }
-    void CreateWindow(int width, int height, const char* title, GLFWmonitor* monitor = nullptr, GLFWwindow* share = nullptr);
+
+    void CreateWindow(int width, int height, const char* title,
+                      GLFWmonitor* monitor = nullptr,
+                      GLFWwindow* share = nullptr);
 
     void ShowAllRegisterWindow();
 
@@ -44,6 +47,5 @@ protected:
 
 
 };
-
 
 IGAME_NAMESPACE_END

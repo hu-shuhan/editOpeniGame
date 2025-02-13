@@ -1190,7 +1190,7 @@ void Scene::CalculateFrameRate() {
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                                                 int height,
-                                                FrameBufferType type,
+                                                GLFramebuffer::Type type,
                                                 bool mirrored) {
 
     std::vector<unsigned char> colorBuffer;
@@ -1205,17 +1205,17 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         //   +-----→x
         //
         switch (type) {
-            case RGBA:
-                colorBuffer.resize(width * height * 4);
-                glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
-                             colorBuffer.data());
-                break;
-            case RGB:
+            case GLFramebuffer::Type::RGB:
                 colorBuffer.resize(width * height * 3);
                 glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE,
                              colorBuffer.data());
                 break;
-            case ZBuffer:
+            case GLFramebuffer::Type::RGBA:
+                colorBuffer.resize(width * height * 4);
+                glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
+                             colorBuffer.data());
+                break;
+            case GLFramebuffer::Type::DEPTH:
                 colorBuffer.resize(width * height);
                 glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT,
                              colorBuffer.data());

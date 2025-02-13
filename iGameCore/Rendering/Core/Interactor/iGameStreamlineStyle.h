@@ -1,5 +1,5 @@
-#ifndef OPENIGAME_STREAMLINE_DRAG_STYLE_H
-#define OPENIGAME_STREAMLINE_DRAG_STYLE_H
+#ifndef IGAMEVIS_STREAMLINE_DRAG_STYLE_H
+#define IGAMEVIS_STREAMLINE_DRAG_STYLE_H
 
 #include "iGamePointPicker.h"
 #include "iGameSelectionStyle.h"

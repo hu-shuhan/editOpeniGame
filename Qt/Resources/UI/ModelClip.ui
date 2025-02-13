@@ -32,6 +32,13 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QRadioButton" name="radioButton_Mesh">
+         <property name="text">
+          <string>mesh</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>

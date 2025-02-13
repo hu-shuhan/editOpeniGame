@@ -1,8 +1,8 @@
 //
 // Created by Sumzeek on 8/16/2024.
 //
-#ifndef GLVERTEXARRAYMANAGER_H
-#define GLVERTEXARRAYMANAGER_H
+#ifndef IGAMEVIS_GLVERTEXARRAYMANAGER_H
+#define IGAMEVIS_GLVERTEXARRAYMANAGER_H
 
 #include "GLVendor.h"
 #include <unordered_map>
@@ -45,4 +45,4 @@ protected:
 
 IGAME_NAMESPACE_END
 
-#endif // GLVERTEXARRAYMANAGER_H
+#endif // IGAMEVIS_GLVERTEXARRAYMANAGER_H

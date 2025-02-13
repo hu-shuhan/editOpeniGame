@@ -14,7 +14,15 @@ public:
 	I_OBJECT(PointFinder);
 	static Pointer New() { return new PointFinder; }
 
-	void SetPoints(Points::Pointer p) { m_Points = p; }
+	void SetPoints(Points::Pointer pts) { m_Points = pts; }
+
+	void SetPoints(Points::Pointer pts, bool is_deep_copy) { 
+		if (is_deep_copy) { 
+			m_Points = Points::New();
+            m_Points->DeepCopy(pts);
+		}else
+            m_Points = pts;
+	}
 
 	void Initialize() {
 		if (!m_Points) { return; }
@@ -153,6 +161,13 @@ public:
 		}
 		return closest;
 	}
+	
+	igIndex FindClosestPoint(const Vector3d& x, Point& p) {
+        igIndex id = FindClosestPoint(x);
+        if (id != -1) p = m_Points->GetPoint(id);
+        return id;
+	}
+	
 	igIndex IsInsertedPoint(const Vector3d& x) {
 		int pId = FindClosestPoint(x);
 		if (pId != -1) {

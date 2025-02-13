@@ -6,7 +6,7 @@
 #pragma once
 #include "Clip/iGameModelClip.h"
 #include "Clip/iGameQuickModelClip.h"
-
+#include "Contour/iGameContourFilter.h"
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
 
@@ -18,7 +18,13 @@ class igQtModelClipWidget : public QWidget {
 public:
     igQtModelClipWidget(QWidget* parent = nullptr);
 
-
+    enum ViewMode {
+        IG_CLIP_MODE,
+        IG_SLICE_MODE,
+        IG_MESH_MODE,
+        IG_VIEW_MODE_NUM
+    };
+    void SetViewMode(ViewMode);
 public slots:
 
     //交互传过来
@@ -27,8 +33,6 @@ public slots:
     void UpdatePlane();
 
     void ClipModel();
-
-    void SetIsSlice(bool s);
 
     void SetOriginDataObject(iGame::DataObject::Pointer m_d);
 
@@ -54,8 +58,9 @@ protected:
 private:
     Ui::ModelClipWidget* ui;
 
+    double m_Normal[3]={1,0,0};
+    double m_Origin[3]={0,0,0};
 	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
     iGame::UnstructuredMesh::Pointer m_ResultMesh{nullptr};
-    iGame::ModelClip::Pointer m_Clipper{nullptr};
-	bool m_Generated=false;
+    ViewMode m_ViewMode{IG_CLIP_MODE};
 };

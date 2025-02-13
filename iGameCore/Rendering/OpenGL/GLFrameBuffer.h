@@ -1,5 +1,5 @@
-#ifndef GLFRAMEBUFFER_H
-#define GLFRAMEBUFFER_H
+#ifndef IGAMEVIS_GLFRAMEBUFFER_H
+#define IGAMEVIS_GLFRAMEBUFFER_H
 
 #include "GLObject.h"
 #include "GLRenderBuffer.h"
@@ -13,6 +13,8 @@ class GLFramebuffer : public GLObject<GLFramebuffer> {
 public:
     I_OBJECT(GLFramebuffer);
     static Pointer New() { return new GLFramebuffer; }
+
+    enum class Type { RGB = 0, RGBA, DEPTH };
 
     // GLbitfield mask: GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT
     // GLenum filter: GL_NEAREST, GL_LINEAR
@@ -60,4 +62,4 @@ private:
 
 IGAME_NAMESPACE_END
 
-#endif // GLFRAMEBUFFER_H
+#endif // IGAMEVIS_GLFRAMEBUFFER_H

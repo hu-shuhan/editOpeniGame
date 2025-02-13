@@ -782,7 +782,7 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(
 		FacePools[i]->Initialize(Grid->GetNumberOfPoints());
 		extract->Execute(start, end, FacePools[i]);
 	};
-	ThreadPool::parallelFor(0, numCells, MaxThreadSize, func, UseThreadSize);
+	ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
 
 	std::vector<igIndex> f2c;
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
@@ -1203,7 +1203,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 		FacePools[i]->Initialize(Grid->GetNumberOfPoints());
 		extract->Execute(start, end, FacePools[i]);
 	};
-	ThreadPool::parallelFor(0, numCells, MaxThreadSize, func, UseThreadSize);
+	ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
 	std::vector<igIndex> f2c;
 	extract->FaceMap.get()->CompositeFaces(Polygons, f2c);
 	CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);

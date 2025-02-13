@@ -1,7 +1,7 @@
 #include "Basis.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBS_NAMESPACE_BEGIN
+IGAME_NURBSSDK_NAMESPACE_BEGIN
 Basis::Basis(int degree, const std::vector<double>& knots) {
     m_Degree = degree;
     m_Knots = knots;
@@ -25,8 +25,7 @@ int Basis::findSpan(double u) const {
     return middle;
 }
 
-void Basis::getAllNurbsBasisFuns(int i, double u,
-                                 std::vector<double>& N) const {
+void Basis::getAllNurbsBasisFuns(int i, double u, std::vector<double>& N) const {
     int j, r; // N_{j,r}
     double saved, temp;
     std::vector<double> left(m_Degree + 1), right(m_Degree + 1);
@@ -45,15 +44,12 @@ void Basis::getAllNurbsBasisFuns(int i, double u,
     }
 }
 
-void Basis::getAllNurbsBasisFunsDers(
-        int i, double u, int nd, std::vector<std::vector<double>>& ders) const {
+void Basis::getAllNurbsBasisFunsDers(int i, double u, int nd, std::vector<std::vector<double>>& ders) const {
     int j, r, k, s1, s2, rk, pk, j1, j2;
     double saved, temp, d;
     std::vector<double> left(m_Degree + 1), right(m_Degree + 1);
-    std::vector<std::vector<double>> ndu(m_Degree + 1,
-                                         std::vector<double>(m_Degree + 1));
-    std::vector<std::vector<double>> a(m_Degree + 1,
-                                       std::vector<double>(m_Degree + 1));
+    std::vector<std::vector<double>> ndu(m_Degree + 1, std::vector<double>(m_Degree + 1));
+    std::vector<std::vector<double>> a(m_Degree + 1, std::vector<double>(m_Degree + 1));
 
     ndu[0][0] = 1.0;
     for (j = 1; j <= m_Degree; j++) {
@@ -113,5 +109,5 @@ void Basis::getAllNurbsBasisFunsDers(
         r *= (m_Degree - k);
     }
 }
-IGAME_NURBS_NAMESPACE_END
+IGAME_NURBSSDK_NAMESPACE_END
 IGAME_NAMESPACE_END

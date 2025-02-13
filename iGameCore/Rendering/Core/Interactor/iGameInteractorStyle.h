@@ -1,5 +1,5 @@
-#ifndef OPENIGAME_INTERACTOR_STYLE_H
-#define OPENIGAME_INTERACTOR_STYLE_H
+#ifndef IGAMEVIS_INTERACTOR_STYLE_H
+#define IGAMEVIS_INTERACTOR_STYLE_H
 
 #include "iGameObject.h"
 #include "igm/igm.h"

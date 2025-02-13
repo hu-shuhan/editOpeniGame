@@ -11,9 +11,14 @@ int main(){
 
     // Read the file and add it to the scene
     const std::string fileName = "./Models/mazewheel.obj";
+<<<<<<< HEAD
+    auto dataObj = iGame::FileIO::ReadFile(fileName);
+
+=======
     auto obj = iGame::FileIO::ReadFile(fileName);
 
     // If model is not triangle mesh, this will occur error
+>>>>>>> 4acf973b5f55bccdf339da3b7adc38a3cb315277
     auto filter = iGame::Simplification::New();
     filter->SetTargetReduction(0.5);
     filter->SetInput(obj);
