@@ -342,6 +342,52 @@ void igQtMainWindow::initAllComponents() {
 
     connect(ui->action_SaveAnimation, &QAction::triggered, this, [&]() { ui->widget_Animation->saveAnimation(); });
 
+    connect(ui->action_SetThreadNum, &QAction::triggered, this, [&](bool checked) {
+        // 创建对话框
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        dialog->previousInFocusChain()->hide();
+        dialog->setFilterTitle("设置并行线程数");
+        // 获取当前线程池的默认线程数
+        int currentThreadCount = iGame::ThreadPool::GetDefaultThreadCount();
+        int maxThreads = std::thread::hardware_concurrency();
+        QString recommendedThreads = QString::number(maxThreads / 2);
+        dialog->setFilterDescription(
+            QString("当前并行线程数: %1<br>"
+                "硬件支持的最大线程数: %2<br>"
+                "推荐线程数: %3<br>"
+                "注意: 设置并行线程数会影响程序的性能。<br>"
+                "建议根据硬件配置合理设置线程数。")
+            .arg(currentThreadCount)
+            .arg(maxThreads)
+            .arg(recommendedThreads)
+        );
+
+        // 添加参数：线程数输入框
+        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "并行线程数", QString::number(currentThreadCount));
+        // 显示对话框
+        dialog->show();
+        // 设置应用按钮的回调函数
+        dialog->setApplyFunctor([=]() {
+            bool ok;
+            // 获取用户输入的线程数
+            int newThreadCount = dialog->getInt(id1, ok);
+            // 检查输入是否有效
+            if (ok && newThreadCount > 0) {
+                // 检查线程数是否超过硬件支持的最大值
+                if (newThreadCount > maxThreads) {
+                    QMessageBox::warning(this, "错误", QString("线程数不能超过硬件支持的最大值: %1").arg(maxThreads));
+                    return;
+                }
+                // 设置新的线程数
+                iGame::ThreadPool::SetDefaultThreadCount(newThreadCount);
+                QMessageBox::information(this, "成功", QString("并行线程数已设置为: %1").arg(newThreadCount));
+                dialog->close();
+            }
+            else {
+                QMessageBox::warning(this, "错误", "请输入有效的线程数（大于0的整数）。");
+            }
+            });
+        });
 
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();

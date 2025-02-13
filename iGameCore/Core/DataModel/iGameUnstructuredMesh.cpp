@@ -152,13 +152,27 @@ VolumeMesh::Pointer UnstructuredMesh::ExtractVolumeMesh() {
 }
 bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
     if (!mesh) return false;
-    int faceNum = mesh->GetNumberOfFaces();
-    auto Faces = mesh->GetFaces();
-    UnsignedIntArray::Pointer CellTypes = UnsignedIntArray::New();
-    CellTypes->Reserve(faceNum);
-    std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + faceNum, IG_POLYGON);
+    UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
+    auto inFaces = mesh->GetFaces();
+    auto inFcnt = mesh->GetNumberOfFaces();
+    Types->Resize(inFcnt);
+    unsigned int type = 0;
+    int vcnt = 0;
+    for (int i = 0; i < inFcnt; i++) {
+        vcnt = inFaces->GetCellSize(i);
+        if (vcnt == 3) {
+            type = IG_TRIANGLE;
+        }
+        else if (vcnt == 4) {
+            type = IG_QUAD;
+        }
+        else {
+           type=IG_POLYGON;
+        }
+        Types->SetValue(i, type);
+    }
     this->SetPoints(mesh->GetPoints());
-    this->SetCells(mesh->GetFaces(), CellTypes);
+    this->SetCells(inFaces, Types);
     this->SetAttributeSet(mesh->GetAttributeSet());
     return true;
 }
@@ -172,6 +186,28 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     igIndex vhs[IGAME_CELL_MAX_SIZE];
     if (mesh->GetIsPolyhedronType()) {
         std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + volumeNum, IG_POLYHEDRON);
+        igIndex realVcnt=0;
+        igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
+        igIndex realVhs[IGAME_CELL_MAX_SIZE] = { 0 };
+        igIndex fcnt = 0;
+        igIndex fhs[IGAME_CELL_MAX_SIZE] = { 0 };
+        igIndex i=0,j=0;
+        auto inFaces= mesh->GetFaces();
+        auto realCells=CellArray::New();
+        realCells->Reserve(inFaces->GetNumberOfCellIds());
+        for (igIndex cellId = 0; cellId < volumeNum; cellId++) {
+            realVcnt = 0;
+            fcnt = mesh->GetVolumeFaceIds(cellId, fhs);
+            for (i = 0; i < fcnt; i++) {
+                vcnt = inFaces->GetCellIds(fhs[i], vhs);
+                realVhs[realVcnt++] = vcnt;
+                for (j = 0; j < vcnt; j++) { realVhs[realVcnt++] = vhs[j]; }
+            }
+            realCells->AddCellIds(realVhs, realVcnt);
+        }
+        this->SetPoints(mesh->GetPoints());
+        this->SetCells(realCells, CellTypes);
+        this->SetAttributeSet(mesh->GetAttributeSet());
     } else {
         for (igIndex i = 0; i < volumeNum; i++) {
             vcnt = Volumes->GetCellIds(i, vhs);
@@ -193,11 +229,11 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
                     return false;
             }
         }
+        this->SetPoints(mesh->GetPoints());
+        this->SetCells(mesh->GetCells(), CellTypes);
+        this->SetAttributeSet(mesh->GetAttributeSet());
     }
 
-    this->SetPoints(mesh->GetPoints());
-    this->SetCells(mesh->GetCells(), CellTypes);
-    this->SetAttributeSet(mesh->GetAttributeSet());
     return true;
 }
 
