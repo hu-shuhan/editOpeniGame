@@ -204,11 +204,11 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
     }
 
     // small meshlet culling(less than one pixel)
-    if (visible) {
-        const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
-    }
+    // if (visible) {
+    //     const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //     const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
+    //     visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    // }
 
     // occlusion culling
     if (visible) {

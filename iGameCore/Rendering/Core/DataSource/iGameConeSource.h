@@ -67,7 +67,6 @@ public:
 
 protected:
     ConeSource();
-
     ~ConeSource() override;
 };
 

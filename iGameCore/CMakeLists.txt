@@ -158,7 +158,7 @@ if (WIN32)
 endif ()
 
 #--------------------------------------------------------------------
-# Exec Install OpeniGame Core Module's CMake
+# Exec Install iGameVis Core Module's CMake
 #--------------------------------------------------------------------
 include(Cmake/CoreModuleInstall.cmake)
 #--------------------------------------------------------------------

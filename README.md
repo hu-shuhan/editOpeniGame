@@ -1,4 +1,4 @@
-# OpeniGame developer version
+# iGameVis developer version
 
 ## File Import
 
@@ -56,10 +56,10 @@ use qt-cmake to build project(Only available in qt6 version)
 cd build
 ~/projects/packages/qt/host/qt-everywhere-src-6.5.3/qtbase/bin/qt-cmake ..
 cmake --build . --parallel 8
-./OpeniGame # run this app
+./iGameVis # run this app
 ```
 
-Compile OpeniGame on Web by using Wasm(Temporarily not applicable)
+Compile iGameVis on Web by using Wasm(Temporarily not applicable)
 
 ```shell
 cd build/wasm
@@ -70,6 +70,6 @@ cmake --build . --parallel 8
 python3 -m http.server # to start http-server by using python3 http module. then visit http://localhost:8000/Qt_OpenGL.html
 ```
 
-## How to Use OpeniGame
+## How to Use iGameVis
 
-Detail process see `OpeniGameNoticeToUsers.md`
+Detail process see `iGameVisNoticeToUsers.md`

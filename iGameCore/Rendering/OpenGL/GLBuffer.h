@@ -1,5 +1,5 @@
-#ifndef GLBUFFER_H
-#define GLBUFFER_H
+#ifndef IGAMEVIS_GLBUFFER_H
+#define IGAMEVIS_GLBUFFER_H
 
 #include "GLObject.h"
 
@@ -69,4 +69,4 @@ void GLAllocateGLBuffer(SmartPointer<GLBuffer> vbo, size_t size,
 
 IGAME_NAMESPACE_END
 
-#endif // GLBUFFER_H
+#endif // IGAMEVIS_GLBUFFER_H

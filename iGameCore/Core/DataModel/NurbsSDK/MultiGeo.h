@@ -10,7 +10,7 @@ IGAME_NAMESPACE_BEGIN
 IGAME_NURBSSDK_NAMESPACE_BEGIN
 using Geometry = std::shared_ptr<Geo>;
 
-enum NurbsType { CURVE, SURFACE, VOLUME };
+enum class Type { CURVE, SURFACE, VOLUME };
 
 class MultiGeo : public Object {
 public:
@@ -36,8 +36,8 @@ public:
 
     int GetPatchSize() { return m_Geometry.size(); }
 
-    void SetType(NurbsType type) { m_NurbsType = type; }
-    IGenum GetType() { return m_NurbsType; }
+    void SetType(Type type) { m_NurbsType = type; }
+    Type GetType() { return m_NurbsType; }
 
 protected:
     MultiGeo() {}
@@ -47,7 +47,7 @@ protected:
     }
     ~MultiGeo();
 
-    NurbsType m_NurbsType;
+    Type m_NurbsType;
     std::vector<Geometry> m_Geometry;
 
     // 边界信息  {片号，边界号}

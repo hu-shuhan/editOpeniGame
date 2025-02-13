@@ -1,5 +1,5 @@
-﻿#ifndef OPENIGAME_SLICING_STYLE_H
-#define OPENIGAME_SLICING_STYLE_H
+﻿#ifndef IGAMEVIS_SLICING_STYLE_H
+#define IGAMEVIS_SLICING_STYLE_H
 
 #include "iGameBasicStyle.h"
 

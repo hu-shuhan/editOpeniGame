@@ -29,10 +29,18 @@ bool NurbsReader::Parsing() {
 
         for (auto* item = root->FirstChildElement(type); item; item = item->NextSiblingElement(type)) {
 
-            int num = s_type == "curve" ? 1 : (s_type == "surface" ? 2 : (s_type == "volume" ? 3 : 0));
-            m_NurbsType = num;
-            if (num == 0) {
-                printf("xml tag error\n");
+            int num = 0; // 初始化为默认值
+            if (s_type == "curve") {
+                m_NurbsType = NurbsSDK::Type::CURVE;
+                num = 1;
+            } else if (s_type == "surface") {
+                m_NurbsType = NurbsSDK::Type::SURFACE;
+                num = 2;
+            } else if (s_type == "volume") {
+                m_NurbsType = NurbsSDK::Type::VOLUME;
+                num = 3;
+            } else {
+                igDebug("xml tag error!");
                 return false;
             }
 
@@ -204,15 +212,9 @@ bool NurbsReader::Parsing() {
 bool NurbsReader::CreateDataObject() {
     NurbsGeometry::Pointer mesh = NurbsGeometry::New();
 
+    mesh->SetType(m_NurbsType);
     mesh->SetPatch(m_Patchs);
     mesh->SetBoundary(m_Boundary);
-    if (m_NurbsType == 1) {
-        mesh->SetType(NurbsSDK::NurbsType::CURVE);
-    } else if (m_NurbsType == 2) {
-        mesh->SetType(NurbsSDK::NurbsType::SURFACE);
-    } else if (m_NurbsType == 3) {
-        mesh->SetType(NurbsSDK::NurbsType::VOLUME);
-    }
     mesh->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
     //mesh->SetViewStyle(IG_POINTS | IG_WIREFRAME | IG_SURFACE);
 

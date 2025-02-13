@@ -20,7 +20,7 @@ public:
 
     enum ViewMode {
         IG_CLIP_MODE,
-        IG_CONTOUR_MODE,
+        IG_SLICE_MODE,
         IG_MESH_MODE,
         IG_VIEW_MODE_NUM
     };
@@ -33,8 +33,6 @@ public slots:
     void UpdatePlane();
 
     void ClipModel();
-
-    void SetIsSlice(bool s);
 
     void SetOriginDataObject(iGame::DataObject::Pointer m_d);
 

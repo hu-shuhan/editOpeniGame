@@ -13,12 +13,6 @@ public:
 	~QuickModelClip();
 
 
-
-
-
-
-
-
 protected:
 	QuickModelClip();
 
