@@ -631,7 +631,6 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                 cullDataBuffer->Target(GL_UNIFORM_BUFFER);
                 cullDataBuffer->BindBase(5);
 
-                //TODO m_DepthPyramid change to m_HzbTexture
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
@@ -721,7 +720,7 @@ void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
                 auto cullDataBuffer =
                         scene->m_ShaderManager->GetCullDataBuffer();
                 cullDataBuffer->BindBase(5);
-                //TODO m_DepthPyramid change to m_HzbTexture
+
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("depthPyramid", 1);
 
