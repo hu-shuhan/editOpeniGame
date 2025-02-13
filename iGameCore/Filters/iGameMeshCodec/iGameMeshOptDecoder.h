@@ -489,20 +489,11 @@ public:
         return;
     }
     
-    void CellBufferDecoder(std::vector<uint32_t>& dest, const unsigned char* source, int sourceCount)
+    void CellBufferDecoder(std::vector<uint32_t>& dest, const unsigned char* source, int sourceCount, int bufferPadding)
     {
-        //FastPForLib::IntegerCODEC& codec = *FastPForLib::CODECFactory::getFromName("simdfastpfor256");
-        //size_t destSize = dest.size();
-        //codec.decodeArray(source.data(), source.size(),
-        //    dest.data(), destSize);
-        //dest.resize(destSize);
-
-        //int bufferSize = this->m_Params
-
-
         int resib = IndexBufferCodec::decodeIndexBuffer(dest.data(), dest.size(), source, sourceCount);
         assert(resib == 0);
-        dest.resize(dest.size() - this->m_Params.topoParams.cellBufferPadding);
+        dest.resize(dest.size() - bufferPadding);
     }
 
     void CellTypeDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
@@ -515,138 +506,252 @@ public:
         this->RunLengthDecoder(dest, source, sourceCount);
     }
 
-    void TopoDecoder(PayloadBuffer& buf)
-    {
-        std::vector<unsigned int> outCellBuffer;
-        std::vector<unsigned int> outCellSize;
-        std::vector<unsigned int> outCellTypes;
-        
-        int fixedCellSize = this->m_Params.topoParams.fixedCellSize;
-        //std::vector<unsigned int> fastpforBuffer(buf.size() / sizeof(uint32_t));
+    void IndexNOffsetDecoder(
+        std::vector<unsigned char>& inputTopo,
+        int& cursor,
 
-        std::vector<unsigned char> inputTopo(buf.size());
-        std::memcpy(inputTopo.data(), buf.data(), buf.size());
-        int inputCursor = 0;
+        std::vector<unsigned int>& outIndices,
+        const IGsize indicesBinaryCount,
+        const IGsize indicesBufferSize,
+        const int indicesBufferPadding,
+
+        int fixedCellSize,
+        const IGsize cellSizeBinaryCount,
+        std::vector<unsigned int>& outCellSizes
+
+    ) {
         // 解码cellbuffer
-        outCellBuffer.resize(this->m_Params.topoParams.cellBufferSize + this->m_Params.topoParams.cellBufferPadding);
+        outIndices.resize(indicesBufferSize + indicesBufferPadding);
         this->CellBufferDecoder(
-            outCellBuffer, 
-            inputTopo.data() + inputCursor,
-            this->m_Params.topoParams.cellBufferBinaryCount
+            outIndices,
+            inputTopo.data() + cursor,
+            indicesBinaryCount,
+            indicesBufferPadding
         );
-        inputCursor += this->m_Params.topoParams.cellBufferBinaryCount;
+        cursor += indicesBinaryCount;
 
         // 解码size
-        if (!fixedCellSize)
+        if (fixedCellSize == -1)
         {
             this->CellSizeDecoder(
-                outCellSize,
-                inputTopo.data() + inputCursor,
-                this->m_Params.topoParams.cellSizeBinaryCount
+                outCellSizes,
+                inputTopo.data() + cursor,
+                cellSizeBinaryCount
             );
-            inputCursor += this->m_Params.topoParams.cellSizeBinaryCount;
+            cursor += cellSizeBinaryCount;
         }
+    }
 
-        // 如果是非结构化网格 还要考虑types
-        if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
+    void TopoDecoder(PayloadBuffer& buf)
+    {
+        std::vector<unsigned char> inputTopo(buf.size());
+        std::memcpy(inputTopo.data(), buf.data(), buf.size());
+
+        int inputCursor = 0;
+        
+        if (this->m_Params.topoParams.isSecondaryIndex)
         {
-            this->CellTypeDecoder(
-                outCellTypes,
-                inputTopo.data() + inputCursor,
-                this->m_Params.topoParams.cellTypeBinaryCount
+            std::vector<unsigned int> volume2facesIndex;
+            std::vector<unsigned int> volume2facesSize;
+            std::vector<unsigned int> face2pointsIndex;
+            std::vector<unsigned int> face2pointsSize;
+
+            // 解码 面 -> 顶点
+            IndexNOffsetDecoder
+            (
+                inputTopo,
+                inputCursor,
+                face2pointsIndex,
+                this->m_Params.topoParams.bottomCellBufferBinaryCount,
+                this->m_Params.topoParams.bottomCellBufferSize,
+                this->m_Params.topoParams.bottomCellBufferPadding,
+                -1,
+                this->m_Params.topoParams.bottomCellSizeBinaryCount,
+                face2pointsSize
             );
-            inputCursor += this->m_Params.topoParams.cellTypeBinaryCount;
-        }
 
-        // 写入网格
-        bool sizeFlag = fixedCellSize != 0;
-        bool unstructuredFlag = this->m_Params.meshType == IG_UNSTRUCTURED_MESH;
-        bool structuredFlag = this->m_Params.meshType == IG_STRUCTURED_MESH;
+            // 解码 体 -> 面
+            IndexNOffsetDecoder
+            (
+                inputTopo,
+                inputCursor,
+                volume2facesIndex,
+                this->m_Params.topoParams.topCellBufferBinaryCount,
+                this->m_Params.topoParams.topCellBufferSize,
+                this->m_Params.topoParams.topCellBufferPadding,
+                -1,
+                this->m_Params.topoParams.topCellSizeBinaryCount,
+                volume2facesSize
+            );
 
-        // 非结构化网格
-        if (unstructuredFlag)
-        {
-            if (sizeFlag)
-            {
-                this->m_DecoderAdapter->AddUnstructuredFixedCells(outCellBuffer, fixedCellSize, outCellTypes);
-            }
-            else
-            {
-                this->m_DecoderAdapter->AddUnstructuredPolyCells(outCellBuffer, outCellSize, outCellTypes);
-            }
-        }
-        else if (structuredFlag)
-        {
-            this->m_DecoderAdapter->AddStructureCells(outCellBuffer, this->m_Params.structuredMeshParams.axisSize);
+            this->m_DecoderAdapter->AddSecondaryIndexCells(
+                volume2facesIndex,
+                volume2facesSize,
+                face2pointsIndex,
+                face2pointsSize
+            );
         }
         else
         {
-            if (sizeFlag)
+            std::vector<unsigned int> volume2pointsIndex;
+            std::vector<unsigned int> volume2pointsSize;
+            std::vector<unsigned int> outCellTypes;
+            int fixedCellSize = this->m_Params.topoParams.fixedCellSize;
+            bool isFixedCellSize = fixedCellSize != -1;
+
+            if (isFixedCellSize)
             {
-                this->m_DecoderAdapter->AddSameTypeFixedCells(outCellBuffer, fixedCellSize);
+                IndexNOffsetDecoder
+                (
+                    inputTopo,
+                    inputCursor,
+                    volume2pointsIndex,
+                    this->m_Params.topoParams.topCellBufferBinaryCount,
+                    this->m_Params.topoParams.topCellBufferSize,
+                    this->m_Params.topoParams.topCellBufferPadding,
+                    fixedCellSize,
+                    this->m_Params.topoParams.topCellSizeBinaryCount, // 后两个参数无实际作用
+                    volume2pointsSize
+                );
             }
             else
             {
-                this->m_DecoderAdapter->AddSameTypePolyCells(outCellBuffer, outCellSize);
+                IndexNOffsetDecoder
+                (
+                    inputTopo,
+                    inputCursor,
+                    volume2pointsIndex,
+                    this->m_Params.topoParams.topCellBufferBinaryCount,
+                    this->m_Params.topoParams.topCellBufferSize,
+                    this->m_Params.topoParams.topCellBufferPadding,
+                    -1,
+                    this->m_Params.topoParams.topCellSizeBinaryCount,
+                    volume2pointsSize
+                );
+            }
+
+            // 如果是非结构化网格 还要考虑types
+            if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
+            {
+                this->CellTypeDecoder(
+                    outCellTypes,
+                    inputTopo.data() + inputCursor,
+                    this->m_Params.topoParams.cellTypeBinaryCount
+                );
+                inputCursor += this->m_Params.topoParams.cellTypeBinaryCount;
+            }
+
+            // 写入网格
+            
+            bool unstructuredFlag = this->m_Params.meshType == IG_UNSTRUCTURED_MESH;
+            bool structuredFlag = this->m_Params.meshType == IG_STRUCTURED_MESH;
+
+            // 非结构化网格
+            if (unstructuredFlag)
+            {
+                if (isFixedCellSize)
+                {
+                    this->m_DecoderAdapter->AddUnstructuredFixedCells(volume2pointsIndex, fixedCellSize, outCellTypes);
+                }
+                else
+                {
+                    this->m_DecoderAdapter->AddUnstructuredPolyCells(volume2pointsIndex, volume2pointsSize, outCellTypes);
+                }
+            }
+            else if (structuredFlag)
+            {
+                this->m_DecoderAdapter->AddStructureCells(volume2pointsIndex, this->m_Params.structuredMeshParams.axisSize);
+            }
+            else
+            {
+                if (isFixedCellSize)
+                {
+                    this->m_DecoderAdapter->AddSameTypeFixedCells(volume2pointsIndex, fixedCellSize);
+                }
+                else
+                {
+                    this->m_DecoderAdapter->AddSameTypePolyCells(volume2pointsIndex, volume2pointsSize);
+                }
             }
         }
-
-        //std::vector<unsigned char> integerBuffer(buf.size());
-        //std::memcpy(integerBuffer.data(), buf.data(), buf.size());
-        //if (fixedCellSize)
-        //{
-        //    outCellBuffer.resize(this->m_Params.topoParams.cellBufferSize);
-        //    //this->IntegerDeocder(outCellBuffer, fastpforBuffer);
-        //    this->IntegerDeocder(outCellBuffer, integerBuffer);
-        //    this->m_DecoderAdapter->AddFixedCells(outCellBuffer, this->m_Params.topoParams.fixedCellSize);
-        //}
-        //else
-        //{
-        //    std::vector<unsigned int> outBuffer;
-        //    int baseSize = this->m_Params.topoParams.cellBufferSize + this->m_Params.topoParams.cellCount + 1;
-        //    
-        //    // 暂时认为非结构化网格只有可能在非固定offset里出现
-        //    if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
-        //    {
-        //        outBuffer.resize(baseSize + this->m_Params.topoParams.cellCount);
-        //    }
-        //    else
-        //    {
-        //        outBuffer.resize(baseSize);
-        //    }
-
-        //    //this->IntegerDeocder(outBuffer, fastpforBuffer);
-        //    this->IntegerDeocder(outBuffer, integerBuffer);
-
-        //    outCellBuffer.insert(
-        //        outCellBuffer.end(), 
-        //        outBuffer.begin(), 
-        //        outBuffer.begin() + this->m_Params.topoParams.cellBufferSize
-        //    );
-        //    
-        //    outCellOffset.insert(
-        //        outCellOffset.end(), 
-        //        outBuffer.begin() + this->m_Params.topoParams.cellBufferSize,
-        //        outBuffer.begin() + baseSize
-        //    );
-
-        //    if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
-        //    {
-        //        
-        //        outCellTypes.insert(
-        //            outCellTypes.end(),
-        //            outBuffer.begin() + baseSize,
-        //            outBuffer.end()
-        //        );
-        //        
-        //        this->m_DecoderAdapter->AddUnstructuredPolyCells(outCellBuffer, outCellOffset, outCellTypes);
-        //    }
-        //    else
-        //    {
-        //        this->m_DecoderAdapter->AddSameTypePolyCells(outCellBuffer, outCellOffset);
-        //    }
-        //}
     }
+
+    //void TopoDecoder(PayloadBuffer& buf)
+    //{
+    //    std::vector<unsigned int> outCellBuffer;
+    //    std::vector<unsigned int> outCellSize;
+    //    std::vector<unsigned int> outCellTypes;
+    //    
+    //    int fixedCellSize = this->m_Params.topoParams.fixedCellSize;
+    //    //std::vector<unsigned int> fastpforBuffer(buf.size() / sizeof(uint32_t));
+
+    //    std::vector<unsigned char> inputTopo(buf.size());
+    //    std::memcpy(inputTopo.data(), buf.data(), buf.size());
+    //    int inputCursor = 0;
+    //    // 解码cellbuffer
+    //    outCellBuffer.resize(this->m_Params.topoParams.cellBufferSize + this->m_Params.topoParams.cellBufferPadding);
+    //    this->CellBufferDecoder(
+    //        outCellBuffer, 
+    //        inputTopo.data() + inputCursor,
+    //        this->m_Params.topoParams.cellBufferBinaryCount
+    //    );
+    //    inputCursor += this->m_Params.topoParams.cellBufferBinaryCount;
+
+    //    // 解码size
+    //    if (fixedCellSize == -1)
+    //    {
+    //        this->CellSizeDecoder(
+    //            outCellSize,
+    //            inputTopo.data() + inputCursor,
+    //            this->m_Params.topoParams.cellSizeBinaryCount
+    //        );
+    //        inputCursor += this->m_Params.topoParams.cellSizeBinaryCount;
+    //    }
+
+    //    // 如果是非结构化网格 还要考虑types
+    //    if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
+    //    {
+    //        this->CellTypeDecoder(
+    //            outCellTypes,
+    //            inputTopo.data() + inputCursor,
+    //            this->m_Params.topoParams.cellTypeBinaryCount
+    //        );
+    //        inputCursor += this->m_Params.topoParams.cellTypeBinaryCount;
+    //    }
+
+    //    // 写入网格
+    //    bool sizeFlag = fixedCellSize != -1;
+    //    bool unstructuredFlag = this->m_Params.meshType == IG_UNSTRUCTURED_MESH;
+    //    bool structuredFlag = this->m_Params.meshType == IG_STRUCTURED_MESH;
+
+    //    // 非结构化网格
+    //    if (unstructuredFlag)
+    //    {
+    //        if (sizeFlag)
+    //        {
+    //            this->m_DecoderAdapter->AddUnstructuredFixedCells(outCellBuffer, fixedCellSize, outCellTypes);
+    //        }
+    //        else
+    //        {
+    //            this->m_DecoderAdapter->AddUnstructuredPolyCells(outCellBuffer, outCellSize, outCellTypes);
+    //        }
+    //    }
+    //    else if (structuredFlag)
+    //    {
+    //        this->m_DecoderAdapter->AddStructureCells(outCellBuffer, this->m_Params.structuredMeshParams.axisSize);
+    //    }
+    //    else
+    //    {
+    //        if (sizeFlag)
+    //        {
+    //            this->m_DecoderAdapter->AddSameTypeFixedCells(outCellBuffer, fixedCellSize);
+    //        }
+    //        else
+    //        {
+    //            this->m_DecoderAdapter->AddSameTypePolyCells(outCellBuffer, outCellSize);
+    //        }
+    //    }
+    //}
 
 private:
     std::ifstream& m_BytestreamFile;

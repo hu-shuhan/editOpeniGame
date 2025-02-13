@@ -44,18 +44,18 @@ public:
         this->ParamsInit();
 
         std::vector<unsigned int> pointIdRemap;
-        std::vector<unsigned int> cellIdsRemap;
+        std::vector<unsigned int> topCellIdsRemap, bottpmCellIdRemap;
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
         this->m_CallBack(0.2);
 
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
-        this->TopoEncoder(topoPayload, cellIdsRemap, pointIdRemap);
+        this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
         this->m_CallBack(0.4);
 
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
-        this->AttrEncoder(attrPayload, cellIdsRemap, pointIdRemap);
+        this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
         this->m_CallBack(0.6);
 
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
@@ -98,118 +98,291 @@ public:
         return true;
     }
 
-    void TopoEncoder(PayloadBuffer& payload, std::vector<unsigned int>& cellRemap,
-                     const std::vector<unsigned int> pointIdRemap) {
-        IGsize pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
-        IGsize cellCount = this->m_EncoderAdapter->GetNumberOfCells();
-        IGsize fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
-        IGsize cellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
-        IGsize cellOffsetSize = this->m_EncoderAdapter->GetCellIdOffsetSize();
-        bool isFixedCellSize = this->m_EncoderAdapter->IsFixedCellSize();
+    void IndexNOffsetEncoder(
+        std::vector<unsigned char>& outputTopo,
+        std::vector<unsigned int>& cellRemap,
 
-        UnsignedIntArray::Pointer cellIdBuffer = this->m_EncoderAdapter->GetCellIdBuffer();
+        int cellCount,
+        int childCount,
 
-        // 应用顶点重映射
-        UnsignedIntArray::Pointer remappedCellIdBuffer = UnsignedIntArray::New();
-        remappedCellIdBuffer->Resize(cellBufferSize);
+        std::vector<unsigned int> indices,
+        IGsize& indicesBinarySize,
+        int& bufferPadding,
 
-        for (size_t i = 0; i < cellBufferSize; ++i) {
-            unsigned int index = cellIdBuffer->GetValue(i);
-            remappedCellIdBuffer->SetValue(i, pointIdRemap[index]);
-        }
-
+        int fixedCellSize,
+        IGsize& cellSizeBinarySize,
+        std::vector<unsigned int> offsets = {}
+    ){
         // 重排序以及写入
-        std::vector<unsigned int> optCellBuffer(cellBufferSize);
-        std::vector<unsigned int> optCellOffset(cellOffsetSize);
+        std::vector<unsigned int> optCellBuffer(indices.size());
+        std::vector<unsigned int> optCellOffset(offsets.size());
         cellRemap.resize(cellCount);
-        if (isFixedCellSize) {
-            this->OptimizeCellVertexCache(optCellBuffer.data(), cellRemap.data(), remappedCellIdBuffer->RawPointer(),
-                                          cellBufferSize, pointCount, fixedCellSize);
-        } else {
-            UnsignedIntArray::Pointer cellOffset = this->m_EncoderAdapter->GetCellIdOffset();
-            this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(), cellRemap.data(),
-                                                remappedCellIdBuffer->RawPointer(), cellOffset->RawPointer(),
-                                                cellBufferSize, cellOffsetSize, pointCount, cellCount);
+        
+        if (fixedCellSize != -1) {
+            this->OptimizeCellVertexCache(optCellBuffer.data(),
+                cellRemap.data(),
+                indices.data(), indices.size(), 
+                childCount, fixedCellSize);
+        }
+        else {
+            this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(),
+                cellRemap.data(),
+                indices.data(), offsets.data(),
+                indices.size(), offsets.size(),
+                childCount, cellCount);
         }
 
-        // 调用fastpfor 写入payload
-        // 稍微开大一些空间用于存储编码结果 但是一般编码结果是小于这个长度的
-        //std::vector<uint32_t> encodeFastPForBuffer;
-
-        // 分开写入 记录count 这里使用unsigned char是一个历史遗留问题 暂时不解决
-        // 顺序分别是 optCellBuffer optCellOffset remappedCellTypes
-        std::vector<unsigned char> outputTopo;
-
-        // 写入offset
         std::vector<unsigned char> encodeBuffer;
 
         encodeBuffer.clear();
-        this->CellBufferEncoder(encodeBuffer, optCellBuffer);
+        this->CellBufferEncoder(encodeBuffer, optCellBuffer, bufferPadding);
         outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
-        this->m_Params.topoParams.cellBufferBinaryCount = encodeBuffer.size();
+        //this->m_Params.topoParams.cellBufferBinaryCount = encodeBuffer.size();
+        indicesBinarySize = encodeBuffer.size();
 
-        //encodeFastPForBuffer.resize(cellBufferSize + 1024);
-        //this->CellBufferEncoder(encodeFastPForBuffer, optCellBuffer);
-
-        this->m_Params.topoParams.cellSizeBinaryCount = 0;
-        if (!isFixedCellSize) {
+        cellSizeBinarySize = 0;
+        if (fixedCellSize == -1) {
             // 写入size 非结构化网格也有可能是定长size
             // 所以这里直接写就行了 如果是定长size 这里就会被自动跳过
             encodeBuffer.clear();
+            // 写入offset
             this->CellSizeEncoder(encodeBuffer, optCellOffset); // 在解码的时候处理完rle就结束了
             outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
-            this->m_Params.topoParams.cellSizeBinaryCount = encodeBuffer.size();
+
+            cellSizeBinarySize = encodeBuffer.size();
+            //this->m_Params.topoParams.cellSizeBinaryCount = encodeBuffer.size();
         }
+    }
 
-        // 如果非结构化 还要写入type
-        this->m_Params.topoParams.cellTypeBinaryCount = 0;
-        if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH) {
-            UnsignedIntArray::Pointer cellTypes = this->m_EncoderAdapter->GetCellTypes();
-            // 应用map做对cell类型做重排序
-            std::vector<uint32_t> remappedCellTypes(cellCount);
-            for (int i = 0; i < cellCount; i++) { remappedCellTypes[cellRemap[i]] = cellTypes->GetValue(i); }
+    void TopoEncoder(
+        PayloadBuffer& payload,
+        const std::vector<unsigned int> pointIdRemap,
+        std::vector<unsigned int>& topCellRemap, // 最高级cell remap
+        std::vector<unsigned int>& bottomCellRemap // 最低级cell remap
+    ){
+        // 输出
+        std::vector<unsigned char> outputTopo;
 
-            encodeBuffer.clear();
-            this->CellTypeEncoder(encodeBuffer, remappedCellTypes);
-            outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
-            this->m_Params.topoParams.cellTypeBinaryCount = encodeBuffer.size();
+        // 判断是否需要启用二级索引
+        if (this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh())
+        {
+            // 顺序 bottomCellBuffer bottomCellOffset topCellBuffer topCellOffset
+            
+            // 必须先执行面 -> 点 随后是 体 -> 面
+
+            // 获取拆解索引列
+            std::vector<unsigned int> volume2facesIndex;
+            std::vector<unsigned int> volume2facesOffset;
+            std::vector<unsigned int> face2pointsIndex;
+            std::vector<unsigned int> face2pointsOffset;
+            this->m_EncoderAdapter->SplitSecondaryIndex(
+                volume2facesIndex,
+                volume2facesOffset,
+                face2pointsIndex,
+                face2pointsOffset);
+
+            // 重排序顶点
+            std::vector<unsigned int> remappedf2p;
+            remappedf2p.resize(face2pointsIndex.size());
+
+            for (size_t i = 0; i < face2pointsIndex.size(); ++i)
+            {
+                remappedf2p[i] = pointIdRemap[face2pointsIndex[i]];
+            }
+
+            // 编码 面 -> 点
+            IndexNOffsetEncoder(
+                outputTopo,
+                bottomCellRemap,
+                this->m_EncoderAdapter->GetNumberOfFaces(),
+                this->m_EncoderAdapter->GetNumberOfPoints(),
+                remappedf2p,
+                this->m_Params.topoParams.bottomCellBufferBinaryCount,
+                this->m_Params.topoParams.bottomCellBufferPadding,
+                -1,
+                this->m_Params.topoParams.bottomCellSizeBinaryCount,
+                face2pointsOffset
+            );
+
+            this->m_Params.topoParams.bottomCellBufferSize = remappedf2p.size();
+
+            // 重排序面
+            std::vector<unsigned int> remappedv2f;
+            remappedv2f.resize(volume2facesIndex.size());
+
+            for (size_t i = 0; i < volume2facesIndex.size(); ++i)
+            {
+                remappedv2f[i] = bottomCellRemap[volume2facesIndex[i]];
+            }
+
+            // 编码 体 -> 面
+            IndexNOffsetEncoder(
+                outputTopo,
+                topCellRemap,
+                this->m_EncoderAdapter->GetNumberOfCells(),
+                this->m_EncoderAdapter->GetNumberOfFaces(),
+                remappedv2f,
+                this->m_Params.topoParams.topCellBufferBinaryCount,
+                this->m_Params.topoParams.topCellBufferPadding,
+                -1,
+                this->m_Params.topoParams.topCellSizeBinaryCount,
+                volume2facesOffset
+            );
+
+            this->m_Params.topoParams.topCellBufferSize = remappedv2f.size();
         }
+        else
+        {
+            // 顺序 CellBuffer CellOffset CellTypes
+            this->m_Params.topoParams.topCellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
+            IGsize pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
+            IGsize cellCount = this->m_EncoderAdapter->GetNumberOfCells();
+            IGsize cellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
+            IGsize cellOffsetSize = this->m_EncoderAdapter->GetCellIdOffsetSize();
+            UnsignedIntArray::Pointer cellIdOffset = this->m_EncoderAdapter->GetCellIdOffset();
+            
+            // 应用顶点重映射
+            IdArray::Pointer cellIdBuffer = this->m_EncoderAdapter->GetCellIdBuffer();
+            std::vector<unsigned int> remappedc2v;
+            remappedc2v.resize(cellBufferSize);
 
-        //int baseSize = cellBufferSize + cellOffsetSize + 1024;
-        ////encodeFastPForBuffer.resize(baseSize);
-        //// optCellBuffer + optCellOffset
-        //optCellBuffer.insert(optCellBuffer.end(),
-        //    optCellOffset.begin(), optCellOffset.end());
+            for (size_t i = 0; i < cellBufferSize; ++i)
+            {
+                remappedc2v[i] = pointIdRemap[cellIdBuffer->GetId(i)];
+            }
 
-        //// 额 非结构化应该都是不定长offset吧...?
-        //// 也有可能定长的 哈哈
-        //if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH)
-        //{
-        //    //encodeFastPForBuffer.resize(baseSize + cellCount);
-        //    UnsignedIntArray::Pointer cellTypes = this->m_EncoderAdapter->GetCellTypes();
-        //    // 应用map做对cell类型做重排序
-        //    std::vector<uint32_t> remappedCellTypes(cellCount);
-        //    for (int i = 0; i < cellCount; i++)
-        //    {
-        //        remappedCellTypes[cellRemap[i]] = cellTypes->GetValue(i);
-        //    }
+            if (this->m_EncoderAdapter->IsFixedCellSize())
+            {
+                IndexNOffsetEncoder(
+                    outputTopo,
+                    topCellRemap,
+                    cellCount,
+                    pointCount,
+                    remappedc2v,
+                    this->m_Params.topoParams.topCellBufferBinaryCount,
+                    this->m_Params.topoParams.topCellBufferPadding,
+                    this->m_EncoderAdapter->GetFixedCellSize(),
+                    this->m_Params.topoParams.topCellSizeBinaryCount
+                );
+            }
+            else
+            {
+                std::vector<unsigned int> volume2pointsOffset;
+                volume2pointsOffset.resize(cellOffsetSize);
+                memcpy(
+                    volume2pointsOffset.data(),
+                    cellIdOffset->RawPointer(),
+                    cellIdOffset->GetNumberOfValues() * sizeof(unsigned int)
+                );
 
-        //    // optCellBuffer + optCellOffset + remappedCellTypes
-        //    optCellBuffer.insert(optCellBuffer.end(),
-        //        remappedCellTypes.begin(), remappedCellTypes.end());
-        //}
-        //// TODO offset换用字典编码
-        //this->CellBufferEncoder(outputTopo, optCellBuffer);
+                IndexNOffsetEncoder(
+                    outputTopo,
+                    topCellRemap,
+                    cellCount,
+                    pointCount,
+                    remappedc2v,
+                    this->m_Params.topoParams.topCellBufferBinaryCount,
+                    this->m_Params.topoParams.topCellBufferPadding,
+                    -1,
+                    this->m_Params.topoParams.topCellSizeBinaryCount,
+                    volume2pointsOffset
+                );
+            }
 
-        //payload.resize(encodeFastPForBuffer.size() * sizeof(uint32_t));
-        //std::memcpy(payload.data(),
-        //    encodeFastPForBuffer.data(),
-        //    encodeFastPForBuffer.size() * sizeof(uint32_t)
-        //);
+            // 如果非结构化 要写入type 非结构化与是否存在fixed cell size没有关系
+            this->m_Params.topoParams.cellTypeBinaryCount = 0;
+            if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH) {
+                std::vector<unsigned char> encodeBuffer;
+                UnsignedIntArray::Pointer cellTypes = this->m_EncoderAdapter->GetCellTypes();
+                // 应用map做对cell类型做重排序
+                std::vector<uint32_t> remappedCellTypes(cellCount);
+                for (int i = 0; i < cellCount; i++) { remappedCellTypes[topCellRemap[i]] = cellTypes->GetValue(i); }
+
+                encodeBuffer.clear();
+                this->CellTypeEncoder(encodeBuffer, remappedCellTypes);
+                outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
+                this->m_Params.topoParams.cellTypeBinaryCount = encodeBuffer.size();
+            }
+        }
 
         payload.resize(outputTopo.size());
         std::memcpy(payload.data(), outputTopo.data(), outputTopo.size());
     }
+
+    //void TopoEncoder(PayloadBuffer& payload, std::vector<unsigned int>& cellRemap,
+    //                 const std::vector<unsigned int> pointIdRemap) {
+    //    IGsize pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
+    //    IGsize cellCount = this->m_EncoderAdapter->GetNumberOfCells();
+    //    IGsize fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
+    //    IGsize cellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
+    //    IGsize cellOffsetSize = this->m_EncoderAdapter->GetCellIdOffsetSize();
+    //    bool isFixedCellSize = this->m_EncoderAdapter->IsFixedCellSize();
+
+    //    IdArray::Pointer cellIdBuffer = this->m_EncoderAdapter->GetCellIdBuffer();
+
+    //    // 应用顶点重映射
+    //    UnsignedIntArray::Pointer remappedCellIdBuffer = UnsignedIntArray::New();
+    //    remappedCellIdBuffer->Resize(cellBufferSize);
+
+    //    for (size_t i = 0; i < cellBufferSize; ++i) {
+    //        unsigned int index = cellIdBuffer->GetId(i);
+    //        remappedCellIdBuffer->SetValue(i, pointIdRemap[index]);
+    //    }
+
+    //    // 重排序以及写入
+    //    std::vector<unsigned int> optCellBuffer(cellBufferSize);
+    //    std::vector<unsigned int> optCellOffset(cellOffsetSize);
+    //    cellRemap.resize(cellCount);
+    //    if (isFixedCellSize) {
+    //        this->OptimizeCellVertexCache(optCellBuffer.data(), cellRemap.data(), remappedCellIdBuffer->RawPointer(),
+    //                                      cellBufferSize, pointCount, fixedCellSize);
+    //    } else {
+    //        UnsignedIntArray::Pointer cellOffset = this->m_EncoderAdapter->GetCellIdOffset();
+    //        this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(), cellRemap.data(),
+    //                                            remappedCellIdBuffer->RawPointer(), cellOffset->RawPointer(),
+    //                                            cellBufferSize, cellOffsetSize, pointCount, cellCount);
+    //    }
+
+    //    // 分开写入 记录count 
+    //    // 顺序分别是 optCellBuffer optCellOffset remappedCellTypes
+    //    std::vector<unsigned char> outputTopo;
+    //    std::vector<unsigned char> encodeBuffer;
+
+    //    encodeBuffer.clear();
+    //    this->CellBufferEncoder(encodeBuffer, optCellBuffer);
+    //    outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
+    //    this->m_Params.topoParams.cellBufferBinaryCount = encodeBuffer.size();
+
+    //    this->m_Params.topoParams.cellSizeBinaryCount = 0;
+    //    if (!isFixedCellSize) {
+    //        // 写入size 非结构化网格也有可能是定长size
+    //        // 所以这里直接写就行了 如果是定长size 这里就会被自动跳过
+    //        encodeBuffer.clear();
+    //        // 写入offset
+    //        this->CellSizeEncoder(encodeBuffer, optCellOffset); // 在解码的时候处理完rle就结束了
+    //        outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
+    //        this->m_Params.topoParams.cellSizeBinaryCount = encodeBuffer.size();
+    //    }
+
+    //    // 如果非结构化 要写入type
+    //    this->m_Params.topoParams.cellTypeBinaryCount = 0;
+    //    if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH) {
+    //        UnsignedIntArray::Pointer cellTypes = this->m_EncoderAdapter->GetCellTypes();
+    //        // 应用map做对cell类型做重排序
+    //        std::vector<uint32_t> remappedCellTypes(cellCount);
+    //        for (int i = 0; i < cellCount; i++) { remappedCellTypes[cellRemap[i]] = cellTypes->GetValue(i); }
+
+    //        encodeBuffer.clear();
+    //        this->CellTypeEncoder(encodeBuffer, remappedCellTypes);
+    //        outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
+    //        this->m_Params.topoParams.cellTypeBinaryCount = encodeBuffer.size();
+    //    }
+
+    //    
+
+    //    payload.resize(outputTopo.size());
+    //    std::memcpy(payload.data(), outputTopo.data(), outputTopo.size());
+    //}
 
     template<typename Functor, typename... Args>
     void SetCallBack(Functor&& functor, Args&&... args) {
@@ -236,11 +409,9 @@ private:
                         DynamicCast<StructuredMesh>(this->m_DataObj)->GetDimensionSize(), 3 * sizeof(int));
         }
 
+        this->m_Params.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
         this->m_Params.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
-        this->m_Params.topoParams.cellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
-        this->m_Params.topoParams.cellCount = this->m_EncoderAdapter->GetNumberOfCells();
-
-        // 以后改成GUI调控
+        
         this->m_Params.geomParams.valueSize = sizeof(float); // float
         this->m_Params.geomParams.elementCount = this->m_EncoderAdapter->GetNumberOfPoints();
         this->m_Params.geomParams.dimension = 3;
@@ -387,7 +558,7 @@ private:
 
                 if (floatFlag) {
                     for (int i = 0, tpCursor = 0; i < valueCount; i += blockSize, tpCursor++) {
-                        size_t length = std::min(valueCount - i, (IGsize)blockSize);
+                        size_t length = std::min(valueCount - i, blockSize);
                         tpResult[tpCursor] = tp->Commit(
                                 [&](int start, int end) -> void {
                                     for (int j = start; j < end; j += 2) {
@@ -404,7 +575,7 @@ private:
                     }
                 } else {
                     for (int i = 0, tpCursor = 0; i < valueCount; i += blockSize, tpCursor++) {
-                        size_t length = std::min(valueCount - i, (IGsize)blockSize);
+                        size_t length = std::min(valueCount - i, blockSize);
                         tpResult[tpCursor] = tp->Commit(
                                 [&](int start, int end) -> void {
                                     for (int j = start; j < end; j += 2) {
@@ -444,6 +615,7 @@ private:
                         }
                     });
                 } else {
+                    floatBuffer.resize(doubleBuffer.size());
                     ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
                         for (int i = start; i < end; i++) {
                             floatBuffer[i] = meshopt_quantizeFloat(doubleBuffer[i], floatParams.quantParam);
@@ -462,7 +634,7 @@ private:
         }
 
         // 编码
-        assert(floatFlag && doubleFlag == false);
+        assert((floatFlag && doubleFlag) == false);
         dest.resize(meshopt_encodeVertexBufferBound(encodeElementCount, encodeVertexSize));
 
         if (floatFlag) {
@@ -788,69 +960,104 @@ private:
         std::memcpy(payload.data(), encodedFloat.data(), encodedFloat.size());
     }
 
-    void AttrEncoder(PayloadBuffer& payload, const std::vector<unsigned int>& cellRemap,
-                     const std::vector<unsigned int>& pointRemap) {
+    void AttrEncoder(
+        PayloadBuffer& payload,
+        const std::vector<unsigned int>& pointRemap,
+        const std::vector<unsigned int>& topCellRemap,
+        const std::vector<unsigned int>& bottomCellRemap
+    ){
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_Params.attrParams.size());
-        size_t threadNum = std::max(this->m_Params.attrParams.size() / 2, (size_t) 1);
+        
+        for (int i = 0; i < this->m_Params.attrParams.size(); i++)
+        {
+            AttributeSet::Attribute& attr = attrs->GetElement(i);
+            auto& params = this->m_Params.attrParams[i];
+            int dimension = params.dimension;
+            int elementCount = params.elementCount;
+            int valueCount = params.elementCount * params.dimension;
 
-        ThreadPool::parallelFor(
-                0, this->m_Params.attrParams.size(),
-                [&](int start, int end) -> void {
-                    for (int i = start; i < end; i++) {
-                        auto& attr = attrs->GetElement(i);
-                        auto& params = this->m_Params.attrParams[i];
-                        int dimension = params.dimension;
-                        int elementCount = params.elementCount;
-                        int valueCount = params.elementCount * params.dimension;
+            // 部署remap
+            std::vector<float> remappedFloatAttrBuffer;
+            std::vector<double> remappedDoubleAttrBuffer;
 
-                        // 部署remap
-                        std::vector<float> remappedFloatAttrBuffer;
-                        std::vector<double> remappedDoubleAttrBuffer;
-                        if (params.valueSize == sizeof(float)) {
-                            remappedFloatAttrBuffer.resize(valueCount);
-                            ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
-                                for (int j = start; j < end; j++) {
-                                    igIndex remapIndex =
-                                            (params.attachmentType == IG_POINT ? pointRemap[j] : cellRemap[j]);
-                                    std::vector<double> values;
-                                    attr.pointer->GetElement(j, values);
+            if (params.valueSize == sizeof(float)) {
+                remappedFloatAttrBuffer.resize(valueCount);
+                auto floatAttrArray = DynamicCast<FlatArray<float>>(attr.pointer);
 
-                                    for (int k = 0; k < params.dimension; k++) {
-                                        remappedFloatAttrBuffer[remapIndex * params.dimension + k] = values[k];
-                                    }
-                                }
-                            });
-                        } else {
-                            remappedDoubleAttrBuffer.resize(valueCount);
-                            ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
-                                for (int j = start; j < end; j++) {
-                                    igIndex remapIndex =
-                                            (params.attachmentType == IG_POINT ? pointRemap[j] : cellRemap[j]);
-                                    std::vector<double> values;
-                                    attr.pointer->GetElement(j, values);
+                ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
 
-                                    for (int k = 0; k < params.dimension; k++) {
-                                        remappedDoubleAttrBuffer[remapIndex * params.dimension + k] = values[k];
-                                    }
-                                }
-                            });
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedFloatAttrBuffer[remapIndex * params.dimension + k] = 
+                                floatAttrArray->GetValue(j * params.dimension + k);
                         }
-
-                        // 编码
-                        std::vector<unsigned char> encodedFloat;
-                        if (params.valueSize == sizeof(float)) {
-                            this->FloatEncoder(encodedFloat, remappedFloatAttrBuffer.data(), params, params.name);
-                        } else if (params.valueSize == sizeof(double)) {
-                            this->FloatEncoder(encodedFloat, remappedDoubleAttrBuffer.data(), params, params.name);
-                        }
-
-                        // 只靠count就足以读取
-                        params.binaryCount = encodedFloat.size() * sizeof(uint8_t);
-                        outFloats[i] = encodedFloat;
                     }
-                },
-                threadNum);
+                });
+            }
+            else {
+                remappedDoubleAttrBuffer.resize(valueCount);
+                auto doubleAttrArray = DynamicCast<FlatArray<double>>(attr.pointer);
+
+                ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
+
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedDoubleAttrBuffer[remapIndex * params.dimension + k] =
+                                doubleAttrArray->GetValue(j * params.dimension + k);
+                        }
+                    }
+                });
+            }
+
+            /*if (params.valueSize == sizeof(float)) {
+                remappedFloatAttrBuffer.resize(valueCount);
+                ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
+
+                        std::vector<double> values;
+                        attr.pointer->GetElement(j, values);
+                        
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedFloatAttrBuffer[remapIndex * params.dimension + k] = values[k];
+                        }
+                    }
+                    });
+            }
+            else {
+                remappedDoubleAttrBuffer.resize(valueCount);
+                ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
+
+                        std::vector<double> values;
+                        attr.pointer->GetElement(j, values);
+
+                        DynamicCast<FlatArray<double>>(attr.pointer)->RawPointer();
+
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedDoubleAttrBuffer[remapIndex * params.dimension + k] = values[k];
+                        }
+                    }
+                    });
+            }*/
+
+            // 编码
+            std::vector<unsigned char> encodedFloat;
+            if (params.valueSize == sizeof(float)) {
+                this->FloatEncoder(encodedFloat, remappedFloatAttrBuffer.data(), params, params.name);
+            }
+            else if (params.valueSize == sizeof(double)) {
+                this->FloatEncoder(encodedFloat, remappedDoubleAttrBuffer.data(), params, params.name);
+            }
+
+            // 只靠count就足以读取
+            params.binaryCount = encodedFloat.size() * sizeof(uint8_t);
+            outFloats[i] = encodedFloat;
+        }
 
         size_t currentPayloadCursor = 0;
         for (int i = 0; i < this->m_Params.attrParams.size(); i++) {
@@ -858,72 +1065,6 @@ private:
             std::memcpy(payload.data() + currentPayloadCursor, outFloats[i].data(), outFloats[i].size());
             currentPayloadCursor += outFloats[i].size();
         }
-
-        //std::vector<unsigned char> outFloat;
-        //for (int i = 0; i < this->m_Params.attrParams.size(); i++)
-        //{
-        //    auto& attr = attrs->GetElement(i);
-        //    auto& params = this->m_Params.attrParams[i];
-        //    int dimension = params.dimension;
-        //    int elementCount = params.elementCount;
-        //    int valueCount = params.elementCount * params.dimension;
-
-        //    // 部署remap
-        //    std::vector<float> remappedFloatAttrBuffer;
-        //    std::vector<double> remappedDoubleAttrBuffer;
-        //    if (params.valueSize == sizeof(float))
-        //    {
-        //        remappedFloatAttrBuffer.resize(valueCount);
-        //        ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
-        //            for (int j = start; j < end; j++)
-        //            {
-        //                igIndex remapIndex = (params.attachmentType == IG_POINT ? pointRemap[j] : cellRemap[j]);
-        //                std::vector<double> values;
-        //                attr.pointer->GetElement(j, values);
-
-        //                for (int k = 0; k < params.dimension; k++)
-        //                {
-        //                    remappedFloatAttrBuffer[remapIndex * params.dimension + k] = values[k];
-        //                }
-        //            }
-        //            });
-        //    }
-        //    else
-        //    {
-        //        remappedDoubleAttrBuffer.resize(valueCount);
-        //        ThreadPool::parallelFor(0, elementCount, [&](int start, int end) -> void {
-        //            for (int j = start; j < end; j++)
-        //            {
-        //                igIndex remapIndex = (params.attachmentType == IG_POINT ? pointRemap[j] : cellRemap[j]);
-        //                std::vector<double> values;
-        //                attr.pointer->GetElement(j, values);
-
-        //                for (int k = 0; k < params.dimension; k++)
-        //                {
-        //                    remappedDoubleAttrBuffer[remapIndex * params.dimension + k] = values[k];
-        //                }
-        //            }
-        //            });
-        //    }
-
-        //    // 编码
-        //    std::vector<unsigned char> encodedFloat;
-        //    if (params.valueSize == sizeof(float))
-        //    {
-        //        this->FloatEncoder(encodedFloat, remappedFloatAttrBuffer.data(), params);
-        //    }
-        //    else if (params.valueSize == sizeof(double))
-        //    {
-        //        this->FloatEncoder(encodedFloat, remappedDoubleAttrBuffer.data(), params);
-        //    }
-
-        //    // 只靠count就足以读取
-        //    params.binaryCount = encodedFloat.size() * sizeof(uint8_t);
-        //    outFloat.insert(outFloat.end(), encodedFloat.begin(), encodedFloat.end());
-        //}
-
-        //payload.resize(outFloat.size());
-        //std::memcpy(payload.data(), outFloat.data(), outFloat.size());
     }
 
     // 和常规的delta encoder有点区别 产生的结果是每个cell的点的数量
@@ -1030,7 +1171,7 @@ private:
         this->RunLengthEncoder(dest, delta);
     }
 
-    void CellBufferEncoder(std::vector<unsigned char>& dest, std::vector<uint32_t>& source) {
+    void CellBufferEncoder(std::vector<unsigned char>& dest, std::vector<uint32_t>& source, int& bufferPadding) {
         //std::vector<unsigned char> ibuf(meshopt_encodeIndexBufferBound(bufferSize, pointCount));
         //ibuf.resize(meshopt_encodeIndexBuffer(&ibuf[0], ibuf.size(), uintidbuffer.data(), bufferSize));
 
@@ -1055,7 +1196,7 @@ private:
         // padding
         int bufferSize = source.size();
         int padding = (3 - bufferSize % 3) % 3;
-        this->m_Params.topoParams.cellBufferPadding = padding;
+        bufferPadding = padding;
         for (int i = 0; i < padding; i++) { source.push_back(i); }
         bufferSize += padding;
         // opt操作已经在外部完成

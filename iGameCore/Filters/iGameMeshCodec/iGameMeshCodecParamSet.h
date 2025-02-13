@@ -35,14 +35,24 @@ struct MeshOptAttrParameters : MeshOptFloatParameters {
 };
 
 struct MeshOptTopoParameters {
+	bool isSecondaryIndex; // 是否启用二阶索引
 	int fixedCellSize; // 等于0时代表启用offset buffer 反之则代表固定offset
-	IGsize cellBufferSize; //存储cell的顶点id的array的尺寸 不包括padding
-	IGsize cellCount;
-	int cellBufferPadding;
-
+	
 	// 由于buffer offset type使用了不同的编码技术 所以需要分开记录它们的二进制结束位置
-	IGsize cellBufferBinaryCount;
-	IGsize cellSizeBinaryCount;
+	IGsize topCellBufferBinaryCount; // cell ids 区域占用字节数
+	IGsize topCellSizeBinaryCount; // cell sizes 区域占用字节
+
+	IGsize topCellBufferSize; // 存储cell的顶点id的array尺寸 元素类型是 unsigned int 不包括padding
+	int topCellBufferPadding;
+
+	// --------------------------------------------------------------------------------------
+
+	IGsize bottomCellBufferBinaryCount;
+	IGsize bottomCellSizeBinaryCount;
+
+	IGsize bottomCellBufferSize; // 存储cell的顶点id的array尺寸 元素类型是 unsigned int 不包括padding
+	int bottomCellBufferPadding;
+
 	IGsize cellTypeBinaryCount;
 };
 
