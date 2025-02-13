@@ -3,6 +3,7 @@
 #include "iGameSceneManager.h"
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+#include "iGameThreadPool.h"
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(new Ui::ModelClipWidget) {
     ui->setupUi(this);
     connect(ui->pushButton, &QPushButton::clicked, this, [&]() {
@@ -189,8 +190,6 @@ void igQtModelClipWidget::ClipModel() {
             std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
         } break;
-        case igQtModelClipWidget::IG_VIEW_MODE_NUM:
-            break;
         default:
             break;
     }
