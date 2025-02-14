@@ -339,6 +339,7 @@ void igQtMainWindow::initAllComponents() {
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
     // &igQtModelDrawWidget::SaveScreenShoot);
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
+    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnline);
     // connect(ui->action_SaveMesh, &QAction::triggered, fileLoader,
     // &igQtFileLoader::SaveFile);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);

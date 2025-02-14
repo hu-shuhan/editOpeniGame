@@ -91,7 +91,8 @@ border:2px solid #EEF1F7
     <addaction name="action_compress"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
-    <addaction name="action_SetThreadNum"/>
+	   <addaction name="action_SetThreadNum"/>
+	   <addaction name="action_CS"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -1412,6 +1413,11 @@ border:2px solid #EEF1F7
    </property>
    <property name="toolTip">
     <string>启用体绘制</string>
+   </property>
+  </action>
+  <action name="action_CS">
+   <property name="text">
+    <string>传输测试</string>
    </property>
   </action>
   <action name="action_SetThreadNum">

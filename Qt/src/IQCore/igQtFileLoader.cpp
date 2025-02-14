@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "iGameFileIO.h"
+#include "CSTest.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
@@ -35,7 +36,22 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 }
 
 igQtFileLoader::~igQtFileLoader() {}
-
+void igQtFileLoader::LoadOnline() {
+    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+                           "*.vtm *.cgns *.odb *.igc)",
+                           "VTK file(*.vtk)",
+                           "CGNS file(*.cgns)",
+                           "ABAQUS file(*.odb)",
+                           "Spline file(*.xml)",
+                           "Compression file(*.igc)"};
+    QString selectedFilter;
+    std::string filePath =
+            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
+    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+    std::cout << filePath << std::endl;
+    CSTest(selected_idx, filePath);
+    this->OpenFile("D:/lab/build/red sea/ReceivedFile.igc");
+}
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
             "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "

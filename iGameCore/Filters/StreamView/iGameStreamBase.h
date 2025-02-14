@@ -21,6 +21,7 @@ public:
         m_StreamLineColor.swap(tmp2);
         m_StreamLineColor = streamLineColor;
         isUpdate = true;
+        //ConvertToDrawableData();
     }
 
 protected:
