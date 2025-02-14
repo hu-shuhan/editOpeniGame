@@ -29,32 +29,40 @@ public:
             PayloadBuffer bufDecompressed;
             MeshCodecLZMA::Decompress(bufDecompressed, buf);
 
+			float progress = 0.0;
+
             switch (type)
             {
             case PayloadType::kParameterSet:
             {
                 // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
                 this->ParamsDecoder(bufDecompressed);
+				progress += 0.2;
                 break;
             }
             case PayloadType::kGeometryBrick:
             {
                 this->GeomDecoder(bufDecompressed);
+                progress += 0.2;
                 break;
             }
             case PayloadType::kAttributeBrick:
             {
                 this->AttrDecoder(bufDecompressed);
+                progress += 0.2;
                 break;
             }
             case PayloadType::kTopologyBrick:
             {
                 this->TopoDecoder(bufDecompressed);
+                progress += 0.2;
                 break;
             }
             default:
                 break;
             }
+
+            this->m_CallBack(progress);
 
             //switch (buf.type)
             //{
@@ -90,7 +98,15 @@ public:
             }
         }
 
+        this->m_CallBack(1.0);
+
         return this->m_DecoderAdapter->GetDataObj();
+    }
+
+    template<typename Functor, typename... Args>
+    void SetUpdateProgress(Functor&& functor, Args&&... args) {
+        this->m_CallBack =
+            std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
     }
 
     void ParamsDecoder(PayloadBuffer& buf)
@@ -756,6 +772,7 @@ public:
 private:
     std::ifstream& m_BytestreamFile;
     MeshDecoderAdapter* m_DecoderAdapter;
+    std::function<void(double)> m_CallBack;
 };
 IGAME_NAMESPACE_END
 #endif

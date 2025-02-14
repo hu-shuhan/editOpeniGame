@@ -28,6 +28,7 @@ public:
         // 解码
         MeshOptParameters params;
         MeshOptDecoder decoder(this->m_BytestreamFile, params);
+        decoder.SetUpdateProgress(&MeshDecoder::UpdateProgress, this);
         DataObject::Pointer dataObj = decoder.Execute();
         this->SetNumberOfOutputs(1);
         this->SetOutput(dataObj);
@@ -45,6 +46,7 @@ public:
         // 解码
         MeshOptParameters params;
         MeshOptDecoder decoder(this->m_BytestreamFile, params);
+        decoder.SetUpdateProgress(&MeshDecoder::UpdateProgress, this);
         DataObject::Pointer dataObj = decoder.Execute();
         this->SetNumberOfOutputs(1);
         this->SetOutput(dataObj);

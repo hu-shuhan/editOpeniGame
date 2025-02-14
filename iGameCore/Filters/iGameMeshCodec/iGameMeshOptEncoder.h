@@ -92,7 +92,7 @@ public:
         WriteBuf(topoCompressed, this->m_BytestreamFile);
         WriteBuf(attrCompressed, this->m_BytestreamFile);
 
-        this->m_CallBack(1.0);
+        
         //std::vector<char> input(geomPayload.begin(), geomPayload.end());
         //std::vector<char> result;
         //MeshCodecLZMA::Compress(result, input, 10, 12);
@@ -102,9 +102,9 @@ public:
         //int ret = MeshCodecLZMA::Decompress(output, result);
 
         auto calBpv = [=]() -> void {
-            int geomSize = geomPayload.size();
-            int topoSize = topoPayload.size();
-            int attrSize = attrPayload.size();
+            int geomSize = geomCompressed.size();
+            int topoSize = topoCompressed.size();
+            int attrSize = attrCompressed.size();
             int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
 
             float geomBpv = geomSize * 8.0 / pointCount;
@@ -167,6 +167,8 @@ public:
 		default:
 			break;
 		}
+
+        this->m_CallBack(1.0);
 
         return true;
     }
