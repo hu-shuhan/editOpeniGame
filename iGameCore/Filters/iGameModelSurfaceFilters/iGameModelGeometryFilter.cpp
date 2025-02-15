@@ -1170,8 +1170,11 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 			break;
 		}
 	}
-	if (is3D == false) {
+	if (is3D == false) {		
 		auto surfaceMesh = Grid->TransferToSurfaceMesh();
+		if (surfaceMesh == nullptr) {
+			return 0;
+		}
 		if (!ExecuteWithSurfaceMesh(Grid->TransferToSurfaceMesh(), output)) {
 			output = surfaceMesh;
 		}

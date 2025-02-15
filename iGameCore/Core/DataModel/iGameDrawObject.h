@@ -28,7 +28,7 @@ protected:
 public:
     bool IsDrawable() override { return true; }
     virtual void ConvertToDrawableData();
-    virtual bool IsUseSinglePassWireframeRendering() { return true; }
+    virtual bool IsUseSinglePassWireframeRendering();
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
