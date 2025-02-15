@@ -14,27 +14,27 @@ size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* ind
 {
     Allocator allocator;
     
-    // ¼ò»¯µÄ½á¹ûË÷ÒıÊı×é
+    // ç®€åŒ–çš„ç»“æœç´¢å¼•æ•°ç»„
     unsigned int* result = destination;
     if (result != indices) 
         memcpy(result, indices, index_count * sizeof(unsigned int));
 
-    // ½¨Á¢±ß±íºÍ¶¥µãµÄÁÚ½Ó±ß
+    // å»ºç«‹è¾¹è¡¨å’Œé¡¶ç‚¹çš„é‚»æ¥è¾¹
     EdgeAdjacency adjacency = {};
     prepareEdgeAdjacency(adjacency, index_count, vertex_count, allocator);
     updateEdgeAdjacency(adjacency, result, index_count, vertex_count, NULL);
 
-    // ¶¥µã×ø±êÓ³Éä
+    // é¡¶ç‚¹åæ ‡æ˜ å°„
     unsigned int* remap = allocator.allocate<unsigned int>(vertex_count);
     unsigned int* wedge = allocator.allocate<unsigned int>(vertex_count);
     buildPositionRemap(remap, wedge, vertex_positions_data, vertex_count, vertex_positions_stride, nullptr, allocator);
 
-    // Ä£ĞÍ¹éÒ»»¯
+    // æ¨¡å‹å½’ä¸€åŒ–
     Vector3* vertex_positions = allocator.allocate<Vector3>(vertex_count);
     float vertex_scale = rescalePositions(vertex_positions, vertex_positions_data, vertex_count,
                                           vertex_positions_stride, nullptr);
 
-    // ¸ù¾İÈ¨ÖØÖØĞÂ¼ÆËãÊôĞÔÖµ
+    // æ ¹æ®æƒé‡é‡æ–°è®¡ç®—å±æ€§å€¼
     float* vertex_attributes = NULL;
     if (attribute_count) {
         unsigned int attribute_remap[32];

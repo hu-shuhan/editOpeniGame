@@ -78,4 +78,8 @@ igm::vec3 ColorUtils::Map(Color color) {
     }
 }
 
+igm::vec3 ColorUtils::Map(int R, int G, int B) {
+    return {(float)R / 255, (float)G / 255, (float)B / 255};
+}
+
 IGAME_NAMESPACE_END

@@ -38,6 +38,7 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <stdio.h>
 
 #include <QMessageBox>
@@ -58,8 +59,8 @@ void igQtMainWindow::initArgs(const QStringList &args) {
     int argc = args.size();
     for(int i = 1; i < argc; ++ i){
         const QString& cur_arg = args[i].toLower();
-        if(cur_arg == "--filepath"){
-            const QString& filePath = args[++ i];
+        if(cur_arg == "--filepath" && ++ i < argc){
+            const QString& filePath = args[i];
             fileLoader->OpenFile(filePath.toStdString());
         }
     }
@@ -200,6 +201,16 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
+    connect(ui->action_ChangeBackground, &QAction::triggered, this, [&](){
+        igQtChangeBackGroundDialog dialog(this);
+        dialog.setWindowTitle("Change BackGround Color.");
+        int R = 0, G = 0, B = 0; 
+        if (dialog.exec() == QDialog::Accepted) {
+            auto input = dialog.getInput();
+            R = input[0], G = input[1], B = input[2];
+        }
+        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+    });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
         [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
     // init ProgressBar

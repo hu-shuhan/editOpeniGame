@@ -181,7 +181,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
             currentDrawObject->ConvertToDrawableData();
         }
     }
-
 //    auto& currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
 //    auto frameData = currentFrame.GetMetaData();
 
@@ -241,6 +240,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
 
     /* process Object's scalar range*/
+    currentDrawObject->ReCollectSubDataObjectDataRange();
     currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
@@ -525,9 +525,11 @@ bool igQtAnimationWidget::saveAnimation() {
             image.save(info.path() + "/" + info.baseName() + QString::asprintf("_%d.png", i));
         }
 
-        std::vector<uint8_t> tmp(image.bits(),
-                                 image.bits() + image.sizeInBytes());
-        inputInfo.bytes_per_line = image.bytesPerLine();
+//        std::vector<uint8_t> tmp(image.bits(),
+//                                 image.bits() + image.sizeInBytes());
+//        inputInfo.bytes_per_line = image.bytesPerLine();
+        auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
+        inputInfo.bytes_per_line = width * 4;
         inputInfo.raw_image_data.emplace_back(tmp);
     }
     rendererWidget->resize(oldwidth, oldheight);

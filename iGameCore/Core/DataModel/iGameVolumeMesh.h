@@ -237,7 +237,6 @@ public:
 			for (auto it : vset) { ptIds[npts++] = it; }
 			m_Volumes->AddCellIds(ptIds, npts);
 		}
-
 		for (igIndex i = 0; i < CellNum; i++) {
 			std::set<igIndex> eset;
 			int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
