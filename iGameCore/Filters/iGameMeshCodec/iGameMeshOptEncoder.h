@@ -5,7 +5,7 @@
 
 #include "iGameFlatArray.h"
 #include "iGameThreadPool.h"
-
+#include "iGameProgressObserver.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshOptCodec.h"
@@ -28,11 +28,11 @@ public:
         };
     };
 
-    template<typename Functor, typename... Args>
-    void SetUpdateProgress(Functor&& functor, Args&&... args) {
-        this->m_CallBack =
-                std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
-    }
+    //template<typename Functor, typename... Args>
+    //void SetUpdateProgress(Functor&& functor, Args&&... args) {
+    //    this->m_CallBack =
+    //            std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
+    //}
 
     bool Execute() {
         // TODO: 结构化网格不需要输出topo 仅依靠点数据就可以构建mesh
@@ -48,19 +48,19 @@ public:
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
-        this->m_CallBack(0.2);
+        UpdateProgress(0.2);
 
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
         this->TopoEncoder(topoPayload, cellIdsRemap, pointIdRemap);
-        this->m_CallBack(0.4);
+        UpdateProgress(0.4);
 
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
         this->AttrEncoder(attrPayload, cellIdsRemap, pointIdRemap);
-        this->m_CallBack(0.6);
+        UpdateProgress(0.6);
 
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
         this->ParamsEncoder(paramPayload);
-        this->m_CallBack(0.8);
+        UpdateProgress(0.8);
 
         // lzma
         int compressLevel = 10;
@@ -86,7 +86,7 @@ public:
         WriteBuf(topoCompressed, this->m_BytestreamFile);
         WriteBuf(attrCompressed, this->m_BytestreamFile);
 
-        this->m_CallBack(1.0);
+        UpdateProgress(1.0);
         //std::vector<char> input(geomPayload.begin(), geomPayload.end());
         //std::vector<char> result;
         //MeshCodecLZMA::Compress(result, input, 10, 12);
@@ -211,19 +211,30 @@ public:
         std::memcpy(payload.data(), outputTopo.data(), outputTopo.size());
     }
 
-    template<typename Functor, typename... Args>
-    void SetCallBack(Functor&& functor, Args&&... args) {
-        this->m_CallBack = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1,
-                                     std::placeholders::_2);
-    }
-
+    //template<typename Functor, typename... Args>
+    //void SetCallBack(Functor&& functor, Args&&... args) {
+    //    this->m_CallBack = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1,
+    //                                 std::placeholders::_2);
+    //}
+    
 private:
     std::ofstream& m_BytestreamFile;
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
     ParamInformation m_ParamInformation;
     bool m_IsDebugMode;
-    std::function<void(double)> m_CallBack;
+    //std::function<void(double)> m_CallBack;
+
+    ProgressObserver* m_Progress{nullptr};
+
+    void UpdateProgress(double p) { 
+        if (m_Progress) { 
+            m_Progress->UpdateProgress(p);
+        } else {
+            m_Progress = ProgressObserver::Instance();
+        }
+    }
+
 
     void ParamsInit() {
         // 判断网格类型
