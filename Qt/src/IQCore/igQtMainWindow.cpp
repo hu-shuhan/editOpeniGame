@@ -513,12 +513,13 @@ void igQtMainWindow::initAllFilters() {
         // rendererWidget->update();
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
-        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh",
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.9");
+        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve boundary of the mesh",
                                               "true");
         int scalarId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ", "true");
-
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check all scalars of the mesh ", "true");
+        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
+                                            "false");
         dialog->show();
         dialog->setApplyFunctor([=]() {
 
@@ -536,10 +537,102 @@ void igQtMainWindow::initAllFilters() {
             filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
             filter->SetInput(obj);
             //filter->SetActivedAttribIndices({0});
-            filter->Execute();
+            ok = filter->Execute();
 
-            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-            rendererWidget->update();
+            if (ok) {
+                
+                auto oldMesh = DynamicCast<SurfaceMesh>(obj);
+                auto outObj = filter->GetOutput();
+                auto newMesh = DynamicCast<SurfaceMesh>(outObj);
+                auto oldPoints = oldMesh->GetPoints();
+                auto newPoints = newMesh->GetPoints();
+                //PointFinder::Pointer oldPicker = PointFinder::New();
+                //oldPicker->SetPoints(oldPoints);
+                //oldPicker->Initialize();
+                QString result = "";
+                if (dialog->getChecked(checkId, ok)) {
+                    PointFinder::Pointer newPicker = PointFinder::New();
+                    newPicker->SetPoints(newPoints);
+                    newPicker->Initialize();
+
+                    double w1 = 0.0, w2 = 0.0;
+                    // 计算原始网格的表面积
+                    for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+                        igIndex f[3]{};
+                        oldMesh->GetFacePointIds(i, f);
+                        Point v0 = oldMesh->GetPoint(f[0]);
+                        Point v1 = oldMesh->GetPoint(f[1]);
+                        Point v2 = oldMesh->GetPoint(f[2]);
+
+                        Vector3f d10 = v1 - v0;
+                        Vector3f d20 = v2 - v0;
+
+                        w1 += CrossProduct(d10, d20).norm() / 2.0;
+                    }
+                    //for (int i = 0; i < newMesh->GetNumberOfFaces(); i++) {
+                    //    igIndex f[3]{};
+                    //    newMesh->GetFacePointIds(i, f);
+                    //    Point v0 = newMesh->GetPoint(f[0]);
+                    //    Point v1 = newMesh->GetPoint(f[1]);
+                    //    Point v2 = newMesh->GetPoint(f[2]);
+
+                    //    Vector3f d10 = v1 - v0;
+                    //    Vector3f d20 = v2 - v0;
+
+                    //    w2 += CrossProduct(d10, d20).norm() / 2.0;
+                    //}
+
+                    double d1 = 0.0, d2 = 0.0;
+                    double d3 = 0.0, d4 = 0.0;
+
+                    iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+                    ProgressBar->UpdateProgress(0);
+                    int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+                    // 计算平均平方距离
+                    for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+                        if (i > progress * blockNum) {
+                            ProgressBar->UpdateProgress(progress * 0.01);
+                            progress++;
+                        }
+                        auto p = oldPoints->GetPoint(i);
+
+                        igIndex id = newPicker->FindClosestPoint(p);
+                        if (id != -1) {
+                            Point cp = newPoints->GetPoint(id);
+                            d1 += (p - cp).squaredNorm();
+                            d3 += (p - cp).norm();
+                        }
+                    }
+
+                    //for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+                    //    auto p = newPoints->GetPoint(i);
+
+                    //    igIndex id = oldPicker->FindClosestPoint(p);
+                    //    if (id != -1) {
+                    //        Point cp = oldPoints->GetPoint(id);
+                    //        d2 += (p - cp).squaredNorm();
+                    //        d4 += (p - cp).norm();
+                    //    }
+                    //}
+
+                    double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+                    double dd =
+                            1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+
+                    result += "\n几何相似性度量";
+                    result += "\n Squared Mean Distance: " + QString::number(d);
+                    result += "\n Mean Distance: " + QString::number(dd);
+                    result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+                } else {
+                    result += "\n累计几何误差: " + QString::number(filter->GetError());
+                }
+
+                modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
+                rendererWidget->update();
+
+                QMessageBox::information(this, "简化成功", result);
+            }
+            
             dialog->close();
         });
 
