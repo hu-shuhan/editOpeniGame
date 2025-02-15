@@ -141,17 +141,6 @@ std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control, float proport
     }
     return tem;
 }
-std::vector<Vector3f>iGameStreamTracer::streamseedGenerateWithPId(std::vector<int>Pid){
-    std::vector<Vector3f>seed;
-    this->mesh = DynamicCast<VolumeMesh>(this->mesh);
-    auto allPoints = mesh->GetPoints();
-    for(int i=0;i<Pid.size();i++){
-        auto tem=allPoints->GetPoint(igIndex (Pid[i]));
-        std::cout<<tem[0]<<tem[1]<<tem[2]<<std::endl;
-        seed.emplace_back(tem);
-    }
-    return seed;
-}
 std::vector<Vector3f> iGameStreamTracer::streamSeedGenerate(int control, float proportion,
                                                             int numOfseed) { // line
     // auto HexMesh =

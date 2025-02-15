@@ -25,12 +25,12 @@
   </property>
   <property name="styleSheet">
    <string notr="true">QPalette{background:#555555;}*{outline:0px;color:#000000;}
-QMenuBar{
-border:2px solid #EEF1F7
-}
+    QMenuBar{
+    border:2px solid #EEF1F7
+    }
 
 
-</string>
+   </string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>30</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -92,6 +92,7 @@ border:2px solid #EEF1F7
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
+    <addaction name="action_CS"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -174,7 +175,6 @@ border:2px solid #EEF1F7
     <addaction name="separator"/>
     <addaction name="action_ClearInfomation"/>
     <addaction name="action_ResetView"/>
-    <addaction name="action_ChangeBackground"/>
     <addaction name="action_ResetBackground"/>
     <addaction name="separator"/>
     <addaction name="action_Settings"/>
@@ -557,6 +557,7 @@ border:2px solid #EEF1F7
     <bool>false</bool>
    </attribute>
    <addaction name="action_VolumeRendering"/>
+   <addaction name="action_ChangeBackground"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="windowTitle">
@@ -1089,7 +1090,7 @@ border:2px solid #EEF1F7
   <action name="action_ChangeBackground">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/begin.jpg</normaloff>:/Ticon/Icons/begin.jpg</iconset>
+     <normaloff>:/Ticon/Icons/BackGround.svg</normaloff>:/Ticon/Icons/BackGround.svg</iconset>
    </property>
    <property name="text">
     <string>更换背景</string>
@@ -1412,6 +1413,11 @@ border:2px solid #EEF1F7
    </property>
    <property name="toolTip">
     <string>启用体绘制</string>
+   </property>
+  </action>
+  <action name="action_CS">
+   <property name="text">
+    <string>传输测试</string>
    </property>
   </action>
   <action name="action_SetThreadNum">

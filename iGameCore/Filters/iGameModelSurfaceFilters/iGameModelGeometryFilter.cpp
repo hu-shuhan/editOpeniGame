@@ -1610,6 +1610,7 @@ void iGameModelGeometryFilter::CompositePointAttribute(
 			ThreadPool::parallelFor(0, oldPNum, func);
 			outData = newData;
 		}
+	    outAllDataArray->GetAttribute(i).GetDataRange();
 		outAllDataArray->GetAttribute(i).pointer = outData;
 	}
 }

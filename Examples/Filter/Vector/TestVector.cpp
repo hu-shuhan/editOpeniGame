@@ -13,6 +13,7 @@
 #include <VectorView/iGameVectorBase.h>
 #include <iostream>
 #include <string>
+//#include<vld.h>
 int main(){
     /* 创建场景*/
     auto scene = iGame::Scene::New();

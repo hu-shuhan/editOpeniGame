@@ -42,6 +42,11 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::setCustomScaleRange);
 	connect(SetCustomScaleRangeUi->btnCancle, &QPushButton::clicked, this,
 		[&]() { this->SetCustomScaleRangeWidget->hide(); });
+    connect(ui->radioButton_Liner, &QRadioButton::toggled, this, [&](bool checked){
+        if(checked) this->m_ColorMapper->SetMapTypeToRGBLiner();
+        else this->m_ColorMapper->SetMapTypeToRGBSTEP();
+        showScalarView();
+    });
 }
 void igQtScalarViewWidget::getScalarsName() {
 	//ui->scalarInfoComboBox->clear();

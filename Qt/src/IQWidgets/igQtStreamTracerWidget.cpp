@@ -99,9 +99,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     streamtracer->initStreamTracer(model);
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
-  //  auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
-  std::vector<int>seedid{1227606,1397916,1482809,1612232,1696906,1821171,1901653};
-  auto seeds=streamtracer->streamseedGenerateWithPId(seedid);
+    auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
   //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;
 	std::vector<std::vector<float>> streamline;

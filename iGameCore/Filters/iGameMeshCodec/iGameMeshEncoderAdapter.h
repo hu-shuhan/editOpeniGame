@@ -8,6 +8,7 @@
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
+#include "iGameThreadPool.h"
 
 IGAME_NAMESPACE_BEGIN
 class MeshEncoderAdapter
@@ -25,6 +26,34 @@ public:
     IGsize GetCellIdOffsetSize()
     {
         return this->GetNumberOfCells() + 1;
+    }
+
+    IGsize GetNumberOfFaces()
+    {
+        switch (this->GetMeshType())
+        {
+        case IG_SURFACE_MESH:
+        {
+            SurfaceMesh::Pointer mesh = DynamicCast<SurfaceMesh>(this->m_DataObj);
+            return mesh->GetNumberOfFaces();
+            break;
+        }
+        case IG_VOLUME_MESH:
+        {
+            VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(this->m_DataObj);
+            return mesh->GetNumberOfFaces();
+            break;
+        }
+        case IG_STRUCTURED_MESH:
+        {
+            StructuredMesh::Pointer mesh = DynamicCast<StructuredMesh>(this->m_DataObj);
+            return mesh->GetNumberOfFaces();
+            break;
+        }
+        default:
+            break;
+        }
+        return 0;
     }
 
     IGsize GetNumberOfCells()
@@ -69,8 +98,144 @@ public:
 
     bool IsFixedCellSize()
     {
-        // 有0号索引
-        return this->GetCellIdOffset()->GetNumberOfValues() != this->GetNumberOfCells() + 1;
+        return this->IsSecondaryIndexPolyhedronMesh() ? false : (this->GetCellIdOffset()->GetNumberOfValues() != this->GetNumberOfCells() + 1);
+    }
+
+    // 是否是两级索引的多面体网格
+    bool IsSecondaryIndexPolyhedronMesh()
+    {
+        return this->GetMeshType() == IG_VOLUME_MESH ?
+            DynamicCast<VolumeMesh>(this->m_DataObj)->GetIsPolyhedronType() : false;
+    }
+    
+    void SplitSecondaryIndex(
+        std::vector<unsigned int>& volume2facesIndex, 
+        std::vector<unsigned int>& volume2facesOffset,
+        std::vector<unsigned int>& face2pointsIndex,
+        std::vector<unsigned int>& face2pointsOffset
+    ){
+        // 体 -> 面, 面 -> 顶点 两级索引 各自持有一个offset
+        VolumeMesh::Pointer volmesh = DynamicCast<VolumeMesh>(this->m_DataObj);
+        int maxThreadSize = 64;
+        // 多线程分组处理volume
+        
+        {
+            int volumeNum = volmesh->GetNumberOfVolumes();
+            const int tpResultReverseSize = volumeNum * 10 / maxThreadSize;
+            std::vector<std::vector<unsigned int>> v2fIndexResults(maxThreadSize);
+            std::vector<std::vector<unsigned int>> v2fOffsetResults(maxThreadSize);
+
+            ThreadPool::parallelFor(0, volumeNum, maxThreadSize,
+                [&](int start, int end, int threadIndex) -> void {
+                    // 先开辟较大的空间 稍后若不足再补充
+                    v2fIndexResults[threadIndex].reserve(tpResultReverseSize);
+                    v2fOffsetResults[threadIndex].reserve(end - start);
+                    for (int i = start; i < end; i++)
+                    {
+                        // 取一个volume的面ids 并存储
+                        std::vector<igIndex> fhs(IGAME_CELL_MAX_SIZE);
+                        int fcnt = volmesh->GetVolumeFaceIds(i, fhs.data());
+                        fhs.resize(fcnt);
+
+                        // 如果tpResults空间不足就补充一下
+                        if (v2fIndexResults.size() + fcnt >= v2fIndexResults[threadIndex].capacity())
+                        {
+                            v2fIndexResults[threadIndex]
+                                .reserve(v2fIndexResults[threadIndex].capacity() + tpResultReverseSize);
+                        }
+
+                        v2fOffsetResults[threadIndex].push_back(fcnt);
+                        v2fIndexResults[threadIndex].insert(v2fIndexResults[threadIndex].end(),
+                            fhs.begin(), fhs.end());
+                    }
+                }, maxThreadSize);
+
+            // 拼接到结果
+            volume2facesOffset.push_back(0);
+            for (int i = 0; i < maxThreadSize; i++)
+            {
+                volume2facesIndex.insert(
+                    volume2facesIndex.end(),
+                    v2fIndexResults[i].begin(), v2fIndexResults[i].end());
+
+                volume2facesOffset.insert(
+                    volume2facesOffset.end(),
+                    v2fOffsetResults[i].begin(), v2fOffsetResults[i].end());
+            }
+
+            for (int i = 1; i < volume2facesOffset.size(); i++)
+            {
+                volume2facesOffset[i] += volume2facesOffset[i - 1];
+            }
+        }
+
+        //// 面 -> 顶点 直接取有bug 先只好一个一个取
+        //{
+        //    int faceNum = this->GetNumberOfFaces();
+        //    const int tpResultReverseSize = faceNum * 10 / maxThreadSize;
+        //    std::vector<std::vector<unsigned int>> f2pIndexResults(maxThreadSize);
+        //    std::vector<std::vector<unsigned int>> f2pOffsetResults(maxThreadSize);
+
+        //    ThreadPool::parallelFor(0, faceNum, maxThreadSize,
+        //        [&](int start, int end, int threadIndex) -> void {
+        //            // 先开辟较大的空间 稍后若不足再补充
+        //            f2pIndexResults[threadIndex].reserve(tpResultReverseSize);
+        //            f2pOffsetResults[threadIndex].reserve(end - start);
+        //            for (int i = start; i < end; i++)
+        //            {
+        //                // 取一个volume的面ids 并存储
+        //                std::vector<igIndex> vhs(IGAME_CELL_MAX_SIZE);
+        //                int vcnt = volmesh->GetFacePointIds(i, vhs.data());
+        //                vhs.resize(vcnt);
+
+        //                // 如果tpResults空间不足就补充一下
+        //                if (f2pIndexResults.size() + vcnt >= f2pIndexResults[threadIndex].capacity())
+        //                {
+        //                    f2pIndexResults[threadIndex]
+        //                        .reserve(f2pIndexResults[threadIndex].capacity() + tpResultReverseSize);
+        //                }
+
+        //                f2pOffsetResults[threadIndex].push_back(vcnt);
+        //                f2pIndexResults[threadIndex].insert(f2pIndexResults[threadIndex].end(),
+        //                    vhs.begin(), vhs.end());
+        //            }
+        //        }, maxThreadSize);
+
+        //    // 拼接到结果
+        //    face2pointsIndex.push_back(0);
+        //    for (int i = 0; i < maxThreadSize; i++)
+        //    {
+        //        face2pointsIndex.insert(
+        //            face2pointsIndex.end(),
+        //            f2pIndexResults[i].begin(), f2pIndexResults[i].end());
+
+        //        face2pointsOffset.insert(
+        //            face2pointsOffset.end(),
+        //            f2pOffsetResults[i].begin(), f2pOffsetResults[i].end());
+        //    }
+
+        //    for (int i = 1; i < face2pointsOffset.size(); i++)
+        //    {
+        //        face2pointsOffset[i] += face2pointsOffset[i - 1];
+        //    }
+        //}
+
+        IdArray::Pointer f2pIndex = volmesh->GetFaces()->GetCellIdArray();
+        UnsignedIntArray::Pointer f2pOffset = volmesh->GetFaces()->GetOffset();
+
+        face2pointsOffset.resize(f2pOffset->GetNumberOfValues());
+        memcpy(face2pointsOffset.data(), f2pOffset->RawPointer(), f2pOffset->GetNumberOfValues() * sizeof(unsigned int));
+
+        face2pointsIndex.resize(face2pointsOffset[volmesh->GetNumberOfFaces()]);
+        memcpy(face2pointsIndex.data(), f2pIndex->RawPointer(), face2pointsOffset[volmesh->GetNumberOfFaces()] * sizeof(unsigned int));
+
+        return;
+    }
+
+    // 仅用于解决二级索引问题
+    igIndex GetFaceId(igIndex* ids, int size)
+    {
+        return DynamicCast<VolumeMesh>(this->m_DataObj)->GetFaceIdFormPointIds(ids, size);
     }
 
     Points::Pointer GetPoints()
@@ -78,11 +243,11 @@ public:
         return DynamicCast<PointSet>(this->m_DataObj)->GetPoints();
     }
 
-    IGsize GetFixedCellSize()
+    int GetFixedCellSize()
     {
         if (! this->IsFixedCellSize())
         {
-            return 0; // 这种异常情况说明mesh使用的是非定长offset
+            return -1; // 这种异常情况说明mesh使用的是非定长offset
         }
 
         switch (this->GetMeshType())
@@ -114,7 +279,7 @@ public:
         default:
             break;
         }
-        return 0;
+        return -1;
     }
 
 	IGsize GetCellIdBufferSize()
@@ -161,7 +326,7 @@ public:
         return nullptr;
 	}
 
-	UnsignedIntArray::Pointer GetCellIdBuffer()
+    IdArray::Pointer GetCellIdBuffer()
 	{
         IdArray::Pointer ids;
         switch (this->GetMeshType())
@@ -197,11 +362,7 @@ public:
             break;
         }
 
-        UnsignedIntArray::Pointer uintIds = UnsignedIntArray::New();
-        uintIds->Resize(this->GetCellIdBufferSize());
-        memcpy(uintIds->RawPointer(), ids->RawPointer(), this->GetCellIdBufferSize() * sizeof(int));
-	
-        return uintIds;
+        return ids;
     }
 
     // 仅限 UnstructuredMesh

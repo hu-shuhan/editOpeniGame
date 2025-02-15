@@ -66,7 +66,7 @@ class IG_QT_MODULE_EXPORT igQtModelListView : public QTreeView {
 	Q_OBJECT
 
 public:
-	igQtModelListView(QWidget* parent);
+	  igQtModelListView(QWidget* parent);
 
 	~igQtModelListView() override;
 public:

@@ -758,8 +758,8 @@ static size_t performEdgeCollapses(unsigned int* collapse_remap, unsigned char* 
     size_t edge_collapses = 0;
     size_t triangle_collapses = 0;
 
-    //´ó¶àÊıÕÛµşÒÆ³ı2¸öÈı½ÇĞÎ£»ÓÃËüÀ´½¨Á¢Ò»¸ö´íÎóÏŞÖÆµÄ±ß½ç
-    // edge_collapse_goalÊÇÒ»¸ö¹À¼ÆÖµ£»Triangle_collapse_goal½«ÓÃÓÚÊµ¼ÊÏŞÖÆ±ÀÀ£
+    //å¤§å¤šæ•°æŠ˜å ç§»é™¤2ä¸ªä¸‰è§’å½¢ï¼›ç”¨å®ƒæ¥å»ºç«‹ä¸€ä¸ªé”™è¯¯é™åˆ¶çš„è¾¹ç•Œ
+    // edge_collapse_goalæ˜¯ä¸€ä¸ªä¼°è®¡å€¼ï¼›Triangle_collapse_goalå°†ç”¨äºå®é™…é™åˆ¶å´©æºƒ
     size_t edge_collapse_goal = triangle_collapse_goal / 2;
 
 #if TRACE
@@ -778,8 +778,8 @@ static size_t performEdgeCollapses(unsigned int* collapse_remap, unsigned char* 
             break;
         }
 
-        //ÎÒÃÇ¸ù¾İ×îÓÅ×îºóÒ»´Î±ÀÀ£µÄÎó²îÀ´ÏŞÖÆÃ¿´Î´«µİµÄÎó²î£»ÒòÎªĞí¶àÌ®Ëú½«±»Ëø¶¨
-        //ÓÉÓÚËüÃÇ½«ÓëÆäËû³É¹¦µÄÕÛµş¹²Ïí¶¥µã£¬ÎÒÃÇĞèÒª½«¿É½ÓÊÜÎó²îÔö¼ÓÒ»Ğ©Òò×Ó
+        //æˆ‘ä»¬æ ¹æ®æœ€ä¼˜æœ€åä¸€æ¬¡å´©æºƒçš„è¯¯å·®æ¥é™åˆ¶æ¯æ¬¡ä¼ é€’çš„è¯¯å·®ï¼›å› ä¸ºè®¸å¤šåå¡Œå°†è¢«é”å®š
+        //ç”±äºå®ƒä»¬å°†ä¸å…¶ä»–æˆåŠŸçš„æŠ˜å å…±äº«é¡¶ç‚¹ï¼Œæˆ‘ä»¬éœ€è¦å°†å¯æ¥å—è¯¯å·®å¢åŠ ä¸€äº›å› å­
         float error_goal = edge_collapse_goal < collapse_count
                                    ? 1.5f * collapses[collapse_order[edge_collapse_goal]].error
                                    : FLT_MAX;

@@ -82,6 +82,13 @@ public:
      * @param color 背景颜色。
      */
     void SetBackGround(const Color& color);
+    /**
+     * @brief 设置场景背景颜色，三原色范围0~255。
+     * @param R 红色像素值。
+     * @param G 绿色像素值。
+     * @param B 蓝色像素值。
+     */
+    void SetBackGround(int R, int G, int B);
 
     /**
      * @brief 设置交互器。
@@ -364,6 +371,7 @@ protected:
     bool m_FinishInit;
     bool m_EnableVolumeRendering;
 
+    friend class RenderWindow;
     friend class Model;
     friend class Axes;
     friend class Interactor;

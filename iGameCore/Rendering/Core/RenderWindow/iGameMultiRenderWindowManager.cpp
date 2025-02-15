@@ -44,7 +44,7 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
              it != m_GLFW_WindowPointerPool.end();) {
             GLFWwindow* window_ptr = *it;
             if (glfwWindowShouldClose(window_ptr)) {
-                glfwDestroyWindow(window_ptr);           // 销毁窗口
+                glfwDestroyWindow(window_ptr);          // 销毁窗口
                 it = m_GLFW_WindowPointerPool.erase(it); // 从列表中移除
             } else {
                 /* set current Context */

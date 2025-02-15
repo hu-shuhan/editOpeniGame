@@ -52,6 +52,14 @@ public:
      * @return 对应的三维向量。
      */
     static igm::vec3 Map(Color color);
+    /**
+     * @brief 将颜色对象映射到一个三维向量。
+     * @param R 红色像素值。
+     * @param G 绿色像素值。
+     * @param B 蓝色像素值。
+     * @return 对应的三维向量。
+     */
+    static igm::vec3 Map(int R, int G, int B);
 
 protected:
     /**

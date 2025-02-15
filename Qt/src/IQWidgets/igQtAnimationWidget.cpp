@@ -181,7 +181,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
             currentDrawObject->ConvertToDrawableData();
         }
     }
-
 //    auto& currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
 //    auto frameData = currentFrame.GetMetaData();
 
@@ -241,6 +240,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
 
     /* process Object's scalar range*/
+    currentDrawObject->ReCollectSubDataObjectDataRange();
     currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();

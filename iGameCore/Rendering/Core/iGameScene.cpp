@@ -25,7 +25,7 @@ Scene::Scene() {
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
-    m_BackgroundColor = {1.0f, 1.0f, 1.0f};
+    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
@@ -191,6 +191,11 @@ void Scene::SetBackGround(const Color& color) {
     m_BackgroundColor = c;
     this->Modified();
 }
+void iGame::Scene::SetBackGround(int R, int G, int B) {
+    auto c = ColorUtils::Map(R, G, B);
+    m_BackgroundColor = c;
+    this->Modified();
+}
 
 void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
     m_Interactor = interactor;
@@ -292,7 +297,7 @@ void Scene::InitOpenGL() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
-    glEnable(GL_BLEND);
+    //glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
@@ -981,6 +986,9 @@ void Scene::UpdateCameraClippingRange() {
     const float minGap = 0.0001f;
     if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
 
+    //std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
+    //          << std::endl;
+
     m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
@@ -1152,7 +1160,8 @@ void Scene::UpdateModelsBoundingSphere() {
     auto box = m_Painter3D->GetBoundingBox();
     for (auto& [id, model]: m_Models) {
         if (!model->GetVisibility()) { continue; }
-        box.combine(model->m_DataObject->GetBoundingBox());
+        box.combine(model->GetDataObject()->GetBoundingBox());
+        box.combine(model->GetPainter3D()->GetBoundingBox());
     }
 
     if (box.isNull()) {
@@ -1251,3 +1260,5 @@ void Scene::DoneCurrent() {
 }
 
 IGAME_NAMESPACE_END
+
+

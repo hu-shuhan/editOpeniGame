@@ -1,5 +1,5 @@
 //#include "meshsimplifier.h"
-////#include "../UHEMesh/HEMesh.h"
+//#include "../UHEMesh/HEMesh.h"
 //#include <queue>
 //#include <unordered_map>
 //#include <unordered_set>
@@ -118,7 +118,7 @@
 //    float w;
 //};
 //
-//// Ìİ¶È value = gx*x + gy*y + gz*z + gw
+//// æ¢¯åº¦ value = gx*x + gy*y + gz*z + gw
 //struct QuadricGrad {
 //    float gx, gy, gz, gw;
 //};
@@ -200,7 +200,7 @@
 //
 //    float distance = normal.x * p0.x + normal.y * p0.y + normal.z * p0.z;
 //
-//    // Ê¹ÓÃ sqrtf£¨Ãæ»ı£©Ê¹Îó²îÏßĞÔËõ·Å£¬ÕâÍùÍù»á¸ÄÉÆÂÖÀª
+//    // ä½¿ç”¨ sqrtfï¼ˆé¢ç§¯ï¼‰ä½¿è¯¯å·®çº¿æ€§ç¼©æ”¾ï¼Œè¿™å¾€å¾€ä¼šæ”¹å–„è½®å»“
 //    quadricByPlane(Q, normal.x, normal.y, normal.z, -distance, sqrtf(area) * weight);
 //}
 //
@@ -232,14 +232,14 @@
 //    }
 //}
 //
-//// ±£´æËùÓĞÈı½ÇĞÎÄÚÃ¿Ò»¸ö¶¥µãµÄ¶Ô±ß£¬dataµÄ³¤¶ÈÎª£¨Èı½ÇĞÎ * 3£©
+//// ä¿å­˜æ‰€æœ‰ä¸‰è§’å½¢å†…æ¯ä¸€ä¸ªé¡¶ç‚¹çš„å¯¹è¾¹ï¼Œdataçš„é•¿åº¦ä¸ºï¼ˆä¸‰è§’å½¢ * 3ï¼‰
 //struct EdgeAdjacency {
 //    struct Edge {
-//        unsigned int next; // Èı½ÇĞÎÄÚÏÂÒ»¸ö¶¥µãµÄË÷Òı
-//        unsigned int prev; // Èı½ÇĞÎÄÚÉÏÒ»¸ö¶¥µãµÄË÷Òı
+//        unsigned int next; // ä¸‰è§’å½¢å†…ä¸‹ä¸€ä¸ªé¡¶ç‚¹çš„ç´¢å¼•
+//        unsigned int prev; // ä¸‰è§’å½¢å†…ä¸Šä¸€ä¸ªé¡¶ç‚¹çš„ç´¢å¼•
 //    };
 //
-//    unsigned int* offsets; // ±£´æÁÚ½Ó±ßµÄÆğÊ¼Î»ÖÃ
+//    unsigned int* offsets; // ä¿å­˜é‚»æ¥è¾¹çš„èµ·å§‹ä½ç½®
 //    Edge* data;
 //
 //    size_t getEdgeAdjN(unsigned int i) { 
@@ -249,8 +249,8 @@
 //
 //struct Adjacency {
 //    struct Edge {
-//        unsigned int next; // Èı½ÇĞÎÄÚÏÂÒ»¸ö¶¥µãµÄË÷Òı
-//        unsigned int prev; // Èı½ÇĞÎÄÚÉÏÒ»¸ö¶¥µãµÄË÷Òı
+//        unsigned int next; // ä¸‰è§’å½¢å†…ä¸‹ä¸€ä¸ªé¡¶ç‚¹çš„ç´¢å¼•
+//        unsigned int prev; // ä¸‰è§’å½¢å†…ä¸Šä¸€ä¸ªé¡¶ç‚¹çš„ç´¢å¼•
 //    };
 //
 //    struct Link {
@@ -260,8 +260,8 @@
 //
 //    static constexpr unsigned int Invalid = std::numeric_limits<unsigned int>::max();
 //
-//    unsigned int* counts; // ±£´æÁÚ½Ó½á¹¹µÄÊıÁ¿
-//    unsigned int* starts; // ±£´æÁÚ½Ó½á¹¹µÄÆğÊ¼Î»ÖÃ
+//    unsigned int* counts; // ä¿å­˜é‚»æ¥ç»“æ„çš„æ•°é‡
+//    unsigned int* starts; // ä¿å­˜é‚»æ¥ç»“æ„çš„èµ·å§‹ä½ç½®
 //    Link* data;
 //};
 //
@@ -286,14 +286,14 @@
 //
 //    memset(counts, 0, vertex_count * sizeof(unsigned int));
 //
-//    // ¼ÆËã¶¥µãµÄ¶È
+//    // è®¡ç®—é¡¶ç‚¹çš„åº¦
 //    for (size_t i = 0; i < index_count; ++i) {
 //        unsigned int v = indices[i];
 //        assert(v < vertex_count);
 //        counts[v]++;
 //    }
 //
-//    // ¼ÆËãÇ°×ººÍ
+//    // è®¡ç®—å‰ç¼€å’Œ
 //    unsigned int offset = 0;
 //    for (size_t i = 0; i < vertex_count; ++i) {
 //        unsigned int count = counts[i];
@@ -301,7 +301,7 @@
 //        offset += count;
 //    }
 //
-//    // Ìî³äÁÚ½Ó±ßµÄĞÅÏ¢
+//    // å¡«å……é‚»æ¥è¾¹çš„ä¿¡æ¯
 //    for (size_t i = 0; i < face_count; ++i) {
 //        unsigned int a = indices[i * 3 + 0], b = indices[i * 3 + 1], c = indices[i * 3 + 2];
 //
@@ -340,14 +340,14 @@
 //
 //    memset(offsets, 0, vertex_count * sizeof(unsigned int));
 //
-//    // ¼ÆËã¶¥µãµÄ¶È
+//    // è®¡ç®—é¡¶ç‚¹çš„åº¦
 //    for (size_t i = 0; i < index_count; ++i) {
 //        unsigned int v = indices[i];
 //        assert(v < vertex_count);
 //        offsets[v]++;
 //    }
 //
-//    // ¼ÆËãÇ°×ººÍ
+//    // è®¡ç®—å‰ç¼€å’Œ
 //    unsigned int offset = 0;
 //    for (size_t i = 0; i < vertex_count; ++i) {
 //        unsigned int count = offsets[i];
@@ -355,7 +355,7 @@
 //        offset += count;
 //    }
 //
-//    // Ìî³äÁÚ½Ó±ßµÄĞÅÏ¢
+//    // å¡«å……é‚»æ¥è¾¹çš„ä¿¡æ¯
 //    for (size_t i = 0; i < face_count; ++i) {
 //        unsigned int a = indices[i * 3 + 0], b = indices[i * 3 + 1], c = indices[i * 3 + 2];
 //
@@ -449,11 +449,11 @@
 //static void quadricByAttributes(Quadric& Q, QuadricGrad* G, const Vector3f& p0, const Vector3f& p1, const Vector3f& p2,
 //                                  const float* va0, const float* va1, const float* va2, size_t attribute_count) {
 //
-//    // ÎÒÃÇÊ¹ÓÃÏÂÃæÕâ¸öÏßĞÔ²åÖµº¯Êı¼ÆËãĞÂÎ»ÖÃ pos ´¦µÄÊôĞÔÖµ
+//    // æˆ‘ä»¬ä½¿ç”¨ä¸‹é¢è¿™ä¸ªçº¿æ€§æ’å€¼å‡½æ•°è®¡ç®—æ–°ä½ç½® pos å¤„çš„å±æ€§å€¼
 //    //      eval(pos) = pos.x * gx + pos.y * gy + pos.z * gz + gw
-//    // ÆäÖĞ£¬gx/gy/gz ÊÇÊôĞÔÌİ¶È£¬gwÊÇ»ù×¼³£ÊıÖµ
-//    // Ê¹ÓÃ²åÖµ´¦µÄÊôĞÔÖµÓëÕæÊµÖµµÄ²îµÄÆ½·½×÷ÎªÊôĞÔÎó²î
-//    //      ¦¤(pos) = (eval(pos) - attr)^2
+//    // å…¶ä¸­ï¼Œgx/gy/gz æ˜¯å±æ€§æ¢¯åº¦ï¼Œgwæ˜¯åŸºå‡†å¸¸æ•°å€¼
+//    // ä½¿ç”¨æ’å€¼å¤„çš„å±æ€§å€¼ä¸çœŸå®å€¼çš„å·®çš„å¹³æ–¹ä½œä¸ºå±æ€§è¯¯å·®
+//    //      Î”(pos) = (eval(pos) - attr)^2
 //
 //    Vector3f p10 = {p1.x - p0.x, p1.y - p0.y, p1.z - p0.z};
 //    Vector3f p20 = {p2.x - p0.x, p2.y - p0.y, p2.z - p0.z};
@@ -461,10 +461,10 @@
 //    Vector3f normal = cross(p10, p20);
 //    float area = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) * 0.5f;
 //
-//    // quadric Ê¹ÓÃÈı½ÇĞÎÃæ»ı½øĞĞ¼ÓÈ¨
+//    // quadric ä½¿ç”¨ä¸‰è§’å½¢é¢ç§¯è¿›è¡ŒåŠ æƒ
 //    float w = area;
 //
-//    // ÎÒÃÇÊ¹ÓÃÖØĞÄ×ø±ê¼ÆËãÌİ¶È£¬ÖØĞÄ×ø±êµÄ¼ÆËã·½·¨ÈçÏÂ£º
+//    // æˆ‘ä»¬ä½¿ç”¨é‡å¿ƒåæ ‡è®¡ç®—æ¢¯åº¦ï¼Œé‡å¿ƒåæ ‡çš„è®¡ç®—æ–¹æ³•å¦‚ä¸‹ï¼š
 //    // v = (d11 * d20 - d01 * d21) / denom
 //    // w = (d00 * d21 - d01 * d20) / denom
 //    // u = 1 - v - w
@@ -748,21 +748,21 @@
 //    initMesh(mesh, indices, index_count, vertex_count);
 //    std::cout << clock() - start << std::endl;
 //
-//    // ½¨Á¢±ß±í
+//    // å»ºç«‹è¾¹è¡¨
 //    //EdgeAdjacency adjacency = {};
 //    //initEdgeAdjacency(adjacency, index_count, vertex_count, allocator);
 //    //updateEdgeAdjacency(adjacency, indices, index_count, vertex_count);
 //
-//    // ½¨Á¢ÁÚ½Ó±í
+//    // å»ºç«‹é‚»æ¥è¡¨
 //    Adjacency adjacency = {};
 //    initAdjacency(adjacency, index_count, vertex_count, allocator);
 //    updateAdjacency(adjacency, indices, index_count, vertex_count, allocator);
 //
-//    // Ä£ĞÍ¹éÒ»»¯£¬Í³Ò»ËùÓĞÄ£ĞÍµÄÎó²î¶ÈÁ¿µ¥Î»
+//    // æ¨¡å‹å½’ä¸€åŒ–ï¼Œç»Ÿä¸€æ‰€æœ‰æ¨¡å‹çš„è¯¯å·®åº¦é‡å•ä½
 //    Vector3f* vertex_positions = allocator.allocate<Vector3f>(vertex_count);
 //    float vertex_scale = rescalePositions(vertex_positions, vertex_positions_data, vertex_count);
 //
-//    // ÊôĞÔ³õÊ¼»¯£¬¸ù¾İÊôĞÔÈ¨ÖØ¼ÆËãÓ³ÉäÖµ
+//    // å±æ€§åˆå§‹åŒ–ï¼Œæ ¹æ®å±æ€§æƒé‡è®¡ç®—æ˜ å°„å€¼
 //    float* vertex_attributes = nullptr;
 //    if (attribute_count) {
 //        unsigned int attribute_remap[32]{};
@@ -777,7 +777,7 @@
 //                          attribute_remap);
 //    }
 //
-//    // ³õÊ¼»¯×ø±êQuadric£¬ÊôĞÔQuadric
+//    // åˆå§‹åŒ–åæ ‡Quadricï¼Œå±æ€§Quadric
 //    Quadric* vertex_quadrics = allocator.allocate<Quadric>(vertex_count);
 //    memset(vertex_quadrics, 0, vertex_count * sizeof(Quadric));
 //

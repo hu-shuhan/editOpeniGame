@@ -157,7 +157,54 @@ public:
         DynamicCast<StructuredMesh>(this->m_DataObj)->SetDimensionSize(axisSize);
         this->SetStructuredCellArray(ca, dimension);
     }
-   
+    
+    // 以下仅用于二阶索引
+    void AddSecondaryIndexCells(
+        std::vector<unsigned int> volume2facesIndex,
+        std::vector<unsigned int> volume2facesSize,
+        std::vector<unsigned int> face2pointsIndex,
+        std::vector<unsigned int> face2pointsSize
+    ) {
+        CellArray::Pointer Faces = CellArray::New();
+        CellArray::Pointer Volumes = CellArray::New();
+
+        {
+            igIndex vhs[IGAME_CELL_MAX_SIZE];
+            int cellVcnt;
+            int idx = 0;
+
+            for (int i = 0; i < face2pointsSize.size(); i++)
+            {
+                cellVcnt = face2pointsSize[i];
+                for (int j = 0; j < cellVcnt; j++)
+                {
+                    vhs[j] = face2pointsIndex[idx++];
+                }
+
+                Faces->AddCellIds(vhs, cellVcnt);
+            }
+        }
+
+        {
+            igIndex fhs[IGAME_CELL_MAX_SIZE];
+            int cellFcnt;
+            int idx = 0;
+
+            for (int i = 0; i < volume2facesSize.size(); i++)
+            {
+                cellFcnt = volume2facesSize[i];
+                for (int j = 0; j < cellFcnt; j++)
+                {
+                    fhs[j] = volume2facesIndex[idx++];
+                }
+
+                Volumes->AddCellIds(fhs, cellFcnt);
+            }
+        }
+        
+        DynamicCast<VolumeMesh>(this->m_DataObj)->InitVolumesWithPolyhedron(Faces, Volumes);
+    }
+
 private:
     DataObject::Pointer m_DataObj;
     IGenum m_MeshType;
