@@ -2,7 +2,7 @@
 #include <iGameMultiRenderWindowManager.h>
 #include <iGameRenderWindow.h>
 #include <iGameInteractor.h>
-
+#include <iGameScene.h>
 /* Read Only mesh Without Field data*/
 void TestReadOnlyMesh(){
     /* 创建场景*/
@@ -40,7 +40,8 @@ void TestFirstFrameMeshWithFieldData(){
     /* 创建场景*/
     auto scene_0 = iGame::Scene::New();
     auto scene_1 = iGame::Scene::New();
-    const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
+//    const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
+    const std::string fileName = "./Models/Job-1.odb";
     iGame::ODBReader::Pointer reader = iGame::ODBReader::New();
     /* Read */
     auto obj_0 = reader->ReadOdbFirstFrameMesh(fileName);

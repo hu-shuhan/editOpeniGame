@@ -27,17 +27,25 @@ public:
                       GLFWmonitor* monitor = nullptr,
                       GLFWwindow* share = nullptr);
 
-    void Register(GLFWwindow* _win_ptr);
-
     void ShowAllRegisterWindow();
 
-protected:
-    MultiRenderWindowManager();
-    ~MultiRenderWindowManager() override;
-
+    /**
+     * @brief 在多窗口管理中注册该窗口
+     */
+    void Register(GLFWwindow* _win_ptr);
+    /**
+     * @brief 在多窗口管理中注册该窗口
+     */
     void Register(RenderWindow* _win_ptr);
+protected:
+    std::vector<GLFWwindow* > m_GLFW_WindowPointerPool;
 
-    std::vector<GLFWwindow*> m_GLFWWindowPointerPool;
+
+protected:
+    MultiRenderWindowManager() = default;
+    ~MultiRenderWindowManager() = default;
+
+
 };
 
 IGAME_NAMESPACE_END

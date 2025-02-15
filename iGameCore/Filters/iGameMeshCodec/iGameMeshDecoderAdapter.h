@@ -158,7 +158,7 @@ public:
         this->SetStructuredCellArray(ca, dimension);
     }
     
-    // ÒÔÏÂ½öÓÃÓÚ¶ş½×Ë÷Òı
+    // ä»¥ä¸‹ä»…ç”¨äºäºŒé˜¶ç´¢å¼•
     void AddSecondaryIndexCells(
         std::vector<unsigned int> volume2facesIndex,
         std::vector<unsigned int> volume2facesSize,

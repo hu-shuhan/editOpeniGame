@@ -191,6 +191,11 @@ void Scene::SetBackGround(const Color& color) {
     m_BackgroundColor = c;
     this->Modified();
 }
+void iGame::Scene::SetBackGround(int R, int G, int B) {
+    auto c = ColorUtils::Map(R, G, B);
+    m_BackgroundColor = c;
+    this->Modified();
+}
 
 void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
     m_Interactor = interactor;
@@ -1255,3 +1260,5 @@ void Scene::DoneCurrent() {
 }
 
 IGAME_NAMESPACE_END
+
+

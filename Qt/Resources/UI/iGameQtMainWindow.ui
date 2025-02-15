@@ -25,12 +25,12 @@
   </property>
   <property name="styleSheet">
    <string notr="true">QPalette{background:#555555;}*{outline:0px;color:#000000;}
-QMenuBar{
-border:2px solid #EEF1F7
-}
+    QMenuBar{
+    border:2px solid #EEF1F7
+    }
 
 
-</string>
+   </string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
@@ -176,7 +176,6 @@ border:2px solid #EEF1F7
     <addaction name="separator"/>
     <addaction name="action_ClearInfomation"/>
     <addaction name="action_ResetView"/>
-    <addaction name="action_ChangeBackground"/>
     <addaction name="action_ResetBackground"/>
     <addaction name="separator"/>
     <addaction name="action_Settings"/>
@@ -559,6 +558,7 @@ border:2px solid #EEF1F7
     <bool>false</bool>
    </attribute>
    <addaction name="action_VolumeRendering"/>
+   <addaction name="action_ChangeBackground"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="windowTitle">
@@ -1091,7 +1091,7 @@ border:2px solid #EEF1F7
   <action name="action_ChangeBackground">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/begin.jpg</normaloff>:/Ticon/Icons/begin.jpg</iconset>
+     <normaloff>:/Ticon/Icons/BackGround.svg</normaloff>:/Ticon/Icons/BackGround.svg</iconset>
    </property>
    <property name="text">
     <string>更换背景</string>
