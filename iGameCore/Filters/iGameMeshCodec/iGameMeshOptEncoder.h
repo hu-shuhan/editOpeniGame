@@ -2,15 +2,14 @@
 #define MeshOptEncoder_h
 
 #include "iGameMacro.h"
-
 #include "iGameFlatArray.h"
 #include "iGameThreadPool.h"
-
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshOptCodec.h"
-
 #include "iGameMeshCodecLZMA.h"
+#include "iGameMeshOptDecoder.h"
+#include "iGameProgressObserver.h"
 #include <functional>
 
 #ifdef _WIN32
@@ -34,11 +33,11 @@ public:
         };
     };
 
-    template<typename Functor, typename... Args>
-    void SetUpdateProgress(Functor&& functor, Args&&... args) {
-        this->m_CallBack =
-                std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
-    }
+    //template<typename Functor, typename... Args>
+    //void SetUpdateProgress(Functor&& functor, Args&&... args) {
+    //    this->m_CallBack =
+    //            std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
+    //}
 
     bool Execute() {
         // TODO: 结构化网格不需要输出topo 仅依靠点数据就可以构建mesh
@@ -54,19 +53,19 @@ public:
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
-        this->m_CallBack(0.2);
+        UpdateProgress(0.2);
 
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        this->m_CallBack(0.4);
+        UpdateProgress(0.4);
 
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        this->m_CallBack(0.6);
+        UpdateProgress(0.6);
 
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
         this->ParamsEncoder(paramPayload);
-        this->m_CallBack(0.8);
+        UpdateProgress(0.8);
 
         // lzma
         int compressLevel = 3;
@@ -153,7 +152,7 @@ public:
         };
 
 		switch (this->m_ParamInformation.cpStaMode) {
-        case CompactnessMode::PBV:
+        case CompactnessMode::BPV:
 			calBpv();
 			break;
         case CompactnessMode::CompressRate:
@@ -168,7 +167,7 @@ public:
 			break;
 		}
 
-        this->m_CallBack(1.0);
+        UpdateProgress(1.0);
 
         return true;
     }
@@ -459,18 +458,27 @@ public:
     //    std::memcpy(payload.data(), outputTopo.data(), outputTopo.size());
     //}
 
-    template<typename Functor, typename... Args>
-    void SetCallBack(Functor&& functor, Args&&... args) {
-        this->m_CallBack = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1,
-                                     std::placeholders::_2);
-    }
+    //template<typename Functor, typename... Args>
+    //void SetCallBack(Functor&& functor, Args&&... args) {
+    //    this->m_CallBack = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1,
+    //                                 std::placeholders::_2);
+    //}
 
 private:
     std::ofstream& m_BytestreamFile;
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
     ParamInformation m_ParamInformation;
-    std::function<void(double)> m_CallBack;
+
+    ProgressObserver* m_Progress{ nullptr };
+    void UpdateProgress(double p) {
+        if (m_Progress) {
+            m_Progress->UpdateProgress(p);
+        }
+        else {
+            m_Progress = ProgressObserver::Instance();
+        }
+    }
 
     void ParamsInit() {
         // 判断网格类型
@@ -719,33 +727,27 @@ private:
                                                    encodeVertexSize));
         }
 
-        auto calMSE = [=] (const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+        auto calMSE = [&] (const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
             float globalError = 0;
-            IGsize valueCount = floatParams.elementCount * floatParams.dimension;
-
             for (int i = 0; i < valueCount; i++) { globalError += std::pow(source[i] - encoded[i], 2); }
-
             return globalError / valueCount;
         };
 
-		auto calNormalizedL2 = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+		auto calNormalizedL2 = [&](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
 			return std::sqrt(calMSE(source, encoded, floatParams));
 		};
 
-		auto calMAPE = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+		auto calMAPE = [&](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
 			float globalError = 0;
-			IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 			for (int i = 0; i < valueCount; i++) {
                 globalError += (source[i] == 0 ? 0 : std::abs(source[i] - encoded[i]) / std::abs(source[i]));
 			}
 			return globalError / valueCount;
 		};
 
-        auto calPSNR = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+        auto calPSNR = [&](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
             float MAX = source[0];
             float MIN = source[0];
-
-            IGsize valueCount = floatParams.elementCount * floatParams.dimension;
             for (int i = 0; i < valueCount; i++) {
                 if (source[i] > MAX) {
                     MAX = source[i];
@@ -754,8 +756,40 @@ private:
                     MIN = source[i];
                 }
             }
-
             return 10.0 * std::log10(std::pow(MAX - MIN, 2) / calMSE(source, encoded, floatParams));
+        };
+
+		auto calULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams, int exp) -> float {
+            float error = 0;
+            for (int i = 0; i < valueCount; i++) {
+				// ulp 指原始值最后一个有效位的单位数值，例如3.14的ulp是0.01
+				// abs error / ulp 即 ulp error
+				// ulp error有助于分辨量化/四舍五入等round操作的误差 IEEE要求误差 < 1即可
+				error += std::abs(source[i] - encoded[i]) / std::pow(2, exp - 23);
+            }
+			return error / valueCount;
+		};
+
+        // 1ULP误差计算
+        auto cal1ULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+			return calULPError(source, encoded, floatParams, 0);
+        };
+
+		// 1/2ULP误差计算
+		auto cal1s2ULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+            return calULPError(source, encoded, floatParams, -1);
+		};
+
+        auto calOriginULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
+            float error = 0;
+            for (int i = 0; i < valueCount; i++) {
+                int exponent = ((std::bit_cast<uint32_t>(source[i]) >> 23) & 0xFF) - 127;
+                // ulp 指原始值最后一个有效位的单位数值，例如3.14的ulp是0.01
+                // abs error / ulp 即 ulp error
+                // ulp error有助于分辨量化/四舍五入等round操作的误差 IEEE要求误差 < 1即可
+                error += std::abs(source[i] - encoded[i]) / std::pow(2, exponent - 23);
+            }
+            return error / valueCount;
         };
 
         switch (this->m_ParamInformation.errorStaMode)
@@ -764,7 +798,7 @@ private:
 		{
 			float err = CalError(source, dest, floatParams, calMAPE);
 			std::cout << "float data name: " << debugFloatName << " MSE: " << err << std::endl;
-			this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " MAPE: " + std::to_string(err));
+			this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " MAPE: " + std::to_string(err * 100.0) + "%");
 			break;
 		}
         case ErrorStaMode::L2:
@@ -781,20 +815,22 @@ private:
             this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " PSNR: " + std::to_string(err));
 			break;
         }
+        case ErrorStaMode::OneULP:
+        {
+            float err = CalError(source, dest, floatParams, cal1ULPError);
+            std::cout << "float data name: " << debugFloatName << " 1ULPE: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " 平均1ULP误差: " + std::to_string(err));
+            break;
+        }
         case ErrorStaMode::All:
         {
             float err = CalError(source, dest, floatParams, calMAPE);
 			std::cout << "float data name: " << debugFloatName << " MAPE: " << err << std::endl;
             this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " MAPE: " + std::to_string(err));
 
-            err = CalError(source, dest, floatParams, calNormalizedL2);
-            std::cout << "float data name: " << debugFloatName << " L2: " << err << std::endl;
-            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " 归一化L2: " + std::to_string(err));
-
-            err = CalError(source, dest, floatParams, calPSNR);
-            std::cout << "float data name: " << debugFloatName << " PSNR: " << err << std::endl;
-            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " PSNR: " + std::to_string(err));
-
+            err = CalError(source, dest, floatParams, calOriginULPError);
+            std::cout << "float data name: " << debugFloatName << " 1ULPE: " << err << std::endl;
+            this->m_ParamInformation.errorStaResult->push_back(debugFloatName + " 平均1ULP误差: " + std::to_string(err));
             break;
         }
 		case ErrorStaMode::None:
@@ -804,180 +840,184 @@ private:
 
         return;
 
-        /*if (floatParams.scale != -1)
-    {
-        if (floatSource)
+        /*
+        if (floatParams.scale != -1)
         {
-            convertFloatBuffer.resize(valueCount);
-            std::transform(
-                floatSource,
-                floatSource + valueCount,
-                convertFloatBuffer.begin(),
-                [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
-            );
+            if (floatSource)
+            {
+                convertFloatBuffer.resize(valueCount);
+                std::transform(
+                    floatSource,
+                    floatSource + valueCount,
+                    convertFloatBuffer.begin(),
+                    [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
+                );
+            }
+            else if (doubleSource)
+            {
+                convertDoubleBuffer.resize(valueCount);
+                std::transform(
+                    doubleSource,
+                    doubleSource + valueCount,
+                    convertFloatBuffer.begin(),
+                    [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
+                );
+            }
         }
-        else if (doubleSource)
+        else
         {
-            convertDoubleBuffer.resize(valueCount);
-            std::transform(
-                doubleSource,
-                doubleSource + valueCount,
-                convertFloatBuffer.begin(),
-                [&](float x) {return static_cast<int32_t>(x * floatParams.scale) / floatParams.scale; }
-            );
+            if (floatSource)
+            {
+                convertFloatBuffer.resize(valueCount);
+                std::transform(
+                    floatSource,
+                    floatSource + valueCount,
+                    convertFloatBuffer.begin(),
+                    [&](float x) {return static_cast<double>(x); }
+                );
+            }
+            else if (doubleSource)
+            {
+                convertDoubleBuffer.resize(valueCount);
+                convertDoubleBuffer.assign(
+                    doubleSource,
+                    doubleSource + valueCount
+                );
+            }
         }
+        
+        // 量化和编码
+        switch (floatParams.quantMode)
+        {
+        case QuantMode::None:
+        {
+            IGsize valueSize = floatParams.valueSize;
+            dest.resize(meshopt_encodeVertexBufferBound(
+                elementCount, valueSize * dimension));
+
+            if (floatParams.valueSize == sizeof(float))
+            {
+                dest.resize(meshopt_encodeVertexBuffer(
+                    dest.data(),
+                    dest.size(),
+                    floatBuffer.data(),
+                    elementCount, valueSize * dimension
+                ));
+            }
+            else if (floatParams.valueSize == sizeof(double))
+            {
+                dest.resize(meshopt_encodeVertexBuffer(
+                    dest.data(),
+                    dest.size(),
+                    doubleBuffer.data(),
+                    elementCount, valueSize * dimension
+                ));
+            }
+            break;
+        }
+        case QuantMode::FP16:
+        {
+            IGsize valueSize = sizeof(unsigned short);
+            std::vector<unsigned short> fp16Buffer(valueCount);
+
+            // 这里修成两个unsigned short拼一块 transform肯定是用不了了
+            // 先普通代码换多线程测一下速度 多线程也可以用来拼这个
+            if (floatParams.valueSize == sizeof(float))
+            {
+                std::transform(
+                    fp16Buffer.begin(),
+                    fp16Buffer.end(),
+                    floatBuffer.begin(),
+                    [&](double x) {return meshopt_quantizeHalf(x); }
+                );
+            }
+            else if (floatParams.valueSize == sizeof(double))
+            {
+                std::transform(
+                    fp16Buffer.begin(),
+                    fp16Buffer.end(),
+                    doubleBuffer.begin(),
+                    [&](double x) {return meshopt_quantizeHalf(x); }
+                );
+            }
+        
+            dest.resize(meshopt_encodeVertexBuffer(
+                dest.data(),
+                dest.size(),
+                fp16Buffer.data(),
+                elementCount, valueSize * dimension
+            ));
+
+            break;
+        }
+        case QuantMode::Float: // 这种量化没有对应的反量化步骤 因为这种量化实际上是下调了float的精度 而不是把他转为整数
+        {
+            IGsize valueSize = sizeof(float);
+
+            if (floatParams.valueSize == sizeof(float))
+            {
+                std::transform(
+                    floatBuffer.begin(),
+                    floatBuffer.end(),
+                    floatBuffer.begin(),
+                    [&](double x) {return meshopt_quantizeFloat(x, floatParams.quantParam); }
+                );
+            }
+            else if (floatParams.valueSize == sizeof(double))
+            {
+                std::transform(
+                    doubleBuffer.begin(),
+                    doubleBuffer.end(),
+                    floatBuffer.begin(),
+                    [&](double x) {return meshopt_quantizeFloat(x, floatParams.quantParam); }
+                );
+            }
+
+            dest.resize(meshopt_encodeVertexBuffer(
+                dest.data(),
+                dest.size(),
+                floatBuffer.data(),
+                elementCount, valueSize * dimension
+            ));
+
+            break;
+        }
+        default:
+            break;
+        }
+
+         解码测试
+        std::vector<float> out(valueCount);
+        int resvb = meshopt_decodeVertexBuffer(out.data(),
+            elementCount, sizeof(Vector3f), &dest[0], dest.size());
+
+        return;
+        */
     }
-    else
-    {
-        if (floatSource)
-        {
-            convertFloatBuffer.resize(valueCount);
-            std::transform(
-                floatSource,
-                floatSource + valueCount,
-                convertFloatBuffer.begin(),
-                [&](float x) {return static_cast<double>(x); }
-            );
-        }
-        else if (doubleSource)
-        {
-            convertDoubleBuffer.resize(valueCount);
-            convertDoubleBuffer.assign(
-                doubleSource,
-                doubleSource + valueCount
-            );
-        }
-    }*/
 
-        //// 量化和编码
-        //switch (floatParams.quantMode)
-        //{
-        //case QuantMode::None:
-        //{
-        //    IGsize valueSize = floatParams.valueSize;
-        //    dest.resize(meshopt_encodeVertexBufferBound(
-        //        elementCount, valueSize * dimension));
-
-        //    if (floatParams.valueSize == sizeof(float))
-        //    {
-        //        dest.resize(meshopt_encodeVertexBuffer(
-        //            dest.data(),
-        //            dest.size(),
-        //            floatBuffer.data(),
-        //            elementCount, valueSize * dimension
-        //        ));
-        //    }
-        //    else if (floatParams.valueSize == sizeof(double))
-        //    {
-        //        dest.resize(meshopt_encodeVertexBuffer(
-        //            dest.data(),
-        //            dest.size(),
-        //            doubleBuffer.data(),
-        //            elementCount, valueSize * dimension
-        //        ));
-        //    }
-        //    break;
-        //}
-        //case QuantMode::FP16:
-        //{
-        //    IGsize valueSize = sizeof(unsigned short);
-        //    std::vector<unsigned short> fp16Buffer(valueCount);
-
-        //    // 这里修成两个unsigned short拼一块 transform肯定是用不了了
-        //    // 先普通代码换多线程测一下速度 多线程也可以用来拼这个
-        //    if (floatParams.valueSize == sizeof(float))
-        //    {
-        //        std::transform(
-        //            fp16Buffer.begin(),
-        //            fp16Buffer.end(),
-        //            floatBuffer.begin(),
-        //            [&](double x) {return meshopt_quantizeHalf(x); }
-        //        );
-        //    }
-        //    else if (floatParams.valueSize == sizeof(double))
-        //    {
-        //        std::transform(
-        //            fp16Buffer.begin(),
-        //            fp16Buffer.end(),
-        //            doubleBuffer.begin(),
-        //            [&](double x) {return meshopt_quantizeHalf(x); }
-        //        );
-        //    }
-        //
-        //    dest.resize(meshopt_encodeVertexBuffer(
-        //        dest.data(),
-        //        dest.size(),
-        //        fp16Buffer.data(),
-        //        elementCount, valueSize * dimension
-        //    ));
-
-        //    break;
-        //}
-        //case QuantMode::Float: // 这种量化没有对应的反量化步骤 因为这种量化实际上是下调了float的精度 而不是把他转为整数
-        //{
-        //    IGsize valueSize = sizeof(float);
-
-        //    if (floatParams.valueSize == sizeof(float))
-        //    {
-        //        std::transform(
-        //            floatBuffer.begin(),
-        //            floatBuffer.end(),
-        //            floatBuffer.begin(),
-        //            [&](double x) {return meshopt_quantizeFloat(x, floatParams.quantParam); }
-        //        );
-        //    }
-        //    else if (floatParams.valueSize == sizeof(double))
-        //    {
-        //        std::transform(
-        //            doubleBuffer.begin(),
-        //            doubleBuffer.end(),
-        //            floatBuffer.begin(),
-        //            [&](double x) {return meshopt_quantizeFloat(x, floatParams.quantParam); }
-        //        );
-        //    }
-
-        //    dest.resize(meshopt_encodeVertexBuffer(
-        //        dest.data(),
-        //        dest.size(),
-        //        floatBuffer.data(),
-        //        elementCount, valueSize * dimension
-        //    ));
-
-        //    break;
-        //}
-        //default:
-        //    break;
-        //}
-
-        // 解码测试
-        //std::vector<float> out(valueCount);
-        //int resvb = meshopt_decodeVertexBuffer(out.data(),
-        //    elementCount, sizeof(Vector3f), &dest[0], dest.size());
-
-        //return;
-    }
-
-    float CalError(const void* source,
+    float CalError(const void* origin,
         const std::vector<unsigned char>& encoded,
         const MeshOptFloatParameters& floatParams,
 		const std::function<float(const float*, const float*, const MeshOptFloatParameters&)>& CalErrorFunc = nullptr
     ) {
         IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 
-        std::vector<float> sourceFloat(valueCount);
+        std::vector<float> originFloat(valueCount);
         std::vector<float> encodedFloat(valueCount);
 
         if (floatParams.valueSize == sizeof(float)) {
             ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
-                for (int i = start; i < end; i++) { sourceFloat[i] = static_cast<const float*>(source)[i]; }
+                for (int i = start; i < end; i++) { originFloat[i] = static_cast<const float*>(origin)[i]; }
             });
         } else if (floatParams.valueSize == sizeof(double)) {
             ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
-                for (int i = start; i < end; i++) { sourceFloat[i] = static_cast<const double*>(source)[i]; }
+                for (int i = start; i < end; i++) { originFloat[i] = static_cast<const double*>(origin)[i]; }
             });
         }
 
+        MeshOptDecoder::FloatDecoder(encodedFloat.data(), encoded, floatParams);
 
+        /*
         // decode
         std::vector<float> encodedFloatBuffer;
         std::vector<double> encodedDoubleBuffer;
@@ -1073,7 +1113,6 @@ private:
                 break;
         }
 
-
         // 写入dest
         // 两种普通情形 实际产生的数据类型和dest对应
         if (encodedFloatFlag) {
@@ -1082,7 +1121,9 @@ private:
             encodedFloat.assign(encodedDoubleBuffer.begin(), encodedDoubleBuffer.end());
         }
 
-        return CalErrorFunc(sourceFloat.data(), encodedFloat.data(), floatParams);
+        */
+
+        return CalErrorFunc(originFloat.data(), encodedFloat.data(), floatParams);
     }
 
     void GeomEncoder(PayloadBuffer& payload, std::vector<unsigned int>& pointIdRemap) {

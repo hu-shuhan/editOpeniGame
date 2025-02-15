@@ -62,7 +62,7 @@ public:
                 break;
             }
 
-            this->m_CallBack(progress);
+            UpdateProgress(progress);
 
             //switch (buf.type)
             //{
@@ -98,15 +98,9 @@ public:
             }
         }
 
-        this->m_CallBack(1.0);
+        UpdateProgress(1.0);
 
         return this->m_DecoderAdapter->GetDataObj();
-    }
-
-    template<typename Functor, typename... Args>
-    void SetUpdateProgress(Functor&& functor, Args&&... args) {
-        this->m_CallBack =
-            std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
     }
 
     void ParamsDecoder(PayloadBuffer& buf)
@@ -136,7 +130,7 @@ public:
     }
 
     // dest需要在外部先开辟好空间
-    void FloatDecoder(void* dest,
+    static void FloatDecoder(void* dest,
         const std::vector<unsigned char>& source,
         const MeshOptFloatParameters& floatParams)
     {
@@ -289,106 +283,109 @@ public:
         }
 
         return;
-        //std::vector<float> convertFloatBuffer;
-        //std::vector<double> convertDoubleBuffer;
 
-        //IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+        /*
+        std::vector<float> convertFloatBuffer;
+        std::vector<double> convertDoubleBuffer;
 
-        //switch (floatParams.quantMode)
-        //{
-        //case QuantMode::None:
-        //{
-        //    IGsize elementSize = floatParams.valueSize * floatParams.dimension;
-        //    int ret;
-        //    if (floatParams.valueSize == sizeof(float))
-        //    {
-        //        convertFloatBuffer.resize(valueCount);
-        //        ret = meshopt_decodeVertexBuffer(
-        //            convertFloatBuffer.data(),
-        //            floatParams.elementCount,
-        //            elementSize,
-        //            source.data(),
-        //            source.size()
-        //        );
-        //    }
-        //    else if (floatParams.valueSize == sizeof(double))
-        //    {
-        //        convertDoubleBuffer.resize(valueCount);
-        //        ret = meshopt_decodeVertexBuffer(
-        //            convertDoubleBuffer.data(),
-        //            floatParams.elementCount,
-        //            elementSize,
-        //            source.data(),
-        //            source.size()
-        //        );
-        //    }
+        IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 
-        //    break;
-        //}
-        //case QuantMode::FP16:
-        //{
-        //    IGsize elementSize = sizeof(unsigned short) * floatParams.dimension;
-        //    std::vector<unsigned short> fp16Buffer(valueCount);
+        switch (floatParams.quantMode)
+        {
+        case QuantMode::None:
+        {
+            IGsize elementSize = floatParams.valueSize * floatParams.dimension;
+            int ret;
+            if (floatParams.valueSize == sizeof(float))
+            {
+                convertFloatBuffer.resize(valueCount);
+                ret = meshopt_decodeVertexBuffer(
+                    convertFloatBuffer.data(),
+                    floatParams.elementCount,
+                    elementSize,
+                    source.data(),
+                    source.size()
+                );
+            }
+            else if (floatParams.valueSize == sizeof(double))
+            {
+                convertDoubleBuffer.resize(valueCount);
+                ret = meshopt_decodeVertexBuffer(
+                    convertDoubleBuffer.data(),
+                    floatParams.elementCount,
+                    elementSize,
+                    source.data(),
+                    source.size()
+                );
+            }
 
-        //    convertFloatBuffer.resize(
-        //        meshopt_decodeVertexBuffer(
-        //            fp16Buffer.data(),
-        //            floatParams.elementCount,
-        //            elementSize,
-        //            source.data(),
-        //            source.size()
-        //        )
-        //    );
+            break;
+        }
+        case QuantMode::FP16:
+        {
+            IGsize elementSize = sizeof(unsigned short) * floatParams.dimension;
+            std::vector<unsigned short> fp16Buffer(valueCount);
 
-        //    // 受到fp16精度限制 返回的只能是vector<float>
-        //    std::transform(
-        //        convertFloatBuffer.begin(),
-        //        convertFloatBuffer.end(),
-        //        fp16Buffer.begin(),
-        //        [&](unsigned short x) {return meshopt_dequantizeHalf(x); }
-        //    );
-        //    break;
-        //}
-        //case QuantMode::Float:
-        //{
-        //    // 没有dequantize 这种的函数，GG
-        //    break;
-        //}
-        //default:
-        //    break;
-        //}
+            convertFloatBuffer.resize(
+                meshopt_decodeVertexBuffer(
+                    fp16Buffer.data(),
+                    floatParams.elementCount,
+                    elementSize,
+                    source.data(),
+                    source.size()
+                )
+            );
 
-        //// 定点数为不可逆操作 所以无需处理
+            // 受到fp16精度限制 返回的只能是vector<float>
+            std::transform(
+                convertFloatBuffer.begin(),
+                convertFloatBuffer.end(),
+                fp16Buffer.begin(),
+                [&](unsigned short x) {return meshopt_dequantizeHalf(x); }
+            );
+            break;
+        }
+        case QuantMode::Float:
+        {
+            // 没有dequantize 这种的函数，GG
+            break;
+        }
+        default:
+            break;
+        }
 
-        //// 输出 float一定可以取得 但是double不一定
-        //if (floatParams.valueSize == sizeof(float))
-        //{
-        //    memcpy(static_cast<float*>(dest),
-        //        convertFloatBuffer.data(),
-        //        convertFloatBuffer.size() * sizeof(float)
-        //    );
-        //}
-        //else if (floatParams.valueSize == sizeof(double))
-        //{
-        //    if (convertDoubleBuffer.empty())
-        //    {
-        //        double* destPtr = static_cast<double*>(dest);
+        // 定点数为不可逆操作 所以无需处理
 
-        //        std::transform(
-        //            destPtr,
-        //            destPtr + valueCount,
-        //            convertFloatBuffer.begin(),
-        //            [&](float x) {return static_cast<double>(x); }
-        //        );
-        //    }
-        //    else
-        //    {
-        //        memcpy(static_cast<double*>(dest),
-        //            convertDoubleBuffer.data(),
-        //            convertDoubleBuffer.size() * sizeof(double)
-        //        );
-        //    }
-        //}
+        // 输出 float一定可以取得 但是double不一定
+        if (floatParams.valueSize == sizeof(float))
+        {
+            memcpy(static_cast<float*>(dest),
+                convertFloatBuffer.data(),
+                convertFloatBuffer.size() * sizeof(float)
+            );
+        }
+        else if (floatParams.valueSize == sizeof(double))
+        {
+            if (convertDoubleBuffer.empty())
+            {
+                double* destPtr = static_cast<double*>(dest);
+
+                std::transform(
+                    destPtr,
+                    destPtr + valueCount,
+                    convertFloatBuffer.begin(),
+                    [&](float x) {return static_cast<double>(x); }
+                );
+            }
+            else
+            {
+                memcpy(static_cast<double*>(dest),
+                    convertDoubleBuffer.data(),
+                    convertDoubleBuffer.size() * sizeof(double)
+                );
+            }
+        }
+        */
     }
 
     void GeomDecoder(PayloadBuffer& buf)
@@ -769,10 +766,26 @@ public:
     //    }
     //}
 
+    /*template<typename Functor, typename... Args>
+    void SetUpdateProgress(Functor&& functor, Args&&... args) {
+        this->m_CallBack =
+            std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
+    }*/
+
 private:
     std::ifstream& m_BytestreamFile;
     MeshDecoderAdapter* m_DecoderAdapter;
-    std::function<void(double)> m_CallBack;
+    //std::function<void(double)> m_CallBack;
+
+    ProgressObserver* m_Progress{ nullptr };
+    void UpdateProgress(double p) {
+        if (m_Progress) {
+            m_Progress->UpdateProgress(p);
+        }
+        else {
+            m_Progress = ProgressObserver::Instance();
+        }
+    }
 };
 IGAME_NAMESPACE_END
 #endif

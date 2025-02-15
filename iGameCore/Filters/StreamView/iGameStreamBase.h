@@ -37,6 +37,7 @@ private:
 public:
     //void Draw(Scene*) override;
     void ConvertToDrawableData() override;
+    bool IsUseSinglePassWireframeRendering() override;
     std::vector<std::vector<float>> m_StreamLine;
     std::vector<std::vector<float>> m_StreamLineColor;
 };

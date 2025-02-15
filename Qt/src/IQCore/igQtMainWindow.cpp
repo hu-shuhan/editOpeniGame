@@ -221,7 +221,7 @@ void igQtMainWindow::initAllComponents() {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
         dialog->setFilterTitle("压缩");
         dialog->setFilterDescription(
-            "自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: 保留原始格式");
+            "自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: 保留原始格式; 1ULP误差: 浮点数绝对误差/(2^-23)");
         std::vector<QString> defaultValue1;
         defaultValue1.push_back("自定义量化位数");
         defaultValue1.push_back("FP16");
@@ -248,11 +248,9 @@ void igQtMainWindow::initAllComponents() {
 
         std::vector<QString> defaultValue3;
         defaultValue3.push_back("不计算");
-        defaultValue3.push_back("PSNR");
         defaultValue3.push_back("MAPE");
-        defaultValue3.push_back("L2");
+        //defaultValue3.push_back("平均1ULP误差");
         defaultValue3.push_back("全部");
-
 
         int id5 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "误差统计", defaultValue3);
 
@@ -350,7 +348,8 @@ void igQtMainWindow::initAllComponents() {
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
     // &igQtModelDrawWidget::SaveScreenShoot);
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
-    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnline);
+    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
+    connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     // connect(ui->action_SaveMesh, &QAction::triggered, fileLoader,
     // &igQtFileLoader::SaveFile);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);

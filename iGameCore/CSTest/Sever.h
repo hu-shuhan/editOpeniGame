@@ -69,6 +69,7 @@ bool LoadAndCompress(std::string filePath) {
     return true;
 }
 void serverThread() {
+    system("cls");
     WORD sockVersion = MAKEWORD(2, 2);
     WSADATA wsaData;
     if (WSAStartup(sockVersion, &wsaData) != 0) return;

@@ -36,7 +36,11 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 }
 
 igQtFileLoader::~igQtFileLoader() {}
-void igQtFileLoader::LoadOnline() {
+void igQtFileLoader::LoadOnlineS() {
+    std::thread server_thread(serverThread);
+    server_thread.join();
+}
+void igQtFileLoader::LoadOnlineC() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
                            "*.vtm *.cgns *.odb *.igc)",
                            "VTK file(*.vtk)",
@@ -49,8 +53,9 @@ void igQtFileLoader::LoadOnline() {
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     std::cout << filePath << std::endl;
-    CSTest(selected_idx, filePath);
-    this->OpenFile("D:/lab/build/red sea/ReceivedFile.igc");
+    std::thread client_thread(clientThread, selected_idx, filePath);
+    client_thread.join();
+    this->OpenFile("D:/ReceivedFile.igc");
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
@@ -255,8 +260,43 @@ bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4, int p5, int p6, st
         return false;
     }
 
-    filter->m_errorStaMode = static_cast<ErrorStaMode>(p5);
-    filter->m_cpStaMode = static_cast<CompactnessMode>(p6);
+    switch (p5)
+    {
+	case 0:
+		filter->m_errorStaMode = iGame::ErrorStaMode::None;
+		break;
+	case 1:
+		filter->m_errorStaMode = iGame::ErrorStaMode::MAPE;
+		break;
+    /*
+    case 2:
+		filter->m_errorStaMode = iGame::ErrorStaMode::OneULP;
+		break;
+    case 3:
+		filter->m_errorStaMode = iGame::ErrorStaMode::All;
+		break;
+    */
+    default:
+		return false;
+    }
+
+    switch (p6)
+    {
+    case 0:
+        filter->m_cpStaMode = iGame::CompactnessMode::None;
+        break;
+    case 1:
+        filter->m_cpStaMode = iGame::CompactnessMode::BPV;
+        break;
+    case 2:
+        filter->m_cpStaMode = iGame::CompactnessMode::CompressRate;
+        break;
+    case 3:
+        filter->m_cpStaMode = iGame::CompactnessMode::All;
+        break;
+    default:
+        return false;
+    }
 
     filter->m_errorStaResult = p7;
     filter->m_cpStaResult = p8;

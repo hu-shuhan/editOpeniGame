@@ -59,7 +59,7 @@ public:
         // 编码
         MeshOptParameters params;
         MeshOptEncoder encoder(this->m_BytestreamFile, this->m_DataObj, params, inputParams);
-        encoder.SetUpdateProgress(&MeshEncoder::UpdateProgress, this);
+        //encoder.SetUpdateProgress(&MeshEncoder::UpdateProgress, this);
 
         encoder.Execute();
 
