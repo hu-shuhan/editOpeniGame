@@ -127,6 +127,11 @@ public:
      * @return 包含模型的映射表。
      */
     std::map<int, SmartPointer<Model>>& GetModelList();
+    /**
+     * @brief 获取背景颜色。
+     * @return 背景颜色RGB值。
+     */
+    igm::vec3 GetBackGround() {return m_BackgroundColor;}
 
     /**
      * @brief 更改模型的可见性。

@@ -14,13 +14,20 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QIntValidator>
+#include <QListWidget>
+#include <QColorDialog>
 
+#include <iGameSceneManager.h>
 igQtChangeBackGroundDialog::igQtChangeBackGroundDialog(QWidget *parent) : QDialog(parent) {
     QVBoxLayout *layout = new QVBoxLayout(this);
     QHBoxLayout* hlay = new QHBoxLayout();
-    m_Red_LineEdit = new QLineEdit("0",this);
-    m_Green_LineEdit = new QLineEdit("0",this);
-    m_Blue_LineEdit = new QLineEdit("0",this);
+
+    igm::vec3 RGB = iGame::SceneManager::Instance()->GetCurrentScene()->GetBackGround();
+
+    int R = (int)(RGB.x * 255), G = (int)(RGB.y * 255), B = (int)(RGB.z * 255);
+    m_Red_LineEdit =   new QLineEdit(QString::number(R),this);
+    m_Green_LineEdit = new QLineEdit(QString::number(G),this);
+    m_Blue_LineEdit =  new QLineEdit(QString::number(B),this);
 
     // 创建一个正则表达式，匹配 0~255 的数字
     QRegExp regExp("^(0|[1-9]\\d?|1\\d{2}|2[0-4]\\d|25[0-5])$");
@@ -39,10 +46,19 @@ igQtChangeBackGroundDialog::igQtChangeBackGroundDialog(QWidget *parent) : QDialo
     hlay->addWidget(green_label),  hlay->addWidget(m_Green_LineEdit);
     hlay->addWidget(blue_label),  hlay->addWidget(m_Blue_LineEdit);
     auto *okButton = new QPushButton("OK", this);
+    auto *EditButton = new QPushButton("自定义调色板", this);
     layout->addWidget(tip_label);
     layout->addLayout(hlay);
+    layout->addWidget(EditButton);
     layout->addWidget(okButton);
     connect(okButton, &QPushButton::clicked, this, &igQtChangeBackGroundDialog::accept);
+    connect(EditButton, &QPushButton::clicked, this, [&](){
+        QColor color = QColorDialog::getColor(QColor(R, G, B), this, "");
+        m_Red_LineEdit->setText(QString::number(color.red()));
+        m_Green_LineEdit->setText(QString::number(color.green()));
+        m_Blue_LineEdit->setText(QString::number(color.blue()));
+    });
+
 }
 
 std::vector<int> igQtChangeBackGroundDialog::getInput() {

@@ -10,6 +10,7 @@
 
 
 class QLineEdit ;
+class QListWidget ;
 class IG_QT_MODULE_EXPORT igQtChangeBackGroundDialog : public QDialog{
 Q_OBJECT
 public:
@@ -18,6 +19,6 @@ public:
     std::vector<int > getInput();
 
 protected:
-
+    QListWidget* m_ListWidget;
     QLineEdit* m_Red_LineEdit, *m_Green_LineEdit, *m_Blue_LineEdit;
 };

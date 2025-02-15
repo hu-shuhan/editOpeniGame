@@ -204,12 +204,10 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&](){
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
-        int R = 0, G = 0, B = 0; 
         if (dialog.exec() == QDialog::Accepted) {
-            auto input = dialog.getInput();
-            R = input[0], G = input[1], B = input[2];
+            const auto& input = dialog.getInput();
+            iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(input[0], input[1], input[2]);
         }
-        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
         [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
