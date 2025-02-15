@@ -29,40 +29,32 @@ public:
             PayloadBuffer bufDecompressed;
             MeshCodecLZMA::Decompress(bufDecompressed, buf);
 
-			float progress = 0.0;
-
             switch (type)
             {
             case PayloadType::kParameterSet:
             {
                 // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
                 this->ParamsDecoder(bufDecompressed);
-				progress += 0.2;
                 break;
             }
             case PayloadType::kGeometryBrick:
             {
                 this->GeomDecoder(bufDecompressed);
-                progress += 0.2;
                 break;
             }
             case PayloadType::kAttributeBrick:
             {
                 this->AttrDecoder(bufDecompressed);
-                progress += 0.2;
                 break;
             }
             case PayloadType::kTopologyBrick:
             {
                 this->TopoDecoder(bufDecompressed);
-                progress += 0.2;
                 break;
             }
             default:
                 break;
             }
-
-            UpdateProgress(progress);
 
             //switch (buf.type)
             //{
@@ -123,7 +115,13 @@ public:
         this->m_Params.attrParams.resize(paramsWoAttr.attrCount);
         IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(MeshOptAttrParameters);
 
+        m_DecompressProgress += 0.1;
+		UpdateProgress(m_DecompressProgress);
+
         std::memcpy(this->m_Params.attrParams.data(), buf.data() + staticSize, dynamicSize);
+
+        m_DecompressProgress += 0.1;
+        UpdateProgress(m_DecompressProgress);
 
         // 初始adapter
         this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_Params.meshType);
@@ -393,9 +391,15 @@ public:
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
 
+        m_DecompressProgress += 0.05;
+        UpdateProgress(m_DecompressProgress);
+
         IGsize bufferSize = this->m_Params.geomParams.elementCount * this->m_Params.geomParams.dimension;
         std::vector<float> decodedFloat(bufferSize);
         this->FloatDecoder(decodedFloat.data(), uCharBuffer, this->m_Params.geomParams);
+
+        m_DecompressProgress += 0.15;
+        UpdateProgress(m_DecompressProgress);
 
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
     }
@@ -444,6 +448,9 @@ public:
             data->SetDimension(params.dimension);
 
             this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, data);
+
+            m_DecompressProgress += 0.2 * (i * 1.0 / this->m_Params.attrParams.size());
+            UpdateProgress(m_DecompressProgress);
         }
     }
 
@@ -687,6 +694,9 @@ public:
                 }
             }
         }
+
+        m_DecompressProgress += 0.2;
+        UpdateProgress(m_DecompressProgress);
     }
 
     //void TopoDecoder(PayloadBuffer& buf)
@@ -776,6 +786,7 @@ private:
     std::ifstream& m_BytestreamFile;
     MeshDecoderAdapter* m_DecoderAdapter;
     //std::function<void(double)> m_CallBack;
+    float m_DecompressProgress = 0.0f;
 
     ProgressObserver* m_Progress{ nullptr };
     void UpdateProgress(double p) {
