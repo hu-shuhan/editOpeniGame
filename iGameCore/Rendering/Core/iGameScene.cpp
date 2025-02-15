@@ -981,6 +981,9 @@ void Scene::UpdateCameraClippingRange() {
     const float minGap = 0.0001f;
     if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
 
+    //std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
+    //          << std::endl;
+
     m_Camera->SetClippngRange(nearPlane, farPlane);
 }
 
@@ -1152,7 +1155,8 @@ void Scene::UpdateModelsBoundingSphere() {
     auto box = m_Painter3D->GetBoundingBox();
     for (auto& [id, model]: m_Models) {
         if (!model->GetVisibility()) { continue; }
-        box.combine(model->m_DataObject->GetBoundingBox());
+        box.combine(model->GetDataObject()->GetBoundingBox());
+        box.combine(model->GetPainter3D()->GetBoundingBox());
     }
 
     if (box.isNull()) {
