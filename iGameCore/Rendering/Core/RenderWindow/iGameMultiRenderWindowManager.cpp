@@ -41,14 +41,14 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
     //        glfwPollEvents();
     //    }
 
-    while (!m_GLFW_WindowPointerPool.empty()) {
+    while (!m_GLFWWindowPointerPool.empty()) {
         /* check all window should be closed */
-        for (auto it = m_GLFW_WindowPointerPool.begin();
-             it != m_GLFW_WindowPointerPool.end();) {
+        for (auto it = m_GLFWWindowPointerPool.begin();
+             it != m_GLFWWindowPointerPool.end();) {
             GLFWwindow* window_ptr = *it;
             if (glfwWindowShouldClose(window_ptr)) {
-                glfwDestroyWindow(window_ptr);           // 销毁窗口
-                it = m_GLFW_WindowPointerPool.erase(it); // 从列表中移除
+                glfwDestroyWindow(window_ptr);          // 销毁窗口
+                it = m_GLFWWindowPointerPool.erase(it); // 从列表中移除
             } else {
                 /* set current Context */
                 glfwMakeContextCurrent(window_ptr);
@@ -81,11 +81,11 @@ void MultiRenderWindowManager::CreateWindow(int width, int height,
 }
 
 void MultiRenderWindowManager::Register(GLFWwindow* _win_ptr) {
-    m_GLFW_WindowPointerPool.emplace_back(_win_ptr);
+    m_GLFWWindowPointerPool.emplace_back(_win_ptr);
 }
 
 void iGame::MultiRenderWindowManager::Register(iGame::RenderWindow* _win_ptr) {
-    m_GLFW_WindowPointerPool.emplace_back(_win_ptr->GetRawWindowPtr());
+    m_GLFWWindowPointerPool.emplace_back(_win_ptr->GetRawWindowPtr());
 }
 
 IGAME_NAMESPACE_END

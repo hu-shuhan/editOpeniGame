@@ -8,11 +8,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DPLATFORM_MAC)
 endif ()
 
-SET(OPENMESH_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/include")
-SET(OPENMESH_LIB_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/lib")
-SET(OPENMESH_DLL_PATH "${PROJECT_SOURCE_DIR}/Filters/SurfaceMeshFilters/openmesh/")
-#include_directories(${OPENMESH_PATH})
-#link_directories(${OPENMESH_LIB_PATH})
 #--------------------------------------------------------------------
 # Core Module's main Cmake
 #--------------------------------------------------------------------
@@ -20,6 +15,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
 
 target_include_directories(${MODULE_NAME} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/CSTest>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/CellModel>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/Common>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/DataModel>

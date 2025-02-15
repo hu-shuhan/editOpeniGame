@@ -29,7 +29,7 @@ bool NurbsReader::Parsing() {
 
         for (auto* item = root->FirstChildElement(type); item; item = item->NextSiblingElement(type)) {
 
-            int num = 0; // 初始化为默认值
+            int num = 0;
             if (s_type == "curve") {
                 m_NurbsType = NurbsSDK::Type::CURVE;
                 num = 1;

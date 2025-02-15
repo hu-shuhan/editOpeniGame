@@ -364,6 +364,7 @@ protected:
     bool m_FinishInit;
     bool m_EnableVolumeRendering;
 
+    friend class RenderWindow;
     friend class Model;
     friend class Axes;
     friend class Interactor;

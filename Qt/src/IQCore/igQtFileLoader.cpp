@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "iGameFileIO.h"
+#include "CSTest.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
@@ -35,7 +36,22 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 }
 
 igQtFileLoader::~igQtFileLoader() {}
-
+void igQtFileLoader::LoadOnline() {
+    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+                           "*.vtm *.cgns *.odb *.igc)",
+                           "VTK file(*.vtk)",
+                           "CGNS file(*.cgns)",
+                           "ABAQUS file(*.odb)",
+                           "Spline file(*.xml)",
+                           "Compression file(*.igc)"};
+    QString selectedFilter;
+    std::string filePath =
+            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
+    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+    std::cout << filePath << std::endl;
+    CSTest(selected_idx, filePath);
+    this->OpenFile("D:/lab/build/red sea/ReceivedFile.igc");
+}
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
             "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
@@ -197,7 +213,7 @@ void igQtFileLoader::SaveFileAs() {
         igDebug("Save File Error\n");
     }
 }
-bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4) {
+bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4, int p5, int p6, std::vector<std::string>* p7, std::vector<std::string>* p8, std::string dest) {
     auto sceneManager = iGame::SceneManager::Instance();
     auto scene = sceneManager->GetCurrentScene();
     if (!scene) return false;
@@ -205,45 +221,57 @@ bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4) {
     if (!currentModel) return false;
     auto obj = currentModel->GetDataObject();
     if (!obj) return false;
-    std::string filePath =
-            QFileDialog::getSaveFileName(
-                    nullptr, "Compress file as ", "",
-                    "Compress Mesh(*.igc)")
-                    .toStdString();
-    if (filePath.empty()) {
-        igDebug("Could not save file with error file path\n");
+
+    iGame::MeshEncoder::Pointer filter = MeshEncoder::New();
+    switch (p1)
+    {
+    case 0:
+        filter->m_PointQuantMode = iGame::QuantMode::Float;
+        filter->m_PointQuantizedBits = p2;
+        break;
+    case 1:
+        filter->m_PointQuantMode = iGame::QuantMode::FP16;
+        break;
+    case 2:
+        filter->m_PointQuantMode = iGame::QuantMode::None;
+        break;
+    default:
         return false;
     }
 
-    iGame::MeshEncoder::Pointer filter = MeshEncoder::New();
-    if (p1 == 0) filter->PointQuantMode = iGame::QuantMode::Float;
-    else if (p1 == 1)
-        filter->PointQuantMode = iGame::QuantMode::None;
-    else
+    switch (p3)
+    {
+    case 0:
+        filter->m_AttrbQuantMode = iGame::QuantMode::Float;
+        filter->m_AttrbQuantizedBits = p4;
+        break;
+    case 1:
+        filter->m_AttrbQuantMode = iGame::QuantMode::FP16;
+        break;
+    case 2:
+        filter->m_AttrbQuantMode = iGame::QuantMode::None;
+        break;
+    default:
         return false;
+    }
 
-    if (p2 <= 0) return false;
-    filter->PointQuantizedBits = p2;
+    filter->m_errorStaMode = static_cast<ErrorStaMode>(p5);
+    filter->m_cpStaMode = static_cast<CompactnessMode>(p6);
 
-    if (p3 == 1) filter->AttrbQuantMode = iGame::QuantMode::Float;
-    else if (p3 == 0)
-        filter->AttrbQuantMode = iGame::QuantMode::None;
-    else
-        return false;
-
-    if (p4 <= 0) return false;
-    filter->AttrbQuantizedBits = p4;
+    filter->m_errorStaResult = p7;
+    filter->m_cpStaResult = p8;
 
     filter->SetNumberOfInputs(1);
-    filter->SetSaveFilePath(filePath);
+    filter->SetSaveFilePath(dest);
     filter->SetInput(obj);
-    
+
     if (!filter->Execute()) {
         igDebug("Compress File Error\n");
         return false;
     }
     return true;
 }
+
 void igQtFileLoader::SaveCurrentFileToRecentFile(QString path) {
     if (path.isEmpty()) return;
     for (int i = 0; i < recentFileActionList.size(); i++) {

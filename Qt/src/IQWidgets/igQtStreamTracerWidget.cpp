@@ -95,35 +95,22 @@ void igQtStreamTracerWidget::generateStreamline() {
 	Model::Pointer model = scene->GetCurrentModel();
 	VolumeMesh::Pointer mesh;
     std::cout << model->GetDataObject()->GetName() << std::endl;
-	auto tem=model->GetDataObject();
-   // if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
-        if (false) {
-		 mesh = DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh();
-	}
-	else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
-		mesh = DynamicCast<VolumeMesh>(model->GetDataObject());
-	} 
-	else { return; }
-
-	streamtracer->SetMesh(mesh);
-    streamtracer->seedLineGenerate(numOfSeeds);
+ 	auto tem=model->GetDataObject();
+    streamtracer->initStreamTracer(model);
+    //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
-	if (!ptFinder)
-	{
-		ptFinder = PointFinder::New();
-		//ptFinder->SetPoints(mesh->GetPoints());
-		ptFinder->Initialize();
-	}
-	streamtracer->AddPtFinder(ptFinder);
-	auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
+    auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
+  //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;
 	std::vector<std::vector<float>> streamline;
-	if (mesh->GetIsPolyhedronType()) {
-		 streamline = streamtracer->showStreamLineCellData(seeds, "Deformation", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-	}
-	else {
-		 streamline = streamtracer->showStreamLineHex(seeds, "Deformation", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-	}
+    streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep,
+                                                 terminalSpeed, maxSteps);
+ //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
+	//	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+	//}
+	//else {
+	//	 streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+	//}
 	m_StreamBase->SetStreamLine(streamline,streamlineColor);
 
 	if (!haveDraw) {

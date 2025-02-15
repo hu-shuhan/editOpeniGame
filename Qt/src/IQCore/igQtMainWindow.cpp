@@ -201,7 +201,7 @@ void igQtMainWindow::initToolbarComponent() {
 
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
-            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+        [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
@@ -210,37 +210,136 @@ void igQtMainWindow::initAllComponents() {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
         dialog->setFilterTitle("压缩");
         dialog->setFilterDescription(
-                "注意:压缩方式取None时,表示不进行量化;压缩方式取Float时,表示进行浮点数量化,且量化位数取值生效");
+            "自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: 保留原始格式");
         std::vector<QString> defaultValue1;
-        defaultValue1.push_back("Float");
-        defaultValue1.push_back("None");
+        defaultValue1.push_back("自定义量化位数");
+        defaultValue1.push_back("FP16");
+        defaultValue1.push_back("无量化");
         std::vector<QString> defaultValue2;
-        defaultValue2.push_back("None");
-        defaultValue2.push_back("Float");
-        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "点坐标压缩方式", defaultValue1);
+        defaultValue2.push_back("自定义量化位数");
+        defaultValue2.push_back("FP16");
+        defaultValue2.push_back("无量化");
+        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "顶点坐标量化模式", defaultValue1);
 
-        int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "点坐标量化位数", "16");
+        int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "顶点坐标量化位数", "16");
 
-        int id3 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "属性压缩方式", defaultValue2);
+        int id3 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "属性量化模式", defaultValue2);
 
         int id4 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "属性量化位数", "16");
 
+        // 量化位数控制
+        QRegExp regExp("^(1|[2-9]|1[0-9]|2[0-3])$");
+        QLineEdit* widget2 = qobject_cast<QLineEdit*>(dialog->getWidget(id2));
+        QLineEdit* widget4 = qobject_cast<QLineEdit*>(dialog->getWidget(id4));
+        QRegExpValidator* validator = new QRegExpValidator(regExp, this);
+        widget2->setValidator(validator);
+        widget4->setValidator(validator);
+
+        std::vector<QString> defaultValue3;
+        defaultValue3.push_back("不计算");
+        defaultValue3.push_back("PSNR");
+        defaultValue3.push_back("MAPE");
+        defaultValue3.push_back("L2");
+        defaultValue3.push_back("全部");
+
+
+        int id5 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "误差统计", defaultValue3);
+
+        std::vector<QString> defaultValue4;
+        defaultValue4.push_back("不计算");
+        defaultValue4.push_back("BPV");
+        defaultValue4.push_back("压缩比");
+        defaultValue4.push_back("全部");
+
+        int id6 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "压缩比统计", defaultValue4);
+
+        // 量化位数参数仅在自定义量化位数时生效
+        QWidget* widget1 = dialog->getWidget(id1);
+        QWidget* widget3 = dialog->getWidget(id3);
+
+        if (widget1)
+        {
+            connect(
+                qobject_cast<QComboBox*>(widget1),
+                QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this,
+                [=](int index) {
+                    dialog->getWidget(id2)->setEnabled(index == 0);
+                }
+            );
+        }
+
+        if (widget3)
+        {
+            connect(
+                qobject_cast<QComboBox*>(widget3),
+                QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this,
+                [=](int index) {
+                    dialog->getWidget(id4)->setEnabled(index == 0);
+                }
+            );
+        }
+
         dialog->show();
         dialog->setApplyFunctor([=]() {
+            std::string destFilePath =
+                QFileDialog::getSaveFileName(
+                    nullptr, "Compress file as ", "",
+                    "Compress Mesh(*.igc)")
+                .toStdString();
+            if (destFilePath.empty()) {
+                igDebug("Could not save file with error file path\n");
+                return;
+            }
+
             bool ok;
-            ok = fileLoader->Compress(dialog->getComboIndex(id1, ok), dialog->getInt(id2, ok),
-                                      dialog->getComboIndex(id3, ok), dialog->getInt(id4, ok));
+            std::vector<std::string> errorStatus;
+            std::vector<std::string> compactnessStatus;
+
+            ok = fileLoader->Compress(
+                dialog->getComboIndex(id1, ok),
+                dialog->getInt(id2, ok),
+                dialog->getComboIndex(id3, ok),
+                dialog->getInt(id4, ok),
+                dialog->getComboIndex(id5, ok),
+                dialog->getComboIndex(id6, ok),
+                dialog->getComboIndex(id5, ok) != 0 ? &errorStatus : nullptr,
+                dialog->getComboIndex(id6, ok) != 0 ? &compactnessStatus : nullptr,
+                destFilePath
+            );
+
             if (ok) {
-                QMessageBox::information(this, "", "压缩成功");
+                QString result = "压缩成功\n\n";
+                if (dialog->getComboIndex(id5, ok) != 0)
+                {
+                    result += "误差统计\n";
+                    for (const std::string& l : errorStatus) {
+                        result += QString::fromStdString(l);
+                        result += "\n";
+                    }
+                }
+                if (dialog->getComboIndex(id6, ok) != 0)
+                {
+                    result += "\n压缩率统计\n";
+                    for (const std::string& l : compactnessStatus) {
+                        result += QString::fromStdString(l);
+                        result += "\n";
+                    }
+                }
+
+                QMessageBox::information(this, "压缩成功", result);
                 dialog->close();
-            } else
-                QMessageBox::information(this, "", "压缩失败");
-        });
+            }
+            else
+                QMessageBox::information(this, "压缩失败", "请检查是否正确载入数据");
+            });
     });
 
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
     // &igQtModelDrawWidget::SaveScreenShoot);
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
+    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnline);
     // connect(ui->action_SaveMesh, &QAction::triggered, fileLoader,
     // &igQtFileLoader::SaveFile);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
