@@ -7,10 +7,11 @@
 */
 #pragma once
 #include<iGameScene.h>
-#include<iGameVolumeMesh.h>
 #include<iGameVector.h>
 #include<set>
 #include<iGamePointFinder.h>
+#include <iGameUnstructuredMesh.h>
+#include<iGameStructuredMesh.h>
 using namespace iGame;
 
 /**
@@ -23,6 +24,7 @@ public:
 	* @brief Constructor for iGameStreamTracer.
 	*/
 	iGameStreamTracer() {};
+    std::vector<Vector3f> subdataSeedGenerate(int numOfseed);
     std::vector<Vector3f> seedLineGenerate(int numOfseed);
 	/**
 	* @brief Generate point seed with admin's parameter.
@@ -40,6 +42,7 @@ public:
 	* @param[in] numOfseed Input num of seed
 	*/
 	std::vector<Vector3f> streamSeedGenerate( int control, float proportion, int numOfseed);
+    std::vector<Vector3f>streamseedGenerateWithPId(std::vector<int>Pid);
 	/**
 	* @brief Calculate the flow  line with admin's parameter.
 	* @param[in] seed  Input seed data
@@ -51,11 +54,13 @@ public:
 	* @param[in] maxSteps Input max num of step
 	* @param[out] streamColor Output streamline color data
 	*/
+    void initStreamTracer(Model::Pointer _model);
+    void initSubmodelLinks();
 	std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f>seed,  std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	bool CellData2PointData( std::string vectorName);
-	void SetMesh(VolumeMesh::Pointer mesh) {
-		this->mesh = mesh;
-	};
+    void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
+    VolumeMesh::Pointer GetMesh() { return this->mesh; };
+    void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
 	void AddPtFinder(PointFinder::Pointer ptf) {
 		this->ptFinder.emplace_back(ptf);
 	};
@@ -90,6 +95,9 @@ private:
 	* @param[out] VolumeId Output In which cell was the point in the last calculation
 	* @param[out] inside Output whether this point is in the model
 	*/
+    Vector3f interpolationVector(Vector3f coord, bool& inside, igIndex& VolumeId,
+                                                    std::string vectorName, std::vector<std::vector<Vector3f>> _vector,
+                                                    float terminalSpeed);
 	Vector3f interpolationVectorTri(Vector3f coord, bool& inside, igIndex& VolumeId,  std::string vectorName, std::vector<Vector3f>_vector, float terminal);
 	/**
 	* @brief Calculate vector values with Newton interpolation method
@@ -158,6 +166,11 @@ private:
 */
 	bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
 	VolumeMesh::Pointer mesh{};
+    Model::Pointer model{};
+    bool isSubModel = false;
+    bool isChange = false;
 	std::vector<PointFinder::Pointer> ptFinder;
+    std::vector<std::vector<Vector3f>> _vector;
+    std::vector<int> subIndex;
 	FloatArray::Pointer tranform{};
 };

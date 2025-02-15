@@ -16,9 +16,6 @@
 #include <GLFW/glfw3.h>
 IGAME_NAMESPACE_BEGIN
 
-MultiRenderWindowManager::MultiRenderWindowManager() {}
-
-MultiRenderWindowManager::~MultiRenderWindowManager() {}
 
 void MultiRenderWindowManager::ShowAllRegisterWindow() {
     //    bool shouldAllWindowClose = false;

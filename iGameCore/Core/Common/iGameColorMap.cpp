@@ -4,7 +4,8 @@ ColorMap::ColorMap() {
 	this->m_ColorBar = FloatArray::New();
 	this->m_ColorRange = FloatArray::New();
 	InitColorBarWithBlueWhiteRedType();
-	this->m_MapType=IG_MAPPER_RGB_LINER;
+//	this->m_MapType=IG_MAPPER_RGB_LINER;
+	this->m_MapType=IG_MAPPER_RGB_STEP;
 }
 ColorMap::~ColorMap() {
 	m_ColorBar=nullptr;

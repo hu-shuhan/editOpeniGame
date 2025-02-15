@@ -528,7 +528,7 @@ bool igQtAnimationWidget::saveAnimation() {
 //        std::vector<uint8_t> tmp(image.bits(),
 //                                 image.bits() + image.sizeInBytes());
 //        inputInfo.bytes_per_line = image.bytesPerLine();
-        auto tmp = currentScene->CaptureScreen(0, 0, width, height, RGBA, true);
+        auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
         inputInfo.bytes_per_line = width * 4;
         inputInfo.raw_image_data.emplace_back(tmp);
     }

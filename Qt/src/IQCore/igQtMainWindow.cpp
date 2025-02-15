@@ -58,8 +58,8 @@ void igQtMainWindow::initArgs(const QStringList &args) {
     int argc = args.size();
     for(int i = 1; i < argc; ++ i){
         const QString& cur_arg = args[i].toLower();
-        if(cur_arg == "--filepath"){
-            const QString& filePath = args[++ i];
+        if(cur_arg == "--filepath" && ++ i < argc){
+            const QString& filePath = args[i];
             fileLoader->OpenFile(filePath.toStdString());
         }
     }

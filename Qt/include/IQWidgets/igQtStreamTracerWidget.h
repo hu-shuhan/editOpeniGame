@@ -42,6 +42,6 @@ private:
     std::string masterName;
     std::string vectorName;
     UnstructuredMesh::Pointer streamlineResult{};
-    PointFinder::Pointer ptFinder{};
+   std::vector<PointFinder::Pointer> ptFinder;                                                                      
     iGameStreamBase* m_StreamBase{ nullptr };
 };

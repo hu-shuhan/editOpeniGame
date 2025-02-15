@@ -103,6 +103,64 @@ public:
 		}
 
 	}
+    igIndex FindClosestPoint(const Vector3d& x,double& minDist2) {
+        int i, j;
+         minDist2 = std::numeric_limits<double>::max();
+        double dist2;
+        Vector3d p;
+        int level = 0;
+        igIndex ptId, closest, boxIndex, nids;
+        IdArray::Pointer ptIds;
+        Vector3i ijk, nei;
+        FlexArray<Vector3i> boxes;
+
+        ijk = this->Interize(x);
+
+        for (closest = -1; (closest == -1) && (level < m_Size); level++) {
+            this->GetBoxNeighbors(boxes, ijk, level);
+
+            for (i = 0; i < boxes.size(); i++) {
+                nei = boxes[i];
+                boxIndex = nei[0] + nei[1] * m_Size + nei[2] * m_SizeSquared;
+
+                if ((ptIds = m_Buffer->GetElement(boxIndex)) != nullptr) {
+                    nids = ptIds->GetNumberOfIds();
+                    for (j = 0; j < nids; j++) {
+                        ptId = ptIds->GetId(j);
+                        m_Points->GetPoint(ptId, p);
+                        if ((dist2 = (x - p).squaredLength()) < minDist2) {
+                            closest = ptId;
+                            minDist2 = dist2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Since the nearest point of this box is not necessarily the global
+        // nearest, We need to search for all boxes within the minDist2 distance
+        // range.
+        if (minDist2 > 0.0) {
+            this->GetOverlappingBoxes(boxes, x, ijk, sqrt(minDist2));
+            for (i = 0; i < boxes.size(); i++) {
+                nei = boxes[i];
+                boxIndex = nei[0] + nei[1] * m_Size + nei[2] * m_SizeSquared;
+
+                if ((ptIds = m_Buffer->GetElement(boxIndex)) != nullptr) {
+                    nids = ptIds->GetNumberOfIds();
+                    for (j = 0; j < nids; j++) {
+                        ptId = ptIds->GetId(j);
+                        m_Points->GetPoint(ptId, p);
+                        if ((dist2 = (x - p).squaredLength()) < minDist2) {
+                            closest = ptId;
+                            minDist2 = dist2;
+                        }
+                    }
+                }
+            }
+        }
+        return closest;
+    }
 	igIndex FindClosestPoint(const Vector3d& x) {
 		int i, j;
 		double minDist2 = std::numeric_limits<double>::max();
