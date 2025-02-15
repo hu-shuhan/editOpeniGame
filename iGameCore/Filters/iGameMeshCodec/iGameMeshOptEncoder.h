@@ -53,22 +53,18 @@ public:
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
-        UpdateProgress(0.2);
-
+        
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        UpdateProgress(0.4);
-
+        
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        UpdateProgress(0.6);
-
+        
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
         this->ParamsEncoder(paramPayload);
-        UpdateProgress(0.8);
-
+        
         // lzma
-        int compressLevel = 3;
+        int compressLevel = 1;
         int numThreads = 16;
 
         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
@@ -76,10 +72,38 @@ public:
         PayloadBuffer attrCompressed(PayloadType::kAttributeBrick);
         PayloadBuffer paramCompressed(PayloadType::kParameterSet);
 
-        MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads);
-        MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads);
-        MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads);
-        MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads);
+        std::vector<std::future<void>> result;
+        ThreadPool* tp = ThreadPool::Instance();
+
+		std::atomic<float> progress(0.8);
+
+        result.push_back(
+            tp->Commit([&]() -> void {
+                MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads);
+            })
+        );
+        result.push_back(
+            tp->Commit([&]() -> void {
+                MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads);
+            })
+        );
+        result.push_back(
+            tp->Commit([&]() -> void {
+                MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads);
+             })
+        );
+        result.push_back(
+            tp->Commit([&]() -> void {
+                MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads);
+             })
+        );
+
+        for (int i = 0; i < result.size(); i++)
+        {
+            result[i].wait();
+            progress += 0.04;
+            UpdateProgress(progress); // 似乎不支持多线程
+        }
 
         //WriteBuf(paramPayload, this->m_BytestreamFile); // 必须先写参数信息
         //WriteBuf(geomPayload, this->m_BytestreamFile);
@@ -264,6 +288,8 @@ public:
                 remappedf2p[i] = pointIdRemap[face2pointsIndex[i]];
             }
 
+            UpdateProgress(0.25);
+
             // 编码 面 -> 点
             IndexNOffsetEncoder(
                 outputTopo,
@@ -277,6 +303,8 @@ public:
                 this->m_Params.topoParams.bottomCellSizeBinaryCount,
                 face2pointsOffset
             );
+
+            UpdateProgress(0.3);
 
             this->m_Params.topoParams.bottomCellBufferSize = remappedf2p.size();
 
@@ -302,6 +330,8 @@ public:
                 this->m_Params.topoParams.topCellSizeBinaryCount,
                 volume2facesOffset
             );
+
+            UpdateProgress(0.4);
 
             this->m_Params.topoParams.topCellBufferSize = remappedv2f.size();
         }
@@ -363,6 +393,8 @@ public:
                 );
             }
 
+            UpdateProgress(0.3);
+
             // 如果非结构化 要写入type 非结构化与是否存在fixed cell size没有关系
             this->m_Params.topoParams.cellTypeBinaryCount = 0;
             if (this->m_Params.meshType == IG_UNSTRUCTURED_MESH) {
@@ -377,6 +409,8 @@ public:
                 outputTopo.insert(outputTopo.end(), encodeBuffer.begin(), encodeBuffer.end());
                 this->m_Params.topoParams.cellTypeBinaryCount = encodeBuffer.size();
             }
+
+            UpdateProgress(0.4);
         }
 
         payload.resize(outputTopo.size());
@@ -543,11 +577,12 @@ private:
 
         // 写入静态数据
         std::memcpy(payload.data(), &paramsWoAttr, staticSize);
-
+        UpdateProgress(0.7);
         // 写入动态数据
         if (!this->m_Params.attrParams.empty()) {
             std::memcpy(payload.data() + staticSize, this->m_Params.attrParams.data(), dynamicSize);
         }
+        UpdateProgress(0.8);
     }
 
     void FloatEncoder(std::vector<unsigned char>& dest,
@@ -1135,6 +1170,8 @@ private:
         pointIdRemap.resize(pointCount);
         meshopt_spatialSortRemap(pointIdRemap.data(), points->RawPointer(), pointCount, sizeof(Vector3f));
 
+        UpdateProgress(0.1);
+
         // 部署重映射
         std::vector<float> remappedPointBuffer(pointBufferSize);
         meshopt_remapVertexBuffer(remappedPointBuffer.data(), points->RawPointer(), pointCount, sizeof(Vector3f),
@@ -1142,6 +1179,8 @@ private:
 
         std::vector<unsigned char> encodedFloat;
         this->FloatEncoder(encodedFloat, remappedPointBuffer.data(), this->m_Params.geomParams, "geom");
+
+        UpdateProgress(0.2);
 
         payload.resize(encodedFloat.size());
         std::memcpy(payload.data(), encodedFloat.data(), encodedFloat.size());
@@ -1156,6 +1195,8 @@ private:
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_Params.attrParams.size());
         
+		float progress = 0.4;
+
         for (int i = 0; i < this->m_Params.attrParams.size(); i++)
         {
             AttributeSet::Attribute& attr = attrs->GetElement(i);
@@ -1198,6 +1239,8 @@ private:
                     }
                 });
             }
+            progress += 0.2 * (i * 0.1 / this->m_Params.attrParams.size());
+            UpdateProgress(progress);
 
             /*if (params.valueSize == sizeof(float)) {
                 remappedFloatAttrBuffer.resize(valueCount);
@@ -1245,6 +1288,8 @@ private:
             params.binaryCount = encodedFloat.size() * sizeof(uint8_t);
             outFloats[i] = encodedFloat;
         }
+
+        UpdateProgress(0.6);
 
         size_t currentPayloadCursor = 0;
         for (int i = 0; i < this->m_Params.attrParams.size(); i++) {
