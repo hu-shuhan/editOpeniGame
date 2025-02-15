@@ -89,12 +89,13 @@ enum class ErrorStaMode {
 	PSNR,
 	MAPE,
 	L2,
+	OneULP,
 	All
 };
 
 enum class CompactnessMode {
 	None,
-	PBV,
+	BPV,
 	CompressRate,
 	All
 };

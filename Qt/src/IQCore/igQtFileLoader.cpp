@@ -255,8 +255,43 @@ bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4, int p5, int p6, st
         return false;
     }
 
-    filter->m_errorStaMode = static_cast<ErrorStaMode>(p5);
-    filter->m_cpStaMode = static_cast<CompactnessMode>(p6);
+    switch (p5)
+    {
+	case 0:
+		filter->m_errorStaMode = iGame::ErrorStaMode::None;
+		break;
+	case 1:
+		filter->m_errorStaMode = iGame::ErrorStaMode::MAPE;
+		break;
+    /*
+    case 2:
+		filter->m_errorStaMode = iGame::ErrorStaMode::OneULP;
+		break;
+    case 3:
+		filter->m_errorStaMode = iGame::ErrorStaMode::All;
+		break;
+    */
+    default:
+		return false;
+    }
+
+    switch (p6)
+    {
+    case 0:
+        filter->m_cpStaMode = iGame::CompactnessMode::None;
+        break;
+    case 1:
+        filter->m_cpStaMode = iGame::CompactnessMode::BPV;
+        break;
+    case 2:
+        filter->m_cpStaMode = iGame::CompactnessMode::CompressRate;
+        break;
+    case 3:
+        filter->m_cpStaMode = iGame::CompactnessMode::All;
+        break;
+    default:
+        return false;
+    }
 
     filter->m_errorStaResult = p7;
     filter->m_cpStaResult = p8;
