@@ -51,9 +51,11 @@ void Model::Draw(SmartPointer<Scene> scene) {
         }
 
         if (viewStyle & IG_POINTS) {
-            auto shader = scene->GetShader(ShaderType::PURECOLOR);
+            //auto shader = scene->GetShader(ShaderType::PURECOLOR);
+            //shader->Use();
+            //shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
+            auto shader = scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
-            shader->SetUniform3f("inputColor", igm::vec3{0.5f, 0.5f, 0.5f});
 
             glad_glPointSize(drawObject->m_PointSize);
 
