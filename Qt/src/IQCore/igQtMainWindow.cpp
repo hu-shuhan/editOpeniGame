@@ -620,8 +620,8 @@ void igQtMainWindow::initAllFilters() {
                             1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
 
                     result += "\n几何相似性度量";
-                    result += "\n Squared Mean Distance: " + QString::number(d);
-                    result += "\n Mean Distance: " + QString::number(dd);
+                    result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+                    result += "\nMean Distance: " + QString::number(dd);
                     result += "\n\n累计几何误差: " + QString::number(filter->GetError());
                 } else {
                     result += "\n累计几何误差: " + QString::number(filter->GetError());
