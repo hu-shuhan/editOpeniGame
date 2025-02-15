@@ -52,4 +52,7 @@ void iGameStreamBase::ConvertToDrawableData() {
     if (m_Colors != nullptr) { m_UseColor = true; }
     isUpdate = false;
 }
+
+bool iGameStreamBase::IsUseSinglePassWireframeRendering() { return false; }
+
 IGAME_NAMESPACE_END

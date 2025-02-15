@@ -35,8 +35,8 @@ private:
     std::pair<int, int> CellIndexRange = std::pair<int, int>(0, 100000);
    // float maxLength;
     unsigned int count;
-    DrawType drawmode = CellInRange;
-    int Nth = 5;
+    DrawType drawmode = EveryNth;
+    int Nth = 2000;
     bool isUpdate = false;
 
 public:

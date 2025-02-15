@@ -24,6 +24,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        mesh->RequestEditStatus(); // Establishing Adjacency
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
@@ -31,6 +32,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        mesh->RequestEditStatus(); // Establishing Adjacency
     } else {
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
@@ -141,6 +143,39 @@ std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control, float proport
     }
     return tem;
 }
+float iGameStreamTracer::AccuracyCul(std::vector<std::vector<float>> streamline, float threshold,int Nth) {
+    int NumOfP = 0;
+    int TrueOfP = 0;
+    for (auto line : streamline) { 
+        auto tem = line.size()/3;
+        NumOfP += tem;
+        int t = Nth * 3;
+        for (int i =t; i < line.size(); i += t) {
+            int T;
+            if (i + t + 2 > line.size()) { T = (line.size() - 2 - i) / 3;
+            } else {
+                T = Nth;
+            }
+            Vector3f start(line[i - t], line[i - t+1], line[i - t+2]);
+            Vector3f end(line[i], line[i+1], line[i+2]);
+            auto step = (end - start) / T;
+            for (int j = 0; j < T; j++) { 
+                Vector3f real(line[i + 3 * j], line[i + 3 * j+1], line[i + 3 * j+2]);
+                Vector3f temV = real - start - step * j;
+                float len = temV.length();
+                if (len < threshold) { 
+                    TrueOfP++;
+                } else {
+                   //std:: cout << len <<std:: endl;
+                }
+            }
+        }
+    }
+    float ans = ((float)TrueOfP) / NumOfP;
+    return ans;
+    ;
+}
+
 std::vector<Vector3f> iGameStreamTracer::streamSeedGenerate(int control, float proportion,
                                                             int numOfseed) { // line
     // auto HexMesh =
@@ -196,6 +231,33 @@ std::vector<Vector3f> iGameStreamTracer::streamSeedGenerate(int control, float p
     }
     return tem;
 }
+std::vector<Vector3f> iGameStreamTracer::streamBoundSeedGenerate( int numOfseed) { // line
+    // auto HexMesh =
+    // iGameHexMesh::SafeDownCast(model->RenderMeshes[0]);//Subsequent update
+    // options
+
+    this->mesh = DynamicCast<VolumeMesh>(this->mesh);
+    auto allPoints = mesh->GetPoints();
+    int numOfPoints = mesh->GetNumberOfPoints();
+    mesh->RequestEditStatus(); // Establishing Adjacency
+    std::vector<Vector3f> tem;
+    // Point first = HexMesh->GetPoint(igIndex(0));
+    Point first = allPoints->GetPoint(igIndex(0));
+    float maxPosition[3] = {first[0], first[1], first[2]};
+    float minPosition[3] = {first[0], first[1], first[2]};
+    auto bound = mesh->GetBoundingBox();
+    float num = numOfseed;
+    auto step = (bound.max-bound.min)/num;
+    // std::cout << "max is" << maxPosition[0] << " "<<maxPosition[1] << " " <<
+    // maxPosition[2] << std::endl; std::cout << "min is" << minPosition[0] << " "
+    // << minPosition[1] << " " << minPosition[2] << std::endl;
+    for (int i = 0; i < num; i++) {
+
+      tem.emplace_back( bound.min + step* i);
+        
+    }
+    return tem;
+}
 
 std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector<Vector3f> seed, std::string vectorName,
                                                                      std::vector<std::vector<float>>& streamColor,
@@ -210,7 +272,11 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
         clock_t time1 = clock();
         auto PointData = mesh->GetAttributeSet();
         auto Vector = PointData->GetVector(vectorName);
-        bool isCell=CellData2PointData(vectorName);
+        if (Vector.GetAttachmentType() == IG_CELL) {
+            bool isCell = CellData2PointData(vectorName);
+            vectorName += "_Point";
+            auto Vector = PointData->GetVector(vectorName);
+        }
         int component = Vector.pointer->GetDimension();
         if (isChange) {
             _vector.clear();
@@ -335,10 +401,8 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
             // std::cout << "1" << std::endl;
             // std::cout << i << "end" <<clock()-time1<< std::endl;
         };
-         result[9] = tp->Commit(func, 9);
-         result[9].wait();
-        //for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
-        //for (int i = 0; i < seed.size(); i++) { result[i].wait(); }
+        for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
+        for (int i = 0; i < seed.size(); i++) { result[i].wait(); }
         return tem;
 
 
@@ -847,6 +911,9 @@ bool iGameStreamTracer::CellData2PointData(std::string vectorName) {
     }
     auto vecV = vec.pointer->GetDimension();
     std::vector<Vector3f> pointVector(numOfPoints);
+    auto chec1 = vec.pointer->GetNumberOfElements();
+    std::cout << chec1 << std::endl;
+    std::cout << numOfPoints << std::endl;
     std::vector<int> pointVectorNUM(numOfPoints); // The number of volumes to which the point belongs
     igIndex vhs[256];
     igIndex fhs[256];
@@ -865,7 +932,7 @@ bool iGameStreamTracer::CellData2PointData(std::string vectorName) {
     }
     FloatArray::Pointer VectorData = FloatArray::New();
     VectorData->SetDimension(3);
-    VectorData->SetName(vectorName);
+    VectorData->SetName(vectorName + "_Point");
     for (int i = 0; i < numOfPoints; i++) {
         for (int j = 0; j < vecV; j++) { VectorData->AddValue(pointVector[i][j] / pointVectorNUM[i]); }
     }
@@ -888,7 +955,10 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
             int numOfVolumes = mesh->GetNumberOfVolumes();
             for (int i = 0; i < numOfPoints; i++) {
                 Point a = mesh->GetPoint(i);
-                if ((a - coord).length() <= 0.001) { return _vector[0][i]; }
+                if ((a - coord).length() <= 0.001) {
+                    inside = true;
+                    return _vector[0][i];
+                }
             }
             if (ptFinder[0]) {
                 igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);

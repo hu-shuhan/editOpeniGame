@@ -41,7 +41,8 @@ public:
 	* @param[in] proportion Control seedline move proportion
 	* @param[in] numOfseed Input num of seed
 	*/
-	std::vector<Vector3f> streamSeedGenerate( int control, float proportion, int numOfseed);
+    std::vector<Vector3f> streamSeedGenerate(int control, float proportion, int numOfseed);
+    std::vector<Vector3f> streamBoundSeedGenerate(int numOfseed);
 	/**
 	* @brief Calculate the flow  line with admin's parameter.
 	* @param[in] seed  Input seed data
@@ -69,6 +70,7 @@ public:
 	}
     bool PtFinderEmpty() { return this->ptFinder.empty();
 	}
+    float AccuracyCul(std::vector<std::vector<float>> streamline, float threshold,int Nth);
 	std::vector<std::vector<float>> showStreamLineMix(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	std::vector<std::vector<float>> showStreamLineHex(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	/**

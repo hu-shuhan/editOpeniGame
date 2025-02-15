@@ -63,7 +63,7 @@ border:2px solid #EEF1F7
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>30</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -91,8 +91,9 @@ border:2px solid #EEF1F7
     <addaction name="action_compress"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
-	   <addaction name="action_SetThreadNum"/>
-	   <addaction name="action_CS"/>
+    <addaction name="action_SetThreadNum"/>
+    <addaction name="action_CS"/>
+    <addaction name="action_C"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -1417,12 +1418,17 @@ border:2px solid #EEF1F7
   </action>
   <action name="action_CS">
    <property name="text">
-    <string>传输测试</string>
+    <string>传输测试(S)</string>
    </property>
   </action>
   <action name="action_SetThreadNum">
    <property name="text">
     <string>线程数设置</string>
+   </property>
+  </action>
+  <action name="action_C">
+   <property name="text">
+    <string>传输测试(C)</string>
    </property>
   </action>
  </widget>

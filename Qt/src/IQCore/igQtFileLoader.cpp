@@ -36,7 +36,11 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 }
 
 igQtFileLoader::~igQtFileLoader() {}
-void igQtFileLoader::LoadOnline() {
+void igQtFileLoader::LoadOnlineS() {
+    std::thread server_thread(serverThread);
+    server_thread.join();
+}
+void igQtFileLoader::LoadOnlineC() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
                            "*.vtm *.cgns *.odb *.igc)",
                            "VTK file(*.vtk)",
@@ -49,8 +53,9 @@ void igQtFileLoader::LoadOnline() {
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     std::cout << filePath << std::endl;
-    CSTest(selected_idx, filePath);
-    this->OpenFile("D:/lab/build/red sea/ReceivedFile.igc");
+    std::thread client_thread(clientThread, selected_idx, filePath);
+    client_thread.join();
+    this->OpenFile("D:/ReceivedFile.igc");
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {

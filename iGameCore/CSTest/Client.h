@@ -66,7 +66,7 @@ void clientThread(int selected_idx, std::string filePath) {
 
     // 发送序列化后的数据
     send(clientSocket, serializedData.c_str(), serializedData.size() + 1, 0);
-    std::string saveDir = "D:/lab/build/red sea";
+    std::string saveDir = "D:";
     std::string savePath = saveDir + "/ReceivedFile.igc"; // 保存文件名
 
     // 2. 创建目录（如果不存在）
