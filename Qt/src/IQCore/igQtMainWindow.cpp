@@ -457,10 +457,10 @@ void igQtMainWindow::initAllComponents() {
             // 检查输入是否有效
             if (ok && newThreadCount > 0) {
                 // 检查线程数是否超过硬件支持的最大值
-                if (newThreadCount > maxThreads) {
+                /*if (newThreadCount > maxThreads) {
                     QMessageBox::warning(this, "错误", QString("线程数不能超过硬件支持的最大值: %1").arg(maxThreads));
                     return;
-                }
+                }*/
                 // 设置新的线程数
                 iGame::ThreadPool::SetDefaultThreadCount(newThreadCount);
                 QMessageBox::information(this, "成功", QString("并行线程数已设置为: %1").arg(newThreadCount));
@@ -1009,6 +1009,35 @@ void igQtMainWindow::initAllFilters() {
     auto action_tensorview = ui->menu_help->addAction("tensorview");
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
+                            ->GetDisplayObject();
+        auto jixiebi = SurfaceMesh::New();
+        auto faces = CellArray::New();
+
+        jixiebi->SetName("jixiebi");
+        auto a = DynamicCast<SurfaceMesh>(mesh);
+        jixiebi->SetPoints(a->GetPoints());
+        faces->Reserve(a->GetNumberOfFaces() * 12);
+        igIndex vhs[6] = {0};
+        for (int i = 0; i < a->GetNumberOfFaces(); i++) {
+            a->GetFaces()->GetCellIds(i, vhs);
+            faces->AddCellId3(vhs[0], vhs[1], vhs[5]);
+            faces->AddCellId3(vhs[1], vhs[2], vhs[3]);
+            faces->AddCellId3(vhs[1], vhs[3], vhs[5]);
+            faces->AddCellId3(vhs[3], vhs[4], vhs[5]);
+        }
+        jixiebi->SetFaces(faces);
+        auto attributeSet = a->GetAttributeSet();
+        auto as = jixiebi->GetAttributeSet();
+        for (int i = 0; i < attributeSet->GetNumberOfAttributes(); i++) {
+            if (attributeSet->GetAttribute(i).GetAttachmentType() == IG_POINT) {
+                as->AddAttribute(attributeSet->GetAttribute(i).GetType(),
+                                 attributeSet->GetAttribute(i).GetAttachmentType(),
+                                 attributeSet->GetAttribute(i).GetPointer());
+            }
+        }
+        modelTreeWidget->addDataObjectToModelTree(jixiebi, ItemSource::File);
+        return;
         //auto chart = new igQtCharts;
         //auto dataarray = rendererWidget->GetScene()
         //                         ->GetCurrentModel()
