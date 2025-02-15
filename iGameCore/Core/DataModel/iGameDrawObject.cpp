@@ -90,6 +90,15 @@ void DrawObject::ConvertToDrawableData() {
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ConvertToDrawableData); }
 }
 
+bool DrawObject::IsUseSinglePassWireframeRendering() { 
+    if (m_TriangleIndices->GetNumberOfElements() && m_TriangleEdgeMasks->GetNumberOfElements()) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 
 IGsize DrawObject::GetRealMemorySize() {
