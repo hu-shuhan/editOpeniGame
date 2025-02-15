@@ -791,6 +791,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
         int i, ncell;
         igIndex cell[32]{};
 
+        lineIndices->Reserve(this->GetNumberOfEdges());
         for (i = 0; i < this->GetNumberOfEdges(); i++) {
             ncell = this->GetEdgePointIds(i, cell);
             if (cell[0] < 0 || cell[1] < 0) {
