@@ -56,7 +56,7 @@ bool Simplification::Execute() {
     Initialize();
     UpdateProgress(0.01);
     InitQuadric();
-    UpdateProgress(0.05);
+    UpdateProgress(0.05); 
 
     ResetProgress(0.3);
     int blockNum = nedges / 100, progress = 0;
