@@ -190,11 +190,11 @@ void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
             float f, u;
             drawObject->GetPolygonOffsetParameters(f, u);
 
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(f, u);
             drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
                                               drawObject->m_CellPositionSize);
-            glDisable(GL_POLYGON_OFFSET_FILL);
+            //glDisable(GL_POLYGON_OFFSET_FILL);
 
             return;
         }
@@ -259,14 +259,14 @@ void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
             float f, u;
             drawObject->GetPolygonOffsetParameters(f, u);
 
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(f, u);
             drawObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
                     drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
-            glDisable(GL_POLYGON_OFFSET_FILL);
+            //glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 

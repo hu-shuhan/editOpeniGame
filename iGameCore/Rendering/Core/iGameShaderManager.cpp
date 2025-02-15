@@ -225,12 +225,10 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             SmartPointer<GLShader> vertex_vert = GLShader::CreateShader(
                     std::string("./Resources/Shaders/Vertex.vert"),
                     GL_VERTEX_SHADER);
-            vertex_vert->SetName("Vertex.vert");
 
             SmartPointer<GLShader> pbr_frag = GLShader::CreateShader(
                     std::string("./Resources/Shaders/PBR.frag"),
                     GL_FRAGMENT_SHADER);
-            pbr_frag->SetName("PBR.frag");
 
             sp->SetName("PBR");
             sp->AddShaders(vertex_vert, pbr_frag);
