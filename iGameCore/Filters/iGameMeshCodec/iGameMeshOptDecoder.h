@@ -62,7 +62,7 @@ public:
                 break;
             }
 
-            this->m_CallBack(progress);
+            UpdateProgress(progress);
 
             //switch (buf.type)
             //{
@@ -98,7 +98,7 @@ public:
             }
         }
 
-        this->m_CallBack(1.0);
+        UpdateProgress(1.0);
 
         return this->m_DecoderAdapter->GetDataObj();
     }
@@ -766,16 +766,26 @@ public:
     //    }
     //}
 
-    template<typename Functor, typename... Args>
+    /*template<typename Functor, typename... Args>
     void SetUpdateProgress(Functor&& functor, Args&&... args) {
         this->m_CallBack =
             std::bind(std::forward<Functor>(functor), std::forward<Args>(args)..., std::placeholders::_1);
-    }
+    }*/
 
 private:
     std::ifstream& m_BytestreamFile;
     MeshDecoderAdapter* m_DecoderAdapter;
-    std::function<void(double)> m_CallBack;
+    //std::function<void(double)> m_CallBack;
+
+    ProgressObserver* m_Progress{ nullptr };
+    void UpdateProgress(double p) {
+        if (m_Progress) {
+            m_Progress->UpdateProgress(p);
+        }
+        else {
+            m_Progress = ProgressObserver::Instance();
+        }
+    }
 };
 IGAME_NAMESPACE_END
 #endif
