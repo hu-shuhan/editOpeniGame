@@ -20,10 +20,15 @@ public:
 
     MeshEncoder() { SetNumberOfInputs(1); };
 
-    iGame::QuantMode PointQuantMode = iGame::QuantMode::FP16;
-    int PointQuantizedBits = 16;
-    iGame::QuantMode AttrbQuantMode = iGame::QuantMode::Float;
-    int AttrbQuantizedBits = 16;
+    QuantMode m_PointQuantMode = QuantMode::Float;
+    int m_PointQuantizedBits = 16;
+    QuantMode m_AttrbQuantMode = QuantMode::Float;
+    int m_AttrbQuantizedBits = 16;
+
+	ErrorStaMode m_errorStaMode = ErrorStaMode::None;
+	std::vector<std::string>* m_errorStaResult = nullptr;
+	CompactnessMode m_cpStaMode = CompactnessMode::None;
+	std::vector<std::string>* m_cpStaResult = nullptr;
 
     bool Execute() override {
         if (this->GetNumberOfInputs() == 0) { return false; }
@@ -43,10 +48,14 @@ public:
 
         // TODO: 临时添加的，怕影响MeshOptParameters，定义在MeshOptParameters下面
         ParamInformation inputParams;
-        inputParams.PointQuantMode = this->PointQuantMode;
-        inputParams.PointQuantizedBits = this->PointQuantizedBits;
-        inputParams.AttrbQuantMode = this->AttrbQuantMode;
-        inputParams.AttrbQuantizedBits = this->AttrbQuantizedBits;
+        inputParams.PointQuantMode = this->m_PointQuantMode;
+        inputParams.PointQuantizedBits = this->m_PointQuantizedBits;
+        inputParams.AttrbQuantMode = this->m_AttrbQuantMode;
+        inputParams.AttrbQuantizedBits = this->m_AttrbQuantizedBits;
+		inputParams.errorStaMode = this->m_errorStaMode;
+		inputParams.errorStaResult = this->m_errorStaResult;
+		inputParams.cpStaMode = this->m_cpStaMode;
+		inputParams.cpStaResult = this->m_cpStaResult;
         // 编码
         MeshOptParameters params;
         MeshOptEncoder encoder(this->m_BytestreamFile, this->m_DataObj, params, inputParams, m_IsDebugMode);
@@ -60,8 +69,6 @@ public:
     }
 
     void SetSaveFilePath(const std::string& path) { m_SaveFilePath = path; }
-
-    void SetDebugModeOn() { m_IsDebugMode = true; }
 
 private:
     std::ofstream m_BytestreamFile;

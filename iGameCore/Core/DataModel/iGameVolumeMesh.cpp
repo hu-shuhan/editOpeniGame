@@ -479,9 +479,12 @@ igIndex VolumeMesh::GetVolumeIdFormPointIds(igIndex* ids, int size) {
 
 void VolumeMesh::RequestEditStatus() {
 	if (InEditStatus()) { return; }
-	RequestPointStatus();
-	RequestFaceStatus();
-	RequestVolumeStatus();
+	if(this->IsPolyhedronType)InitPolyhedronVertices();
+	else {
+		RequestPointStatus();
+		RequestFaceStatus();
+		RequestVolumeStatus();
+	}
 	MakeEditStatusOn();
 }
 

@@ -37,7 +37,7 @@ protected:
 
     void Register(RenderWindow* _win_ptr);
 
-    std::vector<GLFWwindow*> m_GLFW_WindowPointerPool;
+    std::vector<GLFWwindow*> m_GLFWWindowPointerPool;
 };
 
 IGAME_NAMESPACE_END
