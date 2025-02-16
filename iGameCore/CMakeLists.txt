@@ -83,8 +83,8 @@ ENDIF ()
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-#        find_package(HDF5)
-#     target_link_libraries(
+#    find_package(HDF5)
+#    target_link_libraries(
 #             ${MODULE_NAME} PUBLIC
 #
 #             ${HDF5_LIBRARIES}/../libzlib.lib
