@@ -237,6 +237,7 @@ public:
 			for (auto it : vset) { ptIds[npts++] = it; }
 			m_Volumes->AddCellIds(ptIds, npts);
 		}
+		return ;
 		for (igIndex i = 0; i < CellNum; i++) {
 			std::set<igIndex> eset;
 			int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
@@ -280,7 +281,7 @@ public:
 		CellArray::Pointer VolumeFaces) {
 		m_VolumeFaces = VolumeFaces;
 		m_Faces = faces;
-		//InitPolyhedronVertices();
+		InitPolyhedronVertices();
 		this->IsPolyhedronType = true;
 	}
 	bool GetIsPolyhedronType() { return this->IsPolyhedronType; }

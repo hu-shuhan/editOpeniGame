@@ -1160,6 +1160,7 @@ struct ExtractUG : public ExtractCellBoundaries {
 int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	DataObject::Pointer input, SurfaceMesh::Pointer& output,
 	SurfaceMesh::Pointer exc) {
+	clock_t startTime=clock();
 	UnstructuredMesh::Pointer Grid = DynamicCast<UnstructuredMesh>(input);
 	//igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
 	//                     << Grid->GetNumberOfCells() << " cells.");
@@ -1238,7 +1239,9 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	}
 	delete[] FacePools;
 	FacePools=nullptr;
-	//igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+	clock_t endTime = clock();
+
+	igDebug("Extracted surface cost " << endTime - startTime << "ms.");
 	return 1;
 }
 
