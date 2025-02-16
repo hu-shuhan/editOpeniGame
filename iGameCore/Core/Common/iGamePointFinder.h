@@ -27,7 +27,7 @@ public:
 	void Initialize() {
 		if (!m_Points) { return; }
 		// m_NumberOfPointsPerBox = m_Threshold * m_Points->GetNumberOfPoints();
-		m_NumberOfPointsPerBox = std::sqrt(m_Points->GetNumberOfPoints());
+        m_NumberOfPointsPerBox = std::sqrt(m_Points->GetNumberOfPoints());
 		int numBoxes = m_Points->GetNumberOfPoints() / m_NumberOfPointsPerBox;
 		m_Depth = std::ceil(std::log10(numBoxes) / std::log10(8));
 		m_Depth = std::max(1, std::min(4, m_Depth));

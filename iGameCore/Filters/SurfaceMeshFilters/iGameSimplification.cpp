@@ -36,27 +36,28 @@ bool Simplification::Execute() {
     auto oldMesh = mesh;
     mesh = newMesh;
     SetOutput(newMesh);
+    std::vector<std::string> outInfo;
 
-    auto oldPoints = oldMesh->GetPoints();
-    PointFinder::Pointer oldPicker = PointFinder::New();
-    PointFinder::Pointer newPicker = PointFinder::New();
+    //auto oldPoints = oldMesh->GetPoints();
+    //PointFinder::Pointer oldPicker = PointFinder::New();
+    //PointFinder::Pointer newPicker = PointFinder::New();
 
-    oldPicker->SetPoints(oldPoints);
-    oldPicker->Initialize();
-    double w1 = 0.0, w2 = 0.0;
-    {
-        // 计算原始网格的表面积
-        igIndex face[16]{};
-        for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) { 
-            w1 += Normal(i).norm() / 2.0;
-        }
-    }
+    //oldPicker->SetPoints(oldPoints);
+    //oldPicker->Initialize();
+    //double w1 = 0.0, w2 = 0.0;
+    //{
+    //    // 计算原始网格的表面积
+    //    igIndex face[16]{};
+    //    for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) { 
+    //        w1 += Normal(i).norm() / 2.0;
+    //    }
+    //}
 
     // 初始化
     Initialize();
     UpdateProgress(0.01);
     InitQuadric();
-    UpdateProgress(0.05);
+    UpdateProgress(0.05); 
 
     ResetProgress(0.3);
     int blockNum = nedges / 100, progress = 0;
@@ -81,6 +82,7 @@ bool Simplification::Execute() {
         double pri = heap->top().priority;
         double geo_pri = heap->top().rest;
         int count = heap->top().count;
+        error += geo_pri;
 
         heap->pop();
 
@@ -206,46 +208,55 @@ bool Simplification::Execute() {
               << "The Number of Point: " << mesh->GetNumberOfPoints() << " ;The Number of Face: " << mesh->GetNumberOfFaces()
               << std::endl;
 
-    auto newPoints = mesh->GetPoints();
-    newPicker->SetPoints(newPoints);
-    newPicker->Initialize();
+    //auto newPoints = mesh->GetPoints();
+    //newPicker->SetPoints(newPoints);
+    //newPicker->Initialize();
 
-    if(false){
-        double d1 = 0.0, d2 = 0.0;
-        double d3 = 0.0, d4 = 0.0;
-        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
-            w2 += Normal(i).norm() / 2.0; 
-        }
+    //if(true){
+    //    double d1 = 0.0, d2 = 0.0;
+    //    double d3 = 0.0, d4 = 0.0;
+    //    for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
+    //        w2 += Normal(i).norm() / 2.0; 
+    //    }
 
-        // 计算平均平方距离
-        for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) { 
-            auto p = oldPoints->GetPoint(i);
+    //    int s = 0;
+    //    for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+    //        if (!isCollapsed[i]) s++;
+    //    }
+    //    std::cout << s << " " << oldPoints->GetNumberOfPoints() << std::endl;
+    //    // 计算平均平方距离
+    //    for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) { 
+    //        if (!isCollapsed[i]) continue;
 
-            igIndex id = newPicker->FindClosestPoint(p);
-            if (id != -1) { 
-                Point cp = newPoints->GetPoint(id);
-                d1 += (p - cp).squaredNorm();
-                d3 += (p - cp).norm();
-            }
-        }
+    //        auto p = oldPoints->GetPoint(i);
 
-        for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
-            auto p = newPoints->GetPoint(i);
+    //        igIndex id = newPicker->FindClosestPoint(p);
+    //        if (id != -1) { 
+    //            Point cp = newPoints->GetPoint(id);
+    //            d1 += (p - cp).squaredNorm();
+    //            d3 += (p - cp).norm();
+    //        }
+    //    }
 
-            igIndex id = oldPicker->FindClosestPoint(p);
-            if (id != -1) {
-                Point cp = oldPoints->GetPoint(id);
-                d2 += (p - cp).squaredNorm();
-                d4 += (p - cp).norm();
-            }
-        }
+    //    for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+    //        if (!isCollapsed[ptMap[i]]) continue;
 
-        double d = 1.0 / w1 * d1 + 1.0 / w2 * d2;
-        double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 + 1.0 / newPoints->GetNumberOfPoints() * d4;
-        std::cout << "Squared Mean Distance: " << d << "\n" 
-                  << "Mean Distance: " << dd
-                  << std::endl;
-    }
+    //        auto p = newPoints->GetPoint(i);
+
+    //        igIndex id = oldPicker->FindClosestPoint(p);
+    //        if (id != -1) {
+    //            Point cp = oldPoints->GetPoint(id);
+    //            d2 += (p - cp).squaredNorm();
+    //            d4 += (p - cp).norm();
+    //        }
+    //    }
+
+    //    double d = 1.0 / w1 * d1 + 1.0 / w2 * d2;
+    //    double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 + 1.0 / newPoints->GetNumberOfPoints() * d4;
+    //    std::cout << "Squared Mean Distance: " << d << "\n" 
+    //              << "Mean Distance: " << dd
+    //              << std::endl;
+    //}
 
     return true;
 }
@@ -266,6 +277,8 @@ void Simplification::Initialize() {
     InitMemory();
 
     InitAttributes();
+
+    isCollapsed.resize(npts);
 
     //{
     //    double T = 0;
@@ -457,7 +470,7 @@ void Simplification::InsertEdgeToHeap(igIndex edgeId) {
 
     if ((type == QEM_BOUNDARY_EDGE || type == QEM_HALF_BOUNDARY_EDGE) && PreserveBoundary) { return; }
 
-    double geo_priority;
+    double geo_priority = 0.0;
     double priority = ComputePriority(edgeId, geo_priority);
 
     if (priority != std::numeric_limits<double>::max()) { heap->push(priority, edgeId, 1, geo_priority); }
@@ -710,6 +723,7 @@ double Simplification::ComputePriority(igIndex edgeId, double& geo_priority) {
     Quadric<double> q = quadrics[e[0]];
     q += quadrics[e[1]];
     double error = q.apply(optimalPos[edgeId]);
+    
 
     if (newQuality > this->QualityThr) newQuality = this->QualityThr;
 
@@ -721,6 +735,7 @@ double Simplification::ComputePriority(igIndex edgeId, double& geo_priority) {
 
     error = std::max(error, this->QuadricEpsilon);
     if (error <= this->QuadricEpsilon) { error *= (v0 - v1).norm(); }
+    geo_priority = error;
 
     double priority = std::numeric_limits<double>::max();
     if (QualityCheck && newQuality < 0.1 && newQuality < origQuality) { return priority; }

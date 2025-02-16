@@ -295,10 +295,9 @@ void Scene::InitOpenGL() {
                 "=====================================================");
     }
 
-    glEnable(GL_DEPTH_TEST);
+#ifdef GL_SUPPORTS_MSAA
     glEnable(GL_MULTISAMPLE);
-    //glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#endif
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
     glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
@@ -689,10 +688,6 @@ void Scene::DrawFrame() {
         glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // use reversed-z buffer
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_GEQUAL);
-
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
@@ -767,9 +762,21 @@ void Scene::RenderToQtFrame() {
     m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-void Scene::ShadowPass() { GLCheckError(); }
+void Scene::ShadowPass() {
+    // use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+
+    glDisable(GL_DEPTH_TEST);
+
+    GLCheckError();
+}
 
 void Scene::ForwardPass() {
+    // use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+
 #ifdef IGAME_OPENGL_VERSION_330
     for (auto& [id, model]: m_Models) {
         model->Draw(this);
@@ -787,7 +794,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase 1: generate loacl hierarchical z-buffer & cull data
-    RefreshDepthHzb();
+    RefreshHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -797,7 +804,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
 #else
     for (auto& [id, model]: m_Models) {
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
@@ -813,7 +820,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase1: generate loacl hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -823,7 +830,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
 #endif // GL_SUPPORTS_MESH_SHADER
 #else
     for (auto& [id, model]: m_Models) {
@@ -837,11 +844,19 @@ void Scene::ForwardPass() {
 #endif // GL_DEBUG_CULLING
 
 #endif
+
+    glDisable(GL_DEPTH_TEST);
+
     GLCheckError();
 }
 
 void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
+    // Enable blending to use the alpha channel for transparency.
+    // Without blending, the alpha value in the color will be ignored.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // 1.reset oit pipeline status
     {
         auto shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
@@ -896,6 +911,8 @@ void Scene::TransparentPass() {
         m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
     }
     glEnable(GL_DEPTH_TEST);
+
+    glDisable(GL_BLEND);
 #endif
     GLCheckError();
 }
@@ -1260,5 +1277,3 @@ void Scene::DoneCurrent() {
 }
 
 IGAME_NAMESPACE_END
-
-

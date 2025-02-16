@@ -190,11 +190,11 @@ void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
             float f, u;
             drawObject->GetPolygonOffsetParameters(f, u);
 
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(f, u);
             drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
                                               drawObject->m_CellPositionSize);
-            glDisable(GL_POLYGON_OFFSET_FILL);
+            //glDisable(GL_POLYGON_OFFSET_FILL);
 
             return;
         }
@@ -259,14 +259,14 @@ void Model::DrawWithTransparency(SmartPointer<Scene> scene) {
             float f, u;
             drawObject->GetPolygonOffsetParameters(f, u);
 
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(f, u);
             drawObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
                     drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
-            glDisable(GL_POLYGON_OFFSET_FILL);
+            //glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
@@ -413,7 +413,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             unsigned int meshletCount = m_Meshleter->m_MeshletCount;
             shader->SetUniformui("meshletCount", meshletCount);
 
-            scene->DepthPyramid()->Active(GL_TEXTURE1);
+            scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("depthPyramid", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
@@ -548,7 +548,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
             shader->SetUniformui("invisibleMeshletCount",
                                  invisibleMeshletCount);
 
-            scene->DepthPyramid()->Active(GL_TEXTURE1);
+            scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("depthPyramid", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);

@@ -4,6 +4,7 @@
 //
 #include "Compression/iGameDecoder.h"
 #include "Compression/iGameEncoder.h"
+#include "Interactor/iGameInteractor.h"
 #include "SurfaceMeshFilters/iGameGradient.h"
 #include "SurfaceMeshFilters/iGameSimplification.h"
 #include "SurfaceMeshFilters/iGameSimplification2.h"
@@ -13,8 +14,6 @@
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-#include <meshoptimizer.h>
-#include "Interactor/iGameInteractor.h"
 #include "iGameARAPTest.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -37,8 +36,9 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
-#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
+#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <meshoptimizer.h>
 #include <stdio.h>
 
 #include <QMessageBox>
@@ -55,11 +55,11 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 }
-void igQtMainWindow::initArgs(const QStringList &args) {
+void igQtMainWindow::initArgs(const QStringList& args) {
     int argc = args.size();
-    for(int i = 1; i < argc; ++ i){
+    for (int i = 1; i < argc; ++i) {
         const QString& cur_arg = args[i].toLower();
-        if(cur_arg == "--filepath" && ++ i < argc){
+        if (cur_arg == "--filepath" && ++i < argc) {
             const QString& filePath = args[i];
             fileLoader->OpenFile(filePath.toStdString());
         }
@@ -201,16 +201,18 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
-    connect(ui->action_ChangeBackground, &QAction::triggered, this, [&](){
+    connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
+        int R = 0, G = 0, B = 0;
         if (dialog.exec() == QDialog::Accepted) {
-            const auto& input = dialog.getInput();
-            iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(input[0], input[1], input[2]);
+            auto input = dialog.getInput();
+            R = input[0], G = input[1], B = input[2];
         }
+        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
-        [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
+            [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
@@ -218,8 +220,8 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
         dialog->setFilterTitle("压缩");
-        dialog->setFilterDescription(
-            "自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: 保留原始格式; 1ULP误差: 浮点数绝对误差/(2^-23)");
+        dialog->setFilterDescription("自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: "
+                                     "保留原始格式; 1ULP误差: 浮点数绝对误差/(2^-23)");
         std::vector<QString> defaultValue1;
         defaultValue1.push_back("自定义量化位数");
         defaultValue1.push_back("FP16");
@@ -264,37 +266,21 @@ void igQtMainWindow::initAllComponents() {
         QWidget* widget1 = dialog->getWidget(id1);
         QWidget* widget3 = dialog->getWidget(id3);
 
-        if (widget1)
-        {
-            connect(
-                qobject_cast<QComboBox*>(widget1),
-                QOverload<int>::of(&QComboBox::currentIndexChanged),
-                this,
-                [=](int index) {
-                    dialog->getWidget(id2)->setEnabled(index == 0);
-                }
-            );
+        if (widget1) {
+            connect(qobject_cast<QComboBox*>(widget1), QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                    [=](int index) { dialog->getWidget(id2)->setEnabled(index == 0); });
         }
 
-        if (widget3)
-        {
-            connect(
-                qobject_cast<QComboBox*>(widget3),
-                QOverload<int>::of(&QComboBox::currentIndexChanged),
-                this,
-                [=](int index) {
-                    dialog->getWidget(id4)->setEnabled(index == 0);
-                }
-            );
+        if (widget3) {
+            connect(qobject_cast<QComboBox*>(widget3), QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                    [=](int index) { dialog->getWidget(id4)->setEnabled(index == 0); });
         }
 
         dialog->show();
         dialog->setApplyFunctor([=]() {
             std::string destFilePath =
-                QFileDialog::getSaveFileName(
-                    nullptr, "Compress file as ", "",
-                    "Compress Mesh(*.igc)")
-                .toStdString();
+                    QFileDialog::getSaveFileName(nullptr, "Compress file as ", "", "Compress Mesh(*.igc)")
+                            .toStdString();
             if (destFilePath.empty()) {
                 igDebug("Could not save file with error file path\n");
                 return;
@@ -304,32 +290,24 @@ void igQtMainWindow::initAllComponents() {
             std::vector<std::string> errorStatus;
             std::vector<std::string> compactnessStatus;
 
-            ok = fileLoader->Compress(
-                dialog->getComboIndex(id1, ok),
-                dialog->getInt(id2, ok),
-                dialog->getComboIndex(id3, ok),
-                dialog->getInt(id4, ok),
-                dialog->getComboIndex(id5, ok),
-                dialog->getComboIndex(id6, ok),
-                dialog->getComboIndex(id5, ok) != 0 ? &errorStatus : nullptr,
-                dialog->getComboIndex(id6, ok) != 0 ? &compactnessStatus : nullptr,
-                destFilePath
-            );
+            ok = fileLoader->Compress(dialog->getComboIndex(id1, ok), dialog->getInt(id2, ok),
+                                      dialog->getComboIndex(id3, ok), dialog->getInt(id4, ok),
+                                      dialog->getComboIndex(id5, ok), dialog->getComboIndex(id6, ok),
+                                      dialog->getComboIndex(id5, ok) != 0 ? &errorStatus : nullptr,
+                                      dialog->getComboIndex(id6, ok) != 0 ? &compactnessStatus : nullptr, destFilePath);
 
             if (ok) {
                 QString result = "压缩成功\n\n";
-                if (dialog->getComboIndex(id5, ok) != 0)
-                {
+                if (dialog->getComboIndex(id5, ok) != 0) {
                     result += "误差统计\n";
-                    for (const std::string& l : errorStatus) {
+                    for (const std::string& l: errorStatus) {
                         result += QString::fromStdString(l);
                         result += "\n";
                     }
                 }
-                if (dialog->getComboIndex(id6, ok) != 0)
-                {
+                if (dialog->getComboIndex(id6, ok) != 0) {
                     result += "\n压缩率统计\n";
-                    for (const std::string& l : compactnessStatus) {
+                    for (const std::string& l: compactnessStatus) {
                         result += QString::fromStdString(l);
                         result += "\n";
                     }
@@ -337,10 +315,9 @@ void igQtMainWindow::initAllComponents() {
 
                 QMessageBox::information(this, "压缩成功", result);
                 dialog->close();
-            }
-            else
+            } else
                 QMessageBox::information(this, "压缩失败", "请检查是否正确载入数据");
-            });
+        });
     });
 
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
@@ -458,19 +435,18 @@ void igQtMainWindow::initAllComponents() {
         int currentThreadCount = iGame::ThreadPool::GetDefaultThreadCount();
         int maxThreads = std::thread::hardware_concurrency();
         QString recommendedThreads = QString::number(maxThreads / 2);
-        dialog->setFilterDescription(
-            QString("当前并行线程数: %1<br>"
-                "硬件支持的最大线程数: %2<br>"
-                "推荐线程数: %3<br>"
-                "注意: 设置并行线程数会影响程序的性能。<br>"
-                "建议根据硬件配置合理设置线程数。")
-            .arg(currentThreadCount)
-            .arg(maxThreads)
-            .arg(recommendedThreads)
-        );
+        dialog->setFilterDescription(QString("当前并行线程数: %1<br>"
+                                             "硬件支持的最大线程数: %2<br>"
+                                             "推荐线程数: %3<br>"
+                                             "注意: 设置并行线程数会影响程序的性能。<br>"
+                                             "建议根据硬件配置合理设置线程数。")
+                                             .arg(currentThreadCount)
+                                             .arg(maxThreads)
+                                             .arg(recommendedThreads));
 
         // 添加参数：线程数输入框
-        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "并行线程数", QString::number(currentThreadCount));
+        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "并行线程数",
+                                       QString::number(currentThreadCount));
         // 显示对话框
         dialog->show();
         // 设置应用按钮的回调函数
@@ -481,20 +457,19 @@ void igQtMainWindow::initAllComponents() {
             // 检查输入是否有效
             if (ok && newThreadCount > 0) {
                 // 检查线程数是否超过硬件支持的最大值
-                if (newThreadCount > maxThreads) {
+                /*if (newThreadCount > maxThreads) {
                     QMessageBox::warning(this, "错误", QString("线程数不能超过硬件支持的最大值: %1").arg(maxThreads));
                     return;
-                }
+                }*/
                 // 设置新的线程数
                 iGame::ThreadPool::SetDefaultThreadCount(newThreadCount);
                 QMessageBox::information(this, "成功", QString("并行线程数已设置为: %1").arg(newThreadCount));
                 dialog->close();
-            }
-            else {
+            } else {
                 QMessageBox::warning(this, "错误", "请输入有效的线程数（大于0的整数）。");
             }
-            });
         });
+    });
 
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
@@ -514,14 +489,13 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
         int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
-        int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh",
-                                              "true");
-        int scalarId =
-                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ", "true");
+        int preserveId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
+        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
+                                            "true");
 
         dialog->show();
         dialog->setApplyFunctor([=]() {
-
             Triangulation::Pointer triangulation = Triangulation::New();
             auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
             triangulation->SetInput(obj);
@@ -542,9 +516,62 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
             dialog->close();
         });
-
     });
 
+    QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
+    connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        if (obj->HasSubDataObject()) { obj = obj->GetSubDataObject(0); }
+        QString result = "";
+        auto mesh = DynamicCast<PointSet>(obj);
+        auto array = DoubleArray::New();
+        array->SetName("Compute_Radius");
+        array->Reserve(mesh->GetNumberOfPoints());
+        auto error = DoubleArray::New();
+        error->SetName("Error");
+        error->Reserve(mesh->GetNumberOfPoints());
+        auto points = mesh->GetPoints();
+        double radius = 0.0;
+        double r = 0.0;
+        double wucha = 0.0;
+        double Min = 1e9;
+        double Max = 0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            auto p = mesh->GetPoint(i);
+            r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+            array->AddValue(r);
+        }
+        auto bound = mesh->GetBoundingBox();
+        double a = bound.max[0] - bound.min[0];
+        double b = bound.max[1] - bound.min[1];
+        double c = bound.max[2] - bound.min[2];
+        radius = (a + b + c) / 6;
+        double value = 0.0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            value = abs(array->GetValue(i) - radius);
+            wucha += value;
+            error->AddValue(value);
+            Max = std::max(Max, value);
+            Min = std::min(Min, value);
+        }
+        std::cout << wucha << '\n';
+        wucha /= mesh->GetNumberOfPoints();
+        wucha /= radius;
+        wucha *= 100;
+        DoubleArray::Pointer range = DoubleArray::New();
+        range->AddValue(0);
+        range->AddValue(Max * 4);
+
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, array);
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, error, range);
+
+        modelTreeWidget->updateAllAttriubute(mesh);
+        result += "\n计算得到半径为" + QString::number(radius);
+        result += "\n误差为" + QString::number(wucha) + "%";
+        QMessageBox::information(this, "球形判断", result);
+    });
 
     /*
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
@@ -566,7 +593,7 @@ void igQtMainWindow::initAllFilters() {
         size_t vertex_count = mesh->GetNumberOfPoints();
         size_t vertex_positions_stride = sizeof(float) * 3;
         float* vertex_attributes = nullptr;
-        
+
         // vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
         size_t vertex_attributes_stride = sizeof(float);
         float attribute_weights[1]{1};
@@ -593,7 +620,7 @@ void igQtMainWindow::initAllFilters() {
         //size_t result_size =
         //        meshopt_simplify(destination, indices, index_count, vertex_positions, vertex_count,
         //                         vertex_positions_stride, target_index_count, target_error, options, result_error);
-        
+
 
         //size_t result_size =
         //        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
@@ -601,7 +628,7 @@ void igQtMainWindow::initAllFilters() {
         auto Mesh = SurfaceMesh::New();
         auto Faces = CellArray::New();
         std::cout << result_size << std::endl;
-        for (int i = 0; i < target_index_count / 3; i++) { 
+        for (int i = 0; i < target_index_count / 3; i++) {
             Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
         }
 
@@ -651,8 +678,8 @@ void igQtMainWindow::initAllFilters() {
 
                     return CrossProduct(d10, d20).norm() / 2;
                 };
-                
-                
+
+
                 auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
                 int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
                 if (index == -1) index = 0;
@@ -663,7 +690,7 @@ void igQtMainWindow::initAllFilters() {
                 auto mesh = DynamicCast<SurfaceMesh>(obj);
 
                 //auto mesh = DynamicCast<SurfaceMesh>(DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh());
-                
+
                 auto& attrb = mesh->GetAttributeSet()->GetAttribute(index).pointer;
                 int d = attrb->GetDimension();
                 FloatArray::Pointer scalar = FloatArray::New();
@@ -672,31 +699,31 @@ void igQtMainWindow::initAllFilters() {
 
                 std::vector<double> L(mesh->GetNumberOfPoints());
 
-                for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+                for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
                     double area = 0.0;
                     double val[8]{0.0};
                     double sum_cot = 0.0;
                     igIndex ids[64]{0};
                     int size = mesh->GetPointToNeighborEdges(i, ids);
-                    for (int j = 0; j < size; j++) { 
+                    for (int j = 0; j < size; j++) {
                         igIndex e[2]{0}, id[2]{0}, f[3]{0};
                         mesh->GetEdgePointIds(ids[j], e);
                         int size1 = mesh->GetEdgeToNeighborFaces(ids[j], id);
                         double cot = 0.0;
-                        for (int k = 0; k < size1; k++) { 
+                        for (int k = 0; k < size1; k++) {
                             mesh->GetFacePointIds(id[k], f);
                             cot += getCot(mesh->GetPoint(f[0] + f[1] + f[2] - e[0] - e[1]), mesh->GetPoint(e[0]),
                                    mesh->GetPoint(e[1]));
                         }
                         cot /= size1;
                         sum_cot += cot;
-                        
+
                         for (int k = 0; k < d; k++) {
                             val[k] += cot *
                                       (attrb->GetValue(i * d + k) - attrb->GetValue((e[0] + e[1] - i) * d + k));
                         }
                     }
-                    for (int k = 0; k < d; k++) { 
+                    for (int k = 0; k < d; k++) {
                         val[k] = val[k] / sum_cot;
                     }
                     scalar->AddElement(val);
@@ -705,7 +732,7 @@ void igQtMainWindow::initAllFilters() {
                     //int size = mesh->GetPointToNeighborFaces(i, ids);
                     //double p = attrb->GetValue(i);
                     //Point v = mesh->GetPoint(i);
-                    //for (int j = 0; j < size; j++) { 
+                    //for (int j = 0; j < size; j++) {
                     //    igIndex f[3]{0};
                     //    mesh->GetFacePointIds(ids[j], f);
                     //    val += (p - (attrb->GetValue(f[0]) + attrb->GetValue(f[1]) + attrb->GetValue(f[2])) / 3) /
@@ -716,7 +743,7 @@ void igQtMainWindow::initAllFilters() {
                 }
                 //double minVal = 1e27;
                 //double maxVal = -1e27;
-                //for (int i = 0; i < scalar->GetNumberOfValues(); i++) { 
+                //for (int i = 0; i < scalar->GetNumberOfValues(); i++) {
                 //    //if (std::abs(scalar->GetValue(i)) > 100) {
                 //    //    scalar->SetValue(i, 100 * scalar->GetValue(i) / std::abs(scalar->GetValue(i)));
                 //    //}
@@ -743,11 +770,11 @@ void igQtMainWindow::initAllFilters() {
                 //mesh->GetEdgeToNeighborFaces(edgeId, f);
                 //CellArray::Pointer cells = CellArray::New();
                 //std::vector<int> visited(mesh->GetNumberOfFaces(), 0);
-                //for (int i = 0; i < size; i++) { 
-                //    if (ids[i] != f[0] && ids[i] != f[1]) { 
+                //for (int i = 0; i < size; i++) {
+                //    if (ids[i] != f[0] && ids[i] != f[1]) {
                 //        mesh->GetFacePointIds(ids[i], fids);
-                //        for (int j = 0; j < 3; j++) { 
-                //            if (fids[j] == e[0] || fids[j] == e[1]) { 
+                //        for (int j = 0; j < 3; j++) {
+                //            if (fids[j] == e[0] || fids[j] == e[1]) {
                 //                fids[j] = e[0];
                 //                break;
                 //            }
@@ -758,8 +785,8 @@ void igQtMainWindow::initAllFilters() {
                 //}
                 //mesh->SetPoint(e[0], new_p);
                 //mesh->SetPoint(e[1], new_p);
-                //for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
-                //    if (visited[i] == 0) { 
+                //for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+                //    if (visited[i] == 0) {
                 //        mesh->DeleteFace(i);
                 //    }
                 //}
@@ -769,7 +796,7 @@ void igQtMainWindow::initAllFilters() {
                 modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
                 rendererWidget->update();
 
-                
+
                 //Mesh->SetPoints(mesh->GetPoints());
                 //Mesh->SetFaces(cells);
                 //modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
@@ -881,9 +908,25 @@ void igQtMainWindow::initAllFilters() {
     });
     */
     connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        StructuredMesh::Pointer mesh = StructuredMesh::New();
+        Points::Pointer points = Points::New();
+        int x = 100, y = 100, z = 100;
+        igIndex dim[3] = {x, y, z};
+        double step[3] = {1.0 / x, 1.0 / y, 1.0 / z};
+        points->Reserve(x * y * z);
+        for (int i = 0; i < x; i++) {
+            for (int j = 0; j < y; j++) {
+                for (int k = 0; k < z; k++) {
+                    points->AddPoint(Point{float(i * step[0]), float(j * step[1]), float(k * step[2])});
+                }
+            }
+        }
+        mesh->SetDimensionSize(dim);
+        mesh->SetPoints(points);
+        mesh->GenStructuredCellConnectivities();
+        mesh->SetName("undefined_mesh");
+        modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::File);
     });
-
 
     connect(ui->action_test_03, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1018,8 +1061,75 @@ void igQtMainWindow::initAllFilters() {
     //    });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
+    //action_tensorview->hide();
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
+        // StructuredMesh::Pointer mesh = StructuredMesh::New();
+        // Points::Pointer points = Points::New();
+        // int x = 50, y = 50, z = 50;
+        // igIndex dim[3] = {x, y, z};
+        // double step[3] = {1.0 / x, 1.0 / y, 1.0 / z};
+        // points->Reserve(x * y * z);
+        // auto array = DoubleArray::New();
+        // array->SetName("radius");
+        // array->Reserve(x * y * z);
+        // for (int i = 0; i < x; i++) {
+        //     for (int j = 0; j < y; j++) {
+        //         for (int k = 0; k < z; k++) {
+        //             points->AddPoint(
+        //                     Point{float(i * step[0] - 0.5), float(j * step[1] - 0.5), float(k * step[2] - 0.5)});
+        //         }
+        //     }
+        // }
+        // double r;
+        // for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+        //     auto p = points->GetPoint(i);
+        //     r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+        //     array->AddValue(r);
+        // }
+        // mesh->SetDimensionSize(dim);
+        // mesh->SetPoints(points);
+        // mesh->GenStructuredCellConnectivities();
+        // mesh->SetName("undefined_mesh");
+        // auto box = VolumeMesh::New();
+        // box->SetPoints(mesh->GetPoints());
+        // box->SetVolumes(mesh->GetVolumes());
+        // auto attribute = box->GetAttributeSet();
+        // attribute->AddAttribute(IG_SCALAR, IG_POINT, array);
+        // modelTreeWidget->addDataObjectToModelTree(box, ItemSource::File);
+        // return;
+
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+
+
+        // auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
+        //                     ->GetDisplayObject();
+        // auto jixiebi = SurfaceMesh::New();
+        // auto faces = CellArray::New();
+        //
+        // jixiebi->SetName("jixiebi");
+        // auto a = DynamicCast<SurfaceMesh>(mesh);
+        // jixiebi->SetPoints(a->GetPoints());
+        // faces->Reserve(a->GetNumberOfFaces() * 12);
+        // igIndex vhs[6] = {0};
+        // for (int i = 0; i < a->GetNumberOfFaces(); i++) {
+        //     a->GetFaces()->GetCellIds(i, vhs);
+        //     faces->AddCellId3(vhs[0], vhs[1], vhs[5]);
+        //     faces->AddCellId3(vhs[1], vhs[2], vhs[3]);
+        //     faces->AddCellId3(vhs[1], vhs[3], vhs[5]);
+        //     faces->AddCellId3(vhs[3], vhs[4], vhs[5]);
+        // }
+        // jixiebi->SetFaces(faces);
+        // auto attributeSet = a->GetAttributeSet();
+        // auto as = jixiebi->GetAttributeSet();
+        // for (int i = 0; i < attributeSet->GetNumberOfAttributes(); i++) {
+        //     if (attributeSet->GetAttribute(i).GetAttachmentType() == IG_POINT) {
+        //         as->AddAttribute(attributeSet->GetAttribute(i).GetType(),
+        //                          attributeSet->GetAttribute(i).GetAttachmentType(),
+        //                          attributeSet->GetAttribute(i).GetPointer());
+        //     }
+        // }
+        // modelTreeWidget->addDataObjectToModelTree(jixiebi, ItemSource::File);
+        // return;
         //auto chart = new igQtCharts;
         //auto dataarray = rendererWidget->GetScene()
         //                         ->GetCurrentModel()

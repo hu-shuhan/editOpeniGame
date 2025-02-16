@@ -1055,7 +1055,7 @@ static void Contour(Triangle::Pointer cell, double* cellValues, PointFinder::Poi
     for (i = 0; i < 3; i++) {
         if (cellValues[i] >= 0.0) { CaseIndex |= MASK[i]; }
     }
-    auto ContourData = (tetraCases + CaseIndex)->contour;
+    auto ContourData = (triangleCases + CaseIndex)->contour;
     for (; *ContourData != -1; ContourData += 2) {
         for (i = 0; i < 2; i++) {
             vert = Triangle::edges[ContourData[i]];
