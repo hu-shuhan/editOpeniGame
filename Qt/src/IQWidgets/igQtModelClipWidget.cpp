@@ -19,7 +19,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->radioButton_Mesh, &QRadioButton::toggled, this, [&](bool isChecked) {
         if (isChecked) { this->SetViewMode(IG_MESH_MODE); }
     });
-    ui->radioButton_Mesh->setChecked(true);
+    ui->radioButton_Clip->setChecked(true);
 
     QRegularExpression rx("-?\\d*\\.?\\d+");
     ui->lineEdit_origin_x->setValidator(new QRegularExpressionValidator(rx, this));

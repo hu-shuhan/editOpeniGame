@@ -518,6 +518,60 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
+    connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        if (obj->HasSubDataObject()) { obj = obj->GetSubDataObject(0); }
+        QString result = "";
+        auto mesh = DynamicCast<PointSet>(obj);
+        auto array = DoubleArray::New();
+        array->SetName("Compute_Radius");
+        array->Reserve(mesh->GetNumberOfPoints());
+        auto error = DoubleArray::New();
+        error->SetName("Error");
+        error->Reserve(mesh->GetNumberOfPoints());
+        auto points = mesh->GetPoints();
+        double radius = 0.0;
+        double r = 0.0;
+        double wucha = 0.0;
+        double Min = 1e9;
+        double Max = 0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            auto p = mesh->GetPoint(i);
+            r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+            array->AddValue(r);
+        }
+        auto bound = mesh->GetBoundingBox();
+        double a = bound.max[0] - bound.min[0];
+        double b = bound.max[1] - bound.min[1];
+        double c = bound.max[2] - bound.min[2];
+        radius = (a + b + c) / 6;
+        double value = 0.0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            value = abs(array->GetValue(i) - radius);
+            wucha += value;
+            error->AddValue(value);
+            Max = std::max(Max, value);
+            Min = std::min(Min, value);
+        }
+        std::cout << wucha << '\n';
+        wucha /= mesh->GetNumberOfPoints();
+        wucha /= radius;
+        wucha *= 100;
+        DoubleArray::Pointer range = DoubleArray::New();
+        range->AddValue(0);
+        range->AddValue(Max * 4);
+
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, array);
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, error, range);
+
+        modelTreeWidget->updateAllAttriubute(mesh);
+        result += "\n计算得到半径为" + QString::number(radius);
+        result += "\n误差为" + QString::number(wucha) + "%";
+        QMessageBox::information(this, "球形判断", result);
+    });
 
     /*
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
@@ -1007,37 +1061,77 @@ void igQtMainWindow::initAllFilters() {
     //    });
 
     auto action_tensorview = ui->menu_help->addAction("tensorview");
+    //action_tensorview->hide();
     connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
-                            ->GetDisplayObject();
-        auto jixiebi = SurfaceMesh::New();
-        auto faces = CellArray::New();
+        // StructuredMesh::Pointer mesh = StructuredMesh::New();
+        // Points::Pointer points = Points::New();
+        // int x = 50, y = 50, z = 50;
+        // igIndex dim[3] = {x, y, z};
+        // double step[3] = {1.0 / x, 1.0 / y, 1.0 / z};
+        // points->Reserve(x * y * z);
+        // auto array = DoubleArray::New();
+        // array->SetName("radius");
+        // array->Reserve(x * y * z);
+        // for (int i = 0; i < x; i++) {
+        //     for (int j = 0; j < y; j++) {
+        //         for (int k = 0; k < z; k++) {
+        //             points->AddPoint(
+        //                     Point{float(i * step[0] - 0.5), float(j * step[1] - 0.5), float(k * step[2] - 0.5)});
+        //         }
+        //     }
+        // }
+        // double r;
+        // for (int i = 0; i < points->GetNumberOfPoints(); i++) {
+        //     auto p = points->GetPoint(i);
+        //     r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+        //     array->AddValue(r);
+        // }
+        // mesh->SetDimensionSize(dim);
+        // mesh->SetPoints(points);
+        // mesh->GenStructuredCellConnectivities();
+        // mesh->SetName("undefined_mesh");
+        // auto box = VolumeMesh::New();
+        // box->SetPoints(mesh->GetPoints());
+        // box->SetVolumes(mesh->GetVolumes());
+        // auto attribute = box->GetAttributeSet();
+        // attribute->AddAttribute(IG_SCALAR, IG_POINT, array);
+        // modelTreeWidget->addDataObjectToModelTree(box, ItemSource::File);
+        // return;
 
-        jixiebi->SetName("jixiebi");
-        auto a = DynamicCast<SurfaceMesh>(mesh);
-        jixiebi->SetPoints(a->GetPoints());
-        faces->Reserve(a->GetNumberOfFaces() * 12);
-        igIndex vhs[6] = {0};
-        for (int i = 0; i < a->GetNumberOfFaces(); i++) {
-            a->GetFaces()->GetCellIds(i, vhs);
-            faces->AddCellId3(vhs[0], vhs[1], vhs[5]);
-            faces->AddCellId3(vhs[1], vhs[2], vhs[3]);
-            faces->AddCellId3(vhs[1], vhs[3], vhs[5]);
-            faces->AddCellId3(vhs[3], vhs[4], vhs[5]);
-        }
-        jixiebi->SetFaces(faces);
-        auto attributeSet = a->GetAttributeSet();
-        auto as = jixiebi->GetAttributeSet();
-        for (int i = 0; i < attributeSet->GetNumberOfAttributes(); i++) {
-            if (attributeSet->GetAttribute(i).GetAttachmentType() == IG_POINT) {
-                as->AddAttribute(attributeSet->GetAttribute(i).GetType(),
-                                 attributeSet->GetAttribute(i).GetAttachmentType(),
-                                 attributeSet->GetAttribute(i).GetPointer());
-            }
-        }
-        modelTreeWidget->addDataObjectToModelTree(jixiebi, ItemSource::File);
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        mesh->GetAttributeSet()->TransformScalars2VectorArray();
         return;
+
+        // auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
+        //                     ->GetDisplayObject();
+        // auto jixiebi = SurfaceMesh::New();
+        // auto faces = CellArray::New();
+        //
+        // jixiebi->SetName("jixiebi");
+        // auto a = DynamicCast<SurfaceMesh>(mesh);
+        // jixiebi->SetPoints(a->GetPoints());
+        // faces->Reserve(a->GetNumberOfFaces() * 12);
+        // igIndex vhs[6] = {0};
+        // for (int i = 0; i < a->GetNumberOfFaces(); i++) {
+        //     a->GetFaces()->GetCellIds(i, vhs);
+        //     faces->AddCellId3(vhs[0], vhs[1], vhs[5]);
+        //     faces->AddCellId3(vhs[1], vhs[2], vhs[3]);
+        //     faces->AddCellId3(vhs[1], vhs[3], vhs[5]);
+        //     faces->AddCellId3(vhs[3], vhs[4], vhs[5]);
+        // }
+        // jixiebi->SetFaces(faces);
+        // auto attributeSet = a->GetAttributeSet();
+        // auto as = jixiebi->GetAttributeSet();
+        // for (int i = 0; i < attributeSet->GetNumberOfAttributes(); i++) {
+        //     if (attributeSet->GetAttribute(i).GetAttachmentType() == IG_POINT) {
+        //         as->AddAttribute(attributeSet->GetAttribute(i).GetType(),
+        //                          attributeSet->GetAttribute(i).GetAttachmentType(),
+        //                          attributeSet->GetAttribute(i).GetPointer());
+        //     }
+        // }
+        // modelTreeWidget->addDataObjectToModelTree(jixiebi, ItemSource::File);
+        // return;
         //auto chart = new igQtCharts;
         //auto dataarray = rendererWidget->GetScene()
         //                         ->GetCurrentModel()

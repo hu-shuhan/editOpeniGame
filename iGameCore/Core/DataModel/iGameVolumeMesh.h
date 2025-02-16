@@ -201,7 +201,6 @@ public:
         igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
         igIndex ptIds[64]{}, edgeIds[64]{}, faceIds[64]{};
         IGsize npts, nedges;
-
         for (igIndex i = 0; i < CellNum; i++) {
             std::set<igIndex> vset;
             int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
@@ -213,7 +212,6 @@ public:
             for (auto it: vset) { ptIds[npts++] = it; }
             m_Volumes->AddCellIds(ptIds, npts);
         }
-        return;
         for (igIndex i = 0; i < CellNum; i++) {
             std::set<igIndex> eset;
             int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
@@ -252,7 +250,9 @@ public:
     void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
         m_VolumeFaces = VolumeFaces;
         m_Faces = faces;
-        InitPolyhedronVertices();
+        m_Volumes = CellArray::New();
+        m_Volumes->SetNumberOfCells(VolumeFaces->GetNumberOfCells());
+        // InitPolyhedronVertices();
         this->IsPolyhedronType = true;
     }
     bool GetIsPolyhedronType() { return this->IsPolyhedronType; }

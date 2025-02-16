@@ -36,9 +36,12 @@ if (ENABLE_CGNS_MODULE)
         set(HDF5_DIR "$ENV{HDF5_HOME}/cmake")
     else ()
         #        set(HDF5_DIR "D:/dev/HDF5/1.13.0/share/cmake")
-        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        #        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        set(HDF5_DIR "D:/OpeniGame/1.13.0/share/cmake")
 
     endif ()
+    set(HDF5_BUILD_SHARED_LIBS OFF)
     add_subdirectory(CGNS)
+
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
