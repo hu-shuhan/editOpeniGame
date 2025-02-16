@@ -1170,13 +1170,17 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 			break;
 		}
 	}
-	if (is3D == false) {
+	if (is3D == false) {		
 		auto surfaceMesh = Grid->TransferToSurfaceMesh();
+		if (surfaceMesh == nullptr) {
+			return 0;
+		}
 		if (!ExecuteWithSurfaceMesh(Grid->TransferToSurfaceMesh(), output)) {
 			output = surfaceMesh;
 		}
 		return 1;
 	}
+    clock_t startTime=clock();
 	igIndex i = 0, j = 0, k = 0;
 	igIndex64 cellId = 0, pointId = 0;
 	igIndex64 numCells = Grid->GetNumberOfCells();
@@ -1235,7 +1239,8 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 	}
 	delete[] FacePools;
 	FacePools=nullptr;
-	//igDebug("Extracted surface cost " << time2 - time1 << "ms.");
+    clock_t endTime=clock();
+	igDebug("Extracted surface cost " << endTime-startTime << "ms.");
 	return 1;
 }
 

@@ -41,8 +41,8 @@ public:
 		case IG_EMPTY_CELL:
 			return 0;
 		case IG_VERTEX:
-			return 1;
 		case IG_LINE:
+			return 1;
 		case IG_FACE:
 		case IG_TRIANGLE:
 		case IG_QUAD:

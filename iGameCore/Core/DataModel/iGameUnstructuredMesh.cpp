@@ -333,7 +333,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime() ||
         m_ReConvertToDrawableData) {
         m_ReConvertToDrawableData = false;
-
+        bool ShellSuccess=true;
         if (m_ExecuteShell) {
             iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
 
@@ -353,10 +353,12 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 SetDisplayObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
-                igError("Failed to execute the shell algorithm.");
+                ShellSuccess=false;
+                this->m_DisplayObject=nullptr;
+                //igError("Failed to execute the shell algorithm.");
             }
-        } else {
-
+        } 
+        if(ShellSuccess==false) {
             auto pointIndices = UnsignedIntArray::New();
             pointIndices->SetDimension(1);
             auto edgeIndices = UnsignedIntArray::New();

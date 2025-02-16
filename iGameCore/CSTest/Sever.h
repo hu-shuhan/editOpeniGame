@@ -59,7 +59,7 @@ bool LoadAndCompress(std::string filePath) {
     filter->m_AttrbQuantizedBits = 16;
 
     filter->SetNumberOfInputs(1);
-    filter->SetSaveFilePath("D:/lab/build/SendTest.igc");
+    filter->SetSaveFilePath("D:/SendTest.igc");
     filter->SetInput(tem);
 
     if (!filter->Execute()) {
@@ -123,10 +123,10 @@ void serverThread() {
             OpenCmd recCmd;
             recCmd.deserialize(buffer);
             auto check = LoadAndCompress(recCmd.filePath);
-            std::ifstream file("D:/lab/build/SendTest.igc", std::ios::binary | std::ios::ate);
+            std::ifstream file("D:/SendTest.igc", std::ios::binary | std::ios::ate);
             if (!file.is_open()) {
                 std::cerr << "文件打开失败: "
-                          << "D:/lab/build/SendTest.igc" << std::endl;
+                          << "D:/SendTest.igc" << std::endl;
                 return;
             }
 
