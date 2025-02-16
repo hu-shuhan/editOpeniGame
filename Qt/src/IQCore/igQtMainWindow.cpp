@@ -638,7 +638,46 @@ void igQtMainWindow::initAllFilters() {
 
     });
 
-
+    
+    QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
+    connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel()==nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        QString result = "";
+        auto mesh = DynamicCast<PointSet>(obj);
+        auto array = DoubleArray::New();
+        array->SetName("Compute_Radius");
+        array->Reserve(mesh->GetNumberOfPoints());
+        auto points = mesh->GetPoints();
+        double radius;
+        double r;
+        double wucha;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            auto p = mesh->GetPoint(i);
+            r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+            array->AddValue(r);
+            radius += r;
+        }
+        radius /= mesh->GetNumberOfPoints();
+        auto bound = mesh->GetBoundingBox();
+       double a= bound.max[0] - bound.min[0];
+        double b = bound.max[1] - bound.min[1];
+       double c = bound.max[2] - bound.min[2];
+        radius = (a + b + c) / 6;
+        double value;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+             value= array->GetValue(i);
+            wucha += abs(value - radius);
+        }
+        wucha /= mesh->GetNumberOfPoints();
+        wucha /= radius;
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, array);
+        modelTreeWidget->updateAllAttriubute(mesh);
+        result += "\n计算得到半径为" + QString::number(radius);
+        result += "\n误差为" + QString::number(wucha) + "%";
+        QMessageBox::information(this, "简化成功", result);
+    });
     /*
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
             this, [&](bool checked) {
