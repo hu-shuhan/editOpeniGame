@@ -58,7 +58,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     Vector3d p1 = bbox.min;
     Vector3d p7 = bbox.max;
     float len = (bbox.max - bbox.min).length();
-    pickRadius = len * 0.005;
+    pickRadius = len * 0.01;
 
     if (boxHandle != 0) { m_Painter3D->Delete(boxHandle); }
     m_Painter3D->SetPen(1);

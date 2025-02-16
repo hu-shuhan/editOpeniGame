@@ -1181,7 +1181,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(
 		}
 		return 1;
 	}
-    clock_t startTime=clock();
+    startTime=clock();
 	igIndex i = 0, j = 0, k = 0;
 	igIndex64 cellId = 0, pointId = 0;
 	igIndex64 numCells = Grid->GetNumberOfCells();

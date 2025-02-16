@@ -53,6 +53,7 @@ protected:
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Painter3D> m_Painter3D;
 
+private:
     int selectId; // 0:center 1:head 2:rear 3:line
 
     igm::mat4 mvp;
