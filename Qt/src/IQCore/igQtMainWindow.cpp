@@ -1099,9 +1099,7 @@ void igQtMainWindow::initAllFilters() {
         // return;
 
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        mesh->GetAttributeSet()->TransformScalars2VectorArray();
-        return;
+
 
         // auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
         //                     ->GetDisplayObject();

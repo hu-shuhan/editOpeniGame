@@ -19,7 +19,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->radioButton_Mesh, &QRadioButton::toggled, this, [&](bool isChecked) {
         if (isChecked) { this->SetViewMode(IG_MESH_MODE); }
     });
-    ui->radioButton_Clip->setChecked(true);
+    ui->radioButton_Mesh->setChecked(true);
 
     QRegularExpression rx("-?\\d*\\.?\\d+");
     ui->lineEdit_origin_x->setValidator(new QRegularExpressionValidator(rx, this));
@@ -140,7 +140,6 @@ void igQtModelClipWidget::ClipModel() {
                 m_Contourer->Execute();
                 auto out = m_Contourer->GetContourMesh();
                 if (out) {
-                    std::cout << out->GetNumberOfPoints() << " " << out->GetNumberOfCells() << '\n';
                     m_ResultMesh->SetPoints(out->GetPoints());
                     m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
                     m_ResultMesh->SetAttributeSet(out->GetAttributeSet());
