@@ -28,6 +28,7 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
 
     parent->setItemWidget(this, 1, buttonWidget);
 
+    view_wireframe->setChecked(false);
     show();
 
     view_bbox->setConcernFunctor(&ModelTreeWidgetItem::showBoundingBox, this);
@@ -47,17 +48,16 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
                                        this);
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem,
                                       this);
-
     this->parent=parent;
 }
 iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
 
 void ModelTreeWidgetItem::setModel(iGame::Model::Pointer model) {
     this->model = model;
-    view_wireframe->setChecked(true);
     view_fill->setChecked(true);
     view_pickedItem->setChecked(true);
-    showWireframe();
+//    view_wireframe->setChecked(true);
+//    showWireframe();
     showFill();
     showPickedItem();
 }
