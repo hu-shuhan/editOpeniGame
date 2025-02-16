@@ -162,12 +162,10 @@ bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
         vcnt = inFaces->GetCellSize(i);
         if (vcnt == 3) {
             type = IG_TRIANGLE;
-        }
-        else if (vcnt == 4) {
+        } else if (vcnt == 4) {
             type = IG_QUAD;
-        }
-        else {
-           type=IG_POLYGON;
+        } else {
+            type = IG_POLYGON;
         }
         Types->SetValue(i, type);
     }
@@ -181,23 +179,24 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
     int volumeNum = mesh->GetNumberOfVolumes();
     auto Volumes = mesh->GetVolumes();
     UnsignedIntArray::Pointer CellTypes = UnsignedIntArray::New();
-    CellTypes->Reserve(volumeNum);
     igIndex vcnt = 0;
     igIndex vhs[IGAME_CELL_MAX_SIZE];
     if (mesh->GetIsPolyhedronType()) {
+        CellTypes->Resize(volumeNum);
         std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + volumeNum, IG_POLYHEDRON);
-        igIndex realVcnt=0;
-        igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };
-        igIndex realVhs[IGAME_CELL_MAX_SIZE] = { 0 };
+        igIndex realVcnt = 0;
+        igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
+        igIndex realVhs[IGAME_CELL_MAX_SIZE] = {0};
         igIndex fcnt = 0;
-        igIndex fhs[IGAME_CELL_MAX_SIZE] = { 0 };
-        igIndex i=0,j=0;
-        auto inFaces= mesh->GetFaces();
-        auto realCells=CellArray::New();
+        igIndex fhs[IGAME_CELL_MAX_SIZE] = {0};
+        igIndex i = 0, j = 0;
+        auto inFaces = mesh->GetFaces();
+        auto realCells = CellArray::New();
         realCells->Reserve(inFaces->GetNumberOfCellIds());
         for (igIndex cellId = 0; cellId < volumeNum; cellId++) {
             realVcnt = 0;
             fcnt = mesh->GetVolumeFaceIds(cellId, fhs);
+            realVhs[realVcnt++] = fcnt;
             for (i = 0; i < fcnt; i++) {
                 vcnt = inFaces->GetCellIds(fhs[i], vhs);
                 realVhs[realVcnt++] = vcnt;
@@ -209,6 +208,7 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
         this->SetCells(realCells, CellTypes);
         this->SetAttributeSet(mesh->GetAttributeSet());
     } else {
+        CellTypes->Reserve(volumeNum);
         for (igIndex i = 0; i < volumeNum; i++) {
             vcnt = Volumes->GetCellIds(i, vhs);
             switch (vcnt) {
@@ -333,7 +333,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime() ||
         m_ReConvertToDrawableData) {
         m_ReConvertToDrawableData = false;
-        bool ShellSuccess=true;
+        bool ShellSuccess = true;
         if (m_ExecuteShell) {
             iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
 
@@ -353,12 +353,12 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 SetDisplayObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
-                ShellSuccess=false;
-                this->m_DisplayObject=nullptr;
+                ShellSuccess = false;
+                this->m_DisplayObject = nullptr;
                 //igError("Failed to execute the shell algorithm.");
             }
-        } 
-        if(ShellSuccess==false) {
+        }
+        if (ShellSuccess == false) {
             auto pointIndices = UnsignedIntArray::New();
             pointIndices->SetDimension(1);
             auto edgeIndices = UnsignedIntArray::New();

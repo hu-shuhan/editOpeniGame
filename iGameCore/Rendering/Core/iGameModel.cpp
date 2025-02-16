@@ -413,7 +413,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             unsigned int meshletCount = m_Meshleter->m_MeshletCount;
             shader->SetUniformui("meshletCount", meshletCount);
 
-            scene->DepthPyramid()->Active(GL_TEXTURE1);
+            scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("depthPyramid", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
@@ -548,7 +548,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
             shader->SetUniformui("invisibleMeshletCount",
                                  invisibleMeshletCount);
 
-            scene->DepthPyramid()->Active(GL_TEXTURE1);
+            scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("depthPyramid", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);

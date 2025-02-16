@@ -1,9 +1,9 @@
 #include "IQWidgets/igQtModelClipWidget.h"
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameSceneManager.h"
+#include "iGameThreadPool.h"
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
-#include "iGameThreadPool.h"
 igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(new Ui::ModelClipWidget) {
     ui->setupUi(this);
     connect(ui->pushButton, &QPushButton::clicked, this, [&]() {
@@ -76,7 +76,6 @@ void igQtModelClipWidget::ClipModel() {
     if (!this->m_OriginDataObject) return;
     switch (m_ViewMode) {
         case igQtModelClipWidget::IG_CLIP_MODE: {
-
             clock_t time_1 = clock();
             auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
             auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();

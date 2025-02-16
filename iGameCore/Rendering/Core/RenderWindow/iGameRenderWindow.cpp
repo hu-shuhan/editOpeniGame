@@ -122,16 +122,25 @@ void iGame::RenderWindow::Show() {
         glfwMakeContextCurrent(m_Window);
         /* Render here */
         if (m_Scene) {
-            //static auto startTime = std::chrono::high_resolution_clock::now();
-            //auto currentTime = std::chrono::high_resolution_clock::now();
-            //float time =
-            //        std::chrono::duration<float, std::chrono::seconds::period>(
-            //                currentTime - startTime)
-            //                .count();
-            //m_Scene->m_ModelMatrix =
-            //        igm::rotate(igm::mat4{1.0f},
-            //                    time * static_cast<float>(igm::radians(90.0f)),
-            //                    igm::vec3{0.0f, 1.0f, 0.0f});
+            // static auto startTime = std::chrono::high_resolution_clock::now();
+            // auto currentTime = std::chrono::high_resolution_clock::now();
+            // float time =
+            //         std::chrono::duration<float, std::chrono::seconds::period>(
+            //                 currentTime - startTime)
+            //                 .count();
+            //
+            // igm::vec4 center = m_Scene->m_ModelsBoundingSphere;
+            // igm::mat4 translateToOrigin =
+            //         igm::translate(igm::mat4{}, -center.xyz());
+            // igm::mat4 translateBack = igm::translate(igm::mat4{}, center.xyz());
+            // igm::mat4 rotate =
+            //         igm::rotate(igm::mat4{1.0f},
+            //                     time * static_cast<float>(igm::radians(90.0f)),
+            //                     igm::vec3{0.0f, 1.0f, 0.0f});
+            // igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+            //
+            // m_Scene->m_ModelMatrix = rotateSelf;
+
             m_Scene->Draw();
         }
         /* Swap front and back buffers */

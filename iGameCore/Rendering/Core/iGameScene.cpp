@@ -794,7 +794,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase 1: generate loacl hierarchical z-buffer & cull data
-    RefreshDepthHzb();
+    RefreshHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -804,7 +804,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
 #else
     for (auto& [id, model]: m_Models) {
         auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
@@ -820,7 +820,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase1: generate loacl hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
     RefreshDrawCullDataBuffer();
 
     // draw phase2: draw invisible meshlet
@@ -830,7 +830,7 @@ void Scene::ForwardPass() {
     }
 
     // refresh phase2: generate global hierarchical z-buffer
-    RefreshDepthHzb();
+    RefreshHzb();
 #endif // GL_SUPPORTS_MESH_SHADER
 #else
     for (auto& [id, model]: m_Models) {
@@ -1277,5 +1277,3 @@ void Scene::DoneCurrent() {
 }
 
 IGAME_NAMESPACE_END
-
-

@@ -160,7 +160,6 @@ bool ContourFilter::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm) {
     auto um = UnstructuredMesh::New();
     um->GenerateFromSurfaceMesh(sm);
     return this->ExecuteWithUnstructuredMesh(um);
-    return true;
 }
 bool ContourFilter::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm) {
     if (!vm || vm->GetIsPolyhedronType() == false) { return false; }
