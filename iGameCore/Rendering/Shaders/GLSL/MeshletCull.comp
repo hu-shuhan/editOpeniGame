@@ -40,7 +40,7 @@ layout(std430, binding = 2) buffer DrawCommandBuffer {
 // Final visible meshlet info
 layout(std430, binding = 3)  buffer VisibleMeshletBuffer{
     uint count;
-    uint IDs[];
+// uint IDs[];
 } visibleMeshletBuffer;
 
 // Final indirect draw command buffer
@@ -73,7 +73,7 @@ void main() {
         if (drawCommandBuffer.commands[id].primCount == 0) {
             if (IsVisible(meshlet)) {
                 uint oldValue = atomicAdd(visibleMeshletBuffer.count, 1);
-                visibleMeshletBuffer.IDs[oldValue] = id;
+                // visibleMeshletBuffer.IDs[oldValue] = id;
 
                 finalDrawCommandBuffer.commands[oldValue].count = drawCommandBuffer.commands[id].count;
                 finalDrawCommandBuffer.commands[oldValue].primCount = 1;
@@ -87,7 +87,7 @@ void main() {
             // Write a draw command if the meshlet is visible
             drawCommandBuffer.commands[id].primCount = 1;
             uint oldValue = atomicAdd(visibleMeshletBuffer.count, 1);
-            visibleMeshletBuffer.IDs[oldValue] = id;
+            // visibleMeshletBuffer.IDs[oldValue] = id;
 
             finalDrawCommandBuffer.commands[oldValue].count = drawCommandBuffer.commands[id].count;
             finalDrawCommandBuffer.commands[oldValue].primCount = 1;

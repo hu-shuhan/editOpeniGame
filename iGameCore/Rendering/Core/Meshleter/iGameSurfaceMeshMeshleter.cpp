@@ -201,9 +201,11 @@ void SurfaceMeshMeshleter::Build() {
 
             m_VisibleMeshletBuffer->Create();
             m_VisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            m_VisibleMeshletBuffer->Allocate(meshlet_count *
-                                                     sizeof(unsigned int),
-                                             nullptr, GL_DYNAMIC_DRAW);
+            m_VisibleMeshletBuffer->Allocate(sizeof(unsigned int), nullptr,
+                                             GL_DYNAMIC_DRAW);
+            // m_VisibleMeshletBuffer->Allocate((1 + meshlet_count) *
+            //                                          sizeof(unsigned int),
+            //                                  nullptr, GL_DYNAMIC_DRAW);
 
             m_FinalDrawCommandBuffer->Create();
             m_FinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
