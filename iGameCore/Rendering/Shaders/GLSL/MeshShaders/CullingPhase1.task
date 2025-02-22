@@ -27,7 +27,7 @@ layout(std140, binding = 11) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
-    uint hzbWidth, hzbHeight;// depth pyramid size in texels
+    uint hzbWidth, hzbHeight;// hierarchical z-buffer size in texels
 } cullData;
 
 layout(std430, binding = 12) /*coherent*/ buffer InvisibleMeshletBuffer {
@@ -114,8 +114,8 @@ bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 
 }
 
 int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
-    vec2 pyramidSize = vec2(cullData.hzbWidth, cullData.hzbHeight);
-    ivec4 aabbPixels = ivec4(aabb * pyramidSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
+    vec2 hzbSize = vec2(cullData.hzbWidth, cullData.hzbHeight);
+    ivec4 aabbPixels = ivec4(aabb * hzbSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
 
     const int maxPixelOffset = desiredFootprintPixels - 1;
     const int mipOffset = int(log2(float(desiredFootprintPixels))) - 1;
