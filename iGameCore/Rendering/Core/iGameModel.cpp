@@ -414,7 +414,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             shader->SetUniformui("meshletCount", meshletCount);
 
             scene->m_HzbTexture->Active(GL_TEXTURE1);
-            shader->SetUniformi("depthPyramid", 1);
+            shader->SetUniformi("hzbSampler", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
@@ -549,7 +549,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                                  invisibleMeshletCount);
 
             scene->m_HzbTexture->Active(GL_TEXTURE1);
-            shader->SetUniformi("depthPyramid", 1);
+            shader->SetUniformi("hzbSampler", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
@@ -632,7 +632,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                 cullDataBuffer->BindBase(5);
 
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
-                shader->SetUniformi("depthPyramid", 1);
+                shader->SetUniformi("hzbSampler", 1);
 
                 auto count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(((count + 255) / 256), 1, 1);
@@ -722,7 +722,7 @@ void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
                 cullDataBuffer->BindBase(5);
 
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
-                shader->SetUniformi("depthPyramid", 1);
+                shader->SetUniformi("hzbSampler", 1);
 
                 size_t count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,

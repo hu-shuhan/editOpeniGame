@@ -77,15 +77,10 @@ const void VTKWriter::WriteWithStructuredMeshType()
 const void VTKWriter::WriteWithSurfaceMeshType()
 {
 	WriteHeaderToBuffer();
-    std::cout << "123\n";
 	WritePointsToBuffer(m_SurfaceMesh->GetPoints());
-    std::cout << "123\n";
 	WriteCellsToBuffer(m_SurfaceMesh->GetFaces());
-    std::cout << "123\n";
 	WritePointsAttributesToBuffer(m_SurfaceMesh->GetAttributeSet());
-    std::cout << "123\n";
 	WriteCellsAttributesToBuffer(m_SurfaceMesh->GetAttributeSet());
-    std::cout << "123\n";
 	this->TransferBuffer();
 }
 const void VTKWriter::WriteDimensionSizeToBuffer()

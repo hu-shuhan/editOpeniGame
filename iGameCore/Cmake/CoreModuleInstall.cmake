@@ -10,7 +10,7 @@ if (CORE_MODULE_INSTALL)
             ARCHIVE DESTINATION lib/ThirdParty
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
-    if(ENABLE_CGNS_MODULE)
+    if (ENABLE_CGNS_MODULE)
         find_package(HDF5)
         message(WARNING ${HDF5_LIBRARIES})
         install(FILES
@@ -22,39 +22,39 @@ if (CORE_MODULE_INSTALL)
                 ${HDF5_LIBRARIES}/../libaec.lib
                 DESTINATION lib/ThirdParty)
 
-#        install(FILES
-#                ${HDF5_DIR}/../../lib/libhdf5.lib
-#                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
-#                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
-#                ${HDF5_DIR}/../../lib/libzlib.lib
-#                ${HDF5_DIR}/../../lib/libsz.lib
-#                ${HDF5_DIR}/../../lib/libaec.lib
-#                DESTINATION lib/ThirdParty)
+        #        install(FILES
+        #                ${HDF5_DIR}/../../lib/libhdf5.lib
+        #                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
+        #                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
+        #                ${HDF5_DIR}/../../lib/libzlib.lib
+        #                ${HDF5_DIR}/../../lib/libsz.lib
+        #                ${HDF5_DIR}/../../lib/libaec.lib
+        #                DESTINATION lib/ThirdParty)
 
-#        file(GLOB )
+        #        file(GLOB )
     endif ()
 
-    
+
     install(DIRECTORY ${Eigen_INCLUDE_DIRS} DESTINATION include/ThirdParty/eigen-3.4.0/Eigen)
 
-    if(${AbqSDK_FOUND})
+    if (${AbqSDK_FOUND})
         install(DIRECTORY ${AbqSDK_PRIVATE_INCLUDE_DIRS} DESTINATION include/ThirdParty/AbaqusSDK
                 FILES_MATCHING PATTERN "*.h"
                 PATTERN "*/" EXCLUDE
                 PATTERN "2024/win_b64" EXCLUDE
         )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
-#        message(WARNING ${AbqSDK_DLL_DIR})
+        #        message(WARNING ${AbqSDK_DLL_DIR})
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 
         foreach (LIB ${ABQ_LIB_LIST})
-#            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib/ThirdParty/AbaqusSDK)
+            #            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib/ThirdParty/AbaqusSDK)
             file(COPY ${temp${LIB}} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/AbaqusSDK)
         endforeach ()
     endif ()
-    if(${FFMPEG_FOUND})
-      
+    if (${FFMPEG_FOUND})
+
         install(DIRECTORY ${FFMPEG_PRIVATE_INCLUDE_DIR} DESTINATION include/ThirdParty/FFMPEG FILES_MATCHING PATTERN "*.h")
         file(GLOB DLL_FILES "${FFMPEG_DLL_DIR}/*.dll")
 
@@ -62,12 +62,12 @@ if (CORE_MODULE_INSTALL)
         list(APPEND ThirdParty_lib_dependency ${FFMPEG_LIB_LIST})
 
         foreach (LIB ${FFMPEG_LIB_LIST})
-#            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib)
+            #            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib)
             file(COPY ${temp${LIB}} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/FFMPEG)
         endforeach ()
     endif ()
 
-    # ∞≤◊∞√ø∏ˆ◊”ƒø¬ºœ¬µƒÕ∑Œƒº˛
+    # ÂÆâË£ÖÊØè‰∏™Â≠êÁõÆÂΩï‰∏ãÁöÑÂ§¥Êñá‰ª∂
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Core" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty" DESTINATION include FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Filters" DESTINATION include FILES_MATCHING PATTERN "*.h")
@@ -80,13 +80,13 @@ if (CORE_MODULE_INSTALL)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders/GLSL" DESTINATION Resources/Shaders)
 
 
-    # µº≥ˆƒ£øÈµƒ CMake ≈‰÷√Œƒº˛£¨π©∆‰À˚œÓƒø≤È’“ π”√
+    # ÂØºÂá∫Ê®°ÂùóÁöÑ CMake ÈÖçÁΩÆÊñá‰ª∂Ôºå‰æõÂÖ∂‰ªñÈ°πÁõÆÊü•Êâæ‰ΩøÁî®
     install(EXPORT ${MODULE_NAME}Targets
             FILE ${MODULE_NAME}Targets.cmake
-            NAMESPACE ${MODULE_NAME}::               # …Ë÷√√¸√˚ø’º‰£¨±„”⁄ find_package
+            NAMESPACE ${MODULE_NAME}::               # ËÆæÁΩÆÂëΩÂêçÁ©∫Èó¥Ôºå‰æø‰∫é find_package
             DESTINATION lib/cmake/${MODULE_NAME})
 
-    # ¥¥Ω®≈‰÷√Œƒº˛“‘∞Ô÷˙ find_package  π”√
+    # ÂàõÂª∫ÈÖçÁΩÆÊñá‰ª∂‰ª•Â∏ÆÂä© find_package ‰ΩøÁî®
     include(CMakePackageConfigHelpers)
     write_basic_package_version_file(
             "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}ConfigVersion.cmake"
@@ -98,7 +98,7 @@ if (CORE_MODULE_INSTALL)
             DESTINATION lib/cmake/${MODULE_NAME}
     )
 
-    # …˙≥…∫Õ∞≤◊∞ ${MODULE_NAME}Config.cmake Œƒº˛
+    # ÁîüÊàêÂíåÂÆâË£Ö ${MODULE_NAME}Config.cmake Êñá‰ª∂
     configure_file(Cmake/iGameCoreModuleConfig.cmake.in
             "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake" @ONLY)
     install(FILES

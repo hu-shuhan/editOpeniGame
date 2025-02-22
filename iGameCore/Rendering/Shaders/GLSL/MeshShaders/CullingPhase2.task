@@ -27,7 +27,7 @@ layout(std140, binding = 11) uniform CullDataBlock {
     mat4 view_model;
     float P00, P11, zNear, zFar;// symmetric projection parameters
     vec4 frustum;// data for left/right/top/bottom frustum planes
-    uint pyramidWidth, pyramidHeight;// depth pyramid size in texels
+    uint hzbWidth, hzbHeight;// hierarchical z-buffer size in texels
 } cullData;
 
 layout(std430, binding = 12) /*coherent*/ buffer InvisibleMeshletBuffer {
@@ -42,7 +42,7 @@ taskNV out Task {
 uniform uint invisibleMeshletCount;
 
 // hierarchical z-buffer
-uniform sampler2D depthPyramid;
+uniform sampler2D hzbSampler;
 
 bool IsVisible(MeshletDescriptor meshletDescriptor);
 
@@ -105,14 +105,14 @@ bool ProjectSphere(vec3 C, float r, float zNear, float P00, float P11, out vec4 
     aabb = vec4(0.5f, 0.5f, 0.5f, 0.5f) - vec4(0.5f, 0.5f, 0.5f, 0.5f) * aabb;// clip space -> uv space
 
     // Vulkan uv -> OpenGL uv
-    aabb = vec4(aabb.x, 1.0f - aabb.w, aabb.z, 1.0f - aabb.y);
+    aabb = vec4(aabb.z, 1.0f - aabb.w, aabb.x, 1.0f - aabb.y);
 
     return true;
 }
 
 int GetMipLevelFromAABB(vec4 aabb, int desiredFootprintPixels) {
-    vec2 pyramidSize = vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    ivec4 aabbPixels = ivec4(aabb * pyramidSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
+    vec2 hzbSize = vec2(cullData.hzbWidth, cullData.hzbHeight);
+    ivec4 aabbPixels = ivec4(aabb * hzbSize.xyxy + vec4(0.5f, 0.5f, -0.5f, -0.5f));
 
     const int maxPixelOffset = desiredFootprintPixels - 1;
     const int mipOffset = int(log2(float(desiredFootprintPixels))) - 1;
@@ -158,17 +158,17 @@ float GetMinDepthFromHZB(vec4 aabb, bool bSample4x4) {
         for (uint y = 0; y < 4; ++y) {
             for (uint x = 0; x < 4; ++x) {
                 vec2 sampleCoord = minCoord + vec2(x, y) * stepSize;
-                float depth = textureLod(depthPyramid, sampleCoord, level).r;
+                float depth = textureLod(hzbSampler, sampleCoord, level).r;
                 minDepth = min(minDepth, depth);
             }
         }
     } else {
         float level = float(GetMipLevelFromAABB(aabb, 2));
 
-        float depth_0 = textureLod(depthPyramid, aabb.xy, level).r;
-        float depth_1 = textureLod(depthPyramid, aabb.xw, level).r;
-        float depth_2 = textureLod(depthPyramid, aabb.zw, level).r;
-        float depth_3 = textureLod(depthPyramid, aabb.zy, level).r;
+        float depth_0 = textureLod(hzbSampler, aabb.xy, level).r;
+        float depth_1 = textureLod(hzbSampler, aabb.xw, level).r;
+        float depth_2 = textureLod(hzbSampler, aabb.zw, level).r;
+        float depth_3 = textureLod(hzbSampler, aabb.zy, level).r;
 
         minDepth = min(min(depth_0, depth_1), min(depth_2, depth_3));
     }
@@ -204,11 +204,11 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
     }
 
     // small meshlet culling(less than one pixel)
-    // if (visible) {
-    //     const vec2 minScreenPosition = aabb.xy * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //     const vec2 maxScreenPosition = aabb.zw * vec2(cullData.pyramidWidth, cullData.pyramidHeight);
-    //     visible = !any(round(minScreenPosition) == round(maxScreenPosition));
-    // }
+    if (visible) {
+        const vec2 minScreenPosition = aabb.xy * vec2(cullData.hzbWidth, cullData.hzbHeight);
+        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.hzbWidth, cullData.hzbHeight);
+        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    }
 
     // occlusion culling
     if (visible) {

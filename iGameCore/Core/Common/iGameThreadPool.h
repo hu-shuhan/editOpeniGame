@@ -37,7 +37,7 @@ public:
             numThreads = range;
             chunkSize = 1;
         }
-        std::cout << "The number of threads uesd  is " << numThreads << '\n';
+        // std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::future<void>> futures;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
@@ -62,7 +62,7 @@ public:
             numThreads = range;
             chunkSize = 1;
         }
-        std::cout << "The number of threads uesd  is " << numThreads << '\n';
+        // std::cout << "The number of threads uesd  is " << numThreads << '\n';
         std::vector<std::thread> threads;
         for (int i = 0; i < numThreads; ++i) {
             int chunkStart = start + i * chunkSize;
