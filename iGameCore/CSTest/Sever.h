@@ -17,13 +17,13 @@ public:
     int selected_idx;
     std::string filePath;
 
-    // ĞòÁĞ»¯º¯Êı
+    // åºåˆ—åŒ–å‡½æ•°
     std::string serialize() const {
-        // ½« selected_idx ºÍ filePath ĞòÁĞ»¯ÎªÒ»¸ö×Ö·û´®
+        // å°† selected_idx å’Œ filePath åºåˆ—åŒ–ä¸ºä¸€ä¸ªå­—ç¬¦ä¸²
         return std::to_string(selected_idx) + "|" + filePath;
     }
 
-    // ·´ĞòÁĞ»¯º¯Êı
+    // ååºåˆ—åŒ–å‡½æ•°
     void deserialize(const std::string& data) {
         size_t pos = data.find("|");
         if (pos != std::string::npos) {
@@ -99,13 +99,13 @@ void serverThread() {
         WSACleanup();
         return;
     }
-    std::cout << "ÕıÔÚ¼àÌı..." << std::endl;
+    std::cout << "æ­£åœ¨ç›‘å¬..." << std::endl;
 
     while (true) {
         SOCKET clientSocket = INVALID_SOCKET;
         sockaddr_in clientAddr;
         int iAddrLength = sizeof(clientAddr);
-        std::cout << "µÈ´ıµÇÂ¼..." << std::endl;
+        std::cout << "ç­‰å¾…ç™»å½•..." << std::endl;
         clientSocket = accept(serverSocket, (SOCKADDR*) &clientAddr, &iAddrLength);
 
         if (clientSocket == INVALID_SOCKET) {
@@ -114,28 +114,28 @@ void serverThread() {
             WSACleanup();
             return;
         }
-        std::cout << "¿Í»§¶ËµØÖ·£º" << inet_ntoa(clientAddr.sin_addr) << std::endl;
+        std::cout << "å®¢æˆ·ç«¯åœ°å€ï¼š" << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
         char buffer[1024];
         int iLenOfRecvData = recv(clientSocket, buffer, sizeof(buffer), 0);
         if (iLenOfRecvData > 0) {
-            // ·´ĞòÁĞ»¯Êı¾İ
+            // ååºåˆ—åŒ–æ•°æ®
             OpenCmd recCmd;
             recCmd.deserialize(buffer);
             auto check = LoadAndCompress(recCmd.filePath);
             std::ifstream file("D:/SendTest.igc", std::ios::binary | std::ios::ate);
             if (!file.is_open()) {
-                std::cerr << "ÎÄ¼ş´ò¿ªÊ§°Ü: "
+                std::cerr << "æ–‡ä»¶æ‰“å¼€å¤±è´¥: "
                           << "D:/SendTest.igc" << std::endl;
                 return;
             }
 
-            // 1. ·¢ËÍÎÄ¼ş´óĞ¡
+            // 1. å‘é€æ–‡ä»¶å¤§å°
             std::streamsize fileSize = file.tellg();
             file.seekg(0, std::ios::beg);
             send(clientSocket, (char*) &fileSize, sizeof(fileSize), 0);
 
-            // 2. ·¢ËÍÎÄ¼şÄÚÈİ
+            // 2. å‘é€æ–‡ä»¶å†…å®¹
             constexpr size_t BUFFER_SIZE = 65536;
             char buffer[BUFFER_SIZE];
             while (!file.eof()) {
@@ -146,7 +146,7 @@ void serverThread() {
             file.close();
 
         } else {
-            std::cout << "·şÎñÆ÷¶Ï¿ª£¬ÎŞ½ÓÊÕ..." << std::endl;
+            std::cout << "æœåŠ¡å™¨æ–­å¼€ï¼Œæ— æ¥æ”¶..." << std::endl;
             break;
         }
         closesocket(clientSocket);

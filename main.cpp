@@ -9,6 +9,7 @@
 //#include "iGameFileIO.h"
 //#include "iGameRenderWindow.h"
 
+#include <Log/iGameLogger.h>
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
@@ -25,7 +26,6 @@ int main(int argc, char* argv[]) {
     format.setGreenBufferSize(8);
     format.setBlueBufferSize(8);
     //format.setAlphaBufferSize(8); // This will cause the OpenGLWidget window to be transparent
-
     // If the depth buffer is set to 24, the line width can only be set to 1
     format.setDepthBufferSize(32);
 
@@ -34,6 +34,11 @@ int main(int argc, char* argv[]) {
 
     format.setSamples(1);
     QSurfaceFormat::setDefaultFormat(format);
+    // Init Log System
+    iGame::Log::Init();
+    IGAME_CORE_WARN("Start Core Log");
+    IGAME_RENDERING_INFO("Start Rendering Log");
+    IGAME_ERROR("Start Client");
 
     a.processEvents();
     igQtMainWindow w;

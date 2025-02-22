@@ -6,7 +6,7 @@ void CSTest(int selected_idx, std::string filePath) {
 
     std::thread client_thread(clientThread,selected_idx,filePath);
 
-    // 等待线程完成
+    // 绛夊緟绾跨▼瀹屾垚
     server_thread.join();
     client_thread.join();
     return ;

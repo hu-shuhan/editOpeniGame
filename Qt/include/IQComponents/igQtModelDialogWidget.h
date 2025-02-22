@@ -17,7 +17,6 @@
 #include <QTreeWidget>
 #include <iostream>
 
-using namespace iGame;
 
 class IG_QT_MODULE_EXPORT igQtModelDialogWidget : public QDockWidget {
     Q_OBJECT
@@ -26,11 +25,11 @@ public:
     ~igQtModelDialogWidget() override = default;
 
 public slots:
-    int addModelToModelTree(Model::Pointer model);
-    ModelTreeWidgetItem* getItemFromObject(DataObject::Pointer obj);
-    void updateAllAttriubute(DataObject::Pointer obj);
-    void updateItemName(DataObject::Pointer obj);
-    int addDataObjectToModelTree(DataObject::Pointer obj, ItemSource source);
+    int addModelToModelTree(iGame::Model::Pointer model);
+    ModelTreeWidgetItem* getItemFromObject(iGame::DataObject::Pointer obj);
+    void updateAllAttriubute(iGame::DataObject::Pointer obj);
+    void updateItemName(iGame::DataObject::Pointer obj);
+    int addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source);
     int updateCurrentModelInfo();
     void updateCurrentModelProperty(iGame::Model* model);
     int updateCloudPicture();
@@ -43,10 +42,10 @@ signals:
     void Update();
 
 protected:
-    void UpdateCurrentModel(Model::Pointer model);
+    void UpdateCurrentModel(iGame::Model::Pointer model);
 
 private:
-    Model* currentModel;
+    iGame::Model* currentModel;
 
     igQtModelTreeWidget* modelTreeWidget;
     QtTreePropertyBrowser* propertyWidget;

@@ -58,6 +58,7 @@ list(APPEND ThirdParty_lib_dependency
         vtkkwiml
         lzma
         glfw
+        spdlog_header_only
 )
 
 # copy resources to the build directory
