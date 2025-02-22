@@ -54,7 +54,7 @@ const float PI = 3.14159265359;
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a = roughness*roughness;
-    float a2 = a*a;
+    float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
 
@@ -126,9 +126,9 @@ void main()
     // calculate per-light radiance
     vec3 L = normalize(-light.direction);
     vec3 H = normalize(V + L);
-    //        float distance = length(-light.direction);
-    //        float attenuation = 1.0 / (distance * distance);
-    //        vec3 radiance = lightColors[i] * attenuation;
+    // float distance = length(-light.direction);
+    // float attenuation = 1.0 / (distance * distance);
+    // vec3 radiance = lightColors[i] * attenuation;
     vec3 radiance = light.color;
 
     // Cook-Torrance BRDF
@@ -166,7 +166,7 @@ void main()
     // HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct
-    color = pow(color, vec3(1.0 / 2.2));
+    // color = pow(color, vec3(1.0 / 2.2));
 
     out_ScreenColor = vec4(color, 1.0);
 }
