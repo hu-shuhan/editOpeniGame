@@ -46,7 +46,6 @@ vec3(0.0f, 0.0f, -1.0f),
 vec3(1.0f, 1.0f, 1.0f)
 );
 
-bool gamma = false;
 vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 {
     // diffuse
@@ -95,10 +94,6 @@ void main() {
     vec3 lighting = BlinnPhong(normal, in_MCPosition, light);
     color += lighting * in_Color;
 
-    if (gamma) {
-        color = pow(color, vec3(1.0 / 2.2));
-    }
     out_ScreenColor = vec4(color, 1.0f);
-
     //out_ScreenColor = vec4(in_Color, 1.0);
 }

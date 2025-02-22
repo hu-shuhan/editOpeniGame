@@ -399,7 +399,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
                             GL_VERTEX_SHADER);
 
             SmartPointer<GLShader> screenShader_frag = GLShader::CreateShader(
-                    std::string("./Resources/Shaders/ScreenShader.frag"),
+                    std::string("./Resources/Shaders/Screen.frag"),
                     GL_FRAGMENT_SHADER);
 
             sp->SetName("SCREEN");
