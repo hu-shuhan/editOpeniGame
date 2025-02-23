@@ -36,9 +36,9 @@ layout(location = 4) out vec2 out_UV;
 
 void main() {
     // model and view transformations do not change the w component
-    out_MCPosition = vec3(objectData.model * vec4(in_Position, 1.0));
-    out_VCPosition = vec3(cameraData.view * vec4(out_MCPosition, 1.0));
-    gl_Position = cameraData.proj * vec4(out_VCPosition, 1.0);
+    out_MCPosition = vec3(objectData.model * vec4(in_Position, 1.0f));
+    out_VCPosition = vec3(cameraData.view * vec4(out_MCPosition, 1.0f));
+    gl_Position = cameraData.proj * vec4(out_VCPosition, 1.0f);
 
     if (ubo.useColor == 1) {
         out_Color = in_Color;

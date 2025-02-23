@@ -224,7 +224,7 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
 
     // in the right-handed coordinate system, the z value of the view coordinate is negative
     vec3 center = sphereBounds.xyz;
-    center = (cullData.view_model * vec4(center, 1.f)).xyz;
+    center = (cullData.view_model * vec4(center, 1.0f)).xyz;
     float radius = sphereBounds.w;
 
     bool visible = true;

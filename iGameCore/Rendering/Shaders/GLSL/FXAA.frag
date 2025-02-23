@@ -31,9 +31,9 @@ uniform sampler2D screenColorSampler;
 #define DOWN_RIGHT   8
 
 vec2 KERNEL_STEP_MAT[] = vec2[9](
-vec2(-1.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 1.0),
-vec2(-1.0, 0.0), vec2(0.0, 0.0), vec2(1.0, 0.0),
-vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0)
+vec2(-1.0f, 1.0f), vec2(0.0f, 1.0f), vec2(1.0f, 1.0f),
+vec2(-1.0f, 0.0f), vec2(0.0f, 0.0f), vec2(1.0f, 0.0f),
+vec2(-1.0f, -1.0f), vec2(0.0f, -1.0f), vec2(1.0f, -1.0f)
 );
 
 /* in order to accelerate exploring along tangent bidirectional, step by an increasing amount of pixels QUALITY(i)
@@ -46,27 +46,27 @@ vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0)
 */
 #define STEP_COUNT_MAX   12
 float QUALITY(int i) {
-    if (i < 5) return 1.0;
-    if (i == 5) return 1.5;
-    if (i < 10) return 2.0;
-    if (i == 10) return 4.0;
-    if (i == 11) return 8.0;
+    if (i < 5) return 1.0f;
+    if (i == 5) return 1.5f;
+    if (i < 10) return 2.0f;
+    if (i == 10) return 4.0f;
+    if (i == 11) return 8.0f;
 }
 
 // L = 0.299 * R + 0.587 * G + 0.114 * B
 float RGB2LUMA(vec3 color) {
-    return dot(vec3(0.299, 0.578, 0.114), color);
+    return dot(vec3(0.299f, 0.578f, 0.114f), color);
 }
 
-#define EDGE_THRESHOLD_MIN  0.0312
-#define EDGE_THRESHOLD_MAX  0.125
-#define SUBPIXEL_QUALITY    0.75
-#define GRADIENT_SCALE      0.25
+#define EDGE_THRESHOLD_MIN  0.0312f
+#define EDGE_THRESHOLD_MAX  0.125f
+#define SUBPIXEL_QUALITY    0.75f
+#define GRADIENT_SCALE      0.25f
 
 void main()
 {
     ivec2 screen_size = textureSize(screenColorSampler, 0);
-    vec2 uv_step = vec2(1.0 / float(screen_size.x), 1.0 / float(screen_size.y));
+    vec2 uv_step = vec2(1.0f / float(screen_size.x), 1.0f / float(screen_size.y));
 
     float luma_mat[9];
     for (int i = 0; i < 9; i++) {
@@ -84,14 +84,14 @@ void main()
 
     // Choosing edge tangent
     float luma_horizontal =
-    abs(luma_mat[UP_LEFT] + luma_mat[DOWN_LEFT] - 2.0 * luma_mat[LEFT])
-    + 2.0 * abs(luma_mat[UP] + luma_mat[DOWN] - 2.0 * luma_mat[CENTER])
-    + abs(luma_mat[UP_RIGHT] + luma_mat[DOWN_RIGHT] - 2.0 * luma_mat[RIGHT]);
+    abs(luma_mat[UP_LEFT] + luma_mat[DOWN_LEFT] - 2.0f * luma_mat[LEFT])
+    + 2.0f * abs(luma_mat[UP] + luma_mat[DOWN] - 2.0f * luma_mat[CENTER])
+    + abs(luma_mat[UP_RIGHT] + luma_mat[DOWN_RIGHT] - 2.0f * luma_mat[RIGHT]);
 
     float luma_vertical =
-    abs(luma_mat[UP_LEFT] + luma_mat[UP_RIGHT] - 2.0 * luma_mat[UP])
-    + 2.0 * abs(luma_mat[LEFT] + luma_mat[RIGHT] - 2.0 * luma_mat[CENTER])
-    + abs(luma_mat[DOWN_LEFT] + luma_mat[DOWN_RIGHT] - 2.0 * luma_mat[DOWN]);
+    abs(luma_mat[UP_LEFT] + luma_mat[UP_RIGHT] - 2.0f * luma_mat[UP])
+    + 2.0f * abs(luma_mat[LEFT] + luma_mat[RIGHT] - 2.0f * luma_mat[CENTER])
+    + abs(luma_mat[DOWN_LEFT] + luma_mat[DOWN_RIGHT] - 2.0f * luma_mat[DOWN]);
 
     bool is_horizontal = luma_horizontal > luma_vertical;
 
@@ -101,15 +101,15 @@ void main()
     bool is_down_left = abs(gradient_down_left) > abs(gradient_up_right);
 
     // Get the tangent uv step vector and the normal uv step vector
-    vec2 step_tangent = (is_horizontal ? vec2(1.0, 0.0) : vec2(0.0, 1.0)) * uv_step;
-    vec2 step_normal = (is_down_left ? -1.0 : 1.0) * (is_horizontal ? vec2(0.0, 1.0) : vec2(1.0, 0.0)) * uv_step;
+    vec2 step_tangent = (is_horizontal ? vec2(1.0f, 0.0f) : vec2(0.0f, 1.0f)) * uv_step;
+    vec2 step_normal = (is_down_left ? -1.0f : 1.0f) * (is_horizontal ? vec2(0.0f, 1.0f) : vec2(1.0f, 0.0f)) * uv_step;
 
     // Get the change rate of gradient in normal per pixel
     float gradient = is_down_left ? gradient_down_left : gradient_up_right;
 
     // Start at middle point of tangent edge
-    vec2 uv_start = in_UV + 0.5 * step_normal;
-    float luma_average_start = luma_mat[CENTER] + 0.5 * gradient;
+    vec2 uv_start = in_UV + 0.5f * step_normal;
+    float luma_average_start = luma_mat[CENTER] + 0.5f * gradient;
 
     // Explore along tangent bidirectional until reach the edge both
     vec2 uv_pos = uv_start + step_tangent;
@@ -142,7 +142,7 @@ void main()
     }
 
     // The middle point of the edge
-    vec2 uv_final = 0.5 * (uv_pos + uv_neg);
+    vec2 uv_final = 0.5f * (uv_pos + uv_neg);
 
     // Mix the result
     out_Color = mix(texture(screenColorSampler, in_UV), texture(screenColorSampler, uv_final), SUBPIXEL_QUALITY);
