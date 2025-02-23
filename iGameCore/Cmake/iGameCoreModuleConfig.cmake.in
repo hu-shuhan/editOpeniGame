@@ -65,6 +65,7 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
 
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CGNS/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/eigen-3.4.0
+     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/spdlog/include
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/freetype-2.13.3/include
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/glad/glad460/include
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.22/src

@@ -6,6 +6,7 @@ add_subdirectory(meshoptimizer-0.22)
 add_subdirectory(vtkkwiml)
 add_subdirectory(glfw-3.4)
 add_subdirectory(lzma)
+add_subdirectory(spdlog)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 
