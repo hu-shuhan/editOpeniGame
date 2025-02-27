@@ -46,7 +46,7 @@ void main() {
 
     // in_VCPosition.length() will return wrong value
     float dist = length(in_VCPosition);
-    if (in_VCPosition.z > 0 || dist < 0.01f) {
+    if (in_VCPosition.z > 0.0f || dist < 0.01f) {
         return;
     }
 

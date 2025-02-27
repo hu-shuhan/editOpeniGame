@@ -50,7 +50,7 @@ uniform float lineWidth;
 // 0 : no light shading wireframe(use gs_OutColor)
 // 1 : pure color shading wireframe(use uniform edgeColor)
 uniform int edgeColorMode;
-uniform vec3 edgeColor = vec3(0.0, 0.0, 0.0);
+uniform vec3 edgeColor = vec3(0.0f, 0.0f, 0.0f);
 
 void main()
 {
@@ -104,25 +104,25 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 }
 
 vec3 ShadeFragment() {
-    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec3 color = vec3(0.0f, 0.0f, 0.0f);
 
-    vec3 normal = vec3(0.0, 0.0, 0.0);
+    vec3 normal = vec3(0.0f, 0.0f, 0.0f);
     if (ubo.useNormalSmooth == 1) {
         // continuous patch
         normal = normalize(gs_OutNormal);
     } else {
         // discrete patch
-        float scale = 1.0 / length(fwidth(gs_OutVCPosition));
+        float scale = 1.0f / length(fwidth(gs_OutVCPosition));
         vec3 fdx = dFdx(gs_OutVCPosition) * scale;
         vec3 fdy = dFdy(gs_OutVCPosition) * scale;
         normal = normalize(cross(fdx, fdy));
     }
     // correct normal orientation
     if (cameraData.isOrtho == 1 && normal.z < 0.0f) {
-        normal = -1.0 * normal;
+        normal = -1.0f * normal;
     }
     if (cameraData.isOrtho == 0 && dot(normal, gs_OutVCPosition) > 0.0f) {
-        normal = -1.0 * normal;
+        normal = -1.0f * normal;
     }
 
     // ambient
