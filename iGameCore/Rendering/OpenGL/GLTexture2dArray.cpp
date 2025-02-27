@@ -13,7 +13,7 @@ void GLTexture2dArray::Storage(unsigned mip_levels, GLenum internal_format,
                                unsigned width, unsigned height,
                                unsigned depth) const {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError(
+    IGAME_RENDERING_ERROR(
             "[GLTexture2dArray::Storage] Error: Function not implemented for "
             "OpenGL 3.3. Please use OpenGL 4.6 or higher.");
 #elif IGAME_OPENGL_VERSION_460

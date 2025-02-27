@@ -198,7 +198,7 @@ SphereSource::RequestIcoSphere(const Point& center, float radius,
     // subdivide icosahedron
 
     if (subdivision <= 1) {
-        Logger::LogInfo("Subdivision is less than or equal to 1. Skipping "
+        IGAME_RENDERING_INFO("Subdivision is less than or equal to 1. Skipping "
                         "further processing.");
     } else {
         unsigned int subVertexCount = (subdivision + 1) * (subdivision + 2) / 2;

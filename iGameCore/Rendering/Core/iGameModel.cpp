@@ -3,7 +3,6 @@
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
 #include "iGameScene.h"
-#include <format>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -443,7 +442,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(),
                     meshletCount - invisibleMeshletCount, meshletCount);
@@ -481,7 +480,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), visibleMeshletCount,
                     m_Meshleter->m_MeshletCount);
@@ -578,7 +577,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), invisibleMeshletCount - c,
                     invisibleMeshletCount);
@@ -652,7 +651,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), count,
                     m_Meshleter->m_MeshletCount - lastVisibleMeshletCount);
@@ -806,7 +805,7 @@ void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
 }
 
 void Model::Modified() {
-    Logger::LogFatal("[Model::Modified] not sure what this function does.");
+    IGAME_RENDERING_ERROR("[Model::Modified] not sure what this function does.");
     m_DataObject->Modified();
 }
 

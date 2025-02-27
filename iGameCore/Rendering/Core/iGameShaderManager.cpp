@@ -21,7 +21,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GetShader(ShaderType type) {
     if (sp != nullptr) { return sp; }
 
     sp = this->GenShader(type);
-    if (sp == nullptr) { Logger::LogError("Error for GenShader"); }
+    if (sp == nullptr) { IGAME_RENDERING_ERROR("Error for GenShader"); }
     this->SetShader(type, sp);
 
     return sp;

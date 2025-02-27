@@ -6,8 +6,6 @@
 #include <iGameUnstructuredMesh.h>
 #include<iGameStructuredMesh.h>
 #include<iGamePointFinder.h>
-#include<windows.h>
-#include<atlstr.h>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT

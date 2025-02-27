@@ -1,6 +1,6 @@
 #include "IQWidgets/igQtEditModeWidget.h"
 //#include<iGameManager.h>
-#include<QVector4D.h>
+#include<qvector4d.h>
 /**
  * @class   igQtEditModeWidget
  * @brief   igQtEditModeWidget's brief

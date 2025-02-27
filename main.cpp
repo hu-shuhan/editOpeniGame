@@ -6,9 +6,9 @@
 #include <QtCore/Qtextcodec.h>
 #endif
 
-//#include "iGameFileIO.h"
-//#include "iGameRenderWindow.h"
-
+#include "iGameFileIO.h"
+#include "iGameRenderWindow.h"
+#include "iGameScene.h"
 #include <Log/iGameLogger.h>
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
@@ -36,9 +36,9 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(format);
     // Init Log System
     iGame::Log::Init();
-    IGAME_CORE_WARN("Start Core Log");
-    IGAME_RENDERING_INFO("Start Rendering Log");
-    IGAME_ERROR("Start Client");
+//    IGAME_CORE_WARN("Start Core Log");
+//    IGAME_RENDERING_INFO("Start Rendering Log");
+//    IGAME_ERROR("Start Client");
 
     a.processEvents();
     igQtMainWindow w;
@@ -51,28 +51,28 @@ int main(int argc, char* argv[]) {
     return 0;
 
     // Q_INIT_RESOURCE(iGameQtMainWindow);
-    // {
-    //     // Create a new scene
-    //     auto scene = iGame::Scene::New();
-    //
-    //     // Read the file and add it to the scene
-    //     const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
-    //     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
-    //     if (dataObj != nullptr) {
-    //         scene->AddModel(dataObj);
-    //     } else {
-    //         igError("Error reading the file");
-    //     }
-    //
-    //     // Reset the camera view based on the model's bounding sphere
-    //     scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
-    //
-    //     // Set up the render window
-    //     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-    //     window->SetSize(1920, 1080);
-    //     window->SetScene(scene);
-    //
-    //     // Start the render loop
-    //     window->Show();
-    // }
+//     {
+//         // Create a new scene
+//         auto scene = iGame::Scene::New();
+//
+//         // Read the file and add it to the scene
+//         const std::string fileName = "../Examples/Models/Tet_Plane.vtk";
+//         iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
+//         if (dataObj != nullptr) {
+//             scene->AddModel(dataObj);
+//         } else {
+//             igError("Error reading the file");
+//         }
+//
+//         // Reset the camera view based on the model's bounding sphere
+//         scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
+//
+//         // Set up the render window
+//         iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+//         window->SetSize(1920, 1080);
+//         window->SetScene(scene);
+//
+//         // Start the render loop
+//         window->Show();
+//     }
 }

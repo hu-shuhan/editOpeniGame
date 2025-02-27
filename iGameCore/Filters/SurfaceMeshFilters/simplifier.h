@@ -1,7 +1,9 @@
 #pragma once
 #include <memory>
 #include <cassert>
-
+#include <cstring>
+#include <cmath>
+#include <cfloat>
 namespace tri{
 
 size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* indices, size_t index_count,

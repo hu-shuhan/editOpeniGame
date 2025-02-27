@@ -42,7 +42,7 @@
 #include <stdio.h>
 
 #include <QMessageBox>
-#include <qDebug>
+#include <QDebug>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);

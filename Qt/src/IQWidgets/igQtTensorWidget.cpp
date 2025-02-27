@@ -1,6 +1,6 @@
 #include<IQWidgets/igQtTensorWidget.h>
 #include "iGameSceneManager.h"
-
+#include <iomanip>
 /**
  * @class   igQtTensorWidget
  * @brief   igQtTensorWidget's brief

@@ -40,7 +40,7 @@ GLVertexArrayManager::GetBuffer(unsigned int vao,
     if (it != m_BufferMapper.end()) {
         return std::get<0>(it->second);
     } else {
-        Logger::LogWarn("Buffer not found for given VAO and binding index.");
+        IGAME_RENDERING_WARN("Buffer not found for given VAO and binding index.");
         return 0;
     }
 }
@@ -52,7 +52,7 @@ size_t GLVertexArrayManager::GetStride(unsigned int vao,
     if (it != m_BufferMapper.end()) {
         return std::get<1>(it->second);
     } else {
-        Logger::LogWarn("Buffer not found for given VAO and binding index.");
+        IGAME_RENDERING_WARN("Buffer not found for given VAO and binding index.");
         return 0;
     }
 }
