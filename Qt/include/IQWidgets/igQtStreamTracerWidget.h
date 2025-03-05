@@ -25,6 +25,10 @@ public slots:
     void changeterminalSpeed();
     void Pressed();
     void Released();
+    void changeVecName();
+    void updateVectorNameList();
+    void changeOffsetP1();
+    void changeOffsetP2();
 signals:
     void AddStreamObject(DataObject::Pointer);
     void UpdateStreamObject(DataObject::Pointer);
@@ -47,4 +51,6 @@ private:
     iGameStreamBase* m_StreamBase{nullptr};
     Vector3f offsetP1{0, 0, 0};
     Vector3f offsetP2{0, 0, 0};
+    int p1;
+    int p2;
 };
