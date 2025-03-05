@@ -19,6 +19,7 @@ public:
     std::vector<int > getInput();
 
 protected:
+    int m_R, m_G, m_B;
     QListWidget* m_ListWidget;
     QLineEdit* m_Red_LineEdit, *m_Green_LineEdit, *m_Blue_LineEdit;
 };

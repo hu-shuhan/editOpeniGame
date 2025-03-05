@@ -10,11 +10,11 @@ layout(location = 4) in vec2 in_UV;
 
 layout(location = 0) out vec4 out_ScreenColor;
 
-uniform vec3 inputColor = vec3(1.0, 1.0, 1.0);
+uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
 
 float cFactor = 0.0f;
 float cOffset = 4.0f;
 
 void main() {
-    out_ScreenColor = vec4(inputColor, 1.0);
+    out_ScreenColor = vec4(inputColor, 1.0f);
 }

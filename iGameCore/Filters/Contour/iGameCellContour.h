@@ -1010,7 +1010,7 @@ static void Contour(Triangle::Pointer cell, double* cellValues, Points::Pointer 
     for (i = 0; i < 3; i++) {
         if (cellValues[i] >= 0.0) { CaseIndex |= MASK[i]; }
     }
-    auto ContourData = (tetraCases + CaseIndex)->contour;
+    auto ContourData = (triangleCases + CaseIndex)->contour;
     for (; *ContourData != -1; ContourData += 2) {
         for (i = 0; i < 2; i++) {
             vert = Triangle::edges[ContourData[i]];
@@ -1055,7 +1055,7 @@ static void Contour(Triangle::Pointer cell, double* cellValues, PointFinder::Poi
     for (i = 0; i < 3; i++) {
         if (cellValues[i] >= 0.0) { CaseIndex |= MASK[i]; }
     }
-    auto ContourData = (tetraCases + CaseIndex)->contour;
+    auto ContourData = (triangleCases + CaseIndex)->contour;
     for (; *ContourData != -1; ContourData += 2) {
         for (i = 0; i < 2; i++) {
             vert = Triangle::edges[ContourData[i]];
@@ -1139,21 +1139,6 @@ static void Contour(Quad::Pointer cell, double* cellValues, PointFinder::Pointer
                     CellArray::Pointer connectivity, UnsignedIntArray::Pointer types, AttributeSet::Pointer inData,
                     AttributeSet::Pointer outData, igIndex cellId, std::vector<InterpolateEdge>& OriginEdge,
                     std::vector<igIndex>& originCell) {
-    //int i = 0, j = 0;
-    //Triangle::Pointer triangle = Triangle::New();
-    //double trivalues[3] = {};
-    //igIndex pid = 0;
-    //int nPts = cell->GetNumberOfPoints();
-    //for (i = 0; i < nPts - 2; i++) {
-    //	for (j = 0; j < 3; j++) {
-    //		pid = j == 0 ? 0 : i + j;
-    //		triangle->m_Points->SetPoint(j, cell->m_Points->GetPoint(pid));
-    //		triangle->m_PointIds->SetId(j, cell->m_PointIds->GetId(pid));
-    //		trivalues[j] = cellValues[pid];
-    //	}
-    //	Contour(triangle, trivalues, pointFinder, connectivity, types, inData, outData, cellId, OriginEdge, originCell, m_slice, true);
-    //}
-    //return;
 
     int MASK[4] = {1, 2, 4, 8};
     int i, j, CaseIndex = 0;

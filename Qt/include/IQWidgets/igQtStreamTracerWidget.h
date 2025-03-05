@@ -1,13 +1,11 @@
 #pragma once
-#include<ui_igStreamTracer.h>
+#include <ui_igStreamTracer.h>
 //#include <iGameManager.h>
-#include <iostream>
 #include <StreamView/iGameStreamBase.h>
+#include <iGamePointFinder.h>
+#include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
-#include<iGameStructuredMesh.h>
-#include<iGamePointFinder.h>
-#include<windows.h>
-#include<atlstr.h>
+#include <iostream>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT
@@ -15,7 +13,7 @@ class igQtStreamTracerWidget : public QWidget {
 public:
     igQtStreamTracerWidget(QWidget* parent = nullptr);
 public slots:
-	void generateStreamline();
+    void generateStreamline();
     void changeControl();
     void changeProportion();
     void reduceProportion();
@@ -30,6 +28,7 @@ public slots:
 signals:
     void AddStreamObject(DataObject::Pointer);
     void UpdateStreamObject(DataObject::Pointer);
+
 private:
     Ui::SteamLineTracer* ui;
     int numOfSeeds;
@@ -44,6 +43,8 @@ private:
     std::string masterName;
     std::string vectorName;
     UnstructuredMesh::Pointer streamlineResult{};
-   std::vector<PointFinder::Pointer> ptFinder;                                                                      
-    iGameStreamBase* m_StreamBase{ nullptr };
+    std::vector<PointFinder::Pointer> ptFinder;
+    iGameStreamBase* m_StreamBase{nullptr};
+    Vector3f offsetP1{0, 0, 0};
+    Vector3f offsetP2{0, 0, 0};
 };

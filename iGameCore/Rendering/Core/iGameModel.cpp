@@ -3,7 +3,6 @@
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
 #include "iGameScene.h"
-#include <format>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -414,7 +413,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             shader->SetUniformui("meshletCount", meshletCount);
 
             scene->m_HzbTexture->Active(GL_TEXTURE1);
-            shader->SetUniformi("depthPyramid", 1);
+            shader->SetUniformi("hzbSampler", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
@@ -443,7 +442,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(),
                     meshletCount - invisibleMeshletCount, meshletCount);
@@ -481,7 +480,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 1 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), visibleMeshletCount,
                     m_Meshleter->m_MeshletCount);
@@ -549,7 +548,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                                  invisibleMeshletCount);
 
             scene->m_HzbTexture->Active(GL_TEXTURE1);
-            shader->SetUniformi("depthPyramid", 1);
+            shader->SetUniformi("hzbSampler", 1);
 
             m_Meshleter->m_MeshletBuffer->BindBase(3);
             m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
@@ -578,7 +577,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), invisibleMeshletCount - c,
                     invisibleMeshletCount);
@@ -632,7 +631,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                 cullDataBuffer->BindBase(5);
 
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
-                shader->SetUniformi("depthPyramid", 1);
+                shader->SetUniformi("hzbSampler", 1);
 
                 auto count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(((count + 255) / 256), 1, 1);
@@ -652,7 +651,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            Logger::LogDebug(
+            IGAME_RENDERING_TRACE(
                     "{}, draw phase 2 [visiable count:{}, meshlet count:{}]",
                     m_Meshleter->GetName(), count,
                     m_Meshleter->m_MeshletCount - lastVisibleMeshletCount);
@@ -722,7 +721,7 @@ void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
                 cullDataBuffer->BindBase(5);
 
                 scene->m_HzbTexture->Active(GL_TEXTURE1);
-                shader->SetUniformi("depthPyramid", 1);
+                shader->SetUniformi("hzbSampler", 1);
 
                 size_t count = m_Meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
@@ -806,7 +805,7 @@ void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
 }
 
 void Model::Modified() {
-    Logger::LogFatal("[Model::Modified] not sure what this function does.");
+    IGAME_RENDERING_ERROR("[Model::Modified] not sure what this function does.");
     m_DataObject->Modified();
 }
 

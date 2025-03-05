@@ -17,7 +17,6 @@
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLWidget>
 
-using namespace iGame;
 
 class IG_QT_MODULE_EXPORT igQtRenderWidget : public QOpenGLWidget {
   Q_OBJECT
@@ -29,14 +28,14 @@ public:
       return &instance;
   }
 
-  Scene *GetScene();
+    iGame::Scene *GetScene();
 
-  void AddDataObject(SmartPointer<DataObject> obj);
-  void ChangeInteractor(SmartPointer<Interactor> it);
+  void AddDataObject(iGame::SmartPointer<iGame::DataObject> obj);
+  void ChangeInteractor(iGame::SmartPointer<iGame::Interactor> it);
   void ChangeInteractorStyle(IGenum style);
   void update() { QOpenGLWidget::update(); }
 
-  Interactor* getInteractor();
+    iGame::Interactor* getInteractor();
 
   protected:
   void initializeGL() override;
@@ -48,6 +47,6 @@ public:
   void mouseMoveEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
 
-  SmartPointer<Scene> m_Scene;
-  SmartPointer<Interactor> m_Interactor;
+  iGame::SmartPointer<iGame::Scene> m_Scene;
+  iGame::SmartPointer<iGame::Interactor> m_Interactor;
 };

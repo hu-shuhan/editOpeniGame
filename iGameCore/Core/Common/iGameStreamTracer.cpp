@@ -1031,7 +1031,6 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
             BoundingBox culL;
             for (int i = 0; i < size; i++) { culL.add(mesh->GetPoint(volume[i])); }
             longest = culL.diag();
-            std::cout << VolumeId << std::endl;
             // 使用写锁进行插入
             std::unique_lock<std::shared_mutex> lock(rwMutex);
             cellBoundLength[VolumeId] = longest;

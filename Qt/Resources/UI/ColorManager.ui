@@ -571,37 +571,37 @@
   <customwidget>
    <class>igQtBasicColorAreaWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqtbasiccolorareawidget.h</header>
+   <header>IQWidgets/ColorManager/igQtBasicColorAreaWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtCustomColorAreaWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqtcustomcolorareawidget.h</header>
+   <header>IQWidgets/ColorManager/igQtCustomColorAreaWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtSVColorAreaWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqtsvcolorareawidget.h</header>
+   <header>IQWidgets/ColorManager/igQtSVColorAreaWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtPreviewColorAreaWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqtpreviewcolorareawidget.h</header>
+   <header>IQWidgets/ColorManager/igQtPreviewColorAreaWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtHColorAreaWidget</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqthcolorareawidget.h</header>
+   <header>IQWidgets/ColorManager/igQtHColorAreaWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>igQtColorRangeSlider</class>
    <extends>QWidget</extends>
-   <header>IQWidgets/ColorManager/igqtcolorrangeslider.h</header>
+   <header>IQWidgets/ColorManager/igQtColorRangeSlider.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

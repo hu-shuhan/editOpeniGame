@@ -77,15 +77,47 @@ vec4 blend(vec4 currentColor, vec4 newColor) {
     return mix(currentColor, newColor, newColor.a);
 }
 
+//vec4 CalculateFinalColor(int fragCount) {
+//    vec4 finalColor = GetResolveColor();
+//
+//    for (int i = 0; i < fragCount; i++) {
+//        vec4 fragColor = unpackUnorm4x8(fragments[i].y);
+//        finalColor = blend(finalColor, fragColor);
+//    }
+//
+//    return vec4(finalColor.rgb, 1.0f);
+//}
+
+// Remove Duplicates
 vec4 CalculateFinalColor(int fragCount) {
     vec4 finalColor = GetResolveColor();
 
-    for (int i = 0; i < fragCount; i++) {
-        vec4 fragColor = unpackUnorm4x8(fragments[i].y);
-        finalColor = blend(finalColor, fragColor);
+    if (fragCount == 0) {
+        return finalColor;
     }
 
-    return finalColor;
+    int slow = 0;
+    float bias = 0.005;
+
+    for (int fast = 1; fast <= fragCount; ++fast) {
+        bool shouldBlend = (fast == fragCount) ||
+        (uintBitsToFloat(fragments[slow].z) - uintBitsToFloat(fragments[fast].z) > bias);
+
+        if (shouldBlend) {
+            vec4 color = vec4(0.0f);
+            int count = fast - slow;
+            for (int i = slow; i < fast; ++i) {
+                color += unpackUnorm4x8(fragments[i].y);
+            }
+            color /= float(count);
+
+            finalColor = blend(finalColor, color);
+
+            slow = fast;
+        }
+    }
+
+    return vec4(finalColor.rgb, 1.0f);
 }
 
 void main() {

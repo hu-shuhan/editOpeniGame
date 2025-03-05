@@ -21,7 +21,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GetShader(ShaderType type) {
     if (sp != nullptr) { return sp; }
 
     sp = this->GenShader(type);
-    if (sp == nullptr) { Logger::LogError("Error for GenShader"); }
+    if (sp == nullptr) { IGAME_RENDERING_ERROR("Error for GenShader"); }
     this->SetShader(type, sp);
 
     return sp;
@@ -399,7 +399,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
                             GL_VERTEX_SHADER);
 
             SmartPointer<GLShader> screenShader_frag = GLShader::CreateShader(
-                    std::string("./Resources/Shaders/ScreenShader.frag"),
+                    std::string("./Resources/Shaders/Screen.frag"),
                     GL_FRAGMENT_SHADER);
 
             sp->SetName("SCREEN");

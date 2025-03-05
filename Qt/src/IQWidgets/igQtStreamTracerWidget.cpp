@@ -67,25 +67,25 @@ void igQtStreamTracerWidget::Released() {
 	generateStreamline();
 }
 void igQtStreamTracerWidget::changeProportion() {
-	proportion = ui->proportion_Slider->value();
-	proportion /= 100;
+//	proportion = ui->proportion_Slider->value();
+//	proportion /= 100;
 	if(haveClicked)
     generateStreamline();
 	//std::cout << "current value=" << proportion << std::endl;
 }
 void igQtStreamTracerWidget::reduceProportion() {
-	proportion = ui->proportion_Slider->value();
+//	proportion = ui->proportion_Slider->value();
 	if (proportion) {
 		proportion = proportion - 1;
-		ui->proportion_Slider->setValue(proportion);
+	//	ui->proportion_Slider->setValue(proportion);
 		//std::cout << "current value=" << proportion << std::endl;
 	}
 }
 void igQtStreamTracerWidget::increaseProportion() {
-	proportion = ui->proportion_Slider->value();
+	//proportion = ui->proportion_Slider->value();
 	if (proportion<99) {
 		proportion = proportion + 1;
-		ui->proportion_Slider->setValue(proportion);
+	//	ui->proportion_Slider->setValue(proportion);
 	}
 	//std::cout << "current value=" << proportion << std::endl;
 }

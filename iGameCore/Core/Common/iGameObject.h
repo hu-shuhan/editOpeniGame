@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 #include <cfloat>
+#include "Log/iGameLogger.h"
 
 #include "iGameAbstractObject.h"
 #include "iGameTimeStamp.h"

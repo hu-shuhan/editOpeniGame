@@ -1,23 +1,22 @@
 ﻿#ifndef iGameAttributeSet_h
 #define iGameAttributeSet_h
 
-#include "iGameFlatArray.h"
 #include "iGameElementArray.h"
+#include "iGameFlatArray.h"
 #include <variant>
 
 IGAME_NAMESPACE_BEGIN
 // Attributes set stores all Attribute array data, like scalar, vector etc
 class AttributeSet : public Object {
 public:
-	I_OBJECT(AttributeSet);
-	static Pointer New() { return new AttributeSet; }
+    I_OBJECT(AttributeSet);
+    static Pointer New() { return new AttributeSet; }
 
-	struct Attribute
-	{
-        ArrayObject::Pointer pointer{ nullptr };
-		IGenum type{ IG_NONE };           // IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
-        IGenum attachmentType{ IG_NONE }; // IG_POINT, IG_CELL
-		bool isDeleted{ false };
+    struct Attribute {
+        ArrayObject::Pointer pointer{nullptr};
+        IGenum type{IG_NONE};           // IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
+        IGenum attachmentType{IG_NONE}; // IG_POINT, IG_CELL
+        bool isDeleted{false};
         /* dataRange is a 2 dimension(Minimum value, Maximum value) flatArray, Here is the meaning of its elements:
          * Element[0] : magnitude data range, if the data only have one dimension, this value is equal to that dimension.
          * Element[1] : x dimension data range.
@@ -28,7 +27,7 @@ public:
          * */
         DoubleArray::Pointer dataRange{nullptr};
 
-		// Get/Set ...
+        // Get/Set ...
         ArrayObject::Pointer GetPointer();
         void SetPointer(ArrayObject::Pointer o);
         IGenum GetType();
@@ -42,175 +41,168 @@ public:
         void SetDataRange(DoubleArray::Pointer range);
         bool UpdateAllDataRange();
 
-		// Return None Attribute
+        // Return None Attribute
         static Attribute None();
 
-		bool DeepCopy(const Attribute& other);
+        bool DeepCopy(const Attribute& other);
 
-		bool IsNone() const;
-	};
+        bool IsNone() const;
+    };
 
-	bool ShallowCopy(Pointer o) { return false; }
-	bool DeepCopy(Pointer o) {
+    bool ShallowCopy(Pointer o) { return false; }
+    bool DeepCopy(Pointer o) {
         if (o == nullptr) return false;
         m_Buffer = ElementArray<Attribute>::New();
         m_Buffer->Resize(o->GetNumberOfAttributes());
-        for (int i = 0; i < o->GetNumberOfAttributes(); i++) { 
-			m_Buffer->GetElement(i).DeepCopy(o->m_Buffer->GetElement(i));
+        for (int i = 0; i < o->GetNumberOfAttributes(); i++) {
+            m_Buffer->GetElement(i).DeepCopy(o->m_Buffer->GetElement(i));
         }
         return true;
-	}
+    }
 
-	// Add a scalar attribute to array back.
-	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr);
-	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, DoubleArray::Pointer DataRange);
-	// Add a scalar attribute to array back with range.
-//	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
+    // Add a scalar attribute to array back.
+    IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr);
+    IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, DoubleArray::Pointer DataRange);
+    // Add a scalar attribute to array back with range.
+    //	IGsize AddScalar(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
 
     // Add a vector attribute to array back.
-//    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
+    //    IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, const std::pair<float, float>& range);
     IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr);
     IGsize AddVector(IGenum attachmentType, ArrayObject::Pointer attr, DoubleArray::Pointer DataRange);
 
-	Attribute& GetScalar();
-	const Attribute& GetScalar() const;
-	Attribute& GetScalar(const IGsize i);
-	const Attribute& GetScalar(const IGsize i) const;
-	Attribute& GetScalar(const std::string& name);
-	const Attribute& GetScalar(const std::string& name) const;
+    Attribute& GetScalar();
+    const Attribute& GetScalar() const;
+    Attribute& GetScalar(const IGsize i);
+    const Attribute& GetScalar(const IGsize i) const;
+    Attribute& GetScalar(const std::string& name);
+    const Attribute& GetScalar(const std::string& name) const;
 
-	Attribute& GetVector();
-	const Attribute& GetVector() const;
-	Attribute& GetVector(const IGsize i);
-	const Attribute& GetVector(const IGsize i) const;
-	Attribute& GetVector(const std::string& name);
-	const Attribute& GetVector(const std::string& name) const;
+    Attribute& GetVector();
+    const Attribute& GetVector() const;
+    Attribute& GetVector(const IGsize i);
+    const Attribute& GetVector(const IGsize i) const;
+    Attribute& GetVector(const std::string& name);
+    const Attribute& GetVector(const std::string& name) const;
 
-	// Add a attribute to array back.
-	// @param type: The type of attribute, such as IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
-	// @param attachmentType: Which element is attached to, such as IG_POINT, IG_CELL
-	// @param attr: The pointer of attribute array
-//	IGsize AddAttribute(IGenum type, IGenum attachmentType, ArrayObject::Pointer attr, std::pair<float, float> dataRange = { 0.f, 0.f });
-	IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr, DoubleArray::Pointer dataRange);
-	IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr);
+    // Add a attribute to array back.
+    // @param type: The type of attribute, such as IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
+    // @param attachmentType: Which element is attached to, such as IG_POINT, IG_CELL
+    // @param attr: The pointer of attribute array
+    //	IGsize AddAttribute(IGenum type, IGenum attachmentType, ArrayObject::Pointer attr, std::pair<float, float> dataRange = { 0.f, 0.f });
+    IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr,
+                        DoubleArray::Pointer dataRange);
+    IGsize AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr);
 
-	// Get a attribute by index
-	Attribute& GetAttribute(const IGsize index);
-	const Attribute& GetAttribute(const IGsize index) const;
+    // Get a attribute by index
+    Attribute& GetAttribute(const IGsize index);
+    const Attribute& GetAttribute(const IGsize index) const;
 
-	// Get a attribute by index and type
-	Attribute& GetAttribute(const IGsize index, IGenum type);
-	const Attribute& GetAttribute(const IGsize index, IGenum type) const;
+    // Get a attribute by index and type
+    Attribute& GetAttribute(const IGsize index, IGenum type);
+    const Attribute& GetAttribute(const IGsize index, IGenum type) const;
 
     // Get a attribute by name
     Attribute& GetAttribute(const std::string& name);
     const Attribute& GetAttribute(const std::string& name) const;
 
-	// Get a attribute by name and type
-	Attribute& GetAttribute(const std::string& name, IGenum type);
-	const Attribute& GetAttribute(const std::string& name, IGenum type) const;
+    // Get a attribute by name and type
+    Attribute& GetAttribute(const std::string& name, IGenum type);
+    const Attribute& GetAttribute(const std::string& name, IGenum type) const;
 
-	// Get pointer of a attribute by type,attachmentType and name.
-	ArrayObject* GetArrayPointer(IGenum type, IGenum attachmentType,
-		const std::string& name);
+    // Get pointer of a attribute by type,attachmentType and name.
+    ArrayObject* GetArrayPointer(IGenum type, IGenum attachmentType, const std::string& name);
 
-	// Delete a attribute by index
-	void DeleteAttribute(const IGsize index);
-	// Get all attributes
-	ElementArray<Attribute>::Pointer GetAllAttributes();
-	// Get all point attributes, not thread safe
-	ElementArray<Attribute>::Pointer GetAllPointAttributes();
+    // Delete a attribute by index
+    void DeleteAttribute(const IGsize index);
+    // Get all attributes
+    ElementArray<Attribute>::Pointer GetAllAttributes();
+    // Get all point attributes, not thread safe
+    ElementArray<Attribute>::Pointer GetAllPointAttributes();
 
-	// Get all cell attributes, not thread safe
-	ElementArray<Attribute>::Pointer GetAllCellAttributes();
-	ElementArray<Attribute>::Pointer GetAllScarleAttributes() {
-		if (!m_tmpBuffer) {
-			m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
-		}
-		else {
-			m_tmpBuffer->Reset();
-		}
-		auto Scalars = this->GetAllAttributes();
-		int size = Scalars->GetNumberOfElements();
-		for (int i = 0; i < size; i++) {
-			auto scalarDataArray = Scalars->GetElement(i);
-			if (scalarDataArray.type == IG_SCALAR) {
-				m_tmpBuffer->AddElement(m_Buffer->GetElement(i));
-			}
+    // Get all cell attributes, not thread safe
+    ElementArray<Attribute>::Pointer GetAllCellAttributes();
+    ElementArray<Attribute>::Pointer GetAllScarleAttributes() {
+        if (!m_tmpBuffer) {
+            m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
+        } else {
+            m_tmpBuffer->Reset();
+        }
+        auto Scalars = this->GetAllAttributes();
+        int size = Scalars->GetNumberOfElements();
+        for (int i = 0; i < size; i++) {
+            auto scalarDataArray = Scalars->GetElement(i);
+            if (scalarDataArray.type == IG_SCALAR) { m_tmpBuffer->AddElement(m_Buffer->GetElement(i)); }
+        }
+        return m_tmpBuffer;
+    };
+    void TransformScalars2VectorArray() {
 
-		}
-		return m_tmpBuffer;
-	};
-	void TransformScalars2VectorArray() {
+        auto Scalars = this->GetAllScarleAttributes();
+        int size = Scalars->GetNumberOfElements();
+        for (int i = 0; i < size; i++) {
+            auto scalarDataArray = Scalars->GetElement(i);
+            auto name = scalarDataArray.pointer->GetName();
+            auto attachmentType = scalarDataArray.attachmentType;
+            // std::cout << "attachmentType:" << attachmentType << std::endl;
+            bool isvector = false;
+            if (name[name.length() - 1] == 'X') {
+                isvector = true;
+                int j = 1;
+                for (j = 1; j < 3; j++) {
+                    auto scalarDataArray = Scalars->GetElement(i);
+                    if (i + j >= size) break;
+                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
+                    if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
+                }
+            }
 
-		auto Scalars = this->GetAllScarleAttributes();
-		int size = Scalars->GetNumberOfElements();
-		for (int i = 0; i < size; i++) {
-			auto scalarDataArray = Scalars->GetElement(i);
-			auto name = scalarDataArray.pointer->GetName();
-			auto attachmentType = scalarDataArray.attachmentType;
-			std::cout << "attachmentType:" << attachmentType << std::endl;
-			bool isvector = false;
-			if (name[name.length() - 1] == 'X') {
-				isvector = true;
-				int j = 1;
-				for (j = 1; j < 3; j++) {
-					auto scalarDataArray = Scalars->GetElement(i);
-					if (i + j >= size)break;
-					auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-					if (tmpName[tmpName.length() - 1] != 'X' + j) {
-						isvector = false;
-					}
-				}
-			}
+            if (isvector) {
+                FloatArray::Pointer Vector = FloatArray::New();
+                Vector->SetName(name.substr(0, name.length() - 1));
+                Vector->SetDimension(3);
+                Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
+                float* vector = Vector->RawPointer();
+                igIndex index = 0;
+                int j = 0;
+                for (j = 0; j < 3; j++) {
+                    auto scalarData = Scalars->GetElement(i + j).pointer;
+                    index = j;
+                    int k = 0;
+                    for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
+                        vector[index] = scalarData->GetValue(k);
+                        index += 3;
+                    }
+                    //delete scalarData;
+                }
+                this->AddVector(attachmentType, Vector);
+                i += 2;
+            }
+        }
+    }
 
-			if (isvector) {
-				FloatArray::Pointer Vector = FloatArray::New();
-				Vector->SetName(name.substr(0, name.length() - 1));
-				Vector->SetDimension(3);
-				Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
-				float* vector = Vector->RawPointer();
-				igIndex index = 0;
-				int j = 0;
-				for (j = 0; j < 3; j++) {
-					auto scalarData = Scalars->GetElement(i + j).pointer;
-					index = j;
-					int k = 0;
-					for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
-						vector[index] = scalarData->GetValue(k);
-						index += 3;
-					}
-					//delete scalarData;
-				}
-				this->AddVector(attachmentType, Vector);
-				i += 2;
-			}
-		}
-	}
+    size_t GetNumberOfAttributes() const { return m_Buffer->GetNumberOfElements(); }
 
-	size_t GetNumberOfAttributes() const {
-        return m_Buffer->GetNumberOfElements();
-	}
+    IGsize GetRealMemorySize() {
+        if (!m_Buffer) return 0;
+        IGsize res = 0;
+        for (int i = 0; i < m_Buffer->Size(); i++) {
+            auto array = m_Buffer->GetElement(i).pointer;
+            res += array ? array->GetArrayTypedSize() * array->GetNumberOfValues() : 0;
+        }
+        return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
+    }
 
-	IGsize GetRealMemorySize() {
-		if (!m_Buffer)return 0;
-		IGsize res = 0;
-		for (int i = 0; i < m_Buffer->Size(); i++) {
-			auto array = m_Buffer->GetElement(i).pointer;
-			res += array ? array->GetArrayTypedSize() * array->GetNumberOfValues() : 0;
-		}
-		return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
-	}
 protected:
-	AttributeSet();
-	~AttributeSet() override = default;
+    AttributeSet();
+    ~AttributeSet() override = default;
 
-	ElementArray<Attribute>::Pointer m_Buffer{};
-	ElementArray<Attribute>::Pointer m_PointBuffer{};
-	ElementArray<Attribute>::Pointer m_CellBuffer{};
-	ElementArray<Attribute>::Pointer m_tmpBuffer{};
+    ElementArray<Attribute>::Pointer m_Buffer{};
+    ElementArray<Attribute>::Pointer m_PointBuffer{};
+    ElementArray<Attribute>::Pointer m_CellBuffer{};
+    ElementArray<Attribute>::Pointer m_tmpBuffer{};
 
-	Attribute NONE{ AttributeSet::Attribute::None() };
+    Attribute NONE{AttributeSet::Attribute::None()};
 };
 IGAME_NAMESPACE_END
 #endif

@@ -30,7 +30,6 @@ SlicingStyle::SlicingStyle() {
     rearHandle = 0;
     lineHandle = 0;
     circleHandle = 0;
-    planeHandle[10] = {0};
 
     slicingPlane = SlicingPlane{};
 
@@ -59,7 +58,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     Vector3d p1 = bbox.min;
     Vector3d p7 = bbox.max;
     float len = (bbox.max - bbox.min).length();
-    pickRadius = len * 0.005;
+    pickRadius = len * 0.01;
 
     if (boxHandle != 0) { m_Painter3D->Delete(boxHandle); }
     m_Painter3D->SetPen(1);
@@ -96,6 +95,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     m_Painter3D->SetPen(Color::Blue);
     rearHandle = m_Painter3D->DrawPoint(rear);
 
+    std::vector<Vector3d> plane;
     ComputeSlicingPlane(plane);
     DrawSlicingPlane(plane);
     Invoke();
@@ -183,6 +183,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
                 m_Painter3D->Delete(lineHandle);
                 lineHandle = m_Painter3D->DrawLine(head, rear);
 
+                std::vector<Vector3d> plane;
                 ComputeSlicingPlane(plane);
                 DrawSlicingPlane(plane);
                 Invoke();
@@ -258,6 +259,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
                 m_Painter3D->Delete(lineHandle);
                 lineHandle = m_Painter3D->DrawLine(head, rear);
 
+                std::vector<Vector3d> plane;
                 ComputeSlicingPlane(plane);
                 DrawSlicingPlane(plane);
                 Invoke();
@@ -290,6 +292,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
                 m_Painter3D->Delete(lineHandle);
                 lineHandle = m_Painter3D->DrawLine(head, rear);
 
+                std::vector<Vector3d> plane;
                 ComputeSlicingPlane(plane);
                 DrawSlicingPlane(plane);
                 Invoke();
@@ -394,7 +397,7 @@ void SlicingStyle::ComputeSlicingPlane(std::vector<Vector3d>& plane) {
                   return calculateAngle(a) < calculateAngle(b);
               });
 }
-void SlicingStyle::DrawSlicingPlane(std::vector<Vector3d>& plane) {
+void SlicingStyle::DrawSlicingPlane(const std::vector<Vector3d>& plane) {
     for (int i = 0; i < 10; i++) {
         if (planeHandle[i] != 0) { m_Painter3D->Delete(planeHandle[i]); }
     }

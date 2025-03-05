@@ -32,7 +32,7 @@ protected:
     ~SlicingStyle() override;
 
     void ComputeSlicingPlane(std::vector<Vector3d>& plane);
-    void DrawSlicingPlane(std::vector<Vector3d>& plane);
+    void DrawSlicingPlane(const std::vector<Vector3d>& plane);
 
     // 计算直线与平面的交点，AB直线，P平面上的点，N平面法向量
     // Calculate the intersection of a line with a plane, a line AB, a point in the p-plane, and a normal vector in the n-plane
@@ -53,6 +53,7 @@ protected:
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Painter3D> m_Painter3D;
 
+private:
     int selectId; // 0:center 1:head 2:rear 3:line
 
     igm::mat4 mvp;
@@ -72,8 +73,7 @@ protected:
     IGuint rearHandle;
     IGuint lineHandle;
     IGuint circleHandle;
-    IGuint planeHandle[10];
-    std::vector<Vector3d> plane;
+    IGuint planeHandle[10]{0};
 
     SlicingPlane slicingPlane;
 
