@@ -11,24 +11,24 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 	connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
 	connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
 	connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
-	connect(ui->proportion_Slider, SIGNAL(valueChanged(int)), this, SLOT(changeProportion()));
-	connect(ui->proportion_Slider, SIGNAL(sliderPressed()), this, SLOT(Pressed()));
-	connect(ui->proportion_Slider, SIGNAL(sliderReleased()), this, SLOT(Released()));
+//	connect(ui->proportion_Slider, SIGNAL(valueChanged(int)), this, SLOT(changeProportion()));
+//	connect(ui->proportion_Slider, SIGNAL(sliderPressed()), this, SLOT(Pressed()));
+//	connect(ui->proportion_Slider, SIGNAL(sliderReleased()), this, SLOT(Released()));
 	connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
-	connect(ui->pushButton, &QPushButton::clicked, this, &igQtStreamTracerWidget::increaseProportion);
-	connect(ui->pushButton_2, &QPushButton::clicked, this, &igQtStreamTracerWidget::reduceProportion);
+	//connect(ui->pushButton, &QPushButton::clicked, this, &igQtStreamTracerWidget::increaseProportion);
+//	connect(ui->pushButton_2, &QPushButton::clicked, this, &igQtStreamTracerWidget::reduceProportion);
 	 numOfSeeds = 200;
 	 ui->numOfSeedLineEdit->setText("200");
 	 control = 0;
      haveClicked = false;
-	 proportion = 0.35;
-	 ui->proportion_Slider->setValue(35);
+//	 proportion = 0.35;
+	// ui->proportion_Slider->setValue(35);
 	 lengthOfStreamLine = 5;
 	 ui->lengthOfStreamLine->setText("5");
 	 maxSteps =1000;
 	 ui->maxSteps->setText("1000");
-	 lengthOfStep = 0.003;
-	 ui->lengthOfStep->setText("0.003");
+	 lengthOfStep = 0.3;
+	 ui->lengthOfStep->setText("0.3");
 	 terminalSpeed = 0.005;
 	 ui->terminalSpeed->setText("0.005");
 	 haveDraw = false;
@@ -101,7 +101,8 @@ void igQtStreamTracerWidget::generateStreamline() {
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
     //auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
-    auto seeds = streamtracer->streamBoundSeedGenerate(numOfSeeds);
+   // auto seeds = streamtracer->streamBoundSeedGenerate(numOfSeeds);
+    auto seeds = streamtracer->seedPidGenerate(numOfSeeds,5485895,536542);
   //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;
 	std::vector<std::vector<float>> streamline;
@@ -129,8 +130,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         }
     }
     std::cout << vectorName << std::endl;
-    streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep,
-                                                 terminalSpeed, maxSteps);
+    streamline = streamtracer->showStreamLineMix(seeds, "Velocity", streamlineColor, lengthOfStreamLine, lengthOfStep,terminalSpeed, maxSteps);
  //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
 	//	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 	//}
@@ -138,10 +138,10 @@ void igQtStreamTracerWidget::generateStreamline() {
 	//	 streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 	//}
 	m_StreamBase->SetStreamLine(streamline,streamlineColor);
-    auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
-    std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
-    ATL::CString ch(msg.c_str());
-    MessageBox(NULL, ch, "提示", MB_OK);
+ //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
+ //   std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
+ //   ATL::CString ch(msg.c_str());
+ //   MessageBox(NULL, ch, "提示", MB_OK);
 
 	if (!haveDraw) {
 		m_StreamBase->DataObject::SetName(masterName+"_StreamLine");

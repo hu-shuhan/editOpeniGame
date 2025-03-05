@@ -23,11 +23,11 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
 
     progressObserver = iGame::ProgressObserver::Instance();
 
-   progressObserver->AddObserver(iGame::Command::ProgressEvent,
-        [&](iGame::Object*, unsigned long, void* data)-> void {
-            double value = *static_cast<double*>(data);
-            this->updateProgressBar(value);
-        });
+   //progressObserver->AddObserver(iGame::Command::ProgressEvent,
+   //     [&](iGame::Object*, unsigned long, void* data)-> void {
+   //         double value = *static_cast<double*>(data);
+   //         this->updateProgressBar(value);
+   //     });
         
 }
 
