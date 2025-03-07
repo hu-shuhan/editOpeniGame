@@ -100,6 +100,16 @@ std::vector<Vector3f> iGameStreamTracer::seedPidGenerate(int numOfseed, igIndex 
     for (int i = 0; i < numOfseed; i++) { tem.emplace_back(a + step * i); }
     return tem;
 }
+std::vector<Vector3f> iGameStreamTracer::seedPCoordGenerate(int numOfseed, Vector3f p1, Vector3f p2) {
+    this->mesh = DynamicCast<VolumeMesh>(this->mesh);
+    auto allPoints = mesh->GetPoints();
+    int numOfPoints = mesh->GetNumberOfPoints();
+    std::vector<Vector3f> tem;
+    if (mesh == nullptr) { return tem; }
+    auto step = (p2 - p1) / numOfseed;
+    for (int i = 0; i < numOfseed; i++) { tem.emplace_back(p1 + step * i); }
+    return tem;
+}
 std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
     switch (streamMode) {
         case Diagonal: {
@@ -1031,7 +1041,7 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
             BoundingBox culL;
             for (int i = 0; i < size; i++) { culL.add(mesh->GetPoint(volume[i])); }
             longest = culL.diag();
-            // 使用写锁进行插入
+            // use write lock
             std::unique_lock<std::shared_mutex> lock(rwMutex);
             cellBoundLength[VolumeId] = longest;
         }

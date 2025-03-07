@@ -37,7 +37,8 @@ public:
 	*/
     std::vector<Vector3f> seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1, igIndex pId2);
     std::vector<Vector3f> seedGenerate(int control, float proportion, int numOfseed);
-    std::vector<Vector3f> seedPidGenerate(int numOfseed,igIndex pId1,igIndex pId2);
+    std::vector<Vector3f> seedPidGenerate(int numOfseed, igIndex pId1, igIndex pId2);
+    std::vector<Vector3f> seedPCoordGenerate(int numOfseed, Vector3f p1, Vector3f p2);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data

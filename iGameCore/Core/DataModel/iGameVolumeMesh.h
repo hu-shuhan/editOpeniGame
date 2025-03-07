@@ -267,7 +267,7 @@ public:
         //     for (auto it: vset) { ptIds[npts++] = it; }
         //     m_Volumes->AddCellIds(ptIds, npts);
         // }
-         InitPolyhedronVertices();
+        //InitPolyhedronVertices();
         this->IsPolyhedronType = true;
     }
     bool GetIsPolyhedronType() { return this->IsPolyhedronType; }

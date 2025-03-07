@@ -12,13 +12,13 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 	connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
 
-    connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-    connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-    connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
+    //connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
+    //connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
+    //connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
 
-    connect(ui->lineEdit_4, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
-    connect(ui->lineEdit_5, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
-    connect(ui->lineEdit_6, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
+    //connect(ui->lineEdit_4, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
+    //connect(ui->lineEdit_5, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
+    //connect(ui->lineEdit_6, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
 //	connect(ui->proportion_Slider, SIGNAL(valueChanged(int)), this, SLOT(changeProportion()));
@@ -76,15 +76,15 @@ void igQtStreamTracerWidget::Released() {
 	haveClicked = true;
 	generateStreamline();
 }
-void igQtStreamTracerWidget::changeOffsetP1() {
-    p1 = ui->lineEdit->text().toInt();
-    p2 = ui->lineEdit_2->text().toInt();
-    offsetP1 = Vector3f(ui->lineEdit->text().toFloat(), ui->lineEdit_2->text().toFloat(), ui->lineEdit_3->text().toFloat());
-}
-void igQtStreamTracerWidget::changeOffsetP2() {
-    offsetP2 = Vector3f(ui->lineEdit_4->text().toFloat(), ui->lineEdit_5->text().toFloat(),
-                        ui->lineEdit_6->text().toFloat());
-}
+//void igQtStreamTracerWidget::changeOffsetP1() {
+//    p1 = ui->lineEdit->text().toInt();
+//    p2 = ui->lineEdit_2->text().toInt();
+//    offsetP1 = Vector3f(ui->lineEdit->text().toFloat(), ui->lineEdit_2->text().toFloat(), ui->lineEdit_3->text().toFloat());
+//}
+//void igQtStreamTracerWidget::changeOffsetP2() {
+//    offsetP2 = Vector3f(ui->lineEdit_4->text().toFloat(), ui->lineEdit_5->text().toFloat(),
+//                        ui->lineEdit_6->text().toFloat());
+//}
 void igQtStreamTracerWidget::changeProportion() {
 //	proportion = ui->proportion_Slider->value();
 //	proportion /= 100;
@@ -160,7 +160,8 @@ void igQtStreamTracerWidget::generateStreamline() {
                                               {536542, 2658742},
                                               {5485895, 536542}};
         
-    auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
+   // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
+    auto seeds = streamtracer->seedPCoordGenerate(numOfSeeds, seedPoints[control * 2], seedPoints[control*2+1]);
     //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);
   //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
 	std::vector<std::vector<float>> streamlineColor;

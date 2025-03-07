@@ -27,8 +27,8 @@ public slots:
     void Released();
     void changeVecName();
     void updateVectorNameList();
-    void changeOffsetP1();
-    void changeOffsetP2();
+    //void changeOffsetP1();
+    //void changeOffsetP2();
 signals:
     void AddStreamObject(DataObject::Pointer);
     void UpdateStreamObject(DataObject::Pointer);
@@ -49,8 +49,18 @@ private:
     UnstructuredMesh::Pointer streamlineResult{};
     std::vector<PointFinder::Pointer> ptFinder;
     iGameStreamBase* m_StreamBase{nullptr};
-    Vector3f offsetP1{0, 0, 0};
-    Vector3f offsetP2{0, 0, 0};
+    Vector3f offsetP1{0,0,0};
+    Vector3f offsetP2{0,0,0};
+    std::vector<Vector3f> seedPoints{
+            {-0.440697, -0.291987, -0.1272},
+            {-0.38931, 0.339697, 0.223517},
+            {-0.603765,-0.340187,-0.1272},
+            {-0.516121,0.312594,0.223517},
+            {-0.320113,-0.348173,-0.1272},
+            {-0.360381,0.273479,0.223517},
+                                     {},
+                                     {}
+    };
     int p1;
     int p2;
 };
