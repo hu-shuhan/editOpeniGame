@@ -154,12 +154,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
     //auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
-   // auto seeds = streamtracer->streamBoundSeedGenerate(numOfSeeds);
+  //  auto seeds = streamtracer->streamBoundSeedGenerate(numOfSeeds);
     std::vector<std::vector<int>> seedPids = {{1797284, 3468659},
                                               {536542, 2738820},
                                               {536542, 2658742},
                                               {5485895, 536542}};
-        
+    seedPoints[5] = streamtracer->GetMesh()->GetBoundingBox().max;
+    seedPoints[6] = streamtracer->GetMesh()->GetBoundingBox().min;
    // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
     auto seeds = streamtracer->seedPCoordGenerate(numOfSeeds, seedPoints[control * 2], seedPoints[control*2+1]);
     //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);

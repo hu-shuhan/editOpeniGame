@@ -277,8 +277,6 @@ std::vector<Vector3f> iGameStreamTracer::streamBoundSeedGenerate(int numOfseed) 
     std::vector<Vector3f> tem;
     // Point first = HexMesh->GetPoint(igIndex(0));
     Point first = allPoints->GetPoint(igIndex(0));
-    float maxPosition[3] = {first[0], first[1], first[2]};
-    float minPosition[3] = {first[0], first[1], first[2]};
     auto bound = mesh->GetBoundingBox();
     float num = numOfseed;
     auto step = (bound.max - bound.min) / num;
