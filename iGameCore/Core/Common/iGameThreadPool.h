@@ -49,6 +49,7 @@ public:
         // 等待所有任务完成
         for (auto& future: futures) { future.get(); }
     }
+
     // static parallelFor 函数，numThreads 默认值为 12,
     //maxThreadSize 表示的是该func允许的最大线程数量，由用户在自定义程序里面设定
     //这个模式调用的是func(int start,int end,int id), id用于在每个func中开辟独立的数据空间，因此id不能>=maxThreadSize

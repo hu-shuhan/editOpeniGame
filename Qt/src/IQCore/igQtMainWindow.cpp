@@ -478,6 +478,7 @@ igQtMainWindow::~igQtMainWindow() {}
 
 
 #include "SurfaceMeshFilters/meshsimplifier/meshsimplifier.h"
+#include "SurfaceMeshFilters/simplifier.h"
 
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
@@ -493,7 +494,8 @@ void igQtMainWindow::initAllFilters() {
                 dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
         int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
                                             "true");
-
+        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
+                                           "false");
         dialog->show();
         dialog->setApplyFunctor([=]() {
             Triangulation::Pointer triangulation = Triangulation::New();
@@ -510,12 +512,175 @@ void igQtMainWindow::initAllFilters() {
             filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
             filter->SetInput(obj);
             //filter->SetActivedAttribIndices({0});
-            filter->Execute();
+            ok = filter->Execute();
 
-            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-            rendererWidget->update();
+            if (ok) {
+
+                auto oldMesh = DynamicCast<SurfaceMesh>(obj);
+                auto outObj = filter->GetOutput();
+                auto newMesh = DynamicCast<SurfaceMesh>(outObj);
+                auto oldPoints = oldMesh->GetPoints();
+                auto newPoints = newMesh->GetPoints();
+                //PointFinder::Pointer oldPicker = PointFinder::New();
+                //oldPicker->SetPoints(oldPoints);
+                //oldPicker->Initialize();
+                QString result = "";
+                if (dialog->getChecked(checkId, ok)) {
+                    PointFinder::Pointer newPicker = PointFinder::New();
+                    newPicker->SetPoints(newPoints);
+                    newPicker->Initialize();
+
+                    double w1 = 0.0, w2 = 0.0;
+                    // 计算原始网格的表面积
+                    for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+                        igIndex f[3]{};
+                        oldMesh->GetFacePointIds(i, f);
+                        Point v0 = oldMesh->GetPoint(f[0]);
+                        Point v1 = oldMesh->GetPoint(f[1]);
+                        Point v2 = oldMesh->GetPoint(f[2]);
+
+                        Vector3f d10 = v1 - v0;
+                        Vector3f d20 = v2 - v0;
+
+                        w1 += CrossProduct(d10, d20).norm() / 2.0;
+                    }
+                    //for (int i = 0; i < newMesh->GetNumberOfFaces(); i++) {
+                    //    igIndex f[3]{};
+                    //    newMesh->GetFacePointIds(i, f);
+                    //    Point v0 = newMesh->GetPoint(f[0]);
+                    //    Point v1 = newMesh->GetPoint(f[1]);
+                    //    Point v2 = newMesh->GetPoint(f[2]);
+
+                    //    Vector3f d10 = v1 - v0;
+                    //    Vector3f d20 = v2 - v0;
+
+                    //    w2 += CrossProduct(d10, d20).norm() / 2.0;
+                    //}
+
+                    double d1 = 0.0, d2 = 0.0;
+                    double d3 = 0.0, d4 = 0.0;
+
+                    iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+                    ProgressBar->UpdateProgress(0);
+                    int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+                    // 计算平均平方距离
+                    for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+                        if (i > progress * blockNum) {
+                            ProgressBar->UpdateProgress(progress * 0.01);
+                            progress++;
+                        }
+                        auto p = oldPoints->GetPoint(i);
+
+                        igIndex id = newPicker->FindClosestPoint(p);
+                        if (id != -1) {
+                            Point cp = newPoints->GetPoint(id);
+                            d1 += (p - cp).squaredNorm();
+                            d3 += (p - cp).norm();
+                        }
+                    }
+
+                    //for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+                    //    auto p = newPoints->GetPoint(i);
+
+                    //    igIndex id = oldPicker->FindClosestPoint(p);
+                    //    if (id != -1) {
+                    //        Point cp = oldPoints->GetPoint(id);
+                    //        d2 += (p - cp).squaredNorm();
+                    //        d4 += (p - cp).norm();
+                    //    }
+                    //}
+
+                    double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+                    double dd =
+                            1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+
+                    result += "\n几何相似性度量";
+                    result += "\n Squared Mean Distance: " + QString::number(d);
+                    result += "\n Mean Distance: " + QString::number(dd);
+                    result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+                    result += "\nMean Distance: " + QString::number(dd);
+                    result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+                } else {
+                    result += "\n累计几何误差: " + QString::number(filter->GetError());
+                }
+
+                modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
+                rendererWidget->update();
+
+                QMessageBox::information(this, "简化成功", result);
+            }
+
             dialog->close();
         });
+    });
+
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
+        if (index == -1) index = 0;
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        obj = triangulation->GetOutput();
+        auto mesh = DynamicCast<SurfaceMesh>(obj);
+
+        unsigned int* destination;
+        unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
+        const size_t index_count = mesh->GetNumberOfFaces() * 3;
+        float* vertex_positions = mesh->GetPoints()->RawPointer();
+        size_t vertex_count = mesh->GetNumberOfPoints();
+        size_t vertex_positions_stride = sizeof(float) * 3;
+        float* vertex_attributes = nullptr;
+
+        vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
+        size_t vertex_attributes_stride = sizeof(float);
+        float attribute_weights[1]{1};
+        size_t attribute_count = 1;
+        unsigned char* vertex_lock = nullptr;
+        size_t target_index_count = index_count * 0.5;
+        float target_error = 0.01f;
+        unsigned int options = 0;
+        float out_error = 0.0f;
+
+
+        float* result_error = &out_error;
+
+        destination = new unsigned int[index_count];
+
+        clock_t start, end;
+
+        start = clock();
+        size_t result_size = simplify_trimesh_with_attriubtes(
+                destination, indices, index_count, vertex_positions, vertex_count, vertex_attributes, attribute_weights,
+                attribute_count, target_index_count, target_error, result_error);
+        end = clock();
+        std::cout << "simplify_trimesh_with_attriubtes cost time: " << end - start << std::endl;
+        //size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
+        //                               attribute_weights, attribute_count, vertex_lock, target_index_count,
+        //                               target_error, options, result_error);
+
+        //size_t result_size = meshopt_simplifyWithAttributes<unsigned int>(
+        //        destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride,
+        //        vertex_attributes, vertex_attributes_stride, attribute_weights, attribute_count, vertex_lock,
+        //        target_index_count, target_error, options, result_error);
+
+
+        //size_t result_size =
+        //        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, target_index_count, target_error, result_error);
+        auto Mesh = SurfaceMesh::New();
+        auto Faces = CellArray::New();
+        std::cout << result_size << std::endl;
+        for (int i = 0; i < target_index_count / 3; i++) {
+            Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
+        }
+
+        Mesh->SetPoints(mesh->GetPoints());
+        Mesh->SetFaces(Faces);
+        Mesh->SetAttributeSet(mesh->GetAttributeSet());
+        modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
+        rendererWidget->update();
     });
 
     QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
@@ -574,70 +739,6 @@ void igQtMainWindow::initAllFilters() {
     });
 
     /*
-    connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
-            this, [&](bool checked) {
-
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
-        if (index == -1) index = 0;
-        Triangulation::Pointer triangulation = Triangulation::New();
-        triangulation->SetInput(obj);
-        triangulation->Execute();
-        obj = triangulation->GetOutput();
-        auto mesh = DynamicCast<SurfaceMesh>(obj);
-
-        unsigned int* destination;
-        unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
-        const size_t index_count = mesh->GetNumberOfFaces() * 3;
-        float* vertex_positions = mesh->GetPoints()->RawPointer();
-        size_t vertex_count = mesh->GetNumberOfPoints();
-        size_t vertex_positions_stride = sizeof(float) * 3;
-        float* vertex_attributes = nullptr;
-
-        // vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
-        size_t vertex_attributes_stride = sizeof(float);
-        float attribute_weights[1]{1};
-        size_t attribute_count = 0;
-        unsigned char* vertex_lock = nullptr;
-        size_t target_index_count = index_count * 0.1;
-        float target_error = 0.01f;
-        unsigned int options = 0;
-        float out_error = 0.0f;
-
-
-        float* result_error = &out_error;
-
-        destination = new unsigned int[index_count];
-        size_t result_size = meshsmp_simplifyTriMeshWithAttributes(
-                indices, index_count, vertex_positions, vertex_count, vertex_attributes, attribute_count,
-                attribute_weights, target_index_count, target_error, result_error);
-
-        //size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
-        //                               vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
-        //                               attribute_weights, attribute_count, vertex_lock, target_index_count,
-        //                               target_error, options, result_error);
-
-        //size_t result_size =
-        //        meshopt_simplify(destination, indices, index_count, vertex_positions, vertex_count,
-        //                         vertex_positions_stride, target_index_count, target_error, options, result_error);
-
-
-        //size_t result_size =
-        //        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
-        //                               vertex_positions_stride, target_index_count, target_error, result_error);
-        auto Mesh = SurfaceMesh::New();
-        auto Faces = CellArray::New();
-        std::cout << result_size << std::endl;
-        for (int i = 0; i < target_index_count / 3; i++) {
-            Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
-        }
-
-        Mesh->SetPoints(mesh->GetPoints());
-        Mesh->SetFaces(Faces);
-        Mesh->SetAttributeSet(mesh->GetAttributeSet());
-        modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
-        rendererWidget->update();
-            });
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
             this, [&](bool checked) {
 

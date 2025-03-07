@@ -71,6 +71,8 @@ size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* ind
                               vertex_attributes, attribute_count);
 
     size_t collapse_capacity = boundEdgeCollapses(adjacency, vertex_count, index_count, nullptr);
+    std::cout << "index_count: " << index_count << std::endl;
+    std::cout << "collapse_capacity: " << collapse_capacity << std::endl;
 
     Collapse* edge_collapses = allocator.allocate<Collapse>(collapse_capacity);
     unsigned int* collapse_order = allocator.allocate<unsigned int>(collapse_capacity);
@@ -91,7 +93,7 @@ size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* ind
 
         size_t edge_collapse_count = pickEdgeCollapses(edge_collapses, collapse_capacity, result, result_count, remap,
                                                        nullptr, nullptr, nullptr);
-
+        std::cout << "edge_collapse_count: " << edge_collapse_count << std::endl;
         if (edge_collapse_count == 0) break;
 
         rankEdgeCollapses(edge_collapses, edge_collapse_count, vertex_positions, vertex_attributes, vertex_quadrics,
