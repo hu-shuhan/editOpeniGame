@@ -1,5 +1,7 @@
 set(MODULE_NAME iGameCore_module)
 set(CMAKE_CXX_STANDARD 20)
+set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DPLATFORM_WINDOWS)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -13,6 +15,9 @@ endif ()
 #--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+
+# add rendering core
+add_subdirectory(Rendering)
 
 target_include_directories(${MODULE_NAME} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/CSTest>
@@ -61,23 +66,6 @@ list(APPEND ThirdParty_lib_dependency
         spdlog_header_only
 )
 
-# copy resources to the build directory
-set(RENDERING_ASSESTS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests)
-set(RENDERING_SHADERS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders/GLSL)
-set(RENDERING_RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
-
-file(MAKE_DIRECTORY ${RENDERING_RESOURCES_OUTPUT_DIR})
-
-file(COPY ${RENDERING_ASSESTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Assests)
-file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders)
-
-IF (WIN32)
-    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
-ELSEIF (APPLE)
-    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
-ELSE ()
-    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
-ENDIF ()
 #--------------------------------------------------------------------
 # Find or Enable ThirdParty Components' Stuff.
 #--------------------------------------------------------------------
