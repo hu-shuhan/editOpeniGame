@@ -17,7 +17,7 @@ void SurfaceMeshMeshleter::Build() {
         DynamicCast<StructuredMesh>(m_DataObject) ||
         DynamicCast<VolumeMesh>(m_DataObject)) {
 
-        Logger::LogError("{} is not a SurfaceMesh, but it will be processed "
+        IGAME_RENDERING_ERROR("{} is not a SurfaceMesh, but it will be processed "
                          "using SurfaceMeshMeshleter for meshleting.",
                          m_DataObject->GetName());
     }
@@ -49,7 +49,7 @@ void SurfaceMeshMeshleter::Build() {
             }
         }
 
-        Logger::LogDebug("DataObject {}, convert to rendering data [time: {}]",
+        IGAME_RENDERING_TRACE("DataObject {}, convert to rendering data [time: {}]",
                          m_DataObject->GetName(),
                          FormatTime(timer->ElapsedMilliseconds()));
     }
@@ -233,7 +233,7 @@ void SurfaceMeshMeshleter::Build() {
         }
 #endif
 
-        Logger::LogDebug("DataObject {}, build meshlets [count: {}, time: {}]",
+        IGAME_RENDERING_TRACE("DataObject {}, build meshlets [count: {}, time: {}]",
                          m_DataObject->GetName(), meshlet_count,
                          FormatTime(timer->ElapsedMilliseconds()));
     }

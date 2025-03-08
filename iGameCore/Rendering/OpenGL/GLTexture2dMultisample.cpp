@@ -16,7 +16,7 @@ void GLTexture2dMultisample::CopyImageSubData(
         GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight,
         GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError(
+    IGAME_RENDERING_ERROR(
             "[GLTexture2dMultisample::CopyImageSubData] Error: This function "
             "is not supported in OpenGL 3.3. Please use OpenGL 4.6 or higher.");
 #elif IGAME_OPENGL_VERSION_460
@@ -43,7 +43,7 @@ void GLTexture2dMultisample::Storage(unsigned samples, GLenum internal_format,
 
 void GLTexture2dMultisample::Active(GLenum texture) {
     if (texture == GL_TEXTURE0) {
-        Logger::LogError("[GLTexture2dMultisample::Active] Error: GL_TEXTURE0 "
+        IGAME_RENDERING_ERROR("[GLTexture2dMultisample::Active] Error: GL_TEXTURE0 "
                          "is reserved and cannot be used for binding.");
         return;
     }

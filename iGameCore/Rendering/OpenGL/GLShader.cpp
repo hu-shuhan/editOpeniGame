@@ -45,7 +45,7 @@ void GLShader::CheckCompileErrors() {
 
     if (!success) {
         glGetShaderInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        Logger::LogError("[GLShader::CheckCompileErrors] Shader Name: '{}', "
+        IGAME_RENDERING_ERROR("[GLShader::CheckCompileErrors] Shader Name: '{}', "
                          "Error: SHADER_COMPILATION_FAILED, Details: {}",
                          this->GetName(), infoLog);
     }
@@ -62,7 +62,7 @@ std::string GLShader::ReadFile(const char* file_path) {
         file.close();
         return contents;
     } else {
-        Logger::LogError("[GLShader::ReadFile] Failed to open file '{}', "
+        IGAME_RENDERING_ERROR("[GLShader::ReadFile] Failed to open file '{}', "
                          "Shader Name: '{}'",
                          file_path, this->GetName());
         return std::string();
@@ -264,7 +264,7 @@ void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
                                       SmartPointer<GLBuffer> m_UBOBlock) {
     GLuint blockIndex = glGetUniformBlockIndex(m_Handle, uniformBlockName);
     if (blockIndex == GL_INVALID_INDEX) {
-        Logger::LogError("[GLShaderProgram::MapUniformBlock] Shader '{}' does "
+        IGAME_RENDERING_ERROR("[GLShaderProgram::MapUniformBlock] Shader '{}' does "
                          "not contain the Uniform Block '{}'.",
                          this->GetName(), uniformBlockName);
         return;
@@ -278,7 +278,7 @@ void GLShaderProgram::MapUniformBlock(const char* uniformBlockName,
 GLVertexAttribute GLShaderProgram::GetAttribLocation(const char* name) {
     int location = glGetAttribLocation(m_Handle, name);
     if (location == -1) {
-        Logger::LogError("[GLShaderProgram::GetAttribLocation] Shader '{}' "
+        IGAME_RENDERING_ERROR("[GLShaderProgram::GetAttribLocation] Shader '{}' "
                          "does not contain the attribute '{}' (location: -1).",
                          this->GetName(), name);
     }
@@ -290,7 +290,7 @@ SmartPointer<GLUniform>
 GLShaderProgram::GetUniformLocation(const char* name) const {
     int location = glGetUniformLocation(m_Handle, name);
     if (location == -1) {
-        Logger::LogError("[GLShaderProgram::GetUniformLocation] Shader '{}' "
+        IGAME_RENDERING_ERROR("[GLShaderProgram::GetUniformLocation] Shader '{}' "
                          "does not contain the uniform '{}' (location: -1).",
                          this->GetName(), name);
     }
@@ -309,7 +309,7 @@ void GLShaderProgram::CheckCompileErrors() {
 
     if (!success) {
         glGetProgramInfoLog(m_Handle, BUFSIZ, NULL, infoLog.data());
-        Logger::LogError("[GLShaderProgram::CheckCompileErrors] Shader program "
+        IGAME_RENDERING_ERROR("[GLShaderProgram::CheckCompileErrors] Shader program "
                          "'{}' linkage failed. Error: {}",
                          this->GetName(), infoLog);
     }

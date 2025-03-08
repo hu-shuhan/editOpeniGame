@@ -19,7 +19,7 @@ void GLTexture2d::CopyImageSubData(const SmartPointer<GLTexture2d> source,
                                    GLint dstY, GLint dstZ, GLsizei srcWidth,
                                    GLsizei srcHeight, GLsizei srcDepth) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError("[GLTexture2d::CopyImageSubData] Error: Function not "
+    IGAME_RENDERING_ERROR("[GLTexture2d::CopyImageSubData] Error: Function not "
                      "supported on OpenGL 3.3.");
 #elif IGAME_OPENGL_VERSION_460
     glCopyImageSubData(source->Handle(), GL_TEXTURE_2D, srcLevel, srcX, srcY,
@@ -34,7 +34,7 @@ GLTexture2d GLTexture2d::View(GLenum target,
                               unsigned mip_level_count, unsigned first_layer,
                               unsigned layer_count) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError(
+    IGAME_RENDERING_ERROR(
             "[GLTexture2d::View] Error: Function not supported on OpenGL 3.3.");
     return GLTexture2d(0);
 #elif IGAME_OPENGL_VERSION_460
@@ -85,7 +85,7 @@ void GLTexture2d::Storage(unsigned mip_levels, GLenum internal_format,
             type = GL_UNSIGNED_INT_24_8;
             break;
         default:
-            Logger::LogError("[GLTexture2d::Storage] Error: Unsupported "
+            IGAME_RENDERING_ERROR("[GLTexture2d::Storage] Error: Unsupported "
                              "internal format.");
             return;
     }
@@ -147,7 +147,7 @@ void GLTexture2d::GenerateMipmap() {
 
 void GLTexture2d::Active(GLenum texture) {
     if (texture == GL_TEXTURE0) {
-        Logger::LogError("[GLTexture2d::Active] Error: GL_TEXTURE0 is reserved "
+        IGAME_RENDERING_ERROR("[GLTexture2d::Active] Error: GL_TEXTURE0 is reserved "
                          "and cannot be used.");
         return;
     }
@@ -164,7 +164,7 @@ void GLTexture2d::BindImage(unsigned int binding_index, unsigned int mip_level,
                             bool layered, int layer, GLenum access,
                             GLenum format) {
 #ifdef IGAME_OPENGL_VERSION_330
-    Logger::LogError("You called the GLTexture2d::BindImage function on the "
+    IGAME_RENDERING_ERROR("You called the GLTexture2d::BindImage function on the "
                      "opengl330. This function is currently not supported.");
 #elif IGAME_OPENGL_VERSION_460
     glBindImageTexture(binding_index, m_Handle, mip_level, layered, layer,

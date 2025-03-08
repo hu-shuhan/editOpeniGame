@@ -24,7 +24,7 @@ layout(std140, binding = 2) uniform UniformBufferObjectBlock {
 
 // 0:blinnPhong shading, 1:no light shading, 2:pure color shading
 uniform int colorMode;
-uniform vec3 inputColor = vec3(1.0, 1.0, 1.0);
+uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
 
 // Atomic counter, used to allocate data to the linked list
 layout(binding = 0, offset = 0) uniform atomic_uint indexCounter;
@@ -54,15 +54,15 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 {
     // diffuse
     vec3 lightDir = normalize(-light.direction);
-    float diff = max(dot(lightDir, normal), 0.0);
+    float diff = max(dot(lightDir, normal), 0.0f);
     vec3 diffuse = diff * light.color * 0.5f;
     // specular
     vec3 viewDir = normalize(cameraData.viewPos - fragPos);
-    float spec = 0.0;
+    float spec = 0.0f;
     //    vec3 halfwayDir = normalize(lightDir + viewDir);
     //    spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
     vec3 reflectDir = reflect(-lightDir, normal);
-    spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f);
     vec3 specular = spec * light.color * 0.5f;
 
     //return diffuse + specular;
@@ -70,25 +70,25 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
 }
 
 vec3 ShadeFragment() {
-    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec3 color = vec3(0.0f, 0.0f, 0.0f);
 
-    vec3 normal = vec3(0.0, 0.0, 0.0);
+    vec3 normal = vec3(0.0f, 0.0f, 0.0f);
     if (ubo.useNormalSmooth == 1) {
         // continuous patch
         normal = normalize(in_Normal);
     } else {
         // discrete patch
-        float scale = 1.0 / length(fwidth(in_VCPosition));
+        float scale = 1.0f / length(fwidth(in_VCPosition));
         vec3 fdx = dFdx(in_VCPosition) * scale;
         vec3 fdy = dFdy(in_VCPosition) * scale;
         normal = normalize(cross(fdx, fdy));
     }
     // correct normal orientation
     if (cameraData.isOrtho == 1 && normal.z < 0.0f) {
-        normal = -1.0 * normal;
+        normal = -1.0f * normal;
     }
     if (cameraData.isOrtho == 0 && dot(normal, in_VCPosition) > 0.0f) {
-        normal = -1.0 * normal;
+        normal = -1.0f * normal;
     }
 
     // ambient

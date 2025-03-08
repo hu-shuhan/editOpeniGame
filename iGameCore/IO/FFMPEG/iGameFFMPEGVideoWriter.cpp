@@ -52,6 +52,7 @@ FFMPEGVideoWriter::~FFMPEGVideoWriter() {
 }
 
 bool FFMPEGVideoWriter::SaveMP4() {
+
     AVFormatContext* formatContext = nullptr;
     AVCodecContext* codecContext = nullptr;
     AVStream* videoStream = nullptr;
@@ -62,7 +63,6 @@ bool FFMPEGVideoWriter::SaveMP4() {
     pkt.size = 0;
     SwsContext* swsContext = nullptr;
     int ret;
-
     const char* storagePath = m_VideoInfo.output_path.c_str();
     // 创建输出格式
     avformat_alloc_output_context2(&formatContext, nullptr, "mp4", storagePath);
@@ -77,7 +77,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
         std::cout  << "Codec not found";
         return false;
     }
-
+//    std::cout << " codec ID " <<  (codec->id == formatContext->oformat->video_codec) << '\n';
     // 创建视频流
     videoStream = avformat_new_stream(formatContext, nullptr);
     if (!videoStream) {
@@ -106,13 +106,12 @@ bool FFMPEGVideoWriter::SaveMP4() {
         return false;
     }
 
-    videoStream->codecpar->codec_id = formatContext->oformat->video_codec;
-    videoStream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-    videoStream->codecpar->width = codecContext->width;
-    videoStream->codecpar->height = codecContext->height;
-    videoStream->codecpar->format = codecContext->pix_fmt;
+//    videoStream->codecpar->codec_id = formatContext->oformat->video_codec;
+//    videoStream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+//    videoStream->codecpar->width = codecContext->width;
+//    videoStream->codecpar->height = codecContext->height;
+//    videoStream->codecpar->format = codecContext->pix_fmt;
     avcodec_parameters_from_context(videoStream->codecpar, codecContext);
-
     // 打开输出文件
     if (!(formatContext->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&formatContext->pb, storagePath, AVIO_FLAG_WRITE);
@@ -150,7 +149,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
         int inLinesize[1] = { m_VideoInfo.bytes_per_line };
 
         sws_scale(swsContext, inData, inLinesize, 0, height, frame->data, frame->linesize);
-        frame->pts = i;
+        frame->pts = av_rescale_q(i, AVRational{1, m_VideoInfo.frame_rate}, codecContext->time_base);
 
         // 发送帧
         ret = avcodec_send_frame(codecContext, frame);

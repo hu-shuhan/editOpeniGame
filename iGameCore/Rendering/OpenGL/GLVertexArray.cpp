@@ -47,7 +47,7 @@ void GLVertexArray::VertexBuffer(unsigned int vbo_binding_index,
                                  ptrdiff_t offset, size_t stride) {
 #ifdef IGAME_OPENGL_VERSION_330
     if (offset != 0) {
-        Logger::LogError("You are trying to offset the VBO in the opengl330 "
+        IGAME_RENDERING_ERROR("You are trying to offset the VBO in the opengl330 "
                          "version, which is illegal. Please check your code.");
     }
     GLVertexArrayManager& manager = GLVertexArrayManager::Instance();

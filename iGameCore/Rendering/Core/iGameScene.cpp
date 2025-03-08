@@ -69,7 +69,7 @@ Scene::~Scene() {}
 
 bool Scene::Initialize() {
     if (m_FinishInit) {
-        Logger::LogWarn("Scene is already init.");
+        IGAME_RENDERING_WARN("Scene is already init.");
         return false;
     }
 
@@ -105,7 +105,7 @@ int Scene::AddModel(SmartPointer<Model> model) {
 void Scene::RemoveModel(int index) {
     auto it = m_Models.find(index);
     if (it == m_Models.end()) {
-        Logger::LogWarn("Model with index {} does not exist in the scene.",
+        IGAME_RENDERING_WARN("Model with index {} does not exist in the scene.",
                         index);
         return;
     }
@@ -162,7 +162,7 @@ void Scene::RemoveCurrentModel() {
 void Scene::SetCurrentModel(int index) {
     auto it = m_Models.find(index);
     if (it == m_Models.end()) {
-        Logger::LogWarn("Model with index {} does not exist in the scene.",
+        IGAME_RENDERING_WARN("Model with index {} does not exist in the scene.",
                         index);
         return;
     }
@@ -275,23 +275,23 @@ SmartPointer<GLShaderProgram> Scene::GetShader(ShaderType type) {
 }
 
 void Scene::InitOpenGL() {
-    if (!gladLoadGL()) { Logger::LogError("Failed to initialize GLAD"); }
+    if (!gladLoadGL()) { IGAME_RENDERING_ERROR("Failed to initialize GLAD"); }
 
     // log opengl info
     {
-        Logger::LogDebug(
+        IGAME_RENDERING_TRACE(
                 "==================== OpenGL Info ====================");
         const GLubyte* vendor = glGetString(GL_VENDOR);
-        Logger::LogDebug("Vendor:   {}", reinterpret_cast<const char*>(vendor));
+        IGAME_RENDERING_TRACE("Vendor:   {}", reinterpret_cast<const char*>(vendor));
         const GLubyte* renderer = glGetString(GL_RENDERER);
-        Logger::LogDebug("Renderer:   {}",
+        IGAME_RENDERING_TRACE("Renderer:   {}",
                          reinterpret_cast<const char*>(renderer));
         const GLubyte* version = glGetString(GL_VERSION);
-        Logger::LogDebug("Version:   {}",
+        IGAME_RENDERING_TRACE("Version:   {}",
                          reinterpret_cast<const char*>(version));
         GLint numExtensions = 0;
         glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-        Logger::LogDebug(
+        IGAME_RENDERING_TRACE(
                 "=====================================================");
     }
 
@@ -438,7 +438,7 @@ void Scene::ResizeFrameBuffer() {
 
         if (m_FramebufferMultisampled->CheckStatus() !=
             GL_FRAMEBUFFER_COMPLETE) {
-            Logger::LogError("{}, framebuffer is not complete!",
+            IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
                              this->GetName());
         }
     }
@@ -485,7 +485,7 @@ void Scene::ResizeFrameBuffer() {
         m_FramebufferResolved = fbo;
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
-            Logger::LogError("{}, framebuffer is not complete!",
+            IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
                              this->GetName());
         }
     }
@@ -520,7 +520,7 @@ void Scene::ResizeFrameBuffer() {
         m_Framebuffer = fbo;
 
         if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
-            Logger::LogError("{}, framebuffer is not complete!",
+            IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
                              this->GetName());
         }
     }
@@ -854,8 +854,8 @@ void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // Enable blending to use the alpha channel for transparency.
     // Without blending, the alpha value in the color will be ignored.
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // 1.reset oit pipeline status
     {
@@ -912,7 +912,7 @@ void Scene::TransparentPass() {
     }
     glEnable(GL_DEPTH_TEST);
 
-    glDisable(GL_BLEND);
+    // glDisable(GL_BLEND);
 #endif
     GLCheckError();
 }

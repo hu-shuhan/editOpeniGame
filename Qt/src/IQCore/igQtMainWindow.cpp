@@ -42,7 +42,7 @@
 #include <stdio.h>
 
 #include <QMessageBox>
-#include <qDebug>
+#include <QDebug>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
 	ui->setupUi(this);
@@ -1282,104 +1282,105 @@ void igQtMainWindow::initAllFilters() {
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->sh
-	//  ow();
-	//	});
-	connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
-	connect(ui->action_ExportAnimation, &QAction::triggered, this,
-		[&](bool checked) { ui->dockWidget_Animation->show(); });
-	connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
-	connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_VectorField->show();
-		ui->widget_VectorField->updateVectorNameList();
-		});
-	connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
-	connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_VectorField->show();
-		ui->widget_VectorField->updateVectorNameList();
-		});
-	connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_TensorField->show();
-		ui->widget_TensorField->UpdateScalarsNameList();
-		ui->widget_TensorField->UpdateTensorsNameList();
-		});
-	connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_FlowField->show(); });
-	// connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
-	// { 	ui->dockWidget_SearchInfo->show();
-	//	});
-	//  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
-	//  {
-	//	ui->dockWidget_EditMode->show();
-	//	});
-	//  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
-	//  checked) { 	ui->dockWidget_QualityDetection->show();
-	//	});
-	connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool checked) {
-		ui->dockWidget_ContourExtract->show();
-		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-		if (!scene) return;
-		auto CurrentModel = scene->GetCurrentModel();
-		if (!CurrentModel) return;
-		auto dataObject = CurrentModel->GetDataObject();
-		if (!dataObject) return;
-		ui->widget_ContourExtract->SetOriginDataObject(dataObject);
-		});
-	connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool checked) {
-		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-		if (!scene) return;
-		auto CurrentModel = scene->GetCurrentModel();
-		if (!CurrentModel) return;
-		auto dataObject = CurrentModel->GetDataObject();
-		if (!dataObject) return;
-		auto attributeSet = dataObject->GetAttributeSet();
-		auto attrIndex = dataObject->GetAttributeIndex();
-		auto attrDimension = dataObject->GetAttributeDimension();
-		if (attrIndex < 0) { return; }
-		auto array = attributeSet->GetAttribute(attrIndex).pointer;
-		if (array == nullptr) return;
-		ArrayObject::Pointer drawArray = nullptr;
-		if (array->GetDimension() <= 1) {
-			drawArray = array;
-		}
-		else {
-			auto tmpArray = FloatArray::New();
-			int size = array->GetNumberOfElements();
-			tmpArray->Reserve(size);
-			tmpArray->SetName(array->GetName());
-			for (int i = 0; i < size; i++) { tmpArray->AddValue(array->GetElementValue(i, attrDimension)); }
-			drawArray = tmpArray;
-		}
-		auto chart = new igQtCharts;
-		chart->drawBarChart(drawArray);
-		chart->exec();
-		});
-	auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter3D* painter, const float color[3]) -> void {
-		// 1. draw faces
-		painter->SetPen(Pen::Style::NoPen);
-		painter->SetBrush(color[0], color[1], color[2]);
-		igIndex cell[32]{};
-		for (int i = 0; i < m->GetNumberOfFaces(); i++) {
-			int ncell = m->GetFacePointIds(i, cell);
-			for (int j = 2; j < ncell; j++) {
-				painter->DrawTriangle(m->GetPoint(cell[0]), m->GetPoint(cell[j - 1]), m->GetPoint(cell[j]));
-			}
-		}
-		// 2. draw lines
-		painter->SetPen(Color::Black);
-		painter->SetBrush(Brush::Style::NoBrush);
-		if (m->GetEdges() == nullptr) { m->BuildEdges(); }
-		for (int i = 0; i < m->GetNumberOfEdges(); i++) {
-			int ncell = m->GetEdgePointIds(i, cell);
-			if (cell[0] < 0 || cell[1] < 0) {
-				throw std::runtime_error("The index of the edge is negative.");
-			}
-			else {
-				painter->DrawLine(m->GetPoint(cell[0]), m->GetPoint(cell[1]));
-			}
-		}
-		painter->Modified();
-	};
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->sh
+    //  ow();
+    //	});
+    connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
+    connect(ui->action_ExportAnimation, &QAction::triggered, this,
+            [&](bool checked) { ui->dockWidget_Animation->show(); });
+    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
+    connect(ui->action_Vector, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_VectorField->show();
+        ui->widget_VectorField->updateVectorNameList();
+    });
+    connect(ui->action_Scalar, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_ScalarField->show(); });
+    connect(ui->action_Glyph, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_VectorField->show();
+        ui->widget_VectorField->updateVectorNameList();
+    });
+    connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_TensorField->show();
+        ui->widget_TensorField->UpdateScalarsNameList();
+        ui->widget_TensorField->UpdateTensorsNameList();
+    });
+    connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_FlowField->show();
+        ui->widget_FlowField->updateVectorNameList();
+    });
+    // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
+    // { 	ui->dockWidget_SearchInfo->show();
+    //	});
+    //  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
+    //  {
+    //	ui->dockWidget_EditMode->show();
+    //	});
+    //  connect(ui->action_QualityDetection, &QAction::triggered, this, [&](bool
+    //  checked) { 	ui->dockWidget_QualityDetection->show();
+    //	});
+    connect(ui->action_ContourExtract, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_ContourExtract->show();
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+        auto CurrentModel = scene->GetCurrentModel();
+        if (!CurrentModel) return;
+        auto dataObject = CurrentModel->GetDataObject();
+        if (!dataObject) return;
+        ui->widget_ContourExtract->SetOriginDataObject(dataObject);
+    });
+    connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool checked) {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+        auto CurrentModel = scene->GetCurrentModel();
+        if (!CurrentModel) return;
+        auto dataObject = CurrentModel->GetDataObject();
+        if (!dataObject) return;
+        auto attributeSet = dataObject->GetAttributeSet();
+        auto attrIndex = dataObject->GetAttributeIndex();
+        auto attrDimension = dataObject->GetAttributeDimension();
+        if (attrIndex < 0) { return; }
+        auto array = attributeSet->GetAttribute(attrIndex).pointer;
+        if (array == nullptr) return;
+        ArrayObject::Pointer drawArray = nullptr;
+        if (array->GetDimension() <= 1) {
+            drawArray = array;
+        } else {
+            auto tmpArray = FloatArray::New();
+            int size = array->GetNumberOfElements();
+            tmpArray->Reserve(size);
+            tmpArray->SetName(array->GetName());
+            for (int i = 0; i < size; i++) { tmpArray->AddValue(array->GetElementValue(i, attrDimension)); }
+            drawArray = tmpArray;
+        }
+        auto chart = new igQtCharts;
+        chart->drawBarChart(drawArray);
+        chart->exec();
+    });
+    auto DrawSurfaceMeshByPointer = [](SurfaceMesh::Pointer m, Painter3D* painter, const float color[3]) -> void {
+        // 1. draw faces
+        painter->SetPen(Pen::Style::NoPen);
+        painter->SetBrush(color[0], color[1], color[2]);
+        igIndex cell[32]{};
+        for (int i = 0; i < m->GetNumberOfFaces(); i++) {
+            int ncell = m->GetFacePointIds(i, cell);
+            for (int j = 2; j < ncell; j++) {
+                painter->DrawTriangle(m->GetPoint(cell[0]), m->GetPoint(cell[j - 1]), m->GetPoint(cell[j]));
+            }
+        }
+        // 2. draw lines
+        painter->SetPen(Color::Black);
+        painter->SetBrush(Brush::Style::NoBrush);
+        if (m->GetEdges() == nullptr) { m->BuildEdges(); }
+        for (int i = 0; i < m->GetNumberOfEdges(); i++) {
+            int ncell = m->GetEdgePointIds(i, cell);
+            if (cell[0] < 0 || cell[1] < 0) {
+                throw std::runtime_error("The index of the edge is negative.");
+            } else {
+                painter->DrawLine(m->GetPoint(cell[0]), m->GetPoint(cell[1]));
+            }
+        }
+        painter->Modified();
+    };
 
 	auto AddClippingMeshToScene = [DrawSurfaceMeshByPointer](const std::string& mainName, SurfaceMesh::Pointer OV,
 		SurfaceMesh::Pointer t_IV, SurfaceMesh::Pointer OIV,

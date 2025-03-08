@@ -40,7 +40,7 @@ void PainterBase::HideAll() {
 }
 void PainterBase::Show(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        Logger::LogInfo("handle is invalid.");
+        IGAME_RENDERING_INFO("handle is invalid.");
         return;
     }
 
@@ -55,7 +55,7 @@ void PainterBase::Show(IGuint handle) {
 }
 void PainterBase::Hide(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        Logger::LogInfo("handle is invalid.");
+        IGAME_RENDERING_INFO("handle is invalid.");
         return;
     }
 
@@ -71,7 +71,7 @@ void PainterBase::Hide(IGuint handle) {
 
 void PainterBase::Delete(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
-        Logger::LogInfo("handle is invalid.");
+        IGAME_RENDERING_INFO("handle is invalid.");
         return;
     }
 
