@@ -8,6 +8,9 @@
 #include <qdebug.h>
 #include <qmenu.h>
 
+//默认一开始不加速
+bool igQtModelDialogWidget::m_AutoAccelerate = false;
+
 igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(parent), ui(new Ui::LayerDialog) {
     ui->setupUi(this);
     this->setMinimumWidth(parent->width() / 4);
@@ -164,7 +167,16 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     iGame::Model::Pointer model = iGame::Model::New();
     model->SetDataObject(obj);
     
-    int id = scene->AddModel(model);
+    int id =0;
+
+    if (GetAccelerateState()) {
+        std::cout << "open the acc\n";
+        id = scene->AddModel(model);
+    }
+    else {
+        std::cout << "close the acc\n";
+        id = scene->AddModel(model);
+    }
     currentModel = model;
 
     item->setName(QString::fromStdString(obj->GetName()));
