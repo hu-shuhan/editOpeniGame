@@ -90,11 +90,10 @@ void DrawObject::ConvertToDrawableData() {
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ConvertToDrawableData); }
 }
 
-bool DrawObject::IsUseSinglePassWireframeRendering() { 
+bool DrawObject::IsUseSinglePassWireframeRendering() {
     if (m_TriangleIndices->GetNumberOfElements() && m_TriangleEdgeMasks->GetNumberOfElements()) {
         return true;
-    }
-    else {
+    } else {
         return false;
     }
 }
@@ -104,7 +103,16 @@ IGenum DrawObject::GetDataObjectType() const { return IG_DRAW_OBJECT; }
 IGsize DrawObject::GetRealMemorySize() {
     IGsize res = this->DataObject::GetRealMemorySize();
     return res;
-};
+}
+
+bool DrawObject::IsUseColor() { return m_UseColor; }
+
+bool DrawObject::IsUseNormalSmooth() {
+    if (m_UseNormalSmooth && m_Normals->GetNumberOfValues() == 0) {
+        IGAME_RENDERING_WARN("You have enabled normal smoothing, but have not provided normals.");
+    }
+    return m_UseNormalSmooth;
+}
 
 void DrawObject::SetVisibility(bool f) {
     // process display object
