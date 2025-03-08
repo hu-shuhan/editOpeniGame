@@ -44,11 +44,13 @@ public:
             int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
             if (chunkStart == chunkEnd) continue;
             // 使用线程池提交任务
+            //std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
             futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
         }
         // 等待所有任务完成
         for (auto& future: futures) { future.get(); }
     }
+
     // static parallelFor 函数，numThreads 默认值为 12,
     //maxThreadSize 表示的是该func允许的最大线程数量，由用户在自定义程序里面设定
     //这个模式调用的是func(int start,int end,int id), id用于在每个func中开辟独立的数据空间，因此id不能>=maxThreadSize
@@ -69,6 +71,7 @@ public:
             int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
             if (chunkStart == chunkEnd) continue;
             // 创建线程执行任务
+            
             threads.emplace_back([=]() { process(chunkStart, chunkEnd, i); });
         }
         // 等待所有线程完成

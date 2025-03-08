@@ -108,18 +108,21 @@ std::vector<Vector3f> iGameStreamTracer::seedPCoordGenerate(int numOfseed, Vecto
     for (int i = 0; i < numOfseed; i++) { tem.emplace_back(p1 + step * i); }
     return tem;
 }
-//std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
-//    switch (streamMode) {
-//        case Diagonal: {
-//            seedLineGenerate(numOfseed);
-//            break;
-//        }
-//        case PointId: {
-//            seedPidGenerate(numOfseed, pId1, pId2);
-//        }
-//    }
-//}
-std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control, float proportion,
+std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
+    std::vector<Vector3f> seeds;
+    switch (streamMode) {
+        case Diagonal: {
+            seedLineGenerate(numOfseed);
+            break;
+        }
+        case PointId: {
+            seedPidGenerate(numOfseed, pId1, pId2);
+        }
+    }
+    return seeds;
+
+}
+    std::vector<Vector3f>iGameStreamTracer::seedGenerate(int control, float proportion,
                                                       int numOfseed) { // face
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPoints = mesh->GetPoints();

@@ -239,6 +239,7 @@ public:
                 const bool& isGhost)
         : GFace(originalCellId, numberOfPoints, isGhost) {
         assert(this->NumberOfPoints != 0);
+        std::cout << NumberOfPoints << std::endl;
         this->PointIdsContainer.resize(static_cast<size_t>(this->NumberOfPoints));
         this->PointIds = this->PointIdsContainer.data();
         this->Initialize(pointIds);
@@ -616,6 +617,10 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId, igIndex npts
         for (int i = 0; i < fcnt; i++) {
             FaceVcnt = input->GetFacePointIds(fhs[i], vhs);
             switch (FaceVcnt) {
+                case 0:
+                case 1:
+                case 2:
+                    break;
                 case 3:
                     FaceMap->Insert(GTriangle(cellId, vhs, isGhost), FacePool);
                     break;
@@ -648,7 +653,7 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId, igIndex npts
     }
 }
 struct ExtractVM : public ExtractCellBoundaries {
-    // Process unstructured grid
+    // Process volumemesh grid
     VolumeMesh::Pointer Grid;
     std::shared_ptr<FaceHashMap> FaceMap;
     bool RemoveGhostInterFaces;
@@ -708,6 +713,7 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, S
             new ExtractVM(Grid, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
     FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
     std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+
     auto func = [&](igIndex start, igIndex end, int i) -> void {
         FacePools[i] = new FaceMemoryPool;
         FacePools[i]->Initialize(Grid->GetNumberOfPoints());
@@ -853,6 +859,10 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
                 pts = Ids + index;
                 index += FaceVcnt;
                 switch (FaceVcnt) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        break;
                     case 3:
                         FaceMap->Insert(GTriangle(cellId, pts, isGhost), FacePool);
                         break;
@@ -1051,7 +1061,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer in
     auto outAllDataArray = AttributeSet::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
-    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetCells());
+    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetCells(), Grid->GetCellTypes());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
 
@@ -1294,7 +1304,7 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer inpu
 }
 
 char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints,
-                                                        CellArray::Pointer Cells) {
+                                                        CellArray::Pointer Cells, UnsignedIntArray::Pointer Types) {
     IGsize numCells = Cells ? Cells->GetNumberOfCells() : 0;
     char* CellVisible = nullptr;
     if ((!CellClipping) && (!PointClipping) && (!ExtentClipping) && (!PlaneClipping)) {
@@ -1306,6 +1316,8 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& Cell
     }
     // Mark cells as being visible or not
     if (!CellVisible) return nullptr;
+    unsigned int* types = nullptr;
+    if (Types) types = Types->RawPointer();
     auto func = [&](igIndex start, igIndex end) -> void {
         igIndex vhs[256] = {0};
         igIndex vnum = 0;
@@ -1318,6 +1330,18 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& Cell
                 CellVisible[cellId] = 0;
             } else {
                 vnum = Cells->GetCellIds(cellId, vhs);
+                if (types && types[cellId] == IG_POLYHEDRON) {
+                    int faceInfoIndex = 1;
+                    j = 0;
+                    for (i = 1; i < vnum; i++) {
+                        if (i == faceInfoIndex) {
+                            faceInfoIndex += vhs[i] + 1;
+                            continue;
+                        }
+                        vhs[j++] = vhs[i];
+                    }
+                    vnum = j;
+                }
                 for (i = 0; i < vnum; i++) {
                     pointId = vhs[i];
                     x = inPoints->GetPoint(pointId);
@@ -1362,8 +1386,6 @@ void iGameModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract
     CompositePointAttribute(extract->GetPointMap()->RawPointer(), inPoints->GetNumberOfPoints(),
                             outPoints->GetNumberOfPoints(), outAllDataArray);
     m_PointMap = extract->GetPointMap();
-    //m_PointMap = FlatArray<igIndex>::New();
-    //m_PointMap->SetArray(extract->GetPointMap(), 1, inPoints->GetNumberOfPoints(), inPoints->GetNumberOfPoints());
 }
 void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, AttributeSet::Pointer inAllDataArray,
                                                       AttributeSet::Pointer& outAllDataArray) {

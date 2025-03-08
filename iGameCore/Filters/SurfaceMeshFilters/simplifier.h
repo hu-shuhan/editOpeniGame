@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cmath>
 #include <cfloat>
+#include <iostream>
 namespace tri{
 
 size_t simplifyWithAttributes(unsigned int* destination, const unsigned int* indices, size_t index_count,
@@ -213,6 +214,7 @@ static void buildPositionRemap(unsigned int* remap, unsigned int* wedge, const f
 
             wedge[i] = wedge[r];
             wedge[r] = unsigned(i);
+            std::cout << i << std::endl;
         }
 
     allocator.deallocate(table);
@@ -498,7 +500,7 @@ static size_t boundEdgeCollapses(const EdgeAdjacency& adjacency, size_t vertex_c
 
         dual_count += e;
     }
-
+    std::cout << adjacency.offsets[1] - adjacency.offsets[0] << std::endl;
     assert(dual_count <= index_count);
 
     // pad capacity by 3 so that we can check for overflow once per triangle instead of once per edge

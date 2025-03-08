@@ -147,11 +147,15 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    child->setSelected(true);
         //}
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
+        if (attr.attachmentType == IG_POINT)
+            child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        else if (attr.attachmentType == IG_CELL)
+            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
     }
     item->viewAttribute(-1);
 }
+
 int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     modelTreeWidget->setCurrentModelItem(item);
@@ -182,7 +186,10 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        child->setIcon(0, QIcon(":/Ticon/Icons/select/file.png"));
+        if (attr.attachmentType == IG_POINT) 
+            child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        else if (attr.attachmentType == IG_CELL)
+            child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
     }
 

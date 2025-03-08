@@ -902,8 +902,8 @@ void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // Enable blending to use the alpha channel for transparency.
     // Without blending, the alpha value in the color will be ignored.
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // 1.reset oit pipeline status
     {
@@ -961,7 +961,7 @@ void Scene::TransparentPass() {
     }
     glEnable(GL_DEPTH_TEST);
 
-    glDisable(GL_BLEND);
+    // glDisable(GL_BLEND);
 #endif
     GLCheckError();
 }

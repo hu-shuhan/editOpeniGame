@@ -1,12 +1,13 @@
 #include<IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameSceneManager.h>
+#include "iGameSelection.h"
 
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer)
 {
     ui->setupUi(this);
 	m_StreamBase = iGameStreamBase::New();
-   connect(ui->control_comboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeControl()));
+    connect(ui->control_comboBox, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeControl()));
 	connect(ui->numOfSeedLineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changenumOfSeeds()));
 	connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
 	connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
@@ -19,6 +20,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     //connect(ui->lineEdit_4, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
     //connect(ui->lineEdit_5, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
     //connect(ui->lineEdit_6, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
+
+
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
 //	connect(ui->proportion_Slider, SIGNAL(valueChanged(int)), this, SLOT(changeProportion()));
@@ -45,6 +48,34 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 	 haveClicked = true;
 	ui->control_comboBox->setCurrentIndex(0);
 	streamlineResult = UnstructuredMesh::New();
+}
+void igQtStreamTracerWidget::hideEvent(QHideEvent* event) { 
+    auto scene = SceneManager::Instance()->GetCurrentScene(); 
+    scene->GetInteractor()->RequestBasicStyle();
+}
+void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
+    if (isExisted) {
+        auto scene = SceneManager::Instance()->GetCurrentScene();
+        Selection->Start = seedPoints[control * 2];
+        Selection->End = seedPoints[control * 2 + 1];
+        Selection->SetFilterEvent(
+                [&](iGame::Selection::Event event) {
+                    if (event.type == iGame::Selection::Event::Change) {
+                        seedPoints[control * 2] = Selection->Start;
+                        seedPoints[control * 2 + 1] = Selection->End;
+                    }
+                },
+                std::placeholders::_1);
+
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+
+        //if (rendererWidget->GetScene()->GetInteractor()) {
+        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
+        //}
+
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+    }
 }
 void igQtStreamTracerWidget::changeControl() {
 	control=ui->control_comboBox->currentIndex();
@@ -143,13 +174,16 @@ void igQtStreamTracerWidget::changeVecName() {
     std::cout << "current value=" << vectorName << std::endl;
 }
 void igQtStreamTracerWidget::generateStreamline() {
-	
+
 	auto scene = SceneManager::Instance()->GetCurrentScene();
-	iGameStreamTracer* streamtracer=m_StreamBase->streamFilter;
+
+	iGameStreamTracer* streamtracer= m_StreamBase->streamFilter;
 	Model::Pointer model = scene->GetCurrentModel();
 	VolumeMesh::Pointer mesh;
     std::cout << model->GetDataObject()->GetName() << std::endl;
- 	auto tem=model->GetDataObject();
+ 	auto tem = model->GetDataObject();
+    m_DataObject = tem;
+
     streamtracer->initStreamTracer(model);
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
@@ -213,5 +247,28 @@ void igQtStreamTracerWidget::generateStreamline() {
 		Q_EMIT UpdateStreamObject(m_StreamBase);
 	}
    
+    if (isExisted == false) {
+        isExisted = true;
+        Selection = StreamLineSelection::New();
+        Painter = scene->GetCurrentModel()->GetPainter3D();
+        Selection->Start = seedPoints[control * 2];
+        Selection->End = seedPoints[control * 2 + 1];
+        Selection->SetFilterEvent(
+                [&](iGame::Selection::Event event) {
+                    if (event.type == iGame::Selection::Event::Change) {
+                        seedPoints[control * 2] = Selection->Start;
+                        seedPoints[control * 2 + 1] = Selection->End;
+                    }
+                },
+                std::placeholders::_1);
 
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+
+        //if (rendererWidget->GetScene()->GetInteractor()) {
+        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
+        //}
+
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+    }
 }
