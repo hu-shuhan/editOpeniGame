@@ -482,91 +482,256 @@ igQtMainWindow::~igQtMainWindow() {}
 
 
 #include "SurfaceMeshFilters/meshsimplifier/meshsimplifier.h"
+#include "SurfaceMeshFilters/simplifier.h"
 
 void igQtMainWindow::initAllFilters() {
-	QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
-	connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
-		// VolumeMeshFilterTest::Pointer fp = VolumeMeshFilterTest::New();
-		// fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-		// fp->Execute();
-		// rendererWidget->update();
-		if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-		igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-		int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
-		int preserveId =
-			dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
-		int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
-			"true");
-
-		dialog->show();
-		dialog->setApplyFunctor([=]() {
-			Triangulation::Pointer triangulation = Triangulation::New();
-			auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-			triangulation->SetInput(obj);
-			triangulation->Execute();
-			obj = triangulation->GetOutput();
+    QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
+        // VolumeMeshFilterTest::Pointer fp = VolumeMeshFilterTest::New();
+        // fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
+        // fp->Execute();
+        // rendererWidget->update();
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.5");
+        int preserveId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Preserve Boundary of the mesh", "true");
+        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Check All Scalars of the mesh ",
+                                            "true");
+        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
+                                           "false");
+        dialog->show();
+        dialog->setApplyFunctor([=]() {
+            Triangulation::Pointer triangulation = Triangulation::New();
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            triangulation->SetInput(obj);
+            triangulation->Execute();
+            obj = triangulation->GetOutput();
 
 			Simplification::Pointer filter = Simplification::New();
 
-			bool ok;
-			filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
-			filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
-			filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
-			filter->SetInput(obj);
-			//filter->SetActivedAttribIndices({0});
-			filter->Execute();
+            bool ok;
+            filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
+            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
+            filter->SetInput(obj);
+            //filter->SetActivedAttribIndices({0});
+            ok = filter->Execute();
 
-			modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-			rendererWidget->update();
-			dialog->close();
-			});
-		});
+            if (ok) {
 
-	QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
-	connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
-		if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-		auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-		if (!obj) return;
-		if (obj->HasSubDataObject()) { obj = obj->GetSubDataObject(0); }
-		QString result = "";
-		auto mesh = DynamicCast<PointSet>(obj);
-		auto array = DoubleArray::New();
-		array->SetName("Compute_Radius");
-		array->Reserve(mesh->GetNumberOfPoints());
-		auto error = DoubleArray::New();
-		error->SetName("Error");
-		error->Reserve(mesh->GetNumberOfPoints());
-		auto points = mesh->GetPoints();
-		double radius = 0.0;
-		double r = 0.0;
-		double wucha = 0.0;
-		double Min = 1e9;
-		double Max = 0;
-		for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-			auto p = mesh->GetPoint(i);
-			r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-			array->AddValue(r);
-		}
-		auto bound = mesh->GetBoundingBox();
-		double a = bound.max[0] - bound.min[0];
-		double b = bound.max[1] - bound.min[1];
-		double c = bound.max[2] - bound.min[2];
-		radius = (a + b + c) / 6;
-		double value = 0.0;
-		for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-			value = abs(array->GetValue(i) - radius);
-			wucha += value;
-			error->AddValue(value);
-			Max = std::max(Max, value);
-			Min = std::min(Min, value);
-		}
-		std::cout << wucha << '\n';
-		wucha /= mesh->GetNumberOfPoints();
-		wucha /= radius;
-		wucha *= 100;
-		DoubleArray::Pointer range = DoubleArray::New();
-		range->AddValue(0);
-		range->AddValue(Max * 4);
+                auto oldMesh = DynamicCast<SurfaceMesh>(obj);
+                auto outObj = filter->GetOutput();
+                auto newMesh = DynamicCast<SurfaceMesh>(outObj);
+                auto oldPoints = oldMesh->GetPoints();
+                auto newPoints = newMesh->GetPoints();
+                //PointFinder::Pointer oldPicker = PointFinder::New();
+                //oldPicker->SetPoints(oldPoints);
+                //oldPicker->Initialize();
+                QString result = "";
+                if (dialog->getChecked(checkId, ok)) {
+                    PointFinder::Pointer newPicker = PointFinder::New();
+                    newPicker->SetPoints(newPoints);
+                    newPicker->Initialize();
+
+                    double w1 = 0.0, w2 = 0.0;
+                    // 计算原始网格的表面积
+                    for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+                        igIndex f[3]{};
+                        oldMesh->GetFacePointIds(i, f);
+                        Point v0 = oldMesh->GetPoint(f[0]);
+                        Point v1 = oldMesh->GetPoint(f[1]);
+                        Point v2 = oldMesh->GetPoint(f[2]);
+
+                        Vector3f d10 = v1 - v0;
+                        Vector3f d20 = v2 - v0;
+
+                        w1 += CrossProduct(d10, d20).norm() / 2.0;
+                    }
+                    //for (int i = 0; i < newMesh->GetNumberOfFaces(); i++) {
+                    //    igIndex f[3]{};
+                    //    newMesh->GetFacePointIds(i, f);
+                    //    Point v0 = newMesh->GetPoint(f[0]);
+                    //    Point v1 = newMesh->GetPoint(f[1]);
+                    //    Point v2 = newMesh->GetPoint(f[2]);
+
+                    //    Vector3f d10 = v1 - v0;
+                    //    Vector3f d20 = v2 - v0;
+
+                    //    w2 += CrossProduct(d10, d20).norm() / 2.0;
+                    //}
+
+                    double d1 = 0.0, d2 = 0.0;
+                    double d3 = 0.0, d4 = 0.0;
+
+                    iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+                    ProgressBar->UpdateProgress(0);
+                    int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+                    // 计算平均平方距离
+                    for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+                        if (i > progress * blockNum) {
+                            ProgressBar->UpdateProgress(progress * 0.01);
+                            progress++;
+                        }
+                        auto p = oldPoints->GetPoint(i);
+
+                        igIndex id = newPicker->FindClosestPoint(p);
+                        if (id != -1) {
+                            Point cp = newPoints->GetPoint(id);
+                            d1 += (p - cp).squaredNorm();
+                            d3 += (p - cp).norm();
+                        }
+                    }
+
+                    //for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+                    //    auto p = newPoints->GetPoint(i);
+
+                    //    igIndex id = oldPicker->FindClosestPoint(p);
+                    //    if (id != -1) {
+                    //        Point cp = oldPoints->GetPoint(id);
+                    //        d2 += (p - cp).squaredNorm();
+                    //        d4 += (p - cp).norm();
+                    //    }
+                    //}
+
+                    double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+                    double dd =
+                            1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+
+                    result += "\n几何相似性度量";
+                    result += "\n Squared Mean Distance: " + QString::number(d);
+                    result += "\n Mean Distance: " + QString::number(dd);
+                    result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+                    result += "\nMean Distance: " + QString::number(dd);
+                    result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+                } else {
+                    result += "\n累计几何误差: " + QString::number(filter->GetError());
+                }
+
+                modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
+                rendererWidget->update();
+
+                QMessageBox::information(this, "简化成功", result);
+            }
+
+            dialog->close();
+        });
+    });
+
+    connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
+        if (index == -1) index = 0;
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        obj = triangulation->GetOutput();
+        auto mesh = DynamicCast<SurfaceMesh>(obj);
+
+        unsigned int* destination;
+        unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
+        const size_t index_count = mesh->GetNumberOfFaces() * 3;
+        float* vertex_positions = mesh->GetPoints()->RawPointer();
+        size_t vertex_count = mesh->GetNumberOfPoints();
+        size_t vertex_positions_stride = sizeof(float) * 3;
+        float* vertex_attributes = nullptr;
+
+        vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
+        size_t vertex_attributes_stride = sizeof(float);
+        float attribute_weights[1]{1};
+        size_t attribute_count = 1;
+        unsigned char* vertex_lock = nullptr;
+        size_t target_index_count = index_count * 0.5;
+        float target_error = 0.01f;
+        unsigned int options = 0;
+        float out_error = 0.0f;
+
+
+        float* result_error = &out_error;
+
+        destination = new unsigned int[index_count];
+
+        clock_t start, end;
+
+        start = clock();
+        size_t result_size = simplify_trimesh_with_attriubtes(
+                destination, indices, index_count, vertex_positions, vertex_count, vertex_attributes, attribute_weights,
+                attribute_count, target_index_count, target_error, result_error);
+        end = clock();
+        std::cout << "simplify_trimesh_with_attriubtes cost time: " << end - start << std::endl;
+        //size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
+        //                               attribute_weights, attribute_count, vertex_lock, target_index_count,
+        //                               target_error, options, result_error);
+
+        //size_t result_size = meshopt_simplifyWithAttributes<unsigned int>(
+        //        destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride,
+        //        vertex_attributes, vertex_attributes_stride, attribute_weights, attribute_count, vertex_lock,
+        //        target_index_count, target_error, options, result_error);
+
+
+        //size_t result_size =
+        //        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
+        //                               vertex_positions_stride, target_index_count, target_error, result_error);
+        auto Mesh = SurfaceMesh::New();
+        auto Faces = CellArray::New();
+        std::cout << result_size << std::endl;
+        for (int i = 0; i < target_index_count / 3; i++) {
+            Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
+        }
+
+        Mesh->SetPoints(mesh->GetPoints());
+        Mesh->SetFaces(Faces);
+        Mesh->SetAttributeSet(mesh->GetAttributeSet());
+        modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
+        rendererWidget->update();
+    });
+
+    QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
+    connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        if (obj->HasSubDataObject()) { obj = obj->GetSubDataObject(0); }
+        QString result = "";
+        auto mesh = DynamicCast<PointSet>(obj);
+        auto array = DoubleArray::New();
+        array->SetName("Compute_Radius");
+        array->Reserve(mesh->GetNumberOfPoints());
+        auto error = DoubleArray::New();
+        error->SetName("Error");
+        error->Reserve(mesh->GetNumberOfPoints());
+        auto points = mesh->GetPoints();
+        double radius = 0.0;
+        double r = 0.0;
+        double wucha = 0.0;
+        double Min = 1e9;
+        double Max = 0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            auto p = mesh->GetPoint(i);
+            r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+            array->AddValue(r);
+        }
+        auto bound = mesh->GetBoundingBox();
+        double a = bound.max[0] - bound.min[0];
+        double b = bound.max[1] - bound.min[1];
+        double c = bound.max[2] - bound.min[2];
+        radius = (a + b + c) / 6;
+        double value = 0.0;
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+            value = abs(array->GetValue(i) - radius);
+            wucha += value;
+            error->AddValue(value);
+            Max = std::max(Max, value);
+            Min = std::min(Min, value);
+        }
+        std::cout << wucha << '\n';
+        wucha /= mesh->GetNumberOfPoints();
+        wucha /= radius;
+        wucha *= 100;
+        DoubleArray::Pointer range = DoubleArray::New();
+        range->AddValue(0);
+        range->AddValue(Max * 4);
 
 		mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, array);
 		mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, error, range);

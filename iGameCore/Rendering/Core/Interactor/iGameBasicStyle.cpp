@@ -273,6 +273,40 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     }
 }
 
+bool BasicStyle::TwoLineIntersection(const igm::vec3& p1, const igm::vec3& p2,
+                                     const igm::vec3& v1, const igm::vec3& v2,
+                                     igm::vec3& intersection) 
+{
+    // 计算方向向量
+    igm::vec3 d1 = p2 - p1;
+    igm::vec3 d2 = v2 - v1;
+    igm::vec3 p21 = v1 - p1;
+
+    // 计算叉积
+    igm::vec3 cross_d1d2 = igm::cross(d1, d2);
+    double denom = igm::dot(cross_d1d2, cross_d1d2);
+
+    // 如果 denom 近似为 0，则 d1 和 d2 平行
+    if (denom < 1e-6) { return false; }
+
+    // 计算 t, s
+    igm::vec3 cross_p21d2 = igm::cross(p21, d2);
+    double t = igm::dot(cross_p21d2, cross_d1d2) / denom;
+
+    igm::vec3 cross_p21d1 = igm::cross(p21, d1);
+    double s = igm::dot(cross_p21d1, cross_d1d2) / denom;
+
+    // 计算交点
+    igm::vec3 p_inter = p1 + d1 * t;
+    igm::vec3 q_inter = v1 + d2 * s;
+
+    // 检查误差
+    if ((p_inter - q_inter).length() > 1e-2) { return false; }
+
+    intersection = p_inter;
+    return true;
+}
+
 bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
                                        const igm::vec3& P1, const igm::vec3& P2,
                                        const igm::vec3& P3,
@@ -399,7 +433,6 @@ igm::vec3 BasicStyle::GetNearWorldCoord(const igm::vec2& screenCoord,
     igm::vec4 worldCoord = invertedMvp * clippingCoord;
     return igm::vec3(worldCoord / worldCoord.w);
 }
-
 
 igm::vec3 BasicStyle::GetFarWorldCoord(const igm::vec2& screenCoord,
                                        const igm::mat4& invertedMvp) {

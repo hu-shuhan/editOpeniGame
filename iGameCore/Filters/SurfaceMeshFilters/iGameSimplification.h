@@ -82,7 +82,6 @@ protected:
     void InsertEdgeToHeap(igIndex edgeId);
 
     double ComputePriority(igIndex edgeId, double& geo_priority);
-   
 
     Vector3f ComputePosition(igIndex edgeId);
 
