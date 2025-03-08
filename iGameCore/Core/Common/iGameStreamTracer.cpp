@@ -23,8 +23,10 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
-        if (!mesh->GetIsPolyhedronType())
-         mesh->RequestEditStatus(); // Establishing Adjacency
+        if (!mesh->GetIsPolyhedronType()) {
+            mesh->RequestEditStatus();
+        }
+
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
@@ -32,8 +34,9 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
-        if (!mesh->GetIsPolyhedronType())
-          mesh->RequestEditStatus(); // Establishing Adjacency
+        if (!mesh->GetIsPolyhedronType()) {
+            mesh->RequestEditStatus(); // Establishing Adjacency
+        }
     } else {
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
@@ -569,7 +572,6 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(std::v
                                                                           float lengOfStreamLine, float lengthOfStep,
                                                                           float terminalSpeed, int maxSteps) {
     CellData2PointData(vectorName);
-    this->mesh->GetAttributeSet()->TransformScalars2VectorArray();
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPolyhedrons = mesh->GetVolumes();
     auto allPoints = mesh->GetPoints();
@@ -924,7 +926,6 @@ bool iGameStreamTracer::CellData2PointData(std::string vectorName) {
     auto numOfPoints = mesh->GetNumberOfPoints();
     auto numOfCells = mesh->GetNumberOfVolumes();
     auto Vec = mesh->GetAttributeSet();
-    Vec->TransformScalars2VectorArray();
     auto Scalars = Vec->GetAllAttributes();
     int size = Scalars->GetNumberOfElements();
     for (int i = 0; i < size; i++) {

@@ -71,6 +71,7 @@ private:
             {},
             {},
     };
+    bool first = true;
     int p1;
     int p2;
 };

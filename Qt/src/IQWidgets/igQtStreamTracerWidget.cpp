@@ -76,6 +76,23 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
 
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
+    if (first) {
+        auto sceneManager = iGame::SceneManager::Instance();
+        auto scene = sceneManager->GetCurrentScene();
+        if (!scene) return;
+        auto currentModel = scene->GetCurrentModel();
+        if (!currentModel) return;
+        auto obj = currentModel->GetDataObject();
+        if (!obj) return;
+        iGame::VolumeMesh::Pointer mesh;
+        if (iGame::DynamicCast<UnstructuredMesh>(obj))
+            mesh = iGame::DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
+        else if (DynamicCast<VolumeMesh>(obj))
+            mesh = DynamicCast<VolumeMesh>(obj);
+        if (mesh->GetIsPolyhedronType()) { mesh->InitPolyhedronVertices();
+        }
+        first = false;
+    }
 }
 void igQtStreamTracerWidget::changeControl() {
 	control=ui->control_comboBox->currentIndex();
@@ -157,7 +174,6 @@ void igQtStreamTracerWidget::updateVectorNameList() {
         _AttributeSet = obj->GetAttributeSet();
     }
     if (!_AttributeSet) return;
-    _AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
 
@@ -210,7 +226,6 @@ void igQtStreamTracerWidget::generateStreamline() {
         _AttributeSet = tem->GetAttributeSet();
     }
     if (!_AttributeSet) return;
-    _AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
     for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
