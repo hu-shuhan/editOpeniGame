@@ -41,7 +41,10 @@ else ()
     set(CMAKE_CUDA_ARCHITECTURES "86")
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif ()
-
+add_compile_options(
+    "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:/utf-8>"
+    "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:CXX>>:/utf-8>"
+)
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_definitions(/D_USE_MATH_DEFINES)
