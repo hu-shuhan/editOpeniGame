@@ -8,6 +8,7 @@
 IGAME_NAMESPACE_BEGIN
 
 Pen::Pen() {
+    m_PenColor = Vector3f{-1.0f, -1.0f, -1.0f};
     m_PenWidth = 1;
     m_PenStyle = Style::SolidLine;
     m_PenOpacity = 1.0f;
