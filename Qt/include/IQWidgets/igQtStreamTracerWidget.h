@@ -6,12 +6,18 @@
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
+#include <QHideEvent>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT
 
 public:
     igQtStreamTracerWidget(QWidget* parent = nullptr);
+
+protected:
+    void hideEvent(QHideEvent* event);
+    void showEvent(QShowEvent* event);
+
 public slots:
     void generateStreamline();
     void changeControl();
@@ -35,6 +41,9 @@ signals:
 
 private:
     Ui::SteamLineTracer* ui;
+    SmartPointer<StreamLineSelection> Selection;
+    SmartPointer<Painter3D> Painter;
+    bool isExisted = false;
     int numOfSeeds;
     int control;
     float proportion;
@@ -49,6 +58,7 @@ private:
     UnstructuredMesh::Pointer streamlineResult{};
     std::vector<PointFinder::Pointer> ptFinder;
     iGameStreamBase* m_StreamBase{nullptr};
+    DataObject::Pointer m_DataObject;
     Vector3f offsetP1{0,0,0};
     Vector3f offsetP2{0,0,0};
     std::vector<Vector3f> seedPoints{

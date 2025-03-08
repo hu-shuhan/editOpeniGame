@@ -85,8 +85,9 @@ public:
 
      /**
      * @brief 切换成流形的线类型交互器
+     * @param Selection s 事件响应后将会通知的对象
      */
-    void RequestStreamLineStyle();
+    void RequestStreamLineStyle(SmartPointer<Selection> s);
 
     bool IsBasicStyle() const;
 
@@ -113,7 +114,6 @@ public:
     SmartPointer<DataObject> GetDataObject();
     void SetPainter3D(SmartPointer<Painter3D> p);
     SmartPointer<Painter3D> GetPainter3D();
-    
 
 protected:
     Interactor();

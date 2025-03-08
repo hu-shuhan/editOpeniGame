@@ -110,6 +110,9 @@
         <file>Icons/contourline.svg</file>
         <file>Icons/VolumeRendering.svg</file>
         <file>Icons/BackGround.svg</file>
+        <file>Icons/select/hex.png</file>
+        <file>Icons/select/point.png</file>
+        <file>Icons/select/point2.png</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>

@@ -8,26 +8,53 @@ StreamLineStyle::StreamLineStyle() {
 
 }
 
-StreamLineStyle::~StreamLineStyle() {}
+StreamLineStyle::~StreamLineStyle() {
+    if (StartHandle != 0) m_Painter3D->Delete(StartHandle);
+    if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
+    if (LineHandle != 0) m_Painter3D->Delete(LineHandle);
+}
 
-void StreamLineStyle::Initialize(SmartPointer<Interactor> interactor) {
-    m_Painter3D = interactor->GetPainter3D();
-    m_DataObject = interactor->GetDataObject();
-    Vector3Tovec3 v;
-    auto& bbox = m_DataObject->GetBoundingBox();
-    Start = v(bbox.min);
-    End = v(bbox.max);
-
+void StreamLineStyle::Draw() {
     vec3ToVector3d f;
 
     m_Painter3D->SetPen(16);
     m_Painter3D->SetPen(Color::Green);
+
+    if (StartHandle != 0) m_Painter3D->Delete(StartHandle);
+    if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
+    if (LineHandle != 0) m_Painter3D->Delete(LineHandle);
+
     StartHandle = m_Painter3D->DrawPoint(f(Start));
     EndHandle = m_Painter3D->DrawPoint(f(End));
 
     m_Painter3D->SetPen(4);
     m_Painter3D->SetPen(Color::Red);
     LineHandle = m_Painter3D->DrawLine(f(Start), f(End));
+}
+
+void StreamLineStyle::Emit() {
+    if (!m_Selection) return;
+    vec3ToVector3d f;
+    m_Selection->Start = f(Start);
+    m_Selection->End = f(End);
+    m_Selection->Selected = Selected;
+    m_Selection->FilterEvent(Selection::Event(Selection::Event::Change));
+}
+
+void StreamLineStyle::Initialize(SmartPointer<Interactor> interactor,
+                                 SmartPointer<Selection> s) {
+    BasicStyle::Initialize(interactor);
+    m_Selection = DynamicCast<StreamLineSelection>(s);
+    if (m_Selection == nullptr) return;
+
+    m_Painter3D = interactor->GetPainter3D();
+    m_DataObject = interactor->GetDataObject();
+
+    Vector3Tovec3 v;
+    Start = v(m_Selection->Start);
+    End = v(m_Selection->End);
+
+    Draw();
 }
 
 void StreamLineStyle::MousePressEvent(IEvent _event) {
@@ -50,6 +77,12 @@ void StreamLineStyle::MousePressEvent(IEvent _event) {
         Selected = 1;
         auto afterMVP = MVP * igm::vec4(End, 1.0f);
         NDC_Z = (afterMVP / afterMVP.w).z;
+    } else if (TwoLineIntersection(Start, End, point1, point2, Intersection)) {
+        Selected = 2;
+        auto afterMVP = MVP * igm::vec4(Intersection, 1.0f);
+        NDC_Z = (afterMVP / afterMVP.w).z;
+        P1 = Start - Intersection;
+        P2 = End - Intersection;
     } else {
         Selected = -1;
     }
@@ -59,9 +92,12 @@ void StreamLineStyle::MouseMoveEvent(IEvent _event) {
     igm::vec2 pos = _event.pos;
     vec3ToVector3d f;
 
-    if (m_MouseMode == MouseButton::LeftButton) {
-        if (Selected == -1) { return; }
+    if (Selected == -1) { 
+        BasicStyle::MouseMoveEvent(_event);
+        return;
+    }
 
+    if (m_MouseMode == MouseButton::LeftButton) {
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
                       1.0f - (2.0f * pos.y / m_Interactor->GetHeight()));
 
@@ -69,22 +105,23 @@ void StreamLineStyle::MouseMoveEvent(IEvent _event) {
         igm::vec4 newPoint_WorldCoord = InvertedMVP * Point_NDC;
         newPoint_WorldCoord /= newPoint_WorldCoord.w;
 
-        m_Painter3D->SetPen(16);
-        m_Painter3D->SetPen(Color::Green);
-        if (Selected == 0) { 
+        if (Selected == 0) 
+        { 
             Start = newPoint_WorldCoord.xyz();
-            if (StartHandle != 0) m_Painter3D->Delete(StartHandle);
-            StartHandle = m_Painter3D->DrawPoint(f(Start));
-        } else if (Selected == 1) {
-            
+        } 
+        else if (Selected == 1) 
+        {
             End = newPoint_WorldCoord.xyz();
-            if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
-            EndHandle = m_Painter3D->DrawPoint(f(End));
+        } 
+        else if (Selected == 2) 
+        {
+            Start = newPoint_WorldCoord.xyz() + P1;
+            End = newPoint_WorldCoord.xyz() + P2;
         }
-        
-        m_Painter3D->SetPen(4);
-        m_Painter3D->SetPen(Color::Red);
-        LineHandle = m_Painter3D->DrawLine(f(Start), f(End));
+
+        Draw();
+        Emit();
     }
 }
+
 IGAME_NAMESPACE_END

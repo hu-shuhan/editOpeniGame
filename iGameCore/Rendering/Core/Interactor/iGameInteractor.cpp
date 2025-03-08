@@ -89,10 +89,11 @@ void Interactor::RequestSlicingStyle() {
     is_Base = false;
 }
 
-void Interactor::RequestStreamLineStyle() {
-    auto act = StreamLineStyle::New();
+void Interactor::RequestStreamLineStyle(SmartPointer<Selection> s) {
+    if (!s) return;
     //InitModel();
-    act->Initialize(this);
+    auto act = StreamLineStyle::New();
+    act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;
 }
