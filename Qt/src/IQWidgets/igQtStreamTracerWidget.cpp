@@ -192,6 +192,10 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::cout << vectorName << std::endl;
     streamline = streamtracer->showStreamLineMix(seeds, vectorName, streamlineColor, lengthOfStreamLine, lengthOfStep,
                                                  terminalSpeed, maxSteps);
+    streamline.push_back({seedPoints[control * 2][0], seedPoints[control * 2][1], seedPoints[control * 2][2],
+                          seedPoints[control * 2 + 1][0], seedPoints[control * 2 + 1][1],
+                          seedPoints[control * 2 + 1][2]});
+    streamlineColor.push_back({0,21, 110, 0, 21, 100});
  //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
 	//	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
 	//}

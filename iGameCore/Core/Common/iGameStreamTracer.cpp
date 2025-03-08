@@ -111,6 +111,7 @@ std::vector<Vector3f> iGameStreamTracer::seedPCoordGenerate(int numOfseed, Vecto
     return tem;
 }
 std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
+    std::vector<Vector3f> seeds;
     switch (streamMode) {
         case Diagonal: {
             seedLineGenerate(numOfseed);
@@ -120,6 +121,8 @@ std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float pro
             seedPidGenerate(numOfseed, pId1, pId2);
         }
     }
+    return seeds;
+    
 }
     std::vector<Vector3f>iGameStreamTracer::seedGenerate(int control, float proportion,
                                                       int numOfseed) { // face
