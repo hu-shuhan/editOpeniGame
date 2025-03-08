@@ -239,6 +239,7 @@ public:
                 const bool& isGhost)
         : GFace(originalCellId, numberOfPoints, isGhost) {
         assert(this->NumberOfPoints != 0);
+        std::cout << NumberOfPoints << std::endl;
         this->PointIdsContainer.resize(static_cast<size_t>(this->NumberOfPoints));
         this->PointIds = this->PointIdsContainer.data();
         this->Initialize(pointIds);
