@@ -18,17 +18,7 @@ Axes::Axes() {
     m_OriginSize = 0.05f;
 }
 
-Axes::~Axes() {
-    m_TriangleVAO->Destroy();
-    m_PositionVBO->Destroy();
-    m_ColorVBO->Destroy();
-    m_TriangleEBO->Destroy();
-
-    m_FontVAO->Destroy();
-    m_TextureCoordVBO->Destroy();
-    m_WorldCoordVBO->Destroy();
-    m_FontTextureEBO->Destroy();
-}
+Axes::~Axes() {}
 
 void Axes::Initialize() {
     m_TriangleVAO = GLVertexArray::New();

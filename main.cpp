@@ -5,6 +5,8 @@
 #else
 #include <QtCore/Qtextcodec.h>
 #endif
+#include <iGameScene.h>
+
 
 #include "iGameFileIO.h"
 #include "iGameRenderWindow.h"
@@ -36,9 +38,9 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(format);
     // Init Log System
     iGame::Log::Init();
-//    IGAME_CORE_WARN("Start Core Log");
-//    IGAME_RENDERING_INFO("Start Rendering Log");
-//    IGAME_ERROR("Start Client");
+    IGAME_CORE_WARN("Start Core Log");
+    IGAME_RENDERING_INFO("Start Rendering Log");
+    IGAME_ERROR("Start Client");
 
     a.processEvents();
     igQtMainWindow w;
