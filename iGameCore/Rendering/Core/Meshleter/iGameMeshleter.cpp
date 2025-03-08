@@ -38,14 +38,14 @@ Meshleter::~Meshleter() {}
 
 void Meshleter::SetInput(SmartPointer<DataObject> obj) {
     m_DataObject = obj;
-//    this->SetName(std::format("{}'s Meshleter", m_DataObject->GetName()));
+    //    this->SetName(std::format("{}'s Meshleter", m_DataObject->GetName()));
     this->SetName(m_DataObject->GetName());
 }
 
 void Meshleter::Update() {
 #ifndef IGAME_OPENGL_VERSION_460
-    igError("The OpenGL330 version does not support meshleter accelerated "
-            "rendering function");
+    IGAME_RENDERING_ERROR("The OpenGL330 version does not support meshleter "
+                          "accelerated rendering function");
 #else
     if (m_DataObject && m_DataObject->GetMTime() > this->GetMTime()) {
         Build();

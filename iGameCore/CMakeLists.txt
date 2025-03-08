@@ -64,7 +64,9 @@ list(APPEND ThirdParty_lib_dependency
         lzma
         glfw
         spdlog_header_only
+        # ABAQUSSDK
 )
+#target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
 
 #--------------------------------------------------------------------
 # Find or Enable ThirdParty Components' Stuff.

@@ -23,8 +23,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
-        if (!mesh->GetIsPolyhedronType())
-         mesh->RequestEditStatus(); // Establishing Adjacency
+        if (!mesh->GetIsPolyhedronType()) mesh->RequestEditStatus(); // Establishing Adjacency
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
@@ -32,8 +31,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
-        if (!mesh->GetIsPolyhedronType())
-          mesh->RequestEditStatus(); // Establishing Adjacency
+        if (!mesh->GetIsPolyhedronType()) mesh->RequestEditStatus(); // Establishing Adjacency
     } else {
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
@@ -110,18 +108,18 @@ std::vector<Vector3f> iGameStreamTracer::seedPCoordGenerate(int numOfseed, Vecto
     for (int i = 0; i < numOfseed; i++) { tem.emplace_back(p1 + step * i); }
     return tem;
 }
-std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
-    switch (streamMode) {
-        case Diagonal: {
-            seedLineGenerate(numOfseed);
-            break;
-        }
-        case PointId: {
-            seedPidGenerate(numOfseed, pId1, pId2);
-        }
-    }
-}
-    std::vector<Vector3f>iGameStreamTracer::seedGenerate(int control, float proportion,
+//std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
+//    switch (streamMode) {
+//        case Diagonal: {
+//            seedLineGenerate(numOfseed);
+//            break;
+//        }
+//        case PointId: {
+//            seedPidGenerate(numOfseed, pId1, pId2);
+//        }
+//    }
+//}
+std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control, float proportion,
                                                       int numOfseed) { // face
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPoints = mesh->GetPoints();
@@ -1046,7 +1044,9 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
 
         if (mesh->GetIsPolyhedronType()) {
             if (!_vector.empty()) {
-                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed).normalized() *longest;
+                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                                 .normalized() *
+                         longest;
             } else {
                 auto CellData = mesh->GetAttributeSet();
                 auto Vector = CellData->GetVector(vectorName);
@@ -1055,11 +1055,17 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
                 finnal = Vector3f(v[0], v[1], v[2]).normalized() * longest;
             }
         } else if (size == 4) {
-            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed).normalized() * longest;
+            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         } else if (size == 8) {
-            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed).normalized() * longest;
+            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         } else {
-            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed) .normalized() *longest;
+            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         }
     } else {
         std::vector<igIndex> tem;

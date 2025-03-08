@@ -165,6 +165,12 @@ public:
      */
     void SetMeshleter(SmartPointer<Meshleter> meshleter);
 
+    /**
+     * @brief 获取网格重建器。
+     * @return 网格重建器对象的指针。
+     */
+    SmartPointer<Meshleter> GetMeshleter();
+
 protected:
     Model();
     ~Model() override;
@@ -234,9 +240,11 @@ protected:
     SmartPointer<Selection> m_Selection;
     SmartPointer<Filter> m_Filter;
     SmartPointer<DataObject> m_DataObject;
+    SmartPointer<Painter3D> m_Painter3D;
+
     std::string m_FilePath;
     SmartPointer<Scene> m_Scene;
-    SmartPointer<Painter3D> m_Painter3D;
+
     IGuint m_BboxHandle;
     unsigned long long m_Switch;
 

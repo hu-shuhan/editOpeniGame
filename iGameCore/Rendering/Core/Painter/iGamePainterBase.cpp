@@ -44,7 +44,7 @@ void PainterBase::Show(IGuint handle) {
         return;
     }
 
-    auto primitive = m_PrimitivesPool->GetObject(handle);
+    auto primitive = m_PrimitivesPool->GetObjectByHandle(handle);
 
     if (primitive->visible) { return; }
 
@@ -59,7 +59,7 @@ void PainterBase::Hide(IGuint handle) {
         return;
     }
 
-    auto primitive = m_PrimitivesPool->GetObject(handle);
+    auto primitive = m_PrimitivesPool->GetObjectByHandle(handle);
 
     if (!primitive->visible) { return; }
 

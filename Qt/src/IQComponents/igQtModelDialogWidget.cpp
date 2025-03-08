@@ -157,10 +157,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
-    iGame::Model::Pointer model = iGame::Model::New();
-    model->SetDataObject(obj);
-    
-    int id = scene->AddModel(model);
+    auto id = scene->AddModel(obj);
+    auto model = scene->GetModelById(id);
     currentModel = model;
 
     item->setName(QString::fromStdString(obj->GetName()));
@@ -200,7 +198,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 int igQtModelDialogWidget::addModelToModelTree(iGame::Model::Pointer model) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    int id = scene->AddModel(model);
+    
+    auto id = scene->AddModel(model->GetDataObject());
 
     item->setName(QString::fromStdString(model->GetDataObject()->GetName()));
     item->setModel(model);

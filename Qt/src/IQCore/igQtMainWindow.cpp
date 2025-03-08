@@ -41,8 +41,8 @@
 #include <meshoptimizer.h>
 #include <stdio.h>
 
-#include <QMessageBox>
 #include <QDebug>
+#include <QMessageBox>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -1356,7 +1356,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
         Model* IVModel{nullptr};
         bool exist[3]{false, false, false};
-        for (auto& [id, model]: scene->GetModelList()) {
+        auto modelList = scene->GetModelList();
+        //for (auto& [id, model]: *scene->GetModelList()) {
+        for (auto it = modelList->Begin(); it != modelList->End(); it++) {
+            auto id = it->first;
+            auto model = it->second;
+            
             if (model->GetDataObject()->GetName() == OVName) {
                 auto model = scene->GetModelById(id);
                 model->SetDataObject(OV);
@@ -1723,7 +1728,12 @@ void igQtMainWindow::initAllMySignalConnections() {
         //        model->GetDataObject()->SetVisibility(false);
         //    }
         //}
-        for (auto& [id, model]: scene->GetModelList()) {
+        auto modelList = scene->GetModelList();
+        //for (auto& [id, model]: *scene->GetModelList()) {
+        for (auto it = modelList->Begin(); it != modelList->End(); it++) {
+            auto id = it->first;
+            auto model = it->second;
+
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
 
             if (drawObject->GetName() == OVName) {
@@ -1972,5 +1982,3 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
-
-

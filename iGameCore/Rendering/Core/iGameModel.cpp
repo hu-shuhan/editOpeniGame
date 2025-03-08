@@ -10,11 +10,15 @@ Model::Model() {
     SwitchOff(ViewSwitch::BoundingBox);
     SwitchOn(ViewSwitch::PickedItem);
 
+    m_Meshleter = nullptr;
     m_Selection = Selection::New();
+    m_Filter = Filter::New();
     m_DataObject = DataObject::New();
+    m_Painter3D = Painter3D::New();
+
+    m_FilePath = "";
     m_Scene = nullptr;
 
-    m_Painter3D = Painter3D::New();
     m_BboxHandle = 0;
     m_Switch = 0ull;
 }
@@ -384,10 +388,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
 
     if (!drawObject->m_Visibility) { return; }
 
-    // Update GPU data
-    m_Meshleter->Update();
-
-#ifdef GL_SUPPORTS_MESH_SHADER
+    #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -448,7 +449,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
                     meshletCount - invisibleMeshletCount, meshletCount);
         }
     };
-#else
+    #else
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -486,7 +487,7 @@ void Model::DrawPhase1(SmartPointer<Scene> scene) {
                     m_Meshleter->m_MeshletCount);
         }
     };
-#endif
+    #endif
 
     if (!dataObject->HasSubDataObject()) {
         draw(dataObject);
@@ -517,7 +518,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
 
     if (!drawObject->m_Visibility) { return; }
 
-#ifdef GL_SUPPORTS_MESH_SHADER
+    #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -583,7 +584,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                     invisibleMeshletCount);
         }
     };
-#else
+    #else
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         scene->UpdateObjectDataBlock(dataObject);
         scene->UpdateUniformBufferObjectBlock(dataObject);
@@ -657,7 +658,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
                     m_Meshleter->m_MeshletCount - lastVisibleMeshletCount);
         }
     };
-#endif
+    #endif
 
     if (!dataObject->HasSubDataObject()) {
         draw(dataObject);
@@ -678,10 +679,7 @@ void Model::DrawPhase2(SmartPointer<Scene> scene) {
 
 void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
 #ifdef IGAME_OPENGL_VERSION_460
-#ifndef GL_SUPPORTS_MESH_SHADER
-    // Update GPU data
-    m_Meshleter->Update();
-
+    #ifndef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         auto visibility = drawObject->m_Visibility;
@@ -776,7 +774,7 @@ void Model::TestOcclusionResults(SmartPointer<Scene> scene) {
             }
         }
     }
-#endif
+    #endif
 #endif
 }
 
@@ -797,15 +795,11 @@ void Model::DeleteModelFilter() { m_Filter = nullptr; }
 
 void Model::SetDataObject(SmartPointer<DataObject> dataObject) {
     m_DataObject = dataObject;
-
-#ifdef GL_DEBUG_CULLING
-    m_Meshleter = SurfaceMeshMeshleter::New();
-    m_Meshleter->SetInput(dataObject);
-#endif
 }
 
 void Model::Modified() {
-    IGAME_RENDERING_ERROR("[Model::Modified] not sure what this function does.");
+    IGAME_RENDERING_ERROR(
+            "[Model::Modified] not sure what this function does.");
     m_DataObject->Modified();
 }
 
@@ -847,6 +841,8 @@ void Model::RequestDragPoint(SmartPointer<Points> p,
 void Model::SetMeshleter(SmartPointer<Meshleter> meshleter) {
     m_Meshleter = meshleter;
 }
+
+SmartPointer<Meshleter> Model::GetMeshleter() { return m_Meshleter; }
 
 void Model::Show() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
