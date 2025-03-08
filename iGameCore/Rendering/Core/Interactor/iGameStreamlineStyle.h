@@ -1,25 +1,34 @@
-#ifndef IGAMEVIS_STREAMLINE_DRAG_STYLE_H
-#define IGAMEVIS_STREAMLINE_DRAG_STYLE_H
+#ifndef IGAMEVIS_STREAMLINE_STYLE_H
+#define IGAMEVIS_STREAMLINE_STYLE_H
 
-#include "iGamePointPicker.h"
-#include "iGameSelectionStyle.h"
+#include "iGameBasicStyle.h"
+#include "iGamePoints.h"
+#include "iGamePainter3D.h"
+#include "iGameDataObject.h"
 
 IGAME_NAMESPACE_BEGIN
-class StreamDragStyle : public SelectionStyle {
+class StreamLineStyle : public BasicStyle {
 public:
-    I_OBJECT(StreamDragStyle);
-    static Pointer New() { return new StreamDragStyle; }
+    I_OBJECT(StreamLineStyle);
+    static Pointer New() { return new StreamLineStyle; }
+
+    void Initialize(SmartPointer<Interactor> interactor) override;
 
     void MousePressEvent(IEvent _event) override;
     void MouseMoveEvent(IEvent _event) override;
 
 protected:
-    StreamDragStyle();
-    ~StreamDragStyle() override;
+    StreamLineStyle();
+    ~StreamLineStyle() override;
 
-    igIndex m_SelectedPointId;
+    SmartPointer<DataObject> m_DataObject;
+    SmartPointer<Painter3D> m_Painter3D;
+    int StartHandle, EndHandle;
+    int LineHandle;
 
-    float Selected_NDC_Z;
+    int Selected = -1;
+    igm::vec3 Start, End;
+    float NDC_Z;
     igm::mat4 MVP;
     igm::mat4 InvertedMVP;
 };

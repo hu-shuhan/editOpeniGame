@@ -11,6 +11,7 @@
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
+#include "iGameStreamLineStyle.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -28,6 +29,7 @@ public:
         MultiFaceSelectionStyle,  // 多个面选
         DragPointStyle,           // 点拖动
         SlicingStyle,             // 切片
+        StreamLine,               // 流形的线
     };
 
     /**
@@ -80,6 +82,11 @@ public:
      * @brief 切换成切片风格类型交互器
      */
     void RequestSlicingStyle();
+
+     /**
+     * @brief 切换成流形的线类型交互器
+     */
+    void RequestStreamLineStyle();
 
     bool IsBasicStyle() const;
 

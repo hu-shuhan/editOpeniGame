@@ -1,8 +1,11 @@
 #include "meshsimplifier.h"
+#include "iGameThreadPool.h"
 
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <functional>
+#include <future>
 
 class Allocator {
 public:
@@ -193,7 +196,8 @@ static void buildAdjacency(Adjacency& adjacency, const unsigned int* indices, si
     memset(offsets, 0, vertex_count * sizeof(unsigned int));
 
     for (size_t i = 0; i < index_count; ++i) {
-        unsigned int v = remap ? remap[indices[i]] : indices[i];
+        //unsigned int v = remap ? remap[indices[i]] : indices[i];
+        unsigned int v = indices[i];
         assert(v < vertex_count);
         offsets[v]++;
     }
@@ -211,11 +215,11 @@ static void buildAdjacency(Adjacency& adjacency, const unsigned int* indices, si
     for (size_t i = 0; i < face_count; ++i) {
         unsigned int a = indices[i * 3 + 0], b = indices[i * 3 + 1], c = indices[i * 3 + 2];
 
-        if (remap) {
-            a = remap[a];
-            b = remap[b];
-            c = remap[c];
-        }
+        //if (remap) {
+        //    a = remap[a];
+        //    b = remap[b];
+        //    c = remap[c];
+        //}
 
         data[offsets[a]].next = b;
         data[offsets[a]].prev = c;
@@ -428,9 +432,10 @@ static size_t boundEdgeCollapses(const Adjacency& adjacency, size_t vertex_count
         dual_count += e;
     }
     assert(dual_count <= index_count);
-
+    //std::cout << dual_count << " " << index_count << std::endl;
     // pad capacity by 3 so that we can check for overflow once per triangle instead of once per edge
-    return (index_count - dual_count / 2) + 3;
+    //return (index_count - dual_count / 2) + 3;
+    return index_count / 2;
 }
 
 static float quadricError(const Quadric& Q, const QuadricGrad* G, size_t attribute_count, const Vector3f& v,
@@ -515,7 +520,10 @@ static size_t initEdgeCollapses(Collapse* collapses, size_t collapse_capacity, c
     for (size_t i = 0; i < index_count; i += 3) {
         static const int next[3] = {1, 2, 0};
 
-        if (collapse_count + 3 > collapse_capacity) break;
+        if (collapse_count + 3 > collapse_capacity) { 
+            std::cout << i << " " << index_count << std::endl;
+            break;
+        }
 
         for (int e = 0; e < 3; ++e) {
             unsigned int i0 = indices[i + e];
@@ -549,6 +557,58 @@ static size_t initEdgeCollapses(Collapse* collapses, size_t collapse_capacity, c
         }
     }
     return collapse_count;
+}
+
+static size_t parallelForInitEdgeCollapses(Collapse* collapses, size_t collapse_capacity, const unsigned int* indices,
+                                size_t index_count, const float* vertex_attributes, const Vector3f* vertex_positions,
+                                const Quadric* vertex_quadrics, const Quadric* attribute_quadrics,
+                                const QuadricGrad* attribute_gradients, size_t attribute_count) {
+    
+    // size_t collapse_count = 0;
+    static const int next[3] = {1, 2, 0};
+    std::mutex mut;
+    //std::cout << collapse_capacity << std::endl;
+    iGame::ThreadPool::parallelFor(
+            0, index_count, 12,
+            [&](int start, int end, int threadId) {
+                
+                size_t collapse_count = start;
+                for (size_t i = start; i < end; i += 3) {
+                    for (int e = 0; e < 3; ++e) {
+                        unsigned int i0 = indices[i + e];
+                        unsigned int i1 = indices[i + next[e]];
+                        if (i0 > i1) continue;
+                        Collapse c = {i0, i1};
+
+                        //c.error = quadricError(vertex_quadrics[i0], vertex_positions[i1]);
+                        float ei = quadricError(vertex_quadrics[i0], vertex_positions[i1]);
+                        float ej = quadricError(vertex_quadrics[i1], vertex_positions[i0]);
+                        if (attribute_count) {
+                            //c.error += quadricError(attribute_quadrics[i0], &attribute_gradients[i0 * attribute_count],
+                            //                        attribute_count, vertex_positions[i1],
+                            //                        &vertex_attributes[i1 * attribute_count]);
+
+                            ei += quadricError(attribute_quadrics[i0], &attribute_gradients[i0 * attribute_count], attribute_count,
+                                vertex_positions[i1], &vertex_attributes[i1 * attribute_count]);
+                            ej += quadricError(attribute_quadrics[i1], &attribute_gradients[i1 * attribute_count], attribute_count,
+                                               vertex_positions[i0], &vertex_attributes[i0 * attribute_count]);
+                        }
+
+                        c.v0 = ei <= ej ? i0 : i1;
+                        c.v1 = ei <= ej ? i1 : i0;
+                        c.error = ei <= ej ? ei : ej;
+
+                        collapses[collapse_count++] = c;
+                    }
+                }
+
+                //std::lock_guard<std::mutex> lock(mut);
+                //std::cout << start << " " << end << " " << threadId << " " << collapse_count << std::endl;
+                //if (collapse_count + 3 > collapse_capacity) return;
+            },
+            12);
+
+    return index_count;
 }
 
 static void sortEdgeCollapses(unsigned int* sort_order, const Collapse* collapses, size_t collapse_count) {
@@ -760,6 +820,7 @@ static size_t remapIndexBuffer(unsigned int* indices, size_t index_count, const 
     return write;
 }
 
+
 size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigned int* indices, size_t index_count,
                                         const float* vertex_positions_data, size_t vertex_count,
                                         const float* vertex_attributes_data, const float* attribute_weights,
@@ -837,12 +898,13 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
     while (result_count > target_index_count)
     { 
         start = clock();
-        buildAdjacency(adjacency, result, index_count, vertex_count, nullptr);
+        buildAdjacency(adjacency, result, index_count, vertex_count, nullptr); // 7ms
         end = clock();
         std::cout << "buildAdjacency cost time: " << end - start << std::endl;
         
         start = clock();
-        size_t edge_collapse_count = initEdgeCollapses(edge_collapses, collapse_capacity, result, result_count,
+        size_t edge_collapse_count =
+                parallelForInitEdgeCollapses(edge_collapses, collapse_capacity, result, result_count, // 20ms
                                                        vertex_attributes, vertex_positions, vertex_quadrics,
                                                        attribute_quadrics, attribute_gradients, attribute_count);
         end = clock();
@@ -859,7 +921,7 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
         //std::cout << "edge_collapse_count: " << edge_collapse_count << std::endl;
 
         start = clock();
-        sortEdgeCollapses(collapse_order, edge_collapses, edge_collapse_count);
+        sortEdgeCollapses(collapse_order, edge_collapses, edge_collapse_count); // 7ms
         end = clock();
         std::cout << "sortEdgeCollapses cost time: " << end - start << std::endl;
 
@@ -870,7 +932,7 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
         memset(collapse_locked, 0, vertex_count);
 
         start = clock();
-        size_t collapses = performEdgeCollapses(collapse_remap, collapse_locked, edge_collapses, edge_collapse_count,
+        size_t collapses = performEdgeCollapses(collapse_remap, collapse_locked, edge_collapses, edge_collapse_count, // 23ms
                                                 collapse_order, vertex_positions, adjacency, triangle_collapse_goal,
                                                 error_limit, result_error);
         end = clock();
@@ -880,7 +942,7 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
         if (collapses == 0) break;
 
         start = clock();
-        updateQuadrics(collapse_remap, vertex_count, vertex_quadrics, attribute_quadrics, attribute_gradients,
+        updateQuadrics(collapse_remap, vertex_count, vertex_quadrics, attribute_quadrics, attribute_gradients,  // 5ms
                 attribute_count, vertex_positions, vertex_error);
         end = clock();
         std::cout << "updateQuadrics cost time: " << end - start << std::endl;

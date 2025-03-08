@@ -400,7 +400,6 @@ igm::vec3 BasicStyle::GetNearWorldCoord(const igm::vec2& screenCoord,
     return igm::vec3(worldCoord / worldCoord.w);
 }
 
-
 igm::vec3 BasicStyle::GetFarWorldCoord(const igm::vec2& screenCoord,
                                        const igm::mat4& invertedMvp) {
     igm::vec2 NDC(2.0f * screenCoord.x / m_Interactor->GetWidth() - 1.0f,

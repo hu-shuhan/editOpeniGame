@@ -44,6 +44,7 @@ public:
             int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
             if (chunkStart == chunkEnd) continue;
             // 使用线程池提交任务
+            //std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
             futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
         }
         // 等待所有任务完成
@@ -70,6 +71,7 @@ public:
             int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
             if (chunkStart == chunkEnd) continue;
             // 创建线程执行任务
+            
             threads.emplace_back([=]() { process(chunkStart, chunkEnd, i); });
         }
         // 等待所有线程完成

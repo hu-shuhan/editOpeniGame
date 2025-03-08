@@ -708,6 +708,7 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, S
             new ExtractVM(Grid, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
     FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
     std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
+
     auto func = [&](igIndex start, igIndex end, int i) -> void {
         FacePools[i] = new FaceMemoryPool;
         FacePools[i]->Initialize(Grid->GetNumberOfPoints());

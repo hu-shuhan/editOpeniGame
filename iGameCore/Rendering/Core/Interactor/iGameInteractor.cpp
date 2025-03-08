@@ -89,6 +89,13 @@ void Interactor::RequestSlicingStyle() {
     is_Base = false;
 }
 
+void Interactor::RequestStreamLineStyle() {
+    auto act = StreamLineStyle::New();
+    //InitModel();
+    act->Initialize(this);
+    m_Internal = act;
+    is_Base = false;
+}
 
 float Interactor::GetWidth() const { return m_Camera->GetViewPort().x; }
 
