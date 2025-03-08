@@ -12,6 +12,8 @@
 #include<iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include<iGameStructuredMesh.h>
+#include<unordered_map>
+#include <shared_mutex>
 using namespace iGame;
 
 /**
@@ -33,7 +35,10 @@ public:
 	* @param[in] proportion Control seedface move proportion
 	* @param[in] numOfseed Input num of seed
 	*/
-	std::vector<Vector3f> seedGenerate( int control, float proportion, int numOfseed);
+    std::vector<Vector3f> seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1, igIndex pId2);
+    std::vector<Vector3f> seedGenerate(int control, float proportion, int numOfseed);
+    std::vector<Vector3f> seedPidGenerate(int numOfseed, igIndex pId1, igIndex pId2);
+    std::vector<Vector3f> seedPCoordGenerate(int numOfseed, Vector3f p1, Vector3f p2);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data
@@ -166,6 +171,7 @@ private:
 * @param[in] v2  Input a vertex that makes up the face
 */
 	bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    std::unordered_map<int, float> cellBoundLength{};
 	VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
     bool isSubModel = false;
@@ -174,4 +180,7 @@ private:
     std::vector<std::vector<Vector3f>> _vector;
     std::vector<int> subIndex;
 	FloatArray::Pointer tranform{};
+    enum StreamMode { Diagonal, PointId, Line };
+    StreamMode streamMode = PointId;
+    std::shared_mutex rwMutex;
 };

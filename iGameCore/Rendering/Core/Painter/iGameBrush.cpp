@@ -8,6 +8,7 @@
 IGAME_NAMESPACE_BEGIN
 
 Brush::Brush() {
+    m_BrushColor = Vector3f{-1.0f, -1.0f, -1.0f};
     m_BrushStyle = Brush::Style::SolidPattern;
     m_BrushOpacity = 1.0f;
     SetColor(Color::White);
@@ -28,7 +29,7 @@ void Brush::SetColor(const Color& color) {
 
 void Brush::SetColor(float red, float green, float blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        Logger::LogError("Color values must be in the range of 0.0f to 1.0f");
+        IGAME_RENDERING_ERROR("Color values must be in the range of 0.0f to 1.0f");
     }
 
     if (red == m_BrushColor[0] && green == m_BrushColor[1] &&
@@ -42,7 +43,7 @@ void Brush::SetColor(float red, float green, float blue) {
 
 void Brush::SetColor(int red, int green, int blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        Logger::LogError("Color values must be in the range of 0 to 255");
+        IGAME_RENDERING_ERROR("Color values must be in the range of 0 to 255");
     }
 
     float r = static_cast<float>(red) / 255.0f;

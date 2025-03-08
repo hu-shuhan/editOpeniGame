@@ -27,7 +27,12 @@ float ReverseZLinearizeDepth(float depth) {
 void main() {
     // color
     {
-        out_ScreenColor = texture(screenColorSampler, in_UV);
+        vec3 color = vec3(texture(screenColorSampler, in_UV));
+
+        // gamma correct
+        // color = pow(color, vec3(1.0f / 2.2f));
+
+        out_ScreenColor = vec4(color, 1.0f);
     }
 
     // depth

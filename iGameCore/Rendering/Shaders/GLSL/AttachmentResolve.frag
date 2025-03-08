@@ -31,7 +31,7 @@ void main()
         ivec2 texSize = textureSize(depthTextureMS);
         ivec2 texCoord = ivec2(in_UV * vec2(texSize));
 
-        float minDepth = 1.0;
+        float minDepth = 1.0f;
         for (int i = 0; i < numSamples; ++i) {
             float sampleDepth = texelFetch(depthTextureMS, texCoord, i).r;
             minDepth = min(minDepth, sampleDepth);

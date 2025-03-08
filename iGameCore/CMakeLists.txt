@@ -58,6 +58,7 @@ list(APPEND ThirdParty_lib_dependency
         vtkkwiml
         lzma
         glfw
+        spdlog_header_only
 )
 
 # copy resources to the build directory
@@ -92,12 +93,12 @@ if (ENABLE_CGNS_MODULE)
     #             ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
-#find_package(AbqSDK)
-#if (${AbqSDK_FOUND})
-#    message("Find abqsdk")
-#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-#endif ()
+find_package(AbqSDK)
+if (${AbqSDK_FOUND})
+    message("Find abqsdk")
+    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+endif ()
 
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})

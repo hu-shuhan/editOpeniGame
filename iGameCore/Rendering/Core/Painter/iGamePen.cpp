@@ -8,6 +8,7 @@
 IGAME_NAMESPACE_BEGIN
 
 Pen::Pen() {
+    m_PenColor = Vector3f{-1.0f, -1.0f, -1.0f};
     m_PenWidth = 1;
     m_PenStyle = Style::SolidLine;
     m_PenOpacity = 1.0f;
@@ -28,7 +29,7 @@ void Pen::SetColor(const Color& color) {
 
 void Pen::SetColor(float red, float green, float blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        Logger::LogError("Color values must be in the range of 0.0f to 1.0f");
+        IGAME_RENDERING_ERROR("Color values must be in the range of 0.0f to 1.0f");
     }
 
     if (red == m_PenColor[0] && green == m_PenColor[1] &&
@@ -42,7 +43,7 @@ void Pen::SetColor(float red, float green, float blue) {
 
 void Pen::SetColor(int red, int green, int blue) {
     if (!ColorUtils::IsValid(red, green, blue)) {
-        Logger::LogError("Color values must be in the range of 0 to 255");
+        IGAME_RENDERING_ERROR("Color values must be in the range of 0 to 255");
     }
 
     float r = static_cast<float>(red) / 255.0f;

@@ -42,7 +42,7 @@
 #include <stdio.h>
 
 #include <QMessageBox>
-#include <qDebug>
+#include <QDebug>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -1359,7 +1359,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->widget_TensorField->UpdateScalarsNameList();
         ui->widget_TensorField->UpdateTensorsNameList();
     });
-    connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) { ui->dockWidget_FlowField->show(); });
+    connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_FlowField->show();
+        ui->widget_FlowField->updateVectorNameList();
+    });
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});

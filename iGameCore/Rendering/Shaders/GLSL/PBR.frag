@@ -32,10 +32,10 @@ layout(location = 4) in vec2 in_UV;
 layout(location = 0) out vec4 out_ScreenColor;
 
 // material parameters
-const vec3 albedo = vec3(1.0f, 1.0f, 1.0f);
+const vec3 albedo = vec3(1.0f, 0.0f, 0.0f);
 const float metallic = 0.0f;
-const float roughness = 1.0f;
-const float ao = 1.0f;
+const float roughness = 0.5f;
+const float ao = 0.1f;
 
 // lights
 //uniform vec3 lightPositions[4];
@@ -54,7 +54,7 @@ const float PI = 3.14159265359;
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a = roughness*roughness;
-    float a2 = a*a;
+    float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
 
@@ -115,7 +115,7 @@ void main()
 
     vec3 V = normalize(cameraData.viewPos - in_MCPosition);
 
-    // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0 
+    // calculate reflectance at in_Normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -126,9 +126,9 @@ void main()
     // calculate per-light radiance
     vec3 L = normalize(-light.direction);
     vec3 H = normalize(V + L);
-    //        float distance = length(-light.direction);
-    //        float attenuation = 1.0 / (distance * distance);
-    //        vec3 radiance = lightColors[i] * attenuation;
+    // float distance = length(-light.direction);
+    // float attenuation = 1.0 / (distance * distance);
+    // vec3 radiance = lightColors[i] * attenuation;
     vec3 radiance = light.color;
 
     // Cook-Torrance BRDF
@@ -157,7 +157,7 @@ void main()
     // add to outgoing radiance Lo
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;// note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
 
-    // ambient lighting (note that the next IBL tutorial will replace 
+    // ambient lighting (note that the next IBL tutorial will replace
     // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ao;
 

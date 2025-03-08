@@ -1,6 +1,9 @@
 #pragma once
 #include <memory>
 #include <cassert>
+#include <cstring>
+#include <cmath>
+#include <cfloat>
 #include <iostream>
 namespace tri{
 

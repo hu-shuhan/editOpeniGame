@@ -18,12 +18,12 @@ layout(location = 2) out vec3 out_Normal;
 layout(location = 3) out vec2 out_UV;
 
 void main() {
-    gl_Position = proj * view * model * vec4(in_Position, 1.0);
+    gl_Position = proj * view * model * vec4(in_Position, 1.0f);
 
     if (isDrawFont) {
         out_UV = in_UV;
     } else {
-        out_Position = vec3(model * vec4(in_Position, 1.0));
+        out_Position = vec3(model * vec4(in_Position, 1.0f));
         out_Color = in_Color;
         out_Normal = mat3(transpose(inverse(model))) * in_Normal;
     }

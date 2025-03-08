@@ -1,13 +1,13 @@
 #include "iGameSceneManager.h"
 #include "iGameCommand.h"
-#include <format>
+//#include <format>
 #include <iGameRenderingLogger.h>
 
 IGAME_NAMESPACE_BEGIN
 
 SceneManager::SceneManager() {
-    Logger::SetLogFile("Rendering_Log.txt");
-    Logger::SetLogLevel(Logger::LogLevel::Info);
+//    Logger::SetLogFile("Rendering_Log.txt");
+//    Logger::SetLogLevel(Logger::LogLevel::Info);
     m_CurrentScene = nullptr;
 }
 
@@ -22,7 +22,9 @@ SmartPointer<Scene> SceneManager::NewScene() {
     SmartPointer<Scene> scene = Scene::New();
 
     m_CurrentScene = scene;
-    m_CurrentScene->SetName(std::format("Scene{}", m_Scenes.size()));
+//    m_CurrentScene->SetName(std::format("Scene{}", m_Scenes.size()));
+//    TODO
+    m_CurrentScene->SetName("Scene_");
     m_Scenes.push_back(std::move(scene));
     return m_CurrentScene;
 }

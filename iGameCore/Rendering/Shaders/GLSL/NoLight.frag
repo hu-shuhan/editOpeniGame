@@ -32,5 +32,5 @@ layout(location = 4) in vec2 in_UV;
 layout(location = 0) out vec4 out_ScreenColor;
 
 void main() {
-    out_ScreenColor = vec4(in_Color, 1.0);
+    out_ScreenColor = vec4(in_Color, 1.0f);
 }

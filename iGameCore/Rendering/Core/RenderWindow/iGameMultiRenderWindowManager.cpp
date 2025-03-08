@@ -69,7 +69,7 @@ void MultiRenderWindowManager::ShowAllRegisterWindow() {
     glfwTerminate();
 }
 
-void MultiRenderWindowManager::CreateWindow(int width, int height,
+void MultiRenderWindowManager::GLFWCreateWindow(int width, int height,
                                             const char* title,
                                             GLFWmonitor* monitor,
                                             GLFWwindow* share) {

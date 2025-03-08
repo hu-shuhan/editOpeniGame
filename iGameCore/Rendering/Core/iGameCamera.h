@@ -96,7 +96,7 @@ public:
      * @param near 近裁剪面距离。
      * @param far 远裁剪面距离。
      */
-    void SetClippngRange(float near, float far);
+    void SetClippngRange(float _near, float _far);
 
     /**
      * @brief 获取当前的裁剪范围。

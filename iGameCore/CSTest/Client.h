@@ -3,7 +3,7 @@
 #include <iostream>
 #include <thread>
 #include <winsock2.h>
-#include <filesystem> // ĞèÒªC++17Ö§³Ö
+#include <filesystem> // éœ€è¦C++17æ”¯æŒ
 namespace fs = std::filesystem;
 #pragma comment(lib, "ws2_32.lib")
 #ifndef OPENCMD_H
@@ -18,13 +18,13 @@ public:
     int selected_idx;
     std::string filePath;
 
-    // ĞòÁĞ»¯º¯Êı
+    // åºåˆ—åŒ–å‡½æ•°
     std::string serialize() const {
-        // ½« selected_idx ºÍ filePath ĞòÁĞ»¯ÎªÒ»¸ö×Ö·û´®
+        // å°† selected_idx å’Œ filePath åºåˆ—åŒ–ä¸ºä¸€ä¸ªå­—ç¬¦ä¸²
         return std::to_string(selected_idx) + "|" + filePath;
     }
 
-    // ·´ĞòÁĞ»¯º¯Êı
+    // ååºåˆ—åŒ–å‡½æ•°
     void deserialize(const std::string& data) {
         size_t pos = data.find("|");
         if (pos != std::string::npos) {
@@ -41,7 +41,7 @@ void clientThread(int selected_idx, std::string filePath) {
     m_openCmd.selected_idx = selected_idx;
     m_openCmd.filePath = filePath;
 
-    // ĞòÁĞ»¯ OpenCmd
+    // åºåˆ—åŒ– OpenCmd
     std::string serializedData = m_openCmd.serialize();
 
     WSADATA wsaData;
@@ -49,7 +49,7 @@ void clientThread(int selected_idx, std::string filePath) {
 
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET) {
-        MessageBox(NULL, "Invalid Socket!", "´íÎó", MB_ICONERROR);
+        MessageBox(NULL, "Invalid Socket!", "é”™è¯¯", MB_ICONERROR);
         return;
     }
 
@@ -59,44 +59,44 @@ void clientThread(int selected_idx, std::string filePath) {
     serverAddr.sin_port = htons(12345);
 
     if (connect(clientSocket, (sockaddr*) &serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        MessageBox(NULL, "Connect Error!!", "´íÎó", MB_ICONERROR);
+        MessageBox(NULL, "Connect Error!!", "é”™è¯¯", MB_ICONERROR);
         closesocket(clientSocket);
         return;
     }
 
-    // ·¢ËÍĞòÁĞ»¯ºóµÄÊı¾İ
+    // å‘é€åºåˆ—åŒ–åçš„æ•°æ®
     send(clientSocket, serializedData.c_str(), serializedData.size() + 1, 0);
     std::string saveDir = "D:";
-    std::string savePath = saveDir + "/ReceivedFile.igc"; // ±£´æÎÄ¼şÃû
+    std::string savePath = saveDir + "/ReceivedFile.igc"; // ä¿å­˜æ–‡ä»¶å
 
-    // 2. ´´½¨Ä¿Â¼£¨Èç¹û²»´æÔÚ£©
+    // 2. åˆ›å»ºç›®å½•ï¼ˆå¦‚æœä¸å­˜åœ¨ï¼‰
     if (!fs::exists(saveDir)) {
         fs::create_directories(saveDir);
         if (!fs::exists(saveDir)) {
-            MessageBox(NULL, "ÎŞ·¨´´½¨Ä¿Â¼!", "´íÎó", MB_ICONERROR);
+            MessageBox(NULL, "æ— æ³•åˆ›å»ºç›®å½•!", "é”™è¯¯", MB_ICONERROR);
             closesocket(clientSocket);
             return;
         }
     }
 
-    // 3. ½ÓÊÕÎÄ¼ş
+    // 3. æ¥æ”¶æ–‡ä»¶
     std::ofstream file(savePath, std::ios::binary);
     if (!file.is_open()) {
-        MessageBox(NULL, "ÎÄ¼ş´´½¨Ê§°Ü!", "´íÎó", MB_ICONERROR);
+        MessageBox(NULL, "æ–‡ä»¶åˆ›å»ºå¤±è´¥!", "é”™è¯¯", MB_ICONERROR);
         closesocket(clientSocket);
         return;
     }
 
-    // ½ÓÊÕÎÄ¼ş´óĞ¡£¨¼ÙÉè·şÎñÆ÷ÏÈ·¢ËÍÎÄ¼ş´óĞ¡£©
+    // æ¥æ”¶æ–‡ä»¶å¤§å°ï¼ˆå‡è®¾æœåŠ¡å™¨å…ˆå‘é€æ–‡ä»¶å¤§å°ï¼‰
     std::streamsize fileSize;
     if (recv(clientSocket, (char*) &fileSize, sizeof(fileSize), 0) <= 0) {
-        MessageBox(NULL, "½ÓÊÕÎÄ¼ş´óĞ¡Ê§°Ü!", "´íÎó", MB_ICONERROR);
+        MessageBox(NULL, "æ¥æ”¶æ–‡ä»¶å¤§å°å¤±è´¥!", "é”™è¯¯", MB_ICONERROR);
         file.close();
         closesocket(clientSocket);
         return;
     }
 
-    // Ñ­»·½ÓÊÕÊı¾İ
+    // å¾ªç¯æ¥æ”¶æ•°æ®
     constexpr size_t BUFFER_SIZE = 65536;
     char buffer[BUFFER_SIZE];
     std::streamsize totalReceived = 0;
@@ -105,7 +105,7 @@ void clientThread(int selected_idx, std::string filePath) {
         int bytesToRead = (fileSize - totalReceived > BUFFER_SIZE) ? BUFFER_SIZE : fileSize - totalReceived;
         int bytesReceived = recv(clientSocket, buffer, bytesToRead, 0);
         if (bytesReceived <= 0) {
-            MessageBox(NULL, "½ÓÊÕÖĞ¶Ï!", "´íÎó", MB_ICONERROR);
+            MessageBox(NULL, "æ¥æ”¶ä¸­æ–­!", "é”™è¯¯", MB_ICONERROR);
             break;
         }
         file.write(buffer, bytesReceived);

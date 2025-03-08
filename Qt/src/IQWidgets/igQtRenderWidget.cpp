@@ -26,21 +26,21 @@ igQtRenderWidget::igQtRenderWidget(QWidget* parent) : QOpenGLWidget(parent) {
 
 igQtRenderWidget::~igQtRenderWidget() {
     makeCurrent();
-    SceneManager::Pointer sceneManager = SceneManager::Instance();
+    iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
     sceneManager->DeleteScene(m_Scene);
     m_Scene = nullptr;
     doneCurrent();
 }
 
-Scene* igQtRenderWidget::GetScene() { return m_Scene; }
+iGame::Scene* igQtRenderWidget::GetScene() { return m_Scene; }
 
-void igQtRenderWidget::AddDataObject(SmartPointer<DataObject> obj) {
+void igQtRenderWidget::AddDataObject(iGame::SmartPointer<iGame::DataObject> obj) {
     //m_Scene->AddDataObject(obj);
     //Q_EMIT AddDataObjectToModelList(QString::fromStdString(obj->GetName()));
     //update();
 }
 
-void igQtRenderWidget::ChangeInteractor(SmartPointer<Interactor> it) {
+void igQtRenderWidget::ChangeInteractor(iGame::SmartPointer<iGame::Interactor> it) {
     m_Interactor = it;
     m_Interactor->Initialize(m_Scene);
     m_Scene->SetInteractor(m_Interactor);
@@ -49,10 +49,10 @@ void igQtRenderWidget::ChangeInteractor(SmartPointer<Interactor> it) {
 void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
     if (!m_Scene || !m_Scene->GetCurrentModel()) { return; }
     switch (style) {
-        case Interactor::BasicStyle:
+        case iGame::Interactor::BasicStyle:
             m_Interactor->RequestBasicStyle();
             break;
-        case Interactor::SinglePointSelectionStyle: {
+        case iGame::Interactor::SinglePointSelectionStyle: {
             auto obj = m_Scene->GetCurrentModel()->GetDataObject();
             if (obj->HasSubDataObject()) {
                 auto s = m_Scene->GetCurrentModel()->GetSelection();
@@ -63,7 +63,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 
             } else {
                 auto s = m_Scene->GetCurrentModel()->GetSelection();
-                auto ps = DynamicCast<PointSet>(m_Scene->GetCurrentModel()->GetDataObject());
+                auto ps = DynamicCast<iGame::PointSet>(m_Scene->GetCurrentModel()->GetDataObject());
                 if (ps == nullptr) {
                     m_Interactor->RequestBasicStyle();
                     return;
@@ -75,25 +75,25 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
                 m_Interactor->RequestPointSelectionStyle(s);
             }
         } break;
-        case Interactor::SingleFaceSelectionStyle: {
+        case iGame::Interactor::SingleFaceSelectionStyle: {
             auto s = m_Scene->GetCurrentModel()->GetSelection();
             auto model = m_Scene->GetCurrentModel();
             auto obj = model->GetDataObject();
-            Points::Pointer points;
-            CellArray::Pointer faces;
+            iGame::Points::Pointer points;
+            iGame::CellArray::Pointer faces;
 
-            if (DynamicCast<VolumeMesh>(obj)) {
+            if (DynamicCast<iGame::VolumeMesh>(obj)) {
                 //auto mesh = DynamicCast<VolumeMesh>(obj)->GetDrawMesh();
-                auto mesh = DynamicCast<VolumeMesh>(obj);
+                auto mesh = DynamicCast<iGame::VolumeMesh>(obj);
                 points = mesh->GetPoints();
                 faces = mesh->GetFaces();
-            } else if (DynamicCast<UnstructuredMesh>(obj)) {
+            } else if (DynamicCast<iGame::UnstructuredMesh>(obj)) {
                 //auto mesh = DynamicCast<UnstructuredMesh>(obj)->GetDrawMesh();
-                auto mesh = DynamicCast<UnstructuredMesh>(obj);
+                auto mesh = DynamicCast<iGame::UnstructuredMesh>(obj);
                 points = mesh->GetPoints();
                 faces = mesh->GetCells();
-            } else if (DynamicCast<SurfaceMesh>(obj)) {
-                auto mesh = DynamicCast<SurfaceMesh>(obj);
+            } else if (DynamicCast<iGame::SurfaceMesh>(obj)) {
+                auto mesh = DynamicCast<iGame::SurfaceMesh>(obj);
                 points = mesh->GetPoints();
                 faces = mesh->GetFaces();
             }
@@ -108,15 +108,15 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
             m_Interactor->RequestFaceSelectionStyle(s);
         } break;
-        case Interactor::MultiPointSelectionStyle:
+        case iGame::Interactor::MultiPointSelectionStyle:
             //m_Interactor->RequestPointSelectionStyle(m_Scene->GetCurrentModel()->GetSelection());
             break;
-        case Interactor::MultiFaceSelectionStyle:
+        case iGame::Interactor::MultiFaceSelectionStyle:
             //m_Interactor->RequestPointSelectionStyle(m_Scene->GetCurrentModel()->GetSelection());
             break;
-        case Interactor::DragPointStyle: {
+        case iGame::Interactor::DragPointStyle: {
             auto s = m_Scene->GetCurrentModel()->GetSelection();
-            auto ps = DynamicCast<PointSet>(m_Scene->GetCurrentModel()->GetDataObject());
+            auto ps = DynamicCast<iGame::PointSet>(m_Scene->GetCurrentModel()->GetDataObject());
             if (ps == nullptr) {
                 m_Interactor->RequestBasicStyle();
                 return;
@@ -132,19 +132,19 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
     }
 }
 
-Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
+iGame::Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
     //    qDebug() <<"Init GL start";
     // 目前当窗口
-    SceneManager::Pointer sceneManager = SceneManager::Instance();
+    iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
     m_Scene->Initialize();
     m_Scene->SetUpdateFunctor(&igQtRenderWidget::update, this);
     m_Scene->SetMakeCurrentFunctor(&igQtRenderWidget::makeCurrent, this);
     m_Scene->SetDoneCurrentFunctor(&igQtRenderWidget::doneCurrent, this);
 
-    m_Interactor = Interactor::New();
+    m_Interactor = iGame::Interactor::New();
     m_Interactor->Initialize(m_Scene);
     m_Scene->SetInteractor(m_Interactor);
     //    qDebug() <<"Init GL end";
@@ -163,24 +163,24 @@ void igQtRenderWidget::paintGL() {
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
-    IEvent _event;
+    iGame::IEvent _event;
     switch (event->button()) {
         case Qt::NoButton:
-            _event.button = MouseButton::NoButton;
+            _event.button = iGame::MouseButton::NoButton;
             break;
         case Qt::LeftButton:
-            _event.button = MouseButton::LeftButton;
+            _event.button = iGame::MouseButton::LeftButton;
             break;
         case Qt::RightButton:
-            _event.button = MouseButton::RightButton;
+            _event.button = iGame::MouseButton::RightButton;
             break;
         case Qt::MiddleButton:
-            _event.button = MouseButton::MiddleButton;
+            _event.button = iGame::MouseButton::MiddleButton;
             break;
         default:
             break;
     }
-    _event.type = IEvent::MousePress;
+    _event.type = iGame::IEvent::MousePress;
     _event.pos.x = event->pos().x();
     _event.pos.y = event->pos().y();
     m_Interactor->FilterEvent(_event);
@@ -188,8 +188,8 @@ void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void igQtRenderWidget::mouseMoveEvent(QMouseEvent* event) {
-    IEvent _event;
-    _event.type = IEvent::MouseMove;
+    iGame::IEvent _event;
+    _event.type = iGame::IEvent::MouseMove;
     _event.pos.x = event->pos().x();
     _event.pos.y = event->pos().y();
     m_Interactor->FilterEvent(_event);
@@ -197,8 +197,8 @@ void igQtRenderWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void igQtRenderWidget::mouseReleaseEvent(QMouseEvent* event) {
-    IEvent _event;
-    _event.type = IEvent::MouseRelease;
+    iGame::IEvent _event;
+    _event.type = iGame::IEvent::MouseRelease;
     _event.pos.x = event->pos().x();
     _event.pos.y = event->pos().y();
     m_Interactor->FilterEvent(_event);
@@ -206,8 +206,8 @@ void igQtRenderWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void igQtRenderWidget::wheelEvent(QWheelEvent* event) {
-    IEvent _event;
-    _event.type = IEvent::Wheel;
+    iGame::IEvent _event;
+    _event.type = iGame::IEvent::Wheel;
     _event.delta = event->delta();
     m_Interactor->FilterEvent(_event);
     update();
