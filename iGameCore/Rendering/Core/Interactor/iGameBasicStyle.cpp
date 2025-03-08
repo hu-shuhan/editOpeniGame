@@ -343,6 +343,37 @@ bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
     return true;
 }
 
+bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
+                                       const igm::vec3& Point,
+                                       const igm::vec3& Normal,
+                                       igm::vec3& intersection) {
+    // 直线的方向向量
+    double u[3] = {B.x - A.x, B.y - A.y, B.z - A.z};
+
+    // 法向量 N = v1 × v2
+    double N[3] = {Normal.x, Normal.y, Normal.z};
+
+    // 平面方程的 D 值
+    double D = -(N[0] * Point.x + N[1] * Point.y + N[2] * Point.z);
+
+    // 代入平面方程求交点
+    double denominator = N[0] * u[0] + N[1] * u[1] + N[2] * u[2];
+    if (denominator == 0) {
+        // 直线与平面平行
+        return false;
+    }
+
+    // 计算 t 的值
+    double t = -(N[0] * A.x + N[1] * A.y + N[2] * A.z + D) / denominator;
+
+    // 计算交点坐标
+    intersection.x = A.x + t * u[0];
+    intersection.y = A.y + t * u[1];
+    intersection.z = A.z + t * u[2];
+
+    return true;
+}
+
 
 bool BasicStyle::IsIntersectTriangle(igm::vec3 orig, igm::vec3 end,
                                      igm::vec3 v0, igm::vec3 v1, igm::vec3 v2,
