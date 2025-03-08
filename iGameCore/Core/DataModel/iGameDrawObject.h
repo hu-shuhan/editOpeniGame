@@ -79,7 +79,7 @@ public:
 
 protected:
     void CreateDrawBuffer();
-    void ReAllocateDisplayBuffer();
+    void SyncGpuBuffers();
 
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);

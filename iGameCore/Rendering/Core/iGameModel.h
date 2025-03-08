@@ -29,10 +29,16 @@ public:
     static Pointer New() { return new Model; }
 
     /**
-     * @brief 获取模型关联的数据对象。
-     * @return 数据对象的指针。
+     * @brief 设置关联的场景对象。
+     * @param scene 场景对象的智能指针。
      */
-    SmartPointer<DataObject> GetDataObject();
+    void SetScene(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 获取当前关联的场景对象。
+     * @return 场景对象的智能指针，可能为空需调用方检查有效性。
+     */
+    SmartPointer<Scene> GetScene() const;
 
     /**
      * @brief 获取模型的可见性状态。
@@ -62,12 +68,6 @@ public:
      * @brief 删除模型的过滤器。
      */
     void DeleteModelFilter();
-
-    /**
-     * @brief 设置数据对象。
-     * @param dataObject 新的数据对象。
-     */
-    void SetDataObject(SmartPointer<DataObject> dataObject);
 
     /**
      * @brief 标记数据对象为已修改。
@@ -160,6 +160,18 @@ public:
     void RequestDragPoint(SmartPointer<Points> p, SmartPointer<Selection> s);
 
     /**
+     * @brief 设置数据对象。
+     * @param dataObject 新的数据对象。
+     */
+    void SetDataObject(SmartPointer<DataObject> dataObject);
+
+    /**
+     * @brief 获取模型关联的数据对象。
+     * @return 数据对象的智能指针。
+     */
+    SmartPointer<DataObject> GetDataObject();
+
+    /**
      * @brief 设置网格重建器。
      * @param meshleter 网格重建器指针。
      */
@@ -171,45 +183,70 @@ public:
      */
     SmartPointer<Meshleter> GetMeshleter();
 
+    /**
+     * @brief 启用加速渲染模式。
+     * @details 调用此函数将激活加速结构，用于提升大规模场景的渲染性能。
+     * @note 启用后可能需要重新构建场景加速结构。
+     */
+    void AccelerationOn();
+
+    /**
+     * @brief 关闭加速渲染模式。
+     * @details 调用此函数将禁用加速结构，适用于调试或低资源场景。
+     * @note 关闭后会释放加速结构相关资源。
+     */
+    void AccelerationOff();
+
+    /**
+     * @brief 获取加速渲染模式当前状态。
+     * @return true 表示加速结构已启用，false 表示已禁用。
+     * @details 该状态反映最近一次调用AccelerateOn/Off后的生效状态，
+     *          可用于条件判断是否需要进行加速结构维护操作。
+     * @note 该状态查询不验证底层资源实际存在性，仅反映逻辑开关状态
+     */
+    bool IsAccelerationEnabled() const;
+
 protected:
     Model();
     ~Model() override;
 
     /**
-     * @brief 渲染模型。
-     * @param scene 场景对象。
+     * @brief 更新GPU显存中的数据。
+     * @details 将当前CPU端的数据同步到GPU显存中，用于确保渲染时使用最新的数据状态。
+     *          应在场景数据发生变更后、执行渲染操作前调用本方法。
+     * @note 若使用加速结构（Acceleration Structure），部分数据更新后可能需要重建加速结构
      */
-    void Draw(SmartPointer<Scene> scene);
+    void SyncGpuBuffers();
+
+    /**
+     * @brief 渲染模型。
+     */
+    void Draw();
 
     /**
      * @brief 渲染模型的透明部分。
-     * @param scene 场景对象。
      */
-    void DrawWithTransparency(SmartPointer<Scene> scene);
+    void DrawWithTransparency();
 
     /**
      * @brief 渲染模型的体积。
-     * @param scene 场景对象。
      */
-    void DrawWithVolume(SmartPointer<Scene> scene);
+    void DrawWithVolume();
 
     /**
      * @brief 渲染模型的第一阶段。
-     * @param scene 场景对象。
      */
-    void DrawPhase1(SmartPointer<Scene> scene);
+    void DrawPhase1();
 
     /**
      * @brief 渲染模型的第二阶段。
-     * @param scene 场景对象。
      */
-    void DrawPhase2(SmartPointer<Scene> scene);
+    void DrawPhase2();
 
     /**
      * @brief 测试遮挡结果。
-     * @param scene 场景对象。
      */
-    void TestOcclusionResults(SmartPointer<Scene> scene);
+    void TestOcclusionResults();
 
     /**
      * @enum ViewSwitch
@@ -236,10 +273,12 @@ protected:
      */
     bool GetSwitch(ViewSwitch type);
 
+    bool m_AccelerateOption;
+
+    SmartPointer<DataObject> m_DataObject;
     SmartPointer<Meshleter> m_Meshleter;
     SmartPointer<Selection> m_Selection;
     SmartPointer<Filter> m_Filter;
-    SmartPointer<DataObject> m_DataObject;
     SmartPointer<Painter3D> m_Painter3D;
 
     std::string m_FilePath;

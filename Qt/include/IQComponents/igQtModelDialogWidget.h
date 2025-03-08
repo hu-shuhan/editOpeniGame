@@ -35,8 +35,8 @@ public slots:
     int updateCloudPicture();
     void deleteCurrentModel();
     void onPropertyChanged(QtProperty* property, const QVariant& value);
-    static void SetAccelerateState(bool b) { m_AutoAccelerate = b; }
-    static int GetAccelerateState() { return m_AutoAccelerate; }
+    static void SetAccelerateState(bool b);
+    static int GetAccelerateState();
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();

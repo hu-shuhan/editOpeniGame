@@ -11,7 +11,7 @@ Painter2D::Painter2D() {}
 
 Painter2D::~Painter2D() {}
 
-void Painter2D::Draw(Scene* scene) {
+void Painter2D::Draw() {
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
     auto width = static_cast<float>(vp[2]);
@@ -21,14 +21,14 @@ void Painter2D::Draw(Scene* scene) {
     igm::mat4 view = igm::mat4{1.0f};
     igm::mat4 proj = igm::orthoRH_OZ(0.0f, width, 0.0f, height, -1.0f, 1.0f);
 
-    scene->m_ShaderManager->UpdateCameraBlock(
+    m_Scene->m_ShaderManager->UpdateCameraBlock(
             {igm::vec3{0.0f}, 1, view, proj, proj * view});
-    scene->m_ShaderManager->UpdateObjectBlock(
+    m_Scene->m_ShaderManager->UpdateObjectBlock(
             {1.0f, model, model.invert().transpose(), igm::vec4{}});
-    scene->m_ShaderManager->UpdateUBOBlock({1, 0});
+    m_Scene->m_ShaderManager->UpdateUBOBlock({1, 0});
 
     glDisable(GL_DEPTH_TEST);
-    PainterBase::Draw(scene);
+    PainterBase::Draw();
     glEnable(GL_DEPTH_TEST);
 }
 

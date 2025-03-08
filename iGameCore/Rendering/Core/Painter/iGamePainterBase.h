@@ -148,10 +148,22 @@ public:
     const BoundingBox& GetBoundingBox();
 
     /**
-     * @brief 绘制场景中的元素。
-     * @param scene 指向需要绘制的场景对象。
+     * @brief 设置关联的场景对象。
+     * @param scene 场景对象的智能指针。
      */
-    virtual void Draw(Scene* scene);
+    void SetScene(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 获取当前关联的场景对象。
+     * @return 场景对象的智能指针，可能为空需调用方检查有效性。
+     */
+    SmartPointer<Scene> GetScene() const;
+
+    /**
+     * @brief 绘制场景中的元素。
+     * @warning 调用该函数前需要确保与其绑定的场景（Scene）OpenGL上下文处于活跃状态。
+     */
+    virtual void Draw();
 
     /**
      * @brief 清除所有绘制元素。
@@ -174,6 +186,8 @@ protected:
 
     SmartPointer<Object> m_PrimitivesUpdateHelper;
     SmartPointer<HandlePool<Primitive>> m_PrimitivesPool;
+
+    SmartPointer<Scene> m_Scene;
 
     std::unordered_map<float, SmartPointer<GLVertexArray>> m_VAOs;
     std::unordered_map<float, SmartPointer<GLBuffer>> m_PositionVBOs;
