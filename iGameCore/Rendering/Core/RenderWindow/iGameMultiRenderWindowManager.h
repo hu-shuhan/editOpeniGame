@@ -23,7 +23,7 @@ public:
         return &manager;
     }
 
-    void CreateWindow(int width, int height, const char* title,
+    void GLFWCreateWindow(int width, int height, const char* title,
                       GLFWmonitor* monitor = nullptr,
                       GLFWwindow* share = nullptr);
 

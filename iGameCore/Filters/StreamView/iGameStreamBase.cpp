@@ -20,7 +20,7 @@ void iGameStreamBase::ConvertToDrawableData() {
     int  count = 0;
     for (int i = 0; i < m_StreamLine.size(); i++) {
         IdArray::Pointer line = IdArray::New();
-        for (int j = 0; j + 1 < m_StreamLine[i].size() / 3; j++) {
+        for (int j = 0; j + 1 < m_StreamLine[i].size() / 3; j+=2) {
             m_Points->AddPoint(Point(m_StreamLine[i][j * 3],
                                      m_StreamLine[i][j * 3 + 1],
                                      m_StreamLine[i][j * 3 + 2]));

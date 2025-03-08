@@ -445,7 +445,7 @@ void igQtAnimationWidget::initAnimationComponents() {
 
 #include <FFMPEG/iGameFFMPEGVideoWriter.h>
 #include <IQComponents/Dialog/igQtVideoOptionDialog.h>
-#include <qDebug>
+#include <QDebug>
 bool igQtAnimationWidget::saveAnimation() {
 #if defined(FFMPEG_ENABLE)
     using namespace iGame;

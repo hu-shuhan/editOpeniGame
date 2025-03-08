@@ -24,12 +24,12 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
-        Logger::LogError("FREETYPE: Could not init FreeType Library");
+        IGAME_RENDERING_ERROR("FREETYPE: Could not init FreeType Library");
     }
 
     FT_Face face;
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-        Logger::LogError("FREETYPE: Failed to load font {}", fontPath);
+        IGAME_RENDERING_ERROR("FREETYPE: Failed to load font {}", fontPath);
     }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
@@ -47,7 +47,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
         // Loading the glyphs for characters
         if (FT_Load_Char(face, wchar, FT_LOAD_RENDER)) {
-            Logger::LogError("FREETYPE: Failed to load Glyph");
+            IGAME_RENDERING_ERROR("FREETYPE: Failed to load Glyph");
         }
 
         // Font size
@@ -94,7 +94,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
 FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
     auto it = m_Characters.find(wchar);
     if (it == m_Characters.end()) {
-        Logger::LogInfo(
+        IGAME_RENDERING_INFO(
                 "Character not found for wchar. Automatically registering.");
 
         wchar_t text[2] = {wchar, L'\0'};
@@ -107,7 +107,7 @@ FontManager::Character& FontManager::GetCharacter(const wchar_t wchar) {
 SmartPointer<GLTexture2d> FontManager::GetTexture(const wchar_t wchar) {
     auto it = m_Textures.find(wchar);
     if (it == m_Textures.end()) {
-        Logger::LogInfo(
+        IGAME_RENDERING_INFO(
                 "Texture not found for wchar. Automatically generating.");
 
         wchar_t text[2] = {wchar, L'\0'};

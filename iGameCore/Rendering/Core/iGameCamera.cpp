@@ -52,25 +52,25 @@ Viewer::Viewer() {
 
 Viewer::~Viewer() {}
 
-void Viewer::SetClippngRange(float near, float far) {
-    if (near == m_ClippingRange.x && far == m_ClippingRange.y) { return; }
+void Viewer::SetClippngRange(float _near, float _far) {
+    if (_near == m_ClippingRange.x && _far == m_ClippingRange.y) { return; }
 
-    if (near <= 0.0f) {
-        Logger::LogError("Near plane value must be greater than 0.0f.");
+    if (_near <= 0.0f) {
+        IGAME_RENDERING_ERROR("Near plane value must be greater than 0.0f.");
     }
 
-    if (near > far) {
-        Logger::LogError(
+    if (_near > _far) {
+        IGAME_RENDERING_ERROR(
                 "Near plane value cannot be greater than the far plane value.");
     }
 
-    if (far - near < 1e-10f) {
-        Logger::LogError(
+    if (_far - _near < 1e-10f) {
+        IGAME_RENDERING_ERROR(
                 "The difference between the near and far planes is too small.");
     }
 
-    m_ClippingRange.x = near;
-    m_ClippingRange.y = far;
+    m_ClippingRange.x = _near;
+    m_ClippingRange.y = _far;
     this->Modified();
 }
 
@@ -80,7 +80,7 @@ void Viewer::SetFov(float fov) {
     if (fov == m_Fov) { return; }
 
     if (fov < 1.0f || fov > 179.0f) {
-        Logger::LogInfo("fov provided is out of range (1.0 - 179.0 degrees), "
+        IGAME_RENDERING_INFO("fov provided is out of range (1.0 - 179.0 degrees), "
                         "clamping to valid range.");
         m_Fov = std::clamp(fov, 1.0f, 179.0f);
     } else {
