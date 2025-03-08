@@ -648,7 +648,7 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId, igIndex npts
     }
 }
 struct ExtractVM : public ExtractCellBoundaries {
-    // Process unstructured grid
+    // Process volumemesh grid
     VolumeMesh::Pointer Grid;
     std::shared_ptr<FaceHashMap> FaceMap;
     bool RemoveGhostInterFaces;
@@ -1362,8 +1362,6 @@ void iGameModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract
     CompositePointAttribute(extract->GetPointMap()->RawPointer(), inPoints->GetNumberOfPoints(),
                             outPoints->GetNumberOfPoints(), outAllDataArray);
     m_PointMap = extract->GetPointMap();
-    //m_PointMap = FlatArray<igIndex>::New();
-    //m_PointMap->SetArray(extract->GetPointMap(), 1, inPoints->GetNumberOfPoints(), inPoints->GetNumberOfPoints());
 }
 void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, AttributeSet::Pointer inAllDataArray,
                                                       AttributeSet::Pointer& outAllDataArray) {

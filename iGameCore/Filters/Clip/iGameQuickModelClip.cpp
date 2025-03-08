@@ -1094,8 +1094,12 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
             edgeVtxs = nullptr;
             thisCase = nullptr;
         } else if (cellType == IG_POLYHEDRON) {
+            delete VFV;
+            VFV = nullptr;
             return this->ModelClip::ExecuteWithUnstructuredMesh(um);
         } else {
+            delete VFV;
+            VFV = nullptr;
             return this->ModelClip::ExecuteWithUnstructuredMesh(um);
         }
         vhs = nullptr;
