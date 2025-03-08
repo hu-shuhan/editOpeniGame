@@ -4,8 +4,7 @@
  */
 
 #pragma once
-#include "Clip/iGameModelClip.h"
-#include "Clip/iGameQuickModelClip.h"
+#include "Clip/iGameClipFilter.h"
 #include "Contour/iGameContourFilter.h"
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
