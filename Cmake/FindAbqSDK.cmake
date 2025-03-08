@@ -82,7 +82,7 @@ set(AbqSDK_PRIVATE_INCLUDE_DIRS "${AbqSDK_PRIVATE_INCLUDE_DIR}" "${AbqSDK_PRIVAT
 
 set(FOUND_ABQ_LIB_FULL_PATH)
 set(ABQ_LIB_TARGETS)
-foreach(LIB ${ABQ_LIB_LIST})
+foreach (LIB ${ABQ_LIB_LIST})
     set(temp${LIB})
     find_library(temp${LIB}
             NAMES
@@ -102,7 +102,7 @@ foreach(LIB ${ABQ_LIB_LIST})
                 INTERFACE_INCLUDE_DIRECTORIES "${AbqSDK_PRIVATE_INCLUDE_DIRS}")
         list(APPEND ABQ_LIB_TARGETS AbqSDK::${LIB})
     endif ()
-endforeach()
+endforeach ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(AbqSDK

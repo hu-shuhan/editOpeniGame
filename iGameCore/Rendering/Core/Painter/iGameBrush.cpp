@@ -8,6 +8,7 @@
 IGAME_NAMESPACE_BEGIN
 
 Brush::Brush() {
+    m_BrushColor = Vector3f{-1.0f, -1.0f, -1.0f};
     m_BrushStyle = Brush::Style::SolidPattern;
     m_BrushOpacity = 1.0f;
     SetColor(Color::White);

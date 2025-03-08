@@ -83,22 +83,22 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
-            auto m_Clipper = iGame::QuickModelClip::New();
-            m_Clipper->SetPlane(m_Origin, m_Normal);
+            auto Clipper = iGame::ClipFilter::New();
+            Clipper->SetPlane(m_Origin, m_Normal);
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
                      it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
                     auto childObject = it->second;
                     if (childObject == nullptr) { continue; }
-                    m_Clipper->SetInput(childObject);
-                    m_Clipper->Execute();
-                    auto out = m_Clipper->GetClipMesh();
+                    Clipper->SetInput(childObject);
+                    Clipper->Execute();
+                    auto out = Clipper->GetClipMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
                 }
             } else {
-                m_Clipper->SetInput(m_OriginDataObject);
-                m_Clipper->Execute();
-                auto out = m_Clipper->GetClipMesh();
+                Clipper->SetInput(m_OriginDataObject);
+                Clipper->Execute();
+                auto out = Clipper->GetClipMesh();
                 if (out) {
                     m_ResultMesh->SetPoints(out->GetPoints());
                     m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
@@ -122,23 +122,23 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
-            auto m_Contourer = iGame::ContourFilter::New();
+            auto Contourer = iGame::ContourFilter::New();
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
                      it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
                     auto childObject = it->second;
                     if (childObject == nullptr) { continue; }
-                    m_Contourer->SetInput(childObject);
-                    m_Contourer->SetPlane(m_Origin, m_Normal);
-                    m_Contourer->Execute();
-                    auto out = m_Contourer->GetContourMesh();
+                    Contourer->SetInput(childObject);
+                    Contourer->SetPlane(m_Origin, m_Normal);
+                    Contourer->Execute();
+                    auto out = Contourer->GetContourMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
                 }
             } else {
-                m_Contourer->SetInput(m_OriginDataObject);
-                m_Contourer->SetPlane(m_Origin, m_Normal);
-                m_Contourer->Execute();
-                auto out = m_Contourer->GetContourMesh();
+                Contourer->SetInput(m_OriginDataObject);
+                Contourer->SetPlane(m_Origin, m_Normal);
+                Contourer->Execute();
+                auto out = Contourer->GetContourMesh();
                 if (out) {
                     m_ResultMesh->SetPoints(out->GetPoints());
                     m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
@@ -162,22 +162,22 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
-            auto m_Extracter = iGame::iGameModelGeometryFilter::New();
-            m_Extracter->SetClipPlane(m_Origin, m_Normal);
+            auto Extracter = iGame::iGameModelGeometryFilter::New();
+            Extracter->SetClipPlane(m_Origin, m_Normal);
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
                      it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
                     auto childObject = it->second;
                     if (childObject == nullptr) { continue; }
-                    m_Extracter->SetInput(childObject);
-                    m_Extracter->Execute();
-                    auto out = m_Extracter->GetExtractMesh();
+                    Extracter->SetInput(childObject);
+                    Extracter->Execute();
+                    auto out = Extracter->GetExtractMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
                 }
             } else {
-                m_Extracter->SetInput(m_OriginDataObject);
-                m_Extracter->Execute();
-                auto out = m_Extracter->GetExtractMesh();
+                Extracter->SetInput(m_OriginDataObject);
+                Extracter->Execute();
+                auto out = Extracter->GetExtractMesh();
                 if (out) { m_ResultMesh->GenerateFromSurfaceMesh(out); }
             }
             clock_t time_clip = clock();
