@@ -13,10 +13,10 @@ cmake_minimum_required(VERSION 3.19)
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
-set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+set(ENABLE_GPSCUDA_MODULE ON CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
@@ -45,8 +45,8 @@ add_compile_options(
     "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:/utf-8>"
     "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:CXX>>:/utf-8>"
 )
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+#add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+#add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
