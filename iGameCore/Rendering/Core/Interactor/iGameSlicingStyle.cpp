@@ -50,14 +50,26 @@ void SlicingStyle::Draw() {
         m_Painter3D->SetPen(Color::Red);
         CenterHandle = m_Painter3D->DrawPoint(V(Center));
         StartHandle = m_Painter3D->DrawPoint(V(Start));
+    } else if (Selected == 3) {
+        m_Painter3D->SetPen(Color::Red);
+        CenterHandle = m_Painter3D->DrawPoint(V(Center));
+        StartHandle = m_Painter3D->DrawPoint(V(Start));
+        EndHandle = m_Painter3D->DrawPoint(V(End));
+
+        m_Painter3D->SetPen(2);
+        m_Painter3D->SetPen(Color::Green);
+        LineHandle = m_Painter3D->DrawLine(V(Start), V(End));
     }
-    
-    m_Painter3D->SetPen(2);
-    m_Painter3D->SetPen(Color::Red);
-    LineHandle = m_Painter3D->DrawLine(V(Start), V(End));
+
+    if (Selected != 3) {
+        m_Painter3D->SetPen(2);
+        m_Painter3D->SetPen(Color::Red);
+        LineHandle = m_Painter3D->DrawLine(V(Start), V(End));
+    }
+
 
     DrawSlicingPlane();
-    Invoke();
+    
 }
 
 void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
@@ -84,6 +96,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     
     ComputeSlicingPlane();
     Draw();
+    Invoke();
 }
 
 void SlicingStyle::Invoke() {
@@ -114,7 +127,6 @@ void SlicingStyle::MousePressEvent(IEvent _event) {
         Selected = 0;
         Center2Start = Start - Center;
         Center2End = End - Center;
-
     } else if (DistancePointToLine(Start, point1, point2) < PickRadius) {
         Selected = 1;
         auto afterMVP = MVP * igm::vec4(Start, 1.0f);
@@ -127,13 +139,17 @@ void SlicingStyle::MousePressEvent(IEvent _event) {
         NDC_Z = (afterMVP / afterMVP.w).z;
         Center2Start = Start - Center;
         Center2End = End - Center;
-    } /*else if (TwoLineIntersection(Start, End, point1, point2, Intersection)) {
+    } else if (TwoLineIntersection(Start, End, point1, point2, Intersection)) {
         Selected = 3;
-        auto afterMVP = MVP * igm::vec4(Intersection, 1.0f);
-        NDC_Z = (afterMVP / afterMVP.w).z;
-        Center2Start = Start - Center;
-        Center2End = End - Center;
-    }*/ else {
+        //auto afterMVP = MVP * igm::vec4(Intersection, 1.0f);
+        //NDC_Z = (afterMVP / afterMVP.w).z;
+        //Center2Start = Start - Center;
+        //Center2End = End - Center;
+
+        TempCenter = Center;
+        TempStart = Start;
+        TempEnd = End;
+    } else {
         Selected = -1;
     }
 }
@@ -147,17 +163,13 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
     }
 
     if (Selected == 0) { // 拖动中点 Drag center pointer
-        igm::vec2 pos1 = igm::vec2(pos.x, 0);
-        igm::vec2 pos2 = igm::vec2(pos.x, m_Interactor->GetHeight());
-
-        // p1,p2,p3 组成视锥平面 form the cone plane
-        igm::vec3 p1 = GetNearWorldCoord(pos1, InvertedMVP);
-        igm::vec3 p2 = GetFarWorldCoord(pos1, InvertedMVP);
-        igm::vec3 p3 = GetNearWorldCoord(pos2, InvertedMVP);
+        igm::vec3 p1 = GetNearWorldCoord(pos, InvertedMVP);
+        igm::vec3 p2 = GetFarWorldCoord(pos, InvertedMVP);
+        igm::vec3 normal = (Start - End).normalized();
         igm::vec3 intersection;
 
         // 计算直线与与视锥平面的交点 Calculate the intersection of the line with the cone plane
-        LinePlaneIntersection(Start, End, p1, p2, p3, intersection);
+        LinePlaneIntersection(p1, p2, Center, normal, intersection);
         igm::vec3 newCenter = intersection;
         if (!m_DataObject->GetBoundingBox().isIn(V(newCenter))) return;
 
@@ -165,9 +177,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
         Start = Center + Center2Start;
         End = Center + Center2End;
 
-        ComputeSlicingPlane();
         Draw();
-
     } else if (Selected == 1) {
 
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
@@ -199,7 +209,27 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
         ComputeSlicingPlane();
         Draw();
     } else if (Selected == 3) {
+        igm::vec2 pos1 = igm::vec2(pos.x, 0);
+        igm::vec2 pos2 = igm::vec2(pos.x, m_Interactor->GetHeight());
 
+        // p1,p2,p3 组成视锥平面 form the cone plane
+        igm::vec3 p1 = GetNearWorldCoord(pos1, InvertedMVP);
+        igm::vec3 p2 = GetFarWorldCoord(pos1, InvertedMVP);
+        igm::vec3 p3 = GetNearWorldCoord(pos2, InvertedMVP);
+        igm::vec3 intersection;
+
+        // 计算直线与与视锥平面的交点 Calculate the intersection of the line with the cone plane
+        LinePlaneIntersection(Start, End, p1, p2, p3, intersection);
+        igm::vec3 Vector = intersection - Intersection;
+        if (!m_DataObject->GetBoundingBox().isIn(V(TempCenter + Vector)))
+            return;
+
+        Center = TempCenter + Vector;
+        Start = TempStart + Vector;
+        End = TempEnd + Vector;
+
+        ComputeSlicingPlane();
+        Draw();
     }
 
     //switch (m_MouseMode) {
@@ -377,6 +407,9 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
 void SlicingStyle::MouseReleaseEvent(IEvent _event) {
     BasicStyle::MouseReleaseEvent(_event);
+    if (Selected != -1) {
+        Invoke();
+    }
     Selected = -1;
     Draw();
 }

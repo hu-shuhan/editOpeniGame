@@ -470,23 +470,23 @@ void DrawObject::CreateDrawBuffer() {
     GLCheckError();
 }
 
-void DrawObject::ReAllocateDisplayBuffer() {
+void DrawObject::SyncGpuBuffers() {
     // process display object
     if (m_DisplayObject) {
-        m_DisplayObject->ReAllocateDisplayBuffer();
+        m_DisplayObject->SyncGpuBuffers();
         return;
     }
 
     // process this object
     if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::ReAllocateDisplayBuffer);
+        ProcessSubDataObjects(&DrawObject::SyncGpuBuffers);
         return;
     }
     this->CreateDrawBuffer();
 
     if (m_AutoUpdateDrawData) {
         ConvertToDrawableData();
-        if (m_DisplayObject) { m_DisplayObject->ReAllocateDisplayBuffer(); }
+        if (m_DisplayObject) { m_DisplayObject->SyncGpuBuffers(); }
     }
 
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {

@@ -47,4 +47,4 @@ compile_shader(
         "${GENERATED_SHADER_FOLDER}"
         "${glslangValidator_executable}")
 
-set_target_properties("${TARGET_NAME}" PROPERTIES FOLDER "iGameVis")
+set_target_properties("${TARGET_NAME}" PROPERTIES FOLDER "iGameVisShaders")

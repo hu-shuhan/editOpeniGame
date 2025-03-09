@@ -30,6 +30,7 @@
 #include <qdebug.h>
 #include <qsettings.h>
 
+
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
     InitRecentFilePaths();
     m_SceneManager = SceneManager::Instance();
@@ -105,6 +106,7 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
     
+
     //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();

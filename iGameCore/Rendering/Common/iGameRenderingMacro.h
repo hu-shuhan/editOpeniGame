@@ -2,8 +2,7 @@
 
 #define GL_SUPPORTS_MSAA
 
-// #define GL_DEBUG_CULLING
-// #define GL_SUPPORTS_MESH_SHADER
+//#define GL_SUPPORTS_MESH_SHADER
 
 #define MAX_FRAMEBUFFER_WIDTH 7680
 #define MAX_FRAMEBUFFER_HEIGHT 4320
@@ -21,71 +20,71 @@
     */
 
 #ifdef IGAME_OPENGL_VERSION_460
-#define GLCheckError()                                                         \
-    {                                                                          \
-        GLenum err;                                                            \
-        while ((err = glGetError()) != GL_NO_ERROR) {                          \
-            std::string error;                                                 \
-            switch (err) {                                                     \
-                case GL_INVALID_ENUM:                                          \
-                    error = "INVALID_ENUM";                                    \
-                    break;                                                     \
-                case GL_INVALID_VALUE:                                         \
-                    error = "INVALID_VALUE";                                   \
-                    break;                                                     \
-                case GL_INVALID_OPERATION:                                     \
-                    error = "INVALID_OPERATION";                               \
-                    break;                                                     \
-                case GL_STACK_OVERFLOW:                                        \
-                    error = "STACK_OVERFLOW";                                  \
-                    break;                                                     \
-                case GL_STACK_UNDERFLOW:                                       \
-                    error = "STACK_UNDERFLOW";                                 \
-                    break;                                                     \
-                case GL_OUT_OF_MEMORY:                                         \
-                    error = "OUT_OF_MEMORY";                                   \
-                    break;                                                     \
-                case GL_INVALID_FRAMEBUFFER_OPERATION:                         \
-                    error = "INVALID_FRAMEBUFFER_OPERATION";                   \
-                    break;                                                     \
-                default:                                                       \
-                    error = "UNKNOWN_ERROR";                                   \
-                    break;                                                     \
+    #define GLCheckError()                                                     \
+        {                                                                      \
+            GLenum err;                                                        \
+            while ((err = glGetError()) != GL_NO_ERROR) {                      \
+                std::string error;                                             \
+                switch (err) {                                                 \
+                    case GL_INVALID_ENUM:                                      \
+                        error = "INVALID_ENUM";                                \
+                        break;                                                 \
+                    case GL_INVALID_VALUE:                                     \
+                        error = "INVALID_VALUE";                               \
+                        break;                                                 \
+                    case GL_INVALID_OPERATION:                                 \
+                        error = "INVALID_OPERATION";                           \
+                        break;                                                 \
+                    case GL_STACK_OVERFLOW:                                    \
+                        error = "STACK_OVERFLOW";                              \
+                        break;                                                 \
+                    case GL_STACK_UNDERFLOW:                                   \
+                        error = "STACK_UNDERFLOW";                             \
+                        break;                                                 \
+                    case GL_OUT_OF_MEMORY:                                     \
+                        error = "OUT_OF_MEMORY";                               \
+                        break;                                                 \
+                    case GL_INVALID_FRAMEBUFFER_OPERATION:                     \
+                        error = "INVALID_FRAMEBUFFER_OPERATION";               \
+                        break;                                                 \
+                    default:                                                   \
+                        error = "UNKNOWN_ERROR";                               \
+                        break;                                                 \
+                }                                                              \
+                std::cerr << "OpenGL error: " << error << " (" << err << ")"   \
+                          << " in file " << __FILE__ << " at line "            \
+                          << __LINE__ << std::endl;                            \
             }                                                                  \
-            std::cerr << "OpenGL error: " << error << " (" << err << ")"       \
-                      << " in file " << __FILE__ << " at line " << __LINE__    \
-                      << std::endl;                                            \
-        }                                                                      \
-    }
+        }
 #else
-#define GLCheckError()                                                         \
-    {                                                                          \
-        GLenum err;                                                            \
-        while ((err = glGetError()) != GL_NO_ERROR) {                          \
-            std::string error;                                                 \
-            switch (err) {                                                     \
-                case GL_INVALID_ENUM:                                          \
-                    error = "INVALID_ENUM";                                    \
-                    break;                                                     \
-                case GL_INVALID_VALUE:                                         \
-                    error = "INVALID_VALUE";                                   \
-                    break;                                                     \
-                case GL_INVALID_OPERATION:                                     \
-                    error = "INVALID_OPERATION";                               \
-                    break;                                                     \
-                case GL_OUT_OF_MEMORY:                                         \
-                    error = "OUT_OF_MEMORY";                                   \
-                    break;                                                     \
-                case GL_INVALID_FRAMEBUFFER_OPERATION:                         \
-                    error = "INVALID_FRAMEBUFFER_OPERATION";                   \
-                    break;                                                     \
-                default:                                                       \
-                    error = "UNKNOWN_ERROR";                                   \
-                    break;                                                     \
+    #define GLCheckError()                                                     \
+        {                                                                      \
+            GLenum err;                                                        \
+            while ((err = glGetError()) != GL_NO_ERROR) {                      \
+                std::string error;                                             \
+                switch (err) {                                                 \
+                    case GL_INVALID_ENUM:                                      \
+                        error = "INVALID_ENUM";                                \
+                        break;                                                 \
+                    case GL_INVALID_VALUE:                                     \
+                        error = "INVALID_VALUE";                               \
+                        break;                                                 \
+                    case GL_INVALID_OPERATION:                                 \
+                        error = "INVALID_OPERATION";                           \
+                        break;                                                 \
+                    case GL_OUT_OF_MEMORY:                                     \
+                        error = "OUT_OF_MEMORY";                               \
+                        break;                                                 \
+                    case GL_INVALID_FRAMEBUFFER_OPERATION:                     \
+                        error = "INVALID_FRAMEBUFFER_OPERATION";               \
+                        break;                                                 \
+                    default:                                                   \
+                        error = "UNKNOWN_ERROR";                               \
+                        break;                                                 \
+                }                                                              \
+                std::cerr << "OpenGL error: " << error << " (" << err << ")"   \
+                          << " in file " << __FILE__ << " at line "            \
+                          << __LINE__ << std::endl;                            \
             }                                                                  \
-            std::cerr << "OpenGL error: " << error << " (" << err << ")"       \
-                      << " in file " << __FILE__ << " at line " << __LINE__    \
-                      << std::endl;                                            \
-        }                                                                      \
-    }
+        }
 #endif

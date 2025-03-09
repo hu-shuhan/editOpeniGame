@@ -44,13 +44,6 @@ public:
     HandleType AllocateObject(const ObjectType& object);
 
     /**
-     * @brief 获取与句柄关联的对象。
-     * @param handle 要查询的句柄。
-     * @return 指向对象的指针，如果句柄无效则返回 nullptr。
-     */
-    ObjectType* GetObject(HandleType handle);
-
-    /**
      * @brief 释放指定的句柄及其关联的对象。
      * @param handle 要释放的句柄。
      */
@@ -62,6 +55,19 @@ public:
      * @return 如果句柄有效返回 true，否则返回 false。
      */
     bool CheckHandle(HandleType handle) const;
+
+    /**
+     * @brief 获取与句柄关联的对象。
+     * @param handle 要查询的句柄。
+     * @return 指向对象的指针，如果句柄无效则返回 nullptr。
+     */
+    ObjectType* GetObjectByHandle(HandleType handle);
+
+    /**
+     * @brief 返回当前对象池中的对象个数。
+     * @return 对象个数。
+     */
+    HandleType GetObjectCount() const;
 
     /**
      * @brief 清空句柄池，包括所有分配的句柄和对象。

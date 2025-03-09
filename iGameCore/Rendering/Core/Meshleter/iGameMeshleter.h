@@ -52,9 +52,30 @@ public:
     void SetInput(SmartPointer<DataObject> obj);
 
     /**
-    * @brief 更新Meshleter，重新计算Meshlet数据。
-    */
-    void Update();
+     * @brief 获取当前设置的输入数据对象。
+     * @return 指向输入数据的智能指针，可能为空指针需调用方检查有效性。
+     * @details 返回最近一次通过SetInput()设置的数据对象引用，
+     *          该对象包含用于生成Meshlet的原始输入数据。
+     * @warning 若从未调用SetInput()，将返回空指针
+     */
+    SmartPointer<DataObject> GetInput() const;
+
+    /**
+     * @brief 将计算后的Meshlet数据同步到GPU显存。
+     * @details 该函数负责将CPU端的Meshlet计算结果上传至GPU显存，
+     *          确保后续渲染操作使用最新的数据。
+     * @warning 调用该函数时必须确保OpenGL上下文处于活跃状态
+     */
+    void SyncGpuBuffers();
+
+    /**
+     * @brief 释放GPU显存中的Meshlet相关资源。
+     * @details 清除GPU显存中存储的Meshlet顶点/索引缓冲、加速结构等资源，
+     *          适用于场景切换或资源重载时释放显存。
+     * @warning 调用该函数时必须确保OpenGL上下文处于活跃状态
+     * @warning 调用该函数后必须重新调用SyncToGpu()才能继续渲染
+     */
+    void ReleaseGpuBuffers();
 
 protected:
     Meshleter();
@@ -100,7 +121,7 @@ protected:
     SmartPointer<GLBuffer> m_FinalDrawCommandBuffer; ///< 最终绘制命令缓冲
 #endif
 
-    friend class Model; ///< Model类可以访问Meshleter的私有成员
+    friend class Model;
 };
 
 IGAME_NAMESPACE_END
