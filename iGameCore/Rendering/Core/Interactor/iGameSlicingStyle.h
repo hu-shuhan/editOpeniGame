@@ -2,6 +2,7 @@
 #define IGAMEVIS_SLICING_STYLE_H
 
 #include "iGameBasicStyle.h"
+#include "iGameSelection.h"
 
 IGAME_NAMESPACE_BEGIN
 class Model;
@@ -13,12 +14,14 @@ public:
     I_OBJECT(SlicingStyle);
     static Pointer New() { return new SlicingStyle; }
 
-    struct SlicingPlane {
-        float point[3]{};
-        float normal[3]{};
-    };
+    //struct SlicingPlane {
+    //    float point[3]{};
+    //    float normal[3]{};
+    //};
 
-    void Initialize(SmartPointer<Interactor> interactor) override;
+    //void Initialize(SmartPointer<Interactor> interactor) override;
+    void Initialize(SmartPointer<Interactor> interactor,
+                    SmartPointer<Selection> s);
 
     void MousePressEvent(IEvent _event) override;
     void MouseMoveEvent(IEvent _event) override;
@@ -49,15 +52,17 @@ protected:
 
     bool MapToSphere(const igm::vec2& v2D, igm::vec3& v3D, double radius);
 
-    void Invoke();
+    void Emit();
 
     SmartPointer<Model> m_Model;
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Painter3D> m_Painter3D;
+    SmartPointer<ClipSelection> m_Selection;
 
 private:
-  
-    SlicingPlane EmitPlane;
+    bool IsPreview() const;
+
+    // SlicingPlane EmitPlane;
 
     Vector3Tovec3 v;
     vec3ToVector3d V;

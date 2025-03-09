@@ -81,14 +81,20 @@ void Interactor::LoadSelectionStyleRequired(SmartPointer<Selection> s) {
     act->Initialize(this, s);
 }
 
-void Interactor::RequestSlicingStyle() {
+//void Interactor::RequestSlicingStyle() {
+//    auto act = SlicingStyle::New();
+//    //InitModel();
+//    act->Initialize(this);
+//    m_Internal = act;
+//    is_Base = false;
+//}
+void Interactor::RequestSlicingStyle(SmartPointer<Selection> s) {
     auto act = SlicingStyle::New();
     //InitModel();
-    act->Initialize(this);
+    act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;
 }
-
 void Interactor::RequestStreamLineStyle(SmartPointer<Selection> s) {
     if (!s) return;
     //InitModel();
