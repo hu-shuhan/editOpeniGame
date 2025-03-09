@@ -81,7 +81,8 @@ public:
     /**
      * @brief 切换成切片风格类型交互器
      */
-    void RequestSlicingStyle();
+    //void RequestSlicingStyle();
+    void RequestSlicingStyle(SmartPointer<Selection> s);
 
      /**
      * @brief 切换成流形的线类型交互器

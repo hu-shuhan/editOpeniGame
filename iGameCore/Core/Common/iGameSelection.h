@@ -131,5 +131,20 @@ protected:
     StreamLineSelection() {}
     ~StreamLineSelection() override = default;
 };
+
+class ClipSelection : public Selection {
+public:
+    I_OBJECT(ClipSelection);
+    static Pointer New() { return new ClipSelection; }
+
+	Vector3d PlanePoint;
+    Vector3d PlaneNormal;
+    bool Preview;
+
+protected:
+    ClipSelection() {}
+    ~ClipSelection() override = default;
+};
+
 IGAME_NAMESPACE_END
 #endif

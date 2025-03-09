@@ -1742,11 +1742,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->SetDataObject(obj);
         rendererWidget->getInteractor()->SetPainter3D(rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D());
 
-        if (rendererWidget->GetScene()->GetInteractor()) {
-            rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        }
+        //if (rendererWidget->GetScene()->GetInteractor()) {
+        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
+        //}
 
-        rendererWidget->getInteractor()->RequestSlicingStyle();
+        rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
