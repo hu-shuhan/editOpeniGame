@@ -25,7 +25,7 @@ void SlicingStyle::Draw() {
     if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
     if (LineHandle != 0) m_Painter3D->Delete(LineHandle);
 
-    m_Painter3D->SetPen(8);
+    m_Painter3D->SetPen(16);
     if (Selected == -1) {
         m_Painter3D->SetPen(Color::Red);
         CenterHandle = m_Painter3D->DrawPoint(V(Center));
@@ -72,18 +72,49 @@ void SlicingStyle::Draw() {
     
 }
 
-void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
+//void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
+//    BasicStyle::Initialize(interactor);
+//    m_Painter3D = interactor->GetPainter3D();
+//    m_DataObject = interactor->GetDataObject();
+//
+//
+//    auto& bbox = m_DataObject->GetBoundingBox();
+//    Vector3d p1 = bbox.min;
+//    Vector3d p7 = bbox.max;
+//    float len = (bbox.max - bbox.min).length();
+//    double radius = bbox.diag() / 3;
+//    PickRadius = len * 0.01;
+//
+//    m_Painter3D->SetPen(1);
+//    m_Painter3D->SetPen(Color::White);
+//    m_Painter3D->SetBrush(Brush::Style::NoBrush);
+//    BoxHandle = m_Painter3D->DrawCube(p1, p7);
+//
+//    Center = v(bbox.center());
+//    Start = igm::vec3(Center.x + radius, Center.y, Center.z);
+//    End = igm::vec3(Center.x - radius, Center.y, Center.z);
+//    
+//    ComputeSlicingPlane();
+//    Draw();
+//    Emit();
+//}
+
+void SlicingStyle::Initialize(SmartPointer<Interactor> interactor,
+                              SmartPointer<Selection> s) 
+{
     BasicStyle::Initialize(interactor);
+    m_Selection = DynamicCast<ClipSelection>(s);
+    if (m_Selection == nullptr) return;
+
     m_Painter3D = interactor->GetPainter3D();
     m_DataObject = interactor->GetDataObject();
-
 
     auto& bbox = m_DataObject->GetBoundingBox();
     Vector3d p1 = bbox.min;
     Vector3d p7 = bbox.max;
     float len = (bbox.max - bbox.min).length();
     double radius = bbox.diag() / 3;
-    PickRadius = len * 0.01;
+    PickRadius = len * 0.015;
 
     m_Painter3D->SetPen(1);
     m_Painter3D->SetPen(Color::White);
@@ -93,23 +124,26 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     Center = v(bbox.center());
     Start = igm::vec3(Center.x + radius, Center.y, Center.z);
     End = igm::vec3(Center.x - radius, Center.y, Center.z);
-    
+
     ComputeSlicingPlane();
     Draw();
-    Invoke();
+    Emit();
 }
 
-void SlicingStyle::Invoke() {
-    EmitPlane.point[0] = Center[0];
-    EmitPlane.point[1] = Center[1];
-    EmitPlane.point[2] = Center[2];
+void SlicingStyle::Emit() {
+    if (m_Selection) {
+        m_Selection->PlanePoint = V(Center);
+        m_Selection->PlaneNormal = V((Start - End).normalized());
+        m_Selection->FilterEvent(
+                iGame::Selection::Event(iGame::Selection::Event::Change));
+    }
+}
 
-    auto normal = (Start - End).normalized();
-    EmitPlane.normal[0] = normal[0];
-    EmitPlane.normal[1] = normal[1];
-    EmitPlane.normal[2] = normal[2];
-
-    this->RequestSignal(InteractorStyle::Slicing, &EmitPlane);
+bool SlicingStyle::IsPreview() const { 
+    if (m_Selection) { 
+        return m_Selection->Preview;
+    }
+    return true;
 }
 
 void SlicingStyle::MousePressEvent(IEvent _event) {
@@ -163,21 +197,44 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
     }
 
     if (Selected == 0) { // 拖动中点 Drag center pointer
-        igm::vec3 p1 = GetNearWorldCoord(pos, InvertedMVP);
-        igm::vec3 p2 = GetFarWorldCoord(pos, InvertedMVP);
-        igm::vec3 normal = (Start - End).normalized();
+        //igm::vec3 p1 = GetNearWorldCoord(pos, InvertedMVP);
+        //igm::vec3 p2 = GetFarWorldCoord(pos, InvertedMVP);
+        //igm::vec3 normal = (Start - End).normalized();
+        //igm::vec3 intersection;
+
+        //// 计算直线与与视锥平面的交点 Calculate the intersection of the line with the cone plane
+        //LinePlaneIntersection(p1, p2, Center, normal, intersection);
+        //igm::vec3 newCenter = intersection;
+        //if (!m_DataObject->GetBoundingBox().isIn(V(newCenter))) return;
+
+        //Center = newCenter;
+        //Start = Center + Center2Start;
+        //End = Center + Center2End;
+
+        //Draw();
+
+        igm::vec2 pos1 = igm::vec2(pos.x, 0);
+        igm::vec2 pos2 = igm::vec2(pos.x, m_Interactor->GetHeight());
+
+        // p1,p2,p3 组成视锥平面 form the cone plane
+        igm::vec3 p1 = GetNearWorldCoord(pos1, InvertedMVP);
+        igm::vec3 p2 = GetFarWorldCoord(pos1, InvertedMVP);
+        igm::vec3 p3 = GetNearWorldCoord(pos2, InvertedMVP);
         igm::vec3 intersection;
 
         // 计算直线与与视锥平面的交点 Calculate the intersection of the line with the cone plane
-        LinePlaneIntersection(p1, p2, Center, normal, intersection);
-        igm::vec3 newCenter = intersection;
-        if (!m_DataObject->GetBoundingBox().isIn(V(newCenter))) return;
+        LinePlaneIntersection(Start, End, p1, p2, p3,
+                                intersection);
+        if (!m_DataObject->GetBoundingBox().isIn(V(intersection))) { return; }
 
-        Center = newCenter;
+        Center = intersection;
         Start = Center + Center2Start;
         End = Center + Center2End;
 
+        ComputeSlicingPlane();
         Draw();
+        if (IsPreview()) Emit();
+
     } else if (Selected == 1) {
 
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
@@ -193,6 +250,8 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
         ComputeSlicingPlane();
         Draw();
+        if (IsPreview()) Emit();
+        
     } else if (Selected == 2) {
 
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
@@ -208,7 +267,11 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
         ComputeSlicingPlane();
         Draw();
+        if (IsPreview()) Emit();
+
     } else if (Selected == 3) {
+        return;
+
         igm::vec2 pos1 = igm::vec2(pos.x, 0);
         igm::vec2 pos2 = igm::vec2(pos.x, m_Interactor->GetHeight());
 
@@ -230,6 +293,8 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
         ComputeSlicingPlane();
         Draw();
+        if (IsPreview()) Emit();
+
     }
 
     //switch (m_MouseMode) {
@@ -408,7 +473,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 void SlicingStyle::MouseReleaseEvent(IEvent _event) {
     BasicStyle::MouseReleaseEvent(_event);
     if (Selected != -1) {
-        Invoke();
+        Emit();
     }
     Selected = -1;
     Draw();

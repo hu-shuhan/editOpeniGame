@@ -8,6 +8,7 @@
 #include "Contour/iGameContourFilter.h"
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameSelection.h"
 
 #include <ui_ModelClip.h>
 class igQtModelClipWidget : public QWidget {
@@ -28,6 +29,7 @@ public slots:
 
     //交互传过来
     void SetPlane(float o[3], float normal[3]);
+    void SetPlane(iGame::Vector3d p, iGame::Vector3d normal);
     //Widget 输入
     void UpdatePlane();
 
@@ -35,19 +37,21 @@ public slots:
 
     void SetOriginDataObject(iGame::DataObject::Pointer m_d);
 
-    void FilterSignal(iGame::InteractorStyle::Signal signal, void* callData) {
-        switch (signal) {
-            case iGame::InteractorStyle::Signal::Slicing: {
-                iGame::SlicingStyle::SlicingPlane* plane =
-                        reinterpret_cast<iGame::SlicingStyle::SlicingPlane*>(
-                                callData);
-                if (plane) { this->SetPlane(plane->point, plane->normal); }
-                break;
-            }
-            default:
-                break;
-        }
-    }
+    //void FilterSignal(iGame::InteractorStyle::Signal signal, void* callData) {
+    //    switch (signal) {
+    //        case iGame::InteractorStyle::Signal::Slicing: {
+    //            iGame::SlicingStyle::SlicingPlane* plane =
+    //                    reinterpret_cast<iGame::SlicingStyle::SlicingPlane*>(
+    //                            callData);
+    //            if (plane) { this->SetPlane(plane->point, plane->normal); }
+    //            break;
+    //        }
+    //        default:
+    //            break;
+    //    }
+    //}
+
+    iGame::ClipSelection::Pointer GetSelection();
 
 signals:
     void DrawClipModel(iGame::DrawObject::Pointer);
@@ -57,6 +61,7 @@ protected:
 private:
     Ui::ModelClipWidget* ui;
 
+    iGame::ClipSelection::Pointer m_Selection;
     double m_Normal[3]={1,0,0};
     double m_Origin[3]={0,0,0};
 	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
