@@ -69,7 +69,7 @@ void SlicingStyle::Draw() {
 
 
     DrawSlicingPlane();
-    Invoke();
+    
 }
 
 void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
@@ -96,6 +96,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor) {
     
     ComputeSlicingPlane();
     Draw();
+    Invoke();
 }
 
 void SlicingStyle::Invoke() {
@@ -176,9 +177,7 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
         Start = Center + Center2Start;
         End = Center + Center2End;
 
-        ComputeSlicingPlane();
         Draw();
-
     } else if (Selected == 1) {
 
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
@@ -408,6 +407,9 @@ void SlicingStyle::MouseMoveEvent(IEvent _event) {
 
 void SlicingStyle::MouseReleaseEvent(IEvent _event) {
     BasicStyle::MouseReleaseEvent(_event);
+    if (Selected != -1) {
+        Invoke();
+    }
     Selected = -1;
     Draw();
 }
