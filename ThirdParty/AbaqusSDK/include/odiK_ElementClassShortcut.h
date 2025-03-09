@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\odiK_ElementClassShortcut.h"

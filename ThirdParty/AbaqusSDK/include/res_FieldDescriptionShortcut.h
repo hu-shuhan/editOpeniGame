@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\res_FieldDescriptionShortcut.h"

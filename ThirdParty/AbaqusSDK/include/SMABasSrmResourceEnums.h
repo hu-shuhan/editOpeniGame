@@ -1,0 +1,1 @@
+#include "SMABase\PublicGenerated\win_b64\SMABasSrmResourceEnums.h"

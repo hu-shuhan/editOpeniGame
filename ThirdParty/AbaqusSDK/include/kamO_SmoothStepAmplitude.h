@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kamO_SmoothStepAmplitude.h"

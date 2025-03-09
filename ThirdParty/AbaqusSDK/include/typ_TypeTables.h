@@ -1,0 +1,1 @@
+#include "SMAAbuAbaqusUtilities\PublicInterfaces\typ_TypeTables.h"

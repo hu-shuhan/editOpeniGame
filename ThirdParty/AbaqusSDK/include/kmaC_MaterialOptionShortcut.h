@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kmaC_MaterialOptionShortcut.h"

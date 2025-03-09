@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kbeC_ConnectorOptions.h"

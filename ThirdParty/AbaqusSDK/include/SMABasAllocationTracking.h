@@ -1,0 +1,1 @@
+#include "SMABase\PublicInterfaces\SMABasAllocationTracking.h"

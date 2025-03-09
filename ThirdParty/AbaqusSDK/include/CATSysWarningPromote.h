@@ -1,0 +1,1 @@
+#include "BSFBuildtimeData\PublicInterfaces\CATSysWarningPromote.h"

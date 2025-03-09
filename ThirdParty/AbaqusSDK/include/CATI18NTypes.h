@@ -1,0 +1,1 @@
+#include "SystemTS\PublicInterfaces\CATI18NTypes.h"

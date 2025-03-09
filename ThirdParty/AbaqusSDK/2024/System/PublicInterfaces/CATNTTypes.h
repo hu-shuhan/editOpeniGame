@@ -1,0 +1,92 @@
+#ifndef CATNTTypes_h
+#define CATNTTypes_h
+/** @CAA2Required */
+/**********************************************************************/
+/* DON T DIRECTLY INCLUDE THIS HEADER IN YOUR APPLICATION CODE. IT IS */
+/* REQUIRED TO BUILD CAA APPLICATIONS BUT IT MAY DISAPEAR AT ANY TIME */
+/**********************************************************************/
+
+
+// COPYRIGHT DASSAULT SYSTEMES 2000
+#include "IUnknown.h"
+#include "CATJHNTypeLib.h"
+
+#ifndef _WINDOWS_SOURCE
+
+#define	PARAMFLAG_NONE	( 0 )
+#define	PARAMFLAG_FIN	( 0x1 )
+#define	PARAMFLAG_FOUT	( 0x2 )
+#define	PARAMFLAG_FLCID	( 0x4 )
+#define	PARAMFLAG_FRETVAL	( 0x8 )
+#define	PARAMFLAG_FOPT	( 0x10 )
+#define	PARAMFLAG_FHASDEFAULT	( 0x20 )
+
+#define	IDLFLAG_NONE	( PARAMFLAG_NONE )
+#define	IDLFLAG_FIN	( PARAMFLAG_FIN )
+#define	IDLFLAG_FOUT	( PARAMFLAG_FOUT )
+#define	IDLFLAG_FLCID	( PARAMFLAG_FLCID )
+#define	IDLFLAG_FRETVAL	( PARAMFLAG_FRETVAL )
+
+typedef DWORD LCID;
+
+#ifdef PLATEFORME_DS64
+typedef int MEMBERID;
+#else
+typedef long MEMBERID;
+#endif
+
+typedef DWORD HREFTYPE;
+
+typedef enum tagSYSKIND {	
+	SYS_WIN16	= 0,
+	SYS_WIN32	= SYS_WIN16 + 1,
+	SYS_MAC	= SYS_WIN32 + 1
+}	SYSKIND;
+
+typedef unsigned short * LPOLESTR;
+
+#ifndef CATMAINWIN
+typedef unsigned short * CATLPOLESTR;
+#else /* CATMAINWIN */
+typedef wchar_t * CATLPOLESTR;
+#endif /* CATMAINWIN */
+
+
+typedef enum tagCALLCONV {
+ CC_FASTCALL = 0,
+ CC_CDECL = 1,
+ CC_MSCPASCAL = CC_CDECL + 1,
+ CC_PASCAL = CC_MSCPASCAL,
+ CC_MACPASCAL = CC_PASCAL + 1,
+ CC_STDCALL = CC_MACPASCAL + 1,
+ CC_FPFASTCALL = CC_STDCALL + 1,
+ CC_SYSCALL = CC_FPFASTCALL + 1,
+ CC_MPWCDECL = CC_SYSCALL + 1,
+ CC_MPWPASCAL = CC_MPWCDECL + 1,
+ CC_MAX = CC_MPWPASCAL + 1
+} CALLCONV;
+
+
+typedef enum tagFUNCKIND {	
+	FUNC_VIRTUAL,
+	FUNC_PUREVIRTUAL,
+	FUNC_NONVIRTUAL,
+	FUNC_STATIC,
+	FUNC_DISPATCH
+}	FUNCKIND;
+
+
+typedef enum tagINVOKEKIND {
+ INVOKE_FUNC = 1,
+ INVOKE_PROPERTYGET = 2,
+ INVOKE_PROPERTYPUT = 4,
+ INVOKE_PROPERTYPUTREF = 8
+} INVOKEKIND;
+
+
+extern MEMBERID MEMBERID_NIL;
+extern MEMBERID DISPID_NEWENUM;
+
+#endif /* _WINDOWS_SOURCE */
+#endif
+

@@ -1,0 +1,1 @@
+#include "SMAAbuAbaqusUtilities\PublicInterfaces\wip_WipReporter.h"

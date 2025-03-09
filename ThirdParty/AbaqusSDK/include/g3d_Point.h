@@ -1,0 +1,1 @@
+#include "SMAAbuAbaqusUtilities\PublicInterfaces\g3d_Point.h"

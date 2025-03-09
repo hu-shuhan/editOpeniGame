@@ -1,0 +1,1 @@
+#include "SystemTS\PublicInterfaces\CATChar.h"

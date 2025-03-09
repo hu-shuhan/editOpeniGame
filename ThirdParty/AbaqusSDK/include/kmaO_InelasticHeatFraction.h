@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kmaO_InelasticHeatFraction.h"

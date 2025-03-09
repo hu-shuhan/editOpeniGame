@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\korC_DomainTypes.h"

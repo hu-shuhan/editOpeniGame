@@ -1,0 +1,1 @@
+#include "SMAAbuAbaqusUtilities\PublicInterfaces\omu_PrimSequence.h"

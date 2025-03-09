@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kbeO_ConnectorElasticity.h"
