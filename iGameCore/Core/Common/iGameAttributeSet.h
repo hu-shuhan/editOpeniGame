@@ -154,7 +154,10 @@ public:
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
                     if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
                 }
@@ -163,7 +166,10 @@ public:
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
                     if (tmpName[tmpName.length() - 1] != '0' + j) { isvector = false; }
                 }
@@ -172,7 +178,10 @@ public:
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
                     if (tmpName[tmpName.length() - 1] != '1' + j) { isvector = false; }
                 }

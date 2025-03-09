@@ -1847,6 +1847,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             this->ColorManagerWidget->hide();
         }
     });
+
     connect(this->ColorManagerWidget, &igQtColorManagerWidget::UpdateColorBarFinished, this, [&]() {
         ui->widget_ScalarField->updateDrawStyle();
         this->rendererWidget->getColorBarWidget()->update();

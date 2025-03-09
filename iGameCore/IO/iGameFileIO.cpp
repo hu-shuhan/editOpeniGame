@@ -284,7 +284,10 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	out.append("]");
 	//igDebug(out);
 	std::cout << out << std::endl;
-    resObj->GetAttributeSet()->TransformScalars2VectorArray();
+    if (resObj&&resObj->GetAttributeSet()) {
+        resObj->GetAttributeSet()->TransformScalars2VectorArray();
+    }
+
 	return resObj;
 }
 

@@ -7,7 +7,7 @@
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
     m_Models = HandlePool<SmartPointer<Model>>::New();
-    m_CurrentModelID = 1;
+    m_CurrentModelID = 0;
 
     m_UpdateFunctor = nullptr;
     m_MakeCurrentFunctor = nullptr;
@@ -1230,7 +1230,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-    //std::cout << m_ModelsBoundingSphere << std::endl;
 }
 
 void Scene::CalculateFrameRate() {
