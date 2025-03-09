@@ -120,17 +120,14 @@ void Scene::RemoveModel(IGuint modelID) {
             if (id == m_CurrentModelID) {
                 if (m_Models->GetObjectCount() == 0) {
                     m_CurrentModelID = -1;
-                    //m_CurrentModel = nullptr;
                 } else {
                     m_CurrentModelID = m_Models->Begin()->first;
-                    //m_CurrentModel = m_Models->Begin()->second;
                 }
             }
             UpdateModelsBoundingSphere();
             return;
         }
     }
-
     IGAME_RENDERING_WARN("Model with id {} does not exist in the scene.",
                          modelID);
 }
@@ -145,22 +142,19 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
             if (id == m_CurrentModelID) {
                 if (m_Models->GetObjectCount() == 0) {
                     m_CurrentModelID = -1;
-                    //m_CurrentModel = nullptr;
                 } else {
                     m_CurrentModelID = m_Models->Begin()->first;
-                    //m_CurrentModel = m_Models->Begin()->second;
                 }
             }
             UpdateModelsBoundingSphere();
             return;
         }
     }
-
     IGAME_RENDERING_WARN("Model does not exist in the scene.");
 }
 
 void Scene::RemoveCurrentModel() {
-    auto model = *m_Models->GetObjectByHandle(m_CurrentModelID);
+    auto model = m_Models->GetObjectByHandle(m_CurrentModelID);
 
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
 
@@ -171,11 +165,10 @@ void Scene::RemoveCurrentModel() {
 void Scene::SetCurrentModel(int modelID) {
     if (m_Models->CheckHandle(modelID)) {
         m_CurrentModelID = modelID;
-    } else {
-        IGAME_RENDERING_WARN("Model with id {} does not exist in the scene.",
-                             modelID);
         return;
     }
+    IGAME_RENDERING_WARN("Model with id {} does not exist in the scene.",
+                         modelID);
 }
 
 void Scene::SetCurrentModel(SmartPointer<Model> model) {
@@ -183,12 +176,16 @@ void Scene::SetCurrentModel(SmartPointer<Model> model) {
         auto id = it->first;
         auto m = it->second;
 
-        if (m == model) { m_CurrentModelID = id; }
+        if (m == model) {
+            m_CurrentModelID = id;
+            return;
+        }
     }
+    IGAME_RENDERING_WARN("Model does not exist in the scene.");
 }
 
 SmartPointer<Model> Scene::GetCurrentModel() {
-    return *m_Models->GetObjectByHandle(m_CurrentModelID);
+    return m_Models->GetObjectByHandle(m_CurrentModelID);
 }
 
 SmartPointer<Model> Scene::GetModelById(int id) {
@@ -1233,6 +1230,7 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
+    //std::cout << m_ModelsBoundingSphere << std::endl;
 }
 
 void Scene::CalculateFrameRate() {

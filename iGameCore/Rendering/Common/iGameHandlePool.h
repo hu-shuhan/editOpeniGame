@@ -13,6 +13,12 @@
 
 IGAME_NAMESPACE_BEGIN
 
+template<typename T>
+struct is_smart_pointer : std::false_type {};
+
+template<typename T>
+struct is_smart_pointer<SmartPointer<T>> : std::true_type {};
+
 template<typename ObjectType>
 class HandlePool : public Object {
 public:
@@ -36,6 +42,13 @@ public:
     /// 定义映射的常量迭代器类型。
     using ConstIterator = typename MapType::const_iterator;
 
+    // 根据ObjectType类型推导返回类型
+    using ReturnType = typename std::conditional<
+            is_smart_pointer<ObjectType>::value,
+            ObjectType, // 如果是智能指针，返回ObjectType
+            ObjectType* // 否则返回指针
+            >::type;
+
     /**
      * @brief 为一个新对象分配句柄。
      * @param object 要分配的对象。
@@ -56,12 +69,19 @@ public:
      */
     bool CheckHandle(HandleType handle) const;
 
+    ///**
+    // * @brief 获取与句柄关联的对象。
+    // * @param handle 要查询的句柄。
+    // * @return 指向对象的指针，如果句柄无效则返回 nullptr。
+    // */
+    //ObjectType* GetObjectByHandle(HandleType handle);
+
     /**
      * @brief 获取与句柄关联的对象。
      * @param handle 要查询的句柄。
-     * @return 指向对象的指针，如果句柄无效则返回 nullptr。
+     * @return 返回智能指针（当ObjectType为SmartPointer时）或原生指针。
      */
-    ObjectType* GetObjectByHandle(HandleType handle);
+    ReturnType GetObjectByHandle(HandleType handle);
 
     /**
      * @brief 返回当前对象池中的对象个数。
