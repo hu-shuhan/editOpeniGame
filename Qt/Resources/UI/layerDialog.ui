@@ -14,32 +14,51 @@
    <string>Layer Dialog</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="5,0,0">
+   <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="igQtModelTreeWidget" name="modelTreeWidget">
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
+     <widget class="QScrollArea" name="scrollArea">
+      <property name="widgetResizable">
+       <bool>true</bool>
       </property>
-      <column>
-       <property name="text">
-        <string>1</string>
+      <widget class="QWidget" name="scrollAreaWidgetContents_3">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>0</y>
+         <width>400</width>
+         <height>697</height>
+        </rect>
        </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>2</string>
-       </property>
-      </column>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="igQtModelTreeWidget" name="modelTreeWidget">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <column>
+           <property name="text">
+            <string>1</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>2</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+        <item>
+         <widget class="QtTreePropertyBrowser" name="propertyWidget" native="true"/>
+        </item>
+        <item>
+         <widget class="igQtModelInformationWidget" name="ModelInformationWidget" native="true"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
-    </item>
-    <item>
-     <widget class="igQtModelInformationWidget" name="ModelInformationWidget" native="true"/>
-    </item>
-    <item>
-     <widget class="QtTreePropertyBrowser" name="propertyWidget" native="true"/>
     </item>
    </layout>
   </widget>
