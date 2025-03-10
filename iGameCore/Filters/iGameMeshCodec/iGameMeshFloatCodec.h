@@ -32,7 +32,6 @@ public:
 		T max_val = source[0];
 		T min_val = source[0];
 
-		
 
 		auto LogQuantize = [&](T value, int bits) -> T {
 			// 1. 计算偏移量，确保所有值严格为正数（避免 log(0) 或负数）
@@ -67,17 +66,19 @@ public:
 		auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
 			strength = std::min(std::max(strength, 0.0f), 1.0f);
 			const int levels = maxBits - minBits + 1;
-			const int index = (strength == 0.0f) ? 0 : static_cast<int>((strength * levels));
-			return maxBits - index;
+			const int index = (strength == 0.0f) ? 0 : static_cast<int>(strength * levels);
+			const int cappedIndex = std::min(index, levels - 1);
+			return maxBits - cappedIndex;
 			};
 
-		auto LogStrengthToBits = [=](float strength) -> int
-			{
+		auto LogStrengthToBits = [=](float strength) -> int {
+			// 损坏最高 损坏最低
 				return StrengthToBits(strength, 8, 24);
 			};
 
 		auto MantissaStrengthToBits = [=](float strength) -> int {
-			return StrengthToBits(strength, 8, 23);
+
+			return StrengthToBits(strength, 2, 23);
 			};
 
 		auto LogErrorToBits = [&](double epsilon) -> int {
