@@ -9,6 +9,7 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
 #include "iGameThreadPool.h"
+#include "iGameMeshCodecAdjacency.h"
 
 IGAME_NAMESPACE_BEGIN
 class MeshEncoderAdapter
@@ -114,9 +115,10 @@ public:
         std::vector<unsigned int>& face2pointsIndex,
         std::vector<unsigned int>& face2pointsOffset
     ){
+        // 备忘 cgns多面体以volume mesh形式读入 且无法转化至unstructure mesh
         // 体 -> 面, 面 -> 顶点 两级索引 各自持有一个offset
         VolumeMesh::Pointer volmesh = DynamicCast<VolumeMesh>(this->m_DataObj);
-        int maxThreadSize = 64;
+        int maxThreadSize = 16;
         // 多线程分组处理volume
         
         {
@@ -168,57 +170,6 @@ public:
                 volume2facesOffset[i] += volume2facesOffset[i - 1];
             }
         }
-
-        //// 面 -> 顶点 直接取有bug 先只好一个一个取
-        //{
-        //    int faceNum = this->GetNumberOfFaces();
-        //    const int tpResultReverseSize = faceNum * 10 / maxThreadSize;
-        //    std::vector<std::vector<unsigned int>> f2pIndexResults(maxThreadSize);
-        //    std::vector<std::vector<unsigned int>> f2pOffsetResults(maxThreadSize);
-
-        //    ThreadPool::parallelFor(0, faceNum, maxThreadSize,
-        //        [&](int start, int end, int threadIndex) -> void {
-        //            // 先开辟较大的空间 稍后若不足再补充
-        //            f2pIndexResults[threadIndex].reserve(tpResultReverseSize);
-        //            f2pOffsetResults[threadIndex].reserve(end - start);
-        //            for (int i = start; i < end; i++)
-        //            {
-        //                // 取一个volume的面ids 并存储
-        //                std::vector<igIndex> vhs(IGAME_CELL_MAX_SIZE);
-        //                int vcnt = volmesh->GetFacePointIds(i, vhs.data());
-        //                vhs.resize(vcnt);
-
-        //                // 如果tpResults空间不足就补充一下
-        //                if (f2pIndexResults.size() + vcnt >= f2pIndexResults[threadIndex].capacity())
-        //                {
-        //                    f2pIndexResults[threadIndex]
-        //                        .reserve(f2pIndexResults[threadIndex].capacity() + tpResultReverseSize);
-        //                }
-
-        //                f2pOffsetResults[threadIndex].push_back(vcnt);
-        //                f2pIndexResults[threadIndex].insert(f2pIndexResults[threadIndex].end(),
-        //                    vhs.begin(), vhs.end());
-        //            }
-        //        }, maxThreadSize);
-
-        //    // 拼接到结果
-        //    face2pointsIndex.push_back(0);
-        //    for (int i = 0; i < maxThreadSize; i++)
-        //    {
-        //        face2pointsIndex.insert(
-        //            face2pointsIndex.end(),
-        //            f2pIndexResults[i].begin(), f2pIndexResults[i].end());
-
-        //        face2pointsOffset.insert(
-        //            face2pointsOffset.end(),
-        //            f2pOffsetResults[i].begin(), f2pOffsetResults[i].end());
-        //    }
-
-        //    for (int i = 1; i < face2pointsOffset.size(); i++)
-        //    {
-        //        face2pointsOffset[i] += face2pointsOffset[i - 1];
-        //    }
-        //}
 
         IdArray::Pointer f2pIndex = volmesh->GetFaces()->GetCellIdArray();
         UnsignedIntArray::Pointer f2pOffset = volmesh->GetFaces()->GetOffset();
@@ -314,9 +265,9 @@ public:
         case IG_UNSTRUCTURED_MESH:
         {
             UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(this->m_DataObj);
-            std::cout << m_DataObj->GetBoundingBox().center() << std::endl;
-            std::cout << mesh->GetCells() << std::endl;
-            std::cout << mesh->GetCells()->GetNumberOfCellIds() << std::endl;
+            //std::cout << m_DataObj->GetBoundingBox().center() << std::endl;
+            //std::cout << mesh->GetCells() << std::endl;
+            //std::cout << mesh->GetCells()->GetNumberOfCellIds() << std::endl;
             return mesh->GetCells()->GetOffset();
             break;
         }
@@ -365,7 +316,7 @@ public:
         return ids;
     }
 
-    // 仅限 UnstructuredMesh
+    // 仅限 UnstructuredMesh --------------------------------------------------------------------
     UnsignedIntArray::Pointer GetCellTypes()
     {
         assert(this->GetMeshType() == IG_UNSTRUCTURED_MESH);
