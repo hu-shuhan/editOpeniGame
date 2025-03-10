@@ -44,7 +44,7 @@ void PainterBase::Show(IGuint handle) {
         return;
     }
 
-    auto primitive = m_PrimitivesPool->GetObject(handle);
+    auto primitive = m_PrimitivesPool->GetObjectByHandle(handle);
 
     if (primitive->visible) { return; }
 
@@ -59,7 +59,7 @@ void PainterBase::Hide(IGuint handle) {
         return;
     }
 
-    auto primitive = m_PrimitivesPool->GetObject(handle);
+    auto primitive = m_PrimitivesPool->GetObjectByHandle(handle);
 
     if (!primitive->visible) { return; }
 
@@ -189,13 +189,17 @@ const BoundingBox& PainterBase::GetBoundingBox() {
     return m_Bounding;
 }
 
-void PainterBase::Draw(Scene* scene) {
+void PainterBase::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
+
+SmartPointer<Scene> PainterBase::GetScene() const { return m_Scene; }
+
+void PainterBase::Draw() {
     this->PackDrawableData();
 
     for (const auto& pair: m_VAOs) {
         float penWidth = pair.first;
 
-        scene->GetShader(ShaderType::NOLIGHT)->Use();
+        m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
 
         // draw points & lines
         glad_glDepthRange(0.000001, 1);

@@ -144,6 +144,16 @@
       </widget>
      </item>
      <item>
+      <widget class="QCheckBox" name="previewBox">
+       <property name="text">
+        <string>实时更新</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="pushButton">
        <property name="text">
         <string>执行</string>

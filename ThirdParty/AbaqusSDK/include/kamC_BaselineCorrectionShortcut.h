@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kamC_BaselineCorrectionShortcut.h"

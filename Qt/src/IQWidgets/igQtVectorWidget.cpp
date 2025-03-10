@@ -21,7 +21,7 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     headLength = 0.015;
     ui->headLlineEdit->setText("0.015");
     tailLength = 0.025;
-    ui->tailLlineEdit->setText("0.0025");
+    ui->tailLlineEdit->setText("0.025");
     tailRadius = 0.002;
     ui->tailRlineEdit->setText("0.002");
 
@@ -131,7 +131,6 @@ void igQtVectorWidget::updateVectorNameList() {
         _AttributeSet = obj->GetAttributeSet();
     } 
     if (!_AttributeSet) return;
-    _AttributeSet->TransformScalars2VectorArray();
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return; 
 

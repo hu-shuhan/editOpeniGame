@@ -35,7 +35,9 @@ public:
 		enum Type {
 			PickPoint = 0,
 			DragPoint,
-			PickFace,
+			PickFace, 
+			PickLine,
+			Change
 		};
 
 		Type type;
@@ -115,5 +117,34 @@ protected:
 
 	friend class Model;
 };
+
+class StreamLineSelection : public Selection {
+public:
+    I_OBJECT(StreamLineSelection);
+    static Pointer New() { return new StreamLineSelection; }
+
+    Vector3d Start;
+    Vector3d End;
+    int Selected;
+
+protected:
+    StreamLineSelection() {}
+    ~StreamLineSelection() override = default;
+};
+
+class ClipSelection : public Selection {
+public:
+    I_OBJECT(ClipSelection);
+    static Pointer New() { return new ClipSelection; }
+
+	Vector3d PlanePoint;
+    Vector3d PlaneNormal;
+    bool Preview;
+
+protected:
+    ClipSelection() {}
+    ~ClipSelection() override = default;
+};
+
 IGAME_NAMESPACE_END
 #endif

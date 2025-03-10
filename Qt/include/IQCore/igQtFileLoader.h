@@ -35,6 +35,8 @@ public:
 	void UpdateIniFileInfo();
 	QList<QAction*> GetRecentActionList() { return this->recentFileActionList; };
 
+
+
 signals:
 	void NewModel(DataObject::Pointer obj, ItemSource source);
 

@@ -115,6 +115,8 @@ public:
 
     // Delete a attribute by index
     void DeleteAttribute(const IGsize index);
+    // Set all attributes
+    void SetAllAttributes(ElementArray<Attribute>::Pointer buffer);
     // Get all attributes
     ElementArray<Attribute>::Pointer GetAllAttributes();
     // Get all point attributes, not thread safe
@@ -139,6 +141,7 @@ public:
     void TransformScalars2VectorArray() {
 
         auto Scalars = this->GetAllScarleAttributes();
+        ElementArray<Attribute>::Pointer new_buffer = ElementArray<Attribute>::New();
         int size = Scalars->GetNumberOfElements();
         for (int i = 0; i < size; i++) {
             auto scalarDataArray = Scalars->GetElement(i);
@@ -151,14 +154,47 @@ public:
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
                     if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
                 }
+            } else if (name[name.length() - 1] == '0') {
+                isvector = true;
+                int j = 1;
+                for (j = 1; j < 3; j++) {
+                    auto scalarDataArray = Scalars->GetElement(i);
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
+                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
+                    if (tmpName[tmpName.length() - 1] != '0' + j) { isvector = false; }
+                }
+            } else if (name[name.length() - 1] == '1') {
+                isvector = true;
+                int j = 1;
+                for (j = 1; j < 3; j++) {
+                    auto scalarDataArray = Scalars->GetElement(i);
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
+                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
+                    if (tmpName[tmpName.length() - 1] != '1' + j) { isvector = false; }
+                }
             }
-
-            if (isvector) {
+            if (!isvector) {
+                new_buffer->AddElement(
+                        Attribute{scalarDataArray.pointer, scalarDataArray.GetType(), attachmentType, false});
+            } else {
                 FloatArray::Pointer Vector = FloatArray::New();
+                if (name[name.length() - 2] == '_') {
+                    Vector->SetName(name.substr(0, name.length() - 2));
+                } else
+                    Vector->SetName(name.substr(0, name.length() - 1));
                 Vector->SetName(name.substr(0, name.length() - 1));
                 Vector->SetDimension(3);
                 Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
@@ -175,9 +211,10 @@ public:
                     }
                     //delete scalarData;
                 }
-                this->AddVector(attachmentType, Vector);
+                new_buffer->AddElement(Attribute{Vector, IG_VECTOR, attachmentType, false});
                 i += 2;
             }
+            this->SetAllAttributes(new_buffer);
         }
     }
 

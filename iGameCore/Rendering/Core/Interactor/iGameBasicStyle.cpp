@@ -273,6 +273,40 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
     }
 }
 
+bool BasicStyle::TwoLineIntersection(const igm::vec3& p1, const igm::vec3& p2,
+                                     const igm::vec3& v1, const igm::vec3& v2,
+                                     igm::vec3& intersection) 
+{
+    // 计算方向向量
+    igm::vec3 d1 = p2 - p1;
+    igm::vec3 d2 = v2 - v1;
+    igm::vec3 p21 = v1 - p1;
+
+    // 计算叉积
+    igm::vec3 cross_d1d2 = igm::cross(d1, d2);
+    double denom = igm::dot(cross_d1d2, cross_d1d2);
+
+    // 如果 denom 近似为 0，则 d1 和 d2 平行
+    if (denom < 1e-6) { return false; }
+
+    // 计算 t, s
+    igm::vec3 cross_p21d2 = igm::cross(p21, d2);
+    double t = igm::dot(cross_p21d2, cross_d1d2) / denom;
+
+    igm::vec3 cross_p21d1 = igm::cross(p21, d1);
+    double s = igm::dot(cross_p21d1, cross_d1d2) / denom;
+
+    // 计算交点
+    igm::vec3 p_inter = p1 + d1 * t;
+    igm::vec3 q_inter = v1 + d2 * s;
+
+    // 检查误差
+    if ((p_inter - q_inter).length() > 1e-2) { return false; }
+
+    intersection = p_inter;
+    return true;
+}
+
 bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
                                        const igm::vec3& P1, const igm::vec3& P2,
                                        const igm::vec3& P3,
@@ -290,6 +324,37 @@ bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
 
     // 平面方程的 D 值
     double D = -(N[0] * P1.x + N[1] * P1.y + N[2] * P1.z);
+
+    // 代入平面方程求交点
+    double denominator = N[0] * u[0] + N[1] * u[1] + N[2] * u[2];
+    if (denominator == 0) {
+        // 直线与平面平行
+        return false;
+    }
+
+    // 计算 t 的值
+    double t = -(N[0] * A.x + N[1] * A.y + N[2] * A.z + D) / denominator;
+
+    // 计算交点坐标
+    intersection.x = A.x + t * u[0];
+    intersection.y = A.y + t * u[1];
+    intersection.z = A.z + t * u[2];
+
+    return true;
+}
+
+bool BasicStyle::LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
+                                       const igm::vec3& Point,
+                                       const igm::vec3& Normal,
+                                       igm::vec3& intersection) {
+    // 直线的方向向量
+    double u[3] = {B.x - A.x, B.y - A.y, B.z - A.z};
+
+    // 法向量 N = v1 × v2
+    double N[3] = {Normal.x, Normal.y, Normal.z};
+
+    // 平面方程的 D 值
+    double D = -(N[0] * Point.x + N[1] * Point.y + N[2] * Point.z);
 
     // 代入平面方程求交点
     double denominator = N[0] * u[0] + N[1] * u[1] + N[2] * u[2];
@@ -399,7 +464,6 @@ igm::vec3 BasicStyle::GetNearWorldCoord(const igm::vec2& screenCoord,
     igm::vec4 worldCoord = invertedMvp * clippingCoord;
     return igm::vec3(worldCoord / worldCoord.w);
 }
-
 
 igm::vec3 BasicStyle::GetFarWorldCoord(const igm::vec2& screenCoord,
                                        const igm::mat4& invertedMvp) {

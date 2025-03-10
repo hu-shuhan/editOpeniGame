@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kseC_TransShearShellShortcut.h"

@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kbpC_BeamProfileShortcut.h"

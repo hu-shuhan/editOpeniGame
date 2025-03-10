@@ -1,0 +1,1 @@
+#include "SMAShpShape\PublicInterfaces\shp_AnalyticSurfaceSegment.h"

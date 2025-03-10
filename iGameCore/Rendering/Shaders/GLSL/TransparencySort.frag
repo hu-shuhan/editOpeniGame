@@ -31,7 +31,7 @@ int BuildLocalFragmentList(void) {
 }
 
 void SortFragmentList(int fragCount) {
-    int i, j;
+    int i, j, gap;
 
     // Bubble Sort
     //    for (i = 0; i < fragCount - 1; i++) {
@@ -48,16 +48,29 @@ void SortFragmentList(int fragCount) {
     //    }
 
     // Insertion Sort
-    for (i = 1; i < fragCount; i++) {
-        uvec4 currentFragment = fragments[i];
-        float currentDepth = uintBitsToFloat(currentFragment.z);
-        j = i - 1;
+    //    for (i = 1; i < fragCount; i++) {
+    //        uvec4 currentFragment = fragments[i];
+    //        float currentDepth = uintBitsToFloat(currentFragment.z);
+    //        j = i - 1;
+    //
+    //        while (j >= 0 && uintBitsToFloat(fragments[j].z) > currentDepth) {
+    //            fragments[j + 1] = fragments[j];
+    //            j--;
+    //        }
+    //        fragments[j + 1] = currentFragment;
+    //    }
 
-        while (j >= 0 && uintBitsToFloat(fragments[j].z) > currentDepth) {
-            fragments[j + 1] = fragments[j];
-            j--;
+    // Shell Sort
+    for (gap = fragCount / 2; gap > 0; gap /= 2) {
+        for (i = gap; i < fragCount; i++) {
+            uvec4 currentFragment = fragments[i];
+            float currentDepth = uintBitsToFloat(currentFragment.z);
+
+            for (j = i; j >= gap && uintBitsToFloat(fragments[j - gap].z) > currentDepth; j -= gap) {
+                fragments[j] = fragments[j - gap];
+            }
+            fragments[j] = currentFragment;
         }
-        fragments[j + 1] = currentFragment;
     }
 }
 

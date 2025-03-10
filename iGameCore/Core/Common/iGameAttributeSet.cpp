@@ -215,6 +215,7 @@ void AttributeSet::DeleteAttribute(const IGsize index) {
 	p.pointer = nullptr;
 }
 
+void AttributeSet::SetAllAttributes(ElementArray<AttributeSet::Attribute>::Pointer buffer) { this->m_Buffer = buffer; }
 
 ElementArray<AttributeSet::Attribute>::Pointer AttributeSet::GetAllAttributes() {
 	return m_Buffer;

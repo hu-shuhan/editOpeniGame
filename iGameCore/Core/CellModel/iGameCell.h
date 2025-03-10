@@ -6,6 +6,7 @@
 #include "iGameObject.h"
 #include "iGamePoints.h"
 #define IGAME_CELL_MAX_SIZE 256
+
 IGAME_NAMESPACE_BEGIN
 class Cell : public Object {
 public:
@@ -19,6 +20,7 @@ public:
     virtual int GetNumberOfPoints() { return this->m_PointIds->GetNumberOfIds(); }
     virtual int GetNumberOfEdges() = 0;
     virtual int GetNumberOfFaces() = 0;
+
 	// return   position and id of the i th point in cell
     igIndex GetPointId(const int id) { return this->m_PointIds->GetId(id); }
     Point& GetPoint(const int id) { return this->m_Points->GetPoint(id); }

@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\odb_Types.h"

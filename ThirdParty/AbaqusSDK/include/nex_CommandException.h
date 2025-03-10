@@ -1,0 +1,1 @@
+#include "SMAAbuAbaqusUtilities\PublicInterfaces\nex_CommandException.h"

@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kprC_typeUtils.h"

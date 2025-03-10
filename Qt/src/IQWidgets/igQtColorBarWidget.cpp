@@ -25,12 +25,12 @@ igQtColorBarWidget::igQtColorBarWidget(QWidget* parent) : QWidget(parent)
 
 }
 void igQtColorBarWidget::updateColorBarDrawInfo() {
-
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
 	if (scene) {
         auto model = scene->GetCurrentModel();
-        if (model&&model->GetDataObject()) {
+        if (model&&model->GetDataObject()&&model->GetDataObject()->GetAttributeIndex()!=-1
+            ) {
 			m_ColorMapper =model->GetDataObject()->GetColorMapper();
 		}
 	}

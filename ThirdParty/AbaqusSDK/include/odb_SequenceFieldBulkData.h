@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\odb_SequenceFieldBulkData.h"

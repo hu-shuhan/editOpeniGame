@@ -35,24 +35,31 @@ public:
     static Pointer New() { return new Scene; }
 
     /**
+     * @brief 初始化场景。
+     * @return 是否初始化成功。
+     * @warning 调用函数前必须确保外部已正确创建OpenGL上下文，并且OpenGL上下文处于活跃状态。
+     */
+    bool Initialize();
+
+    /**
+     * @brief 添加一个数据对象作为模型。
+     * @param meshleter 网格重建器对象指针。
+     * @return 模型的唯一 ID。
+     */
+    IGuint AddModel(SmartPointer<Meshleter> meshleter);
+
+    /**
      * @brief 添加一个数据对象作为模型。
      * @param dataObject 数据对象指针。
      * @return 模型的唯一 ID。
      */
-    int AddModel(SmartPointer<DataObject> dataObject);
-
-    /**
-     * @brief 添加一个模型对象。
-     * @param model 模型指针。
-     * @return 模型的唯一 ID。
-     */
-    int AddModel(SmartPointer<Model> model);
+    IGuint AddModel(SmartPointer<DataObject> dataObject);
 
     /**
      * @brief 根据索引移除模型。
-     * @param index 模型索引。
+     * @param modelID 模型索引。
      */
-    void RemoveModel(int index);
+    void RemoveModel(IGuint modelID);
 
     /**
      * @brief 根据模型指针移除模型。
@@ -67,9 +74,9 @@ public:
 
     /**
      * @brief 设置当前模型。
-     * @param index 模型索引。
+     * @param modelID 模型索引。
      */
-    void SetCurrentModel(int index);
+    void SetCurrentModel(int modelID);
 
     /**
      * @brief 设置当前模型。
@@ -78,10 +85,51 @@ public:
     void SetCurrentModel(SmartPointer<Model> model);
 
     /**
+     * @brief 获取当前模型。
+     * @return 当前模型的指针。
+     */
+    SmartPointer<Model> GetCurrentModel();
+
+    /**
+     * @brief 根据索引获取模型。
+     * @param modelID 模型索引。
+     * @return 模型指针。
+     */
+    SmartPointer<Model> GetModelById(int modelID);
+
+    /**
+     * @brief 根据索引获取数据对象。
+     * @param modelID 数据对象索引。
+     * @return 数据对象指针。
+     */
+    SmartPointer<DataObject> GetDataObjectById(int modelID);
+
+    /**
+     * @brief 获取模型列表。
+     * @return 包含模型的映射表。
+     */
+    SmartPointer<HandlePool<SmartPointer<Model>>> GetModelList();
+
+    /**
+     * @brief 更改模型的可见性。
+     * @param modelID 模型索引。
+     * @param visibility 是否可见。
+     */
+    void ChangeModelVisibility(int modelID, bool visibility);
+
+    /**
+     * @brief 更改模型的可见性。
+     * @param model 模型指针。
+     * @param visibility 是否可见。
+     */
+    void ChangeModelVisibility(SmartPointer<Model> model, bool visibility);
+
+    /**
      * @brief 设置场景背景颜色。
      * @param color 背景颜色。
      */
     void SetBackGround(const Color& color);
+
     /**
      * @brief 设置场景背景颜色，三原色范围0~255。
      * @param R 红色像素值。
@@ -89,6 +137,12 @@ public:
      * @param B 蓝色像素值。
      */
     void SetBackGround(int R, int G, int B);
+
+    /**
+     * @brief 获取背景颜色。
+     * @return 背景颜色RGB值。
+     */
+    igm::vec3 GetBackGround();
 
     /**
      * @brief 设置交互器。
@@ -101,51 +155,6 @@ public:
      * @return 交互器指针。
      */
     SmartPointer<Interactor> GetInteractor();
-
-    /**
-     * @brief 获取当前模型。
-     * @return 当前模型的指针。
-     */
-    SmartPointer<Model> GetCurrentModel();
-
-    /**
-     * @brief 根据索引获取模型。
-     * @param index 模型索引。
-     * @return 模型指针。
-     */
-    SmartPointer<Model> GetModelById(int index);
-
-    /**
-     * @brief 根据索引获取数据对象。
-     * @param index 数据对象索引。
-     * @return 数据对象指针。
-     */
-    SmartPointer<DataObject> GetDataObjectById(int index);
-
-    /**
-     * @brief 获取模型列表。
-     * @return 包含模型的映射表。
-     */
-    std::map<int, SmartPointer<Model>>& GetModelList();
-    /**
-     * @brief 获取背景颜色。
-     * @return 背景颜色RGB值。
-     */
-    igm::vec3 GetBackGround() {return m_BackgroundColor;}
-
-    /**
-     * @brief 更改模型的可见性。
-     * @param index 模型索引。
-     * @param visibility 是否可见。
-     */
-    void ChangeModelVisibility(int index, bool visibility);
-
-    /**
-     * @brief 更改模型的可见性。
-     * @param m 模型指针。
-     * @param visibility 是否可见。
-     */
-    void ChangeModelVisibility(SmartPointer<Model> model, bool visibility);
 
     /**
      * @brief 重置相机视角到默认视图。
@@ -169,12 +178,6 @@ public:
      * @return 模型变换矩阵。
      */
     igm::mat4 GetModelMatrix();
-
-    /**
-     * @brief 初始化场景。
-     * @return 是否初始化成功。
-     */
-    bool Initialize();
 
     /**
      * @brief 渲染一帧当前场景。
@@ -318,10 +321,9 @@ protected:
     void UpdateCameraClippingRange();
     static void CalculateFrameRate();
 
-    std::map<int, SmartPointer<Model>> m_Models;
-    int m_IncrementModelId;
-    int m_CurrentModelId;
-    SmartPointer<Model> m_CurrentModel;
+    SmartPointer<HandlePool<SmartPointer<Model>>> m_Models;
+    IGuint m_CurrentModelID;
+    //SmartPointer<HandlePool<SmartPointer<Meshleter>>> m_Meshleters;
 
     std::function<void()> m_UpdateFunctor;
     std::function<void()> m_MakeCurrentFunctor;

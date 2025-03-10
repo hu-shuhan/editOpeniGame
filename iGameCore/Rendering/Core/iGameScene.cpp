@@ -6,9 +6,8 @@
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
-    m_IncrementModelId = 0;
-    m_CurrentModelId = 1;
-    m_CurrentModel = nullptr;
+    m_Models = HandlePool<SmartPointer<Model>>::New();
+    m_CurrentModelID = 0;
 
     m_UpdateFunctor = nullptr;
     m_MakeCurrentFunctor = nullptr;
@@ -17,6 +16,7 @@ Scene::Scene() {
     m_Camera = Camera::New();
     //m_Light = Light::New();
     m_Axes = Axes::New();
+    m_Axes->SetScene(this);
 
     m_Interactor = Interactor::New();
 
@@ -60,7 +60,9 @@ Scene::Scene() {
     m_HzbTexture = GLTexture2d::New();
 
     m_Painter2D = Painter2D::New();
+    m_Painter2D->SetScene(this);
     m_Painter3D = Painter3D::New();
+    m_Painter3D->SetScene(this);
 
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
@@ -83,107 +85,150 @@ bool Scene::Initialize() {
     return true;
 }
 
-int Scene::AddModel(SmartPointer<DataObject> obj) {
+IGuint Scene::AddModel(SmartPointer<Meshleter> meshleter) {
+    SmartPointer<Model> model = Model::New();
+    model->AccelerationOn();
+    model->SetMeshleter(meshleter);
+    model->SetScene(this);
+
+    auto modelID = m_Models->AllocateObject(model);
+    m_CurrentModelID = modelID;
+
+    ChangeModelVisibility(model, true);
+    return modelID;
+}
+
+IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     SmartPointer<Model> model = Model::New();
     model->SetDataObject(obj);
-    return AddModel(model);
+    model->SetScene(this);
+
+    auto modelID = m_Models->AllocateObject(model);
+    m_CurrentModelID = modelID;
+
+    ChangeModelVisibility(model, true);
+    return modelID;
 }
 
-int Scene::AddModel(SmartPointer<Model> model) {
-    int newModelId = m_IncrementModelId++;
-    m_Models.insert(std::make_pair<>(newModelId, model));
-    m_CurrentModelId = newModelId;
-    m_CurrentModel = model.get();
-    model->m_Scene = this;
+void Scene::RemoveModel(IGuint modelID) {
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto id = it->first;
+        auto m = it->second;
 
-    ChangeModelVisibility(model.get(), true);
-
-    this->Update();
-    return newModelId;
-}
-
-void Scene::RemoveModel(int index) {
-    auto it = m_Models.find(index);
-    if (it == m_Models.end()) {
-        IGAME_RENDERING_WARN("Model with index {} does not exist in the scene.",
-                        index);
-        return;
-    }
-
-    m_Models.erase(index);
-    if (index == m_CurrentModelId) {
-        if (m_Models.empty()) {
-            m_CurrentModelId = -1;
-            m_CurrentModel = nullptr;
-        } else {
-            m_CurrentModelId = m_Models.begin()->first;
-            m_CurrentModel = m_Models.begin()->second;
+        if (id == modelID) {
+            m_Models->ReleaseHandle(id);
+            if (id == m_CurrentModelID) {
+                if (m_Models->GetObjectCount() == 0) {
+                    m_CurrentModelID = -1;
+                } else {
+                    m_CurrentModelID = m_Models->Begin()->first;
+                }
+            }
+            UpdateModelsBoundingSphere();
+            return;
         }
     }
-    UpdateModelsBoundingSphere();
+    IGAME_RENDERING_WARN("Model with id {} does not exist in the scene.",
+                         modelID);
 }
 
 void Scene::RemoveModel(SmartPointer<Model> model) {
-    for (auto it = m_Models.begin(); it != m_Models.end(); ++it) {
-        if (it->second.get() == model) {
-            m_Models.erase(it);
-            if (it->first == m_CurrentModelId) {
-                if (m_Models.empty()) {
-                    m_CurrentModelId = -1;
-                    m_CurrentModel = nullptr;
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto id = it->first;
+        auto m = it->second;
+
+        if (m == model) {
+            m_Models->ReleaseHandle(id);
+            if (id == m_CurrentModelID) {
+                if (m_Models->GetObjectCount() == 0) {
+                    m_CurrentModelID = -1;
                 } else {
-                    m_CurrentModelId = m_Models.begin()->first;
-                    m_CurrentModel = m_Models.begin()->second;
+                    m_CurrentModelID = m_Models->Begin()->first;
                 }
             }
-            break;
+            UpdateModelsBoundingSphere();
+            return;
         }
     }
-    UpdateModelsBoundingSphere();
+    IGAME_RENDERING_WARN("Model does not exist in the scene.");
 }
 
 void Scene::RemoveCurrentModel() {
-    if (auto visibility = m_CurrentModel->GetVisibility()) {
-        m_VisibleModelsCount--;
-    }
+    auto model = m_Models->GetObjectByHandle(m_CurrentModelID);
 
-    m_CurrentModel->GetDataObject()->InvokeEvent(Command::DeleteEvent);
-    m_Models.erase(m_CurrentModelId);
-    if (m_Models.empty()) {
-        m_CurrentModelId = -1;
-        m_CurrentModel = nullptr;
-    } else {
-        m_CurrentModelId = m_Models.begin()->first;
-        m_CurrentModel = m_Models.begin()->second;
-    }
-    UpdateModelsBoundingSphere();
+    if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
+
+    model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
+    RemoveModel(m_CurrentModelID);
 }
 
-void Scene::SetCurrentModel(int index) {
-    auto it = m_Models.find(index);
-    if (it == m_Models.end()) {
-        IGAME_RENDERING_WARN("Model with index {} does not exist in the scene.",
-                        index);
+void Scene::SetCurrentModel(int modelID) {
+    if (m_Models->CheckHandle(modelID)) {
+        m_CurrentModelID = modelID;
         return;
     }
-
-    for (auto& [id, model]: m_Models) {
-        if (id == index) {
-            m_CurrentModelId = id;
-            m_CurrentModel = model.get();
-            return;
-        }
-    }
+    IGAME_RENDERING_WARN("Model with id {} does not exist in the scene.",
+                         modelID);
 }
 
 void Scene::SetCurrentModel(SmartPointer<Model> model) {
-    for (auto& [id, m]: m_Models) {
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto id = it->first;
+        auto m = it->second;
+
         if (m == model) {
-            m_CurrentModelId = id;
-            m_CurrentModel = m.get();
+            m_CurrentModelID = id;
             return;
         }
     }
+    IGAME_RENDERING_WARN("Model does not exist in the scene.");
+}
+
+SmartPointer<Model> Scene::GetCurrentModel() {
+    return m_Models->GetObjectByHandle(m_CurrentModelID);
+}
+
+SmartPointer<Model> Scene::GetModelById(int id) {
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto modelID = it->first;
+        auto model = it->second;
+
+        if (modelID == id) { return model; }
+    }
+    return nullptr;
+}
+
+SmartPointer<DataObject> Scene::GetDataObjectById(int id) {
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto modelID = it->first;
+        auto model = it->second;
+
+        if (modelID == id) { return model->GetDataObject(); }
+    }
+    return nullptr;
+}
+
+SmartPointer<HandlePool<SmartPointer<Model>>> Scene::GetModelList() {
+    return m_Models;
+}
+
+void Scene::ChangeModelVisibility(int modelID, bool visibility) {
+    auto model = GetModelById(modelID);
+    if (model != nullptr) { ChangeModelVisibility(model, visibility); }
+}
+
+void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
+    auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+    drawObject->SetVisibility(visibility);
+
+    if (visibility) {
+        m_VisibleModelsCount++;
+        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
+    } else {
+        m_VisibleModelsCount--;
+    }
+
+    UpdateModelsBoundingSphere();
 }
 
 void Scene::SetBackGround(const Color& color) {
@@ -191,40 +236,20 @@ void Scene::SetBackGround(const Color& color) {
     m_BackgroundColor = c;
     this->Modified();
 }
-void iGame::Scene::SetBackGround(int R, int G, int B) {
+
+void Scene::SetBackGround(int R, int G, int B) {
     auto c = ColorUtils::Map(R, G, B);
     m_BackgroundColor = c;
     this->Modified();
 }
+
+igm::vec3 Scene::GetBackGround() { return m_BackgroundColor; }
 
 void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
     m_Interactor = interactor;
 }
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
-
-SmartPointer<Model> Scene::GetCurrentModel() { return m_CurrentModel; }
-
-SmartPointer<Model> Scene::GetModelById(int index) {
-    for (auto& [id, model]: m_Models) {
-        if (id == index) { return model; }
-    }
-    return nullptr;
-}
-
-SmartPointer<DataObject> Scene::GetDataObjectById(int index) {
-    for (auto& [id, model]: m_Models) {
-        if (id == index) { return model->m_DataObject; }
-    }
-    return nullptr;
-}
-
-std::map<int, SmartPointer<Model>>& Scene::GetModelList() { return m_Models; }
-
-void Scene::ChangeModelVisibility(int index, bool visibility) {
-    auto model = GetModelById(index);
-    if (model != nullptr) { ChangeModelVisibility(model, visibility); }
-}
 
 void Scene::ResetCameraView() {
     UpdateModelsBoundingSphere();
@@ -236,20 +261,6 @@ void Scene::ResetCameraView() {
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
     m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
     m_Camera->SetFocal(center);
-}
-
-void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
-    auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-    drawObject->SetVisibility(visibility);
-
-    if (visibility) {
-        m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
-    } else {
-        m_VisibleModelsCount--;
-    }
-
-    UpdateModelsBoundingSphere();
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
@@ -282,13 +293,14 @@ void Scene::InitOpenGL() {
         IGAME_RENDERING_TRACE(
                 "==================== OpenGL Info ====================");
         const GLubyte* vendor = glGetString(GL_VENDOR);
-        IGAME_RENDERING_TRACE("Vendor:   {}", reinterpret_cast<const char*>(vendor));
+        IGAME_RENDERING_TRACE("Vendor: {}",
+                              reinterpret_cast<const char*>(vendor));
         const GLubyte* renderer = glGetString(GL_RENDERER);
-        IGAME_RENDERING_TRACE("Renderer:   {}",
-                         reinterpret_cast<const char*>(renderer));
+        IGAME_RENDERING_TRACE("Renderer: {}",
+                              reinterpret_cast<const char*>(renderer));
         const GLubyte* version = glGetString(GL_VERSION);
-        IGAME_RENDERING_TRACE("Version:   {}",
-                         reinterpret_cast<const char*>(version));
+        IGAME_RENDERING_TRACE("Version: {}",
+                              reinterpret_cast<const char*>(version));
         GLint numExtensions = 0;
         glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
         IGAME_RENDERING_TRACE(
@@ -439,7 +451,7 @@ void Scene::ResizeFrameBuffer() {
         if (m_FramebufferMultisampled->CheckStatus() !=
             GL_FRAMEBUFFER_COMPLETE) {
             IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
-                             this->GetName());
+                                  this->GetName());
         }
     }
 
@@ -486,7 +498,7 @@ void Scene::ResizeFrameBuffer() {
 
         if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
             IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
-                             this->GetName());
+                                  this->GetName());
         }
     }
 #else
@@ -521,7 +533,7 @@ void Scene::ResizeFrameBuffer() {
 
         if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
             IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
-                             this->GetName());
+                                  this->GetName());
         }
     }
 #endif
@@ -665,15 +677,10 @@ void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     // convert to drawable data
-
-#ifndef GL_DEBUG_CULLING
-    for (auto& [id, model]: m_Models) {
-        if (!model->m_DataObject->IsDrawable()) { continue; }
-
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        drawObject->ReAllocateDisplayBuffer();
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto model = it->second;
+        model->SyncGpuBuffers();
     }
-#endif
 
     // update camera data block in GPU
     UpdateCameraDataBlock();
@@ -697,15 +704,15 @@ void Scene::DrawFrame() {
         }
 
         // draw scene painter
-        m_Painter2D->Draw(this);
-        m_Painter3D->Draw(this);
+        m_Painter2D->Draw();
+        m_Painter3D->Draw();
     }
 
     // draw axes in bottom left
     {
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
         glClear(GL_DEPTH_BUFFER_BIT);
-        m_Axes->Draw(this);
+        m_Axes->Draw();
     }
 }
 
@@ -784,67 +791,87 @@ void Scene::ForwardPass() {
     }
 #elif IGAME_OPENGL_VERSION_460
 
-#ifdef GL_DEBUG_CULLING
-#ifdef GL_SUPPORTS_MESH_SHADER
-    // draw phase1: draw visible meshlet
-    // Note: The first HZB culling pass must use the previous frame's data
-    for (auto& [id, model]: m_Models) {
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
-    }
+    // normal mesh
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto model = it->second;
+        if (model->IsAccelerationEnabled()) { continue; }
 
-    // refresh phase 1: generate loacl hierarchical z-buffer & cull data
-    RefreshHzb();
-    RefreshDrawCullDataBuffer();
-
-    // draw phase2: draw invisible meshlet
-    for (auto& [id, model]: m_Models) {
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
-    }
-
-    // refresh phase2: generate global hierarchical z-buffer
-    RefreshHzb();
-#else
-    for (auto& [id, model]: m_Models) {
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) {
-            model->TestOcclusionResults(this);
-        }
-    }
-
-    // draw phase1: draw visible meshlet
-    for (auto& [id, model]: m_Models) {
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(this); }
-    }
-
-    // refresh phase1: generate loacl hierarchical z-buffer
-    RefreshHzb();
-    RefreshDrawCullDataBuffer();
-
-    // draw phase2: draw invisible meshlet
-    for (auto& [id, model]: m_Models) {
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(this); }
-    }
-
-    // refresh phase2: generate global hierarchical z-buffer
-    RefreshHzb();
-#endif // GL_SUPPORTS_MESH_SHADER
-#else
-    for (auto& [id, model]: m_Models) {
         // draw mesh
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
-        if (drawObject->GetTransparency() == 1.0f) { model->Draw(this); }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (drawObject->GetTransparency() == 1.0f) { model->Draw(); }
 
         // draw painter(since painter does not support transparency)
-        if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(this); }
+        if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(); }
     }
-#endif // GL_DEBUG_CULLING
 
+    // meshleter mesh
+    #ifdef GL_SUPPORTS_MESH_SHADER
+    {
+        // draw phase1: draw visible meshlet
+        // Note: The first HZB culling pass must use the previous frame's data
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            if (!model->IsAccelerationEnabled()) { continue; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+        }
+
+        // refresh phase 1: generate loacl hierarchical z-buffer & cull data
+        RefreshHzb();
+        RefreshDrawCullDataBuffer();
+
+        // draw phase2: draw invisible meshlet
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            if (!model->IsAccelerationEnabled()) { continue; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+        }
+
+        // refresh phase2: generate global hierarchical z-buffer
+        RefreshHzb();
+    }
+    #else
+    {
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            if (!model->IsAccelerationEnabled()) { continue; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject->GetTransparency() == 1.0f) {
+                model->TestOcclusionResults();
+            }
+        }
+
+        // draw phase1: draw visible meshlet
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            if (!model->IsAccelerationEnabled()) { continue; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+        }
+
+        // refresh phase1: generate loacl hierarchical z-buffer
+        RefreshHzb();
+        RefreshDrawCullDataBuffer();
+
+        // draw phase2: draw invisible meshlet
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            if (!model->IsAccelerationEnabled()) { continue; }
+
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+        }
+
+        // refresh phase2: generate global hierarchical z-buffer
+        RefreshHzb();
+    }
+    #endif
 #endif
-
     glDisable(GL_DEPTH_TEST);
 
     GLCheckError();
@@ -854,8 +881,8 @@ void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
     // Enable blending to use the alpha channel for transparency.
     // Without blending, the alpha value in the color will be ignored.
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // 1.reset oit pipeline status
     {
@@ -884,10 +911,11 @@ void Scene::TransparentPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        for (auto& [id, model]: m_Models) {
-            auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() != 1.0f) {
-                model->DrawWithTransparency(this);
+                model->DrawWithTransparency();
             }
         }
     }
@@ -912,7 +940,7 @@ void Scene::TransparentPass() {
     }
     glEnable(GL_DEPTH_TEST);
 
-    glDisable(GL_BLEND);
+    // glDisable(GL_BLEND);
 #endif
     GLCheckError();
 }
@@ -946,7 +974,10 @@ void Scene::VolumeRenderingPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        for (auto& [id, model]: m_Models) { model->DrawWithVolume(this); }
+        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+            auto model = it->second;
+            model->DrawWithVolume();
+        }
     }
     glDepthMask(GL_TRUE);
 
@@ -1161,9 +1192,11 @@ void Scene::RotateNinetyCounterClockwise() {
 
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
-    for (auto& [id, model]: m_Models) {
-        if (!model->m_DataObject->IsDrawable()) { continue; }
-        auto drawObject = DynamicCast<DrawObject>(model->m_DataObject);
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto model = it->second;
+
+        if (!model->GetDataObject()->IsDrawable()) { continue; }
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         drawObject->SetShellRenderingOption(!toggled);
     }
     Update();
@@ -1175,7 +1208,9 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 max(-FLT_MAX);
 
     auto box = m_Painter3D->GetBoundingBox();
-    for (auto& [id, model]: m_Models) {
+    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        auto model = it->second;
+
         if (!model->GetVisibility()) { continue; }
         box.combine(model->GetDataObject()->GetBoundingBox());
         box.combine(model->GetPainter3D()->GetBoundingBox());

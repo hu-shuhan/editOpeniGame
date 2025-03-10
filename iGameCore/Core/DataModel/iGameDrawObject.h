@@ -32,15 +32,8 @@ public:
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
-    bool IsUseColor() { return m_UseColor; }
-    bool IsUseNormalSmooth() {
-        if (m_UseNormalSmooth && m_Normals->GetNumberOfValues() == 0) {
-            std::cout << "You have enabled normal smoothing, but have not "
-                         "provided normals."
-                      << std::endl;
-        }
-        return m_UseNormalSmooth;
-    }
+    bool IsUseColor();
+    bool IsUseNormalSmooth();
 
     void SetVisibility(bool f);
     bool GetVisibility();
@@ -86,7 +79,7 @@ public:
 
 protected:
     void CreateDrawBuffer();
-    void ReAllocateDisplayBuffer();
+    void SyncGpuBuffers();
 
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);

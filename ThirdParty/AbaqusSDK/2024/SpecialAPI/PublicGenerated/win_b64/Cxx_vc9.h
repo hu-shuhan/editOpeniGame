@@ -1,0 +1,14 @@
+#ifndef __vc9_h__
+#define __vc9_h__
+/* @CAARequired */
+// compiler:vc9
+// build:Jun 10 2014
+#define DS_CXX98_SUPPORT_BOOL
+#define DS_CXX98_SUPPORT_EXPLICIT
+#define DS_CXX98_SUPPORT_MUTABLE
+//#define DS_CXX11_SUPPORT_MOVE_SEMANTIC
+//#define DS_CXX11_SUPPORT_RANGE_FOR
+#define DS_CXX98_TEMPLATE_MEMBER_FUNCTIONE
+//#define DS_CXX11_SUPPORT_NULLPTR
+//#define DS_CXX11_SUPPORT_STATIC_ASSERT
+#endif

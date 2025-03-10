@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\rgnC_ResEnum.h"

@@ -18,17 +18,11 @@ Axes::Axes() {
     m_OriginSize = 0.05f;
 }
 
-Axes::~Axes() {
-    m_TriangleVAO->Destroy();
-    m_PositionVBO->Destroy();
-    m_ColorVBO->Destroy();
-    m_TriangleEBO->Destroy();
+Axes::~Axes() {}
 
-    m_FontVAO->Destroy();
-    m_TextureCoordVBO->Destroy();
-    m_WorldCoordVBO->Destroy();
-    m_FontTextureEBO->Destroy();
-}
+void Axes::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
+
+SmartPointer<Scene> Axes::GetScene() const { return m_Scene; }
 
 void Axes::Initialize() {
     m_TriangleVAO = GLVertexArray::New();
@@ -129,7 +123,7 @@ void Axes::Initialize() {
     m_FontVAO->ElementBuffer(m_FontTextureEBO);
 }
 
-void Axes::Draw(Scene* scene) {
+void Axes::Draw() {
     // update range
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
@@ -145,11 +139,11 @@ void Axes::Draw(Scene* scene) {
                                           igm::vec3{0.0f, 1.0f, 0.0f});
     static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f);
 
-    igm::mat4 model = scene->m_ModelRotate;
+    igm::mat4 model = m_Scene->m_ModelRotate;
     igm::mat4 mvp = proj * view * model;
 
-    auto shaderManager = scene->m_ShaderManager;
-    auto fontManager = scene->m_FontManager;
+    auto shaderManager = m_Scene->m_ShaderManager;
+    auto fontManager = m_Scene->m_FontManager;
 
     // update uniform buffer
     auto axesShader = shaderManager->GetShader(ShaderType::AXES);

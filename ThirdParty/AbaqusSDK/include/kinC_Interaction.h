@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kinC_Interaction.h"

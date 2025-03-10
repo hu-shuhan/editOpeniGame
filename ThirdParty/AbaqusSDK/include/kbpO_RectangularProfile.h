@@ -1,0 +1,1 @@
+#include "SMAOdb\PublicInterfaces\kbpO_RectangularProfile.h"

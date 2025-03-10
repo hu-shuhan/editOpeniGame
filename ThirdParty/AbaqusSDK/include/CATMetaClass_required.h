@@ -1,0 +1,1 @@
+#include "System\PublicGenerated\win_b64\CATMetaClass_required.h"

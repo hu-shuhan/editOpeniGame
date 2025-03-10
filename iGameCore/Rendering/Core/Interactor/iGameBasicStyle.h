@@ -51,10 +51,18 @@ protected:
     void MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D);
     void UpdateCameraMoveSpeed(const igm::vec4& center);
 
+    // 两条直线的交点
+    bool TwoLineIntersection(const igm::vec3& p1, const igm::vec3& p2,
+                             const igm::vec3& v1, const igm::vec3& v2,
+                             igm::vec3& intersection);
+
     // 计算直线与平面的交点
     bool LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
                                const igm::vec3& P1, const igm::vec3& P2,
                                const igm::vec3& P3, igm::vec3& intersection);
+    bool LinePlaneIntersection(const igm::vec3& A, const igm::vec3& B,
+                               const igm::vec3& Point, const igm::vec3& Normal,
+                               igm::vec3& intersection);
 
     bool IsIntersectTriangle(igm::vec3 orig, igm::vec3 end, igm::vec3 v0,
                              igm::vec3 v1, igm::vec3 v2,

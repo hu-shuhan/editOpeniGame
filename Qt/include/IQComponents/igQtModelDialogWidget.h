@@ -35,7 +35,8 @@ public slots:
     int updateCloudPicture();
     void deleteCurrentModel();
     void onPropertyChanged(QtProperty* property, const QVariant& value);
-
+    static void SetAccelerateState(bool b);
+    static int GetAccelerateState();
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
@@ -59,4 +60,5 @@ private:
     QtVariantProperty* prop_Transparency;
 
     Ui::LayerDialog* ui;
+    static bool m_AutoAccelerate;
 };

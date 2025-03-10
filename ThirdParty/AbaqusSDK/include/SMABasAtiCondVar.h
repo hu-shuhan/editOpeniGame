@@ -1,0 +1,1 @@
+#include "SMABase\PublicInterfaces\SMABasAtiCondVar.h"

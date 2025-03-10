@@ -1,0 +1,1 @@
+#include "System\PublicInterfaces\CATRscCatalog.h"

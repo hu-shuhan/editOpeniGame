@@ -7,7 +7,7 @@ find_path(AbqSDK_PRIVATE_INCLUDE_DIR
         PATHS
         /usr/local/include
         /usr/include
-        "D:/SIMULIA/EstProducts/2024/win_b64/code/include"
+        "E:/SIMULIA/EstProducts/2024/win_b64/code/include"
 )
 
 find_path(AbqSDK_PRIVATE_PUBLIC_DIR
@@ -16,21 +16,21 @@ find_path(AbqSDK_PRIVATE_PUBLIC_DIR
         PATHS
         /usr/local/include
         /usr/include
-        "D:/SIMULIA/EstProducts/2024"
+        "E:/SIMULIA/EstProducts/2024"
 )
 
 find_path(AbqSDK_PRIVATE_LIB
         NAMES
         ABQSMAOdbApi.lib
         PATHS
-        "D:/SIMULIA/EstProducts/2024/win_b64/code/lib"
+        "E:/SIMULIA/EstProducts/2024/win_b64/code/lib"
 )
 find_path(AbqSDK_DLL_DIR
         NAMES
         ABQSMAAbuGeom.dll
         PATHS
-#        "D:/SIMULIA/EstProducts/2024/win_b64/code/bin"
-        "D:/SIMULIA/SDK/bin"
+        "E:/SIMULIA/EstProducts/2024/win_b64/code/bin"
+       # "D:/SIMULIA/SDK/bin"
         NO_DEFAULT_PATH
 )
 
@@ -82,7 +82,7 @@ set(AbqSDK_PRIVATE_INCLUDE_DIRS "${AbqSDK_PRIVATE_INCLUDE_DIR}" "${AbqSDK_PRIVAT
 
 set(FOUND_ABQ_LIB_FULL_PATH)
 set(ABQ_LIB_TARGETS)
-foreach(LIB ${ABQ_LIB_LIST})
+foreach (LIB ${ABQ_LIB_LIST})
     set(temp${LIB})
     find_library(temp${LIB}
             NAMES
@@ -102,7 +102,7 @@ foreach(LIB ${ABQ_LIB_LIST})
                 INTERFACE_INCLUDE_DIRECTORIES "${AbqSDK_PRIVATE_INCLUDE_DIRS}")
         list(APPEND ABQ_LIB_TARGETS AbqSDK::${LIB})
     endif ()
-endforeach()
+endforeach ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(AbqSDK

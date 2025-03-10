@@ -131,9 +131,9 @@ void main() {
         float r = colorBuffer.data[offset];
         float g = colorBuffer.data[offset + 1];
         float b = colorBuffer.data[offset + 2];
-        //         v_out[localVertexIndex].color = vec3(r, g, b);
+        // v_out[localVertexIndex].color = vec3(r, g, b);
         v_out[localVertexIndex].color = vec3(1.0f, 1.0f, 1.0f);
-        //        v_out[localVertexIndex].color = colors[meshletID % 9];
+        // v_out[localVertexIndex].color = colors[meshletID % 9];
 
         // normal
         float nx = normalBuffer.data[offset];

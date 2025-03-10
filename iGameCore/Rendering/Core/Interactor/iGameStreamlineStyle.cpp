@@ -1,21 +1,65 @@
-#include "iGameStreamlineStyle.h"
+#include "iGameStreamLineStyle.h"
 #include "iGameInteractor.h"
 #include "iGamePointPicker.h"
 
 IGAME_NAMESPACE_BEGIN
 
-StreamDragStyle::StreamDragStyle() {
-    m_SelectedPointId = -1;
+StreamLineStyle::StreamLineStyle() {
 
-    Selected_NDC_Z = 0.0f;
-    MVP = igm::mat4{};
-    InvertedMVP = igm::mat4{};
 }
 
-StreamDragStyle::~StreamDragStyle() {}
+StreamLineStyle::~StreamLineStyle() {
+    if (StartHandle != 0) m_Painter3D->Delete(StartHandle);
+    if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
+    if (LineHandle != 0) m_Painter3D->Delete(LineHandle);
+}
 
-void StreamDragStyle::MousePressEvent(IEvent _event) {
-    StreamDragStyle::MousePressEvent(_event);
+void StreamLineStyle::Draw() {
+    vec3ToVector3d f;
+
+    m_Painter3D->SetPen(16);
+    m_Painter3D->SetPen(Color::Green);
+
+    if (StartHandle != 0) m_Painter3D->Delete(StartHandle);
+    if (EndHandle != 0) m_Painter3D->Delete(EndHandle);
+    if (LineHandle != 0) m_Painter3D->Delete(LineHandle);
+
+    StartHandle = m_Painter3D->DrawPoint(f(Start));
+    EndHandle = m_Painter3D->DrawPoint(f(End));
+
+    m_Painter3D->SetPen(4);
+    m_Painter3D->SetPen(Color::Red);
+    LineHandle = m_Painter3D->DrawLine(f(Start), f(End));
+}
+
+void StreamLineStyle::Emit() {
+    if (!m_Selection) return;
+    vec3ToVector3d f;
+    m_Selection->Start = f(Start);
+    m_Selection->End = f(End);
+    m_Selection->Selected = Selected;
+    m_Selection->FilterEvent(Selection::Event(Selection::Event::Change));
+}
+
+void StreamLineStyle::Initialize(SmartPointer<Interactor> interactor,
+                                 SmartPointer<Selection> s) {
+    BasicStyle::Initialize(interactor);
+    m_Selection = DynamicCast<StreamLineSelection>(s);
+    if (m_Selection == nullptr) return;
+
+    m_Painter3D = interactor->GetPainter3D();
+    m_DataObject = interactor->GetDataObject();
+
+    Vector3Tovec3 v;
+    Start = v(m_Selection->Start);
+    End = v(m_Selection->End);
+
+    Draw();
+}
+
+void StreamLineStyle::MousePressEvent(IEvent _event) {
+    BasicStyle::MousePressEvent(_event);
+
     MVP = m_Interactor->GetMVP();
     InvertedMVP = MVP.invert();
 
@@ -25,62 +69,59 @@ void StreamDragStyle::MousePressEvent(IEvent _event) {
 
     igm::vec3 dir = (point1 - point2).normalized();
 
-    Point p;
-    SmartPointer<PointPicker> picker = PointPicker::New();
-    picker->SetPoints(m_Points);
-    m_SelectedPointId = picker->PickClosetPointOnLine(
-            Vector3d(point1.x, point1.y, point1.z),
-            Vector3d(dir.x, dir.y, dir.z), p);
-
-    //m_Model->GetPointPainter()->Clear();
-    if (m_SelectedPointId != -1) {
-        //std::cout << "click point id: " << m_SelectedPointId << std::endl;
-        auto& tp = m_Points->GetPoint(m_SelectedPointId);
-        igm::vec4 p{tp[0], tp[1], tp[2], 1.f};
-        p = MVP * p;
-        Selected_NDC_Z = p.z / p.w;
-
-        auto painter = m_Model->GetPainter3D();
-        painter->Clear();
-        painter->SetPen(10);
-        painter->SetPen(Color::Red);
-        painter->DrawPoint(tp);
+    if (DistancePointToLine(Start, point1, point2) < 0.1) { 
+        Selected = 0;
+        auto afterMVP = MVP * igm::vec4(Start, 1.0f);
+        NDC_Z = (afterMVP / afterMVP.w).z;
+    } else if (DistancePointToLine(End, point1, point2) < 0.1) {
+        Selected = 1;
+        auto afterMVP = MVP * igm::vec4(End, 1.0f);
+        NDC_Z = (afterMVP / afterMVP.w).z;
+    } else if (TwoLineIntersection(Start, End, point1, point2, Intersection)) {
+        Selected = 2;
+        auto afterMVP = MVP * igm::vec4(Intersection, 1.0f);
+        NDC_Z = (afterMVP / afterMVP.w).z;
+        P1 = Start - Intersection;
+        P2 = End - Intersection;
+    } else {
+        Selected = -1;
     }
 }
-void StreamDragStyle::MouseMoveEvent(IEvent _event) {
+
+void StreamLineStyle::MouseMoveEvent(IEvent _event) {
     igm::vec2 pos = _event.pos;
+    vec3ToVector3d f;
+
+    if (Selected == -1) { 
+        BasicStyle::MouseMoveEvent(_event);
+        return;
+    }
 
     if (m_MouseMode == MouseButton::LeftButton) {
-        if (m_SelectedPointId == -1) { return; }
-
-        //std::cout << "drag point id: " << m_SelectedPointId << std::endl;
-
         igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
                       1.0f - (2.0f * pos.y / m_Interactor->GetHeight()));
 
-        igm::vec4 Point_NDC{NDC, Selected_NDC_Z, 1.f};
+        igm::vec4 Point_NDC{NDC, NDC_Z, 1.f};
         igm::vec4 newPoint_WorldCoord = InvertedMVP * Point_NDC;
         newPoint_WorldCoord /= newPoint_WorldCoord.w;
-        if (m_Selection) {
-            Selection::Event e;
-            e.type = Selection::Event::DragPoint;
-            e.pickId = m_SelectedPointId;
-            e.pos = Vector3f{newPoint_WorldCoord.x, newPoint_WorldCoord.y,
-                             newPoint_WorldCoord.z};
-            m_Selection->FilterEvent(e);
 
-            m_Points->SetPoint(m_SelectedPointId, e.pos);
-
-            // updating point coordinates requires a re-conversion
-            auto drawObject = DynamicCast<DrawObject>(m_Model->GetDataObject());
-
-            //m_Model->GetPointPainter()->Clear();
-            auto painter = m_Model->GetPainter3D();
-            painter->Clear();
-            painter->SetPen(10);
-            painter->SetPen(Color::Red);
-            painter->DrawPoint(e.pos);
+        if (Selected == 0) 
+        { 
+            Start = newPoint_WorldCoord.xyz();
+        } 
+        else if (Selected == 1) 
+        {
+            End = newPoint_WorldCoord.xyz();
+        } 
+        else if (Selected == 2) 
+        {
+            Start = newPoint_WorldCoord.xyz() + P1;
+            End = newPoint_WorldCoord.xyz() + P2;
         }
+
+        Draw();
+        Emit();
     }
 }
+
 IGAME_NAMESPACE_END

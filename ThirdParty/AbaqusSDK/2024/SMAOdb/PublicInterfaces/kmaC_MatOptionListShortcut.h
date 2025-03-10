@@ -1,0 +1,20 @@
+#ifndef kmaC_MaterialOptionListShortcut_h
+#define kmaC_MaterialOptionListShortcut_h
+
+// Begin local includes
+
+#include <ddr_Shortcut.h>
+#include <kmaC_MaterialOptionList.h>
+
+class kmaC_MaterialOption;
+
+// Shortcut declarations
+ddr_SHORTCUT_DECL(kmaC_MaterialOptionList, kmaC_MaterialOptionListShortcut);
+
+ddr_MEMBER_SHORTCUT_DECL(kmaC_MaterialOption, kmaC_MaterialOptionList, kmaC_UniaxialTestsListInMaterialOptionShortcut);
+ddr_MEMBER_SHORTCUT_DECL_ADD(kmaC_MaterialOption, kmaC_MaterialOptionList, 2, kmaC_BiaxialTestsListInMaterialOptionShortcut);
+ddr_MEMBER_SHORTCUT_DECL_ADD(kmaC_MaterialOption, kmaC_MaterialOptionList, 3, kmaC_PlanarTestsListInMaterialOptionShortcut);
+ddr_MEMBER_SHORTCUT_DECL_ADD(kmaC_MaterialOption, kmaC_MaterialOptionList, 4, kmaC_DamageEvolutionListInMaterialOptionShortcut);
+
+ddr_SEQUENCE_SHORTCUT_DECL(kmaC_MaterialOptionList, kmaC_MaterialOption, kmaC_MaterialOptionInMaterialOptionListShortcut);
+#endif

@@ -1,0 +1,1 @@
+#include "System\PublicGenerated\win_b64\CATCreateClassInstance_required.h"

@@ -1,0 +1,1 @@
+#include "System\PublicGenerated\win_b64\CATCreateExternalObject_required.h"
