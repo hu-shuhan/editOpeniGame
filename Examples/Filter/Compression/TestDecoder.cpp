@@ -1,5 +1,5 @@
 #include <iGameInteractor.h>
-#include <iGameMeshCodec/iGameMeshDecoder.h>
+#include <iGameMeshCodec/iGameMeshLoomDecoder.h>
 #include <iGameRenderWindow.h>
 
 int main() {
@@ -8,11 +8,9 @@ int main() {
 
     // Read the file and add it to the scene
     const std::string fileName = "./Models/comp.igc";
-    auto decoder = iGame::MeshDecoder::New();
-    decoder->SetFilePath(fileName);
-    decoder->Execute();
-    auto obj = decoder->GetOutput();
-
+    
+    auto decoder = new iGame::MeshLoomDecoder(fileName);
+    iGame::DataObject::Pointer obj = decoder->Execute();
     scene->AddModel(obj);
 
     // Set up the render window

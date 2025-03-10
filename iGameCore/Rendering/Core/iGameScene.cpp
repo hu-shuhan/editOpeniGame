@@ -6,7 +6,7 @@
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
-    m_Models = HandlePool<SmartPointer<Model>>::New();
+    m_ModelPool = HandlePool<SmartPointer<Model>>::New();
     m_CurrentModelID = 0;
 
     m_UpdateFunctor = nullptr;
@@ -91,7 +91,7 @@ IGuint Scene::AddModel(SmartPointer<Meshleter> meshleter) {
     model->SetMeshleter(meshleter);
     model->SetScene(this);
 
-    auto modelID = m_Models->AllocateObject(model);
+    auto modelID = m_ModelPool->AllocateObject(model);
     m_CurrentModelID = modelID;
 
     ChangeModelVisibility(model, true);
@@ -103,7 +103,7 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     model->SetDataObject(obj);
     model->SetScene(this);
 
-    auto modelID = m_Models->AllocateObject(model);
+    auto modelID = m_ModelPool->AllocateObject(model);
     m_CurrentModelID = modelID;
 
     ChangeModelVisibility(model, true);
@@ -111,17 +111,17 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
 }
 
 void Scene::RemoveModel(IGuint modelID) {
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto id = it->first;
         auto m = it->second;
 
         if (id == modelID) {
-            m_Models->ReleaseHandle(id);
+            m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
-                if (m_Models->GetObjectCount() == 0) {
+                if (m_ModelPool->GetObjectCount() == 0) {
                     m_CurrentModelID = -1;
                 } else {
-                    m_CurrentModelID = m_Models->Begin()->first;
+                    m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
             }
             UpdateModelsBoundingSphere();
@@ -133,17 +133,17 @@ void Scene::RemoveModel(IGuint modelID) {
 }
 
 void Scene::RemoveModel(SmartPointer<Model> model) {
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto id = it->first;
         auto m = it->second;
 
         if (m == model) {
-            m_Models->ReleaseHandle(id);
+            m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
-                if (m_Models->GetObjectCount() == 0) {
+                if (m_ModelPool->GetObjectCount() == 0) {
                     m_CurrentModelID = -1;
                 } else {
-                    m_CurrentModelID = m_Models->Begin()->first;
+                    m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
             }
             UpdateModelsBoundingSphere();
@@ -154,7 +154,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
 }
 
 void Scene::RemoveCurrentModel() {
-    auto model = m_Models->GetObjectByHandle(m_CurrentModelID);
+    auto model = m_ModelPool->GetObjectByHandle(m_CurrentModelID);
 
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
 
@@ -163,7 +163,7 @@ void Scene::RemoveCurrentModel() {
 }
 
 void Scene::SetCurrentModel(int modelID) {
-    if (m_Models->CheckHandle(modelID)) {
+    if (m_ModelPool->CheckHandle(modelID)) {
         m_CurrentModelID = modelID;
         return;
     }
@@ -172,7 +172,7 @@ void Scene::SetCurrentModel(int modelID) {
 }
 
 void Scene::SetCurrentModel(SmartPointer<Model> model) {
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto id = it->first;
         auto m = it->second;
 
@@ -185,11 +185,11 @@ void Scene::SetCurrentModel(SmartPointer<Model> model) {
 }
 
 SmartPointer<Model> Scene::GetCurrentModel() {
-    return m_Models->GetObjectByHandle(m_CurrentModelID);
+    return m_ModelPool->GetObjectByHandle(m_CurrentModelID);
 }
 
 SmartPointer<Model> Scene::GetModelById(int id) {
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
         auto model = it->second;
 
@@ -199,7 +199,7 @@ SmartPointer<Model> Scene::GetModelById(int id) {
 }
 
 SmartPointer<DataObject> Scene::GetDataObjectById(int id) {
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto modelID = it->first;
         auto model = it->second;
 
@@ -209,7 +209,7 @@ SmartPointer<DataObject> Scene::GetDataObjectById(int id) {
 }
 
 SmartPointer<HandlePool<SmartPointer<Model>>> Scene::GetModelList() {
-    return m_Models;
+    return m_ModelPool;
 }
 
 void Scene::ChangeModelVisibility(int modelID, bool visibility) {
@@ -677,7 +677,7 @@ void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
     // convert to drawable data
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->SyncGpuBuffers();
     }
@@ -782,7 +782,7 @@ void Scene::ShadowPass() {
 void Scene::ForwardPass() {
     // use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
+    glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
     for (auto& [id, model]: m_Models) {
@@ -792,7 +792,7 @@ void Scene::ForwardPass() {
 #elif IGAME_OPENGL_VERSION_460
 
     // normal mesh
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         if (model->IsAccelerationEnabled()) { continue; }
 
@@ -809,7 +809,7 @@ void Scene::ForwardPass() {
     {
         // draw phase1: draw visible meshlet
         // Note: The first HZB culling pass must use the previous frame's data
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             if (!model->IsAccelerationEnabled()) { continue; }
 
@@ -822,7 +822,7 @@ void Scene::ForwardPass() {
         RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             if (!model->IsAccelerationEnabled()) { continue; }
 
@@ -835,7 +835,7 @@ void Scene::ForwardPass() {
     }
     #else
     {
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             if (!model->IsAccelerationEnabled()) { continue; }
 
@@ -846,7 +846,7 @@ void Scene::ForwardPass() {
         }
 
         // draw phase1: draw visible meshlet
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             if (!model->IsAccelerationEnabled()) { continue; }
 
@@ -859,7 +859,7 @@ void Scene::ForwardPass() {
         RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             if (!model->IsAccelerationEnabled()) { continue; }
 
@@ -873,7 +873,6 @@ void Scene::ForwardPass() {
     #endif
 #endif
     glDisable(GL_DEPTH_TEST);
-
     GLCheckError();
 }
 
@@ -883,6 +882,10 @@ void Scene::TransparentPass() {
     // Without blending, the alpha value in the color will be ignored.
     // glEnable(GL_BLEND);
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
 
     // 1.reset oit pipeline status
     {
@@ -911,7 +914,7 @@ void Scene::TransparentPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() != 1.0f) {
@@ -942,11 +945,16 @@ void Scene::TransparentPass() {
 
     // glDisable(GL_BLEND);
 #endif
+    glDisable(GL_DEPTH_TEST);
     GLCheckError();
 }
 
 void Scene::VolumeRenderingPass() {
 #ifdef IGAME_OPENGL_VERSION_460
+    // use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
+
     // 1.reset oit pipeline status
     {
         auto shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
@@ -974,7 +982,7 @@ void Scene::VolumeRenderingPass() {
     glDepthMask(GL_FALSE);
     {
         // add the result of drawing opaque objects
-        for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawWithVolume();
         }
@@ -1002,6 +1010,7 @@ void Scene::VolumeRenderingPass() {
     }
     glEnable(GL_DEPTH_TEST);
 #endif
+    glDisable(GL_DEPTH_TEST);
     GLCheckError();
 }
 
@@ -1192,7 +1201,7 @@ void Scene::RotateNinetyCounterClockwise() {
 
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
         if (!model->GetDataObject()->IsDrawable()) { continue; }
@@ -1208,7 +1217,7 @@ void Scene::UpdateModelsBoundingSphere() {
     igm::vec3 max(-FLT_MAX);
 
     auto box = m_Painter3D->GetBoundingBox();
-    for (auto it = m_Models->Begin(); it != m_Models->End(); ++it) {
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
         if (!model->GetVisibility()) { continue; }

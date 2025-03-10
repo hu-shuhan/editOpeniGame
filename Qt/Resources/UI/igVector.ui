@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>312</width>
-    <height>170</height>
+    <height>261</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -44,7 +44,7 @@
      <x>20</x>
      <y>30</y>
      <width>261</width>
-     <height>191</height>
+     <height>204</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="formLayout">
@@ -66,6 +66,9 @@
       </item>
      </layout>
     </item>
+    <item row="0" column="1">
+     <widget class="QLineEdit" name="headRlineEdit"/>
+    </item>
     <item row="1" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
@@ -83,6 +86,9 @@
        </widget>
       </item>
      </layout>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLineEdit" name="headLlineEdit"/>
     </item>
     <item row="2" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_4">
@@ -102,6 +108,9 @@
       </item>
      </layout>
     </item>
+    <item row="2" column="1">
+     <widget class="QLineEdit" name="tailRlineEdit"/>
+    </item>
     <item row="3" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_5">
       <item>
@@ -120,7 +129,10 @@
       </item>
      </layout>
     </item>
-    <item row="4" column="0" colspan="2">
+    <item row="3" column="1">
+     <widget class="QLineEdit" name="tailLlineEdit"/>
+    </item>
+    <item row="5" column="0" colspan="2">
      <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,3,0">
       <item>
        <widget class="QLabel" name="label_6">
@@ -141,17 +153,41 @@
       </item>
      </layout>
     </item>
-    <item row="0" column="1">
-     <widget class="QLineEdit" name="headRlineEdit"/>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLineEdit" name="headLlineEdit"/>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLineEdit" name="tailRlineEdit"/>
-    </item>
-    <item row="3" column="1">
-     <widget class="QLineEdit" name="tailLlineEdit"/>
+    <item row="4" column="0" colspan="2">
+     <layout class="QHBoxLayout" name="horizontalLayout_9">
+      <item>
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>模式参数</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEdit"/>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEdit_2"/>
+      </item>
+      <item>
+       <widget class="QComboBox" name="comboBox_2">
+        <item>
+         <property name="text">
+          <string>AllCell</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>CellInRange</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>EveryNth</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
     </item>
    </layout>
   </widget>

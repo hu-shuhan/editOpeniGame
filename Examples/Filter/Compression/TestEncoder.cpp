@@ -1,10 +1,7 @@
 #include <iGameFileIO.h>
-#include <iGameMeshCodec/iGameMeshEncoder.h>
-
+#include <iGameMeshCodec/iGameMeshLoomEncoder.h>
 #include <iGameInteractor.h>
-#include <iGameMeshCodec/iGameMeshDecoder.h>
 #include <iGameRenderWindow.h>
-
 #include <iGameSmartPointer.h>
 #include <iGameSurfaceMesh.h>
 
@@ -14,17 +11,9 @@ int main() {
 
     // encoder test
     iGame::DataObject::Pointer sourceDataObj = iGame::FileIO::ReadFile(sourceFileName);
-    auto encoder = iGame::MeshEncoder::New();
-
-    encoder->PointQuantizedMode = iGame::QuantMode::Float;
-    encoder->m_PointQuantizedBits = 16;
-    encoder->m_AttrbQuantMode = iGame::QuantMode::Float;
-    encoder->m_AttrbQuantizedBits = 16;
-    encoder->m_errorStaMode = iGame::ErrorStatusMode::MAPE;
-    std::vector<std::string> errorSta;
-    encoder->m_errorStaResult = &errorSta;
-
-    encoder->SetSaveFilePath(encodedFileName);
-    encoder->SetInput(sourceDataObj);
+    
+    iGame::UIControlParams params = iGame::MeshLoomEncoder::GenUiControlParams(sourceDataObj);
+    
+    auto encoder = new iGame::MeshLoomEncoder(encodedFileName, sourceDataObj, params);
     encoder->Execute();
 }
