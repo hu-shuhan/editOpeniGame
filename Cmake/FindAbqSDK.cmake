@@ -29,8 +29,8 @@ find_path(AbqSDK_DLL_DIR
         NAMES
         ABQSMAAbuGeom.dll
         PATHS
-        "E:/SIMULIA/EstProducts/2024/win_b64/code/bin"
-       # "D:/SIMULIA/SDK/bin"
+#        "E:/SIMULIA/EstProducts/2024/win_b64/code/bin"
+        "D:/SIMULIA/SDK/bin"
         NO_DEFAULT_PATH
 )
 
