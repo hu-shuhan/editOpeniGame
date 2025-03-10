@@ -22,7 +22,7 @@ igQtColorManagerWidget::igQtColorManagerWidget(QWidget* parent) : QWidget(parent
 	connect(ui->widget_HColorArea, &igQtHColorAreaWidget::sigHueChanged, ui->widget_MapColorArea, &igQtSVColorAreaWidget::slotHueChanged);
 	connect(ui->widget_ColorRangeSlider, &igQtColorRangeSlider::MouseReleased, ui->widget_PreviewColorArea, &igQtPreviewColorAreaWidget::setOldColor);
 	connect(ui->widget_ColorRangeSlider, &igQtColorRangeSlider::rangeChanges, this, [&]() {
-		if (ui->checkBox_UpdateInRealTime->isChecked()) {
+	    if (ui->checkBox_UpdateInRealTime->isChecked()) {
 			this->updataManagerColorBar();
 		}});
 	// 颜色编辑框改变
@@ -56,13 +56,13 @@ void igQtColorManagerWidget::changeColorMapMode()
 {
 	int item = ui->comboBox_ColorMode->currentIndex();
 	ui->widget_ColorRangeSlider->changeColorBarWithDefaultMode(item);
-
 }
 
 void igQtColorManagerWidget::updataManagerColorBar()
 {
 	ui->widget_ColorRangeSlider->updataManagerColorBarWithMyCorlorBar();
 	Q_EMIT UpdateColorBarFinished();
+    ui->comboBox_ColorMode->setCurrentIndex(0);
 }
 void igQtColorManagerWidget::resetColorRange()
 {

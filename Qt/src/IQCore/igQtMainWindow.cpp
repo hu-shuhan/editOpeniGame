@@ -614,6 +614,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    /*
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
@@ -682,6 +683,7 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
         rendererWidget->update();
     });
+    */
 
     QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
     connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
@@ -1224,164 +1226,6 @@ void igQtMainWindow::initAllFilters() {
     //        modelTreeWidget->addDataObjectToModelTree(mesh,
     //            ItemSource::File);
     //    });
-
-    auto action_tensorview = ui->menu_help->addAction("tensorview");
-    //action_tensorview->hide();
-    connect(action_tensorview, &QAction::triggered, this, [&](bool checked) {
-        auto mesh = DynamicCast<SurfaceMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        if (!mesh) return;
-
-        auto painter3D = rendererWidget->GetScene()->GetCurrentModel()->GetPainter3D();
-        painter3D->SetPen(5.0f);
-        painter3D->SetPen(Color::Green);
-
-        mesh->RequestEditStatus();
-        auto edges = mesh->GetEdges();
-        auto edgeNum = mesh->GetNumberOfEdges();
-        igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
-        for (int i = 0; i < edgeNum; i++) {
-            IdArray::Pointer LK_face = IdArray::New();
-            mesh->GetEdgeToNeighborFaces(i, LK_face);
-            if (LK_face->GetNumberOfIds() == 1) continue;
-            auto fh1 = LK_face->RawPointer()[0];
-            auto fh2 = LK_face->RawPointer()[1];
-            Vector3f n1;
-            Vector3f n2;
-
-            mesh->GetFacePointIds(fh1, vhs);
-            auto p1 = mesh->GetPoint(vhs[0]);
-            auto p2 = mesh->GetPoint(vhs[1]);
-            auto p3 = mesh->GetPoint(vhs[2]);
-            n1 = (p2 - p1).cross(p3 - p1).normalized();
-
-            mesh->GetFacePointIds(fh2, vhs);
-            p1 = mesh->GetPoint(vhs[0]);
-            p2 = mesh->GetPoint(vhs[1]);
-            p3 = mesh->GetPoint(vhs[2]);
-            n2 = (p2 - p1).cross(p3 - p1).normalized();
-
-            double angle = (M_PI - acos(n1 * n2)) * 180.0 / M_PI;
-            if (angle < 120.0) {
-                edges->GetCellIds(i, vhs);
-                painter3D->DrawLine(mesh->GetPoint(vhs[0]), mesh->GetPoint(vhs[1]));
-            }
-        }
-        return;
-        // StructuredMesh::Pointer mesh = StructuredMesh::New();
-        // Points::Pointer points = Points::New();
-        // int x = 50, y = 50, z = 50;
-        // igIndex dim[3] = {x, y, z};
-        // double step[3] = {1.0 / x, 1.0 / y, 1.0 / z};
-        // points->Reserve(x * y * z);
-        // auto array = DoubleArray::New();
-        // array->SetName("radius");
-        // array->Reserve(x * y * z);
-        // for (int i = 0; i < x; i++) {
-        //     for (int j = 0; j < y; j++) {
-        //         for (int k = 0; k < z; k++) {
-        //             points->AddPoint(
-        //                     Point{float(i * step[0] - 0.5), float(j * step[1] - 0.5), float(k * step[2] - 0.5)});
-        //         }
-        //     }
-        // }
-        // double r;
-        // for (int i = 0; i < points->GetNumberOfPoints(); i++) {
-        //     auto p = points->GetPoint(i);
-        //     r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-        //     array->AddValue(r);
-        // }
-        // mesh->SetDimensionSize(dim);
-        // mesh->SetPoints(points);
-        // mesh->GenStructuredCellConnectivities();
-        // mesh->SetName("undefined_mesh");
-        // auto box = VolumeMesh::New();
-        // box->SetPoints(mesh->GetPoints());
-        // box->SetVolumes(mesh->GetVolumes());
-        // auto attribute = box->GetAttributeSet();
-        // attribute->AddAttribute(IG_SCALAR, IG_POINT, array);
-        // modelTreeWidget->addDataObjectToModelTree(box, ItemSource::File);
-        // return;
-
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-
-
-        // auto mesh = DynamicCast<UnstructuredMesh>(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject())
-        //                     ->GetDisplayObject();
-        // auto jixiebi = SurfaceMesh::New();
-        // auto faces = CellArray::New();
-        //
-        // jixiebi->SetName("jixiebi");
-        // auto a = DynamicCast<SurfaceMesh>(mesh);
-        // jixiebi->SetPoints(a->GetPoints());
-        // faces->Reserve(a->GetNumberOfFaces() * 12);
-        // igIndex vhs[6] = {0};
-        // for (int i = 0; i < a->GetNumberOfFaces(); i++) {
-        //     a->GetFaces()->GetCellIds(i, vhs);
-        //     faces->AddCellId3(vhs[0], vhs[1], vhs[5]);
-        //     faces->AddCellId3(vhs[1], vhs[2], vhs[3]);
-        //     faces->AddCellId3(vhs[1], vhs[3], vhs[5]);
-        //     faces->AddCellId3(vhs[3], vhs[4], vhs[5]);
-        // }
-        // jixiebi->SetFaces(faces);
-        // auto attributeSet = a->GetAttributeSet();
-        // auto as = jixiebi->GetAttributeSet();
-        // for (int i = 0; i < attributeSet->GetNumberOfAttributes(); i++) {
-        //     if (attributeSet->GetAttribute(i).GetAttachmentType() == IG_POINT) {
-        //         as->AddAttribute(attributeSet->GetAttribute(i).GetType(),
-        //                          attributeSet->GetAttribute(i).GetAttachmentType(),
-        //                          attributeSet->GetAttribute(i).GetPointer());
-        //     }
-        // }
-        // modelTreeWidget->addDataObjectToModelTree(jixiebi, ItemSource::File);
-        // return;
-        //auto chart = new igQtCharts;
-        //auto dataarray = rendererWidget->GetScene()
-        //                         ->GetCurrentModel()
-        //                         ->GetDataObject()
-        //                         ->GetAttributeSet()
-        //                         ->GetAttribute(0)
-        //                         .pointer;
-        //chart->drawBarChart(dataarray);
-        //chart->exec();
-
-
-        /*   QuickModelClip::Pointer filter = QuickModelClip::New();
-		auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-		filter->SetInput(input);
-		auto bound = input->GetBoundingBox();
-		auto ori = (bound.min + bound.max) / 2;
-		double n[3] = {0, 1, 0};
-		double o[3] = {ori[0], ori[1], ori[2]};
-		filter->SetPlane(o, n);
-		filter->SetIsSlice(false);
-		filter->Execute();
-		auto res = filter->GetOutput();
-		res->SetName("Quick Clip");
-		modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
-		ModelClip::Pointer filter2 = ModelClip::New();
-		filter2->SetInput(input);
-		filter2->SetPlane(o, n);
-		filter2->SetIsSlice(false);
-		filter2->Execute();
-		auto res2 = filter2->GetOutput();
-		res2->SetName("Old Clip");
-		modelTreeWidget->addDataObjectToModelTree(res2, Algorithm);
-		rendererWidget->update();*/
-
-        ContourFilter::Pointer filter = ContourFilter::New();
-        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(input);
-        auto m_ScalarArray = input->GetAttributeSet()->GetAllPointAttributes()->GetElement(0).pointer;
-        auto m_IsoValue = 0.5;
-        auto m_ScalarDimension = 0;
-        filter->SetIsoScalarData(m_ScalarArray, m_IsoValue, m_ScalarDimension);
-        filter->Execute();
-        auto res = filter->GetOutput();
-        res->SetName("Contour Result");
-        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
-        rendererWidget->update();
-    });
-
 
     //     cp
 
