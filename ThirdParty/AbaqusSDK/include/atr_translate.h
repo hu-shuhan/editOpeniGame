@@ -1,1 +1,0 @@
-#include "SMABase\PublicInterfaces\atr_translate.h"

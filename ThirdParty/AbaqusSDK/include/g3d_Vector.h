@@ -1,1 +1,0 @@
-#include "SMAAbuAbaqusUtilities\PublicInterfaces\g3d_Vector.h"

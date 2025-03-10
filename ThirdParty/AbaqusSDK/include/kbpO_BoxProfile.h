@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\kbpO_BoxProfile.h"

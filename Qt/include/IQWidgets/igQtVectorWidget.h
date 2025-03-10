@@ -1,10 +1,10 @@
 #pragma once
-#include<ui_igVector.h>
+#include <ui_igVector.h>
 //#include <iGameManager.h>
-#include<iostream>
+#include "iGameSceneManager.h"
 #include <VectorView/iGameVectorBase.h>
 #include <iGameUnstructuredMesh.h>
-#include "iGameSceneManager.h"
+#include <iostream>
 class igQtVectorWidget : public QWidget {
 
     Q_OBJECT
@@ -20,9 +20,11 @@ public slots:
     void changeHL();
     void changeTR();
     void changeTL();
+    void changeDrawModeP();
     void updateVectorNameList();
     void changeVecName();
     void drawV();
+    void switchMode();
 signals:
     void DrawDireVector(iGame::DataObject::Pointer);
     void UpdateDireVector(iGame::DataObject::Pointer);
@@ -44,5 +46,4 @@ private:
     bool haveChange = false;
     iGame::iGameVectorBase::Pointer m_VectorBase{nullptr};
     iGame::Model::Pointer m_Model{nullptr};
-    
 };
