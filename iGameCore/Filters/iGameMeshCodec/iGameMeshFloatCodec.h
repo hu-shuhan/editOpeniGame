@@ -28,20 +28,57 @@ public:
 		int encodeVertexSize = floatParams.valueSize * dimension;
 		int encodeElementCount = elementCount;
 
+
+		T max_val = source[0];
+		T min_val = source[0];
+
+
+		auto LogQuantize = [&](T value, int bits) -> T {
+			// 1. 计算偏移量，确保所有值严格为正数（避免 log(0) 或负数）
+			T epsilon = 1e-6; // 防止偏移后的值为零
+			T offset = (min_val <= 0) ? (-min_val + epsilon) : 0;
+			T shifted_min = min_val + offset;
+			T shifted_max = max_val + offset;
+
+			// 2. 输入值限制在原始范围 [min_val, max_val]
+			value = std::clamp(value, min_val, max_val);
+
+			// 3. 应用偏移并计算对数域
+			T shifted_value = value + offset;
+			T log_min = std::log(shifted_min);
+			T log_max = std::log(shifted_max);
+			T scale = (log_max - log_min) / ((1ULL << bits) - 1); // 量化步长
+
+			// 4. 对偏移后的值进行量化
+			T log_value = std::log(shifted_value);
+			auto quantized = static_cast<uint64_t>(std::round((log_value - log_min) / scale));
+
+			// 5. 反量化并恢复原始范围
+			T dequantized_log = log_min + quantized * scale;
+			T dequantized_shifted = std::exp(dequantized_log);
+			T dequantized = dequantized_shifted - offset;
+
+			// 6. 确保反量化值不超出原始范围（防止浮点误差）
+			T result = std::clamp(dequantized, min_val, max_val);
+			return std::clamp(dequantized, min_val, max_val);
+			};
+
 		auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
 			strength = std::min(std::max(strength, 0.0f), 1.0f);
 			const int levels = maxBits - minBits + 1;
-			const int index = (strength == 0.0f) ? 0 : static_cast<int>((strength * levels));
-			return maxBits - index;
+			const int index = (strength == 0.0f) ? 0 : static_cast<int>(strength * levels);
+			const int cappedIndex = std::min(index, levels - 1);
+			return maxBits - cappedIndex;
 			};
 
-		auto LogStrengthToBits = [=](float strength) -> int
-			{
+		auto LogStrengthToBits = [=](float strength) -> int {
+			// 损坏最高 损坏最低
 				return StrengthToBits(strength, 8, 24);
 			};
 
 		auto MantissaStrengthToBits = [=](float strength) -> int {
-			return StrengthToBits(strength, 8, 23);
+
+			return StrengthToBits(strength, 2, 23);
 			};
 
 		auto LogErrorToBits = [&](double epsilon) -> int {
@@ -115,6 +152,15 @@ public:
 			{
 			case LossyMode::LogQuantization:
 			{
+				for (const T& val : source) {
+					if (val > max_val) {
+						max_val = val;
+					}
+					if (val < min_val) {
+						min_val = val;
+					}
+				}
+
 				doQuantize(LogQuantize, LogStrengthToBits);
 				break;
 			}
@@ -155,34 +201,6 @@ public:
 		);
 
 		return;
-	}
-
-private:
-	static float LogQuantize(float value, int bits) {
-		// 处理特殊情况：0和负数
-		if (value <= 0.0f) {
-			return 0.0f;
-		}
-
-		// 定义对数空间的范围
-		const float minExp = -10.0f;  // 最小指数10^-10
-		const float maxExp = 10.0f;   // 最大指数10^10
-		const float expRange = maxExp - minExp;
-
-		// 计算对数并归一化
-		float logValue = log10(value);
-
-		// 将对数值限制在[minExp, maxExp]范围内
-		logValue = std::min(std::max(logValue, minExp), maxExp);
-
-		// 计算离散化的步长
-		float stepSize = expRange / ((1 << bits) - 1);
-
-		// 对对数值进行离散化，找到最接近的离散值
-		int discreteLevel = static_cast<int>((logValue - minExp) / stepSize + 0.5f);
-
-		// 直接返回对应的实际值
-		return pow(10.0f, minExp + discreteLevel * stepSize);
 	}
 };
 

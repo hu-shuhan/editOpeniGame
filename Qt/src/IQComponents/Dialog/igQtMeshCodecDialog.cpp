@@ -44,15 +44,18 @@ void igQtMeshCodecDialog::InitUIControlParams()
         if (i == 0)
         {
             p.dataName = m_GeomName;
+            p.dimension = 3;
+            p.elementCount = iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints();
             p.isKeyElement =
-                std::vector<bool>(iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints(), false);
-            
+                std::vector<bool>(p.elementCount, false);
         }
         else
         {
             auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i - 1);
             p.dataName = attr.pointer->GetName();
-            p.isKeyElement = std::vector<bool>(attr.pointer->GetNumberOfElements(), false);
+            p.dimension = attr.pointer->GetDimension();
+            p.elementCount = attr.pointer->GetNumberOfElements();
+            p.isKeyElement = std::vector<bool>(p.elementCount, false);
         }
         
         p.lossyMode = iGame::LossyMode::MantissaTruncation;
@@ -226,33 +229,33 @@ void igQtMeshCodecDialog::on_tabDataDist_currentChanged(int index)
     LoadAttrFeatureWidget();
 }
 
-void igQtMeshCodecDialog::onCheckBoxStateChanged(int index, int state)
+void igQtMeshCodecDialog::onCheckBoxStateChanged(int binIndex, int state)
 {
     int dataIndex = GetCurrentDataIndex();
     int featureIndex = GetCurrentFeatureIndex();
-    auto attr = m_dataObj->GetAttributeSet()->GetAttribute(dataIndex);
-    int dim = attr.pointer->GetDimension();
-    int elementNum = attr.pointer->GetNumberOfElements();
+    
+    int dim = m_params.errorBoundSetting[dataIndex].dimension;
+    int elementNum = m_params.errorBoundSetting[dataIndex].elementCount;
 
     if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
     {
         return;
     }
 
-    bool check = m_featureTabs[featureIndex].checkBoxes[index]->isChecked();
-    m_attrFeatureDatas[dataIndex][featureIndex].checkStatus[index] = check;
+    bool check = m_featureTabs[featureIndex].checkBoxes[binIndex]->isChecked();
+    m_attrFeatureDatas[dataIndex][featureIndex].checkStatus[binIndex] = check;
 
     // AND
     bool isKey = false;
     for (int i = 0; i < m_featureNum; i++)
     {
-        if (m_attrFeatureDatas[dataIndex][i].checkStatus[index] == true)
+        if (m_attrFeatureDatas[dataIndex][i].checkStatus[binIndex] == true)
         {
             isKey = true;
         }
     }
 
-    for (auto idx : m_attrFeatureDatas[dataIndex][featureIndex].idInBins[index])
+    for (auto idx : m_attrFeatureDatas[dataIndex][featureIndex].idInBins[binIndex])
     {
         m_params.errorBoundSetting[dataIndex].isKeyElement[idx] = isKey;
     }

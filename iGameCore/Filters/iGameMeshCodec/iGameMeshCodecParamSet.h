@@ -17,16 +17,14 @@ enum class ErrorMode{
 	KeyArea
 };
 
-struct FloatErrorParameters {
+struct FloatParameters {
 	LossyMode lossyMode; // 量化模式
 	ErrorMode errorMode;
 
 	float defaultErrorBound;
 	float keyAreaErrorBound;
 	float nonKeyAreaErrorBound;
-};
 
-struct FloatParameters : FloatErrorParameters {
 	// element 由一组value组成 当然也有可能是单个
 	IGsize valueSize; // 单个分量尺寸 单位byte
 	IGsize elementCount; // 元素数量 elementCount * dimension = valueCount
@@ -91,7 +89,7 @@ struct CodecParameters : ParametersWoAttr {
 	std::vector<AttrParameters> attrParams;
 };
 
-struct FloatErrorControlParameters : FloatErrorParameters {
+struct FloatErrorControlParameters : FloatParameters {
 	// 约定 0号data是顶点坐标
 	std::string dataName;
 	std::vector<bool> isKeyElement; // 标记每个数据点是否是重要的
