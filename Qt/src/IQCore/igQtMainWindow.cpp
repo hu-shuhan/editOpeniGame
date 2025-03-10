@@ -2,8 +2,6 @@
 //
 // Created by m_ky on 2024/4/10.
 //
-#include "Compression/iGameDecoder.h"
-#include "Compression/iGameEncoder.h"
 #include "Interactor/iGameInteractor.h"
 #include "SurfaceMeshFilters/iGameGradient.h"
 #include "SurfaceMeshFilters/iGameSimplification.h"
@@ -38,6 +36,7 @@
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <meshoptimizer.h>
 #include <stdio.h>
 
@@ -218,106 +217,17 @@ void igQtMainWindow::initAllComponents() {
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        dialog->setFilterTitle("压缩");
-        dialog->setFilterDescription("自定义量化位数: 截断浮点数位数(1~23位); FP16: 半精度浮点数; 无量化: "
-                                     "保留原始格式; 1ULP误差: 浮点数绝对误差/(2^-23)");
-        std::vector<QString> defaultValue1;
-        defaultValue1.push_back("自定义量化位数");
-        defaultValue1.push_back("FP16");
-        defaultValue1.push_back("无量化");
-        std::vector<QString> defaultValue2;
-        defaultValue2.push_back("自定义量化位数");
-        defaultValue2.push_back("FP16");
-        defaultValue2.push_back("无量化");
-        int id1 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "顶点坐标量化模式", defaultValue1);
+        auto sceneManager = iGame::SceneManager::Instance();
+        auto scene = sceneManager->GetCurrentScene();
+        if (!scene) return false;
+        auto currentModel = scene->GetCurrentModel();
+        if (!currentModel) return false;
+        auto obj = currentModel->GetDataObject();
+        if (!obj) return false;
 
-        int id2 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "顶点坐标量化位数", "16");
-
-        int id3 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "属性量化模式", defaultValue2);
-
-        int id4 = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "属性量化位数", "16");
-
-        // 量化位数控制
-        QRegExp regExp("^(1|[2-9]|1[0-9]|2[0-3])$");
-        QLineEdit* widget2 = qobject_cast<QLineEdit*>(dialog->getWidget(id2));
-        QLineEdit* widget4 = qobject_cast<QLineEdit*>(dialog->getWidget(id4));
-        QRegExpValidator* validator = new QRegExpValidator(regExp, this);
-        widget2->setValidator(validator);
-        widget4->setValidator(validator);
-
-        std::vector<QString> defaultValue3;
-        defaultValue3.push_back("不计算");
-        defaultValue3.push_back("MAPE");
-        //defaultValue3.push_back("平均1ULP误差");
-        defaultValue3.push_back("全部");
-
-        int id5 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "误差统计", defaultValue3);
-
-        std::vector<QString> defaultValue4;
-        defaultValue4.push_back("不计算");
-        defaultValue4.push_back("BPV");
-        defaultValue4.push_back("压缩比");
-        defaultValue4.push_back("全部");
-
-        int id6 = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, "压缩比统计", defaultValue4);
-
-        // 量化位数参数仅在自定义量化位数时生效
-        QWidget* widget1 = dialog->getWidget(id1);
-        QWidget* widget3 = dialog->getWidget(id3);
-
-        if (widget1) {
-            connect(qobject_cast<QComboBox*>(widget1), QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                    [=](int index) { dialog->getWidget(id2)->setEnabled(index == 0); });
-        }
-
-        if (widget3) {
-            connect(qobject_cast<QComboBox*>(widget3), QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                    [=](int index) { dialog->getWidget(id4)->setEnabled(index == 0); });
-        }
-
-        dialog->show();
-        dialog->setApplyFunctor([=]() {
-            std::string destFilePath =
-                    QFileDialog::getSaveFileName(nullptr, "Compress file as ", "", "Compress Mesh(*.igc)")
-                            .toStdString();
-            if (destFilePath.empty()) {
-                igDebug("Could not save file with error file path\n");
-                return;
-            }
-
-            bool ok;
-            std::vector<std::string> errorStatus;
-            std::vector<std::string> compactnessStatus;
-
-            ok = fileLoader->Compress(dialog->getComboIndex(id1, ok), dialog->getInt(id2, ok),
-                                      dialog->getComboIndex(id3, ok), dialog->getInt(id4, ok),
-                                      dialog->getComboIndex(id5, ok), dialog->getComboIndex(id6, ok),
-                                      dialog->getComboIndex(id5, ok) != 0 ? &errorStatus : nullptr,
-                                      dialog->getComboIndex(id6, ok) != 0 ? &compactnessStatus : nullptr, destFilePath);
-
-            if (ok) {
-                QString result = "压缩成功\n\n";
-                if (dialog->getComboIndex(id5, ok) != 0) {
-                    result += "误差统计\n";
-                    for (const std::string& l: errorStatus) {
-                        result += QString::fromStdString(l);
-                        result += "\n";
-                    }
-                }
-                if (dialog->getComboIndex(id6, ok) != 0) {
-                    result += "\n压缩率统计\n";
-                    for (const std::string& l: compactnessStatus) {
-                        result += QString::fromStdString(l);
-                        result += "\n";
-                    }
-                }
-
-                QMessageBox::information(this, "压缩成功", result);
-                dialog->close();
-            } else
-                QMessageBox::information(this, "压缩失败", "请检查是否正确载入数据");
-        });
+        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
+        d->show();
+        //modelTreeWidget->updateAllAttriubute(obj);
     });
 
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
@@ -1338,10 +1248,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto dataObject = CurrentModel->GetDataObject();
         if (!dataObject) return;
         auto attributeSet = dataObject->GetAttributeSet();
-        auto attrIndex = dataObject->GetAttributeIndex();
+        auto dataIndex = dataObject->GetAttributeIndex();
         auto attrDimension = dataObject->GetAttributeDimension();
-        if (attrIndex < 0) { return; }
-        auto array = attributeSet->GetAttribute(attrIndex).pointer;
+        if (dataIndex < 0) { return; }
+        auto array = attributeSet->GetAttribute(dataIndex).pointer;
         if (array == nullptr) return;
         ArrayObject::Pointer drawArray = nullptr;
         if (array->GetDimension() <= 1) {

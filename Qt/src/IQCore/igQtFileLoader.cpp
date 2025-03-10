@@ -9,8 +9,8 @@
 
 #include "iGameFileIO.h"
 //#include "CSTest.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
+//#include "iGameMeshCodec/iGameMeshEncoder.h"
+//#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
@@ -219,99 +219,6 @@ void igQtFileLoader::SaveFileAs() {
     if (!iGame::FileIO::WriteFile(filePath, obj)) {
         igDebug("Save File Error\n");
     }
-}
-bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4, int p5, int p6, std::vector<std::string>* p7, std::vector<std::string>* p8, std::string dest) {
-    auto sceneManager = iGame::SceneManager::Instance();
-    auto scene = sceneManager->GetCurrentScene();
-    if (!scene) return false;
-    auto currentModel = scene->GetCurrentModel();
-    if (!currentModel) return false;
-    auto obj = currentModel->GetDataObject();
-    if (!obj) return false;
-
-    iGame::MeshEncoder::Pointer filter = MeshEncoder::New();
-    switch (p1)
-    {
-    case 0:
-        filter->m_PointQuantMode = iGame::QuantMode::Float;
-        filter->m_PointQuantizedBits = p2;
-        break;
-    case 1:
-        filter->m_PointQuantMode = iGame::QuantMode::FP16;
-        break;
-    case 2:
-        filter->m_PointQuantMode = iGame::QuantMode::None;
-        break;
-    default:
-        return false;
-    }
-
-    switch (p3)
-    {
-    case 0:
-        filter->m_AttrbQuantMode = iGame::QuantMode::Float;
-        filter->m_AttrbQuantizedBits = p4;
-        break;
-    case 1:
-        filter->m_AttrbQuantMode = iGame::QuantMode::FP16;
-        break;
-    case 2:
-        filter->m_AttrbQuantMode = iGame::QuantMode::None;
-        break;
-    default:
-        return false;
-    }
-
-    switch (p5)
-    {
-	case 0:
-		filter->m_errorStaMode = iGame::ErrorStaMode::None;
-		break;
-	case 1:
-		filter->m_errorStaMode = iGame::ErrorStaMode::MAPE;
-		break;
-    /*
-    case 2:
-		filter->m_errorStaMode = iGame::ErrorStaMode::OneULP;
-		break;
-    case 3:
-		filter->m_errorStaMode = iGame::ErrorStaMode::All;
-		break;
-    */
-    default:
-		return false;
-    }
-
-    switch (p6)
-    {
-    case 0:
-        filter->m_cpStaMode = iGame::CompactnessMode::None;
-        break;
-    case 1:
-        filter->m_cpStaMode = iGame::CompactnessMode::BPV;
-        break;
-    case 2:
-        filter->m_cpStaMode = iGame::CompactnessMode::CompressRate;
-        break;
-    case 3:
-        filter->m_cpStaMode = iGame::CompactnessMode::All;
-        break;
-    default:
-        return false;
-    }
-
-    filter->m_errorStaResult = p7;
-    filter->m_cpStaResult = p8;
-
-    filter->SetNumberOfInputs(1);
-    filter->SetSaveFilePath(dest);
-    filter->SetInput(obj);
-
-    if (!filter->Execute()) {
-        igDebug("Compress File Error\n");
-        return false;
-    }
-    return true;
 }
 
 void igQtFileLoader::SaveCurrentFileToRecentFile(QString path) {

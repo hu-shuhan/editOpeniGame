@@ -6,26 +6,36 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-typedef enum {
-	None = 0,
-	FP16 = 1, 
-	Float = 2
-} QuantMode;
+enum class LossyMode {
+	MantissaTruncation,  // 尾数截断
+	LogQuantization  // 对数量化
+};
 
-struct MeshOptFloatParameters {
-	double scale; // 小数点后精度控制 如果-1代表不启用
-	QuantMode quantMode; // 量化模式
-	int quantParam; // 量化参数 仅在Float形式有效
+enum class ErrorMode{
+	None,
+	Default,
+	KeyArea
+};
 
+struct FloatErrorParameters {
+	LossyMode lossyMode; // 量化模式
+	ErrorMode errorMode;
+
+	float defaultErrorBound;
+	float keyAreaErrorBound;
+	float nonKeyAreaErrorBound;
+};
+
+struct FloatParameters : FloatErrorParameters {
 	// element 由一组value组成 当然也有可能是单个
 	IGsize valueSize; // 单个分量尺寸 单位byte
 	IGsize elementCount; // 元素数量 elementCount * dimension = valueCount
 	int dimension; // 维度
 };
 
-struct MeshOptGeomParameters : MeshOptFloatParameters {};
+struct GeomParameters : FloatParameters {};
 
-struct MeshOptAttrParameters : MeshOptFloatParameters {
+struct AttrParameters : FloatParameters {
 	char name[256]; // 名称
 	
 	IGenum type; // 类型 IG_SCALAR, IG_VECTOR, IG_NORMAL, IG_TCOORD, IG_TENSOR
@@ -34,7 +44,7 @@ struct MeshOptAttrParameters : MeshOptFloatParameters {
 	IGsize binaryCount; // 在二进制流中的长度
 };
 
-struct MeshOptTopoParameters {
+struct TopoParameters {
 	bool isSecondaryIndex; // 是否启用二阶索引
 	int fixedCellSize; // 等于0时代表启用offset buffer 反之则代表固定offset
 	
@@ -56,12 +66,12 @@ struct MeshOptTopoParameters {
 	IGsize cellTypeBinaryCount;
 };
 
-struct MeshOptStructuredMeshParameters {
+struct StructuredMeshParameters {
 	int axisSize[3];
 };
 
 // 仅用于二进制写入
-struct MeshOptParametersWithoutAttr {
+struct ParametersWoAttr {
 	int meshType; // 网格类型 
 	// IG_SURFACE_MESH,
 	// IG_VOLUME_MESH,
@@ -69,47 +79,33 @@ struct MeshOptParametersWithoutAttr {
 	// IG_STRUCTURED_MESH,
 
 	// 结构化网格比较特殊 先把它的参数放在这里
-	MeshOptStructuredMeshParameters structuredMeshParams;
+	StructuredMeshParameters structuredMeshParams;
 
-	MeshOptGeomParameters geomParams;
-	MeshOptTopoParameters topoParams;
+	GeomParameters geomParams;
+	TopoParameters topoParams;
 
 	int attrCount; // 属性数量
 };
 
-struct MeshOptParameters : MeshOptParametersWithoutAttr {
-	std::vector<MeshOptAttrParameters> attrParams;
+struct CodecParameters : ParametersWoAttr {
+	std::vector<AttrParameters> attrParams;
+};
+
+struct FloatErrorControlParameters : FloatErrorParameters {
+	// 约定 0号data是顶点坐标
+	std::string dataName;
+	std::vector<bool> isKeyElement; // 标记每个数据点是否是重要的
 };
 
 // --------------------------------------------------------------------------------------
 // internal codec parameters
 
-enum class ErrorStaMode {
-	None,
-	PSNR,
-	MAPE,
-	L2,
-	OneULP,
-	All
-};
+struct UIControlParams {
+	// 顶点/属性误差设置
+	std::vector<FloatErrorControlParameters> errorBoundSetting;
 
-enum class CompactnessMode {
-	None,
-	BPV,
-	CompressRate,
-	All
-};
-
-struct ParamInformation {
-    iGame::QuantMode PointQuantMode = iGame::QuantMode::Float;
-    int PointQuantizedBits = 16;
-    iGame::QuantMode AttrbQuantMode = iGame::QuantMode::None;
-    int AttrbQuantizedBits = 16;
-
-	ErrorStaMode errorStaMode = ErrorStaMode::None;
-	std::vector<std::string>* errorStaResult = nullptr;
-	CompactnessMode cpStaMode = CompactnessMode::None;
-	std::vector<std::string>* cpStaResult = nullptr;
+	bool visualError;
+	bool showReport;
 };
 
 IGAME_NAMESPACE_END
