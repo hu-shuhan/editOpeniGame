@@ -240,21 +240,21 @@ private:
 
     ProgressObserver* m_Progress{ nullptr };
     void UpdateProgress(double p) {
+        //if (m_Progress) {
+        //    // 使用 Qt 的线程安全调用机制
+        //    QMetaObject::invokeMethod(QCoreApplication::instance(), [=]() {
+        //        m_Progress->UpdateProgress(p);
+        //        }, Qt::QueuedConnection);
+        //}
+        //else {
+        //    m_Progress = ProgressObserver::Instance();
+        //}
         if (m_Progress) {
-            // 使用 Qt 的线程安全调用机制
-            QMetaObject::invokeMethod(QCoreApplication::instance(), [=]() {
-                m_Progress->UpdateProgress(p);
-                }, Qt::QueuedConnection);
-        }
-        else {
-            m_Progress = ProgressObserver::Instance();
-        }
-        /*if (m_Progress) {
             m_Progress->UpdateProgress(p);
         }
         else {
             m_Progress = ProgressObserver::Instance();
-        }*/
+        }
     }
 
     void LoadUIControlParams(const UIControlParams& uiConParams)
@@ -417,7 +417,7 @@ private:
         
 		float progress = 0.4;
 
-        auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
+        auto remapAttributeValues = [=](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
             size_t valueCount = params.dimension *
                 (params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size());
             remappedBuffer.resize(valueCount);
@@ -496,6 +496,8 @@ private:
         }
     }
     */
+    
+    
 
     void AttrEncoder(
         PayloadBuffer& payload,

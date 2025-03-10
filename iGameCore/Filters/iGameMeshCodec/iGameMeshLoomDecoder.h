@@ -162,62 +162,171 @@ private:
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
     }
 
+    //void AttrDecoder(PayloadBuffer& buf)
+    //{
+    //    std::vector<unsigned char> uCharBuffer(buf.size());
+    //    std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
+
+    //    int binaryCursor = 0;
+    //    for (int i = 0; i < this->m_codecParams.attrParams.size(); i++)
+    //    {
+    //        auto& params = this->m_codecParams.attrParams[i];
+    //        int dimension = params.dimension;
+    //        int elementCount = params.elementCount;
+    //        int valueCount = params.elementCount * params.dimension;
+
+    //        std::vector<unsigned char> inputBuffer(
+    //            uCharBuffer.begin() + binaryCursor,
+    //            uCharBuffer.begin() + binaryCursor + params.binaryCount
+    //        );
+
+    //        binaryCursor += params.binaryCount;
+
+    //        std::vector<float> floats;
+    //        std::vector<double> doubles;
+
+
+    //        auto processType = [&](auto& container, auto valueType) {
+    //            using ValueType = decltype(valueType);
+    //            using ArrayType = FlatArray<ValueType>;
+
+    //            auto decoded = ArrayType::New();
+    //            decoded->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(container, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
+
+    //            decoded->SetDimension(params.dimension);
+    //            decoded->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decoded);
+    //            };
+
+    //        // 调用部分
+    //        if (params.valueSize == sizeof(float)) {
+    //            processType(floats, float{});
+    //        }
+    //        else if (params.valueSize == sizeof(double)) {
+    //            processType(doubles, double{});
+    //        }
+
+    //        /*
+    //        FlatArray<float>::Pointer decodedFloat{ nullptr };
+    //        FlatArray<double>::Pointer decodedDouble{ nullptr };
+
+    //        if (params.valueSize == sizeof(float))
+    //        {
+    //            decodedFloat = FlatArray<float>::New();
+    //            decodedFloat->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decodedFloat->RawPointer(), floats.data(), valueCount * sizeof(float));
+    //            decodedFloat->SetDimension(params.dimension);
+    //            decodedFloat->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedFloat);
+
+    //            //this->FloatDecoder(decodedFloat->RawPointer(), inputBuffer, params);
+    //        }
+    //        else if (params.valueSize == sizeof(double))
+    //        {
+    //            decodedDouble = FlatArray<double>::New();
+    //            decodedDouble->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decodedDouble->RawPointer(), doubles.data(), valueCount * sizeof(double));
+    //            decodedDouble->SetDimension(params.dimension);
+    //            decodedDouble->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedDouble);
+    //            //this->FloatDecoder(decodedDouble->RawPointer(), inputBuffer, params);
+    //        }
+    //        */
+
+
+    //        m_DecompressProgress += 0.2 * (i * 1.0 / this->m_codecParams.attrParams.size());
+    //        UpdateProgress(m_DecompressProgress);
+    //    }
+    //}
+
     void AttrDecoder(PayloadBuffer& buf)
     {
         std::vector<unsigned char> uCharBuffer(buf.size());
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
-
         int binaryCursor = 0;
-        for (int i = 0; i < this->m_codecParams.attrParams.size(); i++)
-        {
-            auto& params = this->m_codecParams.attrParams[i];
-            int dimension = params.dimension;
-            int elementCount = params.elementCount;
-            int valueCount = params.elementCount * params.dimension;
 
-            std::vector<unsigned char> inputBuffer(
-                uCharBuffer.begin() + binaryCursor,
-                uCharBuffer.begin() + binaryCursor + params.binaryCount
-            );
+        // 用于暂存所有线程产生的属性数据
+        struct AttributeInfo {
+            IGenum type;
+            IGenum attachmentType;
+            ArrayObject::Pointer arrayPtr;
+        };
+        std::vector<AttributeInfo> attrInfos(this->m_codecParams.attrParams.size());
 
-            binaryCursor += params.binaryCount;
+        // 进度控制
+        std::atomic<double> progressSum{ 0.0 };
+        std::mutex progressMutex;
 
-            std::vector<float> floats;
-            std::vector<float> doubles;
+        ThreadPool::parallelFor(0, this->m_codecParams.attrParams.size(), [&](int start, int end) -> void {
+            for (int i = start; i < end; i++) {
+                auto& params = this->m_codecParams.attrParams[i];
+                int valueCount = params.elementCount * params.dimension;
 
-            FloatArray::Pointer decodedFloat{ nullptr };
-            DoubleArray::Pointer decodedDouble{ nullptr };
-            if (params.valueSize == sizeof(float))
-            {
-                decodedFloat = FloatArray::New();
-                decodedFloat->Resize(valueCount);
+                // 计算和获取当前属性对应的二进制数据
+                int localBinaryCursor;
+                std::vector<unsigned char> inputBuffer;
+                {
+                    std::lock_guard<std::mutex> lock(progressMutex); // 保护共享的binaryCursor
+                    localBinaryCursor = binaryCursor;
+                    binaryCursor += params.binaryCount;
 
-                MeshOptFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
-                memcpy(decodedFloat->RawPointer(), floats.data(), valueCount * sizeof(float));
-                //this->FloatDecoder(decodedFloat->RawPointer(), inputBuffer, params);
+                    inputBuffer.assign(
+                        uCharBuffer.begin() + localBinaryCursor,
+                        uCharBuffer.begin() + localBinaryCursor + params.binaryCount
+                    );
+                }
+
+                auto processType = [&](auto& container, auto valueType) {
+                    using ValueType = decltype(valueType);
+                    using ArrayType = FlatArray<ValueType>;
+                    auto decoded = ArrayType::New();
+                    decoded->Resize(valueCount);
+                    MeshOptFloatCodec::FloatDecoder(container, inputBuffer, params);
+                    memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
+                    decoded->SetDimension(params.dimension);
+                    decoded->SetName(params.name);
+
+                    // 保存解码结果而不是立即添加
+                    attrInfos[i] = AttributeInfo{ params.type, params.attachmentType, decoded };
+                    };
+
+                if (params.valueSize == sizeof(float)) {
+                    std::vector<float> floats;
+                    processType(floats, float{});
+                }
+                else if (params.valueSize == sizeof(double)) {
+                    std::vector<double> doubles;
+                    processType(doubles, double{});
+                }
+
+                // 更新进度
+                double progressIncrement = 0.2 * (1.0 / this->m_codecParams.attrParams.size());
+                progressSum.fetch_add(progressIncrement);
+
+                // 定期更新总进度（减少互斥锁争用）
+                if (i % 10 == 0 || i == end - 1) {
+                    std::lock_guard<std::mutex> lock(progressMutex);
+                    UpdateProgress(m_DecompressProgress + progressSum.load());
+                }
             }
-            else if (params.valueSize == sizeof(double))
-            {
-                decodedDouble = DoubleArray::New();
-                decodedDouble->Resize(valueCount);
+            });
 
-                MeshOptFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
-                memcpy(decodedDouble->RawPointer(), doubles.data(), valueCount * sizeof(double));
-                //this->FloatDecoder(decodedDouble->RawPointer(), inputBuffer, params);
+        // 更新最终进度
+        m_DecompressProgress += progressSum.load();
+        UpdateProgress(m_DecompressProgress);
+
+        // 所有线程完成后，按顺序添加属性
+        for (const auto& attrInfo : attrInfos) {
+            if (attrInfo.arrayPtr) { // 确保指针有效
+                this->m_DecoderAdapter->AddAttribute(attrInfo.type, attrInfo.attachmentType, attrInfo.arrayPtr);
             }
-
-            // 设置attribute
-            ArrayObject::Pointer data =
-                (params.valueSize == sizeof(float) ?
-                    DynamicCast<ArrayObject>(decodedFloat) :
-                    DynamicCast<ArrayObject>(decodedDouble));
-            data->SetName(params.name);
-            data->SetDimension(params.dimension);
-
-            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, data);
-
-            m_DecompressProgress += 0.2 * (i * 1.0 / this->m_codecParams.attrParams.size());
-            UpdateProgress(m_DecompressProgress);
         }
     }
 
