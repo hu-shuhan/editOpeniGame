@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\korC_HistoryOutputShortcut.h"

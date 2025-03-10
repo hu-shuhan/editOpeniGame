@@ -7,17 +7,17 @@ iGameVectorBase::iGameVectorBase() {
     this->m_PositionColors->SetDimension(3);
     this->index = UnsignedIntArray::New();
     this->index->SetDimension(3);
-    this->hL=0.0;
-    this->hR=0.0;
+    this->hL = 0.0;
+    this->hR = 0.0;
     this->tL = 0;
-    this->tR=0.0;
-    this->count=0;
+    this->tR = 0.0;
+    this->count = 0;
 
     this->SetTransparency(0.99f);
 }
 iGameVectorBase::~iGameVectorBase() {}
 void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
-    if (_hR<=0||_hL<=0||_tR<=0,_tL<=0){
+    if (_hR <= 0 || _hL <= 0 || _tR <= 0, _tL <= 0) {
         std::cout << "Parameter is negative" << std::endl;
         return;
     }
@@ -39,16 +39,14 @@ void iGameVectorBase::SetDrawMode(DrawType _mode) {
     drawmode = _mode;
     return;
 }
-iGameVectorBase::DrawType iGameVectorBase::GetDrawMode(DrawType _mode) { 
-    return drawmode; 
-}
-    void iGameVectorBase::SetInit(bool init) {
+iGameVectorBase::DrawType iGameVectorBase::GetDrawMode() { return drawmode; }
+void iGameVectorBase::SetInit(bool init) {
     isInit = init;
     return;
 }
-    bool iGameVectorBase::GetInit() { return isInit; }
+bool iGameVectorBase::GetInit() { return isInit; }
 int iGameVectorBase::GetNth() { return Nth; }
-void iGameVectorBase::SetNth(int _Nth) { 
+void iGameVectorBase::SetNth(int _Nth) {
     if (_Nth <= 0) {
         std::cout << "Parameter is negative" << std::endl;
         return;
@@ -58,16 +56,13 @@ void iGameVectorBase::SetNth(int _Nth) {
 }
 
 void iGameVectorBase::ComputeBoundingBox() {
-    if (m_Bounding.isNull() ||
-        m_BoundingHelper->GetMTime() < m_Triangles->GetMTime()) {
+    if (m_Bounding.isNull() || m_BoundingHelper->GetMTime() < m_Triangles->GetMTime()) {
         m_Bounding.reset();
-        for (int i = 0; i < m_Triangles->GetNumberOfPoints(); i++) {
-            m_Bounding.add(m_Triangles->GetPoint(i));
-        }
+        for (int i = 0; i < m_Triangles->GetNumberOfPoints(); i++) { m_Bounding.add(m_Triangles->GetPoint(i)); }
         m_BoundingHelper->Modified();
     }
 }
-bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) {
+bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj, std::string VecName) {
     auto _AttributeSet = obj->GetAttributeSet();
     if (!_AttributeSet) return false;
     auto allVectors = _AttributeSet->GetVector(VecName);
@@ -75,16 +70,15 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
     if (allVectors.IsNone()) return false;
     if (allVectors.attachmentType == IG_POINT) {
         long long numOfPoint = allVectors.pointer->GetNumberOfElements();
-        auto allPoints =
-                DynamicCast<PointSet>(obj)->GetPoints();
+        auto allPoints = DynamicCast<PointSet>(obj)->GetPoints();
         auto mapper = DynamicCast<PointSet>(obj)->GetColorMapper();
         auto array = allVectors.pointer;
         mapper->InitRange(array, -1);
         auto colors = mapper->MapScalars(array, -1);
         auto colorsPtr = colors->RawPointer();
-        // Downsampling prevents stuttering 
+        // Downsampling prevents stuttering
         //int temCount = 0;
-        if (drawmode==CellInRange){
+        if (drawmode == CellInRange) {
             int minNum = (CellIndexRange.second < numOfPoint) ? CellIndexRange.second : numOfPoint;
             for (int i = CellIndexRange.first; i < minNum; i++) {
                 float v[4] = {0.0f};
@@ -93,13 +87,10 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                 //temCount++;
                 //if (temCount % 5 == 0) {
                 convertPoint2Arrow(allPoints->GetPoint(i), vec,
-                                   Vector3f(colorsPtr[3 * i],
-                                            colorsPtr[3 * i + 1],
-                                            colorsPtr[3 * i + 2]));
+                                   Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                 // }
             }
-        } else if (drawmode==AllCell||Nth==0)
-        {
+        } else if (drawmode == AllCell || Nth == 0) {
             for (int i = 0; i < numOfPoint; i++) {
                 float v[4] = {0.0f};
                 allVectors.pointer->GetElement(i, v);
@@ -107,9 +98,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                 //temCount++;
                 //if (temCount % 5 == 0) {
                 convertPoint2Arrow(allPoints->GetPoint(i), vec,
-                                   Vector3f(colorsPtr[3 * i],
-                                            colorsPtr[3 * i + 1],
-                                            colorsPtr[3 * i + 2]));
+                                   Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                 // }
             }
         } else {
@@ -121,9 +110,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                 temCount++;
                 if (temCount % Nth == 0) {
                     convertPoint2Arrow(allPoints->GetPoint(i), vec,
-                                       Vector3f(colorsPtr[3 * i],
-                                                colorsPtr[3 * i + 1],
-                                                colorsPtr[3 * i + 2]));
+                                       Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                     // }
                 }
             }
@@ -143,7 +130,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         Vector1->SetDimension(3);
         Vector1->Resize(0);
         igIndex index = 0;
-        if (drawmode==CellInRange){
+        if (drawmode == CellInRange) {
             int minNum = (CellIndexRange.second < numOfCell) ? CellIndexRange.second : numOfCell;
             for (int i = CellIndexRange.first; i < minNum; i++) {
                 float v[4] = {0.0f};
@@ -165,9 +152,9 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         //auto colors = mapper->MapScalars(array, -1);
         auto colorsPtr = colors->RawPointer();
         if (!volumeMesh->GetIsPolyhedronType()) {
-            if (drawmode==CellInRange){
+            if (drawmode == CellInRange) {
                 int minNum = (CellIndexRange.second < numOfCell) ? CellIndexRange.second : numOfCell;
-                for (int i = CellIndexRange.first; i <minNum; i++) {
+                for (int i = CellIndexRange.first; i < minNum; i++) {
                     //      temCount++;
                     // if (temCount % 5 == 0) {
                     float v[4] = {0.0f};
@@ -176,13 +163,10 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                     auto center = centerCul.GetCenter(volume->m_Points);
                     Vector3f vec(v[0], v[1], v[2]);
                     convertPoint2Arrow(center, vec,
-                                       Vector3f(colorsPtr[3 * i],
-                                                colorsPtr[3 * i + 1],
-                                                colorsPtr[3 * i + 2]));
+                                       Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                     //  }
                 }
-            } 
-            else if (drawmode==AllCell||Nth==0){
+            } else if (drawmode == AllCell || Nth == 0) {
                 for (int i = 0; i < numOfCell; i++) {
                     //      temCount++;
                     // if (temCount % 5 == 0) {
@@ -192,9 +176,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                     auto center = centerCul.GetCenter(volume->m_Points);
                     Vector3f vec(v[0], v[1], v[2]);
                     convertPoint2Arrow(center, vec,
-                                       Vector3f(colorsPtr[3 * i],
-                                                colorsPtr[3 * i + 1],
-                                                colorsPtr[3 * i + 2]));
+                                       Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                     //  }
                 }
             } else {
@@ -208,9 +190,7 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                         auto center = centerCul.GetCenter(volume->m_Points);
                         Vector3f vec(v[0], v[1], v[2]);
                         convertPoint2Arrow(center, vec,
-                                           Vector3f(colorsPtr[3 * i],
-                                                    colorsPtr[3 * i + 1],
-                                                    colorsPtr[3 * i + 2]));
+                                           Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                         //  }
                     }
                 }
@@ -219,29 +199,24 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
         } else {
             auto allVolume = volumeMesh->GetVolumes();
             auto allPoints = volumeMesh->GetPoints();
-         //   int temCount = 0;
+            //   int temCount = 0;
             if (drawmode == CellInRange) {
-                for (int i = CellIndexRange.first; i < CellIndexRange.second;
-                     i++) {
+                for (int i = CellIndexRange.first; i < CellIndexRange.second; i++) {
                     float v[4] = {0.0f};
                     allVectors.pointer->GetElement(i, v);
                     auto center = centerCul.GetCenter(allPoints, allVolume, i);
                     Vector3f vec(v[0], v[1], v[2]);
                     convertPoint2Arrow(center, vec,
-                                       Vector3f(colorsPtr[3 * i],
-                                                colorsPtr[3 * i + 1],
-                                                colorsPtr[3 * i + 2]));
+                                       Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                 }
-            } else if(drawmode==AllCell||Nth==5){
-                for (int i = 0; i < numOfCell;i++) {
+            } else if (drawmode == AllCell || Nth == 5) {
+                for (int i = 0; i < numOfCell; i++) {
                     float v[4] = {0.0f};
                     allVectors.pointer->GetElement(i, v);
                     auto center = centerCul.GetCenter(allPoints, allVolume, i);
                     Vector3f vec(v[0], v[1], v[2]);
                     convertPoint2Arrow(center, vec,
-                                       Vector3f(colorsPtr[3 * i],
-                                                colorsPtr[3 * i + 1],
-                                                colorsPtr[3 * i + 2]));
+                                       Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                 }
             } else {
                 int temCount = 0;
@@ -250,13 +225,10 @@ bool iGameVectorBase::addArrow2Draw(iGame::DataObject* obj,std::string VecName) 
                     if (temCount % Nth == 0) {
                         float v[4] = {0.0f};
                         allVectors.pointer->GetElement(i, v);
-                        auto center =
-                                centerCul.GetCenter(allPoints, allVolume, i);
+                        auto center = centerCul.GetCenter(allPoints, allVolume, i);
                         Vector3f vec(v[0], v[1], v[2]);
                         convertPoint2Arrow(center, vec,
-                                           Vector3f(colorsPtr[3 * i],
-                                                    colorsPtr[3 * i + 1],
-                                                    colorsPtr[3 * i + 2]));
+                                           Vector3f(colorsPtr[3 * i], colorsPtr[3 * i + 1], colorsPtr[3 * i + 2]));
                     }
                 }
             }
@@ -271,17 +243,17 @@ void iGameVectorBase::SetCellRange(int min, int max) {
     CellIndexRange.first = min;
     CellIndexRange.second = max;
 }
-std::pair<int,int> iGameVectorBase::GetCellRange() { return CellIndexRange; }
-    bool iGameVectorBase::DrawVector(std::string VecName) {
+std::pair<int, int> iGameVectorBase::GetCellRange() { return CellIndexRange; }
+bool iGameVectorBase::DrawVector(std::string VecName) {
     isUpdate = true;
     if (!isInit) {
         auto sceneManager = iGame::SceneManager::Instance();
         auto scene = sceneManager->GetCurrentScene();
         if (!scene) return false;
-       // scene->AddModel(scene->CreateModel(this));
-       auto model = scene->GetCurrentModel();
+        // scene->AddModel(scene->CreateModel(this));
+        auto model = scene->GetCurrentModel();
         if (!model) return false;
-       obj = model->GetDataObject();
+        obj = model->GetDataObject();
         if (!obj) return false;
         isInit = true;
     }
@@ -294,20 +266,19 @@ std::pair<int,int> iGameVectorBase::GetCellRange() { return CellIndexRange; }
     m_PositionColors->Reset();
     index->Reset();
     count = 0;
-    if (obj->HasSubDataObject()){ 
+    if (obj->HasSubDataObject()) {
         auto it = obj->SubDataObjectIteratorBegin();
         bool canDraw = false;
         for (; it != obj->SubDataObjectIteratorEnd(); it++) {
             auto subObj = it->second;
-            if (addArrow2Draw(subObj, VecName)) { canDraw = true;
-            }
+            if (addArrow2Draw(subObj, VecName)) { canDraw = true; }
         }
         if (canDraw) {
             ConvertToDrawableData();
         } else {
             return false;
         }
-    } else{
+    } else {
         if (addArrow2Draw(obj, VecName)) {
             ConvertToDrawableData();
             return true;
@@ -316,9 +287,8 @@ std::pair<int,int> iGameVectorBase::GetCellRange() { return CellIndexRange; }
         };
     }
     return true;
-   // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
-   // maxLength = (bound.max - bound.min).length();
-
+    // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
+    // maxLength = (bound.max - bound.min).length();
 }
 bool iGameVectorBase::DrawVector(std::string VecName, iGame::DataObject* _obj) {
     isUpdate = true;
@@ -356,34 +326,31 @@ bool iGameVectorBase::DrawVector(std::string VecName, iGame::DataObject* _obj) {
     // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
     // maxLength = (bound.max - bound.min).length();
 }
-void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal,
-                                         Vector3f RGB) {
+void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB) {
     Vector3f L;
     if (normal.length() == 0) {
-         L=Vector3f(1.0,0.0,0.0);   
+        L = Vector3f(1.0, 0.0, 0.0);
     } else {
-         L = normal.normalized();
-
+        L = normal.normalized();
     }
     Vector3f normal1 = Vector3f(0, 1, 0).cross(L);
     Vector3f normal2 = normal1.cross(L);
     Vector3f centerHigh = coord + L * (tL + hL);
-   // Vector3f centerHigh = coord + L * (tL + hL) * maxLength;
+    // Vector3f centerHigh = coord + L * (tL + hL) * maxLength;
     std::vector<Vector3f> vertices(7);
     std::vector<Vector3f> verticesMid(7);
     std::vector<Vector3f> verticesHigh(7);
     for (int i = 0; i < 6; i++) {
         float angle = igm::radians(60.0 * float(i));
-        Vector3f tem =
-                (normal1 * cos(angle) + normal2 * sin(angle)).normalized();
-     //   Vector3f vertex = coord + tem * tR * maxLength;
+        Vector3f tem = (normal1 * cos(angle) + normal2 * sin(angle)).normalized();
+        //   Vector3f vertex = coord + tem * tR * maxLength;
         Vector3f vertex = coord + tem * tR;
         vertices[i] = vertex;
         //verticesMid[i] = vertex + L * tL * maxLength;
         verticesMid[i] = vertex + L * tL;
         verticesMid[i] = vertex + L * tL;
         //verticesHigh[i] = coord + tem * hR * maxLength + L * tL * maxLength;
-        verticesHigh[i] = coord + tem * hR  + L * tL ;
+        verticesHigh[i] = coord + tem * hR + L * tL;
     }
     //tail
     for (int i = 1; i < 5; i++) {
@@ -481,9 +448,7 @@ void iGameVectorBase::ConvertToDrawableData() {
     m_Colors = m_PositionColors;
     m_Colors->Modified();
 
-    if (m_Colors != nullptr) {
-        m_UseColor = true; 
-    }
+    if (m_Colors != nullptr) { m_UseColor = true; }
     isUpdate = false;
 }
 IGAME_NAMESPACE_END

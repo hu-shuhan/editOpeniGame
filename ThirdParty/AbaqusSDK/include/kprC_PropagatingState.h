@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\kprC_PropagatingState.h"

@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\kmaO_FailStrain.h"
