@@ -220,6 +220,8 @@ public:
                         vector[index] = scalarData->GetValue(k);
                         index += 3;
                     }
+                    Scalars->SetElement(i+j,Attribute{nullptr
+                        , IG_NONE, IG_NONE, false});
                     //delete scalarData;
                 }
                 new_buffer->AddElement(Attribute{Vector, IG_VECTOR, attachmentType, false});

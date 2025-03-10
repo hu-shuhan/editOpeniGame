@@ -13,6 +13,7 @@
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
 #include "iGameARAPTest.h"
+#include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
@@ -29,14 +30,15 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
-#include <fcntl.h> // 用于 open
+#include <fcntl.h> // 鐢ㄤ簬 open
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
 #include <iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
-#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
+#include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
 #include <meshoptimizer.h>
 #include <stdio.h>
 
@@ -594,7 +596,103 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
     */
+    connect(ui->menu_filters->addAction("插值"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        auto mesh = DynamicCast<VolumeMesh>(obj);
+        mesh->InitPolyhedronVertices();
+        auto PointNum = mesh->GetNumberOfPoints();
+        auto CellNum = mesh->GetNumberOfVolumes();
+        std::vector<std::vector<int>> adj;
+        adj.reserve(PointNum + CellNum);
+        igIndex chs[IGAME_CELL_MAX_SIZE];
+        igIndex ccnt = 0;
+        Points::Pointer New_Points = Points::New();
+        New_Points->Reserve(PointNum + CellNum);
+        for (igIndex i = 0; i < PointNum; i++) {
+            ccnt = mesh->GetPointToNeighborVolumes(i, chs);
+            std::vector<int> tmp;
+            tmp.reserve(ccnt);
+            for (igIndex j = 0; j < ccnt; j++) { tmp.push_back(chs[j]); }
+            New_Points->AddPoint(mesh->GetPoint(i));
+            adj.push_back(tmp);
+        }
+        CellArray::Pointer New_Cells = CellArray::New();
+        igIndex vhs[IGAME_CELL_MAX_SIZE];
+        igIndex vcnt = 0;
+        for (igIndex i = 0; i < CellNum; i++) {
+            vcnt = mesh->GetVolumePointIds(i, vhs);
+            if (vcnt == 4) {
+                New_Cells->AddCellIds(vhs, vcnt);
+            } else if (vcnt > 4) {
+                Point new_p = {0, 0, 0};
+                std::vector<int> tmp;
+                tmp.reserve(vcnt);
+                for (igIndex j = 0; j < vcnt; j++) {
+                    new_p += mesh->GetPoint(vhs[j]);
+                    tmp.emplace_back(vhs[j]);
+                }
+                new_p /= vcnt;
+                auto new_vh = New_Points->AddPoint(new_p);
+                adj.push_back(tmp);
+                igIndex fhs[IGAME_CELL_MAX_SIZE];
+                igIndex fcnt = 0;
+                fcnt = mesh->GetVolumeFaceIds(i, fhs);
+                for (igIndex j = 0; j < fcnt; j++) {
+                    vcnt = mesh->GetFacePointIds(fhs[j], vhs);
+                    for (int k = 2; k < vcnt; k++) { New_Cells->AddCellId4(vhs[0], vhs[k - 1], vhs[k], new_vh); }
+                }
+            }
+        }
+        auto New_AttribteSeet = AttributeSet::New();
+        auto Ori_AttributeSet = mesh->GetAttributeSet();
+        for (int i = 0; i < Ori_AttributeSet->GetNumberOfAttributes(); i++) {
+            auto attribute = Ori_AttributeSet->GetAttribute(i);
+            std::cout << i << std::endl;
+            if (attribute.attachmentType == IG_CELL) {
+                double values[64];
+                auto Ori_Array = attribute.pointer;
+                int dimension = Ori_Array->GetDimension();
+                auto Array = DoubleArray::New();
+                Array->SetName(Ori_Array->GetName());
+                Array->SetDimension(dimension);
+                Array->Reserve(New_Points->GetNumberOfPoints());
+                for (int id = 0; id < PointNum; id++) {
+                    double new_values[3] = {0, 0, 0};
+                    int NeiNum = adj[id].size();
+                    for (int j = 0; j < NeiNum; j++) {
+                        Ori_Array->GetElement(adj[id][j], values);
+                        for (int k = 0; k < dimension; k++) { new_values[k] += values[k]; }
+                    }
+                    if (NeiNum) {
+                        for (int k = 0; k < dimension; k++) { new_values[k] /= NeiNum; }
+                    }
+                    Array->AddElement(new_values);
+                }
+                for (int id = PointNum; id < New_Points->GetNumberOfPoints(); id++) {
+                    double new_values[3] = {0, 0, 0};
+                    int NeiNum = adj[id].size();
+                    for (int j = 0; j < NeiNum; j++) {
+                        Array->GetElement(adj[id][j], values);
+                        for (int k = 0; k < dimension; k++) { new_values[k] += values[k]; }
+                    }
+                    if (NeiNum) {
+                        for (int k = 0; k < dimension; k++) { new_values[k] /= NeiNum; }
+                    }
+                    Array->AddElement(new_values);
+                }
+                New_AttribteSeet->AddAttribute(attribute.type, IG_POINT, Array, nullptr);
+            }
+        }
 
+        VolumeMesh::Pointer New_Mesh = VolumeMesh::New();
+        New_Mesh->SetPoints(New_Points);
+        New_Mesh->SetVolumes(New_Cells);
+        New_Mesh->SetAttributeSet(New_AttribteSeet);
+        modelTreeWidget->addDataObjectToModelTree(New_Mesh, Algorithm);
+        rendererWidget->update();
+    });
     QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
     connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1695,7 +1793,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         for (auto it = modelList->Begin(); it != modelList->End(); ++it) {
             auto id = it->first;
             auto model = it->second;
-            
+
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
 
             if (drawObject->GetName() == OVName) {
