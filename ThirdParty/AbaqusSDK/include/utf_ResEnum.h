@@ -1,1 +1,0 @@
-#include "SMAAbuAbaqusUtilities\PublicInterfaces\utf_ResEnum.h"

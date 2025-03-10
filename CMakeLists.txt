@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.19)
 set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
-set(ENABLE_GPSCUDA_MODULE ON CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.

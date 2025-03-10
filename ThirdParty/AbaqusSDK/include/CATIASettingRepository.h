@@ -1,1 +1,0 @@
-#include "System\PublicInterfaces\CATIASettingRepository.h"

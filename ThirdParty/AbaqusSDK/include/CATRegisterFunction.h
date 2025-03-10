@@ -1,1 +1,0 @@
-#include "System\PublicInterfaces\CATRegisterFunction.h"

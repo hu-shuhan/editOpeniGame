@@ -64,9 +64,7 @@ list(APPEND ThirdParty_lib_dependency
         lzma
         glfw
         spdlog_header_only
-        ABAQUSSDK
 )
-target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
 
 #--------------------------------------------------------------------
 # Find or Enable ThirdParty Components' Stuff.
@@ -83,12 +81,12 @@ if (ENABLE_CGNS_MODULE)
 #                 ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
-#find_package(AbqSDK)
-#if (${AbqSDK_FOUND})
-#    message("Find abqsdk")
-##    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-#endif ()
+find_package(AbqSDK)
+if (${AbqSDK_FOUND})
+    message("Find abqsdk")
+    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+endif ()
 
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})

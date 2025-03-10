@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\udd_UserXYDataShortcut.h"

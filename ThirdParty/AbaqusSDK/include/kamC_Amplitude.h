@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\kamC_Amplitude.h"
