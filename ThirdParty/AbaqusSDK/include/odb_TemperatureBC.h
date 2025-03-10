@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\odb_TemperatureBC.h"

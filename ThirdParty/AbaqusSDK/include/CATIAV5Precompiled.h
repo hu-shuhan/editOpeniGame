@@ -1,1 +1,0 @@
-#include "BSFBuildtimeData\PublicInterfaces\CATIAV5Precompiled.h"

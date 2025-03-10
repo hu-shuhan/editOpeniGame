@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\res_Invariant.h"

@@ -1,1 +1,0 @@
-#include "SMAAbuAbaqusUtilities\PublicInterfaces\gsl_Dot.h"

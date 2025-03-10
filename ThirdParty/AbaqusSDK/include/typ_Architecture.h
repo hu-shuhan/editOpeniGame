@@ -1,1 +1,0 @@
-#include "SMAAbuAbaqusUtilities\PublicInterfaces\typ_Architecture.h"

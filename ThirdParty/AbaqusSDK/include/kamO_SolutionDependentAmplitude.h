@@ -1,1 +1,0 @@
-#include "SMAOdb\PublicInterfaces\kamO_SolutionDependentAmplitude.h"
