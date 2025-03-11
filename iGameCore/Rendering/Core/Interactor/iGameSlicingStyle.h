@@ -39,6 +39,8 @@ protected:
     void ComputeSlicingPlane();
     void DrawSlicingPlane();
 
+    void UpdatePlane();
+
     // 计算直线与平面的交点，AB直线，P平面上的点，N平面法向量
     // Calculate the intersection of a line with a plane, a line AB, a point in the p-plane, and a normal vector in the n-plane
     bool LinePlaneIntersection2(const Vector3d& A, const Vector3d& B,

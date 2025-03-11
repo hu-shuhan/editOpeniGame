@@ -50,6 +50,7 @@ public:
                 if (!CheckType()) return false;
             }break;
             case IG_VOLUME_MESH: {
+                return false;
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
                 if (volume_Mesh) {
                     surface_Mesh = DynamicCast<SurfaceMesh>(
@@ -75,6 +76,7 @@ public:
                 }
 
                 if (volume_Mesh) {
+                    return false;
                     surface_Mesh =
                             DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
