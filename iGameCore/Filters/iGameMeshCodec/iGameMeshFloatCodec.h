@@ -8,7 +8,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-// ¾­¹ı²âÊÔzfpµÄÑ¹ËõÂÊÔ¶²»Èçmeshopt
+// ç»è¿‡æµ‹è¯•zfpçš„å‹ç¼©ç‡è¿œä¸å¦‚meshopt
 class MeshOptFloatCodec {
 public:
 	template<typename T>
@@ -24,43 +24,29 @@ public:
 		IGsize valueCount = elementCount * dimension;
 
 		// void* -> vector<float> / vector<double>
-		// ¶¨µãÊı»¯
+		// å®šç‚¹æ•°åŒ–
 		int encodeVertexSize = floatParams.valueSize * dimension;
 		int encodeElementCount = elementCount;
 
 
-		T max_val = source[0];
-		T min_val = source[0];
+		float max_val = source[0];
+		float min_val = source[0];
 
 
-		auto LogQuantize = [&](T value, int bits) -> T {
-			// 1. ¼ÆËãÆ«ÒÆÁ¿£¬È·±£ËùÓĞÖµÑÏ¸ñÎªÕıÊı£¨±ÜÃâ log(0) »ò¸ºÊı£©
-			T epsilon = 1e-6; // ·ÀÖ¹Æ«ÒÆºóµÄÖµÎªÁã
-			T offset = (min_val <= 0) ? (-min_val + epsilon) : 0;
-			T shifted_min = min_val + offset;
-			T shifted_max = max_val + offset;
+		auto LogQuantize = [&](float value, int bits) -> float {
+			if (value == 0.0f) {
+				return 0.0f;
+			}
 
-			// 2. ÊäÈëÖµÏŞÖÆÔÚÔ­Ê¼·¶Î§ [min_val, max_val]
-			value = std::clamp(value, min_val, max_val);
-
-			// 3. Ó¦ÓÃÆ«ÒÆ²¢¼ÆËã¶ÔÊıÓò
-			T shifted_value = value + offset;
-			T log_min = std::log(shifted_min);
-			T log_max = std::log(shifted_max);
-			T scale = (log_max - log_min) / ((1ULL << bits) - 1); // Á¿»¯²½³¤
-
-			// 4. ¶ÔÆ«ÒÆºóµÄÖµ½øĞĞÁ¿»¯
-			T log_value = std::log(shifted_value);
-			auto quantized = static_cast<uint64_t>(std::round((log_value - log_min) / scale));
-
-			// 5. ·´Á¿»¯²¢»Ö¸´Ô­Ê¼·¶Î§
-			T dequantized_log = log_min + quantized * scale;
-			T dequantized_shifted = std::exp(dequantized_log);
-			T dequantized = dequantized_shifted - offset;
-
-			// 6. È·±£·´Á¿»¯Öµ²»³¬³öÔ­Ê¼·¶Î§£¨·ÀÖ¹¸¡µãÎó²î£©
-			T result = std::clamp(dequantized, min_val, max_val);
-			return std::clamp(dequantized, min_val, max_val);
+			uint32_t max_quantized_value = (1U << bits) - 1;
+			float clipped_value = std::max(min_val, std::min(value, max_val));
+			float normalized_value = (clipped_value - min_val) / (max_val - min_val);
+			uint32_t quantized_value = static_cast<uint32_t>(
+				std::round(normalized_value * max_quantized_value)
+				);
+			float normalized_dequantized = static_cast<float>(quantized_value) / max_quantized_value;
+			float dequantized_value = normalized_dequantized * (max_val - min_val) + min_val;
+			return dequantized_value;
 			};
 
 		auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
@@ -72,35 +58,35 @@ public:
 			};
 
 		auto LogStrengthToBits = [=](float strength) -> int {
-			// Ëğ»µ×î¸ß Ëğ»µ×îµÍ
+			// æŸåæœ€é«˜ æŸåæœ€ä½
 				return StrengthToBits(strength, 8, 24);
 			};
 
 		auto MantissaStrengthToBits = [=](float strength) -> int {
 
-			return StrengthToBits(strength, 2, 23);
+			return StrengthToBits(strength, 8, 23);
 			};
 
 		auto LogErrorToBits = [&](double epsilon) -> int {
 			float minValue = *std::min_element(source.begin(), source.end());
 			float maxValue = *std::max_element(source.begin(), source.end());
 
-			// ´¦ÀíÎŞĞ§²ÎÊı
+			// å¤„ç†æ— æ•ˆå‚æ•°
 			if (minValue <= 0 || maxValue <= 0 || epsilon <= 0 || maxValue < minValue) {
-				return -1; // ·µ»Ø´íÎóÖµ
+				return -1; // è¿”å›é”™è¯¯å€¼
 			}
 
-			// ¼ÆËãËùĞèÎ»ÊıN
+			// è®¡ç®—æ‰€éœ€ä½æ•°N
 			double logRange = log(maxValue / minValue);
 			double requiredBits = log2(logRange / epsilon + 1);
 
-			// ÏòÉÏÈ¡Õû£¬È·±£Âú×ãÎó²îÒªÇó
+			// å‘ä¸Šå–æ•´ï¼Œç¡®ä¿æ»¡è¶³è¯¯å·®è¦æ±‚
 			return static_cast<int>(ceil(requiredBits));
 			};
 
 		auto MantissaErrorToBits = [&](double epsilon) -> int {
 			if (epsilon <= 0 || epsilon >= 1)
-				return -1; // ÎŞĞ§µÄÎó²îÖµ
+				return -1; // æ— æ•ˆçš„è¯¯å·®å€¼
 
 			return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
 			};
@@ -152,7 +138,7 @@ public:
 			{
 			case LossyMode::LogQuantization:
 			{
-				for (const T& val : source) {
+				for (const auto& val : source) {
 					if (val > max_val) {
 						max_val = val;
 					}
@@ -174,7 +160,7 @@ public:
 			}
 		}
 
-		// ±àÂë
+		// ç¼–ç 
 		dest.resize(meshopt_encodeVertexBufferBound(encodeElementCount, encodeVertexSize));
 		dest.resize(meshopt_encodeVertexBuffer(dest.data(), dest.size(), source.data(),
 			encodeElementCount, encodeVertexSize));
@@ -182,7 +168,7 @@ public:
 		return;
 	}
 
-	// destĞèÒªÔÚÍâ²¿ÏÈ¿ª±ÙºÃ¿Õ¼ä
+	// destéœ€è¦åœ¨å¤–éƒ¨å…ˆå¼€è¾Ÿå¥½ç©ºé—´
 	template<typename T>
 	static void FloatDecoder(std::vector<T>& dest,
 		const std::vector<unsigned char>& source,
@@ -213,37 +199,37 @@ public:
 		std::vector<float>& relError,
 		std::vector<float>& absError)
 	{
-		// µ÷ÕûÎó²îÊı×é´óĞ¡ÎªÔªËØÊıÁ¿
+		// è°ƒæ•´è¯¯å·®æ•°ç»„å¤§å°ä¸ºå…ƒç´ æ•°é‡
 		relError.resize(floatParams.elementCount);
 		absError.resize(floatParams.elementCount);
 
-		// Ê¹ÓÃ¶àÏß³Ì¼ÆËãÎó²î
+		// ä½¿ç”¨å¤šçº¿ç¨‹è®¡ç®—è¯¯å·®
 		ThreadPool::parallelFor(0, floatParams.elementCount, [&](int start, int end) -> void {
 			for (int elemIdx = start; elemIdx < end; ++elemIdx) {
 				float sumAbsErr = 0.0f;
 				float sumRelErr = 0.0f;
 
-				// ¼ÆËãµ¥¸öÔªËØÄÚËùÓĞÎ¬¶ÈµÄÎó²î
+				// è®¡ç®—å•ä¸ªå…ƒç´ å†…æ‰€æœ‰ç»´åº¦çš„è¯¯å·®
 				for (int dim = 0; dim < floatParams.dimension; ++dim) {
 					int idx = elemIdx * floatParams.dimension + dim;
 
-					// È·±£Ë÷ÒıÔÚÓĞĞ§·¶Î§ÄÚ
+					// ç¡®ä¿ç´¢å¼•åœ¨æœ‰æ•ˆèŒƒå›´å†…
 					if (idx < source.size() && idx < quantized.size()) {
-						// ¼ÆËãµ±Ç°Î¬¶ÈµÄ¾ø¶ÔÎó²î
+						// è®¡ç®—å½“å‰ç»´åº¦çš„ç»å¯¹è¯¯å·®
 						float dimAbsErr = std::abs(source[idx] - quantized[idx]);
-						sumAbsErr += dimAbsErr * dimAbsErr;  // Æ½·½ºÍ
+						sumAbsErr += dimAbsErr * dimAbsErr;  // å¹³æ–¹å’Œ
 
-						// ¼ÆËãµ±Ç°Î¬¶ÈµÄÏà¶ÔÎó²î£¨±ÜÃâ³ıÁã£©
+						// è®¡ç®—å½“å‰ç»´åº¦çš„ç›¸å¯¹è¯¯å·®ï¼ˆé¿å…é™¤é›¶ï¼‰
 						if (std::abs(source[idx]) > 1e-10f) {
 							float dimRelErr = dimAbsErr / std::abs(source[idx]);
-							sumRelErr += dimRelErr * dimRelErr;  // Æ½·½ºÍ
+							sumRelErr += dimRelErr * dimRelErr;  // å¹³æ–¹å’Œ
 						}
 					}
 				}
 
-				// ¼ÆËãÔªËØÕûÌåµÄ¾ù·½¸ùÎó²î
+				// è®¡ç®—å…ƒç´ æ•´ä½“çš„å‡æ–¹æ ¹è¯¯å·®
 				absError[elemIdx] = std::sqrt(sumAbsErr / floatParams.dimension);
-				relError[elemIdx] = std::sqrt(sumRelErr / floatParams.dimension) * 100.0f; // ×ª»»Îª°Ù·Ö±È
+				relError[elemIdx] = std::sqrt(sumRelErr / floatParams.dimension) * 100.0f; // è½¬æ¢ä¸ºç™¾åˆ†æ¯”
 			}
 			});
 	}
@@ -256,77 +242,77 @@ public:
 		float& keyRelError,
 		float& nonKeyRelError)
 	{
-		// ³õÊ¼»¯Îó²îÖµ
+		// åˆå§‹åŒ–è¯¯å·®å€¼
 		keyRelError = 0.0f;
 		nonKeyRelError = 0.0f;
 
 		size_t elementCount = floatParams.elementCount;
 		int dimension = floatParams.dimension;
 
-		// ¼ÆËãÊı¾İ·¶Î§£¬ÓÃÓÚÈ«¾ÖÏà¶ÔÎó²î¼ÆËã
+		// è®¡ç®—æ•°æ®èŒƒå›´ï¼Œç”¨äºå…¨å±€ç›¸å¯¹è¯¯å·®è®¡ç®—
 		T maxAbsValue = static_cast<T>(0);
 		for (size_t i = 0; i < source.size(); ++i) {
 			maxAbsValue = std::max(maxAbsValue, std::abs(source[i]));
 		}
 
-		// ±ÜÃâ³ıÁã
+		// é¿å…é™¤é›¶
 		maxAbsValue = std::max(maxAbsValue, static_cast<T>(1e-10));
 
-		// Èç¹û²»ÊÇKeyAreaÄ£Ê½£¬ÔòËùÓĞÔªËØÒ»Æğ¼ÆËã
+		// å¦‚æœä¸æ˜¯KeyAreaæ¨¡å¼ï¼Œåˆ™æ‰€æœ‰å…ƒç´ ä¸€èµ·è®¡ç®—
 		if (floatParams.errorMode != ErrorMode::KeyArea) {
-			double sumRelError = 0.0;  // Ê¹ÓÃdoubleÀÛ¼ÓÌá¸ß¾«¶È
+			double sumRelError = 0.0;  // ä½¿ç”¨doubleç´¯åŠ æé«˜ç²¾åº¦
 			size_t validValueCount = 0;
 
-			// ±éÀúËùÓĞÖµ
+			// éå†æ‰€æœ‰å€¼
 			for (size_t i = 0; i < source.size() && i < quantized.size(); ++i) {
-				// ¼ÆËã¾ø¶ÔÎó²î
+				// è®¡ç®—ç»å¯¹è¯¯å·®
 				T error = std::abs(source[i] - quantized[i]);
 
-				// ÀÛ¼ÓÏà¶ÔÎó²î£¨»ùÓÚÈ«¾Ö×î´óÖµ£©
+				// ç´¯åŠ ç›¸å¯¹è¯¯å·®ï¼ˆåŸºäºå…¨å±€æœ€å¤§å€¼ï¼‰
 				sumRelError += static_cast<double>(error) / static_cast<double>(maxAbsValue);
 				validValueCount++;
 			}
 
-			// ¼ÆËãÆ½¾ùÈ«¾ÖÏà¶ÔÎó²î£¨°Ù·Ö±ÈĞÎÊ½£©
+			// è®¡ç®—å¹³å‡å…¨å±€ç›¸å¯¹è¯¯å·®ï¼ˆç™¾åˆ†æ¯”å½¢å¼ï¼‰
 			keyRelError = (validValueCount > 0) ? static_cast<float>((sumRelError / validValueCount) * 100.0) : 0.0f;
-			// ·ÇKeyAreaÄ£Ê½ÏÂ£¬nonKeyRelError±£³ÖÎª0
+			// éKeyAreaæ¨¡å¼ä¸‹ï¼ŒnonKeyRelErrorä¿æŒä¸º0
 			nonKeyRelError = 0.0f;
 		}
-		// KeyAreaÄ£Ê½£º·Ö±ğ¼ÆËã¹Ø¼üÇøÓòºÍ·Ç¹Ø¼üÇøÓòµÄÎó²î
+		// KeyAreaæ¨¡å¼ï¼šåˆ†åˆ«è®¡ç®—å…³é”®åŒºåŸŸå’Œéå…³é”®åŒºåŸŸçš„è¯¯å·®
 		else {
-			// Í³¼Æ¹Ø¼üÇøÓòºÍ·Ç¹Ø¼üÇøÓòµÄÔªËØÊı
+			// ç»Ÿè®¡å…³é”®åŒºåŸŸå’Œéå…³é”®åŒºåŸŸçš„å…ƒç´ æ•°
 			size_t keyElementCount = 0;
 			size_t nonKeyElementCount = 0;
 
-			// ¹Ø¼üÇøÓòºÍ·Ç¹Ø¼üÇøÓòµÄÎó²îÀÛ¼Ó
-			double keySumRelError = 0.0;  // Ê¹ÓÃdoubleÀÛ¼ÓÌá¸ß¾«¶È
+			// å…³é”®åŒºåŸŸå’Œéå…³é”®åŒºåŸŸçš„è¯¯å·®ç´¯åŠ 
+			double keySumRelError = 0.0;  // ä½¿ç”¨doubleç´¯åŠ æé«˜ç²¾åº¦
 			double nonKeySumRelError = 0.0;
 
-			// ±éÀúËùÓĞÔªËØ
+			// éå†æ‰€æœ‰å…ƒç´ 
 			for (size_t elemIdx = 0; elemIdx < elementCount; ++elemIdx) {
-				// ÅĞ¶Ïµ±Ç°ÔªËØÊÇ·ñÎª¹Ø¼üÔªËØ
+				// åˆ¤æ–­å½“å‰å…ƒç´ æ˜¯å¦ä¸ºå…³é”®å…ƒç´ 
 				bool isKey = (errorParams.isKeyElement.size() > elemIdx) ? errorParams.isKeyElement[elemIdx] : false;
 
 				double elementRelError = 0.0;
 
-				// ¼ÆËãµ±Ç°ÔªËØµÄËùÓĞÎ¬¶ÈµÄÏà¶ÔÎó²î
+				// è®¡ç®—å½“å‰å…ƒç´ çš„æ‰€æœ‰ç»´åº¦çš„ç›¸å¯¹è¯¯å·®
 				for (int dim = 0; dim < dimension; ++dim) {
 					size_t idx = elemIdx * dimension + dim;
 
-					// È·±£Ë÷ÒıÔÚÓĞĞ§·¶Î§ÄÚ
+					// ç¡®ä¿ç´¢å¼•åœ¨æœ‰æ•ˆèŒƒå›´å†…
 					if (idx < source.size() && idx < quantized.size()) {
-						// ¼ÆËã¾ø¶ÔÎó²î
+						// è®¡ç®—ç»å¯¹è¯¯å·®
 						T error = std::abs(source[idx] - quantized[idx]);
 
-						// ÀÛ¼ÓÏà¶ÔÎó²î£¨»ùÓÚÈ«¾Ö×î´óÖµ£©
+						// ç´¯åŠ ç›¸å¯¹è¯¯å·®ï¼ˆåŸºäºå…¨å±€æœ€å¤§å€¼ï¼‰
 						elementRelError += static_cast<double>(error) / static_cast<double>(maxAbsValue);
 					}
 				}
 
-				// ¼ÆËãÔªËØµÄÆ½¾ùÏà¶ÔÎó²î
+				// è®¡ç®—å…ƒç´ çš„å¹³å‡ç›¸å¯¹è¯¯å·®
 				elementRelError /= dimension;
 
-				// ¸ù¾İÔªËØµÄÀàĞÍÀÛ¼Óµ½ÏàÓ¦µÄ×ÜÎó²îÖĞ
+				// æ ¹æ®å…ƒç´ çš„ç±»å‹ç´¯åŠ åˆ°ç›¸åº”çš„æ€»è¯¯å·®ä¸­
 				if (isKey) {
 					keySumRelError += elementRelError;
 					keyElementCount++;
@@ -337,7 +323,7 @@ public:
 				}
 			}
 
-			// ¼ÆËãÆ½¾ùÈ«¾ÖÏà¶ÔÎó²î£¨°Ù·Ö±ÈĞÎÊ½£©
+			// è®¡ç®—å¹³å‡å…¨å±€ç›¸å¯¹è¯¯å·®ï¼ˆç™¾åˆ†æ¯”å½¢å¼ï¼‰
 			keyRelError = keyElementCount > 0 ? static_cast<float>((keySumRelError / keyElementCount) * 100.0) : 0.0f;
 			nonKeyRelError = nonKeyElementCount > 0 ? static_cast<float>((nonKeySumRelError / nonKeyElementCount) * 100.0) : 0.0f;
 		}
@@ -352,7 +338,7 @@ public:
 		ErrorStaMode errorStaMode)
 	{
 		int valueCount = floatParams.elementCount * floatParams.dimension;
-		// Îó²î¼ÆËãº¯Êı
+		// è¯¯å·®è®¡ç®—å‡½æ•°
 		auto calMSE = [&](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
 			float globalError = 0;
 			for (int i = 0; i < valueCount; i++) { globalError += std::pow(source[i] - encoded[i], 2); }
@@ -388,20 +374,20 @@ public:
 		auto calULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams, int exp) -> float {
 			float error = 0;
 			for (int i = 0; i < valueCount; i++) {
-				// ulp Ö¸Ô­Ê¼Öµ×îºóÒ»¸öÓĞĞ§Î»µÄµ¥Î»ÊıÖµ£¬ÀıÈç3.14µÄulpÊÇ0.01
-				// abs error / ulp ¼´ ulp error
-				// ulp errorÓĞÖúÓÚ·Ö±æÁ¿»¯/ËÄÉáÎåÈëµÈround²Ù×÷µÄÎó²î IEEEÒªÇóÎó²î < 1¼´¿É
+				// ulp æŒ‡åŸå§‹å€¼æœ€åä¸€ä¸ªæœ‰æ•ˆä½çš„å•ä½æ•°å€¼ï¼Œä¾‹å¦‚3.14çš„ulpæ˜¯0.01
+				// abs error / ulp å³ ulp error
+				// ulp erroræœ‰åŠ©äºåˆ†è¾¨é‡åŒ–/å››èˆäº”å…¥ç­‰roundæ“ä½œçš„è¯¯å·® IEEEè¦æ±‚è¯¯å·® < 1å³å¯
 				error += std::abs(source[i] - encoded[i]) / std::pow(2, exp - 23);
 			}
 			return error / valueCount;
 			};
 
-		// 1ULPÎó²î¼ÆËã
+		// 1ULPè¯¯å·®è®¡ç®—
 		auto cal1ULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
 			return calULPError(source, encoded, floatParams, 0);
 			};
 
-		// 1/2ULPÎó²î¼ÆËã
+		// 1/2ULPè¯¯å·®è®¡ç®—
 		auto cal1s2ULPError = [=](const float* source, const float* encoded, const MeshOptFloatParameters& floatParams) -> float {
 			return calULPError(source, encoded, floatParams, -1);
 			};
@@ -410,9 +396,9 @@ public:
 			float error = 0;
 			for (int i = 0; i < valueCount; i++) {
 				int exponent = ((std::bit_cast<uint32_t>(source[i]) >> 23) & 0xFF) - 127;
-				// ulp Ö¸Ô­Ê¼Öµ×îºóÒ»¸öÓĞĞ§Î»µÄµ¥Î»ÊıÖµ£¬ÀıÈç3.14µÄulpÊÇ0.01
-				// abs error / ulp ¼´ ulp error
-				// ulp errorÓĞÖúÓÚ·Ö±æÁ¿»¯/ËÄÉáÎåÈëµÈround²Ù×÷µÄÎó²î IEEEÒªÇóÎó²î < 1¼´¿É
+				// ulp æŒ‡åŸå§‹å€¼æœ€åä¸€ä¸ªæœ‰æ•ˆä½çš„å•ä½æ•°å€¼ï¼Œä¾‹å¦‚3.14çš„ulpæ˜¯0.01
+				// abs error / ulp å³ ulp error
+				// ulp erroræœ‰åŠ©äºåˆ†è¾¨é‡åŒ–/å››èˆäº”å…¥ç­‰roundæ“ä½œçš„è¯¯å·® IEEEè¦æ±‚è¯¯å·® < 1å³å¯
 				error += std::abs(source[i] - encoded[i]) / std::pow(2, exponent - 23);
 			}
 			return error / valueCount;
@@ -431,7 +417,7 @@ public:
 		{
 			float err = CalError(source, dest, floatParams, calNormalizedL2);
 			std::cout << "float data name: " << debugFloatName << " L2: " << err << std::endl;
-			errorStaResult->push_back(debugFloatName + " ¹éÒ»»¯L2: " + std::to_string(err));
+			errorStaResult->push_back(debugFloatName + " å½’ä¸€åŒ–L2: " + std::to_string(err));
 			break;
 		}
 		//case ErrorStaMode::PSNR:
@@ -445,7 +431,7 @@ public:
 		{
 			float err = CalError(source, dest, floatParams, cal1ULPError);
 			std::cout << "float data name: " << debugFloatName << " 1ULPE: " << err << std::endl;
-			errorStaResult->push_back(debugFloatName + " Æ½¾ù1ULPÎó²î: " + std::to_string(err));
+			errorStaResult->push_back(debugFloatName + " å¹³å‡1ULPè¯¯å·®: " + std::to_string(err));
 			break;
 		}
 		case ErrorStaMode::All:
@@ -456,7 +442,7 @@ public:
 
 			err = CalError(source, dest, floatParams, calOriginULPError);
 			std::cout << "float data name: " << debugFloatName << " 1ULPE: " << err << std::endl;
-			errorStaResult->push_back(debugFloatName + " Æ½¾ù1ULPÎó²î: " + std::to_string(err));
+			errorStaResult->push_back(debugFloatName + " å¹³å‡1ULPè¯¯å·®: " + std::to_string(err));
 			break;
 		}
 		case ErrorStaMode::None:
@@ -498,7 +484,7 @@ private:
 	*/
 };
 
-// ÊÊÓÃÓÚÎŞ·¨Ö±½ÓÖğÔªËØÉèÖÃÎó²îµÄµÚÈı·½±àÂëÆ÷½øĞĞ¹Ø¼ü/·Ç¹Ø¼üÇøÓòµÄÊı¾İÑ¹Ëõ
+// é€‚ç”¨äºæ— æ³•ç›´æ¥é€å…ƒç´ è®¾ç½®è¯¯å·®çš„ç¬¬ä¸‰æ–¹ç¼–ç å™¨è¿›è¡Œå…³é”®/éå…³é”®åŒºåŸŸçš„æ•°æ®å‹ç¼©
 //class ThirdPartyDualPrecisionCodec {
 //public:
 //	template <class T>
@@ -569,24 +555,24 @@ private:
 //
 //		dest.resize(cmpSize);
 //
-//		// ¹Ø¼üÔªËØÑ¹Ëõºó³ß´ç
+//		// å…³é”®å…ƒç´ å‹ç¼©åå°ºå¯¸
 //		unsigned char* pos = dest.data();
 //
 //		*((size_t*)pos) = keyCmpSize;
 //		pos += sizeof(size_t);
 //
-//		// ·Ç¹Ø¼üÇøÓòÑ¹Ëõºó³ß´ç
+//		// éå…³é”®åŒºåŸŸå‹ç¼©åå°ºå¯¸
 //		*((size_t*)pos) = nonKeyCmpSize;
 //		pos += sizeof(size_t);
 //
-//		// Ğ´ÈëÎ»Í¼ĞÅÏ¢
+//		// å†™å…¥ä½å›¾ä¿¡æ¯
 //		*((size_t*)pos) = keyElementMap.byteSize();
 //		pos += sizeof(size_t);
 //
 //		memcpy(pos, keyElementMap.data(), keyElementMap.byteSize());
 //		pos += keyElementMap.byteSize();
 //
-//		// Ğ´ÈëÑ¹ËõÊı¾İ
+//		// å†™å…¥å‹ç¼©æ•°æ®
 //		if (keyCmpSize > 0) {
 //			memcpy(pos, keyCmpData.data(), keyCmpSize);
 //			pos += keyCmpSize;
@@ -712,59 +698,59 @@ private:
 //		size_t elementCount, size_t elementDim,
 //		size_t& cmpSize)
 //	{
-//		// ´´½¨ZFP×Ö¶Î
+//		// åˆ›å»ºZFPå­—æ®µ
 //		zfp_type type = std::is_same<T, float>::value ? zfp_type_float : zfp_type_double;
 //		zfp_field* field = zfp_field_2d(const_cast<T*>(data), type, elementDim, elementCount);
 //
-//		// ´´½¨ZFPÑ¹ËõÆ÷
+//		// åˆ›å»ºZFPå‹ç¼©å™¨
 //		zfp_stream* zfp = zfp_stream_open(NULL);
 //
-//		// ÉèÖÃ¾«¶È
+//		// è®¾ç½®ç²¾åº¦
 //		zfp_stream_set_reversible(zfp);
 //		//zfp_stream_set_accuracy(zfp, precision);
 //
-//		// ¼ÆËã»º³åÇø´óĞ¡²¢·ÖÅäÄÚ´æ
+//		// è®¡ç®—ç¼“å†²åŒºå¤§å°å¹¶åˆ†é…å†…å­˜
 //		size_t bufsize = zfp_stream_maximum_size(zfp, field);
 //		dest.resize(bufsize);
 //
-//		// ¹ØÁª±ÈÌØÁ÷Óë»º³åÇø
+//		// å…³è”æ¯”ç‰¹æµä¸ç¼“å†²åŒº
 //		bitstream* stream = stream_open(dest.data(), bufsize);
 //		zfp_stream_set_bit_stream(zfp, stream);
 //
-//		// Ö´ĞĞÑ¹Ëõ
+//		// æ‰§è¡Œå‹ç¼©
 //		cmpSize = zfp_compress(zfp, field);
 //
-//		// ÇåÀí×ÊÔ´
+//		// æ¸…ç†èµ„æº
 //		zfp_field_free(field);
 //		zfp_stream_close(zfp);
 //		stream_close(stream);
 //
-//		// µ÷Õû»º³åÇø´óĞ¡ÎªÊµ¼ÊÑ¹Ëõ´óĞ¡
+//		// è°ƒæ•´ç¼“å†²åŒºå¤§å°ä¸ºå®é™…å‹ç¼©å¤§å°
 //		//dest.resize(cmpSize);
 //	}
 //
-//	// ZFP½âÑ¹¸¨Öúº¯Êı£¬ÊÊÓÃÓÚ¸¡µãÀàĞÍ
+//	// ZFPè§£å‹è¾…åŠ©å‡½æ•°ï¼Œé€‚ç”¨äºæµ®ç‚¹ç±»å‹
 //	template <typename T>
 //	static void ZFPDecompress(T* dest, const unsigned char* source, 
 //		size_t elementCount, size_t elementDim, size_t cmpSize)
 //	{
-//		// ´´½¨ZFP×Ö¶Î
+//		// åˆ›å»ºZFPå­—æ®µ
 //		zfp_type type = std::is_same<T, float>::value ? zfp_type_float : zfp_type_double;
 //		zfp_field* field = zfp_field_2d(dest, type, elementDim, elementCount);
 //
-//		// ´´½¨ZFP½âÑ¹Æ÷
+//		// åˆ›å»ºZFPè§£å‹å™¨
 //		zfp_stream* zfp = zfp_stream_open(NULL);
 //
-//		// ÉèÖÃ±ÈÌØÁ÷
+//		// è®¾ç½®æ¯”ç‰¹æµ
 //		bitstream* stream = stream_open(const_cast<unsigned char*>(source), cmpSize);
 //		zfp_stream_set_bit_stream(zfp, stream);
 //
-//		// Ö´ĞĞ½âÑ¹
+//		// æ‰§è¡Œè§£å‹
 //		if (!zfp_decompress(zfp, field)) {
 //			throw std::runtime_error("ZFP decompression failed");
 //		}
 //
-//		// ÇåÀí×ÊÔ´
+//		// æ¸…ç†èµ„æº
 //		zfp_field_free(field);
 //		zfp_stream_close(zfp);
 //		stream_close(stream);

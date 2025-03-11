@@ -705,6 +705,33 @@ private:
 		return neighIndices.size();
 	}
 	
+	template<typename Func>
+	void ProgressParallelFor(int start, int end, float startProgress, float endProgress, Func&& process, int numThreads = ThreadPool::GetDefaultThreadCount()) {
+		int range = end - start;
+		int chunkSize = range / numThreads;
+		if (range < numThreads) {
+			numThreads = range;
+			chunkSize = 1;
+		}
+		// std::cout << "The number of threads uesd  is " << numThreads << '\n';
+		std::vector<std::future<void>> futures;
+		for (int i = 0; i < numThreads; ++i) {
+			int chunkStart = start + i * chunkSize;
+			int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
+			if (chunkStart == chunkEnd) continue;
+			// 使用线程池提交任务
+			//std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
+			futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
+		}
+		// 等待所有任务完成
+		for (size_t i = 0; i < futures.size(); ++i) {
+			futures[i].get();
+			float progress = startProgress +
+				(static_cast<float>(i + 1) / futures.size()) * (endProgress - startProgress);
+			UpdateProgress(progress);
+		}
+	}
+
 	enum class DataType {
 		AttachCell,
 		AttachPoint,
@@ -734,6 +761,17 @@ private:
 
 	MeshEncoderAdapter* m_adapter;
 	MeshCodecAdjacency::CellAdjacency m_Adj;
+
+	ProgressObserver* m_Progress{ nullptr };
+
+	void UpdateProgress(double p) {
+		if (m_Progress) {
+			m_Progress->UpdateProgress(p);
+		}
+		else {
+			m_Progress = ProgressObserver::Instance();
+		}
+	}
 };
 
 IGAME_NAMESPACE_END

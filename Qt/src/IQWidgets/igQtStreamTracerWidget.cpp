@@ -249,9 +249,9 @@ void igQtStreamTracerWidget::generateStreamline() {
 	//}
 	m_StreamBase->SetStreamLine(streamline,streamlineColor);
  //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
- //   std::string msg = "µ±Ç°¾«¶ÈÎª:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
+ //   std::string msg = "å½“å‰ç²¾åº¦ä¸º:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
  //   ATL::CString ch(msg.c_str());
- //   MessageBox(NULL, ch, "ÌáÊ¾", MB_OK);
+ //   MessageBox(NULL, ch, "æç¤º", MB_OK);
 
 	if (!haveDraw) {
 		m_StreamBase->DataObject::SetName(masterName+"_StreamLine");

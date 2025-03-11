@@ -238,24 +238,7 @@ private:
 
     std::vector<std::pair<std::string, std::string>> m_report;
 
-    ProgressObserver* m_Progress{ nullptr };
-    void UpdateProgress(double p) {
-        //if (m_Progress) {
-        //    // 使用 Qt 的线程安全调用机制
-        //    QMetaObject::invokeMethod(QCoreApplication::instance(), [=]() {
-        //        m_Progress->UpdateProgress(p);
-        //        }, Qt::QueuedConnection);
-        //}
-        //else {
-        //    m_Progress = ProgressObserver::Instance();
-        //}
-        if (m_Progress) {
-            m_Progress->UpdateProgress(p);
-        }
-        else {
-            m_Progress = ProgressObserver::Instance();
-        }
-    }
+
 
     void LoadUIControlParams(const UIControlParams& uiConParams)
     {
@@ -497,7 +480,6 @@ private:
     }
     */
     
-    
 
     void AttrEncoder(
         PayloadBuffer& payload,
@@ -536,10 +518,8 @@ private:
             m_attrErorContrl[attrIndex].isKeyElement = std::move(remappedIskey);
             };
 
-        std::atomic<float> progress{ 0.4f };
         std::mutex reportMutex;
-
-        ThreadPool::parallelFor(0, this->m_codecParams.attrParams.size(), [&](int start, int end) -> void {
+        ProgressParallelFor(0, this->m_codecParams.attrParams.size(), 0.4, 0.6, [&](int start, int end) -> void {
             for (int i = start; i < end; i++) {
                 AttributeSet::Attribute& attr = attrs->GetElement(i);
                 auto& attrParams = this->m_codecParams.attrParams[i];
@@ -558,17 +538,6 @@ private:
                     remapAttributeValues(doubleAttrArray, remappedDoubleAttrBuffer, attrParams, i);
                 }
 
-                // 原子地更新进度，无需互斥锁
-                float progressIncrement = 0.2f * (i * 0.1f / this->m_codecParams.attrParams.size());
-                float oldProgress = progress.load();
-                float newProgress = oldProgress + progressIncrement;
-                progress.store(newProgress);
-                {
-                    // 对UpdateProgress加锁
-                    std::lock_guard<std::mutex> lock(reportMutex);
-                    UpdateProgress(newProgress);
-                }
-
                 // 编码
                 std::vector<unsigned char> encoded;
 
@@ -576,17 +545,19 @@ private:
                     std::vector<float> preserve = remappedFloatAttrBuffer;
                     MeshOptFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, errorParams);
 
-                    // 只为AddErrorReport加锁
-                    std::lock_guard<std::mutex> lock(reportMutex);
-                    AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                    {
+                        std::lock_guard<std::mutex> lock(reportMutex);
+                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                    }
                 }
                 else if (attrParams.valueSize == sizeof(double)) {
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
                     MeshOptFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, errorParams);
 
-                    // 只为AddErrorReport加锁
-                    std::lock_guard<std::mutex> lock(reportMutex);
-                    AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                    {
+                        std::lock_guard<std::mutex> lock(reportMutex);
+                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                    }
                 }
 
                 // 只靠count就足以读取
@@ -595,11 +566,7 @@ private:
             }
             });
 
-        {
-            // 最后的进度更新也需要加锁
-            std::lock_guard<std::mutex> lock(reportMutex);
-            UpdateProgress(0.6);
-        }
+        UpdateProgress(0.6);
 
         size_t currentPayloadCursor = 0;
         for (int i = 0; i < this->m_codecParams.attrParams.size(); i++) {
@@ -608,6 +575,8 @@ private:
             currentPayloadCursor += outFloats[i].size();
         }
     }
+    
+    
 
     // 和常规的delta encoder有点区别 产生的结果是每个cell的点的数量
     void DeltaEncoder(std::vector<uint32_t>& dest, std::vector<uint32_t> source) {
