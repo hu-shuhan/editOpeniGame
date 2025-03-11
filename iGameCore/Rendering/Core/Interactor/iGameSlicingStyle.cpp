@@ -105,6 +105,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor,
     BasicStyle::Initialize(interactor);
     m_Selection = DynamicCast<ClipSelection>(s);
     if (m_Selection == nullptr) return;
+    m_Selection->SetUpdateFunction([this] { this->UpdatePlane(); });
 
     m_Painter3D = interactor->GetPainter3D();
     m_DataObject = interactor->GetDataObject();
@@ -576,6 +577,17 @@ void SlicingStyle::DrawSlicingPlane() {
     }
 
     for (int i = Plane.size(); i < 10; i++) { PlaneHandle[i] = 0; }
+}
+
+void SlicingStyle::UpdatePlane() {
+    Center = igm::vec3(m_Selection->PlanePoint[0], m_Selection->PlanePoint[1],
+                       m_Selection->PlanePoint[2]);
+    auto n = m_Selection->PlaneNormal;
+    Start = v(m_Selection->PlanePoint + n * (Start - Center).length());
+    End = v(m_Selection->PlanePoint - n * (End - Center).length());
+
+    ComputeSlicingPlane();
+    Draw();
 }
 
 bool SlicingStyle::LinePlaneIntersection2(const Vector3d& A, const Vector3d& B,

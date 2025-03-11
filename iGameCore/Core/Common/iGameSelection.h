@@ -141,9 +141,20 @@ public:
     Vector3d PlaneNormal;
     bool Preview;
 
+	void UpdatePlane() {
+        if (Update) Update();
+	}
+
+	template<typename Functor, typename... Args>
+    void SetUpdateFunction(Functor&& functor, Args&&... args) {
+        Update = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+    }
+
 protected:
     ClipSelection() {}
     ~ClipSelection() override = default;
+
+	std::function<void()> Update;
 };
 
 IGAME_NAMESPACE_END
