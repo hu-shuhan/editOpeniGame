@@ -1,6 +1,7 @@
 # Project exclude paths
 /cmake-build-debug/
 /cmake-build-release/
+/cmake-build-relwithdebinfo-visual-studio-1/
 /CMakeGPS/
 
 /.idea/

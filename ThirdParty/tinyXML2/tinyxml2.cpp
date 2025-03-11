@@ -714,6 +714,7 @@ char* XMLDocument::Identify( char* p, XMLNode** node, bool first )
     char* const start = p;
     int const startLine = _parseCurLineNum;
     p = XMLUtil::SkipWhiteSpace( p, &_parseCurLineNum );
+    // TODO
     if( !*p ) {
         *node = 0;
         TIXMLASSERT( p );
@@ -1076,7 +1077,7 @@ const XMLElement* XMLNode::PreviousSiblingElement( const char* name ) const
     return 0;
 }
 
-
+// TODO
 char* XMLNode::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr )
 {
     // This is a recursive method, but thinking about it "at the current level"
@@ -1114,6 +1115,7 @@ char* XMLNode::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr )
        const int initialLineNum = node->_parseLineNum;
 
         StrPair endTag;
+        // TODO
         p = node->ParseDeep( p, &endTag, curLineNumPtr );
         if ( !p ) {
             _document->DeleteNode( node );
@@ -2102,7 +2104,7 @@ char* XMLElement::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr 
     if ( !p || !*p || _closingType != OPEN ) {
         return p;
     }
-
+    // TODO
     p = XMLNode::ParseDeep( p, parentEndTag, curLineNumPtr );
     return p;
 }
@@ -2568,6 +2570,7 @@ void XMLDocument::Parse()
         SetError( XML_ERROR_EMPTY_DOCUMENT, 0, 0 );
         return;
     }
+    // TODO
     ParseDeep(p, 0, &_parseCurLineNum );
 }
 

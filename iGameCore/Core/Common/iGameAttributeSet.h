@@ -139,14 +139,18 @@ public:
         return m_tmpBuffer;
     };
     void TransformScalars2VectorArray() {
-
-        auto Scalars = this->GetAllScarleAttributes();
+        auto Scalars = this->GetAllAttributes();
         ElementArray<Attribute>::Pointer new_buffer = ElementArray<Attribute>::New();
         int size = Scalars->GetNumberOfElements();
         for (int i = 0; i < size; i++) {
             auto scalarDataArray = Scalars->GetElement(i);
             auto name = scalarDataArray.pointer->GetName();
             auto attachmentType = scalarDataArray.attachmentType;
+            if (scalarDataArray.type != IG_SCALAR) {
+                new_buffer->AddElement(
+                        Attribute{scalarDataArray.pointer, scalarDataArray.GetType(), attachmentType, false});
+                continue;
+            }
             // std::cout << "attachmentType:" << attachmentType << std::endl;
             bool isvector = false;
             if (name[name.length() - 1] == 'X') {
@@ -154,27 +158,48 @@ public:
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
+                    if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                        Scalars->GetElement(i + j).GetAttachmentType() != scalarDataArray.GetAttachmentType() ||
+                        Scalars->GetElement(i + j).GetType() != IG_SCALAR) {
+                        isvector = false;
+                    }
                 }
             } else if (name[name.length() - 1] == '0') {
                 isvector = true;
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != '0' + j) { isvector = false; }
+                    if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                        Scalars->GetElement(i + j).GetAttachmentType() != scalarDataArray.GetAttachmentType() ||
+                        Scalars->GetElement(i + j).GetType() != IG_SCALAR) {
+                        isvector = false;
+                    }
                 }
             } else if (name[name.length() - 1] == '1') {
                 isvector = true;
                 int j = 1;
                 for (j = 1; j < 3; j++) {
                     auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
+                    if (i + j >= size) {
+                        isvector = false;
+                        break;
+                    }
                     auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != '1' + j) { isvector = false; }
+                    if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                        Scalars->GetElement(i + j).GetAttachmentType() != scalarDataArray.GetAttachmentType() ||
+                        Scalars->GetElement(i + j).GetType() != IG_SCALAR) {
+                        isvector = false;
+                    }
                 }
             }
             if (!isvector) {
@@ -200,6 +225,7 @@ public:
                         vector[index] = scalarData->GetValue(k);
                         index += 3;
                     }
+                    Scalars->SetElement(i + j, Attribute{nullptr, IG_NONE, IG_NONE, false});
                     //delete scalarData;
                 }
                 new_buffer->AddElement(Attribute{Vector, IG_VECTOR, attachmentType, false});

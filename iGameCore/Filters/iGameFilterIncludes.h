@@ -11,6 +11,6 @@
 #include "Sources/iGameLineTypePointsSource.h"
 #include "TensorViewFilter/iGameTensorWidgetBase.h"
 #include "Clip/iGameModelClip.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
+#include "iGameMeshCodec/iGameMeshLoomEncoder.h"
+#include "iGameMeshCodec/iGameMeshLoomDecoder.h"
 #include "Contour/iGameContourFilter.h"

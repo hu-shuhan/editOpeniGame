@@ -36,9 +36,16 @@ bool HandlePool<ObjectType>::CheckHandle(HandleType handle) const {
 }
 
 template<typename ObjectType>
-ObjectType* HandlePool<ObjectType>::GetObjectByHandle(HandleType handle) {
+HandlePool<ObjectType>::ReturnType
+HandlePool<ObjectType>::GetObjectByHandle(HandleType handle) {
     auto it = m_HandleToObject.find(handle);
-    if (it != m_HandleToObject.end()) { return &it->second; }
+    if (it != m_HandleToObject.end()) {
+        if constexpr (is_smart_pointer<ObjectType>::value) {
+            return it->second;
+        } else {
+            return &it->second;
+        }
+    }
     return nullptr;
 }
 

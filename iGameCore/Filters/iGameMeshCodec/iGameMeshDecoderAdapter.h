@@ -60,8 +60,7 @@ public:
 
     void AddAttribute(const IGenum type, const  IGenum attachmentType, const ArrayObject::Pointer attr)
     {
-        PointSet::Pointer mesh = DynamicCast<PointSet>(this->m_DataObj);
-        mesh->GetAttributeSet()->AddAttribute(type, attachmentType, attr);
+        this->m_DataObj->GetAttributeSet()->AddAttribute(type, attachmentType, attr);
     }
 
     void AddSameTypePolyCells(std::vector<uint32_t>& ids, const std::vector<uint32_t>& cellSizes)
@@ -251,6 +250,7 @@ private:
             break;
         }
     }
+
     // IG_SURFACE_MESH,
     // IG_VOLUME_MESH,
     // IG_UNSTRUCTURED_MESH,

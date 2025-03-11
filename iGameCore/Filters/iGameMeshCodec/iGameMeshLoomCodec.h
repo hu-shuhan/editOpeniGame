@@ -1,12 +1,15 @@
-#ifndef MeshOptCodec_h
-#define MeshOptCodec_h
+/*
+build by revoke
+code name 'Spinning Jenny'
+*/
+
+#ifndef MeshLoomCodec_h
+#define MeshLoomCodec_h
 
 #include "iGameMacro.h"
 #include "iGameDataObject.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshOptModifiedIndexBufferCodec.h"
-
-#include "iGameDataObject.h"
 #include "iGamePointSet.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameVolumeMesh.h"
@@ -16,15 +19,10 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-class MeshOptCodec {
-public:
-    MeshOptCodec(MeshOptParameters& params) :
-        m_Params(params)
-    {};
+class MeshLoomCodec {
 protected:
     using IndexBufferCodec = MeshOptModifiedIndexBufferCodec;
-    MeshOptParameters& m_Params;
-
+    CodecParameters m_codecParams;
     
 
     // 写入相关 代码改造自 tmc
