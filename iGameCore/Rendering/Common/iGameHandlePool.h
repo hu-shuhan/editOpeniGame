@@ -13,12 +13,6 @@
 
 IGAME_NAMESPACE_BEGIN
 
-template<typename T>
-struct is_smart_pointer : std::false_type {};
-
-template<typename T>
-struct is_smart_pointer<SmartPointer<T>> : std::true_type {};
-
 template<typename ObjectType>
 class HandlePool : public Object {
 public:
@@ -41,6 +35,12 @@ public:
 
     /// 定义映射的常量迭代器类型。
     using ConstIterator = typename MapType::const_iterator;
+
+    // 判断模板参数是否是智能指针，用于返回类型推导
+    template<typename T>
+    struct is_smart_pointer : std::false_type {};
+    template<typename T>
+    struct is_smart_pointer<SmartPointer<T>> : std::true_type {};
 
     // 根据ObjectType类型推导返回类型
     using ReturnType = typename std::conditional<

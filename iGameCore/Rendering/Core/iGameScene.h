@@ -321,7 +321,7 @@ protected:
     void UpdateCameraClippingRange();
     static void CalculateFrameRate();
 
-    SmartPointer<HandlePool<SmartPointer<Model>>> m_Models;
+    SmartPointer<HandlePool<SmartPointer<Model>>> m_ModelPool;
     IGuint m_CurrentModelID;
     //SmartPointer<HandlePool<SmartPointer<Meshleter>>> m_Meshleters;
 

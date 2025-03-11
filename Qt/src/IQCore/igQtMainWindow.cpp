@@ -1287,7 +1287,7 @@ void igQtMainWindow::initAllFilters() {
         //}
 
         filter->SetInput(data);
-        if (filter->Execute()) {
+        if (filter->Execute()) { 
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
         }

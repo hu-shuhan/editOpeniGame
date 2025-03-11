@@ -13,7 +13,7 @@ iGameVectorBase::iGameVectorBase() {
     this->tR = 0.0;
     this->count = 0;
 
-    this->SetTransparency(0.99f);
+    //this->SetTransparency(0.99f);
 }
 iGameVectorBase::~iGameVectorBase() {}
 void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {

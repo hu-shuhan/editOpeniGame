@@ -62,6 +62,7 @@ bool iGameXMLFileReader::Open() {
 		return false;
 	}
 
+//	doc = new tinyxml2::XMLDocument(false, tinyxml2::Whitespace::COLLAPSE_WHITESPACE);
 	doc = new tinyxml2::XMLDocument();
 	if (doc->LoadFile(m_FilePath.c_str()) != tinyxml2::XML_SUCCESS) {
 		printf("[XML parser]:Could not load file: %s . Error='%s'. Exiting.\n", m_FilePath.c_str(), doc->ErrorStr());
