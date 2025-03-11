@@ -29,38 +29,24 @@ public:
 		int encodeElementCount = elementCount;
 
 
-		T max_val = source[0];
-		T min_val = source[0];
+		float max_val = source[0];
+		float min_val = source[0];
 
 
-		auto LogQuantize = [&](T value, int bits) -> T {
-			// 1. 计算偏移量，确保所有值严格为正数（避免 log(0) 或负数）
-			T epsilon = 1e-6; // 防止偏移后的值为零
-			T offset = (min_val <= 0) ? (-min_val + epsilon) : 0;
-			T shifted_min = min_val + offset;
-			T shifted_max = max_val + offset;
+		auto LogQuantize = [&](float value, int bits) -> float {
+			if (value == 0.0f) {
+				return 0.0f;
+			}
 
-			// 2. 输入值限制在原始范围 [min_val, max_val]
-			value = std::clamp(value, min_val, max_val);
-
-			// 3. 应用偏移并计算对数域
-			T shifted_value = value + offset;
-			T log_min = std::log(shifted_min);
-			T log_max = std::log(shifted_max);
-			T scale = (log_max - log_min) / ((1ULL << bits) - 1); // 量化步长
-
-			// 4. 对偏移后的值进行量化
-			T log_value = std::log(shifted_value);
-			auto quantized = static_cast<uint64_t>(std::round((log_value - log_min) / scale));
-
-			// 5. 反量化并恢复原始范围
-			T dequantized_log = log_min + quantized * scale;
-			T dequantized_shifted = std::exp(dequantized_log);
-			T dequantized = dequantized_shifted - offset;
-
-			// 6. 确保反量化值不超出原始范围（防止浮点误差）
-			T result = std::clamp(dequantized, min_val, max_val);
-			return std::clamp(dequantized, min_val, max_val);
+			uint32_t max_quantized_value = (1U << bits) - 1;
+			float clipped_value = std::max(min_val, std::min(value, max_val));
+			float normalized_value = (clipped_value - min_val) / (max_val - min_val);
+			uint32_t quantized_value = static_cast<uint32_t>(
+				std::round(normalized_value * max_quantized_value)
+				);
+			float normalized_dequantized = static_cast<float>(quantized_value) / max_quantized_value;
+			float dequantized_value = normalized_dequantized * (max_val - min_val) + min_val;
+			return dequantized_value;
 			};
 
 		auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
@@ -78,7 +64,7 @@ public:
 
 		auto MantissaStrengthToBits = [=](float strength) -> int {
 
-			return StrengthToBits(strength, 2, 23);
+			return StrengthToBits(strength, 8, 23);
 			};
 
 		auto LogErrorToBits = [&](double epsilon) -> int {
@@ -152,7 +138,7 @@ public:
 			{
 			case LossyMode::LogQuantization:
 			{
-				for (const T& val : source) {
+				for (const auto& val : source) {
 					if (val > max_val) {
 						max_val = val;
 					}
