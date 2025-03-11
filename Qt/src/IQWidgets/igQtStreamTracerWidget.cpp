@@ -12,7 +12,9 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 	connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
 	connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
-
+    m_StreamBase->Filter::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+        haveDraw = false;
+    });
     //connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));

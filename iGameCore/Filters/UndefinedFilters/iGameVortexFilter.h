@@ -901,8 +901,8 @@ public:
 
             totalLength += std::sqrt(dx * dx + dy * dy + dz * dz);
         }
-        for (int d = 0; d < 3; d++) center[d] /= 4.0f;
-        centerValue /= 4.0f;
+    /*    for (int d = 0; d < 3; d++) center[d] /= 4.0f;
+        centerValue /= 4.0f;*/
 
         return totalLength / numEdges;
     }
