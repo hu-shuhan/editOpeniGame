@@ -181,11 +181,6 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		iGameCGNSReader::Pointer reader = iGameCGNSReader::New();
 		resObj = reader->ReadFile(file_name);
 
-		if (resObj && resObj->GetAttributeSet()) {
-			resObj->GetAttributeSet()->TransformScalars2VectorArray();
-		}
-
-
 		break;
 	}
 #endif
@@ -291,6 +286,9 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	//igDebug(out);
 	std::cout << out << std::endl;
     
+	if (resObj && resObj->GetAttributeSet()) {
+		resObj->GetAttributeSet()->TransformScalars2VectorArray();
+	}
 	return resObj;
 }
 
