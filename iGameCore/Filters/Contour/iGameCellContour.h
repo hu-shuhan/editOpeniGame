@@ -1,3 +1,12 @@
+
+/**
+ * @class   iGameCellContour
+ * @brief   对于各个种类的cell，建立对应的单元切片算法,
+ * 目前分为点不合并以及点合并版本，其中，点合并采用的是八叉树点去重判定
+ * 后续会统一优化为点合并版本，并且使用edge插值点进行去重判断
+ * 普通cell的轮廓提取采用的是打表，包括三角形、四边形、四面体、六面体、金字塔、三棱柱
+ * 其余网格会进行转化为三角形或者四面体进行轮廓提取
+ */
 #ifndef iGameCellContour_h
 #define iGameCellContour_h
 
