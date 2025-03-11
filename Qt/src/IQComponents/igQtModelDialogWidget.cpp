@@ -154,6 +154,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
+        // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
     item->viewAttribute(-1);
 }
