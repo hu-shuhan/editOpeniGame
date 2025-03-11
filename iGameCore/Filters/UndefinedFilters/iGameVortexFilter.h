@@ -12,7 +12,6 @@
 
 
 IGAME_NAMESPACE_BEGIN
-
 class VortexFilter : public Filter {
 public:
     I_OBJECT(VortexFilter);
@@ -46,9 +45,9 @@ public:
             } break;
             case IG_VOLUME_MESH: {
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (!CheckType()) return false;
 
                 auto attachmentType = attributeSet->GetAttribute(curIndex).attachmentType;
+
                 if (attachmentType == 0) ComputePointVorticityForVol(volume_Mesh, attributeSet, curIndex);
                 else if (attachmentType == 1)
                     ComputeCellVorticityForVol(volume_Mesh, attributeSet, curIndex);
@@ -57,7 +56,6 @@ public:
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
                 surface_Mesh = mesh->TransferToSurfaceMesh();
                 volume_Mesh = mesh->TransferToVolumeMesh();
-
 
                 if (surface_Mesh) {
                     if (!CheckType()) return false;
@@ -87,22 +85,41 @@ public:
 
     float ComputeCellVolume(Cell* cell) {
         switch (cell->GetCellType()) {
+            case IG_TRIANGLE: {
+                double area = 0;
+                Vector3d n1 = cell->GetPoint(0) - cell->GetPoint(1);
+                Vector3d n2 = cell->GetPoint(0) - cell->GetPoint(2);
+                area = n1.cross(n2).length() / 2;
+                return area;
+            }
             case IG_TETRA:
-                //return ComputeTetVolume(cell);
+                return ComputeTetVolume(cell);
             case IG_HEXAHEDRON:
                 //return ComputeHexVolume(cell);
             default:
                 return 1.0f;
         }
     }
-    std::array<float, 3> ComputePointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
-        switch (cell->GetCellType()) {
-            case IG_TETRA: // 纯四面体
-                return ComputeTetPointGradient(cell, data, dim);
-            case IG_HEXAHEDRON: // 纯六面体
-                return ComputeHexPointGradient(cell, data, dim);
-            default: // 其他
-                return ComputePolyPointGradient(cell, data, dim);
+    // 三角形和四边形和多边形
+    std::array<float, 3> ComputePointGradient(int type, Cell* cell, ArrayObject::Pointer data, int dim) {
+        if (type == 1) {
+            switch (cell->GetCellType()) {
+                case IG_TETRA: // 纯四面体
+                    return ComputeTetPointGradient(cell, data, dim);
+                case IG_HEXAHEDRON: // 纯六面体
+                    return ComputeHexPointGradient(cell, data, dim);
+                default: // 其他
+                    return ComputePolyPointGradient(cell, data, dim);
+            }
+        } else if (type == 0) {
+            switch (cell->GetCellType()) {
+                case IG_TRIANGLE: // 三角形
+                    return ComputeTriPointGradient(cell, data, dim);
+                case IG_QUAD: // 四边形
+                    return ComputeQuadPointGradient(cell, data, dim);
+                default: // 多边形
+                    return ComputePolygonPointGradient(cell, data, dim);
+            }
         }
     }
 
@@ -123,7 +140,6 @@ public:
         int PointNum = surface_Mesh->GetNumberOfPoints();
         int numCells = surface_Mesh->GetNumberOfFaces();
 
-
         std::vector<std::array<float, 3>> gradients_x(PointNum, {0, 0, 0});
         std::vector<std::array<float, 3>> gradients_y(PointNum, {0, 0, 0});
         std::vector<std::array<float, 3>> gradients_z(PointNum, {0, 0, 0});
@@ -133,29 +149,19 @@ public:
 
         for (int cellId = 0; cellId < numCells; ++cellId) {
             auto cell = surface_Mesh->GetFace(cellId);
-            float cellVolume = ComputeCellVolume(cell);
-            auto grad_x = ComputePointGradient(cell, data, 0);
-            auto grad_y = ComputePointGradient(cell, data, 1);
-            auto grad_z = ComputePointGradient(cell, data, 2);
+            auto grad_x = ComputePointGradient(0, cell, data, 0);
+            auto grad_y = ComputePointGradient(0, cell, data, 1);
+            auto grad_z = ComputePointGradient(0, cell, data, 2);
 
             for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
                 igIndex pid = cell->GetPointId(i);
                 for (int d = 0; d < 3; d++) {
-                    gradients_x[pid][d] += grad_x[d] * cellVolume;
-                    gradients_y[pid][d] += grad_y[d] * cellVolume;
-                    gradients_z[pid][d] += grad_z[d] * cellVolume;
+                    gradients_x[pid][d] += grad_x[d];
+                    gradients_y[pid][d] += grad_y[d];
+                    gradients_z[pid][d] += grad_z[d];
                 }
-                volumes[pid] += cellVolume;
             }
         }
-
-        for (int i = 0; i < PointNum; ++i)
-            //if (volumes[i] > 1e-6f)
-            for (int d = 0; d < 3; d++) {
-                gradients_x[i][d] /= volumes[i];
-                gradients_y[i][d] /= volumes[i];
-                gradients_z[i][d] /= volumes[i];
-            }
 
         FloatArray::Pointer vorticities = FloatArray::New();
         vorticities->SetDimension(3);
@@ -164,15 +170,15 @@ public:
         attributeSet->AddScalar(IG_POINT, vorticities);
 
         for (int i = 0; i < PointNum; ++i) {
-            float omega_x = gradients_z[i][1] - gradients_y[i][2]; // ∂vz/∂y - ∂vy/∂z
-            float omega_y = gradients_x[i][2] - gradients_z[i][0]; // ∂vx/∂z - ∂vz/∂x
-            float omega_z = gradients_y[i][0] - gradients_x[i][1]; // ∂vy/∂x - ∂vx/∂y
+            double omega_x = gradients_z[i][1] - gradients_y[i][2]; // ∂vz/∂y - ∂vy/∂z
+            double omega_y = gradients_x[i][2] - gradients_z[i][0]; // ∂vx/∂z - ∂vz/∂x
+            double omega_z = gradients_y[i][0] - gradients_x[i][1]; // ∂vy/∂x - ∂vx/∂y
 
-            float mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
-            //            if (mag > 1e-6f)
-            vorticities->AddElement3(omega_x / mag, omega_y / mag, omega_z / mag);
-            //            else
-            //                vorticities->AddElement3(0, 0, 0);
+            double mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
+            vorticities->AddElement3(omega_x, omega_y, omega_z);
+            //vorticities->AddElement3(omega_x / mag, omega_y / mag, omega_z / mag);
+            //if (mag > 1e-5f) vorticities->AddElement3(omega_x / mag, omega_y / mag, omega_z / mag);
+            //else vorticities->AddElement3(0, 0, 0);
         }
         return true;
     }
@@ -226,29 +232,21 @@ public:
 
         for (int cellId = 0; cellId < numCells; ++cellId) {
             auto cell = volume_Mesh->GetVolume(cellId);
-            float cellVolume = ComputeCellVolume(cell);
-            auto grad_x = ComputePointGradient(cell, data, 0);
-            auto grad_y = ComputePointGradient(cell, data, 1);
-            auto grad_z = ComputePointGradient(cell, data, 2);
+           
+            auto grad_x = ComputePointGradient(1, cell, data, 0);
+            auto grad_y = ComputePointGradient(1, cell, data, 1);
+            auto grad_z = ComputePointGradient(1, cell, data, 2);
 
             for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
                 igIndex pid = cell->GetPointId(i);
                 for (int d = 0; d < 3; d++) {
-                    gradients_x[pid][d] += grad_x[d] * cellVolume;
-                    gradients_y[pid][d] += grad_y[d] * cellVolume;
-                    gradients_z[pid][d] += grad_z[d] * cellVolume;
+                    gradients_x[pid][d] += grad_x[d];
+                    gradients_y[pid][d] += grad_y[d];
+                    gradients_z[pid][d] += grad_z[d];
                 }
-                volumes[pid] += cellVolume;
+ 
             }
         }
-
-        for (int i = 0; i < PointNum; ++i)
-            //if (volumes[i] > 1e-5f)
-            for (int d = 0; d < 3; d++) {
-                gradients_x[i][d] /= volumes[i];
-                gradients_y[i][d] /= volumes[i];
-                gradients_z[i][d] /= volumes[i];
-            }
 
         FloatArray::Pointer vorticities = FloatArray::New();
         vorticities->SetDimension(3);
@@ -304,10 +302,124 @@ public:
         return true;
     }
 
+    float ComputeTriangleArea(Cell* cell) {
+        auto p0 = cell->GetPoint(0);
+        auto p1 = cell->GetPoint(1);
+        auto p2 = cell->GetPoint(2);
+
+        // 计算两条边的向量
+        std::array<float, 3> v1 = {p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+        std::array<float, 3> v2 = {p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
+
+        // 计算叉积
+        std::array<float, 3> cross = {v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2],
+                                      v1[0] * v2[1] - v1[1] * v2[0]};
+
+        // 面积 = 叉积模长 / 2
+        float area = 0.5f * std::sqrt(cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]);
+        return area;
+    }
+
+    // 三角形
+    std::array<float, 3> ComputeTriPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+        std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+        float centerValue = 0.0f;
+
+        // 计算三角形面积
+        float triangleArea = ComputeTriangleArea(cell);
+        //if (triangleArea < 1e-10f) return {0.0f, 0.0f, 0.0f}; // 避免除零
+
+        // 计算三角形中心点和中心值
+        for (int i = 0; i < 3; i++) {
+            auto p = cell->GetPoint(i);
+            center[0] += p[0];
+            center[1] += p[1];
+            center[2] += p[2];
+            centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+        }
+        for (int d = 0; d < 3; d++) center[d] /= 3.0f;
+        centerValue /= 3.0f;
+
+        std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+
+        // 计算梯度，并按面积归一化
+        for (int i = 0; i < 3; ++i) {
+            auto p = cell->GetPoint(i);
+            std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+            float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+
+            for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+        }
+
+        // 归一化梯度，使其与单元大小无关
+        for (int d = 0; d < 3; d++) gradient[d] /= (triangleArea); // 避免除零
+
+        return gradient;
+    }
+
+    // 四边形
+    std::array<float, 3> ComputeQuadPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+        std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+        float centerValue = 0.0f;
+
+        for (int i = 0; i < 4; i++) {
+            auto p = cell->GetPoint(i);
+            center[0] += p[0];
+            center[1] += p[1];
+            center[2] += p[2];
+            centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+        }
+        for (int d = 0; d < 4; d++) center[d] /= 3.0f;
+        centerValue /= 3.0f;
+
+        std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+        for (int i = 0; i < 3; ++i) {
+            auto p = cell->GetPoint(i);
+            std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+            float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+            for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+        }
+        for (int d = 0; d < 3; d++) gradient[d] /= 4.0f;
+
+        return gradient;
+    }
+
+    // 多边形
+    std::array<float, 3> ComputePolygonPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+        std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+        float centerValue = 0.0f;
+
+        for (int i = 0; i < cell->GetNumberOfPoints(); i++) {
+            auto p = cell->GetPoint(i);
+            center[0] += p[0];
+            center[1] += p[1];
+            center[2] += p[2];
+            centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+        }
+        for (int d = 0; d < 3; d++) center[d] /= cell->GetNumberOfPoints();
+        centerValue /= cell->GetNumberOfPoints();
+
+        std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+        for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
+            auto p = cell->GetPoint(i);
+            std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+            float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+            for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+        }
+        for (int d = 0; d < 3; d++) gradient[d] /= cell->GetNumberOfPoints();
+
+        return gradient;
+    }
+
     // 四面体线性插值 point
     std::array<float, 3> ComputeTetPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
         std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
         float centerValue = 0.0f;
+
+        float tetVolume = ComputeTetVolume(cell);
+        //if (tetVolume < 1e-10f) return {0.0f, 0.0f, 0.0f};
+
+        float avgEdgeLength = ComputeAverageEdgeLength(cell); // 计算平均边长
 
         for (int i = 0; i < 4; i++) {
             auto p = cell->GetPoint(i);
@@ -320,16 +432,39 @@ public:
         centerValue /= 4.0f;
 
         std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+
         for (int i = 0; i < 4; ++i) {
             auto p = cell->GetPoint(i);
             std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
             float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+
             for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
         }
-        for (int d = 0; d < 3; d++) gradient[d] /= 4.0f;
+
+        for (int d = 0; d < 3; d++) gradient[d] /= (avgEdgeLength); // 改为边长归一化
 
         return gradient;
     }
+
+    float ComputeAverageEdgeLength(Cell* cell) {
+        float totalLength = 0.0f;
+        int numEdges = 6; // 四面体有6条边
+        int edgePairs[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+
+        for (int i = 0; i < 6; i++) {
+            auto p1 = cell->GetPoint(edgePairs[i][0]);
+            auto p2 = cell->GetPoint(edgePairs[i][1]);
+
+            float dx = p1[0] - p2[0];
+            float dy = p1[1] - p2[1];
+            float dz = p1[2] - p2[2];
+
+            totalLength += std::sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        return totalLength / numEdges;
+    }
+
 
     // 四面体线性插值 cell
     std::array<float, 3> ComputeTetCellGradient(int type, Cell* cell, ArrayObject::Pointer data, int dim) {
@@ -491,9 +626,8 @@ public:
         std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
         float centerValue = 0.0f;
         int num = 0;
-        if (type == 1) num = cell->GetNumberOfPoints();
-        else if (type == 0)
-            num = cell->GetNumberOfPoints();
+        num = cell->GetNumberOfPoints();
+
 
         for (int i = 0; i < num; i++) {
             if (type == 1) {
@@ -589,6 +723,7 @@ protected:
     int curIndex{-1};
     int curDim{-1};
 };
+
 IGAME_NAMESPACE_END
 #endif
 
