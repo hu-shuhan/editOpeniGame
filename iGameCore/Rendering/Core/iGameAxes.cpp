@@ -124,6 +124,10 @@ void Axes::Initialize() {
 }
 
 void Axes::Draw() {
+    // use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
+
     // update range
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
@@ -195,6 +199,8 @@ void Axes::Draw() {
         m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                                 (void*) (12 * sizeof(GLuint)));
     }
+
+    glDisable(GL_DEPTH_TEST);
 }
 
 void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {

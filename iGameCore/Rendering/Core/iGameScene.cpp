@@ -119,7 +119,7 @@ void Scene::RemoveModel(IGuint modelID) {
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
-                    m_CurrentModelID = -1;
+                    m_CurrentModelID = 0;
                 } else {
                     m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
@@ -141,7 +141,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
-                    m_CurrentModelID = -1;
+                    m_CurrentModelID = 0;
                 } else {
                     m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
