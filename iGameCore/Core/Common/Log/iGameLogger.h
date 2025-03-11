@@ -14,10 +14,13 @@ IGAME_NAMESPACE_BEGIN
 class Log {
 public:
     static void Init();
-    inline static std::shared_ptr<spdlog::logger>& GetCoreLogger()    { return s_CoreLogger;};
-    inline static std::shared_ptr<spdlog::logger>& GetRenderingLogger()    { return s_RenderingLogger;};
-    inline static std::shared_ptr<spdlog::logger>& GetClientLogger()  { return s_ClientLogger;};
+//    inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() {return s_CoreLogger;}
+//    inline static std::shared_ptr<spdlog::logger>& GetRenderingLogger() {return s_RenderingLogger;}
+//    inline static std::shared_ptr<spdlog::logger>& GetClientLogger() {return s_ClientLogger;}
 
+    static std::shared_ptr<spdlog::logger>& GetCoreLogger();
+    static std::shared_ptr<spdlog::logger>& GetRenderingLogger();
+    static std::shared_ptr<spdlog::logger>& GetClientLogger();
 //    static std::shared_ptr<spdlog::logger>& GetCoreLogger();
 //    static std::shared_ptr<spdlog::logger>& GetClientLogger();
 private:

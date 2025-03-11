@@ -247,7 +247,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     //}
     m_StreamBase->SetStreamLine(streamline, streamlineColor);
     //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
-    //   std::string msg = "��ǰ����Ϊ:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
+    //   std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
     //   ATL::CString ch(msg.c_str());
     //   MessageBox(NULL, ch, "��ʾ", MB_OK);
 
