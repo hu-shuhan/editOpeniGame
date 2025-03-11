@@ -8,6 +8,7 @@ find_path(AbqSDK_PRIVATE_INCLUDE_DIR
         /usr/local/include
         /usr/include
         "E:/SIMULIA/EstProducts/2024/win_b64/code/include"
+        "D:/SIMULIA/EstProducts/2024/win_b64/code/include"
 )
 
 find_path(AbqSDK_PRIVATE_PUBLIC_DIR
@@ -17,6 +18,7 @@ find_path(AbqSDK_PRIVATE_PUBLIC_DIR
         /usr/local/include
         /usr/include
         "E:/SIMULIA/EstProducts/2024"
+        "D:/SIMULIA/EstProducts/2024"
 )
 
 find_path(AbqSDK_PRIVATE_LIB
@@ -24,6 +26,7 @@ find_path(AbqSDK_PRIVATE_LIB
         ABQSMAOdbApi.lib
         PATHS
         "E:/SIMULIA/EstProducts/2024/win_b64/code/lib"
+        "D:/SIMULIA/EstProducts/2024/win_b64/code/lib"
 )
 find_path(AbqSDK_DLL_DIR
         NAMES

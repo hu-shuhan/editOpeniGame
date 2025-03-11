@@ -1,4 +1,4 @@
-if (CORE_MODULE_INSTALL)
+if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     install(TARGETS ${MODULE_NAME}
             EXPORT ${MODULE_NAME}Targets
             ARCHIVE DESTINATION lib
@@ -12,7 +12,6 @@ if (CORE_MODULE_INSTALL)
             INCLUDES DESTINATION include)
     if (ENABLE_CGNS_MODULE)
         find_package(HDF5)
-        message(WARNING ${HDF5_LIBRARIES})
         install(FILES
                 ${HDF5_LIBRARIES}/../libhdf5.lib
                 ${HDF5_LIBRARIES}/../libhdf5_hl.lib

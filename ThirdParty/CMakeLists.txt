@@ -44,5 +44,5 @@ if (ENABLE_CGNS_MODULE)
     set(HDF5_BUILD_SHARED_LIBS OFF)
     add_subdirectory(CGNS)
 
-    message(" HDF5 PATH: " ${HDF5_DIR})
+#    message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
