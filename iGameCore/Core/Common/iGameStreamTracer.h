@@ -26,8 +26,8 @@ public:
 	* @brief Constructor for iGameStreamTracer.
 	*/
 	iGameStreamTracer() {};
-    std::vector<Vector3d> subdataSeedGenerate(int numOfseed);
-    std::vector<Vector3d> seedLineGenerate(int numOfseed);
+    std::vector<Vector3f> subdataSeedGenerate(int numOfseed);
+    std::vector<Vector3f> seedLineGenerate(int numOfseed);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data
@@ -35,10 +35,10 @@ public:
 	* @param[in] proportion Control seedface move proportion
 	* @param[in] numOfseed Input num of seed
 	*/
-    std::vector<Vector3d> seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1, igIndex pId2);
-    std::vector<Vector3d> seedGenerate(int control, float proportion, int numOfseed);
-    std::vector<Vector3d> seedPidGenerate(int numOfseed, igIndex pId1, igIndex pId2);
-    std::vector<Vector3d> seedPCoordGenerate(int numOfseed, Vector3d p1, Vector3d p2);
+    std::vector<Vector3f> seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1, igIndex pId2);
+    std::vector<Vector3f> seedGenerate(int control, float proportion, int numOfseed);
+    std::vector<Vector3f> seedPidGenerate(int numOfseed, igIndex pId1, igIndex pId2);
+    std::vector<Vector3f> seedPCoordGenerate(int numOfseed, Vector3f p1, Vector3f p2);
 	/**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data
@@ -46,8 +46,8 @@ public:
 	* @param[in] proportion Control seedline move proportion
 	* @param[in] numOfseed Input num of seed
 	*/
-    std::vector<Vector3d> streamSeedGenerate(int control, float proportion, int numOfseed);
-    std::vector<Vector3d> streamBoundSeedGenerate(int numOfseed);
+    std::vector<Vector3f> streamSeedGenerate(int control, float proportion, int numOfseed);
+    std::vector<Vector3f> streamBoundSeedGenerate(int numOfseed);
 	/**
 	* @brief Calculate the flow  line with admin's parameter.
 	* @param[in] seed  Input seed data
@@ -61,7 +61,7 @@ public:
 	*/
     void initStreamTracer(Model::Pointer _model);
     void initSubmodelLinks();
-	std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3d>seed,  std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
+	std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f>seed,  std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	bool CellData2PointData( std::string vectorName);
     void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
@@ -76,8 +76,8 @@ public:
     bool PtFinderEmpty() { return this->ptFinder.empty();
 	}
     float AccuracyCul(std::vector<std::vector<float>> streamline, float threshold,int Nth);
-	std::vector<std::vector<float>> showStreamLineMix(std::vector<Vector3d>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
-	std::vector<std::vector<float>> showStreamLineHex(std::vector<Vector3d>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
+	std::vector<std::vector<float>> showStreamLineMix(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
+	std::vector<std::vector<float>> showStreamLineHex(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<float>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 	/**
 	* @brief Calculate the flow  face with admin's parameter.
 	* @param[in] seed  Input seed data
@@ -89,7 +89,7 @@ public:
 	* @param[in] maxSteps Input max num of step
 	* @param[out] streamColor Output streamline color data
 	*/
-	std::vector<std::vector<std::vector<float>>> showStreamFace(std::vector<Vector3d>seed, std::string vectorName, std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
+	std::vector<std::vector<std::vector<float>>> showStreamFace(std::vector<Vector3f>seed, std::string vectorName, std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine, float lengthOfStep, float terminalSpeed, int maxSteps);
 private:
 	/**
 	* @brief Calculate vector values with Newton interpolation method
@@ -101,10 +101,10 @@ private:
 	* @param[out] VolumeId Output In which cell was the point in the last calculation
 	* @param[out] inside Output whether this point is in the model
 	*/
-    Vector3d interpolationVector(Vector3d coord, bool& inside, igIndex& VolumeId,
-                                                    std::string vectorName, std::vector<std::vector<Vector3d>> _vector,
+    Vector3f interpolationVector(Vector3f coord, bool& inside, igIndex& VolumeId,
+                                                    std::string vectorName, std::vector<std::vector<Vector3f>>& _vector,
                                                     float terminalSpeed);
-	Vector3d interpolationVectorTri(Vector3d coord, bool& inside, igIndex& VolumeId,  std::string vectorName, std::vector<Vector3d>_vector, float terminal);
+	Vector3f interpolationVectorTri(Vector3f coord, bool& inside, igIndex& VolumeId,  std::string vectorName, std::vector<Vector3f>&_vector, float terminal);
 	/**
 	* @brief Calculate vector values with Newton interpolation method
 	* @param[in] coord  Input coord data
@@ -115,8 +115,8 @@ private:
 	* @param[out] VolumeId Output In which cell was the point in the last calculation
 	* @param[out] inside Output whether this point is in the model
 	*/
-	Vector3d interpolationVectorMixWithMeanV(Vector3d coord, bool& inside, igIndex& VolumeId, std::string vectorName, std::vector<Vector3d>_vector, float terminal);
-	Vector3d interpolationVectorHexWithNatural(Vector3d coord, bool& inside, igIndex& VolumeId, std::string vectorName, std::vector<Vector3d>_vector, float terminal);
+	Vector3f interpolationVectorMixWithMeanV(Vector3f coord, bool& inside, igIndex& VolumeId, std::string vectorName, std::vector<Vector3f>_vector, float terminal);
+	Vector3f interpolationVectorHexWithNatural(Vector3f coord, bool& inside, igIndex& VolumeId, std::string vectorName, std::vector<Vector3f>_vector, float terminal);
 	/**
 	* @brief Determine if the point is in the tetrahedron
 	* @param[in] coord  Input coord data
@@ -126,8 +126,8 @@ private:
 	* @param[in] v3  Input a vertex that makes up the tetrahedron
 	* @param[out] dis Output the weight calculated based on the distance from the point to the surface
 	*/
-	std::vector<float> ComputeWeightsForPolygonMesh( igIndex* PointIds,Vector3d coord,igIndex* FaceIds,int MaxPolygonSize,int size,int fsize);
-	bool isInside(Vector3d coord, Vector3d v0, Vector3d v1, Vector3d v2, Vector3d v3, std::vector<float>& dis);
+	std::vector<float> ComputeWeightsForPolygonMesh( igIndex* PointIds,Vector3f coord,igIndex* FaceIds,int MaxPolygonSize,int size,int fsize);
+	bool isInside(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3, std::vector<float>& dis);
 	/**
 * @brief Computes the values of 8 interpolation functions at given local coordinates.
 * @param[in] pcoords  Local coordinates within a cell
@@ -146,7 +146,7 @@ private:
 * @param[in] lineP1  Input a vertex that makes up the line
 * @param[in] lineP2  Input a vertex that makes up the line
 */
-	float distance2Line(Vector3d point, Vector3d lineP1, Vector3d lineP2);
+	float distance2Line(Vector3f point, Vector3f lineP1, Vector3f lineP2);
 	/**
 * @brief Calculate the distance from the point to the face
 * @param[in] coord  Input coord data
@@ -171,14 +171,14 @@ private:
 * @param[in] v1  Input a vertex that makes up the face
 * @param[in] v2  Input a vertex that makes up the face
 */
-	bool checkContact(Vector3d coord, Vector3d v0, Vector3d v1, Vector3d v2);
+	bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
     std::unordered_map<int, float> cellBoundLength{};
 	VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
     bool isSubModel = false;
     bool isChange = false;
 	std::vector<PointFinder::Pointer> ptFinder;
-    std::vector<std::vector<Vector3d>> _vector;
+    std::vector<std::vector<Vector3f>> _vector{};
     std::vector<int> subIndex;
     enum StreamMode { Diagonal, PointId, Line };
     StreamMode streamMode = PointId;
