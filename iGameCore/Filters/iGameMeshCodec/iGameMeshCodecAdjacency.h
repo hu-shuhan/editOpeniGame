@@ -12,14 +12,14 @@ class MeshCodecAdjacency
 {
 public:
     struct CellAdjacency {
-        unsigned int* counts;  // 顶点i -> 邻接live face数量
-        unsigned int* offsets; // data的offset
+        unsigned int* counts;  // ????i -> ???live face????
+        unsigned int* offsets; // data??offset
         unsigned int* data;
         //       vertex0            vertex1             ...
         // |cell1, cell3, ...| cell2, cell9, ... |...
     };
 
-    // 变长初始化
+    // ???????
     MeshCodecAdjacency(const unsigned int* sourceCellBuffer, const unsigned int* sourceCellOffset, 
         size_t bufferSize, size_t offsetCount, size_t pointCount, size_t cellCount) :
         m_sourceCellBuffer(sourceCellBuffer),
@@ -32,7 +32,7 @@ public:
         BuildHybirdCellAdjacency();
     }
 
-    // 定长初始化
+    // ?????????
     MeshCodecAdjacency(const unsigned int* sourceCellBuffer, 
         size_t bufferSize, size_t pointCount, size_t fixedCellSize):
         m_sourceCellBuffer(sourceCellBuffer),
@@ -45,7 +45,7 @@ public:
 
     CellAdjacency GetAdjacencyData()
     {
-        // 不希望其他函数修改adj
+        // ????????????????adj
         return m_adj;
     }
 
@@ -58,15 +58,15 @@ private:
     size_t m_bufferSize;
     size_t m_pointCount;
 
-    // 不定长field
+    // ??????field
     const unsigned int* m_sourceCellOffset;
     size_t m_cellCount;
     size_t m_offsetCount;
 
-    // 定长field
+    // ????field
     size_t m_fixedCellSize;
     
-    // 不定长offset
+    // ??????offset
     void BuildHybirdCellAdjacency() {
         m_adj.counts = m_optAllocator.allocate<unsigned int>(m_pointCount);
         m_adj.offsets = m_optAllocator.allocate<unsigned int>(m_pointCount);
@@ -75,12 +75,12 @@ private:
         // fill cell counts
         memset(m_adj.counts, 0, m_pointCount * sizeof(unsigned int));
 
-        // 计算顶点id的直方图 表达了mesh中每个顶点被cell引用的次数
+        // ??????id?????? ?????mesh?????????cell????????
         for (size_t i = 0; i < m_bufferSize; ++i) {
             assert(m_sourceCellBuffer[i] < m_pointCount);
             m_adj.counts[m_sourceCellBuffer[i]]++;
         }
-        // 利用直方图计算data的offset
+        // ????????????data??offset
         unsigned int offset = 0;
         for (size_t i = 0; i < m_pointCount; ++i) {
             m_adj.offsets[i] = offset;
@@ -88,7 +88,7 @@ private:
         }
         assert(offset == m_bufferSize);
 
-        // 填充data
+        // ???data
         for (size_t i = 0; i < m_cellCount; i++) {
             for (size_t j = m_sourceCellOffset[i]; j < m_sourceCellOffset[i + 1]; j++) {
                 m_adj.data[m_adj.offsets[m_sourceCellBuffer[j]]++] = unsigned(i);
@@ -102,7 +102,7 @@ private:
         }
     }
 
-    // 固定offset 
+    // ???offset 
     void BuildCellAdjacency()
     {
         size_t face_count = m_bufferSize / m_fixedCellSize;
