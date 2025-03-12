@@ -67,6 +67,14 @@ void igQtModelClipWidget::UpdatePlane() {
     this->m_Normal[0] = ui->lineEdit_normal_x->text().toFloat();
     this->m_Normal[1] = ui->lineEdit_normal_y->text().toFloat();
     this->m_Normal[2] = ui->lineEdit_normal_z->text().toFloat();
+
+    m_Selection->PlanePoint[0] = m_Origin[0];
+    m_Selection->PlanePoint[1] = m_Origin[1];
+    m_Selection->PlanePoint[2] = m_Origin[2];
+    m_Selection->PlaneNormal[0] = m_Normal[0];
+    m_Selection->PlaneNormal[1] = m_Normal[1];
+    m_Selection->PlaneNormal[2] = m_Normal[2];
+    m_Selection->UpdatePlane();
 }
 void igQtModelClipWidget::SetViewMode(ViewMode vm) {
     this->m_ViewMode = vm;

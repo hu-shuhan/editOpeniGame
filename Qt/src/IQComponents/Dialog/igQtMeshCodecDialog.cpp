@@ -32,7 +32,7 @@ bool igQtMeshCodecDialog::IsVaildFeatureIndex(int featureIndex)
 
 void igQtMeshCodecDialog::InitIntro()
 {
-    ui->lbIntro->setText("通过分析浮点数数据的涡度/梯度/拉普拉斯直方图以确定关键区域 \n在未确认关键区域情况下采用区域压缩强度模式将以非关键区域压缩强度处理数据");
+    ui->lbIntro->setText("通过分析浮点数数据的涡度/梯度/拉普拉斯直方图以确定关键区域 \n在未确认关键区域情况下采用区域压缩强度模式将以非关键区域压缩强度处理数据 \n一键设置全体数据将不会覆盖区域压缩模式下的数据, 也不能将区域压缩设置应用于全体数据");
 }
 
 void igQtMeshCodecDialog::InitUIControlParams()
@@ -570,7 +570,7 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
     //{
     //    // 每个元素矢量为[v1, v2, v3]或[v1, v2], 结果均是三维矢量序列, 元素矢量三维时结果矢量维度均有值, 元素矢量二维时结果矢量只有z有值
     //    std::vector<std::vector<float>> result = featureExtractor->GetDataPointVortex();
-    //    CalL2Norm(result, norms);
+    //    L2Norm(result, norms);
     //    break;
     //}
     case FeatureName::Laplacian:
@@ -687,6 +687,34 @@ void igQtMeshCodecDialog::on_btnCancel_clicked()
 {
     // 关闭对话框并返回拒绝结果
     reject();
+}
+
+void igQtMeshCodecDialog::on_btnSetGlobalCompressMode_clicked()
+{
+    int featureIndex = GetCurrentFeatureIndex();
+    int dataIndex = GetCurrentDataIndex();
+
+    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
+        return;
+
+    if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea)
+    {
+        QMessageBox::information(this, "提示", "不能将区域压缩强度设置应用于全体数据");
+        return;
+    }
+
+    auto copySetting = m_params.errorBoundSetting[dataIndex];
+
+    for (int i = 0; i < m_DataNum; i++)
+    {
+        auto& curSetting = m_params.errorBoundSetting[i];
+        if (curSetting.errorMode != iGame::ErrorMode::KeyArea)
+        {
+            curSetting.defaultErrorBound = copySetting.defaultErrorBound;
+            curSetting.lossyMode = copySetting.lossyMode;
+            curSetting.errorMode = copySetting.errorMode;
+        }
+    }
 }
 
 void igQtMeshCodecDialog::updateAttributeDisplay()

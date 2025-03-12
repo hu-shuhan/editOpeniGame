@@ -55,11 +55,12 @@ signals:
 
 private slots:
     void on_listAttributes_currentRowChanged(int currentRow);
+    void on_tabDataDist_currentChanged(int index);
+    
     void on_btnRefreshDataDist_clicked();
     void on_btnStartCompress_clicked();
     void on_btnCancel_clicked();
-    void on_tabDataDist_currentChanged(int index);
-    void onCheckBoxStateChanged(int index, int state);
+    void on_btnSetGlobalCompressMode_clicked();
 
     void on_radioLossless_toggled(bool checked);
     void on_radioDefaultErrorBound_toggled(bool checked);
@@ -125,6 +126,8 @@ private:
     QVector<QVector<AttrFeatureData>> m_attrFeatureDatas;
 
 private:
+    void onCheckBoxStateChanged(int index, int state);
+
     bool IsVaildAttrIndex(int);
 
     bool IsVaildFeatureIndex(int);

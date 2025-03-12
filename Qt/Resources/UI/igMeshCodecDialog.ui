@@ -291,93 +291,110 @@
                 </item>
                </layout>
               </item>
-              <item>
-               <layout class="QHBoxLayout" name="horizontalLayout_compression_type">
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_left_radio">
-                  <item>
-                   <widget class="QRadioButton" name="radioLossless">
-                    <property name="text">
-                     <string>无损模式</string>
-                    </property>
-                    <property name="checked">
-                     <bool>true</bool>
-                    </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroupLeft</string>
-                    </attribute>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QRadioButton" name="radioDefaultErrorBound">
-                    <property name="text">
-                     <string>默认压缩强度模式</string>
-                    </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroupLeft</string>
-                    </attribute>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QRadioButton" name="radioKeyErrorBound">
-                    <property name="text">
-                     <string>区域压缩强度模式</string>
-                    </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroupLeft</string>
-                    </attribute>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_6">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_right_radio">
-                  <item>
-					  <widget class="QRadioButton" name="radioMantissaTruncation">
-						  <property name="enabled">
-							  <bool>false</bool>
-						  </property>
-						  <property name="checked">
-							  <bool>true</bool>
-						  </property>
-						  <property name="text">
-							  <string>尾数截断</string>
-						  </property>
-						  <attribute name="buttonGroup">
-							  <string notr="true">buttonGroupRight</string>
-						  </attribute>
-					  </widget>
-                  </item>
-                  <item>
-                   <widget class="QRadioButton" name="radioLogQuantization">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="text">
-                     <string>对数量化</string>
-                    </property>
-                    <attribute name="buttonGroup">
-                     <string notr="true">buttonGroupRight</string>
-                    </attribute>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-               </layout>
-              </item>
+				 <item>
+					 <layout class="QHBoxLayout" name="horizontalLayout_compress_mode">
+						 <item>
+							 <layout class="QVBoxLayout" name="verticalLayout_2">
+								 <item>
+									 <layout class="QHBoxLayout" name="horizontalLayout_left_radio">
+										 <item>
+											 <widget class="QRadioButton" name="radioLossless">
+												 <property name="text">
+													 <string>无损模式</string>
+												 </property>
+												 <property name="checked">
+													 <bool>true</bool>
+												 </property>
+												 <attribute name="buttonGroup">
+													 <string notr="true">buttonGroupLeft</string>
+												 </attribute>
+											 </widget>
+										 </item>
+										 <item>
+											 <widget class="QRadioButton" name="radioDefaultErrorBound">
+												 <property name="text">
+													 <string>默认压缩强度模式</string>
+												 </property>
+												 <attribute name="buttonGroup">
+													 <string notr="true">buttonGroupLeft</string>
+												 </attribute>
+											 </widget>
+										 </item>
+										 <item>
+											 <widget class="QRadioButton" name="radioKeyErrorBound">
+												 <property name="text">
+													 <string>区域压缩强度模式</string>
+												 </property>
+												 <attribute name="buttonGroup">
+													 <string notr="true">buttonGroupLeft</string>
+												 </attribute>
+											 </widget>
+										 </item>
+									 </layout>
+								 </item>
+								 <item>
+									 <layout class="QHBoxLayout" name="horizontalLayout_right_radio">
+										 <item>
+											 <widget class="QRadioButton" name="radioMantissaTruncation">
+												 <property name="enabled">
+													 <bool>false</bool>
+												 </property>
+												 <property name="text">
+													 <string>尾数截断</string>
+												 </property>
+												 <property name="checked">
+													 <bool>true</bool>
+												 </property>
+												 <attribute name="buttonGroup">
+													 <string notr="true">buttonGroupRight</string>
+												 </attribute>
+											 </widget>
+										 </item>
+										 <item>
+											 <widget class="QRadioButton" name="radioLogQuantization">
+												 <property name="enabled">
+													 <bool>false</bool>
+												 </property>
+												 <property name="text">
+													 <string>对数量化</string>
+												 </property>
+												 <attribute name="buttonGroup">
+													 <string notr="true">buttonGroupRight</string>
+												 </attribute>
+											 </widget>
+										 </item>
+									 </layout>
+								 </item>
+							 </layout>
+						 </item>
+						 <item>
+							 <spacer name="horizontalSpacer_6">
+								 <property name="orientation">
+									 <enum>Qt::Horizontal</enum>
+								 </property>
+								 <property name="sizeHint" stdset="0">
+									 <size>
+										 <width>40</width>
+										 <height>20</height>
+									 </size>
+								 </property>
+							 </spacer>
+						 </item>
+						 <item>
+							 <widget class="QPushButton" name="btnSetGlobalCompressMode">
+								 <property name="sizePolicy">
+									 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+										 <horstretch>0</horstretch>
+										 <verstretch>0</verstretch>
+									 </sizepolicy>
+								 </property>
+								 <property name="text">
+									 <string>一键设置全体数据</string>
+								 </property>
+							 </widget>
+						 </item>
+					 </layout>
+				 </item>
              </layout>
             </widget>
            </item>
@@ -492,7 +509,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroupRight"/>
   <buttongroup name="buttonGroupLeft"/>
+  <buttongroup name="buttonGroupRight"/>
  </buttongroups>
 </ui>

@@ -74,7 +74,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
-if (EXAMPLE_COMPILE  AND CMAKE_BUILD_TYPE STREQUAL "Release")
+if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
 

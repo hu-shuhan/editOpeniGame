@@ -510,7 +510,7 @@ void igQtMainWindow::initAllFilters() {
                     result += "\n Squared Mean Distance: " + QString::number(d);
                     result += "\n Mean Distance: " + QString::number(dd);
                     result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
-                    result += "\nMean Distance: " + QString::number(dd);
+                    result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) + "%";
                     result += "\n\n累计几何误差: " + QString::number(filter->GetError());
                 } else {
                     result += "\n累计几何误差: " + QString::number(filter->GetError());
@@ -526,7 +526,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    /*
+    if (false)
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
@@ -550,7 +550,7 @@ void igQtMainWindow::initAllFilters() {
         float attribute_weights[1]{1};
         size_t attribute_count = 1;
         unsigned char* vertex_lock = nullptr;
-        size_t target_index_count = index_count * 0.5;
+        size_t target_index_count = index_count * 0.1;
         float target_error = 0.01f;
         unsigned int options = 0;
         float out_error = 0.0f;
@@ -584,18 +584,133 @@ void igQtMainWindow::initAllFilters() {
         //                               vertex_positions_stride, target_index_count, target_error, result_error);
         auto Mesh = SurfaceMesh::New();
         auto Faces = CellArray::New();
+        auto Points = Points::New();
+        auto Attrs = AttributeSet::New();
+        auto oldAttrs = mesh->GetAttributeSet();
+        for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+            auto& att = oldAttrs->GetAttribute(j);
+            auto arr = FloatArray::New();
+            arr->SetName(att.pointer->GetName());
+            arr->SetDimension(att.pointer->GetDimension());
+            Attrs->AddAttribute(att.type, att.attachmentType, arr);
+        }
+
         std::cout << result_size << std::endl;
+        std::vector<int> is_deleted(vertex_count, 1);
+        for (int i = 0; i < target_index_count; i++) { 
+            is_deleted[destination[i]] = 0;
+        }
+        int count = 0;
+        float val[32];
+        std::vector<int> vertex_map(vertex_count, 0);
+        for (int i = 0; i < is_deleted.size(); i++) {
+            if (!is_deleted[i]) { 
+                vertex_map[i] = count;
+                count++;
+                Points->AddPoint(mesh->GetPoint(i));
+                for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+                    oldAttrs->GetAttribute(j).pointer->GetElement(i, val);
+                    Attrs->GetAttribute(j).pointer->AddElement(val);
+                }
+            }
+        }
+        for (int i = 0; i < target_index_count; i++) { 
+            destination[i] = vertex_map[destination[i]];
+        }
         for (int i = 0; i < target_index_count / 3; i++) {
             Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
         }
-
-        Mesh->SetPoints(mesh->GetPoints());
+        Mesh->SetName(mesh->GetName() + "_new");
+        Mesh->SetPoints(Points);
         Mesh->SetFaces(Faces);
-        Mesh->SetAttributeSet(mesh->GetAttributeSet());
+        Mesh->SetAttributeSet(Attrs);
         modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
         rendererWidget->update();
+        return;
+        {
+            auto oldMesh = mesh;
+            auto newMesh = Mesh;
+            auto oldPoints = oldMesh->GetPoints();
+            auto newPoints = newMesh->GetPoints();
+            QString result = "";
+            PointFinder::Pointer newPicker = PointFinder::New();
+            newPicker->SetPoints(newPoints);
+            newPicker->Initialize();
+
+            double w1 = 0.0, w2 = 0.0;
+            // 计算原始网格的表面积
+            for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+                igIndex f[3]{};
+                oldMesh->GetFacePointIds(i, f);
+                Point v0 = oldMesh->GetPoint(f[0]);
+                Point v1 = oldMesh->GetPoint(f[1]);
+                Point v2 = oldMesh->GetPoint(f[2]);
+
+                Vector3f d10 = v1 - v0;
+                Vector3f d20 = v2 - v0;
+
+                w1 += CrossProduct(d10, d20).norm() / 2.0;
+            }
+            //for (int i = 0; i < newMesh->GetNumberOfFaces(); i++) {
+            //    igIndex f[3]{};
+            //    newMesh->GetFacePointIds(i, f);
+            //    Point v0 = newMesh->GetPoint(f[0]);
+            //    Point v1 = newMesh->GetPoint(f[1]);
+            //    Point v2 = newMesh->GetPoint(f[2]);
+
+            //    Vector3f d10 = v1 - v0;
+            //    Vector3f d20 = v2 - v0;
+
+            //    w2 += CrossProduct(d10, d20).norm() / 2.0;
+            //}
+
+            double d1 = 0.0, d2 = 0.0;
+            double d3 = 0.0, d4 = 0.0;
+
+            iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+            ProgressBar->UpdateProgress(0);
+            int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+            // 计算平均平方距离
+            for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+                if (i > progress * blockNum) {
+                    ProgressBar->UpdateProgress(progress * 0.01);
+                    progress++;
+                }
+                auto p = oldPoints->GetPoint(i);
+
+                igIndex id = newPicker->FindClosestPoint(p);
+                if (id != -1) {
+                    Point cp = newPoints->GetPoint(id);
+                    d1 += (p - cp).squaredNorm();
+                    d3 += (p - cp).norm();
+                }
+            }
+
+            //for (int i = 0; i < newPoints->GetNumberOfPoints(); i++) {
+            //    auto p = newPoints->GetPoint(i);
+
+            //    igIndex id = oldPicker->FindClosestPoint(p);
+            //    if (id != -1) {
+            //        Point cp = oldPoints->GetPoint(id);
+            //        d2 += (p - cp).squaredNorm();
+            //        d4 += (p - cp).norm();
+            //    }
+            //}
+
+            //double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+            double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+
+            result += "\n几何相似性度量";
+            //result += "\n Squared Mean Distance: " + QString::number(d);
+            result += "\n Mean Distance: " + QString::number(dd);
+            //result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+            result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) + "%";
+            //result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+
+            QMessageBox::information(this, "简化成功", result);
+        }
     });
-    */
+    
     connect(ui->menu_filters->addAction("插值"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1286,8 +1401,12 @@ void igQtMainWindow::initAllFilters() {
         //    modelTreeWidget->updateAllAttriubute(data);
         //}
 
+        //data = DynamicCast<DrawObject>(data)->GetDisplayObject();
+
         filter->SetInput(data);
         if (filter->Execute()) { 
+            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
+
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
         }
