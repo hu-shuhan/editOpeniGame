@@ -1,6 +1,5 @@
-﻿
-#include <iGameStreamTracer.h>
-#include <iGameThreadPool.h>#
+﻿#include <iGameStreamTracer.h>
+#include <iGameThreadPool.h>
 #include <shared_mutex>
 float A[5] = {1.0 / 5.0, 3.0 / 10.0, 3.0 / 5.0, 1.0, 7.0 / 8.0};
 float B[5][5] = {{1.0 / 5.0, 0, 0, 0, 0},
