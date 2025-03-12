@@ -193,6 +193,7 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
             return false;
         }
         odb_finalizeAPI();
+        UpdateProgress(1.0f);
         return true;
 }
 
@@ -235,6 +236,7 @@ bool iGame::ODBReader::Execute() {
             std::cout << "Fail to Open ODB dataBase \n";
             return false;
         }
+        this->UpdateProgress(0.1f);
         ExtractHeader();
         std::cout <<"ExtractHeader end\n";
         ConstructMap();
@@ -261,6 +263,7 @@ bool iGame::ODBReader::Execute() {
 //    }
 //    m_Output->SetName(m_FileName);
     SetOutput(0, m_Output);
+    UpdateProgress(1.0f);
     return true;
 }
 
@@ -303,8 +306,10 @@ bool ODBReader::ExtractHeader() {
     if(m_ODB == nullptr) return false;
     // write instances
     ExtractAllInstance();
+    this->UpdateProgress(0.12f);
     // write steps and frames
     ExtractAllStep();
+    this->UpdateProgress(0.15f);
     return true;
 }
 
