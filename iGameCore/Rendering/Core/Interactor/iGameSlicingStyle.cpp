@@ -609,32 +609,33 @@ void SlicingStyle::DrawSlicingPlane() {
 
 void SlicingStyle::UpdatePlane() {
 
-    if (m_DataObject->GetBoundingBox().isIn(m_Selection->PlanePoint)) {
-        Center = igm::vec3(m_Selection->PlanePoint[0],
-                           m_Selection->PlanePoint[1],
-                           m_Selection->PlanePoint[2]);
-        auto n = m_Selection->PlaneNormal;
-        Start = v(m_Selection->PlanePoint + n * (Start - Center).length());
-        End = v(m_Selection->PlanePoint - n * (End - Center).length());
+    if (!m_DataObject->GetBoundingBox().isIn(m_Selection->PlanePoint)) {
+        auto& bbox = m_DataObject->GetBoundingBox();
+        auto diag = bbox.diagVector();
+        Vector3d p1 = bbox.min + diag * 0.005;
+        Vector3d p2 = bbox.max - diag * 0.005;
 
-        ComputeSlicingPlane();
-        Draw();
-        return;
+        auto& center = m_Selection->PlanePoint;
+
+        center[0] = std::max(center[0], p1[0]);
+        center[1] = std::max(center[1], p1[1]);
+        center[2] = std::max(center[2], p1[2]);
+
+        center[0] = std::min(center[0], p2[0]);
+        center[1] = std::min(center[1], p2[1]);
+        center[2] = std::min(center[2], p2[2]);
     }
 
-    auto& bbox = m_DataObject->GetBoundingBox();
-    Vector3d p1 = bbox.min;
-    Vector3d p7 = bbox.max;
-    Vector3d p2 = Vector3d(p7[0], p1[1], p1[2]);
-    Vector3d p3 = Vector3d(p7[0], p7[1], p1[2]);
-    Vector3d p4 = Vector3d(p1[0], p7[1], p1[2]);
-    Vector3d p5 = Vector3d(p1[0], p1[1], p7[2]);
-    Vector3d p6 = Vector3d(p7[0], p1[1], p7[2]);
-    Vector3d p8 = Vector3d(p1[0], p7[1], p7[2]);
-
-    auto center = m_Selection->PlanePoint;
     auto n = m_Selection->PlaneNormal;
-    auto start = m_Selection->PlanePoint + n * (Start - Center).length();
+    Start = v(m_Selection->PlanePoint + n * (Start - Center).length());
+    End = v(m_Selection->PlanePoint - n * (End - Center).length());
+
+    Center = igm::vec3(m_Selection->PlanePoint[0], m_Selection->PlanePoint[1],
+                       m_Selection->PlanePoint[2]);
+
+    ComputeSlicingPlane();
+    Draw();
+    return;
 }
 
 bool SlicingStyle::LinePlaneIntersection2(const Vector3d& A, const Vector3d& B,
