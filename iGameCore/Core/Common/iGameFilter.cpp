@@ -120,6 +120,8 @@ void Filter::ResetProgress(double scale) {
     m_ProgressScale = scale;
 }
 
+void Filter::SetModel(Model::Pointer model) { m_Model = model; }
+
 void Filter::SetNumberOfInputs(int n)
 {
     m_Inputs->Resize(n);

@@ -393,74 +393,6 @@ void igQtMeshCodecDialog::on_btnRefreshDataDist_clicked()
     }
 }
 
-void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
-{
-    std::vector<float> xAxis;
-    std::vector<int> yAxis;
-
-    CalFeatureHistogram(xAxis, yAxis);
-
-    chart->removeAllSeries();
-    foreach(QAbstractAxis * axis, chart->axes()) {
-        chart->removeAxis(axis);
-    }
-    chart->legend()->setVisible(false);
-
-    QValueAxis* axisX = new QValueAxis();
-    QValueAxis* axisY = new QValueAxis();
-
-    // Setup X axis with scientific notation
-    //axisX->setLabelFormat("%5.1e");
-    axisX->setRange(xAxis.front(), xAxis.back());
-    axisX->setTickCount(xAxis.size());
-    chart->addAxis(axisX, Qt::AlignBottom);
-
-    // Setup Y axis with integer format
-    int maxY = *std::max_element(yAxis.begin(), yAxis.end());
-    axisY->setRange(0, maxY * 1.05); // 5% margin
-    axisY->setTickCount(5);
-    axisY->setLabelFormat("%d");
-    chart->addAxis(axisY, Qt::AlignLeft);
-
-    // Create a series for each bar in the histogram
-    for (size_t i = 0; i < yAxis.size(); i++) {
-        QLineSeries* lowerLine = new QLineSeries();
-        QLineSeries* upperLine = new QLineSeries();
-        QAreaSeries* barSeries = new QAreaSeries();
-
-        // Create the bar shape using points
-        float x1 = xAxis[i];
-        float x2 = xAxis[i + 1];
-
-        // Lower line (at y=0)
-        *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
-
-        // Upper line (at y=count)
-        *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
-
-        // Create area between lower and upper lines
-        barSeries->setLowerSeries(lowerLine);
-        barSeries->setUpperSeries(upperLine);
-
-        // Style the bar
-        barSeries->setColor(QColor(0, 114, 189)); // Blue color
-        barSeries->setBorderColor(QColor(0, 114, 189));
-
-        // Add to chart
-        chart->addSeries(barSeries);
-
-        // Attach axes
-        barSeries->attachAxis(axisX);
-        barSeries->attachAxis(axisY);
-    }
-
-    // Additional styling
-    chart->setBackgroundVisible(false);
-    chart->setPlotAreaBackgroundVisible(true);
-    chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
-    chart->setPlotAreaBackgroundPen(Qt::NoPen);
-}
-
 void igQtMeshCodecDialog::on_radioLossless_toggled(bool checked)
 {
     if (checked) {
@@ -554,6 +486,76 @@ void igQtMeshCodecDialog::on_cbShowReport_stateChanged(int state)
     m_params.showReport = ui->cbShowReport->isChecked();
 }
 
+void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
+{
+    std::vector<float> xAxis;
+    std::vector<int> yAxis;
+
+    CalFeatureHistogram(xAxis, yAxis);
+
+    chart->removeAllSeries();
+    foreach(QAbstractAxis * axis, chart->axes()) {
+        chart->removeAxis(axis);
+    }
+    chart->legend()->setVisible(false);
+
+    QValueAxis* axisX = new QValueAxis();
+    QValueAxis* axisY = new QValueAxis();
+
+    // Setup X axis with scientific notation
+
+    axisX->setRange(xAxis.front(), xAxis.back());
+    axisX->setTickCount(xAxis.size());
+    axisX->setLabelFormat("%.2e");
+    chart->addAxis(axisX, Qt::AlignBottom);
+
+    // Setup Y axis with integer format
+    int maxY = *std::max_element(yAxis.begin(), yAxis.end());
+    axisY->setRange(0, maxY * 1.05); // 5% margin
+    axisY->setTickCount(5);
+    axisY->setLabelFormat("%d");
+    chart->addAxis(axisY, Qt::AlignLeft);
+
+    // Create a series for each bar in the histogram
+    for (size_t i = 0; i < yAxis.size(); i++) {
+        QLineSeries* lowerLine = new QLineSeries();
+        QLineSeries* upperLine = new QLineSeries();
+        QAreaSeries* barSeries = new QAreaSeries();
+
+        // Create the bar shape using points
+        float x1 = xAxis[i];
+        float x2 = xAxis[i + 1];
+
+        // Lower line (at y=0)
+        *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
+
+        // Upper line (at y=count)
+        *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
+
+        // Create area between lower and upper lines
+        barSeries->setLowerSeries(lowerLine);
+        barSeries->setUpperSeries(upperLine);
+
+        // Style the bar
+        barSeries->setColor(QColor(0, 114, 189)); // Blue color
+        barSeries->setBorderColor(QColor(0, 114, 189));
+
+        // Add to chart
+        chart->addSeries(barSeries);
+
+        // Attach axes
+        barSeries->attachAxis(axisX);
+        barSeries->attachAxis(axisY);
+    }
+
+    // Additional styling
+    chart->setBackgroundVisible(false);
+    chart->setPlotAreaBackgroundVisible(true);
+    chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
+    chart->setPlotAreaBackgroundPen(Qt::NoPen);
+}
+
+
 void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::vector<int>& yAxis) // bins_num == 10
 {
     int featureIndex = GetCurrentFeatureIndex();
@@ -587,6 +589,16 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
         FrobeniusNorm(result, norms);
         break;
     }
+    }
+
+    for (auto& val : norms) {
+        // 避免对0或负数取对数
+        if (val > 0) {
+            val = std::log10(val);
+        }
+        else {
+            val = std::numeric_limits<float>::lowest();  // 对于0或负值使用一个很小的值
+        }
     }
 
     // Find min and max values
@@ -627,6 +639,8 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
         }
     }
 }
+
+
 
 // for gradient
 void igQtMeshCodecDialog::FrobeniusNorm(

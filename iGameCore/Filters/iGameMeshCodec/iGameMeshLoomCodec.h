@@ -15,7 +15,7 @@ code name 'Spinning Jenny'
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
-
+#include "iGameThreadPool.h"
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
