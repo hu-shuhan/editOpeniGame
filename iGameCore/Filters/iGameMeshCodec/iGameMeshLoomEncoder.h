@@ -73,7 +73,7 @@ public:
         
         // lzma
         int compressLevel = 1;
-        int numThreads = 16;
+        int numThreads = ThreadPool::GetDefaultThreadCount();
 
         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
         PayloadBuffer topoCompressed(PayloadType::kTopologyBrick);
@@ -610,7 +610,7 @@ private:
 
 
         int sizeCount = source.size();
-        int maxThreadSize = 16; // 线程数量
+        int maxThreadSize = ThreadPool::GetDefaultThreadCount(); // 线程数量
 
         // 对于 AAAABBBBCCCCCC
         // 输出形如 0 4 8 14
