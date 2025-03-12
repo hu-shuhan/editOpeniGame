@@ -38,6 +38,7 @@ bool SplineVolumeReader::Parsing() {
     SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, isoNum);
 
     m_scene_gp.init_CUDA_map_mode(true);
+    UpdateProgress(0.2f);
     std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces =
             m_scene_gp.init_scene(SurfaceHelper);
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
