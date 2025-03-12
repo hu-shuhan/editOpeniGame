@@ -1,6 +1,7 @@
 ﻿
 #include <iGameStreamTracer.h>
-#include <iGameThreadPool.h>
+#include <iGameThreadPool.h>#
+#include<shared_mutex>
 float A[5] = {1.0 / 5.0, 3.0 / 10.0, 3.0 / 5.0, 1.0, 7.0 / 8.0};
 float B[5][5] = {{1.0 / 5.0, 0, 0, 0, 0},
                  {3.0 / 40.0, 9.0 / 40.0, 0, 0, 0},
@@ -56,6 +57,8 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
             return;
         }
     }
+    processCount = 0;
+    totalProcess = 0;
     isChange = true;
     return;
 }
@@ -439,11 +442,15 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                 tem[i].emplace_back(_coord[2]);
             }
         }
-        // std::cout << "1" << std::endl;
-        // std::cout << i << "end" <<clock()-time1<< std::endl;
     };
+    processCount = 0;
+    totalProcess = seed.size();
     for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
-    for (int i = 0; i < seed.size(); i++) { result[i].wait(); }
+    for (int i = 0; i < seed.size(); i++) {
+        result[i].wait();
+        processCount++;
+        this->UpdateProgress(processCount / seed.size());
+    }
     return tem;
 
 

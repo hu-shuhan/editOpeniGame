@@ -2,16 +2,16 @@
 #define MeshLoomEncoder_h
 
 #include "iGameFilter.h"
-#include "iGameMacro.h"
 #include "iGameFlatArray.h"
-#include "iGameThreadPool.h"
+#include "iGameMacro.h"
+#include "iGameMeshCodecAdjacency.h"
+#include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
-#include "iGameMeshCodecLZMA.h"
-#include "iGameProgressObserver.h"
-#include "iGameMeshCodecAdjacency.h"
-#include "iGameMeshLoomCodec.h"
 #include "iGameMeshFloatCodec.h"
+#include "iGameMeshLoomCodec.h"
+#include "iGameProgressObserver.h"
+#include "iGameThreadPool.h"
 #include <functional>
 
 
@@ -32,10 +32,7 @@ IGAME_NAMESPACE_BEGIN
 class MeshLoomEncoder : public MeshLoomCodec {
 public:
     MeshLoomEncoder(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams)
-        : m_DataObj(dataObj),
-        m_SaveFilePath(saveFilePath),
-        m_EncoderAdapter(new MeshEncoderAdapter(dataObj))
-    {
+        : m_DataObj(dataObj), m_SaveFilePath(saveFilePath), m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
         InitAdjacencyScore();
         InitParams();
         LoadUIControlParams(uiConParams);
@@ -61,16 +58,16 @@ public:
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
-        
+
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        
+
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-        
+
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
         this->ParamsEncoder(paramPayload);
-        
+
         // lzma
         int compressLevel = 1;
         int numThreads = ThreadPool::GetDefaultThreadCount();
@@ -83,31 +80,18 @@ public:
         std::vector<std::future<void>> result;
         ThreadPool* tp = ThreadPool::Instance();
 
-		std::atomic<float> progress(0.8);
+        std::atomic<float> progress(0.8);
 
-        result.push_back(
-            tp->Commit([&]() -> void {
-                MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads);
-            })
-        );
-        result.push_back(
-            tp->Commit([&]() -> void {
-                MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads);
-            })
-        );
-        result.push_back(
-            tp->Commit([&]() -> void {
-                MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads);
-             })
-        );
-        result.push_back(
-            tp->Commit([&]() -> void {
-                MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads);
-             })
-        );
+        result.push_back(tp->Commit(
+                [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        result.push_back(tp->Commit(
+                [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        result.push_back(tp->Commit(
+                [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        result.push_back(tp->Commit(
+                [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
-        for (int i = 0; i < result.size(); i++)
-        {
+        for (int i = 0; i < result.size(); i++) {
             result[i].wait();
             progress += 0.04;
             UpdateProgress(progress); // 似乎不支持多线程
@@ -167,45 +151,40 @@ public:
                 size.HighPart = fileInfo.nFileSizeHigh;
                 size.LowPart = fileInfo.nFileSizeLow;
                 sourceSize = size.QuadPart;
-            }
-            else {
+            } else {
                 sourceSize = -1;
             }
-#else 
+#else
             struct stat stat_buf;
             int rc = stat(filePath.c_str(), &stat_buf);
             sourceSize = (rc == 0 ? stat_buf.st_size : -1);
-#endif            
+#endif
 
             if (sourceSize != -1) {
-                long long compressSize = geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
+                long long compressSize =
+                        geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
                 double cr = compressSize * 1.0 / sourceSize;
                 std::cout << "compress rate: " << cr << std::endl;
 
                 m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
             }
-            };
+        };
 
         calCR();
         return true;
     }
 
-    UIControlParams GenUiControlParams(DataObject::Pointer dataObj)
-    {
+    static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
         UIControlParams params;
-        for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++)
-        {
+        for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++) {
             iGame::FloatErrorControlParameters p;
 
-            if (i == 0)
-            {
+            if (i == 0) {
                 p.dataName = "顶点坐标";
                 p.isKeyElement =
-                    std::vector<bool>(iGame::DynamicCast<iGame::PointSet>(dataObj)->GetNumberOfPoints(), false);
+                        std::vector<bool>(iGame::DynamicCast<iGame::PointSet>(dataObj)->GetNumberOfPoints(), false);
 
-            }
-            else
-            {
+            } else {
                 auto attr = dataObj->GetAttributeSet()->GetAttribute(i - 1);
                 p.dataName = attr.pointer->GetName();
                 p.isKeyElement = std::vector<bool>(attr.pointer->GetNumberOfElements(), false);
@@ -218,12 +197,11 @@ public:
             p.nonKeyAreaErrorBound = 0.01;
             params.errorBoundSetting.push_back(p);
         }
+
+        return params;
     }
 
-    std::vector<std::pair<std::string, std::string>> GetReport()
-    {
-        return m_report;
-    }
+    std::vector<std::pair<std::string, std::string>> GetReport() { return m_report; }
 
 private:
     std::string m_SaveFilePath;
@@ -239,9 +217,7 @@ private:
     std::vector<std::pair<std::string, std::string>> m_report;
 
 
-
-    void LoadUIControlParams(const UIControlParams& uiConParams)
-    {
+    void LoadUIControlParams(const UIControlParams& uiConParams) {
         m_showReport = uiConParams.showReport;
         m_codecParams.geomParams.lossyMode = uiConParams.errorBoundSetting[0].lossyMode;
         m_codecParams.geomParams.errorMode = uiConParams.errorBoundSetting[0].errorMode;
@@ -251,8 +227,7 @@ private:
         m_geomErrorControl = uiConParams.errorBoundSetting[0];
 
         m_attrErorContrl.resize(m_codecParams.attrCount);
-        for (int i = 1; i < uiConParams.errorBoundSetting.size(); i++)
-        {
+        for (int i = 1; i < uiConParams.errorBoundSetting.size(); i++) {
             auto& attrParam = m_codecParams.attrParams[i - 1];
             attrParam.lossyMode = uiConParams.errorBoundSetting[i].lossyMode;
             attrParam.errorMode = uiConParams.errorBoundSetting[i].errorMode;
@@ -269,7 +244,8 @@ private:
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
         // multiblock网格类型暂不支持
         assert(this->m_codecParams.meshType == IG_SURFACE_MESH || this->m_codecParams.meshType == IG_VOLUME_MESH ||
-               this->m_codecParams.meshType == IG_STRUCTURED_MESH || this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH);
+               this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
+               this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH);
         if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
             std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
                         DynamicCast<StructuredMesh>(this->m_DataObj)->GetDimensionSize(), 3 * sizeof(int));
@@ -278,7 +254,7 @@ private:
         // 拓扑
         this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
         this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
-        
+
         // 顶点坐标
         this->m_codecParams.geomParams.valueSize = sizeof(float); // float
         this->m_codecParams.geomParams.elementCount = this->m_EncoderAdapter->GetNumberOfPoints();
@@ -323,19 +299,16 @@ private:
 
     template<typename T>
     void AddErrorReport(const std::vector<T>& source, const std::vector<T>& quantized,
-        const FloatParameters& floatParams, const FloatErrorControlParameters& errorParams, std::string dataName)
-    {
-        if (m_showReport)
-        {
+                        const FloatParameters& floatParams, const FloatErrorControlParameters& errorParams,
+                        std::string dataName) {
+        if (m_showReport) {
             float keyError, nonKeyError;
             FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
-            
-            if (floatParams.errorMode == ErrorMode::KeyArea)
-            {
-                m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("▲{:.2f}% ■{:.2f}%", keyError, nonKeyError)));  
-            }
-            else
-            {
+
+            if (floatParams.errorMode == ErrorMode::KeyArea) {
+                m_report.push_back(std::make_pair(dataName + " 相对误差",
+                                                  std::format("▲{:.2f}% ■{:.2f}%", keyError, nonKeyError)));
+            } else {
                 m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("{:.2f}%", keyError)));
             }
         }
@@ -365,11 +338,9 @@ private:
             ThreadPool::parallelFor(0, pointCount, [&](int start, int end) -> void {
                 for (int j = start; j < end; j++) {
                     // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_geomErrorControl.isKeyElement[j]) {
-                        remappedIsKey[pointIdRemap[j]] = true;
-                    }
+                    if (m_geomErrorControl.isKeyElement[j]) { remappedIsKey[pointIdRemap[j]] = true; }
                 }
-                });
+            });
 
             // 用重映射后的isKey替换原始的isKey
             m_geomErrorControl.isKeyElement = std::move(remappedIsKey);
@@ -378,10 +349,11 @@ private:
         std::vector<unsigned char> encodedFloat;
 
         std::vector<float> preserve = remappedPointBuffer;
-        MeshOptFloatCodec::FloatEncoder(encodedFloat, remappedPointBuffer, m_codecParams.geomParams, m_geomErrorControl);
+        MeshOptFloatCodec::FloatEncoder(encodedFloat, remappedPointBuffer, m_codecParams.geomParams,
+                                        m_geomErrorControl);
 
         AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomErrorControl, "顶点坐标");
-        
+
         UpdateProgress(0.2);
 
         payload.resize(encodedFloat.size());
@@ -397,7 +369,7 @@ private:
     ){
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
-        
+
 		float progress = 0.4;
 
         auto remapAttributeValues = [=](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
@@ -452,7 +424,7 @@ private:
 
             // 编码
             std::vector<unsigned char> encoded;
-            
+
             if (attrParams.valueSize == sizeof(float)) {
                 std::vector<float> preserve = remappedFloatAttrBuffer;
                 MeshOptFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, errorParams);
@@ -479,20 +451,16 @@ private:
         }
     }
     */
-    
 
-    void AttrEncoder(
-        PayloadBuffer& payload,
-        const std::vector<unsigned int>& pointRemap,
-        const std::vector<unsigned int>& topCellRemap,
-        const std::vector<unsigned int>& bottomCellRemap
-    ){
+
+    void AttrEncoder(PayloadBuffer& payload, const std::vector<unsigned int>& pointRemap,
+                     const std::vector<unsigned int>& topCellRemap, const std::vector<unsigned int>& bottomCellRemap) {
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
-        
+
         auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
-            size_t valueCount = params.dimension *
-                (params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size());
+            size_t valueCount =
+                    params.dimension * (params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size());
             remappedBuffer.resize(valueCount);
 
             size_t remappedElementCount = params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size();
@@ -503,20 +471,18 @@ private:
                     igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
 
                     // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_attrErorContrl[attrIndex].isKeyElement[j]) {
-                        remappedIskey[remapIndex] = true;
-                    }
+                    if (m_attrErorContrl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
 
                     for (int k = 0; k < params.dimension; k++) {
                         remappedBuffer[remapIndex * params.dimension + k] =
-                            attrArray->GetValue(j * params.dimension + k);
+                                attrArray->GetValue(j * params.dimension + k);
                     }
                 }
-                });
+            });
 
             // 用 remap 后的 iskey 替换原始的 iskey
             m_attrErorContrl[attrIndex].isKeyElement = std::move(remappedIskey);
-            };
+        };
 
         std::mutex reportMutex;
         ProgressParallelFor(0, this->m_codecParams.attrParams.size(), 0.4, 0.6, [&](int start, int end) -> void {
@@ -532,8 +498,7 @@ private:
                 if (attrParams.valueSize == sizeof(float)) {
                     auto floatAttrArray = DynamicCast<FlatArray<float>>(attr.pointer);
                     remapAttributeValues(floatAttrArray, remappedFloatAttrBuffer, attrParams, i);
-                }
-                else {
+                } else {
                     auto doubleAttrArray = DynamicCast<FlatArray<double>>(attr.pointer);
                     remapAttributeValues(doubleAttrArray, remappedDoubleAttrBuffer, attrParams, i);
                 }
@@ -547,16 +512,17 @@ private:
 
                     {
                         std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, errorParams,
+                                       attr.pointer->GetName());
                     }
-                }
-                else if (attrParams.valueSize == sizeof(double)) {
+                } else if (attrParams.valueSize == sizeof(double)) {
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
                     MeshOptFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, errorParams);
 
                     {
                         std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, errorParams, attr.pointer->GetName());
+                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, errorParams,
+                                       attr.pointer->GetName());
                     }
                 }
 
@@ -564,7 +530,7 @@ private:
                 attrParams.binaryCount = encoded.size() * sizeof(uint8_t);
                 outFloats[i] = encoded;
             }
-            });
+        });
 
         UpdateProgress(0.6);
 
@@ -575,8 +541,7 @@ private:
             currentPayloadCursor += outFloats[i].size();
         }
     }
-    
-    
+
 
     // 和常规的delta encoder有点区别 产生的结果是每个cell的点的数量
     void DeltaEncoder(std::vector<uint32_t>& dest, std::vector<uint32_t> source) {
@@ -716,21 +681,13 @@ private:
         source.resize(bufferSize - padding);
     }
 
-    void IndexNOffsetEncoder(
-        std::vector<unsigned char>& outputTopo,
-        std::vector<unsigned int>& cellRemap,
+    void IndexNOffsetEncoder(std::vector<unsigned char>& outputTopo, std::vector<unsigned int>& cellRemap,
 
-        int cellCount,
-        int childCount,
+                             int cellCount, int childCount,
 
-        std::vector<unsigned int> indices,
-        IGsize& indicesBinarySize,
-        int& bufferPadding,
+                             std::vector<unsigned int> indices, IGsize& indicesBinarySize, int& bufferPadding,
 
-        int fixedCellSize,
-        IGsize& cellSizeBinarySize,
-        std::vector<unsigned int> offsets = {}
-    ) {
+                             int fixedCellSize, IGsize& cellSizeBinarySize, std::vector<unsigned int> offsets = {}) {
         // !! 注意 !! 由于Adjacency只支持单级的point/cell邻接关系构造
         // 所以对于cgns这种多级映射数据结构 必需单独构造adj 也因此无法在构造编码器时就产生adj
         // 在此输入的cell buffer, offset应在调用时就确定了是point/cell, point/face, face/cell关系
@@ -742,26 +699,19 @@ private:
         MeshCodecAdjacency::CellAdjacency adj;
 
         if (fixedCellSize != -1) {
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
-                indices.data(), indices.size(), childCount, fixedCellSize);
+            MeshCodecAdjacency* mca = new MeshCodecAdjacency(indices.data(), indices.size(), childCount, fixedCellSize);
             adj = mca->GetAdjacencyData();
 
-            this->OptimizeCellVertexCache(optCellBuffer.data(),
-                cellRemap.data(),
-                indices.data(), indices.size(),
-                childCount, fixedCellSize, adj);
-        }
-        else {
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
-                indices.data(), offsets.data(),
-                indices.size(), offsets.size(), childCount, cellCount);
+            this->OptimizeCellVertexCache(optCellBuffer.data(), cellRemap.data(), indices.data(), indices.size(),
+                                          childCount, fixedCellSize, adj);
+        } else {
+            MeshCodecAdjacency* mca = new MeshCodecAdjacency(indices.data(), offsets.data(), indices.size(),
+                                                             offsets.size(), childCount, cellCount);
             adj = mca->GetAdjacencyData();
 
-            this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(),
-                cellRemap.data(),
-                indices.data(), offsets.data(),
-                indices.size(), offsets.size(),
-                childCount, cellCount, adj);
+            this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(), cellRemap.data(),
+                                                indices.data(), offsets.data(), indices.size(), offsets.size(),
+                                                childCount, cellCount, adj);
         }
 
         std::vector<unsigned char> encodeBuffer;
@@ -786,18 +736,15 @@ private:
         }
     }
 
-    void TopoEncoder(
-        PayloadBuffer& payload,
-        const std::vector<unsigned int> pointIdRemap,
-        std::vector<unsigned int>& topCellRemap, // 最高级cell remap
-        std::vector<unsigned int>& bottomCellRemap // 最低级cell remap
+    void TopoEncoder(PayloadBuffer& payload, const std::vector<unsigned int> pointIdRemap,
+                     std::vector<unsigned int>& topCellRemap,   // 最高级cell remap
+                     std::vector<unsigned int>& bottomCellRemap // 最低级cell remap
     ) {
         // 输出
         std::vector<unsigned char> outputTopo;
 
         // 判断是否需要启用二级索引
-        if (this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh())
-        {
+        if (this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh()) {
             // 顺序 bottomCellBuffer bottomCellOffset topCellBuffer topCellOffset
 
             // 必须先执行面 -> 点 随后是 体 -> 面
@@ -807,36 +754,23 @@ private:
             std::vector<unsigned int> volume2facesOffset;
             std::vector<unsigned int> face2pointsIndex;
             std::vector<unsigned int> face2pointsOffset;
-            this->m_EncoderAdapter->SplitSecondaryIndex(
-                volume2facesIndex,
-                volume2facesOffset,
-                face2pointsIndex,
-                face2pointsOffset);
+            this->m_EncoderAdapter->SplitSecondaryIndex(volume2facesIndex, volume2facesOffset, face2pointsIndex,
+                                                        face2pointsOffset);
 
             // 重排序顶点
             std::vector<unsigned int> remappedf2p;
             remappedf2p.resize(face2pointsIndex.size());
 
-            for (size_t i = 0; i < face2pointsIndex.size(); ++i)
-            {
-                remappedf2p[i] = pointIdRemap[face2pointsIndex[i]];
-            }
+            for (size_t i = 0; i < face2pointsIndex.size(); ++i) { remappedf2p[i] = pointIdRemap[face2pointsIndex[i]]; }
 
             UpdateProgress(0.25);
 
             // 编码 面 -> 点
-            IndexNOffsetEncoder(
-                outputTopo,
-                bottomCellRemap,
-                this->m_EncoderAdapter->GetNumberOfFaces(),
-                this->m_EncoderAdapter->GetNumberOfPoints(),
-                remappedf2p,
-                this->m_codecParams.topoParams.bottomCellBufferBinaryCount,
-                this->m_codecParams.topoParams.bottomCellBufferPadding,
-                -1,
-                this->m_codecParams.topoParams.bottomCellSizeBinaryCount,
-                face2pointsOffset
-            );
+            IndexNOffsetEncoder(outputTopo, bottomCellRemap, this->m_EncoderAdapter->GetNumberOfFaces(),
+                                this->m_EncoderAdapter->GetNumberOfPoints(), remappedf2p,
+                                this->m_codecParams.topoParams.bottomCellBufferBinaryCount,
+                                this->m_codecParams.topoParams.bottomCellBufferPadding, -1,
+                                this->m_codecParams.topoParams.bottomCellSizeBinaryCount, face2pointsOffset);
 
             UpdateProgress(0.3);
 
@@ -846,31 +780,21 @@ private:
             std::vector<unsigned int> remappedv2f;
             remappedv2f.resize(volume2facesIndex.size());
 
-            for (size_t i = 0; i < volume2facesIndex.size(); ++i)
-            {
+            for (size_t i = 0; i < volume2facesIndex.size(); ++i) {
                 remappedv2f[i] = bottomCellRemap[volume2facesIndex[i]];
             }
 
             // 编码 体 -> 面
-            IndexNOffsetEncoder(
-                outputTopo,
-                topCellRemap,
-                this->m_EncoderAdapter->GetNumberOfCells(),
-                this->m_EncoderAdapter->GetNumberOfFaces(),
-                remappedv2f,
-                this->m_codecParams.topoParams.topCellBufferBinaryCount,
-                this->m_codecParams.topoParams.topCellBufferPadding,
-                -1,
-                this->m_codecParams.topoParams.topCellSizeBinaryCount,
-                volume2facesOffset
-            );
+            IndexNOffsetEncoder(outputTopo, topCellRemap, this->m_EncoderAdapter->GetNumberOfCells(),
+                                this->m_EncoderAdapter->GetNumberOfFaces(), remappedv2f,
+                                this->m_codecParams.topoParams.topCellBufferBinaryCount,
+                                this->m_codecParams.topoParams.topCellBufferPadding, -1,
+                                this->m_codecParams.topoParams.topCellSizeBinaryCount, volume2facesOffset);
 
             UpdateProgress(0.4);
 
             this->m_codecParams.topoParams.topCellBufferSize = remappedv2f.size();
-        }
-        else
-        {
+        } else {
             // 顺序 CellBuffer CellOffset CellTypes
             this->m_codecParams.topoParams.topCellBufferSize = this->m_EncoderAdapter->GetCellIdBufferSize();
             IGsize pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
@@ -884,47 +808,24 @@ private:
             std::vector<unsigned int> remappedc2v;
             remappedc2v.resize(cellBufferSize);
 
-            for (size_t i = 0; i < cellBufferSize; ++i)
-            {
-                remappedc2v[i] = pointIdRemap[cellIdBuffer->GetId(i)];
-            }
+            for (size_t i = 0; i < cellBufferSize; ++i) { remappedc2v[i] = pointIdRemap[cellIdBuffer->GetId(i)]; }
 
-            if (this->m_EncoderAdapter->IsFixedCellSize())
-            {
-                IndexNOffsetEncoder(
-                    outputTopo,
-                    topCellRemap,
-                    cellCount,
-                    pointCount,
-                    remappedc2v,
-                    this->m_codecParams.topoParams.topCellBufferBinaryCount,
-                    this->m_codecParams.topoParams.topCellBufferPadding,
-                    this->m_EncoderAdapter->GetFixedCellSize(),
-                    this->m_codecParams.topoParams.topCellSizeBinaryCount
-                );
-            }
-            else
-            {
+            if (this->m_EncoderAdapter->IsFixedCellSize()) {
+                IndexNOffsetEncoder(outputTopo, topCellRemap, cellCount, pointCount, remappedc2v,
+                                    this->m_codecParams.topoParams.topCellBufferBinaryCount,
+                                    this->m_codecParams.topoParams.topCellBufferPadding,
+                                    this->m_EncoderAdapter->GetFixedCellSize(),
+                                    this->m_codecParams.topoParams.topCellSizeBinaryCount);
+            } else {
                 std::vector<unsigned int> volume2pointsOffset;
                 volume2pointsOffset.resize(cellOffsetSize);
-                memcpy(
-                    volume2pointsOffset.data(),
-                    cellIdOffset->RawPointer(),
-                    cellIdOffset->GetNumberOfValues() * sizeof(unsigned int)
-                );
+                memcpy(volume2pointsOffset.data(), cellIdOffset->RawPointer(),
+                       cellIdOffset->GetNumberOfValues() * sizeof(unsigned int));
 
-                IndexNOffsetEncoder(
-                    outputTopo,
-                    topCellRemap,
-                    cellCount,
-                    pointCount,
-                    remappedc2v,
-                    this->m_codecParams.topoParams.topCellBufferBinaryCount,
-                    this->m_codecParams.topoParams.topCellBufferPadding,
-                    -1,
-                    this->m_codecParams.topoParams.topCellSizeBinaryCount,
-                    volume2pointsOffset
-                );
+                IndexNOffsetEncoder(outputTopo, topCellRemap, cellCount, pointCount, remappedc2v,
+                                    this->m_codecParams.topoParams.topCellBufferBinaryCount,
+                                    this->m_codecParams.topoParams.topCellBufferPadding, -1,
+                                    this->m_codecParams.topoParams.topCellSizeBinaryCount, volume2pointsOffset);
             }
 
             UpdateProgress(0.3);
@@ -961,12 +862,11 @@ private:
     };
     VertexScoreTable kVertexScoreTableStrip;
 
-    void InitAdjacencyScore()
-    {
+    void InitAdjacencyScore() {
         this->kVertexScoreTableStrip = {
-        {0.f, 1.000f, 1.000f, 1.000f, 0.453f, 0.561f, 0.490f, 0.459f, 0.179f, 0.526f, 0.000f, 0.227f, 0.184f,
-         0.490f, 0.112f, 0.050f, 0.131f},
-        {0.f, 0.956f, 0.786f, 0.577f, 0.558f, 0.618f, 0.549f, 0.499f, 0.489f},
+                {0.f, 1.000f, 1.000f, 1.000f, 0.453f, 0.561f, 0.490f, 0.459f, 0.179f, 0.526f, 0.000f, 0.227f, 0.184f,
+                 0.490f, 0.112f, 0.050f, 0.131f},
+                {0.f, 0.956f, 0.786f, 0.577f, 0.558f, 0.618f, 0.549f, 0.499f, 0.489f},
         };
     }
 
@@ -990,9 +890,10 @@ private:
 
     // 不定长offset
     void OptimizeHybirdCellVertexCache(unsigned int* destCellBuffer, unsigned int* destCellOffset,
-        unsigned int* destCellRemap, const unsigned int* sourceCellBuffer,
-        const unsigned int* sourceCellOffsets, size_t bufferSize, size_t offsetCount,
-        size_t pointCount, size_t cellCount, MeshCodecAdjacency::CellAdjacency adjacency) {
+                                       unsigned int* destCellRemap, const unsigned int* sourceCellBuffer,
+                                       const unsigned int* sourceCellOffsets, size_t bufferSize, size_t offsetCount,
+                                       size_t pointCount, size_t cellCount,
+                                       MeshCodecAdjacency::CellAdjacency adjacency) {
         meshopt_Allocator allocator;
 
         // guard for empty meshes
@@ -1150,8 +1051,8 @@ private:
 
     // 固定offset
     void OptimizeCellVertexCache(unsigned int* destCellBuffer, unsigned int* destCellRemap,
-        const unsigned int* sourceCellBuffer, size_t bufferSize, size_t pointCount,
-        size_t fixedCellSize, MeshCodecAdjacency::CellAdjacency adjacency) {
+                                 const unsigned int* sourceCellBuffer, size_t bufferSize, size_t pointCount,
+                                 size_t fixedCellSize, MeshCodecAdjacency::CellAdjacency adjacency) {
         assert(bufferSize % fixedCellSize == 0);
 
         meshopt_Allocator allocator;
