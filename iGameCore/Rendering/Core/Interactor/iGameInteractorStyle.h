@@ -37,8 +37,6 @@ class InteractorStyle : public Object {
 public:
     I_OBJECT(InteractorStyle);
 
-    enum Signal { Slicing };
-
     virtual void Initialize(SmartPointer<Interactor> interactor) = 0;
     virtual void FilterEvent(IEvent event) {
         switch (event.type) {
