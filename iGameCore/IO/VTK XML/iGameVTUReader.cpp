@@ -44,21 +44,27 @@ bool iGame::iGameVTUReader::Parsing() {
         m_CellsNum = mAtoi(data);
 	}
     if(~m_PointsNum && m_PointsNum != 0){
+        UpdateProgress(0.1);
         //  find Points' position Data
         ReadPointData();
+        UpdateProgress(0.3);
         // find Points' Scalar Data
         ReadPointAttribute();
     }
     // find Piece's Cell data.
+    UpdateProgress(0.6);
     ReadCellData();
     //   find Cell connectivity;
+    UpdateProgress(0.8);
     auto CellConnects = ReadCellConnectivity();
     //   find Cell offsets;
+    UpdateProgress(0.9);
     auto CellOffsets = ReadCellOffsets();
     //   find Cell types;
-    auto CellTypes = ReadCellTypes();
 
+    auto CellTypes = ReadCellTypes();
     VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, CellOffsets, CellConnects, CellTypes);
+    UpdateProgress(1.0);
     m_Output->GetBoundingBox();
 	return true;
 }
