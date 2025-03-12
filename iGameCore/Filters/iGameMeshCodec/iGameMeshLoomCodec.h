@@ -21,6 +21,7 @@ code name 'Spinning Jenny'
 #include <mutex>
 #include <queue>
 #include <thread>
+#include "iGameThreadPool.h"
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN

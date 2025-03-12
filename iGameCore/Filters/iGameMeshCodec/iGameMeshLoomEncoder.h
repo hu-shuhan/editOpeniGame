@@ -174,7 +174,8 @@ public:
         return true;
     }
 
-    static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
+    static UIControlParams GenUiControlParams(DataObject::Pointer dataObj)
+    {
         UIControlParams params;
         for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++) {
             iGame::FloatErrorControlParameters p;
@@ -197,6 +198,8 @@ public:
             p.nonKeyAreaErrorBound = 0.01;
             params.errorBoundSetting.push_back(p);
         }
+        return params;
+    }
 
         return params;
     }
@@ -304,12 +307,14 @@ private:
         if (m_showReport) {
             float keyError, nonKeyError;
             FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
-
-            if (floatParams.errorMode == ErrorMode::KeyArea) {
-                m_report.push_back(std::make_pair(dataName + " 相对误差",
-                                                  std::format("▲{:.2f}% ■{:.2f}%", keyError, nonKeyError)));
-            } else {
-                m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("{:.2f}%", keyError)));
+            
+            if (floatParams.errorMode == ErrorMode::KeyArea)
+            {
+                m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("▲{:.10f}% ■{:.10f}%", keyError * 100.0, nonKeyError * 100.0)));
+            }
+            else
+            {
+                m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("{:.10f}%", keyError)));
             }
         }
     }
