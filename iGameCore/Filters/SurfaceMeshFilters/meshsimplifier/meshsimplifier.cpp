@@ -434,8 +434,8 @@ static size_t boundEdgeCollapses(const Adjacency& adjacency, size_t vertex_count
     assert(dual_count <= index_count);
     //std::cout << dual_count << " " << index_count << std::endl;
     // pad capacity by 3 so that we can check for overflow once per triangle instead of once per edge
-    //return (index_count - dual_count / 2) + 3;
-    return index_count / 2;
+    return (index_count - dual_count / 2) + 3;
+    //return index_count / 2;
 }
 
 static float quadricError(const Quadric& Q, const QuadricGrad* G, size_t attribute_count, const Vector3f& v,
@@ -521,7 +521,7 @@ static size_t initEdgeCollapses(Collapse* collapses, size_t collapse_capacity, c
         static const int next[3] = {1, 2, 0};
 
         if (collapse_count + 3 > collapse_capacity) { 
-            std::cout << i << " " << index_count << std::endl;
+            //std::cout << i << " " << index_count << std::endl;
             break;
         }
 
@@ -903,8 +903,7 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
         std::cout << "buildAdjacency cost time: " << end - start << std::endl;
         
         start = clock();
-        size_t edge_collapse_count =
-                parallelForInitEdgeCollapses(edge_collapses, collapse_capacity, result, result_count, // 20ms
+        size_t edge_collapse_count = initEdgeCollapses(edge_collapses, collapse_capacity, result, result_count, // 20ms
                                                        vertex_attributes, vertex_positions, vertex_quadrics,
                                                        attribute_quadrics, attribute_gradients, attribute_count);
         end = clock();

@@ -27,12 +27,13 @@ public:
     void MouseMoveEvent(IEvent _event) override;
     void MouseReleaseEvent(IEvent _event) override;
 
-    void RightButtonMouseMove() override;
-    void MiddleButtonMouseMove() override;
-
 protected:
     SlicingStyle();
     ~SlicingStyle() override;
+
+    void LeftButtonMouseMove(IEvent _event) ;
+    virtual void RightButtonMouseMove() override;
+    virtual void MiddleButtonMouseMove() override;
 
     void Draw();
 
@@ -69,6 +70,7 @@ private:
     Vector3Tovec3 v;
     vec3ToVector3d V;
 
+    bool PlaneUpdated = false;
     igm::vec3 Start, End, Center;
     igm::vec3 Center2Start, Center2End;
     igm::vec3 Intersection, TempCenter, TempStart, TempEnd;
