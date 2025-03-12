@@ -41,7 +41,6 @@ bool SplineSurfaceReader::Parsing() {
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
     std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
     std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
-
     /* Add Scalar */
     FloatArray::Pointer scalarArray = FloatArray::New();
     scalarArray->SetDimension(3);
