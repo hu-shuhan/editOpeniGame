@@ -89,8 +89,8 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
             mesh = iGame::DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
         else if (DynamicCast<VolumeMesh>(obj))
             mesh = DynamicCast<VolumeMesh>(obj);
-        if (mesh->GetIsPolyhedronType()) { mesh->InitPolyhedronVertices();
-        }
+        else return;
+        if (mesh->GetIsPolyhedronType()) { mesh->InitPolyhedronVertices();}
         first = false;
     }
 }

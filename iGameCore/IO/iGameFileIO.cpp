@@ -195,6 +195,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	{
         ODBReader::Pointer reader = ODBReader::New();
         resObj = reader->ReadOdbFirstFrameMesh(file_name);
+//        resObj = reader->ReadOdbRawMesh(file_name);
 
 //		ODBReader::Pointer reader = ODBReader::New();
 //		resObj = reader->ReadOdbMesh(file_name);

@@ -353,7 +353,7 @@ ArrayObject::Pointer VortexFilter::AttributeCell2Point(CellArray::Pointer Cell, 
 
         }
     }
-
+    return nullptr;
     //for (int id = 0; id < PointNum; id++) {
     //    double new_values[3] = {0, 0, 0};
     //    int NeiNum = adj[id].size();
