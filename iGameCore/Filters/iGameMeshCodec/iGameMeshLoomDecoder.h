@@ -562,11 +562,9 @@ private:
         return true;
     }
 
-    void closeStream()
-    {
-        this->m_BytestreamFile.clear();
-        this->m_BytestreamFile.seekg(0, std::ios_base::end);
-        //std::cout << "Total bitstream size " << this->m_BytestreamFile.tellg() << " B" << std::endl;
+    void closeStream() {
+        //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
+        m_BytestreamFile.close();
     }
 };
 IGAME_NAMESPACE_END
