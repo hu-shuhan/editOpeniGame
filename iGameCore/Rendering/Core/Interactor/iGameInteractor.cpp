@@ -117,10 +117,6 @@ Scene* Interactor::GetScene() { return m_Scene.get(); }
 
 Camera* Interactor::GetCamera() { return m_Camera.get(); }
 
-void Interactor::RequestSignal(InteractorStyle::Signal signal, void* callData) {
-    if (m_CallBack) { m_CallBack(signal, callData); }
-}
-
 void Interactor::SetDataObject(SmartPointer<DataObject> obj) {
     m_DataObject = obj;
 }

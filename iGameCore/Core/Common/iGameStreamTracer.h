@@ -20,7 +20,7 @@ using namespace iGame;
  * @class   iGameStreamTracer
  * @brief   iGameStreamTracer's brief
  */
-class iGameStreamTracer {
+class iGameStreamTracer:public Filter {
 public:
 	/**
 	* @brief Constructor for iGameStreamTracer.
@@ -183,4 +183,7 @@ private:
     enum StreamMode { Diagonal, PointId, Line };
     StreamMode streamMode = PointId;
     std::shared_mutex rwMutex;
+    int processCount;
+    int totalProcess;
+    std::shared_mutex ProMutex;
 };

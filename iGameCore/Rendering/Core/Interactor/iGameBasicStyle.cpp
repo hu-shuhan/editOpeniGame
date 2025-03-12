@@ -85,10 +85,6 @@ void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
 
 void BasicStyle::MiddleButtonMouseMove() {}
 
-void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
-    if (m_Interactor) { m_Interactor->RequestSignal(signal, callData); }
-}
-
 void BasicStyle::ModelRotation() {
     igm::vec3 oldPoint3D, newPoint3D;
     MapToSphere(oldPoint3D, newPoint3D);

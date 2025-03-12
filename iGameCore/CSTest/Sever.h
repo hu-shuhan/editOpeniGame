@@ -4,10 +4,10 @@
 #include <thread>
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
-#include "iGameFileIO.h"
 #include "Spline XML/iGameNurbsReader.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
+#include "iGameFileIO.h"
+#include "iGameMeshCodec/iGameMeshLoomDecoder.h"
+#include "iGameMeshCodec/iGameMeshLoomEncoder.h"
 #ifndef OPENCMD_H
 #define OPENCMD_H
 #include <string>
@@ -33,7 +33,7 @@ public:
     }
 };
 #endif
-iGame::DataObject::Pointer  OpenFile(const std::string& filePath) {
+iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return nullptr;
 
@@ -52,17 +52,9 @@ iGame::DataObject::Pointer  OpenFile(const std::string& filePath) {
 }
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
-    iGame::MeshEncoder::Pointer filter = iGame::MeshEncoder::New();
-    filter->m_PointQuantMode = iGame::QuantMode::None;
-    filter->m_PointQuantizedBits = 16;
-    filter->m_AttrbQuantMode = iGame::QuantMode::None;
-    filter->m_AttrbQuantizedBits = 16;
-
-    filter->SetNumberOfInputs(1);
-    filter->SetSaveFilePath("D:/SendTest.igc");
-    filter->SetInput(tem);
-
-    if (!filter->Execute()) {
+    iGame::UIControlParams params = iGame::MeshLoomEncoder::GenUiControlParams(tem);
+    auto encoder = new iGame::MeshLoomEncoder("./CScomp.igc", tem, params);
+    if (!encoder->Execute()) {
         igDebug("Compress File Error\n");
         return false;
     }
@@ -99,13 +91,13 @@ void serverThread() {
         WSACleanup();
         return;
     }
-    std::cout << "正在监听..." << std::endl;
+    std::cout << "listening..." << std::endl;
 
     while (true) {
         SOCKET clientSocket = INVALID_SOCKET;
         sockaddr_in clientAddr;
         int iAddrLength = sizeof(clientAddr);
-        std::cout << "等待登录..." << std::endl;
+        std::cout << "wait for login..." << std::endl;
         clientSocket = accept(serverSocket, (SOCKADDR*) &clientAddr, &iAddrLength);
 
         if (clientSocket == INVALID_SOCKET) {
@@ -114,7 +106,7 @@ void serverThread() {
             WSACleanup();
             return;
         }
-        std::cout << "客户端地址：" << inet_ntoa(clientAddr.sin_addr) << std::endl;
+        std::cout << "client addres：" << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
         char buffer[1024];
         int iLenOfRecvData = recv(clientSocket, buffer, sizeof(buffer), 0);
@@ -122,11 +114,12 @@ void serverThread() {
             // 反序列化数据
             OpenCmd recCmd;
             recCmd.deserialize(buffer);
+            std::cout << recCmd.filePath << std::endl;
             auto check = LoadAndCompress(recCmd.filePath);
-            std::ifstream file("D:/SendTest.igc", std::ios::binary | std::ios::ate);
+            std::ifstream file("./CScomp.igc", std::ios::binary | std::ios::ate);
             if (!file.is_open()) {
-                std::cerr << "文件打开失败: "
-                          << "D:/SendTest.igc" << std::endl;
+                std::cerr << "cant open file: "
+                          << "./CScomp.igc" << std::endl;
                 return;
             }
 
@@ -146,14 +139,14 @@ void serverThread() {
             file.close();
 
         } else {
-            std::cout << "服务器断开，无接收..." << std::endl;
+            std::cout << "sever stoped..." << std::endl;
             break;
         }
         closesocket(clientSocket);
         closesocket(serverSocket);
         WSACleanup();
-        return;     
+        return;
     }
     closesocket(serverSocket);
-    WSACleanup();
-}
+     WSACleanup();
+ }

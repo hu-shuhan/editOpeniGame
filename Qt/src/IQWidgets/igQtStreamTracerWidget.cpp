@@ -13,7 +13,6 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     //connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-
     //connect(ui->lineEdit_4, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
     //connect(ui->lineEdit_5, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
     //connect(ui->lineEdit_6, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
@@ -80,6 +79,7 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
             haveDraw = false;
             first = true;
             std::cout << "change first" << first << std::endl;
+            this->hide();
         });
         auto sceneManager = iGame::SceneManager::Instance();
         auto scene = sceneManager->GetCurrentScene();

@@ -44,8 +44,6 @@ protected:
     virtual void RightButtonMouseMove();
     virtual void MiddleButtonMouseMove();
 
-    void RequestSignal(InteractorStyle::Signal, void*);
-
     void ModelRotation();
     void ViewTranslation();
     void MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D);

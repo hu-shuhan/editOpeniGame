@@ -4,18 +4,18 @@
 
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <QHBoxLayout>
-#include<shared_mutex>
+
 /**
  * @class   igQtProgressBarWidget
  * @brief   igQtProgressBarWidget's brief
  */
-igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) {
+igQtProgressBarWidget::igQtProgressBarWidget(QWidget* parent) : QWidget(parent) {
     progressBar = new QProgressBar(this);
     progressBar->setRange(0, 100);
     progressBar->setValue(0);
 
-    progressBarLabel = new QLabel(DEFAULT,this);
-    QHBoxLayout *layout = new QHBoxLayout(this);
+    progressBarLabel = new QLabel(DEFAULT, this);
+    QHBoxLayout* layout = new QHBoxLayout(this);
     layout->addWidget(progressBarLabel);
     layout->addWidget(progressBar);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -25,12 +25,11 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
 
 
     /*TODO FIX ProgressBar*/
-   progressObserver->AddObserver(iGame::Command::ProgressEvent,
-        [&](iGame::Object*, unsigned long, void* data)-> void {
-            double value = *static_cast<double*>(data);
-            this->updateProgressBar(value);
-        });
-
+   // progressObserver->AddObserver(iGame::Command::ProgressEvent,
+   //                               [&](iGame::Object*, unsigned long, void* data) -> void {
+   //                                   double value = *static_cast<double*>(data);
+   //                                   this->updateProgressBar(value);
+   //                               });
 }
 
 void igQtProgressBarWidget::updateProgressBar(double value) {
@@ -38,7 +37,7 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
     value = std::min(value, 1.0);
 
     int progress = value * 100;
-    
+
 
     if (progress < 100) {
         updateProgressBarLabel("Processing ...");
@@ -50,6 +49,4 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
     }
 }
 
-void igQtProgressBarWidget::updateProgressBarLabel(const char* info) {
-    progressBarLabel->setText(info);
-}
+void igQtPro
