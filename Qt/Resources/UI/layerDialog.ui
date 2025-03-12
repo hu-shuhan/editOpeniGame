@@ -10,6 +10,12 @@
     <height>739</height>
    </rect>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>Layer Dialog</string>
   </property>
@@ -26,7 +32,7 @@
          <x>0</x>
          <y>0</y>
          <width>400</width>
-         <height>697</height>
+         <height>682</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
