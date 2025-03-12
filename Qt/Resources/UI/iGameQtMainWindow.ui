@@ -63,7 +63,7 @@
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>25</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -240,7 +240,7 @@
   <widget class="QDockWidget" name="dockWidget_ModelList">
    <property name="minimumSize">
     <size>
-     <width>200</width>
+     <width>0</width>
      <height>150</height>
     </size>
    </property>
@@ -358,7 +358,7 @@
   <widget class="QDockWidget" name="dockWidget_ScalarField">
    <property name="minimumSize">
     <size>
-     <width>150</width>
+     <width>0</width>
      <height>150</height>
     </size>
    </property>
@@ -376,7 +376,7 @@
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
     <size>
-     <width>200</width>
+     <width>0</width>
      <height>150</height>
     </size>
    </property>
@@ -394,7 +394,7 @@
   <widget class="QDockWidget" name="dockWidget_FlowField">
    <property name="minimumSize">
     <size>
-     <width>200</width>
+     <width>0</width>
      <height>150</height>
     </size>
    </property>
@@ -412,7 +412,7 @@
   <widget class="QDockWidget" name="dockWidget_TensorField">
    <property name="minimumSize">
     <size>
-     <width>200</width>
+     <width>0</width>
      <height>150</height>
     </size>
    </property>
@@ -561,6 +561,12 @@
    <addaction name="action_ChangeBackground"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
+   <property name="minimumSize">
+    <size>
+     <width>0</width>
+     <height>45</height>
+    </size>
+   </property>
    <property name="windowTitle">
     <string>轮廓提取（等值线/等值面）</string>
    </property>
