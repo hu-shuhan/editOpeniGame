@@ -127,6 +127,7 @@ DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath
     m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = false;
     auto outputObj = this->GetOutput();
     int frameIdx = 0;
+    std::cout << "Read First \n";
     if(ExecuteWithFieldData(frameIdx)) {
         auto attributeSet = m_Attribute_helper->GetResult();
         outputObj->SetAttributeSet(attributeSet);
@@ -192,6 +193,7 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
             return false;
         }
         odb_finalizeAPI();
+        UpdateProgress(1.0f);
         return true;
 }
 
@@ -234,6 +236,7 @@ bool iGame::ODBReader::Execute() {
             std::cout << "Fail to Open ODB dataBase \n";
             return false;
         }
+        this->UpdateProgress(0.1f);
         ExtractHeader();
         std::cout <<"ExtractHeader end\n";
         ConstructMap();
@@ -260,6 +263,7 @@ bool iGame::ODBReader::Execute() {
 //    }
 //    m_Output->SetName(m_FileName);
     SetOutput(0, m_Output);
+    UpdateProgress(1.0f);
     return true;
 }
 
@@ -302,8 +306,10 @@ bool ODBReader::ExtractHeader() {
     if(m_ODB == nullptr) return false;
     // write instances
     ExtractAllInstance();
+    this->UpdateProgress(0.12f);
     // write steps and frames
     ExtractAllStep();
+    this->UpdateProgress(0.15f);
     return true;
 }
 
@@ -435,11 +441,13 @@ bool ODBReader::ReadAttributes() {
     const char* stepName = m_Attribute_helper->stepName.c_str();
     int frameIdx = m_Attribute_helper->frameIdx;
     const odb_Frame& frame = m_ODB->steps().constGet(stepName).frames()[frameIdx];
-    auto fldOutputs = frame.fieldOutputs();
+    const auto& fldOutputs = frame.fieldOutputs();
     odb_FieldOutputRepositoryIT fieldIter(fldOutputs);
     /* Read Field data */
+    int i = 0;
     for (fieldIter.first(); !fieldIter.isDone(); fieldIter.next())
     {
+        std::cout << "Field " << ++ i << '\n';
         const auto& fldOutput = fieldIter.currentValue();
         std::string vtk_type = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
 
@@ -641,43 +649,47 @@ ODBReader::~ODBReader() {
 }
 
 uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
-    if (strcmp(abqElementType, "C3D4") == 0)
+    if (strncmp(abqElementType, "C3D4", 4) == 0)
     {
         return 10;
     }
-    else if (strcmp(abqElementType, "C3D8R") == 0)
+    else if (strncmp(abqElementType, "C3D8", 4) == 0)
     {
         return 12;
     }
-    else if (strcmp(abqElementType, "C3D6") == 0)
+    else if (strncmp(abqElementType, "C3D6", 4) == 0)
     {
         return 13;
     }
-    else if (strcmp(abqElementType, "C3D8") == 0)
-    {
-        return 12;
-    }
-    else if (strcmp(abqElementType, "C3D10") == 0)
+    else if (strncmp(abqElementType, "C3D10", 5) == 0)
     {
         return 24;
     }
-    else if (strcmp(abqElementType, "C3D15") == 0)
+    else if (strncmp(abqElementType, "C3D15", 5) == 0)
     {
         return 26;
     }
-    else if (strcmp(abqElementType, "C3D20") == 0)
+    else if (strncmp(abqElementType, "C3D20", 5) == 0)
     {
         return 25;
     }
-    else if (strcmp(abqElementType, "S3") == 0)
+    else if (strncmp(abqElementType, "SC8R", 4) == 0)
+    {
+        return 12;
+    }
+    else if (strncmp(abqElementType, "SC6R", 4) == 0)
+    {
+        return 13;
+    }
+    else if (strncmp(abqElementType, "S3", 2) == 0)
     {
         return 5;
     }
-    else if (strcmp(abqElementType, "S4") == 0)
+    else if (strncmp(abqElementType, "S4", 2) == 0)
     {
         return 9;
     }
-    else if (strcmp(abqElementType, "S8") == 0)
+    else if (strncmp(abqElementType, "S8", 2) == 0)
     {
         return 23;
     }
@@ -696,6 +708,18 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
     else if (strcmp(abqElementType, "R3D4") == 0)
     {
         return 9;
+    }
+    else if (strcmp(abqElementType, "IDCOUP3D") == 0)
+    {
+        return 10;
+    }
+    else if (strcmp(abqElementType, "T3D2") == 0)
+    {
+        return 3;
+    }
+    else if (strcmp(abqElementType, "B31") == 0)
+    {
+        return 3;
     }
 
     std::cerr << abqElementType << " not supported by the converter." << std::endl;

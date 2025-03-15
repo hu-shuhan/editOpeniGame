@@ -124,102 +124,12 @@ public:
 
     // Get all cell attributes, not thread safe
     ElementArray<Attribute>::Pointer GetAllCellAttributes();
-    ElementArray<Attribute>::Pointer GetAllScarleAttributes() {
-        if (!m_tmpBuffer) {
-            m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
-        } else {
-            m_tmpBuffer->Reset();
-        }
-        auto Scalars = this->GetAllAttributes();
-        int size = Scalars->GetNumberOfElements();
-        for (int i = 0; i < size; i++) {
-            auto scalarDataArray = Scalars->GetElement(i);
-            if (scalarDataArray.type == IG_SCALAR) { m_tmpBuffer->AddElement(m_Buffer->GetElement(i)); }
-        }
-        return m_tmpBuffer;
-    };
-    void TransformScalars2VectorArray() {
+    ElementArray<Attribute>::Pointer GetAllScarleAttributes();
+    void TransformScalars2VectorArray();
 
-        auto Scalars = this->GetAllScarleAttributes();
-        ElementArray<Attribute>::Pointer new_buffer = ElementArray<Attribute>::New();
-        int size = Scalars->GetNumberOfElements();
-        for (int i = 0; i < size; i++) {
-            auto scalarDataArray = Scalars->GetElement(i);
-            auto name = scalarDataArray.pointer->GetName();
-            auto attachmentType = scalarDataArray.attachmentType;
-            // std::cout << "attachmentType:" << attachmentType << std::endl;
-            bool isvector = false;
-            if (name[name.length() - 1] == 'X') {
-                isvector = true;
-                int j = 1;
-                for (j = 1; j < 3; j++) {
-                    auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
-                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
-                }
-            } else if (name[name.length() - 1] == '0') {
-                isvector = true;
-                int j = 1;
-                for (j = 1; j < 3; j++) {
-                    auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
-                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != '0' + j) { isvector = false; }
-                }
-            } else if (name[name.length() - 1] == '1') {
-                isvector = true;
-                int j = 1;
-                for (j = 1; j < 3; j++) {
-                    auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
-                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != '1' + j) { isvector = false; }
-                }
-            }
-            if (!isvector) {
-                new_buffer->AddElement(
-                        Attribute{scalarDataArray.pointer, scalarDataArray.GetType(), attachmentType, false});
-            } else {
-                FloatArray::Pointer Vector = FloatArray::New();
-                if (name[name.length() - 2] == '_') {
-                    Vector->SetName(name.substr(0, name.length() - 2));
-                } else
-                    Vector->SetName(name.substr(0, name.length() - 1));
-                Vector->SetName(name.substr(0, name.length() - 1));
-                Vector->SetDimension(3);
-                Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
-                float* vector = Vector->RawPointer();
-                igIndex index = 0;
-                int j = 0;
-                for (j = 0; j < 3; j++) {
-                    auto scalarData = Scalars->GetElement(i + j).pointer;
-                    index = j;
-                    int k = 0;
-                    for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
-                        vector[index] = scalarData->GetValue(k);
-                        index += 3;
-                    }
-                    //delete scalarData;
-                }
-                new_buffer->AddElement(Attribute{Vector, IG_VECTOR, attachmentType, false});
-                i += 2;
-            }
-            this->SetAllAttributes(new_buffer);
-        }
-    }
+    size_t GetNumberOfAttributes() const;
 
-    size_t GetNumberOfAttributes() const { return m_Buffer->GetNumberOfElements(); }
-
-    IGsize GetRealMemorySize() {
-        if (!m_Buffer) return 0;
-        IGsize res = 0;
-        for (int i = 0; i < m_Buffer->Size(); i++) {
-            auto array = m_Buffer->GetElement(i).pointer;
-            res += array ? array->GetArrayTypedSize() * array->GetNumberOfValues() : 0;
-        }
-        return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
-    }
+    IGsize GetRealMemorySize();
 
 protected:
     AttributeSet();

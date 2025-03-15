@@ -32,19 +32,8 @@ public:
 	// Free up extra memory.
 	void Squeeze();
 
-	bool ShallowCopy(CellArray::Pointer o) { return false; }
-	bool DeepCopy(CellArray::Pointer o) {
-		if (o == nullptr) return false;
-		m_Buffer = IdArray::New();
-		m_Buffer->DeepCopy(o->m_Buffer);
-		m_Offsets->DeepCopy(o->m_Offsets);
-		m_DeleteMasker->DeepCopy(o->m_DeleteMasker);
-		m_NumberOfCells = o->m_NumberOfCells;
-		m_FixedCellSize = o->m_FixedCellSize;
-		m_UseOffsets = o->m_UseOffsets;
-		//this->Modified();
-		return true;
-	}
+	bool ShallowCopy(CellArray::Pointer o);
+    bool DeepCopy(CellArray::Pointer o);
 
 	// '_Newsize' is the number of cells
 	void SetNumberOfCells(const IGsize _Newsize);
@@ -97,31 +86,15 @@ public:
 	// Garbage collection to free the space that has been removed
 	void GarbageCollection();
 
-	IdArray::Pointer GetCellIdArray() { return m_Buffer; }
-	UnsignedIntArray::Pointer GetOffset() { return m_Offsets; }
-	void SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets) {
-		m_Buffer = ids;
-		m_Offsets = offsets;
-		m_NumberOfCells = offsets->GetNumberOfValues() - 1;
-		this->m_UseOffsets = true;
-	}
+	IdArray::Pointer GetCellIdArray();
+    UnsignedIntArray::Pointer GetOffset();
+    void SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets);
 
-	void SetFixedSize(int fixedSize) {
-		this->m_UseOffsets = false;
-		this->m_FixedCellSize = fixedSize;
-	}
-	size_t GetNumberOfCellIds() {
-		return this->GetEndOffset(this->m_NumberOfCells - 1);
-	};
+	void SetFixedSize(int fixedSize);
+    size_t GetNumberOfCellIds();
 
-	IGsize GetRealMemorySize() {
-		if (!m_Buffer) return 0;
-		IGsize res = m_Buffer->GetRealMemorySize();
-		if (m_UseOffsets) { res += m_Offsets->GetRealMemorySize(); }
-		if (m_DeleteMasker) { res += m_DeleteMasker->GetRealMemorySize(); }
-		return res + sizeof(m_NumberOfCells) + sizeof(m_FixedCellSize) +
-			sizeof(m_UseOffsets);
-	}
+	IGsize GetRealMemorySize();
+
 	//Get cell's start offset
 	IGuint GetStartOffset(const IGsize cellId) const;
 	// Get cell's size
@@ -134,8 +107,6 @@ protected:
 	IGuint GetBeginOffset(const IGsize cellId) const;
 	// Get cell's end offset
 	IGuint GetEndOffset(const IGsize cellId) const;
-
-
 
 	IdArray::Pointer m_Buffer{}; // The cell's index array
 	IGsize m_NumberOfCells{ 0 };   // The number of cells

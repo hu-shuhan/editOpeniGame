@@ -33,7 +33,7 @@ if (NOT ENABLE_GPSCUDA_MODULE)
     if (WIN32)
         add_definitions(-D_WINDOWS_SOURCE)
         # Or for a specific target:
-        # target_compile_definitions(MyExecutable PRIVATE -CUDA_NVCCD_WINDOWS_SOURCE)
+        # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
     endif ()
 else ()
     project(iGameVis LANGUAGES C CXX CUDA)
@@ -41,12 +41,11 @@ else ()
     set(CMAKE_CUDA_ARCHITECTURES "86")
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif ()
+
 add_compile_options(
-    "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:/utf-8>"
-    "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:CXX>>:/utf-8>"
+        "$<$<AND:$<C_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:C>>:/utf-8>"
+        "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<COMPILE_LANGUAGE:CXX>>:/utf-8>"
 )
-#add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-#add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -75,12 +74,11 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
-#if(EXAMPLE_COMPILE )
-if (EXAMPLE_COMPILE)
+if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
 
-# 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
+#   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
 if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")

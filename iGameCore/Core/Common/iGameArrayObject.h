@@ -8,7 +8,6 @@ IGAME_NAMESPACE_BEGIN
 class ArrayObject : public Object {
 public:
 	I_OBJECT(ArrayObject);
-	//static Pointer New() { return new ArrayObject; }
 
 	virtual void Initialize() = 0;
 

@@ -7,7 +7,6 @@ add_subdirectory(vtkkwiml)
 add_subdirectory(glfw-3.4)
 add_subdirectory(lzma)
 add_subdirectory(spdlog)
-#add_subdirectory(AbaqusSDK)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 
@@ -45,5 +44,5 @@ if (ENABLE_CGNS_MODULE)
     set(HDF5_BUILD_SHARED_LIBS OFF)
     add_subdirectory(CGNS)
 
-    message(" HDF5 PATH: " ${HDF5_DIR})
+#    message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()

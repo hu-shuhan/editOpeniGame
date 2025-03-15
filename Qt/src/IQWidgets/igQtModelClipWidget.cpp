@@ -19,6 +19,8 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->radioButton_Mesh, &QRadioButton::toggled, this, [&](bool isChecked) {
         if (isChecked) { this->SetViewMode(IG_MESH_MODE); }
     });
+
+    connect(ui->previewBox, &QRadioButton::toggled, this, [&](bool isChecked) { GetSelection()->Preview = isChecked; });
     ui->radioButton_Slice->setChecked(true);
 
     QRegularExpression rx("-?\\d*\\.?\\d+");
@@ -47,6 +49,17 @@ void igQtModelClipWidget::SetPlane(float o[3], float n[3]) {
     ClipModel();
 }
 
+void igQtModelClipWidget::SetPlane(iGame::Vector3d p, iGame::Vector3d normal) {
+    float o[3], n[3];
+    o[0] = p[0];
+    o[1] = p[1];
+    o[2] = p[2];
+    n[0] = normal[0];
+    n[1] = normal[1];
+    n[2] = normal[2];
+    SetPlane(o, n);
+}
+
 void igQtModelClipWidget::UpdatePlane() {
     this->m_Origin[0] = ui->lineEdit_origin_x->text().toFloat();
     this->m_Origin[1] = ui->lineEdit_origin_y->text().toFloat();
@@ -54,6 +67,14 @@ void igQtModelClipWidget::UpdatePlane() {
     this->m_Normal[0] = ui->lineEdit_normal_x->text().toFloat();
     this->m_Normal[1] = ui->lineEdit_normal_y->text().toFloat();
     this->m_Normal[2] = ui->lineEdit_normal_z->text().toFloat();
+
+    m_Selection->PlanePoint[0] = m_Origin[0];
+    m_Selection->PlanePoint[1] = m_Origin[1];
+    m_Selection->PlanePoint[2] = m_Origin[2];
+    m_Selection->PlaneNormal[0] = m_Normal[0];
+    m_Selection->PlaneNormal[1] = m_Normal[1];
+    m_Selection->PlaneNormal[2] = m_Normal[2];
+    m_Selection->UpdatePlane();
 }
 void igQtModelClipWidget::SetViewMode(ViewMode vm) {
     this->m_ViewMode = vm;
@@ -72,6 +93,20 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     });
 }
 
+iGame::ClipSelection::Pointer igQtModelClipWidget::GetSelection() {
+    if (m_Selection == nullptr) {
+        m_Selection = iGame::ClipSelection::New();
+        m_Selection->SetFilterEvent(
+                [&](iGame::Selection::Event event) {
+                    if (event.type == iGame::Selection::Event::Change) {
+                        SetPlane(m_Selection->PlanePoint, m_Selection->PlaneNormal);
+                    }
+                },
+                std::placeholders::_1);
+    }
+    return m_Selection;
+}
+
 void igQtModelClipWidget::ClipModel() {
     if (!this->m_OriginDataObject) return;
     switch (m_ViewMode) {
@@ -83,6 +118,8 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
+            m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
+            std::cout << m_ResultMesh->GetColorMapper() << '\n';
             auto Clipper = iGame::ClipFilter::New();
             Clipper->SetPlane(m_Origin, m_Normal);
             if (m_OriginDataObject->HasSubDataObject()) {
@@ -108,8 +145,8 @@ void igQtModelClipWidget::ClipModel() {
             clock_t time_clip = clock();
             std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
-            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             m_ResultMesh->ConvertToDrawableData();
+            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
             std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
@@ -122,6 +159,7 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
+            m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
             auto Contourer = iGame::ContourFilter::New();
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
@@ -148,8 +186,8 @@ void igQtModelClipWidget::ClipModel() {
             clock_t time_clip = clock();
             std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
-            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             m_ResultMesh->ConvertToDrawableData();
+            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
             std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
@@ -162,6 +200,7 @@ void igQtModelClipWidget::ClipModel() {
             m_ResultMesh->ClearSubDataObject();
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
+            m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
             auto Extracter = iGame::iGameModelGeometryFilter::New();
             Extracter->SetClipPlane(m_Origin, m_Normal);
             if (m_OriginDataObject->HasSubDataObject()) {
@@ -183,8 +222,8 @@ void igQtModelClipWidget::ClipModel() {
             clock_t time_clip = clock();
             std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
-            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             m_ResultMesh->ConvertToDrawableData();
+            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
             std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);

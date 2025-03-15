@@ -24,6 +24,7 @@ protected:
     bool ReadPointData();
     bool ReadPointAttribute();
     bool ReadCellData();
+    char* GetAppendDataHead();
     ArrayObject::Pointer ReadCellConnectivity();
     ArrayObject::Pointer ReadCellOffsets();
     ArrayObject::Pointer ReadCellTypes();
@@ -38,6 +39,7 @@ protected:
 
     int64_t m_PointsNum{-1};
     int64_t m_CellsNum {-1};
+    char *m_AppendedDataHead{nullptr};
 //	igIndex m_DataObjectType = IG_NONE;
 };
 

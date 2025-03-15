@@ -3,12 +3,12 @@
 #define iGameVectorBase_h
 #include "iGameDrawObject.h"
 #include "iGameSceneManager.h"
+#include <iGameCellCenter.h>
 #include <iGameFilter.h>
 #include <iGamePainter3D.h>
 #include <iGameScalarsToColors.h>
 #include <iGameVector.h>
 #include <iGameVolumeMesh.h>
-#include<iGameCellCenter.h>
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class iGameVectorBase : public DrawObject {
@@ -17,6 +17,7 @@ public:
     static iGameVectorBase* New() { return new iGameVectorBase; }
     ~iGameVectorBase();
     enum DrawType { AllCell, CellInRange, EveryNth };
+
 protected:
     iGameVectorBase();
 
@@ -33,7 +34,7 @@ private:
     float tR;
     float tL;
     std::pair<int, int> CellIndexRange = std::pair<int, int>(0, 100000);
-   // float maxLength;
+    // float maxLength;
     unsigned int count;
     DrawType drawmode = EveryNth;
     int Nth = 1200;
@@ -44,7 +45,7 @@ public:
     std::vector<float> GetArrow();
 
     void SetDrawMode(DrawType _mode);
-    DrawType GetDrawMode(DrawType _mode);
+    DrawType GetDrawMode();
 
     void SetInit(bool init);
     bool GetInit();
@@ -53,15 +54,15 @@ public:
     int GetNth();
 
     void SetCellRange(int min, int max);
-    std::pair<int,int> GetCellRange();
+    std::pair<int, int> GetCellRange();
 
     bool DrawVector(std::string VecName);
-    bool DrawVector(std::string VecName,iGame::DataObject* _obj);
+    bool DrawVector(std::string VecName, iGame::DataObject* _obj);
 
     bool addArrow2Draw(iGame::DataObject* obj, std::string VecName);
     void convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB);
     //void Draw(Scene*) override;
-    void ComputeBoundingBox()override;
+    void ComputeBoundingBox() override;
     void ConvertToDrawableData() override;
     std::vector<float> Vector;
 };

@@ -81,7 +81,8 @@ public:
     /**
      * @brief 切换成切片风格类型交互器
      */
-    void RequestSlicingStyle();
+    //void RequestSlicingStyle();
+    void RequestSlicingStyle(SmartPointer<Selection> s);
 
      /**
      * @brief 切换成流形的线类型交互器
@@ -101,15 +102,6 @@ public:
     Scene* GetScene();
     Camera* GetCamera();
 
-    template<typename Functor, typename... Args>
-    void SetCallBack(Functor&& functor, Args&&... args) {
-        this->m_CallBack = std::bind(
-                std::forward<Functor>(functor), std::forward<Args>(args)...,
-                std::placeholders::_1, std::placeholders::_2);
-    }
-
-    void RequestSignal(InteractorStyle::Signal signal, void* callData);
-
     void SetDataObject(SmartPointer<DataObject> obj);
     SmartPointer<DataObject> GetDataObject();
     void SetPainter3D(SmartPointer<Painter3D> p);
@@ -118,8 +110,6 @@ public:
 protected:
     Interactor();
     ~Interactor() override;
-
-    std::function<void(InteractorStyle::Signal, void*)> m_CallBack;
 
     bool is_Base;
     SmartPointer<InteractorStyle> m_Internal;

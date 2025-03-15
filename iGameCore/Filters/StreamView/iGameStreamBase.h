@@ -6,7 +6,7 @@
 #include <iGameStreamTracer.h>
 IGAME_NAMESPACE_BEGIN
 class Scene;
-class iGameStreamBase : public Filter, public DrawObject {
+class iGameStreamBase : virtual public Filter, virtual public DrawObject {
 public:
     I_OBJECT(iGameStreamBase);
     static iGameStreamBase* New() { return new iGameStreamBase; }
@@ -23,6 +23,7 @@ public:
         isUpdate = true;
         //ConvertToDrawableData();
     }
+
 
 protected:
     iGameStreamBase();

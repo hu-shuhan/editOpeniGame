@@ -31,18 +31,20 @@ bool SplineVolumeReader::Parsing() {
 
     CSFile* csf;
     bool isSurface = false;
-    int isoNum = 40;
+    int isoNum = 5;
     gpmesh::CadSceneGP m_scene_gp;
     //sculpt.xml,/pinion，lever_arm，mechanical02，beam1_sub1_2500
     gpbezier::SurfaceConvertHelper SurfaceHelper;
     SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, isoNum);
 
     m_scene_gp.init_CUDA_map_mode(true);
+    UpdateProgress(0.2f);
     std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces =
             m_scene_gp.init_scene(SurfaceHelper);
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
     std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
     std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+    UpdateProgress(0.7f);
     FloatArray::Pointer scalarArray = FloatArray::New();
     scalarArray->SetDimension(3);
     scalarArray->SetName("scalar3");
@@ -109,6 +111,7 @@ bool SplineVolumeReader::Parsing() {
         }
     }
 
+    UpdateProgress(1.0f);
     return true;
 }
 

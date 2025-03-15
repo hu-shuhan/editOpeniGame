@@ -9,7 +9,7 @@
 #include <iGameArrayObject.h>
 
 IGAME_NAMESPACE_BEGIN
-struct Attribute{
+class Attribute{
 public:
     ArrayObject::Pointer pointer{};
     IGenum type{ IG_NONE };
