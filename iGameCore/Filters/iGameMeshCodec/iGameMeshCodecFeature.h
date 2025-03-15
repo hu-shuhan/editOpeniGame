@@ -73,10 +73,10 @@ public:
 	};
 
 	// vortex
-	/*
+	
 	std::vector<std::vector<float>> GetDataPointVortex() {
-		int attrDim = m_attr.pointer->GetDimension();
-		int dataPointNum = m_attr.pointer->GetNumberOfElements();
+		int attrDim = m_ElementDim;
+		int dataPointNum = m_ElementNum;
 
 		// 只处理2维和3维向量
 		if (attrDim != 2 && attrDim != 3) {
@@ -136,7 +136,7 @@ public:
 		return vorticities;
 	}
 	
-	*/
+	
 
 	/*
 	std::vector<std::vector<std::array<float, 3>>> GetDataPointGradient() {

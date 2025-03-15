@@ -85,7 +85,7 @@ private:
     // 属性列表
     int m_DataNum;
     int m_featureNum;
-    int m_binNum = 6;
+    int m_binNum = 12;
 
     // 标签页名称列表（保持顺序）
     QVector<QString> m_featureNames = {
@@ -110,10 +110,15 @@ private:
     QVector<FeatureTab> m_featureTabs;
 
     enum class FeatureName {
-        //Vortex = 0,
         Gradient = 0,
         Laplacian = 1
     };
+
+    //enum class FeatureName {
+    //    Vortex = 0,
+    //    Gradient = 1,
+    //    Laplacian = 2
+    //};
 
     struct AttrFeatureData {
         QChart* histogram;

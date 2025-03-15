@@ -72,21 +72,20 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-#    find_package(HDF5)
-#    target_link_libraries(
-#     ${MODULE_NAME} PUBLIC
-#
-#     ${HDF5_LIBRARIES}/../libzlib.lib
-#     ${HDF5_LIBRARIES}/../libsz.lib
-#     ${HDF5_LIBRARIES}/../libaec.lib)
+#        find_package(HDF5)
+#        target_link_libraries(
+#         ${MODULE_NAME} PUBLIC
+#         ${HDF5_LIBRARIES}/../libzlib.lib
+#         ${HDF5_LIBRARIES}/../libsz.lib
+#         ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
-find_package(AbqSDK)
-if (${AbqSDK_FOUND})
-    message("Find abqsdk")
-    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-endif ()
+#find_package(AbqSDK)
+#if (${AbqSDK_FOUND})
+#    message("Find abqsdk")
+#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+#endif ()
 
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})

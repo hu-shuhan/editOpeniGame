@@ -52,7 +52,7 @@ public:
     {
         PointSet::Pointer mesh = DynamicCast<PointSet>(this->m_DataObj);
         Points::Pointer ps = Points::New();
-        ps->Resize(input.size());
+        ps->Resize(static_cast<int>(input.size() / 3));
 
         memcpy(ps->RawPointer(), input.data(), input.size() * sizeof(float));
         mesh->SetPoints(ps);

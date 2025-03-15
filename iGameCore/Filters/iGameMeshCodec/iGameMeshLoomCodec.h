@@ -5,7 +5,7 @@ code name 'Spinning Jenny'
 
 #ifndef MeshLoomCodec_h
 #define MeshLoomCodec_h
-
+#include<iGameThreadPool.h>
 #include "iGameMacro.h"
 #include "iGameDataObject.h"
 #include "iGameMeshCodecParamSet.h"
@@ -15,7 +15,13 @@ code name 'Spinning Jenny'
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
-
+#include <atomic>
+#include <condition_variable>
+#include <future>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include "iGameThreadPool.h"
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN

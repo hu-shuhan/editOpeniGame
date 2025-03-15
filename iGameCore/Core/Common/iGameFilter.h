@@ -47,9 +47,7 @@ public:
     void ResetProgress();
     void ResetProgress(double scale);
 	
-	void SetModel(Model::Pointer model) {
-		m_Model = model;
-	}
+	void SetModel(Model::Pointer model);
 
 protected:
 	Filter();

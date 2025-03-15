@@ -59,12 +59,12 @@ public:
 
 		auto LogStrengthToBits = [=](float strength) -> int {
 			// 损坏最高 损坏最低
-				return StrengthToBits(strength, 8, 24);
+				return StrengthToBits(strength, 8, 32);
 			};
 
 		auto MantissaStrengthToBits = [=](float strength) -> int {
 
-			return StrengthToBits(strength, 8, 23);
+			return StrengthToBits(strength, 4, 23);
 			};
 
 		auto LogErrorToBits = [&](double epsilon) -> int {
@@ -324,8 +324,8 @@ public:
 			}
 
 			// 计算平均全局相对误差（百分比形式）
-			keyRelError = keyElementCount > 0 ? static_cast<float>((keySumRelError / keyElementCount) * 100.0) : 0.0f;
-			nonKeyRelError = nonKeyElementCount > 0 ? static_cast<float>((nonKeySumRelError / nonKeyElementCount) * 100.0) : 0.0f;
+			keyRelError = keyElementCount > 0 ? static_cast<float>((keySumRelError / keyElementCount)) : 0.0f;
+			nonKeyRelError = nonKeyElementCount > 0 ? static_cast<float>((nonKeySumRelError / nonKeyElementCount)) : 0.0f;
 		}
 	}
 

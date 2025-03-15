@@ -35,7 +35,7 @@ IGenum FileIO::GetFileType(const std::string& file_name)
 	}
 	if (FileSuffix == "vtk") {
 		return VTK;
-	} 
+	}
 	else if (FileSuffix == "igc") {
         return IGC;
     }
@@ -196,6 +196,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	{
         ODBReader::Pointer reader = ODBReader::New();
         resObj = reader->ReadOdbFirstFrameMesh(file_name);
+//        resObj = reader->ReadOdbRawMesh(file_name);
 
 //		ODBReader::Pointer reader = ODBReader::New();
 //		resObj = reader->ReadOdbMesh(file_name);
@@ -285,7 +286,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	out.append("]");
 	//igDebug(out);
 	std::cout << out << std::endl;
-    
+
 	if (resObj && resObj->GetAttributeSet()) {
 		resObj->GetAttributeSet()->TransformScalars2VectorArray();
 	}

@@ -20,7 +20,7 @@ using namespace iGame;
  * @class   iGameStreamTracer
  * @brief   iGameStreamTracer's brief
  */
-class iGameStreamTracer {
+class iGameStreamTracer:public Filter {
 public:
 	/**
 	* @brief Constructor for iGameStreamTracer.
@@ -102,9 +102,9 @@ private:
 	* @param[out] inside Output whether this point is in the model
 	*/
     Vector3f interpolationVector(Vector3f coord, bool& inside, igIndex& VolumeId,
-                                                    std::string vectorName, std::vector<std::vector<Vector3f>> _vector,
+                                                    std::string vectorName, std::vector<std::vector<Vector3f>>& _vector,
                                                     float terminalSpeed);
-	Vector3f interpolationVectorTri(Vector3f coord, bool& inside, igIndex& VolumeId,  std::string vectorName, std::vector<Vector3f>_vector, float terminal);
+	Vector3f interpolationVectorTri(Vector3f coord, bool& inside, igIndex& VolumeId,  std::string vectorName, std::vector<Vector3f>&_vector, float terminal);
 	/**
 	* @brief Calculate vector values with Newton interpolation method
 	* @param[in] coord  Input coord data
@@ -154,7 +154,8 @@ private:
 * @param[in] v1  Input a vertex that makes up the face
 * @param[in] v2  Input a vertex that makes up the face
 */
-	float pointToFaceDis(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    float pointToFaceDis(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    double pointToFaceDis(Vector3d coord, Vector3d v0, Vector3d v1, Vector3d v2);
 	/**
 * @brief Calculates the value of the 3x3 determinant
 * @param[in] coord  Input coord data
@@ -177,10 +178,12 @@ private:
     bool isSubModel = false;
     bool isChange = false;
 	std::vector<PointFinder::Pointer> ptFinder;
-    std::vector<std::vector<Vector3f>> _vector;
+    std::vector<std::vector<Vector3f>> _vector{};
     std::vector<int> subIndex;
-	FloatArray::Pointer tranform{};
     enum StreamMode { Diagonal, PointId, Line };
     StreamMode streamMode = PointId;
     std::shared_mutex rwMutex;
+    int processCount;
+    int totalProcess;
+    std::shared_mutex ProMutex;
 };
