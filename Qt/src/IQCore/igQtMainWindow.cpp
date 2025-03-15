@@ -693,6 +693,81 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(New_Mesh, Algorithm);
         rendererWidget->update();
     });
+    connect(ui->menu_filters->addAction("细分"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        auto mesh = DynamicCast<SurfaceMesh>(obj);
+        mesh->RequestEditStatus();
+        auto res = SurfaceMesh::New();
+        int pointNum = mesh->GetNumberOfPoints();
+        int edgeNum = mesh->GetNumberOfEdges();
+        int faceNum = mesh->GetNumberOfFaces();
+        auto OutPoints = Points::New();
+        OutPoints->Reserve(pointNum + edgeNum);
+        res->SetPoints(OutPoints);
+        auto OutCells = CellArray::New();
+        OutCells->Reserve(faceNum * 12);
+        res->SetFaces(OutCells);
+        for (igIndex pointID = 0; pointID < pointNum; pointID++) { OutPoints->AddPoint(mesh->GetPoint(pointID)); }
+        igIndex edge[2] = {};
+        for (igIndex edgeID = 0; edgeID < edgeNum; edgeID++) {
+            mesh->GetEdgePointIds(edgeID, edge);
+            auto p1 = mesh->GetPoint(edge[0]);
+            auto p2 = mesh->GetPoint(edge[1]);
+            auto p = (p1 + p2) * 0.5;
+            OutPoints->AddPoint(p);
+        }
+        igIndex vhs[64];
+        igIndex vcnt = 0;
+        igIndex ehs[64];
+        igIndex ecnt = 0;
+        for (igIndex faceID = 0; faceID < faceNum; faceID++) {
+            vcnt = mesh->GetFacePointIds(faceID, vhs);
+            ecnt = mesh->GetFaceEdgeIds(faceID, ehs);
+            OutCells->AddCellId3(ehs[0] + pointNum, ehs[1] + pointNum, ehs[2] + pointNum);
+            igIndex tri[3];
+            int index = 0;
+            for (int i = 0; i < vcnt; i++) {
+                index = 0;
+                tri[index++] = vhs[i];
+                for (int j = 0; j < ecnt; j++) {
+                    mesh->GetEdgePointIds(ehs[j], edge);
+                    if (edge[0] == vhs[i] || edge[1] == vhs[i]) { tri[index++] = ehs[j] + pointNum; }
+                }
+                OutCells->AddCellIds(tri, 3);
+            }
+        }
+        auto inAttributeSet = mesh->GetAttributeSet();
+        for (int i = 0; i < inAttributeSet->GetNumberOfAttributes(); i++) {
+            auto attr = inAttributeSet->GetAttribute(i);
+            if (attr.GetAttachmentType() == IG_POINT) {
+                auto inArray = attr.pointer;
+                auto array = DoubleArray::New();
+                array->SetName(inArray->GetName());
+                array->SetDimension(inArray->GetDimension());
+                array->Reserve(pointNum + edgeNum);
+                double values[64];
+                for (int i = 0; i < pointNum; i++) {
+                    attr.pointer->GetElement(i, values);
+                    array->AddElement(values);
+                }
+                double values1[64];
+                double values2[64];
+                for (int i = 0; i < edgeNum; i++) {
+                    mesh->GetEdgePointIds(i, edge);
+                    array->GetElement(edge[0], values1);
+                    array->GetElement(edge[1], values2);
+                    for (int j = 0; j < inArray->GetDimension(); j++) { values[j] = (values1[j] + values2[j]) * 0.5; }
+                    array->AddElement(values);
+                }
+                res->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, array, nullptr);
+                break;
+            }
+        }
+        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        rendererWidget->update();
+    });
     QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
     connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1289,7 +1364,7 @@ void igQtMainWindow::initAllFilters() {
         //data = DynamicCast<DrawObject>(data)->GetDisplayObject();
 
         filter->SetInput(data);
-        if (filter->Execute()) { 
+        if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
 
             modelTreeWidget->updateAllAttriubute(data);
