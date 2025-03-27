@@ -94,7 +94,6 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         else if (DynamicCast<VolumeMesh>(obj))
             mesh = DynamicCast<VolumeMesh>(obj);
         if (!mesh) return;
-        if (mesh->GetIsPolyhedronType()) { mesh->InitPolyhedronVertices(); }
         first = false;
     }
     std::cout << "show" << std::endl;
