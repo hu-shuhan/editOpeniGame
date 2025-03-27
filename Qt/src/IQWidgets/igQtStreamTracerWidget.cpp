@@ -227,16 +227,16 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!_AttributeSet) return;
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
-    for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
-        auto attribute = allAttributes->GetElement(i);
-        // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
-        if (attribute.type == IG_VECTOR) {
-            if (attribute.pointer) {
-                vectorName = attribute.pointer->GetName();
-                break;
-            }
-        }
-    }
+ //   for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+ //       auto attribute = allAttributes->GetElement(i);
+ //       // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
+ //       if (attribute.type == IG_VECTOR) {
+ //           if (attribute.pointer) {
+ //               vectorName = attribute.pointer->GetName();
+ //               break;
+ //           }
+ //       }
+ //   }
     std::cout << vectorName << std::endl;
     streamline = streamtracer->showStreamLineMix(seeds, vectorName, streamlineColor, lengthOfStreamLine, lengthOfStep,
                                                  terminalSpeed, maxSteps);

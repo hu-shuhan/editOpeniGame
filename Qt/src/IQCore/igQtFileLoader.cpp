@@ -20,8 +20,10 @@
 #include "Client.h"
 #include "Sever.h"
 #include "Spline XML/iGameNurbsReader.h"
+#include "Abaqus/iGameODBReader.h"
 
 #include <IQComponents/Dialog/igQtSplineOptionDialog.h>
+#include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtFileType.h>
 
@@ -77,7 +79,9 @@ void igQtFileLoader::LoadFile() {
         case FileType::Spline:
             this->OpenSplineFile(filePath);
             break;
-
+        case FileType::ABAQUS:
+            this->OpenODBFile(filePath);
+            break;
         default:
             this->OpenFile(filePath);
             break;
@@ -106,6 +110,34 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
+}
+void igQtFileLoader::OpenODBFile(const std::string &filePath) {
+#if defined(AbqSDK_ENABLE)
+    using namespace iGame;
+    if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+    igQtBasicListOptionDialog dialog;
+    auto stepNames = ODBReader::ReadOdbAllStep(filePath);
+    dialog.setInfoList(stepNames);
+    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+    dialog.setWindowTitle("ODB Reader Info");
+    dialog.setLabelName(filename,"More than one Step for \" %s \".Please choose one:");
+    if(dialog.exec() == QDialog::Accepted){
+        int stepIdx = -1;
+        stepIdx = dialog.getDialogOutput();
+        if(~stepIdx){
+            auto reader = iGame::ODBReader::New();
+            DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
+            obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+            obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+            //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
+
+            this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+            emit NewModel(obj, ItemSource::File);
+            emit FinishReading();
+        }
+    }
+
+#endif
 }
 
 void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
@@ -288,3 +320,5 @@ void igQtFileLoader::UpdateRecentActionList() {
     for (int i = ed - 1; i >= 0; i--) { this->recentFileActionList.at(i)->setVisible(false); }
     return;
 }
+
+

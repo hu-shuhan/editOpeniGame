@@ -25,6 +25,17 @@ static T bytes_to_target(unsigned char* bytes) {
 
     return res;
 }
+template<typename T>
+static T bytes_to_target(const char* bytes) {
+    T res;
+    std::memcpy(&res, bytes, sizeof(T));
+
+    return res;
+}
+//template<typename T>
+//static void Read(const char*p, const T* bytes, int length) {
+//    std::memcpy(bytes, p, length);
+//}
 
 
 /*
@@ -230,7 +241,7 @@ static void Base64_ConvertTo_FlatArray(const char* p, int offset_byte_num, uint6
  * */
 
 template<typename  T>
-void ReadBase64EncodedPoints(bool is_header_8_byte, const char *p, Points::Pointer pointSet) {
+static void ReadBase64EncodedPoints(bool is_header_8_byte, const char *p, Points::Pointer pointSet) {
     if(is_header_8_byte){
         auto byte_size = Base64_Convert_TargetValue<uint64_t>(p);
         Base64_ConvertTo_Points<T>(p, 8, byte_size, pointSet);
@@ -241,7 +252,7 @@ void ReadBase64EncodedPoints(bool is_header_8_byte, const char *p, Points::Point
 }
 
 template<typename T>
-void ReadBase64EncodedArray(bool is_header_8_byte, const char* p, typename FlatArray<T>::Pointer arr){
+static void ReadBase64EncodedArray(bool is_header_8_byte, const char* p, typename FlatArray<T>::Pointer arr){
     if(is_header_8_byte){
         auto byte_size =  Base64_Convert_TargetValue<uint64_t>(p);
         Base64_ConvertTo_FlatArray<T>(p, 8, byte_size, arr);

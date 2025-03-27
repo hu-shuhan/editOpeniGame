@@ -32,7 +32,8 @@ public:
     /* Read specific frame's field data without specific stepName.
      * Therefore, the first one step is readed by default */
     AttributeSet::Pointer ReadOdbFieldData(const std::string& filePath, int frame_idx);
-
+    /* Read All step names from odb file*/
+    static std::vector<std::string> ReadOdbAllStep(const std::string& filePath);
 protected:
     enum DataArrayType{
         PointData,
@@ -70,13 +71,18 @@ protected:
                                    const odb_Enum::odb_ResultPositionEnum& pos,
                                    const odb_String& fieldName,
                                    int maxNumOfIntergrationPoints,
-                                   const DataArrayType& dataArrayType);
+                                   const DataArrayType& dataArrayType,
+                                   float current_progress_val /*For update Progress*/
+
+                                   )
+                                   ;
 
     void ReadDataArray(const odb_FieldOutput& fldOutput,
                        const odb_Enum::odb_ResultPositionEnum& pos,
                        int maxNumOfIntergrationPoints,
                        const odb_String& arrayName,
-                       const ODBReader::DataArrayType& dataArrayType
+                       const ODBReader::DataArrayType& dataArrayType,
+                       float current_progress_val /*For update Progress*/
                        );
 
     static uint8_t ABAQUS_VTK_CELL_MAP(const char* abqElementType);

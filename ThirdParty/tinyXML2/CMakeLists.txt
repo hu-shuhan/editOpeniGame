@@ -1,4 +1,5 @@
-file(GLOB_RECURSE srcs CONFIGURE_DEPENDS ./*.cpp ./*.h)
+#file(GLOB_RECURSE srcs CONFIGURE_DEPENDS ./*.cpp ./*.h)
+file(GLOB_RECURSE srcs CONFIGURE_DEPENDS ./tinyxml2.cpp ./tinyxml2.h)
 add_library(tinyXML2 STATIC ${srcs})
 set_target_properties(tinyXML2 PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(tinyXML2 PUBLIC

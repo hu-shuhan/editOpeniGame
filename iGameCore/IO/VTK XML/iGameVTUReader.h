@@ -19,7 +19,7 @@ public:
 
 	bool Parsing() override;
 	bool CreateDataObject() override;
-
+    void SetUpdateProgressIndependent(bool independent) { m_IndependentUpdate = independent;}
 protected:
     bool ReadPointData();
     bool ReadPointAttribute();
@@ -40,6 +40,9 @@ protected:
     int64_t m_PointsNum{-1};
     int64_t m_CellsNum {-1};
     char *m_AppendedDataHead{nullptr};
+
+    bool m_parseRawBinaryData {false};
+    bool m_IndependentUpdate {false};
 //	igIndex m_DataObjectType = IG_NONE;
 };
 

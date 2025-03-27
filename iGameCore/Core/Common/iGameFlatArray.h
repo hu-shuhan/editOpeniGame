@@ -133,6 +133,28 @@ public:
         }
         return index;
     }
+    IGsize AddElement(int64_t * _Element) override {
+        IGsize index = this->GetNumberOfElements();
+        if (index * m_Dimension >= this->GetCapacity()) {
+            this->Reserve(2 * index + 1);
+        }
+
+        for (int i = 0; i < m_Dimension; ++i) {
+            this->VectorType::push_back(static_cast<TValue>(_Element[i]));
+        }
+        return index;
+    }
+    IGsize AddElement(const int64_t* _Element) override {
+        IGsize index = this->GetNumberOfElements();
+        if (index * m_Dimension >= this->GetCapacity()) {
+            this->Reserve(2 * index + 1);
+        }
+
+        for (int i = 0; i < m_Dimension; ++i) {
+            this->VectorType::push_back(static_cast<TValue>(_Element[i]));
+        }
+        return index;
+    }
     IGsize AddElement(float* _Element) override {
         IGsize index = this->GetNumberOfElements();
         if (index * m_Dimension >= this->GetCapacity()) {
@@ -167,6 +189,30 @@ public:
         return index;
     }
     IGsize AddElement(const double* _Element) override {
+        IGsize index = this->GetNumberOfElements();
+        if (index * m_Dimension >= this->GetCapacity()) {
+            this->Reserve(2 * index + 1);
+        }
+
+        for (int i = 0; i < m_Dimension; ++i) {
+            this->VectorType::push_back(static_cast<TValue>(_Element[i]));
+        }
+        return index;
+    }
+
+    IGsize AddElement(uint8_t* _Element) override {
+
+        IGsize index = this->GetNumberOfElements();
+        if (index * m_Dimension >= this->GetCapacity()) {
+            this->Reserve(2 * index + 1);
+        }
+
+        for (int i = 0; i < m_Dimension; ++i) {
+            this->VectorType::push_back(static_cast<TValue>(_Element[i]));
+        }
+        return index;
+    }
+    IGsize AddElement(const uint8_t* _Element) override {
         IGsize index = this->GetNumberOfElements();
         if (index * m_Dimension >= this->GetCapacity()) {
             this->Reserve(2 * index + 1);
