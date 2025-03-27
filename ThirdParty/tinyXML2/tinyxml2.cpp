@@ -215,6 +215,46 @@ char* StrPair::ParseText( char* p, const char* endTag, int strFlags, int* curLin
     size_t length = strlen( endTag );
 
     // Inner loop of text parsing.
+    /*TODO Add Check*/
+//    while ( *p ) {
+    while ( 1) {
+        if ( *p == endChar && strncmp( p, endTag, length ) == 0 ) {
+            Set( start, p, strFlags );
+            return p + length;
+        } else if (*p == '\n') {
+            ++(*curLineNumPtr);
+        }
+        ++p;
+        TIXMLASSERT( p );
+    }
+    return 0;
+}
+char* StrPair::ParseText( char* p, const char* endTag, int strFlags, int* curLineNumPtr, bool parsingRaw)
+{
+    TIXMLASSERT( p );
+    TIXMLASSERT( endTag && *endTag );
+	TIXMLASSERT(curLineNumPtr);
+
+    char* start = p;
+    const char  endChar = *endTag;
+    size_t length = strlen( endTag );
+
+    // Inner loop of text parsing.
+    /*TODO Add Check*/
+    if(parsingRaw){
+//        int64_t  tttt;
+//        char* tp = start + 5 + 56808 + 8 + 1026 * 8;
+//        memcpy(&tttt, tp, 8);
+        while (true) {
+            if ( *p == endChar && strncmp( p, endTag, length ) == 0 ) {
+                Set( start, p, strFlags );
+                return p + length;
+            }
+            ++p;
+            TIXMLASSERT( p );
+        }
+        return 0;
+    }
     while ( *p ) {
         if ( *p == endChar && strncmp( p, endTag, length ) == 0 ) {
             Set( start, p, strFlags );
@@ -282,6 +322,7 @@ const char* StrPair::GetStr()
 {
     TIXMLASSERT( _start );
     TIXMLASSERT( _end );
+    if( _rawProcess ) return _start;
     if ( _flags & NEEDS_FLUSH ) {
         *_end = 0;
         _flags ^= NEEDS_FLUSH;
@@ -714,24 +755,27 @@ char* XMLDocument::Identify( char* p, XMLNode** node, bool first )
     char* const start = p;
     int const startLine = _parseCurLineNum;
     p = XMLUtil::SkipWhiteSpace( p, &_parseCurLineNum );
-    // TODO
     if( !*p ) {
         *node = 0;
         TIXMLASSERT( p );
         return p;
     }
 
+//    this->_parent
     // These strings define the matching patterns:
     static const char* xmlHeader		= { "<?" };
     static const char* commentHeader	= { "<!--" };
     static const char* cdataHeader		= { "<![CDATA[" };
     static const char* dtdHeader		= { "<!" };
+    static const char* rawBinaryHeader	= { "_" };	// raw Binary code in VTK XML File.
     static const char* elementHeader	= { "<" };	// and a header for everything else; check last.
+
 
     static const int xmlHeaderLen		= 2;
     static const int commentHeaderLen	= 4;
     static const int cdataHeaderLen		= 9;
     static const int dtdHeaderLen		= 2;
+    static const int rawBinaryLen		= 1;
     static const int elementHeaderLen	= 1;
 
     TIXMLASSERT( sizeof( XMLComment ) == sizeof( XMLUnknown ) );		// use same memory pool
@@ -759,6 +803,9 @@ char* XMLDocument::Identify( char* p, XMLNode** node, bool first )
         returnNode->_parseLineNum = _parseCurLineNum;
         p += dtdHeaderLen;
     }
+//    else if( XMLUtil::StringEqual( p, rawBinaryHeader, rawBinaryLen)) {
+//
+//    }
     else if ( XMLUtil::StringEqual( p, elementHeader, elementHeaderLen ) ) {
 
         // Preserve whitespace pedantically before closing tag, when it's immediately after opening tag
@@ -775,6 +822,11 @@ char* XMLDocument::Identify( char* p, XMLNode** node, bool first )
         }
     }
     else {
+        if( GetParseMode() == MIXED_BINARY_XML && XMLUtil::StringEqual( p, rawBinaryHeader, rawBinaryLen )  ){
+            SetRawBinaryReadMode( true );
+        } else {
+            SetRawBinaryReadMode( false );
+        }
         returnNode = CreateUnlinkedNode<XMLText>( _textPool );
         returnNode->_parseLineNum = _parseCurLineNum; // Report line of first non-whitespace character
         p = start;	// Back it up, all the text counts.
@@ -1100,11 +1152,9 @@ char* XMLNode::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr )
 	XMLDocument::DepthTracker tracker(_document);
 	if (_document->Error())
 		return 0;
-
 	bool first = true;
 	while( p && *p ) {
         XMLNode* node = 0;
-
         p = _document->Identify( p, &node, first );
         TIXMLASSERT( p );
         if ( node == 0 ) {
@@ -1130,10 +1180,10 @@ char* XMLNode::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr )
             // Declarations are only allowed at document level
             //
             // Multiple declarations are allowed but all declarations
-            // must occur before anything else. 
+            // must occur before anything else.
             //
-            // Optimized due to a security test case. If the first node is 
-            // a declaration, and the last node is a declaration, then only 
+            // Optimized due to a security test case. If the first node is
+            // a declaration, and the last node is a declaration, then only
             // declarations have so far been added.
             bool wellLocated = false;
 
@@ -1250,14 +1300,24 @@ char* XMLText::ParseDeep( char* p, StrPair*, int* curLineNumPtr )
         return p;
     }
     else {
+        char textEndTag[20] = "<";
+        if( _document->ReadRawBinary() ){
+            _value.SetRawProcess(true);
+            char* elementName = (char*)_document->GetUserData();
+            sprintf(textEndTag, "%s%s", "</", elementName);
+        }
+        char endTag = *textEndTag;
         int flags = _document->ProcessEntities() ? StrPair::TEXT_ELEMENT : StrPair::TEXT_ELEMENT_LEAVE_ENTITIES;
         if ( _document->WhitespaceMode() == COLLAPSE_WHITESPACE ) {
             flags |= StrPair::NEEDS_WHITESPACE_COLLAPSING;
         }
 
-        p = _value.ParseText( p, "<", flags, curLineNumPtr );
+        p = _value.ParseText( p, textEndTag, flags, curLineNumPtr, _document->ReadRawBinary());
         if ( p && *p ) {
-            return p-1;
+            /* EDIT */
+            size_t lenEndTag = strlen( textEndTag );
+            return p - lenEndTag;
+//            return p-1;
         }
         if ( !p ) {
             _document->SetError( XML_ERROR_PARSING_TEXT, _parseLineNum, 0 );
@@ -2104,6 +2164,7 @@ char* XMLElement::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr 
     if ( !p || !*p || _closingType != OPEN ) {
         return p;
     }
+    _document->SetUserData((void*)this->Name());
     // TODO
     p = XMLNode::ParseDeep( p, parentEndTag, curLineNumPtr );
     return p;
@@ -2206,6 +2267,28 @@ XMLDocument::XMLDocument( bool processEntities, Whitespace whitespaceMode ) :
     _attributePool(),
     _textPool(),
     _commentPool()
+{
+    // avoid VC++ C4355 warning about 'this' in initializer list (C4355 is off by default in VS2012+)
+    _document = this;
+}
+/*IGAME Edit*/
+XMLDocument::XMLDocument(bool processEntities, ParseMode parseMode) :
+        XMLNode( 0 ),
+        _writeBOM( false ),
+        _processEntities( processEntities ),
+        _errorID(XML_SUCCESS),
+        _whitespaceMode( PRESERVE_WHITESPACE ),
+        _parseMode( parseMode ),
+        _errorStr(),
+        _errorLineNum( 0 ),
+        _charBuffer( 0 ),
+        _parseCurLineNum( 0 ),
+        _parsingDepth(0),
+        _unlinked(),
+        _elementPool(),
+        _attributePool(),
+        _textPool(),
+        _commentPool()
 {
     // avoid VC++ C4355 warning about 'this' in initializer list (C4355 is off by default in VS2012+)
     _document = this;
@@ -2373,7 +2456,6 @@ XMLError XMLDocument::LoadFile( const char* filename )
 XMLError XMLDocument::LoadFile( FILE* fp )
 {
     Clear();
-    // TODO
     TIXML_FSEEK( fp, 0, SEEK_SET );
     if ( fgetc( fp ) == EOF && ferror( fp ) != 0 ) {
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );
@@ -2410,7 +2492,8 @@ XMLError XMLDocument::LoadFile( FILE* fp )
 
     const size_t size = static_cast<size_t>(filelength);
     TIXMLASSERT( _charBuffer == 0 );
-    _charBuffer = new char[size+1];
+//    _charBuffer = new unsigned char [size+1];
+    _charBuffer = new char [size+1];
     const size_t read = fread( _charBuffer, 1, size, fp );
     if ( read != size ) {
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );
@@ -2466,6 +2549,7 @@ XMLError XMLDocument::Parse( const char* xml, size_t nBytes )
         nBytes = strlen( xml );
     }
     TIXMLASSERT( _charBuffer == 0 );
+    //TODO
     _charBuffer = new char[ nBytes+1 ];
     memcpy( _charBuffer, xml, nBytes );
     _charBuffer[nBytes] = 0;
@@ -2564,6 +2648,7 @@ void XMLDocument::Parse()
     _parseCurLineNum = 1;
     _parseLineNum = 1;
     char* p = _charBuffer;
+//    char* p = reinterpret_cast<char*>(_charBuffer);
     p = XMLUtil::SkipWhiteSpace( p, &_parseCurLineNum );
     p = const_cast<char*>( XMLUtil::ReadBOM( p, &_writeBOM ) );
     if ( !*p ) {
@@ -2588,7 +2673,8 @@ void XMLDocument::PopDepth()
 	--_parsingDepth;
 }
 
-XMLPrinter::XMLPrinter( FILE* file, bool compact, int depth ) :
+
+    XMLPrinter::XMLPrinter( FILE* file, bool compact, int depth ) :
     _elementJustOpened( false ),
     _stack(),
     _firstElement( true ),

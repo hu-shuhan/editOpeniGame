@@ -41,6 +41,7 @@ bool SplineVolumeReader::Parsing() {
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
     std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
     std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+    UpdateProgress(0.7f);
     FloatArray::Pointer scalarArray = FloatArray::New();
     scalarArray->SetDimension(3);
     scalarArray->SetName("scalar3");
@@ -103,6 +104,7 @@ bool SplineVolumeReader::Parsing() {
         }
     }
 
+    UpdateProgress(1.0f);
     return true;
 }
 

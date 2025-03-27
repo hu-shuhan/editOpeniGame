@@ -84,6 +84,7 @@ bool iGame::iGamePVDReader::Parsing() {
                     }
                     else if(fileSuffix == "vtu"){
                         iGameVTUReader::Pointer rd = iGameVTUReader::New();
+                        rd->SetUpdateProgressIndependent(true);
                         rd->SetFilePath(fileName);
                         rd->Execute();
                         newObj = rd->GetOutput();
@@ -97,8 +98,12 @@ bool iGame::iGamePVDReader::Parsing() {
                     return newObj;
                 }, firstFrame.GetMetaData()->GetElement(i)));
             }
+            float progress_coeff = 1.0f / readTaskList.size();
+            float cur_pro = 0.f;
             for(auto& task : readTaskList){
                 task.get();
+                UpdateProgress(cur_pro += progress_coeff);
+
             }
             auto t3 = std::chrono::steady_clock::now();
             std::cout << "Read subFiles cost : "<< std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms\n";

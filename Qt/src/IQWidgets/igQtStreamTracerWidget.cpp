@@ -94,7 +94,6 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         else if (DynamicCast<VolumeMesh>(obj))
             mesh = DynamicCast<VolumeMesh>(obj);
         if (!mesh) return;
-        if (mesh->GetIsPolyhedronType()) { mesh->InitPolyhedronVertices(); }
         first = false;
     }
     std::cout << "show" << std::endl;
@@ -217,26 +216,26 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::vector<std::vector<float>> streamlineColor;
     std::vector<std::vector<float>> streamline;
     iGame::AttributeSet* _AttributeSet;
-    //  if (tem->HasSubDataObject()) {
-    //      auto it = tem->SubDataObjectIteratorBegin();
-    //      // it++;
-    //      _AttributeSet = it->second->GetAttributeSet();
-    //  } else {
-    //      _AttributeSet = tem->GetAttributeSet();
-    //  }
-    //  if (!_AttributeSet) return;
-    //  auto allAttributes = _AttributeSet->GetAllAttributes();
-    //  if (!allAttributes) return;
-    //  for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
-    //      auto attribute = allAttributes->GetElement(i);
-    //      // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
-    //      if (attribute.type == IG_VECTOR) {
-    //          if (attribute.pointer) {
-    //              vectorName = attribute.pointer->GetName();
-    //              break;
-    //          }
-    //      }
-    //  }
+    if (tem->HasSubDataObject()) {
+        auto it = tem->SubDataObjectIteratorBegin();
+        // it++;
+        _AttributeSet = it->second->GetAttributeSet();
+    } else {
+        _AttributeSet = tem->GetAttributeSet();
+    }
+    if (!_AttributeSet) return;
+    auto allAttributes = _AttributeSet->GetAllAttributes();
+    if (!allAttributes) return;
+    //   for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+    //       auto attribute = allAttributes->GetElement(i);
+    //       // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
+    //       if (attribute.type == IG_VECTOR) {
+    //           if (attribute.pointer) {
+    //               vectorName = attribute.pointer->GetName();
+    //               break;
+    //           }
+    //       }
+    //   }
     std::cout << vectorName << std::endl;
     streamline = streamtracer->showStreamLineMix(seeds, vectorName, streamlineColor, lengthOfStreamLine, lengthOfStep,
                                                  terminalSpeed, maxSteps);

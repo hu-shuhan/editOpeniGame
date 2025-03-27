@@ -33,10 +33,13 @@ bool SplineSurfaceReader::Parsing() {
     gpbezier::SurfaceConvertHelper SurfaceHelper;
     SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, 0);
     m_scene_gp.init_CUDA_map_mode(true);
-    std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces = m_scene_gp.init_scene(SurfaceHelper);
+    UpdateProgress(0.2f);
+    std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces =
+            m_scene_gp.init_scene(SurfaceHelper);
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
     std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
     std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+    UpdateProgress(0.7f);
     /* Add Scalar */
     FloatArray::Pointer scalarArray = FloatArray::New();
     scalarArray->SetDimension(3);
@@ -109,6 +112,7 @@ bool SplineSurfaceReader::Parsing() {
             }
         }
     }
+    UpdateProgress(1.f);
     return true;
 }
 

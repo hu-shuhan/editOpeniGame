@@ -1,4 +1,4 @@
-﻿
+// ﻿
 #include <iGameStreamTracer.h>
 #include <iGameThreadPool.h>
 #include <shared_mutex>
@@ -24,7 +24,16 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
-        if (!mesh->GetIsPolyhedronType()) { mesh->RequestEditStatus(); }
+        if (!mesh->GetIsPolyhedronType()) {
+            mesh->RequestEditStatus();
+        } else {
+            mesh->SetShouldBuildEageLinks(false);
+            mesh->SetShouldBuildFaceLinks(false);
+            mesh->SetShouldBuildFaceEageLinks(false);
+            mesh->SetShouldBuildVolumeFaceLinks(false);
+            mesh->SetShouldBuildVolumeEageLinks(false);
+            mesh->InitPolyhedronVertices();
+        }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         ptFinder.clear();
@@ -35,6 +44,13 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             mesh->RequestEditStatus(); // Establishing Adjacency
+        } else if (!mesh->HasSubDataObject()) {
+            mesh->SetShouldBuildEageLinks(false);
+            mesh->SetShouldBuildFaceLinks(false);
+            mesh->SetShouldBuildFaceEageLinks(false);
+            mesh->SetShouldBuildVolumeFaceLinks(false);
+            mesh->SetShouldBuildVolumeEageLinks(false);
+            mesh->InitPolyhedronVertices();
         }
     } else {
         auto temData = model->GetDataObject();

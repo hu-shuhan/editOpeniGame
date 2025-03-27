@@ -166,14 +166,13 @@ void igQtMeshCodecDialog::InitFeatureTabs()
         checkBoxContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
         QGridLayout* checkBoxLayout = new QGridLayout(checkBoxContainer);
-        checkBoxLayout->setContentsMargins(50, 5, 50, 5);
-        for (int i = 0; i < m_binNum; i++) {
-            checkBoxLayout->setColumnStretch(i, 1);
-        }
+        checkBoxLayout->setContentsMargins(75, 5, 40, 5);
+        checkBoxLayout->setHorizontalSpacing(0);  // 水平间距设为0
+        checkBoxLayout->setVerticalSpacing(0);    // 垂直间距设为0
 
-        // 预先创建复选框（默认是6个，与m_binNum对应）
         QVector<QCheckBox*> checkBoxes;
         for (int i = 0; i < m_binNum; i++) {
+            checkBoxLayout->setColumnStretch(i, 1);
             QCheckBox* checkBox = new QCheckBox(checkBoxContainer);
             checkBox->setText("");
             checkBoxLayout->addWidget(checkBox, 0, i, Qt::AlignCenter);
@@ -506,7 +505,8 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
 
     axisX->setRange(xAxis.front(), xAxis.back());
     axisX->setTickCount(xAxis.size());
-    axisX->setLabelFormat("%.2e");
+    axisX->setLabelFormat("%.3e");
+    axisX->setLabelsAngle(70);
     chart->addAxis(axisX, Qt::AlignBottom);
 
     // Setup Y axis with integer format

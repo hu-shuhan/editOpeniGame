@@ -50,9 +50,9 @@ bool iGame::StressDeformationFilter::Execute() {
                     render_pos_set = newCopy;
                     pointset->SetRenderPoints(render_pos_set);
                 }
-                int PointSize = pointset->GetNumberOfPoints();
+//                int PointSize = pointset->GetNumberOfPoints();
                 for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
-                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
+//                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
                     render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                     render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
                     render_pos_set->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
@@ -73,7 +73,7 @@ bool iGame::StressDeformationFilter::Execute() {
                 } else {
                     int displayPointSize = pointMap->GetNumberOfValues();
                     for(int i = 0, j = 0; i < displayPointSize; i ++, j += 3){
-                        if(i % 100 == 0) UpdateProgress((double) i / displayPointSize);
+//                        if(i % 100 == 0) UpdateProgress((double) i / displayPointSize);
                         int new_idx = pointMap->GetValue(i);
                         if(new_idx == -1) continue;
                         int k = new_idx * 3;
@@ -96,7 +96,7 @@ bool iGame::StressDeformationFilter::Execute() {
             ArrayObject::Pointer attribute_set{nullptr};
             if(pointset == nullptr || (attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var).pointer) ==
                                       nullptr ){
-                UpdateProgress(1.0);
+//                UpdateProgress(1.0);
                 return false;
             }
             /* Not process Model Geometry Surface Filter, means that the points rendered are raw points
@@ -110,7 +110,7 @@ bool iGame::StressDeformationFilter::Execute() {
                 }
                 int PointSize = pointset->GetNumberOfPoints();
                 for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
-                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
+//                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
                     render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                     render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
                     render_pos_set->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
@@ -121,7 +121,7 @@ bool iGame::StressDeformationFilter::Execute() {
             else if(pointMap != nullptr && render_pos_set->GetNumberOfValues() != attribute_set->GetNumberOfValues()){
                 int displayPointSize = pointMap->GetNumberOfValues();
                 for(int i = 0, j = 0; i < displayPointSize; i ++, j += 3){
-                    if(i % 100 == 0) UpdateProgress((double) i / displayPointSize);
+//                    if(i % 100 == 0) UpdateProgress((double) i / displayPointSize);
                     int new_idx = pointMap->GetValue(i);
                     if(new_idx == -1) continue;
                     int k = new_idx * 3;
@@ -134,7 +134,7 @@ bool iGame::StressDeformationFilter::Execute() {
         }
 
     }
-    UpdateProgress(1.0f);
+//    UpdateProgress(1.0f);
     return true;
 }
 

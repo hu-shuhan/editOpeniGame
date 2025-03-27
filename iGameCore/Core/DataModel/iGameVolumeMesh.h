@@ -240,11 +240,17 @@ public:
             m_FaceEdges->AddCellIds(edgeIds, size);
         }
         m_Edges = EdgeTable->GetOutput();
+        if (shouldBuildEageLinks)
         BuildEdgeLinks();
+        if (shouldBuildFaceLinks)
         BuildFaceLinks();
+        if (shouldBuildFaceEageLinks)
         BuildFaceEdgeLinks();
+        if (shouldBuildVolumeEageLinks)
         BuildVolumeEdgeLinks();
+        if (shouldBuildVolumeFaceLinks)
         BuildVolumeFaceLinks();
+        if (shouldBuildVolumeLinks)
         BuildVolumeLinks();
     }
     void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
@@ -312,9 +318,22 @@ private:
     Prism::Pointer m_Prism{};           // Used for the returned 'Prism' object, which is Thread-Unsafe
     Pyramid::Pointer m_Pyramid{};       // Used for the returned 'Pyramid' object, which is Thread-Unsafe
     Polyhedron::Pointer m_Polyhedron{};
+    bool shouldBuildEageLinks = true;
+    bool shouldBuildFaceLinks = true;
+    bool shouldBuildFaceEageLinks = true;
+    bool shouldBuildVolumeEageLinks = true;
+    bool shouldBuildVolumeFaceLinks = true;
+    bool shouldBuildVolumeLinks = true;
 
 public:
     //void Draw(Scene*) override;
+    void SetShouldBuildEageLinks(bool Should) { shouldBuildEageLinks = Should; };
+    void SetShouldBuildFaceLinks(bool Should) { shouldBuildFaceLinks = Should; };
+    void SetShouldBuildFaceEageLinks(bool Should) { shouldBuildFaceEageLinks = Should; };
+    void SetShouldBuildVolumeEageLinks(bool Should) { shouldBuildVolumeEageLinks=Should; };
+    void SetShouldBuildVolumeFaceLinks(bool Should) { shouldBuildVolumeFaceLinks = Should; };
+    void SetShouldBuildVolumeLinks(bool Should) { shouldBuildVolumeFaceLinks = Should; };
+
     void ConvertToDrawableData() override;
     //void ViewCloudPicture(Scene* scene, int index, int demension = -1) override;
 

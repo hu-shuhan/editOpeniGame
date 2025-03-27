@@ -11,30 +11,32 @@ iGameStreamBase::iGameStreamBase() {
 }
 iGameStreamBase::~iGameStreamBase() {}
 
+void iGameStreamBase::ComputeBoundingBox() {
+    if (m_Bounding.isNull() || m_BoundingHelper->GetMTime() < m_Points->GetMTime()) {
+        m_Bounding.reset();
+        for (int i = 0; i < m_Points->GetNumberOfPoints(); i++) { m_Bounding.add(m_Points->GetPoint(i)); }
+        m_BoundingHelper->Modified();
+    }
+}
 
 void iGameStreamBase::ConvertToDrawableData() {
     if (!isUpdate) { return; }
     m_Points->Reset();
     m_PositionColors->Reset();
     index->Reset();
-    int  count = 0;
+    int count = 0;
     for (int i = 0; i < m_StreamLine.size(); i++) {
         IdArray::Pointer line = IdArray::New();
-        for (int j = 0; j + 1 < m_StreamLine[i].size() / 3; j+=2) {
-            m_Points->AddPoint(Point(m_StreamLine[i][j * 3],
-                                     m_StreamLine[i][j * 3 + 1],
-                                     m_StreamLine[i][j * 3 + 2]));
-            m_PositionColors->AddElement3(m_StreamLineColor[i][j * 3],
-                                          m_StreamLineColor[i][j * 3 + 1],
+        for (int j = 0; j + 1 < m_StreamLine[i].size() / 3; j += 2) {
+            m_Points->AddPoint(Point(m_StreamLine[i][j * 3], m_StreamLine[i][j * 3 + 1], m_StreamLine[i][j * 3 + 2]));
+            m_PositionColors->AddElement3(m_StreamLineColor[i][j * 3], m_StreamLineColor[i][j * 3 + 1],
                                           m_StreamLineColor[i][j * 3 + 2]);
 
-            m_Points->AddPoint(Point(m_StreamLine[i][j * 3 + 3],
-                                     m_StreamLine[i][j * 3 + 4],
-                                     m_StreamLine[i][j * 3 + 5]));
-            m_PositionColors->AddElement3(m_StreamLineColor[i][j * 3 + 3],
-                                          m_StreamLineColor[i][j * 3 + 4],
+            m_Points->AddPoint(
+                    Point(m_StreamLine[i][j * 3 + 3], m_StreamLine[i][j * 3 + 4], m_StreamLine[i][j * 3 + 5]));
+            m_PositionColors->AddElement3(m_StreamLineColor[i][j * 3 + 3], m_StreamLineColor[i][j * 3 + 4],
                                           m_StreamLineColor[i][j * 3 + 5]);
-            index->AddElement2(count,count+1);
+            index->AddElement2(count, count + 1);
             count += 2;
         }
     }

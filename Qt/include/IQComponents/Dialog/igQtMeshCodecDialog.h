@@ -85,7 +85,7 @@ private:
     // 属性列表
     int m_DataNum;
     int m_featureNum;
-    int m_binNum = 8;
+    int m_binNum = 12;
 
     // 标签页名称列表（保持顺序）
     QVector<QString> m_featureNames = {
