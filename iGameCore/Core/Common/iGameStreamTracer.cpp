@@ -348,10 +348,6 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
         igIndex flag1 = -1;
         float length = 0;
         while (flag && length < lengOfStreamLine && steps-- > 0) {
-            if (steps == 93) {
-                std::cout << 'i' << i << 's' << steps << std::endl;
-                std::cout << 'i' << i << 's' << steps << std::endl;
-            }
             inside = false;
             flag = false;
             bool check = false;
@@ -981,14 +977,12 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
                 igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
                 VolumeMesh::ReturnContainer nearVolume;
                 int find = mesh->GetPointToNeighborVolumes(temPointId, nearVolume);
-                if (find == 0) { std::cout << "no near find Volume" << std::endl; }
                 for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
             }
 
         } else {
             VolumeMesh::ReturnContainer nearVolume;
             auto nearNum = mesh->GetVolumeToNeighborVolumesWithPoint(VolumeId, nearVolume);
-            if (nearNum == 0) { std::cout << "no near Volume" << std::endl; }
             for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
             tem.emplace_back(VolumeId);
         }
@@ -998,6 +992,12 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
             if (mesh == nullptr) { return finnal; }
             int contactPointNum = 0;
             // Hexahedron *volume = dynamic_cast<Hexahedron*>(mesh->GetVolume(c));
+            igIndex pVolume[32]{};
+            int psize = mesh->GetVolumePointIds(c, pVolume);
+            BoundingBox culL;
+            for (int i = 0; i < psize; i++) { culL.add(mesh->GetPoint(pVolume[i])); }
+            if (!culL.isIn(coord)) { continue; }
+
             igIndex volume[32]{};
             igIndex f[32]{};
             int size = mesh->GetVolumeFaceIds(c, volume);
@@ -1014,6 +1014,8 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
             if (contactPointNum % 2 == 1) {
                 inside = true;
                 VolumeId = c;
+                std::unique_lock<std::shared_mutex> lock(rwMutex);
+                cellBoundLength[VolumeId] = culL.diag();
                 break;
             }
         }
@@ -1176,7 +1178,6 @@ Vector3f iGameStreamTracer::interpolationVectorTri(const Vector3f& coord, bool& 
         finnal += V * weights[i];
     }
     if (finnal.length() < terminalSpeed) { inside = false; }
-    std::cout << finnal.length() << std::endl;
     return finnal;
 }
 Vector3f iGameStreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, bool& inside, igIndex& VolumeId,
