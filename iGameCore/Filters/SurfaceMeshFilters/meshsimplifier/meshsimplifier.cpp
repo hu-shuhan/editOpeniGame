@@ -533,6 +533,8 @@ static size_t initEdgeCollapses(Collapse* collapses, size_t collapse_capacity, c
 
             //Quadric vq = quadricAdded(vertex_quadrics[i0], vertex_quadrics[i1]);
             //c.error = quadricError(vq, vertex_positions[i1]);
+            const Quadric& a = vertex_quadrics[i0];
+            //std::cout << a.a00 << " " << vertex_positions[i1].x <<  std::endl;
             c.error = quadricError(vertex_quadrics[i0], vertex_positions[i1]);
             //float ei = quadricError(vertex_quadrics[i0], vertex_positions[i1]);
             //float ej = quadricError(vertex_quadrics[i1], vertex_positions[i0]);
@@ -712,7 +714,6 @@ static size_t performEdgeCollapses(unsigned int* collapse_remap, unsigned char* 
 
     for (size_t i = 0; i < collapse_count; ++i) {
         const Collapse& c = collapses[collapse_order[i]];
-
 
         if (c.error > error_limit) { break; }
 
@@ -929,6 +930,8 @@ size_t simplify_trimesh_with_attriubtes(unsigned int* destination, const unsigne
         for (size_t i = 0; i < vertex_count; ++i) collapse_remap[i] = unsigned(i);
 
         memset(collapse_locked, 0, vertex_count);
+
+        std::cout << collapse_order[0] << " " << edge_collapses[collapse_order[0]].error << std::endl;
 
         start = clock();
         size_t collapses = performEdgeCollapses(collapse_remap, collapse_locked, edge_collapses, edge_collapse_count, // 23ms

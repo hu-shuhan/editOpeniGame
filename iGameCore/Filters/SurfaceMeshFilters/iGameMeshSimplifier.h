@@ -11,17 +11,14 @@ public:
     I_OBJECT(MeshSimplifier);
     static Pointer New() { return new MeshSimplifier; }
     
-
     bool Execute() override;
-
-
 
 protected:
     MeshSimplifier();
     ~MeshSimplifier() override = default;
 
-    //template<class T>
-    class TriMeshInternalSimplifier;
+
+private:
 
 };
 IGAME_NAMESPACE_END

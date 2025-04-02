@@ -159,7 +159,13 @@ public:
 
         igIndex neighborVerts[256]{};
 
+        int progress = 0;
+        int block = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
+            if (idx > block * progress) {
+                progress++;
+                UpdateProgress(progress * 0.01);
+            }
 
             auto v1 = Points->GetPoint(idx);
 
@@ -284,7 +290,14 @@ public:
 
         igIndex neighborVerts[256]{};
 
+        int progress = 0;
+        int block = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
+            if (idx > block * progress) {
+                progress++;
+                UpdateProgress(progress * 0.01);
+            }
+
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
             Eigen::Matrix3d hessian = Eigen::Matrix3d::Zero();
             gp(0) = gradient[idx][0];

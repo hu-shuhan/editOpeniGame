@@ -149,7 +149,14 @@ public:
 
         igIndex neighborVerts[256]{};
         // 计算点的梯度
+        int progress = 0;
+        int block = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
+            if (idx > block * progress) {
+                progress++;
+                UpdateProgress(progress * 0.01);
+            }
+
             int NeighborNum;
 
             float temp = 0.0;
@@ -237,7 +244,15 @@ public:
 
         igIndex neighborVerts[256]{};
         std::vector<float> laplacian(Num, 0.0f);
+
+
+        int progress = 0;
+        int block = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
+            if (idx > block * progress) {
+                progress++;
+                UpdateProgress(progress * 0.01);
+            }
             int NeighborNum;
             // 获取邻接顶点
             if (type == 1)
