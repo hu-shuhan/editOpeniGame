@@ -12,8 +12,7 @@ public:
     static iGameStreamBase* New() { return new iGameStreamBase; }
     ~iGameStreamBase();
     iGameStreamTracer* streamFilter;
-    void SetStreamLine(std::vector<std::vector<float>> streamLine,
-                       std::vector<std::vector<float>> streamLineColor) {
+    void SetStreamLine(std::vector<std::vector<float>> streamLine, std::vector<std::vector<float>> streamLineColor) {
         auto tmp1 = std::vector<std::vector<float>>();
         m_StreamLine.swap(tmp1);
         m_StreamLine = streamLine;
@@ -35,8 +34,10 @@ private:
     // color array
     FloatArray::Pointer m_PositionColors;
     bool isUpdate = false;
+
 public:
     //void Draw(Scene*) override;
+    void ComputeBoundingBox() override;
     void ConvertToDrawableData() override;
     bool IsUseSinglePassWireframeRendering() override;
     std::vector<std::vector<float>> m_StreamLine;

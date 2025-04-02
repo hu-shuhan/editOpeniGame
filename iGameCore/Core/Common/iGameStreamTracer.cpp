@@ -1,6 +1,6 @@
-﻿
-#include <iGameStreamTracer.h>
+﻿#include <iGameStreamTracer.h>
 #include <iGameThreadPool.h>
+#include <shared_mutex>
 float A[5] = {1.0 / 5.0, 3.0 / 10.0, 3.0 / 5.0, 1.0, 7.0 / 8.0};
 float B[5][5] = {{1.0 / 5.0, 0, 0, 0, 0},
                  {3.0 / 40.0, 9.0 / 40.0, 0, 0, 0},
@@ -25,6 +25,13 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             mesh->RequestEditStatus();
+        } else {
+            mesh->SetShouldBuildEageLinks(false);
+            mesh->SetShouldBuildFaceLinks(false);
+            mesh->SetShouldBuildFaceEageLinks(false);
+            mesh->SetShouldBuildVolumeFaceLinks(false);
+            mesh->SetShouldBuildVolumeEageLinks(false);
+            mesh->InitPolyhedronVertices();
         }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
@@ -36,6 +43,13 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             mesh->RequestEditStatus(); // Establishing Adjacency
+        } else if (!mesh->HasSubDataObject()) {
+            mesh->SetShouldBuildEageLinks(false);
+            mesh->SetShouldBuildFaceLinks(false);
+            mesh->SetShouldBuildFaceEageLinks(false);
+            mesh->SetShouldBuildVolumeFaceLinks(false);
+            mesh->SetShouldBuildVolumeEageLinks(false);
+            mesh->InitPolyhedronVertices();
         }
     } else {
         auto temData = model->GetDataObject();
@@ -56,6 +70,8 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
             return;
         }
     }
+    processCount = 0;
+    totalProcess = 0;
     isChange = true;
     return;
 }
@@ -113,7 +129,8 @@ std::vector<Vector3f> iGameStreamTracer::seedPCoordGenerate(int numOfseed, Vecto
     for (int i = 0; i < numOfseed; i++) { tem.emplace_back(p1 + step * i); }
     return tem;
 }
-std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,igIndex pId2) {
+std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float proportion, int numOfseed, igIndex pId1,
+                                                          igIndex pId2) {
     std::vector<Vector3f> seeds;
     switch (streamMode) {
         case Diagonal: {
@@ -125,9 +142,8 @@ std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float pro
         }
     }
     return seeds;
-    
 }
-    std::vector<Vector3f>iGameStreamTracer::seedGenerate(int control, float proportion,
+std::vector<Vector3f> iGameStreamTracer::seedGenerate(int control, float proportion,
                                                       int numOfseed) { // face
     this->mesh = DynamicCast<VolumeMesh>(this->mesh);
     auto allPoints = mesh->GetPoints();
@@ -312,7 +328,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
             int component = Vector.pointer->GetDimension();
             if (isChange && Vector.GetAttachmentType() != IG_CELL) {
                 _vector.clear();
-                if (numOfPoints<100000) {
+                if (numOfPoints < 100000) {
                     std::vector<Vector3f> temVoc;
                     for (int i = 0; i < numOfPoints; i++) {
                         double v[4] = {0.0f};
@@ -381,29 +397,28 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                 flag = true;
                 inside = false;
             }
-            k[2] =  lengthOfStep *
+            k[2] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[3] =  lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
+            k[3] = lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
                                                       vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[4] =  lengthOfStep *
-                   interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
+            k[4] = lengthOfStep * interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                       flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[5] =  lengthOfStep *
+            k[5] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] + k[4] * B[3][3],
                                        inside, flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -411,8 +426,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                 inside = false;
             }
 
-            k[6] =  lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] +
-                                                                       k[3] * B[4][2] +
+            k[6] = lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                               k[4] * B[4][3] + k[5] * B[4][4],
                                                       inside, flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -439,11 +453,15 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                 tem[i].emplace_back(_coord[2]);
             }
         }
-        // std::cout << "1" << std::endl;
-        // std::cout << i << "end" <<clock()-time1<< std::endl;
     };
+    processCount = 0;
+    totalProcess = seed.size();
     for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
-    for (int i = 0; i < seed.size(); i++) { result[i].wait(); }
+    for (int i = 0; i < seed.size(); i++) {
+        result[i].wait();
+        processCount++;
+        this->UpdateProgress((double) processCount / seed.size());
+    }
     return tem;
 
 
@@ -496,7 +514,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineHex(std::vector
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVectorHexWithNatural(_coord, inside, flag1, vectorName, _vector, terminalSpeed);
-            k[1] =  lengthOfStep * temV;
+            k[1] = lengthOfStep * temV;
             streamColor[i].emplace_back(temV[0]);
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
@@ -504,23 +522,21 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineHex(std::vector
                 flag = true;
                 inside = false;
             }
-            k[2] =  lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[0][0], inside, flag1,
-                                                                             vectorName,
+            k[2] = lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[0][0], inside, flag1, vectorName,
                                                                     _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[3] =  lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[1][0] + k[2] * B[1][1],
-                                                                             inside,
+            k[3] = lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside,
                                                                     flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[4] =  lengthOfStep *
+            k[4] = lengthOfStep *
                    interpolationVectorHexWithNatural(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                      flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -536,7 +552,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineHex(std::vector
                 inside = false;
             }
 
-            k[6] =  lengthOfStep *
+            k[6] = lengthOfStep *
                    interpolationVectorHexWithNatural(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                              k[4] * B[4][3] + k[5] * B[4][4],
                                                      inside, flag1, vectorName, _vector, terminalSpeed);
@@ -651,7 +667,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(std::v
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVectorMixWithMeanV(_coord, inside, flag1, vectorName, _vector, terminalSpeed);
-            k[1] =  lengthOfStep * temV;
+            k[1] = lengthOfStep * temV;
             streamColor[i].emplace_back(temV[0]);
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
@@ -659,23 +675,21 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(std::v
                 flag = true;
                 inside = false;
             }
-            k[2] =  lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[0][0], inside, flag1,
-                                                                           vectorName,
+            k[2] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[0][0], inside, flag1, vectorName,
                                                                   _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[3] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[1][0] + k[2] * B[1][1],
-                                                                           inside,
+            k[3] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside,
                                                                   flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[4] =  lengthOfStep *
+            k[4] = lengthOfStep *
                    interpolationVectorMixWithMeanV(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                    flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -683,7 +697,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(std::v
                 inside = false;
             }
 
-            k[5] =  lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[3][0] + k[2] * B[3][1] +
+            k[5] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[3][0] + k[2] * B[3][1] +
                                                                           k[3] * B[3][2] + k[4] * B[3][3],
                                                                   inside, flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -691,7 +705,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineCellData(std::v
                 inside = false;
             }
 
-            k[6] =  lengthOfStep *
+            k[6] = lengthOfStep *
                    interpolationVectorMixWithMeanV(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                            k[4] * B[4][3] + k[5] * B[4][4],
                                                    inside, flag1, vectorName, _vector, terminalSpeed);
@@ -790,7 +804,7 @@ iGameStreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vector
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVectorHexWithNatural(_coord, inside, flag1, vectorName, _vector, terminalSpeed);
-            k[1] =  lengthOfStep * temV;
+            k[1] = lengthOfStep * temV;
             temColor[i].emplace_back(temV[0]);
             temColor[i].emplace_back(temV[1]);
             temColor[i].emplace_back(temV[2]);
@@ -798,23 +812,21 @@ iGameStreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vector
                 flag = true;
                 inside = false;
             }
-            k[2] =  lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[0][0], inside, flag1,
-                                                                             vectorName,
+            k[2] = lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[0][0], inside, flag1, vectorName,
                                                                     _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[3] =  lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[1][0] + k[2] * B[1][1],
-                                                                             inside,
+            k[3] = lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside,
                                                                     flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
-            k[4] =  lengthOfStep *
+            k[4] = lengthOfStep *
                    interpolationVectorHexWithNatural(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                      flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -822,7 +834,7 @@ iGameStreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vector
                 inside = false;
             }
 
-            k[5] =  lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[3][0] + k[2] * B[3][1] +
+            k[5] = lengthOfStep * interpolationVectorHexWithNatural(_coord + k[1] * B[3][0] + k[2] * B[3][1] +
                                                                             k[3] * B[3][2] + k[4] * B[3][3],
                                                                     inside, flag1, vectorName, _vector, terminalSpeed);
             if (inside) {
@@ -830,7 +842,7 @@ iGameStreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vector
                 inside = false;
             }
 
-            k[6] =  lengthOfStep *
+            k[6] = lengthOfStep *
                    interpolationVectorHexWithNatural(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                              k[4] * B[4][3] + k[5] * B[4][4],
                                                      inside, flag1, vectorName, _vector, terminalSpeed);
@@ -1073,15 +1085,24 @@ Vector3f iGameStreamTracer::interpolationVector(Vector3f coord, bool& inside, ig
                     Vector.pointer->GetElement(VolumeId, v);
                     finnal = Vector3f(v[0], v[1], v[2]).normalized() * longest;
                 } else {
-                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0],terminalSpeed).normalized() *longest;
+                    finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0],
+                                                             terminalSpeed)
+                                     .normalized() *
+                             longest;
                 }
             }
         } else if (size == 4) {
-            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed).normalized() * longest;
+            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         } else if (size == 8) {
-            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed).normalized() * longest;
+            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         } else {
-            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed) .normalized() *longest;
+            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, _vector[0], terminalSpeed)
+                             .normalized() *
+                     longest;
         }
     } else {
         std::vector<igIndex> tem;

@@ -146,7 +146,7 @@ public:
         COMMENT							= NEEDS_NEWLINE_NORMALIZATION
     };
 
-    StrPair() : _flags( 0 ), _start( 0 ), _end( 0 ) {}
+    StrPair() : _flags( 0 ), _start( 0 ), _end( 0 ), /*IGAME Edit*/_rawProcess(false) {}
     ~StrPair();
 
     void Set( char* start, char* end, int flags ) {
@@ -172,11 +172,14 @@ public:
     void SetStr( const char* str, int flags=0 );
 
     char* ParseText( char* in, const char* endTag, int strFlags, int* curLineNumPtr );
+    char* ParseText( char* in, const char* endTag, int strFlags, int* curLineNumPtr , bool parsingRaw);
     char* ParseName( char* in );
 
     void TransferTo( StrPair* other );
 	void Reset();
 
+    /*IGAME Edit*/
+    void SetRawProcess(bool rawProcessMode){ _rawProcess = rawProcessMode;}
 private:
     void CollapseWhitespace();
 
@@ -189,6 +192,8 @@ private:
     char*   _start;
     char*   _end;
 
+    /*IGAME Edit*/
+    bool    _rawProcess;
     StrPair( const StrPair& other );	// not supported
     void operator=( const StrPair& other );	// not supported, use TransferTo()
 };
@@ -1709,6 +1714,10 @@ enum Whitespace {
     COLLAPSE_WHITESPACE,
     PEDANTIC_WHITESPACE
 };
+enum ParseMode{
+    LEGACY_XML,
+    MIXED_BINARY_XML
+};
 
 
 /** A Document binds together all the functionality.
@@ -1728,7 +1737,8 @@ class TINYXML2_LIB XMLDocument : public XMLNode
     friend class XMLUnknown;
 public:
     /// constructor
-    XMLDocument( bool processEntities = true, Whitespace whitespaceMode = PRESERVE_WHITESPACE );
+    XMLDocument( bool processEntities = true, Whitespace whitespaceMode = PRESERVE_WHITESPACE);
+    XMLDocument( bool processEntities, ParseMode parseMode);
     ~XMLDocument();
 
     virtual XMLDocument* ToDocument() override		{
@@ -1794,7 +1804,9 @@ public:
     Whitespace WhitespaceMode() const	{
         return _whitespaceMode;
     }
-
+    ParseMode GetParseMode() const {
+        return _parseMode;
+    }
     /**
     	Returns true if this document has a leading Byte Order Mark of UTF8.
     */
@@ -1930,9 +1942,16 @@ public:
         return false;
     }
 
+    /*IGAME Edit: Used for parsing ascii code mixed with raw Binary code*/
+    bool ReadRawBinary() { return _ReadRawBinary; }
+    void  SetRawBinaryReadMode(bool ReadBinary) { _ReadRawBinary = ReadBinary; }
 private:
     XMLDocument( const XMLDocument& );	// not supported
     void operator=( const XMLDocument& );	// not supported
+
+    /*IGAME Edit: Used for parsing ascii code mixed with raw Binary code*/
+    bool            _ReadRawBinary;
+    ParseMode            _parseMode;
 
     bool			_writeBOM;
     bool			_processEntities;
@@ -1941,6 +1960,7 @@ private:
     mutable StrPair	_errorStr;
     int             _errorLineNum;
     char*			_charBuffer;
+//    unsigned char*			_charBuffer;
     int				_parseCurLineNum;
 	int				_parsingDepth;
 	// Memory tracking does add some overhead.

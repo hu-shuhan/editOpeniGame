@@ -119,7 +119,7 @@ void Scene::RemoveModel(IGuint modelID) {
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
-                    m_CurrentModelID = -1;
+                    m_CurrentModelID = 0;
                 } else {
                     m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
@@ -141,7 +141,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
-                    m_CurrentModelID = -1;
+                    m_CurrentModelID = 0;
                 } else {
                     m_CurrentModelID = m_ModelPool->Begin()->first;
                 }
@@ -228,7 +228,7 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
         m_VisibleModelsCount--;
     }
 
-    UpdateModelsBoundingSphere();
+    UpdateCameraClippingRange();
 }
 
 void Scene::SetBackGround(const Color& color) {
@@ -259,8 +259,8 @@ void Scene::ResetCameraView() {
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
-    m_Camera->SetClippngRange(2.0f * radius, 4.0f * radius);
     m_Camera->SetFocal(center);
+    this->UpdateCameraClippingRange();
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
@@ -1046,7 +1046,7 @@ void Scene::UpdateCameraClippingRange() {
     //std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
     //          << std::endl;
 
-    m_Camera->SetClippngRange(nearPlane, farPlane);
+    m_Camera->SetClippingRange(nearPlane, farPlane);
 }
 
 void Scene::RefreshDrawCullDataBuffer() {

@@ -52,7 +52,7 @@ Viewer::Viewer() {
 
 Viewer::~Viewer() {}
 
-void Viewer::SetClippngRange(float _near, float _far) {
+void Viewer::SetClippingRange(float _near, float _far) {
     if (_near == m_ClippingRange.x && _far == m_ClippingRange.y) { return; }
 
     if (_near <= 0.0f) {
@@ -80,8 +80,9 @@ void Viewer::SetFov(float fov) {
     if (fov == m_Fov) { return; }
 
     if (fov < 1.0f || fov > 179.0f) {
-        IGAME_RENDERING_INFO("fov provided is out of range (1.0 - 179.0 degrees), "
-                        "clamping to valid range.");
+        IGAME_RENDERING_INFO(
+                "fov provided is out of range (1.0 - 179.0 degrees), "
+                "clamping to valid range.");
         m_Fov = std::clamp(fov, 1.0f, 179.0f);
     } else {
         m_Fov = fov;

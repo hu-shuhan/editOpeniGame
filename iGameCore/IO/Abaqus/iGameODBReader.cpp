@@ -14,6 +14,17 @@
 #include <utility>
 #include <chrono>
 IGAME_NAMESPACE_BEGIN
+/* Used for Update Progress : [0, 1]*/
+float s_current_progress = 0.f;
+float s_progress_coefficient = 1.f;
+float AddODBProgress(float add_value = 0.f){
+    s_current_progress += s_progress_coefficient * add_value;
+    if(s_current_progress > 1.f) s_current_progress = 1.0f;
+    return s_current_progress;
+}
+void SetProgressCoefficient(float _C){
+    s_progress_coefficient = _C;
+}
 
 /* Define Internal Adaptor Class. */
 class AttributeParserHelper{
@@ -51,8 +62,12 @@ public:
 
     static void ReadSortedCellData(const odb_SequenceFieldBulkData& blkDataBlock,
                                       std::map<int, int>& dataMap,
-                                   FloatArray::Pointer resDataArray)
+                                   FloatArray::Pointer resDataArray,
+                                   float cur_Progress_val,
+                                   ODBReader* reader
+                                   )
     {
+        cur_Progress_val /= blkDataBlock.size();
         for (int i = 0; i < blkDataBlock.size(); i++)
         {
             auto blk = blkDataBlock[i];
@@ -78,12 +93,17 @@ public:
                     }
                 }
             }
+            reader->UpdateProgress(cur_Progress_val);
         }
     }
 
     static void ReadSortedPointData(const odb_SequenceFieldBulkData& blkDataBlock,
                              std::map<int, int>& dataMap,
-                                FloatArray::Pointer resDataArray){
+                                FloatArray::Pointer resDataArray,
+                                float cur_Progress_val,
+                                ODBReader* reader
+                                ){
+        cur_Progress_val /= blkDataBlock.size();
         for (int i = 0; i < blkDataBlock.size(); i++)
         {
             auto blk = blkDataBlock[i];
@@ -102,6 +122,7 @@ public:
 //                    o_data[nodeLabelVtk * numComp + comp] = data[j * numComp + comp];
                 }
             }
+            reader->UpdateProgress(cur_Progress_val);
         }
     }
 
@@ -118,26 +139,29 @@ DataObject::Pointer ODBReader::ReadOdbRawMesh(const std::string &filePath) {
     m_NeedRequestStep = false;
     SetFilePath(filePath);
     Execute();
+    UpdateProgress(1.f);
     return this->GetOutput();
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath) {
     m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = true;
     SetFilePath(filePath);
+    SetProgressCoefficient(0.5f);
     Execute();
     m_NeedRequestMap = m_NeedRequestInstance = m_NeedRequestStep = false;
     auto outputObj = this->GetOutput();
     int frameIdx = 0;
-    std::cout << "Read First \n";
     if(ExecuteWithFieldData(frameIdx)) {
         auto attributeSet = m_Attribute_helper->GetResult();
         outputObj->SetAttributeSet(attributeSet);
     }
+    UpdateProgress(1.f);
     return outputObj;
 }
 DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath, const std::string &stepName) {
     m_NeedRequestMap = m_NeedRequestInstance = true;
-    m_NeedRequestStep = false;
+    m_NeedRequestStep = true;
     SetFilePath(filePath);
+    SetProgressCoefficient(0.5f);
     Execute();
     m_NeedRequestMap = m_NeedRequestInstance = false;
 
@@ -147,6 +171,7 @@ DataObject::Pointer ODBReader::ReadOdbFirstFrameMesh(const std::string &filePath
         auto attributeSet = m_Attribute_helper->GetResult();
         outputObj->SetAttributeSet(attributeSet);
     }
+    UpdateProgress(1.f);
     return outputObj;
 }
 
@@ -155,6 +180,7 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, i
     m_NeedRequestInstance = m_NeedRequestStep = true;
     m_NeedRequestMap = true;
     if(ExecuteWithFieldData(frame_idx)) return m_Attribute_helper->GetResult();
+    UpdateProgress(1.f);
     return nullptr;
 }
 AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, const std::string& stepName, int frame_idx) {
@@ -163,6 +189,7 @@ AttributeSet::Pointer ODBReader::ReadOdbFieldData(const std::string &filePath, c
     m_NeedRequestStep = false;
     m_NeedRequestMap = true;
     if(ExecuteWithFieldData(stepName, frame_idx)) return m_Attribute_helper->GetResult();
+    UpdateProgress(1.f);
     return nullptr;
 }
 
@@ -174,10 +201,13 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
                 std::cout << "Fail to Open ODB dataBase \n";
                 return false;
             }
+            UpdateProgress(AddODBProgress(0.05f));
             std::cout <<"Open end\n";
             ExtractHeader();
+            UpdateProgress(AddODBProgress(0.05f));
             std::cout <<"ExtractHeader end\n";
             ConstructMap();
+            UpdateProgress(AddODBProgress(0.1f));
             m_Attribute_helper = new AttributeParserHelper(m_StepFrameMap.begin()->first, frameIdx);
             std::cout <<"ConstructMap end\n";
             ReadAttributes();
@@ -193,7 +223,6 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
             return false;
         }
         odb_finalizeAPI();
-        UpdateProgress(1.0f);
         return true;
 }
 
@@ -230,16 +259,18 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
 bool iGame::ODBReader::Execute() {
     std::cout << "Init Odb start\n";
     odb_initializeAPI();
+    UpdateProgress(AddODBProgress(0.05f));
     std::cout << "Init Odb end\n";
     try {
         if(!OpenODB()){
             std::cout << "Fail to Open ODB dataBase \n";
             return false;
         }
-        this->UpdateProgress(0.1f);
         ExtractHeader();
+        UpdateProgress(AddODBProgress(0.05f));
         std::cout <<"ExtractHeader end\n";
         ConstructMap();
+        UpdateProgress(AddODBProgress(0.05f));
         std::cout <<"ConstructMap end\n";
         ReadCoordinates();
         std::cout <<"ReadCoordinates end\n";
@@ -263,7 +294,6 @@ bool iGame::ODBReader::Execute() {
 //    }
 //    m_Output->SetName(m_FileName);
     SetOutput(0, m_Output);
-    UpdateProgress(1.0f);
     return true;
 }
 
@@ -306,10 +336,8 @@ bool ODBReader::ExtractHeader() {
     if(m_ODB == nullptr) return false;
     // write instances
     ExtractAllInstance();
-    this->UpdateProgress(0.12f);
     // write steps and frames
     ExtractAllStep();
-    this->UpdateProgress(0.15f);
     return true;
 }
 
@@ -369,30 +397,37 @@ bool ODBReader::ReadCoordinates() {
         {
             dataSetPoints->AddPoint(inst.nodes(i).coordinates());
         }
+
+        UpdateProgress(AddODBProgress(0.3f));
+
         // write cell connectivity, offset, and type
         int elem_size = inst.elements().size();
         cellConnectivity->Reserve(cellConnectivity->GetArrayTypedSize() + elem_size);
         cellOffsets->Reserve(cellOffsets->GetArrayTypedSize() + elem_size);
         cellTypes->Reserve(cellTypes->GetArrayTypedSize() + elem_size);
+
+        float left_progress = 1.f - s_current_progress / s_progress_coefficient;
+        float left_elem_val = left_progress / elem_size;
         for (int i = 0; i < elem_size; i++)
         {
-            auto t1 = std::chrono::steady_clock::now();
+//            auto t1 = std::chrono::steady_clock::now();
             const auto& cell = inst.elements(i);
-            auto t2 = std::chrono::steady_clock::now();
+//            auto t2 = std::chrono::steady_clock::now();
             // connectivity
             const int* conn = cell.connectivity(nodesNumCell);
-            auto t3 = std::chrono::steady_clock::now();
+//            auto t3 = std::chrono::steady_clock::now();
             for (int j = 0; j < nodesNumCell; j++)
             {
                 cellConnectivity->AddValue(current_nodeMap[conn[j]]);
             }
-            auto t4 = std::chrono::steady_clock::now();
+//            auto t4 = std::chrono::steady_clock::now();
             // offset
             offset += nodesNumCell;
             cellOffsets->AddValue(offset);
             // CellType
             cellTypes->AddValue(ABAQUS_VTK_CELL_MAP(cell.type().cStr()));
-            auto t5 = std::chrono::steady_clock::now();
+            UpdateProgress(AddODBProgress(left_elem_val));
+//            auto t5 = std::chrono::steady_clock::now();
 //            std::cout << "===================\n";
 //            std::cout << "cost 1 : " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << '\n';
 //            std::cout << "cost 2 : " << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() << '\n';
@@ -442,14 +477,27 @@ bool ODBReader::ReadAttributes() {
     int frameIdx = m_Attribute_helper->frameIdx;
     const odb_Frame& frame = m_ODB->steps().constGet(stepName).frames()[frameIdx];
     const auto& fldOutputs = frame.fieldOutputs();
-    odb_FieldOutputRepositoryIT fieldIter(fldOutputs);
+
+//    for(int i = 0; i < names.size(); i ++){
+//        std::cout << names.constGet(i).cStr()  <<'\t';
+//        auto fldout = fldOutputs.constGet(names.constGet(i));
+//        std::string vtk_type = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldout);
+//        std::cout << vtk_type<< '\n';
+//    }
+//    std::cout << fldOutputs.size() << ' ' << fldOutputs.
+//    const auto& names = fldOutputs.getFieldOutputNames();
+//    for(int field_idx = 0; field_idx < names.size(); ++ field_idx)
+
     /* Read Field data */
-    int i = 0;
+    odb_FieldOutputRepositoryIT fieldIter(fldOutputs);
+    UpdateProgress(AddODBProgress(0.05f));
+    float left_progress = 1.f - s_current_progress / s_progress_coefficient;
+    float left_attr_val = left_progress / fldOutputs.size();
     for (fieldIter.first(); !fieldIter.isDone(); fieldIter.next())
     {
-        std::cout << "Field " << ++ i << '\n';
+//        const auto& fldOutput = fldOutputs.constGet(names.constGet(field_idx));
         const auto& fldOutput = fieldIter.currentValue();
-        std::string vtk_type = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
+//        std::string vtk_type = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
 
         // assuming location only has size of 1
         // TODO: may need to consider cases with locations more than 1
@@ -497,7 +545,9 @@ bool ODBReader::ReadAttributes() {
                                            abqPos,
                                            fldOutput.name(),
                                            maxNumIntegrationPoints,
-                                           PointData);
+                                           PointData,
+                                           left_attr_val
+                                           );
         }
         else if(abqPos == odb_Enum::odb_ResultPositionEnum::INTEGRATION_POINT){
             ReadDataArrayWithSectionPoints(sectionPoints,
@@ -505,13 +555,17 @@ bool ODBReader::ReadAttributes() {
                                            odb_Enum::odb_ResultPositionEnum::CENTROID,
                                            fldOutput.name() + "_Centroid",
                                            1,
-                                           CellData);
+                                           CellData,
+                                           left_attr_val * 0.5
+                                           );
             ReadDataArrayWithSectionPoints(sectionPoints,
                                            fldOutput,
                                            abqPos,
                                            fldOutput.name() + "_IntegrationPoints",
                                            maxNumIntegrationPoints,
-                                           CellData);
+                                           CellData,
+                                           left_attr_val * 0.5
+                                           );
         }
     }
 
@@ -561,6 +615,8 @@ bool ODBReader::ReadAttributes() {
                 }
             }
         }
+
+        UpdateProgress(AddODBProgress(left_attr_val));
     }
     m_Attribute_helper->m_AttributeSet->AddAttribute(IG_VECTOR, IG_CELL, localCSArray);
 
@@ -571,20 +627,25 @@ void ODBReader::ReadDataArrayWithSectionPoints(const std::vector<odb_SectionPoin
                                                     const odb_Enum::odb_ResultPositionEnum& pos,
                                                     const odb_String& fieldName,
                                                     int maxNumOfIntergrationPoints,
-                                                    const DataArrayType& dataArrayType){
+                                                    const DataArrayType& dataArrayType,
+                                                    float current_progress_val /*For update Progress*/
+                                                    ){
     if (sectionPoints.empty())
     {
-        ReadDataArray(fldOutput, pos, maxNumOfIntergrationPoints, fieldName, dataArrayType);
+        ReadDataArray(fldOutput, pos, maxNumOfIntergrationPoints, fieldName, dataArrayType, current_progress_val);
     }
+    current_progress_val /= sectionPoints.size();
     for (const auto& sp : sectionPoints)
     {
         auto subset = fldOutput.getSubset(sp);
-        ReadDataArray(subset, pos, maxNumOfIntergrationPoints, fieldName + sp.description(), dataArrayType);
+        ReadDataArray(subset, pos, maxNumOfIntergrationPoints, fieldName + sp.description(), dataArrayType, current_progress_val);
     }
 }
 void ODBReader::ReadDataArray(const odb_FieldOutput &fldOutput, const odb_Enum::odb_ResultPositionEnum &pos,
                               int maxNumOfIntergrationPoints, const odb_String &arrayName,
-                              const ODBReader::DataArrayType &dataArrayType) {
+                              const ODBReader::DataArrayType &dataArrayType,
+                              float current_progress_val /*For update Progress*/
+                              ) {
     FloatArray::Pointer array = FloatArray::New();
 
     /* Set attribute's Dimension. */
@@ -607,7 +668,7 @@ void ODBReader::ReadDataArray(const odb_FieldOutput &fldOutput, const odb_Enum::
             auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName);
             auto subset = fldOutput.getSubset(selectedInstance).getSubset(pos);
             auto subsetname = subset.name().cStr();
-            AttributeParserHelper::ReadSortedPointData(subset.bulkDataBlocks(), m_NodesMap[instanceName], array);
+            AttributeParserHelper::ReadSortedPointData(subset.bulkDataBlocks(), m_NodesMap[instanceName], array, current_progress_val, this);
         }
         auto attributeType = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
         if(attributeType == "Scalars"){
@@ -623,7 +684,7 @@ void ODBReader::ReadDataArray(const odb_FieldOutput &fldOutput, const odb_Enum::
         {
             auto selectedInstance =  m_ODB->rootAssembly().instances().constGet(instanceName);
             auto subset = fldOutput.getSubset(selectedInstance).getSubset(pos);
-            AttributeParserHelper::ReadSortedCellData(subset.bulkDataBlocks(), m_CellsMap[instanceName], array);
+            AttributeParserHelper::ReadSortedCellData(subset.bulkDataBlocks(), m_CellsMap[instanceName], array, current_progress_val, this);
         }
         auto attributeType = AttributeParserHelper::ABAQUS_VTK_FIELD_OUTPUTS_MAP(fldOutput);
         if(attributeType == "Scalars"){
@@ -721,11 +782,39 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
     {
         return 3;
     }
+    /*brick_sph_indenter_new.odb*/
+    else if (strcmp(abqElementType, "COH3D8") == 0)
+    {
+        return 12;
+    }
+    /*If you want to represent a geometric topology, you can use VTK_TRIANGLE (ID: 5) because SFM3D4R is essentially a triangular face unit.
+        VTK_TETRA (ID: 10) can be used to represent its relationship to the volume element, but this is only to match the geometry and does not include contact characteristics.*/
+    else if (strcmp(abqElementType, "SFM3D4R") == 0)
+    {
+        return 10;
+    }
+    /*Support M3D4R(Membrane Element, Reduced Integration) && M3D4(Membrane Element, Full Integration)*/
+    else if (strncmp(abqElementType, "M3D4", 4) == 0)
+    {
+        return 9;
+    }
 
     std::cerr << abqElementType << " not supported by the converter." << std::endl;
     return -1;
 }
 
+std::vector<std::string> ODBReader::ReadOdbAllStep(const std::string &filePath) {
+    std::vector<std::string> res;
+    odb_initializeAPI();
+    auto odb_ptr =&openOdb(odb_String(filePath.c_str()));
+    odb_StepRepositoryIT stepIt(odb_ptr->steps());
+    for(stepIt.first(); !stepIt.isDone(); stepIt.next())
+    {
+        res.emplace_back(stepIt.currentKey().cStr());
+    }
+    odb_finalizeAPI();
+    return res;
+}
 
 
 IGAME_NAMESPACE_END

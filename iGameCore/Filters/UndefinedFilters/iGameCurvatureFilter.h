@@ -112,8 +112,7 @@ public:
             //else if (VolumeNum != 0 && attachmentType == 1)
             //    return GetOtherCurvature(1, VolumeNum);
 
-        } 
-
+        }
         if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
@@ -158,15 +157,9 @@ public:
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
-
-        int progress = 0;
-        int block = PointNum / 100;
+        int hundred = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
-            if (idx > block * progress) {
-                progress++;
-                UpdateProgress(progress * 0.01);
-            }
-
+            if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
             auto v1 = Points->GetPoint(idx);
 
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
@@ -238,7 +231,7 @@ public:
 
             curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
-
+        UpdateProgress(1.0f);
         return true;
     }
 
@@ -289,15 +282,9 @@ public:
         std::vector<float> sumWeights(Num, 0.0f);
 
         igIndex neighborVerts[256]{};
-
-        int progress = 0;
-        int block = Num / 100;
+        int hundred = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
-            if (idx > block * progress) {
-                progress++;
-                UpdateProgress(progress * 0.01);
-            }
-
+            if(idx % hundred == 0) UpdateProgress((double)idx / Num);
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
             Eigen::Matrix3d hessian = Eigen::Matrix3d::Zero();
             gp(0) = gradient[idx][0];
@@ -387,7 +374,7 @@ public:
 
             curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
-
+        UpdateProgress(1.0f);
         return true;
     }
 
