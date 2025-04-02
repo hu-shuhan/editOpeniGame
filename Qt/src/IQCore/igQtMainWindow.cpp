@@ -117,88 +117,6 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 }
 void igQtMainWindow::initToolbarComponent() {
 
-    // viewStyleCombox = new QComboBox(this);
-    // viewStyleCombox->addItem("Points");
-    // viewStyleCombox->addItem("WireFrame");
-    // viewStyleCombox->addItem("Surface");
-    // viewStyleCombox->addItem("Surface With Edegs");
-    // viewStyleCombox->addItem("Volume");
-    // viewStyleCombox->addItem("Volume With Edegs");
-
-    // viewStyleCombox->setStyleSheet("QComboBox {"
-    //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // 设置文本颜色为浅白色
-    //	"border: 1px solid #ffffff;"   // 设置边框样式为灰色实线边框
-    //	"padding: 5px;"                // 设置内边距
-    //	"font-size: 16px;"              // 设置下拉菜单项字体大小为14px
-    //	"}"
-    //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // 设置下拉菜单项字体为Arial
-    //	"color: #404040;"               // 设置下拉菜单项字体颜色为浅灰色
-    //	"}"
-    //	"QComboBox::drop-down {"
-    //	"subcontrol-origin: padding;"
-    //	"subcontrol-position: top right;"
-    //	"width: 20px;"
-    //	"border-left: 1px solid #202020;"
-    //	"border-color: #eeeeee;"
-    //	"}"
-    //);
-
-    // connect(viewStyleCombox, SIGNAL(currentIndexChanged(QString)), this,
-    // SLOT(ChangeViewStyle())); ui->toolBar_meshview->addWidget(viewStyleCombox);
-
-    // attributeViewIndexCombox = new QComboBox(this);
-    // attributeViewIndexCombox->addItem("None        ");
-    // attributeViewIndexCombox->setStyleSheet("QComboBox {"
-    //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // 设置文本颜色为浅白色
-    //	"border: 1px solid #ffffff;"   // 设置边框样式为灰色实线边框
-    //	"padding: 5px;"                // 设置内边距
-    //	"font-size: 16px;"              // 设置下拉菜单项字体大小为14px
-    //	"}"
-    //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // 设置下拉菜单项字体为Arial
-    //	"color: #404040;"               // 设置下拉菜单项字体颜色为浅灰色
-    //	"}"
-    //	"QComboBox::drop-down {"
-    //	"subcontrol-origin: padding;"
-    //	"subcontrol-position: top right;"
-    //	"width: 20px;"
-    //	"border-left: 1px solid #202020;"
-    //	"border-color: #eeeeee;"
-    //	"}"
-    //);
-
-    // connect(attributeViewIndexCombox, SIGNAL(activated(int)), this,
-    // SLOT(ChangeScalarView()));
-    // ui->toolBar_attribute_view_index->addWidget(attributeViewIndexCombox);
-
-    // attributeViewDimCombox = new QComboBox(this);
-    // attributeViewDimCombox->addItem("magnitude");
-    // attributeViewDimCombox->setStyleSheet("QComboBox {"
-    //	"background-color: #f0f0f0;"
-    //	"color: #202020;"              // 设置文本颜色为浅白色
-    //	"border: 1px solid #ffffff;"   // 设置边框样式为灰色实线边框
-    //	"padding: 5px;"                // 设置内边距
-    //	"font-size: 16px;"              // 设置下拉菜单项字体大小为14px
-    //	"}"
-    //	"QComboBox QAbstractItemView {"
-    //	"font-family: Arial;"           // 设置下拉菜单项字体为Arial
-    //	"color: #404040;"               // 设置下拉菜单项字体颜色为浅灰色
-    //	"}"
-    //	"QComboBox::drop-down {"
-    //	"subcontrol-origin: padding;"
-    //	"subcontrol-position: top right;"
-    //	"width: 10px;"
-    //	"border-left: 1px solid #202020;"
-    //	"border-color: #eeeeee;"
-    //	"}"
-    //);
-
-    // connect(attributeViewDimCombox, SIGNAL(activated(int)), this,
-    // SLOT(ChangeScalarViewDim()));
-    // ui->toolBar_attribute_view_dim->addWidget(attributeViewDimCombox);
 }
 
 void igQtMainWindow::initAllComponents() {
@@ -258,23 +176,6 @@ void igQtMainWindow::initAllComponents() {
         SceneManager::Instance()->GetCurrentScene()->ResetCameraView();
         rendererWidget->update();
     });
-    // connect(ui->action_PickCenter, &QAction::triggered, this, [&]() {
-    //	float x = -1.0, y = -1.0, z = -1.0;
-    //	iGame::iGameManager::Instance()->UpdateCenter(x, y, z);
-    //	rendererWidget->update();
-    //	});
-    //    connect(ui->action_DeleteMesh, &QAction::triggered, ui->modelTreeView,
-    //            &igQtModelListView::DeleteCurrentFile);
-    // connect(ui->action_DeleteMesh, &QAction::triggered, this,
-    // &igQtMainWindow::updateCurrentSceneWidget); connect(ui->action_NextMesh,
-    // &QAction::triggered, ui->modelTreeView,
-    // &igQtModelListView::ChangeSelected2NextItem); connect(ui->action_NextMesh,
-    // &QAction::triggered, rendererWidget,
-    // &igQtModelDrawWidget::changeCurrentModel2Next);
-    // connect(ui->action_LastMesh, &QAction::triggered, ui->modelTreeView,
-    // &igQtModelListView::ChangeSelected2LastItem); connect(ui->action_LastMesh,
-    // &QAction::triggered, rendererWidget,
-    // &igQtModelDrawWidget::changeCurrentModel2Last);
 
     connect(ui->action_setViewToPositiveX, &QAction::triggered, this, [&](bool checked) {
         rendererWidget->GetScene()->ResetCameraViewToPositiveX();
@@ -390,6 +291,7 @@ igQtMainWindow::~igQtMainWindow() {}
 
 
 #include "SurfaceMeshFilters/meshsimplifier/meshsimplifier.h"
+#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "SurfaceMeshFilters/simplifier.h"
 
 void igQtMainWindow::initAllFilters() {
@@ -526,7 +428,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    if (false)
+    if (true)
     connect(mesh_processing->addAction("Simplification"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
@@ -547,8 +449,8 @@ void igQtMainWindow::initAllFilters() {
 
         vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
         size_t vertex_attributes_stride = sizeof(float);
-        float attribute_weights[1]{1};
-        size_t attribute_count = 1;
+        float attribute_weights[3]{1,1,1};
+        size_t attribute_count = 3;
         unsigned char* vertex_lock = nullptr;
         size_t target_index_count = index_count * 0.1;
         float target_error = 0.01f;
@@ -711,6 +613,35 @@ void igQtMainWindow::initAllFilters() {
         }
     });
     
+    if (true)
+    connect(mesh_processing->addAction("New Simplification"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        //auto attrSet = AttributeSet::New();
+        //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
+        //obj->SetAttributeSet(attrSet);
+        //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        //rendererWidget->update();  
+        //return;
+
+        //Triangulation::Pointer triangulation = Triangulation::New();
+        //triangulation->SetInput(obj);
+        //triangulation->Execute();
+        //obj = triangulation->GetOutput();
+
+
+        //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
+        //obj->SetAttributeSet(AttributeSet::New());
+
+        MeshSimplifier::Pointer Sim = MeshSimplifier::New();
+        Sim->SetInput(obj);
+        Sim->Execute();
+        auto new_mesh = Sim->GetOutput(0);
+
+        modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+        rendererWidget->update();  
+    });
+
+
     connect(ui->menu_filters->addAction("插值"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();

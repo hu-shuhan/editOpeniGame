@@ -1337,7 +1337,7 @@ bool GradientFilter::ComputeGradientWithVolumeMesh(VolumeMesh::Pointer Mesh, Att
     std::vector<std::array<float, 3>> gradients_x(NumPoints, {0, 0, 0});
 
     int progress = 0;
-    int block = NumCells / 100;
+    int block = NumCells / 90;
     for (int cellId = 0; cellId < NumCells; ++cellId) {
         if (cellId > block * progress) {
             progress++;
