@@ -1826,6 +1826,7 @@ public:
         Adjacency.Offsets.resize(TetraCount + 1);
         //Adjacency.Data.resize(IndexCount);
         //BuildVertexAdjacency();
+        BuildSurfaceMesh();
 
         size_t CollapseCapacity = TetraCount;
         Collapses.resize(CollapseCapacity);
@@ -1856,6 +1857,11 @@ public:
             TetraCount = IndexCount / 4;
         }
         return IndexCount;
+    }
+
+    void BuildSurfaceMesh()
+    {
+
     }
 
     void BuildVertexAdjacency()
@@ -1925,7 +1931,6 @@ public:
             Offset += Count;
         }
 
-        std::cout << Offset << " " << Adjacency.Data.size() << std::endl;
         if (Adjacency.Data.size() == 0)
             Adjacency.Data.resize(Offset * 1.2);
 
@@ -2420,16 +2425,12 @@ bool MeshSimplifier::Execute()
     if (true)
     {
         using namespace mesh_tetra_simplifier;
-        VolumeMesh::Pointer Mesh;
+        UnstructuredMesh::Pointer Mesh;
         SurfaceMesh::Pointer SMesh;
-        if (DynamicCast<VolumeMesh>(GetInput(0))) {
-            Mesh = DynamicCast<VolumeMesh>(GetInput(0));
-            SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
-        }
+
         if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
-            auto mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            Mesh = mesh->TransferToVolumeMesh();
-            SMesh = DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+            Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
+            SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
         }
 
         if (Mesh == nullptr) return false;
@@ -2444,8 +2445,8 @@ bool MeshSimplifier::Execute()
         float TargetError;
 
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
-        for (int i = 0; i < Mesh->GetNumberOfVolumes(); ++i) {
-            int size = Mesh->GetVolumePointIds(i, cell);
+        for (int i = 0; i < Mesh->GetNumberOfCells(); ++i) {
+            int size = Mesh->GetCellPointIds(i, cell);
             Indices.push_back(cell[0]);
             Indices.push_back(cell[1]);
             Indices.push_back(cell[2]);
@@ -2458,6 +2459,14 @@ bool MeshSimplifier::Execute()
             if (attr.attachmentType == IG_CELL) continue;
             for (int j = 0; j < attr.pointer->GetDimension(); ++j) {
                 Attribute Attr;
+                if (!DynamicCast<FloatArray>(attr.pointer)) {
+                    FloatArray::Pointer newArray = FloatArray::New();
+                    newArray->SetDimension(attr.pointer->GetDimension());
+                    for (int k = 0; k < attr.pointer->GetNumberOfValues(); k++) {
+                        newArray->AddValue(static_cast<float>(attr.pointer->GetValue(k)));
+                    }
+                    attr.pointer = newArray;
+                }
                 Attr.Primitive = DynamicCast<FloatArray>(attr.pointer)->RawPointer();
                 Attr.Stride = attr.pointer->GetDimension();
                 Attr.Offset = j;
@@ -2465,21 +2474,16 @@ bool MeshSimplifier::Execute()
                 AttributeWeights.push_back(1);
             }
         }
-        TargetCount = Indices.size() / 1.5;
+        TargetCount = Indices.size() * 0.5;
         TargetError = 0.01f;
 
-        Mesh->RequestEditStatus();
+        auto PointMap = Mesh->GetPointMap();
         IsSurfaceVertex.resize(VertexPositions.size(), 0);
-        for (int i = 0; i < Mesh->GetNumberOfPoints(); ++i) {
-            if (Mesh->IsBoundaryPoint(i)) IsSurfaceVertex[i] = 1;
-        }
-        for (int i = 0; i < Mesh->GetNumberOfFaces(); ++i) {
-            if (Mesh->IsBoundaryFace(i)) {
-                int size = Mesh->GetFacePointIds(i, cell);
-                SurfaceIndices.push_back(cell[0]);
-                SurfaceIndices.push_back(cell[1]);
-                SurfaceIndices.push_back(cell[2]);
-            }
+
+        for (int i = 0; i < PointMap->GetNumberOfValues(); i++) {
+            if (PointMap->GetValue(i) != -1) { 
+                IsSurfaceVertex[i] = 1;
+            } 
         }
 
         mesh_tetra_simplifier::TetraMeshInternalSimplifier Simplifier(Indices, VertexPositions, IsSurfaceVertex,
