@@ -634,11 +634,12 @@ void igQtMainWindow::initAllFilters() {
 
         MeshSimplifier::Pointer Sim = MeshSimplifier::New();
         Sim->SetInput(obj);
-        Sim->Execute();
-        auto new_mesh = Sim->GetOutput(0);
+        if (Sim->Execute()) {
+            auto new_mesh = Sim->GetOutput(0);
 
-        modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-        rendererWidget->update();  
+            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            rendererWidget->update();  
+        }
     });
 
 

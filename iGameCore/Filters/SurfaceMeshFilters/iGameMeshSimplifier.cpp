@@ -2327,113 +2327,14 @@ bool MeshSimplifier::Execute()
         NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
         SetOutput(NewMesh);
     } 
-    else if (false)
-    {
-        using namespace meshsmp;
-        VolumeMesh::Pointer Mesh;
-        SurfaceMesh::Pointer SMesh;
-        if (DynamicCast<VolumeMesh>(GetInput(0))) 
-        { 
-            Mesh = DynamicCast<VolumeMesh>(GetInput(0));
-            SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
-        }
-        if (DynamicCast<UnstructuredMesh>(GetInput(0))) 
-        { 
-            auto mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            Mesh = mesh->TransferToVolumeMesh();
-            SMesh = DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-        }
-        
-        if (Mesh == nullptr) return false;
-
-        std::vector<int_t> Indices;
-        std::vector<int_t> SurfaceIndices;
-        std::vector<Point3> VertexPositions;
-        std::vector<unsigned char> IsSurfaceVertex;
-        std::vector<Attribute> VertexAttributes;
-        std::vector<float> AttributeWeights;
-        size_t TargetCount;
-        float TargetError;
-
-        igIndex cell[IGAME_CELL_MAX_SIZE]{};
-        for (int i = 0; i < Mesh->GetNumberOfVolumes(); ++i) {
-            int size = Mesh->GetVolumePointIds(i, cell);
-            Indices.push_back(cell[0]);
-            Indices.push_back(cell[1]);
-            Indices.push_back(cell[2]);
-            Indices.push_back(cell[3]);
-        }
-        RescalePositions(VertexPositions, Mesh->GetPoints());
-
-        for (int i = 0; i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
-            auto& attr = Mesh->GetAttributeSet()->GetAttribute(i);
-            if (attr.attachmentType == IG_CELL) continue;
-            for (int j = 0; j < attr.pointer->GetDimension(); ++j) {
-                Attribute Attr;
-                Attr.Primitive = DynamicCast<FloatArray>(attr.pointer)->RawPointer();
-                Attr.Stride = attr.pointer->GetDimension();
-                Attr.Offset = j;
-                VertexAttributes.push_back(Attr);
-                AttributeWeights.push_back(1);
-            }
-        }
-        TargetCount = Indices.size() / 1.5;
-        TargetError = 0.01f;
-
-        Mesh->RequestEditStatus();
-        IsSurfaceVertex.resize(VertexPositions.size(), 0);
-        for (int i = 0; i < Mesh->GetNumberOfPoints(); ++i) { 
-            if (Mesh->IsBoundaryPoint(i)) 
-                IsSurfaceVertex[i] = 1;
-        }
-        for (int i = 0; i < Mesh->GetNumberOfFaces(); ++i) {
-            if (Mesh->IsBoundaryFace(i)) { 
-                int size = Mesh->GetFacePointIds(i, cell);
-                SurfaceIndices.push_back(cell[0]);
-                SurfaceIndices.push_back(cell[1]);
-                SurfaceIndices.push_back(cell[2]);
-            }
-        }
-        //for (int i = 0; i < SMesh->GetNumberOfFaces(); ++i)
-        //{ 
-        //    int size = SMesh->GetFacePointIds(i, cell);
-        //    IsSurfaceVertex[cell[0]] = 1;
-        //    IsSurfaceVertex[cell[1]] = 1;
-        //    IsSurfaceVertex[cell[2]] = 1;
-        //    //SceneManager::Instance()->GetCurrentScene()->GetPainter3D()->SetPen(Color::Red);
-        //    //SceneManager::Instance()->GetCurrentScene()->GetPainter3D()->SetPen(12);
-        //    //SceneManager::Instance()->GetCurrentScene()->GetPainter3D()->DrawPoint(SMesh->GetPoint(cell[0]));
-        //    //SceneManager::Instance()->GetCurrentScene()->GetPainter3D()->DrawPoint(SMesh->GetPoint(cell[1]));
-        //    //SceneManager::Instance()->GetCurrentScene()->GetPainter3D()->DrawPoint(SMesh->GetPoint(cell[2]));
-        //}
-        
-        TetraMeshInternalSimplifier Simplifier(Indices, VertexPositions, IsSurfaceVertex, SurfaceIndices, VertexAttributes,
-                                               AttributeWeights, TargetCount, TargetError);
-        size_t IndexCount = Simplifier.DoWork();
-        VolumeMesh::Pointer NewMesh = VolumeMesh::New();
-        NewMesh->SetName(Mesh->GetName());
-
-        CellArray::Pointer Cells = CellArray::New();
-        for (int i = 0; i < IndexCount; i += 4) {
-            Cells->AddCellId4(Indices[i + 0], Indices[i + 1], Indices[i + 2], Indices[i + 3]);
-        }
-        NewMesh->SetVolumes(Cells);
-        NewMesh->SetPoints(Mesh->GetPoints());
-        NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
-        SetOutput(NewMesh);
-    }
-    if (true)
+    else if (DynamicCast<UnstructuredMesh>(GetInput(0)))
     {
         using namespace mesh_tetra_simplifier;
         UnstructuredMesh::Pointer Mesh;
         SurfaceMesh::Pointer SMesh;
 
-        if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
-            Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-            SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
-        }
-
-        if (Mesh == nullptr) return false;
+        Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
+        SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
 
         std::vector<int_t> Indices;
         std::vector<int_t> SurfaceIndices;
@@ -2447,16 +2348,31 @@ bool MeshSimplifier::Execute()
         igIndex cell[IGAME_CELL_MAX_SIZE]{};
         for (int i = 0; i < Mesh->GetNumberOfCells(); ++i) {
             int size = Mesh->GetCellPointIds(i, cell);
+            if (size != 4) return false;
             Indices.push_back(cell[0]);
             Indices.push_back(cell[1]);
             Indices.push_back(cell[2]);
             Indices.push_back(cell[3]);
         }
-        RescalePositions(VertexPositions, Mesh->GetPoints());
+        float scale = RescalePositions(VertexPositions, Mesh->GetPoints());
 
-        for (int i = 0; i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
-            auto& attr = Mesh->GetAttributeSet()->GetAttribute(i);
+        AttributeSet::Pointer NewAttrs = AttributeSet::New();
+        for (int k = 0; k < Mesh->GetAttributeSet()->GetNumberOfAttributes(); k++) {
+            auto& attr = Mesh->GetAttributeSet()->GetAttribute(k);
             if (attr.attachmentType == IG_CELL) continue;
+            FloatArray::Pointer Ptr = FloatArray::New();
+            Ptr->SetDimension(attr.pointer->GetDimension());
+            Ptr->SetName(attr.pointer->GetName());
+            float ele[16]{};
+            for (int i = 0; i < Mesh->GetNumberOfPoints(); i++) {
+                attr.pointer->GetElement(i, ele);
+                Ptr->AddElement(ele);
+            }
+            NewAttrs->AddAttribute(attr.type, attr.attachmentType, Ptr);
+        }
+
+        for (int i = 0; i < NewAttrs->GetNumberOfAttributes(); ++i) {
+            auto& attr = NewAttrs->GetAttribute(i);
             for (int j = 0; j < attr.pointer->GetDimension(); ++j) {
                 Attribute Attr;
                 if (!DynamicCast<FloatArray>(attr.pointer)) {
@@ -2474,39 +2390,73 @@ bool MeshSimplifier::Execute()
                 AttributeWeights.push_back(1);
             }
         }
+
         TargetCount = Indices.size() * 0.5;
         TargetError = 0.01f;
 
-        auto PointMap = Mesh->GetPointMap();
-        IsSurfaceVertex.resize(VertexPositions.size(), 0);
+        {
+            auto PointMap = Mesh->GetPointMap();
+            IsSurfaceVertex.resize(VertexPositions.size(), 0);
 
-        for (int i = 0; i < PointMap->GetNumberOfValues(); i++) {
-            if (PointMap->GetValue(i) != -1) { 
-                IsSurfaceVertex[i] = 1;
-            } 
+            for (int i = 0; i < PointMap->GetNumberOfValues(); i++) {
+                if (PointMap->GetValue(i) != -1) { IsSurfaceVertex[i] = 1; }
+            }
         }
 
         mesh_tetra_simplifier::TetraMeshInternalSimplifier Simplifier(Indices, VertexPositions, IsSurfaceVertex,
                                                                       SurfaceIndices, VertexAttributes,
                                                                       AttributeWeights, TargetCount, TargetError);
         size_t IndexCount = Simplifier.DoWork();
-        VolumeMesh::Pointer NewMesh = VolumeMesh::New();
+        UnstructuredMesh::Pointer NewMesh = UnstructuredMesh::New();
         NewMesh->SetName(Mesh->GetName());
-        Points::Pointer NewPoints = Points::New();
-        for (int i = 0; i < VertexPositions.size(); i++) { 
-            NewPoints->AddPoint(VertexPositions[i].x, VertexPositions[i].y, VertexPositions[i].z);
-        }
 
         CellArray::Pointer Cells = CellArray::New();
+        UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
+        std::vector<unsigned char> PointExisted(Mesh->GetNumberOfPoints());
         for (int i = 0; i < IndexCount; i += 4) {
-            Cells->AddCellId4(Indices[i + 0], Indices[i + 1], Indices[i + 2], Indices[i + 3]);
+            PointExisted[Indices[i + 0]] = 1;
+            PointExisted[Indices[i + 1]] = 1;
+            PointExisted[Indices[i + 2]] = 1;
+            PointExisted[Indices[i + 3]] = 1;
         }
-        NewMesh->SetVolumes(Cells);
+        std::vector<igIndex> PointMap(PointExisted.size());
+        int c = 0;
+        Points::Pointer NewPoints = Points::New();
+        auto bbox = Mesh->GetBoundingBox();
+        for (int i = 0; i < PointExisted.size(); i++) { 
+            if (PointExisted[i]) { 
+                PointMap[i] = c++;
+                NewPoints->AddPoint(VertexPositions[i].x * scale + bbox.min[0],
+                                    VertexPositions[i].y * scale + bbox.min[1],
+                                    VertexPositions[i].z * scale + bbox.min[2]);
+            }
+        }
+        for (int i = 0; i < IndexCount; i += 4) {
+            Cells->AddCellId4(PointMap[Indices[i + 0]], PointMap[Indices[i + 1]], PointMap[Indices[i + 2]],
+                              PointMap[Indices[i + 3]]);
+            Types->AddValue(IG_TETRA);
+        }
+        for (int k = 0; k < NewAttrs->GetNumberOfAttributes(); k++) {
+            auto& attr = NewAttrs->GetAttribute(k);
+            FloatArray::Pointer Ptr = FloatArray::New();
+            Ptr->SetDimension(attr.pointer->GetDimension());
+            Ptr->SetName(attr.pointer->GetName());
+            float ele[16]{};
+            int c = 0;
+            for (int i = 0; i < Mesh->GetNumberOfPoints(); i++) {
+                if (PointExisted[i]) { 
+                    attr.pointer->GetElement(i, ele);
+                    attr.pointer->SetElement(c++, ele);
+                }
+            }
+            attr.pointer->Resize(c);
+        }
+
+        NewMesh->SetCells(Cells, Types);
         NewMesh->SetPoints(NewPoints);
-        NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
+        NewMesh->SetAttributeSet(NewAttrs);
         SetOutput(NewMesh);
     }
-
 
     return true; 
 }
