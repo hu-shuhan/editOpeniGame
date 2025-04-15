@@ -26,6 +26,18 @@ public:
     static Pointer New() { return new Axes; }
 
     /**
+     * @brief 设置关联的场景对象。
+     * @param scene 场景对象的智能指针。
+     */
+    void SetScene(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 获取当前关联的场景对象。
+     * @return 场景对象的智能指针，可能为空需调用方检查有效性。
+     */
+    SmartPointer<Scene> GetScene() const;
+
+    /**
      * @brief 初始化Axes对象，设置所需的OpenGL缓冲区和数据。必须在OpenGL上下文中调用。
      */
     void Initialize();
@@ -34,7 +46,7 @@ public:
      * @brief 在指定的场景中绘制三维坐标轴，范围在场景的左下角，视口为原始场景的1/10。
      * @param scene 渲染坐标轴的目标场景。
      */
-    void Draw(Scene* scene);
+    void Draw();
 
 protected:
     Axes();
@@ -78,6 +90,8 @@ protected:
     SmartPointer<GLBuffer> m_TextureCoordVBO;
     SmartPointer<GLBuffer> m_WorldCoordVBO;
     SmartPointer<GLBuffer> m_FontTextureEBO;
+
+    SmartPointer<Scene> m_Scene;
 
     int m_Viewport[4];
     igm::mat4 m_Mvp;

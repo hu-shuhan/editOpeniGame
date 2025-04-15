@@ -40,13 +40,17 @@ IGAME_NAMESPACE_BEGIN
 
     }
 
-//    std::shared_ptr<spdlog::logger> &Log::GetCoreLogger() {
-//        if(!s_CoreLogger) Log::Init();
-//        return s_CoreLogger;
-//    }
-//
-//    std::shared_ptr<spdlog::logger> &Log::GetClientLogger() {
-//        if(!s_ClientLogger) Log::Init();
-//        return s_ClientLogger;
-//    }
+    std::shared_ptr<spdlog::logger> &Log::GetCoreLogger() {
+        if(!s_CoreLogger) Log::Init();
+        return s_CoreLogger;
+    }
+
+    std::shared_ptr<spdlog::logger> &Log::GetClientLogger() {
+        if(!s_ClientLogger) Log::Init();
+        return s_ClientLogger;
+    }
+    std::shared_ptr<spdlog::logger> &Log::GetRenderingLogger() {
+        if(!s_RenderingLogger) Log::Init();
+        return s_RenderingLogger;
+    }
 IGAME_NAMESPACE_END

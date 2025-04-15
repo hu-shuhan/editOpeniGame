@@ -13,13 +13,11 @@ SurfaceMeshMeshleter::SurfaceMeshMeshleter() {}
 SurfaceMeshMeshleter::~SurfaceMeshMeshleter() {}
 
 void SurfaceMeshMeshleter::Build() {
-    if (DynamicCast<UnstructuredMesh>(m_DataObject) ||
-        DynamicCast<StructuredMesh>(m_DataObject) ||
-        DynamicCast<VolumeMesh>(m_DataObject)) {
-
-        IGAME_RENDERING_ERROR("{} is not a SurfaceMesh, but it will be processed "
-                         "using SurfaceMeshMeshleter for meshleting.",
-                         m_DataObject->GetName());
+    if (m_DataObject->GetDataObjectType() != IG_SURFACE_MESH) {
+        IGAME_RENDERING_ERROR(
+                "{} is not a SurfaceMesh, but it will be processed using "
+                "SurfaceMeshMeshleter for meshleting.",
+                m_DataObject->GetName());
     }
 
     SmartPointer<Timer> timer = Timer::New();
@@ -49,9 +47,10 @@ void SurfaceMeshMeshleter::Build() {
             }
         }
 
-        IGAME_RENDERING_TRACE("DataObject {}, convert to rendering data [time: {}]",
-                         m_DataObject->GetName(),
-                         FormatTime(timer->ElapsedMilliseconds()));
+        IGAME_RENDERING_TRACE(
+                "DataObject {}, convert to rendering data [time: {}]",
+                m_DataObject->GetName(),
+                FormatTime(timer->ElapsedMilliseconds()));
     }
 
     // build meshlet
@@ -233,9 +232,10 @@ void SurfaceMeshMeshleter::Build() {
         }
 #endif
 
-        IGAME_RENDERING_TRACE("DataObject {}, build meshlets [count: {}, time: {}]",
-                         m_DataObject->GetName(), meshlet_count,
-                         FormatTime(timer->ElapsedMilliseconds()));
+        IGAME_RENDERING_TRACE(
+                "DataObject {}, build meshlets [count: {}, time: {}]",
+                m_DataObject->GetName(), meshlet_count,
+                FormatTime(timer->ElapsedMilliseconds()));
     }
 
     this->Modified();

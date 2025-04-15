@@ -3,7 +3,6 @@
 #include "iGameFileReader.h"
 #include "iGameFileWriter.h"
 #include "VTK/iGameVTKReader.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "VTK/iGameVTKWriter.h"
 #include "OFF/iGameOFFReader.h"
 #include "OFF/iGameOFFWriter.h"
@@ -23,6 +22,7 @@
 #include "CGNS/iGameCGNSReader.h"
 #include "Abaqus/iGameODBReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
+#include "iGameMeshCodec/iGameMeshLoomDecoder.h"
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name)
@@ -35,7 +35,7 @@ IGenum FileIO::GetFileType(const std::string& file_name)
 	}
 	if (FileSuffix == "vtk") {
 		return VTK;
-	} 
+	}
 	else if (FileSuffix == "igc") {
         return IGC;
     }
@@ -133,8 +133,8 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		break;
 	}
     case IGC: {
-        MeshDecoder::Pointer reader = MeshDecoder::New();
-        resObj = reader->ReadFile(file_name);
+		MeshLoomDecoder* reader = new MeshLoomDecoder(file_name);
+		resObj = reader->Execute();
         break;
     }
 	case OBJ:
@@ -180,6 +180,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	{
 		iGameCGNSReader::Pointer reader = iGameCGNSReader::New();
 		resObj = reader->ReadFile(file_name);
+
 		break;
 	}
 #endif
@@ -195,6 +196,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	{
         ODBReader::Pointer reader = ODBReader::New();
         resObj = reader->ReadOdbFirstFrameMesh(file_name);
+//        resObj = reader->ReadOdbRawMesh(file_name);
 
 //		ODBReader::Pointer reader = ODBReader::New();
 //		resObj = reader->ReadOdbMesh(file_name);
@@ -284,6 +286,10 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 	out.append("]");
 	//igDebug(out);
 	std::cout << out << std::endl;
+
+	if (resObj && resObj->GetAttributeSet()) {
+		resObj->GetAttributeSet()->TransformScalars2VectorArray();
+	}
 	return resObj;
 }
 

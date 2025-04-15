@@ -51,17 +51,21 @@ public:
     void SetPointBuffer(const std::vector<float>& input)
     {
         PointSet::Pointer mesh = DynamicCast<PointSet>(this->m_DataObj);
+        Points::Pointer ps = Points::New();
+        ps->Resize(static_cast<int>(input.size() / 3));
 
-        for (int i = 0; i < input.size() / 3; i++)
-        {
-            mesh->AddPoint({ input[i * 3 + 0], input[i * 3 + 1], input[i * 3 + 2]  });
-        }
+        memcpy(ps->RawPointer(), input.data(), input.size() * sizeof(float));
+        mesh->SetPoints(ps);
+
+        //for (int i = 0; i < input.size() / 3; i++)
+        //{
+        //    mesh->AddPoint({ input[i * 3 + 0], input[i * 3 + 1], input[i * 3 + 2]  });
+        //}
     }
 
     void AddAttribute(const IGenum type, const  IGenum attachmentType, const ArrayObject::Pointer attr)
     {
-        PointSet::Pointer mesh = DynamicCast<PointSet>(this->m_DataObj);
-        mesh->GetAttributeSet()->AddAttribute(type, attachmentType, attr);
+        this->m_DataObj->GetAttributeSet()->AddAttribute(type, attachmentType, attr);
     }
 
     void AddSameTypePolyCells(std::vector<uint32_t>& ids, const std::vector<uint32_t>& cellSizes)
@@ -251,6 +255,7 @@ private:
             break;
         }
     }
+
     // IG_SURFACE_MESH,
     // IG_VOLUME_MESH,
     // IG_UNSTRUCTURED_MESH,

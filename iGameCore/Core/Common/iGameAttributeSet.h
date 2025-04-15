@@ -115,6 +115,8 @@ public:
 
     // Delete a attribute by index
     void DeleteAttribute(const IGsize index);
+    // Set all attributes
+    void SetAllAttributes(ElementArray<Attribute>::Pointer buffer);
     // Get all attributes
     ElementArray<Attribute>::Pointer GetAllAttributes();
     // Get all point attributes, not thread safe
@@ -122,76 +124,12 @@ public:
 
     // Get all cell attributes, not thread safe
     ElementArray<Attribute>::Pointer GetAllCellAttributes();
-    ElementArray<Attribute>::Pointer GetAllScarleAttributes() {
-        if (!m_tmpBuffer) {
-            m_tmpBuffer = ElementArray<AttributeSet::Attribute>::New();
-        } else {
-            m_tmpBuffer->Reset();
-        }
-        auto Scalars = this->GetAllAttributes();
-        int size = Scalars->GetNumberOfElements();
-        for (int i = 0; i < size; i++) {
-            auto scalarDataArray = Scalars->GetElement(i);
-            if (scalarDataArray.type == IG_SCALAR) { m_tmpBuffer->AddElement(m_Buffer->GetElement(i)); }
-        }
-        return m_tmpBuffer;
-    };
-    void TransformScalars2VectorArray() {
+    ElementArray<Attribute>::Pointer GetAllScarleAttributes();
+    void TransformScalars2VectorArray();
 
-        auto Scalars = this->GetAllScarleAttributes();
-        int size = Scalars->GetNumberOfElements();
-        for (int i = 0; i < size; i++) {
-            auto scalarDataArray = Scalars->GetElement(i);
-            auto name = scalarDataArray.pointer->GetName();
-            auto attachmentType = scalarDataArray.attachmentType;
-            // std::cout << "attachmentType:" << attachmentType << std::endl;
-            bool isvector = false;
-            if (name[name.length() - 1] == 'X') {
-                isvector = true;
-                int j = 1;
-                for (j = 1; j < 3; j++) {
-                    auto scalarDataArray = Scalars->GetElement(i);
-                    if (i + j >= size) break;
-                    auto tmpName = Scalars->GetElement(i + j).pointer->GetName();
-                    if (tmpName[tmpName.length() - 1] != 'X' + j) { isvector = false; }
-                }
-            }
+    size_t GetNumberOfAttributes() const;
 
-            if (isvector) {
-                FloatArray::Pointer Vector = FloatArray::New();
-                Vector->SetName(name.substr(0, name.length() - 1));
-                Vector->SetDimension(3);
-                Vector->Resize(scalarDataArray.pointer->GetNumberOfElements());
-                float* vector = Vector->RawPointer();
-                igIndex index = 0;
-                int j = 0;
-                for (j = 0; j < 3; j++) {
-                    auto scalarData = Scalars->GetElement(i + j).pointer;
-                    index = j;
-                    int k = 0;
-                    for (k = 0; k < scalarDataArray.pointer->GetNumberOfElements(); k++) {
-                        vector[index] = scalarData->GetValue(k);
-                        index += 3;
-                    }
-                    //delete scalarData;
-                }
-                this->AddVector(attachmentType, Vector);
-                i += 2;
-            }
-        }
-    }
-
-    size_t GetNumberOfAttributes() const { return m_Buffer->GetNumberOfElements(); }
-
-    IGsize GetRealMemorySize() {
-        if (!m_Buffer) return 0;
-        IGsize res = 0;
-        for (int i = 0; i < m_Buffer->Size(); i++) {
-            auto array = m_Buffer->GetElement(i).pointer;
-            res += array ? array->GetArrayTypedSize() * array->GetNumberOfValues() : 0;
-        }
-        return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
-    }
+    IGsize GetRealMemorySize();
 
 protected:
     AttributeSet();

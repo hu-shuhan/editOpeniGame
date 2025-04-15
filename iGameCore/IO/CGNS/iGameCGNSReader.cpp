@@ -81,7 +81,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
     if (CG_OK != result) {
         std::cout << "Get nbases Error: " << cg_get_error() << std::endl;
     } else {
-        std::cout << "Base Num = " << nbases << std::endl;
+        // std::cout << "Base Num = " << nbases << std::endl;
     }
 
     for (int index_base = 1; index_base <= nbases; index_base++) {
@@ -91,9 +91,9 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
         if (CG_OK != result) {
             std::cout << "Read Base: " << cg_get_error() << std::endl;
         } else {
-            std::cout << "BaseName = " << basename << std::endl;
-            std::cout << "Dimension of the cells = " << celldim << std::endl;
-            std::cout << "Number of coordinates required to define a vector in the field is " << physdim << std::endl;
+            // std::cout << "BaseName = " << basename << std::endl;
+            // std::cout << "Dimension of the cells = " << celldim << std::endl;
+            // std::cout << "Number of coordinates required to define a vector in the field is " << physdim << std::endl;
         }
         int nzones;
         result = cg_nzones(index_file, index_base, &nzones);
@@ -157,22 +157,22 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
                         if (CG_OK != result) {
                             std::cout << "Read Solution Info Error: " << cg_get_error() << std::endl;
                         }
-                        std::cout << "Solution Name = " << solname << std::endl;
+                        //std::cout << "Solution Name = " << solname << std::endl;
                         switch (location) {
                             case GridLocation_t::Vertex:
-                                std::cout << "Solution Location = Vertex" << std::endl;
+                                //std::cout << "Solution Location = Vertex" << std::endl;
                                 break;
                             case CellCenter:
-                                std::cout << "Solution Location = CellCenter" << std::endl;
+                                //std::cout << "Solution Location = CellCenter" << std::endl;
                                 break;
                             case IFaceCenter:
-                                std::cout << "Solution Location = IFaceCenter" << std::endl;
+                                //std::cout << "Solution Location = IFaceCenter" << std::endl;
                                 break;
                             case JFaceCenter:
-                                std::cout << "Solution Location = JFaceCenter" << std::endl;
+                                //std::cout << "Solution Location = JFaceCenter" << std::endl;
                                 break;
                             case KFaceCenter:
-                                std::cout << "Solution Location = KFaceCenter" << std::endl;
+                                //std::cout << "Solution Location = KFaceCenter" << std::endl;
                                 break;
                             default:
                                 std::cout << "Solution Location is bad data! Unknown!" << std::endl;
@@ -279,8 +279,8 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
         cg_section_read(index_file, index_base, index_zone, index_section, sectionname, &type, &start, &end, &nbndry,
                         &parent_flag);
         cgsize_t num_elements = end - start + 1;
-        std::cout << "section " << index_section << " " << sectionname << ' ' << start << ' ' << end << " "
-                  << num_elements << '\n';
+        // std::cout << "section " << index_section << " " << sectionname << ' ' << start << ' ' << end << " "
+        //   << num_elements << '\n';
         if (type == NGON_n) hasPolyGon = true;
         else if (type == NFACE_n)
             hasPolyHedron = true;
@@ -487,8 +487,8 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
                 std::cout << "Get Field Info Error: " << cg_get_error() << std::endl;
                 continue;
             } else {
-                std::cout << "FieldName = " << fieldname << std::endl;
-                std::cout << "DataType_t(Integer, LongInteger, RealSingle, and RealDouble) = " << dataType << std::endl;
+                //std::cout << "FieldName = " << fieldname << std::endl;
+                //std::cout << "DataType_t(Integer, LongInteger, RealSingle, and RealDouble) = " << dataType << std::endl;
                 cgsize_t range_min[3] = {1, 1, 1};
                 cgsize_t range_max[3];
                 int arrayNum = 1;

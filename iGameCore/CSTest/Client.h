@@ -1,18 +1,16 @@
 #pragma once
+#include <filesystem> // 需要C++17支持
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
 #include <thread>
 #include <winsock2.h>
-#include <filesystem> // 需要C++17支持
 namespace fs = std::filesystem;
 #pragma comment(lib, "ws2_32.lib")
 #ifndef OPENCMD_H
 #define OPENCMD_H
-#include <string>
-#include "iGameFileIO.h"
 #include "Spline XML/iGameNurbsReader.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
+#include "iGameFileIO.h"
+#include <string>
 class OpenCmd {
 public:
     int selected_idx;
@@ -66,23 +64,12 @@ void clientThread(int selected_idx, std::string filePath) {
 
     // 发送序列化后的数据
     send(clientSocket, serializedData.c_str(), serializedData.size() + 1, 0);
-    std::string saveDir = "D:";
-    std::string savePath = saveDir + "/ReceivedFile.igc"; // 保存文件名
-
-    // 2. 创建目录（如果不存在）
-    if (!fs::exists(saveDir)) {
-        fs::create_directories(saveDir);
-        if (!fs::exists(saveDir)) {
-            MessageBox(NULL, "无法创建目录!", "错误", MB_ICONERROR);
-            closesocket(clientSocket);
-            return;
-        }
-    }
+    std::string savePath = "./ReceivedFile.igc"; // 保存文件名
 
     // 3. 接收文件
     std::ofstream file(savePath, std::ios::binary);
     if (!file.is_open()) {
-        MessageBox(NULL, "文件创建失败!", "错误", MB_ICONERROR);
+        MessageBox(NULL, "failed ctreat file!", "错误", MB_ICONERROR);
         closesocket(clientSocket);
         return;
     }
@@ -90,7 +77,7 @@ void clientThread(int selected_idx, std::string filePath) {
     // 接收文件大小（假设服务器先发送文件大小）
     std::streamsize fileSize;
     if (recv(clientSocket, (char*) &fileSize, sizeof(fileSize), 0) <= 0) {
-        MessageBox(NULL, "接收文件大小失败!", "错误", MB_ICONERROR);
+        MessageBox(NULL, "receive file length failed", "错误", MB_ICONERROR);
         file.close();
         closesocket(clientSocket);
         return;
@@ -105,14 +92,14 @@ void clientThread(int selected_idx, std::string filePath) {
         int bytesToRead = (fileSize - totalReceived > BUFFER_SIZE) ? BUFFER_SIZE : fileSize - totalReceived;
         int bytesReceived = recv(clientSocket, buffer, bytesToRead, 0);
         if (bytesReceived <= 0) {
-            MessageBox(NULL, "接收中断!", "错误", MB_ICONERROR);
+            MessageBox(NULL, "received stoped!", "错误", MB_ICONERROR);
             break;
         }
         file.write(buffer, bytesReceived);
         totalReceived += bytesReceived;
-    }
+     }
 
-    file.close();
-    closesocket(clientSocket);
-    WSACleanup();
-}
+     file.close();
+     closesocket(clientSocket);
+     WSACleanup();
+ }

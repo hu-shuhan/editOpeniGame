@@ -36,15 +36,13 @@ public:
     void MouseReleaseEvent(IEvent event) override;
     void WheelEvent(IEvent event) override;
 
-    virtual void LeftButtonMouseMove();
-    virtual void RightButtonMouseMove();
-    virtual void MiddleButtonMouseMove();
-
 protected:
     BasicStyle();
     ~BasicStyle() override;
 
-    void RequestSignal(InteractorStyle::Signal, void*);
+    virtual void LeftButtonMouseMove();
+    virtual void RightButtonMouseMove();
+    virtual void MiddleButtonMouseMove();
 
     void ModelRotation();
     void ViewTranslation();

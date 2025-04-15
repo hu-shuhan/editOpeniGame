@@ -85,10 +85,6 @@ void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
 
 void BasicStyle::MiddleButtonMouseMove() {}
 
-void BasicStyle::RequestSignal(InteractorStyle::Signal signal, void* callData) {
-    if (m_Interactor) { m_Interactor->RequestSignal(signal, callData); }
-}
-
 void BasicStyle::ModelRotation() {
     igm::vec3 oldPoint3D, newPoint3D;
     MapToSphere(oldPoint3D, newPoint3D);
@@ -209,7 +205,9 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         igm::mat4 proj = m_Camera->GetProjectionMatrix();
         auto mvp = proj * view * model;
 
-        auto focal = m_Camera->GetFocal();
+        auto focal =
+                m_Camera->GetFocal() +
+                m_Camera->GetFront() * m_Scene->m_ModelsBoundingSphere.w / 2;
         auto focalMvp = mvp * igm::vec4{focal, 1.0f};
         focalMvp /= focalMvp.w;
 
@@ -275,8 +273,7 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
 
 bool BasicStyle::TwoLineIntersection(const igm::vec3& p1, const igm::vec3& p2,
                                      const igm::vec3& v1, const igm::vec3& v2,
-                                     igm::vec3& intersection) 
-{
+                                     igm::vec3& intersection) {
     // 计算方向向量
     igm::vec3 d1 = p2 - p1;
     igm::vec3 d2 = v2 - v1;

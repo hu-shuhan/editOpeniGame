@@ -250,7 +250,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             setItemSelected(item, true);
             item->getModel()->ViewCloudPicture(-1);
             emit ChangeCurrentModel(item->getModel());
-
+            Q_EMIT ViewCloudPicture();
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(
                     item->getCurrentChild());
             if (current) { current->hide(); }

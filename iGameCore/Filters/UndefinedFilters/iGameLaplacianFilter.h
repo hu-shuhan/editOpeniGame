@@ -44,6 +44,7 @@ public:
                 if (!CheckType()) return false;
             } break;
             case IG_VOLUME_MESH: {
+                return false;
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
                 if (volume_Mesh) {
                     surface_Mesh = DynamicCast<SurfaceMesh>(
@@ -68,6 +69,7 @@ public:
                 }
 
                 if (volume_Mesh) {
+                    return false;
                     surface_Mesh =
                             DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
@@ -146,8 +148,13 @@ public:
         std::vector<float> laplacian(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
+        int hundred = PointNum / 100;
         // 计算点的梯度
+        int progress = 0;
+        int block = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
+            if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
+
             int NeighborNum;
 
             float temp = 0.0;
@@ -185,7 +192,7 @@ public:
                 Laplacians->AddValue(laplacian[idx]);
             }
         }
-
+        UpdateProgress(1.0f);
         return true;
     }
 
@@ -235,7 +242,9 @@ public:
 
         igIndex neighborVerts[256]{};
         std::vector<float> laplacian(Num, 0.0f);
+        int hundred = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
+            if(idx % hundred == 0) UpdateProgress((double)idx / Num);
             int NeighborNum;
             // 获取邻接顶点
             if (type == 1)
@@ -296,6 +305,7 @@ public:
                 }
             }
         }
+        UpdateProgress(1.0f);
         return true;
     }
 

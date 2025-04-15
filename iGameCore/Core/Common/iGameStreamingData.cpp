@@ -8,6 +8,11 @@
 #include "iGameThreadPool.h"
 #include "iGameFileIO.h"
 #include "Abaqus/iGameODBReader.h"
+#include "VTK XML/iGameVTSReader.h"
+#include "VTK XML/iGameVTUReader.h"
+#include "VTK XML/iGameVTMReader.h"
+#include "VTK XML/iGamePVDReader.h"
+#include "Abaqus/iGameODBReader.h"
 
 #include <future>
 IGAME_NAMESPACE_BEGIN
@@ -50,13 +55,43 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
         std::vector<std::future<iGame::DataObject::Pointer>> tasks;
         std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
         for (int i = 0; i < frameData->GetNumberOfElements(); i++)
-            tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
-                    [i, &results](const std::string &fileName) {
-                        auto res = FileIO::ReadFile(fileName);
-                        results[i] = res;
-                        return res;
-                    },
-                    frameData->GetElement(i)));
+        {
+            tasks.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
+                DataObject::Pointer newObj;
+                const char* pos = strrchr(fileName.data(), '.');
+                std::string fileSuffix;
+                const char *fileEnd = fileName.data() + fileName.size();
+                fileSuffix = std::string(pos + 1, fileEnd);
+                if(fileSuffix == "vts"){
+                    iGameVTSReader::Pointer rd = iGameVTSReader::New();
+                    rd->SetFilePath(fileName);
+                    rd->Execute();
+                    newObj = rd->GetOutput();
+                }
+                else if(fileSuffix == "vtu"){
+                    iGameVTUReader::Pointer rd = iGameVTUReader::New();
+                    rd->SetUpdateProgressIndependent(true);
+                    rd->SetFilePath(fileName);
+                    rd->Execute();
+                    newObj = rd->GetOutput();
+                } else if(fileSuffix == "pvd"){
+                    iGamePVDReader::Pointer rd = iGamePVDReader::New();
+                    rd->SetFilePath(fileName);
+                    rd->Execute();
+                    newObj = rd->GetOutput();
+                }
+                results[i] = newObj;
+                return newObj;
+            }, frameData->GetElement(i)));
+        }
+
+//            tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
+//                    [i, &results](const std::string &fileName) {
+//                        auto res = FileIO::ReadFile(fileName);
+//                        results[i] = res;
+//                        return res;
+//                    },
+//                    frameData->GetElement(i)));
 
 //        for(int i = 0; i < frameData->GetNumberOfElements(); i ++){
 //            results[i] = FileIO::ReadFile(frameData->GetElement(i));

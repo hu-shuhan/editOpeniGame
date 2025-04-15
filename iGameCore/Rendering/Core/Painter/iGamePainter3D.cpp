@@ -11,14 +11,14 @@ Painter3D::Painter3D() {}
 
 Painter3D::~Painter3D() {}
 
-void Painter3D::Draw(Scene* scene) {
-    igm::mat4 model = scene->m_ModelMatrix;
+void Painter3D::Draw() {
+    igm::mat4 model = m_Scene->m_ModelMatrix;
 
-    scene->UpdateCameraDataBlock();
-    scene->m_ShaderManager->UpdateObjectBlock(
+    m_Scene->UpdateCameraDataBlock();
+    m_Scene->m_ShaderManager->UpdateObjectBlock(
             {1.0f, model, model.invert().transpose(), igm::vec4{}});
-    scene->m_ShaderManager->UpdateUBOBlock({1, 0});
-    PainterBase::Draw(scene);
+    m_Scene->m_ShaderManager->UpdateUBOBlock({1, 0});
+    PainterBase::Draw();
 }
 
 IGuint Painter3D::DrawPoint(const Point& point) {

@@ -36,19 +36,25 @@ public:
     /// 定义映射的常量迭代器类型。
     using ConstIterator = typename MapType::const_iterator;
 
+    // 判断模板参数是否是智能指针，用于返回类型推导
+    template<typename T>
+    struct is_smart_pointer : std::false_type {};
+    template<typename T>
+    struct is_smart_pointer<SmartPointer<T>> : std::true_type {};
+
+    // 根据ObjectType类型推导返回类型
+    using ReturnType = typename std::conditional<
+            is_smart_pointer<ObjectType>::value,
+            ObjectType, // 如果是智能指针，返回ObjectType
+            ObjectType* // 否则返回指针
+            >::type;
+
     /**
      * @brief 为一个新对象分配句柄。
      * @param object 要分配的对象。
      * @return 分配的句柄。
      */
     HandleType AllocateObject(const ObjectType& object);
-
-    /**
-     * @brief 获取与句柄关联的对象。
-     * @param handle 要查询的句柄。
-     * @return 指向对象的指针，如果句柄无效则返回 nullptr。
-     */
-    ObjectType* GetObject(HandleType handle);
 
     /**
      * @brief 释放指定的句柄及其关联的对象。
@@ -62,6 +68,26 @@ public:
      * @return 如果句柄有效返回 true，否则返回 false。
      */
     bool CheckHandle(HandleType handle) const;
+
+    ///**
+    // * @brief 获取与句柄关联的对象。
+    // * @param handle 要查询的句柄。
+    // * @return 指向对象的指针，如果句柄无效则返回 nullptr。
+    // */
+    //ObjectType* GetObjectByHandle(HandleType handle);
+
+    /**
+     * @brief 获取与句柄关联的对象。
+     * @param handle 要查询的句柄。
+     * @return 返回智能指针（当ObjectType为SmartPointer时）或原生指针。
+     */
+    ReturnType GetObjectByHandle(HandleType handle);
+
+    /**
+     * @brief 返回当前对象池中的对象个数。
+     * @return 对象个数。
+     */
+    HandleType GetObjectCount() const;
 
     /**
      * @brief 清空句柄池，包括所有分配的句柄和对象。

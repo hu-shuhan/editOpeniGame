@@ -20,13 +20,13 @@ struct VideoInputInfo{
 };
 
 class FFMPEGVideoWriterInternal;
-class FFMPEGVideoWriter : public Filter{
+class FFMPEGVideoWriter : public Filter {
 public:
     I_OBJECT(FFMPEGVideoWriter)
 
     static FFMPEGVideoWriter::Pointer New();
 
-    void SetVideoInputInfo(VideoInputInfo& info);
+    void SetVideoInputInfo(VideoInputInfo &info);
 
     bool SaveMP4();
 
@@ -34,13 +34,15 @@ public:
 
 protected:
 
-    FFMPEGVideoWriterInternal* m_Internal;
+    FFMPEGVideoWriterInternal *m_Internal;
     VideoInputInfo m_VideoInfo;
 protected:
     FFMPEGVideoWriter();
+
     ~FFMPEGVideoWriter() override;
 
-
+private:
+    std::vector<uint32_t> GenerateGlobalPalette();
 
 };
 IGAME_NAMESPACE_END

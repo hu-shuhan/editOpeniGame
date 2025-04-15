@@ -34,6 +34,20 @@ void CellArray::Squeeze() {
     m_Offsets->Squeeze();
 }
 
+bool CellArray::ShallowCopy(CellArray::Pointer o) { return false; }
+bool CellArray::DeepCopy(CellArray::Pointer o) {
+    if (o == nullptr) return false;
+    m_Buffer = IdArray::New();
+    m_Buffer->DeepCopy(o->m_Buffer);
+    m_Offsets->DeepCopy(o->m_Offsets);
+    m_DeleteMasker->DeepCopy(o->m_DeleteMasker);
+    m_NumberOfCells = o->m_NumberOfCells;
+    m_FixedCellSize = o->m_FixedCellSize;
+    m_UseOffsets = o->m_UseOffsets;
+    //this->Modified();
+    return true;
+}
+
 // '_Newsize' is the number of cells
 void CellArray::SetNumberOfCells(const IGsize _Newsize) {
     m_NumberOfCells = _Newsize;
@@ -229,6 +243,29 @@ void CellArray::GarbageCollection() {
     m_Buffer->Resize(begin);
     if (m_UseOffsets || k == 0) { m_Offsets->Resize(k + 1); }
     m_DeleteMasker->Resize(k);
+}
+
+IdArray::Pointer CellArray::GetCellIdArray() { return m_Buffer; }
+UnsignedIntArray::Pointer CellArray::GetOffset() { return m_Offsets; }
+    void CellArray::SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets) {
+    m_Buffer = ids;
+    m_Offsets = offsets;
+    m_NumberOfCells = offsets->GetNumberOfValues() - 1;
+    this->m_UseOffsets = true;
+}
+
+void CellArray::SetFixedSize(int fixedSize) {
+    this->m_UseOffsets = false;
+    this->m_FixedCellSize = fixedSize;
+}
+size_t CellArray::GetNumberOfCellIds() { return this->GetEndOffset(this->m_NumberOfCells - 1); };
+
+IGsize CellArray::GetRealMemorySize() {
+    if (!m_Buffer) return 0;
+    IGsize res = m_Buffer->GetRealMemorySize();
+    if (m_UseOffsets) { res += m_Offsets->GetRealMemorySize(); }
+    if (m_DeleteMasker) { res += m_DeleteMasker->GetRealMemorySize(); }
+    return res + sizeof(m_NumberOfCells) + sizeof(m_FixedCellSize) + sizeof(m_UseOffsets);
 }
 
 CellArray::CellArray() {

@@ -195,23 +195,24 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
         visible = visible && center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius;
         visible = visible && center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius;
     }
+
     // dist culling
-    // visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+    //    if (visible) {
+    //        visible = visible && -center.z + radius > cullData.zNear && -center.z - radius < cullData.zFar;
+    //    }
 
     vec4 aabb;
-    if (visible) {
-        visible = ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
-    }
+    bool projected = ProjectSphere(center, radius, cullData.zNear, cullData.P00, cullData.P11, aabb);
 
     // small meshlet culling(less than one pixel)
-    //    if (visible) {
+    //    if (visible && projected) {
     //        const vec2 minScreenPosition = aabb.xy * vec2(cullData.hzbWidth, cullData.hzbHeight);
     //        const vec2 maxScreenPosition = aabb.zw * vec2(cullData.hzbWidth, cullData.hzbHeight);
-    //        visible = !any(round(minScreenPosition) == round(maxScreenPosition));
+    //        visible = visible && !any(round(minScreenPosition) == round(maxScreenPosition));
     //    }
 
     // occlusion culling
-    if (visible) {
+    if (visible && projected) {
         float depth = GetMinDepthFromHZB(aabb, true);
 
         float z = center.z + radius;// From the camera's perspective, z is negative.
@@ -224,7 +225,7 @@ bool IsVisible(MeshletDescriptor meshletDescriptor) {
         float f = cullData.zFar;
         float depthSphere = (n + n * f / z) / (n - f);
 
-        visible = depthSphere >= depth;
+        visible = visible && depthSphere >= depth;
     }
 
     return visible;

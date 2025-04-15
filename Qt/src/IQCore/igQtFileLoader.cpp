@@ -9,17 +9,21 @@
 
 #include "iGameFileIO.h"
 //#include "CSTest.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
+//#include "iGameMeshCodec/iGameMeshEncoder.h"
+//#include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
 #include "Spline XML/iGameSplineSurfaceReader.h"
 #include "Spline XML/iGameSplineVolumeReader.h"
 #endif
+#include "Client.h"
+#include "Sever.h"
 #include "Spline XML/iGameNurbsReader.h"
+#include "Abaqus/iGameODBReader.h"
 
 #include <IQComponents/Dialog/igQtSplineOptionDialog.h>
+#include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtFileType.h>
 
@@ -38,48 +42,46 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 
 igQtFileLoader::~igQtFileLoader() {}
 void igQtFileLoader::LoadOnlineS() {
-//    std::thread server_thread(serverThread);
-//    server_thread.join();
+    std::thread server_thread(serverThread);
+    server_thread.join();
 }
 void igQtFileLoader::LoadOnlineC() {
-//    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-//                           "*.vtm *.cgns *.odb *.igc)",
-//                           "VTK file(*.vtk)",
-//                           "CGNS file(*.cgns)",
-//                           "ABAQUS file(*.odb)",
-//                           "Spline file(*.xml)",
-//                           "Compression file(*.igc)"};
-//    QString selectedFilter;
-//    std::string filePath =
-//            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
-//    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
-//    std::cout << filePath << std::endl;
-//    std::thread client_thread(clientThread, selected_idx, filePath);
-//    client_thread.join();
-//    this->OpenFile("D:/ReceivedFile.igc");
-}
-void igQtFileLoader::LoadFile() {
-    QStringList filters = {
-            "ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-            "*.vtm *.cgns *.odb *.igc)",
-            "VTK file(*.vtk)",
-            "CGNS file(*.cgns)",
-            "ABAQUS file(*.odb)",
-            "Spline file(*.xml)",
-            "Compression file(*.igc)"
-    };
+    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+                           "*.vtm *.cgns *.odb *.igc)",
+                           "VTK file(*.vtk)",
+                           "CGNS file(*.cgns)",
+                           "ABAQUS file(*.odb)",
+                           "Spline file(*.xml)",
+                           "Compression file(*.igc)"};
     QString selectedFilter;
     std::string filePath =
-            QFileDialog::getOpenFileName(nullptr, "Load file", "",
-                                         filters.join(";;"), &selectedFilter)
-                    .toStdString();
+            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
+    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+    std::cout << filePath << std::endl;
+    std::thread client_thread(clientThread, selected_idx, filePath);
+    client_thread.join();
+    this->OpenFile("./ReceivedFile.igc");
+}
+void igQtFileLoader::LoadFile() {
+    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+                           "*.vtm *.cgns *.odb *.igc)",
+                           "VTK file(*.vtk)",
+                           "CGNS file(*.cgns)",
+                           "ABAQUS file(*.odb)",
+                           "Spline file(*.xml)",
+                           "Compression file(*.igc)"};
+    QString selectedFilter;
+    std::string filePath =
+            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
 
     switch (selected_idx) {
         case FileType::Spline:
             this->OpenSplineFile(filePath);
             break;
-
+        case FileType::ABAQUS:
+            this->OpenODBFile(filePath);
+            break;
         default:
             this->OpenFile(filePath);
             break;
@@ -99,17 +101,43 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()
-            ->AddProperty(Variant::String, "FilePath")
-            ->SetValue(filePath);
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
-    
+
 
     //return;
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
+}
+void igQtFileLoader::OpenODBFile(const std::string &filePath) {
+#if defined(AbqSDK_ENABLE)
+    using namespace iGame;
+    if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
+    igQtBasicListOptionDialog dialog;
+    auto stepNames = ODBReader::ReadOdbAllStep(filePath);
+    dialog.setInfoList(stepNames);
+    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+    dialog.setWindowTitle("ODB Reader Info");
+    dialog.setLabelName(filename,"More than one Step for \" %s \".Please choose one:");
+    if(dialog.exec() == QDialog::Accepted){
+        int stepIdx = -1;
+        stepIdx = dialog.getDialogOutput();
+        if(~stepIdx){
+            auto reader = iGame::ODBReader::New();
+            DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
+            obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+            obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+            //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
+
+            this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+            emit NewModel(obj, ItemSource::File);
+            emit FinishReading();
+        }
+    }
+
+#endif
 }
 
 void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
@@ -155,9 +183,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()
-            ->AddProperty(Variant::String, "FilePath")
-            ->SetValue(filePath);
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
@@ -179,9 +205,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()
-            ->AddProperty(Variant::String, "FilePath")
-            ->SetValue(filePath);
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
     emit NewModel(obj, ItemSource::File);
@@ -206,112 +230,15 @@ void igQtFileLoader::SaveFileAs() {
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
     if (!obj) return;
-    std::string filePath =
-            QFileDialog::getSaveFileName(
-                    nullptr, "Save file as ", "",
-                    "Surface Mesh(*.obj *.off *.stl *.vtk);;Volume Mesh(*.mesh "
-                    "*.vtk *.ex2 *.e *.pvd *.vts)")
-                    .toStdString();
+    std::string filePath = QFileDialog::getSaveFileName(nullptr, "Save file as ", "",
+                                                        "Surface Mesh(*.obj *.off *.stl *.vtk);;Volume Mesh(*.mesh "
+                                                        "*.vtk *.ex2 *.e *.pvd *.vts)")
+                                   .toStdString();
     if (filePath.empty()) {
         igDebug("Could not save file with error file path\n");
         return;
     }
-    if (!iGame::FileIO::WriteFile(filePath, obj)) {
-        igDebug("Save File Error\n");
-    }
-}
-bool igQtFileLoader::Compress(int p1, int p2, int p3, int p4, int p5, int p6, std::vector<std::string>* p7, std::vector<std::string>* p8, std::string dest) {
-    auto sceneManager = iGame::SceneManager::Instance();
-    auto scene = sceneManager->GetCurrentScene();
-    if (!scene) return false;
-    auto currentModel = scene->GetCurrentModel();
-    if (!currentModel) return false;
-    auto obj = currentModel->GetDataObject();
-    if (!obj) return false;
-
-    iGame::MeshEncoder::Pointer filter = MeshEncoder::New();
-    switch (p1)
-    {
-    case 0:
-        filter->m_PointQuantMode = iGame::QuantMode::Float;
-        filter->m_PointQuantizedBits = p2;
-        break;
-    case 1:
-        filter->m_PointQuantMode = iGame::QuantMode::FP16;
-        break;
-    case 2:
-        filter->m_PointQuantMode = iGame::QuantMode::None;
-        break;
-    default:
-        return false;
-    }
-
-    switch (p3)
-    {
-    case 0:
-        filter->m_AttrbQuantMode = iGame::QuantMode::Float;
-        filter->m_AttrbQuantizedBits = p4;
-        break;
-    case 1:
-        filter->m_AttrbQuantMode = iGame::QuantMode::FP16;
-        break;
-    case 2:
-        filter->m_AttrbQuantMode = iGame::QuantMode::None;
-        break;
-    default:
-        return false;
-    }
-
-    switch (p5)
-    {
-	case 0:
-		filter->m_errorStaMode = iGame::ErrorStaMode::None;
-		break;
-	case 1:
-		filter->m_errorStaMode = iGame::ErrorStaMode::MAPE;
-		break;
-    /*
-    case 2:
-		filter->m_errorStaMode = iGame::ErrorStaMode::OneULP;
-		break;
-    case 3:
-		filter->m_errorStaMode = iGame::ErrorStaMode::All;
-		break;
-    */
-    default:
-		return false;
-    }
-
-    switch (p6)
-    {
-    case 0:
-        filter->m_cpStaMode = iGame::CompactnessMode::None;
-        break;
-    case 1:
-        filter->m_cpStaMode = iGame::CompactnessMode::BPV;
-        break;
-    case 2:
-        filter->m_cpStaMode = iGame::CompactnessMode::CompressRate;
-        break;
-    case 3:
-        filter->m_cpStaMode = iGame::CompactnessMode::All;
-        break;
-    default:
-        return false;
-    }
-
-    filter->m_errorStaResult = p7;
-    filter->m_cpStaResult = p8;
-
-    filter->SetNumberOfInputs(1);
-    filter->SetSaveFilePath(dest);
-    filter->SetInput(obj);
-
-    if (!filter->Execute()) {
-        igDebug("Compress File Error\n");
-        return false;
-    }
-    return true;
+    if (!iGame::FileIO::WriteFile(filePath, obj)) { igDebug("Save File Error\n"); }
 }
 
 void igQtFileLoader::SaveCurrentFileToRecentFile(QString path) {
@@ -334,23 +261,19 @@ void igQtFileLoader::AddCurrentFileToRecentFilePath(QString filePath) {
     recentFileAction->setText(filePath);
     recentFileAction->setData(filePath);
     recentFileAction->setVisible(true);
-    connect(recentFileAction, &QAction::triggered, this,
-            [=]() { this->OpenFile(filePath.toStdString()); });
+    connect(recentFileAction, &QAction::triggered, this, [=]() { this->OpenFile(filePath.toStdString()); });
     this->recentFileActionList.append(recentFileAction);
     UpdateRecentActionList();
 }
 void igQtFileLoader::UpdateIniFileInfo() {
     //为了能记住上次打开的路径
-    QSettings setting(QCoreApplication::applicationDirPath() +
-                              "/config/savePath.ini",
-                      QSettings::IniFormat);
+    QSettings setting(QCoreApplication::applicationDirPath() + "/config/savePath.ini", QSettings::IniFormat);
     int num = this->recentFileActionList.size();
     int idx = 0;
     for (int i = 0; i < num; i++) {
         if (recentFileActionList.at(i)->isVisible()) {
             idx++;
-            QString name = "LastFilePath" +
-                           QString::fromStdString(std::to_string(idx));
+            QString name = "LastFilePath" + QString::fromStdString(std::to_string(idx));
             setting.setValue(name, this->recentFileActionList[i]->data());
         }
     }
@@ -358,8 +281,7 @@ void igQtFileLoader::UpdateIniFileInfo() {
 
 
 void igQtFileLoader::InitRecentFilePaths() {
-    QString path =
-            QCoreApplication::applicationDirPath() + "/config/savePath.ini";
+    QString path = QCoreApplication::applicationDirPath() + "/config/savePath.ini";
     QFile* file = new QFile(this);
     std::vector<QString> FilePaths;
     file->setFileName(path);
@@ -383,8 +305,7 @@ void igQtFileLoader::InitRecentFileActions(std::vector<QString> FilePaths) {
         recentFileAction->setText(FilePaths[i]);
         recentFileAction->setData(FilePaths[i]);
         recentFileAction->setVisible(false);
-        connect(recentFileAction, &QAction::triggered, this,
-                [=]() { this->OpenFile(FilePaths[i].toStdString()); });
+        connect(recentFileAction, &QAction::triggered, this, [=]() { this->OpenFile(FilePaths[i].toStdString()); });
         this->recentFileActionList.append(recentFileAction);
     }
     UpdateRecentActionList();
@@ -395,11 +316,9 @@ void igQtFileLoader::UpdateRecentActionList() {
     int st = this->recentFileActionList.size() - 1;
     ;
     int ed = std::max(st - maxFileNr + 1, 0);
-    for (int i = st; i >= ed; i--) {
-        this->recentFileActionList.at(i)->setVisible(true);
-    }
-    for (int i = ed - 1; i >= 0; i--) {
-        this->recentFileActionList.at(i)->setVisible(false);
-    }
+    for (int i = st; i >= ed; i--) { this->recentFileActionList.at(i)->setVisible(true); }
+    for (int i = ed - 1; i >= 0; i--) { this->recentFileActionList.at(i)->setVisible(false); }
     return;
 }
+
+

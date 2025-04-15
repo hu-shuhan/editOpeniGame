@@ -28,7 +28,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();
     modelTreeWidget->setColumnWidth(0, 140);
-    modelTreeWidget->setColumnWidth(1, 150);
+    modelTreeWidget->setColumnWidth(1, 200);
     modelTreeWidget->setIndentation(15);
 
 
@@ -150,11 +150,11 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    child->setSelected(true);
         //}
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        if (attr.attachmentType == IG_POINT)
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
+        // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
     item->viewAttribute(-1);
 }
@@ -164,19 +164,22 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
-    iGame::Model::Pointer model = iGame::Model::New();
-    model->SetDataObject(obj);
-    
-    int id =0;
-
+    unsigned int id = 0;
     if (GetAccelerateState()) {
-        std::cout << "open the acc\n";
-        id = scene->AddModel(model);
+        iGame::SmartPointer<iGame::Meshleter> meshleter = nullptr;
+        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
+            meshleter = iGame::SurfaceMeshMeshleter::New();
+            meshleter->SetInput(obj);
+            id = scene->AddModel(meshleter);
+        } else {
+            return -1;
+        }
+    } else {
+        id = scene->AddModel(obj);
     }
-    else {
-        std::cout << "close the acc\n";
-        id = scene->AddModel(model);
-    }
+
+    auto model = scene->GetModelById(id);
+
     currentModel = model;
 
     item->setName(QString::fromStdString(obj->GetName()));
@@ -200,8 +203,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        if (attr.attachmentType == IG_POINT) 
-            child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
@@ -219,7 +221,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 int igQtModelDialogWidget::addModelToModelTree(iGame::Model::Pointer model) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    int id = scene->AddModel(model);
+
+    auto id = scene->AddModel(model->GetDataObject());
 
     item->setName(QString::fromStdString(model->GetDataObject()->GetName()));
     item->setModel(model);
@@ -309,3 +312,13 @@ void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVaria
         }
     }
 }
+
+void igQtModelDialogWidget::SetAccelerateState(bool b) {
+    m_AutoAccelerate = b;
+    if (b) {
+        IGAME_RENDERING_INFO("Enable accelerated rendering mode.");
+    } else {
+        IGAME_RENDERING_INFO("Disable accelerated rendering mode.");
+    }
+}
+int igQtModelDialogWidget::GetAccelerateState() { return m_AutoAccelerate; }

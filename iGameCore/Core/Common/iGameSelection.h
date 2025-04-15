@@ -131,5 +131,31 @@ protected:
     StreamLineSelection() {}
     ~StreamLineSelection() override = default;
 };
+
+class ClipSelection : public Selection {
+public:
+    I_OBJECT(ClipSelection);
+    static Pointer New() { return new ClipSelection; }
+
+	Vector3d PlanePoint;
+    Vector3d PlaneNormal;
+    bool Preview;
+
+	void UpdatePlane() {
+        if (Update) Update();
+	}
+
+	template<typename Functor, typename... Args>
+    void SetUpdateFunction(Functor&& functor, Args&&... args) {
+        Update = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+    }
+
+protected:
+    ClipSelection() {}
+    ~ClipSelection() override = default;
+
+	std::function<void()> Update;
+};
+
 IGAME_NAMESPACE_END
 #endif

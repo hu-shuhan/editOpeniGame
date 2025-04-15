@@ -50,6 +50,7 @@ public:
                 if (!CheckType()) return false;
             }break;
             case IG_VOLUME_MESH: {
+                return false;
                 volume_Mesh = DynamicCast<VolumeMesh>(input);
                 if (volume_Mesh) {
                     surface_Mesh = DynamicCast<SurfaceMesh>(
@@ -75,6 +76,7 @@ public:
                 }
 
                 if (volume_Mesh) {
+                    return false;
                     surface_Mesh =
                             DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
                     if (!surface_Mesh) return false;
@@ -110,8 +112,7 @@ public:
             //else if (VolumeNum != 0 && attachmentType == 1)
             //    return GetOtherCurvature(1, VolumeNum);
 
-        } 
-
+        }
         if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
@@ -156,9 +157,9 @@ public:
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
-
+        int hundred = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
-
+            if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
             auto v1 = Points->GetPoint(idx);
 
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
@@ -230,7 +231,7 @@ public:
 
             curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
-
+        UpdateProgress(1.0f);
         return true;
     }
 
@@ -281,8 +282,9 @@ public:
         std::vector<float> sumWeights(Num, 0.0f);
 
         igIndex neighborVerts[256]{};
-
+        int hundred = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
+            if(idx % hundred == 0) UpdateProgress((double)idx / Num);
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
             Eigen::Matrix3d hessian = Eigen::Matrix3d::Zero();
             gp(0) = gradient[idx][0];
@@ -372,7 +374,7 @@ public:
 
             curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
-
+        UpdateProgress(1.0f);
         return true;
     }
 

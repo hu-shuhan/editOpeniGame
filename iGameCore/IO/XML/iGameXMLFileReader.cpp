@@ -58,13 +58,15 @@ bool iGameXMLFileReader::Execute() {
 
 bool iGameXMLFileReader::Open() {
 	if (m_FilePath.empty()) {
-		printf("[XML parser]:FilePath is empty. Exiting.\n");
+        IGAME_CORE_WARN("[XML parser]:FilePath is empty. Exiting.\n");
 		return false;
 	}
 
-	doc = new tinyxml2::XMLDocument();
+//	doc = new tinyxml2::XMLDocument(false, tinyxml2::Whitespace::COLLAPSE_WHITESPACE);
+	doc = new tinyxml2::XMLDocument(true, tinyxml2::ParseMode::MIXED_BINARY_XML);
 	if (doc->LoadFile(m_FilePath.c_str()) != tinyxml2::XML_SUCCESS) {
-		printf("[XML parser]:Could not load file: %s . Error='%s'. Exiting.\n", m_FilePath.c_str(), doc->ErrorStr());
+//		printf("[XML parser]:Could not load file: %s . Error='%s'. Exiting.\n", m_FilePath.c_str(), doc->ErrorStr());
+        IGAME_CORE_ERROR("[XML parser]:Could not load file: {} . Error='{}'. Exiting.", m_FilePath.c_str(), doc->ErrorStr());
 		return false;
 	}
 	root = doc->RootElement(); // <VTKFile>

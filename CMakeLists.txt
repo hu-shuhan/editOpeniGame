@@ -33,7 +33,7 @@ if (NOT ENABLE_GPSCUDA_MODULE)
     if (WIN32)
         add_definitions(-D_WINDOWS_SOURCE)
         # Or for a specific target:
-        # target_compile_definitions(MyExecutable PRIVATE -CUDA_NVCCD_WINDOWS_SOURCE)
+        # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
     endif ()
 else ()
     project(iGameVis LANGUAGES C CXX CUDA)
@@ -74,8 +74,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
-#if(EXAMPLE_COMPILE )
-if (EXAMPLE_COMPILE)
+if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
 

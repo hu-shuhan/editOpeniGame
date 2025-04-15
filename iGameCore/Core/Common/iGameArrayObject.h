@@ -8,7 +8,6 @@ IGAME_NAMESPACE_BEGIN
 class ArrayObject : public Object {
 public:
 	I_OBJECT(ArrayObject);
-	//static Pointer New() { return new ArrayObject; }
 
 	virtual void Initialize() = 0;
 
@@ -62,10 +61,14 @@ public:
 
 	virtual IGsize AddElement(int* _Element) = 0;
     virtual IGsize AddElement(const int* _Element) = 0;
+    virtual IGsize AddElement(int64_t * _Element) = 0;
+    virtual IGsize AddElement(const int64_t* _Element) = 0;
 	virtual IGsize AddElement(float* _Element) = 0;
     virtual IGsize AddElement(const float* _Element) = 0;
 	virtual IGsize AddElement(double* _Element) = 0;
     virtual IGsize AddElement(const double* _Element) = 0;
+    virtual IGsize AddElement(uint8_t * _Element) = 0;
+    virtual IGsize AddElement(const uint8_t* _Element) = 0;
 	IGsize AddElement2(double val0, double val1) {
         double value[2]{ val0, val1 };
         return this->AddElement(value);

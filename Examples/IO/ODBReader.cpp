@@ -40,8 +40,8 @@ void TestFirstFrameMeshWithFieldData(){
     /* 创建场景*/
     auto scene_0 = iGame::Scene::New();
     auto scene_1 = iGame::Scene::New();
-//    const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
-    const std::string fileName = "./Models/Job-1.odb";
+    const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
+//    const std::string fileName = "./Models/Job-1.odb";
     iGame::ODBReader::Pointer reader = iGame::ODBReader::New();
     /* Read */
     auto obj_0 = reader->ReadOdbFirstFrameMesh(fileName);
@@ -77,7 +77,7 @@ void TestFirstFrameMeshWithFieldData(){
 
 
 int main(){
-//    TestReadOnlyMesh();
-    TestFirstFrameMeshWithFieldData();
+    TestReadOnlyMesh();
+//    TestFirstFrameMeshWithFieldData();
     return 0;
 }
