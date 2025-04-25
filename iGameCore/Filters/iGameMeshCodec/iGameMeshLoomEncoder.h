@@ -170,12 +170,14 @@ public:
             }
         };
 
-        calCR();
+        if(m_showReport)
+            calCR();
         return true;
     }
 
     static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
         UIControlParams params;
+        params.showReport = false;
         for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++) {
             iGame::FloatErrorControlParameters p;
 

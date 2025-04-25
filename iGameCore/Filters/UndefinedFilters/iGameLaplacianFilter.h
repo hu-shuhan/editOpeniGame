@@ -150,6 +150,8 @@ public:
         igIndex neighborVerts[256]{};
         int hundred = PointNum / 100;
         // 计算点的梯度
+        int progress = 0;
+        int block = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
 

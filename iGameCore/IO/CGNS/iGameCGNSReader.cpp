@@ -73,66 +73,6 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
             cgio_get_data_type(cgio_num, bcnode, dataType);
             BoundryNames.insert(name);
             continue;
-            //std::cout << name << ' ' << dataType << '\n';
-            //std::string bctype;
-            //std::string FamilyName;
-            //CGNS_ENUMT(GridLocation_t) Location;
-            //std::vector<int64_t> BCElementList;
-            //std::vector<int64_t> BCElementRange;
-            //readNodeStringData(cgio_num, bcnode, bctype);
-            //std::cout << bctype << '\n';
-            //if (bctype != "FamilySpecified")
-            //{
-            //	// waiting for c++20 to be replaced by starts_with
-            //	if (bctype.rfind("BCWall", 0) == 0) {
-            //		// Temporary Fallback for WALL bcs for old meshes
-            //		FamilyName = "Wall";
-            //	}
-            //	else continue;
-            //}
-            //std::vector<double> childrenIds;
-            //CollectNodeIDs(cgio_num, bcnode, 0, childrenIds);
-            //for (auto iter = childrenIds.begin(); iter != childrenIds.end(); ++iter)
-            //{
-            //	char nodeName[CGIO_MAX_NAME_LENGTH + 1];
-            //	char nodeLabel[CGIO_MAX_LABEL_LENGTH + 1];
-            //	cgio_get_name(cgio_num, *iter, nodeName);
-            //	cgio_get_label(cgio_num, *iter, nodeLabel);
-            //	std::cout << nodeName << ' ' << nodeLabel << '\n';
-            //	char dtype[256];
-            //	if (strcmp(nodeName, "PointList") == 0)
-            //	{
-            //	}
-            //	else if (strcmp(nodeName, "PointRange") == 0)
-            //	{
-            //		readNodeDataAs(cgio_num, *iter, BCElementRange);
-            //	}
-            //	else if (strcmp(nodeName, "ElementRange") == 0)
-            //	{
-            //	}
-            //	else if (strcmp(nodeLabel, "FamilyName_t") == 0)
-            //	{
-            //	}
-            //	else if (strcmp(nodeLabel, "GridLocation_t") == 0)
-            //	{
-            //		std::string location;
-            //		readNodeStringData(cgio_num, *iter, location);
-            //		if (location == "Vertex")
-            //		{
-            //			Location = CGNS_ENUMV(Vertex);
-            //		}
-            //		else if (location == "FaceCenter")
-            //		{
-            //			Location = CGNS_ENUMV(FaceCenter);
-            //		}
-            //		else if (location == "EdgeCenter")
-            //		{
-            //			Location = CGNS_ENUMV(EdgeCenter);
-            //		}
-            //	}
-            //}
-            //if (BCElementRange.size() == 2) {
-            //}
         }
     }
 
@@ -287,6 +227,8 @@ void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int in
         auto coordData = CoordData->RawPointer();
         cgsize_t range_min[3] = {1, 1, 1};
         cgsize_t range_max[3] = {size[0], size[1], size[2]};
+
+        float*  ptr=nullptr;
         int result = cg_coord_read(index_file, index_base, index_zone, coordName.c_str(), RealDouble, range_min,
                                    range_max, coordData);
         if (CG_OK != result) {
@@ -453,7 +395,7 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
                 int cellVcnt = 0;
                 cg_npe(type, &cellVcnt);
                 std::vector<cgsize_t> elements(num_elements * cellVcnt);
-                cg_elements_read(index_file, index_base, index_zone, index_section, elements.data(), NULL);
+                cg_elements_read(index_file, index_base, index_zone, index_section, elements.data(), NULL);    
                 if (type == HEXA_8) {
                     for (cgsize_t j = 0; j < num_elements; ++j) {
                         for (int k = 0; k < cellVcnt; k++) { vhs[k] = elements[j * cellVcnt + k] - 1; }
@@ -626,6 +568,7 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
         }
     }
 }
+
 
 IGAME_NAMESPACE_END
 #endif

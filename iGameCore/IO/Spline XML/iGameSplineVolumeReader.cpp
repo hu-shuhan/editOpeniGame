@@ -12,15 +12,13 @@
 #include "iGameSplineVolumeReader.h"
 #include "iGameVolumeMesh.h"
 
+#include "GPSpline/GPSplinePatchSurface.h"
 #include <GPHelperIO/GP_Surface_Convert.h>
 #include <GPSpline/GPCadscene.h>
-#include "GPSpline/GPSplinePatchSurface.h"
 
 IGAME_NAMESPACE_BEGIN
 
-bool SplineVolumeReader::Execute() {
-    return this->Parsing();
-}
+bool SplineVolumeReader::Execute() { return this->Parsing(); }
 
 
 bool SplineVolumeReader::Parsing() {
@@ -39,8 +37,7 @@ bool SplineVolumeReader::Parsing() {
 
     m_scene_gp.init_CUDA_map_mode(true);
     UpdateProgress(0.2f);
-    std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces =
-            m_scene_gp.init_scene(SurfaceHelper);
+    std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces = m_scene_gp.init_scene(SurfaceHelper);
     std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
     std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
     std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
@@ -59,33 +56,30 @@ bool SplineVolumeReader::Parsing() {
 
     for (auto i = 0; i < surface_num / isoNum; i++) {
         std::vector<std::vector<igIndex>> ids(isoNum);
-        for (auto k = 0; k < isoNum; k++)
-        {
+        for (auto k = 0; k < isoNum; k++) {
             ids[k].resize(5 * 5 * 64);
             for (auto p = 0; p < 5; p++) {
                 for (auto q = 0; q < 5; q++) {
                     for (auto u = 0; u < 8; u++) {
                         for (auto v = 0; v < 8; v++) {
                             //[i*50+k][k*1600]
-                            Point x1 = { result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
-                                         result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
-                                         result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2] };
+                            Point x1 = {result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
+                                        result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
+                                        result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
 
                             ids[k][(p * 5 + q) * 64 + (u * 8 + v)] = Points->AddPoint(x1);
-                            float value[3] = { scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
-                                               scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
-                                               scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2] };
+                            float value[3] = {scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
+                                              scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
+                                              scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
                             scalarArray->AddElement(value);
                         }
                     }
                 }
             }
-
         }
 
         igIndex cell[8]{};
-        for (auto k = 0; k < isoNum-1; k++)
-        {
+        for (auto k = 0; k < isoNum - 1; k++) {
             for (auto p = 0; p < 5; p++) {
                 for (auto q = 0; q < 5; q++) {
                     for (auto u = 0; u < 7; u++) {
@@ -103,7 +97,6 @@ bool SplineVolumeReader::Parsing() {
 
 
                             Volume->AddCellIds(cell, 8);
-
                         }
                     }
                 }

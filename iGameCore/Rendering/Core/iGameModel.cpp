@@ -623,11 +623,13 @@ void Model::DrawPhase1() {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            IGAME_RENDERING_TRACE("{}, draw phase 1 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(),
                                   meshletCount - invisibleMeshletCount,
                                   meshletCount);
+        #endif
         }
     };
     #else
@@ -662,10 +664,12 @@ void Model::DrawPhase1() {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            IGAME_RENDERING_TRACE("{}, draw phase 1 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(), visibleMeshletCount,
                                   m_Meshleter->m_MeshletCount);
+        #endif
         }
     };
     #endif
@@ -759,11 +763,13 @@ void Model::DrawPhase2() {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            IGAME_RENDERING_TRACE("{}, draw phase 2 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(),
                                   invisibleMeshletCount - c,
                                   invisibleMeshletCount);
+        #endif
         }
     };
     #else
@@ -834,11 +840,13 @@ void Model::DrawPhase2() {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            IGAME_RENDERING_TRACE("{}, draw phase 2 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(), count,
                                   m_Meshleter->m_MeshletCount -
                                           lastVisibleMeshletCount);
+        #endif
         }
     };
     #endif
