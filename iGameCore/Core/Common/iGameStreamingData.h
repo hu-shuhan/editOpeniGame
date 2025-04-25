@@ -60,6 +60,8 @@ public:
     StreamingType GetTargetFrameType(unsigned int index);
     /*获得指定时间帧的数据*/
     std::vector<iGame::Object::Pointer> GetTargetTimeFrameData(unsigned int index);
+    /*获得指定时间的时间值*/
+    float GetTargetTimeValue(unsigned int index);
     /*获取时间帧总数*/
     size_t GetTimeNum(){return m_Data.size();}
     /*获取时间帧数组，未来可删*/

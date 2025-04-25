@@ -159,14 +159,25 @@ bool iGameVTUReader::ReadPointAttribute() {
     char* data_p;
     m_CurrentElem = FindTargetItem(root, "PointData");
     if(m_CurrentElem == nullptr) return false;
+    /* Process vector name parse*/
+    std::vector<std::string> vector_names;
+    data = m_CurrentElem->Attribute("Vectors");
+    if(data){
+        std::string cur_vector;
+        std::istringstream tokenStream(data);
+        while (std::getline(tokenStream, cur_vector, ',')) {
+            vector_names.push_back(cur_vector);
+        }
+    }
+    /* Move the ptr to first DataArray */
     m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
     //  use while loop to find point's multiple scala data.
     while (m_CurrentElem) {
 
         data = m_CurrentElem->Attribute("Name");
         std::string scalarName = data ? data : "Undefined Scalar";
+        /* Parse point Scalar's Dimension*/
         data = m_CurrentElem->Attribute("NumberOfComponents");
-
         ArrayObject::Pointer  array;
         const char* type = m_CurrentElem->Attribute("type");
 
@@ -309,7 +320,10 @@ bool iGameVTUReader::ReadPointAttribute() {
 //					scalar_range_min = std::min(scalar_range_min, value);
 //                }
 //				m_Data.GetData()->AddScalar(IG_POINT, array, { scalar_range_min, scalar_range_max });
-                m_Data.GetData()->AddScalar(IG_POINT, array);
+                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                    m_Data.GetData()->AddVector(IG_POINT, array);
+                else
+                    m_Data.GetData()->AddScalar(IG_POINT, array);
             }
         }
         m_CurrentElem = m_CurrentElem->NextSiblingElement("DataArray");
@@ -326,11 +340,18 @@ bool iGameVTUReader::ReadCellData() {
     char* token;
     char* data_p;
     m_CurrentElem = FindTargetItem(root, "CellData");
-    if(m_CurrentElem != nullptr){
-        m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
-    } else {
-        return false;
+    if(m_CurrentElem == nullptr)return false;
+    /* Process vector name parse*/
+    std::vector<std::string> vector_names;
+    data = m_CurrentElem->Attribute("Vectors");
+    if(data){
+        std::string cur_vector;
+        std::istringstream tokenStream(data);
+        while (std::getline(tokenStream, cur_vector, ',')) {
+            vector_names.push_back(cur_vector);
+        }
     }
+    m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
 
     //  use while loop to find point's multiple scala data.
     while (m_CurrentElem) {
@@ -475,14 +496,18 @@ bool iGameVTUReader::ReadCellData() {
                 array->SetName(scalarName);
 //                float scalar_range_max = FLT_MIN;
 //                float scalar_range_min = FLT_MAX;
-                float value;
-                for (int i = 0; i < array->GetNumberOfElements(); i++) {
-                    value = array->GetValue(i);
+//                float value;
+//                for (int i = 0; i < array->GetNumberOfElements(); i++) {
+//                    value = array->GetValue(i);
 //                    scalar_range_max = std::max(scalar_range_max, value);
 //                    scalar_range_min = std::min(scalar_range_min, value);
-                }
+//                }
 //                m_Data.GetData()->AddScalar(IG_CELL, array, { scalar_range_min, scalar_range_max });
-                m_Data.GetData()->AddScalar(IG_CELL, array);
+                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                    m_Data.GetData()->AddVector(IG_CELL, array);
+                else
+                    m_Data.GetData()->AddScalar(IG_CELL, array);
+
             }
         }
         m_CurrentElem = m_CurrentElem->NextSiblingElement("DataArray");

@@ -28,9 +28,13 @@ public:
 
     StreamingData::Pointer GetTimeFrames();
     DeformationData::Pointer GetDeformationData();
-    void SetTimeFrames(StreamingData::Pointer p) { m_TimeFrames = p; }
-    void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
 
+    /*Set the data for Animation.*/
+    void SetTimeFrames(StreamingData::Pointer p) { m_TimeFrames = p; }
+    /*Set the data for Warping.*/
+    void SetDeformationData(DeformationData::Pointer  p){m_DeformationData = p;}
+    /*Update Animation.*/
+    void UpdateAnimation(int keyframe_idx);
     void SetAttributeSet(AttributeSet::Pointer p);
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
     Metadata* GetMetadata() { return m_Metadata.get(); }

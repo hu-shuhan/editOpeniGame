@@ -7,6 +7,7 @@ add_subdirectory(vtkkwiml)
 add_subdirectory(glfw-3.4)
 add_subdirectory(lzma)
 add_subdirectory(spdlog)
+add_subdirectory(zlib)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 

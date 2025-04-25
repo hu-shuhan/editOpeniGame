@@ -135,6 +135,7 @@ void StreamingData::ClearCache() {
 }
 
 StreamingType StreamingData::GetTargetFrameType(unsigned int index) {
+    assert(index < m_Data.size());
     return m_Data[index].GetFrameType();
 }
 
@@ -147,6 +148,11 @@ void StreamingData::DisableCache() {
     m_Enable_Cache = false;
     m_Cache_MAXSize = 0;
     ClearCache();
+}
+
+float StreamingData::GetTargetTimeValue(unsigned int index) {
+    assert(index < m_Data.size());
+    return m_Data[index].GetTimeValue();
 }
 
 

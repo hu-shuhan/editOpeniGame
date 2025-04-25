@@ -12,6 +12,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 #include <Log/iGameLogger.h>
+
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
