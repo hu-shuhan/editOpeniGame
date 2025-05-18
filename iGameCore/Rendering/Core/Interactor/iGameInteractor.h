@@ -11,7 +11,7 @@
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
-#include "iGameStreamLineStyle.h"
+#include "iGameStreamlineStyle.h"
 
 IGAME_NAMESPACE_BEGIN
 
