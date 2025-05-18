@@ -199,6 +199,7 @@ void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
 }
 
 void DataObject::UpdateAnimation(int keyframe_idx) {
+    if(this->GetTimeFrames() == nullptr || this->GetTimeFrames()->GetTimeNum() <= keyframe_idx) return;
     auto timeFrameType = this->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
     auto timeFrameData = this->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
     if(timeFrameType == StreamingType::MultiSubFiles){
