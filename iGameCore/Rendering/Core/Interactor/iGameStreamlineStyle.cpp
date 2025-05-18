@@ -1,4 +1,4 @@
-#include "iGameStreamLineStyle.h"
+#include "iGameStreamlineStyle.h"
 #include "iGameInteractor.h"
 #include "iGamePointPicker.h"
 

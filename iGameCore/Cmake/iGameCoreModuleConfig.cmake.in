@@ -137,14 +137,27 @@ endif()
 #----------------------------------------------
 foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
     set(temp${LIB})
-    find_library(temp${LIB}
-            NAMES
-            "${LIB}.lib"
- #           PATHS
-            HINTS
-            ${IGAMEVIS_CORE_PRIVATE_LIB}
- #           NO_CMAKE_FIND_ROOT_PATH
-    )
+
+    if()
+        find_library(temp${LIB}
+                NAMES
+                "${LIB}.lib"
+     #           PATHS
+                HINTS
+                ${IGAMEVIS_CORE_PRIVATE_LIB}
+     #           NO_CMAKE_FIND_ROOT_PATH
+        )
+
+    else()
+        find_library(temp${LIB}
+                    NAMES
+                    "lib${LIB}.a"
+         #           PATHS
+                    HINTS
+                    ${IGAMEVIS_CORE_PRIVATE_LIB}
+         #           NO_CMAKE_FIND_ROOT_PATH
+                )
+    endif()
     if(temp${LIB})
 #        message(WARNING ${temp${LIB}})
         mark_as_advanced(temp${LIB})
