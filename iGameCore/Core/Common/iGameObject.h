@@ -95,9 +95,7 @@ public:
 
 protected:
     Object() { /*this->Modified();*/ }
-    ~Object() override {
-        if (m_Internal) { delete m_Internal; }
-    };
+    ~Object() override;
 
     TimeStamp m_MTime{};
     ObserverInternal* m_Internal{nullptr};

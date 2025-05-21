@@ -474,5 +474,9 @@ void Object::Modified()
 	//this->InvokeEvent(Command::ModifiedEvent);
 }
 
+Object::~Object()  {
+    if (m_Internal) { delete m_Internal; }
+}
+
 
 IGAME_NAMESPACE_END

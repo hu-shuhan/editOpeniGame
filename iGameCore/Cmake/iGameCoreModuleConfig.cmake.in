@@ -138,7 +138,7 @@ endif()
 foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
     set(temp${LIB})
 
-    if()
+    if(WIN32)
         find_library(temp${LIB}
                 NAMES
                 "${LIB}.lib"

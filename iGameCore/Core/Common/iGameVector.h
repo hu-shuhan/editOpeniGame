@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 template<class ScalarT, int dimension_t>
