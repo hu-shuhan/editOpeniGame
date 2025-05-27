@@ -1,4 +1,15 @@
 cmake_minimum_required(VERSION 3.19)
+
+#--------------------------------------------------------------------
+# CMAKE Global Settings.
+#--------------------------------------------------------------------
+
+set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
+set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
+
+if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+    set(CMAKE_CXX_FLAGS "-fPIC")
+endif()
 #--------------------------------------------------------------------
 # Set Cmake Option to On/OFF.
 #--------------------------------------------------------------------
@@ -72,18 +83,18 @@ add_subdirectory(ThirdParty)
 add_subdirectory(iGameCore)
 target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
-#add_subdirectory(Qt)
-#target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
+add_subdirectory(Qt)
+target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
 
-##   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-#if (WIN32)
-#    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-#endif ()
+#   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
+if (WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+endif ()
 #   编译时将默认的MSVC运行时库静态链接，用于exe的打包
 if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

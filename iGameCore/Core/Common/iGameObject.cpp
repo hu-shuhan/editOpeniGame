@@ -475,7 +475,7 @@ void Object::Modified()
 }
 
 Object::~Object()  {
-    if (m_Internal) { delete m_Internal; }
+    delete m_Internal;
 }
 
 

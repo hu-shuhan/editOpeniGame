@@ -14,7 +14,13 @@ endif ()
 # Core Module's main Cmake
 #--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
-add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+
+# Currently, only shared libraries for the Linux system are supported
+if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+    add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
+else ()
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+endif ()
 
 # add rendering core
 add_subdirectory(Rendering)
@@ -44,6 +50,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Core/Mapper>
         $<INSTALL_INTERFACE:include/IO>
         $<INSTALL_INTERFACE:include/IO/XML>
+        $<INSTALL_INTERFACE:include/IO/TestIO>
         $<INSTALL_INTERFACE:include/Filters>
         $<INSTALL_INTERFACE:include/Rendering>
         $<INSTALL_INTERFACE:include/Rendering/Common>

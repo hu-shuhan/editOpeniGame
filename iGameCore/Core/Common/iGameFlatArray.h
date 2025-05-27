@@ -499,10 +499,10 @@ iGameNewDataArrayMacro(FloatArray, float) iGameNewDataArrayMacro(DoubleArray,
                                                        unsigned short)
 
                                         iGameNewDataArrayMacro(LongLongArray,
-                                                               int64_t)
+                                                               long long)
                                                 iGameNewDataArrayMacro(
                                                         UnsignedLongLongArray,
-                                                        uint64_t)
+                                                        unsigned long long)
 
                                                         IGAME_NAMESPACE_END
 #endif

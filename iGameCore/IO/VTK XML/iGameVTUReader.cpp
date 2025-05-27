@@ -128,7 +128,7 @@ bool iGameVTUReader::ReadPointData() {
                 dataSetPoints->AddPoint(p);
             }
         } else if(strcmp(attribute, "appended") == 0){
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             if (!strncmp(type, "Float", 5)) {
                 //  Float32
@@ -225,7 +225,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
@@ -262,7 +262,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     else /* Int64*/ {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
-                        ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                        ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         array = arr;
                     }
                 }
@@ -284,7 +284,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
@@ -301,9 +301,9 @@ bool iGameVTUReader::ReadPointAttribute() {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
                         if(m_parseRawBinaryData){
-                            ReadRawBinaryArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         } else {
-                            ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         }
                         array = arr;
                     }
@@ -407,7 +407,7 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
@@ -445,7 +445,7 @@ bool iGameVTUReader::ReadCellData() {
                     else /* Int64*/ {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
-                        ReadBase64EncodedArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                        ReadBase64EncodedArray<long long >(m_Header_8_byte_flag, data_p, arr);
                         array = arr;
                     }
                 }
@@ -467,7 +467,7 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
@@ -484,9 +484,9 @@ bool iGameVTUReader::ReadCellData() {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
                         if(m_parseRawBinaryData){
-                            ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                            ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                         } else {
-                            ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         }
                         array = arr;
                     }
@@ -556,13 +556,13 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
             }
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
-                ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 CellConnects = arr;
             }
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
@@ -577,9 +577,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 if(m_parseRawBinaryData){
-                    ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                    ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                 } else {
-                    ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 }
                 CellConnects = arr;
             }
@@ -633,13 +633,13 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 arr->AddValue(0);
-                ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 CellOffsets = arr;
             }
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
@@ -656,9 +656,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 arr->AddValue(0);
                 if(m_parseRawBinaryData){
-                    ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                    ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                 } else {
-                    ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 }
                 CellOffsets = arr;
             }
@@ -701,7 +701,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
             ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
         }
         else if (strcmp(attribute, "appended") == 0) {
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             if(m_parseRawBinaryData){
                 ReadRawBinaryArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
