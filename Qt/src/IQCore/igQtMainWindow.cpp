@@ -139,17 +139,14 @@ void igQtMainWindow::initAllComponents() {
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        auto sceneManager = iGame::SceneManager::Instance();
-        auto scene = sceneManager->GetCurrentScene();
-        if (!scene) return false;
-        auto currentModel = scene->GetCurrentModel();
-        if (!currentModel) return false;
-        auto obj = currentModel->GetDataObject();
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return false;
 
         igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
-        d->show();
-        //modelTreeWidget->updateAllAttriubute(obj);
+        d->exec();
+
+        return true;
     });
 
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
