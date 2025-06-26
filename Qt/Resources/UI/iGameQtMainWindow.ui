@@ -126,6 +126,7 @@
     <addaction name="action_Scalar"/>
     <addaction name="action_Vector"/>
     <addaction name="action_Tensor"/>
+    <addaction name="action_ParallelCoordinates"/>
     <addaction name="action_StrucDeformation"/>
     <addaction name="action_FlowField"/>
     <addaction name="action_ExportAnimation"/>
@@ -426,6 +427,24 @@
     <number>1</number>
    </attribute>
    <widget class="igQtTensorWidget" name="widget_TensorField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
+   <property name="minimumSize">
+    <size>
+     <width>0</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>平行坐标</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtParallelCoordinatesWidget" name="widget_ParallelCoordinatesField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SearchInfo">
    <property name="minimumSize">
@@ -969,6 +988,11 @@
     <string>张量场</string>
    </property>
   </action>
+  <action name="action_ParallelCoordinates">
+   <property name="text">
+    <string>平行坐标</string>
+   </property>
+  </action>
   <action name="action_FlowField">
    <property name="text">
     <string>时序流场</string>
@@ -1496,6 +1520,12 @@
    <class>igQtTensorWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtTensorWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtParallelCoordinatesWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtParallelCoordinatesWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

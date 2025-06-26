@@ -28,6 +28,7 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
+#include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 鐢ㄤ簬 open
@@ -78,6 +79,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
     ui->dockWidget_TensorField->hide();
+    ui->dockWidget_ParallelCoordinatesField->hide();
     ui->dockWidget_SearchInfo->hide();
     ui->dockWidget_QualityDetection->hide();
     ui->dockWidget_EditMode->hide();
@@ -1442,6 +1444,15 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_TensorField->show();
         ui->widget_TensorField->UpdateScalarsNameList();
         ui->widget_TensorField->UpdateTensorsNameList();
+    });
+    connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_ParallelCoordinatesField->show();
+        auto parallelCoordinates = ParallelCoordinates::New();
+        auto input = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        parallelCoordinates->SetInput(input);
+        parallelCoordinates->Execute();
+        auto parallelCoordinadesData = DynamicCast<ParallelCoordinatesData>(parallelCoordinates->GetOutput(0));
+        ui->widget_ParallelCoordinatesField->SetParallelCoordinates(parallelCoordinadesData);
     });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_FlowField->show();
