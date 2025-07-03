@@ -13,6 +13,9 @@ igQtParallelCoordinatesObjectFilter::igQtParallelCoordinatesObjectFilter(int num
     ui->minSpinBox->setMaximum(maxValue);
     ui->minSpinBox->setMinimum(minValue);
     ui->minSpinBox->setValue(minValue);
+    double step = (maxValue - minValue) / 100.0;
+    ui->maxSpinBox->setSingleStep(step);
+    ui->minSpinBox->setSingleStep(step);
     ui->variableName->setText(variableName.c_str());
     connect(ui->maxSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtParallelCoordinatesObjectFilter::MaxSpinBoxChanged);

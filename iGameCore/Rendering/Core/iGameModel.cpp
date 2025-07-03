@@ -85,11 +85,12 @@ SmartPointer<Selection> Model::GetSelection() {
 }
 
 void Model::RequestPointSelection(SmartPointer<Points> p,
-                                  SmartPointer<Selection> s) {
+                                  SmartPointer<Selection> s,
+                                  double selectRadius) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
-    m_Scene->GetInteractor()->RequestPointSelectionStyle(s);
+    m_Scene->GetInteractor()->RequestPointSelectionStyle(s, selectRadius);
 }
 
 void Model::RequestDragPoint(SmartPointer<Points> p,

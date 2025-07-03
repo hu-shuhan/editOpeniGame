@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>114</width>
+    <width>116</width>
     <height>87</height>
    </rect>
   </property>
@@ -21,10 +21,18 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QDoubleSpinBox" name="maxSpinBox"/>
+    <widget class="QDoubleSpinBox" name="maxSpinBox">
+     <property name="decimals">
+      <number>6</number>
+     </property>
+    </widget>
    </item>
    <item>
-    <widget class="QDoubleSpinBox" name="minSpinBox"/>
+    <widget class="QDoubleSpinBox" name="minSpinBox">
+     <property name="decimals">
+      <number>6</number>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QLabel" name="variableName">

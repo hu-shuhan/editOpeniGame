@@ -7,6 +7,10 @@
 #include "iGameIdArray.h"
 #include "iGameCellArray.h"
 #include <functional>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {
@@ -39,49 +43,36 @@ public:
 			PickLine,
 			Change
 		};
+        enum Operate { NoOperate = 0, Add, Remove };
 
-		Type type;
+		Type type{};
+        Operate operate{};
+        std::vector<IGuint> drawHandles;
 		Vector3f pos;
 		igIndex pickId;
 	};
 
-	void FilterEvent(Event _event) {
-		if (m_Functor) {
-			m_Functor(_event);
-		}
-	}
+	void SelectionCallBackEvent(const std::vector<Event>& _events);
 
-	void SetPoistion(Vector3f pos) {
-		m_Position = pos;
-	}
-	Vector3f GetPoistion() {
-		return m_Position;
-	}
-	void SetPickedId(igIndex id) {
-		m_PickedId = id;
-	}
-	igIndex GetPickedId() {
-		return m_PickedId;
-	}
-	void AddSelectedId(igIndex id) {
-		m_SelectedIds->AddId(id);
-	}
-	IdArray::Pointer GetSelectedPointIds() const {
-		return m_SelectedIds;
-	}
-	int GetSelectedIdsSize() const {
-		return m_SelectedIds->GetNumberOfIds();
-	}
+	void SelectionCallBackEvent(const Event& event);
 
-	void Reset() {
-		m_PickedId = -1;
-		m_SelectedIds->Reset();
-	}
+	const std::map<Event::Type, std::map<igIndex, Event>>& GetSelectedItems() const { return m_SelectedItems; }
 
-	template<typename Functor, typename... Args>
-	void SetFilterEvent(Functor&& functor, Args&&... args) {
-		m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
-	}
+	void Reset();
+
+	//template<typename Functor, typename... Args>
+	//void SetFilterEvent(Functor&& functor, Args&&... args) {
+	//	m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+	//}
+
+    template<typename Functor, typename... Args>
+    void _SetSelectionCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
+        std::function<void(const std::vector<Event>&)> func =
+                std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+        m_CallBackFunctor[funcKey] = func;
+    }
+#define SetSelectionCallBackEvent(functor, ...)                                                                        \
+    _SetSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
 	Points* GetPoints() {
 		return m_Points;
@@ -105,11 +96,16 @@ protected:
 	Selection() {}
 	~Selection() override = default;
 
-	std::function<void(Event)> m_Functor;
+	//std::function<void(Event)> m_Functor;
 
-	Vector3f m_Position{};
-	igIndex m_PickedId{ -1 };
-	IdArray::Pointer m_SelectedIds{};
+	//Vector3f m_Position{};
+	//igIndex m_PickedId{ -1 };
+	//IdArray::Pointer m_SelectedIds{};
+    std::map<std::string, std::function<void(const std::vector<Event>&)>> m_CallBackFunctor;
+
+	void AddItem(const Event& event);
+    std::map<Event::Type, std::map<igIndex, Event>> m_SelectedItems;
+
 
 	Points* m_Points{ nullptr };
 	CellArray* m_Cells{ nullptr };

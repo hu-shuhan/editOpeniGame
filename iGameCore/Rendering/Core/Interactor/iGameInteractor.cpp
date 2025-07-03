@@ -35,7 +35,7 @@ void Interactor::FilterEvent(IEvent event) {
     if (m_Scene == nullptr) return;
     if (!m_Internal) { CreateDefaultStyle(); }
     m_Internal->FilterEvent(event);
-}
+    }
 
 void Interactor::RequestBasicStyle() {
     //InitModel();
@@ -54,21 +54,29 @@ void Interactor::RequestDragPointStyle(SmartPointer<Selection> s) {
     is_Base = false;
 }
 
-void Interactor::RequestPointSelectionStyle(SmartPointer<Selection> s) {
+void Interactor::RequestPointSelectionStyle(SmartPointer<Selection> s,
+                                            double selectRadius, 
+                                            bool selectOrUnSelect) {
     if (!s) return;
     //InitModel();
     auto act = SingleSelectionStyle::New();
     act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
+    act->SetSelectRadius(selectRadius);
+    act->SetSelectOrUnSelect(selectOrUnSelect);
     act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;
 }
 
-void Interactor::RequestFaceSelectionStyle(SmartPointer<Selection> s) {
+void Interactor::RequestFaceSelectionStyle(SmartPointer<Selection> s,
+                                           double selectRadius,
+                                           bool selectOrUnSelect) {
     if (!s) return;
     //InitModel();
     auto act = SingleSelectionStyle::New();
     act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
+    act->SetSelectRadius(selectRadius);
+    act->SetSelectOrUnSelect(selectOrUnSelect);
     act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;

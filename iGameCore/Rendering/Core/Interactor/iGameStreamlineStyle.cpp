@@ -38,7 +38,8 @@ void StreamLineStyle::Emit() {
     m_Selection->Start = f(Start);
     m_Selection->End = f(End);
     m_Selection->Selected = Selected;
-    m_Selection->FilterEvent(Selection::Event(Selection::Event::Change));
+    m_Selection->SelectionCallBackEvent(
+            Selection::Event(Selection::Event::Change));
 }
 
 void StreamLineStyle::Initialize(SmartPointer<Interactor> interactor,

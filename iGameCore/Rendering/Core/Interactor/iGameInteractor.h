@@ -63,14 +63,22 @@ public:
     /**
      * @brief 切换成点选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
+     * @param double selectRadius 选择半径
+     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestPointSelectionStyle(SmartPointer<Selection> s);
+    void RequestPointSelectionStyle(SmartPointer<Selection> s,
+                                    double selectRadius,
+                                    bool selectOrUnSelect = true);
 
     /**
      * @brief 切换成面选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
+     * @param double selectRadius 选择半径
+     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestFaceSelectionStyle(SmartPointer<Selection> s);
+    void RequestFaceSelectionStyle(SmartPointer<Selection> s,
+                                   double selectRadius,
+                                   bool selectOrUnSelect = true);
 
     /**
      * @brief 将s绑定到交互器上

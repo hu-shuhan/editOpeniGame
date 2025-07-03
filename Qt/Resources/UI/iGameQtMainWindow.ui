@@ -241,7 +241,7 @@
   <widget class="QDockWidget" name="dockWidget_ModelList">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -325,6 +325,7 @@
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ResetCameraView"/>
+   <addaction name="action_SelectView"/>
    <addaction name="action_select_point"/>
    <addaction name="action_select_face"/>
    <addaction name="action_drag_point"/>
@@ -359,7 +360,7 @@
   <widget class="QDockWidget" name="dockWidget_ScalarField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -377,7 +378,7 @@
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -395,7 +396,7 @@
   <widget class="QDockWidget" name="dockWidget_FlowField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -413,7 +414,7 @@
   <widget class="QDockWidget" name="dockWidget_TensorField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -431,7 +432,7 @@
   <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -445,6 +446,24 @@
     <number>1</number>
    </attribute>
    <widget class="igQtParallelCoordinatesWidget" name="widget_ParallelCoordinatesField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_SelectionField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>选择</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtSelectionWidget" name="widget_SelectionField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SearchInfo">
    <property name="minimumSize">
@@ -582,7 +601,7 @@
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>45</height>
     </size>
    </property>
@@ -1461,6 +1480,21 @@
     <string>传输测试(C)</string>
    </property>
   </action>
+  <action name="action_SelectView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/selectView.png</normaloff>:/Ticon/Icons/select/selectView.png</iconset>
+   </property>
+   <property name="text">
+    <string>选择</string>
+   </property>
+   <property name="toolTip">
+    <string>点、面/体选择</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1532,6 +1566,12 @@
    <class>igQtContourExtractWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtContourExtractWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtSelectionWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtSelectionWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

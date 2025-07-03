@@ -408,7 +408,7 @@ void SlicingStyle::Emit() {
         if (PlaneUpdated) {
             m_Selection->PlanePoint = V(Center);
             m_Selection->PlaneNormal = V((Start - End).normalized());
-            m_Selection->FilterEvent(
+            m_Selection->SelectionCallBackEvent(
                     iGame::Selection::Event(iGame::Selection::Event::Change));
             PlaneUpdated = false;
         }
