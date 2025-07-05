@@ -57,7 +57,8 @@ private:
     //Frame
     bool GetDrawFramePoints(int variableNum, std::vector<QRect>& variableMaxFontPoints,
                             std::vector<QRect>& variableMinFontPoints, std::vector<QRect>& variableNameFontPoints,
-                            std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints);
+                            std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints,
+                            QRect& background);
     //Filter
     void SetObjectFilters(int variableNum, const std::vector<std::string>& variableName,
                           const std::vector<double>& filterMaxValue, const std::vector<double>& filterMinValue);
@@ -69,6 +70,7 @@ private:
     void DrawParallelCoordinates();
     std::shared_ptr<QPainter> GetLinePainter(const QColor& color);
     int GetLinePointLocation(int top, int bottom, double currentValue, double maxValue, double minValue);
+    void DrawBackground(const QRect& range);
     void DrawStrs(std::vector<QRect>& variableMaxFontPoints, std::vector<QRect>& variableMinFontPoints,
                   std::vector<QRect>& variableNameFontPoints);
     void DrawLink(int leftLine, int rightLine, int top, int bottom, double leftValue, double rightValue,
@@ -95,6 +97,10 @@ private slots:
     void UnChoosedAlphaSliderChanged(int value);
     void ChoosedAlphaSpinBoxChanged(int value);
     void UnChoosedAlphaSpinBoxChanged(int value);
+    void ChoosedLightSliderChanged(int value);
+    void UnChoosedLightSliderChanged(int value);
+    void ChoosedLightSpinBoxChanged(int value);
+    void UnChoosedLightSpinBoxChanged(int value);
 public slots:
     void FilterMaxValueChanged(int number, double value);
     void FilterMinValueChanged(int number, double value);

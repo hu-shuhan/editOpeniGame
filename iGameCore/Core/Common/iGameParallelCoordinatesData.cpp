@@ -51,7 +51,7 @@ const std::string& ParallelCoordinatesData::GetDataTypeName() { return m_DataTyp
 
 void ParallelCoordinatesData::SetDataType(IGenum dataType) { m_DataType = dataType; }
 
-IGenum ParallelCoordinatesData::GetDataType() { return m_DataType; }
+IGenum ParallelCoordinatesData::GetDataType() const { return m_DataType; }
 
 void ParallelCoordinatesData::SetChoosedAlpha(int alpha) { m_ChoosedAlpha = alpha; }
 
@@ -59,7 +59,15 @@ int ParallelCoordinatesData::GetChoosedAlpha() const { return m_ChoosedAlpha; }
 
 void ParallelCoordinatesData::SetUnChoosedAlpha(int alpha) { m_UnChoosedAlpha = alpha; }
 
-int ParallelCoordinatesData::GetUnChoosedAlpha() { return m_UnChoosedAlpha; }
+int ParallelCoordinatesData::GetUnChoosedAlpha() const { return m_UnChoosedAlpha; }
+
+void ParallelCoordinatesData::SetChoosedLight(int light) { m_ChoosedLight = light; }
+
+int ParallelCoordinatesData::GetChoosedLight() const { return m_ChoosedLight; }
+
+void ParallelCoordinatesData::SetUnChoosedLight(int light) { m_UnChoosedLight = light; }
+
+int ParallelCoordinatesData::GetUnChoosedLight() const { return m_UnChoosedLight; }
 
 int ParallelCoordinatesData::GetVariableNum() const { return m_VariableNum; }
 

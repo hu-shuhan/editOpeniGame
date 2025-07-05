@@ -40,13 +40,19 @@ public:
     const std::string& GetDataTypeName();
 
     void SetDataType(IGenum dataType);
-    IGenum GetDataType();
+    IGenum GetDataType() const;
 
     void SetChoosedAlpha(int alpha);
     int GetChoosedAlpha() const;
 
     void SetUnChoosedAlpha(int alpha);
-    int GetUnChoosedAlpha();
+    int GetUnChoosedAlpha() const;
+
+    void SetChoosedLight(int light);
+    int GetChoosedLight() const;
+
+    void SetUnChoosedLight(int light);
+    int GetUnChoosedLight() const;
 
 protected:
     ParallelCoordinatesData() = delete;
@@ -62,6 +68,8 @@ protected:
     IGenum m_DataType{};
     int m_ChoosedAlpha{10};
     int m_UnChoosedAlpha{1};
+    int m_ChoosedLight{255};
+    int m_UnChoosedLight{75};
 };
 
 IGAME_NAMESPACE_END

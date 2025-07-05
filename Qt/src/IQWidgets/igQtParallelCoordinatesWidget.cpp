@@ -1,6 +1,7 @@
 #include "iGameSceneManager.h"
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <iomanip>
+#include <iostream>
 /**
  * @class   igQtParallelCoordinatesWidget
  * @brief   igQtParallelCoordinatesWidget's brief
@@ -18,6 +19,14 @@ igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
             &igQtParallelCoordinatesWidget::UnChoosedAlphaSliderChanged);
     connect(ui->unChoosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
             &igQtParallelCoordinatesWidget::UnChoosedAlphaSpinBoxChanged);
+    connect(ui->choosedLightSlider, &QSlider::valueChanged, this,
+            &igQtParallelCoordinatesWidget::ChoosedLightSliderChanged);
+    connect(ui->choosedLightSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &igQtParallelCoordinatesWidget::ChoosedLightSpinBoxChanged);
+    connect(ui->unChoosedLightSlider, &QSlider::valueChanged, this,
+            &igQtParallelCoordinatesWidget::UnChoosedLightSliderChanged);
+    connect(ui->unChoosedLightSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &igQtParallelCoordinatesWidget::UnChoosedLightSpinBoxChanged);
     connect(ui->dataChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtParallelCoordinatesWidget::DataChooseChanged);
 }
@@ -50,6 +59,10 @@ void igQtParallelCoordinatesWidget::LoadCurrentData() {
     ui->choosedAlphaSpinBox->setValue(Data->GetChoosedAlpha());
     ui->unChoosedAlphaSlider->setValue(Data->GetUnChoosedAlpha());
     ui->unChoosedAlphaSpinBox->setValue(Data->GetUnChoosedAlpha());
+    ui->choosedLightSlider->setValue(Data->GetChoosedLight());
+    ui->choosedLightSpinBox->setValue(Data->GetChoosedLight());
+    ui->unChoosedLightSlider->setValue(Data->GetUnChoosedLight());
+    ui->unChoosedLightSpinBox->setValue(Data->GetUnChoosedLight());
     SetObjectFilters(Data->GetVariableNum(), Data->GetVariableName(), Data->GetFilterMaxValue(),
                      Data->GetFilterMinValue());
 }
@@ -253,12 +266,17 @@ void igQtParallelCoordinatesWidget::DrawParallelCoordinates() {
     std::vector<QRect> variableNameFontPoints;
     std::vector<QPoint> linkTopPoints;
     std::vector<QPoint> linkBottomPoints;
+    QRect background;
     bool drawAble = GetDrawFramePoints(Data->GetVariableNum(), variableMaxFontPoints, variableMinFontPoints,
-                                       variableNameFontPoints, linkTopPoints, linkBottomPoints);
+                                       variableNameFontPoints, linkTopPoints, linkBottomPoints, background);
     if (!drawAble) return;
+    DrawBackground(background);
     DrawStrs(variableMaxFontPoints, variableMinFontPoints, variableNameFontPoints);
-    DrawLinks(linkTopPoints, linkBottomPoints, QColor(255, 0, 0, Data->GetChoosedAlpha()),
-              QColor(0, 0, 255, Data->GetUnChoosedAlpha()));
+    QColor lightRed = QColor::fromHsv(0, 255, Data->GetChoosedLight(), Data->GetChoosedAlpha());
+    QColor darkRed = QColor::fromHsv(0, 255, Data->GetUnChoosedLight(), Data->GetUnChoosedAlpha());
+    DrawLinks(linkTopPoints, linkBottomPoints, lightRed, darkRed);
+    //DrawLinks(linkTopPoints, linkBottomPoints, QColor(255, 0, 0, Data->GetChoosedAlpha()),
+    //          QColor(0, 0, 255, Data->GetUnChoosedAlpha()));
 }
 
 std::shared_ptr<QPainter> igQtParallelCoordinatesWidget::GetLinePainter(const QColor& color) {
@@ -271,6 +289,15 @@ int igQtParallelCoordinatesWidget::GetLinePointLocation(int top, int bottom, dou
                                                         double minValue) {
     if (maxValue == minValue) return (top + bottom) / 2;
     return (currentValue - minValue) * (top - bottom) / (maxValue - minValue) + bottom;
+}
+
+void igQtParallelCoordinatesWidget::DrawBackground(const QRect& range) {
+    QPainter painter(this);
+    QBrush brush;
+    brush.setColor(QColor(255, 255, 255));
+    brush.setStyle(Qt::SolidPattern);
+    painter.setBrush(brush);
+    painter.drawRect(range);
 }
 
 void igQtParallelCoordinatesWidget::DrawStrs(std::vector<QRect>& variableMaxFontPoints,
@@ -405,18 +432,55 @@ void igQtParallelCoordinatesWidget::UnChoosedAlphaSpinBoxChanged(int value) {
     if (ui->unChoosedAlphaSlider->value() != value) ui->unChoosedAlphaSlider->setValue(value);
 }
 
+void igQtParallelCoordinatesWidget::ChoosedLightSliderChanged(int value) {
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    if (Data->GetChoosedLight() == value) return;
+    Data->SetChoosedLight(value);
+    this->update();
+    if (ui->choosedLightSpinBox->value() != value) ui->choosedLightSpinBox->setValue(value);
+}
+
+void igQtParallelCoordinatesWidget::UnChoosedLightSliderChanged(int value) {
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    if (Data->GetUnChoosedLight() == value) return;
+    Data->SetUnChoosedLight(value);
+    this->update();
+    if (ui->unChoosedLightSpinBox->value() != value) ui->unChoosedLightSpinBox->setValue(value);
+}
+
+void igQtParallelCoordinatesWidget::ChoosedLightSpinBoxChanged(int value) {
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    if (Data->GetChoosedLight() == value) return;
+    Data->SetChoosedLight(value);
+    this->update();
+    if (ui->choosedLightSlider->value() != value) ui->choosedLightSlider->setValue(value);
+}
+
+void igQtParallelCoordinatesWidget::UnChoosedLightSpinBoxChanged(int value) {
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    if (Data->GetUnChoosedLight() == value) return;
+    Data->SetUnChoosedLight(value);
+    this->update();
+    if (ui->unChoosedLightSlider->value() != value) ui->unChoosedLightSlider->setValue(value);
+}
+
 bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableNum, std::vector<QRect>& variableMaxFontPoints,
                                                        std::vector<QRect>& variableMinFontPoints,
                                                        std::vector<QRect>& variableNameFontPoints,
                                                        std::vector<QPoint>& linkTopPoints,
-                                                       std::vector<QPoint>& linkBottomPoints) {
-    constexpr int leftSpace = 0, rightSpace = 0, topSpace = 0, bottomSpace = 0;
+                                                       std::vector<QPoint>& linkBottomPoints, QRect& background) {
+    constexpr int leftSpace = 5, rightSpace = 5, topSpace = 5, bottomSpace = 5;
     constexpr int stringSize = 10;
     constexpr int eachInterval = 2;
     QPoint startPoint(ui->ParallelCoordinatesDrawView->x() + leftSpace,
                       ui->ParallelCoordinatesDrawView->y() + topSpace),
-            endPoint(ui->ParallelCoordinatesDrawView->size().width() - rightSpace,
-                     ui->ParallelCoordinatesDrawView->size().height() - bottomSpace);
+            endPoint(ui->ParallelCoordinatesDrawView->x() + ui->ParallelCoordinatesDrawView->size().width() -
+                             rightSpace,
+                     ui->ParallelCoordinatesDrawView->y() + ui->ParallelCoordinatesDrawView->size().height() -
+                             bottomSpace);
+    background =
+            QRect(ui->ParallelCoordinatesDrawView->x(), ui->ParallelCoordinatesDrawView->y(),
+                  ui->ParallelCoordinatesDrawView->size().width(), ui->ParallelCoordinatesDrawView->size().height());
     if (endPoint.x() <= startPoint.x() || endPoint.y() - stringSize * 3 - eachInterval * 3 <= startPoint.y())
         return false;
     int useableWidth = endPoint.x() - startPoint.x();
