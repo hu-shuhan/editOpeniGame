@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <tuple>
 
 IGAME_NAMESPACE_BEGIN
 class ParallelCoordinatesData : public DataObject {
@@ -21,6 +22,23 @@ public:
 
     void SetObjectData(const std::vector<std::vector<double>>& objData);
     const std::vector<std::vector<double>>& GetObjectDatas();
+
+    void SetObjectChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor);
+    const std::vector<std::tuple<int, int, int>>& GetObjecChoosedColor();
+
+    void SetObjectUnChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor);
+    const std::vector<std::tuple<int, int, int>>& GetObjectUnChoosedColor();
+
+    void SetDefaultChoosedColor(const std::tuple<int, int, int>& color);
+    const std::tuple<int, int, int>& GetDefaultChoosedColor();
+
+    void SetDefaultUnChoosedColor(const std::tuple<int, int, int>& color);
+    const std::tuple<int, int, int>& GetDefaultUnChoosedColor();
+
+    const std::tuple<int, int, int>& GetObjColor(bool choosed, int objId);
+
+    void SetObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts);
+    const std::vector<std::vector<int>>& GetObjectDrawSorts();
 
     void SetMaxValueInVariables(const std::vector<double>& maxValueInVariables);
     const std::vector<double>& GetMaxValueInVariables();
@@ -60,16 +78,21 @@ protected:
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
     std::vector<std::vector<double>> m_ObjectDatas;
+    std::vector<std::tuple<int, int, int>> m_ObjChoosedColor;//RGB
+    std::vector<std::tuple<int, int, int>> m_ObjUnChoosedColor; //RGB
+    std::vector<std::vector<int>> m_ObjDrawSortInVariables;
+    std::tuple<int, int, int> m_DefaultChoosedColor;
+    std::tuple<int, int, int> m_DefaultUnChoosedColor;
     std::vector<double> m_MaxValueInVariables;
     std::vector<double> m_MinValueInVariables;
     std::vector<double> m_FilterMaxValue;
     std::vector<double> m_FilterMinValue;
     std::string m_DataTypeName; //Point data. Face data
     IGenum m_DataType{};
-    int m_ChoosedAlpha{10};
-    int m_UnChoosedAlpha{1};
+    int m_ChoosedAlpha{255};
+    int m_UnChoosedAlpha{140};
     int m_ChoosedLight{255};
-    int m_UnChoosedLight{75};
+    int m_UnChoosedLight{140};
 };
 
 IGAME_NAMESPACE_END

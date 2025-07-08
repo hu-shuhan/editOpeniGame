@@ -79,6 +79,50 @@ void ParallelCoordinatesData::SetObjectData(const std::vector<std::vector<double
 
 const std::vector<std::vector<double>>& ParallelCoordinatesData::GetObjectDatas() { return m_ObjectDatas; }
 
+void ParallelCoordinatesData::SetObjectChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor) {
+    m_ObjChoosedColor = objColor;
+}
+
+const std::vector<std::tuple<int, int, int>>& ParallelCoordinatesData::GetObjecChoosedColor() {
+    return m_ObjChoosedColor;
+}
+
+void ParallelCoordinatesData::SetObjectUnChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor) {
+    m_ObjUnChoosedColor = objColor;
+}
+
+const std::vector<std::tuple<int, int, int>>& ParallelCoordinatesData::GetObjectUnChoosedColor() {
+    return m_ObjUnChoosedColor;
+}
+
+void ParallelCoordinatesData::SetDefaultChoosedColor(const std::tuple<int, int, int>& color) {
+    m_DefaultChoosedColor = color;
+}
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetDefaultChoosedColor() { return m_DefaultChoosedColor; }
+
+void ParallelCoordinatesData::SetDefaultUnChoosedColor(const std::tuple<int, int, int>& color) {
+    m_DefaultUnChoosedColor = color;
+}
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetDefaultUnChoosedColor() { return m_DefaultUnChoosedColor; }
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetObjColor(bool choosed, int objId) {
+    if (choosed) {
+        if (objId < 0 || m_ObjChoosedColor.size() <= objId) return m_DefaultChoosedColor;
+        return m_ObjChoosedColor[objId];
+    } else {
+        if (objId < 0 || m_ObjUnChoosedColor.size() <= objId) return m_DefaultUnChoosedColor;
+        return m_ObjUnChoosedColor[objId];
+    }
+}
+
+void ParallelCoordinatesData::SetObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts) {
+    m_ObjDrawSortInVariables = drawSorts;
+}
+
+const std::vector<std::vector<int>>& ParallelCoordinatesData::GetObjectDrawSorts() { return m_ObjDrawSortInVariables; }
+
 void ParallelCoordinatesData::SetMaxValueInVariables(const std::vector<double>& maxValueInVariables) {
     m_MaxValueInVariables = maxValueInVariables;
 }

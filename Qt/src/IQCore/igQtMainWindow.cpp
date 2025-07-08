@@ -81,6 +81,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_TensorField->hide();
     ui->dockWidget_ParallelCoordinatesField->hide();
     ui->dockWidget_SelectionField->hide();
+    ui->dockWidget_ContextPreservingShowField->hide();
     ui->dockWidget_SearchInfo->hide();
     ui->dockWidget_QualityDetection->hide();
     ui->dockWidget_EditMode->hide();
@@ -1458,6 +1459,27 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
+    connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
+        if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            ui->dockWidget_ContextPreservingShowField->show();
+            ui->widget_ContextPreservingShowField->SetContextPreserving(model);
+        }
+        else if (!checked && ui->dockWidget_ContextPreservingShowField->isVisible())
+            ui->dockWidget_ContextPreservingShowField->hide();
+    });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        if (ui->dockWidget_ContextPreservingShowField->isHidden()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) {
+            ui->dockWidget_ContextPreservingShowField->hide();
+            return;
+        }
+        ui->widget_ContextPreservingShowField->SetContextPreserving(model);
+    });
+    connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
+            [&]() { rendererWidget->update(); });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
@@ -2184,9 +2206,23 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        if (visiable) model->GetPainter3D()->ShowAll();
-        else
-            model->GetPainter3D()->HideAll();
+        auto& selectedItems = model->GetSelection()->GetSelectedItems();
+        if (visiable) {
+            for (auto& objsInType: selectedItems) {
+                for (auto& eventsInObj: objsInType.second) {
+                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
+                }
+            }
+        } else {
+            for (auto& objsInType: selectedItems) {
+                for (auto& eventsInObj: objsInType.second) {
+                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
+                }
+            }
+        }
+        //if (visiable) model->GetPainter3D()->ShowAll();
+        //else
+        //    model->GetPainter3D()->HideAll();
         rendererWidget->update();
         });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
@@ -2224,6 +2260,8 @@ void igQtMainWindow::initAllInteractor() {
         else
             model->GetPainter3D()->HideAll();
     });
+    connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::Hided, this,
+            [&]() { ui->action_ContextPreserving->setChecked(false); });
 
 
     ui->action_select_point->setVisible(false);

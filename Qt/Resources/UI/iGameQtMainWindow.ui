@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1370</height>
+    <height>1415</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -325,6 +325,7 @@
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ResetCameraView"/>
+   <addaction name="action_ContextPreserving"/>
    <addaction name="action_SelectView"/>
    <addaction name="action_select_point"/>
    <addaction name="action_select_face"/>
@@ -464,6 +465,24 @@
     <number>1</number>
    </attribute>
    <widget class="igQtSelectionWidget" name="widget_SelectionField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_ContextPreservingShowField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>已选数据的上下文保持显示</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtContextPreservingShowWidget" name="widget_ContextPreservingShowField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SearchInfo">
    <property name="minimumSize">
@@ -1495,6 +1514,21 @@
     <string>点、面/体选择</string>
    </property>
   </action>
+  <action name="action_ContextPreserving">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/ContextPreservingAction.png</normaloff>:/Ticon/Icons/select/ContextPreservingAction.png</iconset>
+   </property>
+   <property name="text">
+    <string>数据选择上下文</string>
+   </property>
+   <property name="toolTip">
+    <string>显示已选数据与未选数据上下文</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1572,6 +1606,12 @@
    <class>igQtSelectionWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtSelectionWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtContextPreservingShowWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtContextPreservingShowWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

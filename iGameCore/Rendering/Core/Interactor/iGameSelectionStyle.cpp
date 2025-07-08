@@ -1,4 +1,3 @@
-#include "iGameSelectionStyle.h"
 //
 // Created by Sumzeek on 9/9/2024.
 //
@@ -25,6 +24,7 @@ void SelectionStyle::SetSelectedType(SelectedType type) { m_Type = type; }
 SelectionStyle::SelectedType SelectionStyle::GetSelectedType() const {
     return m_Type;
 }
+
 
 void SelectionStyle::SetSelectRadius(double selectRadius) {
     m_SelectRadius = selectRadius;

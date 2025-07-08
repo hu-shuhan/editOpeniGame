@@ -193,8 +193,9 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
             //and obtain the cell within the radius accordingly.
             iGame::Point thisCellCentralPoint =
                     GetCentralOfCell(thisCellSize, thisCell, m_Points);
-            auto mesh = DynamicCast<UnstructuredMesh>(m_Model->GetDataObject());
 
+            auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+                    m_Model->GetDataObject());
 
             //Calculate the center point of each surface and compare the radii.
             for (int cellIndex = 0; cellIndex < m_Cells->GetNumberOfCells();

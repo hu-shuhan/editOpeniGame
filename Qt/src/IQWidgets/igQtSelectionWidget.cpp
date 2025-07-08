@@ -14,6 +14,7 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
             &igQtSelectionWidget::SelectionRadiusSpinBox);
     connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStateShow);
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
+    //ui->noneSelectionState->hide();
 }
 
 igQtSelectionWidget::~igQtSelectionWidget()

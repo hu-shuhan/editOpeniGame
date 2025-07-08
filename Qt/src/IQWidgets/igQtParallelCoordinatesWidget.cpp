@@ -2,11 +2,218 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <iomanip>
 #include <iostream>
+#include <tuple>
+#include <QRgb>
+#include <climits>
+#include <cmath>
+#include <algorithm>
+
 /**
  * @class   igQtParallelCoordinatesWidget
  * @brief   igQtParallelCoordinatesWidget's brief
  */
+
 using namespace std;
+
+const float EPSILON = 1e-6f;
+
+static void rgbToHsb(float r, float g, float b, float& h, float& s, float& bVal) {
+    float max_c = std::max({r, g, b});
+    float min_c = std::min({r, g, b});
+    float delta = max_c - min_c;
+
+    bVal = max_c;
+
+    if (max_c != 0.0f) {
+        s = delta / max_c;
+    } else {
+        s = 0.0f;
+        h = 0.0f;
+        return;
+    }
+
+    if (delta == 0.0f) {
+        h = 0.0f;
+        return;
+    }
+
+    if (max_c == r) {
+        h = 60.0f * std::fmod((g - b) / delta, 6.0f);
+    } else if (max_c == g) {
+        h = 60.0f * ((b - r) / delta + 2.0f);
+    } else { // max_c == b
+        h = 60.0f * ((r - g) / delta + 4.0f);
+    }
+}
+
+static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
+    float c = bVal * s;
+    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float m = bVal - c;
+
+    float r1, g1, b1;
+
+    if (h >= 0.0f - EPSILON && h < 60.0f + EPSILON) {
+        r1 = c + m;
+        g1 = x + m;
+        b1 = 0.0f + m;
+    } else if (h >= 60.0f - EPSILON && h < 120.0f + EPSILON) {
+        r1 = x + m;
+        g1 = c + m;
+        b1 = 0.0f + m;
+    } else if (h >= 120.0f - EPSILON && h < 180.0f + EPSILON) {
+        r1 = 0.0f + m;
+        g1 = c + m;
+        b1 = x + m;
+    } else if (h >= 180.0f - EPSILON && h < 240.0f + EPSILON) {
+        r1 = 0.0f + m;
+        g1 = x + m;
+        b1 = c + m;
+    } else if (h >= 240.0f - EPSILON && h < 300.0f + EPSILON) {
+        r1 = x + m;
+        g1 = 0.0f + m;
+        b1 = c + m;
+    } else {
+        r1 = c + m;
+        g1 = 0.0f + m;
+        b1 = x + m;
+    }
+
+    r = r1;
+    g = g1;
+    b = b1;
+}
+
+static void ChangeRgbBrightness(float& r, float& g, float& b, float targetBrightness) {
+    float h, s, currentB;
+
+    rgbToHsb(r, g, b, h, s, currentB);
+
+    if (std::fabs(currentB - targetBrightness) < EPSILON) { return; }
+
+    float newB = std::max(0.0f, std::min(1.0f, targetBrightness));
+
+    hsbToRgb(h, s, newB, r, g, b);
+}
+
+static tuple<int, int, int> ChangeBrightness(float r, float g, float b, int brightness) {
+    float targetBrightness = (float) brightness / 255.0;
+    ChangeRgbBrightness(r, g, b, targetBrightness);
+    int ir = r * 255;
+    int ig = g * 255;
+    int ib = b * 255;
+    return {ir, ig, ib};
+}
+
+static tuple<int, int, int> GetRedColor(int brightNess) {
+    QColor red = QColor::fromHsv(0, 255, brightNess);
+    int r{}, g{}, b{};
+    red.getRgb(&r, &g, &b);
+    return {r, g, b};
+}
+
+static inline QColor GetQColorFromTuple(const tuple<int, int, int>& rgb, int alpha) {
+    return QColor(get<0>(rgb), get<1>(rgb), get<2>(rgb), alpha);
+}
+
+static vector<tuple<int, int, int>> GenerateObjColors(int variableIndex, const vector<vector<double>>& objDatas,
+                                                      const vector<double>& maxValues, const vector<double>& minValues,
+                                                      int brightness, ScalarsToColors::Pointer colorMap) {
+    vector<tuple<int, int, int>> re;
+    if (variableIndex < 0 || objDatas.empty() || objDatas.front().size() <= variableIndex) return re;
+    float shift = 0 - minValues[variableIndex];
+    float scale = 1.0 / (maxValues[variableIndex] - minValues[variableIndex]);
+    float rgb[3]{};
+    for (auto& objData: objDatas) {
+        auto& value = objData[variableIndex];
+        colorMap->GetColor(value, rgb, shift, scale);
+        re.push_back(ChangeBrightness(rgb[0], rgb[1], rgb[2], brightness));
+    }
+    return re;
+}
+
+static int DistanceSquared(const std::tuple<int, int, int>& color1, const std::tuple<int, int, int>& color2) {
+    int r1 = std::get<0>(color1);
+    int g1 = std::get<1>(color1);
+    int b1 = std::get<2>(color1);
+    int r2 = std::get<0>(color2);
+    int g2 = std::get<1>(color2);
+    int b2 = std::get<2>(color2);
+    int dr = r1 - r2;
+    int dg = g1 - g2;
+    int db = b1 - b2;
+    return dr * dr + dg * dg + db * db;
+}
+
+static int MinDistanceSquared(const std::tuple<int, int, int>& bg,
+                              const std::vector<std::tuple<int, int, int>>& colors) {
+    int minDistSq = std::numeric_limits<int>::max();
+    for (const auto& obj: colors) {
+        int distSq = DistanceSquared(bg, obj);
+        if (distSq < minDistSq) {
+            minDistSq = distSq;
+            if (minDistSq == 0) break;
+        }
+    }
+    return minDistSq;
+}
+
+static std::tuple<int, int, int> CalculateBackgroundColor(const std::vector<std::tuple<int, int, int>>& colors) {
+    if (colors.empty()) { return std::make_tuple(255, 255, 255); }
+
+    const int step1 = 16;
+    int bestMinDistSq = -1;
+    std::tuple<int, int, int> bestBg;
+
+    for (int r = 0; r <= 255; r += step1) {
+        for (int g = 0; g <= 255; g += step1) {
+            for (int b = 0; b <= 255; b += step1) {
+                auto bg = std::make_tuple(r, g, b);
+                int minDistSq = MinDistanceSquared(bg, colors);
+                if (minDistSq > bestMinDistSq) {
+                    bestMinDistSq = minDistSq;
+                    bestBg = bg;
+                }
+            }
+        }
+    }
+
+    int r0 = std::get<0>(bestBg);
+    int g0 = std::get<1>(bestBg);
+    int b0 = std::get<2>(bestBg);
+    int r_start = std::max(0, r0 - step1);
+    int r_end = std::min(255, r0 + step1);
+    int g_start = std::max(0, g0 - step1);
+    int g_end = std::min(255, g0 + step1);
+    int b_start = std::max(0, b0 - step1);
+    int b_end = std::min(255, b0 + step1);
+
+    bestMinDistSq = -1;
+    for (int r = r_start; r <= r_end; ++r) {
+        for (int g = g_start; g <= g_end; ++g) {
+            for (int b = b_start; b <= b_end; ++b) {
+                auto bg = std::make_tuple(r, g, b);
+                int minDistSq = MinDistanceSquared(bg, colors);
+                if (minDistSq > bestMinDistSq) {
+                    bestMinDistSq = minDistSq;
+                    bestBg = bg;
+                }
+            }
+        }
+    }
+
+    return bestBg;
+}
+
+static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer colorBar) {
+    std::vector<std::tuple<int, int, int>> colors;
+    for (int i = 0; i < colorBar->GetNumberOfElements(); i++) {
+        colors.push_back({colorBar->GetElementValue(i, 0) * 255, colorBar->GetElementValue(i, 1) * 255,
+                          colorBar->GetElementValue(i, 2) * 255});
+    }
+    return CalculateBackgroundColor(colors);
+}
+
 igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::ParallelCoordinatesView) {
     ui->setupUi(this);
@@ -29,6 +236,9 @@ igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
             &igQtParallelCoordinatesWidget::UnChoosedLightSpinBoxChanged);
     connect(ui->dataChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtParallelCoordinatesWidget::DataChooseChanged);
+    connect(ui->colorChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &igQtParallelCoordinatesWidget::ColorChooseChanged);
+    connect(ui->refreshData, &QPushButton::clicked, this, &igQtParallelCoordinatesWidget::RefreshData);
 }
 igQtParallelCoordinatesWidget::~igQtParallelCoordinatesWidget() {}
 
@@ -39,16 +249,53 @@ void igQtParallelCoordinatesWidget::paintEvent(QPaintEvent* QPE) {
 
 void igQtParallelCoordinatesWidget::SetParallelCoordinates(Model::Pointer model) {
     m_Model = model;
-    m_Mesh = DynamicCast<UnstructuredMesh>(m_Model->GetDataObject());
-    SetSelect();
-    UpdataData();
+    m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    SetSelectionCallback();
+    UpdateData();
+    update();
 }
 
-void igQtParallelCoordinatesWidget::UpdataData() {
+void igQtParallelCoordinatesWidget::UpdateData() {
     GenerateModelDatas();
-    SetComboBox();
+    SetDataChoosedComboBox();
+    SetColorComboBox();
     LoadCurrentData();
-    update();
+}
+
+void igQtParallelCoordinatesWidget::UpdateColor() {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    UpdateChoosedColor();
+    UpdateUnChoosedColor();
+}
+
+void igQtParallelCoordinatesWidget::UpdateChoosedColor() {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    auto colorMap = m_Mesh->GetColorMapper();
+    Data->SetObjectChoosedColor(GenerateObjColors(m_ColorVariableIndex, Data->GetObjectDatas(),
+                                                  Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+                                                  Data->GetChoosedLight(), colorMap));
+}
+
+void igQtParallelCoordinatesWidget::UpdateUnChoosedColor() {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    auto colorMap = m_Mesh->GetColorMapper();
+    Data->SetObjectUnChoosedColor(GenerateObjColors(m_ColorVariableIndex, Data->GetObjectDatas(),
+                                                    Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+                                                    Data->GetUnChoosedLight(), colorMap));
+}
+
+void igQtParallelCoordinatesWidget::UpdateBackgroundColor() {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex ||
+        m_ColorVariableIndex < 0 ||
+        m_ParallelCoordinatesDatas[m_CurrentModelDataIndex]->GetVariableNum() <= m_ColorVariableIndex) {
+        m_BackgroundColor = {255, 255, 255};
+        return;
+    }
+    auto colorMap = m_Mesh->GetColorMapper();
+    auto colorBar = colorMap->GetColorBar();
+    m_BackgroundColor = CalculateBackgroundColor(colorBar);
 }
 
 void igQtParallelCoordinatesWidget::LoadCurrentData() {
@@ -67,7 +314,7 @@ void igQtParallelCoordinatesWidget::LoadCurrentData() {
                      Data->GetFilterMinValue());
 }
 
-void igQtParallelCoordinatesWidget::SetComboBox() {
+void igQtParallelCoordinatesWidget::SetDataChoosedComboBox() {
     ui->dataChoose->clear();
     if (m_ParallelCoordinatesDatas.size() == 0) {
         ui->dataChoose->hide();
@@ -75,6 +322,18 @@ void igQtParallelCoordinatesWidget::SetComboBox() {
     }
     ui->dataChoose->show();
     for (auto& Data: m_ParallelCoordinatesDatas) { ui->dataChoose->addItem(Data->GetDataTypeName().c_str()); }
+}
+
+void igQtParallelCoordinatesWidget::SetColorComboBox() {
+    ui->colorChoose->clear();
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) {
+        ui->colorChoose->hide();
+        return;
+    }
+    ui->colorChoose->show();
+    ui->colorChoose->addItem("default");
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    for (auto& variableName: Data->GetVariableName()) { ui->colorChoose->addItem(variableName.c_str()); }
 }
 
 void igQtParallelCoordinatesWidget::GenerateModelDatas() {
@@ -105,6 +364,9 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGe
     parallelCoordinatesData->SetVariableName(variableNames);
     auto objDatas = GetObjectDatas(dataType);
     parallelCoordinatesData->SetObjectData(objDatas);
+    parallelCoordinatesData->SetObjectDrawSorts(GetObjectDrawSorts(variableNum, objDatas));
+    parallelCoordinatesData->SetDefaultChoosedColor(GetRedColor(parallelCoordinatesData->GetChoosedLight()));
+    parallelCoordinatesData->SetDefaultUnChoosedColor(GetRedColor(parallelCoordinatesData->GetUnChoosedLight()));
     auto [minValue, maxValue] = GetMinMaxData(dataType, variableNum);
     parallelCoordinatesData->SetMinValueInVariables(minValue);
     parallelCoordinatesData->SetMaxValueInVariables(maxValue);
@@ -127,7 +389,7 @@ std::vector<std::string> igQtParallelCoordinatesWidget::GetVariableNames(IGenum 
         }
         for (int j = 1; j <= attr.pointer->GetDimension(); j++) {
             stringstream ss;
-            ss << attr.pointer->GetName() << j;
+            ss << attr.pointer->GetName() << "_" << j;
             variableNames.push_back(ss.str());
         }
     }
@@ -192,7 +454,22 @@ std::pair<std::vector<double>, std::vector<double>> igQtParallelCoordinatesWidge
     return {minData, maxData};
 }
 
-void igQtParallelCoordinatesWidget::SetSelect() {
+std::vector<std::vector<int>>
+igQtParallelCoordinatesWidget::GetObjectDrawSorts(int variableNum,
+                                                  const std::vector<std::vector<double>>& objcetValues) {
+    std::vector<std::vector<int>> re(variableNum, std::vector<int>(objcetValues.size(), 0));
+    for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
+        for (int objIndex = 0; objIndex < objcetValues.size(); objIndex++) { re[variableIndex][objIndex] = objIndex; }
+    }
+    for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
+        std::sort(re[variableIndex].begin(), re[variableIndex].end(), [&](int objIdA, int objIdB) {
+            return objcetValues[objIdA][variableIndex] < objcetValues[objIdB][variableIndex];
+        });
+    }
+    return re;
+}
+
+void igQtParallelCoordinatesWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtParallelCoordinatesWidget::SelectionCallbackEvent, this,
                                          std::placeholders::_1);
@@ -249,13 +526,24 @@ void igQtParallelCoordinatesWidget::FilterMinValueChanged(int number, double val
 void igQtParallelCoordinatesWidget::DataChooseChanged(int choosedIndex) {
     if (m_CurrentModelDataIndex == choosedIndex) return;
     m_CurrentModelDataIndex = choosedIndex;
+    SetColorComboBox();
     LoadCurrentData();
+    update();
+}
+
+void igQtParallelCoordinatesWidget::ColorChooseChanged(int choosedIndex) {
+    m_ColorVariableIndex = choosedIndex - 1;
+    UpdateColor();
+    UpdateBackgroundColor();
     update();
 }
 
 void igQtParallelCoordinatesWidget::RefreshData() {
     auto choosedDataIndex = m_CurrentModelDataIndex;
-    UpdataData();
+    UpdateData();
+    UpdateColor();
+    UpdateBackgroundColor();
+    update();
     if (choosedDataIndex < m_ParallelCoordinatesDatas.size()) m_CurrentModelDataIndex = choosedDataIndex;
 }
 
@@ -272,17 +560,9 @@ void igQtParallelCoordinatesWidget::DrawParallelCoordinates() {
     if (!drawAble) return;
     DrawBackground(background);
     DrawStrs(variableMaxFontPoints, variableMinFontPoints, variableNameFontPoints);
-    QColor lightRed = QColor::fromHsv(0, 255, Data->GetChoosedLight(), Data->GetChoosedAlpha());
-    QColor darkRed = QColor::fromHsv(0, 255, Data->GetUnChoosedLight(), Data->GetUnChoosedAlpha());
-    DrawLinks(linkTopPoints, linkBottomPoints, lightRed, darkRed);
+    DrawLinks(linkTopPoints, linkBottomPoints);
     //DrawLinks(linkTopPoints, linkBottomPoints, QColor(255, 0, 0, Data->GetChoosedAlpha()),
     //          QColor(0, 0, 255, Data->GetUnChoosedAlpha()));
-}
-
-std::shared_ptr<QPainter> igQtParallelCoordinatesWidget::GetLinePainter(const QColor& color) {
-    std::shared_ptr<QPainter> painter = make_shared<QPainter>(this);
-    painter->setPen(QPen(color, 1));
-    return painter;
 }
 
 int igQtParallelCoordinatesWidget::GetLinePointLocation(int top, int bottom, double currentValue, double maxValue,
@@ -294,7 +574,7 @@ int igQtParallelCoordinatesWidget::GetLinePointLocation(int top, int bottom, dou
 void igQtParallelCoordinatesWidget::DrawBackground(const QRect& range) {
     QPainter painter(this);
     QBrush brush;
-    brush.setColor(QColor(255, 255, 255));
+    brush.setColor(QColor(get<0>(m_BackgroundColor), get<1>(m_BackgroundColor), get<2>(m_BackgroundColor)));
     brush.setStyle(Qt::SolidPattern);
     painter.setBrush(brush);
     painter.drawRect(range);
@@ -323,56 +603,63 @@ void igQtParallelCoordinatesWidget::DrawStrs(std::vector<QRect>& variableMaxFont
 }
 
 void igQtParallelCoordinatesWidget::DrawLinks(std::vector<QPoint>& linkTopPoints,
-                                              std::vector<QPoint>& linkBottomPoints, const QColor& choosedColor,
-                                              const QColor& unChoosedColor) {
+                                              std::vector<QPoint>& linkBottomPoints) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     auto& objDatas = Data->GetObjectDatas();
     std::vector<int> choosedObjIndexs;
+    std::shared_ptr<QPainter> painter = make_shared<QPainter>(this);
+    auto& drawSort = Data->GetObjectDrawSorts()[std::max(0, m_ColorVariableIndex)];
     if (Data->GetVariableNum() == 1) {
-        for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
+        //for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
+        for (auto& objIndex: drawSort) {
             auto& objData = objDatas[objIndex];
             if (ShoultBeFilted(objData)) continue;
             if (IsChoosedObj(Data->GetDataType(), objIndex)) {
                 choosedObjIndexs.push_back(objIndex);
                 continue;
             }
+            painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
             DrawLink(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                      linkBottomPoints.front().y(), objData.front(), objData.back(),
                      Data->GetMaxValueInVariables().front(), Data->GetMinValueInVariables().front(),
-                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), unChoosedColor);
+                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), painter);
         }
         for (auto& objIndex: choosedObjIndexs) {
             auto& objData = objDatas[objIndex];
+            painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(true, objIndex), Data->GetChoosedAlpha()), 1));
             DrawLink(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                      linkBottomPoints.front().y(), objData.front(), objData.back(),
                      Data->GetMaxValueInVariables().front(), Data->GetMinValueInVariables().front(),
-                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), choosedColor);
+                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), painter);
         }
         return;
     }
-    for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
+    //for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
+    for (auto& objIndex: drawSort) {
         auto& objData = objDatas[objIndex];
         if (ShoultBeFilted(objData)) continue;
         if (IsChoosedObj(Data->GetDataType(), objIndex)) {
             choosedObjIndexs.push_back(objIndex);
             continue;
         }
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
         for (int variableIndex = 0; variableIndex < objData.size() - 1; variableIndex++) {
             DrawLink(linkTopPoints[variableIndex].x(), linkTopPoints[variableIndex + 1].x(),
                      linkTopPoints[variableIndex].y(), linkBottomPoints[variableIndex].y(), objData[variableIndex],
                      objData[variableIndex + 1], Data->GetMaxValueInVariables()[variableIndex],
                      Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex + 1],
-                     Data->GetMinValueInVariables()[variableIndex + 1], unChoosedColor);
+                     Data->GetMinValueInVariables()[variableIndex + 1], painter);
         }
     }
     for (auto& objIndex: choosedObjIndexs) {
         auto& objData = objDatas[objIndex];
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(true, objIndex), Data->GetChoosedAlpha()), 1));
         for (int variableIndex = 0; variableIndex < objData.size() - 1; variableIndex++) {
             DrawLink(linkTopPoints[variableIndex].x(), linkTopPoints[variableIndex + 1].x(),
                      linkTopPoints[variableIndex].y(), linkBottomPoints[variableIndex].y(), objData[variableIndex],
                      objData[variableIndex + 1], Data->GetMaxValueInVariables()[variableIndex],
                      Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex + 1],
-                     Data->GetMinValueInVariables()[variableIndex + 1], choosedColor);
+                     Data->GetMinValueInVariables()[variableIndex + 1], painter);
         }
     }
 }
@@ -393,8 +680,8 @@ bool igQtParallelCoordinatesWidget::IsChoosedObj(IGenum dataType, int objId) {
 
 void igQtParallelCoordinatesWidget::DrawLink(int leftLine, int rightLine, int top, int bottom, double leftValue,
                                              double rightValue, double leftMaxValue, double leftMinValue,
-                                             double rightMaxValue, double rightMinValue, const QColor& color) {
-    auto painter = GetLinePainter(color);
+                                             double rightMaxValue, double rightMinValue,
+                                             const std::shared_ptr<QPainter>& painter) {
     int leftPoint = GetLinePointLocation(top, bottom, leftValue, leftMaxValue, leftMinValue);
     int rightPoint = GetLinePointLocation(top, bottom, rightValue, rightMaxValue, rightMinValue);
     painter->drawLine(leftLine, leftPoint, rightLine, rightPoint);
@@ -436,6 +723,8 @@ void igQtParallelCoordinatesWidget::ChoosedLightSliderChanged(int value) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
+    Data->SetDefaultChoosedColor(GetRedColor(value));
+    UpdateChoosedColor();
     this->update();
     if (ui->choosedLightSpinBox->value() != value) ui->choosedLightSpinBox->setValue(value);
 }
@@ -444,6 +733,8 @@ void igQtParallelCoordinatesWidget::UnChoosedLightSliderChanged(int value) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
+    Data->SetDefaultUnChoosedColor(GetRedColor(value));
+    UpdateUnChoosedColor();
     this->update();
     if (ui->unChoosedLightSpinBox->value() != value) ui->unChoosedLightSpinBox->setValue(value);
 }
@@ -452,6 +743,8 @@ void igQtParallelCoordinatesWidget::ChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
+    Data->SetDefaultChoosedColor(GetRedColor(value));
+    UpdateChoosedColor();
     this->update();
     if (ui->choosedLightSlider->value() != value) ui->choosedLightSlider->setValue(value);
 }
@@ -460,6 +753,8 @@ void igQtParallelCoordinatesWidget::UnChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
+    Data->SetDefaultUnChoosedColor(GetRedColor(value));
+    UpdateUnChoosedColor();
     this->update();
     if (ui->unChoosedLightSlider->value() != value) ui->unChoosedLightSlider->setValue(value);
 }

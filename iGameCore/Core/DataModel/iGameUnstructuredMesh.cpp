@@ -244,6 +244,41 @@ bool UnstructuredMesh::TransferVolumeMeshToUnstructuredMesh(VolumeMesh::Pointer 
     return output->GenerateFromVolumeMesh(input);
 }
 
+UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataObject::Pointer dataObj) {
+    auto meshType = dataObj->GetDataObjectType();
+    UnstructuredMesh::Pointer re;
+    switch (meshType) {
+        case IG_DATA_OBJECT:
+            return nullptr;
+        case IG_COMPOSITE_DATA_OBJECT:
+            return nullptr;
+        case IG_DRAW_OBJECT:
+            return nullptr;
+        case IG_POINT_SET:
+            return nullptr;
+        case IG_SURFACE_MESH:
+            re = UnstructuredMesh::New();
+            re->GenerateFromSurfaceMesh(DynamicCast<SurfaceMesh>(dataObj));
+            return re;
+        case IG_VOLUME_MESH:
+            re = UnstructuredMesh::New();
+            re->GenerateFromVolumeMesh(DynamicCast<VolumeMesh>(dataObj));
+            return re;
+        case IG_UNSTRUCTURED_MESH:
+            return DynamicCast<UnstructuredMesh>(dataObj);
+        case IG_STRUCTURED_MESH:
+            return nullptr;
+        case IG_MULTIBLOCK_MESH:
+            return nullptr;
+        case IG_NURBS_GEOMETRY:
+            return nullptr;
+        case IG_DATA_OBJECT_COUNT:
+            return nullptr;
+        default:
+            return nullptr;
+    }
+}
+
 IGsize UnstructuredMesh::GetRealMemorySize() {
     IGsize res = this->PointSet::GetRealMemorySize();
     if (m_Cells) res += m_Cells->GetRealMemorySize();

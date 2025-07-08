@@ -91,7 +91,7 @@
         <file>Icons/ScreenShot.svg</file>
         <file>Icons/animation_save_vcr.svg</file>
         <file>Icons/select/select_face.png</file>
-		<file>Icons/select/selectView.png</file>
+        <file>Icons/select/selectView.png</file>
         <file>Icons/select/select_vertex.png</file>
         <file>Icons/select/select_vertex_geodesic.png</file>
         <file>Icons/select/fill.png</file>
@@ -114,6 +114,7 @@
         <file>Icons/select/hex.png</file>
         <file>Icons/select/point.png</file>
         <file>Icons/select/point2.png</file>
+        <file>Icons/select/ContextPreservingAction.png</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>
