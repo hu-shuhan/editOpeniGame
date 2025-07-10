@@ -71,6 +71,10 @@ int ParallelCoordinatesData::GetUnChoosedLight() const { return m_UnChoosedLight
 
 int ParallelCoordinatesData::GetVariableNum() const { return m_VariableNum; }
 
+void ParallelCoordinatesData::SetVariableSort(const std::vector<int>& variableSort) { m_VariableSort = variableSort; }
+
+const std::vector<int>& ParallelCoordinatesData::GetVariableSort() { return m_VariableSort; }
+
 const std::vector<std::string>& ParallelCoordinatesData::GetVariableName() { return m_VariableName; }
 
 void ParallelCoordinatesData::SetObjectData(const std::vector<std::vector<double>>& objData) {

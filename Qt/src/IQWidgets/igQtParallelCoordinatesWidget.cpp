@@ -7,6 +7,7 @@
 #include <climits>
 #include <cmath>
 #include <algorithm>
+#include <IQComponents/Dialog/igQtParallelCoordinatesSortVariableDialog.h>
 
 /**
  * @class   igQtParallelCoordinatesWidget
@@ -239,6 +240,7 @@ igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
     connect(ui->colorChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtParallelCoordinatesWidget::ColorChooseChanged);
     connect(ui->refreshData, &QPushButton::clicked, this, &igQtParallelCoordinatesWidget::RefreshData);
+    connect(ui->variableSort, &QPushButton::clicked, this, &igQtParallelCoordinatesWidget::SetVariableSort);
 }
 igQtParallelCoordinatesWidget::~igQtParallelCoordinatesWidget() {}
 
@@ -310,7 +312,7 @@ void igQtParallelCoordinatesWidget::LoadCurrentData() {
     ui->choosedLightSpinBox->setValue(Data->GetChoosedLight());
     ui->unChoosedLightSlider->setValue(Data->GetUnChoosedLight());
     ui->unChoosedLightSpinBox->setValue(Data->GetUnChoosedLight());
-    SetObjectFilters(Data->GetVariableNum(), Data->GetVariableName(), Data->GetFilterMaxValue(),
+    SetObjectFilters(Data->GetVariableSort(), Data->GetVariableName(), Data->GetFilterMaxValue(),
                      Data->GetFilterMinValue());
 }
 
@@ -361,6 +363,7 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGe
     int variableNum = variableNames.size();
     if (variableNum == 0) return ParallelCoordinatesData::Pointer();
     auto parallelCoordinatesData = ParallelCoordinatesData::New(variableNum);
+    parallelCoordinatesData->SetVariableSort(GetDefaultVariableSort(variableNum));
     parallelCoordinatesData->SetVariableName(variableNames);
     auto objDatas = GetObjectDatas(dataType);
     parallelCoordinatesData->SetObjectData(objDatas);
@@ -469,6 +472,12 @@ igQtParallelCoordinatesWidget::GetObjectDrawSorts(int variableNum,
     return re;
 }
 
+std::vector<int> igQtParallelCoordinatesWidget::GetDefaultVariableSort(int variableNum) {
+    std::vector<int> re(variableNum);
+    for (int i = 0; i < variableNum; i++) re[i] = i;
+    return re;
+}
+
 void igQtParallelCoordinatesWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtParallelCoordinatesWidget::SelectionCallbackEvent, this,
@@ -479,12 +488,14 @@ void igQtParallelCoordinatesWidget::SelectionCallbackEvent(const std::vector<Sel
     update();
 }
 
-void igQtParallelCoordinatesWidget::SetObjectFilters(int variableNum, const std::vector<std::string>& variableName,
+void igQtParallelCoordinatesWidget::SetObjectFilters(const std::vector<int>& variableSort,
+                                                     const std::vector<std::string>& variableName,
                                                      const std::vector<double>& filterMaxValue,
                                                      const std::vector<double>& filterMinValue) {
-    for (int i = 0; i < variableNum; i++) {
-        igQtParallelCoordinatesObjectFilter* pcObjFilter =
-                new igQtParallelCoordinatesObjectFilter(i, filterMaxValue[i], filterMinValue[i], variableName[i], this);
+    for (auto& variableIndex: variableSort) {
+        igQtParallelCoordinatesObjectFilter* pcObjFilter = new igQtParallelCoordinatesObjectFilter(
+                variableIndex, filterMaxValue[variableIndex], filterMinValue[variableIndex],
+                variableName[variableIndex], this);
         connect(pcObjFilter, &igQtParallelCoordinatesObjectFilter::ChangeMaxValue, this,
                 &igQtParallelCoordinatesWidget::FilterMaxValueChanged);
         connect(pcObjFilter, &igQtParallelCoordinatesObjectFilter::ChangeMinValue, this,
@@ -547,6 +558,29 @@ void igQtParallelCoordinatesWidget::RefreshData() {
     if (choosedDataIndex < m_ParallelCoordinatesDatas.size()) m_CurrentModelDataIndex = choosedDataIndex;
 }
 
+void igQtParallelCoordinatesWidget::SetVariableSort() {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    igQtParallelCoordinatesSortVariableDialog* sortDialog = new igQtParallelCoordinatesSortVariableDialog(
+            Data->GetVariableNum(), Data->GetVariableName(), Data->GetVariableSort(), this);
+    connect(sortDialog, &igQtParallelCoordinatesSortVariableDialog::ReturnSort, this,
+            &igQtParallelCoordinatesWidget::GetVariableSortFromDialog);
+    sortDialog->exec();
+}
+
+void igQtParallelCoordinatesWidget::GetVariableSortFromDialog(const std::vector<int>& choosedSort) {
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    for (auto& choosedIndex: choosedSort) {
+        if (Data->GetVariableNum() <= choosedIndex) return;
+    }
+    Data->SetVariableSort(choosedSort);
+    ClearObjectFilters();
+    SetObjectFilters(Data->GetVariableSort(), Data->GetVariableName(), Data->GetFilterMaxValue(),
+                     Data->GetFilterMinValue());
+    update();
+}
+
 void igQtParallelCoordinatesWidget::DrawParallelCoordinates() {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     std::vector<QRect> variableMaxFontPoints;
@@ -555,7 +589,7 @@ void igQtParallelCoordinatesWidget::DrawParallelCoordinates() {
     std::vector<QPoint> linkTopPoints;
     std::vector<QPoint> linkBottomPoints;
     QRect background;
-    bool drawAble = GetDrawFramePoints(Data->GetVariableNum(), variableMaxFontPoints, variableMinFontPoints,
+    bool drawAble = GetDrawFramePoints(Data->GetVariableSort().size(), variableMaxFontPoints, variableMinFontPoints,
                                        variableNameFontPoints, linkTopPoints, linkBottomPoints, background);
     if (!drawAble) return;
     DrawBackground(background);
@@ -591,14 +625,14 @@ void igQtParallelCoordinatesWidget::DrawStrs(std::vector<QRect>& variableMaxFont
     font.setPointSize(8);
     painter.setPen(pen);
     painter.setFont(font);
-    for (int i = 0; i < Data->GetVariableName().size(); i++) {
-        painter.drawText(variableNameFontPoints[i], Qt::AlignCenter, QString(Data->GetVariableName()[i].c_str()));
-    }
-    for (int i = 0; i < Data->GetMaxValueInVariables().size(); i++) {
-        painter.drawText(variableMaxFontPoints[i], Qt::AlignCenter, QString::number(Data->GetMaxValueInVariables()[i]));
-    }
-    for (int i = 0; i < Data->GetMinValueInVariables().size(); i++) {
-        painter.drawText(variableMinFontPoints[i], Qt::AlignCenter, QString::number(Data->GetMinValueInVariables()[i]));
+    for (int i = 0; i < Data->GetVariableSort().size(); i++) {
+        int variableIndex = Data->GetVariableSort()[i];
+        painter.drawText(variableNameFontPoints[i], Qt::AlignCenter,
+                         QString(Data->GetVariableName()[variableIndex].c_str()));
+        painter.drawText(variableMaxFontPoints[i], Qt::AlignCenter,
+                         QString::number(Data->GetMaxValueInVariables()[variableIndex]));
+        painter.drawText(variableMinFontPoints[i], Qt::AlignCenter,
+                         QString::number(Data->GetMinValueInVariables()[variableIndex]));
     }
 }
 
@@ -609,8 +643,8 @@ void igQtParallelCoordinatesWidget::DrawLinks(std::vector<QPoint>& linkTopPoints
     std::vector<int> choosedObjIndexs;
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(this);
     auto& drawSort = Data->GetObjectDrawSorts()[std::max(0, m_ColorVariableIndex)];
-    if (Data->GetVariableNum() == 1) {
-        //for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
+    if (Data->GetVariableSort().size() == 1) {
+        int variableIndex = Data->GetVariableSort().front();
         for (auto& objIndex: drawSort) {
             auto& objData = objDatas[objIndex];
             if (ShoultBeFilted(objData)) continue;
@@ -620,21 +654,22 @@ void igQtParallelCoordinatesWidget::DrawLinks(std::vector<QPoint>& linkTopPoints
             }
             painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
             DrawLink(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
-                     linkBottomPoints.front().y(), objData.front(), objData.back(),
-                     Data->GetMaxValueInVariables().front(), Data->GetMinValueInVariables().front(),
-                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), painter);
+                     linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
+                     Data->GetMaxValueInVariables()[variableIndex], Data->GetMinValueInVariables()[variableIndex],
+                     Data->GetMaxValueInVariables()[variableIndex], Data->GetMinValueInVariables()[variableIndex],
+                     painter);
         }
         for (auto& objIndex: choosedObjIndexs) {
             auto& objData = objDatas[objIndex];
             painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(true, objIndex), Data->GetChoosedAlpha()), 1));
             DrawLink(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
-                     linkBottomPoints.front().y(), objData.front(), objData.back(),
-                     Data->GetMaxValueInVariables().front(), Data->GetMinValueInVariables().front(),
-                     Data->GetMaxValueInVariables().back(), Data->GetMinValueInVariables().back(), painter);
+                     linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
+                     Data->GetMaxValueInVariables()[variableIndex], Data->GetMinValueInVariables()[variableIndex],
+                     Data->GetMaxValueInVariables()[variableIndex], Data->GetMinValueInVariables()[variableIndex],
+                     painter);
         }
         return;
     }
-    //for (int objIndex = 0; objIndex < objDatas.size(); objIndex++) {
     for (auto& objIndex: drawSort) {
         auto& objData = objDatas[objIndex];
         if (ShoultBeFilted(objData)) continue;
@@ -643,23 +678,27 @@ void igQtParallelCoordinatesWidget::DrawLinks(std::vector<QPoint>& linkTopPoints
             continue;
         }
         painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
-        for (int variableIndex = 0; variableIndex < objData.size() - 1; variableIndex++) {
-            DrawLink(linkTopPoints[variableIndex].x(), linkTopPoints[variableIndex + 1].x(),
-                     linkTopPoints[variableIndex].y(), linkBottomPoints[variableIndex].y(), objData[variableIndex],
-                     objData[variableIndex + 1], Data->GetMaxValueInVariables()[variableIndex],
-                     Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex + 1],
-                     Data->GetMinValueInVariables()[variableIndex + 1], painter);
+        for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
+            int variableIndexA = Data->GetVariableSort()[sortIndex];
+            int variableIndexB = Data->GetVariableSort()[sortIndex + 1];
+            DrawLink(linkTopPoints[sortIndex].x(), linkTopPoints[sortIndex + 1].x(), linkTopPoints[sortIndex].y(),
+                     linkBottomPoints[sortIndex].y(), objData[variableIndexA], objData[variableIndexB],
+                     Data->GetMaxValueInVariables()[variableIndexA], Data->GetMinValueInVariables()[variableIndexA],
+                     Data->GetMaxValueInVariables()[variableIndexB], Data->GetMinValueInVariables()[variableIndexB],
+                     painter);
         }
     }
     for (auto& objIndex: choosedObjIndexs) {
         auto& objData = objDatas[objIndex];
         painter->setPen(QPen(GetQColorFromTuple(Data->GetObjColor(true, objIndex), Data->GetChoosedAlpha()), 1));
-        for (int variableIndex = 0; variableIndex < objData.size() - 1; variableIndex++) {
-            DrawLink(linkTopPoints[variableIndex].x(), linkTopPoints[variableIndex + 1].x(),
-                     linkTopPoints[variableIndex].y(), linkBottomPoints[variableIndex].y(), objData[variableIndex],
-                     objData[variableIndex + 1], Data->GetMaxValueInVariables()[variableIndex],
-                     Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex + 1],
-                     Data->GetMinValueInVariables()[variableIndex + 1], painter);
+        for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
+            int variableIndexA = Data->GetVariableSort()[sortIndex];
+            int variableIndexB = Data->GetVariableSort()[sortIndex + 1];
+            DrawLink(linkTopPoints[sortIndex].x(), linkTopPoints[sortIndex + 1].x(), linkTopPoints[sortIndex].y(),
+                     linkBottomPoints[sortIndex].y(), objData[variableIndexA], objData[variableIndexB],
+                     Data->GetMaxValueInVariables()[variableIndexA], Data->GetMinValueInVariables()[variableIndexA],
+                     Data->GetMaxValueInVariables()[variableIndexB], Data->GetMinValueInVariables()[variableIndexB],
+                     painter);
         }
     }
 }
@@ -759,7 +798,7 @@ void igQtParallelCoordinatesWidget::UnChoosedLightSpinBoxChanged(int value) {
     if (ui->unChoosedLightSlider->value() != value) ui->unChoosedLightSlider->setValue(value);
 }
 
-bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableNum, std::vector<QRect>& variableMaxFontPoints,
+bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableSortSize, std::vector<QRect>& variableMaxFontPoints,
                                                        std::vector<QRect>& variableMinFontPoints,
                                                        std::vector<QRect>& variableNameFontPoints,
                                                        std::vector<QPoint>& linkTopPoints,
@@ -767,6 +806,7 @@ bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableNum, std::vec
     constexpr int leftSpace = 5, rightSpace = 5, topSpace = 5, bottomSpace = 5;
     constexpr int stringSize = 10;
     constexpr int eachInterval = 2;
+    if (variableSortSize < 1) return false;
     QPoint startPoint(ui->ParallelCoordinatesDrawView->x() + leftSpace,
                       ui->ParallelCoordinatesDrawView->y() + topSpace),
             endPoint(ui->ParallelCoordinatesDrawView->x() + ui->ParallelCoordinatesDrawView->size().width() -
@@ -788,8 +828,7 @@ bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableNum, std::vec
     int minFontEndBottom = nameFontStartTop - eachInterval;
     int minFontStartTop = minFontEndBottom - stringSize;
     int variableEndBottom = minFontStartTop - eachInterval;
-    if (variableNum < 1) return false;
-    if (variableNum == 1) {
+    if (variableSortSize == 1) {
         int variableInterval = useableWidth;
         linkTopPoints.push_back(QPoint(startPoint.x(), variableStartTop));
         linkTopPoints.push_back(QPoint(endPoint.x(), variableStartTop));
@@ -805,8 +844,8 @@ bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableNum, std::vec
         return true;
     }
     //Interval of midline in each variable
-    int variableInterval = useableWidth / variableNum;
-    for (int i = 0; i < variableNum; i++) {
+    int variableInterval = useableWidth / variableSortSize;
+    for (int i = 0; i < variableSortSize; i++) {
         int halfInterval = variableInterval / 2;
         int nowMidLine = startPoint.x() + i * variableInterval + halfInterval;
         linkTopPoints.push_back(QPoint(nowMidLine, variableStartTop));

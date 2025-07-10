@@ -20,6 +20,7 @@
 #include <iGameModel.h>
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
+#include <QLine>
 
 using namespace iGame;
 class IG_QT_MODULE_EXPORT igQtParallelCoordinatesWidget : public QWidget {
@@ -61,13 +62,14 @@ private:
     std::pair<std::vector<double>, std::vector<double>> GetMinMaxData(IGenum dataType, int variableNum);
     std::vector<std::vector<int>> GetObjectDrawSorts(int variableNum,
                                                      const std::vector<std::vector<double>>& objcetValues);
+    std::vector<int> GetDefaultVariableSort(int variableNum);
     //Frame
     bool GetDrawFramePoints(int variableNum, std::vector<QRect>& variableMaxFontPoints,
                             std::vector<QRect>& variableMinFontPoints, std::vector<QRect>& variableNameFontPoints,
                             std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints,
                             QRect& background);
     //Filter
-    void SetObjectFilters(int variableNum, const std::vector<std::string>& variableName,
+    void SetObjectFilters(const std::vector<int>& variableSort, const std::vector<std::string>& variableName,
                           const std::vector<double>& filterMaxValue, const std::vector<double>& filterMinValue);
     void ClearObjectFilters();
     bool ShoultBeFilted(const std::vector<double>& obj);
@@ -115,4 +117,6 @@ private slots:
     void DataChooseChanged(int choosedIndex);
     void ColorChooseChanged(int choosedIndex);
     void RefreshData();
+    void SetVariableSort();
+    void GetVariableSortFromDialog(const std::vector<int>& choosedSort);
 };

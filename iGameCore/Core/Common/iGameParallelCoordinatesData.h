@@ -16,6 +16,9 @@ public:
 
     int GetVariableNum() const;
 
+    void SetVariableSort(const std::vector<int>& variableSort);
+    const std::vector<int>& GetVariableSort();
+
     void UseDefaultVariableName();
     bool SetVariableName(const std::vector<std::string>& variableName);
     const std::vector<std::string>& GetVariableName();
@@ -77,6 +80,7 @@ protected:
     ParallelCoordinatesData(int variableNum);
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
+    std::vector<int> m_VariableSort;
     std::vector<std::vector<double>> m_ObjectDatas;
     std::vector<std::tuple<int, int, int>> m_ObjChoosedColor;//RGB
     std::vector<std::tuple<int, int, int>> m_ObjUnChoosedColor; //RGB
