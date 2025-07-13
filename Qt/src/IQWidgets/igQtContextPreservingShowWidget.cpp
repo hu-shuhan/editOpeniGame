@@ -115,6 +115,13 @@ void igQtContextPreservingShowWidget::SetContextPreserving(Model::Pointer model)
     ClearOldDraws();
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    if (m_Mesh->GetNumberOfCells() > 100000 || m_Mesh->GetNumberOfPoints() > 100000) {
+        ui->mainUi->hide();
+        ui->notice->show();
+    } else {
+        ui->mainUi->show();
+        ui->notice->hide();
+    }
     SetAttrs();
     SetSelectionCallBack();
     SetChoosedDataComboBox();
@@ -295,39 +302,11 @@ static void DrawCell(Model::Pointer model, UnstructuredMesh::Pointer mesh, Attri
     }
 }
 
-static void GetMaxMinValueInCellByPoint(AttributeSet::Attribute& attr, Cell* cell, int variableIndex,
-                                           double& maxValue, double& minValue) {
-    auto faceNum = cell->GetNumberOfFaces();
-    if (faceNum == 0) {
-        int pointSize = cell->GetNumberOfPoints();
-        if (pointSize <= 2) return;
-        auto value = CalFacePointsAveValue(attr, cell, variableIndex, pointSize);
-        maxValue = std::max(maxValue, value);
-        minValue = std::min(minValue, value);
-    } else {
-        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
-            auto face = cell->GetFace(faceIndex);
-            GetMaxMinValueInCellByPoint(attr, face, variableIndex, maxValue, minValue);
-        }
-    }
-}
-
-static void GetMaxMinValueInCell(AttributeSet::Attribute& attr, igIndex cellIndex, int variableIndex, double& maxValue,
-                                 double& minValue) {
-    auto value = GetCellValue(attr, cellIndex, variableIndex);
-    maxValue = std::max(maxValue, value);
-    minValue = std::min(minValue, value);
-}
-
 //Each face of the cell determines its value according to the value of the corresponding points.
 void igQtContextPreservingShowWidget::DrawPointAttr(AttributeSet::Attribute& attr, int variableIndex) {
-    double minValue{std::numeric_limits<float>::max()};
-    double maxValue{-minValue};
+    double minValue = attr.GetDataRange()->GetValue((variableIndex + 1) * 2);
+    double maxValue = attr.GetDataRange()->GetValue((variableIndex + 1) * 2 + 1);
     int cellNum = m_Mesh->GetNumberOfCells();
-    for (int cellIndex = 0; cellIndex < cellNum; cellIndex++) {
-        auto cell = m_Mesh->GetCell(cellIndex);
-        GetMaxMinValueInCellByPoint(attr, cell, variableIndex, maxValue, minValue);
-    }
     float shift = 0 - minValue;
     float scale = 1.0 / (maxValue - minValue);
     auto colorMapper = m_Mesh->GetColorMapper();
@@ -341,12 +320,9 @@ void igQtContextPreservingShowWidget::DrawPointAttr(AttributeSet::Attribute& att
 }
 
 void igQtContextPreservingShowWidget::DrawCellAttr(AttributeSet::Attribute& attr, int variableIndex) {
-    double minValue{std::numeric_limits<float>::max()};
-    double maxValue{-minValue};
+    double minValue = attr.GetDataRange()->GetValue((variableIndex + 1) * 2);
+    double maxValue = attr.GetDataRange()->GetValue((variableIndex + 1) * 2 + 1);
     int cellNum = m_Mesh->GetNumberOfCells();
-    for (int cellIndex = 0; cellIndex < cellNum; cellIndex++) {
-        GetMaxMinValueInCell(attr, cellIndex, variableIndex, maxValue, minValue);
-    }
     float shift = 0 - minValue;
     float scale = 1.0 / (maxValue - minValue);
     auto colorMapper = m_Mesh->GetColorMapper();

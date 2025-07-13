@@ -20,7 +20,8 @@
 #include <iGameModel.h>
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
-#include <QLine>
+#include <QImage>
+#include <mutex>
 
 using namespace iGame;
 class IG_QT_MODULE_EXPORT igQtParallelCoordinatesWidget : public QWidget {
@@ -47,27 +48,32 @@ private:
     void UpdateChoosedColor();
     void UpdateUnChoosedColor();
     void UpdateBackgroundColor();
-    //Load Current Data
-    void LoadCurrentData();
+    void UpdateChoosedData(const std::vector<Selection::Event>& _events);
+    void ClearChoosedData();
+    //Set Ui Data
+    void SetUiData();
     //Set ComboBox
     void SetDataChoosedComboBox();
     void SetColorComboBox();
     //Generates
+    std::vector<double> GetObjectData(IGenum dataType, int objId);
     void GenerateModelDatas();
     ParallelCoordinatesData::Pointer GeneratePointData();
     ParallelCoordinatesData::Pointer GenerateCellData();
     ParallelCoordinatesData::Pointer GenerateData(IGenum dataType);
     std::vector<std::string> GetVariableNames(IGenum dataType);
     std::vector<std::vector<double>> GetObjectDatas(IGenum dataType);
+    std::map<int, std::vector<double>> GetChoosedObjectDatas(IGenum dataType);
     std::pair<std::vector<double>, std::vector<double>> GetMinMaxData(IGenum dataType, int variableNum);
     std::vector<std::vector<int>> GetObjectDrawSorts(int variableNum,
                                                      const std::vector<std::vector<double>>& objcetValues);
+    std::vector<std::vector<int>> GetObjectDrawSorts(int variableNum,
+                                                     const std::map<int, std::vector<double>>& objcetValues);
     std::vector<int> GetDefaultVariableSort(int variableNum);
     //Frame
-    bool GetDrawFramePoints(int variableNum, std::vector<QRect>& variableMaxFontPoints,
+    bool GetDrawFramePoints(int variableSortSize, std::vector<QRect>& variableMaxFontPoints,
                             std::vector<QRect>& variableMinFontPoints, std::vector<QRect>& variableNameFontPoints,
-                            std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints,
-                            QRect& background);
+                            QRect& linkImageArea, QRect& background);
     //Filter
     void SetObjectFilters(const std::vector<int>& variableSort, const std::vector<std::string>& variableName,
                           const std::vector<double>& filterMaxValue, const std::vector<double>& filterMinValue);
@@ -81,18 +87,30 @@ private:
     void DrawBackground(const QRect& range);
     void DrawStrs(std::vector<QRect>& variableMaxFontPoints, std::vector<QRect>& variableMinFontPoints,
                   std::vector<QRect>& variableNameFontPoints);
-    void DrawLink(int leftLine, int rightLine, int top, int bottom, double leftValue, double rightValue,
-                  double leftMaxValue, double leftMinValue, double rightMaxValue, double rightMinValue,
-                  const std::shared_ptr<QPainter>& painter);
-    void DrawLinks(std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints);
+    void DrawLinkImage(QRect& linkImageArea);
     //Choose
     bool IsChoosedObj(IGenum dataType, int objId);
+    //Generate DrawImage
+    void SetUpdateLinkImage();
+    void UpdatingLinkImage();
+    void UpdatingChoosedLinkImage();
+    bool CalculateLinkPointInImage(int variableSortSize, int imageW, int imageH, std::vector<QPoint>& linkTopPoints,
+                                   std::vector<QPoint>& linkBottomPoints);
+    void GenerateDrawLinkImage(int leftLine, int rightLine, int top, int bottom, double leftValue, double rightValue,
+                               double leftMaxValue, double leftMinValue, double rightMaxValue, double rightMinValue,
+                               const std::shared_ptr<QPainter>& painter);
+    void GenerateDrawLinksImage(std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints,
+                                const std::shared_ptr<QPainter>& painter);
+    void GenerateChoosedDrawLinksImage(std::vector<QPoint>& linkTopPoints, std::vector<QPoint>& linkBottomPoints,
+                                       const std::shared_ptr<QPainter>& painter);
 
 private:
     void SetSelectionCallback();
+    void SetClearSelectionCallback();
 
 public:
     void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void ClearSelectionCallback();
 
 private:
     Model::Pointer m_Model;
@@ -101,6 +119,14 @@ private:
     int m_CurrentModelDataIndex{-1};
     int m_ColorVariableIndex{-1};
     std::tuple<int, int, int> m_BackgroundColor{};
+    QImage m_LinkImage;
+    QImage m_ChoosedLinkImage;
+    bool m_ImageLoading{};
+    std::mutex m_LinkImageMutex;
+signals:
+    void SIGNAL_WaitImageLoading();
+    void SIGNAL_CompleteImageLoading();
+
 private slots:
     void ChoosedAlphaSliderChanged(int value);
     void UnChoosedAlphaSliderChanged(int value);
@@ -119,4 +145,6 @@ private slots:
     void RefreshData();
     void SetVariableSort();
     void GetVariableSortFromDialog(const std::vector<int>& choosedSort);
+    void WaitImageLoading();
+    void CompleteImageLoading();
 };

@@ -83,41 +83,57 @@ void ParallelCoordinatesData::SetObjectData(const std::vector<std::vector<double
 
 const std::vector<std::vector<double>>& ParallelCoordinatesData::GetObjectDatas() { return m_ObjectDatas; }
 
-void ParallelCoordinatesData::SetObjectChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor) {
-    m_ObjChoosedColor = objColor;
+void ParallelCoordinatesData::SetChoosedObjectData(const std::map<int, std::vector<double>>& objData) {
+    m_ChoosedObjectDatas = objData;
 }
 
-const std::vector<std::tuple<int, int, int>>& ParallelCoordinatesData::GetObjecChoosedColor() {
-    return m_ObjChoosedColor;
+void ParallelCoordinatesData::AddChoosedObjectData(int objId, const std::vector<double>& objData) {
+    m_ChoosedObjectDatas[objId] = objData;
 }
 
-void ParallelCoordinatesData::SetObjectUnChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor) {
-    m_ObjUnChoosedColor = objColor;
+void ParallelCoordinatesData::RemoveChoosedObjectData(int objId) { m_ChoosedObjectDatas.erase(objId); }
+
+void ParallelCoordinatesData::ClearChoosedObjectData() { m_ChoosedObjectDatas.clear(); }
+
+const std::map<int, std::vector<double>>& ParallelCoordinatesData::GetChoosedObjectData() {
+    return m_ChoosedObjectDatas;
 }
 
-const std::vector<std::tuple<int, int, int>>& ParallelCoordinatesData::GetObjectUnChoosedColor() {
-    return m_ObjUnChoosedColor;
+void ParallelCoordinatesData::SetChoosedObjectColor(const std::map<int, std::tuple<int, int, int>>& objColor) {
+    m_ChoosedObjectColor = objColor;
 }
 
-void ParallelCoordinatesData::SetDefaultChoosedColor(const std::tuple<int, int, int>& color) {
-    m_DefaultChoosedColor = color;
+const std::map<int, std::tuple<int, int, int>>& ParallelCoordinatesData::GetChoosedObjectColor() {
+    return m_ChoosedObjectColor;
 }
 
-const std::tuple<int, int, int>& ParallelCoordinatesData::GetDefaultChoosedColor() { return m_DefaultChoosedColor; }
-
-void ParallelCoordinatesData::SetDefaultUnChoosedColor(const std::tuple<int, int, int>& color) {
-    m_DefaultUnChoosedColor = color;
+void ParallelCoordinatesData::SetObjectColor(const std::vector<std::tuple<int, int, int>>& objColor) {
+    m_ObjectColor = objColor;
 }
 
-const std::tuple<int, int, int>& ParallelCoordinatesData::GetDefaultUnChoosedColor() { return m_DefaultUnChoosedColor; }
+const std::vector<std::tuple<int, int, int>>& ParallelCoordinatesData::GetObjectColor() {
+    return m_ObjectColor;
+}
 
-const std::tuple<int, int, int>& ParallelCoordinatesData::GetObjColor(bool choosed, int objId) {
+void ParallelCoordinatesData::SetChoosedDefaultColor(const std::tuple<int, int, int>& color) {
+    m_ChoosedDefaultColor = color;
+}
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetChoosedDefaultColor() { return m_ChoosedDefaultColor; }
+
+void ParallelCoordinatesData::SetDefaultColor(const std::tuple<int, int, int>& color) {
+    m_DefaultColor = color;
+}
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetDefaultColor() { return m_DefaultColor; }
+
+const std::tuple<int, int, int>& ParallelCoordinatesData::GetObjectColor(bool choosed, int objId) {
     if (choosed) {
-        if (objId < 0 || m_ObjChoosedColor.size() <= objId) return m_DefaultChoosedColor;
-        return m_ObjChoosedColor[objId];
+        if (m_ChoosedObjectColor.count(objId) == 0) return m_ChoosedDefaultColor;
+        return m_ChoosedObjectColor.at(objId);
     } else {
-        if (objId < 0 || m_ObjUnChoosedColor.size() <= objId) return m_DefaultUnChoosedColor;
-        return m_ObjUnChoosedColor[objId];
+        if (objId < 0 || m_ObjectColor.size() <= objId) return m_DefaultColor;
+        return m_ObjectColor[objId];
     }
 }
 
@@ -126,6 +142,14 @@ void ParallelCoordinatesData::SetObjectDrawSorts(const std::vector<std::vector<i
 }
 
 const std::vector<std::vector<int>>& ParallelCoordinatesData::GetObjectDrawSorts() { return m_ObjDrawSortInVariables; }
+
+void ParallelCoordinatesData::SetChoosedObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts) {
+    m_ChoosedObjDrawSortInVariables = drawSorts;
+}
+
+const std::vector<std::vector<int>>& ParallelCoordinatesData::GetChoosedObjDrawSorts() {
+    return m_ChoosedObjDrawSortInVariables;
+}
 
 void ParallelCoordinatesData::SetMaxValueInVariables(const std::vector<double>& maxValueInVariables) {
     m_MaxValueInVariables = maxValueInVariables;

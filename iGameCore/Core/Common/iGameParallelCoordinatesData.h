@@ -26,22 +26,31 @@ public:
     void SetObjectData(const std::vector<std::vector<double>>& objData);
     const std::vector<std::vector<double>>& GetObjectDatas();
 
-    void SetObjectChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor);
-    const std::vector<std::tuple<int, int, int>>& GetObjecChoosedColor();
+    void SetChoosedObjectData(const std::map<int, std::vector<double>>& objData);
+    void AddChoosedObjectData(int objId, const std::vector<double>& objData);
+    void RemoveChoosedObjectData(int objId);
+    void ClearChoosedObjectData();
+    const std::map<int, std::vector<double>>& GetChoosedObjectData();
 
-    void SetObjectUnChoosedColor(const std::vector<std::tuple<int, int, int>>& objColor);
-    const std::vector<std::tuple<int, int, int>>& GetObjectUnChoosedColor();
+    void SetChoosedObjectColor(const std::map<int, std::tuple<int, int, int>>& objColor);
+    const std::map<int, std::tuple<int, int, int>>& GetChoosedObjectColor();
 
-    void SetDefaultChoosedColor(const std::tuple<int, int, int>& color);
-    const std::tuple<int, int, int>& GetDefaultChoosedColor();
+    void SetObjectColor(const std::vector<std::tuple<int, int, int>>& objColor);
+    const std::vector<std::tuple<int, int, int>>& GetObjectColor();
 
-    void SetDefaultUnChoosedColor(const std::tuple<int, int, int>& color);
-    const std::tuple<int, int, int>& GetDefaultUnChoosedColor();
+    void SetChoosedDefaultColor(const std::tuple<int, int, int>& color);
+    const std::tuple<int, int, int>& GetChoosedDefaultColor();
 
-    const std::tuple<int, int, int>& GetObjColor(bool choosed, int objId);
+    void SetDefaultColor(const std::tuple<int, int, int>& color);
+    const std::tuple<int, int, int>& GetDefaultColor();
+
+    const std::tuple<int, int, int>& GetObjectColor(bool choosed, int objId);
 
     void SetObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts);
     const std::vector<std::vector<int>>& GetObjectDrawSorts();
+
+    void SetChoosedObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts);
+    const std::vector<std::vector<int>>& GetChoosedObjDrawSorts();
 
     void SetMaxValueInVariables(const std::vector<double>& maxValueInVariables);
     const std::vector<double>& GetMaxValueInVariables();
@@ -81,12 +90,17 @@ protected:
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
     std::vector<int> m_VariableSort;
+
     std::vector<std::vector<double>> m_ObjectDatas;
-    std::vector<std::tuple<int, int, int>> m_ObjChoosedColor;//RGB
-    std::vector<std::tuple<int, int, int>> m_ObjUnChoosedColor; //RGB
+    std::vector<std::tuple<int, int, int>> m_ObjectColor; //RGB
     std::vector<std::vector<int>> m_ObjDrawSortInVariables;
-    std::tuple<int, int, int> m_DefaultChoosedColor;
-    std::tuple<int, int, int> m_DefaultUnChoosedColor;
+    std::tuple<int, int, int> m_DefaultColor;
+
+    std::map<int, std::vector<double>> m_ChoosedObjectDatas;
+    std::map<int, std::tuple<int, int, int>> m_ChoosedObjectColor; //RGB
+    std::vector<std::vector<int>> m_ChoosedObjDrawSortInVariables;
+    std::tuple<int, int, int> m_ChoosedDefaultColor;
+
     std::vector<double> m_MaxValueInVariables;
     std::vector<double> m_MinValueInVariables;
     std::vector<double> m_FilterMaxValue;

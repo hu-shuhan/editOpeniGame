@@ -71,8 +71,18 @@ public:
                 std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
         m_CallBackFunctor[funcKey] = func;
     }
+
 #define SetSelectionCallBackEvent(functor, ...)                                                                        \
     _SetSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
+
+    template<typename Functor, typename... Args>
+    void _SetClearSelectionCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
+        std::function<void()> func = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+        m_ClearSelectionCallBackFunctor[funcKey] = func;
+    }
+
+#define SetClearSelectionCallBackEvent(functor, ...)                                                                        \
+    _SetClearSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
 	Points* GetPoints() {
 		return m_Points;
@@ -102,6 +112,7 @@ protected:
 	//igIndex m_PickedId{ -1 };
 	//IdArray::Pointer m_SelectedIds{};
     std::map<std::string, std::function<void(const std::vector<Event>&)>> m_CallBackFunctor;
+    std::map<std::string, std::function<void()>> m_ClearSelectionCallBackFunctor;
 
 	void AddItem(const Event& event);
     std::map<Event::Type, std::map<igIndex, Event>> m_SelectedItems;

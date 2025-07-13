@@ -147,7 +147,7 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
     igm::vec3 intersect;
     igIndex id = -1;
     for (int i = 0; i < m_Cells->GetNumberOfCells(); i++) {
-        igIndex face[16]{};
+        igIndex face[IGAME_CELL_MAX_SIZE]{};
         int size = m_Cells->GetCellIds(i, face);
 
         bool flag = false;
@@ -179,14 +179,13 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
             }
         }
     }
-
     //m_Model->GetFacePainter()->Clear();
     if (id != -1) {
         if (m_Selection) {
             std::vector<int> selectedCellIds;
             std::vector<Point> selectedCellCenters;
 
-            igIndex thisCell[16]{};
+            igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
             int thisCellSize = m_Cells->GetCellIds(id, thisCell);
 
             //Obtain the average value of all points of the cell
@@ -200,7 +199,7 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
             //Calculate the center point of each surface and compare the radii.
             for (int cellIndex = 0; cellIndex < m_Cells->GetNumberOfCells();
                  cellIndex++) {
-                igIndex thatCell[16]{};
+                igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
                 int thatCellSize = m_Cells->GetCellIds(cellIndex,thatCell);
                 Point thatCellCentralPoint =
                         GetCentralOfCell(thatCellSize, thatCell, m_Points);

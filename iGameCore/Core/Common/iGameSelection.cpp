@@ -22,7 +22,7 @@ void Selection::Reset() {
         }
     }
     m_SelectedItems.clear();
-    for (auto& callBackFunc: m_CallBackFunctor) { callBackFunc.second({}); }
+    for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
 }
 
 void Selection::AddItem(const Event& event) {
