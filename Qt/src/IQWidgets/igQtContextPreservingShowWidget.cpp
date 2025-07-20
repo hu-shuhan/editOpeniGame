@@ -205,20 +205,6 @@ static void ChangeBrightness(float& r, float& g, float& b, int brightness) {
 
 static double CalFacePointsAveValue(AttributeSet::Attribute& attr, Cell* cell, int variableIndex, int pointSize) {
     double sumNum{};
-    if (variableIndex == -1) {
-        int variableNum = attr.pointer->GetDimension();
-        for (int pointIndex = 0; pointIndex < pointSize; pointIndex++) {
-            auto pointId = cell->GetPointId(pointIndex);
-            double pointValue{};
-            for (int i = 0; i < variableNum; i++) {
-                auto value = attr.pointer->GetElementValue(pointId, i);
-                pointValue += value * value;
-            }
-            sumNum += std::sqrt(pointValue);
-        }
-        return sumNum / (double) pointSize;
-    }
-    /* variableIndex != -1 */
     for (int pointIndex = 0; pointIndex < pointSize; pointIndex++) {
         auto pointId = cell->GetPointId(pointIndex);
         sumNum += attr.pointer->GetElementValue(pointId, variableIndex);
@@ -227,15 +213,6 @@ static double CalFacePointsAveValue(AttributeSet::Attribute& attr, Cell* cell, i
 }
 
 static double GetCellValue(AttributeSet::Attribute& attr, igIndex cellIndex, int variableIndex) {
-    if (variableIndex == -1) {
-        int variableNum = attr.pointer->GetDimension();
-        double sumValue{};
-        for (int i = 0; i < variableNum; i++) {
-            auto value = attr.pointer->GetElementValue(cellIndex, i);
-            sumValue += value * value;
-        }
-        return std::sqrt(sumValue);
-    }
     return attr.pointer->GetElementValue(cellIndex, variableIndex);
 }
 

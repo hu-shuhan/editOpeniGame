@@ -13,7 +13,6 @@
 #include <map>
 #include <string>
 #include <QPainter>
-#include <QSpacerItem>
 #include <memory>
 #include <iGameParallelCoordinatesData.h>
 #include <IQComponents/igQtParallelCoordinatesObjectFilter.h>
@@ -61,15 +60,6 @@ private:
     ParallelCoordinatesData::Pointer GeneratePointData();
     ParallelCoordinatesData::Pointer GenerateCellData();
     ParallelCoordinatesData::Pointer GenerateData(IGenum dataType);
-    std::vector<std::string> GetVariableNames(IGenum dataType);
-    std::vector<std::vector<double>> GetObjectDatas(IGenum dataType);
-    std::map<int, std::vector<double>> GetChoosedObjectDatas(IGenum dataType);
-    std::pair<std::vector<double>, std::vector<double>> GetMinMaxData(IGenum dataType, int variableNum);
-    std::vector<std::vector<int>> GetObjectDrawSorts(int variableNum,
-                                                     const std::vector<std::vector<double>>& objcetValues);
-    std::vector<std::vector<int>> GetObjectDrawSorts(int variableNum,
-                                                     const std::map<int, std::vector<double>>& objcetValues);
-    std::vector<int> GetDefaultVariableSort(int variableNum);
     //Frame
     bool GetDrawFramePoints(int variableSortSize, std::vector<QRect>& variableMaxFontPoints,
                             std::vector<QRect>& variableMinFontPoints, std::vector<QRect>& variableNameFontPoints,
@@ -80,7 +70,6 @@ private:
     void ClearObjectFilters();
     bool ShoultBeFilted(const std::vector<double>& obj);
     std::vector<igQtParallelCoordinatesObjectFilter*> m_PcObjFilters;
-    QSpacerItem* m_SpaceItem{nullptr};
     //Draw
     void DrawParallelCoordinates();
     int GetLinePointLocation(int top, int bottom, double currentValue, double maxValue, double minValue);

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>变量过滤/排序</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>

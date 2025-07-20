@@ -29,6 +29,7 @@
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 鐢ㄤ簬 open
@@ -80,6 +81,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_FlowField->hide();
     ui->dockWidget_TensorField->hide();
     ui->dockWidget_ParallelCoordinatesField->hide();
+    ui->dockWidget_VariableCorrelationField->hide();
     ui->dockWidget_SelectionField->hide();
     ui->dockWidget_ContextPreservingShowField->hide();
     ui->dockWidget_SearchInfo->hide();
@@ -1458,6 +1460,21 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             return;
         }
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+    });
+    connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_VariableCorrelationField->show();
+        ui->widget_VariableCorrelationField->SetModel(model);
+    });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        if (ui->dockWidget_VariableCorrelationField->isHidden()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) {
+            ui->dockWidget_VariableCorrelationField->hide();
+            return;
+        }
+        ui->widget_VariableCorrelationField->SetModel(model);
     });
     connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
