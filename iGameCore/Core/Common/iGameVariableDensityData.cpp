@@ -1,6 +1,8 @@
 #include "iGameVariableDensityData.h"
 #include <cmath>
 #include <algorithm>
+#include <iGameThreadPool.h>
+#include <mutex>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -106,7 +108,7 @@ static tuple<int, int, int> ChangeBrightness(float r, float g, float b, int brig
 
 void VariableDensityData::SetCopyNum(int copyNum) { m_CopyNum = copyNum; }
 
-int VariableDensityData::GetCopyNum() { return m_CopyNum; }
+int VariableDensityData::GetCopyNum() const { return m_CopyNum; }
 
 void VariableDensityData::SetChoosedObjectIndexs(const std::set<int>& objIds) { m_ChoosedObjIndexs = objIds; }
 
@@ -198,26 +200,62 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     std::vector<std::vector<int>> counts(variableNum, std::vector<int>(copyNum, 0));
     if (objCount == 0) return counts;
 
-    for (int objIdx = 0; objIdx < objCount; ++objIdx) {
-        int v{};
-        for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
-            auto& attr = attrs->GetElement(attrIndex);
-            if (attr.attachmentType != dataType) continue;
-            if (attr.pointer->GetDimension() > 1) {
-                int binIdx = CalculateCopyIndexByValue(copyNum, attr.pointer->GetElementValue(objIdx, -1),
-                                                       maxValueInVariables[v], minValueInVariables[v]);
-                ++counts[v][binIdx];
-                ++v;
-            }
-            for (int dimensionIndex = 0; dimensionIndex < attr.pointer->GetDimension(); dimensionIndex++) {
-                int binIdx = CalculateCopyIndexByValue(copyNum, attr.pointer->GetElementValue(objIdx, dimensionIndex),
-                                                       maxValueInVariables[v], minValueInVariables[v]);
-                ++counts[v][binIdx];
-                ++v;
-            }
-        }
-    }
+    
+    static mutex CountMutex;
+    ThreadPool::parallelFor(
+            0, objCount,
+            [&](int st, int ed) {
+                std::vector<std::vector<int>> tempCounts(variableNum, std::vector<int>(copyNum, 0));
+                for (int objIdx = st; objIdx < ed; ++objIdx) {
+                    int v{};
+                    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
+                        auto& attr = attrs->GetElement(attrIndex);
+                        if (attr.attachmentType != dataType) continue;
+                        if (attr.pointer->GetDimension() > 1) {
+                            int binIdx = CalculateCopyIndexByValue(copyNum, attr.pointer->GetElementValue(objIdx, -1),
+                                                                   maxValueInVariables[v], minValueInVariables[v]);
+                            ++tempCounts[v][binIdx];
+                            ++v;
+                        }
+                        for (int dimensionIndex = 0; dimensionIndex < attr.pointer->GetDimension(); dimensionIndex++) {
+                            int binIdx = CalculateCopyIndexByValue(
+                                    copyNum, attr.pointer->GetElementValue(objIdx, dimensionIndex),
+                                    maxValueInVariables[v], minValueInVariables[v]);
+                            ++tempCounts[v][binIdx];
+                            ++v;
+                        }
+                    }
+                }
+                //add to counts
+                std::lock_guard lg(CountMutex);
+                for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
+                    for (int copyIndex = 0; copyIndex < copyNum; copyIndex++) {
+                        counts[variableIndex][copyIndex] += tempCounts[variableIndex][copyIndex];
+                    }
+                }
+            },
+            std::max<int>(1, pow(objCount, 0.25)));
     return counts;
+    //for (int objIdx = 0; objIdx < objCount; ++objIdx) {
+    //    int v{};
+    //    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
+    //        auto& attr = attrs->GetElement(attrIndex);
+    //        if (attr.attachmentType != dataType) continue;
+    //        if (attr.pointer->GetDimension() > 1) {
+    //            int binIdx = CalculateCopyIndexByValue(copyNum, attr.pointer->GetElementValue(objIdx, -1),
+    //                                                   maxValueInVariables[v], minValueInVariables[v]);
+    //            ++counts[v][binIdx];
+    //            ++v;
+    //        }
+    //        for (int dimensionIndex = 0; dimensionIndex < attr.pointer->GetDimension(); dimensionIndex++) {
+    //            int binIdx = CalculateCopyIndexByValue(copyNum, attr.pointer->GetElementValue(objIdx, dimensionIndex),
+    //                                                   maxValueInVariables[v], minValueInVariables[v]);
+    //            ++counts[v][binIdx];
+    //            ++v;
+    //        }
+    //    }
+    //}
+    //return counts;
 }
 
 std::vector<std::vector<int>>

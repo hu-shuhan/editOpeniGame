@@ -14,7 +14,7 @@ public:
     VariableDensityData() = default;
 
     void SetCopyNum(int copyNum);
-    int GetCopyNum();
+    int GetCopyNum() const;
 
     void SetChoosedObjectIndexs(const std::set<int>& objIds);
     void AddChoosedObjectIndex(int objId);
