@@ -274,21 +274,21 @@ std::string CtxPresObjData_Main::GenerateDataTypeName(IGenum dataType) {
     }
 }
 
-void CtxPresObjData_Draw::SetChoosedAlpha(int alpha) { m_ChoosedAlpha = alpha; }
+void CtxPresObjData_LightAlpha::SetChoosedAlpha(int alpha) { m_ChoosedAlpha = alpha; }
 
-int CtxPresObjData_Draw::GetChoosedAlpha() const { return m_ChoosedAlpha; }
+int CtxPresObjData_LightAlpha::GetChoosedAlpha() const { return m_ChoosedAlpha; }
 
-void CtxPresObjData_Draw::SetUnChoosedAlpha(int alpha) { m_UnChoosedAlpha = alpha; }
+void CtxPresObjData_LightAlpha::SetUnChoosedAlpha(int alpha) { m_UnChoosedAlpha = alpha; }
 
-int CtxPresObjData_Draw::GetUnChoosedAlpha() const { return m_UnChoosedAlpha; }
+int CtxPresObjData_LightAlpha::GetUnChoosedAlpha() const { return m_UnChoosedAlpha; }
 
-void CtxPresObjData_Draw::SetChoosedLight(int light) { m_ChoosedLight = light; }
+void CtxPresObjData_LightAlpha::SetChoosedLight(int light) { m_ChoosedLight = light; }
 
-int CtxPresObjData_Draw::GetChoosedLight() const { return m_ChoosedLight; }
+int CtxPresObjData_LightAlpha::GetChoosedLight() const { return m_ChoosedLight; }
 
-void CtxPresObjData_Draw::SetUnChoosedLight(int light) { m_UnChoosedLight = light; }
+void CtxPresObjData_LightAlpha::SetUnChoosedLight(int light) { m_UnChoosedLight = light; }
 
-int CtxPresObjData_Draw::GetUnChoosedLight() const { return m_UnChoosedLight; }
+int CtxPresObjData_LightAlpha::GetUnChoosedLight() const { return m_UnChoosedLight; }
 
 std::vector<std::vector<int>>
 CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum, const std::vector<std::vector<double>>& objcetValues) {

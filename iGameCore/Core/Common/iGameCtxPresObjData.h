@@ -66,7 +66,28 @@ public:
     static std::string GenerateDataTypeName(IGenum dataType);
 };
 
-class CtxPresObjData_Draw {
+class CtxPresObjData_LightAlpha {
+public:
+    void SetChoosedAlpha(int alpha);
+    int GetChoosedAlpha() const;
+
+    void SetUnChoosedAlpha(int alpha);
+    int GetUnChoosedAlpha() const;
+
+    void SetChoosedLight(int light);
+    int GetChoosedLight() const;
+
+    void SetUnChoosedLight(int light);
+    int GetUnChoosedLight() const;
+
+protected:
+    int m_ChoosedAlpha{255};
+    int m_UnChoosedAlpha{140};
+    int m_ChoosedLight{255};
+    int m_UnChoosedLight{140};
+};
+
+class CtxPresObjData_Draw : public CtxPresObjData_LightAlpha {
 public:
 
     void SetChoosedObjectColor(const std::map<int, std::tuple<int, int, int>>& objColor);
@@ -89,18 +110,6 @@ public:
     void SetChoosedObjectDrawSorts(const std::vector<std::vector<int>>& drawSorts);
     const std::vector<std::vector<int>>& GetChoosedObjDrawSorts();
 
-    void SetChoosedAlpha(int alpha);
-    int GetChoosedAlpha() const;
-
-    void SetUnChoosedAlpha(int alpha);
-    int GetUnChoosedAlpha() const;
-
-    void SetChoosedLight(int light);
-    int GetChoosedLight() const;
-
-    void SetUnChoosedLight(int light);
-    int GetUnChoosedLight() const;
-
 protected:
     std::vector<std::tuple<int, int, int>> m_ObjectColor; //RGB
     std::vector<std::vector<int>> m_ObjDrawSortInVariables;
@@ -109,11 +118,6 @@ protected:
     std::map<int, std::tuple<int, int, int>> m_ChoosedObjectColor; //RGB
     std::vector<std::vector<int>> m_ChoosedObjDrawSortInVariables;
     std::tuple<int, int, int> m_ChoosedDefaultColor;
-
-    int m_ChoosedAlpha{255};
-    int m_UnChoosedAlpha{140};
-    int m_ChoosedLight{255};
-    int m_UnChoosedLight{140};
 
 public:
     /* static funcs */

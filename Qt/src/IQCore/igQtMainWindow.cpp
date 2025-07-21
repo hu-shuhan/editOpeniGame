@@ -82,6 +82,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_TensorField->hide();
     ui->dockWidget_ParallelCoordinatesField->hide();
     ui->dockWidget_VariableCorrelationField->hide();
+    ui->dockWidget_VariableDensityField->hide();
     ui->dockWidget_SelectionField->hide();
     ui->dockWidget_ContextPreservingShowField->hide();
     ui->dockWidget_SearchInfo->hide();
@@ -1475,6 +1476,21 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             return;
         }
         ui->widget_VariableCorrelationField->SetModel(model);
+    });
+    connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_VariableDensityField->show();
+        ui->widget_VariableDensityField->SetModel(model);
+    });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        if (ui->dockWidget_VariableDensityField->isHidden()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) {
+            ui->dockWidget_VariableDensityField->hide();
+            return;
+        }
+        ui->widget_VariableDensityField->SetModel(model);
     });
     connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {

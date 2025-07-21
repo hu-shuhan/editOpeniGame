@@ -128,6 +128,7 @@
     <addaction name="action_Tensor"/>
     <addaction name="action_ParallelCoordinates"/>
     <addaction name="action_VariableCorrelation"/>
+    <addaction name="action_VariableDensity"/>
     <addaction name="action_StrucDeformation"/>
     <addaction name="action_FlowField"/>
     <addaction name="action_ExportAnimation"/>
@@ -466,6 +467,24 @@
     <number>1</number>
    </attribute>
    <widget class="igQtVariableCorrelationWidget" name="widget_VariableCorrelationField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_VariableDensityField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>变量数据密度</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtVariableDensityWidget" name="widget_VariableDensityField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SelectionField">
    <property name="minimumSize">
@@ -1055,6 +1074,11 @@
     <string>变量相关性</string>
    </property>
   </action>
+  <action name="action_VariableDensity">
+   <property name="text">
+    <string>变量数据密度</string>
+   </property>
+  </action>
   <action name="action_FlowField">
    <property name="text">
     <string>时序流场</string>
@@ -1624,6 +1648,12 @@
    <class>igQtVariableCorrelationWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtVariableCorrelationWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtVariableDensityWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtVariableDensityWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>igQtVariableCorrelationWidget</class>
- <widget class="QWidget" name="igQtVariableCorrelationWidget">
+ <class>igQtVariableDensityWidget</class>
+ <widget class="QWidget" name="igQtVariableDensityWidget">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>413</width>
-    <height>234</height>
+    <width>900</width>
+    <height>460</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_5">
+  <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
@@ -83,8 +83,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>88</width>
-         <height>178</height>
+         <width>163</width>
+         <height>404</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_6">
@@ -104,7 +104,7 @@
          <number>0</number>
         </property>
         <item>
-         <layout class="QVBoxLayout" name="mainVariable">
+         <layout class="QVBoxLayout" name="variable">
           <item>
            <widget class="QLabel" name="label">
             <property name="text">
@@ -140,158 +140,6 @@
        </layout>
       </widget>
      </widget>
-     <widget class="QScrollArea" name="scrollArea_2">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>90</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <widget class="QWidget" name="scrollAreaWidgetContents_2">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>182</width>
-         <height>157</height>
-        </rect>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_8">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <layout class="QGridLayout" name="gridLayout">
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_2">
-            <property name="text">
-             <string>全部数据</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4" rowspan="3">
-           <widget class="QLabel" name="label_3">
-            <property name="text">
-             <string>变量</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="5">
-           <widget class="Line" name="line">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="Line" name="line_4">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="4">
-           <layout class="QVBoxLayout" name="subVariable"/>
-          </item>
-          <item row="4" column="0">
-           <layout class="QVBoxLayout" name="unChoosedDataCor"/>
-          </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string>已选数据</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="2">
-           <layout class="QVBoxLayout" name="choosedDataCor"/>
-          </item>
-          <item row="0" column="3" rowspan="3">
-           <widget class="Line" name="line_3">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0" colspan="3">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>相关性(%)</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0" colspan="3">
-           <widget class="Line" name="line_5">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
-           <widget class="Line" name="line_6">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="3">
-           <widget class="Line" name="line_7">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>380</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </widget>
-     </widget>
      <widget class="QWidget" name="verticalLayoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
@@ -314,28 +162,42 @@
           <number>4</number>
          </property>
          <item row="0" column="0">
-          <widget class="QLabel" name="mainVariableName">
-           <property name="text">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="subVariableName">
+          <widget class="QLabel" name="variableName">
            <property name="text">
             <string/>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="QLabel" name="mainVariablePos">
+          <widget class="QLabel" name="variablePos">
            <property name="text">
             <string/>
            </property>
           </widget>
          </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>数量</string>
+           </property>
+          </widget>
+         </item>
          <item row="1" column="1">
-          <widget class="QLabel" name="subVariablePos">
+          <widget class="QLabel" name="variableDensityNum">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>已选数量</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLabel" name="variableChoosedDensityNum">
            <property name="text">
             <string/>
            </property>

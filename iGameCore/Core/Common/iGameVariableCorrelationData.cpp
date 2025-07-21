@@ -8,7 +8,6 @@ static std::vector<std::vector<double>> ComputeCorrelationMatrix(int variableNum
     int numObjects = variables.empty() ? 0 : variables[0].size();
     std::vector<std::vector<double>> result(variableNum, std::vector<double>(variableNum, 0.0));
 
-    // 处理对象数不足2的情况
     if (numObjects < 2) {
         for (int i = 0; i < variableNum; ++i) {
             for (int j = 0; j < variableNum; ++j) { result[i][j] = (i == j) ? 100.0 : 0.0; }
@@ -16,7 +15,6 @@ static std::vector<std::vector<double>> ComputeCorrelationMatrix(int variableNum
         return result;
     }
 
-    // 计算每个变量的均值和离差平方和
     std::vector<double> means(variableNum, 0.0);
     std::vector<double> sumSquares(variableNum, 0.0);
 
@@ -31,32 +29,27 @@ static std::vector<std::vector<double>> ComputeCorrelationMatrix(int variableNum
         }
     }
 
-    // 计算相关系数矩阵
-    const double EPS = 1e-10; // 浮点误差阈值
+    const double EPS = 1e-10;
     for (int i = 0; i < variableNum; ++i) {
-        for (int j = i; j < variableNum; ++j) { // 利用对称性，只计算上三角
+        for (int j = i; j < variableNum; ++j) {
             if (i == j) {
-                result[i][j] = 100.0; // 对角线：完全相关
+                result[i][j] = 100.0;
             } else {
-                // 处理常数变量情况
                 bool is_i_constant = (sumSquares[i] < EPS);
                 bool is_j_constant = (sumSquares[j] < EPS);
 
                 if (is_i_constant && is_j_constant) {
-                    result[i][j] = 100.0; // 两个常数变量：完全相关
+                    result[i][j] = 100.0;
                 } else if (is_i_constant || is_j_constant) {
-                    result[i][j] = 0.0; // 一个常数变量：无线性关系
+                    result[i][j] = 0.0;
                 } else {
-                    // 计算协方差
                     double covariance = 0.0;
                     for (int k = 0; k < numObjects; ++k) {
                         double diff_i = variables[i][k] - means[i];
                         double diff_j = variables[j][k] - means[j];
                         covariance += diff_i * diff_j;
                     }
-                    // 计算皮尔逊相关系数
                     double r = covariance / std::sqrt(sumSquares[i] * sumSquares[j]);
-                    // 将相关性映射到[-100, 100]
                     result[i][j] = 100.0 * r;
                 }
                 result[j][i] = result[i][j];
@@ -84,7 +77,6 @@ const std::vector<std::vector<double>>& VariableCorrelationData::GetChoosedVaria
 std::vector<std::vector<double>>
 VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
                                                       const std::vector<std::vector<double>>& objDatas) {
-    // 转置数据：从[对象][变量]转为[变量][对象]
     int numObjects = objDatas.size();
     std::vector<std::vector<double>> variables(variableNum, std::vector<double>(numObjects, 0.0));
 
@@ -101,7 +93,6 @@ VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
 std::vector<std::vector<double>>
 VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
                                                       const std::map<int, std::vector<double>>& objDatas) {
-    // 转置数据：从[对象][变量]转为[变量][对象]
     int numObjects = objDatas.size();
     std::vector<std::vector<double>> variables(variableNum, std::vector<double>(numObjects, 0.0));
 

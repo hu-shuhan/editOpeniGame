@@ -1,51 +1,51 @@
 #ifndef IGQTVARIABLECORRELATIONWIDGET_H
 #define IGQTVARIABLECORRELATIONWIDGET_H
 
+#include <QImage>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QRadioButton>
+#include <QRect>
 #include <QWidget>
 #include <iGameModel.h>
-#include <iGameVariableCorrelationData.h>
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
-#include <QImage>
-#include <QPainter>
+#include <iGameVariableCorrelationData.h>
 #include <mutex>
-#include <utility>
-#include <vector>
 #include <string>
 #include <tuple>
-#include <QMouseEvent>
-#include <QRadioButton>
-#include <QLabel>
-#include <QRect>
+#include <utility>
+#include <vector>
 
 using namespace iGame;
-namespace Ui {
+namespace Ui
+{
 class igQtVariableCorrelationWidget;
 }
 
-class VariableChooseButton : public QRadioButton {
+class igQtVariableCorrelationWidget_VariableChooseButton : public QRadioButton {
     Q_OBJECT
 public:
-    explicit VariableChooseButton(QWidget* parent = nullptr);
+    explicit igQtVariableCorrelationWidget_VariableChooseButton(QWidget* parent = nullptr);
     int m_VariableIndex{};
 };
 
-class VariableCorrelationLabel : public QLabel {
+class igQtVariableCorrelationWidget_VariableCorrelationLabel : public QLabel {
     Q_OBJECT
 public:
-    explicit VariableCorrelationLabel(QWidget* parent = nullptr);
+    explicit igQtVariableCorrelationWidget_VariableCorrelationLabel(QWidget* parent = nullptr);
     int m_VariableIndex{};
 };
 
-class igQtVariableCorrelationWidget : public QWidget
-{
+class igQtVariableCorrelationWidget : public QWidget {
     Q_OBJECT
 
 private:
-    Ui::igQtVariableCorrelationWidget *ui;
+    Ui::igQtVariableCorrelationWidget* ui;
 
 public:
-    explicit igQtVariableCorrelationWidget(QWidget *parent = nullptr);
+    explicit igQtVariableCorrelationWidget(QWidget* parent = nullptr);
     ~igQtVariableCorrelationWidget();
 
     void SetModel(Model::Pointer model);
@@ -76,6 +76,8 @@ private:
     void ClearMainSubNameLabel();
     void SetMainSubPosLabel(int x, int y);
     void ClearMainSubPosLabel();
+    void UpdateChoosedData(const std::vector<Selection::Event>& _events);
+    void ClearChoosedData();
 
 private:
     /* sub */
@@ -94,7 +96,15 @@ private:
     void _DrawPoint(double mainVariableData, double subVariableData, double mainVariableMaxData,
                     double mainVariableMinData, double subVariableMaxData, double subVariableMinData,
                     const std::tuple<int, int, int>& color, int alpha, const QRect& drawFrame,
-                    std::shared_ptr<QPainter> painter);
+                    std::shared_ptr<QPainter> painter, int pointSize);
+
+private:
+    void SetSelectionCallback();
+    void SetClearSelectionCallback();
+
+public:
+    void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void ClearSelectionCallback();
 
 private:
     Model::Pointer m_Model;
@@ -108,10 +118,10 @@ private:
     std::mutex m_CorImageMutex;
     std::pair<int, int> m_CurrentShowVariable{};
     std::mutex m_CurrentShowVariableMutex;
-    std::vector<VariableChooseButton*> m_MainVariableChooseButtons;
-    std::vector<VariableCorrelationLabel*> m_VariableCorLabels;
-    std::vector<VariableCorrelationLabel*> m_ChoosedVariableCorLabels;
-    std::vector<VariableChooseButton*> m_SubVariableChooseButtons;
+    std::vector<igQtVariableCorrelationWidget_VariableChooseButton*> m_MainVariableChooseButtons;
+    std::vector<igQtVariableCorrelationWidget_VariableCorrelationLabel*> m_VariableCorLabels;
+    std::vector<igQtVariableCorrelationWidget_VariableCorrelationLabel*> m_ChoosedVariableCorLabels;
+    std::vector<igQtVariableCorrelationWidget_VariableChooseButton*> m_SubVariableChooseButtons;
 signals:
     void SIGNAL_WaitImageLoading();
     void SIGNAL_CompleteImageLoading();

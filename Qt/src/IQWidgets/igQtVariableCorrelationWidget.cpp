@@ -1,10 +1,10 @@
-#include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include "ui_igQtVariableCorrelationWidget.h"
-#include <algorithm>
-#include <thread>
-#include <QPoint>
+#include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <QElapsedTimer>
+#include <QPoint>
+#include <algorithm>
 #include <cmath>
+#include <thread>
 using namespace std;
 
 static constexpr int defaultW = 2000, defaultH = 2000;
@@ -122,9 +122,12 @@ static double CalculateValueByPos(int pos, int minPos, int maxPos, double minVal
     return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
 }
 
-VariableChooseButton::VariableChooseButton(QWidget* parent) : QRadioButton(parent) {}
+igQtVariableCorrelationWidget_VariableChooseButton::igQtVariableCorrelationWidget_VariableChooseButton(QWidget* parent)
+    : QRadioButton(parent) {}
 
-VariableCorrelationLabel::VariableCorrelationLabel(QWidget* parent) : QLabel(parent) {}
+igQtVariableCorrelationWidget_VariableCorrelationLabel::igQtVariableCorrelationWidget_VariableCorrelationLabel(
+        QWidget* parent)
+    : QLabel(parent) {}
 
 igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
@@ -162,6 +165,8 @@ igQtVariableCorrelationWidget::~igQtVariableCorrelationWidget() { delete ui; }
 void igQtVariableCorrelationWidget::SetModel(Model::Pointer model) {
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    SetSelectionCallback();
+    SetClearSelectionCallback();
     GenerateVariableCorrelationDatas();
     SetDataTypeChoose();
     SetUiData();
@@ -202,7 +207,7 @@ void igQtVariableCorrelationWidget::handleMouseMove(const QPoint& pos) {
         SetMainSubPosLabel(pos.x(), pos.y());
         //ui->mainVariablePos->repaint();
         //ui->subVariablePos->repaint();
-        timer.start(); // 重新计时
+        timer.start();
     }
 }
 
@@ -256,10 +261,10 @@ void igQtVariableCorrelationWidget::GenerateMainVariableChoose() {
     if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
     for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
-        auto button = new VariableChooseButton(this);
+        auto button = new igQtVariableCorrelationWidget_VariableChooseButton(this);
         button->m_VariableIndex = variableIndex;
         button->setText(Data->GetVariableName()[variableIndex].c_str());
-        connect(button, &VariableChooseButton::clicked, this,
+        connect(button, &igQtVariableCorrelationWidget_VariableChooseButton::clicked, this,
                 &igQtVariableCorrelationWidget::MainVariableChooseButtonClicked);
         m_MainVariableChooseButtons.push_back(button);
         ui->mainVariable->addWidget(button);
@@ -296,24 +301,24 @@ void igQtVariableCorrelationWidget::GenerateSubVariableChoose(int mainVariableIn
     std::sort(subVariableIndexSort.begin(), subVariableIndexSort.end(), [&](int variableIndexA, int variableIndexB) {
         return variableCor[variableIndexA] > variableCor[variableIndexB];
     });
-    for (auto& variableIndex : subVariableIndexSort) {
+    for (auto& variableIndex: subVariableIndexSort) {
         //cor
-        auto corLabel = new VariableCorrelationLabel(this);
+        auto corLabel = new igQtVariableCorrelationWidget_VariableCorrelationLabel(this);
         corLabel->setText(QString::number(variableCor[variableIndex], 'f', 3));
         corLabel->setAlignment(Qt::AlignCenter);
         m_VariableCorLabels.push_back(corLabel);
         ui->unChoosedDataCor->addWidget(corLabel);
         //choosed cor
-        auto choosedCorLabel = new VariableCorrelationLabel(this);
+        auto choosedCorLabel = new igQtVariableCorrelationWidget_VariableCorrelationLabel(this);
         choosedCorLabel->setText(QString::number(choosedVariableCor[variableIndex], 'f', 3));
         choosedCorLabel->setAlignment(Qt::AlignCenter);
         m_ChoosedVariableCorLabels.push_back(choosedCorLabel);
         ui->choosedDataCor->addWidget(choosedCorLabel);
         //button
-        auto button = new VariableChooseButton(this);
+        auto button = new igQtVariableCorrelationWidget_VariableChooseButton(this);
         button->m_VariableIndex = variableIndex;
         button->setText(Data->GetVariableName()[variableIndex].c_str());
-        connect(button, &VariableChooseButton::clicked, this,
+        connect(button, &igQtVariableCorrelationWidget_VariableChooseButton::clicked, this,
                 &igQtVariableCorrelationWidget::SubVariableChooseButtonClicked);
         m_SubVariableChooseButtons.push_back(button);
         ui->subVariable->addWidget(button);
@@ -431,8 +436,45 @@ void igQtVariableCorrelationWidget::ClearMainSubPosLabel() {
     ui->subVariablePos->setText("");
 }
 
-VariableCorrelationData::Pointer
-        igQtVariableCorrelationWidget::_GenerateVariableCorrelationDatas(IGenum dataType) {
+void igQtVariableCorrelationWidget::UpdateChoosedData(const std::vector<Selection::Event>& _events) {
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    for (auto& Data: m_VariableCorrelationDatas) {
+        for (auto& e: _events) {
+            switch (e.type) {
+                case Selection::Event::Type::PickPoint:
+                    if (Data->GetDataType() != IG_POINT) break;
+                    if (e.operate == Selection::Event::Operate::Add)
+                        Data->AddChoosedObjectData(e.pickId, VariableCorrelationData::GenerateObjectData(
+                                                                     attrs, Data->GetDataType(), e.pickId));
+                    else if (e.operate == Selection::Event::Operate::Remove)
+                        Data->RemoveChoosedObjectData(e.pickId);
+                    break;
+                case Selection::Event::Type::PickFace:
+                    if (Data->GetDataType() != IG_CELL) break;
+                    if (e.operate == Selection::Event::Operate::Add)
+                        Data->AddChoosedObjectData(e.pickId, VariableCorrelationData::GenerateObjectData(
+                                                                     attrs, Data->GetDataType(), e.pickId));
+                    else if (e.operate == Selection::Event::Operate::Remove)
+                        Data->RemoveChoosedObjectData(e.pickId);
+                    break;
+                default:
+                    break;
+            }
+        }
+        Data->SetChoosedObjectDrawSorts(
+                VariableCorrelationData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+    }
+}
+
+void igQtVariableCorrelationWidget::ClearChoosedData() {
+    for (auto& Data: m_VariableCorrelationDatas) {
+        Data->ClearChoosedObjectData();
+        Data->SetChoosedObjectDrawSorts(
+                VariableCorrelationData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+    }
+}
+
+VariableCorrelationData::Pointer igQtVariableCorrelationWidget::_GenerateVariableCorrelationDatas(IGenum dataType) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
     int objNum{};
@@ -532,7 +574,7 @@ void igQtVariableCorrelationWidget::_DrawCorImage(int mainVariableIndex, int sub
         _DrawPoint(objDatas[objIndex][mainVariableIndex], objDatas[objIndex][subVariableIndex],
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha(), drawFrame, painter);
+                   Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
     }
 }
 
@@ -547,7 +589,7 @@ void igQtVariableCorrelationWidget::_DrawChoosedCorImage(int mainVariableIndex, 
         _DrawPoint(objDatas.at(objIndex)[mainVariableIndex], objDatas.at(objIndex)[subVariableIndex],
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha(), drawFrame, painter);
+                   Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha(), drawFrame, painter, 15);
     }
 }
 
@@ -609,11 +651,37 @@ void igQtVariableCorrelationWidget::_DrawPoint(double mainVariableData, double s
                                                double mainVariableMaxData, double mainVariableMinData,
                                                double subVariableMaxData, double subVariableMinData,
                                                const std::tuple<int, int, int>& color, int alpha,
-                                               const QRect& drawFrame, std::shared_ptr<QPainter> painter) {
+                                               const QRect& drawFrame, std::shared_ptr<QPainter> painter,
+                                               int pointSize) {
     auto [x, y] = CalculatePointSite(mainVariableData, subVariableData, mainVariableMaxData, mainVariableMinData,
                                      subVariableMaxData, subVariableMinData, drawFrame);
-    painter->setPen(QPen(QColor(GetQColorFromTuple(color, alpha)), 5));
+    painter->setPen(QPen(QColor(GetQColorFromTuple(color, alpha)), pointSize));
     painter->drawPoint(x, y);
+}
+
+void igQtVariableCorrelationWidget::SetSelectionCallback() {
+    auto selection = m_Model->GetSelection();
+    selection->SetSelectionCallBackEvent(&igQtVariableCorrelationWidget::SelectionCallbackEvent, this,
+                                         std::placeholders::_1);
+}
+
+void igQtVariableCorrelationWidget::SetClearSelectionCallback() {
+    auto selection = m_Model->GetSelection();
+    selection->SetClearSelectionCallBackEvent(&igQtVariableCorrelationWidget::ClearSelectionCallback, this);
+}
+
+void igQtVariableCorrelationWidget::SelectionCallbackEvent(const std::vector<Selection::Event>& _events) {
+    UpdateChoosedData(_events);
+    SetChoosedVariableCorrelationDataColor(m_CurrentShowVariable.first);
+    GenerateChoosedCorImage();
+    update();
+}
+
+void igQtVariableCorrelationWidget::ClearSelectionCallback() {
+    ClearChoosedData();
+    SetChoosedVariableCorrelationDataColor(m_CurrentShowVariable.first);
+    GenerateChoosedCorImage();
+    update();
 }
 
 void igQtVariableCorrelationWidget::ChoosedAlphaSliderChanged(int value) {
@@ -708,7 +776,8 @@ void igQtVariableCorrelationWidget::MainVariableChooseButtonClicked(bool checked
     ClearSubVariableChoose();
     ClearMainSubNameLabel();
     if (!checked) { return; }
-    VariableChooseButton* theSender = qobject_cast<VariableChooseButton*>(sender());
+    igQtVariableCorrelationWidget_VariableChooseButton* theSender =
+            qobject_cast<igQtVariableCorrelationWidget_VariableChooseButton*>(sender());
     int& mainVariableIndex = theSender->m_VariableIndex;
     SetVariableCorrelationDataColor(mainVariableIndex);
     SetChoosedVariableCorrelationDataColor(mainVariableIndex);
@@ -726,7 +795,8 @@ void igQtVariableCorrelationWidget::SubVariableChooseButtonClicked(bool checked)
         std::lock_guard lg(m_CurrentShowVariableMutex);
         m_CurrentShowVariable.second = -1;
     } else {
-        VariableChooseButton* theSender = qobject_cast<VariableChooseButton*>(sender());
+        igQtVariableCorrelationWidget_VariableChooseButton* theSender =
+                qobject_cast<igQtVariableCorrelationWidget_VariableChooseButton*>(sender());
         lock_guard lg(m_CurrentShowVariableMutex);
         m_CurrentShowVariable.second = theSender->m_VariableIndex;
     }
@@ -768,4 +838,3 @@ void igQtVariableCorrelationWidget::CompleteImageLoading() {
     m_ImageLoading = false;
     update();
 }
-
