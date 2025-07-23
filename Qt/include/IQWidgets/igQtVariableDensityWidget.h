@@ -9,6 +9,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <iGameVariableDensityData.h>
+#include <QButtonGroup>
 #include <mutex>
 #include <string>
 #include <tuple>
@@ -34,6 +35,9 @@ private:
     Ui::igQtVariableDensityWidget *ui;
 
 public:
+    enum ImageShowDirection { Vertical = 0, Horizontal };
+
+public:
     explicit igQtVariableDensityWidget(QWidget *parent = nullptr);
     ~igQtVariableDensityWidget();
 
@@ -53,8 +57,10 @@ private:
     void ClearVariableChoose();
     void GenerateVariableChoose();
     void ClearImage();
-    void GenerateDensityImage();
-    void GenerateChoosedDensityImage();
+    void GenerateFirstDensityImage();
+    void GenerateFirstChoosedDensityImage();
+    void GenerateSecondDensityImage();
+    void GenerateSecondChoosedDensityImage();
     void GenerateBackgroundColor();
     void Draw();
     void SetDensityColor();
@@ -69,18 +75,27 @@ private:
 private:
     /* sub */
     VariableDensityData::Pointer _GenerateVariableDensityDatas(IGenum dataType);
-    QImage _DrawDensityImage();
-    QImage _DrawChoosedDensityImage();
+    QImage
+    _DrawDensityImage(int variableIndex, const std::vector<std::vector<int>>& density, int maxDensity,
+                      const std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>& densityColor,
+                      int alpha);
+    void
+    _DrawDensityImage(int variableIndex, const std::vector<std::vector<int>>& density, int maxDensity,
+                      const std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>& densityColor,
+                      int alpha, const QRect& drawFrame, std::shared_ptr<QPainter> painter);
     void _CalculateDrawFrame(int w, int h, QRect& drawFrame);
     void _CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& smallDrawFrame);
-    void _DrawDensityImage(int variableIndex, const QRect& drawFrame, std::shared_ptr<QPainter> painter);
-    void _DrawChoosedDensityImage(int variableIndex, const QRect& drawFrame, std::shared_ptr<QPainter> painter);
-    void _DrawCoordinate(const QRect& range);
+    void _CalculateFrameCenterCut(const QRect& frame, QRect& leftFrame, QRect& rightFrame, QRect& topFrame,
+                                  QRect& bottomFrame);
+    void _DrawCoordinateRect(const QRect& range);
+    void _DrawCenterLine(const QRect& range);
     void _DrawBackground(const QRect& range);
     void _DrawImages(const QRect& range);
     void _DrawDensityRect(int density, int maxDensity, int copyIndex, int copyNum,
                           const std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>& color, int alpha,
                           const QRect& drawFrame, std::shared_ptr<QPainter> painter);
+    bool _GetVariablePosMsg(int variableIndex, int x, int y, QRect& frame, double& value, int& densityNum,
+                            int& choosedDensityNum);
 
 private:
     void SetSelectionCallback();
@@ -96,10 +111,23 @@ private:
     std::vector<VariableDensityData::Pointer> m_VariableDensityDatas;
     int m_CurrentModelDataIndex{-1};
     std::tuple<int, int, int> m_BackgroundColor{};
-    QImage m_DensityImage;//Use small rect
-    QImage m_ChoosedDensityImage;//Use small rect
-    int m_CurrentShowVariable{};
-    std::vector<igQtVariableDensityWidget_VariableChooseButton*> m_VariableChooseButtons;
+
+    QImage m_FirstDensityImage;          //Use small rect
+    QImage m_FirstChoosedDensityImage; //Use small rect
+    QImage m_FirstDensityImage_T;        //Use small rect
+    QImage m_FirstChoosedDensityImage_T; //Use small rect
+
+    QImage m_SecondDensityImage;//Use small rect
+    QImage m_SecondChoosedDensityImage; //Use small rect
+    QImage m_SecondDensityImage_T;      //Use small rect
+    QImage m_SecondChoosedDensityImage_T; //Use small rect
+
+    std::pair<int, int> m_CurrentShowVariable{};
+    QButtonGroup m_VariableFirstChooseButtons;
+    QButtonGroup m_VariableSecondChooseButtons;
+    //std::vector<igQtVariableDensityWidget_VariableChooseButton*> m_VariableFirstChooseButtons;
+    //std::vector<igQtVariableDensityWidget_VariableChooseButton*> m_VariableSecondChooseButtons;
+    ImageShowDirection m_ImageShowDirection{};
     
 private slots:
     void ChoosedAlphaSliderChanged(int value);
@@ -111,9 +139,11 @@ private slots:
     void ChoosedLightSpinBoxChanged(int value);
     void UnChoosedLightSpinBoxChanged(int value);
 private slots:
-    void VariableChooseButtonClicked(bool checked);
+    void VariableFirstChooseButtonClicked(bool checked);
+    void VariableSecondChooseButtonClicked(bool checked);
 private slots:
     void DataChooseChanged(int choosedIndex);
+    void FlipDirectionClicked();
     void RefreshData();
 };
 

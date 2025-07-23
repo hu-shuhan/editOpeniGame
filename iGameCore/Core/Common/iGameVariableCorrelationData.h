@@ -20,7 +20,7 @@ protected:
 
     std::vector<std::vector<double>> m_VariableCorr;
 
-    std::vector<std::vector<double>> m_ChoosedVariableCorr;
+    std::vector<std::vector<double>> m_ChoosedVariableCorr; //[mainVariableIndex][subVariableIndex]
 
 public:
     /* static funcs */

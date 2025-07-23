@@ -36,6 +36,9 @@ class igQtVariableCorrelationWidget_VariableCorrelationLabel : public QLabel {
 public:
     explicit igQtVariableCorrelationWidget_VariableCorrelationLabel(QWidget* parent = nullptr);
     int m_VariableIndex{};
+    int m_OtherVariableIndex{};
+    enum LabelType { UnChoosedCor, ChoosedCor };
+    LabelType m_LabelType{};
 };
 
 class igQtVariableCorrelationWidget : public QWidget {
@@ -78,6 +81,7 @@ private:
     void ClearMainSubPosLabel();
     void UpdateChoosedData(const std::vector<Selection::Event>& _events);
     void ClearChoosedData();
+    void UpdateChoosedCorrelation();
 
 private:
     /* sub */
