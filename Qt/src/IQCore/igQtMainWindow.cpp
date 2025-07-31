@@ -83,6 +83,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_ParallelCoordinatesField->hide();
     ui->dockWidget_VariableCorrelationField->hide();
     ui->dockWidget_VariableDensityField->hide();
+    ui->dockWidget_DataChangeField->hide();
     ui->dockWidget_SelectionField->hide();
     ui->dockWidget_ContextPreservingShowField->hide();
     ui->dockWidget_SearchInfo->hide();
@@ -1492,6 +1493,20 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
         ui->widget_VariableDensityField->SetModel(model);
     });
+    connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_DataChangeField->show();
+        ui->widget_DataChangeField->InitRadialStyle(rendererWidget->GetScene()->GetInteractor());
+        auto name = rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
+                ui->widget_DataChangeField->GetRadialStyle());
+        ui->widget_DataChangeField->SetInteractorName(name);
+        ui->widget_DataChangeField->SetModel(model);
+    });
+    //connect(ui->widget_DataChangeField, &igQtDataChangeWidget::Hided, this, [&]() {
+    //    rendererWidget->GetScene()->GetInteractor()->RemoveSepcialInteractor(
+    //            ui->widget_DataChangeField->GetInteractorName());
+    //});
     connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
             auto model = rendererWidget->GetScene()->GetCurrentModel();

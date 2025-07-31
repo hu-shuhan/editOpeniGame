@@ -113,7 +113,7 @@ static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer co
         colors.push_back({colorBar->GetElementValue(i, 0) * 255, colorBar->GetElementValue(i, 1) * 255,
                           colorBar->GetElementValue(i, 2) * 255});
     }
-    return CalculateBackgroundColor(colors);
+    return VariableCorrelationData::ChangeSaturation(CalculateBackgroundColor(colors), 85);
 }
 
 static double CalculateValueByPos(int pos, int minPos, int maxPos, double minValue, double maxValue) {

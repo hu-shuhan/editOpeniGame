@@ -129,6 +129,7 @@
     <addaction name="action_ParallelCoordinates"/>
     <addaction name="action_VariableCorrelation"/>
     <addaction name="action_VariableDensity"/>
+    <addaction name="action_DataChange"/>
     <addaction name="action_StrucDeformation"/>
     <addaction name="action_FlowField"/>
     <addaction name="action_ExportAnimation"/>
@@ -485,6 +486,24 @@
     <number>1</number>
    </attribute>
    <widget class="igQtVariableDensityWidget" name="widget_VariableDensityField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_DataChangeField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>路径图</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtDataChangeWidget" name="widget_DataChangeField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SelectionField">
    <property name="minimumSize">
@@ -1079,6 +1098,11 @@
     <string>变量数据密度</string>
    </property>
   </action>
+  <action name="action_DataChange">
+   <property name="text">
+    <string>路径图</string>
+   </property>
+  </action>
   <action name="action_FlowField">
    <property name="text">
     <string>时序流场</string>
@@ -1654,6 +1678,12 @@
    <class>igQtVariableDensityWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtVariableDensityWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtDataChangeWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtDataChangeWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

@@ -103,7 +103,7 @@ static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer co
         colors.push_back({colorBar->GetElementValue(i, 0) * 255, colorBar->GetElementValue(i, 1) * 255,
                           colorBar->GetElementValue(i, 2) * 255});
     }
-    return CalculateBackgroundColor(colors);
+    return ParallelCoordinatesData::ChangeSaturation(CalculateBackgroundColor(colors), 85);
 }
 
 igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)

@@ -12,6 +12,8 @@
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
 #include "iGameStreamlineStyle.h"
+#include <string>
+#include <map>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -98,6 +100,30 @@ public:
      */
     void RequestStreamLineStyle(SmartPointer<Selection> s);
 
+    /**
+     * @brief 设置特殊交互器
+     * @param string interactorName 交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     * @return 返回交互器名
+     */
+    std::string
+    _SetSpecialInteractor(const std::string& interactorName,
+                          SmartPointer<InteractorStyle> interactorStyle);
+
+    /**
+     * @brief 删除特殊交互器
+     * @param string interactorName 交互器名
+     */
+    void RemoveSepcialInteractor(const std::string& interactorName);
+
+    /**
+     * @brief 设置特殊交互器的define，自动生成交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     */
+#define SetSpecialInteractor(interactorStyle)                                  \
+    _SetSpecialInteractor(std::string(__FILE__) + std::to_string(__LINE__),    \
+                          interactorStyle)
+
     bool IsBasicStyle() const;
 
     /**
@@ -125,6 +151,7 @@ protected:
     SmartPointer<Camera> m_Camera;
     SmartPointer<Painter3D> m_Painter3D;
     SmartPointer<DataObject> m_DataObject;
+    std::map<std::string, SmartPointer<InteractorStyle>> m_SpecialInternals;
 };
 
 IGAME_NAMESPACE_END

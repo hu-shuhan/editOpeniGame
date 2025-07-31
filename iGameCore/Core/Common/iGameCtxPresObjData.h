@@ -85,6 +85,10 @@ protected:
     int m_UnChoosedAlpha{140};
     int m_ChoosedLight{255};
     int m_UnChoosedLight{140};
+
+public:
+    /* static funcs */
+    static std::tuple<int, int, int> ChangeSaturation(const std::tuple<int, int, int>& rgb, int saturation);
 };
 
 class CtxPresObjData_Draw : public CtxPresObjData_LightAlpha {

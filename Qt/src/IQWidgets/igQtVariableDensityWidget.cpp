@@ -17,7 +17,7 @@ static inline QColor GetQColorFromTuple(const tuple<int, int, int>& rgb, int alp
     return QColor(get<0>(rgb), get<1>(rgb), get<2>(rgb), alpha);
 }
 
-QImage flipAlongAntiDiagonal(const QImage& original) {
+static QImage flipAlongAntiDiagonal(const QImage& original) {
     int w = original.width();
     int h = original.height();
 
@@ -127,7 +127,7 @@ static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer co
         colors.push_back({colorBar->GetElementValue(i, 0) * 255, colorBar->GetElementValue(i, 1) * 255,
                           colorBar->GetElementValue(i, 2) * 255});
     }
-    return CalculateBackgroundColor(colors);
+    return VariableDensityData::ChangeSaturation(CalculateBackgroundColor(colors), 85);
 }
 
 static double CalculateValueByPos(int pos, int minPos, int maxPos, double minValue, double maxValue) {
@@ -136,7 +136,8 @@ static double CalculateValueByPos(int pos, int minPos, int maxPos, double minVal
     return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
 }
 
-igQtVariableDensityWidget_VariableChooseButton::igQtVariableDensityWidget_VariableChooseButton(QWidget* parent) {}
+igQtVariableDensityWidget_VariableChooseButton::igQtVariableDensityWidget_VariableChooseButton(QWidget* parent)
+    : QRadioButton(parent) {}
 
 igQtVariableDensityWidget::igQtVariableDensityWidget(QWidget *parent) :
     QWidget(parent),

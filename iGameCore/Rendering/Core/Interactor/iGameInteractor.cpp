@@ -35,7 +35,9 @@ void Interactor::FilterEvent(IEvent event) {
     if (m_Scene == nullptr) return;
     if (!m_Internal) { CreateDefaultStyle(); }
     m_Internal->FilterEvent(event);
-    }
+    for (auto& specialInternal: m_SpecialInternals)
+        specialInternal.second->FilterEvent(event);
+}
 
 void Interactor::RequestBasicStyle() {
     //InitModel();
@@ -110,6 +112,18 @@ void Interactor::RequestStreamLineStyle(SmartPointer<Selection> s) {
     act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;
+}
+
+std::string Interactor::_SetSpecialInteractor(
+        const std::string& interactorName,
+        SmartPointer<InteractorStyle> interactorStyle) {
+    if (interactorStyle.IsNull()) return interactorName;
+    m_SpecialInternals[interactorName] = interactorStyle;
+    return interactorName;
+}
+
+void Interactor::RemoveSepcialInteractor(const std::string& interactorName) {
+    m_SpecialInternals.erase(interactorName);
 }
 
 float Interactor::GetWidth() const { return m_Camera->GetViewPort().x; }

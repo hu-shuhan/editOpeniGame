@@ -367,6 +367,31 @@ CtxPresObjData_Draw::GenerateObjectColors(int variableIndex, const std::map<int,
     return re;
 }
 
+std::tuple<int, int, int> CtxPresObjData_LightAlpha::ChangeSaturation(const std::tuple<int, int, int>& rgb,
+                                                                      int _saturation) {
+    float h, s, v;
+    float r = (float) get<0>(rgb) / 255.0;
+    float g = (float) get<1>(rgb) / 255.0;
+    float b = (float) get<2>(rgb) / 255.0;
+    float saturation = (float) _saturation / 255.0;
+    rgbToHsb(r, g, b, h, s, v);
+
+    if (std::fabs(saturation - s) < EPSILON) {
+        int ir = r * 255;
+        int ig = g * 255;
+        int ib = b * 255;
+        return {ir, ig, ib};
+    }
+
+    float newS = std::max(0.0f, std::min(1.0f, saturation));
+
+    hsbToRgb(h, newS, v, r, g, b);
+
+    int ir = r * 255;
+    int ig = g * 255;
+    int ib = b * 255;
+    return {ir, ig, ib};
+}
 
 void CtxPresObjData_Draw::SetChoosedObjectColor(const std::map<int, std::tuple<int, int, int>>& objColor) {
     m_ChoosedObjectColor = objColor;
