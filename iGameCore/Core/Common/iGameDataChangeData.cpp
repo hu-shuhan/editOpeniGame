@@ -103,6 +103,7 @@ static bool IsLineCrossCell(const Point& startPoint, const Point& endPoint, Cell
             auto face = cell->GetFace(faceIndex);
             if (IsLineCrossCell(startPoint, endPoint, face)) return true;
         }
+        return false;
     }
 }
 

@@ -2,7 +2,113 @@
 #include <iGameModel.h>
 IGAME_NAMESPACE_BEGIN
 
+static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
+    Point p;
+    p.setZero();
+    for (int i = 0; i < cellPointSize; i++) {
+        int pointIndex = cellPoints[i];
+        auto& point = points->GetPoint(pointIndex);
+        p += point;
+    }
+    p /= cellPointSize;
+    return p;
+}
+
+static void DrawPoint(Painter3D::Pointer painter, const Point& point, std::vector<IGuint>& drawHandles) {
+    auto drawHandle = painter->DrawPoint(point);
+    drawHandles.push_back(drawHandle);
+}
+
+//static void DrawCell(Painter3D::Pointer painter, Cell* cell, std::vector<IGuint>& drawHandles) {
+//    if (cell == nullptr) return;
+//    auto faceNum = cell->GetNumberOfFaces();
+//    if (faceNum == 0) {
+//        int pointSize = cell->GetNumberOfPoints();
+//        if (pointSize <= 2) return;
+//        auto& p0 = cell->GetPoint(0);
+//        for (int i = 1; i < pointSize - 1; i++) {
+//            auto& p1 = cell->GetPoint(i);
+//            auto& p2 = cell->GetPoint(i + 1);
+//            auto drawHandle = painter->DrawTriangle(p0, p1, p2);
+//            drawHandles.push_back(drawHandle);
+//        }
+//    } else {
+//        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
+//            auto face = cell->GetFace(faceIndex);
+//            DrawCell(painter, face, drawHandles);
+//        }
+//    }
+//}
+
+static void DrawCell(Painter3D::Pointer painter, int cellPointSize, int cellPoints[], Points* points,
+                     std::vector<IGuint>& drawHandles) {
+    for (int i = 0; i < cellPointSize - 1; i++) {
+        auto& p0 = points->GetPoint(cellPoints[i]);
+        for (int j = i + 1; j < cellPointSize; j++) {
+            auto& p1 = points->GetPoint(cellPoints[j]);
+            auto drawHandle = painter->DrawLine(p0, p1);
+            drawHandles.push_back(drawHandle);
+        }
+    }
+}
+
+std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
+                                                        Event::Operate ope, Points* points, CellArray* cellArrays,
+                                                        Painter3D* painter) {
+    switch (type) {
+        case IG_POINT: {
+            painter->SetPen(10);
+            painter->SetPen(Color::Red);
+            std::vector<Selection::Event> events;
+            for (auto& pointId: ids) {
+                Selection::Event e;
+                e.type = Selection::Event::PickPoint;
+                e.pickId = pointId;
+                auto& point = points->GetPoint(pointId);
+                if (ope == Selection::Event::Operate::Add) {
+                    e.operate = Selection::Event::Operate::Add;
+                    DrawPoint(painter, point, e.drawHandles);
+                } else
+                    e.operate = Selection::Event::Operate::Remove;
+                e.pos = point;
+                events.push_back(e);
+            }
+            return events;
+        } break;
+        case IG_CELL: {
+            painter->SetPen(3);
+            painter->SetPen(0.9f, 0.145f, 0.863f);
+            std::vector<Selection::Event> events;
+            for (int i = 0; i < ids.size(); i++) {
+                auto& cellId = ids[i];
+                igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+                int thatCellSize{};
+                if (cellArrays != nullptr) { thatCellSize = cellArrays->GetCellIds(cellId, thatCell); }
+                Selection::Event e;
+                e.type = Selection::Event::PickFace;
+                e.pickId = cellId;
+                if (ope == Selection::Event::Operate::Add) {
+                    e.operate = Selection::Event::Operate::Add;
+                    DrawCell(painter, thatCellSize, thatCell, points, e.drawHandles);
+                } else
+                    e.operate = Selection::Event::Operate::Remove;
+                if (points != nullptr) {
+                    auto cellCenter = GetCentralOfCell(thatCellSize, thatCell, points);
+                    e.pos = cellCenter;
+                }
+                //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
+                events.push_back(e);
+            }
+            return events;
+        } break;
+        default:
+            return {};
+            break;
+    }
+}
+
 void Selection::SelectionCallBackEvent(const std::vector<Event>& _events) {
+    if (_events.empty()) return;
     for (auto& _event: _events) { AddItem(_event); }
     for (auto& callBackFunc: m_CallBackFunctor) { callBackFunc.second(_events); }
 }

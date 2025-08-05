@@ -133,6 +133,12 @@ void CtxPresObjData_Main::SetVariableName(const std::vector<std::string>& variab
 
 const std::vector<std::string>& CtxPresObjData_Main::GetVariableName() { return m_VariableName; }
 
+void CtxPresObjData_Main::SetVariableIndex(const std::vector<std::pair<int, int>>& variableIndex) {
+    m_VariableIndex = variableIndex;
+}
+
+const std::vector<std::pair<int, int>>& CtxPresObjData_Main::GetVariableIndex() { return m_VariableIndex; }
+
 void CtxPresObjData_Main::SetObjectDatas(const std::vector<std::vector<double>>& objectDatas) {
     m_ObjectDatas = objectDatas;
 }
@@ -189,6 +195,20 @@ std::vector<std::string> CtxPresObjData_Main::GenerateVariableNames(ElementArray
         }
     }
     return variableNames;
+}
+
+std::vector<std::pair<int, int>>
+CtxPresObjData_Main::GenerateVariableIndex(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
+    std::vector<std::pair<int, int>> re;
+    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
+        auto& attr = attrs->GetElement(attrIndex);
+        if (attr.attachmentType != dataType) continue;
+        if (attr.pointer->GetDimension() > 1) { re.push_back({attrIndex, -1}); }
+        for (int dimensionIndex = 0; dimensionIndex < attr.pointer->GetDimension(); dimensionIndex++) {
+            re.push_back({attrIndex, dimensionIndex});
+        }
+    }
+    return re;
 }
 
 std::vector<double> CtxPresObjData_Main::GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>413</width>
-    <height>234</height>
+    <width>722</width>
+    <height>546</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -38,6 +38,13 @@
         </size>
        </property>
       </spacer>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="rangeChoose">
+       <property name="text">
+        <string>框选数据</string>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="refreshData">
@@ -84,7 +91,7 @@
          <x>0</x>
          <y>0</y>
          <width>88</width>
-         <height>178</height>
+         <height>490</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_6">
@@ -161,8 +168,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>182</width>
-         <height>157</height>
+         <width>240</width>
+         <height>490</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_8">
@@ -302,7 +309,6 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_4"/>
         </widget>
        </item>
        <item>

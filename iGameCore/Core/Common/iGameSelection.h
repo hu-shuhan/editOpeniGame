@@ -30,6 +30,7 @@ IGAME_NAMESPACE_BEGIN
 //};
 
 class Model;
+class Painter3D;
 class Selection : public Object {
 public:
 	I_OBJECT(Selection);
@@ -47,14 +48,22 @@ public:
 
 		Type type{};
         Operate operate{};
-        std::vector<IGuint> drawHandles;
-		Vector3f pos;
-		igIndex pickId;
+        std::vector<IGuint> drawHandles{};
+        Vector3f pos{};
+        igIndex pickId{};
 	};
+
+public:
+    static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
+                                             Points* points, CellArray* cellArrays, Painter3D* painter);
 
 	void SelectionCallBackEvent(const std::vector<Event>& _events);
 
 	void SelectionCallBackEvent(const Event& event);
+
+	//void AddSelectedItems(const std::vector<igIndex>& ids, IGenum type);
+
+	//void RemoveSelectedItems(const std::vector<igIndex>& ids, IGenum type);
 
 	const std::map<Event::Type, std::map<igIndex, Event>>& GetSelectedItems() const { return m_SelectedItems; }
 

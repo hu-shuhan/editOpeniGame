@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <thread>
+#include <QCheckBox>
 using namespace std;
 
 static constexpr int defaultW = 2000, defaultH = 2000;
@@ -155,6 +156,7 @@ igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
             &igQtVariableCorrelationWidget::WaitImageLoading);
     connect(this, &igQtVariableCorrelationWidget::SIGNAL_CompleteImageLoading, this,
             &igQtVariableCorrelationWidget::CompleteImageLoading);
+    connect(ui->rangeChoose, &QCheckBox::clicked, this, &igQtVariableCorrelationWidget::RangeChooseButtonClicked);
     setMouseTracking(true);
     ui->drawWidget->installEventFilter(this);
     ui->drawWidget->setMouseTracking(true);
@@ -176,9 +178,115 @@ void igQtVariableCorrelationWidget::SetModel(Model::Pointer model) {
     GenerateBackgroundColor();
 }
 
+void igQtVariableCorrelationWidget::RangeChooseObj(const QRect& chooseRange, const QRect& frameRange,
+                                                   std::vector<igIndex>& ids, IGenum& type) {
+    //init
+    type = {};
+
+    //set
+    QRect overLapRange = frameRange.intersected(chooseRange);
+    if (overLapRange.right() <= overLapRange.left() || overLapRange.bottom() <= overLapRange.top()) return;
+    if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
+    type = Data->GetDataType();
+    if (m_CurrentShowVariable.first < 0 || Data->GetVariableNum() <= m_CurrentShowVariable.first ||
+        m_CurrentShowVariable.second < 0 || Data->GetVariableNum() <= m_CurrentShowVariable.second)
+        return;
+
+    //range
+    double mainVariableMinValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                                      Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                      Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+    double mainVariableMaxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                                      Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                      Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+    double subVariableMinValue = CalculateValueByPos(overLapRange.left(), frameRange.left(), frameRange.right(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+    double subVariableMaxValue = CalculateValueByPos(overLapRange.right(), frameRange.left(), frameRange.right(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+
+    //choose
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    int objNum{};
+    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
+    else
+        objNum = m_Mesh->GetNumberOfCells();
+    auto& mainVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
+    auto& subVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
+    for (int objId = 0; objId < objNum; objId++) {
+        auto mainVariableValue =
+                attrs->GetElement(mainVariableIndex.first).pointer->GetElementValue(objId, mainVariableIndex.second);
+        if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
+        auto subVariableValue =
+                attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
+        if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
+        ids.push_back(objId);
+    }
+}
+
+void igQtVariableCorrelationWidget::EndRangeChoose() {
+    m_RangeChoosing = false;
+    if (!m_RangeChooseOn) return;
+    QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    std::vector<igIndex> ids;
+    IGenum type{};
+    RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
+                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    update();
+}
+
+void igQtVariableCorrelationWidget::StartRangeChoose(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    if (!bigDrawFrame.contains(pos)) return;
+    m_RangeChoosing = true;
+    m_RangeChooseStartPoint = pos;
+    m_RangeChooseEndPoint = pos;
+}
+
+void igQtVariableCorrelationWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    int x = max(bigDrawFrame.left(), min(pos.x(), bigDrawFrame.right()));
+    int y = max(bigDrawFrame.top(), min(pos.y(), bigDrawFrame.bottom()));
+    m_RangeChooseEndPoint = {x, y};
+    update();
+}
+
+void igQtVariableCorrelationWidget::DrawRangeChooseRect() {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QPainter painter(this);
+    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
+}
+
+void igQtVariableCorrelationWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
+
+void igQtVariableCorrelationWidget::mousePressEvent(QMouseEvent* event) {
+    QWidget::mousePressEvent(event);
+    StartRangeChoose(event->pos());
+}
+
+void igQtVariableCorrelationWidget::mouseReleaseEvent(QMouseEvent* event) {
+    QWidget::mouseReleaseEvent(event);
+    EndRangeChoose();
+}
+
 void igQtVariableCorrelationWidget::paintEvent(QPaintEvent* QPE) {
     if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
     Draw();
+    DrawRangeChooseRect();
 }
 
 void igQtVariableCorrelationWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -205,8 +313,7 @@ void igQtVariableCorrelationWidget::handleMouseMove(const QPoint& pos) {
     if (!timer.isValid() || timer.elapsed() >= 50) {
         ClearMainSubPosLabel();
         SetMainSubPosLabel(pos.x(), pos.y());
-        //ui->mainVariablePos->repaint();
-        //ui->subVariablePos->repaint();
+        MoveRangeChooseEndPoint(pos);
         timer.start();
     }
 }
@@ -506,6 +613,8 @@ VariableCorrelationData::Pointer igQtVariableCorrelationWidget::_GenerateVariabl
     auto Data = VariableCorrelationData::New();
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
+    auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
     auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
     Data->SetObjectDatas(objDatas);
     Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));

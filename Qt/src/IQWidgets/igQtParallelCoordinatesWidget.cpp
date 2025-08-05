@@ -316,6 +316,8 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGe
     Data->SetVariableNum(variableNum);
     Data->SetVariableSort(ParallelCoordinatesData::GenerateDefaultVariableSort(variableNum));
     Data->SetVariableName(variableNames);
+    auto variableIndex = ParallelCoordinatesData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
     auto objDatas = ParallelCoordinatesData::GenerateObjectDatas(attrs, dataType, objNum, 10000);
     Data->SetObjectDatas(objDatas);
     Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, objDatas));

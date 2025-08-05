@@ -98,6 +98,7 @@ igQtDataChangeWidget::igQtDataChangeWidget(QWidget* parent) : QWidget(parent), u
     connect(ui->refreshData, &QPushButton::clicked, this, &igQtDataChangeWidget::RefreshData);
     connect(ui->dataGetTool, &QCheckBox::clicked, this, &igQtDataChangeWidget::DataGetToolClicked);
     connect(ui->draw, &QPushButton::clicked, this, &igQtDataChangeWidget::TempSlot_SetRadialData);
+    connect(ui->rangeChoose, &QCheckBox::clicked, this, &igQtDataChangeWidget::RangeChooseButtonClicked);
     setMouseTracking(true);
     ui->drawWidget->installEventFilter(this);
     ui->drawWidget->setMouseTracking(true);
@@ -133,9 +134,107 @@ void igQtDataChangeWidget::SetInteractorName(const std::string& name) { m_Radial
 
 const std::string& igQtDataChangeWidget::GetInteractorName() { return m_RadialIntName; }
 
+void igQtDataChangeWidget::RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids,
+                                          IGenum& type) {
+    //init
+    type = {};
+
+    //set
+    QRect overLapRange = frameRange.intersected(chooseRange);
+    if (overLapRange.right() <= overLapRange.left() || overLapRange.bottom() <= overLapRange.top()) return;
+    if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
+    type = Data->GetDataType();
+
+    //range
+    double minDistance = CalculateValueByPos(overLapRange.left(), frameRange.left(), frameRange.right(),
+                                             Data->GetMinDistance(), Data->GetMaxDistance());
+    double maxDistance = CalculateValueByPos(overLapRange.right(), frameRange.left(), frameRange.right(),
+                                             Data->GetMinDistance(), Data->GetMaxDistance());
+    double minValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                          Data->GetMinValue(), Data->GetMaxValue());
+    double maxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                          Data->GetMinValue(), Data->GetMaxValue());
+
+    //choose
+    auto& objIds = Data->GetObjIndexs();
+    for (auto& objId_: objIds) {
+        auto& objId = objId_.first;
+        auto& objIndex = objId_.second;
+        auto& objDistance = Data->GetObjDistance()[objIndex];
+        auto& objValues = Data->GetObjectDatas()[objIndex];
+        if (objDistance < minDistance || maxDistance < objDistance) continue;
+        for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
+            if (!m_VariableShow[variableIndex]) continue;
+            if (minValue <= objValues[variableIndex] && objValues[variableIndex] <= maxValue) {
+                ids.push_back(objId);
+                break;
+            }
+        }
+    }
+}
+
+void igQtDataChangeWidget::EndRangeChoose() {
+    m_RangeChoosing = false;
+    if (!m_RangeChooseOn) return;
+    QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    std::vector<igIndex> ids;
+    IGenum type{};
+    RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
+                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    update();
+}
+
+void igQtDataChangeWidget::StartRangeChoose(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    if (!bigDrawFrame.contains(pos)) return;
+    m_RangeChoosing = true;
+    m_RangeChooseStartPoint = pos;
+    m_RangeChooseEndPoint = pos;
+}
+
+void igQtDataChangeWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    int x = max(bigDrawFrame.left(), min(pos.x(), bigDrawFrame.right()));
+    int y = max(bigDrawFrame.top(), min(pos.y(), bigDrawFrame.bottom()));
+    m_RangeChooseEndPoint = {x, y};
+    update();
+}
+
+void igQtDataChangeWidget::DrawRangeChooseRect() {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QPainter painter(this);
+    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
+}
+
+void igQtDataChangeWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
+
+void igQtDataChangeWidget::mousePressEvent(QMouseEvent* event) {
+    QWidget::mousePressEvent(event);
+    StartRangeChoose(event->pos());
+}
+
+void igQtDataChangeWidget::mouseReleaseEvent(QMouseEvent* event) {
+    QWidget::mouseReleaseEvent(event);
+    EndRangeChoose();
+}
+
 void igQtDataChangeWidget::paintEvent(QPaintEvent* QPE) {
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
     Draw();
+    DrawRangeChooseRect();
 }
 
 void igQtDataChangeWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -159,6 +258,7 @@ void igQtDataChangeWidget::handleMouseMove(const QPoint& pos) {
     if (!timer.isValid() || timer.elapsed() >= 50) {
         ClearPosLabel();
         SetPosLabel(pos.x(), pos.y());
+        MoveRangeChooseEndPoint(pos);
         timer.start();
     }
 }
@@ -323,6 +423,8 @@ DataChangeData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum da
     auto Data = DataChangeData::New();
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
+    auto variableIndex = DataChangeData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
     auto [minValue, maxValue] = DataChangeData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
     Data->SetMaxValueInVariables(maxValue);

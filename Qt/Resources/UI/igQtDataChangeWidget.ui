@@ -15,18 +15,11 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label_10">
-       <property name="text">
-        <string>数据类型选择</string>
-       </property>
-      </widget>
-     </item>
-     <item>
+    <layout class="QGridLayout" name="gridLayout_3">
+     <item row="0" column="1">
       <widget class="QComboBox" name="dataTypeChoose"/>
      </item>
-     <item>
+     <item row="0" column="2">
       <spacer name="horizontalSpacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -39,24 +32,38 @@
        </property>
       </spacer>
      </item>
-     <item>
-      <widget class="QCheckBox" name="dataGetTool">
+     <item row="0" column="5">
+      <widget class="QPushButton" name="refreshData">
        <property name="text">
-        <string>数据采集器</string>
+        <string>刷新数据</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="label_10">
+       <property name="text">
+        <string>数据类型选择</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="5">
       <widget class="QPushButton" name="draw">
        <property name="text">
         <string>数据采集</string>
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QPushButton" name="refreshData">
+     <item row="1" column="3">
+      <widget class="QCheckBox" name="dataGetTool">
        <property name="text">
-        <string>刷新数据</string>
+        <string>数据采集器</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="3">
+      <widget class="QCheckBox" name="rangeChoose">
+       <property name="text">
+        <string>框选数据</string>
        </property>
       </widget>
      </item>
@@ -98,7 +105,7 @@
          <x>0</x>
          <y>0</y>
          <width>150</width>
-         <height>475</height>
+         <height>441</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_6">

@@ -17,6 +17,9 @@ public:
     void SetVariableName(const std::vector<std::string>& variableName);
     const std::vector<std::string>& GetVariableName();
 
+    void SetVariableIndex(const std::vector<std::pair<int, int>>& variableIndex);
+    const std::vector<std::pair<int, int>>& GetVariableIndex();
+
     void SetObjectDatas(const std::vector<std::vector<double>>& objectDatas);
     const std::vector<std::vector<double>>& GetObjectDatas();
 
@@ -42,6 +45,8 @@ protected:
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
 
+    std::vector<std::pair<int, int>> m_VariableIndex;
+
     std::vector<std::vector<double>> m_ObjectDatas;
     std::map<int, std::vector<double>> m_ChoosedObjectDatas;
 
@@ -54,6 +59,8 @@ public:
     /* static funcs */
     static std::vector<std::string> GenerateVariableNames(ElementArray<AttributeSet::Attribute>::Pointer attrs,
                                                           IGenum dataType);
+    static std::vector<std::pair<int, int>> GenerateVariableIndex(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                                  IGenum dataType);
     static std::vector<double> GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                                                   int objId);
     static std::vector<std::vector<double>> GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs,

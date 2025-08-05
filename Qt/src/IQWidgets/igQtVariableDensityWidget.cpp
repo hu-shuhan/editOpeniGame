@@ -4,6 +4,7 @@
 #include <QLinearGradient>
 #include <QTransform>
 #include <QList>
+#include <QCheckBox>
 
 using namespace std;
 
@@ -136,6 +137,15 @@ static double CalculateValueByPos(int pos, int minPos, int maxPos, double minVal
     return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
 }
 
+static double CalculateValueByPos(igQtVariableDensityWidget::ImageShowDirection showDirection, int x, int y,
+                                  const QRect& frame, double minValue, double maxValue) {
+    if (showDirection == igQtVariableDensityWidget::ImageShowDirection::Vertical) {
+        return CalculateValueByPos(y, frame.bottom(), frame.top(), minValue, maxValue);
+    } else if (showDirection == igQtVariableDensityWidget::ImageShowDirection::Horizontal) {
+        return CalculateValueByPos(x, frame.left(), frame.right(), minValue, maxValue);
+    }
+}
+
 igQtVariableDensityWidget_VariableChooseButton::igQtVariableDensityWidget_VariableChooseButton(QWidget* parent)
     : QRadioButton(parent) {}
 
@@ -144,6 +154,9 @@ igQtVariableDensityWidget::igQtVariableDensityWidget(QWidget *parent) :
     ui(new Ui::igQtVariableDensityWidget)
 {
     ui->setupUi(this);
+    m_BoxNum = COPY_NUM;
+    ui->boxNumSlider->setValue(m_BoxNum);
+    ui->boxNumSpinBox->setValue(m_BoxNum);
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtVariableDensityWidget::ChoosedAlphaSliderChanged);
     connect(ui->choosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
@@ -160,10 +173,14 @@ igQtVariableDensityWidget::igQtVariableDensityWidget(QWidget *parent) :
             &igQtVariableDensityWidget::UnChoosedLightSliderChanged);
     connect(ui->unChoosedLightSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
             &igQtVariableDensityWidget::UnChoosedLightSpinBoxChanged);
+    connect(ui->boxNumSlider, &QSlider::valueChanged, this, &igQtVariableDensityWidget::BoxNumSliderChanged);
+    connect(ui->boxNumSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &igQtVariableDensityWidget::BoxNumSpinBoxChanged);
     connect(ui->dataTypeChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtVariableDensityWidget::DataChooseChanged);
     connect(ui->flipDirection, &QPushButton::clicked, this, &igQtVariableDensityWidget::FlipDirectionClicked);
     connect(ui->refreshData, &QPushButton::clicked, this, &igQtVariableDensityWidget::RefreshData);
+    connect(ui->rangeChoose, &QCheckBox::clicked, this, &igQtVariableDensityWidget::RangeChooseButtonClicked);
     setMouseTracking(true);
     ui->drawWidget->installEventFilter(this);
     ui->drawWidget->setMouseTracking(true);
@@ -186,9 +203,162 @@ void igQtVariableDensityWidget::SetModel(Model::Pointer model) {
     GenerateBackgroundColor();
 }
 
+void igQtVariableDensityWidget::RangeChooseObj(const QRect& chooseRange, const QRect& frameRange,
+                                               std::vector<igIndex>& ids, IGenum& type) {
+    //init
+    type = {};
+
+    //set
+    QRect overLapRange = frameRange.intersected(chooseRange);
+    if (overLapRange.right() <= overLapRange.left() || overLapRange.bottom() <= overLapRange.top()) return;
+    if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_VariableDensityDatas[m_CurrentModelDataIndex];
+    type = Data->GetDataType();
+
+    //range
+    bool firstChoose{}, secondChoose{};
+    double firstMinValue{}, firstMaxValue{}, secondMinValue{}, secondMaxValue{};
+    switch (m_ImageShowDirection) {
+        case igQtVariableDensityWidget::Vertical:
+            firstChoose = (0 <= m_CurrentShowVariable.first) &&
+                          (m_CurrentShowVariable.first < Data->GetVariableNum()) &&
+                          (overLapRange.left() < frameRange.center().x());
+            secondChoose = (0 <= m_CurrentShowVariable.second) &&
+                           (m_CurrentShowVariable.second < Data->GetVariableNum()) &&
+                           (frameRange.center().x() < overLapRange.right());
+            if (firstChoose) {
+                firstMinValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                                    Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                    Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+                firstMaxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                                    Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                    Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+            }
+            if (secondChoose) {
+                secondMinValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+                secondMaxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+            }
+            break;
+        case igQtVariableDensityWidget::Horizontal:
+            firstChoose = (0 <= m_CurrentShowVariable.first) &&
+                          (m_CurrentShowVariable.first < Data->GetVariableNum()) &&
+                          (overLapRange.top() < frameRange.center().y());
+            secondChoose = (0 <= m_CurrentShowVariable.second) &&
+                           (m_CurrentShowVariable.second < Data->GetVariableNum()) &&
+                           (frameRange.center().y() < overLapRange.bottom());
+            if (firstChoose) {
+                firstMinValue = CalculateValueByPos(overLapRange.left(), frameRange.left(), frameRange.right(),
+                                                    Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                    Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+                firstMaxValue = CalculateValueByPos(overLapRange.right(), frameRange.left(), frameRange.right(),
+                                                    Data->GetMinValueInVariables()[m_CurrentShowVariable.first],
+                                                    Data->GetMaxValueInVariables()[m_CurrentShowVariable.first]);
+            }
+            if (secondChoose) {
+                secondMinValue = CalculateValueByPos(overLapRange.left(), frameRange.left(), frameRange.right(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+                secondMaxValue = CalculateValueByPos(overLapRange.right(), frameRange.left(), frameRange.right(),
+                                                     Data->GetMinValueInVariables()[m_CurrentShowVariable.second],
+                                                     Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
+            }
+            break;
+        default:
+            break;
+    }
+
+    //choose
+    if (!firstChoose && !secondChoose) return;
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    int objNum{};
+    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
+    else
+        objNum = m_Mesh->GetNumberOfCells();
+    for (int objId = 0; objId < objNum; objId++) {
+        if (firstChoose) {
+            auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
+            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+            if (firstMinValue <= value && value <= firstMaxValue) {
+                ids.push_back(objId);
+                continue;
+            }
+        }
+        if (secondChoose) {
+            auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
+            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+            if (secondMinValue <= value && value <= secondMaxValue) {
+                ids.push_back(objId);
+                continue;
+            }
+        }
+    }
+}
+
+void igQtVariableDensityWidget::EndRangeChoose() {
+    m_RangeChoosing = false;
+    if (!m_RangeChooseOn) return;
+    QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    std::vector<igIndex> ids;
+    IGenum type{};
+    RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
+                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    update();
+}
+
+void igQtVariableDensityWidget::StartRangeChoose(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    if (!bigDrawFrame.contains(pos)) return;
+    m_RangeChoosing = true;
+    m_RangeChooseStartPoint = pos;
+    m_RangeChooseEndPoint = pos;
+}
+
+void igQtVariableDensityWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QRect bigDrawFrame, smallDrawFrame;
+    _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
+    int x = max(bigDrawFrame.left(), min(pos.x(), bigDrawFrame.right()));
+    int y = max(bigDrawFrame.top(), min(pos.y(), bigDrawFrame.bottom()));
+    m_RangeChooseEndPoint = {x, y};
+    update();
+}
+
+void igQtVariableDensityWidget::DrawRangeChooseRect() {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QPainter painter(this);
+    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
+}
+
+void igQtVariableDensityWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
+
+void igQtVariableDensityWidget::mousePressEvent(QMouseEvent* event) {
+    QWidget::mousePressEvent(event);
+    StartRangeChoose(event->pos());
+}
+
+void igQtVariableDensityWidget::mouseReleaseEvent(QMouseEvent* event) {
+    QWidget::mouseReleaseEvent(event);
+    EndRangeChoose();
+}
+
 void igQtVariableDensityWidget::paintEvent(QPaintEvent* QPE) {
     if (m_CurrentModelDataIndex < 0 || m_VariableDensityDatas.size() <= m_CurrentModelDataIndex) return;
     Draw();
+    DrawRangeChooseRect();
 }
 
 void igQtVariableDensityWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -212,6 +382,7 @@ void igQtVariableDensityWidget::handleMouseMove(const QPoint& pos) {
     if (!timer.isValid() || timer.elapsed() >= 50) {
         ClearVariablePosLabel();
         SetVariablePosLabel(pos.x(), pos.y());
+        MoveRangeChooseEndPoint(pos);
         timer.start();
     }
 }
@@ -405,15 +576,6 @@ void igQtVariableDensityWidget::ClearVariableNameLabel() {
     ui->variableSecondName->setText("");
 }
 
-static double CalculateValueByPos(igQtVariableDensityWidget::ImageShowDirection showDirection, int x, int y,
-                                  const QRect& frame, double minValue, double maxValue) {
-    if (showDirection == igQtVariableDensityWidget::ImageShowDirection::Vertical) {
-        return CalculateValueByPos(y, frame.bottom(), frame.top(), minValue, maxValue);
-    } else if (showDirection == igQtVariableDensityWidget::ImageShowDirection::Horizontal) {
-        return CalculateValueByPos(x, frame.left(), frame.right(), minValue, maxValue);
-    }
-}
-
 void igQtVariableDensityWidget::SetVariablePosLabel(int x, int y) {
     QRect bigDrawFrame, smallDrawFrame;
     _CalculatePaintDrawFrame(bigDrawFrame, smallDrawFrame);
@@ -503,23 +665,25 @@ VariableDensityData::Pointer igQtVariableDensityWidget::_GenerateVariableDensity
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableDensityData::Pointer();
     auto Data = VariableDensityData::New();
-    Data->SetCopyNum(COPY_NUM);
+    Data->SetCopyNum(m_BoxNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
+    auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
     auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
     Data->SetChoosedObjectIndexs(choosedObjIds);
     auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
     Data->SetMaxValueInVariables(maxValue);
     auto density =
-            VariableDensityData::GenerateDensity(variableNum, COPY_NUM, maxValue, minValue, attrs, dataType, objNum);
+            VariableDensityData::GenerateDensity(variableNum, m_BoxNum, maxValue, minValue, attrs, dataType, objNum);
     Data->SetDensity(density);
-    auto choosedDensity = VariableDensityData::GenerateDensity(variableNum, COPY_NUM, maxValue, minValue, attrs,
+    auto choosedDensity = VariableDensityData::GenerateDensity(variableNum, m_BoxNum, maxValue, minValue, attrs,
                                                                dataType, choosedObjIds);
     Data->SetChoosedDensity(choosedDensity);
-    Data->SetDensityColor(VariableDensityData::GenerateDensityColor(COPY_NUM, Data->GetUnChoosedLight(), colorMap));
+    Data->SetDensityColor(VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetUnChoosedLight(), colorMap));
     Data->SetChoosedDensityColor(
-            VariableDensityData::GenerateDensityColor(COPY_NUM, Data->GetChoosedLight(), colorMap));
+            VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetChoosedLight(), colorMap));
     Data->SetDataType(dataType);
     Data->SetDataTypeName(VariableDensityData::GenerateDataTypeName(dataType));
     Data->SetUnChoosedAlpha(255);
@@ -663,6 +827,29 @@ bool igQtVariableDensityWidget::_GetVariablePosMsg(int variableIndex, int x, int
     return true;
 }
 
+void igQtVariableDensityWidget::_UpdateDataCopyNum() {
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    auto colorMap = m_Mesh->GetColorMapper();
+    for (auto& Data: m_VariableDensityDatas) {
+        int objNum{};
+        if (Data->GetDataType() == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
+        else
+            objNum = m_Mesh->GetNumberOfCells();
+        Data->SetCopyNum(m_BoxNum);
+        auto density = VariableDensityData::GenerateDensity(
+                Data->GetVariableNum(), m_BoxNum, Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(), attrs,
+                Data->GetDataType(), objNum);
+        Data->SetDensity(density);
+        auto choosedDensity = VariableDensityData::GenerateDensity(
+                Data->GetVariableNum(), m_BoxNum, Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(), attrs,
+                Data->GetDataType(), Data->GetChoosedObjectIndexs());
+        Data->SetChoosedDensity(choosedDensity);
+        Data->SetDensityColor(VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetUnChoosedLight(), colorMap));
+        Data->SetChoosedDensityColor(
+                VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetChoosedLight(), colorMap));
+    }
+}
+
 void igQtVariableDensityWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtVariableDensityWidget::SelectionCallbackEvent, this,
@@ -778,6 +965,30 @@ void igQtVariableDensityWidget::UnChoosedLightSpinBoxChanged(int value) {
     GenerateSecondDensityImage();
     this->update();
     if (ui->unChoosedLightSlider->value() != value) ui->unChoosedLightSlider->setValue(value);
+}
+
+void igQtVariableDensityWidget::BoxNumSliderChanged(int value) {
+    if (m_BoxNum == value) return;
+    m_BoxNum = value;
+    _UpdateDataCopyNum();
+    GenerateFirstDensityImage();
+    GenerateFirstChoosedDensityImage();
+    GenerateSecondDensityImage();
+    GenerateSecondChoosedDensityImage();
+    this->update();
+    if (ui->boxNumSpinBox->value() != value) ui->boxNumSpinBox->setValue(value);
+}
+
+void igQtVariableDensityWidget::BoxNumSpinBoxChanged(int value) {
+    if (m_BoxNum == value) return;
+    m_BoxNum = value;
+    _UpdateDataCopyNum();
+    GenerateFirstDensityImage();
+    GenerateFirstChoosedDensityImage();
+    GenerateSecondDensityImage();
+    GenerateSecondChoosedDensityImage();
+    this->update();
+    if (ui->boxNumSlider->value() != value) ui->boxNumSlider->setValue(value);
 }
 
 void igQtVariableDensityWidget::VariableFirstChooseButtonClicked(bool checked) {

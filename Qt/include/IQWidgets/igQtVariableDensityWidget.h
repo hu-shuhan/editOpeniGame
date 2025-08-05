@@ -43,7 +43,24 @@ public:
 
     void SetModel(Model::Pointer model);
 
+private:
+    /* data choose */
+    void RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids, IGenum& type);
+    void EndRangeChoose();
+    void StartRangeChoose(const QPoint& pos);
+    void MoveRangeChooseEndPoint(const QPoint& pos);
+    void DrawRangeChooseRect();
+    bool m_RangeChooseOn{};
+    QPoint m_RangeChooseStartPoint;
+    QPoint m_RangeChooseEndPoint;
+    bool m_RangeChoosing{};
+
+private slots:
+    void RangeChooseButtonClicked(bool checked);
+
 protected:
+    void mousePressEvent(QMouseEvent* event);
+    void mouseReleaseEvent(QMouseEvent* event);
     void paintEvent(QPaintEvent* QPE);
     void mouseMoveEvent(QMouseEvent* event);
     bool eventFilter(QObject* watched, QEvent* event);
@@ -96,6 +113,7 @@ private:
                           const QRect& drawFrame, std::shared_ptr<QPainter> painter);
     bool _GetVariablePosMsg(int variableIndex, int x, int y, QRect& frame, double& value, int& densityNum,
                             int& choosedDensityNum);
+    void _UpdateDataCopyNum();
 
 private:
     void SetSelectionCallback();
@@ -128,6 +146,8 @@ private:
     //std::vector<igQtVariableDensityWidget_VariableChooseButton*> m_VariableFirstChooseButtons;
     //std::vector<igQtVariableDensityWidget_VariableChooseButton*> m_VariableSecondChooseButtons;
     ImageShowDirection m_ImageShowDirection{};
+
+    int m_BoxNum{};
     
 private slots:
     void ChoosedAlphaSliderChanged(int value);
@@ -138,6 +158,8 @@ private slots:
     void UnChoosedLightSliderChanged(int value);
     void ChoosedLightSpinBoxChanged(int value);
     void UnChoosedLightSpinBoxChanged(int value);
+    void BoxNumSliderChanged(int value);
+    void BoxNumSpinBoxChanged(int value);
 private slots:
     void VariableFirstChooseButtonClicked(bool checked);
     void VariableSecondChooseButtonClicked(bool checked);

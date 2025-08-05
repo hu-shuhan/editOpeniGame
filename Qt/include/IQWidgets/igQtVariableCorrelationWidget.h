@@ -53,7 +53,24 @@ public:
 
     void SetModel(Model::Pointer model);
 
+private:
+    /* data choose */
+    void RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids, IGenum& type);
+    void EndRangeChoose();
+    void StartRangeChoose(const QPoint& pos);
+    void MoveRangeChooseEndPoint(const QPoint& pos);
+    void DrawRangeChooseRect();
+    bool m_RangeChooseOn{};
+    QPoint m_RangeChooseStartPoint;
+    QPoint m_RangeChooseEndPoint;
+    bool m_RangeChoosing{};
+
+private slots:
+    void RangeChooseButtonClicked(bool checked);
+
 protected:
+    void mousePressEvent(QMouseEvent* event);
+    void mouseReleaseEvent(QMouseEvent* event);
     void paintEvent(QPaintEvent* QPE);
     void mouseMoveEvent(QMouseEvent* event);
     bool eventFilter(QObject* watched, QEvent* event);
