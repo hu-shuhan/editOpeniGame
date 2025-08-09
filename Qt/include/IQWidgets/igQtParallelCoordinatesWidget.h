@@ -13,6 +13,7 @@
 #include <map>
 #include <string>
 #include <QPainter>
+#include <QMouseEvent>
 #include <memory>
 #include <iGameParallelCoordinatesData.h>
 #include <IQComponents/igQtParallelCoordinatesObjectFilter.h>
@@ -34,8 +35,28 @@ public:
 private:
     Ui::ParallelCoordinatesView* ui;
 
+private:
+    /* data choose */
+    void RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids, IGenum& type);
+    void EndRangeChoose();
+    void StartRangeChoose(const QPoint& pos);
+    void MoveRangeChooseEndPoint(const QPoint& pos);
+    void DrawRangeChooseRect();
+    bool m_RangeChooseOn{};
+    QPoint m_RangeChooseStartPoint;
+    QPoint m_RangeChooseEndPoint;
+    bool m_RangeChoosing{};
+
+private slots:
+    void RangeChooseButtonClicked(bool checked);
+
 protected:
+    void mousePressEvent(QMouseEvent* event);
+    void mouseReleaseEvent(QMouseEvent* event);
     void paintEvent(QPaintEvent* QPE);
+    void mouseMoveEvent(QMouseEvent* event);
+    bool eventFilter(QObject* watched, QEvent* event);
+    void handleMouseMove(const QPoint& pos);
 
 public:
     void SetParallelCoordinates(Model::Pointer model);
@@ -64,6 +85,7 @@ private:
     bool GetDrawFramePoints(int variableSortSize, std::vector<QRect>& variableMaxFontPoints,
                             std::vector<QRect>& variableMinFontPoints, std::vector<QRect>& variableNameFontPoints,
                             QRect& linkImageArea, QRect& background);
+    void GetDrawWidgetRect(QRect& frame);
     //Filter
     void SetObjectFilters(const std::vector<int>& variableSort, const std::vector<std::string>& variableName,
                           const std::vector<double>& filterMaxValue, const std::vector<double>& filterMinValue);

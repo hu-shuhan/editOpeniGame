@@ -299,6 +299,7 @@ void igQtVariableDensityWidget::RangeChooseObj(const QRect& chooseRange, const Q
 }
 
 void igQtVariableDensityWidget::EndRangeChoose() {
+    if (!m_RangeChoosing) return;
     m_RangeChoosing = false;
     if (!m_RangeChooseOn) return;
     QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);

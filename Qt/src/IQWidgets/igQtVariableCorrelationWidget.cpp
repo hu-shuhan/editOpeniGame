@@ -227,6 +227,7 @@ void igQtVariableCorrelationWidget::RangeChooseObj(const QRect& chooseRange, con
 }
 
 void igQtVariableCorrelationWidget::EndRangeChoose() {
+    if (!m_RangeChoosing) return;
     m_RangeChoosing = false;
     if (!m_RangeChooseOn) return;
     QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);

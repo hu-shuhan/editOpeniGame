@@ -12,6 +12,7 @@
 #include <random>
 #include <iGameThreadPool.h>
 #include <thread>
+#include <QElapsedTimer>
 
 /**
  * @class   igQtParallelCoordinatesWidget
@@ -19,6 +20,16 @@
  */
 
 using namespace std;
+
+static constexpr int leftSpace = 5, rightSpace = 5, topSpace = 5, bottomSpace = 5;
+static constexpr int stringSize = 10;
+static constexpr int eachInterval = 2;
+
+static double CalculateValueByPos(int pos, int minPos, int maxPos, double minValue, double maxValue) {
+    if (minPos == maxPos) return (minValue + maxValue) / 2;
+    if (minValue == maxValue) return minValue;
+    return (pos - minPos) * (maxValue - minValue) / (maxPos - minPos) + minValue;
+}
 
 static inline QColor GetQColorFromTuple(const tuple<int, int, int>& rgb, int alpha) {
     return QColor(get<0>(rgb), get<1>(rgb), get<2>(rgb), alpha);
@@ -106,6 +117,17 @@ static std::tuple<int, int, int> CalculateBackgroundColor(FloatArray::Pointer co
     return ParallelCoordinatesData::ChangeSaturation(CalculateBackgroundColor(colors), 85);
 }
 
+static void CalculateMidLinkLineXs(int lineNum, int minPos, int maxPos, std::vector<int>& poss) {
+    if (lineNum <= 1) return;
+    if (maxPos <= minPos) return;
+    int interval = (maxPos - minPos) / lineNum;
+    int halfInterval = interval / 2;
+    for (int i = 0; i < lineNum; i++) {
+        int nowMidLine = minPos + i * interval + halfInterval;
+        poss.push_back(nowMidLine);
+    }
+}
+
 igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::ParallelCoordinatesView) {
     ui->setupUi(this);
@@ -135,12 +157,173 @@ igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
             &igQtParallelCoordinatesWidget::WaitImageLoading);
     connect(this, &igQtParallelCoordinatesWidget::SIGNAL_CompleteImageLoading, this,
             &igQtParallelCoordinatesWidget::CompleteImageLoading);
+    connect(ui->rangeChoose, &QCheckBox::clicked, this, &igQtParallelCoordinatesWidget::RangeChooseButtonClicked);
+    setMouseTracking(true);
+    ui->ParallelCoordinatesDrawView->installEventFilter(this);
+    ui->ParallelCoordinatesDrawView->setMouseTracking(true);
 }
+
 igQtParallelCoordinatesWidget::~igQtParallelCoordinatesWidget() {}
+
+void igQtParallelCoordinatesWidget::RangeChooseObj(const QRect& chooseRange, const QRect& frameRange,
+                                                   std::vector<igIndex>& ids, IGenum& type) {
+    //init
+    type = {};
+
+    //set
+    QRect overLapRange = frameRange.intersected(chooseRange);
+    if (overLapRange.right() <= overLapRange.left() || overLapRange.bottom() <= overLapRange.top()) return;
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    type = Data->GetDataType();
+    if (Data->GetVariableSort().size() <= 0) return;
+
+    //range
+    std::map<int, std::pair<double, double>> variableMinMaxValues;
+    if (Data->GetVariableSort().size() == 1) {
+        auto& variableIndex = Data->GetVariableSort().front();
+        auto minValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                            Data->GetMinValueInVariables()[variableIndex],
+                                            Data->GetMaxValueInVariables()[variableIndex]);
+        auto maxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                            Data->GetMinValueInVariables()[variableIndex],
+                                            Data->GetMaxValueInVariables()[variableIndex]);
+        variableMinMaxValues[variableIndex] = {minValue, maxValue};
+    } else {
+        std::vector<int> midLines;
+        CalculateMidLinkLineXs(Data->GetVariableSort().size(), frameRange.left() + rightSpace,
+                               frameRange.right() - leftSpace, midLines);
+        for (int i = 0; i < Data->GetVariableSort().size(); i++) {
+            auto& midLine = midLines[i];
+            if (midLine < overLapRange.left() || overLapRange.right() < midLine) continue;
+            auto& variableId = Data->GetVariableSort()[i];
+            auto minValue = CalculateValueByPos(overLapRange.bottom(), frameRange.bottom(), frameRange.top(),
+                                                Data->GetMinValueInVariables()[variableId],
+                                                Data->GetMaxValueInVariables()[variableId]);
+            auto maxValue = CalculateValueByPos(overLapRange.top(), frameRange.bottom(), frameRange.top(),
+                                                Data->GetMinValueInVariables()[variableId],
+                                                Data->GetMaxValueInVariables()[variableId]);
+            variableMinMaxValues[variableId] = {minValue, maxValue};
+        }
+    }
+
+    //choose
+    if (variableMinMaxValues.size() == 0) return;
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    int objNum{};
+    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
+    else
+        objNum = m_Mesh->GetNumberOfCells();
+    for (int objId = 0; objId < objNum; objId++) {
+        for (auto& variableMinMaxValue_: variableMinMaxValues) {
+            auto& variableId = variableMinMaxValue_.first;
+            auto& variableIndex = Data->GetVariableIndex()[variableId];
+            auto& minValue = variableMinMaxValue_.second.first;
+            auto& maxValue = variableMinMaxValue_.second.second;
+            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+            if (value < minValue || maxValue < value) continue;
+            if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
+                continue;
+            ids.push_back(objId);
+            break;
+        }
+    }
+}
+
+void igQtParallelCoordinatesWidget::EndRangeChoose() {
+    if (!m_RangeChoosing) return;
+    m_RangeChoosing = false;
+    if (!m_RangeChooseOn) return;
+    if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
+    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
+    QRect chooseRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint);
+    std::vector<QRect> variableMaxFontPoints;
+    std::vector<QRect> variableMinFontPoints;
+    std::vector<QRect> variableNameFontPoints;
+    QRect drawImageArea;
+    QRect background;
+    bool drawAble = GetDrawFramePoints(Data->GetVariableSort().size(), variableMaxFontPoints, variableMinFontPoints,
+                                       variableNameFontPoints, drawImageArea, background);
+    if (!drawAble) return;
+    std::vector<igIndex> ids;
+    IGenum type{};
+    RangeChooseObj(chooseRect, drawImageArea, ids, type);
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
+                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    update();
+}
+
+void igQtParallelCoordinatesWidget::StartRangeChoose(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    QRect drawFrame;
+    GetDrawWidgetRect(drawFrame);
+    if (!drawFrame.contains(pos)) return;
+    m_RangeChoosing = true;
+    m_RangeChooseStartPoint = pos;
+    m_RangeChooseEndPoint = pos;
+}
+
+void igQtParallelCoordinatesWidget::MoveRangeChooseEndPoint(const QPoint& pos) {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QRect drawFrame;
+    GetDrawWidgetRect(drawFrame);
+    int x = max(drawFrame.left(), min(pos.x(), drawFrame.right()));
+    int y = max(drawFrame.top(), min(pos.y(), drawFrame.bottom()));
+    m_RangeChooseEndPoint = {x, y};
+    update();
+}
+
+void igQtParallelCoordinatesWidget::DrawRangeChooseRect() {
+    if (!m_RangeChooseOn) return;
+    if (!m_RangeChoosing) return;
+    QPainter painter(this);
+    painter.setPen(QPen(QColorConstants::DarkMagenta, 1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRect(m_RangeChooseStartPoint, m_RangeChooseEndPoint));
+}
+
+void igQtParallelCoordinatesWidget::RangeChooseButtonClicked(bool checked) { m_RangeChooseOn = checked; }
+
+void igQtParallelCoordinatesWidget::mousePressEvent(QMouseEvent* event) {
+    QWidget::mousePressEvent(event);
+    StartRangeChoose(event->pos());
+}
+
+void igQtParallelCoordinatesWidget::mouseReleaseEvent(QMouseEvent* event) {
+    QWidget::mouseReleaseEvent(event);
+    EndRangeChoose();
+}
 
 void igQtParallelCoordinatesWidget::paintEvent(QPaintEvent* QPE) {
     if (m_ParallelCoordinatesDatas.size() == 0 || m_CurrentModelDataIndex == -1) return;
     DrawParallelCoordinates();
+    DrawRangeChooseRect();
+}
+
+void igQtParallelCoordinatesWidget::mouseMoveEvent(QMouseEvent* event) {
+    handleMouseMove(event->pos());
+    QWidget::mouseMoveEvent(event);
+}
+
+bool igQtParallelCoordinatesWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::MouseMove) {
+        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+
+        QPoint parentPos = static_cast<QWidget*>(watched)->mapTo(this, mouseEvent->pos());
+        handleMouseMove(parentPos);
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void igQtParallelCoordinatesWidget::handleMouseMove(const QPoint& pos) {
+    static QElapsedTimer timer;
+    if (!timer.isValid() || timer.elapsed() >= 50) {
+        MoveRangeChooseEndPoint(pos);
+        timer.start();
+    }
 }
 
 void igQtParallelCoordinatesWidget::SetParallelCoordinates(Model::Pointer model) {
@@ -817,9 +1000,6 @@ bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableSortSize, std
                                                        std::vector<QRect>& variableMinFontPoints,
                                                        std::vector<QRect>& variableNameFontPoints, QRect& linkImageArea,
                                                        QRect& background) {
-    constexpr int leftSpace = 5, rightSpace = 5, topSpace = 5, bottomSpace = 5;
-    constexpr int stringSize = 10;
-    constexpr int eachInterval = 2;
     if (variableSortSize < 1) return false;
     QPoint startPoint(ui->ParallelCoordinatesDrawView->x() + leftSpace,
                       ui->ParallelCoordinatesDrawView->y() + topSpace),
@@ -867,4 +1047,10 @@ bool igQtParallelCoordinatesWidget::GetDrawFramePoints(int variableSortSize, std
                                                QPoint(nowMidLine + halfInterval, nameFontEndBottom)));
     }
     return true;
+}
+
+void igQtParallelCoordinatesWidget::GetDrawWidgetRect(QRect& frame) {
+    QRect drawWidgetRect = ui->ParallelCoordinatesDrawView->rect();
+    drawWidgetRect.moveTo(ui->ParallelCoordinatesDrawView->mapTo(this, QPoint(0, 0)));
+    frame = drawWidgetRect;
 }
