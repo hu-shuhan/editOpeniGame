@@ -580,8 +580,8 @@ void igQtDataChangeWidget::_GenerateChoosedVariableImage(const std::vector<bool>
 }
 
 void igQtDataChangeWidget::_ResetVariableImage(int variableNum) {
-    m_VariableImages = std::vector<QImage>(variableNum, {});
-    m_ChoosedVariableImages = std::vector<QImage>(variableNum, {});
+    m_VariableImages = std::vector<QImage>(variableNum, QImage());
+    m_ChoosedVariableImages = std::vector<QImage>(variableNum, QImage());
 }
 
 void igQtDataChangeWidget::_SetLightUi(int unchoosedLight, int choosedLight) {

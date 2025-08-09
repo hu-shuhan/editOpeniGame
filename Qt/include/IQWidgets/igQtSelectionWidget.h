@@ -21,6 +21,8 @@ public:
     double GetSelectionRadius() const;
     bool GetSelectionShow() const;
     bool GetSelectOrUnSelect() const;
+    void PreventSignalSend(bool prevent);
+    void SetDefaultSelectionButton();
 
 signals:
     void SetSelectionStation(SelectionStation selectionStation);
@@ -49,6 +51,7 @@ private:
     bool m_Select_Or_UnSelect{true};
     double m_SelectionRadius{};
     bool m_SelectionShow{true};
+    bool m_PreventSignalSend{};
 };
 
 #endif // IGQTSELECTIONWIDGET_H

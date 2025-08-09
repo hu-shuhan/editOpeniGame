@@ -132,7 +132,7 @@ void Selection::Reset() {
 }
 
 void Selection::AddItem(const Event& event) {
-    if (m_SelectedItems[event.type].count(event.pickId) != 0) {
+    if (m_SelectedItems[event.type].count(event.pickId) != 0 && m_Model != nullptr) {
         auto painter = m_Model->GetPainter3D();
         auto& handles = m_SelectedItems[event.type][event.pickId].drawHandles;
         for (auto& handle: handles) { painter->Delete(handle); }

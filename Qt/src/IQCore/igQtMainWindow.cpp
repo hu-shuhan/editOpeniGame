@@ -1815,7 +1815,9 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
+            [&](DrawObject::Pointer mesh) { 
+            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); 
+        });
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
@@ -2285,6 +2287,10 @@ void igQtMainWindow::initAllInteractor() {
             ui->action_SelectView->setChecked(false);
         });
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        ui->widget_SelectionField->PreventSignalSend(true);
+        ui->widget_SelectionField->SetDefaultSelectionButton();
+        ui->widget_SelectionField->PreventSignalSend(false);
+        return;
         auto radius = ui->widget_SelectionField->GetSelectionRadius();
         auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
         auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
