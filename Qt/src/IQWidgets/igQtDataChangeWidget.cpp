@@ -839,13 +839,14 @@ void igQtDataChangeWidget::DataChooseChanged(int choosedIndex) {
 }
 
 void igQtDataChangeWidget::RefreshData() {
-    GenerateDataChangeDatas();
-    SetDataTypeChoose();
-    SetUiData();
-    ClearVariableChoose();
-    ResetVariableButton();
-    ResetVariableImage();
-    GenerateBackgroundColor();
+    emit SIGNAL_RefreshDataClicked();
+    //GenerateDataChangeDatas();
+    //SetDataTypeChoose();
+    //SetUiData();
+    //ClearVariableChoose();
+    //ResetVariableButton();
+    //ResetVariableImage();
+    //GenerateBackgroundColor();
 }
 
 void igQtDataChangeWidget::DataGetToolClicked(bool checked) { ShowRadial(checked); }

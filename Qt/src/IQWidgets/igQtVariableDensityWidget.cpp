@@ -1036,10 +1036,11 @@ void igQtVariableDensityWidget::FlipDirectionClicked() {
 }
 
 void igQtVariableDensityWidget::RefreshData() {
-    GenerateVariableDensityDatas();
-    SetDataTypeChoose();
-    SetUiData();
-    ClearVariableChoose();
-    GenerateVariableChoose();
-    GenerateBackgroundColor();
+    emit SIGNAL_RefreshDataClicked();
+    //GenerateVariableDensityDatas();
+    //SetDataTypeChoose();
+    //SetUiData();
+    //ClearVariableChoose();
+    //GenerateVariableChoose();
+    //GenerateBackgroundColor();
 }

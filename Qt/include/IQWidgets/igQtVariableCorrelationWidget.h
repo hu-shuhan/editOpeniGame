@@ -163,6 +163,8 @@ private slots:
     void RefreshData();
     void WaitImageLoading();
     void CompleteImageLoading();
+signals:
+    void SIGNAL_RefreshDataClicked();
 };
 
 #endif // IGQTVARIABLECORRELATIONWIDGET_H

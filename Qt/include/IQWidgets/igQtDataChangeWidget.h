@@ -184,6 +184,8 @@ private slots:
     void RefreshData();
     void DataGetToolClicked(bool checked);
     void TempSlot_SetRadialData();
+signals:
+    void SIGNAL_RefreshDataClicked();
 };
 
 #endif // IGQTDATACHANGEWIDGET_H

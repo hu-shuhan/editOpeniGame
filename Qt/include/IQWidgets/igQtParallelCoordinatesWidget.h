@@ -158,4 +158,6 @@ private slots:
     void GetVariableSortFromDialog(const std::vector<int>& choosedSort);
     void WaitImageLoading();
     void CompleteImageLoading();
+signals:
+    void SIGNAL_RefreshDataClicked();
 };

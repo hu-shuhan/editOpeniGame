@@ -951,13 +951,14 @@ void igQtVariableCorrelationWidget::DataChooseChanged(int choosedIndex) {
 }
 
 void igQtVariableCorrelationWidget::RefreshData() {
-    GenerateVariableCorrelationDatas();
-    SetDataTypeChoose();
-    SetUiData();
-    ClearMainVariableChoose();
-    GenerateMainVariableChoose();
-    ClearSubVariableChoose();
-    GenerateBackgroundColor();
+    emit SIGNAL_RefreshDataClicked();
+    //GenerateVariableCorrelationDatas();
+    //SetDataTypeChoose();
+    //SetUiData();
+    //ClearMainVariableChoose();
+    //GenerateMainVariableChoose();
+    //ClearSubVariableChoose();
+    //GenerateBackgroundColor();
 }
 
 void igQtVariableCorrelationWidget::WaitImageLoading() {

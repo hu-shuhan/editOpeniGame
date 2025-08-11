@@ -612,14 +612,15 @@ void igQtParallelCoordinatesWidget::ColorChooseChanged(int choosedIndex) {
 }
 
 void igQtParallelCoordinatesWidget::RefreshData() {
-    auto choosedDataIndex = m_CurrentModelDataIndex;
-    UpdateData();
-    UpdateColor();
-    UpdateBackgroundColor();
-    SetUpdateLinkImage();
-    UpdatingChoosedLinkImage();
-    update();
-    if (choosedDataIndex < m_ParallelCoordinatesDatas.size()) m_CurrentModelDataIndex = choosedDataIndex;
+    emit SIGNAL_RefreshDataClicked();
+    //auto choosedDataIndex = m_CurrentModelDataIndex;
+    //UpdateData();
+    //UpdateColor();
+    //UpdateBackgroundColor();
+    //SetUpdateLinkImage();
+    //UpdatingChoosedLinkImage();
+    //update();
+    //if (choosedDataIndex < m_ParallelCoordinatesDatas.size()) m_CurrentModelDataIndex = choosedDataIndex;
 }
 
 void igQtParallelCoordinatesWidget::SetVariableSort() {

@@ -1454,13 +1454,18 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_ParallelCoordinatesField->show();
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
-    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-        if (ui->dockWidget_ParallelCoordinatesField->isHidden()) return;
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_ParallelCoordinatesField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_ParallelCoordinatesField->hide();
+    //        return;
+    //    }
+    //    ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+    //});
+    connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) {
-            ui->dockWidget_ParallelCoordinatesField->hide();
-            return;
-        }
+        if (model == nullptr) return;
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
     connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
@@ -1469,40 +1474,55 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_VariableCorrelationField->show();
         ui->widget_VariableCorrelationField->SetModel(model);
     });
-    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-        if (ui->dockWidget_VariableCorrelationField->isHidden()) return;
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) {
-            ui->dockWidget_VariableCorrelationField->hide();
-            return;
-        }
-        ui->widget_VariableCorrelationField->SetModel(model);
-    });
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_VariableCorrelationField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_VariableCorrelationField->hide();
+    //        return;
+    //    }
+    //    ui->widget_VariableCorrelationField->SetModel(model);
+    //});
+    connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
+            [&]() {
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) return;
+                ui->widget_VariableCorrelationField->SetModel(model);
+            });
     connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
         ui->dockWidget_VariableDensityField->show();
         ui->widget_VariableDensityField->SetModel(model);
     });
-    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-        if (ui->dockWidget_VariableDensityField->isHidden()) return;
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) {
-            ui->dockWidget_VariableDensityField->hide();
-            return;
-        }
-        ui->widget_VariableDensityField->SetModel(model);
-    });
-    connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) {
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_VariableDensityField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_VariableDensityField->hide();
+    //        return;
+    //    }
+    //    ui->widget_VariableDensityField->SetModel(model);
+    //});
+    connect(ui->widget_VariableDensityField, &igQtVariableDensityWidget::SIGNAL_RefreshDataClicked, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_DataChangeField->show();
-        ui->widget_DataChangeField->InitRadialStyle(rendererWidget->GetScene()->GetInteractor());
-        auto name = rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
-                ui->widget_DataChangeField->GetRadialStyle());
-        ui->widget_DataChangeField->SetInteractorName(name);
-        ui->widget_DataChangeField->SetModel(model);
+        ui->widget_VariableDensityField->SetModel(model);
     });
+    auto DataChangeFunc = [&](igQtMainWindow* mainWindow) {
+        auto model = mainWindow->rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        mainWindow->ui->dockWidget_DataChangeField->show();
+        mainWindow->ui->widget_DataChangeField->InitRadialStyle(
+                mainWindow->rendererWidget->GetScene()->GetInteractor());
+        auto name = mainWindow->rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
+                mainWindow->ui->widget_DataChangeField->GetRadialStyle());
+        mainWindow->ui->widget_DataChangeField->SetInteractorName(name);
+        mainWindow->ui->widget_DataChangeField->SetModel(model);
+    };
+    connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) { DataChangeFunc(this); });
+    connect(ui->widget_DataChangeField, &igQtDataChangeWidget::SIGNAL_RefreshDataClicked, this,
+            [&]() { DataChangeFunc(this); });
     //connect(ui->widget_DataChangeField, &igQtDataChangeWidget::Hided, this, [&]() {
     //    rendererWidget->GetScene()->GetInteractor()->RemoveSepcialInteractor(
     //            ui->widget_DataChangeField->GetInteractorName());

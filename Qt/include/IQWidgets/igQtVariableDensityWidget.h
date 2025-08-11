@@ -167,6 +167,8 @@ private slots:
     void DataChooseChanged(int choosedIndex);
     void FlipDirectionClicked();
     void RefreshData();
+signals:
+    void SIGNAL_RefreshDataClicked();
 };
 
 #endif // IGQTVARIABLEDENSITYWIDGET_H
