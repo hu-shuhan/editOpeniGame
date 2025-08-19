@@ -6,6 +6,7 @@
 #include <cmath>
 #include <thread>
 #include <QCheckBox>
+#include <iGameThreadPool.h>
 using namespace std;
 
 static constexpr int defaultW = 2000, defaultH = 2000;
@@ -17,6 +18,24 @@ static inline QColor GetQColorFromTuple(const tuple<int, int, int>& rgb, int alp
 }
 
 static QRect InsetRectByBoundaryRatio(const QRect& rect, double boundaryRatio) {
+    //int width = rect.width();
+    //int height = rect.height();
+
+    //double insetX = static_cast<double>(width) * boundaryRatio;
+    //double insetY = static_cast<double>(height) * boundaryRatio;
+
+    //double inset = min(insetX, insetY);
+
+    //int insetInt = static_cast<int>(std::round(inset));
+
+    //int newLeft = rect.left() + insetInt;
+    //int newTop = rect.top() + insetInt;
+
+    //int newWidth = std::max(0, width - 2 * insetInt);
+    //int newHeight = std::max(0, height - 2 * insetInt);
+
+    //return QRect(newLeft, newTop, newWidth, newHeight);
+
     int width = rect.width();
     int height = rect.height();
 
@@ -215,15 +234,30 @@ void igQtVariableCorrelationWidget::RangeChooseObj(const QRect& chooseRange, con
         objNum = m_Mesh->GetNumberOfCells();
     auto& mainVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
     auto& subVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
-    for (int objId = 0; objId < objNum; objId++) {
-        auto mainVariableValue =
-                attrs->GetElement(mainVariableIndex.first).pointer->GetElementValue(objId, mainVariableIndex.second);
-        if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
-        auto subVariableValue =
-                attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
-        if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
-        ids.push_back(objId);
-    }
+    static mutex IDS_MUTEX;
+    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
+        std::vector<igIndex> tempIds;
+        for (int objId = st; objId < ed; objId++) {
+            auto mainVariableValue = attrs->GetElement(mainVariableIndex.first)
+                                             .pointer->GetElementValue(objId, mainVariableIndex.second);
+            if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
+            auto subVariableValue =
+                    attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
+            if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
+            tempIds.push_back(objId);
+        }
+        lock_guard lg(IDS_MUTEX);
+        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
+    });
+    //for (int objId = 0; objId < objNum; objId++) {
+    //    auto mainVariableValue =
+    //            attrs->GetElement(mainVariableIndex.first).pointer->GetElementValue(objId, mainVariableIndex.second);
+    //    if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
+    //    auto subVariableValue =
+    //            attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
+    //    if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
+    //    ids.push_back(objId);
+    //}
 }
 
 void igQtVariableCorrelationWidget::EndRangeChoose() {

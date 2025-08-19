@@ -2,6 +2,7 @@
 #include <IQWidgets/igQtDataChangeWidget.h>
 #include <QElapsedTimer>
 #include <utility>
+#include <iGameThreadPool.h>
 
 using namespace std;
 

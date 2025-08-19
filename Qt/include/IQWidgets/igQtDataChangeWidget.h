@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include <QMouseEvent>
 #include <QPainter>
+#include <mutex>
 #include <memory>
 using namespace iGame;
 namespace Ui {

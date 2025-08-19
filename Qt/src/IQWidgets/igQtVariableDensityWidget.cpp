@@ -5,6 +5,7 @@
 #include <QTransform>
 #include <QList>
 #include <QCheckBox>
+#include <iGameThreadPool.h>
 
 using namespace std;
 
@@ -278,24 +279,50 @@ void igQtVariableDensityWidget::RangeChooseObj(const QRect& chooseRange, const Q
     if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    for (int objId = 0; objId < objNum; objId++) {
-        if (firstChoose) {
-            auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
-            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-            if (firstMinValue <= value && value <= firstMaxValue) {
-                ids.push_back(objId);
-                continue;
+    static mutex IDS_MUTEX;
+    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
+        std::vector<igIndex> tempIds;
+        for (int objId = st; objId < ed; objId++) {
+            if (firstChoose) {
+                auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
+                auto value =
+                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+                if (firstMinValue <= value && value <= firstMaxValue) {
+                    tempIds.push_back(objId);
+                    continue;
+                }
+            }
+            if (secondChoose) {
+                auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
+                auto value =
+                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+                if (secondMinValue <= value && value <= secondMaxValue) {
+                    tempIds.push_back(objId);
+                    continue;
+                }
             }
         }
-        if (secondChoose) {
-            auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
-            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-            if (secondMinValue <= value && value <= secondMaxValue) {
-                ids.push_back(objId);
-                continue;
-            }
-        }
-    }
+        lock_guard lg(IDS_MUTEX);
+        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
+    });
+    //for (int objId = 0; objId < objNum; objId++) {
+    //    if (firstChoose) {
+    //        auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
+    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+    //        if (firstMinValue <= value && value <= firstMaxValue) {
+    //            ids.push_back(objId);
+    //            continue;
+    //        }
+    //    }
+    //    if (secondChoose) {
+    //        auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
+    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+    //        if (secondMinValue <= value && value <= secondMaxValue) {
+    //            ids.push_back(objId);
+    //            continue;
+    //        }
+    //    }
+    //}
 }
 
 void igQtVariableDensityWidget::EndRangeChoose() {

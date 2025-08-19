@@ -1,5 +1,8 @@
 #include <iGameSelection.h>
 #include <iGameModel.h>
+#include <set>
+#include <utility>
+#include <algorithm>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -42,14 +45,42 @@ static void DrawPoint(Painter3D::Pointer painter, const Point& point, std::vecto
 
 static void DrawCell(Painter3D::Pointer painter, int cellPointSize, int cellPoints[], Points* points,
                      std::vector<IGuint>& drawHandles) {
-    for (int i = 0; i < cellPointSize - 1; i++) {
-        auto& p0 = points->GetPoint(cellPoints[i]);
-        for (int j = i + 1; j < cellPointSize; j++) {
-            auto& p1 = points->GetPoint(cellPoints[j]);
-            auto drawHandle = painter->DrawLine(p0, p1);
-            drawHandles.push_back(drawHandle);
+    if (cellPointSize <= 0) return;
+    std::vector<std::pair<int, int>> needDrawLines;
+    auto cellFaceNum = cellPoints[0];
+    for (int faceI = 0, cellPointsI = 1; faceI < cellFaceNum; faceI++) {
+        auto facePointNum = cellPoints[cellPointsI];
+        cellPointsI++;
+        if (facePointNum <= 0) return;
+        for (int pointI = 0; pointI < facePointNum; pointI++) {
+            auto pointI_A = pointI;
+            auto pointI_B = (pointI + 1) % facePointNum;
+            auto pointIdA = cellPoints[cellPointsI + pointI_A];
+            auto pointIdB = cellPoints[cellPointsI + pointI_B];
+            needDrawLines.push_back(std::minmax(pointIdA, pointIdB));
         }
+        cellPointsI += facePointNum;
     }
+    std::sort(needDrawLines.begin(), needDrawLines.end());
+    auto last = std::unique(needDrawLines.begin(), needDrawLines.end());
+    needDrawLines.erase(last, needDrawLines.end());
+    //Draw
+    for (auto& pointId: needDrawLines) {
+        auto& pointA = points->GetPoint(pointId.first);
+        auto& pointB = points->GetPoint(pointId.second);
+        auto drawHandle = painter->DrawLine(pointA, pointB);
+        drawHandles.push_back(drawHandle);
+    }
+
+    //if (cellPointSize >= 8) return;//Temp return; We should find a new method to draw the big cell
+    //for (int i = 0; i < cellPointSize - 1; i++) {
+    //    auto& p0 = points->GetPoint(cellPoints[i]);
+    //    for (int j = i + 1; j < cellPointSize; j++) {
+    //        auto& p1 = points->GetPoint(cellPoints[j]);
+    //        auto drawHandle = painter->DrawLine(p0, p1);
+    //        drawHandles.push_back(drawHandle);
+    //    }
+    //}
 }
 
 std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,

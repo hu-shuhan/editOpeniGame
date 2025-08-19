@@ -214,20 +214,41 @@ void igQtParallelCoordinatesWidget::RangeChooseObj(const QRect& chooseRange, con
     if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    for (int objId = 0; objId < objNum; objId++) {
-        for (auto& variableMinMaxValue_: variableMinMaxValues) {
-            auto& variableId = variableMinMaxValue_.first;
-            auto& variableIndex = Data->GetVariableIndex()[variableId];
-            auto& minValue = variableMinMaxValue_.second.first;
-            auto& maxValue = variableMinMaxValue_.second.second;
-            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-            if (value < minValue || maxValue < value) continue;
-            if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
-                continue;
-            ids.push_back(objId);
-            break;
+    static mutex IDS_MUTEX;
+    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
+        std::vector<igIndex> tempIds;
+        for (int objId = st; objId < ed; objId++) {
+            for (auto& variableMinMaxValue_: variableMinMaxValues) {
+                auto& variableId = variableMinMaxValue_.first;
+                auto& variableIndex = Data->GetVariableIndex()[variableId];
+                auto& minValue = variableMinMaxValue_.second.first;
+                auto& maxValue = variableMinMaxValue_.second.second;
+                auto value =
+                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+                if (value < minValue || maxValue < value) continue;
+                if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
+                    continue;
+                tempIds.push_back(objId);
+                break;
+            }
         }
-    }
+        lock_guard lg(IDS_MUTEX);
+        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
+    });
+    //for (int objId = 0; objId < objNum; objId++) {
+    //    for (auto& variableMinMaxValue_: variableMinMaxValues) {
+    //        auto& variableId = variableMinMaxValue_.first;
+    //        auto& variableIndex = Data->GetVariableIndex()[variableId];
+    //        auto& minValue = variableMinMaxValue_.second.first;
+    //        auto& maxValue = variableMinMaxValue_.second.second;
+    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+    //        if (value < minValue || maxValue < value) continue;
+    //        if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
+    //            continue;
+    //        ids.push_back(objId);
+    //        break;
+    //    }
+    //}
 }
 
 void igQtParallelCoordinatesWidget::EndRangeChoose() {
