@@ -752,7 +752,7 @@ void igQtVariableCorrelationWidget::_DrawChoosedCorImage(int mainVariableIndex, 
         _DrawPoint(objDatas.at(objIndex)[mainVariableIndex], objDatas.at(objIndex)[subVariableIndex],
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha(), drawFrame, painter, 20);
+                   Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha(), drawFrame, painter, 10);
     }
 }
 

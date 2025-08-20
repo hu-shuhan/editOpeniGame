@@ -99,6 +99,9 @@ public:
 	IGuint GetStartOffset(const IGsize cellId) const;
 	// Get cell's size
 	IGuint GetCellSize(const IGsize cellId) const;
+
+	bool IsUseOffSet() const;
+
 protected:
 	CellArray();
 	~CellArray() override = default;

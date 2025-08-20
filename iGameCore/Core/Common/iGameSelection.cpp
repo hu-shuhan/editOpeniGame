@@ -43,8 +43,8 @@ static void DrawPoint(Painter3D::Pointer painter, const Point& point, std::vecto
 //    }
 //}
 
-static void DrawCell(Painter3D::Pointer painter, int cellPointSize, int cellPoints[], Points* points,
-                     std::vector<IGuint>& drawHandles) {
+static void DrawCell_OffSet(Painter3D::Pointer painter, int cellPointSize, int cellPoints[], Points* points,
+                            std::vector<IGuint>& drawHandles) {
     if (cellPointSize <= 0) return;
     std::vector<std::pair<int, int>> needDrawLines;
     auto cellFaceNum = cellPoints[0];
@@ -83,6 +83,17 @@ static void DrawCell(Painter3D::Pointer painter, int cellPointSize, int cellPoin
     //}
 }
 
+static void DrawCell(Painter3D::Pointer painter, int cellPointSize, int cellPoints[], Points* points,
+                     std::vector<IGuint>& drawHandles) {
+    for (int i = 0; i < cellPointSize - 1; i++) {
+        auto& p0 = points->GetPoint(cellPoints[i]);
+        for (int j = i + 1; j < cellPointSize; j++) {
+            auto& p1 = points->GetPoint(cellPoints[j]);
+            auto drawHandle = painter->DrawLine(p0, p1);
+            drawHandles.push_back(drawHandle);
+        }
+    }}
+
 std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
                                                         Event::Operate ope, Points* points, CellArray* cellArrays,
                                                         Painter3D* painter) {
@@ -120,7 +131,10 @@ std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igInde
                 e.pickId = cellId;
                 if (ope == Selection::Event::Operate::Add) {
                     e.operate = Selection::Event::Operate::Add;
-                    DrawCell(painter, thatCellSize, thatCell, points, e.drawHandles);
+                    if (cellArrays->IsUseOffSet())
+                        DrawCell_OffSet(painter, thatCellSize, thatCell, points, e.drawHandles);
+                    else
+                        DrawCell(painter, thatCellSize, thatCell, points, e.drawHandles);
                 } else
                     e.operate = Selection::Event::Operate::Remove;
                 if (points != nullptr) {
