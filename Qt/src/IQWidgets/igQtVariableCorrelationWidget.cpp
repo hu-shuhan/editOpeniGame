@@ -232,32 +232,8 @@ void igQtVariableCorrelationWidget::RangeChooseObj(const QRect& chooseRange, con
     if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    auto& mainVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
-    auto& subVariableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
-    static mutex IDS_MUTEX;
-    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
-        std::vector<igIndex> tempIds;
-        for (int objId = st; objId < ed; objId++) {
-            auto mainVariableValue = attrs->GetElement(mainVariableIndex.first)
-                                             .pointer->GetElementValue(objId, mainVariableIndex.second);
-            if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
-            auto subVariableValue =
-                    attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
-            if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
-            tempIds.push_back(objId);
-        }
-        lock_guard lg(IDS_MUTEX);
-        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
-    });
-    //for (int objId = 0; objId < objNum; objId++) {
-    //    auto mainVariableValue =
-    //            attrs->GetElement(mainVariableIndex.first).pointer->GetElementValue(objId, mainVariableIndex.second);
-    //    if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
-    //    auto subVariableValue =
-    //            attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
-    //    if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
-    //    ids.push_back(objId);
-    //}
+    ids = Data->FiltInRangeIds(m_CurrentShowVariable.first, m_CurrentShowVariable.second, mainVariableMinValue,
+                               mainVariableMaxValue, subVariableMinValue, subVariableMaxValue, attrs, objNum);
 }
 
 void igQtVariableCorrelationWidget::EndRangeChoose() {
@@ -642,31 +618,7 @@ VariableCorrelationData::Pointer igQtVariableCorrelationWidget::_GenerateVariabl
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    auto variableNames = VariableCorrelationData::GenerateVariableNames(attrs, dataType);
-    int variableNum = variableNames.size();
-    if (variableNum == 0) return VariableCorrelationData::Pointer();
-    auto Data = VariableCorrelationData::New();
-    Data->SetVariableNum(variableNum);
-    Data->SetVariableName(variableNames);
-    auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
-    Data->SetVariableIndex(variableIndex);
-    auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));
-    Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjDatas = VariableCorrelationData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
-    Data->SetChoosedObjectDatas(choosedObjDatas);
-    Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
-    Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
-    auto [minValue, maxValue] = VariableCorrelationData::GenerateMinMaxData(attrs, dataType);
-    Data->SetMinValueInVariables(minValue);
-    Data->SetMaxValueInVariables(maxValue);
-    Data->SetDataType(dataType);
-    Data->SetDataTypeName(VariableCorrelationData::GenerateDataTypeName(dataType));
-    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
-    Data->SetChoosedVariableCorrelation(
-            VariableCorrelationData::CalculateVariableCorrelation(variableNum, choosedObjDatas));
-    return Data;
+    return VariableCorrelationData::New(attrs, dataType, selectedItems, objNum);
 }
 
 QImage igQtVariableCorrelationWidget::_DrawCorImage() {

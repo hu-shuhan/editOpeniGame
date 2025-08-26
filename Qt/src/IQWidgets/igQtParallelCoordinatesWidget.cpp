@@ -214,41 +214,7 @@ void igQtParallelCoordinatesWidget::RangeChooseObj(const QRect& chooseRange, con
     if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    static mutex IDS_MUTEX;
-    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
-        std::vector<igIndex> tempIds;
-        for (int objId = st; objId < ed; objId++) {
-            for (auto& variableMinMaxValue_: variableMinMaxValues) {
-                auto& variableId = variableMinMaxValue_.first;
-                auto& variableIndex = Data->GetVariableIndex()[variableId];
-                auto& minValue = variableMinMaxValue_.second.first;
-                auto& maxValue = variableMinMaxValue_.second.second;
-                auto value =
-                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-                if (value < minValue || maxValue < value) continue;
-                if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
-                    continue;
-                tempIds.push_back(objId);
-                break;
-            }
-        }
-        lock_guard lg(IDS_MUTEX);
-        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
-    });
-    //for (int objId = 0; objId < objNum; objId++) {
-    //    for (auto& variableMinMaxValue_: variableMinMaxValues) {
-    //        auto& variableId = variableMinMaxValue_.first;
-    //        auto& variableIndex = Data->GetVariableIndex()[variableId];
-    //        auto& minValue = variableMinMaxValue_.second.first;
-    //        auto& maxValue = variableMinMaxValue_.second.second;
-    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-    //        if (value < minValue || maxValue < value) continue;
-    //        if (value < Data->GetFilterMinValue()[variableId] || Data->GetFilterMaxValue()[variableId] < value)
-    //            continue;
-    //        ids.push_back(objId);
-    //        break;
-    //    }
-    //}
+    ids = Data->FiltInRangeIds(variableMinMaxValues, attrs, objNum);
 }
 
 void igQtParallelCoordinatesWidget::EndRangeChoose() {
@@ -513,31 +479,7 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGe
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    auto variableNames = ParallelCoordinatesData::GenerateVariableNames(attrs, dataType);
-    int variableNum = variableNames.size();
-    if (variableNum == 0) return ParallelCoordinatesData::Pointer();
-    auto Data = ParallelCoordinatesData::New();
-    Data->SetVariableNum(variableNum);
-    Data->SetVariableSort(ParallelCoordinatesData::GenerateDefaultVariableSort(variableNum));
-    Data->SetVariableName(variableNames);
-    auto variableIndex = ParallelCoordinatesData::GenerateVariableIndex(attrs, dataType);
-    Data->SetVariableIndex(variableIndex);
-    auto objDatas = ParallelCoordinatesData::GenerateObjectDatas(attrs, dataType, objNum, 10000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, objDatas));
-    Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjDatas = ParallelCoordinatesData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
-    Data->SetChoosedObjectDatas(choosedObjDatas);
-    Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
-    Data->SetChoosedDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetChoosedLight()));
-    auto [minValue, maxValue] = ParallelCoordinatesData::GenerateMinMaxData(attrs, dataType);
-    Data->SetMinValueInVariables(minValue);
-    Data->SetMaxValueInVariables(maxValue);
-    Data->SetFilterMinValue(minValue);
-    Data->SetFilterMaxValue(maxValue);
-    Data->SetDataType(dataType);
-    Data->SetDataTypeName(ParallelCoordinatesData::GenerateDataTypeName(dataType));
-    return Data;
+    return ParallelCoordinatesData::New(attrs, dataType, selectedItems, objNum);
 }
 
 void igQtParallelCoordinatesWidget::SetSelectionCallback() {
@@ -585,14 +527,6 @@ void igQtParallelCoordinatesWidget::SetObjectFilters(const std::vector<int>& var
 void igQtParallelCoordinatesWidget::ClearObjectFilters() {
     for (auto& pcObjFilter: m_PcObjFilters) { pcObjFilter->deleteLater(); }
     m_PcObjFilters.clear();
-}
-
-bool igQtParallelCoordinatesWidget::ShoultBeFilted(const std::vector<double>& objData) {
-    auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
-    for (int i = 0; i < objData.size(); i++) {
-        if (objData[i] < Data->GetFilterMinValue()[i] || Data->GetFilterMaxValue()[i] < objData[i]) return true;
-    }
-    return false;
 }
 
 void igQtParallelCoordinatesWidget::FilterMaxValueChanged(int number, double value) {
@@ -864,7 +798,7 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
         int variableIndex = Data->GetVariableSort().front();
         for (auto& objIndex: drawSort) {
             auto& objData = objDatas[objIndex];
-            if (ShoultBeFilted(objData)) continue;
+            if (Data->NotInFilterValueRange(objData)) continue;
             painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
             GenerateDrawLinkImage(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                                   linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
@@ -877,7 +811,7 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
     }
     for (auto& objIndex: drawSort) {
         auto& objData = objDatas[objIndex];
-        if (ShoultBeFilted(objData)) continue;
+        if (Data->NotInFilterValueRange(objData)) continue;
         painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];
@@ -902,7 +836,7 @@ void igQtParallelCoordinatesWidget::GenerateChoosedDrawLinksImage(std::vector<QP
         int variableIndex = Data->GetVariableSort().front();
         for (auto& objIndex: choosedDrawSort) {
             auto& objData = choosedObjDatas.at(objIndex);
-            if (ShoultBeFilted(objData)) continue;
+            if (Data->NotInFilterValueRange(objData)) continue;
             painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha()), 1));
             GenerateDrawLinkImage(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                                   linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
@@ -915,7 +849,7 @@ void igQtParallelCoordinatesWidget::GenerateChoosedDrawLinksImage(std::vector<QP
     }
     for (auto& objIndex: choosedDrawSort) {
         auto& objData = choosedObjDatas.at(objIndex);
-        if (ShoultBeFilted(objData)) continue;
+        if (Data->NotInFilterValueRange(objData)) continue;
         painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];

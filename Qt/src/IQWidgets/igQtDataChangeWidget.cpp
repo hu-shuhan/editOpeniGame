@@ -158,21 +158,7 @@ void igQtDataChangeWidget::RangeChooseObj(const QRect& chooseRange, const QRect&
                                           Data->GetMinValue(), Data->GetMaxValue());
 
     //choose
-    auto& objIds = Data->GetObjIndexs();
-    for (auto& objId_: objIds) {
-        auto& objId = objId_.first;
-        auto& objIndex = objId_.second;
-        auto& objDistance = Data->GetObjDistance()[objIndex];
-        auto& objValues = Data->GetObjectDatas()[objIndex];
-        if (objDistance < minDistance || maxDistance < objDistance) continue;
-        for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
-            if (!m_VariableShow[variableIndex]) continue;
-            if (minValue <= objValues[variableIndex] && objValues[variableIndex] <= maxValue) {
-                ids.push_back(objId);
-                break;
-            }
-        }
-    }
+    ids = Data->FiltInRangeIds(minDistance, maxDistance, minValue, maxValue, m_VariableShow);
 }
 
 void igQtDataChangeWidget::EndRangeChoose() {
@@ -419,30 +405,7 @@ DataChangeData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum da
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    auto variableNames = DataChangeData::GenerateVariableNames(attrs, dataType);
-    int variableNum = variableNames.size();
-    if (variableNum == 0) return DataChangeData::Pointer();
-    auto Data = DataChangeData::New();
-    Data->SetVariableNum(variableNum);
-    Data->SetVariableName(variableNames);
-    auto variableIndex = DataChangeData::GenerateVariableIndex(attrs, dataType);
-    Data->SetVariableIndex(variableIndex);
-    auto [minValue, maxValue] = DataChangeData::GenerateMinMaxData(attrs, dataType);
-    Data->SetMinValueInVariables(minValue);
-    Data->SetMaxValueInVariables(maxValue);
-    Data->SetDataType(dataType);
-    Data->SetDataTypeName(DataChangeData::GenerateDataTypeName(dataType));
-    //auto hue = DataChangeData::GenerateVariableHue(variableNum);
-    //Data->SetVariableHue(hue);
-    auto hs = DataChangeData::GenerateHS(variableNum, MIN_H, MAX_H, MIN_S, MAX_S);
-    Data->SetVariableHS(hs);
-    //auto variableColor = DataChangeData::GenerateVariableColor(hue, SATURATION, Data->GetUnChoosedLight());
-    auto variableColor = DataChangeData::GenerateVariableColor(hs, Data->GetUnChoosedLight());
-    Data->SetVariableColor(variableColor);
-    //auto choosedVariableColor = DataChangeData::GenerateVariableColor(hue, SATURATION, Data->GetChoosedLight());
-    auto choosedVariableColor = DataChangeData::GenerateVariableColor(hs, Data->GetChoosedLight());
-    Data->SetChoosedVariableColor(choosedVariableColor);
-    return Data;
+    return DataChangeData::New(attrs, dataType, selectedItems, objNum, colorMap, MIN_H, MAX_H, MIN_S, MAX_S);
 }
 
 void igQtDataChangeWidget::_SetRadialData(DataChangeData::Pointer Data) {
@@ -455,27 +418,7 @@ void igQtDataChangeWidget::_SetRadialData(DataChangeData::Pointer Data) {
         objNum = m_Mesh->GetNumberOfCells();
     auto& startPoint = m_RadialStyle->GetStartPoint();
     auto& endPoint = m_RadialStyle->GetEndPoint();
-    auto objIndexs = DataChangeData::GenerateObjIndex(startPoint, endPoint, m_Mesh->GetPoints(), m_Mesh->GetCells(),
-                                                      m_Mesh, Data->GetDataType());
-    Data->SetObjIndexs(objIndexs);
-    auto objData = DataChangeData::GenerateObjectDatas(attrs, Data->GetDataType(), objIndexs);
-    Data->SetObjectDatas(objData);
-    auto choosedObjIds = DataChangeData::GenerateChoosedObjIds(selectedItems, Data->GetDataType(), objIndexs);
-    Data->SetChoosedObjIds(choosedObjIds);
-    std::vector<double> objDistance;
-    if (Data->GetDataType() == IG_POINT) {
-        objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, m_Mesh->GetPoints());
-    } else {
-        objDistance =
-                DataChangeData::GenerateObjDistance(startPoint, objIndexs, m_Mesh->GetCells(), m_Mesh->GetPoints());
-    }
-    Data->SetObjDistance(objDistance);
-    auto objDrawSort = DataChangeData::GenerateObjDrawSort(objDistance, objIndexs);
-    Data->SetObjDrawSort(objDrawSort);
-    auto maxDistance = DataChangeData::GenerateObjMaxDistance(objDrawSort, objDistance, objIndexs);
-    Data->SetMaxDistance(maxDistance);
-    auto minDistance = DataChangeData::GenerateObjMinDistance(objDrawSort, objDistance, objIndexs);
-    Data->SetMinDistance(minDistance);
+    Data->SetRadialData(attrs, selectedItems, objNum, colorMap, startPoint, endPoint, m_Mesh);
 }
 
 void igQtDataChangeWidget::_ClearVariableButton() {

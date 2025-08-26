@@ -1,5 +1,6 @@
 #include "iGameVariableCorrelationData.h"
 #include <cmath>
+#include <iGameThreadPool.h>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -106,6 +107,63 @@ VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
     }
 
     return ComputeCorrelationMatrix(variableNum, variables);
+}
+
+VariableCorrelationData::Pointer
+VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                             const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                             int objNum) {
+    auto variableNames = VariableCorrelationData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return VariableCorrelationData::Pointer();
+    auto Data = VariableCorrelationData::New();
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableName(variableNames);
+    auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
+    Data->SetObjectDatas(objDatas);
+    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));
+    Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
+    auto choosedObjDatas = VariableCorrelationData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
+    Data->SetChoosedObjectDatas(choosedObjDatas);
+    Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
+    Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
+    auto [minValue, maxValue] = VariableCorrelationData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(VariableCorrelationData::GenerateDataTypeName(dataType));
+    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
+    Data->SetChoosedVariableCorrelation(
+            VariableCorrelationData::CalculateVariableCorrelation(variableNum, choosedObjDatas));
+    return Data;
+}
+
+std::vector<igIndex> VariableCorrelationData::FiltInRangeIds(int _mainVariableIndex, int _subVariableIndex,
+                                                             double mainVariableMinValue, double mainVariableMaxValue,
+                                                             double subVariableMinValue, double subVariableMaxValue,
+                                                             ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                             int objNum) {
+    std::vector<igIndex> ids;
+    auto& mainVariableIndex = this->GetVariableIndex()[_mainVariableIndex];
+    auto& subVariableIndex = this->GetVariableIndex()[_subVariableIndex];
+    static mutex IDS_MUTEX;
+    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
+        std::vector<igIndex> tempIds;
+        for (int objId = st; objId < ed; objId++) {
+            auto mainVariableValue = attrs->GetElement(mainVariableIndex.first)
+                                             .pointer->GetElementValue(objId, mainVariableIndex.second);
+            if (mainVariableValue < mainVariableMinValue || mainVariableMaxValue < mainVariableValue) continue;
+            auto subVariableValue =
+                    attrs->GetElement(subVariableIndex.first).pointer->GetElementValue(objId, subVariableIndex.second);
+            if (subVariableValue < subVariableMinValue || subVariableMaxValue < subVariableValue) continue;
+            tempIds.push_back(objId);
+        }
+        lock_guard lg(IDS_MUTEX);
+        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
+    });
+    return ids;
 }
 
 IGAME_NAMESPACE_END

@@ -13,8 +13,6 @@ IGAME_NAMESPACE_BEGIN
 class DataChangeData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_LightAlpha {
 public:
     I_OBJECT(DataChangeData);
-    static Pointer New() { return new DataChangeData(); }
-    DataChangeData() = default;
 
     void SetObjDistance(const std::vector<double>& objDistance);
     const std::vector<double>& GetObjDistance();
@@ -129,5 +127,24 @@ public:
     void RemoveChoosedObjectData(int objId) = delete;
     void ClearChoosedObjectData() = delete;
     const std::map<int, std::vector<double>>& GetChoosedObjectData() = delete;
+
+public:
+    /* init func */
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                       int objNum, ScalarsToColors::Pointer colorMap, int minH, int maxH, int minS, int maxS);
+    void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                       int objNum, ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
+                       UnstructuredMesh::Pointer mesh);
+
+protected:
+    DataChangeData() = default;
+    static Pointer New() { return new DataChangeData(); }
+
+public:
+    /* choose func */
+    std::vector<igIndex> FiltInRangeIds(double minDistance, double maxDistance, double minValue, double maxValue,
+                                        std::vector<bool> variableCanBeChoose);
 };
 IGAME_NAMESPACE_END

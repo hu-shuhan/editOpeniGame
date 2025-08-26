@@ -10,8 +10,6 @@ IGAME_NAMESPACE_BEGIN
 class VariableDensityData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_LightAlpha {
 public:
     I_OBJECT(VariableDensityData);
-    static Pointer New() { return new VariableDensityData(); }
-    VariableDensityData() = default;
 
     void SetCopyNum(int copyNum);
     int GetCopyNum() const;
@@ -84,5 +82,20 @@ public:
     void RemoveChoosedObjectData(int objId) = delete;
     void ClearChoosedObjectData() = delete;
     const std::map<int, std::vector<double>>& GetChoosedObjectData() = delete;
+
+public:
+    /* init func */
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                       int objNum, int boxNum, ScalarsToColors::Pointer colorMap);
+
+protected:
+    VariableDensityData() = default;
+    static Pointer New() { return new VariableDensityData(); }
+
+public:
+    /* choose func */
+    std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue,
+                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
 };
 IGAME_NAMESPACE_END

@@ -362,4 +362,58 @@ std::set<int> VariableDensityData::GenerateChoosedObjectIndexs(
     }
     return re;
 }
+
+VariableDensityData::Pointer
+VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                         const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                         int objNum, int boxNum, ScalarsToColors::Pointer colorMap) {
+    auto variableNames = VariableDensityData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return VariableDensityData::Pointer();
+    auto Data = VariableDensityData::New();
+    Data->SetCopyNum(boxNum);
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableName(variableNames);
+    auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
+    Data->SetChoosedObjectIndexs(choosedObjIds);
+    auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    auto density =
+            VariableDensityData::GenerateDensity(variableNum, boxNum, maxValue, minValue, attrs, dataType, objNum);
+    Data->SetDensity(density);
+    auto choosedDensity = VariableDensityData::GenerateDensity(variableNum, boxNum, maxValue, minValue, attrs, dataType,
+                                                               choosedObjIds);
+    Data->SetChoosedDensity(choosedDensity);
+    Data->SetDensityColor(VariableDensityData::GenerateDensityColor(boxNum, Data->GetUnChoosedLight(), colorMap));
+    Data->SetChoosedDensityColor(VariableDensityData::GenerateDensityColor(boxNum, Data->GetChoosedLight(), colorMap));
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(VariableDensityData::GenerateDataTypeName(dataType));
+    Data->SetUnChoosedAlpha(255);
+    return Data;
+}
+
+std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, double variableMinValue,
+                                                         double variableMaxValue,
+                                                         ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                         int objNum) {
+    std::vector<igIndex> ids;
+    static mutex IDS_MUTEX;
+    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
+        std::vector<igIndex> tempIds;
+        for (int objId = st; objId < ed; objId++) {
+            auto& variableIndex = this->GetVariableIndex()[_variableIndex];
+            auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
+            if (variableMinValue <= value && value <= variableMaxValue) {
+                tempIds.push_back(objId);
+                continue;
+            }
+        }
+        lock_guard lg(IDS_MUTEX);
+        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
+    });
+    return ids;
+}
 IGAME_NAMESPACE_END

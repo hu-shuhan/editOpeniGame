@@ -176,9 +176,8 @@ void DataChangeData::SetObjIndexs(const std::map<int, int>& objIndexs) { m_ObjIn
 const std::map<int, int>& DataChangeData::GetObjIndexs() { return m_ObjIndexs; }
 
 std::map<int, int> DataChangeData::GenerateObjIndex(const Point& startPoint, const Point& endPoint,
-                                                    Points::Pointer points,
-                                               CellArray::Pointer cells, UnstructuredMesh::Pointer mesh,
-                                               IGenum dataType) {
+                                                    Points::Pointer points, CellArray::Pointer cells,
+                                                    UnstructuredMesh::Pointer mesh, IGenum dataType) {
     if (dataType == IG_POINT) return _GeneratePointIndexInLine(startPoint, endPoint, points, cells, mesh);
     return _GenerateCellIndexInLine(startPoint, endPoint, points, cells, mesh);
 }
@@ -446,5 +445,85 @@ double DataChangeData::GenerateMaxValueInChoosedVariable(const std::vector<doubl
         re = max(re, maxValues[i]);
     }
     return re;
+}
+
+DataChangeData::Pointer
+DataChangeData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                    const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                    int objNum, ScalarsToColors::Pointer colorMap, int minH, int maxH, int minS, int maxS) {
+    auto variableNames = DataChangeData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return DataChangeData::Pointer();
+    auto Data = DataChangeData::New();
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableName(variableNames);
+    auto variableIndex = DataChangeData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto [minValue, maxValue] = DataChangeData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(DataChangeData::GenerateDataTypeName(dataType));
+    //auto hue = DataChangeData::GenerateVariableHue(variableNum);
+    //Data->SetVariableHue(hue);
+    auto hs = DataChangeData::GenerateHS(variableNum, minH, maxH, minS, maxS);
+    Data->SetVariableHS(hs);
+    //auto variableColor = DataChangeData::GenerateVariableColor(hue, SATURATION, Data->GetUnChoosedLight());
+    auto variableColor = DataChangeData::GenerateVariableColor(hs, Data->GetUnChoosedLight());
+    Data->SetVariableColor(variableColor);
+    //auto choosedVariableColor = DataChangeData::GenerateVariableColor(hue, SATURATION, Data->GetChoosedLight());
+    auto choosedVariableColor = DataChangeData::GenerateVariableColor(hs, Data->GetChoosedLight());
+    Data->SetChoosedVariableColor(choosedVariableColor);
+    return Data;
+}
+
+void DataChangeData::SetRadialData(
+        ElementArray<AttributeSet::Attribute>::Pointer attrs,
+        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, int objNum,
+        ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
+        UnstructuredMesh::Pointer mesh) {
+    auto Data = this;
+    auto objIndexs = DataChangeData::GenerateObjIndex(startPoint, endPoint, mesh->GetPoints(), mesh->GetCells(), mesh,
+                                                      Data->GetDataType());
+    Data->SetObjIndexs(objIndexs);
+    auto objData = DataChangeData::GenerateObjectDatas(attrs, Data->GetDataType(), objIndexs);
+    Data->SetObjectDatas(objData);
+    auto choosedObjIds = DataChangeData::GenerateChoosedObjIds(selectedItems, Data->GetDataType(), objIndexs);
+    Data->SetChoosedObjIds(choosedObjIds);
+    std::vector<double> objDistance;
+    if (Data->GetDataType() == IG_POINT) {
+        objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, mesh->GetPoints());
+    } else {
+        objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, mesh->GetCells(), mesh->GetPoints());
+    }
+    Data->SetObjDistance(objDistance);
+    auto objDrawSort = DataChangeData::GenerateObjDrawSort(objDistance, objIndexs);
+    Data->SetObjDrawSort(objDrawSort);
+    auto maxDistance = DataChangeData::GenerateObjMaxDistance(objDrawSort, objDistance, objIndexs);
+    Data->SetMaxDistance(maxDistance);
+    auto minDistance = DataChangeData::GenerateObjMinDistance(objDrawSort, objDistance, objIndexs);
+    Data->SetMinDistance(minDistance);
+}
+
+std::vector<igIndex> DataChangeData::FiltInRangeIds(double minDistance, double maxDistance, double minValue,
+                                                    double maxValue, std::vector<bool> variableCanBeChoose) {
+    std::vector<igIndex> ids;
+    auto Data = this;
+    auto& objIds = Data->GetObjIndexs();
+    for (auto& objId_: objIds) {
+        auto& objId = objId_.first;
+        auto& objIndex = objId_.second;
+        auto& objDistance = Data->GetObjDistance()[objIndex];
+        auto& objValues = Data->GetObjectDatas()[objIndex];
+        if (objDistance < minDistance || maxDistance < objDistance) continue;
+        for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
+            if (!variableCanBeChoose[variableIndex]) continue;
+            if (minValue <= objValues[variableIndex] && objValues[variableIndex] <= maxValue) {
+                ids.push_back(objId);
+                break;
+            }
+        }
+    }
+    return ids;
 }
 IGAME_NAMESPACE_END

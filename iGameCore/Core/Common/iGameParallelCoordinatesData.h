@@ -8,13 +8,13 @@
 #include <string>
 #include <tuple>
 #include <iGameCtxPresObjData.h>
+#include <iGameSelection.h>
+#include <iGameUnstructuredMesh.h>
 
 IGAME_NAMESPACE_BEGIN
 class ParallelCoordinatesData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_Draw {
 public:
     I_OBJECT(ParallelCoordinatesData);
-    static Pointer New() { return new ParallelCoordinatesData(); }
-    ParallelCoordinatesData() = default;
 
     void SetVariableSort(const std::vector<int>& variableSort);
     const std::vector<int>& GetVariableSort();
@@ -36,6 +36,25 @@ protected:
 public:
     /* static funcs */
     static std::vector<int> GenerateDefaultVariableSort(int variableNum);
+
+public:
+    /* init func */
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                       int objNum);
+
+protected:
+    ParallelCoordinatesData() = default;
+    static Pointer New() { return new ParallelCoordinatesData(); }
+
+public:
+    /* choose func */
+    std::vector<igIndex> FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues,
+                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
+
+public:
+    /* normal func */
+    bool NotInFilterValueRange(const std::vector<double>& objData);
 };
 
 IGAME_NAMESPACE_END

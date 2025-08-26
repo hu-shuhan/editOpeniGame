@@ -279,50 +279,16 @@ void igQtVariableDensityWidget::RangeChooseObj(const QRect& chooseRange, const Q
     if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    static mutex IDS_MUTEX;
-    ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
-        std::vector<igIndex> tempIds;
-        for (int objId = st; objId < ed; objId++) {
-            if (firstChoose) {
-                auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
-                auto value =
-                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-                if (firstMinValue <= value && value <= firstMaxValue) {
-                    tempIds.push_back(objId);
-                    continue;
-                }
-            }
-            if (secondChoose) {
-                auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
-                auto value =
-                        attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-                if (secondMinValue <= value && value <= secondMaxValue) {
-                    tempIds.push_back(objId);
-                    continue;
-                }
-            }
-        }
-        lock_guard lg(IDS_MUTEX);
-        ids.insert(ids.end(), tempIds.begin(), tempIds.end());
-    });
-    //for (int objId = 0; objId < objNum; objId++) {
-    //    if (firstChoose) {
-    //        auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.first];
-    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-    //        if (firstMinValue <= value && value <= firstMaxValue) {
-    //            ids.push_back(objId);
-    //            continue;
-    //        }
-    //    }
-    //    if (secondChoose) {
-    //        auto& variableIndex = Data->GetVariableIndex()[m_CurrentShowVariable.second];
-    //        auto value = attrs->GetElement(variableIndex.first).pointer->GetElementValue(objId, variableIndex.second);
-    //        if (secondMinValue <= value && value <= secondMaxValue) {
-    //            ids.push_back(objId);
-    //            continue;
-    //        }
-    //    }
-    //}
+    std::vector<igIndex> firstIds, secondIds;
+    if (firstChoose)
+        firstIds = Data->FiltInRangeIds(m_CurrentShowVariable.first, firstMinValue, firstMaxValue, attrs, objNum);
+    if (secondChoose)
+        secondIds = Data->FiltInRangeIds(m_CurrentShowVariable.second, secondMinValue, secondMaxValue, attrs, objNum);
+    std::sort(firstIds.begin(), firstIds.end());
+    std::sort(secondIds.begin(), secondIds.end());
+    std::merge(firstIds.begin(), firstIds.end(), secondIds.begin(), secondIds.end(), std::back_inserter(ids));
+    auto last = std::unique(ids.begin(), ids.end());
+    ids.erase(last, ids.end());
 }
 
 void igQtVariableDensityWidget::EndRangeChoose() {
@@ -689,33 +655,7 @@ VariableDensityData::Pointer igQtVariableDensityWidget::_GenerateVariableDensity
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
-    auto variableNames = VariableDensityData::GenerateVariableNames(attrs, dataType);
-    int variableNum = variableNames.size();
-    if (variableNum == 0) return VariableDensityData::Pointer();
-    auto Data = VariableDensityData::New();
-    Data->SetCopyNum(m_BoxNum);
-    Data->SetVariableNum(variableNum);
-    Data->SetVariableName(variableNames);
-    auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
-    Data->SetVariableIndex(variableIndex);
-    auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
-    Data->SetChoosedObjectIndexs(choosedObjIds);
-    auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
-    Data->SetMinValueInVariables(minValue);
-    Data->SetMaxValueInVariables(maxValue);
-    auto density =
-            VariableDensityData::GenerateDensity(variableNum, m_BoxNum, maxValue, minValue, attrs, dataType, objNum);
-    Data->SetDensity(density);
-    auto choosedDensity = VariableDensityData::GenerateDensity(variableNum, m_BoxNum, maxValue, minValue, attrs,
-                                                               dataType, choosedObjIds);
-    Data->SetChoosedDensity(choosedDensity);
-    Data->SetDensityColor(VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetUnChoosedLight(), colorMap));
-    Data->SetChoosedDensityColor(
-            VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetChoosedLight(), colorMap));
-    Data->SetDataType(dataType);
-    Data->SetDataTypeName(VariableDensityData::GenerateDataTypeName(dataType));
-    Data->SetUnChoosedAlpha(255);
-    return Data;
+    return VariableDensityData::New(attrs, dataType, selectedItems, objNum, m_BoxNum, colorMap);
 }
 
 QImage igQtVariableDensityWidget::_DrawDensityImage(

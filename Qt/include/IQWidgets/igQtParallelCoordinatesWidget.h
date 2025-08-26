@@ -90,7 +90,6 @@ private:
     void SetObjectFilters(const std::vector<int>& variableSort, const std::vector<std::string>& variableName,
                           const std::vector<double>& filterMaxValue, const std::vector<double>& filterMinValue);
     void ClearObjectFilters();
-    bool ShoultBeFilted(const std::vector<double>& obj);
     std::vector<igQtParallelCoordinatesObjectFilter*> m_PcObjFilters;
     //Draw
     void DrawParallelCoordinates();
