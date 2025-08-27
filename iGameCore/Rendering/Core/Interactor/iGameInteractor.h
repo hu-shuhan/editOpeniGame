@@ -11,7 +11,9 @@
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
-#include "iGameStreamLineStyle.h"
+#include "iGameStreamlineStyle.h"
+#include <string>
+#include <map>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -63,14 +65,22 @@ public:
     /**
      * @brief 切换成点选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
+     * @param double selectRadius 选择半径
+     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestPointSelectionStyle(SmartPointer<Selection> s);
+    void RequestPointSelectionStyle(SmartPointer<Selection> s,
+                                    double selectRadius,
+                                    bool selectOrUnSelect = true);
 
     /**
      * @brief 切换成面选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
+     * @param double selectRadius 选择半径
+     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestFaceSelectionStyle(SmartPointer<Selection> s);
+    void RequestFaceSelectionStyle(SmartPointer<Selection> s,
+                                   double selectRadius,
+                                   bool selectOrUnSelect = true);
 
     /**
      * @brief 将s绑定到交互器上
@@ -89,6 +99,30 @@ public:
      * @param Selection s 事件响应后将会通知的对象
      */
     void RequestStreamLineStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 设置特殊交互器
+     * @param string interactorName 交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     * @return 返回交互器名
+     */
+    std::string
+    _SetSpecialInteractor(const std::string& interactorName,
+                          SmartPointer<InteractorStyle> interactorStyle);
+
+    /**
+     * @brief 删除特殊交互器
+     * @param string interactorName 交互器名
+     */
+    void RemoveSepcialInteractor(const std::string& interactorName);
+
+    /**
+     * @brief 设置特殊交互器的define，自动生成交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     */
+#define SetSpecialInteractor(interactorStyle)                                  \
+    _SetSpecialInteractor(std::string(__FILE__) + std::to_string(__LINE__),    \
+                          interactorStyle)
 
     bool IsBasicStyle() const;
 
@@ -117,6 +151,7 @@ protected:
     SmartPointer<Camera> m_Camera;
     SmartPointer<Painter3D> m_Painter3D;
     SmartPointer<DataObject> m_DataObject;
+    std::map<std::string, SmartPointer<InteractorStyle>> m_SpecialInternals;
 };
 
 IGAME_NAMESPACE_END

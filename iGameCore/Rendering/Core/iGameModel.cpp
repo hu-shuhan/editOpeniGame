@@ -15,6 +15,7 @@ Model::Model() {
     m_DataObject = DataObject::New();
     m_Meshleter = nullptr;
     m_Selection = Selection::New();
+    m_Selection->SetModel(this);
     m_Filter = Filter::New();
     m_Painter3D = Painter3D::New();
 
@@ -80,16 +81,20 @@ void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
 std::string Model::GetFilePath() { return this->m_FilePath; }
 
 SmartPointer<Selection> Model::GetSelection() {
-    if (m_Selection == nullptr) { m_Selection = Selection::New(); }
+    if (m_Selection == nullptr) {
+        m_Selection = Selection::New();
+        m_Selection->SetModel(this);
+    }
     return m_Selection.get();
 }
 
 void Model::RequestPointSelection(SmartPointer<Points> p,
-                                  SmartPointer<Selection> s) {
+                                  SmartPointer<Selection> s,
+                                  double selectRadius) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
-    m_Scene->GetInteractor()->RequestPointSelectionStyle(s);
+    m_Scene->GetInteractor()->RequestPointSelectionStyle(s, selectRadius);
 }
 
 void Model::RequestDragPoint(SmartPointer<Points> p,
@@ -623,11 +628,13 @@ void Model::DrawPhase1() {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
-            IGAME_RENDERING_TRACE("{}, draw phase 1 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(),
                                   meshletCount - invisibleMeshletCount,
                                   meshletCount);
+        #endif
         }
     };
     #else
@@ -662,10 +669,12 @@ void Model::DrawPhase1() {
                                         visibleMeshletCount, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            IGAME_RENDERING_TRACE("{}, draw phase 1 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(), visibleMeshletCount,
                                   m_Meshleter->m_MeshletCount);
+        #endif
         }
     };
     #endif
@@ -759,11 +768,13 @@ void Model::DrawPhase2() {
             m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
-            IGAME_RENDERING_TRACE("{}, draw phase 2 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(),
                                   invisibleMeshletCount - c,
                                   invisibleMeshletCount);
+        #endif
         }
     };
     #else
@@ -834,11 +845,13 @@ void Model::DrawPhase2() {
                                         count, 0);
             m_Meshleter->m_TriangleVAO->Release();
 
-            IGAME_RENDERING_TRACE("{}, draw phase 2 [visiable count:{}, "
+        #ifdef ENABLE_CULLING_DEBUGINFO
+            IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
                                   m_Meshleter->GetName(), count,
                                   m_Meshleter->m_MeshletCount -
                                           lastVisibleMeshletCount);
+        #endif
         }
     };
     #endif

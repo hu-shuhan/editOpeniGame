@@ -28,7 +28,7 @@ public:
     void ReadFields(int index_file, int index_base, int index_zone, int index_sol, ZoneType_t zoneType, int celldim,
                     GridLocation_t location, cgsize_t* size);
 
-    void ChangeMixElementToMyCell(std::vector<cgsize_t>, int);
+	void ChangeMixElementToMyCell(std::vector<cgsize_t>, int);
 
     DataObject::Pointer GetOutput() {
         switch (this->m_DataObjectType) {

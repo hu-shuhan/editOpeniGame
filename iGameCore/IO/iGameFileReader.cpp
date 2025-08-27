@@ -557,7 +557,7 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
         UnsignedLongLongArray::Pointer arr = UnsignedLongLongArray::New();
         arr->SetDimension(numComp);
         arr->Resize(numTuples);
-        unsigned long long* ptr = arr->RawPointer();
+        auto ptr = arr->RawPointer();
         if (m_FileType == IGAME_BINARY) {
             iGameReadBinaryData(this, ptr, numTuples, numComp);
             ByteSwap::Swap8BERange(ptr, numTuples * numComp);
@@ -572,7 +572,7 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
         LongLongArray::Pointer arr = LongLongArray::New();
         arr->SetDimension(numComp);
         arr->Resize(numTuples);
-        long long* ptr = arr->RawPointer();
+        auto ptr = arr->RawPointer();
         if (m_FileType == IGAME_BINARY) {
             iGameReadBinaryData(this, ptr, numTuples, numComp);
             ByteSwap::Swap8BERange(ptr, numTuples * numComp);

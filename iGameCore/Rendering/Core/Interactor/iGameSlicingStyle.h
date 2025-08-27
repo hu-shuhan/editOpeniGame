@@ -74,13 +74,13 @@ private:
     igm::vec3 Start, End, Center;
     igm::vec3 Center2Start, Center2End;
     igm::vec3 Intersection, TempCenter, TempStart, TempEnd;
-    IGuint StartHandle, EndHandle, CenterHandle;
-    IGuint BoxHandle;
-    IGuint LineHandle;
+    IGuint StartHandle{}, EndHandle{}, CenterHandle{};
+    IGuint BoxHandle{};
+    IGuint LineHandle{};
     IGuint PlaneHandle[10]{0};
     int Selected = -1; // 0:center 1:head 2:rear 3:line
-    float NDC_Z;
-    float PickRadius;
+    float NDC_Z{};
+    float PickRadius{};
     
     igm::mat4 MVP;
     igm::mat4 InvertedMVP;

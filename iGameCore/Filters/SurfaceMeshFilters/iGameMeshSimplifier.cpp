@@ -852,7 +852,7 @@ void TriMeshInternalSimplifier::SortEdgeCollapses(size_t EdgeCollapseCount)
 
     for (size_t i = 0; i < sort_bins; ++i) {
         size_t count = histogram[i];
-        histogram[i] = unsigned int(histogram_sum);
+        histogram[i] = uint32_t(histogram_sum);
         histogram_sum += count;
     }
 
@@ -1391,7 +1391,7 @@ private:
 
         for (size_t i = 0; i < sort_bins; ++i) {
             size_t count = histogram[i];
-            histogram[i] = unsigned int(histogram_sum);
+            histogram[i] = uint32_t(histogram_sum);
             histogram_sum += count;
         }
 
@@ -2112,7 +2112,7 @@ public:
 
         for (size_t i = 0; i < sort_bins; ++i) {
             size_t count = histogram[i];
-            histogram[i] = unsigned int(histogram_sum);
+            histogram[i] = uint32_t(histogram_sum);
             histogram_sum += count;
         }
 

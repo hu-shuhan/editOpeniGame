@@ -14,7 +14,13 @@ endif ()
 # Core Module's main Cmake
 #--------------------------------------------------------------------
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
-add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+
+# Currently, only shared libraries for the Linux system are supported
+if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+    add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
+else ()
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+endif ()
 
 # add rendering core
 add_subdirectory(Rendering)
@@ -44,6 +50,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Core/Mapper>
         $<INSTALL_INTERFACE:include/IO>
         $<INSTALL_INTERFACE:include/IO/XML>
+        $<INSTALL_INTERFACE:include/IO/TestIO>
         $<INSTALL_INTERFACE:include/Filters>
         $<INSTALL_INTERFACE:include/Rendering>
         $<INSTALL_INTERFACE:include/Rendering/Common>
@@ -64,6 +71,7 @@ list(APPEND ThirdParty_lib_dependency
         lzma
         glfw
         spdlog_header_only
+        zlibstatic
 )
 
 #--------------------------------------------------------------------
@@ -72,21 +80,21 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-#        find_package(HDF5)
-#        target_link_libraries(
-#         ${MODULE_NAME} PUBLIC
-#         ${HDF5_LIBRARIES}/../libzlib.lib
-#         ${HDF5_LIBRARIES}/../libsz.lib
-#         ${HDF5_LIBRARIES}/../libaec.lib)
+        find_package(HDF5)
+        target_link_libraries(
+         ${MODULE_NAME} PUBLIC
+         ${HDF5_LIBRARIES}/../libzlib.lib
+         ${HDF5_LIBRARIES}/../libsz.lib
+         ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
-find_package(AbqSDK)
-if (${AbqSDK_FOUND})
-    message("Find abqsdk")
-    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-endif ()
-
+#find_package(AbqSDK)
+#if (${AbqSDK_FOUND})
+#    message("Find abqsdk")
+#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+#endif ()
+#
 #find_package(FFMPEG)
 #if (${FFMPEG_FOUND})
 #    message("Find FFMPEG")

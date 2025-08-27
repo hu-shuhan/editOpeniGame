@@ -96,10 +96,12 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
 iGame::ClipSelection::Pointer igQtModelClipWidget::GetSelection() {
     if (m_Selection == nullptr) {
         m_Selection = iGame::ClipSelection::New();
-        m_Selection->SetFilterEvent(
-                [&](iGame::Selection::Event event) {
-                    if (event.type == iGame::Selection::Event::Change) {
-                        SetPlane(m_Selection->PlanePoint, m_Selection->PlaneNormal);
+        m_Selection->SetSelectionCallBackEvent(
+                [&](const std::vector<iGame::Selection::Event>& events) {
+                    for (auto& event: events) {
+                        if (event.type == iGame::Selection::Event::Change) {
+                            SetPlane(m_Selection->PlanePoint, m_Selection->PlaneNormal);
+                        }
                     }
                 },
                 std::placeholders::_1);

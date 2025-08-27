@@ -71,6 +71,8 @@ public:
     TransferVolumeMeshToUnstructuredMesh(VolumeMesh::Pointer volumeMesh,
                                          UnstructuredMesh::Pointer&);
 
+    static UnstructuredMesh::Pointer TransDataObjToUnstructuredMesh(DataObject::Pointer dataObj);
+
     //SurfaceMesh::Pointer GetDrawMesh() { return m_DrawMesh; }
 
     //Get real size of DataObject

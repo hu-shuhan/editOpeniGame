@@ -46,7 +46,7 @@ void igQtRenderWidget::ChangeInteractor(iGame::SmartPointer<iGame::Interactor> i
     m_Scene->SetInteractor(m_Interactor);
 }
 
-void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
+void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadius, bool selectOrUnSelect) {
     if (!m_Scene || !m_Scene->GetCurrentModel()) { return; }
     switch (style) {
         case iGame::Interactor::BasicStyle:
@@ -59,7 +59,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(obj);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s);
+                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect);
 
             } else {
                 auto s = m_Scene->GetCurrentModel()->GetSelection();
@@ -72,7 +72,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(ps);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s);
+                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect);
             }
         } break;
         case iGame::Interactor::SingleFaceSelectionStyle: {
@@ -106,7 +106,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             s->SetModel(model);
             m_Interactor->SetDataObject(obj);
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-            m_Interactor->RequestFaceSelectionStyle(s);
+            m_Interactor->RequestFaceSelectionStyle(s, interactorRadius, selectOrUnSelect);
         } break;
         case iGame::Interactor::MultiPointSelectionStyle:
             //m_Interactor->RequestPointSelectionStyle(m_Scene->GetCurrentModel()->GetSelection());

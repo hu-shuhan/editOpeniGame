@@ -785,10 +785,11 @@ void Scene::ForwardPass() {
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
-    for (auto& [id, model]: m_Models) {
-        model->Draw(this);
-        model->GetPainter3D()->Draw(this);
-    }
+    // TODO: BUG IN LINUX GNU 13.1.0, FIX IT
+    // for (auto& [id, model]: m_Models) {
+    //     model->Draw(this);
+    //     model->GetPainter3D()->Draw(this);
+    // }
 #elif IGAME_OPENGL_VERSION_460
 
     // normal mesh

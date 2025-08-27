@@ -7,7 +7,7 @@ else ()
 #     set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+    set(Qt5_DIR "D:/QT5/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "C:/Qt//Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
 
@@ -37,12 +37,23 @@ find_program(DEPLOYQT_EXECUTABLE NAMES windeployqt macdeployqt HINTS "${_qt_bin_
 file(GLOB_RECURSE QT_SRCS CONFIGURE_DEPENDS src/*.cpp include/*.h Plugin/*)
 
 
-add_library(${MODULE_NAME} STATIC
-        ${QRC_FILES}
-        ${UI_FILES}
-        ${UI_HEAD_FILES}
-        ${QT_SRCS}
-)
+if(IGAME_BUILD_SHARED)
+    add_library(${MODULE_NAME} SHARED
+            ${QRC_FILES}
+            ${UI_FILES}
+            ${UI_HEAD_FILES}
+            ${QT_SRCS}
+    )
+else ()
+    add_library(${MODULE_NAME} STATIC
+            ${QRC_FILES}
+            ${UI_FILES}
+            ${UI_HEAD_FILES}
+            ${QT_SRCS}
+    )
+endif ()
+
+
 
 
 set_source_files_properties(${QRC_FILES} PROPERTIES GENERATED ON)

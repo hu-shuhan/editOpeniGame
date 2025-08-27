@@ -755,12 +755,22 @@ if (NOT DISABLE_FORCE_DEBUG_POSTFIX)
   set(CMAKE_DEBUG_POSTFIX d)
 endif ()
 
-add_library(freetype STATIC
-        ${PUBLIC_HEADERS}
-        ${PUBLIC_CONFIG_HEADERS}
-        ${PRIVATE_HEADERS}
-        ${BASE_SRCS}
-)
+# Currently, only shared libraries for the Linux system are supported
+if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+  add_library(freetype SHARED
+          ${PUBLIC_HEADERS}
+          ${PUBLIC_CONFIG_HEADERS}
+          ${PRIVATE_HEADERS}
+          ${BASE_SRCS}
+  )
+else ()
+  add_library(freetype STATIC
+          ${PUBLIC_HEADERS}
+          ${PUBLIC_CONFIG_HEADERS}
+          ${PRIVATE_HEADERS}
+          ${BASE_SRCS}
+  )
+endif ()
 
 target_include_directories(
         freetype

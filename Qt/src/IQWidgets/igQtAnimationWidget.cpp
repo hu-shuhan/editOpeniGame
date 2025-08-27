@@ -161,26 +161,26 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     if (currentDrawObject == nullptr ||
         currentDrawObject->GetTimeFrames()->GetArrays().empty())
         return;
-
     currentDrawObject->GetTimeFrames()->EnableCache();
-    auto timeFrameType = currentDrawObject->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
-    auto timeFrameData = currentDrawObject->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
-    if(timeFrameType == StreamingType::MultiSubFiles){
-        currentDrawObject->ClearSubDataObject();
-        for(auto& subObj : timeFrameData){
-            auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
-            if(subDataObj){
-                currentDrawObject->AddSubDataObject(subDataObj);
-            }
-        }
-    } else if(timeFrameType == StreamingType::SingleFieldAttributes){
-        auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
-        if(attributeSet){
-            currentDrawObject->SetAttributeSet(attributeSet);
-            DynamicCast<iGame::PointSet>(currentDrawObject)->GetPoints()->Modified();
-            currentDrawObject->ConvertToDrawableData();
-        }
-    }
+    currentDrawObject->UpdateAnimation(keyframe_idx);
+//    auto timeFrameType = currentDrawObject->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
+//    auto timeFrameData = currentDrawObject->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
+//    if(timeFrameType == StreamingType::MultiSubFiles){
+//        currentDrawObject->ClearSubDataObject();
+//        for(auto& subObj : timeFrameData){
+//            auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
+//            if(subDataObj){
+//                currentDrawObject->AddSubDataObject(subDataObj);
+//            }
+//        }
+//    } else if(timeFrameType == StreamingType::SingleFieldAttributes){
+//        auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
+//        if(attributeSet){
+//            currentDrawObject->SetAttributeSet(attributeSet);
+//            DynamicCast<iGame::PointSet>(currentDrawObject)->GetPoints()->Modified();
+//            currentDrawObject->ConvertToDrawableData();
+//        }
+//    }
 //    auto& currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
 //    auto frameData = currentFrame.GetMetaData();
 
@@ -239,9 +239,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     }
 
 
-    /* process Object's scalar range*/
-    currentDrawObject->ReCollectSubDataObjectDataRange();
-    currentDrawObject->UpdateSubDataObjectDataRange();
+//    /* process Object's scalar range*/
+//    currentDrawObject->ReCollectSubDataObjectDataRange();
+//    currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -263,8 +263,8 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     auto currentDrawObject = DynamicCast<DrawObject>(
             currentScene->GetCurrentModel()->GetDataObject());
     if (currentDrawObject == nullptr
-    ||  currentDrawObject->GetTimeFrames()->GetArrays().empty()
-    ||  keyframe_0 + 1 == currentDrawObject->GetTimeFrames()->GetArrays().size())
+        ||  currentDrawObject->GetTimeFrames()->GetArrays().empty()
+        ||  keyframe_0 + 1 == currentDrawObject->GetTimeFrames()->GetArrays().size())
         return;
     auto frameSubFiles_0 = currentDrawObject->GetTimeFrames()
             ->GetTargetTimeFrame(keyframe_0)

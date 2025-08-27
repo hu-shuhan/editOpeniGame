@@ -128,7 +128,7 @@ bool iGameVTUReader::ReadPointData() {
                 dataSetPoints->AddPoint(p);
             }
         } else if(strcmp(attribute, "appended") == 0){
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             if (!strncmp(type, "Float", 5)) {
                 //  Float32
@@ -159,14 +159,25 @@ bool iGameVTUReader::ReadPointAttribute() {
     char* data_p;
     m_CurrentElem = FindTargetItem(root, "PointData");
     if(m_CurrentElem == nullptr) return false;
+    /* Process vector name parse*/
+    std::vector<std::string> vector_names;
+    data = m_CurrentElem->Attribute("Vectors");
+    if(data){
+        std::string cur_vector;
+        std::istringstream tokenStream(data);
+        while (std::getline(tokenStream, cur_vector, ',')) {
+            vector_names.push_back(cur_vector);
+        }
+    }
+    /* Move the ptr to first DataArray */
     m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
     //  use while loop to find point's multiple scala data.
     while (m_CurrentElem) {
 
         data = m_CurrentElem->Attribute("Name");
         std::string scalarName = data ? data : "Undefined Scalar";
+        /* Parse point Scalar's Dimension*/
         data = m_CurrentElem->Attribute("NumberOfComponents");
-
         ArrayObject::Pointer  array;
         const char* type = m_CurrentElem->Attribute("type");
 
@@ -214,7 +225,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
@@ -273,7 +284,7 @@ bool iGameVTUReader::ReadPointAttribute() {
                     delete[] ps;
                 }
                 else if(strcmp(attribute, "appended") == 0){
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
@@ -290,9 +301,9 @@ bool iGameVTUReader::ReadPointAttribute() {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
                         if(m_parseRawBinaryData){
-                            ReadRawBinaryArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadRawBinaryArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         } else {
-                            ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         }
                         array = arr;
                     }
@@ -309,7 +320,10 @@ bool iGameVTUReader::ReadPointAttribute() {
 //					scalar_range_min = std::min(scalar_range_min, value);
 //                }
 //				m_Data.GetData()->AddScalar(IG_POINT, array, { scalar_range_min, scalar_range_max });
-                m_Data.GetData()->AddScalar(IG_POINT, array);
+                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                    m_Data.GetData()->AddVector(IG_POINT, array);
+                else
+                    m_Data.GetData()->AddScalar(IG_POINT, array);
             }
         }
         m_CurrentElem = m_CurrentElem->NextSiblingElement("DataArray");
@@ -326,11 +340,18 @@ bool iGameVTUReader::ReadCellData() {
     char* token;
     char* data_p;
     m_CurrentElem = FindTargetItem(root, "CellData");
-    if(m_CurrentElem != nullptr){
-        m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
-    } else {
-        return false;
+    if(m_CurrentElem == nullptr)return false;
+    /* Process vector name parse*/
+    std::vector<std::string> vector_names;
+    data = m_CurrentElem->Attribute("Vectors");
+    if(data){
+        std::string cur_vector;
+        std::istringstream tokenStream(data);
+        while (std::getline(tokenStream, cur_vector, ',')) {
+            vector_names.push_back(cur_vector);
+        }
     }
+    m_CurrentElem = m_CurrentElem->FirstChildElement("DataArray");
 
     //  use while loop to find point's multiple scala data.
     while (m_CurrentElem) {
@@ -386,7 +407,7 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Float32
                     if (!strncmp(type + 5, "32", 2)) {
@@ -424,7 +445,7 @@ bool iGameVTUReader::ReadCellData() {
                     else /* Int64*/ {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
-                        ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
+                        ReadBase64EncodedArray<long long >(m_Header_8_byte_flag, data_p, arr);
                         array = arr;
                     }
                 }
@@ -446,7 +467,7 @@ bool iGameVTUReader::ReadCellData() {
                     delete[] ps;
                 }
                 else if (strcmp(attribute, "appended") == 0) {
-                    int64_t offsetVal = std::atoll(offset);
+                    long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Int32
                     if (!strncmp(type + 3, "32", 2)) {
@@ -463,9 +484,9 @@ bool iGameVTUReader::ReadCellData() {
                         LongLongArray::Pointer arr = LongLongArray::New();
                         arr->SetDimension(scalarComponents);
                         if(m_parseRawBinaryData){
-                            ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                            ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                         } else {
-                            ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                            ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                         }
                         array = arr;
                     }
@@ -475,14 +496,18 @@ bool iGameVTUReader::ReadCellData() {
                 array->SetName(scalarName);
 //                float scalar_range_max = FLT_MIN;
 //                float scalar_range_min = FLT_MAX;
-                float value;
-                for (int i = 0; i < array->GetNumberOfElements(); i++) {
-                    value = array->GetValue(i);
+//                float value;
+//                for (int i = 0; i < array->GetNumberOfElements(); i++) {
+//                    value = array->GetValue(i);
 //                    scalar_range_max = std::max(scalar_range_max, value);
 //                    scalar_range_min = std::min(scalar_range_min, value);
-                }
+//                }
 //                m_Data.GetData()->AddScalar(IG_CELL, array, { scalar_range_min, scalar_range_max });
-                m_Data.GetData()->AddScalar(IG_CELL, array);
+                if(std::find(vector_names.begin(), vector_names.end(), scalarName) != vector_names.end())
+                    m_Data.GetData()->AddVector(IG_CELL, array);
+                else
+                    m_Data.GetData()->AddScalar(IG_CELL, array);
+
             }
         }
         m_CurrentElem = m_CurrentElem->NextSiblingElement("DataArray");
@@ -537,7 +562,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
@@ -552,9 +577,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
             else /* Int64*/ {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 if(m_parseRawBinaryData){
-                    ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                    ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                 } else {
-                    ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 }
                 CellConnects = arr;
             }
@@ -614,7 +639,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
         }
         else if (strcmp(attribute, "appended") == 0) {
             attribute = m_CurrentElem->Attribute("type");
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             //  Int32
             if (!strncmp(attribute, "Int32", 5)) {
@@ -631,9 +656,9 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
                 LongLongArray::Pointer arr = LongLongArray::New();
                 arr->AddValue(0);
                 if(m_parseRawBinaryData){
-                    ReadRawBinaryArray<int64_t >(m_Header_8_byte_flag, data_p, arr);
+                    ReadRawBinaryArray<long long >(m_Header_8_byte_flag, data_p, arr);
                 } else {
-                    ReadBase64EncodedArray<int64_t>(m_Header_8_byte_flag, data_p, arr);
+                    ReadBase64EncodedArray<long long>(m_Header_8_byte_flag, data_p, arr);
                 }
                 CellOffsets = arr;
             }
@@ -676,7 +701,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
             ReadBase64EncodedArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);
         }
         else if (strcmp(attribute, "appended") == 0) {
-            int64_t offsetVal = std::atoll(offset);
+            long long offsetVal = std::atoll(offset);
             data_p = data_p + offsetVal;
             if(m_parseRawBinaryData){
                 ReadRawBinaryArray<uint8_t>(m_Header_8_byte_flag, data_p, CellTypes);

@@ -53,11 +53,13 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         auto scene = SceneManager::Instance()->GetCurrentScene();
         Selection->Start = seedPoints[control * 2];
         Selection->End = seedPoints[control * 2 + 1];
-        Selection->SetFilterEvent(
-                [&](iGame::Selection::Event event) {
-                    if (event.type == iGame::Selection::Event::Change) {
-                        seedPoints[control * 2] = Selection->Start;
-                        seedPoints[control * 2 + 1] = Selection->End;
+        Selection->SetSelectionCallBackEvent(
+                [&](const std::vector<iGame::Selection::Event>& events) {
+                    for (auto& event: events) {
+                        if (event.type == iGame::Selection::Event::Change) {
+                            seedPoints[control * 2] = Selection->Start;
+                            seedPoints[control * 2 + 1] = Selection->End;
+                        }
                     }
                 },
                 std::placeholders::_1);
@@ -265,11 +267,13 @@ void igQtStreamTracerWidget::generateStreamline() {
         Painter = scene->GetCurrentModel()->GetPainter3D();
         Selection->Start = seedPoints[control * 2];
         Selection->End = seedPoints[control * 2 + 1];
-        Selection->SetFilterEvent(
-                [&](iGame::Selection::Event event) {
-                    if (event.type == iGame::Selection::Event::Change) {
-                        seedPoints[control * 2] = Selection->Start;
-                        seedPoints[control * 2 + 1] = Selection->End;
+        Selection->SetSelectionCallBackEvent(
+                [&](const std::vector<iGame::Selection::Event>& events) {
+                    for (auto& event: events) {
+                        if (event.type == iGame::Selection::Event::Change) {
+                            seedPoints[control * 2] = Selection->Start;
+                            seedPoints[control * 2 + 1] = Selection->End;
+                        }
                     }
                 },
                 std::placeholders::_1);

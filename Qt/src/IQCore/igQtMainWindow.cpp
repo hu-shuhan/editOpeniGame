@@ -28,6 +28,8 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
+#include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h> // 鐢ㄤ簬 open
@@ -78,6 +80,12 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
     ui->dockWidget_TensorField->hide();
+    ui->dockWidget_ParallelCoordinatesField->hide();
+    ui->dockWidget_VariableCorrelationField->hide();
+    ui->dockWidget_VariableDensityField->hide();
+    ui->dockWidget_DataChangeField->hide();
+    ui->dockWidget_SelectionField->hide();
+    ui->dockWidget_ContextPreservingShowField->hide();
     ui->dockWidget_SearchInfo->hide();
     ui->dockWidget_QualityDetection->hide();
     ui->dockWidget_EditMode->hide();
@@ -137,17 +145,14 @@ void igQtMainWindow::initAllComponents() {
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        auto sceneManager = iGame::SceneManager::Instance();
-        auto scene = sceneManager->GetCurrentScene();
-        if (!scene) return false;
-        auto currentModel = scene->GetCurrentModel();
-        if (!currentModel) return false;
-        auto obj = currentModel->GetDataObject();
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         if (!obj) return false;
 
         igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
-        d->show();
-        //modelTreeWidget->updateAllAttriubute(obj);
+        d->exec();
+
+        return true;
     });
 
     // connect(ui->action_SaveScreenShot, &QAction::triggered, rendererWidget,
@@ -1442,6 +1447,106 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->widget_TensorField->UpdateScalarsNameList();
         ui->widget_TensorField->UpdateTensorsNameList();
     });
+    connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_ParallelCoordinatesField->show();
+        ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+    });
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_ParallelCoordinatesField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_ParallelCoordinatesField->hide();
+    //        return;
+    //    }
+    //    ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+    //});
+    connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+    });
+    connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_VariableCorrelationField->show();
+        ui->widget_VariableCorrelationField->SetModel(model);
+    });
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_VariableCorrelationField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_VariableCorrelationField->hide();
+    //        return;
+    //    }
+    //    ui->widget_VariableCorrelationField->SetModel(model);
+    //});
+    connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
+            [&]() {
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) return;
+                ui->widget_VariableCorrelationField->SetModel(model);
+            });
+    connect(ui->action_VariableDensity, &QAction::triggered, this, [&](bool checked) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->dockWidget_VariableDensityField->show();
+        ui->widget_VariableDensityField->SetModel(model);
+    });
+    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+    //    if (ui->dockWidget_VariableDensityField->isHidden()) return;
+    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
+    //    if (model == nullptr) {
+    //        ui->dockWidget_VariableDensityField->hide();
+    //        return;
+    //    }
+    //    ui->widget_VariableDensityField->SetModel(model);
+    //});
+    connect(ui->widget_VariableDensityField, &igQtVariableDensityWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        ui->widget_VariableDensityField->SetModel(model);
+    });
+    auto DataChangeFunc = [&](igQtMainWindow* mainWindow) {
+        auto model = mainWindow->rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        mainWindow->ui->dockWidget_DataChangeField->show();
+        mainWindow->ui->widget_DataChangeField->InitRadialStyle(
+                mainWindow->rendererWidget->GetScene()->GetInteractor());
+        auto name = mainWindow->rendererWidget->GetScene()->GetInteractor()->SetSpecialInteractor(
+                mainWindow->ui->widget_DataChangeField->GetRadialStyle());
+        mainWindow->ui->widget_DataChangeField->SetInteractorName(name);
+        mainWindow->ui->widget_DataChangeField->SetModel(model);
+    };
+    connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) { DataChangeFunc(this); });
+    connect(ui->widget_DataChangeField, &igQtDataChangeWidget::SIGNAL_RefreshDataClicked, this,
+            [&]() { DataChangeFunc(this); });
+    //connect(ui->widget_DataChangeField, &igQtDataChangeWidget::Hided, this, [&]() {
+    //    rendererWidget->GetScene()->GetInteractor()->RemoveSepcialInteractor(
+    //            ui->widget_DataChangeField->GetInteractorName());
+    //});
+    connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
+        if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            ui->dockWidget_ContextPreservingShowField->show();
+            ui->widget_ContextPreservingShowField->SetContextPreserving(model);
+        }
+        else if (!checked && ui->dockWidget_ContextPreservingShowField->isVisible())
+            ui->dockWidget_ContextPreservingShowField->hide();
+    });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        if (ui->dockWidget_ContextPreservingShowField->isHidden()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) {
+            ui->dockWidget_ContextPreservingShowField->hide();
+            return;
+        }
+        ui->widget_ContextPreservingShowField->SetContextPreserving(model);
+    });
+    connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
+            [&]() { rendererWidget->update(); });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
@@ -1729,7 +1834,9 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
+            [&](DrawObject::Pointer mesh) { 
+            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); 
+        });
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
@@ -2106,10 +2213,136 @@ void igQtMainWindow::initAllSources() {
 }
 
 void igQtMainWindow::initAllInteractor() {
+    connect(ui->action_SelectView, &QAction::triggered, this, [&](bool checked) {
+        if (checked && !ui->dockWidget_SelectionField->isVisible()) ui->dockWidget_SelectionField->show();
+        else if (!checked && ui->dockWidget_SelectionField->isVisible())
+            ui->dockWidget_SelectionField->hide();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionStation, this,
+            [&](SelectionStation selectionStation) {
+                auto radius = ui->widget_SelectionField->GetSelectionRadius();
+                auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+                switch (selectionStation) {
+                    case SelectionStation::NONE_SELECTION:
+                        rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+                        break;
+                    case SelectionStation::POINT_SELECTION:
+                        rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius,
+                                                              selectOrUnSelect);
+                        break;
+                    case SelectionStation::CELL_SELECTION:
+                        rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius,
+                                                              selectOrUnSelect);
+                        break;
+                    default:
+                        break;
+                }
+            });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectOrUnSelect, this, [&](bool selectOrUnSelect) {
+        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        auto radius = ui->widget_SelectionField->GetSelectionRadius();
+        switch (selectionStation) {
+            case SelectionStation::NONE_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+                break;
+            case SelectionStation::POINT_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
+                break;
+            case SelectionStation::CELL_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
+                break;
+            default:
+                break;
+        }
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionRadius, this, [&](double radius) {
+        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+        switch (selectionStation) {
+            case SelectionStation::NONE_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+                break;
+            case SelectionStation::POINT_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
+                break;
+            case SelectionStation::CELL_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
+                break;
+            default:
+                break;
+        }
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto& selectedItems = model->GetSelection()->GetSelectedItems();
+        if (visiable) {
+            for (auto& objsInType: selectedItems) {
+                for (auto& eventsInObj: objsInType.second) {
+                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
+                }
+            }
+        } else {
+            for (auto& objsInType: selectedItems) {
+                for (auto& eventsInObj: objsInType.second) {
+                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
+                }
+            }
+        }
+        //if (visiable) model->GetPainter3D()->ShowAll();
+        //else
+        //    model->GetPainter3D()->HideAll();
+        rendererWidget->update();
+        });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        model->GetSelection()->Reset();
+        rendererWidget->update();
+        });
+
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
+            [&]() {
+            ui->action_SelectView->setChecked(false);
+        });
+    connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
+        ui->widget_SelectionField->PreventSignalSend(true);
+        ui->widget_SelectionField->SetDefaultSelectionButton();
+        ui->widget_SelectionField->PreventSignalSend(false);
+        return;
+        auto radius = ui->widget_SelectionField->GetSelectionRadius();
+        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+        switch (selectionStation) {
+            case SelectionStation::NONE_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+                break;
+            case SelectionStation::POINT_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
+                break;
+            case SelectionStation::CELL_SELECTION:
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
+                break;
+            default:
+                break;
+        }
+        auto visiable = ui->widget_SelectionField->GetSelectionShow();
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        if (visiable) model->GetPainter3D()->ShowAll();
+        else
+            model->GetPainter3D()->HideAll();
+    });
+    connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::Hided, this,
+            [&]() { ui->action_ContextPreserving->setChecked(false); });
+
+
+    ui->action_select_point->setVisible(false);
+    ui->action_select_face->setVisible(false);
     connect(ui->action_select_point, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_select_point->isChecked()) {
             if (ui->action_select_face->isChecked()) { ui->action_select_face->setChecked(false); }
-            rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
+            rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle,0.1);
         } else {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
@@ -2131,7 +2364,7 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->action_select_face, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_select_face->isChecked()) {
             if (ui->action_select_point->isChecked()) { ui->action_select_point->setChecked(false); }
-            rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
+            rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle,0.1);
         } else {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }

@@ -67,7 +67,7 @@ void SingleDragStyle::MouseMoveEvent(IEvent event) {
             e.pickId = m_SelectedPointId;
             e.pos = Vector3f{newPoint_WorldCoord.x, newPoint_WorldCoord.y,
                              newPoint_WorldCoord.z};
-            m_Selection->FilterEvent(e);
+            m_Selection->SelectionCallBackEvent(e);
 
             m_Points->SetPoint(m_SelectedPointId, e.pos);
 

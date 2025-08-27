@@ -297,4 +297,6 @@ IGuint CellArray::GetCellSize(const IGsize cellId) const {
                         : m_FixedCellSize;
 }
 
+bool CellArray::IsUseOffSet() const { return m_UseOffsets; }
+
 IGAME_NAMESPACE_END

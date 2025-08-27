@@ -32,25 +32,34 @@ static void ReadRawBinaryPoints(bool is_header_8_byte, char *p, Points::Pointer 
     }
 }
 
-template<typename T>
-static void ReadRawBinaryArray(bool is_header_8_byte, char* p, typename FlatArray<T>::Pointer arr){
-    char* current = p;
-    uint64_t byte_size;
-    if(is_header_8_byte){
-        byte_size = bytes_to_target<uint64_t>(p);
-        current += 8;
-    } else {
-        byte_size = bytes_to_target<uint32_t>(p);
-        current += 4;
+    template<typename T>
+    static void ReadRawBinaryArray(bool is_header_8_byte, char* p, typename FlatArray<T>::Pointer arr){
+        char* current = p;
+        uint64_t byte_size;
+        if(is_header_8_byte){
+            byte_size = bytes_to_target<uint64_t>(p);
+            current += 8;
+        } else {
+            byte_size = bytes_to_target<uint32_t>(p);
+            current += 4;
+        }
+        size_t elemSize = sizeof(T) * arr->GetDimension();
+        uint64_t elemNum = byte_size / elemSize;
+
+        // 解决方案1: 使用std::vector
+        std::vector<T> elemVector(arr->GetDimension());
+
+        for(int i = 0; i < elemNum; i++){
+            std::memcpy(elemVector.data(), current, elemSize);
+            arr->AddElement(elemVector);
+            current += elemSize;
+        }
+
+        // 或者解决方案2: 如果有接受T*类型的重载，可以这样做
+        // for(int i = 0; i < elemNum; i++){
+        //     T* elemPtr = reinterpret_cast<T*>(current);
+        //     arr->AddElement(elemPtr);  // 如果有接受T*的重载的话
+        //     current += elemSize;
+        // }
     }
-    size_t elemSize = sizeof (T) * arr->GetDimension();
-    uint64_t elemNum = byte_size / elemSize;
-    T elemList[IGAME_CELL_MAX_SIZE];
-    for(int i = 0; i < elemNum; i ++){
-        std::memcpy(elemList, current, elemSize);
-        T elem = elemList[0];
-        arr->AddElement(elemList);
-        current += elemSize;
-    }
-}
 IGAME_NAMESPACE_END

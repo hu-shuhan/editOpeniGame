@@ -148,9 +148,10 @@ public:
      * @brief 请求对点集进行选择。
      * @param p 点集对象。
      * @param s 选择对象。
+     * @param selectRadius 选择半径。
      */
     void RequestPointSelection(SmartPointer<Points> p,
-                               SmartPointer<Selection> s);
+                               SmartPointer<Selection> s, double selectRadius);
 
     /**
      * @brief 请求拖拽点集。

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1370</height>
+    <height>1415</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -126,6 +126,10 @@
     <addaction name="action_Scalar"/>
     <addaction name="action_Vector"/>
     <addaction name="action_Tensor"/>
+    <addaction name="action_ParallelCoordinates"/>
+    <addaction name="action_VariableCorrelation"/>
+    <addaction name="action_VariableDensity"/>
+    <addaction name="action_DataChange"/>
     <addaction name="action_StrucDeformation"/>
     <addaction name="action_FlowField"/>
     <addaction name="action_ExportAnimation"/>
@@ -240,7 +244,7 @@
   <widget class="QDockWidget" name="dockWidget_ModelList">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -324,6 +328,8 @@
    <addaction name="action_UseOrthographic"/>
    <addaction name="action_ShowOrientationAxes"/>
    <addaction name="action_ResetCameraView"/>
+   <addaction name="action_ContextPreserving"/>
+   <addaction name="action_SelectView"/>
    <addaction name="action_select_point"/>
    <addaction name="action_select_face"/>
    <addaction name="action_drag_point"/>
@@ -358,7 +364,7 @@
   <widget class="QDockWidget" name="dockWidget_ScalarField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -376,7 +382,7 @@
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -394,7 +400,7 @@
   <widget class="QDockWidget" name="dockWidget_FlowField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -412,7 +418,7 @@
   <widget class="QDockWidget" name="dockWidget_TensorField">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -426,6 +432,114 @@
     <number>1</number>
    </attribute>
    <widget class="igQtTensorWidget" name="widget_TensorField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>平行坐标</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtParallelCoordinatesWidget" name="widget_ParallelCoordinatesField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_VariableCorrelationField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>变量相关性</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtVariableCorrelationWidget" name="widget_VariableCorrelationField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_VariableDensityField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>变量数据密度</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtVariableDensityWidget" name="widget_VariableDensityField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_DataChangeField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>路径图</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtDataChangeWidget" name="widget_DataChangeField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_SelectionField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>选择</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtSelectionWidget" name="widget_SelectionField"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_ContextPreservingShowField">
+   <property name="minimumSize">
+    <size>
+     <width>98</width>
+     <height>150</height>
+    </size>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::BottomDockWidgetArea|Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>已选数据的上下文保持显示</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="igQtContextPreservingShowWidget" name="widget_ContextPreservingShowField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_SearchInfo">
    <property name="minimumSize">
@@ -563,7 +677,7 @@
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="minimumSize">
     <size>
-     <width>0</width>
+     <width>98</width>
      <height>45</height>
     </size>
    </property>
@@ -967,6 +1081,26 @@
   <action name="action_Tensor">
    <property name="text">
     <string>张量场</string>
+   </property>
+  </action>
+  <action name="action_ParallelCoordinates">
+   <property name="text">
+    <string>平行坐标</string>
+   </property>
+  </action>
+  <action name="action_VariableCorrelation">
+   <property name="text">
+    <string>变量相关性</string>
+   </property>
+  </action>
+  <action name="action_VariableDensity">
+   <property name="text">
+    <string>变量数据密度</string>
+   </property>
+  </action>
+  <action name="action_DataChange">
+   <property name="text">
+    <string>路径图</string>
    </property>
   </action>
   <action name="action_FlowField">
@@ -1437,6 +1571,36 @@
     <string>传输测试(C)</string>
    </property>
   </action>
+  <action name="action_SelectView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/selectView.png</normaloff>:/Ticon/Icons/select/selectView.png</iconset>
+   </property>
+   <property name="text">
+    <string>选择</string>
+   </property>
+   <property name="toolTip">
+    <string>点、面/体选择</string>
+   </property>
+  </action>
+  <action name="action_ContextPreserving">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/ContextPreservingAction.png</normaloff>:/Ticon/Icons/select/ContextPreservingAction.png</iconset>
+   </property>
+   <property name="text">
+    <string>数据选择上下文</string>
+   </property>
+   <property name="toolTip">
+    <string>显示已选数据与未选数据上下文</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1499,9 +1663,45 @@
    <container>1</container>
   </customwidget>
   <customwidget>
+   <class>igQtParallelCoordinatesWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtParallelCoordinatesWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtVariableCorrelationWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtVariableCorrelationWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtVariableDensityWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtVariableDensityWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtDataChangeWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtDataChangeWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
    <class>igQtContourExtractWidget</class>
    <extends>QWidget</extends>
    <header>IQWidgets/igQtContourExtractWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtSelectionWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtSelectionWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>igQtContextPreservingShowWidget</class>
+   <extends>QWidget</extends>
+   <header>IQWidgets/igQtContextPreservingShowWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

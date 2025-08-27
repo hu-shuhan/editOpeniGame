@@ -378,6 +378,7 @@ void SlicingStyle::Initialize(SmartPointer<Interactor> interactor,
     m_Selection = DynamicCast<ClipSelection>(s);
     if (m_Selection == nullptr) return;
     m_Selection->SetUpdateFunction([this] { this->UpdatePlane(); });
+    m_Selection->SetModel(m_Model.get());
 
     m_Painter3D = interactor->GetPainter3D();
     m_DataObject = interactor->GetDataObject();
@@ -408,7 +409,7 @@ void SlicingStyle::Emit() {
         if (PlaneUpdated) {
             m_Selection->PlanePoint = V(Center);
             m_Selection->PlaneNormal = V((Start - End).normalized());
-            m_Selection->FilterEvent(
+            m_Selection->SelectionCallBackEvent(
                     iGame::Selection::Event(iGame::Selection::Event::Change));
             PlaneUpdated = false;
         }
