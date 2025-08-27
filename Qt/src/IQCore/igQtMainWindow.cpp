@@ -631,7 +631,6 @@ void igQtMainWindow::initAllFilters() {
 
         //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
         //obj->SetAttributeSet(AttributeSet::New());
-
         MeshSimplifier::Pointer Sim = MeshSimplifier::New();
         Sim->SetInput(obj);
         if (Sim->Execute()) {
