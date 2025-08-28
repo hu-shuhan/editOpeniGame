@@ -199,7 +199,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
                 }
 
                 if (nzones > 1) {
-                    if (m_ParentObject == nullptr) { m_ParentObject = DataObject::New(); }
+                    if (m_ParentObject == nullptr) { m_ParentObject = DrawObject::New(); }
                     m_ParentObject->AddSubDataObject(this->GetOutput());
                     this->m_Points = nullptr;
                     this->m_StructuredMesh = nullptr;
