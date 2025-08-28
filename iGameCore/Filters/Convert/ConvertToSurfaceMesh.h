@@ -54,7 +54,6 @@ protected:
 
 
 private:
-    //私有辅助函数可以在这里添加
 };
 IGAME_NAMESPACE_END
 #endif
