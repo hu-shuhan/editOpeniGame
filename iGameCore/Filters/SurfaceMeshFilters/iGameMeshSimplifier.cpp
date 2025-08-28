@@ -816,6 +816,7 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity)
                 }
 
                 c.error += fabsf(r);
+
             }
 
             Collapses[Count++] = c;

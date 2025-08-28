@@ -15,6 +15,7 @@ code name 'Spinning Jenny'
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
+#include "iGameFilter.h"
 #include <atomic>
 #include <condition_variable>
 #include <future>
@@ -25,20 +26,27 @@ code name 'Spinning Jenny'
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-class MeshLoomCodec {
+class MeshLoomCodec : public Filter {
+public:
+    I_OBJECT(MeshLoomCodec);
+
+    // Filter 基类要求的空的 Execute 方法（子类实现具体逻辑）
+    bool Execute() override { return true; }
+
 protected:
+    MeshLoomCodec() = default;
+
     using IndexBufferCodec = MeshOptModifiedIndexBufferCodec;
     CodecParameters m_codecParams;
-    ProgressObserver* m_Progress{ nullptr };
 
-    void UpdateProgress(double p) {
-        if (m_Progress) {
-            m_Progress->UpdateProgress(p);
-        }
-        else {
-            m_Progress = ProgressObserver::Instance();
-        }
-    }
+    // void UpdateProgress(double p) {
+    //     if (m_Progress) {
+    //         m_Progress->UpdateProgress(p);
+    //     }
+    //     else {
+    //         m_Progress = ProgressObserver::Instance();
+    //     }
+    // }
 
     template<typename Func>
     void ProgressParallelFor(int start, int end, float startProgress, float endProgress, Func&& process, int numThreads = ThreadPool::GetDefaultThreadCount()) {
@@ -103,25 +111,59 @@ protected:
         return os;
     }
 
-    std::istream&
-        ReadBuf(std::istream& is, PayloadBuffer* buf)
+    std::istream*
+        ReadBuf(std::istream* is, PayloadBuffer* buf)
     {
         buf->resize(0);
-        buf->type = PayloadType(static_cast<unsigned>(is.get()));
+        buf->type = PayloadType(static_cast<unsigned>(is->get()));
 
         uint32_t length = 0;
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
+        length = (length << 8) | static_cast<unsigned>(is->get());
+        length = (length << 8) | static_cast<unsigned>(is->get());
+        length = (length << 8) | static_cast<unsigned>(is->get());
+        length = (length << 8) | static_cast<unsigned>(is->get());
 
-        if (!is)
+        if (!(*is))
             return is;
 
         buf->resize(length);
-        is.read(buf->data(), length);
+        is->read(buf->data(), length);
         return is;
     }
+
+    // bool ReadBuf(MeshCodecDataObject::Pointer codecData, PayloadBuffer* buf)
+    // {
+    //     // 直接使用MeshCodecDataObject的成员变量，就像STL的left引用
+    //     char*& currentPos = codecData->m_CurrentPos;
+    //     char* fileEnd = codecData->m_FileEnd;
+    //
+    //     // 原版：buf->resize(0);
+    //     buf->resize(0);
+    //
+    //     // 原版：buf->type = PayloadType(static_cast<unsigned>(is.get()));
+    //     buf->type = PayloadType(static_cast<unsigned>(*currentPos++));
+    //
+    //     // 原版：4次 is.get() 读取 length
+    //     uint32_t length = 0;
+    //     length = (length << 8) | static_cast<unsigned>(*currentPos++);
+    //     length = (length << 8) | static_cast<unsigned>(*currentPos++);
+    //     length = (length << 8) | static_cast<unsigned>(*currentPos++);
+    //     length = (length << 8) | static_cast<unsigned>(*currentPos++);
+    //
+    //     // 原版：if (!is) return is;
+    //     if (currentPos + length > fileEnd) {
+    //         return false;
+    //     }
+    //
+    //     // 原版：buf->resize(length);
+    //     buf->resize(length);
+    //
+    //     // 原版：is.read(buf->data(), length);
+    //     std::memcpy(buf->data(), currentPos, length);
+    //     currentPos += length;
+    //
+    //     return true;
+    // }
 };
 IGAME_NAMESPACE_END
 #endif
