@@ -247,11 +247,17 @@ void CellArray::GarbageCollection() {
 
 IdArray::Pointer CellArray::GetCellIdArray() { return m_Buffer; }
 UnsignedIntArray::Pointer CellArray::GetOffset() { return m_Offsets; }
-    void CellArray::SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets) {
+void CellArray::SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets) {
     m_Buffer = ids;
     m_Offsets = offsets;
     m_NumberOfCells = offsets->GetNumberOfValues() - 1;
     this->m_UseOffsets = true;
+}
+void CellArray::SetData(IdArray::Pointer ids, int fixedSize) {
+    m_Buffer = ids;
+    m_NumberOfCells = m_Buffer->GetNumberOfIds()/fixedSize;
+    this->m_UseOffsets = false;
+    this->m_FixedCellSize = fixedSize;
 }
 
 void CellArray::SetFixedSize(int fixedSize) {

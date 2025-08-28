@@ -1,8 +1,8 @@
 
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
-#include "iGameSubdivision/iGameHexhedronSubdivision.h"
-#include "iGameSubdivision/iGameQuadSubdivision.h"
 #include "TensorViewFilter/iGameTensorRepresentation.h"
+#include "TensorViewFilter/iGameTensorFilter.h"
+#include "TensorViewFilter/iGameTensorbase.h"
 #include "iGameFilterPoints.h"
 #include "iGameSurfaceMeshFilterTest.h"
 #include "iGameVolumeMeshFilterTest.h"
@@ -14,3 +14,4 @@
 #include "iGameMeshCodec/iGameMeshLoomEncoder.h"
 #include "iGameMeshCodec/iGameMeshLoomDecoder.h"
 #include "Contour/iGameContourFilter.h"
+#include "Slice/iGameSliceFilter.h"
