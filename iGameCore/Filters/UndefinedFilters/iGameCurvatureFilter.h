@@ -42,6 +42,8 @@ public:
             return true;
         };
 
+        SetOutput(input);
+
         switch (input->GetDataObjectType()) {
             case IG_SURFACE_MESH:
             {
