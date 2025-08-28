@@ -32,6 +32,7 @@
 #include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecParamSet.h"
 #include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecFeature.h"
 #include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshLoomEncoder.h"
+#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshDecodedDataObject.h"
 #include "iGameSmartPointer.h"
 #include "iGamePointSet.h"
 #include <QMessageBox>

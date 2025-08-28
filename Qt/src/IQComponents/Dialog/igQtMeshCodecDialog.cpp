@@ -1,4 +1,4 @@
-﻿#include "IQComponents/Dialog/igQtMeshCodecDialog.h"
+#include "IQComponents/Dialog/igQtMeshCodecDialog.h"
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
@@ -686,7 +686,13 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
     std::vector<std::string> errorStatus;
     std::vector<std::string> compactnessStatus;
 
-    auto encoder = new iGame::MeshLoomEncoder(saveFilePath, m_dataObj, m_params);
+    auto decodedData = iGame::MeshDecodedDataObject::New();
+    decodedData->SetMeshData(m_dataObj);
+    decodedData->SetUIControlParams(m_params);
+    decodedData->SetFilePath(saveFilePath);
+    
+    auto encoder = iGame::MeshLoomEncoder::New();
+    encoder->SetInput(decodedData);
     encoder->Execute();
     
     if (m_params.showReport)
