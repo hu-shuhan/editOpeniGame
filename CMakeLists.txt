@@ -24,7 +24,7 @@ endif()
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
@@ -34,7 +34,7 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(RENDERING_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core's Rendering Module to install as lib or not." FORCE)
+set(RENDERING_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core's Rendering Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 
