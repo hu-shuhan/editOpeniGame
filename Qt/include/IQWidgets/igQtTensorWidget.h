@@ -5,7 +5,7 @@
 
 #pragma once
 #include <ui_TensorView.h>
-#include "TensorViewFilter/iGameTensorWidgetBase.h"
+#include "TensorViewFilter/iGameTensorBase.h"
 #include <IQCore/igQtExportModule.h>
 
 using namespace iGame;
@@ -35,7 +35,7 @@ signals:
 	void UpdateAttributes(DataObject::Pointer);
 private:
 	Ui::TensorView* ui;
-	iGameTensorWidgetBase* m_Manager;
+	iGameTensorBase* m_Manager;
 	DataObject* m_DataObject;
 	bool m_Generated = false;
 	//iGame::iGamePoints* Points;

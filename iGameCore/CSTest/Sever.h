@@ -53,7 +53,15 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
     iGame::UIControlParams params = iGame::MeshLoomEncoder::GenUiControlParams(tem);
-    auto encoder = new iGame::MeshLoomEncoder("./CScomp.igc", tem, params);
+
+    auto decodedData = iGame::MeshDecodedDataObject::New();
+    decodedData->SetMeshData(tem);
+    decodedData->SetUIControlParams(params);
+    decodedData->SetFilePath("./CScomp.igc");
+
+    auto encoder = iGame::MeshLoomEncoder::New();
+    encoder->SetInput(decodedData);
+
     if (!encoder->Execute()) {
         igDebug("Compress File Error\n");
         return false;

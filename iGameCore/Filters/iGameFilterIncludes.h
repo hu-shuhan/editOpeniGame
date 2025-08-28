@@ -9,7 +9,6 @@
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
 #include "Sources/iGamePointsSource.h"
 #include "Sources/iGameLineTypePointsSource.h"
-#include "TensorViewFilter/iGameTensorWidgetBase.h"
 #include "Clip/iGameModelClip.h"
 #include "iGameMeshCodec/iGameMeshLoomEncoder.h"
 #include "iGameMeshCodec/iGameMeshLoomDecoder.h"
