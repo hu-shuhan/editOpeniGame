@@ -1,4 +1,4 @@
-#include "iGameScene.h"
+ï»¿#include "iGameScene.h"
 #include "iGameTensorFilter.h"
 IGAME_NAMESPACE_BEGIN
 iGameTensorFilter::iGameTensorFilter() {
@@ -85,7 +85,7 @@ void iGameTensorFilter::UpdateGlyphDrawIndexData() {
         IGsize st = i * GlyphPointIndexOrders->GetNumberOfValues();
         IGsize offset = i * GlyphPointNum;
         for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
-            //ÕâÀï²»Ì«ºÃÓÃcopy£¬²»ÄÜ±£Ö¤Á½¸öÀàÐÍÏàÍ¬
+            //è¿™é‡Œä¸å¤ªå¥½ç”¨copyï¼Œä¸èƒ½ä¿è¯ä¸¤ä¸ªç±»åž‹ç›¸åŒ
             //m_DrawGlyphPointOrders->SetValue(st + j, offset + GlyphPointIndexOrders->GetValue(j));
             m_DrawGlyphPointOrders->SetId(st + j, offset + GlyphPointIndexOrders->GetValue(j));
             //m_DrawGlyphPointOrders->AddValue(st + GlyphPointIndexOrders->GetValue(j));

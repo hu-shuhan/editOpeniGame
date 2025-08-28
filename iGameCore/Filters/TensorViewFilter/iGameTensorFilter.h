@@ -1,4 +1,4 @@
-#ifndef iGameTensorFilter_h
+ï»¿#ifndef iGameTensorFilter_h
 #define iGameTensorFilter_h
 /**
  * @class   iGameTensorFilter
@@ -18,16 +18,16 @@ public:
     ~iGameTensorFilter();
 
     void SetPoints(Points::Pointer);
-    //ÉèÖÃÕÅÁ¿³¡Êı¾İ
+    //è®¾ç½®å¼ é‡åœºæ•°æ®
     void SetTensorAttributes(ArrayObject::Pointer);
-    //ÉèÖÃÍ¼Ôª»æÖÆÀàĞÍ
+    //è®¾ç½®å›¾å…ƒç»˜åˆ¶ç±»å‹
     void SetGlyphType(iGameTensorRepresentation::DrawType drawType) { this->m_TensorManager->SetDrawType(drawType); }
-    //ÉèÖÃÕÅÁ¿³¡Í¼ÔªÑÕÉ«£¬Ò»¸öposition»áÓĞÒ»¸öglyph£¬ÑÕÉ«ÊÇ¸½×ÅÔÚpositionµÄ£¬Òò´ËÃ¿¸öglyphÊÇ´¿É«
+    //è®¾ç½®å¼ é‡åœºå›¾å…ƒé¢œè‰²ï¼Œä¸€ä¸ªpositionä¼šæœ‰ä¸€ä¸ªglyphï¼Œé¢œè‰²æ˜¯é™„ç€åœ¨positionçš„ï¼Œå› æ­¤æ¯ä¸ªglyphæ˜¯çº¯è‰²
     void SetPositionColors(FloatArray::Pointer);
-    //ÉèÖÃÕÅÁ¿³¡Í¼Ôª±êÁ¿Êı¾İ£¬»á¼ÆËãÃ¿¸öpositionµÄÑÕÉ«£¬²¢ÉèÖÃÍ¼ÔªÑÕÉ«
+    //è®¾ç½®å¼ é‡åœºå›¾å…ƒæ ‡é‡æ•°æ®ï¼Œä¼šè®¡ç®—æ¯ä¸ªpositionçš„é¢œè‰²ï¼Œå¹¶è®¾ç½®å›¾å…ƒé¢œè‰²
     void SetPositionsScalarArray(ArrayObject::Pointer, int d = -1);
 
-    //¸üĞÂÍ¼Ôª·ÅËõ±ÈÀı
+    //æ›´æ–°å›¾å…ƒæ”¾ç¼©æ¯”ä¾‹
     void UpdateGlyphScale(double s);
     bool Execute() override;
 
@@ -37,11 +37,11 @@ protected:
     iGameTensorFilter();
     void UpdateTensorObject();
 
-    //¸üĞÂÍ¼Ôª¶¥µãÊı¾İ
+    //æ›´æ–°å›¾å…ƒé¡¶ç‚¹æ•°æ®
     void UpdateGlyphDrawPositionData();
-    //¸üĞÂÍ¼Ôª»æÖÆÃæÆ¬µÄË÷Òı¹ØÏµ
+    //æ›´æ–°å›¾å…ƒç»˜åˆ¶é¢ç‰‡çš„ç´¢å¼•å…³ç³»
     void UpdateGlyphDrawIndexData();
-    //¸üĞÂÍ¼ÔªÑÕÉ«
+    //æ›´æ–°å›¾å…ƒé¢œè‰²
     void UpdateGlyphDrawColor();
 
 private:

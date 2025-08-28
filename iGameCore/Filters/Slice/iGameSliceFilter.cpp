@@ -1,4 +1,4 @@
-#include "iGameSliceFilter.h"
+﻿#include "iGameSliceFilter.h"
 
 #include "iGameThreadPool.h"
 IGAME_NAMESPACE_BEGIN

@@ -1,9 +1,9 @@
-
+ï»¿
 /**
  * @class   iGameSliceFilter
- * @brief   ×îÉÏ²ãµÄÇĞ¸îËã·¨½Ó¿Ú£¬ĞèÒªÊäÈëÇĞ¸îµÄÍø¸ñºÍÇĞ¸î·½Ê½ÒÔ¼°¾ßÌåĞÅÏ¢
- * »áÑ¡Ôñ²»Í¬µÄÇĞ¸î½Ó¿Ú½øĞĞÇĞ¸îËã·¨µÄÊµÏÖ£¬±ÈÈç×î»ù´¡µÄModelClipËã·¨ÒÔ¼°½Ï¿ìµÄQuickModelClipËã·¨
- * Ê¹ÓÃ×Ô¶¨ÒåµÄÇĞ¸îËã·¨Ê±£¬ĞèÒªÓÃ»§×Ô¼ºÎ¬»¤ÕıÈ·ĞÔ
+ * @brief   æœ€ä¸Šå±‚çš„åˆ‡å‰²ç®—æ³•æ¥å£ï¼Œéœ€è¦è¾“å…¥åˆ‡å‰²çš„ç½‘æ ¼å’Œåˆ‡å‰²æ–¹å¼ä»¥åŠå…·ä½“ä¿¡æ¯
+ * ä¼šé€‰æ‹©ä¸åŒçš„åˆ‡å‰²æ¥å£è¿›è¡Œåˆ‡å‰²ç®—æ³•çš„å®ç°ï¼Œæ¯”å¦‚æœ€åŸºç¡€çš„ModelClipç®—æ³•ä»¥åŠè¾ƒå¿«çš„QuickModelClipç®—æ³•
+ * ä½¿ç”¨è‡ªå®šä¹‰çš„åˆ‡å‰²ç®—æ³•æ—¶ï¼Œéœ€è¦ç”¨æˆ·è‡ªå·±ç»´æŠ¤æ­£ç¡®æ€§
  */
 #ifndef iGameSliceFilter_h
 #define iGameSliceFilter_h
@@ -22,7 +22,7 @@ public:
     UnstructuredMesh::Pointer GetSliceMesh() { return DynamicCast<UnstructuredMesh>(m_Contourer->GetOutput()); };
 
 
-    ///@{ ÉèÖÃ»òµÃµ½ÇĞ¸îÆ½ÃæĞÅÏ¢
+    ///@{ è®¾ç½®æˆ–å¾—åˆ°åˆ‡å‰²å¹³é¢ä¿¡æ¯
     void SetPlane(double o[3], double n[3]) { this->SetPlane(o[0], o[1], o[2], n[0], n[1], n[2]); };
     void SetPlane(float o[3], float n[3]) { this->SetPlane(o[0], o[1], o[2], n[0], n[1], n[2]); };
     void SetPlane(double ox, double oy, double oz, double nx, double ny, double nz);
