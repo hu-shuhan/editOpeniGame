@@ -1,29 +1,57 @@
 #ifndef MeshLoomDecoder_h
 #define MeshLoomDecoder_h
 
-#include "iGameFilter.h"
 #include "iGameMacro.h"
-#include "iGameMeshCodecParamSet.h"
-#include "iGameMeshLoomCodec.h"
-#include "iGameMeshFloatCodec.h"
-#include "iGameMeshDecoderAdapter.h"
-#include <future>
 #include "iGameMeshCodecLZMA.h"
+#include "iGameMeshCodecParamSet.h"
+#include "iGameMeshDecoderAdapter.h"
+#include "iGameMeshEncodedDataObject.h"
+#include "iGameMeshDecodedDataObject.h"
+#include "iGameMeshFloatCodec.h"
+#include "iGameMeshLoomCodec.h"
+#include <future>
 
 IGAME_NAMESPACE_BEGIN
 class MeshLoomDecoder : public MeshLoomCodec {
 public:
-    MeshLoomDecoder(std::string readFilePath) :
-        m_ReadFilePath(readFilePath)
-    {};
+    I_OBJECT(MeshLoomDecoder);
+    static Pointer New() { return new MeshLoomDecoder; }
 
-    DataObject::Pointer Execute()
+    MeshLoomDecoder()
     {
-        if (!m_ReadFilePath.empty() && !this->OpenStream(m_ReadFilePath)) { return nullptr; }
+        // 设置 Filter 的输入输出数量
+        this->SetNumberOfInputs(1);
+        this->SetNumberOfOutputs(1);
+    }
+
+    // Filter 基类要求的 Execute 方法
+    bool Execute() override
+    {
+        m_EncodedData = DynamicCast<MeshEncodedDataObject>(GetInput(0));
+        if (!m_EncodedData) {
+            return false;
+        }
+
+        m_ReadFilePath = m_EncodedData->GetFilePath();
+        if (m_ReadFilePath.empty()) {
+            return false;
+        }
+
+        // 使用encodedData中的输入流，直接替代OpenStream
+        m_BytestreamFile = m_EncodedData->GetInputStream();
+        if (!m_BytestreamFile) {
+            return false;
+        }
+
+        m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
         while (true) {
-            ReadBuf(this->m_BytestreamFile, &buf);
+            ReadBuf(m_BytestreamFile, &buf);
+            if (!(*m_BytestreamFile)) {
+                break;
+            }
+
             PayloadType type = buf.type;
 
             PayloadBuffer bufDecompressed;
@@ -33,10 +61,7 @@ public:
             {
             case PayloadType::kParameterSet:
             {
-                // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
                 this->ParamsDecoder(bufDecompressed);
-
-                // 初始adapter
                 this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_codecParams.meshType);
                 break;
             }
@@ -58,53 +83,102 @@ public:
             default:
                 break;
             }
-
-            //switch (buf.type)
-            //{
-            //case PayloadType::kParameterSet:
-            //{
-            //    // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
-            //    this->ParamsDecoder(buf);
-            //    break;
-            //}
-            //case PayloadType::kGeometryBrick:
-            //{
-            //    this->GeomDecoder(buf);
-            //    break;
-            //}
-            //case PayloadType::kAttributeBrick:
-            //{
-            //    this->AttrDecoder(buf);
-            //    break;
-            //}
-            //case PayloadType::kTopologyBrick:
-            //{
-            //    this->TopoDecoder(buf);
-            //    break;
-            //}
-            //default:
-            //    break;
-            //}
-
-            // at end of file (or other error), flush decoder
-            if (!this->m_BytestreamFile)
-            {
-                break;
-            }
         }
 
         UpdateProgress(1.0);
 
         closeStream();
+        
+        auto decodedData = MeshDecodedDataObject::New();
+        decodedData->SetMeshData(m_DecoderAdapter->GetDataObj());
+        SetOutput(decodedData);
 
-        return this->m_DecoderAdapter->GetDataObj();
+        return true;
     }
 
-private:
-    std::string m_ReadFilePath;
-    std::ifstream m_BytestreamFile;
-    MeshDecoderAdapter* m_DecoderAdapter;
-    float m_DecompressProgress = 0.0f;
+    // 保留原有的 Execute 方法（用于向后兼容）
+    // DataObject::Pointer ExecuteWithFilePath()
+    // {
+    //     if (!m_ReadFilePath.empty() && !this->OpenStream(m_ReadFilePath)) { return nullptr; }
+    //
+    //     PayloadBuffer buf;
+    //     while (true) {
+    //         ReadBuf(this->m_BytestreamFile, &buf);
+    //         PayloadType type = buf.type;
+    //
+    //         PayloadBuffer bufDecompressed;
+    //         MeshCodecLZMA::Decompress(bufDecompressed, buf);
+    //
+    //         switch (type)
+    //         {
+    //         case PayloadType::kParameterSet:
+    //         {
+    //             // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
+    //             this->ParamsDecoder(bufDecompressed);
+    //
+    //             // 初始adapter
+    //             this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_codecParams.meshType);
+    //             break;
+    //         }
+    //         case PayloadType::kGeometryBrick:
+    //         {
+    //             this->GeomDecoder(bufDecompressed);
+    //             break;
+    //         }
+    //         case PayloadType::kAttributeBrick:
+    //         {
+    //             this->AttrDecoder(bufDecompressed);
+    //             break;
+    //         }
+    //         case PayloadType::kTopologyBrick:
+    //         {
+    //             this->TopoDecoder(bufDecompressed);
+    //             break;
+    //         }
+    //         default:
+    //             break;
+    //         }
+    //
+    //         //switch (buf.type)
+    //         //{
+    //         //case PayloadType::kParameterSet:
+    //         //{
+    //         //    // 虽然这里没有控制顺序 但编码时应严格要求首先写入params
+    //         //    this->ParamsDecoder(buf);
+    //         //    break;
+    //         //}
+    //         //case PayloadType::kGeometryBrick:
+    //         //{
+    //         //    this->GeomDecoder(buf);
+    //         //    break;
+    //         //}
+    //         //case PayloadType::kAttributeBrick:
+    //         //{
+    //         //    this->AttrDecoder(buf);
+    //         //    break;
+    //         //}
+    //         //case PayloadType::kTopologyBrick:
+    //         //{
+    //         //    this->TopoDecoder(buf);
+    //         //    break;
+    //         //}
+    //         //default:
+    //         //    break;
+    //         //}
+    //
+    //         // at end of file (or other error), flush decoder
+    //         if (!this->m_BytestreamFile)
+    //         {
+    //             break;
+    //         }
+    //     }
+    //
+    //     UpdateProgress(1.0);
+    //
+    //     closeStream();
+    //
+    //     return this->m_DecoderAdapter->GetDataObj();
+    // }
 
     void ParamsDecoder(PayloadBuffer& buf)
     {
@@ -145,7 +219,7 @@ private:
 
         IGsize bufferSize = this->m_codecParams.geomParams.elementCount * this->m_codecParams.geomParams.dimension;
         std::vector<float> decodedFloat(bufferSize);
-        
+
         MeshOptFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
 
         m_DecompressProgress += 0.15;
@@ -153,90 +227,6 @@ private:
 
         this->m_DecoderAdapter->SetPointBuffer(decodedFloat);
     }
-
-    //void AttrDecoder(PayloadBuffer& buf)
-    //{
-    //    std::vector<unsigned char> uCharBuffer(buf.size());
-    //    std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
-
-    //    int binaryCursor = 0;
-    //    for (int i = 0; i < this->m_codecParams.attrParams.size(); i++)
-    //    {
-    //        auto& params = this->m_codecParams.attrParams[i];
-    //        int dimension = params.dimension;
-    //        int elementCount = params.elementCount;
-    //        int valueCount = params.elementCount * params.dimension;
-
-    //        std::vector<unsigned char> inputBuffer(
-    //            uCharBuffer.begin() + binaryCursor,
-    //            uCharBuffer.begin() + binaryCursor + params.binaryCount
-    //        );
-
-    //        binaryCursor += params.binaryCount;
-
-    //        std::vector<float> floats;
-    //        std::vector<double> doubles;
-
-
-    //        auto processType = [&](auto& container, auto valueType) {
-    //            using ValueType = decltype(valueType);
-    //            using ArrayType = FlatArray<ValueType>;
-
-    //            auto decoded = ArrayType::New();
-    //            decoded->Resize(valueCount);
-
-    //            MeshOptFloatCodec::FloatDecoder(container, inputBuffer, this->m_codecParams.attrParams[i]);
-    //            memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
-
-    //            decoded->SetDimension(params.dimension);
-    //            decoded->SetName(params.name);
-    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decoded);
-    //            };
-
-    //        // 调用部分
-    //        if (params.valueSize == sizeof(float)) {
-    //            processType(floats, float{});
-    //        }
-    //        else if (params.valueSize == sizeof(double)) {
-    //            processType(doubles, double{});
-    //        }
-
-    //        /*
-    //        FlatArray<float>::Pointer decodedFloat{ nullptr };
-    //        FlatArray<double>::Pointer decodedDouble{ nullptr };
-
-    //        if (params.valueSize == sizeof(float))
-    //        {
-    //            decodedFloat = FlatArray<float>::New();
-    //            decodedFloat->Resize(valueCount);
-
-    //            MeshOptFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
-    //            memcpy(decodedFloat->RawPointer(), floats.data(), valueCount * sizeof(float));
-    //            decodedFloat->SetDimension(params.dimension);
-    //            decodedFloat->SetName(params.name);
-    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedFloat);
-
-    //            //this->FloatDecoder(decodedFloat->RawPointer(), inputBuffer, params);
-    //        }
-    //        else if (params.valueSize == sizeof(double))
-    //        {
-    //            decodedDouble = FlatArray<double>::New();
-    //            decodedDouble->Resize(valueCount);
-
-    //            MeshOptFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
-    //            memcpy(decodedDouble->RawPointer(), doubles.data(), valueCount * sizeof(double));
-    //            decodedDouble->SetDimension(params.dimension);
-    //            decodedDouble->SetName(params.name);
-    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedDouble);
-    //            //this->FloatDecoder(decodedDouble->RawPointer(), inputBuffer, params);
-    //        }
-    //        */
-
-
-    //        m_DecompressProgress += 0.2 * (i * 1.0 / this->m_codecParams.attrParams.size());
-    //        UpdateProgress(m_DecompressProgress);
-    //    }
-    //}
 
     void AttrDecoder(PayloadBuffer& buf)
     {
@@ -305,114 +295,6 @@ private:
             if (attrInfo.arrayPtr) { // 确保指针有效
                 this->m_DecoderAdapter->AddAttribute(attrInfo.type, attrInfo.attachmentType, attrInfo.arrayPtr);
             }
-        }
-    }
-
-    unsigned int decodeVByte(unsigned char*& data)
-    {
-        unsigned char lead = *data++;
-
-        // fast path: single byte
-        if (lead < 128)
-            return lead;
-
-        // slow path: up to 4 extra bytes
-        // note that this loop always terminates, which is important for malformed data
-        unsigned int result = lead & 127;
-        unsigned int shift = 7;
-
-        for (int i = 0; i < 4; ++i)
-        {
-            unsigned char group = *data++;
-            result |= unsigned(group & 127) << shift;
-            shift += 7;
-
-            if (group < 128)
-                break;
-        }
-
-        return result;
-    }
-
-    void RunLengthDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
-    {
-        unsigned char* start = source;
-
-        while (true)
-        {
-            // 读数据
-            uint32_t readInt;
-            std::memcpy(&readInt, source, sizeof(uint32_t));
-            source += sizeof(uint32_t);
-
-            // 读长度
-            unsigned int length = this->decodeVByte(source);
-
-            // 写入
-            for (int j = 0; j < length; j++)
-            {
-                dest.push_back(readInt);
-            }
-
-            if (source - start == sourceCount)
-            {
-                break;
-            }
-        }
-
-        return;
-    }
-
-    void CellBufferDecoder(std::vector<uint32_t>& dest, const unsigned char* source, int sourceCount, int bufferPadding)
-    {
-        int resib = IndexBufferCodec::decodeIndexBuffer(dest.data(), dest.size(), source, sourceCount);
-        assert(resib == 0);
-        dest.resize(dest.size() - bufferPadding);
-    }
-
-    void CellTypeDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
-    {
-        this->RunLengthDecoder(dest, source, sourceCount);
-    }
-
-    void CellSizeDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
-    {
-        this->RunLengthDecoder(dest, source, sourceCount);
-    }
-
-    void IndexNOffsetDecoder(
-        std::vector<unsigned char>& inputTopo,
-        int& cursor,
-
-        std::vector<unsigned int>& outIndices,
-        const IGsize indicesBinaryCount,
-        const IGsize indicesBufferSize,
-        const int indicesBufferPadding,
-
-        int fixedCellSize,
-        const IGsize cellSizeBinaryCount,
-        std::vector<unsigned int>& outCellSizes
-
-    ) {
-        // 解码cellbuffer
-        outIndices.resize(indicesBufferSize + indicesBufferPadding);
-        this->CellBufferDecoder(
-            outIndices,
-            inputTopo.data() + cursor,
-            indicesBinaryCount,
-            indicesBufferPadding
-        );
-        cursor += indicesBinaryCount;
-
-        // 解码size
-        if (fixedCellSize == -1)
-        {
-            this->CellSizeDecoder(
-                outCellSizes,
-                inputTopo.data() + cursor,
-                cellSizeBinaryCount
-            );
-            cursor += cellSizeBinaryCount;
         }
     }
 
@@ -553,18 +435,227 @@ private:
         UpdateProgress(m_DecompressProgress);
     }
 
-    bool OpenStream(std::string path)
+private:
+    std::string m_ReadFilePath;
+    std::istream* m_BytestreamFile = nullptr;  // 改为指针，支持外部流
+    MeshEncodedDataObject::Pointer m_EncodedData = nullptr;  // 保存编码数据对象
+    MeshDecoderAdapter* m_DecoderAdapter;
+    float m_DecompressProgress = 0.0f;
+
+
+
+    //void AttrDecoder(PayloadBuffer& buf)
+    //{
+    //    std::vector<unsigned char> uCharBuffer(buf.size());
+    //    std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
+
+    //    int binaryCursor = 0;
+    //    for (int i = 0; i < this->m_codecParams.attrParams.size(); i++)
+    //    {
+    //        auto& params = this->m_codecParams.attrParams[i];
+    //        int dimension = params.dimension;
+    //        int elementCount = params.elementCount;
+    //        int valueCount = params.elementCount * params.dimension;
+
+    //        std::vector<unsigned char> inputBuffer(
+    //            uCharBuffer.begin() + binaryCursor,
+    //            uCharBuffer.begin() + binaryCursor + params.binaryCount
+    //        );
+
+    //        binaryCursor += params.binaryCount;
+
+    //        std::vector<float> floats;
+    //        std::vector<double> doubles;
+
+
+    //        auto processType = [&](auto& container, auto valueType) {
+    //            using ValueType = decltype(valueType);
+    //            using ArrayType = FlatArray<ValueType>;
+
+    //            auto decoded = ArrayType::New();
+    //            decoded->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(container, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
+
+    //            decoded->SetDimension(params.dimension);
+    //            decoded->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decoded);
+    //            };
+
+    //        // 调用部分
+    //        if (params.valueSize == sizeof(float)) {
+    //            processType(floats, float{});
+    //        }
+    //        else if (params.valueSize == sizeof(double)) {
+    //            processType(doubles, double{});
+    //        }
+
+    //        /*
+    //        FlatArray<float>::Pointer decodedFloat{ nullptr };
+    //        FlatArray<double>::Pointer decodedDouble{ nullptr };
+
+    //        if (params.valueSize == sizeof(float))
+    //        {
+    //            decodedFloat = FlatArray<float>::New();
+    //            decodedFloat->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decodedFloat->RawPointer(), floats.data(), valueCount * sizeof(float));
+    //            decodedFloat->SetDimension(params.dimension);
+    //            decodedFloat->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedFloat);
+
+    //            //this->FloatDecoder(decodedFloat->RawPointer(), inputBuffer, params);
+    //        }
+    //        else if (params.valueSize == sizeof(double))
+    //        {
+    //            decodedDouble = FlatArray<double>::New();
+    //            decodedDouble->Resize(valueCount);
+
+    //            MeshOptFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            memcpy(decodedDouble->RawPointer(), doubles.data(), valueCount * sizeof(double));
+    //            decodedDouble->SetDimension(params.dimension);
+    //            decodedDouble->SetName(params.name);
+    //            this->m_DecoderAdapter->AddAttribute(params.type, params.attachmentType, decodedDouble);
+    //            //this->FloatDecoder(decodedDouble->RawPointer(), inputBuffer, params);
+    //        }
+    //        */
+
+
+    //        m_DecompressProgress += 0.2 * (i * 1.0 / this->m_codecParams.attrParams.size());
+    //        UpdateProgress(m_DecompressProgress);
+    //    }
+    //}
+
+
+
+    unsigned int decodeVByte(unsigned char*& data)
     {
-        this->m_BytestreamFile.open(path, std::ios::binary);
-        if (!this->m_BytestreamFile.is_open()) {
-            return false;
+        unsigned char lead = *data++;
+
+        // fast path: single byte
+        if (lead < 128)
+            return lead;
+
+        // slow path: up to 4 extra bytes
+        // note that this loop always terminates, which is important for malformed data
+        unsigned int result = lead & 127;
+        unsigned int shift = 7;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            unsigned char group = *data++;
+            result |= unsigned(group & 127) << shift;
+            shift += 7;
+
+            if (group < 128)
+                break;
         }
-        return true;
+
+        return result;
     }
 
+    void RunLengthDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
+    {
+        unsigned char* start = source;
+
+        while (true)
+        {
+            // 读数据
+            uint32_t readInt;
+            std::memcpy(&readInt, source, sizeof(uint32_t));
+            source += sizeof(uint32_t);
+
+            // 读长度
+            unsigned int length = this->decodeVByte(source);
+
+            // 写入
+            for (int j = 0; j < length; j++)
+            {
+                dest.push_back(readInt);
+            }
+
+            if (source - start == sourceCount)
+            {
+                break;
+            }
+        }
+
+        return;
+    }
+
+    void CellBufferDecoder(std::vector<uint32_t>& dest, const unsigned char* source, int sourceCount, int bufferPadding)
+    {
+        int resib = IndexBufferCodec::decodeIndexBuffer(dest.data(), dest.size(), source, sourceCount);
+        assert(resib == 0);
+        dest.resize(dest.size() - bufferPadding);
+    }
+
+    void CellTypeDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
+    {
+        this->RunLengthDecoder(dest, source, sourceCount);
+    }
+
+    void CellSizeDecoder(std::vector<uint32_t>& dest, unsigned char* source, int sourceCount)
+    {
+        this->RunLengthDecoder(dest, source, sourceCount);
+    }
+
+    void IndexNOffsetDecoder(
+        std::vector<unsigned char>& inputTopo,
+        int& cursor,
+
+        std::vector<unsigned int>& outIndices,
+        const IGsize indicesBinaryCount,
+        const IGsize indicesBufferSize,
+        const int indicesBufferPadding,
+
+        int fixedCellSize,
+        const IGsize cellSizeBinaryCount,
+        std::vector<unsigned int>& outCellSizes
+
+    ) {
+        // 解码cellbuffer
+        outIndices.resize(indicesBufferSize + indicesBufferPadding);
+        this->CellBufferDecoder(
+            outIndices,
+            inputTopo.data() + cursor,
+            indicesBinaryCount,
+            indicesBufferPadding
+        );
+        cursor += indicesBinaryCount;
+
+        // 解码size
+        if (fixedCellSize == -1)
+        {
+            this->CellSizeDecoder(
+                outCellSizes,
+                inputTopo.data() + cursor,
+                cellSizeBinaryCount
+            );
+            cursor += cellSizeBinaryCount;
+        }
+    }
+
+
+
+    // bool OpenStream(std::string path)
+    // {
+    //     this->m_BytestreamFile.open(path, std::ios::binary);
+    //     if (!this->m_BytestreamFile.is_open()) {
+    //         return false;
+    //     }
+    //     return true;
+    // }
+
     void closeStream() {
-        //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
-        m_BytestreamFile.close();
+        // 通过MeshEncodedDataObject关闭流
+        if (m_EncodedData) {
+            m_EncodedData->CloseStreams();
+        }
+        m_BytestreamFile = nullptr;
+        m_EncodedData = nullptr;
     }
 };
 IGAME_NAMESPACE_END

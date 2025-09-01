@@ -1,7 +1,7 @@
-#include "iGameTensorWidgetBase.h"
+#include "iGameTensorBase.h"
 #include "iGameScene.h"
 IGAME_NAMESPACE_BEGIN
-iGameTensorWidgetBase::iGameTensorWidgetBase() {
+iGameTensorBase::iGameTensorBase() {
     this->Modified();
 
     this->m_TensorManager = iGameTensorRepresentation::New();
@@ -11,24 +11,18 @@ iGameTensorWidgetBase::iGameTensorWidgetBase() {
     this->m_DrawGlyphColors = FloatArray::New();
     this->m_DrawGlyphColors->SetDimension(3);
 }
-iGameTensorWidgetBase::~iGameTensorWidgetBase() {}
-void iGameTensorWidgetBase::SetPoints(Points::Pointer points) {
-    this->m_Points = points;
-}
-void iGameTensorWidgetBase::SetTensorAttributes(
-        ArrayObject::Pointer attributes) {
-    this->m_TensorAttributes = attributes;
-}
-void iGameTensorWidgetBase::ShowTensorField() {
+iGameTensorBase::~iGameTensorBase() {}
+void iGameTensorBase::SetPoints(Points::Pointer points) { this->m_Points = points; }
+void iGameTensorBase::SetTensorAttributes(ArrayObject::Pointer attributes) { this->m_TensorAttributes = attributes; }
+void iGameTensorBase::ShowTensorField() {
     UpdateGlyphDrawPositionData();
     UpdateGlyphDrawIndexData();
     UpdateGlyphDrawColor();
 }
-void iGameTensorWidgetBase::UpdateGlyphDrawPositionData() {
+void iGameTensorBase::UpdateGlyphDrawPositionData() {
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
     Point p;
-    if (PointNum == 0 || !this->m_TensorAttributes ||
-        this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
+    if (PointNum == 0 || !this->m_TensorAttributes || this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
         return;
     }
     int GlyphPointNum = m_TensorManager->GetNumberOfDrawPoints();
@@ -38,39 +32,34 @@ void iGameTensorWidgetBase::UpdateGlyphDrawPositionData() {
     for (int i = 0; i < PointNum; i++) {
         p = this->m_Points->GetPoint(i);
         m_TensorManager->SetPosition(p);
-        for (int j = 0; j < 9; j++) {
-            t[j] = this->m_TensorAttributes->GetValue(9 * i + j);
-        }
+        for (int j = 0; j < 9; j++) { t[j] = this->m_TensorAttributes->GetValue(9 * i + j); }
         m_TensorManager->SetTensor(t);
         auto DrawPoints = m_TensorManager->GetDrawPoints()->RawPointer();
         IGsize st = i * 3 * GlyphPointNum;
         std::copy(DrawPoints, DrawPoints + 3 * GlyphPointNum, GlyphPoints + st);
     }
 }
-void iGameTensorWidgetBase::UpdateGlyphDrawIndexData() {
+void iGameTensorBase::UpdateGlyphDrawIndexData() {
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
     Point p;
-    if (PointNum == 0 || !this->m_TensorAttributes ||
-        this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
+    if (PointNum == 0 || !this->m_TensorAttributes || this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
         return;
     }
     auto GlyphPointIndexOrders = m_TensorManager->GetDrawPointIndexOrders();
     int GlyphPointNum = m_TensorManager->GetNumberOfDrawPoints();
-    m_DrawGlyphPointOrders->Resize(PointNum *
-                                   GlyphPointIndexOrders->GetNumberOfValues());
+    m_DrawGlyphPointOrders->Resize(PointNum * GlyphPointIndexOrders->GetNumberOfValues());
     double t[9];
     for (int i = 0; i < PointNum; i++) {
         IGsize st = i * GlyphPointIndexOrders->GetNumberOfValues();
         IGsize offset = i * GlyphPointNum;
         for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
             //这里不太好用copy，不能保证两个类型相同
-            m_DrawGlyphPointOrders->SetValue(
-                    st + j, offset + GlyphPointIndexOrders->GetValue(j));
+            m_DrawGlyphPointOrders->SetValue(st + j, offset + GlyphPointIndexOrders->GetValue(j));
             //m_DrawGlyphPointOrders->AddValue(st + GlyphPointIndexOrders->GetValue(j));
         }
     }
 }
-void iGameTensorWidgetBase::UpdateGlyphDrawColor() {
+void iGameTensorBase::UpdateGlyphDrawColor() {
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
     if (PointNum == 0 || this->m_PositionColors == nullptr ||
         this->m_PositionColors->GetNumberOfElements() != PointNum) {
@@ -95,37 +84,40 @@ void iGameTensorWidgetBase::UpdateGlyphDrawColor() {
         }
     }
 }
-void iGameTensorWidgetBase::UpdateGlyphScale(double s) {
+void iGameTensorBase::UpdateGlyphScale(double s) {
     this->m_TensorManager->SetScale(s);
     UpdateGlyphDrawPositionData();
 
     this->ConvertToDrawableData();
 }
 
-void iGameTensorWidgetBase::SetPositionColors(FloatArray::Pointer colors) {
+void iGameTensorBase::SetPositionColors(FloatArray::Pointer colors) {
     this->m_PositionColors = colors;
     UpdateGlyphDrawColor();
 
     this->ConvertToDrawableData();
 }
+void iGameTensorBase::SetPositionsScalarArray(ArrayObject::Pointer array, int dimension) {
 
-DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
+    auto mapper = ScalarsToColors::New();
+    mapper->InitRange(array, dimension);
+    auto colors = mapper->MapScalars(array, dimension);
+    this->SetPositionColors(colors);
+}
+
+DoubleArray::Pointer iGameTensorBase::GenerateVectorField() {
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
-    if (PointNum == 0 || !this->m_TensorAttributes ||
-        this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
+    if (PointNum == 0 || !this->m_TensorAttributes || this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
         return nullptr;
     }
     double vector[3];
     m_EigenVector = DoubleArray::New();
     m_EigenVector->SetDimension(3);
-    m_EigenVector->SetName(this->m_TensorAttributes->GetName() +
-                           "_PrimaryFeature");
+    m_EigenVector->SetName(this->m_TensorAttributes->GetName() + "_PrimaryFeature");
     m_EigenVector->Resize(PointNum);
     double t[9];
     for (int i = 0; i < PointNum; i++) {
-        for (int j = 0; j < 9; j++) {
-            t[j] = this->m_TensorAttributes->GetValue(9 * i + j);
-        }
+        for (int j = 0; j < 9; j++) { t[j] = this->m_TensorAttributes->GetValue(9 * i + j); }
         m_TensorManager->InitTensorEigenData(t);
         m_TensorManager->GetEigenVector(0, vector);
         m_EigenVector->SetElement(i, vector);
@@ -133,7 +125,7 @@ DoubleArray::Pointer iGameTensorWidgetBase::GenerateVectorField() {
     return m_EigenVector;
 }
 
-void iGameTensorWidgetBase::ConvertToDrawableData() {
+void iGameTensorBase::ConvertToDrawableData() {
     m_Positions = m_DrawGlyphPoints->ConvertToArray();
     m_Positions->Modified();
 

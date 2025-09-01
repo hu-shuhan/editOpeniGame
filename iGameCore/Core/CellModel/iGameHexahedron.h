@@ -38,7 +38,7 @@ public:
     std::vector<iGame::Cell::Pointer> clipCelltoTetra() override {
         std::vector<iGame::Cell::Pointer> result;
         for (int i = 0; i < 11; i++) {
-		const int* verts = clipedCell[i];
+			const int* verts = clipedCell[i];
             Tetra::Pointer tetra = Tetra::New();
 			for (int j = 0; j < 4; j++) {
 				tetra->m_Points->SetPoint(j, this->m_Points->GetPoint(verts[j]));

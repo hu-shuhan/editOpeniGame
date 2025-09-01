@@ -22,6 +22,7 @@
 #include "CGNS/iGameCGNSReader.h"
 #include "Abaqus/iGameODBReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
+#include "IGC/iGameIGCReader.h"
 #include "iGameMeshCodec/iGameMeshLoomDecoder.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -92,6 +93,7 @@ std::string FileIO::GetFileTypeAsString(IGenum type)
 	{
 	case NONE:return "NONE";
 	case VTK:return "VTK";
+	case IGC:return "IGC";
 	case OBJ:return "OBJ";
 	case OFF:return "OFF";
 	case MESH:return "MESH";
@@ -133,8 +135,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		break;
 	}
     case IGC: {
-		MeshLoomDecoder* reader = new MeshLoomDecoder(file_name);
-		resObj = reader->Execute();
+	    // MeshLoomDecoder* reader = new MeshLoomDecoder(file_name);
+	    // resObj = reader->Execute();
+
+		IGCReader::Pointer reader = IGCReader::New();
+		reader->SetFilePath(file_name);
+	    reader->Execute();
+		resObj = reader->GetOutput();
         break;
     }
 	case OBJ:

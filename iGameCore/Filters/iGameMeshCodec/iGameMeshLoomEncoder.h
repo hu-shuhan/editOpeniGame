@@ -10,6 +10,8 @@
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
 #include "iGameMeshLoomCodec.h"
+#include "iGameMeshDecodedDataObject.h"
+#include "iGameMeshEncodedDataObject.h"
 #include "iGameProgressObserver.h"
 #include "iGameThreadPool.h"
 #include <functional>
@@ -31,26 +33,42 @@
 IGAME_NAMESPACE_BEGIN
 class MeshLoomEncoder : public MeshLoomCodec {
 public:
-    MeshLoomEncoder(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams)
-        : m_DataObj(dataObj), m_SaveFilePath(saveFilePath), m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
+    I_OBJECT(MeshLoomEncoder);
+    static Pointer New() { return new MeshLoomEncoder; }
+
+    MeshLoomEncoder() {
+        // 设置 Filter 的输入输出数量
+        this->SetNumberOfInputs(1);
+        this->SetNumberOfOutputs(1);
+    }
+
+    // Filter 基类要求的 Execute 方法
+    bool Execute() override
+    {
+        auto decodedData = DynamicCast<MeshDecodedDataObject>(GetInput(0));
+        if (!decodedData) {
+            return false;
+        }
+
+        // 类似构造函数一样做初始化
+        m_DataObj = decodedData->GetMeshData();
+        if (!m_DataObj) {
+            return false;
+        }
+
+        m_EncoderAdapter = new MeshEncoderAdapter(m_DataObj);
         InitAdjacencyScore();
         InitParams();
-        LoadUIControlParams(uiConParams);
-    };
 
-    bool OpenStream(std::string path) {
-        this->m_BytestreamFile.open(path, std::ios::binary);
-        if (!this->m_BytestreamFile.is_open()) { return false; }
-        return true;
-    }
+        if (decodedData->HasUIControlParams()) {
+            LoadUIControlParams(decodedData->GetUIControlParams());
+        }
 
-    void closeStream() {
-        //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
-        m_BytestreamFile.close();
-    }
+        if (decodedData->HasFilePath()) {
+            m_SaveFilePath = decodedData->GetFilePath();
+        }
 
-    bool Execute() {
-        // 尝试打开流
+        // 执行原Execute函数的内容
         if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
 
         std::vector<unsigned int> pointIdRemap;
@@ -94,15 +112,10 @@ public:
         for (int i = 0; i < result.size(); i++) {
             result[i].wait();
             progress += 0.04;
-            UpdateProgress(progress); // 似乎不支持多线程
+            UpdateProgress(progress);
         }
 
-        //WriteBuf(paramPayload, this->m_BytestreamFile); // 必须先写参数信息
-        //WriteBuf(geomPayload, this->m_BytestreamFile);
-        //WriteBuf(topoPayload, this->m_BytestreamFile);
-        //WriteBuf(attrPayload, this->m_BytestreamFile);
-
-        WriteBuf(paramCompressed, this->m_BytestreamFile); // 必须先写参数信息
+        WriteBuf(paramCompressed, this->m_BytestreamFile);
         WriteBuf(geomCompressed, this->m_BytestreamFile);
         WriteBuf(topoCompressed, this->m_BytestreamFile);
         WriteBuf(attrCompressed, this->m_BytestreamFile);
@@ -110,36 +123,11 @@ public:
         UpdateProgress(1.0);
         closeStream();
 
-        //std::vector<char> input(geomPayload.begin(), geomPayload.end());
-        //std::vector<char> result;
-        //MeshCodecLZMA::Compress(result, input, 10, 12);
+        // 创建输出的 MeshEncodedDataObject
+        auto encodedOutput = MeshEncodedDataObject::New();
+        encodedOutput->SetFilePath(m_SaveFilePath);
+        SetOutput(encodedOutput);
 
-        //PayloadBuffer output;
-
-        //int ret = MeshCodecLZMA::Decompress(output, result);
-
-        //        auto calBpv = [=]() -> void {
-        //            int geomSize = geomCompressed.size();
-        //            int topoSize = topoCompressed.size();
-        //            int attrSize = attrCompressed.size();
-        //            int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
-        //
-        //            float geomBpv = geomSize * 8.0 / pointCount;
-        //            float topoBpv = topoSize * 8.0 / pointCount;
-        //            float attrBpv = attrSize * 8.0 / pointCount;
-        //            float totalBpv = geomBpv + topoBpv + attrBpv;
-        //
-        //            std::cout << "Geom BPV: " << geomBpv << std::endl;
-        //            std::cout << "Topo BPV: " << topoBpv << std::endl;
-        //            std::cout << "Attr BPV: " << attrBpv << std::endl;
-        //            std::cout << "Total BPV: " << totalBpv << std::endl;
-        //
-        //            this->m_UIconParams.cpStaResult->push_back("顶点坐标BPV: " + std::to_string(geomBpv));
-        //            this->m_UIconParams.cpStaResult->push_back("拓扑BPV: " + std::to_string(topoBpv));
-        //            this->m_UIconParams.cpStaResult->push_back("属性BPV: " + std::to_string(attrBpv));
-        //            this->m_UIconParams.cpStaResult->push_back("综合BPV: " + std::to_string(totalBpv));
-        //        };
-        //
         auto calCR = [=]() -> void {
             long long sourceSize = -1;
 
@@ -174,6 +162,150 @@ public:
             calCR();
         return true;
     }
+
+    // MeshLoomEncoder(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams)
+    //     : m_DataObj(dataObj), m_SaveFilePath(saveFilePath), m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
+    //     InitAdjacencyScore();
+    //     InitParams();
+    //     LoadUIControlParams(uiConParams);
+    // }
+
+    bool OpenStream(std::string path) {
+        this->m_BytestreamFile.open(path, std::ios::binary);
+        if (!this->m_BytestreamFile.is_open()) { return false; }
+        return true;
+    }
+
+    void closeStream() {
+        //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
+        m_BytestreamFile.close();
+    }
+
+//     bool Execute() {
+//         // 尝试打开流
+//         if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
+//
+//         std::vector<unsigned int> pointIdRemap;
+//         std::vector<unsigned int> topCellIdsRemap, bottpmCellIdRemap;
+//
+//         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
+//         this->GeomEncoder(geomPayload, pointIdRemap);
+//
+//         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
+//         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+//
+//         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
+//         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+//
+//         PayloadBuffer paramPayload(PayloadType::kParameterSet);
+//         this->ParamsEncoder(paramPayload);
+//
+//         // lzma
+//         int compressLevel = 1;
+//         int numThreads = ThreadPool::GetDefaultThreadCount();
+//
+//         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
+//         PayloadBuffer topoCompressed(PayloadType::kTopologyBrick);
+//         PayloadBuffer attrCompressed(PayloadType::kAttributeBrick);
+//         PayloadBuffer paramCompressed(PayloadType::kParameterSet);
+//
+//         std::vector<std::future<void>> result;
+//         ThreadPool* tp = ThreadPool::Instance();
+//
+//         std::atomic<float> progress(0.8);
+//
+//         result.push_back(tp->Commit(
+//                 [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+//         result.push_back(tp->Commit(
+//                 [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+//         result.push_back(tp->Commit(
+//                 [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+//         result.push_back(tp->Commit(
+//                 [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+//
+//         for (int i = 0; i < result.size(); i++) {
+//             result[i].wait();
+//             progress += 0.04;
+//             UpdateProgress(progress); // 似乎不支持多线程
+//         }
+//
+//         //WriteBuf(paramPayload, this->m_BytestreamFile); // 必须先写参数信息
+//         //WriteBuf(geomPayload, this->m_BytestreamFile);
+//         //WriteBuf(topoPayload, this->m_BytestreamFile);
+//         //WriteBuf(attrPayload, this->m_BytestreamFile);
+//
+//         WriteBuf(paramCompressed, this->m_BytestreamFile); // 必须先写参数信息
+//         WriteBuf(geomCompressed, this->m_BytestreamFile);
+//         WriteBuf(topoCompressed, this->m_BytestreamFile);
+//         WriteBuf(attrCompressed, this->m_BytestreamFile);
+//
+//         UpdateProgress(1.0);
+//         closeStream();
+//
+//         //std::vector<char> input(geomPayload.begin(), geomPayload.end());
+//         //std::vector<char> result;
+//         //MeshCodecLZMA::Compress(result, input, 10, 12);
+//
+//         //PayloadBuffer output;
+//
+//         //int ret = MeshCodecLZMA::Decompress(output, result);
+//
+//         //        auto calBpv = [=]() -> void {
+//         //            int geomSize = geomCompressed.size();
+//         //            int topoSize = topoCompressed.size();
+//         //            int attrSize = attrCompressed.size();
+//         //            int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
+//         //
+//         //            float geomBpv = geomSize * 8.0 / pointCount;
+//         //            float topoBpv = topoSize * 8.0 / pointCount;
+//         //            float attrBpv = attrSize * 8.0 / pointCount;
+//         //            float totalBpv = geomBpv + topoBpv + attrBpv;
+//         //
+//         //            std::cout << "Geom BPV: " << geomBpv << std::endl;
+//         //            std::cout << "Topo BPV: " << topoBpv << std::endl;
+//         //            std::cout << "Attr BPV: " << attrBpv << std::endl;
+//         //            std::cout << "Total BPV: " << totalBpv << std::endl;
+//         //
+//         //            this->m_UIconParams.cpStaResult->push_back("顶点坐标BPV: " + std::to_string(geomBpv));
+//         //            this->m_UIconParams.cpStaResult->push_back("拓扑BPV: " + std::to_string(topoBpv));
+//         //            this->m_UIconParams.cpStaResult->push_back("属性BPV: " + std::to_string(attrBpv));
+//         //            this->m_UIconParams.cpStaResult->push_back("综合BPV: " + std::to_string(totalBpv));
+//         //        };
+//         //
+//         auto calCR = [=]() -> void {
+//             long long sourceSize = -1;
+//
+// #ifdef _WIN32
+//             WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+//             auto filePath = this->m_DataObj->GetPropertys()->GetProperty("FilePath")->Get<std::string>();
+//             if (GetFileAttributesEx(filePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
+//                 LARGE_INTEGER size;
+//                 size.HighPart = fileInfo.nFileSizeHigh;
+//                 size.LowPart = fileInfo.nFileSizeLow;
+//                 sourceSize = size.QuadPart;
+//             } else {
+//                 sourceSize = -1;
+//             }
+// #else
+//             struct stat stat_buf;
+//             int rc = stat(filePath.c_str(), &stat_buf);
+//             sourceSize = (rc == 0 ? stat_buf.st_size : -1);
+// #endif
+//
+//             if (sourceSize != -1) {
+//                 long long compressSize =
+//                         geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
+//                 double cr = compressSize * 1.0 / sourceSize;
+//                 std::cout << "compress rate: " << cr << std::endl;
+//
+//                 m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
+//             }
+//         };
+//
+//         if(m_showReport)
+//             calCR();
+//         return true;
+//     }
 
     static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
         UIControlParams params;

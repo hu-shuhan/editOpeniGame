@@ -20,7 +20,7 @@
 #include "iGameArrayObject.h"
 
 IGAME_NAMESPACE_BEGIN
-class iGameTensorRepresentation :public Filter {
+class iGameTensorRepresentation :public Object {
 public:
 	I_OBJECT(iGameTensorRepresentation);
 	static iGameTensorRepresentation* New() { return new iGameTensorRepresentation; }
