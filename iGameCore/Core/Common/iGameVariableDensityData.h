@@ -66,8 +66,11 @@ public:
                                                          const std::vector<double>& minValueInVariables,
                                                          ElementArray<AttributeSet::Attribute>::Pointer attrs,
                                                          IGenum dataType, const std::set<int>& objIndexs);
+    static std::vector<std::vector<int>> GenerateDefaultDensity(int variableNum, int copyNum);
     static std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
     GenerateDensityColor(int copyNum, int brightness, ScalarsToColors::Pointer colorMap);
+    static std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
+    GenerateDefaultDensityColor(int copyNum);
     static std::set<int> GenerateChoosedObjectIndexs(
             const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
             IGenum dataType);
@@ -88,6 +91,7 @@ public:
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum, int boxNum, ScalarsToColors::Pointer colorMap);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int boxNum);
 
 protected:
     VariableDensityData() = default;

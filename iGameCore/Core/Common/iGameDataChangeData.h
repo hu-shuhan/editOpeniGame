@@ -130,13 +130,14 @@ public:
 
 public:
     /* init func */
-    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                       int objNum, ScalarsToColors::Pointer colorMap, int minH, int maxH, int minS, int maxS);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int minH, int maxH,
+                       int minS, int maxS);
     void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum, ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
                        UnstructuredMesh::Pointer mesh);
+    void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs, const Point& startPoint,
+                       const Point& endPoint, UnstructuredMesh::Pointer mesh);
 
 protected:
     DataChangeData() = default;

@@ -28,12 +28,15 @@ public:
     CalculateVariableCorrelation(int variableNum, const std::vector<std::vector<double>>& objDatas);
     static std::vector<std::vector<double>>
     CalculateVariableCorrelation(int variableNum, const std::map<int, std::vector<double>>& objDatas);
+    static std::vector<std::vector<double>> CalculateDefaultVariableCorrelation(int variableNum);
+
 
 public:
     /* init func */
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
 
 protected:
     VariableCorrelationData() = default;
