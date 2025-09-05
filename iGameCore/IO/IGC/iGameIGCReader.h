@@ -1,10 +1,8 @@
 #ifndef iGameIGCReader_h
 #define iGameIGCReader_h
 
+#include "../../Filters/iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGameFileReader.h"
-#include "../../Filters/iGameMeshCodec/iGameMeshEncodedDataObject.h"
-#include "../../Filters/iGameMeshCodec/iGameMeshDecodedDataObject.h"
-#include "../../Filters/iGameMeshCodec/iGameMeshLoomDecoder.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -13,12 +11,15 @@ public:
 	I_OBJECT(IGCReader);
 	static Pointer New() { return new IGCReader; }
 
-    bool Execute() override;
     bool Parsing() override;
+    bool CreateDataObject() override;
 
 protected:
 	IGCReader() = default;
 	~IGCReader() override = default;
+
+private:
+    DataObject::Pointer m_DecodedOutput;
 };
 
 IGAME_NAMESPACE_END
