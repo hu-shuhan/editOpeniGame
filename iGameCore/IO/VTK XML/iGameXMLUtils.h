@@ -1,4 +1,4 @@
-//
+ï»¿//
 // Created by m_ky on 2025/3/19.
 //
 
@@ -46,7 +46,7 @@ static void ReadRawBinaryPoints(bool is_header_8_byte, char *p, Points::Pointer 
         size_t elemSize = sizeof(T) * arr->GetDimension();
         uint64_t elemNum = byte_size / elemSize;
 
-        // ½â¾ö·½°¸1: Ê¹ÓÃstd::vector
+        // è§£å†³æ–¹æ¡ˆ1: ä½¿ç”¨std::vector
         std::vector<T> elemVector(arr->GetDimension());
 
         for(int i = 0; i < elemNum; i++){
@@ -55,10 +55,10 @@ static void ReadRawBinaryPoints(bool is_header_8_byte, char *p, Points::Pointer 
             current += elemSize;
         }
 
-        // »òÕß½â¾ö·½°¸2: Èç¹ûÓĞ½ÓÊÜT*ÀàĞÍµÄÖØÔØ£¬¿ÉÒÔÕâÑù×ö
+        // æˆ–è€…è§£å†³æ–¹æ¡ˆ2: å¦‚æœæœ‰æ¥å—T*ç±»å‹çš„é‡è½½ï¼Œå¯ä»¥è¿™æ ·åš
         // for(int i = 0; i < elemNum; i++){
         //     T* elemPtr = reinterpret_cast<T*>(current);
-        //     arr->AddElement(elemPtr);  // Èç¹ûÓĞ½ÓÊÜT*µÄÖØÔØµÄ»°
+        //     arr->AddElement(elemPtr);  // å¦‚æœæœ‰æ¥å—T*çš„é‡è½½çš„è¯
         //     current += elemSize;
         // }
     }

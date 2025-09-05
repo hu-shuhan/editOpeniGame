@@ -109,6 +109,10 @@ VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
     return ComputeCorrelationMatrix(variableNum, variables);
 }
 
+std::vector<std::vector<double>> VariableCorrelationData::CalculateDefaultVariableCorrelation(int variableNum) {
+    return std::vector<std::vector<double>>(variableNum, std::vector<double>(variableNum, 0.0));
+}
+
 VariableCorrelationData::Pointer
 VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                              const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
@@ -137,6 +141,34 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
     Data->SetChoosedVariableCorrelation(
             VariableCorrelationData::CalculateVariableCorrelation(variableNum, choosedObjDatas));
+    return Data;
+}
+
+VariableCorrelationData::Pointer
+VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
+    auto variableNames = VariableCorrelationData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return VariableCorrelationData::Pointer();
+    int objNum = VariableCorrelationData::GetLegalAttrsObjNum(attrs, dataType);
+    auto Data = VariableCorrelationData::New();
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableName(variableNames);
+    auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
+    Data->SetObjectDatas(objDatas);
+    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));
+    Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
+    Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateDefaultObjectDrawSorts(variableNum));
+    Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
+    auto [minValue, maxValue] = VariableCorrelationData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(VariableCorrelationData::GenerateDataTypeName(dataType));
+    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
+    Data->SetChoosedVariableCorrelation(
+            VariableCorrelationData::CalculateDefaultVariableCorrelation(variableNum));
     return Data;
 }
 

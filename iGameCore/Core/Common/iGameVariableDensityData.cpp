@@ -316,6 +316,10 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     return counts;
 }
 
+std::vector<std::vector<int>> VariableDensityData::GenerateDefaultDensity(int variableNum, int copyNum) {
+    return std::vector<std::vector<int>>(variableNum, std::vector<int>(copyNum, 0));
+}
+
 std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
 VariableDensityData::GenerateDensityColor(int copyNum, int brightness, ScalarsToColors::Pointer colorMap) {
     std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>> re(copyNum);
@@ -333,6 +337,13 @@ VariableDensityData::GenerateDensityColor(int copyNum, int brightness, ScalarsTo
                          ChangeBrightness(rgbEd[0], rgbEd[1], rgbEd[2], brightness)};
     }
     return re;
+}
+
+std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
+VariableDensityData::GenerateDefaultDensityColor(int copyNum) {
+    return std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>(
+            copyNum, std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>(
+                             std::tuple<int, int, int>(0, 0, 0), std::tuple<int, int, int>(0, 0, 0)));
 }
 
 std::set<int> VariableDensityData::GenerateChoosedObjectIndexs(
@@ -389,6 +400,34 @@ VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, I
     Data->SetChoosedDensity(choosedDensity);
     Data->SetDensityColor(VariableDensityData::GenerateDensityColor(boxNum, Data->GetUnChoosedLight(), colorMap));
     Data->SetChoosedDensityColor(VariableDensityData::GenerateDensityColor(boxNum, Data->GetChoosedLight(), colorMap));
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(VariableDensityData::GenerateDataTypeName(dataType));
+    Data->SetUnChoosedAlpha(255);
+    return Data;
+}
+
+VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                      IGenum dataType, int boxNum) {
+    auto variableNames = VariableDensityData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return VariableDensityData::Pointer();
+    int objNum = VariableDensityData::GetLegalAttrsObjNum(attrs, dataType);
+    auto Data = VariableDensityData::New();
+    Data->SetCopyNum(boxNum);
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableName(variableNames);
+    auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    auto density =
+            VariableDensityData::GenerateDensity(variableNum, boxNum, maxValue, minValue, attrs, dataType, objNum);
+    Data->SetDensity(density);
+    auto choosedDensity = VariableDensityData::GenerateDefaultDensity(variableNum, boxNum);
+    Data->SetChoosedDensity(choosedDensity);
+    Data->SetDensityColor(VariableDensityData::GenerateDefaultDensityColor(boxNum));
+    Data->SetChoosedDensityColor(VariableDensityData::GenerateDefaultDensityColor(boxNum));
     Data->SetDataType(dataType);
     Data->SetDataTypeName(VariableDensityData::GenerateDataTypeName(dataType));
     Data->SetUnChoosedAlpha(255);

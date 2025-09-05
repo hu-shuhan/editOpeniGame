@@ -8,7 +8,7 @@
 igQtTensorWidget::igQtTensorWidget(QWidget* parent) : QWidget(parent), ui(new Ui::TensorView) {
 	ui->setupUi(this);
 	UpdateComponentsShow(false);
-	this->m_Manager = iGame::iGameTensorWidgetBase::New();
+	this->m_Manager = iGame::iGameTensorBase::New();
 
 	ui->GlyphTypeComboBox->clear();
 	ui->GlyphTypeComboBox->addItem("Ellipsoid");

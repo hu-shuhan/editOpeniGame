@@ -42,6 +42,7 @@ public:
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
 
 protected:
     ParallelCoordinatesData() = default;

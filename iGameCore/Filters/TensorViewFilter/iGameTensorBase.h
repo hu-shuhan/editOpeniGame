@@ -1,8 +1,8 @@
-#ifndef iGameTensorWidgetBase_h
-#define iGameTensorWidgetBase_h
+#ifndef iGameTensorBase_h
+#define iGameTensorBase_h
 /**
- * @class   iGameTensorWidgetBase
- * @brief   iGameTensorWidgetBase's brief
+ * @class   iGameTensorBase
+ * @brief   iGameTensorBase's brief
  */
 
 #include "iGameDrawObject.h"
@@ -11,40 +11,45 @@
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
-class iGameTensorWidgetBase : public DrawObject {
+class iGameTensorBase : public DrawObject {
 public:
-    I_OBJECT(iGameTensorWidgetBase);
-    static iGameTensorWidgetBase* New() { return new iGameTensorWidgetBase; }
-    ~iGameTensorWidgetBase();
+    I_OBJECT(iGameTensorBase);
+    static iGameTensorBase* New() { return new iGameTensorBase; }
+    ~iGameTensorBase();
 
     void SetPoints(Points::Pointer);
-
+    //设置张量场数据
     void SetTensorAttributes(ArrayObject::Pointer);
-
+    //设置图元绘制类型
+    void SetGlyphType(iGameTensorRepresentation::DrawType drawType) { this->m_TensorManager->SetDrawType(drawType); }
+    //设置张量场图元颜色，一个position会有一个glyph，颜色是附着在position的，因此每个glyph是纯色
+    void SetPositionColors(FloatArray::Pointer);
+    //设置张量场图元标量数据，会计算每个position的颜色，并设置图元颜色
+    void SetPositionsScalarArray(ArrayObject::Pointer, int d = -1);
+    //显示张量场
     void ShowTensorField();
 
+    //更新图元顶点数据
     void UpdateGlyphDrawPositionData();
+    //更新图元绘制面片的索引关系
     void UpdateGlyphDrawIndexData();
+    //更新图元颜色
     void UpdateGlyphDrawColor();
+    //更新图元放缩比例
     void UpdateGlyphScale(double s);
 
-    void SetPositionColors(FloatArray::Pointer);
 
     DoubleArray::Pointer GenerateVectorField();
 
     Points::Pointer GetDrawGlyphPoints() { return this->m_DrawGlyphPoints; };
 
-    UnsignedIntArray::Pointer GetDrawGlyphPointOrders() {
-        return this->m_DrawGlyphPointOrders;
-    }
+    UnsignedIntArray::Pointer GetDrawGlyphPointOrders() { return this->m_DrawGlyphPointOrders; }
 
     FloatArray::Pointer GetDrawGlyphColors() { return this->m_DrawGlyphColors; }
-    void SetGlyphType(iGameTensorRepresentation::DrawType drawType) {
-        this->m_TensorManager->SetDrawType(drawType);
-    }
+
 
 protected:
-    iGameTensorWidgetBase();
+    iGameTensorBase();
 
 private:
     //The number group in which the tensor is located
