@@ -1,7 +1,8 @@
-#include <iGameFileIO.h>
 #include <IGC/iGameIGCWriter.h>
+#include <iGameFileIO.h>
 #include <iGameRenderWindow.h>
 #include <iGameSmartPointer.h>
+#include <string>
 
 int main() {
     const std::string sourceFileName = "./Models/Tet_Plane.vtk";

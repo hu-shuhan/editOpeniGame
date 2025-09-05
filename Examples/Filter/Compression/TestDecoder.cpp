@@ -1,6 +1,7 @@
-#include "IGC/iGameIGCReader.h"
+#include <IGC/iGameIGCReader.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
+#include <string>
 
 int main() {
     // Create a new scene
