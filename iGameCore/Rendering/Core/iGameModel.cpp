@@ -3,6 +3,7 @@
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
 #include "iGameScene.h"
+#include "iGamePointSet.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -14,8 +15,6 @@ Model::Model() {
 
     m_DataObject = DataObject::New();
     m_Meshleter = nullptr;
-    m_Selection = Selection::New();
-    m_Selection->SetModel(this);
     m_Filter = Filter::New();
     m_Painter3D = Painter3D::New();
 
@@ -81,11 +80,7 @@ void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
 std::string Model::GetFilePath() { return this->m_FilePath; }
 
 SmartPointer<Selection> Model::GetSelection() {
-    if (m_Selection == nullptr) {
-        m_Selection = Selection::New();
-        m_Selection->SetModel(this);
-    }
-    return m_Selection.get();
+    return DynamicCast<PointSet>(GetDataObject())->GetSelection(this);
 }
 
 void Model::RequestPointSelection(SmartPointer<Points> p,

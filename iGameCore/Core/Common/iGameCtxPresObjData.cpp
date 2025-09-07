@@ -293,6 +293,24 @@ std::string CtxPresObjData_Main::GenerateDataTypeName(IGenum dataType) {
     }
 }
 
+bool CtxPresObjData_Main::LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
+    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
+        auto& attr = attrs->GetElement(attrIndex);
+        if (attr.attachmentType != dataType) continue;
+        return true;
+    }
+    return false;
+}
+
+int CtxPresObjData_Main::GetLegalAttrsObjNum(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
+    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
+        auto& attr = attrs->GetElement(attrIndex);
+        if (attr.attachmentType != dataType) continue;
+        return attr.pointer->GetNumberOfElements();
+    }
+    return -1;
+}
+
 void CtxPresObjData_LightAlpha::SetChoosedAlpha(int alpha) { m_ChoosedAlpha = alpha; }
 
 int CtxPresObjData_LightAlpha::GetChoosedAlpha() const { return m_ChoosedAlpha; }
@@ -335,6 +353,10 @@ CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum, const std::map<int
         });
     }
     return re;
+}
+
+std::vector<std::vector<int>> CtxPresObjData_Draw::GenerateDefaultObjectDrawSorts(int variableNum) {
+    return std::vector<std::vector<int>>(variableNum);
 }
 
 std::tuple<int, int, int> CtxPresObjData_Draw::GenerateDefaultColor(int brightNess) {

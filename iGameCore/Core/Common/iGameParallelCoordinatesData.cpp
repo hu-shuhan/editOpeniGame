@@ -61,6 +61,37 @@ ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     return Data;
 }
 
+ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                              IGenum dataType) {
+    auto variableNames = ParallelCoordinatesData::GenerateVariableNames(attrs, dataType);
+    int variableNum = variableNames.size();
+    if (variableNum == 0) return ParallelCoordinatesData::Pointer();
+    int objNum = ParallelCoordinatesData::GetLegalAttrsObjNum(attrs, dataType);
+    auto Data = ParallelCoordinatesData::New();
+    Data->SetVariableNum(variableNum);
+    Data->SetVariableSort(ParallelCoordinatesData::GenerateDefaultVariableSort(variableNum));
+    Data->SetVariableName(variableNames);
+    auto variableIndex = ParallelCoordinatesData::GenerateVariableIndex(attrs, dataType);
+    Data->SetVariableIndex(variableIndex);
+    auto objDatas = ParallelCoordinatesData::GenerateObjectDatas(attrs, dataType, objNum, 10000);
+    Data->SetObjectDatas(objDatas);
+    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, objDatas));
+    Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
+    //auto choosedObjDatas = ParallelCoordinatesData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
+    //Data->SetChoosedObjectDatas(choosedObjDatas);
+    //Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
+    Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateDefaultObjectDrawSorts(variableNum));
+    Data->SetChoosedDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetChoosedLight()));
+    auto [minValue, maxValue] = ParallelCoordinatesData::GenerateMinMaxData(attrs, dataType);
+    Data->SetMinValueInVariables(minValue);
+    Data->SetMaxValueInVariables(maxValue);
+    Data->SetFilterMinValue(minValue);
+    Data->SetFilterMaxValue(maxValue);
+    Data->SetDataType(dataType);
+    Data->SetDataTypeName(ParallelCoordinatesData::GenerateDataTypeName(dataType));
+    return Data;
+}
+
 std::vector<igIndex>
 ParallelCoordinatesData::FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues,
                                         ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum) {

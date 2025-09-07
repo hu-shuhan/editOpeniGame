@@ -1,9 +1,8 @@
+#include <IGC/iGameIGCWriter.h>
 #include <iGameFileIO.h>
-#include <iGameMeshCodec/iGameMeshLoomEncoder.h>
-#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
 #include <iGameSmartPointer.h>
-#include <iGameSurfaceMesh.h>
+#include <string>
 
 int main() {
     const std::string sourceFileName = "./Models/Tet_Plane.vtk";
@@ -12,8 +11,10 @@ int main() {
     // encoder test
     iGame::DataObject::Pointer sourceDataObj = iGame::FileIO::ReadFile(sourceFileName);
     
-    iGame::UIControlParams params = iGame::MeshLoomEncoder::GenUiControlParams(sourceDataObj);
-    
-    auto encoder = new iGame::MeshLoomEncoder(encodedFileName, sourceDataObj, params);
-    encoder->Execute();
+    auto writer = iGame::IGCWriter::New();
+    writer->SetUIControlParams(iGame::MeshEncoder::GenUiControlParams(sourceDataObj));
+
+    writer->WriteToFile(sourceDataObj, encodedFileName);
+
+    return 0;
 }

@@ -1,4 +1,4 @@
-﻿#include "IQComponents/Dialog/igQtMeshCodecDialog.h"
+#include "IQComponents/Dialog/igQtMeshCodecDialog.h"
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
@@ -682,16 +682,19 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
         return;
     }
 
-    bool ok;
-    std::vector<std::string> errorStatus;
-    std::vector<std::string> compactnessStatus;
+    auto writer = iGame::IGCWriter::New();
+    writer->SetUIControlParams(m_params);
 
-    auto encoder = new iGame::MeshLoomEncoder(saveFilePath, m_dataObj, m_params);
-    encoder->Execute();
+    bool result = writer->WriteToFile(m_dataObj, saveFilePath);
     
+    if (!result) {
+        QMessageBox::critical(this, "错误", "压缩失败！");
+        return;
+    }
+
     if (m_params.showReport)
     {
-        ShowReportDialog(encoder->GetReport());
+        ShowReportDialog(writer->GetReport());
     }
 
     accept();

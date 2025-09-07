@@ -4,9 +4,10 @@
 #include "iGameDrawObject.h"
 #include "iGameMarker.h"
 #include "iGamePoints.h"
+#include "iGameSelection.h"
 
 IGAME_NAMESPACE_BEGIN
-
+class Model;
 class PointSet : public DrawObject {
 public:
     I_OBJECT(PointSet);
@@ -84,6 +85,16 @@ public:
                                           DoubleArray::Pointer attrRange,
                                           igIndex i = -1);
 
+    /* Selection */
+public:
+    /**
+     * @brief 获取模型的选择对象。
+     * @return Selection 对象的指针。
+     */
+    SmartPointer<Selection> GetSelection(Model* model = nullptr);
+
+protected:
+    SmartPointer<Selection> m_Selection;
 };
 
 IGAME_NAMESPACE_END

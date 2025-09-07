@@ -71,6 +71,10 @@ public:
     static std::pair<std::vector<double>, std::vector<double>>
     GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
     static std::string GenerateDataTypeName(IGenum dataType);
+
+protected:
+    static bool LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
+    static int GetLegalAttrsObjNum(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
 };
 
 class CtxPresObjData_LightAlpha {
@@ -136,6 +140,7 @@ public:
                                                                  const std::vector<std::vector<double>>& objcetValues);
     static std::vector<std::vector<int>>
     GenerateObjectDrawSorts(int variableNum, const std::map<int, std::vector<double>>& objcetValues);
+    static std::vector<std::vector<int>> GenerateDefaultObjectDrawSorts(int variableNum);
     static std::tuple<int, int, int> GenerateDefaultColor(int brightNess);
     static std::vector<std::tuple<int, int, int>>
     GenerateObjectColors(int variableIndex, const std::vector<std::vector<double>>& objDatas,

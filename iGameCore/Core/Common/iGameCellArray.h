@@ -89,6 +89,7 @@ public:
 	IdArray::Pointer GetCellIdArray();
     UnsignedIntArray::Pointer GetOffset();
     void SetData(IdArray::Pointer ids, UnsignedIntArray::Pointer offsets);
+    void SetData(IdArray::Pointer ids, int fixedSize);
 
 	void SetFixedSize(int fixedSize);
     size_t GetNumberOfCellIds();

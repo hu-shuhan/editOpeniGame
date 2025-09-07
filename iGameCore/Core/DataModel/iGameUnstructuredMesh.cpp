@@ -249,13 +249,13 @@ UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataO
     UnstructuredMesh::Pointer re;
     switch (meshType) {
         case IG_DATA_OBJECT:
-            return nullptr;
+            return re;
         case IG_COMPOSITE_DATA_OBJECT:
-            return nullptr;
+            return re;
         case IG_DRAW_OBJECT:
-            return nullptr;
+            return re;
         case IG_POINT_SET:
-            return nullptr;
+            return re;
         case IG_SURFACE_MESH:
             re = UnstructuredMesh::New();
             re->GenerateFromSurfaceMesh(DynamicCast<SurfaceMesh>(dataObj));
@@ -267,15 +267,15 @@ UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataO
         case IG_UNSTRUCTURED_MESH:
             return DynamicCast<UnstructuredMesh>(dataObj);
         case IG_STRUCTURED_MESH:
-            return nullptr;
+            return re;
         case IG_MULTIBLOCK_MESH:
-            return nullptr;
+            return re;
         case IG_NURBS_GEOMETRY:
-            return nullptr;
+            return re;
         case IG_DATA_OBJECT_COUNT:
-            return nullptr;
+            return re;
         default:
-            return nullptr;
+            return re;
     }
 }
 

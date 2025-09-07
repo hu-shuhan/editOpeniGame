@@ -399,13 +399,7 @@ void igQtDataChangeWidget::Draw() {
 
 DataChangeData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum dataType) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    auto colorMap = m_Mesh->GetColorMapper();
-    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
-    int objNum{};
-    if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
-    else
-        objNum = m_Mesh->GetNumberOfCells();
-    return DataChangeData::New(attrs, dataType, selectedItems, objNum, colorMap, MIN_H, MAX_H, MIN_S, MAX_S);
+    return DataChangeData::New(attrs, dataType, MIN_H, MAX_H, MIN_S, MAX_S);
 }
 
 void igQtDataChangeWidget::_SetRadialData(DataChangeData::Pointer Data) {

@@ -7,38 +7,36 @@ code name 'Spinning Jenny'
 #define MeshLoomCodec_h
 #include<iGameThreadPool.h>
 #include "iGameMacro.h"
-#include "iGameDataObject.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshOptModifiedIndexBufferCodec.h"
-#include "iGamePointSet.h"
-#include "iGameSurfaceMesh.h"
-#include "iGameVolumeMesh.h"
-#include "iGameUnstructuredMesh.h"
-#include "iGameStructuredMesh.h"
+#include "iGameFilter.h"
 #include <atomic>
-#include <condition_variable>
 #include <future>
-#include <mutex>
 #include <queue>
-#include <thread>
-#include "iGameThreadPool.h"
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-class MeshLoomCodec {
+class MeshCodec : public Filter {
+public:
+    I_OBJECT(MeshCodec);
+
+    // Filter 基类要求的空的 Execute 方法（子类实现具体逻辑）
+    bool Execute() override { return true; }
+
 protected:
+    MeshCodec() = default;
+
     using IndexBufferCodec = MeshOptModifiedIndexBufferCodec;
     CodecParameters m_codecParams;
-    ProgressObserver* m_Progress{ nullptr };
 
-    void UpdateProgress(double p) {
-        if (m_Progress) {
-            m_Progress->UpdateProgress(p);
-        }
-        else {
-            m_Progress = ProgressObserver::Instance();
-        }
-    }
+    // void UpdateProgress(double p) {
+    //     if (m_Progress) {
+    //         m_Progress->UpdateProgress(p);
+    //     }
+    //     else {
+    //         m_Progress = ProgressObserver::Instance();
+    //     }
+    // }
 
     template<typename Func>
     void ProgressParallelFor(int start, int end, float startProgress, float endProgress, Func&& process, int numThreads = ThreadPool::GetDefaultThreadCount()) {
@@ -87,41 +85,6 @@ protected:
             reserve(4096);
         }
     };
-
-    std::ostream&
-        WriteBuf(const PayloadBuffer& buf, std::ostream& os)
-    {
-        uint32_t length = uint32_t(buf.size());
-
-        os.put(char(buf.type));
-        os.put(char(length >> 24));
-        os.put(char(length >> 16));
-        os.put(char(length >> 8));
-        os.put(char(length >> 0));
-
-        os.write(buf.data(), length);
-        return os;
-    }
-
-    std::istream&
-        ReadBuf(std::istream& is, PayloadBuffer* buf)
-    {
-        buf->resize(0);
-        buf->type = PayloadType(static_cast<unsigned>(is.get()));
-
-        uint32_t length = 0;
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
-        length = (length << 8) | static_cast<unsigned>(is.get());
-
-        if (!is)
-            return is;
-
-        buf->resize(length);
-        is.read(buf->data(), length);
-        return is;
-    }
 };
 IGAME_NAMESPACE_END
 #endif

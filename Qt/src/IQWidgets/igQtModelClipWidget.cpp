@@ -162,23 +162,23 @@ void igQtModelClipWidget::ClipModel() {
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
             m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
-            auto Contourer = iGame::ContourFilter::New();
+            auto Slicer = iGame::SliceFilter::New();
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
                      it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
                     auto childObject = it->second;
                     if (childObject == nullptr) { continue; }
-                    Contourer->SetInput(childObject);
-                    Contourer->SetPlane(m_Origin, m_Normal);
-                    Contourer->Execute();
-                    auto out = Contourer->GetContourMesh();
+                    Slicer->SetInput(childObject);
+                    Slicer->SetPlane(m_Origin, m_Normal);
+                    Slicer->Execute();
+                    auto out = Slicer->GetSliceMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
                 }
             } else {
-                Contourer->SetInput(m_OriginDataObject);
-                Contourer->SetPlane(m_Origin, m_Normal);
-                Contourer->Execute();
-                auto out = Contourer->GetContourMesh();
+                Slicer->SetInput(m_OriginDataObject);
+                Slicer->SetPlane(m_Origin, m_Normal);
+                Slicer->Execute();
+                auto out = Slicer->GetSliceMesh();
                 if (out) {
                     m_ResultMesh->SetPoints(out->GetPoints());
                     m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());

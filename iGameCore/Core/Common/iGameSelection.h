@@ -81,6 +81,11 @@ public:
         m_CallBackFunctor[funcKey] = func;
     }
 
+	void _SetSelectionCallBackEvent_(const std::string& funcName,
+                                     const std::function<void(const std::vector<Selection::Event>&)>& func) {
+        m_CallBackFunctor[funcName] = func;
+    }
+
 #define SetSelectionCallBackEvent(functor, ...)                                                                        \
     _SetSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
@@ -88,6 +93,10 @@ public:
     void _SetClearSelectionCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
         std::function<void()> func = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
         m_ClearSelectionCallBackFunctor[funcKey] = func;
+    }
+
+	void _SetClearSelectionCallBackEvent_(std::string funcName, const std::function<void()>& func) {
+        m_ClearSelectionCallBackFunctor[funcName] = func;
     }
 
 #define SetClearSelectionCallBackEvent(functor, ...)                                                                        \

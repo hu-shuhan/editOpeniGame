@@ -447,10 +447,8 @@ double DataChangeData::GenerateMaxValueInChoosedVariable(const std::vector<doubl
     return re;
 }
 
-DataChangeData::Pointer
-DataChangeData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                    const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                    int objNum, ScalarsToColors::Pointer colorMap, int minH, int maxH, int minS, int maxS) {
+DataChangeData::Pointer DataChangeData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                                            int minH, int maxH, int minS, int maxS) {
     auto variableNames = DataChangeData::GenerateVariableNames(attrs, dataType);
     int variableNum = variableNames.size();
     if (variableNum == 0) return DataChangeData::Pointer();
@@ -490,6 +488,29 @@ void DataChangeData::SetRadialData(
     Data->SetObjectDatas(objData);
     auto choosedObjIds = DataChangeData::GenerateChoosedObjIds(selectedItems, Data->GetDataType(), objIndexs);
     Data->SetChoosedObjIds(choosedObjIds);
+    std::vector<double> objDistance;
+    if (Data->GetDataType() == IG_POINT) {
+        objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, mesh->GetPoints());
+    } else {
+        objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, mesh->GetCells(), mesh->GetPoints());
+    }
+    Data->SetObjDistance(objDistance);
+    auto objDrawSort = DataChangeData::GenerateObjDrawSort(objDistance, objIndexs);
+    Data->SetObjDrawSort(objDrawSort);
+    auto maxDistance = DataChangeData::GenerateObjMaxDistance(objDrawSort, objDistance, objIndexs);
+    Data->SetMaxDistance(maxDistance);
+    auto minDistance = DataChangeData::GenerateObjMinDistance(objDrawSort, objDistance, objIndexs);
+    Data->SetMinDistance(minDistance);
+}
+
+void DataChangeData::SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs, const Point& startPoint,
+                                   const Point& endPoint, UnstructuredMesh::Pointer mesh) {
+    auto Data = this;
+    auto objIndexs = DataChangeData::GenerateObjIndex(startPoint, endPoint, mesh->GetPoints(), mesh->GetCells(), mesh,
+                                                      Data->GetDataType());
+    Data->SetObjIndexs(objIndexs);
+    auto objData = DataChangeData::GenerateObjectDatas(attrs, Data->GetDataType(), objIndexs);
+    Data->SetObjectDatas(objData);
     std::vector<double> objDistance;
     if (Data->GetDataType() == IG_POINT) {
         objDistance = DataChangeData::GenerateObjDistance(startPoint, objIndexs, mesh->GetPoints());

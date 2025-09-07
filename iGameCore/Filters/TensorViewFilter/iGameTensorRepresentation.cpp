@@ -250,18 +250,6 @@ void iGameTensorRepresentation::UpdateEllipsoidDrawPointIndexOrders() {
 */
 void iGameTensorRepresentation::UpdateCuboidDrawPointIndexOrders()
 {
-	this->DrawPointsBaseData->Resize(8);
-	Point p[8] = { {-1,-1,-1},{-1,1,-1},{1,1,-1},{1,-1,-1},
-	{-1,-1,1},{-1,1,1},{1,1,1},{1,-1,1} };
-	for (int i = 0; i < 8; i++) {
-		this->DrawPointsBaseData->SetPoint(i, p[i]);
-	}
-}
-/**
-* @brief Update the basic spherical coordinates with cuboid glyph.
-*/
-void iGameTensorRepresentation::UpdateCuboidDrawPointBasedData()
-{
 	DrawPointIndexOrders->Reset();
 	DrawPointIndexOrders->Reserve(12);
 	auto hexahedron = Hexahedron::New();
@@ -269,6 +257,18 @@ void iGameTensorRepresentation::UpdateCuboidDrawPointBasedData()
 		auto quad = Hexahedron::faces[i];
 		DrawPointIndexOrders->AddElement3(quad[0], quad[1], quad[2]);
 		DrawPointIndexOrders->AddElement3(quad[0], quad[2], quad[3]);
+	}
+}
+/**
+* @brief Update the basic spherical coordinates with cuboid glyph.
+*/
+void iGameTensorRepresentation::UpdateCuboidDrawPointBasedData()
+{
+	this->DrawPointsBaseData->Resize(8);
+	Point p[8] = { {-1,-1,-1},{-1,1,-1},{1,1,-1},{1,-1,-1},
+	{-1,-1,1},{-1,1,1},{1,1,1},{1,-1,1} };
+	for (int i = 0; i < 8; i++) {
+		this->DrawPointsBaseData->SetPoint(i, p[i]);
 	}
 }
 

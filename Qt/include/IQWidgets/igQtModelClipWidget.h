@@ -6,6 +6,7 @@
 #pragma once
 #include "Clip/iGameClipFilter.h"
 #include "Contour/iGameContourFilter.h"
+#include "Slice/iGameSliceFilter.h"
 #include "Core/Interactor/iGameSlicingStyle.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameSelection.h"
