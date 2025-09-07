@@ -8,7 +8,7 @@ IGAME_NAMESPACE_BEGIN
 class iGameGetClosestPointsInLine : public Filter {
 public:
     I_OBJECT(iGameGetClosestPointsInLine);
-    static Pointer New(const Point& startPoint, const endPoint, double radius) {
+    static Pointer New(const Point& startPoint, const Point& endPoint, double radius) {
         return new iGameGetClosestPointsInLine(startPoint, endPoint, radius);
     }
     bool Execute() override;
@@ -18,7 +18,7 @@ private:
     void RUN();
 
 protected:
-    iGameGetClosestPointsInLine(const Point& startPoint, const endPoint, double radius);
+    iGameGetClosestPointsInLine(const Point& startPoint, const Point& endPoint, double radius);
     ~iGameGetClosestPointsInLine() override = default;
 
 private:

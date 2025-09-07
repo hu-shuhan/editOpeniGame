@@ -1,20 +1,23 @@
-#include"iGameGenerateParallelCoordinatesData.h"
+#include "iGameGenerateParallelCoordinatesData.h"
 IGAME_NAMESPACE_BEGIN
 
 bool iGameGenerateParallelCoordinatesData::Execute() {
+    m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
+    if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
     RUN();
     SetOutput(0, m_Data);
     return true;
 }
 
-void iGameGenerateParallelCoordinatesData::RUN() { m_Data = ParallelCoordinatesData::New(m_Attrs, m_DataType); }
+void iGameGenerateParallelCoordinatesData::RUN() {
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    m_Data = ParallelCoordinatesData::New(attrs, m_DataType);
+}
 
-iGameGenerateParallelCoordinatesData::iGameGenerateParallelCoordinatesData(
-        ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
-    m_Attrs = attrs;
+iGameGenerateParallelCoordinatesData::iGameGenerateParallelCoordinatesData(IGenum dataType) {
     m_DataType = dataType;
-    SetNumberOfInputs(0);
+    SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
 IGAME_NAMESPACE_END

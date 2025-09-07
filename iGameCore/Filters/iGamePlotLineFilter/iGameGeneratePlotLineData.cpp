@@ -11,13 +11,12 @@ bool iGameGeneratePlotLineData::Execute() {
 }
 
 void iGameGeneratePlotLineData::RUN() {
-    m_Data = DataChangeData::New(m_Attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
-    m_Data->SetRadialData(m_Attrs, m_StartPoint, m_EndPoint, m_Mesh);
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    m_Data = DataChangeData::New(attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
+    m_Data->SetRadialData(attrs, m_StartPoint, m_EndPoint, m_Mesh);
 }
 
-iGameGeneratePlotLineData::iGameGeneratePlotLineData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                     IGenum dataType, const Point& startPoint, const Point& endPoint) {
-    m_Attrs = attrs;
+iGameGeneratePlotLineData::iGameGeneratePlotLineData(IGenum dataType, const Point& startPoint, const Point& endPoint) {
     m_DataType = dataType;
     m_StartPoint = startPoint;
     m_EndPoint = endPoint;

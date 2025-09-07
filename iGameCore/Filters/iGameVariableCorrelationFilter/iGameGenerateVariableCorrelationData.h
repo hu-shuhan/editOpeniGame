@@ -8,21 +8,19 @@ IGAME_NAMESPACE_BEGIN
 class iGameGenerateVariableCorrelationData : public Filter {
 public:
     I_OBJECT(iGameGenerateVariableCorrelationData);
-    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
-        return new iGameGenerateVariableCorrelationData(attrs, dataType);
-    }
+    static Pointer New(IGenum dataType) { return new iGameGenerateVariableCorrelationData(dataType); }
     bool Execute() override;
 
 private:
     void RUN();
 
 protected:
-    iGameGenerateVariableCorrelationData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
+    iGameGenerateVariableCorrelationData(IGenum dataType);
     ~iGameGenerateVariableCorrelationData() override = default;
 
 private:
     /* Input */
-    ElementArray<AttributeSet::Attribute>::Pointer m_Attrs;
+    UnstructuredMesh::Pointer m_Mesh;
     IGenum m_DataType{};
 
 private:

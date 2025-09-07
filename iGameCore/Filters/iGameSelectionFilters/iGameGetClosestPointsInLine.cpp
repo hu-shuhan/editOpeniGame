@@ -27,7 +27,8 @@ void iGameGetClosestPointsInLine::RUN() {
     }
 }
 
-iGameGetClosestPointsInLine::iGameGetClosestPointsInLine(const Point& startPoint, const endPoint, double radius) {
+iGameGetClosestPointsInLine::iGameGetClosestPointsInLine(const Point& startPoint, const Point& endPoint,
+                                                         double radius) {
     m_StartPoint = startPoint;
     m_EndPoint = endPoint;
     m_Radius = radius;

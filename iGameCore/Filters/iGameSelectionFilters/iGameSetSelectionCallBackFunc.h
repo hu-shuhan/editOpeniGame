@@ -1,17 +1,18 @@
 #pragma once
+#include <functional>
 #include <iGameDataObject.h>
 #include <iGameFilter.h>
 #include <iGameSelection.h>
-#include <functional>
-#include <vector>
+#include <iGameUnstructuredMesh.h>
 #include <string>
+#include <vector>
 IGAME_NAMESPACE_BEGIN
 class iGameSetSelectionCallBackFunc : public Filter {
 public:
     I_OBJECT(iGameSetSelectionCallBackFunc);
-    static Pointer New(Selection::Pointer selection, const std::string& funcName,
+    static Pointer New(const std::string& funcName,
                        const std::function<void(const std::vector<Selection::Event>&)>& func) {
-        return new iGameSetSelectionCallBackFunc(selection, funcName, func);
+        return new iGameSetSelectionCallBackFunc(funcName, func);
     }
     bool Execute() override;
 
@@ -19,13 +20,13 @@ private:
     void RUN();
 
 protected:
-    iGameSetSelectionCallBackFunc(Selection::Pointer selection, const std::string& funcName,
+    iGameSetSelectionCallBackFunc(const std::string& funcName,
                                   const std::function<void(const std::vector<Selection::Event>&)>& func);
     ~iGameSetSelectionCallBackFunc() override = default;
 
 private:
     /* Input */
-    Selection::Pointer m_Selection;
+    UnstructuredMesh::Pointer m_Mesh;
     std::string m_FuncName;
     std::function<void(const std::vector<Selection::Event>&)> m_Func;
 
