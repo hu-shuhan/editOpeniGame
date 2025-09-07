@@ -6,8 +6,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #include "Spline XML/iGameNurbsReader.h"
 #include "iGameFileIO.h"
-#include "iGameMeshCodec/iGameMeshLoomDecoder.h"
-#include "iGameMeshCodec/iGameMeshLoomEncoder.h"
+#include "iGameMeshCodec/iGameMeshDecoder.h"
+#include "iGameMeshCodec/iGameMeshEncoder.h"
 #ifndef OPENCMD_H
 #define OPENCMD_H
 #include <string>
@@ -52,17 +52,10 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
 }
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
-    iGame::UIControlParams params = iGame::MeshLoomEncoder::GenUiControlParams(tem);
+    auto writer = iGame::IGCWriter::New();
+    writer->SetUIControlParams(iGame::MeshEncoder::GenUiControlParams(tem));
 
-    auto decodedData = iGame::MeshDecodedDataObject::New();
-    decodedData->SetMeshData(tem);
-    decodedData->SetUIControlParams(params);
-    decodedData->SetFilePath("./CScomp.igc");
-
-    auto encoder = iGame::MeshLoomEncoder::New();
-    encoder->SetInput(decodedData);
-
-    if (!encoder->Execute()) {
+    if (!writer->WriteToFile(tem, "./CScomp.igc")) {
         igDebug("Compress File Error\n");
         return false;
     }

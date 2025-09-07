@@ -682,22 +682,19 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
         return;
     }
 
-    bool ok;
-    std::vector<std::string> errorStatus;
-    std::vector<std::string> compactnessStatus;
+    auto writer = iGame::IGCWriter::New();
+    writer->SetUIControlParams(m_params);
 
-    auto decodedData = iGame::MeshDecodedDataObject::New();
-    decodedData->SetMeshData(m_dataObj);
-    decodedData->SetUIControlParams(m_params);
-    decodedData->SetFilePath(saveFilePath);
+    bool result = writer->WriteToFile(m_dataObj, saveFilePath);
     
-    auto encoder = iGame::MeshLoomEncoder::New();
-    encoder->SetInput(decodedData);
-    encoder->Execute();
-    
+    if (!result) {
+        QMessageBox::critical(this, "错误", "压缩失败！");
+        return;
+    }
+
     if (m_params.showReport)
     {
-        ShowReportDialog(encoder->GetReport());
+        ShowReportDialog(writer->GetReport());
     }
 
     accept();

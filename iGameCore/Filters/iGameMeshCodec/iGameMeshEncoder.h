@@ -4,84 +4,71 @@
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
+#include "iGameMeshCodec.h"
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
-#include "iGameMeshLoomCodec.h"
-#include "iGameMeshDecodedDataObject.h"
-#include "iGameMeshEncodedDataObject.h"
-#include "iGameProgressObserver.h"
 #include "iGameThreadPool.h"
 #include <functional>
 
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/stat.h>
-#endif
-
-// TODO: 结构化网格不需要输出topo 仅依靠点数据就可以构建mesh
-
-// 暂时不考虑多帧和multiblock的问题
-// 原则 函数使用void* float*时 必须在调用函数之前自行开辟空间
-// 由于这类指针很有可能不直接用array托管 所以函数无义务在其内开辟空间
-// 如果函数参数为vector 则一般由函数自行管理空间大小
-
 IGAME_NAMESPACE_BEGIN
-class MeshLoomEncoder : public MeshLoomCodec {
-public:
-    I_OBJECT(MeshLoomEncoder);
-    static Pointer New() { return new MeshLoomEncoder; }
 
-    MeshLoomEncoder() {
-        // 设置 Filter 的输入输出数量
+/**
+ * @brief MeshEncoder - 网格编码器类
+ *
+ * Filter Input Number: 1
+ * Filter Input: DataObject(DynamicCastTo: SurfaceMesh, VolumeMesh, StructuredMesh, UnstructuredMesh)
+ *
+ * Filter Output Number: 1
+ * Filter Output: MeshEncodedDataObject
+ *
+ * Parameters Number: 2
+ * Parameters: filePath: std::string, uiControlParams: UIControlParams
+ *
+ */
+
+class MeshEncoder : public MeshCodec {
+public:
+    I_OBJECT(MeshEncoder);
+    static Pointer New() { return new MeshEncoder; }
+
+    MeshEncoder() {
         this->SetNumberOfInputs(1);
-        this->SetNumberOfOutputs(1);
+        this->SetNumberOfOutputs(0);
     }
 
-    // Filter 基类要求的 Execute 方法
+    void SetUIControlParams(const UIControlParams& params) {
+        m_uiControlParams = params;
+        m_hasUIControlParams = true;
+    }
+
     bool Execute() override
     {
-        auto decodedData = DynamicCast<MeshDecodedDataObject>(GetInput(0));
-        if (!decodedData) {
-            return false;
-        }
-
-        // 类似构造函数一样做初始化
-        m_DataObj = decodedData->GetMeshData();
-        if (!m_DataObj) {
-            return false;
-        }
-
+        m_DataObj = GetInput(0);
+        m_Buffers = std::vector<UnsignedCharArray::Pointer>();
         m_EncoderAdapter = new MeshEncoderAdapter(m_DataObj);
-        InitAdjacencyScore();
+
         InitParams();
 
-        if (decodedData->HasUIControlParams()) {
-            LoadUIControlParams(decodedData->GetUIControlParams());
+        if (m_hasUIControlParams) {
+            LoadUIControlParams(m_uiControlParams);
         }
-
-        if (decodedData->HasFilePath()) {
-            m_SaveFilePath = decodedData->GetFilePath();
-        }
-
-        // 执行原Execute函数的内容
-        if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
+        
+        InitAdjacencyScore();
 
         std::vector<unsigned int> pointIdRemap;
-        std::vector<unsigned int> topCellIdsRemap, bottpmCellIdRemap;
+        std::vector<unsigned int> topCellIdsRemap, bottomCellIdRemap;
 
         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
         this->GeomEncoder(geomPayload, pointIdRemap);
 
         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
-        this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+        this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
 
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
-        this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+        this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
 
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
         this->ParamsEncoder(paramPayload);
@@ -115,40 +102,23 @@ public:
             UpdateProgress(progress);
         }
 
-        WriteBuf(paramCompressed, this->m_BytestreamFile);
-        WriteBuf(geomCompressed, this->m_BytestreamFile);
-        WriteBuf(topoCompressed, this->m_BytestreamFile);
-        WriteBuf(attrCompressed, this->m_BytestreamFile);
+        WriteBuf(paramCompressed);
+        WriteBuf(geomCompressed);
+        WriteBuf(topoCompressed);
+        WriteBuf(attrCompressed);
 
         UpdateProgress(1.0);
-        closeStream();
 
-        // 创建输出的 MeshEncodedDataObject
-        auto encodedOutput = MeshEncodedDataObject::New();
-        encodedOutput->SetFilePath(m_SaveFilePath);
-        SetOutput(encodedOutput);
-
+        // 计算压缩率
         auto calCR = [=]() -> void {
             long long sourceSize = -1;
-
-#ifdef _WIN32
-            WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-            auto filePath = this->m_DataObj->GetPropertys()->GetProperty("FilePath")->Get<std::string>();
-            if (GetFileAttributesEx(filePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
-                LARGE_INTEGER size;
-                size.HighPart = fileInfo.nFileSizeHigh;
-                size.LowPart = fileInfo.nFileSizeLow;
-                sourceSize = size.QuadPart;
-            } else {
-                sourceSize = -1;
+            
+            auto fileSizeProperty = this->m_DataObj->GetPropertys()->GetProperty("FileSize");
+            if (fileSizeProperty) {
+                sourceSize = fileSizeProperty->Get<long long>();
             }
-#else
-            struct stat stat_buf;
-            int rc = stat(filePath.c_str(), &stat_buf);
-            sourceSize = (rc == 0 ? stat_buf.st_size : -1);
-#endif
 
-            if (sourceSize != -1) {
+            if (sourceSize > 0) {
                 long long compressSize =
                         geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
                 double cr = compressSize * 1.0 / sourceSize;
@@ -163,23 +133,45 @@ public:
         return true;
     }
 
+    void WriteBuf(const PayloadBuffer& buf)
+    {
+        uint32_t length = uint32_t(buf.size());
+        
+        // 计算总需要的字节数: 1字节类型 + 4字节长度 + payload数据
+        IGsize totalSize = 1 + 4 + length;
+        
+        // 创建新的 CharArray 来存储这个 buffer
+        UnsignedCharArray::Pointer charArray = UnsignedCharArray::New();
+        charArray->Resize(totalSize);
+        
+        // 获取数据指针
+        unsigned char* data = charArray->RawPointer();
+        IGsize offset = 0;
+        
+        // 写入 payload 类型 (1 字节)
+        data[offset++] = static_cast<unsigned char>(buf.type);
+        
+        // 写入长度 (4 字节，大端序)
+        data[offset++] = static_cast<unsigned char>(length >> 24);
+        data[offset++] = static_cast<unsigned char>(length >> 16);
+        data[offset++] = static_cast<unsigned char>(length >> 8);
+        data[offset++] = static_cast<unsigned char>(length >> 0);
+        
+        // 写入 payload 数据
+        if (length > 0) {
+            std::memcpy(data + offset, buf.data(), length);
+        }
+        
+        // 添加到 buffers 中
+        m_Buffers.push_back(charArray);
+    }
+
     // MeshLoomEncoder(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams)
     //     : m_DataObj(dataObj), m_SaveFilePath(saveFilePath), m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
     //     InitAdjacencyScore();
     //     InitParams();
     //     LoadUIControlParams(uiConParams);
     // }
-
-    bool OpenStream(std::string path) {
-        this->m_BytestreamFile.open(path, std::ios::binary);
-        if (!this->m_BytestreamFile.is_open()) { return false; }
-        return true;
-    }
-
-    void closeStream() {
-        //std::cout << "Total bitstream size " << m_BytestreamFile.tellp() << " B\n";
-        m_BytestreamFile.close();
-    }
 
 //     bool Execute() {
 //         // 尝试打开流
@@ -336,18 +328,31 @@ public:
 
     std::vector<std::pair<std::string, std::string>> GetReport() { return m_report; }
 
+    // 获取所有编码后的 buffers
+    const std::vector<UnsignedCharArray::Pointer>& GetBuffers() const {
+        return m_Buffers;
+    }
+    
+    // 清空 buffers
+    void ClearBuffers() {
+        m_Buffers.clear();
+    }
+
 private:
-    std::string m_SaveFilePath;
-    std::ofstream m_BytestreamFile;
+
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
     FloatErrorControlParameters m_geomErrorControl;
-    std::vector<FloatErrorControlParameters> m_attrErorContrl;
+    std::vector<FloatErrorControlParameters> m_attrErrorControl;
 
     bool m_visualError;
     bool m_showReport;
 
+    UIControlParams m_uiControlParams;
+    bool m_hasUIControlParams = false;
+
     std::vector<std::pair<std::string, std::string>> m_report;
+    std::vector<UnsignedCharArray::Pointer> m_Buffers;
 
 
     void LoadUIControlParams(const UIControlParams& uiConParams) {
@@ -359,7 +364,7 @@ private:
         m_codecParams.geomParams.nonKeyAreaErrorBound = uiConParams.errorBoundSetting[0].nonKeyAreaErrorBound;
         m_geomErrorControl = uiConParams.errorBoundSetting[0];
 
-        m_attrErorContrl.resize(m_codecParams.attrCount);
+        m_attrErrorControl.resize(m_codecParams.attrCount);
         for (int i = 1; i < uiConParams.errorBoundSetting.size(); i++) {
             auto& attrParam = m_codecParams.attrParams[i - 1];
             attrParam.lossyMode = uiConParams.errorBoundSetting[i].lossyMode;
@@ -368,7 +373,7 @@ private:
             attrParam.keyAreaErrorBound = uiConParams.errorBoundSetting[i].keyAreaErrorBound;
             attrParam.nonKeyAreaErrorBound = uiConParams.errorBoundSetting[i].nonKeyAreaErrorBound;
 
-            m_attrErorContrl[i - 1] = uiConParams.errorBoundSetting[i];
+            m_attrErrorControl[i - 1] = uiConParams.errorBoundSetting[i];
         }
     }
 
@@ -605,7 +610,7 @@ private:
                     igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
 
                     // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_attrErorContrl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
+                    if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
 
                     for (int k = 0; k < params.dimension; k++) {
                         remappedBuffer[remapIndex * params.dimension + k] =
@@ -615,7 +620,7 @@ private:
             });
 
             // 用 remap 后的 iskey 替换原始的 iskey
-            m_attrErorContrl[attrIndex].isKeyElement = std::move(remappedIskey);
+            m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
         };
 
         std::mutex reportMutex;
@@ -623,7 +628,7 @@ private:
             for (int i = start; i < end; i++) {
                 AttributeSet::Attribute& attr = attrs->GetElement(i);
                 auto& attrParams = this->m_codecParams.attrParams[i];
-                auto& errorParams = this->m_attrErorContrl[i];
+                auto& errorParams = this->m_attrErrorControl[i];
 
                 // 部署remap
                 std::vector<float> remappedFloatAttrBuffer;

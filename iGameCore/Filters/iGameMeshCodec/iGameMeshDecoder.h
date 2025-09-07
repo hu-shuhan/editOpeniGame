@@ -2,53 +2,61 @@
 #define MeshLoomDecoder_h
 
 #include "iGameMacro.h"
+#include "iGameMeshCodec.h"
 #include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
-#include "iGameMeshEncodedDataObject.h"
-#include "iGameMeshDecodedDataObject.h"
 #include "iGameMeshFloatCodec.h"
-#include "iGameMeshLoomCodec.h"
 #include <future>
 
 IGAME_NAMESPACE_BEGIN
-class MeshLoomDecoder : public MeshLoomCodec {
-public:
-    I_OBJECT(MeshLoomDecoder);
-    static Pointer New() { return new MeshLoomDecoder; }
 
-    MeshLoomDecoder()
+/**
+ * @brief MeshEncoder - 网格解码器类
+ *
+ * Filter Input Number: 1
+ * Filter Input:
+ *
+ * Filter Output Number: 1
+ * Filter Output: DataObject(DynamicCastTo: SurfaceMesh, VolumeMesh, StructuredMesh, UnstructuredMesh)
+ *
+ * Parameters Number:
+ * Parameters:
+ *
+ */
+
+class MeshDecoder : public MeshCodec {
+public:
+    I_OBJECT(MeshDecoder);
+    static Pointer New() { return new MeshDecoder; }
+
+    MeshDecoder()
     {
-        // 设置 Filter 的输入输出数量
-        this->SetNumberOfInputs(1);
+        this->SetNumberOfInputs(0);
         this->SetNumberOfOutputs(1);
     }
 
-    // Filter 基类要求的 Execute 方法
+    void SetMemoryMappedPointers(char*& fileStart,
+                               const char*& currentPos,
+                               char*& fileEnd,
+                               const size_t& fileSize) {
+        m_FILESTART = fileStart;
+        m_IS = currentPos;
+        m_FILEEND = fileEnd;
+        m_FileSize = fileSize;
+    }
+
     bool Execute() override
     {
-        m_EncodedData = DynamicCast<MeshEncodedDataObject>(GetInput(0));
-        if (!m_EncodedData) {
-            return false;
-        }
-
-        m_ReadFilePath = m_EncodedData->GetFilePath();
-        if (m_ReadFilePath.empty()) {
-            return false;
-        }
-
-        // 使用encodedData中的输入流，直接替代OpenStream
-        m_BytestreamFile = m_EncodedData->GetInputStream();
-        if (!m_BytestreamFile) {
+        if (!m_FILESTART || !m_FILEEND || m_IS >= m_FILEEND) {
             return false;
         }
 
         m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
-        while (true) {
-            ReadBuf(m_BytestreamFile, &buf);
-            if (!(*m_BytestreamFile)) {
+        while (m_IS < m_FILEEND) {
+            if (!ReadBufFromMemory(&buf)) {
                 break;
             }
 
@@ -87,11 +95,7 @@ public:
 
         UpdateProgress(1.0);
 
-        closeStream();
-        
-        auto decodedData = MeshDecodedDataObject::New();
-        decodedData->SetMeshData(m_DecoderAdapter->GetDataObj());
-        SetOutput(decodedData);
+        SetOutput(0, m_DecoderAdapter->GetDataObj());
 
         return true;
     }
@@ -436,12 +440,66 @@ public:
     }
 
 private:
-    std::string m_ReadFilePath;
-    std::istream* m_BytestreamFile = nullptr;  // 改为指针，支持外部流
-    MeshEncodedDataObject::Pointer m_EncodedData = nullptr;  // 保存编码数据对象
+    const char* m_IS = nullptr;
+    const char* m_FILESTART = nullptr;
+    const char* m_FILEEND = nullptr;
+    size_t m_FileSize = 0;
     MeshDecoderAdapter* m_DecoderAdapter;
     float m_DecompressProgress = 0.0f;
 
+    bool ReadBufFromMemory(PayloadBuffer* buf) {
+        buf->resize(0);
+        
+        // 存储当前m_IS位置的8个字节内容到变量
+        unsigned char debug_bytes[8];
+        for(int i = 0; i < 8 && m_IS + i < m_FILEEND; i++) {
+            debug_bytes[i] = (unsigned char)m_IS[i];
+        }
+        
+        buf->type = static_cast<PayloadType>(*m_IS++);
+
+        uint32_t length = 0;
+        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
+        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
+        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
+        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
+
+        if (m_IS + length > m_FILEEND) {
+            return false;
+        }
+
+        buf->resize(length);
+        std::memcpy(buf->data(), m_IS, length);
+        m_IS += length;
+
+        return true;
+    }
+
+    // bool ReadBufFromMemory(PayloadBuffer* buf) {
+    //     if (m_IS + 5 > m_FILEEND) {
+    //         return false;
+    //     }
+    //
+    //     buf->type = static_cast<PayloadType>(*m_IS++);
+    //
+    //     uint32_t length = 0;
+    //     length |= static_cast<uint32_t>(*m_IS++) << 24;
+    //     length |= static_cast<uint32_t>(*m_IS++) << 16;
+    //     length |= static_cast<uint32_t>(*m_IS++) << 8;
+    //     length |= static_cast<uint32_t>(*m_IS++);
+    //
+    //     if (m_IS + length > m_FILEEND) {
+    //         return false;
+    //     }
+    //
+    //     buf->resize(length);
+    //     if (length > 0) {
+    //         std::memcpy(buf->data(), m_IS, length);
+    //         m_IS += length;
+    //     }
+    //
+    //     return true;
+    // }
 
 
     //void AttrDecoder(PayloadBuffer& buf)
@@ -636,26 +694,6 @@ private:
             );
             cursor += cellSizeBinaryCount;
         }
-    }
-
-
-
-    // bool OpenStream(std::string path)
-    // {
-    //     this->m_BytestreamFile.open(path, std::ios::binary);
-    //     if (!this->m_BytestreamFile.is_open()) {
-    //         return false;
-    //     }
-    //     return true;
-    // }
-
-    void closeStream() {
-        // 通过MeshEncodedDataObject关闭流
-        if (m_EncodedData) {
-            m_EncodedData->CloseStreams();
-        }
-        m_BytestreamFile = nullptr;
-        m_EncodedData = nullptr;
     }
 };
 IGAME_NAMESPACE_END
