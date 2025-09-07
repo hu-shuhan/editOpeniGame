@@ -13,13 +13,15 @@ public:
     
     bool Execute() override;
 
+    void SetTargetReduction(double target) { this->TargetReduction = target; }
+    void SetTargetFaceCount(int target) { this->TargetFaceCount = target; }
+
 protected:
     MeshSimplifier();
     ~MeshSimplifier() override = default;
 
-
-private:
-
+    float TargetReduction = 0.5;
+    float TargetFaceCount = 0;
 };
 IGAME_NAMESPACE_END
 #endif
