@@ -8,21 +8,19 @@ IGAME_NAMESPACE_BEGIN
 class iGameGenerateVariableDensityData : public Filter {
 public:
     I_OBJECT(iGameGenerateVariableDensityData);
-    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int boxNum) {
-        return new iGameGenerateVariableDensityData(attrs, dataType, boxNum);
-    }
+    static Pointer New(IGenum dataType, int boxNum) { return new iGameGenerateVariableDensityData(dataType, boxNum); }
     bool Execute() override;
 
 private:
     void RUN();
 
 protected:
-    iGameGenerateVariableDensityData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int boxNum);
+    iGameGenerateVariableDensityData(IGenum dataType, int boxNum);
     ~iGameGenerateVariableDensityData() override = default;
 
 private:
     /* Input */
-    ElementArray<AttributeSet::Attribute>::Pointer m_Attrs;
+    UnstructuredMesh::Pointer m_Mesh;
     IGenum m_DataType{};
     int m_BoxNum{};
 

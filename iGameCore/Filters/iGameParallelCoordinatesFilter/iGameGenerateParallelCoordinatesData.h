@@ -8,21 +8,19 @@ IGAME_NAMESPACE_BEGIN
 class iGameGenerateParallelCoordinatesData : public Filter {
 public:
     I_OBJECT(iGameGenerateParallelCoordinatesData);
-    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
-        return new iGameGenerateParallelCoordinatesData(attrs, dataType);
-    }
+    static Pointer New(IGenum dataType) { return new iGameGenerateParallelCoordinatesData(dataType); }
     bool Execute() override;
 
 private:
     void RUN();
 
 protected:
-    iGameGenerateParallelCoordinatesData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
+    iGameGenerateParallelCoordinatesData(IGenum dataType);
     ~iGameGenerateParallelCoordinatesData() override = default;
 
 private:
     /* Input */
-    ElementArray<AttributeSet::Attribute>::Pointer m_Attrs;
+    UnstructuredMesh::Pointer m_Mesh;
     IGenum m_DataType{};
 
 private:

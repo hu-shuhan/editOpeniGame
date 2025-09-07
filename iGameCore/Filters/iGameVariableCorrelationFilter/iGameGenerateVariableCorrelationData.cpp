@@ -3,6 +3,8 @@
 IGAME_NAMESPACE_BEGIN
 
 bool iGameGenerateVariableCorrelationData::Execute() {
+    m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
+    if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
     RUN();
     SetOutput(0, m_Data);
@@ -10,14 +12,13 @@ bool iGameGenerateVariableCorrelationData::Execute() {
 }
 
 void iGameGenerateVariableCorrelationData::RUN() {
-    m_Data = VariableCorrelationData::New(m_Attrs, m_DataType);
+    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
+    m_Data = VariableCorrelationData::New(attrs, m_DataType);
 }
 
-iGameGenerateVariableCorrelationData::iGameGenerateVariableCorrelationData(
-        ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
-    m_Attrs = attrs;
+iGameGenerateVariableCorrelationData::iGameGenerateVariableCorrelationData(IGenum dataType) {
     m_DataType = dataType;
-    SetNumberOfInputs(0);
+    SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
 IGAME_NAMESPACE_END

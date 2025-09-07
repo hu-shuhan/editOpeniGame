@@ -14,7 +14,7 @@ static void SumCellPoints(Cell* cell, Point& point, int& pointNum) {
     } else {
         for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
             auto face = cell->GetFace(faceIndex);
-            SumCellPoints(face, point);
+            SumCellPoints(face, point, pointNum);
         }
     }
 }
@@ -135,7 +135,7 @@ void iGameGetClosestCellsInLine::RUN() {
     }
 }
 
-iGameGetClosestCellsInLine::iGameGetClosestCellsInLine(const Point& startPoint, const endPoint, double radius) {
+iGameGetClosestCellsInLine::iGameGetClosestCellsInLine(const Point& startPoint, const Point& endPoint, double radius) {
     m_StartPoint = startPoint;
     m_EndPoint = endPoint;
     m_Radius = radius;

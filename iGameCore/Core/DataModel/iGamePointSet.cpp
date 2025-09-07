@@ -1,5 +1,6 @@
 #include "iGamePointSet.h"
 #include "iGameScene.h"
+#include "iGameModel.h"
 
 IGAME_NAMESPACE_BEGIN
 void PointSet::SetPoints(Points::Pointer points) {
@@ -161,4 +162,11 @@ void PointSet::SetAttributeWithCellData(ArrayObject::Pointer attr,
 	DoubleArray::Pointer attrRange,
 	igIndex dimension) {}
 
+SmartPointer<Selection> PointSet::GetSelection(Model* model) {
+    if (m_Selection == nullptr) {
+        m_Selection = Selection::New();
+        m_Selection->SetModel(model);
+    }
+    return m_Selection.get();
+}
 IGAME_NAMESPACE_END
