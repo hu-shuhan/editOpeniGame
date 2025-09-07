@@ -34,6 +34,10 @@ private:
     UIControlParams m_UIParams;
 
     MeshEncoder::Pointer m_encoder;
+    
+    // helper methods
+    bool EncodeData();
+    bool GenerateOutput();
 };
 
 IGAME_NAMESPACE_END

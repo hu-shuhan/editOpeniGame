@@ -2,7 +2,10 @@
 #define iGameIGCReader_h
 
 #include "../../Filters/iGameMeshCodec/iGameMeshDecoder.h"
+#include "../../Filters/iGameMeshCodec/iGameMeshEncodedData.h"
 #include "iGameFileReader.h"
+#include <fstream>
+#include <iostream>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -20,6 +23,11 @@ protected:
 
 private:
     DataObject::Pointer m_DecodedOutput;
+    
+    // 分离的解析方法
+    bool ParsingWithMemoryMapping();
+    bool ParsingWithFilePath();
+    MeshEncodedData::Pointer CreateEncodedDataFromFile();
 };
 
 IGAME_NAMESPACE_END

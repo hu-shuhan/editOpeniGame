@@ -8,6 +8,15 @@ bool IGCWriter::GenerateBuffers()
         return false;
     }
 
+    if (!EncodeData()) {
+        return false;
+    }
+
+    return GenerateOutput();
+}
+
+bool IGCWriter::EncodeData()
+{
     m_encoder = MeshEncoder::New();
     m_encoder->SetInput(0, m_DataObject);
 
@@ -18,22 +27,17 @@ bool IGCWriter::GenerateBuffers()
         m_encoder->SetUIControlParams(uiParams);
     }
 
-    if (!m_encoder->Execute()) {
+    return m_encoder->Execute();
+}
+
+bool IGCWriter::GenerateOutput()
+{
+    const auto& encodedData = DynamicCast<MeshEncodedData>(m_encoder->GetOutput(0));
+    if (!encodedData || encodedData->m_Buffers.empty()) {
         return false;
     }
 
-    const auto& encoderBuffers = m_encoder->GetBuffers();
-    if (encoderBuffers.empty()) {
-        return false;
-    }
-
-    IGsize totalSize = 0;
-    for (const auto& buffer : encoderBuffers) {
-        if (buffer) {
-            totalSize += buffer->GetNumberOfValues();
-        }
-    }
-    
+    IGsize totalSize = encodedData->m_Buffers.size();
     if (totalSize == 0) {
         return false;
     }
@@ -42,16 +46,8 @@ bool IGCWriter::GenerateBuffers()
     m_Buffers[0] = CharArray::New();
     m_Buffers[0]->Resize(totalSize);
 
-    IGsize offset = 0;
     char* dest = m_Buffers[0]->RawPointer();
-    
-    for (const auto& buffer : encoderBuffers) {
-        if (buffer && buffer->GetNumberOfValues() > 0) {
-            IGsize bufferSize = buffer->GetNumberOfValues();
-            std::memcpy(dest + offset, buffer->RawPointer(), bufferSize);
-            offset += bufferSize;
-        }
-    }
+    std::memcpy(dest, encodedData->m_Buffers.data(), totalSize);
     
     return true;
 }
