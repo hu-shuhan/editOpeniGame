@@ -32,7 +32,7 @@ bool IGCWriter::EncodeData()
 
 bool IGCWriter::GenerateOutput()
 {
-    const auto& encodedData = DynamicCast<MeshEncodedData>(m_encoder->GetOutput(0));
+    const auto& encodedData = DynamicCast<EncodedMeshData>(m_encoder->GetOutput(0));
     if (!encodedData || encodedData->m_Buffers.empty()) {
         return false;
     }

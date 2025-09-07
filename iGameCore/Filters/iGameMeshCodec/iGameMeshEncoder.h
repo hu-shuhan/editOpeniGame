@@ -1,6 +1,7 @@
 #ifndef MeshEncoder_h
 #define MeshEncoder_h
 
+#include "iGameEncodedMeshData.h"
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
@@ -8,7 +9,6 @@
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
-#include "iGameMeshEncodedData.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
 #include "iGameThreadPool.h"
@@ -87,7 +87,7 @@ private:
     // I/O
     DataObject::Pointer m_DataObj;
     MeshEncoderAdapter* m_EncoderAdapter;
-    MeshEncodedData::Pointer m_encodedData;
+    EncodedMeshData::Pointer m_encodedData;
 
     // params
     FloatErrorControlParameters m_geomErrorControl;
@@ -108,7 +108,7 @@ private:
             return false;
         }
 
-        m_encodedData = MeshEncodedData::New();
+        m_encodedData = EncodedMeshData::New();
         m_EncoderAdapter = new MeshEncoderAdapter(m_DataObj);
 
         InitParams();

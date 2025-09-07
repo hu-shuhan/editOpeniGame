@@ -1,8 +1,8 @@
 #ifndef iGameIGCReader_h
 #define iGameIGCReader_h
 
+#include "../../Filters/iGameMeshCodec/iGameEncodedMeshData.h"
 #include "../../Filters/iGameMeshCodec/iGameMeshDecoder.h"
-#include "../../Filters/iGameMeshCodec/iGameMeshEncodedData.h"
 #include "iGameFileReader.h"
 #include <fstream>
 #include <iostream>
@@ -27,7 +27,7 @@ private:
     // 分离的解析方法
     bool ParsingWithMemoryMapping();
     bool ParsingWithFilePath();
-    MeshEncodedData::Pointer CreateEncodedDataFromFile();
+    EncodedMeshData::Pointer CreateEncodedDataFromFile();
 };
 
 IGAME_NAMESPACE_END

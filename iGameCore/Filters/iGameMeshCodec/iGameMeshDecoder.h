@@ -1,13 +1,13 @@
 #ifndef MeshDecoder_h
 #define MeshDecoder_h
 
+#include "iGameEncodedMeshData.h"
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
-#include "iGameMeshEncodedData.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -62,7 +62,7 @@ private:
     size_t m_FileSize = 0;
 
     // for MeshEncodedData
-    MeshEncodedData::Pointer m_encodedData;
+    EncodedMeshData::Pointer m_encodedData;
     IGsize m_BufferOffset = 0;
     bool m_UseMemoryMapping = false;
 
@@ -389,7 +389,7 @@ private:
 
     bool InitializeEncodedDataInput() {
         if (!m_encodedData) {
-            m_encodedData = DynamicCast<MeshEncodedData>(GetInput(0));
+            m_encodedData = DynamicCast<EncodedMeshData>(GetInput(0));
             if (!m_encodedData) {
                 return false;
             }
@@ -408,7 +408,7 @@ private:
             return ReadBufFromMemory(buf);
         } else {
             if (!m_encodedData) {
-                m_encodedData = DynamicCast<MeshEncodedData>(GetInput(0));
+                m_encodedData = DynamicCast<EncodedMeshData>(GetInput(0));
                 if (!m_encodedData) {
                     return false;
                 }

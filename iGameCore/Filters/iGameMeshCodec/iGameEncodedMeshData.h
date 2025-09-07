@@ -5,17 +5,17 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class MeshEncodedData : public DataObject {
+class EncodedMeshData : public DataObject {
 public:
-    I_OBJECT(MeshEncodedData);
-    static Pointer New() { return new MeshEncodedData; }
+    I_OBJECT(EncodedMeshData);
+    static Pointer New() { return new EncodedMeshData; }
 
     IGenum GetDataObjectType() const override { return IG_MESH_ENCODED_DATA; }
 
     std::vector<unsigned char> m_Buffers;
 protected:
-    MeshEncodedData() = default;
-    ~MeshEncodedData() override = default;
+    EncodedMeshData() = default;
+    ~EncodedMeshData() override = default;
 };
 
 IGAME_NAMESPACE_END

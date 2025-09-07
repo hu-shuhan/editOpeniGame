@@ -28,7 +28,7 @@ bool IGCReader::ParsingWithFilePath()
 {
     MeshDecoder::Pointer decoder = MeshDecoder::New();
 
-    MeshEncodedData::Pointer encodedData = CreateEncodedDataFromFile();
+    EncodedMeshData::Pointer encodedData = CreateEncodedDataFromFile();
     if (!encodedData) {
         return false;
     }
@@ -43,7 +43,7 @@ bool IGCReader::ParsingWithFilePath()
     return true;
 }
 
-MeshEncodedData::Pointer IGCReader::CreateEncodedDataFromFile()
+EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
 {
     std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
@@ -61,7 +61,7 @@ MeshEncodedData::Pointer IGCReader::CreateEncodedDataFromFile()
     }
     file.close();
 
-    MeshEncodedData::Pointer encodedData = MeshEncodedData::New();
+    EncodedMeshData::Pointer encodedData = EncodedMeshData::New();
     encodedData->m_Buffers.resize(fileSize);
     std::memcpy(encodedData->m_Buffers.data(), buffer.data(), fileSize);
     
