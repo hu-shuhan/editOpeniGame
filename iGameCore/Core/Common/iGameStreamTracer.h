@@ -14,6 +14,8 @@
 #include <set>
 #include <shared_mutex>
 #include <unordered_map>
+#include <cmath>
+#include <thread>
 using namespace iGame;
 
 /**
@@ -135,8 +137,8 @@ private:
 	* @param[in] v3  Input a vertex that makes up the tetrahedron
 	* @param[out] dis Output the weight calculated based on the distance from the point to the surface
 	*/
-    std::vector<float> ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord, igIndex* FaceIds,
-                                                    int MaxPolygonSize, int size, int fsize);
+    void ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord, igIndex* FaceIds,
+                                       int MaxPolygonSize, int psize, int fsize, float* weights);
     bool isInside(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3, std::vector<float>& dis);
     /**
 * @brief Computes the values of 8 interpolation functions at given local coordinates.
@@ -182,6 +184,14 @@ private:
 * @param[in] v2  Input a vertex that makes up the face
 */
     bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    
+    // Performance optimization functions
+    inline double fastSin(double x);
+    inline double fastTan(double x);
+    inline double fastAsin(double x);
+    inline double fastSqrt(double x);
+    void precomputeTrigValues();
+    
     std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
@@ -195,4 +205,17 @@ private:
     int processCount;
     int totalProcess;
     std::shared_mutex ProMutex;
+    
+    // Performance optimization members
+    struct TrigCache {
+        std::unordered_map<int, double> sinCache;
+        std::unordered_map<int, double> tanCache;
+        std::unordered_map<int, double> asinCache;
+    };
+    static thread_local TrigCache trigCache;
+    
+    // Memory pool for weights
+    static thread_local std::vector<float> reusableWeights;
+    static thread_local std::vector<Vector3f> reusableVectors;
+    static thread_local std::vector<double> reusableDoubles;
 };
