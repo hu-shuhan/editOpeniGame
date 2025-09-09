@@ -277,17 +277,25 @@ private:
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
         // multiblock网格类型暂不支持
-        assert(this->m_codecParams.meshType == IG_SURFACE_MESH || this->m_codecParams.meshType == IG_VOLUME_MESH ||
-               this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
-               this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH);
+        assert(this->m_codecParams.meshType == IG_SURFACE_MESH ||
+                this->m_codecParams.meshType == IG_VOLUME_MESH ||
+                this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
+                this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH ||
+                this->m_codecParams.meshType == IG_POINT_SET);
+
+        // 点云特殊处理
+        if (this->m_codecParams.meshType == IG_POINT_SET) {
+            this->m_codecParams.topoParams.isSecondaryIndex = false;
+            this->m_codecParams.topoParams.fixedCellSize = -1;
+        } else {
+            this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
+            this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
+        }
+
         if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
             std::memcpy(&this->m_codecParams.structuredMeshParams.axisSize,
                         DynamicCast<StructuredMesh>(this->m_DataObj)->GetDimensionSize(), 3 * sizeof(int));
         }
-
-        // 拓扑
-        this->m_codecParams.topoParams.isSecondaryIndex = this->m_EncoderAdapter->IsSecondaryIndexPolyhedronMesh();
-        this->m_codecParams.topoParams.fixedCellSize = this->m_EncoderAdapter->GetFixedCellSize();
 
         // 顶点坐标
         this->m_codecParams.geomParams.valueSize = sizeof(float); // float
@@ -473,6 +481,12 @@ private:
                      std::vector<unsigned int>& topCellRemap,   // 最高级cell remap
                      std::vector<unsigned int>& bottomCellRemap // 最低级cell remap
     ) {
+        if (this->m_codecParams.meshType == IG_POINT_SET) {
+            payload.resize(0);
+            UpdateProgress(0.4);
+            return;
+        }
+
         // 输出
         std::vector<unsigned char> outputTopo;
 

@@ -226,6 +226,13 @@ private:
 
     void TopoDecoder(PayloadBuffer& buf)
     {
+        if (this->m_codecParams.meshType == IG_POINT_SET) {
+            // 点云没有拓扑结构，直接更新进度并返回
+            m_DecompressProgress += 0.2;
+            UpdateProgress(m_DecompressProgress);
+            return;
+        }
+
         std::vector<unsigned char> inputTopo(buf.size());
         std::memcpy(inputTopo.data(), buf.data(), buf.size());
 
