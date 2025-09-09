@@ -45,7 +45,7 @@ bool igQtMeshCodecDialog::IsVaildFeatureIndex(int featureIndex)
 
 void igQtMeshCodecDialog::InitIntro()
 {
-    ui->lbIntro->setText("通过分析浮点数数据的涡度/梯度/拉普拉斯直方图以确定关键区域 \n在未确认关键区域情况下采用区域压缩强度模式将以非关键区域压缩强度处理数据 \n一键设置全体数据将不会覆盖区域压缩模式下的数据, 也不能将区域压缩设置应用于全体数据");
+    ui->lbIntro->setText("1. 通过浮点数数据的梯度/拉普拉斯直方图以选定关键区域 \n2. 在未选定关键区域并采用区域压缩等级模式时，将以非关键区域压缩等级处理数据 \n3. “将统一压缩等级应用到全体数据”将不会覆盖处于区域压缩等级模式下的数据, 亦不能将区域压缩等级应用于全体数据");
 }
 
 void igQtMeshCodecDialog::InitUIControlParams()
