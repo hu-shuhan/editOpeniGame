@@ -1,6 +1,6 @@
 #include "iGameCtxPresObjData.h"
-#include <random>
 #include <iGameThreadPool.h>
+#include <random>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -67,7 +67,7 @@ static void rgbToHsb(float r, float g, float b, float& h, float& s, float& bVal)
 
 static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
     float c = bVal * s;
-    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float x = c * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
     float m = bVal - c;
 
     float r1, g1, b1;
@@ -128,7 +128,9 @@ void CtxPresObjData_Main::SetVariableNum(int variableNum) { m_VariableNum = vari
 
 int CtxPresObjData_Main::GetVariableNum() const { return m_VariableNum; }
 
-void CtxPresObjData_Main::SetVariableName(const std::vector<std::string>& variableName) { m_VariableName = variableName; }
+void CtxPresObjData_Main::SetVariableName(const std::vector<std::string>& variableName) {
+    m_VariableName = variableName;
+}
 
 const std::vector<std::string>& CtxPresObjData_Main::GetVariableName() { return m_VariableName; }
 
@@ -178,8 +180,8 @@ void CtxPresObjData_Main::SetDataType(IGenum dataType) { m_DataType = dataType; 
 
 IGenum CtxPresObjData_Main::GetDataType() const { return m_DataType; }
 
-std::vector<std::string> CtxPresObjData_Main::GenerateVariableNames(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                               IGenum dataType) {
+std::vector<std::string>
+CtxPresObjData_Main::GenerateVariableNames(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
     vector<string> variableNames;
     for (int i = 0; i < attrs->Size(); i++) {
         auto& attr = attrs->GetElement(i);
@@ -210,8 +212,8 @@ CtxPresObjData_Main::GenerateVariableIndex(ElementArray<AttributeSet::Attribute>
     return re;
 }
 
-std::vector<double> CtxPresObjData_Main::GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                                                  int objId) {
+std::vector<double> CtxPresObjData_Main::GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                            IGenum dataType, int objId) {
     std::vector<double> objData;
     for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
         auto& attr = attrs->GetElement(attrIndex);
@@ -225,8 +227,8 @@ std::vector<double> CtxPresObjData_Main::GenerateObjectData(ElementArray<Attribu
 }
 
 std::vector<std::vector<double>>
-CtxPresObjData_Main::GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int objNum,
-                                    int maxObjNum) {
+CtxPresObjData_Main::GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
+                                         int objNum, int maxObjNum) {
     std::vector<std::vector<double>> objDatas;
     auto randomObjIds = GenerateRandomSample(objNum, maxObjNum);
     for (auto& objIndex: randomObjIds) { objDatas.push_back(GenerateObjectData(attrs, dataType, objIndex)); }

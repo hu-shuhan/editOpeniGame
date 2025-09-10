@@ -15,7 +15,7 @@ public:
     const std::vector<int>& GetResult();
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameGetClosestPointsInLine(const Point& startPoint, const Point& endPoint, double radius);

@@ -15,7 +15,7 @@ public:
     bool Execute() override;
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameSetPointsSelect(Selection::Event::Operate ope, const std::vector<int>& ids, Points* points,

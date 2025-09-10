@@ -15,7 +15,7 @@ public:
     bool Execute() override;
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameSetClearSelectionCallBackFunc(const std::string& funcName, const std::function<void()>& func);
