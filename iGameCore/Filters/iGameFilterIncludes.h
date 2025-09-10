@@ -2,7 +2,7 @@
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "TensorViewFilter/iGameTensorRepresentation.h"
 #include "TensorViewFilter/iGameTensorFilter.h"
-#include "TensorViewFilter/iGameTensorbase.h"
+#include "TensorViewFilter/iGameTensorBase.h"
 #include "iGameFilterPoints.h"
 #include "iGameSurfaceMeshFilterTest.h"
 #include "iGameVolumeMeshFilterTest.h"

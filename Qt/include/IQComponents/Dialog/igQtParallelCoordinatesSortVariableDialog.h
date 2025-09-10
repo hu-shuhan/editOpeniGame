@@ -1,11 +1,11 @@
 #ifndef IGQTPARALLELCOORDINATESSORTVARIABLEDIALOG_H
 #define IGQTPARALLELCOORDINATESSORTVARIABLEDIALOG_H
 
+#include <QCheckBox>
 #include <QDialog>
-#include <vector>
-#include <string>
-#include <QCheckbox>
 #include <QLabel>
+#include <string>
+#include <vector>
 
 class VariableCheckBox : public QCheckBox {
     Q_OBJECT
@@ -14,12 +14,12 @@ public:
     int m_VariableIndex{};
 };
 
-namespace Ui {
+namespace Ui
+{
 class igQtParallelCoordinatesSortVariableDialog;
 }
 
-class igQtParallelCoordinatesSortVariableDialog : public QDialog
-{
+class igQtParallelCoordinatesSortVariableDialog : public QDialog {
     Q_OBJECT
 
 public:
@@ -41,7 +41,7 @@ public slots:
 private:
     void GenerateVariableLists();
     void UseVariableSortToSetLabel();
-    
+
 
 private:
     void VariableSortToEnd(int variableIndex);
@@ -50,7 +50,7 @@ private:
     void VariableAllUnCheck();
 
 private:
-    Ui::igQtParallelCoordinatesSortVariableDialog *ui;
+    Ui::igQtParallelCoordinatesSortVariableDialog* ui;
     int m_VariableNum;
     const std::vector<std::string>& m_VariableNames;
     std::vector<int> m_VariableSort;
