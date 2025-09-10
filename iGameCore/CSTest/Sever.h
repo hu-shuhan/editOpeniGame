@@ -1,4 +1,7 @@
 #pragma once
+
+#if defined(_WIN32) || defined(_WIN64)
+
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
 #include <thread>
@@ -152,3 +155,5 @@ void serverThread() {
     closesocket(serverSocket);
      WSACleanup();
  }
+
+#endif

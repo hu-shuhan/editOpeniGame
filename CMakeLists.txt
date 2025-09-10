@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.19)
 # CMAKE Global Settings.
 #--------------------------------------------------------------------
 
-set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
 
 if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
@@ -81,7 +81,7 @@ endif ()
 add_subdirectory(ThirdParty)
 #导入iGame核心后处理组件
 add_subdirectory(iGameCore)
-target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
+#target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
