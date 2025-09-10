@@ -50,7 +50,10 @@ public:
     void SetMinValue(double value);
     double GetMinValue() const;
 
+    //[objId, objIndex in m_ObjDistance and m_ObjectDatas]
     void SetObjIndexs(const std::map<int, int>& objIndexs);
+
+    //[objId, objIndex in m_ObjDistance and m_ObjectDatas]
     const std::map<int, int>& GetObjIndexs();
 
 protected:

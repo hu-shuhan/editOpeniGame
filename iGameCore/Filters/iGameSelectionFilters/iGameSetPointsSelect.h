@@ -8,9 +8,8 @@ IGAME_NAMESPACE_BEGIN
 class iGameSetPointsSelect : public Filter {
 public:
     I_OBJECT(iGameSetPointsSelect);
-    static Pointer New(Selection::Event::Operate ope, const std::vector<int>& ids, Points* points,
-                       CellArray* cellArrays, Painter3D* painter = nullptr) {
-        return new iGameSetPointsSelect(ope, ids, points, cellArrays, painter);
+    static Pointer New(Selection::Event::Operate ope, const std::vector<int>& ids, Painter3D* painter = nullptr) {
+        return new iGameSetPointsSelect(ope, ids, painter);
     }
     bool Execute() override;
 
@@ -18,8 +17,7 @@ private:
     void Run();
 
 protected:
-    iGameSetPointsSelect(Selection::Event::Operate ope, const std::vector<int>& ids, Points* points,
-                         CellArray* cellArrays, Painter3D* painter = nullptr);
+    iGameSetPointsSelect(Selection::Event::Operate ope, const std::vector<int>& ids, Painter3D* painter = nullptr);
     ~iGameSetPointsSelect() override = default;
 
 private:
@@ -27,8 +25,6 @@ private:
     UnstructuredMesh::Pointer m_Mesh;
     Selection::Event::Operate m_Operate;
     std::vector<int> m_Ids;
-    Points* m_Points{};
-    CellArray* m_CellArrays{};
     Painter3D* m_Painter{};
 
 private:

@@ -30,6 +30,18 @@ add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/
 add_executable(testVectorEveryNth "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorEveryNth.cpp")
 add_executable(testVectorSubData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorSubData.cpp")
 
+add_executable(testParallelCoordinatesData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestParallelCoordinatesData.cpp")
+add_executable(testVariableCorrelationData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableCorrelationData.cpp")
+add_executable(testVariableDensityData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableDensityData.cpp")
+add_executable(testPlotLineData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestPlotLineData.cpp")
+
+add_executable(testSetSelectionCallBack "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetSelectionCallBack.cpp")
+add_executable(testSetClearSelectionCallBackFunc "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetClearSelectionCallBackFunc.cpp")
+add_executable(testSetPointsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetPointsSelect.cpp")
+add_executable(testSetCellsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetCellsSelect.cpp")
+add_executable(testGetClosestPointsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestPointsInLine.cpp")
+add_executable(testGetClosestCellsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestCellsInLine.cpp")
+
 add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDecoder.cpp")
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestSimplification.cpp")
@@ -70,6 +82,18 @@ target_link_libraries(testVectorAllCell PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorCellInRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorEveryNth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorSubData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testParallelCoordinatesData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVariableCorrelationData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVariableDensityData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testPlotLineData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testSetSelectionCallBack PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetClearSelectionCallBackFunc PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetPointsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetCellsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetClosestPointsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

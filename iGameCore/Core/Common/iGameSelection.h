@@ -55,7 +55,7 @@ public:
 
 public:
     static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
-                                             Points* points, CellArray* cellArrays, Painter3D* painter);
+                                             Points* points, CellArray* cellArrays, Painter3D* painter = nullptr);
 
 	void SelectionCallBackEvent(const std::vector<Event>& _events);
 

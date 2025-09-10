@@ -1,4 +1,4 @@
-#include "iGameVTKAbstractReader.h"
+﻿#include "iGameVTKAbstractReader.h"
 #include "iGameByteSwap.h"
 IGAME_NAMESPACE_BEGIN
 
@@ -1227,144 +1227,16 @@ CellArray::Pointer VTKAbstractReader::CreateCellArray(ArrayObject::Pointer Cells
 
 const void VTKAbstractReader::TransferVtkCellToiGameCell(ArrayObject::Pointer CellsID, ArrayObject::Pointer CellsConnect, IntArray::Pointer VtkCellsType)
 {
-	if (m_UnstructuredMesh == nullptr) {
-		m_UnstructuredMesh = UnstructuredMesh::New();
-	}
+    DataObject::Pointer Mesh = m_UnstructuredMesh;
 	this->m_DataObjectType = IG_UNSTRUCTURED_MESH;
-	int CellNum = VtkCellsType->GetNumberOfElements();
-	int index = 0;
-	int size = 0;
-	int vhs[IGAME_CELL_MAX_SIZE];
-	int st, ed;
-	for (int i = 0; i < CellNum; i++) {
-		st = static_cast<int>(CellsID->GetValue(i));
-		ed = static_cast<int>(CellsID->GetValue(i + 1));
-		size = ed - st;
-		for (int j = 0; j < size; j++) {
-			vhs[j] = static_cast<int>(CellsConnect->GetValue(st + j));
-		}
-		VTKTYPE type = (VTKTYPE)VtkCellsType->GetValue(i);
-		switch (type)
-		{
-		case iGame::VTKAbstractReader::T0:
-			break;
-		case iGame::VTKAbstractReader::VERTEX:
-			break;
-		case iGame::VTKAbstractReader::POLYVERTEX:
-			break;
-		case iGame::VTKAbstractReader::LINE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_LINE);
-			break;
-		case iGame::VTKAbstractReader::POLYLINE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_POLY_LINE);
-			break;
-		case iGame::VTKAbstractReader::TRIANGLE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_TRIANGLE);
-			break;
-		case iGame::VTKAbstractReader::TRIANGLESTRIP:
-			break;
-		case iGame::VTKAbstractReader::POLYGON:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_POLYGON);
-			break;
-		case iGame::VTKAbstractReader::PIXEL:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUAD);
-			break;
-		case iGame::VTKAbstractReader::QUAD:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUAD);
-			break;
-		case iGame::VTKAbstractReader::TETRA:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_TETRA);
-			break;
-		case iGame::VTKAbstractReader::VOXEL:
-			break;
-		case iGame::VTKAbstractReader::HEXAHEDRON:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_HEXAHEDRON);
-			break;
-		case iGame::VTKAbstractReader::WEDGE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_PRISM);
-			break;
-		case iGame::VTKAbstractReader::PYRAMID:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_PYRAMID);
-			break;
-		case iGame::VTKAbstractReader::PENTAGONAL_PRISM:
-			break;
-		case iGame::VTKAbstractReader::HEXAGONAL_PRISM:
-			break;
-		case iGame::VTKAbstractReader::T17:
-			break;
-		case iGame::VTKAbstractReader::T18:
-			break;
-		case iGame::VTKAbstractReader::T19:
-			break;
-		case iGame::VTKAbstractReader::T20:
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_EDGE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_EDGE);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_TRIANGLE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_TRIANGLE);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_QUAD:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_QUAD);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_TETRA:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_TETRA);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_HEXAHEDRON:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_HEXAHEDRON);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_WEDGE:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_PRISM);
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_PYRAMID:
-			m_UnstructuredMesh->AddCell(vhs, size, IG_QUADRATIC_PYRAMID);
-			break;
-		case iGame::VTKAbstractReader::BIQUADRATIC_QUAD:
-			break;
-		case iGame::VTKAbstractReader::TRIQUADRATIC_HEXAHEDRON:
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_LINEAR_QUAD:
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_LINEAR_WEDGE:
-			break;
-		case iGame::VTKAbstractReader::BIQUADRATIC_QUADRATIC_WEDGE:
-			break;
-		case iGame::VTKAbstractReader::BIQUADRATIC_QUADRATIC_HEXAHEDRON:
-			break;
-		case iGame::VTKAbstractReader::BIQUADRATIC_TRIANGLE:
-			break;
-		case iGame::VTKAbstractReader::CUBIC_LINE:
-			break;
-		case iGame::VTKAbstractReader::QUADRATIC_POLYGON:
-			break;
-		case iGame::VTKAbstractReader::TRIQUADRATIC_PYRAMID:
-			break;
-		case iGame::VTKAbstractReader::POLYHEDRON://42
-		{
-			m_UnstructuredMesh->AddCell(vhs, size, IG_POLYHEDRON);
-			//igIndex index = 0;
-			//igIndex realvhs[256];
-			//igIndex realsize = 0;
-			//while (index < size)
-			//{
-			//	realsize = vhs[index++];
-			//	for (igIndex id = 0; id < realsize; id++) {
-			//		realvhs[id] = vhs[index++];
-			//	}
-			//	Faces->AddCellIds(realvhs, realsize);
-			//}
-		}
-		break;
-		default:
-			break;
-		}
-	}
+    TransferVtkCellToiGameCell(Mesh, CellsID, CellsConnect, VtkCellsType);
+    m_UnstructuredMesh = DynamicCast<UnstructuredMesh>(Mesh);
 	this->UpdateReadProgress();
 }
 
 void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, ArrayObject::Pointer CellsID, ArrayObject::Pointer CellsConnect, ArrayObject::Pointer VtkCellsType)
 {
-    UnstructuredMesh::Pointer  mesh = UnstructuredMesh::New();
+    UnstructuredMesh::Pointer mesh = _mesh == nullptr ? nullptr : DynamicCast<UnstructuredMesh>(_mesh);
 	int CellNum = VtkCellsType->GetNumberOfElements();
 	int index = 0;
 	int size = 0;
@@ -1478,8 +1350,23 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
 			mesh->AddCell(vhs, size, IG_POLYHEDRON);
 		}
 		break;
-		default:
-			break;
+        case iGame::VTKAbstractReader::LAGRANGE_HEXAHEDRON:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_HEXAHEDRON);
+            break;
+        case iGame::VTKAbstractReader::LAGRANGE_PRISM:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_PRISM);
+            break;
+        case iGame::VTKAbstractReader::LAGRANGE_PYRAMID:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_PYRAMID);
+            break;
+        case iGame::VTKAbstractReader::LAGRANGE_QUADRILATERAL:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_QUADRILATERAL);
+            break;
+        case iGame::VTKAbstractReader::LAGRANGE_TRIANGLE:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_TRIANGLE);
+            break;
+        default:
+            break;
 		}
 	}
     _mesh = mesh;
