@@ -12,12 +12,25 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     InitUIControlParams();
     InitIntro();
     InitAttrFeatureDatas();
-    SetupErrorInputValidators();
+    // SetupErrorInputValidators();
     InitFeatureTabs();
     InitAttributeList();
 
     // 连接标签页切换信号
     connect(ui->tabDataDist, &QTabWidget::currentChanged, this, &igQtMeshCodecDialog::on_tabDataDist_currentChanged);
+
+    // 设置滑块控件属性
+    ui->sliderDefaultLevel->setMinimum(1);
+    ui->sliderDefaultLevel->setMaximum(10);
+    ui->sliderDefaultLevel->setTickInterval(1);
+
+    ui->sliderKeyLevel->setMinimum(1);
+    ui->sliderKeyLevel->setMaximum(10);
+    ui->sliderKeyLevel->setTickInterval(1);
+
+    ui->sliderNonKeyLevel->setMinimum(1);
+    ui->sliderNonKeyLevel->setMaximum(10);
+    ui->sliderNonKeyLevel->setTickInterval(1);
 }
 
 bool igQtMeshCodecDialog::IsVaildAttrIndex(int dataIndex)
@@ -32,7 +45,7 @@ bool igQtMeshCodecDialog::IsVaildFeatureIndex(int featureIndex)
 
 void igQtMeshCodecDialog::InitIntro()
 {
-    ui->lbIntro->setText("通过分析浮点数数据的涡度/梯度/拉普拉斯直方图以确定关键区域 \n在未确认关键区域情况下采用区域压缩强度模式将以非关键区域压缩强度处理数据 \n一键设置全体数据将不会覆盖区域压缩模式下的数据, 也不能将区域压缩设置应用于全体数据");
+    ui->lbIntro->setText("1. 通过浮点数数据的梯度/拉普拉斯直方图以选定关键区域 \n2. 在未选定关键区域并采用区域压缩等级模式时，将以非关键区域压缩等级处理数据 \n3. “将统一压缩等级应用到全体数据”将不会覆盖处于区域压缩等级模式下的数据, 亦不能将区域压缩等级应用于全体数据");
 }
 
 void igQtMeshCodecDialog::InitUIControlParams()
@@ -103,9 +116,15 @@ void igQtMeshCodecDialog::on_listAttributes_currentRowChanged(int dataIndex)
     // 更新参数中的属性名称
     const auto& errorBoundSetting = m_params.errorBoundSetting[dataIndex];
 
-    ui->txtDefaultError->setText(QString::number(errorBoundSetting.defaultErrorBound * 100.0));
-    ui->txtKeyError->setText(QString::number(errorBoundSetting.keyAreaErrorBound * 100.0));
-    ui->txtNonKeyError->setText(QString::number(errorBoundSetting.nonKeyAreaErrorBound * 100.0));
+    // 将百分比转为1-10的整数范围（百分比*10作为滑块值）
+    ui->sliderDefaultLevel->setValue(static_cast<int>(errorBoundSetting.defaultErrorBound * 10));
+    ui->sliderKeyLevel->setValue(static_cast<int>(errorBoundSetting.keyAreaErrorBound * 10));
+    ui->sliderNonKeyLevel->setValue(static_cast<int>(errorBoundSetting.nonKeyAreaErrorBound * 10));
+
+    // 更新数值显示标签（从滑块值获取）
+    ui->lblPercent1->setText(QString::number(ui->sliderDefaultLevel->value()));
+    ui->lblPercent2->setText(QString::number(ui->sliderKeyLevel->value()));
+    ui->lblPercent3->setText(QString::number(ui->sliderNonKeyLevel->value()));
 
     ui->radioLossless->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::None);
     ui->radioDefaultErrorBound->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::Default);
@@ -114,8 +133,7 @@ void igQtMeshCodecDialog::on_listAttributes_currentRowChanged(int dataIndex)
     ui->radioMantissaTruncation->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::MantissaTruncation);
     ui->radioLogQuantization->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::LogQuantization);
 
-    // 更新属性标题
-    ui->lblAttributeTitle->setText(tr("属性压缩强度设置 - %1").arg(
+    ui->lblAttributeTitle->setText(ui->lblAttributeTitle->property("textTemplate").toString().arg(
         QString::fromStdString(errorBoundSetting.dataName)));
     
     LoadAttrFeatureWidget();
@@ -311,6 +329,8 @@ void igQtMeshCodecDialog::LoadAllCheckBoxes() {
     }
 }
 
+// 原有输入验证函数，已保留但注释
+/*
 void igQtMeshCodecDialog::SetupErrorInputValidators()
 {
     // 使用正则表达式验证器
@@ -324,6 +344,7 @@ void igQtMeshCodecDialog::SetupErrorInputValidators()
     ui->txtKeyError->setValidator(validator);
     ui->txtNonKeyError->setValidator(validator);
 }
+*/
 
 void igQtMeshCodecDialog::on_btnRefreshDataDist_clicked()
 {
@@ -395,10 +416,10 @@ void igQtMeshCodecDialog::on_btnRefreshDataDist_clicked()
 void igQtMeshCodecDialog::on_radioLossless_toggled(bool checked)
 {
     if (checked) {
-        // 无损模式下，禁用所有误差输入框
-        ui->txtDefaultError->setEnabled(false);
-        ui->txtKeyError->setEnabled(false);
-        ui->txtNonKeyError->setEnabled(false);
+        // 无损模式下，禁用所有滑块控件
+        ui->sliderDefaultLevel->setEnabled(false);
+        ui->sliderKeyLevel->setEnabled(false);
+        ui->sliderNonKeyLevel->setEnabled(false);
         ui->btnRefreshDataDist->setEnabled(false);
 
         // 无损模式下，禁用右侧量化方式选择
@@ -414,10 +435,10 @@ void igQtMeshCodecDialog::on_radioLossless_toggled(bool checked)
 void igQtMeshCodecDialog::on_radioDefaultErrorBound_toggled(bool checked)
 {
     if (checked) {
-        // 默认误差模式下，仅启用默认误差输入框
-        ui->txtDefaultError->setEnabled(true);
-        ui->txtKeyError->setEnabled(false);
-        ui->txtNonKeyError->setEnabled(false);
+        // 默认误差模式下，仅启用默认滑块控件
+        ui->sliderDefaultLevel->setEnabled(true);
+        ui->sliderKeyLevel->setEnabled(false);
+        ui->sliderNonKeyLevel->setEnabled(false);
         ui->btnRefreshDataDist->setEnabled(false);
 
         // 默认误差模式下，启用右侧量化方式选择
@@ -433,10 +454,10 @@ void igQtMeshCodecDialog::on_radioDefaultErrorBound_toggled(bool checked)
 void igQtMeshCodecDialog::on_radioKeyErrorBound_toggled(bool checked)
 {
     if (checked) {
-        // 区域误差模式下，仅启用关键区域和非关键区域误差输入框
-        ui->txtDefaultError->setEnabled(false);
-        ui->txtKeyError->setEnabled(true);
-        ui->txtNonKeyError->setEnabled(true);
+        // 区域误差模式下，仅启用关键区域和非关键区域滑块控件
+        ui->sliderDefaultLevel->setEnabled(false);
+        ui->sliderKeyLevel->setEnabled(true);
+        ui->sliderNonKeyLevel->setEnabled(true);
         ui->btnRefreshDataDist->setEnabled(true);
 
 
@@ -460,6 +481,8 @@ void igQtMeshCodecDialog::on_radioLogQuantization_toggled(bool checked)
     m_params.errorBoundSetting[GetCurrentDataIndex()].lossyMode = iGame::LossyMode::LogQuantization;
 }
 
+// 原有输入框事件处理函数，已保留但注释
+/*
 void igQtMeshCodecDialog::on_txtDefaultError_textChanged(const QString& text)
 {
     m_params.errorBoundSetting[GetCurrentDataIndex()].defaultErrorBound = text.toFloat() / 100;
@@ -473,6 +496,47 @@ void igQtMeshCodecDialog::on_txtKeyError_textChanged(const QString& text)
 void igQtMeshCodecDialog::on_txtNonKeyError_textChanged(const QString& text)
 {
     m_params.errorBoundSetting[GetCurrentDataIndex()].nonKeyAreaErrorBound = text.toFloat() / 100;
+}
+*/
+
+// 新的滑块控件事件处理函数
+void igQtMeshCodecDialog::on_sliderDefaultLevel_valueChanged(int value)
+{
+    int dataIndex = GetCurrentDataIndex();
+    if (!IsVaildAttrIndex(dataIndex)) {
+        return;
+    }
+    // 将滑块值（1-10）转为百分比（滑块值/10）
+    m_params.errorBoundSetting[dataIndex].defaultErrorBound = static_cast<float>(value) / 10.0f;
+    
+    // 更新数值显示
+    ui->lblPercent1->setText(QString::number(value));
+}
+
+void igQtMeshCodecDialog::on_sliderKeyLevel_valueChanged(int value)
+{
+    int dataIndex = GetCurrentDataIndex();
+    if (!IsVaildAttrIndex(dataIndex)) {
+        return;
+    }
+    // 将滑块值（1-10）转为百分比（滑块值/10）
+    m_params.errorBoundSetting[dataIndex].keyAreaErrorBound = static_cast<float>(value) / 10.0f;
+    
+    // 更新数值显示
+    ui->lblPercent2->setText(QString::number(value));
+}
+
+void igQtMeshCodecDialog::on_sliderNonKeyLevel_valueChanged(int value)
+{
+    int dataIndex = GetCurrentDataIndex();
+    if (!IsVaildAttrIndex(dataIndex)) {
+        return;
+    }
+    // 将滑块值（1-10）转为百分比（滑块值/10）
+    m_params.errorBoundSetting[dataIndex].nonKeyAreaErrorBound = static_cast<float>(value) / 10.0f;
+    
+    // 更新数值显示
+    ui->lblPercent3->setText(QString::number(value));
 }
 
 void igQtMeshCodecDialog::on_cbVisualizeError_stateChanged(int state)
@@ -716,7 +780,7 @@ void igQtMeshCodecDialog::on_btnSetGlobalCompressMode_clicked()
 
     if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea)
     {
-        QMessageBox::information(this, "提示", "不能将区域压缩强度设置应用于全体数据");
+        QMessageBox::information(this, "提示", "不能将区域压缩等级设置应用于全体数据");
         return;
     }
 

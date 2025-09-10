@@ -2287,6 +2287,7 @@ bool MeshSimplifier::Execute()
         std::vector<Point3> VertexPositions;
         std::vector<Attribute> VertexAttributes;
         std::vector<float> AttributeWeights;
+
         size_t TargetCount;
         float TargetError;
 
@@ -2310,7 +2311,14 @@ bool MeshSimplifier::Execute()
                 AttributeWeights.push_back(1);
             }
         }
-        TargetCount = Indices.size() / 2;
+        if (TargetFaceCount != 0) 
+        { 
+            TargetCount = TargetFaceCount * 3;
+        }
+        else
+        {
+            TargetCount = Indices.size() * (1 - this->TargetReduction);
+        }
         TargetError = 0.01f;
 
         TriMeshInternalSimplifier Simplifier(Indices, VertexPositions, VertexAttributes, AttributeWeights, TargetCount,
