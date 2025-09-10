@@ -426,6 +426,9 @@ void igQtMeshCodecDialog::on_radioLossless_toggled(bool checked)
         ui->radioMantissaTruncation->setEnabled(false);
         ui->radioLogQuantization->setEnabled(false);
 
+        // 无损模式下，启用全体数据设置按钮
+        ui->btnSetGlobalCompressMode->setEnabled(true);
+
         DisableAllCheckBoxes();
 
         m_params.errorBoundSetting[GetCurrentDataIndex()].errorMode = iGame::ErrorMode::None;
@@ -445,6 +448,9 @@ void igQtMeshCodecDialog::on_radioDefaultErrorBound_toggled(bool checked)
         ui->radioMantissaTruncation->setEnabled(true);
         ui->radioLogQuantization->setEnabled(true);
 
+        // 统一压缩等级模式下，启用全体数据设置按钮
+        ui->btnSetGlobalCompressMode->setEnabled(true);
+
         DisableAllCheckBoxes();
 
         m_params.errorBoundSetting[GetCurrentDataIndex()].errorMode = iGame::ErrorMode::Default;
@@ -460,6 +466,8 @@ void igQtMeshCodecDialog::on_radioKeyErrorBound_toggled(bool checked)
         ui->sliderNonKeyLevel->setEnabled(true);
         ui->btnRefreshDataDist->setEnabled(true);
 
+        // 区域压缩模式下，禁用全体数据设置按钮
+        ui->btnSetGlobalCompressMode->setEnabled(false);
 
         // 区域误差模式下，启用右侧量化方式选择
         ui->radioMantissaTruncation->setEnabled(true);
@@ -778,11 +786,11 @@ void igQtMeshCodecDialog::on_btnSetGlobalCompressMode_clicked()
     if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
         return;
 
-    if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea)
-    {
-        QMessageBox::information(this, "提示", "不能将区域压缩等级设置应用于全体数据");
-        return;
-    }
+    // if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea)
+    // {
+    //     QMessageBox::information(this, "提示", "不能将区域压缩等级设置应用于全体数据");
+    //     return;
+    // }
 
     auto copySetting = m_params.errorBoundSetting[dataIndex];
 

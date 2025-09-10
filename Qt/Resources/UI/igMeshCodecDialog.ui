@@ -352,7 +352,7 @@
 										 <item>
 											 <widget class="QRadioButton" name="radioLossless">
 												 <property name="text">
-													 <string>无损模式</string>
+													 <string>无损压缩模式</string>
 												 </property>
 												 <property name="checked">
 													 <bool>true</bool>
@@ -422,6 +422,19 @@
 												 </attribute>
 											 </widget>
 										 </item>
+										 <item>
+											 <spacer name="horizontalSpacer_quantization">
+												 <property name="orientation">
+													 <enum>Qt::Horizontal</enum>
+												 </property>
+												 <property name="sizeHint" stdset="0">
+													 <size>
+														 <width>40</width>
+														 <height>20</height>
+													 </size>
+												 </property>
+											 </spacer>
+										 </item>
 									 </layout>
 								 </item>
 							 </layout>
@@ -448,7 +461,7 @@
 									 </sizepolicy>
 								 </property>
 								 <property name="text">
-									 <string>将统一压缩等级应用到全体数据</string>
+									 <string>将设置应用到全体数据</string>
 								 </property>
 							 </widget>
 						 </item>
