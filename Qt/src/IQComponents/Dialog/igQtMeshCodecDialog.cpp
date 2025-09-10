@@ -131,7 +131,7 @@ void igQtMeshCodecDialog::on_listAttributes_currentRowChanged(int dataIndex)
     ui->radioKeyErrorBound->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::KeyArea);
 
     ui->radioMantissaTruncation->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::MantissaTruncation);
-    ui->radioLogQuantization->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::LogQuantization);
+    ui->radioLogQuantization->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::Quantization);
 
     ui->lblAttributeTitle->setText(ui->lblAttributeTitle->property("textTemplate").toString().arg(
         QString::fromStdString(errorBoundSetting.dataName)));
@@ -486,7 +486,7 @@ void igQtMeshCodecDialog::on_radioMantissaTruncation_toggled(bool checked)
 
 void igQtMeshCodecDialog::on_radioLogQuantization_toggled(bool checked)
 {
-    m_params.errorBoundSetting[GetCurrentDataIndex()].lossyMode = iGame::LossyMode::LogQuantization;
+    m_params.errorBoundSetting[GetCurrentDataIndex()].lossyMode = iGame::LossyMode::Quantization;
 }
 
 // 原有输入框事件处理函数，已保留但注释

@@ -33,7 +33,7 @@ public:
 		float min_val = source[0];
 
 
-		auto LogQuantize = [&](float value, int bits) -> float {
+		auto Quantize = [&](float value, int bits) -> float {
 			if (value == 0.0f) {
 				return 0.0f;
 			}
@@ -57,7 +57,7 @@ public:
 			return maxBits - cappedIndex;
 			};
 
-		auto LogStrengthToBits = [=](float strength) -> int {
+		auto QuantizeStrengthToBits = [=](float strength) -> int {
 			// 损坏最高 损坏最低
 				return StrengthToBits(strength, 8, 32);
 			};
@@ -67,7 +67,7 @@ public:
 			return StrengthToBits(strength, 4, 23);
 			};
 
-		auto LogErrorToBits = [&](double epsilon) -> int {
+		auto QuantizeErrorToBits = [&](double epsilon) -> int {
 			float minValue = *std::min_element(source.begin(), source.end());
 			float maxValue = *std::max_element(source.begin(), source.end());
 
@@ -136,7 +136,7 @@ public:
 		{
 			switch (floatParams.lossyMode)
 			{
-			case LossyMode::LogQuantization:
+			case LossyMode::Quantization:
 			{
 				for (const auto& val : source) {
 					if (val > max_val) {
@@ -147,7 +147,7 @@ public:
 					}
 				}
 
-				doQuantize(LogQuantize, LogStrengthToBits);
+				doQuantize(Quantize, QuantizeStrengthToBits);
 				break;
 			}
 			case LossyMode::MantissaTruncation:
