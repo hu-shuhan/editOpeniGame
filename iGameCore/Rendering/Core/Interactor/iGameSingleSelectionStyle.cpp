@@ -72,7 +72,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                 }
             }
 
-            if (m_Select_OR_UnSelect) {
+            if (m_SelectOrUnSelect) {
                 auto events = Selection::GenerateEvents(
                         selectedPointIds, IG_POINT,
                         Selection::Event::Operate::Add, m_Points.get(),
@@ -223,7 +223,7 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
                 }
             }
 
-            if (m_Select_OR_UnSelect) {
+            if (m_SelectOrUnSelect) {
                 auto events = Selection::GenerateEvents(
                         selectedCellIds, IG_CELL,
                         Selection::Event::Operate::Add, m_Points.get(),

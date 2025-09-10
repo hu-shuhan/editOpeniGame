@@ -5,13 +5,13 @@ bool iGameGetClosestPointsInLine::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_Radius < 0) return false;
-    RUN();
+    Run();
     return true;
 }
 
 const std::vector<int>& iGameGetClosestPointsInLine::GetResult() { return m_Ids; }
 
-void iGameGetClosestPointsInLine::RUN() {
+void iGameGetClosestPointsInLine::Run() {
     m_Ids.clear();
     SmartPointer<PointPicker> picker = PointPicker::New();
     picker->SetDataObject(m_Mesh);

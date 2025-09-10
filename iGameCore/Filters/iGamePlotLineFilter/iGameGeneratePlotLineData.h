@@ -15,7 +15,7 @@ public:
     bool Execute() override;
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameGeneratePlotLineData(IGenum dataType, const Point& startPoint, const Point& endPoint);

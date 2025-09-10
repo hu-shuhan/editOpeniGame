@@ -5,12 +5,12 @@ bool iGameSetCellsSelect::Execute() {
     if (m_Mesh.IsNull()) return false;
     if (m_Operate != Selection::Event::Add || m_Operate != Selection::Event::Remove) return false;
     if (m_Points == nullptr || m_CellArrays == nullptr) return false;
-    RUN();
+    Run();
     SetOutput(0, m_Mesh);
     return true;
 }
 
-void iGameSetCellsSelect::RUN() {
+void iGameSetCellsSelect::Run() {
     auto selection = m_Mesh->GetSelection();
     auto Events = Selection::GenerateEvents(m_Ids, IG_CELL, m_Operate, m_Points, m_CellArrays, m_Painter);
     selection->SelectionCallBackEvent(Events);

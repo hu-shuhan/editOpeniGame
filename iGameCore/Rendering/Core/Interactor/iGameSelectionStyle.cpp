@@ -31,7 +31,7 @@ void SelectionStyle::SetSelectRadius(double selectRadius) {
 }
 
 void SelectionStyle::SetSelectOrUnSelect(bool select) {
-    m_Select_OR_UnSelect = select;
+    m_SelectOrUnSelect = select;
 }
 
 double SelectionStyle::GetSelectRadius() const { return m_SelectRadius; }

@@ -3,12 +3,12 @@ IGAME_NAMESPACE_BEGIN
 bool iGameSetSelectionCallBackFunc::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
-    RUN();
+    Run();
     SetOutput(0, m_Mesh);
     return true;
 }
 
-void iGameSetSelectionCallBackFunc::RUN() {
+void iGameSetSelectionCallBackFunc::Run() {
     auto selection = m_Mesh->GetSelection();
     selection->_SetSelectionCallBackEvent_(m_FuncName, m_Func);
 }

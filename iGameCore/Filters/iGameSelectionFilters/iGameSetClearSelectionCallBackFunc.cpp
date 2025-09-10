@@ -3,12 +3,12 @@ IGAME_NAMESPACE_BEGIN
 bool iGameSetClearSelectionCallBackFunc::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
-    RUN();
+    Run();
     SetOutput(0, m_Mesh);
     return true;
 }
 
-void iGameSetClearSelectionCallBackFunc::RUN() {
+void iGameSetClearSelectionCallBackFunc::Run() {
     auto selection = m_Mesh->GetSelection();
     selection->_SetClearSelectionCallBackEvent_(m_FuncName, m_Func);
 }
