@@ -169,7 +169,11 @@ void DataChangeData::SetMaxValue(double value) { m_MaxValue = value; }
 double DataChangeData::GetMaxValue() const { return m_MaxValue; }
 void DataChangeData::SetMinValue(double value) { m_MinValue = value; }
 double DataChangeData::GetMinValue() const { return m_MinValue; }
+
+//[objId, objIndex in m_ObjDistance and m_ObjectDatas]
 void DataChangeData::SetObjIndexs(const std::map<int, int>& objIndexs) { m_ObjIndexs = objIndexs; }
+
+//[objId, objIndex in m_ObjDistance and m_ObjectDatas]
 const std::map<int, int>& DataChangeData::GetObjIndexs() { return m_ObjIndexs; }
 
 std::map<int, int> DataChangeData::GenerateObjIndex(const Point& startPoint, const Point& endPoint,

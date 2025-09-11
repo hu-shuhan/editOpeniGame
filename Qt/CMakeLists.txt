@@ -11,6 +11,10 @@ else ()
     #    set(Qt5_DIR "C:/Qt//Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
 
+if (UNIX)
+    set(Qt5_DIR "$ENV{HOME}/Qt5.14.2/5.14.2/gcc_64/lib/cmake/Qt5")
+endif()
+
 set(MODULE_NAME Qt_module)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON) #将编译目录包含到Include目录，否则编译器会找不到qt编译的这些头文件
@@ -35,7 +39,6 @@ find_program(DEPLOYQT_EXECUTABLE NAMES windeployqt macdeployqt HINTS "${_qt_bin_
 
 
 file(GLOB_RECURSE QT_SRCS CONFIGURE_DEPENDS src/*.cpp include/*.h Plugin/*)
-
 
 if(IGAME_BUILD_SHARED)
     add_library(${MODULE_NAME} SHARED
@@ -74,7 +77,6 @@ list(APPEND LINK_LIBS
         Qt5::Charts
         Qt5::Svg
         iGameCore_module
-        #iGameRendering_module
 )
 
 if (EMSCRIPTEN)

@@ -312,7 +312,9 @@ void Scene::InitOpenGL() {
 #endif
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
+#ifdef IGAME_OPENGL_VERSION_460
     glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+#endif
 
     // create empty VAO to render full-screen triangle
     m_EmptyVAO->Create();
