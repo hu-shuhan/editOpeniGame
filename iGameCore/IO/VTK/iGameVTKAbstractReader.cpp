@@ -1350,6 +1350,9 @@ void VTKAbstractReader::TransferVtkCellToiGameCell(DataObject::Pointer& _mesh, A
 			mesh->AddCell(vhs, size, IG_POLYHEDRON);
 		}
 		break;
+        case iGame::VTKAbstractReader::LAGRANGE_TETRAHEDRON:
+            mesh->AddCell(vhs, size, IG_LAGRANGE_TETRAHEDRON);
+			break;
         case iGame::VTKAbstractReader::LAGRANGE_HEXAHEDRON:
             mesh->AddCell(vhs, size, IG_LAGRANGE_HEXAHEDRON);
             break;

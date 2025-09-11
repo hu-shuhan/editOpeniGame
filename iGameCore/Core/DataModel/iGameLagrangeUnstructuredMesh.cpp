@@ -1,4 +1,4 @@
-#include "iGameLagrangeUnstructuredMesh.h"
+ï»¿#include "iGameLagrangeUnstructuredMesh.h"
 #include "iGameDataObject.h"
 #include "iGameVolume.h"
 #include <cmath>
@@ -17,7 +17,7 @@ Point& operator+=(Point& p1, const Point& p2) {
     return p1;
 }
 
-//Éú³Ép½×À­¸ñÀÊÈÕµ¥ÔªµÄ1D²Î¿¼×ø±ê
+//ç”Ÿæˆpé˜¶æ‹‰æ ¼æœ—æ—¥å•å…ƒçš„1Då‚è€ƒåæ ‡
 std::vector<double> GetLagrangeNodeCoordinates1D(int order) {
     std::vector<double> coords(order + 1);
     for (int i = 0; i <= order; ++i) { coords[i] = -1.0 + 2.0 * static_cast<double>(i) / order; }
@@ -33,10 +33,10 @@ double CardinalPolynomial(double L, int p, int i) {
     return res / factorial_i;
 }
 
-// ¼ÆËã1DÀ­¸ñÀÊÈÕ»ùº¯Êı L_i(u) µÄÖµ
-// u: ÒªÇóÖµµÄ×ø±êµã
-// i: µÚ i ¸ö»ùº¯Êı (¶ÔÓ¦µÚ i ¸ö½Úµã)
-// node_coords: ËùÓĞ½ÚµãµÄ×ø±êÁĞ±í
+// è®¡ç®—1Dæ‹‰æ ¼æœ—æ—¥åŸºå‡½æ•° L_i(u) çš„å€¼
+// u: è¦æ±‚å€¼çš„åæ ‡ç‚¹
+// i: ç¬¬ i ä¸ªåŸºå‡½æ•° (å¯¹åº”ç¬¬ i ä¸ªèŠ‚ç‚¹)
+// node_coords: æ‰€æœ‰èŠ‚ç‚¹çš„åæ ‡åˆ—è¡¨
 double LagrangeBasis1D(double u, int i, const std::vector<double>& node_coords) {
     double result = 1.0;
     double ui = node_coords[i];
@@ -50,7 +50,7 @@ double LagrangeBasis1D(double u, int i, const std::vector<double>& node_coords) 
 
 
 Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u, double v) {
-    // ¼ì²é¿ØÖÆµãÊıÁ¿ÊÇ·ñÓë´¿À­¸ñÀÊÈÕµ¥ÔªµÄ¹«Ê½Æ¥Åä
+    // æ£€æŸ¥æ§åˆ¶ç‚¹æ•°é‡æ˜¯å¦ä¸çº¯æ‹‰æ ¼æœ—æ—¥å•å…ƒçš„å…¬å¼åŒ¹é…
     size_t expected_points = (size_t) (order + 1) * (order + 1);
     if (cp.size() < expected_points) return {};
 
@@ -65,7 +65,7 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
     Point interpolated_point{0,0,0};
     int k = 0;
 
-    // 1. ´¦Àí4¸ö½Çµã
+    // 1. å¤„ç†4ä¸ªè§’ç‚¹
     if (k < cp.size()) {
         double N = u_basis[0] * v_basis[0];
         for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
@@ -87,7 +87,7 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
         k++;
     }
 
-    // 2. ´¦Àí (order-1)*4 ¸ö±ß½Úµã
+    // 2. å¤„ç† (order-1)*4 ä¸ªè¾¹èŠ‚ç‚¹
     if (order > 1) {
         for (int i = 1; i < order; ++i) {
             if (k >= cp.size()) break;
@@ -115,7 +115,7 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
         }
     }
 
-    // 3. ´¦ÀíÄÚ²¿½Úµã
+    // 3. å¤„ç†å†…éƒ¨èŠ‚ç‚¹
     if (order > 1) {
         for (int j = 1; j < order; ++j) {
             for (int i = 1; i < order; ++i) {
@@ -134,7 +134,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     if (order == 2) {
         if (controlPoints.size() < 6) return {};
 
-        // ĞÎº¯Êı
+        // å½¢å‡½æ•°
         double N0 = (1.0 - r - s) * (1.0 - 2.0 * r - 2.0 * s);
         double N1 = r * (2.0 * r - 1.0);
         double N2 = s * (2.0 * s - 1.0);
@@ -149,7 +149,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
         const Point& P4 = controlPoints[4];
         const Point& P5 = controlPoints[5];
 
-        // ¼ÆËã×ø±ê
+        // è®¡ç®—åæ ‡
         Point result;
         for (int i = 0; i < 3; ++i) {
             result[i] = P0[i] * N0 + P1[i] * N1 + P2[i] * N2 + P3[i] * N3 + P4[i] * N4 + P5[i] * N5;
@@ -164,7 +164,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     Point interpolated_point{0,0,0};
     int k = 0;
 
-    // 1. ´¦Àí3¸ö½Çµã
+    // 1. å¤„ç†3ä¸ªè§’ç‚¹
     if (k < controlPoints.size()) {
         double N = CardinalPolynomial(L2, order, 0) * CardinalPolynomial(L3, order, 0) *
                    CardinalPolynomial(L1, order, order);
@@ -187,9 +187,9 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
         k++;
     }
 
-    // 2. ´¦Àí (order-1)*3 ¸ö±ß½Úµã
+    // 2. å¤„ç† (order-1)*3 ä¸ªè¾¹èŠ‚ç‚¹
     if (order > 1) {
-        // ±ß 1-2
+        // è¾¹ 1-2
         for (int i = 1; i < order; ++i) {
             if (k >= controlPoints.size()) break;
             double N = CardinalPolynomial(L2, order, i) * CardinalPolynomial(L3, order, 0) *
@@ -198,7 +198,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
             for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
             k++;
         }
-        // ±ß 2-3
+        // è¾¹ 2-3
         for (int i = 1; i < order; ++i) {
             if (k >= controlPoints.size()) break;
             double N = CardinalPolynomial(L2, order, order - i) * CardinalPolynomial(L3, order, i) *
@@ -207,7 +207,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
             for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
             k++;
         }
-        // ±ß 3-1
+        // è¾¹ 3-1
         for (int i = 1; i < order; ++i) {
             if (k >= controlPoints.size()) break;
             double N = CardinalPolynomial(L2, order, 0) * CardinalPolynomial(L3, order, order - i) *
@@ -218,7 +218,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
         }
     }
 
-    // 3. ´¦ÀíÄÚ²¿½Úµã
+    // 3. å¤„ç†å†…éƒ¨èŠ‚ç‚¹
     if (order > 2) {
         for (int j = 1; j < order - 1; ++j) {
             for (int i = 1; i < order - j; ++i) {
@@ -236,7 +236,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     return interpolated_point;
 }
 
-//Ï¸·Öº¯Êı
+//ç»†åˆ†å‡½æ•°
 void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell_type, int order, int divisions,
                             std::vector<Point>& outPoints, std::vector<igIndex>& outTriangleIndices,
                             std::vector<unsigned char>& outTriangleEdgeMasks) {
@@ -267,25 +267,25 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
                 localGridIndices[j][i] = outPoints.size() - 1;
             }
         }
-        // ±éÀúÃ¿¸öĞ¡ËÄ±ßĞÎÍø¸ñ£¬²¢ÎªÉú³ÉµÄÁ½¸öĞ¡Èı½ÇĞÎ¼ÆËã¾«È·µÄ±ßÑÚÂë
+        // éå†æ¯ä¸ªå°å››è¾¹å½¢ç½‘æ ¼ï¼Œå¹¶ä¸ºç”Ÿæˆçš„ä¸¤ä¸ªå°ä¸‰è§’å½¢è®¡ç®—ç²¾ç¡®çš„è¾¹æ©ç 
         for (int j = 0; j < divisions; ++j) {
             for (int i = 0; i < divisions; ++i) {
                 igIndex p00 = localGridIndices[j][i], p10 = localGridIndices[j][i + 1];
                 igIndex p01 = localGridIndices[j + 1][i], p11 = localGridIndices[j + 1][i + 1];
 
-                // µÚÒ»¸öÈı½ÇĞÎ T1 = (p00, p10, p11)
-                // ±ß¶¨Òå: 0=(p00-p10), 1=(p10-p11), 2=(p11-p00)
+                // ç¬¬ä¸€ä¸ªä¸‰è§’å½¢ T1 = (p00, p10, p11)
+                // è¾¹å®šä¹‰: 0=(p00-p10), 1=(p10-p11), 2=(p11-p00)
                 unsigned char mask1 = 0;
-                if (j == 0) mask1 |= 1;             // Èç¹ûÔÚµ×²¿£¬ÏÔÊ¾±ß 0
-                if (i == divisions - 1) mask1 |= 2; // Èç¹ûÔÚÓÒ²à£¬ÏÔÊ¾±ß 1
+                if (j == 0) mask1 |= 1;             // å¦‚æœåœ¨åº•éƒ¨ï¼Œæ˜¾ç¤ºè¾¹ 0
+                if (i == divisions - 1) mask1 |= 2; // å¦‚æœåœ¨å³ä¾§ï¼Œæ˜¾ç¤ºè¾¹ 1
                 outTriangleIndices.insert(outTriangleIndices.end(), {p00, p10, p11});
                 outTriangleEdgeMasks.push_back(mask1);
 
-                // µÚ¶ş¸öÈı½ÇĞÎ T2 = (p00, p11, p01)
-                // ±ß¶¨Òå: 0=(p00-p11), 1=(p11-p01), 2=(p01-p00)
+                // ç¬¬äºŒä¸ªä¸‰è§’å½¢ T2 = (p00, p11, p01)
+                // è¾¹å®šä¹‰: 0=(p00-p11), 1=(p11-p01), 2=(p01-p00)
                 unsigned char mask2 = 0;
-                if (j == divisions - 1) mask2 |= 2; // Èç¹ûÔÚ¶¥²¿£¬ÏÔÊ¾±ß 1
-                if (i == 0) mask2 |= 4;             // Èç¹ûÔÚ×ó²à£¬ÏÔÊ¾±ß 2
+                if (j == divisions - 1) mask2 |= 2; // å¦‚æœåœ¨é¡¶éƒ¨ï¼Œæ˜¾ç¤ºè¾¹ 1
+                if (i == 0) mask2 |= 4;             // å¦‚æœåœ¨å·¦ä¾§ï¼Œæ˜¾ç¤ºè¾¹ 2
                 outTriangleIndices.insert(outTriangleIndices.end(), {p00, p11, p01});
                 outTriangleEdgeMasks.push_back(mask2);
             }
@@ -313,19 +313,19 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
                 igIndex p00 = localGridIndices[j][i], p10 = localGridIndices[j][i + 1],
                         p01 = localGridIndices[j + 1][i];
 
-                // ¡°³¯ÏÂ¡±µÄĞ¡Èı½ÇĞÎ T_down = (p00, p10, p01)
-                // ±ß¶¨Òå: 0=(p00-p10), 1=(p10-p01), 2=(p01-p00)
+                // â€œæœä¸‹â€çš„å°ä¸‰è§’å½¢ T_down = (p00, p10, p01)
+                // è¾¹å®šä¹‰: 0=(p00-p10), 1=(p10-p01), 2=(p01-p00)
                 unsigned char mask_down = 0;
-                if (j == 0) mask_down |= 1;                 // Èç¹ûÔÚµ×²¿ (s=0)£¬ÏÔÊ¾±ß 0
-                if (i + j == divisions - 1) mask_down |= 2; // Èç¹ûÔÚĞ±±ß (r+s=1)£¬ÏÔÊ¾±ß 1
-                if (i == 0) mask_down |= 4;                 // Èç¹ûÔÚ×ó²à (r=0)£¬ÏÔÊ¾±ß 2
+                if (j == 0) mask_down |= 1;                 // å¦‚æœåœ¨åº•éƒ¨ (s=0)ï¼Œæ˜¾ç¤ºè¾¹ 0
+                if (i + j == divisions - 1) mask_down |= 2; // å¦‚æœåœ¨æ–œè¾¹ (r+s=1)ï¼Œæ˜¾ç¤ºè¾¹ 1
+                if (i == 0) mask_down |= 4;                 // å¦‚æœåœ¨å·¦ä¾§ (r=0)ï¼Œæ˜¾ç¤ºè¾¹ 2
                 outTriangleIndices.insert(outTriangleIndices.end(), {p00, p10, p01});
                 outTriangleEdgeMasks.push_back(mask_down);
 
-                // Èç¹û´æÔÚ£¬´¦Àí¡°³¯ÉÏ¡±µÄĞ¡Èı½ÇĞÎ T_up = (p10, p11, p01)
+                // å¦‚æœå­˜åœ¨ï¼Œå¤„ç†â€œæœä¸Šâ€çš„å°ä¸‰è§’å½¢ T_up = (p10, p11, p01)
                 if (i < divisions - j - 1) {
                     igIndex p11 = localGridIndices[j + 1][i + 1];
-                    // T_up µÄËùÓĞÈıÌõ±ß¶¼ÔÚÄÚ²¿£¬ËùÒÔÑÚÂëÓÀÔ¶ÊÇ0
+                    // T_up çš„æ‰€æœ‰ä¸‰æ¡è¾¹éƒ½åœ¨å†…éƒ¨ï¼Œæ‰€ä»¥æ©ç æ°¸è¿œæ˜¯0
                     outTriangleIndices.insert(outTriangleIndices.end(), {p10, p11, p01});
                     outTriangleEdgeMasks.push_back(0);
                 }
@@ -334,10 +334,10 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
     }
 }
 
-// --- µ¥Ôª¹¤³§º¯Êı ---
+// --- å•å…ƒå·¥å‚å‡½æ•° ---
 Cell* GetTypedCell(IGenum type) {
 
-    // À­¸ñÀÊÈÕµ¥Ôª
+    // æ‹‰æ ¼æœ—æ—¥å•å…ƒ
     static LagrangeLine::Pointer s_LagrangeLine = LagrangeLine::New();
     static LagrangeTriangle::Pointer s_LagrangeTriangle = LagrangeTriangle::New();
     static LagrangeQuadrilateral::Pointer s_LagrangeQuad = LagrangeQuadrilateral::New();
@@ -369,7 +369,7 @@ Cell* GetTypedCell(IGenum type) {
 } // end anonymous namespace
 
 
-// --- Àà³ÉÔ±º¯ÊıÊµÏÖ ---
+// --- ç±»æˆå‘˜å‡½æ•°å®ç° ---
 
 LagrangeUnstructuredMesh::LagrangeUnstructuredMesh() {
     m_ViewStyle = IG_SURFACE;
@@ -419,7 +419,7 @@ Cell* LagrangeUnstructuredMesh::GetCell(const IGsize cellId) {
     cell->m_Points->SetNumberOfPoints(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
         cell->m_PointIds->SetId(i, ids[i]);
-        // GetPoint(ids[i]) ´Ó m_Points ÖĞ»ñÈ¡µã
+        // GetPoint(ids[i]) ä» m_Points ä¸­è·å–ç‚¹
         cell->m_Points->SetPoint(i, GetPoint(ids[i]));
     }
 
@@ -431,7 +431,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         m_ReConvertToDrawableData = false;
         std::vector<std::vector<int>> rawLineIndices;
         auto finalPoints = Points::New();
-        // ÓÃÓÚÊÕ¼¯¸ß½×µ¥ÔªÏ¸·Öºó½á¹ûµÄÁÙÊ±»º³åÇø
+        // ç”¨äºæ”¶é›†é«˜é˜¶å•å…ƒç»†åˆ†åç»“æœçš„ä¸´æ—¶ç¼“å†²åŒº
         auto tessellatedPoints = Points::New();
         auto highOrderTriangleIndices = UnsignedIntArray::New();
 
@@ -444,31 +444,25 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         const int tessellation_divisions = 8;
         const igIndex numOriginalPoints = m_Points->GetNumberOfPoints();
         if (numOriginalPoints > 0) {
-            // ½«ËùÓĞÔ­Ê¼¶¥µãÍêÕûµØ¸´ÖÆµ½×îÖÕ¶¥µã»º³åÇø
+            // å°†æ‰€æœ‰åŸå§‹é¡¶ç‚¹å®Œæ•´åœ°å¤åˆ¶åˆ°æœ€ç»ˆé¡¶ç‚¹ç¼“å†²åŒº
             finalPoints->SetNumberOfPoints(numOriginalPoints);
             memcpy(finalPoints->RawPointer(), m_Points->RawPointer(), numOriginalPoints * sizeof(Point));
-            // ÎªËùÓĞÔ­Ê¼¶¥µã´´½¨Ë÷Òı£¬ÒÔ±ã½«ËüÃÇ×÷ÎªµãÔÆäÖÈ¾
+            // ä¸ºæ‰€æœ‰åŸå§‹é¡¶ç‚¹åˆ›å»ºç´¢å¼•ï¼Œä»¥ä¾¿å°†å®ƒä»¬ä½œä¸ºç‚¹äº‘æ¸²æŸ“
             pointIndices->SetDimension(1);
             pointIndices->Resize(numOriginalPoints);
             for (igIndex i = 0; i < numOriginalPoints; ++i) { pointIndices->SetValue(i, i); }
         }
-        auto& Quality = GetAttributeSet()->GetScalar("quality");
-        m_CellQualityData = Quality.GetPointer();
-        //´Ó¸ß½×ºÍÏßĞÔµ¥ÔªÖĞÊÕ¼¯ËùÓĞÈı½ÇĞÎË÷Òı
+        //ä»é«˜é˜¶å’Œçº¿æ€§å•å…ƒä¸­æ”¶é›†æ‰€æœ‰ä¸‰è§’å½¢ç´¢å¼•
         for (int id = 0; id < GetNumberOfCells(); id++) {
             int order = GetCellOrder(id);
             if (order < 2) std::cerr << "error cell type";
-
-            // ¼ÆËãµ±Ç°Ô­Ê¼µ¥ÔªµÄÖÊÁ¿Öµ
-            float face_quality = 0; 
-            face_quality = m_CellQualityData->GetValue(id);
 
             const igIndex* cell_node_ids = nullptr;
             GetCellPointIds(id, cell_node_ids);
             Cell* cell = GetCell(id);
             if (!cell) continue;
 
-            // Éú³ÉÏß¿ò 
+            // ç”Ÿæˆçº¿æ¡† 
             const int num_edges = cell->GetNumberOfEdges();
             for (int i = 0; i < num_edges; ++i) {
                 const igIndex* edge_pt_ids = nullptr;
@@ -485,8 +479,8 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
                     rawLineIndices.push_back(temp);
                 }
             }
-            // ¶Ô¸ß½×µ¥ÔªµÄÃæ½øĞĞÇúÃæÏ¸·Ö
-            auto process_face = [&](Cell* face_cell, float quality_value) {
+            // å¯¹é«˜é˜¶å•å…ƒçš„é¢è¿›è¡Œæ›²é¢ç»†åˆ†
+            auto process_face = [&](Cell* face_cell) {
                 if (!face_cell) return;
                 std::vector<Point> controlPoints;
                 for (int j = 0; j < face_cell->GetNumberOfPoints(); ++j)
@@ -497,33 +491,29 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
                 TessellateLagrangeFace(controlPoints, face_cell->GetCellType(), order, tessellation_divisions,
                                        localPoints, localTriangleIndices, localTriangleEdgeMasks);
                 igIndex pointOffset = finalPoints->GetNumberOfPoints();
-                // ½«ĞÂÉú³ÉµÄ¾Ö²¿¶¥µã×·¼Óµ½È«¾Ö¶¥µãÁĞ±í
+                // å°†æ–°ç”Ÿæˆçš„å±€éƒ¨é¡¶ç‚¹è¿½åŠ åˆ°å…¨å±€é¡¶ç‚¹åˆ—è¡¨
                 for (const auto& p: localPoints) { finalPoints->AddPoint(p); }
-                // ½«´øÆ«ÒÆÁ¿µÄ¾Ö²¿Ë÷Òı×·¼Óµ½È«¾ÖË÷ÒıÁĞ±í
+                // å°†å¸¦åç§»é‡çš„å±€éƒ¨ç´¢å¼•è¿½åŠ åˆ°å…¨å±€ç´¢å¼•åˆ—è¡¨
                 for (const auto& idx: localTriangleIndices) { triangleIndices->AddValue(idx + pointOffset); }
-                // ×·¼Ó±ßÑÚÂë
+                // è¿½åŠ è¾¹æ©ç 
                 for (const auto& mask: localTriangleEdgeMasks) { triangleEdgeMasks->AddValue(mask); }
-
-                // ÎªÕâ¸öÃæÏ¸·Ö³öµÄËùÓĞÈı½ÇĞÎÉèÖÃÏàÍ¬µÄÖÊÁ¿Öµ
-                size_t num_new_triangles = localTriangleIndices.size() / 3;
-                for (size_t i = 0; i < num_new_triangles; ++i) { m_TriangleQualities->AddValue(quality_value); }
             };
 
             if (auto* l_volume = dynamic_cast<LagrangeVolume*>(cell)) {
                 for (int i = 0; i < l_volume->GetNumberOfFaces(); i++) {
-                    process_face(l_volume->GetFace(i), face_quality);
+                    process_face(l_volume->GetFace(i));
                 }
             } else if (auto* l_face = dynamic_cast<LagrangeFace*>(cell)) {
-                process_face(l_face, face_quality);
+                process_face(l_face);
             }
         }
 
-        // ¹¹½¨Ïß¿òµÄ¶¥µãºÍÖØÓ³ÉäË÷Òı
+        // æ„å»ºçº¿æ¡†çš„é¡¶ç‚¹å’Œé‡æ˜ å°„ç´¢å¼•
         lineIndices->SetDimension(2);
         const igIndex numLines = rawLineIndices.size();
         for (igIndex i = 0; i < numLines; ++i) {
 
-            // ½«È¡³öµÄÖµ´æÈë igIndex ÀàĞÍµÄÊı×éÖĞ
+            // å°†å–å‡ºçš„å€¼å­˜å…¥ igIndex ç±»å‹çš„æ•°ç»„ä¸­
             igIndex old_indices[2];
             old_indices[0] = rawLineIndices[i][0];
             old_indices[1] = rawLineIndices[i][1];
@@ -624,7 +614,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
     float color[3]{};
     igIndex vertexIds[3]{};
 
-    // ±éÀúËùÓĞÏ¸·ÖºóµÄÈı½ÇĞÎ
+    // éå†æ‰€æœ‰ç»†åˆ†åçš„ä¸‰è§’å½¢
     for (IGsize i = 0; i < numTriangles; i++) {
         triangleRGBColors->GetElement(i, color);
 
