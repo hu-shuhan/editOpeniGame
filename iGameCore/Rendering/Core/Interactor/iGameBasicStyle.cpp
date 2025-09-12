@@ -86,16 +86,18 @@ void BasicStyle::RightButtonMouseMove() { ViewTranslation(); }
 void BasicStyle::MiddleButtonMouseMove() {}
 
 void BasicStyle::ModelRotation() {
+    // 1. 将鼠标移动轨迹映射到球面坐标系
     igm::vec3 oldPoint3D, newPoint3D;
     MapToSphere(oldPoint3D, newPoint3D);
-
+    // 2. 计算旋转轴（通过叉积）
     igm::vec3 axis = igm::cross(oldPoint3D, newPoint3D); // corss product
     if (axis.length() < 1e-7) {
-        axis = igm::vec3(1.0f, 0.0f, 0.0f);
+        axis = igm::vec3(1.0f, 0.0f, 0.0f);  // 默认绕X轴旋转
     } else {
         axis.normalize();
     }
     // find the amount of rotation
+    // (3) 计算旋转角度（基于球面弧长）
     igm::vec3 d = oldPoint3D - newPoint3D;
     const double trackballradius = 0.6;
     double t = 0.5 * d.length() / trackballradius;
@@ -105,17 +107,24 @@ void BasicStyle::ModelRotation() {
         t = 1.0;
     }
 
-    double phi = 2.0 * asin(t);
-    double angle = phi * 180.0 / IGM_PI;
+    double phi = 2.0 * asin(t);  // 计算弧度
+    double angle = phi * 180.0 / IGM_PI;    // 转为角度制
 
-    igm::vec4 center = igm::vec4{m_Scene->m_ModelsBoundingSphere.xyz(), 1.0f};
-    igm::vec3 centerInWorld = (m_Scene->m_ModelMatrix * center).xyz();
+    // (4) 计算旋转中心（场景包围球中心）
+    /*igm::vec4 center = igm::vec4{m_Scene->m_ModelsBoundingSphere.xyz(), 1.0f};
+    igm::vec3 centerInWorld = (m_Scene->m_ModelMatrix * center).xyz();*/
+    igm::vec3 centerInWorld = m_Scene->GetRotationCenter(); //新的旋转中心
+    //std::cout << "ModelRotation center " << centerInWorld << std::endl;
 
+
+    //(5) 构建旋转矩阵（绕中心点旋转）
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
     igm::mat4 rotate = igm::rotate(
             igm::mat4{}, static_cast<float>(igm::radians(angle)), axis);
 
+
+    // (6) 更新场景模型矩阵
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
     m_Scene->m_ModelMatrix = rotateSelf * (m_Scene->m_ModelMatrix);
 
@@ -123,7 +132,7 @@ void BasicStyle::ModelRotation() {
     m_Scene->m_ModelRotate = rotate * m_Scene->m_ModelRotate;
 }
 void BasicStyle::ViewTranslation() {
-    if (m_Camera) {
+    /*if (m_Camera) {
         UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
 
         auto offset = m_NewPoint2D - m_OldPoint2D;
@@ -135,10 +144,37 @@ void BasicStyle::ViewTranslation() {
         auto newFocal = oldFocal + moveOffset;
         m_Camera->SetPosition(newPos);
         m_Camera->SetFocal(newFocal);
+    }*/
+
+    if (m_Scene && m_Camera) {
+        UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
+
+        // 计算鼠标偏移量对应的平移向量（屏幕空间到世界空间的转换）
+        auto offset = m_NewPoint2D - m_OldPoint2D;
+        igm::vec3 moveOffset = igm::vec3{offset.x * m_CameraMoveSpeed,
+                                         -offset.y * m_CameraMoveSpeed, 0.0f};
+
+        // 将平移向量从相机坐标系转换到世界坐标系
+        igm::mat4 viewMatrix = m_Camera->GetViewMatrix();
+        igm::mat4 invViewMatrix = viewMatrix.invert();
+        igm::vec4 worldMoveOffset4 = invViewMatrix * igm::vec4(moveOffset, 0.0f);
+        igm::vec3 worldMoveOffset = worldMoveOffset4.xyz(); 
+
+        // 更新模型的变换矩阵
+        igm::mat4 translationMatrix =
+                igm::translate(igm::mat4{}, worldMoveOffset);
+        m_Scene->m_ModelMatrix = translationMatrix * m_Scene->m_ModelMatrix;
+
+        igm::vec3 m_RotationCenter = m_Scene->GetRotationCenter_1();
+        m_Scene->UpdateRealRotationCenter(m_RotationCenter);
+        
+
     }
+
 }
 void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
-    auto center = igm::vec3(m_Scene->m_ModelsBoundingSphere);
+    //auto center = igm::vec3(m_Scene->m_ModelsBoundingSphere);
+    auto center = igm::vec3(m_Scene->GetRotationCenter());
 
     igm::mat4 model = m_Scene->m_ModelMatrix;
     igm::mat4 view = m_Camera->GetViewMatrix();
@@ -187,6 +223,7 @@ void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
     }
 }
 void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
+
     auto viewport = m_Camera->GetViewPort();
     auto viewportF = igm::vec2{static_cast<float>(viewport.x),
                                static_cast<float>(viewport.y)};

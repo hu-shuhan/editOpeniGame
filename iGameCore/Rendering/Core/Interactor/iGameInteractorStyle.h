@@ -74,11 +74,15 @@ public:
         //                          event.delta);
     };
 
+    
+
 protected:
     InteractorStyle() = default;
     ~InteractorStyle() override = default;
 
     friend class Interactor;
+
+    
 };
 IGAME_NAMESPACE_END
 #endif

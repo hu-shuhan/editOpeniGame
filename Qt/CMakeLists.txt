@@ -7,13 +7,17 @@ else ()
 #     set(Qt5_DIR "D:/Software/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #set(Qt5_DIR "F:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "D:/Qt/5.14.2/msvc2017_64/lib/cmake/Qt5")
-    set(Qt5_DIR "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
+    #    set(Qt5_DIR "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
+    #    set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "C:/Qt//Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+      set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 endif ()
+
 
 if (UNIX)
     set(Qt5_DIR "$ENV{HOME}/Qt5.14.2/5.14.2/gcc_64/lib/cmake/Qt5")
 endif()
+
 
 set(MODULE_NAME Qt_module)
 
@@ -25,6 +29,12 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/UI")
 
 # 查找 Qt
 #find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
+set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+SET(CMAKE_PREFIX_PATH "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake")
+
+message(Qt5_DIR)
+message(${Qt5_DIR})
+
 find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL Charts Svg)
 #qt_standard_project_setup()
 Qt5_add_resources(QRC_FILES "Resources/iGameQtMainWindow.qrc")
@@ -104,31 +114,31 @@ if (WIN32)
     get_target_property(Qt5Core_LOCATION Qt5::Core LOCATION)
     get_filename_component(Qt5_INSTALL_DIR ${Qt5Core_LOCATION} DIRECTORY)
    #     #   # 构建 Qt 的 DLL 文件路径
-   #     set(Qt5_DLL_DIR "${Qt5_INSTALL_DIR}")
-   #     if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-   #         set(Qt5_DLLS
-   #                 #                ${Qt5_DLL_DIR}/Qt5Cored.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5Gui.dll
-   #                 ${Qt5_DLL_DIR}/Qt5Chartsd.dll
-   #         )
-   #     elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-   #         set(Qt5_DLLS
-   #                 #                ${Qt5_DLL_DIR}/Qt5Core.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5OpenGL.dll
-   #                 #                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
-   #                 #                ${Qt5_DLL_DIR}/Qt5Gui.dll
-   #                 ${Qt5_DLL_DIR}/Qt5Charts.dll
+   #    set(Qt5_DLL_DIR "${Qt5_INSTALL_DIR}")
+   #    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+   #        set(Qt5_DLLS
+   #               #                 ${Qt5_DLL_DIR}/Qt5Cored.dll
+   #               #                 ${Qt5_DLL_DIR}/Qt5OpenGLd.dll
+   #               #                 ${Qt5_DLL_DIR}/Qt5OpenGLWidgetsd.dll
+   #               #                 ${Qt5_DLL_DIR}/Qt5Widgetsd.dll
+   #               #                 ${Qt5_DLL_DIR}/Qt5Gui.dll
+   #                ${Qt5_DLL_DIR}/Qt5Chartsd.dll
+   #        )
+   #    elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+   #        set(Qt5_DLLS
+   #                #                ${Qt5_DLL_DIR}/Qt5Core.dll
+   #                #                ${Qt5_DLL_DIR}/Qt5OpenGL.dll
+   #                #                #                ${Qt5_DLL_DIR}/Qt5OpenGLWidgets.dll
+   #                #                ${Qt5_DLL_DIR}/Qt5Widgets.dll
+   #                #                ${Qt5_DLL_DIR}/Qt5Gui.dll
+   #                ${Qt5_DLL_DIR}/Qt5Charts.dll
    #
-   #         )
-   #     endif ()
-   #     # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录
-   #     add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-   #             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-   #             ${Qt5_DLLS}
-   #             $<TARGET_FILE_DIR:${PROJECT_NAME}>
-   #     )
+   #        )
+   #    endif ()
+   #    # 添加一个自定义命令来复制 Qt DLL 到构建目标的目录
+   #    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+   #            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+   #            ${Qt5_DLLS}
+   #            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+   #    )
 endif ()
