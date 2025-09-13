@@ -24,3 +24,5 @@
 #include "iGameSelectionFilters/iGameSetCellsSelect.h"
 #include "iGameSelectionFilters/iGameGetClosestPointsInLine.h"
 #include "iGameSelectionFilters/iGameGetClosestCellsInLine.h"
+#include "iGameSelectionFilters/iGameGetPointsInFrustum.h"
+#include "iGameSelectionFilters/iGameGetCellsInFrustum.h"

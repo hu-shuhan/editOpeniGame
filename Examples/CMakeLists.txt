@@ -41,6 +41,8 @@ add_executable(testSetPointsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection
 add_executable(testSetCellsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetCellsSelect.cpp")
 add_executable(testGetClosestPointsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestPointsInLine.cpp")
 add_executable(testGetClosestCellsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestCellsInLine.cpp")
+add_executable(testGetPointsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetPointsInFrustum.cpp")
+add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetCellsInFrustum.cpp")
 
 add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDecoder.cpp")
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
@@ -94,6 +96,8 @@ target_link_libraries(testSetPointsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetCellsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGetClosestPointsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetPointsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
