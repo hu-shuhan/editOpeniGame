@@ -207,6 +207,7 @@ public:
      */
     bool IsAccelerationEnabled() const;
 
+
 protected:
     Model();
     ~Model() override;

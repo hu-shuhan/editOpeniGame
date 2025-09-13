@@ -195,6 +195,7 @@ void igQtModelListView::AddModel(QString modelName) {
     this->setCurrentIndex(newModel->index());
     //auto curObj = m_Manager->GetCurrentScene()->GetCurrentObject();
     itemVisibleList[newModel] = true;
+    
     //itemObjectIds[newModel] = curObj->GetDataObjectId();
     //currentObjectIdx = curObj->GetDataObjectId();
 

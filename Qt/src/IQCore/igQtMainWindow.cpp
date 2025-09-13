@@ -224,6 +224,48 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->GetScene()->RotateNinetyCounterClockwise();
         rendererWidget->update();
     });
+
+
+    
+     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) { 
+        /*qDebug() << "Toggle state:" << checked;*/
+        
+        rendererWidget->GetScene()->ToggleCenterAxes(); 
+        ui->action_ShowCenter->setChecked(checked);
+
+        rendererWidget->update();
+
+     });
+
+     connect(ui->action_PickCenter, &QAction::triggered, this, [&](bool checked) {
+         //qDebug() << "PickCenter Toggle state:" << checked;
+         //if (ui->action_PickCenter->isChecked()) {
+         //    rendererWidget->ChangeInteractorStyle(Interactor::PickCenterStyle);
+         //} else {
+         //    // 退出选择模式
+         //    rendererWidget->setProperty("isPickingCenter", false);
+         //    rendererWidget->setCursor(Qt::ArrowCursor);
+         //    rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+         //}
+         /*rendererWidget->update();*/
+         //拖拽
+         if (checked) {
+             // 显示坐标轴并进入拖拽模式
+             rendererWidget->GetScene()->GetCenterAxesModel()->SetVisibility(true);
+             rendererWidget->ChangeInteractorStyle(Interactor::DragCenterStyle);
+             //rendererWidget->setCursor(Qt::CrossCursor);
+         } else {
+             // 退出选择模式
+             rendererWidget->setCursor(Qt::ArrowCursor);
+             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+         }
+         rendererWidget->update();
+     });
+
+
+
+
+
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
         QString path =
                 QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");

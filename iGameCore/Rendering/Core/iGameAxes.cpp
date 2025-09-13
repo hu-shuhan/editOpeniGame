@@ -124,11 +124,17 @@ void Axes::Initialize() {
 }
 
 void Axes::Draw() {
-    // use reversed-z buffer
+    /*1.准备阶段：设置深度测试和视口
+    2.矩阵设置：计算固定的视图和投影矩阵，结合场景旋转
+    3.几何体渲染：绑定着色器和参数，绘制三个轴的几何体(包括箭头和原点立方体)
+    4.文字渲染：，切换到文字模式，分别渲染X YZ三个字符标签
+    5.清理：恢复渲染状态*/
+
+    // use reversed-z buffer反向深度测试
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
-    // update range
+    // update range将坐标轴渲染到主视口左下角的1/10区域
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
     int scale = std::max(vp[2] - vp[0], vp[3] - vp[1]) / 10;
@@ -137,15 +143,15 @@ void Axes::Draw() {
     glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
 
 
-    // fixed position
+    // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
     static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
                                           igm::vec3{0.0f, 1.0f, 0.0f});
-    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f);
+    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f); //固定投影矩阵，fov45°，宽高比1.0，近裁剪面0.01单位
 
-    igm::mat4 model = m_Scene->m_ModelRotate;
+    igm::mat4 model = m_Scene->m_ModelRotate;//使用场景的旋转矩阵，坐标轴与场景同步旋转
     igm::mat4 mvp = proj * view * model;
-
+    //着色和字体管理器
     auto shaderManager = m_Scene->m_ShaderManager;
     auto fontManager = m_Scene->m_FontManager;
 
@@ -162,7 +168,7 @@ void Axes::Draw() {
     auto textureY = fontManager->GetTexture(L'Y');
     auto textureZ = fontManager->GetTexture(L'Z');
 
-    //draw axes
+    //draw axes 绘制坐标轴
     {
         axesShader->SetUniformi("isDrawFont", 0);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

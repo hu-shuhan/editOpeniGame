@@ -360,6 +360,8 @@
    <addaction name="action_rotateNinetyCounterClockwise"/>
    <addaction name="action_rotateNinetyClockwise"/>
    <addaction name="action_IsShowColorBar"/>
+   <addaction name="action_ShowCenter"/>
+   <addaction name="action_PickCenter"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ScalarField">
    <property name="minimumSize">
@@ -957,6 +959,9 @@
    </property>
   </action>
   <action name="action_ShowCenter">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/ShowCenterAxes.svg</normaloff>:/Ticon/Icons/ShowCenterAxes.svg</iconset>
@@ -1017,6 +1022,9 @@
    </property>
   </action>
   <action name="action_PickCenter">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/PickCenter.svg</normaloff>:/Ticon/Icons/PickCenter.svg</iconset>
@@ -1026,6 +1034,9 @@
    </property>
    <property name="toolTip">
     <string>Pick Center</string>
+   </property>
+   <property name="visible">
+    <bool>true</bool>
    </property>
   </action>
   <action name="action_ShowOrientationAxes">

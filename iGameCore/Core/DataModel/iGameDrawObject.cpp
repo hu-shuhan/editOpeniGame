@@ -240,7 +240,9 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
 
     // process this object
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index, dimension); }
-
+    
+    //记录当前激活的属性索引和维度到m_AttributeIndex/m_AttributeDimension
+    // 标记m_AttributeHelper和对象自身为已修改（触发重新渲染）
     if (index == -1) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;
