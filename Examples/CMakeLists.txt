@@ -12,6 +12,7 @@ file(COPY "${CMAKE_BINARY_DIR}/Resources" DESTINATION ${CMAKE_CURRENT_BINARY_DIR
 file(COPY "Models" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 add_executable(testSetRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetRenderWindow.cpp")
 add_executable(testSetMultiRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetMultiWindow.cpp")
+add_executable(testMeshletRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/MeshletRendering.cpp")
 add_executable(testResetCameraView "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/ResetCameraView.cpp")
 add_executable(testSetCameraView "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetCameraView.cpp")
 add_executable(testSetLineWidth "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetLineWidth.cpp")
@@ -66,6 +67,7 @@ add_executable(testChangeColorBar "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeCo
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetMultiRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testMeshletRendering PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testResetCameraView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetCameraView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetLineWidth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

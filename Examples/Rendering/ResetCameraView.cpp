@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -48,6 +44,4 @@ static void ResetCameraView() {
     window->Show();
 }
 
-int main() {
-    ResetCameraView();
-}
+int main() { ResetCameraView(); }

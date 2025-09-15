@@ -5,15 +5,22 @@
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void SetOrthographicProjection() {
+static void MeshletRendering() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/Tet_Plane.vtk";
+    const std::string fileName = "./Models/mazewheel.obj";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
-        scene->AddModel(dataObj);
+        iGame::SmartPointer<iGame::Meshleter> meshleter = nullptr;
+        if (dataObj->GetDataObjectType() == IG_SURFACE_MESH) {
+            meshleter = iGame::SurfaceMeshMeshleter::New();
+            meshleter->SetInput(dataObj);
+            scene->AddModel(meshleter);
+        } else {
+            igError(std::format("Input is not surface mesh({})", dataObj->GetDataObjectType()));
+        }
     } else {
         igError("Error reading the file");
     }
@@ -22,14 +29,13 @@ static void SetOrthographicProjection() {
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
         // Set the display style to combine wireframe and surface modes for the object
-        drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Combined mode: Wireframe + Surface
+        drawObj->SetViewStyle(IG_SURFACE); // Combined mode: Wireframe + Surface
     } else {
         igError("Not a drawable object"); // Error if the object is not drawable
     }
 
-    auto camera = scene->GetCamera();
-    camera->SetType(iGame::Camera::Type::ORTHOGRAPHIC);
-
+    // Reset the camera view based on the model's bounding sphere
+    scene->ResetCameraView(); // Adjust the camera position and settings to focus on the model
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
@@ -45,4 +51,4 @@ static void SetOrthographicProjection() {
     window->Show();
 }
 
-int main() { SetOrthographicProjection(); }
+int main() { MeshletRendering(); }

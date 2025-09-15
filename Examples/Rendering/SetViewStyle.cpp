@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -52,6 +48,4 @@ static void SetViewStyle() {
     window->Show();
 }
 
-int main() {
-    SetViewStyle();
-}
+int main() { SetViewStyle(); }
