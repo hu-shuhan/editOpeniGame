@@ -274,16 +274,11 @@ void igQtVariableDensityWidget::RangeChooseObj(const QRect& chooseRange, const Q
 
     //choose
     if (!firstChoose && !secondChoose) return;
-    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    int objNum{};
-    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
-    else
-        objNum = m_Mesh->GetNumberOfCells();
     std::vector<igIndex> firstIds, secondIds;
     if (firstChoose)
-        firstIds = Data->FiltInRangeIds(m_CurrentShowVariable.first, firstMinValue, firstMaxValue, attrs, objNum);
+        firstIds = Data->FiltInRangeIds(m_CurrentShowVariable.first, firstMinValue, firstMaxValue);
     if (secondChoose)
-        secondIds = Data->FiltInRangeIds(m_CurrentShowVariable.second, secondMinValue, secondMaxValue, attrs, objNum);
+        secondIds = Data->FiltInRangeIds(m_CurrentShowVariable.second, secondMinValue, secondMaxValue);
     std::sort(firstIds.begin(), firstIds.end());
     std::sort(secondIds.begin(), secondIds.end());
     std::merge(firstIds.begin(), firstIds.end(), secondIds.begin(), secondIds.end(), std::back_inserter(ids));

@@ -75,34 +75,33 @@ const std::vector<std::vector<double>>& VariableCorrelationData::GetChoosedVaria
     return m_ChoosedVariableCorr;
 }
 
-std::vector<std::vector<double>>
-VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
-                                                      const std::vector<std::vector<double>>& objDatas) {
-    int numObjects = objDatas.size();
+std::vector<std::vector<double>> VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
+                                                                                       const std::vector<int>& objIds,
+                                                                                       CtxPresObjData_Main* theData) {
+    int numObjects = objIds.size();
     std::vector<std::vector<double>> variables(variableNum, std::vector<double>(numObjects, 0.0));
 
     for (int objIdx = 0; objIdx < numObjects; ++objIdx) {
-        //if (objDatas[objIdx].size() != static_cast<size_t>(variableNum)) {
-        //    throw std::invalid_argument("Object data size does not match variableNum");
-        //}
-        for (int varIdx = 0; varIdx < variableNum; ++varIdx) { variables[varIdx][objIdx] = objDatas[objIdx][varIdx]; }
+        auto objId = objIds[objIdx];
+        for (int varIdx = 0; varIdx < variableNum; ++varIdx) {
+            variables[varIdx][objIdx] = theData->GetObjectData(objId, varIdx);
+        }
     }
 
     return ComputeCorrelationMatrix(variableNum, variables);
 }
 
-std::vector<std::vector<double>>
-VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
-                                                      const std::map<int, std::vector<double>>& objDatas) {
-    int numObjects = objDatas.size();
+std::vector<std::vector<double>> VariableCorrelationData::CalculateVariableCorrelation(int variableNum,
+                                                                                       const std::set<int>& objIds,
+                                                                                       CtxPresObjData_Main* theData) {
+    int numObjects = objIds.size();
     std::vector<std::vector<double>> variables(variableNum, std::vector<double>(numObjects, 0.0));
 
     int objIdx = 0;
-    for (const auto& kv: objDatas) {
-        //if (kv.second.size() != static_cast<size_t>(variableNum)) {
-        //    throw std::invalid_argument("Object data size does not match variableNum");
-        //}
-        for (int varIdx = 0; varIdx < variableNum; ++varIdx) { variables[varIdx][objIdx] = kv.second[varIdx]; }
+    for (const auto& objId: objIds) {
+        for (int varIdx = 0; varIdx < variableNum; ++varIdx) {
+            variables[varIdx][objIdx] = theData->GetObjectData(objId,varIdx);
+        }
         ++objIdx;
     }
 
@@ -121,26 +120,28 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableCorrelationData::Pointer();
     auto Data = VariableCorrelationData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
     auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
-    auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));
+    auto keyObjIds = VariableCorrelationData::GenerateKeyObjectIds(objNum, 10000);
+    Data->SetKeyObjectIds(keyObjIds);
+    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjDatas = VariableCorrelationData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
-    Data->SetChoosedObjectDatas(choosedObjDatas);
-    Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
+    auto choosedObjIds = VariableCorrelationData::GenerateChoosedObjectIds(selectedItems, dataType);
+    Data->SetChoosedObjectIds(choosedObjIds);
+    Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, choosedObjIds, Data));
     Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
     auto [minValue, maxValue] = VariableCorrelationData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
     Data->SetMaxValueInVariables(maxValue);
     Data->SetDataType(dataType);
     Data->SetDataTypeName(VariableCorrelationData::GenerateDataTypeName(dataType));
-    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
+    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, keyObjIds, Data));
     Data->SetChoosedVariableCorrelation(
-            VariableCorrelationData::CalculateVariableCorrelation(variableNum, choosedObjDatas));
+            VariableCorrelationData::CalculateVariableCorrelation(variableNum, choosedObjIds, Data));
     return Data;
 }
 
@@ -151,13 +152,15 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     if (variableNum == 0) return VariableCorrelationData::Pointer();
     int objNum = VariableCorrelationData::GetLegalAttrsObjNum(attrs, dataType);
     auto Data = VariableCorrelationData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
     auto variableIndex = VariableCorrelationData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
-    auto objDatas = VariableCorrelationData::GenerateObjectDatas(attrs, dataType, objNum, 50000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, objDatas));
+    auto keyObjIds = VariableCorrelationData::GenerateKeyObjectIds(objNum, 10000);
+    Data->SetKeyObjectIds(keyObjIds);
+    Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateDefaultObjectDrawSorts(variableNum));
     Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
@@ -166,7 +169,7 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetMaxValueInVariables(maxValue);
     Data->SetDataType(dataType);
     Data->SetDataTypeName(VariableCorrelationData::GenerateDataTypeName(dataType));
-    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, objDatas));
+    Data->SetVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(variableNum, keyObjIds, Data));
     Data->SetChoosedVariableCorrelation(
             VariableCorrelationData::CalculateDefaultVariableCorrelation(variableNum));
     return Data;
@@ -174,9 +177,9 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
 
 std::vector<igIndex> VariableCorrelationData::FiltInRangeIds(int _mainVariableIndex, int _subVariableIndex,
                                                              double mainVariableMinValue, double mainVariableMaxValue,
-                                                             double subVariableMinValue, double subVariableMaxValue,
-                                                             ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                             int objNum) {
+                                                             double subVariableMinValue, double subVariableMaxValue) {
+    auto& attrs = m_Attrs;
+    auto& objNum = m_ObjNum;
     std::vector<igIndex> ids;
     auto& mainVariableIndex = this->GetVariableIndex()[_mainVariableIndex];
     auto& subVariableIndex = this->GetVariableIndex()[_subVariableIndex];

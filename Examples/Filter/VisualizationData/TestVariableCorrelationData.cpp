@@ -26,7 +26,6 @@ int main() {
     auto resultData = filter->GetOutput(0);
     auto theData = iGame::DynamicCast<iGame::VariableCorrelationData>(resultData);
     auto& variableNames = theData->GetVariableName();
-    auto& objDatas = theData->GetObjectDatas();
     /*Get variable correlation*/
     for (auto& variableName: variableNames) { std::cout << variableName << '\t'; }
     std::cout << std::endl;
@@ -38,8 +37,7 @@ int main() {
     /*Data selection*/
     //Select the variables with subscript 0 and subscript 1, and select the maximum and minimum values for them.
     //Object ids that meet all the maximum and minimum values will be obtained.
-    auto pointIds = theData->FiltInRangeIds(0, 1, 0.1, 0.3, 0.11, 0.22, mesh->GetAttributeSet()->GetAllAttributes(),
-                                            mesh->GetNumberOfPoints());
+    auto pointIds = theData->FiltInRangeIds(0, 1, 0.1, 0.3, 0.11, 0.22);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
     return 0;

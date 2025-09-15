@@ -77,14 +77,14 @@ public:
 
 public:
     /* delete func */
-    void SetObjectDatas(const std::vector<std::vector<double>>& objectDatas) = delete;
-    const std::vector<std::vector<double>>& GetObjectDatas() = delete;
+    void SetKeyObjectIds(const std::vector<int>& keyObjIds) = delete;
+    const std::vector<int>& GetKeyObjectIds() = delete;
 
-    void SetChoosedObjectDatas(const std::map<int, std::vector<double>>& choosedObjectDatas) = delete;
-    void AddChoosedObjectData(int objId, const std::vector<double>& objData) = delete;
-    void RemoveChoosedObjectData(int objId) = delete;
-    void ClearChoosedObjectData() = delete;
-    const std::map<int, std::vector<double>>& GetChoosedObjectData() = delete;
+    void SetChoosedObjectIds(const std::set<int>& choosedObjIds) = delete;
+    void AddChoosedObjectId(int objId) = delete;
+    void RemoveChoosedObjectId(int objId) = delete;
+    void ClearChoosedObjectIds() = delete;
+    const std::set<int>& GetChoosedObjectIds() = delete;
 
 public:
     /* init func */
@@ -99,7 +99,6 @@ protected:
 
 public:
     /* choose func */
-    std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue,
-                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
+    std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue);
 };
 IGAME_NAMESPACE_END

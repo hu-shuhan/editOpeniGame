@@ -124,6 +124,19 @@ static tuple<int, int, int> ChangeBrightness(float r, float g, float b, int brig
     return {ir, ig, ib};
 }
 
+void CtxPresObjData_Main::SetAttributes(ElementArray<AttributeSet::Attribute>::Pointer attrs) { m_Attrs = attrs; }
+
+void CtxPresObjData_Main::SetObjectNum(int objNum) { m_ObjNum = objNum; }
+
+int CtxPresObjData_Main::GetObjectNum() const { return m_ObjNum; }
+
+double CtxPresObjData_Main::GetObjectData(int objId, int variableIndex) {
+    if (objId < 0 || m_ObjNum <= objId) return {};
+    if (variableIndex < 0 || m_VariableIndex.size() <= variableIndex) return {};
+    return m_Attrs->GetElement(m_VariableIndex[variableIndex].first)
+            .pointer->GetElementValue(objId, m_VariableIndex[variableIndex].second);
+}
+
 void CtxPresObjData_Main::SetVariableNum(int variableNum) { m_VariableNum = variableNum; }
 
 int CtxPresObjData_Main::GetVariableNum() const { return m_VariableNum; }
@@ -140,25 +153,19 @@ void CtxPresObjData_Main::SetVariableIndex(const std::vector<std::pair<int, int>
 
 const std::vector<std::pair<int, int>>& CtxPresObjData_Main::GetVariableIndex() { return m_VariableIndex; }
 
-void CtxPresObjData_Main::SetObjectDatas(const std::vector<std::vector<double>>& objectDatas) {
-    m_ObjectDatas = objectDatas;
-}
+void CtxPresObjData_Main::SetKeyObjectIds(const std::vector<int>& keyObjIds) { m_KeyObjIds = keyObjIds; }
 
-const std::vector<std::vector<double>>& CtxPresObjData_Main::GetObjectDatas() { return m_ObjectDatas; }
+const std::vector<int>& CtxPresObjData_Main::GetKeyObjectIds() { return m_KeyObjIds; }
 
-void CtxPresObjData_Main::SetChoosedObjectDatas(const std::map<int, std::vector<double>>& choosedObjectDatas) {
-    m_ChoosedObjectDatas = choosedObjectDatas;
-}
+void CtxPresObjData_Main::SetChoosedObjectIds(const std::set<int>& choosedObjIds) { m_ChoosedObjIds = choosedObjIds; }
 
-void CtxPresObjData_Main::AddChoosedObjectData(int objId, const std::vector<double>& objData) {
-    m_ChoosedObjectDatas[objId] = objData;
-}
+void CtxPresObjData_Main::AddChoosedObjectId(int objId) { m_ChoosedObjIds.insert(objId); }
 
-void CtxPresObjData_Main::RemoveChoosedObjectData(int objId) { m_ChoosedObjectDatas.erase(objId); }
+void CtxPresObjData_Main::RemoveChoosedObjectId(int objId) { m_ChoosedObjIds.erase(objId); }
 
-void CtxPresObjData_Main::ClearChoosedObjectData() { m_ChoosedObjectDatas.clear(); }
+void CtxPresObjData_Main::ClearChoosedObjectIds() { m_ChoosedObjIds.clear(); }
 
-const std::map<int, std::vector<double>>& CtxPresObjData_Main::GetChoosedObjectData() { return m_ChoosedObjectDatas; }
+const std::set<int>& CtxPresObjData_Main::GetChoosedObjectIds() { return m_ChoosedObjIds; }
 
 void CtxPresObjData_Main::SetMaxValueInVariables(const std::vector<double>& maxValueInVariables) {
     m_MaxValueInVariables = maxValueInVariables;
@@ -212,40 +219,20 @@ CtxPresObjData_Main::GenerateVariableIndex(ElementArray<AttributeSet::Attribute>
     return re;
 }
 
-std::vector<double> CtxPresObjData_Main::GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                            IGenum dataType, int objId) {
-    std::vector<double> objData;
-    for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
-        auto& attr = attrs->GetElement(attrIndex);
-        if (attr.attachmentType != dataType) continue;
-        if (attr.pointer->GetDimension() > 1) { objData.push_back(attr.pointer->GetElementValue(objId, -1)); }
-        for (int dimensionIndex = 0; dimensionIndex < attr.pointer->GetDimension(); dimensionIndex++) {
-            objData.push_back(attr.pointer->GetElementValue(objId, dimensionIndex));
-        }
-    }
-    return objData;
+std::vector<int> CtxPresObjData_Main::GenerateKeyObjectIds(int objNum, int maxObjNum) {
+    return GenerateRandomSample(objNum, maxObjNum);
 }
 
-std::vector<std::vector<double>>
-CtxPresObjData_Main::GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                                         int objNum, int maxObjNum) {
-    std::vector<std::vector<double>> objDatas;
-    auto randomObjIds = GenerateRandomSample(objNum, maxObjNum);
-    for (auto& objIndex: randomObjIds) { objDatas.push_back(GenerateObjectData(attrs, dataType, objIndex)); }
-    return objDatas;
-}
-
-std::map<int, std::vector<double>> CtxPresObjData_Main::GenerateChoosedObjectDatas(
-        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-        ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
-    std::map<int, std::vector<double>> re;
+std::set<int> CtxPresObjData_Main::GenerateChoosedObjectIds(
+        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, IGenum dataType) {
+    std::set<int> re;
     switch (dataType) {
         case IG_POINT: {
             if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) break;
             auto& selectedPoints = selectedItems.at(Selection::Event::Type::PickPoint);
             for (auto& point: selectedPoints) {
                 auto pointId = point.first;
-                re[pointId] = GenerateObjectData(attrs, dataType, pointId);
+                re.insert(pointId);
             }
             break;
         }
@@ -254,7 +241,7 @@ std::map<int, std::vector<double>> CtxPresObjData_Main::GenerateChoosedObjectDat
             auto& selectedCells = selectedItems.at(Selection::Event::Type::PickFace);
             for (auto& cell: selectedCells) {
                 auto cellId = cell.first;
-                re[cellId] = GenerateObjectData(attrs, dataType, cellId);
+                re.insert(cellId);
             }
             break;
         }
@@ -329,29 +316,29 @@ void CtxPresObjData_LightAlpha::SetUnChoosedLight(int light) { m_UnChoosedLight 
 
 int CtxPresObjData_LightAlpha::GetUnChoosedLight() const { return m_UnChoosedLight; }
 
-std::vector<std::vector<int>>
-CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum, const std::vector<std::vector<double>>& objcetValues) {
-    std::vector<std::vector<int>> re(variableNum, std::vector<int>(objcetValues.size(), 0));
+std::vector<std::vector<int>> CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum,
+                                                                           const std::vector<int>& objIds,
+                                                                           CtxPresObjData_Main* theData) {
+    std::vector<std::vector<int>> re(variableNum, std::vector<int>(objIds.size(), 0));
     for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
-        for (int objIndex = 0; objIndex < objcetValues.size(); objIndex++) { re[variableIndex][objIndex] = objIndex; }
+        re[variableIndex] = objIds;
     }
     for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
         std::sort(re[variableIndex].begin(), re[variableIndex].end(), [&](int objIdA, int objIdB) {
-            return objcetValues[objIdA][variableIndex] < objcetValues[objIdB][variableIndex];
+            return theData->GetObjectData(objIdA, variableIndex) < theData->GetObjectData(objIdB, variableIndex);
         });
     }
     return re;
 }
 
-std::vector<std::vector<int>>
-CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum, const std::map<int, std::vector<double>>& objcetValues) {
-    std::vector<std::vector<int>> re(variableNum);
-    std::vector<int> objIds;
-    for (auto& obj: objcetValues) { objIds.push_back(obj.first); }
-    for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) { re[variableIndex] = objIds; }
+std::vector<std::vector<int>> CtxPresObjData_Draw::GenerateObjectDrawSorts(int variableNum, const std::set<int>& objIds,
+                                                                           CtxPresObjData_Main* theData) {
+    std::vector<std::vector<int>> re(variableNum, std::vector<int>(objIds.size(), 0));
+    std::vector<int> objIds_V(objIds.begin(), objIds.end());
+    for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) { re[variableIndex] = objIds_V; }
     for (int variableIndex = 0; variableIndex < variableNum; variableIndex++) {
         std::sort(re[variableIndex].begin(), re[variableIndex].end(), [&](int objIdA, int objIdB) {
-            return objcetValues.at(objIdA)[variableIndex] < objcetValues.at(objIdB)[variableIndex];
+            return theData->GetObjectData(objIdA, variableIndex) < theData->GetObjectData(objIdB, variableIndex);
         });
     }
     return re;
@@ -366,46 +353,39 @@ std::tuple<int, int, int> CtxPresObjData_Draw::GenerateDefaultColor(int brightNe
 }
 
 std::vector<std::tuple<int, int, int>>
-CtxPresObjData_Draw::GenerateObjectColors(int variableIndex, const std::vector<std::vector<double>>& objDatas,
-                                          const std::vector<double>& maxValues, const std::vector<double>& minValues,
-                                          int brightness, ScalarsToColors::Pointer colorMap) {
-    if (variableIndex < 0 || objDatas.empty() || objDatas.front().size() <= variableIndex) return {};
+CtxPresObjData_Draw::GenerateObjectColors(int variableIndex, const std::vector<int>& objIds,
+                                          CtxPresObjData_Main* theData, const std::vector<double>& maxValues,
+                                          const std::vector<double>& minValues, int brightness,
+                                          ScalarsToColors::Pointer colorMap) {
+    if (variableIndex < 0 || objIds.empty() || theData->GetVariableNum() <= variableIndex) return {};
     float shift = 0 - minValues[variableIndex];
     float scale = 1.0 / (maxValues[variableIndex] - minValues[variableIndex]);
-    vector<tuple<int, int, int>> re(objDatas.size());
-    ThreadPool::parallelFor(0, objDatas.size(), [&](int st, int ed) {
+    vector<tuple<int, int, int>> re(objIds.size());
+    ThreadPool::parallelFor(0, objIds.size(), [&](int st, int ed) {
         float rgb[3]{};
         for (int i = st; i < ed; i++) {
-            auto& value = objDatas[i][variableIndex];
+            auto objId = objIds[i];
+            auto value = theData->GetObjectData(objId, variableIndex);
             colorMap->GetColor(value, rgb, shift, scale);
             re[i] = ChangeBrightness(rgb[0], rgb[1], rgb[2], brightness);
         }
     });
     return re;
-
-    /*vector<tuple<int, int, int>> re;
-    float rgb[3]{};
-    for (auto& objData: objDatas) {
-        auto& value = objData[variableIndex];
-        colorMap->GetColor(value, rgb, shift, scale);
-        re.push_back(ChangeBrightness(rgb[0], rgb[1], rgb[2], brightness));
-    }
-    return re;*/
 }
 
 std::map<int, std::tuple<int, int, int>>
-CtxPresObjData_Draw::GenerateObjectColors(int variableIndex, const std::map<int, std::vector<double>>& objDatas,
+CtxPresObjData_Draw::GenerateObjectColors(int variableIndex, const std::set<int>& objIds, CtxPresObjData_Main* theData,
                                           const std::vector<double>& maxValues, const std::vector<double>& minValues,
                                           int brightness, ScalarsToColors::Pointer colorMap) {
     std::map<int, std::tuple<int, int, int>> re;
-    if (variableIndex < 0 || objDatas.empty() || objDatas.begin()->second.size() <= variableIndex) return re;
+    if (variableIndex < 0 || objIds.empty() || theData->GetVariableNum() <= variableIndex) return re;
     float shift = 0 - minValues[variableIndex];
     float scale = 1.0 / (maxValues[variableIndex] - minValues[variableIndex]);
     float rgb[3]{};
-    for (auto& objData: objDatas) {
-        auto& value = objData.second[variableIndex];
+    for (auto& objId: objIds) {
+        auto value = theData->GetObjectData(objId, variableIndex);
         colorMap->GetColor(value, rgb, shift, scale);
-        re[objData.first] = ChangeBrightness(rgb[0], rgb[1], rgb[2], brightness);
+        re[objId] = ChangeBrightness(rgb[0], rgb[1], rgb[2], brightness);
     }
     return re;
 }

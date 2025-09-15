@@ -62,6 +62,8 @@ add_executable(testContourLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestContourLi
 add_executable(testChangeColorRange "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeColorRange.cpp")
 add_executable(testChangeColorBar "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeColorBar.cpp")
 
+add_executable(testMultiscaleInteraction "${CMAKE_CURRENT_SOURCE_DIR}/MultiscaleInteraction/TestMultiscaleInteraction.cpp")
+
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -115,6 +117,8 @@ target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testMultiscaleInteraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)

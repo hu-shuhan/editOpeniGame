@@ -29,10 +29,14 @@ int main() {
     auto& objIndexs = theData->GetObjIndexs();
     /*Get the corresponding pointIds, distance and datas*/
     for (auto& objIndex_: objIndexs) {
-        std::cout << objIndex_.first;
-        std::cout << "(distance " << theData->GetObjDistance()[objIndex_.second] << "):";
-        auto& objData = theData->GetObjectDatas()[objIndex_.second];
-        for (auto& data: objData) { std::cout << data << ' '; }
+        auto objId = objIndex_.first;
+        auto objIndexInObjDistance = objIndex_.second;
+        std::cout << objId;
+        std::cout << "(distance " << theData->GetObjDistance()[objIndexInObjDistance] << "):";
+        for (int v = 0; v < theData->GetVariableNum(); v++) {
+            auto value = theData->GetObjectData(objId, v);
+            std::cout << value << ' ';
+        }
         std::cout << std::endl;
     }
     /*Data selection*/
