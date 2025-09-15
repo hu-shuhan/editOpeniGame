@@ -98,6 +98,7 @@ public:
     showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
                    std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine,
                    float lengthOfStep, float terminalSpeed, int maxSteps);
+    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum);
 
 private:
     /**
@@ -184,6 +185,14 @@ private:
 * @param[in] v2  Input a vertex that makes up the face
 */
     bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    
+private:
+    struct adjacent {
+        std::vector<long long> offset;
+        std::vector<int> data;
+    };
+    adjacent vetex_link;
+    adjacent cell_link;
     
     // Performance optimization functions
     inline double fastSin(double x);
