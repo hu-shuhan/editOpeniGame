@@ -12,7 +12,7 @@ bool iGameGeneratePlotLineData::Execute() {
 
 void iGameGeneratePlotLineData::Run() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    m_Data = DataChangeData::New(attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
+    m_Data = PlotLineData::New(attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
     m_Data->SetRadialData(attrs, m_StartPoint, m_EndPoint, m_Mesh);
 }
 

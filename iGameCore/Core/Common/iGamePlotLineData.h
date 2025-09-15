@@ -10,9 +10,9 @@
 #include <iGameCellArray.h>
 #include <iGameUnstructuredMesh.h>
 IGAME_NAMESPACE_BEGIN
-class DataChangeData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_LightAlpha {
+class PlotLineData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_LightAlpha {
 public:
-    I_OBJECT(DataChangeData);
+    I_OBJECT(PlotLineData);
 
     void SetObjDistance(const std::vector<double>& objDistance);
     const std::vector<double>& GetObjDistance();
@@ -143,8 +143,8 @@ public:
                        const Point& endPoint, UnstructuredMesh::Pointer mesh);
 
 protected:
-    DataChangeData() = default;
-    static Pointer New() { return new DataChangeData(); }
+    PlotLineData() = default;
+    static Pointer New() { return new PlotLineData(); }
 
 public:
     /* choose func */

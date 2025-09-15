@@ -25,7 +25,7 @@ int main() {
     }
     /*Get results*/
     auto resultData = filter->GetOutput(0);
-    auto theData = iGame::DynamicCast<iGame::DataChangeData>(resultData);
+    auto theData = iGame::DynamicCast<iGame::PlotLineData>(resultData);
     auto& objIndexs = theData->GetObjIndexs();
     /*Get the corresponding pointIds, distance and datas*/
     for (auto& objIndex_: objIndexs) {

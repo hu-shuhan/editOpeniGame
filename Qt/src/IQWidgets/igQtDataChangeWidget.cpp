@@ -393,12 +393,12 @@ void igQtDataChangeWidget::Draw() {
     _DrawImages(bigDrawFrame);
 }
 
-DataChangeData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum dataType) {
+PlotLineData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum dataType) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    return DataChangeData::New(attrs, dataType, MIN_H, MAX_H, MIN_S, MAX_S);
+    return PlotLineData::New(attrs, dataType, MIN_H, MAX_H, MIN_S, MAX_S);
 }
 
-void igQtDataChangeWidget::_SetRadialData(DataChangeData::Pointer Data) {
+void igQtDataChangeWidget::_SetRadialData(PlotLineData::Pointer Data) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     auto colorMap = m_Mesh->GetColorMapper();
     auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
@@ -480,7 +480,7 @@ void igQtDataChangeWidget::_SetChoosedVariableColorWidgetColor(
     }
 }
 
-void igQtDataChangeWidget::_GenerateVariableImage(int variableIndex, DataChangeData::Pointer Data) {
+void igQtDataChangeWidget::_GenerateVariableImage(int variableIndex, PlotLineData::Pointer Data) {
     if (m_VariableShow[variableIndex] == false) return;
     auto minValue = Data->GetMinValue();
     auto maxValue = Data->GetMaxValue();
@@ -490,7 +490,7 @@ void igQtDataChangeWidget::_GenerateVariableImage(int variableIndex, DataChangeD
             Data->GetChoosedObjIds(), Data->GetObjIndexs());
 }
 
-void igQtDataChangeWidget::_GenerateChoosedVariableImage(int variableIndex, DataChangeData::Pointer Data) {
+void igQtDataChangeWidget::_GenerateChoosedVariableImage(int variableIndex, PlotLineData::Pointer Data) {
     if (m_VariableShow[variableIndex] == false) return;
     auto minValue = Data->GetMinValue();
     auto maxValue = Data->GetMaxValue();
@@ -500,14 +500,14 @@ void igQtDataChangeWidget::_GenerateChoosedVariableImage(int variableIndex, Data
             Data->GetChoosedObjIds(), Data->GetObjIndexs());
 }
 
-void igQtDataChangeWidget::_GenerateVariableImage(const std::vector<bool>& variableShow, DataChangeData::Pointer Data) {
+void igQtDataChangeWidget::_GenerateVariableImage(const std::vector<bool>& variableShow, PlotLineData::Pointer Data) {
     for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
         _GenerateVariableImage(variableIndex, Data);
     }
 }
 
 void igQtDataChangeWidget::_GenerateChoosedVariableImage(const std::vector<bool>& variableShow,
-                                                         DataChangeData::Pointer Data) {
+                                                         PlotLineData::Pointer Data) {
     for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
         _GenerateChoosedVariableImage(variableIndex, Data);
     }
@@ -525,7 +525,7 @@ void igQtDataChangeWidget::_SetLightUi(int unchoosedLight, int choosedLight) {
     ui->choosedLightSpinBox->setValue(choosedLight);
 }
 
-void igQtDataChangeWidget::_TryUpdateChoosedPointData(DataChangeData::Pointer Data, int id,
+void igQtDataChangeWidget::_TryUpdateChoosedPointData(PlotLineData::Pointer Data, int id,
                                                       Selection::Event::Operate ope) {
     if (Data.IsNull() || Data->GetDataType() != IG_POINT) return;
     auto& objIds = Data->GetObjIndexs();
@@ -537,7 +537,7 @@ void igQtDataChangeWidget::_TryUpdateChoosedPointData(DataChangeData::Pointer Da
     }
 }
 
-void igQtDataChangeWidget::_TryUpdateChoosedCellData(DataChangeData::Pointer Data, int id,
+void igQtDataChangeWidget::_TryUpdateChoosedCellData(PlotLineData::Pointer Data, int id,
                                                      Selection::Event::Operate ope) {
     if (Data.IsNull() || Data->GetDataType() != IG_CELL) return;
     auto& objIds = Data->GetObjIndexs();
@@ -702,7 +702,7 @@ void igQtDataChangeWidget::ChoosedLightSliderChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+    auto colors = PlotLineData::GenerateVariableColor(Data->GetVariableHS(),
                                                         Data->GetChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetChoosedVariableColor(colors);
     _SetChoosedVariableColorWidgetColor(Data->GetVariableNum(), colors);
@@ -716,7 +716,7 @@ void igQtDataChangeWidget::UnChoosedLightSliderChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+    auto colors = PlotLineData::GenerateVariableColor(Data->GetVariableHS(),
                                                         Data->GetUnChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetVariableColor(colors);
     _SetVariableColorWidgetColor(Data->GetVariableNum(), colors);
@@ -730,7 +730,7 @@ void igQtDataChangeWidget::ChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+    auto colors = PlotLineData::GenerateVariableColor(Data->GetVariableHS(),
                                                         Data->GetChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetChoosedVariableColor(colors);
     _SetChoosedVariableColorWidgetColor(Data->GetVariableNum(), colors);
@@ -744,7 +744,7 @@ void igQtDataChangeWidget::UnChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+    auto colors = PlotLineData::GenerateVariableColor(Data->GetVariableHS(),
                                                         Data->GetUnChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetVariableColor(colors);
     _SetVariableColorWidgetColor(Data->GetVariableNum(), colors);
@@ -759,7 +759,7 @@ void igQtDataChangeWidget::VariableCheckButtonClicked(bool checked) {
     m_VariableShow[variableIndex] = checked;
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
-    auto [minValue, maxValue] = DataChangeData::GenerateObjMinMaxValue(Data->GetObjectDatas(), m_VariableShow);
+    auto [minValue, maxValue] = PlotLineData::GenerateObjMinMaxValue(Data->GetObjectDatas(), m_VariableShow);
     Data->SetMinValue(minValue);
     Data->SetMaxValue(maxValue);
     _GenerateVariableImage(m_VariableShow, Data);
