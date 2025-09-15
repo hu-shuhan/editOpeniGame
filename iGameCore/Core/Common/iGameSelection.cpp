@@ -306,6 +306,8 @@ void Selection::Reset() {
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
 }
 
+void Selection::ClearSelections() { Reset(); }
+
 void Selection::AddItem(const Event& event) {
     if (m_SelectedItems[event.type].count(event.pickId) != 0 && m_Model != nullptr) {
         auto painter = m_Model->GetPainter3D();

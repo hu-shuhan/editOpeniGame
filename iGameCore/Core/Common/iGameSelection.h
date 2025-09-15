@@ -74,6 +74,8 @@ public:
 
 	void Reset();
 
+	void ClearSelections();
+
 	//template<typename Functor, typename... Args>
 	//void SetFilterEvent(Functor&& functor, Args&&... args) {
 	//	m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
