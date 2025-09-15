@@ -31,8 +31,7 @@ int main() {
     auto resultData = iGame::DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput(0));
     /*Select*/
     auto selectEvents = iGame::Selection::GenerateEvents(std::vector<igIndex>{0, 1, 2}, IG_POINT,
-                                                         iGame::Selection::Event::Operate::Add, mesh->GetPoints(),
-                                                         mesh->GetCells());
+                                                         iGame::Selection::Event::Operate::Add, mesh);
     resultData->GetSelection()->SelectionCallBackEvent(selectEvents);
     return 0;
 }

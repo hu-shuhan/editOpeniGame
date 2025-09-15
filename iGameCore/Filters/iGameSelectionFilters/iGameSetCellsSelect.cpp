@@ -12,7 +12,7 @@ bool iGameSetCellsSelect::Execute() {
 void iGameSetCellsSelect::Run() {
     auto selection = m_Mesh->GetSelection();
     auto Events =
-            Selection::GenerateEvents(m_Ids, IG_CELL, m_Operate, m_Mesh->GetPoints(), m_Mesh->GetCells(), m_Painter);
+            Selection::GenerateEvents(m_Ids, IG_CELL, m_Operate, m_Mesh, m_Painter);
     selection->SelectionCallBackEvent(Events);
 }
 

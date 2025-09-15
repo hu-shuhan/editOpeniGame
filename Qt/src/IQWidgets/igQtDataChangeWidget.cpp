@@ -168,8 +168,7 @@ void igQtDataChangeWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
-                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
     m_Model->GetSelection()->SelectionCallBackEvent(events);
     update();
 }

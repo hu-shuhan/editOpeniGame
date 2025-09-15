@@ -30,6 +30,7 @@ IGAME_NAMESPACE_BEGIN
 //};
 
 class Model;
+class UnstructuredMesh;
 class Painter3D;
 class Selection : public Object {
 public:
@@ -54,8 +55,12 @@ public:
 	};
 
 public:
+    [[deprecated("error method of draw cell")]]
     static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
                                              Points* points, CellArray* cellArrays, Painter3D* painter = nullptr);
+
+	static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
+                                             UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
 	void SelectionCallBackEvent(const std::vector<Event>& _events);
 

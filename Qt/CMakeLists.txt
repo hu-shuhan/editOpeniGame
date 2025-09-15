@@ -10,7 +10,7 @@ else ()
     #    set(Qt5_DIR "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "E:/Software/Visualsoft/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
     #    set(Qt5_DIR "C:/Qt//Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-      set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+      set(Qt5_DIR "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
 endif ()
 
 
@@ -29,11 +29,6 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/UI")
 
 # 查找 Qt
 #find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
-set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
-SET(CMAKE_PREFIX_PATH "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake")
-
-message(Qt5_DIR)
-message(${Qt5_DIR})
 
 find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL Charts Svg)
 #qt_standard_project_setup()
