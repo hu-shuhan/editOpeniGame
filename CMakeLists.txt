@@ -7,9 +7,9 @@ cmake_minimum_required(VERSION 3.19)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
 
-if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "-fPIC")
-endif()
+endif ()
 #--------------------------------------------------------------------
 # Set Cmake Option to On/OFF.
 #--------------------------------------------------------------------
@@ -27,9 +27,6 @@ endif()
 set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 
-
-
-
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
@@ -42,10 +39,10 @@ set(RENDERING_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core's Rendering M
 set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
-if(DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰 
-  list(APPEND CMAKE_IGNORE_PATH "$ENV{CONDA_PREFIX}/bin") # 忽略 Anaconda 安装的库和配置文件的路径 
-  list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{CONDA_PREFIX}") 
-endif()
+if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
+    list(APPEND CMAKE_IGNORE_PATH "$ENV{CONDA_PREFIX}/bin") # 忽略 Anaconda 安装的库和配置文件的路径
+    list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+endif ()
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
