@@ -133,15 +133,14 @@ private:
     void _CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& smallDrawFrame);
     QImage _DrawVariableImage(double minValue, double maxValue, double minDistance, double maxDistance,
                               const std::vector<int>& objDrawSort, int variableIndex,
-                              const std::vector<double>& objDistance, const std::vector<std::vector<double>>& objData,
-                              const std::tuple<int, int, int>& color, int alpha, const std::set<int> choosedObjIds,
-                              const std::map<int, int>& objIndexs);
+                              const std::vector<double>& objDistance, const std::tuple<int, int, int>& color, int alpha,
+                              const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs,
+                              CtxPresObjData_Main* theData);
     QImage _DrawChoosedVariableImage(double minValue, double maxValue, double minDistance, double maxDistance,
                                      const std::vector<int>& objDrawSort, int variableIndex,
-                                     const std::vector<double>& objDistance,
-                                     const std::vector<std::vector<double>>& objData,
-                                     const std::tuple<int, int, int>& color, int alpha,
-                                     const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs);
+                                     const std::vector<double>& objDistance, const std::tuple<int, int, int>& color,
+                                     int alpha, const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs,
+                                     CtxPresObjData_Main* theData);
     void _DrawPoint(double minValue, double maxValue, double minDistance, double maxDistance, double value,
                     double distance, std::shared_ptr<QPainter> painter, const QRect& drawFrame);
     void _DrawBackground(const QRect& range);

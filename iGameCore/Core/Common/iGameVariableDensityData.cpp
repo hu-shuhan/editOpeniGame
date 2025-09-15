@@ -382,6 +382,8 @@ VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, I
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableDensityData::Pointer();
     auto Data = VariableDensityData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetCopyNum(boxNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
@@ -413,6 +415,8 @@ VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet:
     if (variableNum == 0) return VariableDensityData::Pointer();
     int objNum = VariableDensityData::GetLegalAttrsObjNum(attrs, dataType);
     auto Data = VariableDensityData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetCopyNum(boxNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
@@ -435,9 +439,9 @@ VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet:
 }
 
 std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, double variableMinValue,
-                                                         double variableMaxValue,
-                                                         ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                         int objNum) {
+                                                         double variableMaxValue) {
+    auto& attrs = m_Attrs;
+    auto& objNum = m_ObjNum;
     std::vector<igIndex> ids;
     static mutex IDS_MUTEX;
     ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {

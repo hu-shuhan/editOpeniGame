@@ -140,11 +140,6 @@ static std::map<int, int> _GeneratePointIndexInLine(const Point& startPoint, con
 
 void PlotLineData::SetObjDistance(const std::vector<double>& objDistance) { m_ObjDistance = objDistance; }
 const std::vector<double>& PlotLineData::GetObjDistance() { return m_ObjDistance; }
-void PlotLineData::SetChoosedObjIds(const std::set<int>& choosedObjIds) { m_ChoosedObjIds = choosedObjIds; }
-void PlotLineData::AddChoosedObjId(int objId) { m_ChoosedObjIds.insert(objId); }
-void PlotLineData::RemoveChoosedObjId(int objId) { m_ChoosedObjIds.erase(objId); }
-void PlotLineData::ClearChoosedObjIds() { m_ChoosedObjIds.clear(); }
-const std::set<int>& PlotLineData::GetChoosedObjIds() { return m_ChoosedObjIds; }
 void PlotLineData::SetObjDrawSort(const std::vector<int>& objDrawSort) { m_ObjDrawSort = objDrawSort; }
 const std::vector<int>& PlotLineData::GetObjDrawSort() { return m_ObjDrawSort; }
 //void DataChangeData::SetVariableHue(const std::vector<int>& variableHue) { m_VariableHue = variableHue; }
@@ -251,15 +246,17 @@ double PlotLineData::GenerateObjMinDistance(const std::vector<int>& objDrawSort,
     return objDistance[objIndex];
 }
 
-std::pair<double, double> PlotLineData::GenerateObjMinMaxValue(const std::vector<std::vector<double>>& objDatas,
-                                                                 const std::vector<bool>& variableShow) {
+std::pair<double, double> PlotLineData::GenerateObjMinMaxValue(const std::map<int, int>& objIndexs,
+                                                               const std::vector<bool>& variableShow,
+                                                               CtxPresObjData_Main* theData) {
     double minValue = std::numeric_limits<double>::max();
     double maxValue = -std::numeric_limits<double>::max();
-    for (auto& objData: objDatas) {
+    for (auto& objI: objIndexs) {
+        auto objId = objI.first;
         for (int variableIndex = 0; variableIndex < variableShow.size(); variableIndex++) {
             if (!variableShow[variableIndex]) continue;
-            minValue = min(minValue, objData[variableIndex]);
-            maxValue = max(maxValue, objData[variableIndex]);
+            minValue = min(minValue, theData->GetObjectData(objId,variableIndex));
+            maxValue = max(maxValue, theData->GetObjectData(objId, variableIndex));
         }
     }
     return {minValue, maxValue};
@@ -385,49 +382,6 @@ PlotLineData::GenerateVariableColor(const std::vector<std::pair<int, int>>& vari
     return re;
 }
 
-std::vector<std::vector<double>>
-PlotLineData::GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                                    const std::map<int, int>& objIndexs) {
-    std::vector<std::vector<double>> re(objIndexs.size());
-    for (auto& objId_: objIndexs) {
-        int objId = objId_.first;
-        int reIndex = objId_.second;
-        re[reIndex] = GenerateObjectData(attrs, dataType, objId);
-    }
-    return re;
-}
-
-std::set<int> PlotLineData::GenerateChoosedObjIds(
-        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, IGenum dataType,
-        const std::map<int, int>& objIndexs) {
-    std::set<int> re;
-    switch (dataType) {
-        case IG_POINT: {
-            if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) break;
-            auto& selectedPoints = selectedItems.at(Selection::Event::Type::PickPoint);
-            for (auto& point: selectedPoints) {
-                auto pointId = point.first;
-                if (objIndexs.count(pointId) == 0) continue;
-                re.insert(pointId);
-            }
-            break;
-        }
-        case IG_CELL: {
-            if (selectedItems.count(Selection::Event::Type::PickFace) == 0) break;
-            auto& selectedCells = selectedItems.at(Selection::Event::Type::PickFace);
-            for (auto& cell: selectedCells) {
-                auto cellId = cell.first;
-                if (objIndexs.count(cellId) == 0) continue;
-                re.insert(cellId);
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    return re;
-}
-
 double PlotLineData::GenerateMinValueInChoosedVariable(const std::vector<double>& minValues,
                                                          const std::vector<bool>& variableShow) {
     double re = std::numeric_limits<double>::max();
@@ -454,6 +408,8 @@ PlotLineData::Pointer PlotLineData::New(ElementArray<AttributeSet::Attribute>::P
     int variableNum = variableNames.size();
     if (variableNum == 0) return PlotLineData::Pointer();
     auto Data = PlotLineData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(GetLegalAttrsObjNum(attrs, dataType));
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
     auto variableIndex = PlotLineData::GenerateVariableIndex(attrs, dataType);
@@ -476,19 +432,13 @@ PlotLineData::Pointer PlotLineData::New(ElementArray<AttributeSet::Attribute>::P
     return Data;
 }
 
-void PlotLineData::SetRadialData(
-        ElementArray<AttributeSet::Attribute>::Pointer attrs,
-        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, int objNum,
-        ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
-        UnstructuredMesh::Pointer mesh) {
+void PlotLineData::SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum,
+                                 ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
+                                 UnstructuredMesh::Pointer mesh) {
     auto Data = this;
     auto objIndexs = PlotLineData::GenerateObjIndex(startPoint, endPoint, mesh->GetPoints(), mesh->GetCells(), mesh,
-                                                      Data->GetDataType());
+                                                    Data->GetDataType());
     Data->SetObjIndexs(objIndexs);
-    auto objData = PlotLineData::GenerateObjectDatas(attrs, Data->GetDataType(), objIndexs);
-    Data->SetObjectDatas(objData);
-    auto choosedObjIds = PlotLineData::GenerateChoosedObjIds(selectedItems, Data->GetDataType(), objIndexs);
-    Data->SetChoosedObjIds(choosedObjIds);
     std::vector<double> objDistance;
     if (Data->GetDataType() == IG_POINT) {
         objDistance = PlotLineData::GenerateObjDistance(startPoint, objIndexs, mesh->GetPoints());
@@ -510,8 +460,6 @@ void PlotLineData::SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer 
     auto objIndexs = PlotLineData::GenerateObjIndex(startPoint, endPoint, mesh->GetPoints(), mesh->GetCells(), mesh,
                                                       Data->GetDataType());
     Data->SetObjIndexs(objIndexs);
-    auto objData = PlotLineData::GenerateObjectDatas(attrs, Data->GetDataType(), objIndexs);
-    Data->SetObjectDatas(objData);
     std::vector<double> objDistance;
     if (Data->GetDataType() == IG_POINT) {
         objDistance = PlotLineData::GenerateObjDistance(startPoint, objIndexs, mesh->GetPoints());
@@ -536,11 +484,11 @@ std::vector<igIndex> PlotLineData::FiltInRangeIds(double minDistance, double max
         auto& objId = objId_.first;
         auto& objIndex = objId_.second;
         auto& objDistance = Data->GetObjDistance()[objIndex];
-        auto& objValues = Data->GetObjectDatas()[objIndex];
         if (objDistance < minDistance || maxDistance < objDistance) continue;
         for (int variableIndex = 0; variableIndex < Data->GetVariableNum(); variableIndex++) {
             if (!variableCanBeChoose[variableIndex]) continue;
-            if (minValue <= objValues[variableIndex] && objValues[variableIndex] <= maxValue) {
+            if (minValue <= Data->GetObjectData(objId, variableIndex) &&
+                Data->GetObjectData(objId, variableIndex) <= maxValue) {
                 ids.push_back(objId);
                 break;
             }

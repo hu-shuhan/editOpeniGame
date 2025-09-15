@@ -227,13 +227,8 @@ void igQtVariableCorrelationWidget::RangeChooseObj(const QRect& chooseRange, con
                                                      Data->GetMaxValueInVariables()[m_CurrentShowVariable.second]);
 
     //choose
-    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    int objNum{};
-    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
-    else
-        objNum = m_Mesh->GetNumberOfCells();
     ids = Data->FiltInRangeIds(m_CurrentShowVariable.first, m_CurrentShowVariable.second, mainVariableMinValue,
-                               mainVariableMaxValue, subVariableMinValue, subVariableMaxValue, attrs, objNum);
+                               mainVariableMaxValue, subVariableMinValue, subVariableMaxValue);
 }
 
 void igQtVariableCorrelationWidget::EndRangeChoose() {
@@ -495,8 +490,8 @@ void igQtVariableCorrelationWidget::SetVariableCorrelationDataColor(int variable
     if (variableIndex < 0 || Data->GetVariableNum() <= variableIndex) return;
     auto colorMap = m_Mesh->GetColorMapper();
     Data->SetObjectColor(VariableCorrelationData::GenerateObjectColors(
-            variableIndex, Data->GetObjectDatas(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
-            Data->GetUnChoosedLight(), colorMap));
+            variableIndex, Data->GetKeyObjectIds(), Data, Data->GetMaxValueInVariables(),
+            Data->GetMinValueInVariables(), Data->GetUnChoosedLight(), colorMap));
 }
 
 void igQtVariableCorrelationWidget::SetChoosedVariableCorrelationDataColor(int variableIndex) {
@@ -505,8 +500,8 @@ void igQtVariableCorrelationWidget::SetChoosedVariableCorrelationDataColor(int v
     if (variableIndex < 0 || Data->GetVariableNum() <= variableIndex) return;
     auto colorMap = m_Mesh->GetColorMapper();
     Data->SetChoosedObjectColor(VariableCorrelationData::GenerateObjectColors(
-            variableIndex, Data->GetChoosedObjectData(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
-            Data->GetChoosedLight(), colorMap));
+            variableIndex, Data->GetChoosedObjectIds(), Data, Data->GetMaxValueInVariables(),
+            Data->GetMinValueInVariables(), Data->GetChoosedLight(), colorMap));
 }
 
 void igQtVariableCorrelationWidget::SetMainSubNameLabel() {
@@ -566,34 +561,30 @@ void igQtVariableCorrelationWidget::UpdateChoosedData(const std::vector<Selectio
             switch (e.type) {
                 case Selection::Event::Type::PickPoint:
                     if (Data->GetDataType() != IG_POINT) break;
-                    if (e.operate == Selection::Event::Operate::Add)
-                        Data->AddChoosedObjectData(e.pickId, VariableCorrelationData::GenerateObjectData(
-                                                                     attrs, Data->GetDataType(), e.pickId));
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectData(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 case Selection::Event::Type::PickFace:
                     if (Data->GetDataType() != IG_CELL) break;
-                    if (e.operate == Selection::Event::Operate::Add)
-                        Data->AddChoosedObjectData(e.pickId, VariableCorrelationData::GenerateObjectData(
-                                                                     attrs, Data->GetDataType(), e.pickId));
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectData(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 default:
                     break;
             }
         }
-        Data->SetChoosedObjectDrawSorts(
-                VariableCorrelationData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+        Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(
+                Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
     }
 }
 
 void igQtVariableCorrelationWidget::ClearChoosedData() {
     for (auto& Data: m_VariableCorrelationDatas) {
-        Data->ClearChoosedObjectData();
-        Data->SetChoosedObjectDrawSorts(
-                VariableCorrelationData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+        Data->ClearChoosedObjectIds();
+        Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(
+                Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
     }
 }
 
@@ -601,7 +592,7 @@ void igQtVariableCorrelationWidget::UpdateChoosedCorrelation() {
     if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
     Data->SetChoosedVariableCorrelation(VariableCorrelationData::CalculateVariableCorrelation(
-            Data->GetVariableNum(), Data->GetChoosedObjectData()));
+            Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
     auto& choosedVariableCorrelation = Data->GetChoosedVariableCorrelation();
     for (auto& choosedVariableCorLabel: m_ChoosedVariableCorLabels) {
         auto correlation = choosedVariableCorrelation[choosedVariableCorLabel->m_OtherVariableIndex]
@@ -629,7 +620,7 @@ QImage igQtVariableCorrelationWidget::_DrawCorImage() {
         drawVariableIndex = m_CurrentShowVariable;
     }
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
-    int objNum = Data->GetObjectDatas().size();
+    int objNum = Data->GetKeyObjectIds().size();
     int w = max(1000, defaultW / max(objNum / 1000, 1));
     int h = max(1000, defaultH / max(objNum / 1000, 1));
     QRect drawFrame;
@@ -652,7 +643,7 @@ QImage igQtVariableCorrelationWidget::_DrawChoosedCorImage() {
         drawVariableIndex = m_CurrentShowVariable;
     }
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
-    int objNum = Data->GetChoosedObjectData().size();
+    int objNum = Data->GetChoosedObjectIds().size();
     int w = max(1000, defaultW / max(objNum / 1000, 1));
     int h = max(1000, defaultH / max(objNum / 1000, 1));
     QRect drawFrame;
@@ -680,30 +671,28 @@ void igQtVariableCorrelationWidget::_CalculatePaintDrawFrame(QRect& bigDrawFrame
 void igQtVariableCorrelationWidget::_DrawCorImage(int mainVariableIndex, int subVariableIndex, const QRect& drawFrame,
                                                   std::shared_ptr<QPainter> painter) {
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
-    auto& objDatas = Data->GetObjectDatas();
     auto& objDrawSort = Data->GetObjectDrawSorts()[mainVariableIndex];
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
-    for (auto& objIndex: objDrawSort) {
-        _DrawPoint(objDatas[objIndex][mainVariableIndex], objDatas[objIndex][subVariableIndex],
+    for (auto& objId: objDrawSort) {
+        _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
+                   Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
     }
 }
 
 void igQtVariableCorrelationWidget::_DrawChoosedCorImage(int mainVariableIndex, int subVariableIndex,
                                                          const QRect& drawFrame, std::shared_ptr<QPainter> painter) {
     auto& Data = m_VariableCorrelationDatas[m_CurrentModelDataIndex];
-    auto& objDatas = Data->GetChoosedObjectData();
     auto& objDrawSort = Data->GetChoosedObjDrawSorts()[mainVariableIndex];
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
-    for (auto& objIndex: objDrawSort) {
-        _DrawPoint(objDatas.at(objIndex)[mainVariableIndex], objDatas.at(objIndex)[subVariableIndex],
+    for (auto& objId: objDrawSort) {
+        _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha(), drawFrame, painter, 10);
+                   Data->GetObjectColor(true, objId), Data->GetChoosedAlpha(), drawFrame, painter, 10);
     }
 }
 

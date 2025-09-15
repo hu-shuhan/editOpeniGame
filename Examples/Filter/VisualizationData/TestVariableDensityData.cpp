@@ -34,8 +34,7 @@ int main() {
         std::cout << std::endl;
     }
     /*Data selection*/
-    auto pointIds = theData->FiltInRangeIds(0, 0.1, 0.2, mesh->GetAttributeSet()->GetAllAttributes(),
-                                            mesh->GetNumberOfPoints());
+    auto pointIds = theData->FiltInRangeIds(0, 0.1, 0.2);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
     return 0;

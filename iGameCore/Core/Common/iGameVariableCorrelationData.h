@@ -25,9 +25,9 @@ protected:
 public:
     /* static funcs */
     static std::vector<std::vector<double>>
-    CalculateVariableCorrelation(int variableNum, const std::vector<std::vector<double>>& objDatas);
-    static std::vector<std::vector<double>>
-    CalculateVariableCorrelation(int variableNum, const std::map<int, std::vector<double>>& objDatas);
+    CalculateVariableCorrelation(int variableNum, const std::vector<int>& objIds, CtxPresObjData_Main* theData);
+    static std::vector<std::vector<double>> CalculateVariableCorrelation(int variableNum, const std::set<int>& objIds,
+                                                                         CtxPresObjData_Main* theData);
     static std::vector<std::vector<double>> CalculateDefaultVariableCorrelation(int variableNum);
 
 
@@ -46,7 +46,6 @@ public:
     /* choose func */
     std::vector<igIndex> FiltInRangeIds(int mainVariableIndex, int subVariableIndex, double mainVariableMinValue,
                                         double mainVariableMaxValue, double subVariableMinValue,
-                                        double subVariableMaxValue,
-                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
+                                        double subVariableMaxValue);
 };
 IGAME_NAMESPACE_END

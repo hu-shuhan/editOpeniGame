@@ -17,12 +17,6 @@ public:
     void SetObjDistance(const std::vector<double>& objDistance);
     const std::vector<double>& GetObjDistance();
 
-    void SetChoosedObjIds(const std::set<int>& choosedObjIds);
-    void AddChoosedObjId(int objId);
-    void RemoveChoosedObjId(int objId);
-    void ClearChoosedObjIds();
-    const std::set<int>& GetChoosedObjIds();
-
     void SetObjDrawSort(const std::vector<int>& objDrawSort);
     const std::vector<int>& GetObjDrawSort();
 
@@ -75,9 +69,7 @@ protected:
     double m_MaxValue{};
     double m_MinValue{};
 
-    std::map<int, int> m_ObjIndexs;//[objId, objIndex in m_ObjDistance and m_ObjectDatas]
-
-    std::set<int> m_ChoosedObjIds;//[objId]
+    std::map<int, int> m_ObjIndexs;//[objId, objIndex in m_ObjDistance]
 
 public:
     /* static funcs */
@@ -97,19 +89,15 @@ public:
                                          const std::map<int, int>& objIndexs);
     static double GenerateObjMinDistance(const std::vector<int>& objDrawSort, const std::vector<double>& objDistance,
                                          const std::map<int, int>& objIndexs);
-    static std::pair<double, double> GenerateObjMinMaxValue(const std::vector<std::vector<double>>& objDatas,
-                                                            const std::vector<bool>& variableShow);
+    static std::pair<double, double> GenerateObjMinMaxValue(const std::map<int, int>& objIndexs,
+                                                            const std::vector<bool>& variableShow,
+                                                            CtxPresObjData_Main* theData);
     static std::vector<int> GenerateVariableHue(int variableNum);
     static std::vector<std::pair<int, int>> GenerateHS(int variableNum, int minH, int maxH, int minS, int maxS);
     static std::vector<std::tuple<int, int, int>> GenerateVariableColor(const std::vector<int>& variableHue,
                                                                         int saturation, int light);
     static std::vector<std::tuple<int, int, int>>
     GenerateVariableColor(const std::vector<std::pair<int, int>>& variableHS, int light);
-    static std::vector<std::vector<double>> GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                                IGenum dataType, const std::map<int, int>& objIndexs);
-    static std::set<int>
-    GenerateChoosedObjIds(const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                          IGenum dataType, const std::map<int, int>& objIndexs);
 
 private:
     static double GenerateMinValueInChoosedVariable(const std::vector<double>& minValues,
@@ -125,19 +113,15 @@ public:
     void SetUnChoosedAlpha(int alpha) = delete;
     int GetUnChoosedAlpha() const = delete;
 
-    void SetChoosedObjectDatas(const std::map<int, std::vector<double>>& choosedObjectDatas) = delete;
-    void AddChoosedObjectData(int objId, const std::vector<double>& objData) = delete;
-    void RemoveChoosedObjectData(int objId) = delete;
-    void ClearChoosedObjectData() = delete;
-    const std::map<int, std::vector<double>>& GetChoosedObjectData() = delete;
+    void SetKeyObjectIds(const std::vector<int>& keyObjIds) = delete;
+    const std::vector<int>& GetKeyObjectIds() = delete;
 
 public:
     /* init func */
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int minH, int maxH,
                        int minS, int maxS);
-    void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                       int objNum, ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
+    void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum,
+                       ScalarsToColors::Pointer colorMap, const Point& startPoint, const Point& endPoint,
                        UnstructuredMesh::Pointer mesh);
     void SetRadialData(ElementArray<AttributeSet::Attribute>::Pointer attrs, const Point& startPoint,
                        const Point& endPoint, UnstructuredMesh::Pointer mesh);

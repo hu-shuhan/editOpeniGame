@@ -368,7 +368,7 @@ void igQtDataChangeWidget::UpdateChoosedData(const std::vector<Selection::Event>
 }
 
 void igQtDataChangeWidget::ClearChoosedData() {
-    for (auto& Data: m_DataChangeDatas) Data->ClearChoosedObjIds();
+    for (auto& Data: m_DataChangeDatas) Data->ClearChoosedObjectIds();
 }
 
 void igQtDataChangeWidget::GenerateDataChangeDatas() {
@@ -401,14 +401,13 @@ PlotLineData::Pointer igQtDataChangeWidget::_GenerateDataChangeDatas(IGenum data
 void igQtDataChangeWidget::_SetRadialData(PlotLineData::Pointer Data) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     auto colorMap = m_Mesh->GetColorMapper();
-    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
     int objNum{};
     if (Data->GetDataType() == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
         objNum = m_Mesh->GetNumberOfCells();
     auto& startPoint = m_RadialStyle->GetStartPoint();
     auto& endPoint = m_RadialStyle->GetEndPoint();
-    Data->SetRadialData(attrs, selectedItems, objNum, colorMap, startPoint, endPoint, m_Mesh);
+    Data->SetRadialData(attrs, objNum, colorMap, startPoint, endPoint, m_Mesh);
 }
 
 void igQtDataChangeWidget::_ClearVariableButton() {
@@ -486,8 +485,8 @@ void igQtDataChangeWidget::_GenerateVariableImage(int variableIndex, PlotLineDat
     auto maxValue = Data->GetMaxValue();
     m_VariableImages[variableIndex] = _DrawVariableImage(
             minValue, maxValue, Data->GetMinDistance(), Data->GetMaxDistance(), Data->GetObjDrawSort(), variableIndex,
-            Data->GetObjDistance(), Data->GetObjectDatas(), Data->GetVariableColor()[variableIndex], FULL_ALPHA,
-            Data->GetChoosedObjIds(), Data->GetObjIndexs());
+            Data->GetObjDistance(), Data->GetVariableColor()[variableIndex], FULL_ALPHA, Data->GetChoosedObjectIds(),
+            Data->GetObjIndexs(), Data);
 }
 
 void igQtDataChangeWidget::_GenerateChoosedVariableImage(int variableIndex, PlotLineData::Pointer Data) {
@@ -496,8 +495,8 @@ void igQtDataChangeWidget::_GenerateChoosedVariableImage(int variableIndex, Plot
     auto maxValue = Data->GetMaxValue();
     m_ChoosedVariableImages[variableIndex] = _DrawChoosedVariableImage(
             minValue, maxValue, Data->GetMinDistance(), Data->GetMaxDistance(), Data->GetObjDrawSort(), variableIndex,
-            Data->GetObjDistance(), Data->GetObjectDatas(), Data->GetChoosedVariableColor()[variableIndex], FULL_ALPHA,
-            Data->GetChoosedObjIds(), Data->GetObjIndexs());
+            Data->GetObjDistance(), Data->GetChoosedVariableColor()[variableIndex], FULL_ALPHA,
+            Data->GetChoosedObjectIds(), Data->GetObjIndexs(), Data);
 }
 
 void igQtDataChangeWidget::_GenerateVariableImage(const std::vector<bool>& variableShow, PlotLineData::Pointer Data) {
@@ -531,9 +530,9 @@ void igQtDataChangeWidget::_TryUpdateChoosedPointData(PlotLineData::Pointer Data
     auto& objIds = Data->GetObjIndexs();
     if (objIds.count(id) == 0) return;
     if (ope == Selection::Event::Operate::Add) {
-        Data->AddChoosedObjId(id);
+        Data->AddChoosedObjectId(id);
     } else if (ope == Selection::Event::Operate::Remove) {
-        Data->RemoveChoosedObjId(id);
+        Data->RemoveChoosedObjectId(id);
     }
 }
 
@@ -543,9 +542,9 @@ void igQtDataChangeWidget::_TryUpdateChoosedCellData(PlotLineData::Pointer Data,
     auto& objIds = Data->GetObjIndexs();
     if (objIds.count(id) == 0) return;
     if (ope == Selection::Event::Operate::Add) {
-        Data->AddChoosedObjId(id);
+        Data->AddChoosedObjectId(id);
     } else if (ope == Selection::Event::Operate::Remove) {
-        Data->RemoveChoosedObjId(id);
+        Data->RemoveChoosedObjectId(id);
     }
 }
 
@@ -563,10 +562,9 @@ void igQtDataChangeWidget::_CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& 
 QImage igQtDataChangeWidget::_DrawVariableImage(double minValue, double maxValue, double minDistance,
                                                 double maxDistance, const std::vector<int>& objDrawSort,
                                                 int variableIndex, const std::vector<double>& objDistance,
-                                                const std::vector<std::vector<double>>& objData,
                                                 const std::tuple<int, int, int>& color, int alpha,
-                                                const std::set<int> choosedObjIds,
-                                                const std::map<int, int>& objIndexs) {
+                                                const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs,
+                                                CtxPresObjData_Main* theData) {
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return {};
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     int objNum = Data->GetObjIndexs().size();
@@ -588,19 +586,16 @@ QImage igQtDataChangeWidget::_DrawVariableImage(double minValue, double maxValue
     for (auto& objId: objDrawSort) {
         if (choosedObjIds.count(objId) != 0) continue;
         auto objIndex = objIndexs.at(objId);
-        _DrawPoint(minValue, maxValue, minDistance, maxDistance, objData[objIndex][variableIndex],
+        _DrawPoint(minValue, maxValue, minDistance, maxDistance, theData->GetObjectData(objId, variableIndex),
                    objDistance[objIndex], painter, drawFrame);
     }
     return re;
 }
 
-QImage igQtDataChangeWidget::_DrawChoosedVariableImage(double minValue, double maxValue, double minDistance,
-                                                       double maxDistance, const std::vector<int>& objDrawSort,
-                                                       int variableIndex, const std::vector<double>& objDistance,
-                                                       const std::vector<std::vector<double>>& objData,
-                                                       const std::tuple<int, int, int>& color, int alpha,
-                                                       const std::set<int> choosedObjIds,
-                                                       const std::map<int, int>& objIndexs) {
+QImage igQtDataChangeWidget::_DrawChoosedVariableImage(
+        double minValue, double maxValue, double minDistance, double maxDistance, const std::vector<int>& objDrawSort,
+        int variableIndex, const std::vector<double>& objDistance, const std::tuple<int, int, int>& color, int alpha,
+        const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs, CtxPresObjData_Main* theData) {
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return {};
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     int objNum = Data->GetObjIndexs().size();
@@ -622,7 +617,7 @@ QImage igQtDataChangeWidget::_DrawChoosedVariableImage(double minValue, double m
     for (auto& objId: objDrawSort) {
         if (choosedObjIds.count(objId) == 0) continue;
         auto objIndex = objIndexs.at(objId);
-        _DrawPoint(minValue, maxValue, minDistance, maxDistance, objData[objIndex][variableIndex],
+        _DrawPoint(minValue, maxValue, minDistance, maxDistance, theData->GetObjectData(objId, variableIndex),
                    objDistance[objIndex], painter, drawFrame);
     }
     return re;
@@ -759,7 +754,7 @@ void igQtDataChangeWidget::VariableCheckButtonClicked(bool checked) {
     m_VariableShow[variableIndex] = checked;
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
-    auto [minValue, maxValue] = PlotLineData::GenerateObjMinMaxValue(Data->GetObjectDatas(), m_VariableShow);
+    auto [minValue, maxValue] = PlotLineData::GenerateObjMinMaxValue(Data->GetObjIndexs(), m_VariableShow, Data);
     Data->SetMinValue(minValue);
     Data->SetMaxValue(maxValue);
     _GenerateVariableImage(m_VariableShow, Data);

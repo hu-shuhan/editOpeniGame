@@ -26,21 +26,22 @@ int main() {
     auto resultData = filter->GetOutput(0);
     auto theData = iGame::DynamicCast<iGame::ParallelCoordinatesData>(resultData);
     auto& variableNames = theData->GetVariableName();
-    auto& objDatas = theData->GetObjectDatas();
     /*data procurement*/
     for (auto& variableName: variableNames) { std::cout << variableName << '\t'; }
     std::cout << std::endl;
-    for (int objDataIndex = 0; objDataIndex < std::min<int>(10, objDatas.size()); objDataIndex++) {
-        auto& objData = objDatas[objDataIndex];
-        for (auto& i: objData) { std::cout << i << '\t'; }
+    for (int i = 0; i < std::min<int>(10, theData->GetKeyObjectIds().size()); i++) {
+        auto objId = theData->GetKeyObjectIds()[i];
+        for (int v = 0; v < theData->GetVariableNum(); v++) {
+            auto value = theData->GetObjectData(objId, v);
+            std::cout << value << '\t';
+        }
         std::cout << std::endl;
     }
     /*Data selection*/
     //The selected content in the case is a variable with subscript 0, and its range is 0 to 1.
     //For the input of multiple variables, the final choice is the union of the filtering results of their respective variables.
     std::map<int, std::pair<double, double>> variableMinMaxValues{{0, std::pair<double, double>(0, 1)}};
-    auto pointIds = theData->FiltInRangeIds(
-            variableMinMaxValues, mesh->GetAttributeSet()->GetAllAttributes(), mesh->GetNumberOfPoints());
+    auto pointIds = theData->FiltInRangeIds(variableMinMaxValues);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
     return 0;
