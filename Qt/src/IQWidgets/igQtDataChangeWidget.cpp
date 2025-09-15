@@ -1,8 +1,8 @@
 #include "ui_igQtDataChangeWidget.h"
 #include <IQWidgets/igQtDataChangeWidget.h>
 #include <QElapsedTimer>
-#include <utility>
 #include <iGameThreadPool.h>
+#include <utility>
 
 using namespace std;
 
@@ -15,7 +15,7 @@ static constexpr int POINT_SIZE = 6;
 static constexpr int COLOR_WIDGET_SIZE = 15;
 static constexpr int MIN_H = 0, MAX_H = 360, MIN_S = 100, MAX_S = 255;
 
-static enum VariableSite : int { variableColor = 0, choosedVariableColor, checkButton };
+enum VariableSite : int { variableColor = 0, choosedVariableColor, checkButton };
 
 static inline QColor GetQColorFromTuple(const tuple<int, int, int>& rgb, int alpha) {
     return QColor(get<0>(rgb), get<1>(rgb), get<2>(rgb), alpha);
@@ -60,14 +60,11 @@ static inline int CalculateSite(double data, double maxData, double minData, int
     return ((double) start * (maxData - data) - (double) end * (minData - data)) / (maxData - minData);
 }
 
-static inline pair<int, int> CalculatePointSite(double yVariableData, double xVariableData,
-                                                double yVariableMaxData, double yVariableMinData,
-                                                double xVariableMaxData, double xVariableMinData,
-                                                const QRect& drawFrame) {
-    int ySite = CalculateSite(yVariableData, yVariableMaxData, yVariableMinData, drawFrame.bottom(),
-                                 drawFrame.top());
-    int xSite =
-            CalculateSite(xVariableData, xVariableMaxData, xVariableMinData, drawFrame.left(), drawFrame.right());
+static inline pair<int, int> CalculatePointSite(double yVariableData, double xVariableData, double yVariableMaxData,
+                                                double yVariableMinData, double xVariableMaxData,
+                                                double xVariableMinData, const QRect& drawFrame) {
+    int ySite = CalculateSite(yVariableData, yVariableMaxData, yVariableMinData, drawFrame.bottom(), drawFrame.top());
+    int xSite = CalculateSite(xVariableData, xVariableMaxData, xVariableMinData, drawFrame.left(), drawFrame.right());
     return {xSite, ySite};
 }
 
@@ -171,8 +168,7 @@ void igQtDataChangeWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
-                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
     m_Model->GetSelection()->SelectionCallBackEvent(events);
     update();
 }
@@ -669,8 +665,7 @@ void igQtDataChangeWidget::_DrawImages(const QRect& range) {
 
 void igQtDataChangeWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
-    selection->SetSelectionCallBackEvent(&igQtDataChangeWidget::SelectionCallbackEvent, this,
-                                         std::placeholders::_1);
+    selection->SetSelectionCallBackEvent(&igQtDataChangeWidget::SelectionCallbackEvent, this, std::placeholders::_1);
 }
 
 void igQtDataChangeWidget::SetClearSelectionCallback() {
@@ -707,7 +702,8 @@ void igQtDataChangeWidget::ChoosedLightSliderChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(), Data->GetChoosedLight());//GetVariableHue(), SATURATION
+    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+                                                        Data->GetChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetChoosedVariableColor(colors);
     _SetChoosedVariableColorWidgetColor(Data->GetVariableNum(), colors);
     _GenerateChoosedVariableImage(m_VariableShow, Data);
@@ -720,7 +716,8 @@ void igQtDataChangeWidget::UnChoosedLightSliderChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(), Data->GetUnChoosedLight());//GetVariableHue(), SATURATION
+    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+                                                        Data->GetUnChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetVariableColor(colors);
     _SetVariableColorWidgetColor(Data->GetVariableNum(), colors);
     _GenerateVariableImage(m_VariableShow, Data);
@@ -733,7 +730,8 @@ void igQtDataChangeWidget::ChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetChoosedLight() == value) return;
     Data->SetChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(), Data->GetChoosedLight());//GetVariableHue(), SATURATION
+    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+                                                        Data->GetChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetChoosedVariableColor(colors);
     _SetChoosedVariableColorWidgetColor(Data->GetVariableNum(), colors);
     _GenerateChoosedVariableImage(m_VariableShow, Data);
@@ -746,7 +744,8 @@ void igQtDataChangeWidget::UnChoosedLightSpinBoxChanged(int value) {
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     if (Data->GetUnChoosedLight() == value) return;
     Data->SetUnChoosedLight(value);
-    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(), Data->GetUnChoosedLight());//GetVariableHue(), SATURATION
+    auto colors = DataChangeData::GenerateVariableColor(Data->GetVariableHS(),
+                                                        Data->GetUnChoosedLight()); //GetVariableHue(), SATURATION
     Data->SetVariableColor(colors);
     _SetVariableColorWidgetColor(Data->GetVariableNum(), colors);
     _GenerateVariableImage(m_VariableShow, Data);

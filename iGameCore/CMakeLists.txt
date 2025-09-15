@@ -1,5 +1,8 @@
 set(MODULE_NAME iGameCore_module)
 set(CMAKE_CXX_STANDARD 20)
+#=====添加路径======
+set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
+#=================
 set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -19,7 +22,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE}  "Rendering/Core/iGameCenterAxesModel.h" "Rendering/Core/iGameCenterAxesModel.cpp" "Rendering/Core/Interactor/iGameDragCenterStyle.h" "Rendering/Core/Interactor/iGameDragCenterStyle.cpp")
 endif ()
 
 # add rendering core

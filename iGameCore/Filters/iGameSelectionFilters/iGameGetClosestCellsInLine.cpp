@@ -104,13 +104,13 @@ bool iGameGetClosestCellsInLine::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_Radius < 0) return false;
-    RUN();
+    Run();
     return true;
 }
 
 const std::vector<int>& iGameGetClosestCellsInLine::GetResult() { return m_Ids; }
 
-void iGameGetClosestCellsInLine::RUN() {
+void iGameGetClosestCellsInLine::Run() {
     m_Ids.clear();
     double minDis = -1;
     int id = -1;

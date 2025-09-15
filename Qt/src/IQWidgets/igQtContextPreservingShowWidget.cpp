@@ -1,9 +1,9 @@
-#include <IQWidgets/igQtContextPreservingShowWidget.h>
 #include "ui_ContextPreservingShowView.h"
-#include <sstream>
-#include <cmath>
+#include <IQWidgets/igQtContextPreservingShowWidget.h>
 #include <algorithm>
 #include <climits>
+#include <cmath>
+#include <sstream>
 
 
 const float EPSILON = 1e-6f;
@@ -39,7 +39,7 @@ static void rgbToHsb(float r, float g, float b, float& h, float& s, float& bVal)
 
 static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
     float c = bVal * s;
-    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float x = c * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
     float m = bVal - c;
 
     float r1, g1, b1;
@@ -87,10 +87,8 @@ static void ChangeRgbBrightness(float& r, float& g, float& b, float targetBright
     hsbToRgb(h, s, newB, r, g, b);
 }
 
-igQtContextPreservingShowWidget::igQtContextPreservingShowWidget(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::ContextPreservingShowView)
-{
+igQtContextPreservingShowWidget::igQtContextPreservingShowWidget(QWidget* parent)
+    : QWidget(parent), ui(new Ui::ContextPreservingShowView) {
     ui->setupUi(this);
     connect(ui->chooesdData, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtContextPreservingShowWidget::ChoosedDataChanged);
@@ -252,7 +250,7 @@ static void DrawCellByPointAttr(Model::Pointer model, UnstructuredMesh::Pointer 
 
 static void DrawCell(Model::Pointer model, UnstructuredMesh::Pointer mesh, AttributeSet::Attribute& attr, Cell* cell,
                      int variableIndex, std::vector<IGuint>& drawHandles, ScalarsToColors::Pointer colorMap,
-                     float shift, float scale, int brightness,double value) {
+                     float shift, float scale, int brightness, double value) {
     auto faceNum = cell->GetNumberOfFaces();
     if (faceNum == 0) {
         int pointSize = cell->GetNumberOfPoints();

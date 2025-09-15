@@ -5,12 +5,12 @@ bool iGameGenerateParallelCoordinatesData::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
-    RUN();
+    Run();
     SetOutput(0, m_Data);
     return true;
 }
 
-void iGameGenerateParallelCoordinatesData::RUN() {
+void iGameGenerateParallelCoordinatesData::Run() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     m_Data = ParallelCoordinatesData::New(attrs, m_DataType);
 }

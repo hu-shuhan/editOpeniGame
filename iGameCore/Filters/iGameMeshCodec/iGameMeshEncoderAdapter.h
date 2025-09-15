@@ -85,6 +85,11 @@ public:
             return mesh->GetNumberOfCells();
             break;
         }
+        case IG_POINT_SET:
+        {
+            return 0;
+            break;
+        }
         default:
             break;
         }
@@ -99,6 +104,10 @@ public:
 
     bool IsFixedCellSize()
     {
+        if (this->GetMeshType() == IG_POINT_SET) {
+            return false;
+        }
+        
         return this->IsSecondaryIndexPolyhedronMesh() ? false : (this->GetCellIdOffset()->GetNumberOfValues() != this->GetNumberOfCells() + 1);
     }
 

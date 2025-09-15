@@ -1,6 +1,6 @@
 #include "iGameVariableDensityData.h"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 #include <iGameThreadPool.h>
 #include <mutex>
 using namespace std;
@@ -49,7 +49,7 @@ static void rgbToHsb(float r, float g, float b, float& h, float& s, float& bVal)
 
 static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
     float c = bVal * s;
-    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float x = c * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
     float m = bVal - c;
 
     float r1, g1, b1;
@@ -162,10 +162,10 @@ int VariableDensityData::CalculateCopyIndexByValue(int copyNum, double value, do
     return index;
 }
 
-std::vector<std::vector<int>>
-VariableDensityData::GenerateDensity(int variableNum, int copyNum, const std::vector<double>& maxValueInVariables,
-                                          const std::vector<double>& minValueInVariables,
-                                          const std::vector<std::vector<double>>& objDatas) {
+std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableNum, int copyNum,
+                                                                   const std::vector<double>& maxValueInVariables,
+                                                                   const std::vector<double>& minValueInVariables,
+                                                                   const std::vector<std::vector<double>>& objDatas) {
 
     if (variableNum <= 0 || copyNum <= 0 || maxValueInVariables.size() < static_cast<size_t>(variableNum) ||
         minValueInVariables.size() < static_cast<size_t>(variableNum)) {
@@ -200,7 +200,7 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     std::vector<std::vector<int>> counts(variableNum, std::vector<int>(copyNum, 0));
     if (objCount == 0) return counts;
 
-    
+
     static mutex CountMutex;
     ThreadPool::parallelFor(
             0, objCount,
@@ -258,10 +258,10 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     //return counts;
 }
 
-std::vector<std::vector<int>>
-VariableDensityData::GenerateDensity(int variableNum, int copyNum, const std::vector<double>& maxValueInVariables,
-                                          const std::vector<double>& minValueInVariables,
-                                          const std::map<int, std::vector<double>>& objDatas) {
+std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableNum, int copyNum,
+                                                                   const std::vector<double>& maxValueInVariables,
+                                                                   const std::vector<double>& minValueInVariables,
+                                                                   const std::map<int, std::vector<double>>& objDatas) {
     if (variableNum <= 0 || copyNum <= 0 || maxValueInVariables.size() < static_cast<size_t>(variableNum) ||
         minValueInVariables.size() < static_cast<size_t>(variableNum)) {
         return {};

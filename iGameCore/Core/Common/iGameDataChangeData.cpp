@@ -1,8 +1,8 @@
 #include "iGameDataChangeData.h"
 #include <algorithm>
-#include <cmath>
-#include <climits>
 #include <cfloat>
+#include <climits>
+#include <cmath>
 using namespace std;
 IGAME_NAMESPACE_BEGIN
 
@@ -10,7 +10,7 @@ const float EPSILON = 1e-6f;
 
 static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
     float c = bVal * s;
-    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float x = c * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
     float m = bVal - c;
 
     float r1, g1, b1;
@@ -59,16 +59,15 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points
 }
 
 
-static bool SegmentIntersectsTriangle(const Point& start, const Point& end, const Point& a, const Point& b, const Point& c) {
+static bool SegmentIntersectsTriangle(const Point& start, const Point& end, const Point& a, const Point& b,
+                                      const Point& c) {
     Point dir = {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
     Point ab = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
     Point ac = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
     Point pvec = dir.cross(ac);
 
     double det = ab.dot(pvec);
-    if (std::abs(det) < 1e-7) {
-        return false;
-    }
+    if (std::abs(det) < 1e-7) { return false; }
 
     double invDet = 1.0 / det;
     Point tvec = {start[0] - a[0], start[1] - a[1], start[2] - a[2]};
@@ -80,9 +79,7 @@ static bool SegmentIntersectsTriangle(const Point& start, const Point& end, cons
     if (v < -1e-7 || u + v > 1 + 1e-7) { return false; }
 
     double t = ac.dot(qvec) * invDet;
-    if (t < 1e-7 || t > 1 - 1e-7) {
-        return false;
-    }
+    if (t < 1e-7 || t > 1 - 1e-7) { return false; }
     return (u > 1e-7) && (v > 1e-7) && (u + v < 1 - 1e-7);
 }
 
@@ -172,7 +169,11 @@ void DataChangeData::SetMaxValue(double value) { m_MaxValue = value; }
 double DataChangeData::GetMaxValue() const { return m_MaxValue; }
 void DataChangeData::SetMinValue(double value) { m_MinValue = value; }
 double DataChangeData::GetMinValue() const { return m_MinValue; }
+
+//[objId, objIndex in m_ObjDistance and m_ObjectDatas]
 void DataChangeData::SetObjIndexs(const std::map<int, int>& objIndexs) { m_ObjIndexs = objIndexs; }
+
+//[objId, objIndex in m_ObjDistance and m_ObjectDatas]
 const std::map<int, int>& DataChangeData::GetObjIndexs() { return m_ObjIndexs; }
 
 std::map<int, int> DataChangeData::GenerateObjIndex(const Point& startPoint, const Point& endPoint,
@@ -389,7 +390,7 @@ DataChangeData::GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Point
                                     const std::map<int, int>& objIndexs) {
     std::vector<std::vector<double>> re(objIndexs.size());
     for (auto& objId_: objIndexs) {
-        int objId=objId_.first;
+        int objId = objId_.first;
         int reIndex = objId_.second;
         re[reIndex] = GenerateObjectData(attrs, dataType, objId);
     }
