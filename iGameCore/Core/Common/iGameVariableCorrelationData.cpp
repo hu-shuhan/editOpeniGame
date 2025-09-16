@@ -96,15 +96,13 @@ std::vector<std::vector<double>> VariableCorrelationData::CalculateVariableCorre
                                                                                        CtxPresObjData_Main* theData) {
     int numObjects = objIds.size();
     std::vector<std::vector<double>> variables(variableNum, std::vector<double>(numObjects, 0.0));
-
     int objIdx = 0;
-    for (const auto& objId: objIds) {
+    for (int objId: objIds) {
         for (int varIdx = 0; varIdx < variableNum; ++varIdx) {
             variables[varIdx][objIdx] = theData->GetObjectData(objId,varIdx);
         }
         ++objIdx;
     }
-
     return ComputeCorrelationMatrix(variableNum, variables);
 }
 
@@ -201,4 +199,41 @@ std::vector<igIndex> VariableCorrelationData::FiltInRangeIds(int _mainVariableIn
     return ids;
 }
 
+void VariableCorrelationData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
+    selection->_SetSelectionCallBackEvent(funcName, &VariableCorrelationData::DefaultSelectionCallBackFunc, this,
+                                          std::placeholders::_1);
+    selection->_SetClearSelectionCallBackEvent(funcName, &VariableCorrelationData::DefaultClearSelectionCallBackFunc,
+                                               this);
+}
+
+void VariableCorrelationData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+    auto Data = this;
+    for (auto& e: _events) {
+        switch (e.type) {
+            case iGame::Selection::Event::Type::PickPoint:
+                if (Data->GetDataType() != IG_POINT) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            case iGame::Selection::Event::Type::PickFace:
+                if (Data->GetDataType() != IG_CELL) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            default:
+                break;
+        }
+    }
+    Data->SetChoosedVariableCorrelation(iGame::VariableCorrelationData::CalculateVariableCorrelation(
+            Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
+}
+
+void VariableCorrelationData::DefaultClearSelectionCallBackFunc() {
+    auto Data = this;
+    Data->ClearChoosedObjectIds();
+    Data->SetChoosedVariableCorrelation(iGame::VariableCorrelationData::CalculateVariableCorrelation(
+            Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
+}
 IGAME_NAMESPACE_END

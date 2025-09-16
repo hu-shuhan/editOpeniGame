@@ -134,4 +134,38 @@ bool ParallelCoordinatesData::NotInFilterValueRange(int objId) {
     return false;
 }
 
+void ParallelCoordinatesData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
+    selection->_SetSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultSelectionCallBackFunc, this,
+                                          std::placeholders::_1);
+    selection->_SetClearSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultClearSelectionCallBackFunc,
+                                               this);
+}
+
+void ParallelCoordinatesData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+    auto Data = this;
+    for (auto& e: _events) {
+        switch (e.type) {
+            case iGame::Selection::Event::Type::PickPoint:
+                if (Data->GetDataType() != IG_POINT) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            case iGame::Selection::Event::Type::PickFace:
+                if (Data->GetDataType() != IG_CELL) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void ParallelCoordinatesData::DefaultClearSelectionCallBackFunc() {
+    auto Data = this;
+    Data->ClearChoosedObjectIds();
+}
+
 IGAME_NAMESPACE_END

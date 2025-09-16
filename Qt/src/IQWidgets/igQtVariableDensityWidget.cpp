@@ -609,15 +609,15 @@ void igQtVariableDensityWidget::UpdateChoosedData(const std::vector<Selection::E
             switch (e.type) {
                 case Selection::Event::Type::PickPoint:
                     if (Data->GetDataType() != IG_POINT) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectIndex(e.pickId);
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectIndex(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 case Selection::Event::Type::PickFace:
                     if (Data->GetDataType() != IG_CELL) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectIndex(e.pickId);
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectIndex(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 default:
                     break;
@@ -625,7 +625,7 @@ void igQtVariableDensityWidget::UpdateChoosedData(const std::vector<Selection::E
         }
         auto choosedDensity = VariableDensityData::GenerateDensity(
                 Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(),
-                Data->GetMinValueInVariables(), attrs, Data->GetDataType(), Data->GetChoosedObjectIndexs());
+                Data->GetMinValueInVariables(), attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
         Data->SetChoosedDensity(choosedDensity);
     }
 }
@@ -633,10 +633,10 @@ void igQtVariableDensityWidget::UpdateChoosedData(const std::vector<Selection::E
 void igQtVariableDensityWidget::ClearChoosedData() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     for (auto& Data: m_VariableDensityDatas) {
-        Data->ClearChoosedObjectIndex();
+        Data->ClearChoosedObjectIds();
         auto choosedDensity = VariableDensityData::GenerateDensity(
                 Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(),
-                Data->GetMinValueInVariables(), attrs, Data->GetDataType(), Data->GetChoosedObjectIndexs());
+                Data->GetMinValueInVariables(), attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
         Data->SetChoosedDensity(choosedDensity);
     }
 }
@@ -804,7 +804,7 @@ void igQtVariableDensityWidget::_UpdateDataCopyNum() {
         Data->SetDensity(density);
         auto choosedDensity = VariableDensityData::GenerateDensity(
                 Data->GetVariableNum(), m_BoxNum, Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(), attrs,
-                Data->GetDataType(), Data->GetChoosedObjectIndexs());
+                Data->GetDataType(), Data->GetChoosedObjectIds());
         Data->SetChoosedDensity(choosedDensity);
         Data->SetDensityColor(VariableDensityData::GenerateDensityColor(m_BoxNum, Data->GetUnChoosedLight(), colorMap));
         Data->SetChoosedDensityColor(

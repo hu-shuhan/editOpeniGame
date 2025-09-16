@@ -56,6 +56,7 @@ protected:
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
 
+public:
     std::vector<std::pair<int, int>> m_VariableIndex;
     std::vector<int> m_KeyObjIds;
     std::set<int> m_ChoosedObjIds;

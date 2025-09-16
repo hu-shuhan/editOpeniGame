@@ -354,11 +354,17 @@ void igQtDataChangeWidget::UpdateChoosedData(const std::vector<Selection::Event>
             switch (e.type) {
                 case Selection::Event::Type::PickPoint:
                     if (Data->GetDataType() != IG_POINT) break;
-                    _TryUpdateChoosedPointData(Data, e.pickId, e.operate);
+                    //_TryUpdateChoosedPointData(Data, e.pickId, e.operate);
+                    if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                    else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 case Selection::Event::Type::PickFace:
                     if (Data->GetDataType() != IG_CELL) break;
-                    _TryUpdateChoosedCellData(Data, e.pickId, e.operate);
+                    //_TryUpdateChoosedCellData(Data, e.pickId, e.operate);
+                    if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                    else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 default:
                     break;

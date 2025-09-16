@@ -110,16 +110,6 @@ void VariableDensityData::SetCopyNum(int copyNum) { m_CopyNum = copyNum; }
 
 int VariableDensityData::GetCopyNum() const { return m_CopyNum; }
 
-void VariableDensityData::SetChoosedObjectIndexs(const std::set<int>& objIds) { m_ChoosedObjIndexs = objIds; }
-
-void VariableDensityData::AddChoosedObjectIndex(int objId) { m_ChoosedObjIndexs.insert(objId); }
-
-void VariableDensityData::RemoveChoosedObjectIndex(int objId) { m_ChoosedObjIndexs.erase(objId); }
-
-void VariableDensityData::ClearChoosedObjectIndex() { m_ChoosedObjIndexs.clear(); }
-
-const std::set<int>& VariableDensityData::GetChoosedObjectIndexs() { return m_ChoosedObjIndexs; }
-
 void VariableDensityData::SetDensity(const std::vector<std::vector<int>>& density) { m_Density = density; }
 
 const std::vector<std::vector<int>>& VariableDensityData::GetDensity() { return m_Density; }
@@ -390,7 +380,7 @@ VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, I
     auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
     auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
-    Data->SetChoosedObjectIndexs(choosedObjIds);
+    Data->SetChoosedObjectIds(choosedObjIds);
     auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
     Data->SetMaxValueInVariables(maxValue);
@@ -459,4 +449,49 @@ std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, dou
     });
     return ids;
 }
+
+void VariableDensityData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
+    selection->_SetSelectionCallBackEvent(funcName, &VariableDensityData::DefaultSelectionCallBackFunc, this,
+                                          std::placeholders::_1);
+    selection->_SetClearSelectionCallBackEvent(funcName, &VariableDensityData::DefaultClearSelectionCallBackFunc,
+                                               this);
+}
+
+void VariableDensityData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+    auto Data = this;
+    for (auto& e: _events) {
+        switch (e.type) {
+            case iGame::Selection::Event::Type::PickPoint:
+                if (Data->GetDataType() != IG_POINT) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) {
+                    //Data->AddChoosedObjectId(e.pickId);
+                    Data->m_ChoosedObjIds.insert(e.pickId);
+                } else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            case iGame::Selection::Event::Type::PickFace:
+                if (Data->GetDataType() != IG_CELL) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            default:
+                break;
+        }
+    }
+    auto choosedDensity = iGame::VariableDensityData::GenerateDensity(
+            Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+            m_Attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
+    Data->SetChoosedDensity(choosedDensity);
+}
+
+void VariableDensityData::DefaultClearSelectionCallBackFunc() {
+    auto Data = this;
+    Data->ClearChoosedObjectIds();
+    auto choosedDensity = iGame::VariableDensityData::GenerateDensity(
+            Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+            m_Attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
+    Data->SetChoosedDensity(choosedDensity);
+}
+
 IGAME_NAMESPACE_END

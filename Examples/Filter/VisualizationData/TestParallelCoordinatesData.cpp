@@ -40,7 +40,7 @@ int main() {
     /*Data selection*/
     //The selected content in the case is a variable with subscript 0, and its range is 0 to 1.
     //For the input of multiple variables, the final choice is the union of the filtering results of their respective variables.
-    std::map<int, std::pair<double, double>> variableMinMaxValues{{0, std::pair<double, double>(0, 1)}};
+    std::map<int, std::pair<double, double>> variableMinMaxValues{{0, std::pair<double, double>(0.95, 1.0)}};
     auto pointIds = theData->FiltInRangeIds(variableMinMaxValues);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;

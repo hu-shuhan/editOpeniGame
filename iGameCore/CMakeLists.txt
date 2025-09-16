@@ -22,7 +22,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE}  "Rendering/Core/iGameCenterAxesModel.h" "Rendering/Core/iGameCenterAxesModel.cpp" "Rendering/Core/Interactor/iGameDragCenterStyle.h" "Rendering/Core/Interactor/iGameDragCenterStyle.cpp")
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
 endif ()
 
 # add rendering core

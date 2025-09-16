@@ -34,7 +34,7 @@ int main() {
         std::cout << std::endl;
     }
     /*Data selection*/
-    auto pointIds = theData->FiltInRangeIds(0, 0.1, 0.2);
+    auto pointIds = theData->FiltInRangeIds(0, 0.504, 0.505);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
     return 0;

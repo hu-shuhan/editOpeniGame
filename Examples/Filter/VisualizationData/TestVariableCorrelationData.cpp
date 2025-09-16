@@ -37,7 +37,7 @@ int main() {
     /*Data selection*/
     //Select the variables with subscript 0 and subscript 1, and select the maximum and minimum values for them.
     //Object ids that meet all the maximum and minimum values will be obtained.
-    auto pointIds = theData->FiltInRangeIds(0, 1, 0.1, 0.3, 0.11, 0.22);
+    auto pointIds = theData->FiltInRangeIds(0, 1, 0.54, 0.62, 0.31, 0.55);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
     return 0;

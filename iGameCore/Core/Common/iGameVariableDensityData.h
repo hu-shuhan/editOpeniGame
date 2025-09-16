@@ -14,12 +14,6 @@ public:
     void SetCopyNum(int copyNum);
     int GetCopyNum() const;
 
-    void SetChoosedObjectIndexs(const std::set<int>& objIds);
-    void AddChoosedObjectIndex(int objId);
-    void RemoveChoosedObjectIndex(int objId);
-    void ClearChoosedObjectIndex();
-    const std::set<int>& GetChoosedObjectIndexs();
-
     void SetDensity(const std::vector<std::vector<int>>& density);
     const std::vector<std::vector<int>>& GetDensity();
 
@@ -36,8 +30,6 @@ public:
 
 protected:
     int m_CopyNum{};
-
-    std::set<int> m_ChoosedObjIndexs;
 
     std::vector<std::vector<int>> m_Density; //[variableIndex][dataLevel]
     std::vector<std::vector<int>> m_ChoosedDensity; //[variableIndex][dataLevel]
@@ -80,12 +72,6 @@ public:
     void SetKeyObjectIds(const std::vector<int>& keyObjIds) = delete;
     const std::vector<int>& GetKeyObjectIds() = delete;
 
-    void SetChoosedObjectIds(const std::set<int>& choosedObjIds) = delete;
-    void AddChoosedObjectId(int objId) = delete;
-    void RemoveChoosedObjectId(int objId) = delete;
-    void ClearChoosedObjectIds() = delete;
-    const std::set<int>& GetChoosedObjectIds() = delete;
-
 public:
     /* init func */
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
@@ -100,5 +86,13 @@ protected:
 public:
     /* choose func */
     std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue);
+
+public:
+    /* selection set */
+    void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
+
+protected:
+    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultClearSelectionCallBackFunc();
 };
 IGAME_NAMESPACE_END

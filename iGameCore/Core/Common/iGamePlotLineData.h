@@ -134,5 +134,13 @@ public:
     /* choose func */
     std::vector<igIndex> FiltInRangeIds(double minDistance, double maxDistance, double minValue, double maxValue,
                                         std::vector<bool> variableCanBeChoose);
+
+public:
+    /* selection set */
+    void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
+
+protected:
+    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultClearSelectionCallBackFunc();
 };
 IGAME_NAMESPACE_END
