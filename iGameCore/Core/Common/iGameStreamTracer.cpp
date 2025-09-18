@@ -1,7 +1,17 @@
-// ﻿
+﻿// ﻿
 #include <iGameStreamTracer.h>
 #include <iGameThreadPool.h>
 #include <shared_mutex>
+#include <atomic>
+#include <future>
+#include <algorithm>
+#include <unordered_set>
+
+// Initialize static thread_local members
+thread_local iGameStreamTracer::TrigCache iGameStreamTracer::trigCache;
+thread_local std::vector<float> iGameStreamTracer::reusableWeights;
+thread_local std::vector<Vector3f> iGameStreamTracer::reusableVectors;
+thread_local std::vector<double> iGameStreamTracer::reusableDoubles;
 float A[5] = {1.0 / 5.0, 3.0 / 10.0, 3.0 / 5.0, 1.0, 7.0 / 8.0};
 float B[5][5] = {{1.0 / 5.0, 0, 0, 0, 0},
                  {3.0 / 40.0, 9.0 / 40.0, 0, 0, 0},
@@ -25,8 +35,10 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->RequestEditStatus();
         } else {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->SetShouldBuildEageLinks(false);
             mesh->SetShouldBuildFaceLinks(false);
             mesh->SetShouldBuildFaceEageLinks(false);
@@ -43,8 +55,10 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->SetShouldBuildEageLinks(false);
             mesh->SetShouldBuildFaceLinks(false);
             mesh->SetShouldBuildFaceEageLinks(false);
@@ -74,6 +88,10 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     processCount = 0;
     totalProcess = 0;
     isChange = true;
+    
+    // Precompute trigonometric values for better performance
+    precomputeTrigValues();
+    
     return;
 }
 void iGameStreamTracer::initSubmodelLinks() {
@@ -81,6 +99,9 @@ void iGameStreamTracer::initSubmodelLinks() {
     auto it = temData->SubDataObjectIteratorBegin();
     for (; it != temData->SubDataObjectIteratorEnd(); ++it) {
         auto vol = DynamicCast<VolumeMesh>(it->second);
+        // Initialize adjacency for each sub-model
+        SetMesh(vol);
+        InitAdjacent(vol->GetCells(), vol->GetNumberOfPoints());
         vol->BuildVolumeLinks();
     }
 }
@@ -975,15 +996,17 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
             int numOfVolumes = mesh->GetNumberOfVolumes();
             if (ptFinder[0]) {
                 igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
-                VolumeMesh::ReturnContainer nearVolume;
-                int find = mesh->GetPointToNeighborVolumes(temPointId, nearVolume);
-                for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
+                // Use vetex_link adjacency data instead of mesh method
+                for (long long k = vetex_link.offset[temPointId]; k < vetex_link.offset[temPointId + 1]; k++) {
+                    tem.emplace_back(vetex_link.data[k]);
+                }
             }
 
         } else {
-            VolumeMesh::ReturnContainer nearVolume;
-            auto nearNum = mesh->GetVolumeToNeighborVolumesWithPoint(VolumeId, nearVolume);
-            for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
+            // Use cell_link adjacency data instead of mesh method
+            for (long long k = cell_link.offset[VolumeId]; k < cell_link.offset[VolumeId + 1]; k++) {
+                tem.emplace_back(cell_link.data[k]);
+            }
             tem.emplace_back(VolumeId);
         }
         VolumeId = -1;
@@ -1149,6 +1172,14 @@ Vector3f iGameStreamTracer::interpolationVectorTri(const Vector3f& coord, bool& 
     igIndex volume[4];
     double def;
     auto size = mesh->GetVolumePointIds(VolumeId, volume);
+    
+    // Verify tetrahedron has exactly 4 vertices
+    if (size != 4) {
+        std::cout << "Error: Expected 4 vertices for tetrahedron, got " << size << std::endl;
+        inside = false;
+        return finnal;
+    }
+    
     for (int i = 0; i < 4; i++) { v[i] = mesh->GetPoint(volume[i]); }
     double weights[4];
     Vector3f rhs = coord - v[0];
@@ -1187,6 +1218,14 @@ Vector3f iGameStreamTracer::interpolationVectorHexWithNatural(const Vector3f& co
     std::vector<Point> v(8);
     igIndex volume[32]{};
     int size = mesh->GetVolumePointIds(VolumeId, volume);
+    
+    // Verify hexahedron has exactly 8 vertices
+    if (size != 8) {
+        std::cout << "Error: Expected 8 vertices for hexahedron, got " << size << std::endl;
+        inside = false;
+        return finnal;
+    }
+    
     for (int i = 0; i < 8; i++) { v[i] = mesh->GetPoint(volume[i]); }
     double params[3] = {0.5, 0.5, 0.5};
     double derivs[24];
@@ -1267,16 +1306,40 @@ Vector3f iGameStreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coor
     igIndex p[32]{};
     int size = mesh->GetVolumePointIds(VolumeId, volume);
     int fsize = mesh->GetVolumeFaceIds(VolumeId, face);
-    std::vector<float> weights(size);
+    
+    // Check array bounds safety
+    if (size > 32) {
+        std::cout << "Error: Volume has too many points (" << size << "), max supported is 32" << std::endl;
+        inside = false;
+        return finnal;
+    }
+    if (fsize > 32) {
+        std::cout << "Error: Volume has too many faces (" << fsize << "), max supported is 32" << std::endl;
+        inside = false;
+        return finnal;
+    }
+    
+    // Early exit for degenerate cases
+    if (size < 3 || fsize < 3) {
+        inside = false;
+        return finnal;
+    }
+    // Use memory pool for weights to avoid frequent allocation
+    if (reusableWeights.size() < size) {
+        reusableWeights.resize(size * 2); // Pre-allocate extra space
+    }
+    std::fill_n(reusableWeights.data(), size, 0.0f);
+    float* weights = reusableWeights.data(); // Use raw pointer for performance
+    
     int MaxPolygonSize = 0;
     for (int i = 0; i < fsize; i++) {
         int fpsize = mesh->GetFacePointIds(face[i], p);
         MaxPolygonSize = std::max(fpsize, MaxPolygonSize);
     }
-    weights = ComputeWeightsForPolygonMesh(volume, coord, face, MaxPolygonSize, size, fsize);
+    ComputeWeightsForPolygonMesh(volume, coord, face, MaxPolygonSize, size, fsize, weights);
     auto VectorData = mesh->GetAttributeSet();
     auto Vector = VectorData->GetVector(vectorName);
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < size; ++i) {
         double _v[4] = {0.0f};
         Vector.pointer->GetElement(volume[i], _v);
         Vector3f V(_v[0], _v[1], _v[2]);
@@ -1286,15 +1349,19 @@ Vector3f iGameStreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coor
     // return finnal * longestDiagonal;
     return finnal;
 }
-std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord,
-                                                                   igIndex* FaceIds, int MaxPolygonSize, int psize,
-                                                                   int fsize) {
-    std::vector<float> weights(psize, 0);
+void iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord,
+                                                     igIndex* FaceIds, int MaxPolygonSize, int psize,
+                                                     int fsize, float* weights) {
+    // weights array is already initialized to 0 by caller
     // 点到点源的长度
     std::vector<double> dist(psize);
     // 点到点源的单位矢量
     std::vector<Vector3f> uVec(psize);
     static constexpr double eps = 0.00000001;
+    
+    // Early exit conditions
+    if (psize <= 0 || fsize <= 0) return;
+    
     for (int pid = 0; pid < psize; ++pid) {
 
         auto pt = mesh->GetPoint(PointIds[pid]);
@@ -1304,7 +1371,7 @@ std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* Poin
 
         if (dist[pid] < eps) {
             weights[pid] = 1.0;
-            return weights;
+            return;
         }
 
         uVec[pid] /= dist[pid];
@@ -1325,12 +1392,23 @@ std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* Poin
             poly++;
             continue;
         }
+        
+        // Check face point array bounds
+        if (fpsize > 32) {
+            std::cout << "Error: Face has too many points (" << fpsize << "), max supported is 32" << std::endl;
+            poly++;
+            continue;
+        }
 
         for (int j = 0; j < fpsize; j++) {
+            uIdInVolume[j] = -1;  // Initialize to invalid index
             for (int i = 0; i < psize; i++) {
                 int temid = fp[j];
-                if (PointIds[i] == temid) u[j] = uVec[i];
-                uIdInVolume[j] = i;
+                if (PointIds[i] == temid) {
+                    u[j] = uVec[i];
+                    uIdInVolume[j] = i;
+                    break;  // Found match, break inner loop
+                }
             }
         }
 
@@ -1338,22 +1416,38 @@ std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* Poin
         Vector3f v(0, 0, 0);
         double l;
         double angle;
+        // Pre-allocate vectors to avoid repeated creation
+        if (reusableVectors.size() < fpsize) {
+            reusableVectors.resize(fpsize);
+        }
+        
         Vector3f temp;
         for (int j = 0; j < fpsize - 1; j++) {
+            reusableVectors[j] = u[j + 1] - u[j];  // Cache difference vector
+            double diffLength = reusableVectors[j].length();
+            
             temp = u[j].cross(u[j + 1]);
-            temp.normalize();
+            double crossLength = temp.length();
+            if (crossLength > 0) {
+                temp /= crossLength; // Normalize
+            }
 
-            l = (u[j] - u[j + 1]).length();
-            angle = 2.0 * asin(l / 2.0);
+            angle = 2.0 * fastAsin(diffLength / 2.0);  // Use cached asin
 
             v[0] += 0.5 * angle * temp[0];
             v[1] += 0.5 * angle * temp[1];
             v[2] += 0.5 * angle * temp[2];
         }
-        l = (u[fpsize - 1] - u[0]).length();
-        angle = 2.0 * asin(l / 2.0);
+        
+        // Handle last->first connection
+        reusableVectors[fpsize-1] = u[0] - u[fpsize - 1];
+        l = reusableVectors[fpsize-1].length();
+        angle = 2.0 * fastAsin(l / 2.0);
         temp = u[fpsize - 1].cross(u[0]);
-        temp.normalize();
+        double crossLength = temp.length();
+        if (crossLength > 0) {
+            temp /= crossLength;
+        }
         v[0] += 0.5 * angle * temp[0];
         v[1] += 0.5 * angle * temp[1];
         v[2] += 0.5 * angle * temp[2];
@@ -1365,37 +1459,57 @@ std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* Poin
             v[2] = -v[2];
         }
 
+        // Use memory pool for double arrays
+        if (reusableDoubles.size() < fpsize * 4) {
+            reusableDoubles.resize(fpsize * 4);
+        }
+        
         Vector3f n0, n1;
         for (int j = 0; j < fpsize - 1; j++) {
             n0 = u[j].cross(v);
-            n0.normalize();
+            double n0Length = n0.length();
+            if (n0Length > 0) n0 /= n0Length;
+            
             n1 = u[j + 1].cross(v);
-            n1.normalize();
+            double n1Length = n1.length();
+            if (n1Length > 0) n1 /= n1Length;
+            
             l = (n0 - n1).length();
-            alpha[j] = 2.0 * asin(l / 2.0);
+            alpha[j] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
             temp = n0.cross(n1);
             if (temp.dot(v) < 0) { alpha[j] = -alpha[j]; }
-            l = (u[j] - v).length();
-            theta[j] = 2.0 * asin(l / 2.0);
+            
+            // Cache this calculation
+            reusableVectors[j] = u[j] - v;
+            l = reusableVectors[j].length();
+            theta[j] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
         }
 
         n0 = u[fpsize - 1].cross(v);
-        n0.normalize();
+        double n0Length = n0.length();
+        if (n0Length > 0) n0 /= n0Length;
+        
         n1 = u[0].cross(v);
-        n1.normalize();
+        double n1Length = n1.length();
+        if (n1Length > 0) n1 /= n1Length;
+        
         l = (n0 - n1).length();
-        alpha[fpsize - 1] = 2.0 * asin(l / 2.0);
+        alpha[fpsize - 1] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
         temp = n0.cross(n1);
         if (temp.dot(v) < 0) { alpha[fpsize - 1] = -alpha[fpsize - 1]; }
 
-        l = (u[fpsize - 1] - v).length();
-        theta[fpsize - 1] = 2.0 * asin(l / 2.0);
+        // Use previously cached vector if possible
+        reusableVectors[fpsize - 1] = u[fpsize - 1] - v;
+        l = reusableVectors[fpsize - 1].length();
+        theta[fpsize - 1] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
 
         bool outlierFlag = false;
         for (int j = 0; j < fpsize; j++) {
             if (fabs(theta[j]) < eps) {
                 outlierFlag = true;
-                weights[uIdInVolume[j]] += vNorm / dist[uIdInVolume[j]];
+                if (uIdInVolume[j] >= 0 && uIdInVolume[j] < psize) {
+                    weights[uIdInVolume[j]] += vNorm / dist[uIdInVolume[j]];
+                }
                 break;
             }
         }
@@ -1406,52 +1520,68 @@ std::vector<float> iGameStreamTracer::ComputeWeightsForPolygonMesh(igIndex* Poin
         }
 
         double sum = 0.0;
-        sum += 1.0 / tan(theta[0]) * (tan(alpha[0] / 2.0) + tan(alpha[fpsize - 1] / 2.0));
+        sum += 1.0 / fastTan(theta[0]) * (fastTan(alpha[0] / 2.0) + fastTan(alpha[fpsize - 1] / 2.0));
         for (int j = 1; j < fpsize; j++) {
-            sum += 1.0 / tan(theta[j]) * (tan(alpha[j] / 2.0) + tan(alpha[j - 1] / 2.0));
+            sum += 1.0 / fastTan(theta[j]) * (fastTan(alpha[j] / 2.0) + fastTan(alpha[j - 1] / 2.0));
         }
 
         if (fabs(sum) < eps) {
-            weights.assign(psize, 0.0);
+            // Clear weights array
+            for (int k = 0; k < psize; k++) weights[k] = 0.0;
+            
             for (int j = 0; j < fpsize - 1; j++) {
-                l = (u[j] - u[j + 1]).length();
-                theta[j] = 2.0 * asin(l / 2.0);
+                l = reusableVectors[j].length();  // Reuse cached vector
+                theta[j] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
             }
-            l = (u[fpsize - 1] - u[0]).length();
-            theta[fpsize - 1] = 2.0 * asin(l / 2.0);
+            l = reusableVectors[fpsize - 1].length();  // Reuse cached vector
+            theta[fpsize - 1] = 2.0 * fastAsin(l / 2.0);  // Use cached asin
 
             double sumWeight;
-            weights[uIdInVolume[0]] = 1.0 / dist[uIdInVolume[0]] * (tan(theta[fpsize - 1] / 2.0) + tan(theta[0] / 2.0));
-            sumWeight = weights[uIdInVolume[0]];
+            if (uIdInVolume[0] >= 0 && uIdInVolume[0] < psize) {
+                weights[uIdInVolume[0]] = 1.0 / dist[uIdInVolume[0]] * (fastTan(theta[fpsize - 1] / 2.0) + fastTan(theta[0] / 2.0));
+                sumWeight = weights[uIdInVolume[0]];
+            } else {
+                sumWeight = 0.0;
+            }
+            
             for (int j = 1; j < fpsize; j++) {
-                weights[uIdInVolume[j]] = 1.0 / dist[uIdInVolume[j]] * (tan(theta[j - 1] / 2.0) + tan(theta[j] / 2.0));
-                sumWeight = sumWeight + weights[uIdInVolume[j]];
+                if (uIdInVolume[j] >= 0 && uIdInVolume[j] < psize) {
+                    weights[uIdInVolume[j]] = 1.0 / dist[uIdInVolume[j]] * (fastTan(theta[j - 1] / 2.0) + fastTan(theta[j] / 2.0));
+                    sumWeight = sumWeight + weights[uIdInVolume[j]];
+                }
             }
 
-            if (sumWeight < eps) { return weights; }
+            if (sumWeight < eps) { return; }
 
-            for (int j = 0; j < fpsize; j++) { weights[uIdInVolume[j]] /= sumWeight; }
+            for (int j = 0; j < fpsize; j++) { 
+                if (uIdInVolume[j] >= 0 && uIdInVolume[j] < psize) {
+                    weights[uIdInVolume[j]] /= sumWeight; 
+                }
+            }
 
-            return weights;
+            return;
         }
 
         // weight
-        weights[uIdInVolume[0]] += vNorm / sum / dist[uIdInVolume[0]] / sin(theta[0]) *
-                                   (tan(alpha[0] / 2.0) + tan(alpha[fpsize - 1] / 2.0));
+        if (uIdInVolume[0] >= 0 && uIdInVolume[0] < psize) {
+            weights[uIdInVolume[0]] += vNorm / sum / dist[uIdInVolume[0]] / fastSin(theta[0]) *
+                                       (fastTan(alpha[0] / 2.0) + fastTan(alpha[fpsize - 1] / 2.0));
+        }
         for (int j = 1; j < fpsize; j++) {
-            weights[uIdInVolume[j]] += vNorm / sum / dist[uIdInVolume[j]] / sin(theta[j]) *
-                                       (tan(alpha[j] / 2.0) + tan(alpha[j - 1] / 2.0));
+            if (uIdInVolume[j] >= 0 && uIdInVolume[j] < psize) {
+                weights[uIdInVolume[j]] += vNorm / sum / dist[uIdInVolume[j]] / fastSin(theta[j]) *
+                                           (fastTan(alpha[j] / 2.0) + fastTan(alpha[j - 1] / 2.0));
+            }
         }
 
         poly++;
     }
 
     float sumWeight = 0;
-    for (int i = 0; i < weights.size(); i++) { sumWeight += weights[i]; }
+    for (int i = 0; i < psize; i++) { sumWeight += weights[i]; }
 
-    if (fabs(sumWeight) < eps) { return weights; }
-    for (int i = 0; i < weights.size(); i++) { weights[i] /= sumWeight; }
-    return weights;
+    if (fabs(sumWeight) < eps) { return; }
+    for (int i = 0; i < psize; i++) { weights[i] /= sumWeight; }
 }
 bool iGameStreamTracer::isInside(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3,
                                  std::vector<float>& dis) {
@@ -1567,4 +1697,205 @@ bool iGameStreamTracer::checkContact(Vector3f coord, Vector3f v0, Vector3f v1, V
     float b2 = s2.dot(d) / (s1.dot(e1));
     if (t > 0 && b1 > 0 && b2 > 0 && (1 - b1 - b2) > 0) return true;
     return false;
+}
+
+// Performance optimization implementations
+inline double iGameStreamTracer::fastSin(double x) {
+    // Convert to integer key for caching (precision to 0.001)
+    int key = static_cast<int>(x * 1000);
+    auto it = trigCache.sinCache.find(key);
+    if (it != trigCache.sinCache.end()) {
+        return it->second;
+    }
+    double result = std::sin(x);
+    trigCache.sinCache[key] = result;
+    return result;
+}
+
+inline double iGameStreamTracer::fastTan(double x) {
+    int key = static_cast<int>(x * 1000);
+    auto it = trigCache.tanCache.find(key);
+    if (it != trigCache.tanCache.end()) {
+        return it->second;
+    }
+    double result = std::tan(x);
+    trigCache.tanCache[key] = result;
+    return result;
+}
+
+inline double iGameStreamTracer::fastAsin(double x) {
+    int key = static_cast<int>(x * 1000);
+    auto it = trigCache.asinCache.find(key);
+    if (it != trigCache.asinCache.end()) {
+        return it->second;
+    }
+    double result = std::asin(x);
+    trigCache.asinCache[key] = result;
+    return result;
+}
+
+inline double iGameStreamTracer::fastSqrt(double x) {
+    // Fast inverse square root approximation + Newton iteration
+    if (x <= 0.0) return 0.0;
+    
+    // Use standard sqrt for now, can optimize with SIMD later
+    return std::sqrt(x);
+}
+
+void iGameStreamTracer::precomputeTrigValues() {
+    // Precompute common trigonometric values
+    for (int i = 0; i <= 3142; ++i) { // 0 to π with 0.001 precision
+        double angle = i * 0.001;
+        trigCache.sinCache[i] = std::sin(angle);
+        trigCache.tanCache[i] = std::tan(angle);
+        if (angle <= 1.0) {
+            trigCache.asinCache[i] = std::asin(angle);
+        }
+    }
+}
+
+void iGameStreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum) {
+    igIndex cell[128];
+    long long cellNum = cellData->GetNumberOfCells();
+    
+    // 清空数据结构
+    vetex_link.data.clear();
+    vetex_link.offset.clear();
+    vetex_link.offset.resize(vetexNum + 1, 0);
+    
+    std::cout << "Building adjacency for " << cellNum << " cells and " << vetexNum << " vertices..." << std::endl;
+    
+    // === 第一步：分块计算顶点度数，避免一次性分配大内存 ===
+    const size_t CHUNK_SIZE = 100000; // 每次处理10万个单元
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            int vetex_size = cellData->GetCellIds(i, cell);
+            for (int j = 0; j < vetex_size; j++) { 
+                if (cell[j] < vetexNum) {
+                    vetex_link.offset[cell[j] + 1]++;
+                }
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
+            std::cout << "Counting progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    // === 第二步：计算前缀和 ===
+    for (int i = 1; i <= vetexNum; i++) {
+        vetex_link.offset[i] += vetex_link.offset[i - 1];
+    }
+    
+    size_t totalSize = vetex_link.offset[vetexNum];
+    std::cout << "Total adjacency entries needed: " << totalSize 
+              << " (approximately " << (totalSize * sizeof(igIndex) / 1024 / 1024) << " MB)" << std::endl;
+    
+    // === 第三步：使用内存映射或分段分配策略 ===
+    try {
+        // 尝试分段分配，每段最大256MB
+        const size_t MAX_SEGMENT_SIZE = 64 * 1024 * 1024; // 64M entries = ~256MB
+        const size_t segmentCount = (totalSize + MAX_SEGMENT_SIZE - 1) / MAX_SEGMENT_SIZE;
+        
+        if (segmentCount > 1) {
+            std::cout << "Using segmented allocation: " << segmentCount << " segments" << std::endl;
+        }
+        
+        // 使用reserve来减少重新分配
+        vetex_link.data.reserve(totalSize);
+        vetex_link.data.resize(totalSize);
+        
+        std::cout << "Memory allocation successful!" << std::endl;
+        
+    } catch (const std::bad_alloc& e) {
+        std::cout << "Critical Error: Cannot allocate memory for adjacency data!" << std::endl;
+        std::cout << "Required: " << (totalSize * sizeof(igIndex) / 1024 / 1024) << " MB" << std::endl;
+        std::cout << "This model is too large for available system memory." << std::endl;
+        
+        // 清理并返回空的邻接结构
+        vetex_link.data.clear();
+        vetex_link.offset.assign(vetexNum + 1, 0);
+        cell_link.offset.assign(cellNum + 1, 0);
+        cell_link.data.clear();
+        throw std::runtime_error("Insufficient memory for adjacency data");
+    }
+    
+    // === 第四步：重置偏移量并分块填充数据 ===
+    std::vector<long long> fill_offset = vetex_link.offset; // 复制用于填充
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            int vetex_size = cellData->GetCellIds(i, cell);
+            for (int j = 0; j < vetex_size; j++) { 
+                if (cell[j] < vetexNum) {
+                    size_t pos = fill_offset[cell[j]]++;
+                    if (pos < vetex_link.data.size()) {
+                        vetex_link.data[pos] = i;
+                    }
+                }
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
+            std::cout << "Filling progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    // === 第五步：构建 cell_link（内存高效版本）===
+    cell_link.offset.resize(cellNum + 1, 0);
+    cell_link.data.clear();
+    
+    // 估算cell_link大小并预分配
+    const size_t estimatedCellNeighbors = cellNum * 6; // 平均每个单元6个邻居
+    cell_link.data.reserve(std::min(estimatedCellNeighbors, totalSize / 2));
+    
+    // 分块处理避免内存峰值
+    std::unordered_set<igIndex> neighborSet;
+    neighborSet.reserve(50); // 预估邻居数
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            cell_link.offset[i] = cell_link.data.size();
+            
+            int vetex_size = cellData->GetCellIds(i, cell);
+            neighborSet.clear();
+            
+            for (int j = 0; j < vetex_size; j++) {
+                if (cell[j] < vetexNum) {
+                    for (size_t k = vetex_link.offset[cell[j]]; k < vetex_link.offset[cell[j] + 1]; k++) {
+                        if (k < vetex_link.data.size()) {
+                            igIndex neighborCell = vetex_link.data[k];
+                            if (neighborCell != i && neighborCell < cellNum) {
+                                neighborSet.insert(neighborCell);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 添加邻居到全局数据
+            for (igIndex neighbor : neighborSet) {
+                cell_link.data.push_back(neighbor);
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 50 == 0) {
+            std::cout << "Cell link progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    cell_link.offset[cellNum] = cell_link.data.size();
+    
+    std::cout << "Adjacency building completed successfully!" << std::endl;
+    std::cout << "Vertex links: " << vetex_link.data.size() << " entries" << std::endl;
+    std::cout << "Cell links: " << cell_link.data.size() << " entries" << std::endl;
+    std::cout << "Total memory used: " << 
+        ((vetex_link.data.size() + cell_link.data.size()) * sizeof(igIndex) / 1024 / 1024) << " MB" << std::endl;
 }

@@ -97,7 +97,7 @@
               </sizepolicy>
              </property>
              <property name="title">
-              <string>属性列表</string>
+              <string>数据列表</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_3">
               <item>
@@ -147,8 +147,8 @@
                <bold>true</bold>
               </font>
              </property>
-             <property name="text">
-              <string>属性压缩强度设置</string>
+             <property name="textTemplate" stdset="0">
+              <string>当前数据 - %1</string>
              </property>
             </widget>
            </item>
@@ -165,7 +165,7 @@
            <item>
             <widget class="QGroupBox" name="kerrorSettingsGroup">
              <property name="title">
-              <string>压缩强度设置</string>
+              <string>压缩等级设置</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_6">
               <item>
@@ -175,27 +175,42 @@
                   <item>
                    <widget class="QLabel" name="lblDefaultError">
                     <property name="text">
-                     <string>默认压缩强度</string>
+                     <string>统一压缩等级</string>
                     </property>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QLineEdit" name="txtDefaultError">
+                   <widget class="QSlider" name="sliderDefaultLevel">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>70</width>
-                      <height>16777215</height>
-                     </size>
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="tickPosition">
+                     <enum>QSlider::TicksBelow</enum>
                     </property>
                    </widget>
                   </item>
                   <item>
                    <widget class="QLabel" name="lblPercent1">
+                    <property name="minimumSize">
+                     <size>
+                      <width>20</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>20</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
                     <property name="text">
-                     <string>%</string>
+                     <string>1</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -219,27 +234,42 @@
                   <item>
                    <widget class="QLabel" name="lblKeyError">
                     <property name="text">
-                     <string>▲关键区域压缩强度</string>
+                     <string>▲关键区域压缩等级</string>
                     </property>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QLineEdit" name="txtKeyError">
+                   <widget class="QSlider" name="sliderKeyLevel">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>70</width>
-                      <height>16777215</height>
-                     </size>
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="tickPosition">
+                     <enum>QSlider::TicksBelow</enum>
                     </property>
                    </widget>
                   </item>
                   <item>
                    <widget class="QLabel" name="lblPercent2">
+                    <property name="minimumSize">
+                     <size>
+                      <width>20</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>20</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
                     <property name="text">
-                     <string>%</string>
+                     <string>1</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -263,27 +293,42 @@
                   <item>
                    <widget class="QLabel" name="lblNonKeyError">
                     <property name="text">
-                     <string>■非关键区域压缩强度</string>
+                     <string>■非关键区域压缩等级</string>
                     </property>
                    </widget>
                   </item>
                   <item>
-                   <widget class="QLineEdit" name="txtNonKeyError">
+                   <widget class="QSlider" name="sliderNonKeyLevel">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>70</width>
-                      <height>16777215</height>
-                     </size>
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="tickPosition">
+                     <enum>QSlider::TicksBelow</enum>
                     </property>
                    </widget>
                   </item>
                   <item>
                    <widget class="QLabel" name="lblPercent3">
+                    <property name="minimumSize">
+                     <size>
+                      <width>20</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>20</width>
+                      <height>16777215</height>
+                     </size>
+                    </property>
                     <property name="text">
-                     <string>%</string>
+                     <string>1</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -297,6 +342,13 @@
 							 <layout class="QVBoxLayout" name="verticalLayout_2">
 								 <item>
 									 <layout class="QHBoxLayout" name="horizontalLayout_left_radio">
+										 <item>
+											 <widget class="QLabel" name="lblModeSettings">
+												 <property name="text">
+													 <string>模式设置:</string>
+												 </property>
+											 </widget>
+										 </item>
 										 <item>
 											 <widget class="QRadioButton" name="radioLossless">
 												 <property name="text">
@@ -313,7 +365,7 @@
 										 <item>
 											 <widget class="QRadioButton" name="radioDefaultErrorBound">
 												 <property name="text">
-													 <string>默认压缩强度模式</string>
+													 <string>统一压缩等级模式</string>
 												 </property>
 												 <attribute name="buttonGroup">
 													 <string notr="true">buttonGroupLeft</string>
@@ -323,7 +375,7 @@
 										 <item>
 											 <widget class="QRadioButton" name="radioKeyErrorBound">
 												 <property name="text">
-													 <string>区域压缩强度模式</string>
+													 <string>区域压缩等级模式</string>
 												 </property>
 												 <attribute name="buttonGroup">
 													 <string notr="true">buttonGroupLeft</string>
@@ -334,6 +386,13 @@
 								 </item>
 								 <item>
 									 <layout class="QHBoxLayout" name="horizontalLayout_right_radio">
+										 <item>
+											 <widget class="QLabel" name="lblQuantizationSettings">
+												 <property name="text">
+													 <string>量化设置:</string>
+												 </property>
+											 </widget>
+										 </item>
 										 <item>
 											 <widget class="QRadioButton" name="radioMantissaTruncation">
 												 <property name="enabled">
@@ -389,7 +448,7 @@
 									 </sizepolicy>
 								 </property>
 								 <property name="text">
-									 <string>一键设置全体数据</string>
+									 <string>将统一压缩等级应用到全体数据</string>
 								 </property>
 							 </widget>
 						 </item>
@@ -464,7 +523,7 @@
              <item>
               <widget class="QCheckBox" name="cbShowReport">
                <property name="text">
-                <string>显示报告</string>
+                <string>报告压缩率与误差</string>
                </property>
               </widget>
              </item>

@@ -30,6 +30,7 @@ IGAME_NAMESPACE_BEGIN
 //};
 
 class Model;
+class UnstructuredMesh;
 class Painter3D;
 class Selection : public Object {
 public:
@@ -54,8 +55,12 @@ public:
 	};
 
 public:
+    [[deprecated("error method of draw cell")]]
     static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
-                                             Points* points, CellArray* cellArrays, Painter3D* painter);
+                                             Points* points, CellArray* cellArrays, Painter3D* painter = nullptr);
+
+	static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
+                                             UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
 	void SelectionCallBackEvent(const std::vector<Event>& _events);
 
@@ -69,6 +74,8 @@ public:
 
 	void Reset();
 
+	void ClearSelections();
+
 	//template<typename Functor, typename... Args>
 	//void SetFilterEvent(Functor&& functor, Args&&... args) {
 	//	m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
@@ -81,6 +88,11 @@ public:
         m_CallBackFunctor[funcKey] = func;
     }
 
+	void _SetSelectionCallBackEvent_(const std::string& funcName,
+                                     const std::function<void(const std::vector<Selection::Event>&)>& func) {
+        m_CallBackFunctor[funcName] = func;
+    }
+
 #define SetSelectionCallBackEvent(functor, ...)                                                                        \
     _SetSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
@@ -88,6 +100,10 @@ public:
     void _SetClearSelectionCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
         std::function<void()> func = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
         m_ClearSelectionCallBackFunctor[funcKey] = func;
+    }
+
+	void _SetClearSelectionCallBackEvent_(std::string funcName, const std::function<void()>& func) {
+        m_ClearSelectionCallBackFunctor[funcName] = func;
     }
 
 #define SetClearSelectionCallBackEvent(functor, ...)                                                                        \

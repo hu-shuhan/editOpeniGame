@@ -42,6 +42,7 @@ public:
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
 
 protected:
     ParallelCoordinatesData() = default;
@@ -49,12 +50,19 @@ protected:
 
 public:
     /* choose func */
-    std::vector<igIndex> FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues,
-                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
+    std::vector<igIndex> FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues);
 
 public:
     /* normal func */
-    bool NotInFilterValueRange(const std::vector<double>& objData);
+    bool NotInFilterValueRange(int objId);
+
+public:
+    /* selection set */
+    void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
+
+protected:
+    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultClearSelectionCallBackFunc();
 };
 
 IGAME_NAMESPACE_END

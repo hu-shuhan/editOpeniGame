@@ -2,7 +2,7 @@
 #define iGameIGCWriter_h
 
 #include "iGameFileWriter.h"
-#include "../Filters/iGameMeshCodec/iGameMeshCodecParamSet.h"
+#include "iGameMeshCodec/iGameMeshEncoder.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -12,11 +12,32 @@ public:
     static Pointer New() { return new IGCWriter; }
 
     bool GenerateBuffers() override;
-    bool WriteToFile(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams);
+
+    void SetUIControlParams(const UIControlParams& params) {
+        m_hasUIParams = true;
+        m_UIParams = params;
+    }
+
+    std::vector<std::pair<std::string, std::string>> GetReport() const {
+        if (m_encoder) {
+            return m_encoder->GetReport();
+        }
+        return {};
+    }
 
 protected:
     IGCWriter() = default;
     ~IGCWriter() override = default;
+    
+private:
+    bool m_hasUIParams = false;
+    UIControlParams m_UIParams;
+
+    MeshEncoder::Pointer m_encoder;
+    
+    // helper methods
+    bool EncodeData();
+    bool GenerateOutput();
 };
 
 IGAME_NAMESPACE_END

@@ -15,6 +15,7 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <qdebug.h>
+#include <QOpenGLFunctions>//
 
 igQtRenderWidget::igQtRenderWidget(QWidget* parent) : QOpenGLWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground, false);
@@ -126,6 +127,50 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
             m_Interactor->SetDataObject(ps);
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
             m_Interactor->RequestDragPointStyle(s);
+            
+        } break;
+        //case iGame::Interactor::PickCenterStyle: {
+        //    //点选中心
+        //    // 标记
+        //    this->setProperty("isPickingCenter", true);
+        //    setCursor(Qt::CrossCursor);
+
+        //    // 1. 获取当前模型的Selection对象
+        //    auto s = m_Scene->GetCurrentModel()->GetSelection();
+        //    auto model = m_Scene->GetCurrentModel();
+        //    auto obj = model->GetDataObject();
+        //    // 2. 提取模型的顶点数据（Points）
+        //    iGame::Points::Pointer points;
+        //    if (DynamicCast<iGame::VolumeMesh>(obj)) {
+        //        points = DynamicCast<iGame::VolumeMesh>(obj)->GetPoints();
+        //    } else if (DynamicCast<iGame::UnstructuredMesh>(obj)) {
+        //        points = DynamicCast<iGame::UnstructuredMesh>(obj)->GetPoints();
+        //    } else if (DynamicCast<iGame::SurfaceMesh>(obj)) {
+        //        points = DynamicCast<iGame::SurfaceMesh>(obj)->GetPoints();
+        //    }
+        //    // 3. 数据有效性检查
+        //    if (!points) {
+        //        m_Interactor->RequestBasicStyle();
+        //        return;
+        //    }
+
+        //    s->SetPoints(points);
+        //    s->SetModel(model);
+        //    m_Interactor->SetDataObject(obj);
+        //    m_Interactor->SetPainter3D(model->GetPainter3D());
+        //    m_Interactor->RequestPickCenterStyle(s); // 需要实现这个方法
+        //    
+        //} break;
+        case iGame::Interactor::DragCenterStyle: {
+            this->setProperty("isDragingCenter", true);
+            setCursor(Qt::SizeAllCursor); // 设置拖拽光标
+
+            // 直接激活拖拽交互器，无需Selection对象
+            
+            m_Interactor->RequestDragCenterStyle(nullptr); 
+            /*this->setProperty("isDragingCenter", true);
+            auto s = m_Scene->GetCurrentModel()->GetSelection();
+            m_Interactor->RequestDragCenterStyle(s);*/
         } break;
         default:
             break;
@@ -163,6 +208,23 @@ void igQtRenderWidget::paintGL() {
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
+
+    //if (this->property("isPickingCenter").toBool() && event->button() == Qt::LeftButton) {
+    //    // 获取当前中心点的深度
+    //    float currentDepth = m_Scene->GetRotationCenterDepth();
+    //    std::cout << "depth " << currentDepth << std::endl;
+
+    //    // 获取点击位置的世界坐标
+    //    igm::vec3 worldPos = GetWorldPositionFromDepth(event->pos(), currentDepth);
+    //    /*QPoint eventPos = event->pos();
+    //    igm::vec2 screenPos = igm::vec2(eventPos.x(), eventPos.y());
+    //    igm::vec3 worldPos = m_Scene->ScreenToWorld(screenPos, currentDepth);*/
+    //    // 设置新的中心点
+    //    m_Scene->SetRotationCenter(worldPos);
+    //    update();
+    //    return;
+    //}
+
     iGame::IEvent _event;
     switch (event->button()) {
         case Qt::NoButton:
@@ -188,6 +250,8 @@ void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void igQtRenderWidget::mouseMoveEvent(QMouseEvent* event) {
+
+
     iGame::IEvent _event;
     _event.type = iGame::IEvent::MouseMove;
     _event.pos.x = event->pos().x();
@@ -212,3 +276,47 @@ void igQtRenderWidget::wheelEvent(QWheelEvent* event) {
     m_Interactor->FilterEvent(_event);
     update();
 }
+
+// 根据深度值获取世界坐标
+igm::vec3 igQtRenderWidget::GetWorldPositionFromDepth(const QPoint& screenPos, float depth) {
+    // 将屏幕坐标转换为标准化设备坐标
+    float x = (2.0f * screenPos.x()) / width() - 1.0f;
+    float y = 1.0f - (2.0f * screenPos.y()) / height();
+
+    // 获取投影和视图矩阵
+    igm::mat4 projection = m_Scene->GetCamera()->GetProjectionMatrix();
+    igm::mat4 view = m_Scene->GetCamera()->GetViewMatrix();
+
+    // 计算逆矩阵
+    igm::mat4 invVP = (projection * view).invert();
+
+    // 创建近平面和远平面点
+    igm::vec4 nearPoint(x, y, -1.0f, 1.0f);
+    igm::vec4 farPoint(x, y, 1.0f, 1.0f);
+
+    // 转换为世界坐标
+    igm::vec4 nearResult = invVP * nearPoint;
+    igm::vec4 farResult = invVP * farPoint;
+    nearResult /= nearResult.w;
+    farResult /= farResult.w;
+
+    // 计算射线方向
+    igm::vec3 rayDir = igm::vec3(farResult) - igm::vec3(nearResult);
+    rayDir = rayDir.normalize();
+
+    // 计算交点（世界坐标）
+    igm::vec3 worldPos = igm::vec3(m_Scene->GetCamera()->GetPosition()) + rayDir * depth;
+
+    // 如果启用模型变换，则应用当前模型矩阵的逆变换 
+    //if (applyModelMatrix) {
+        igm::mat4 invModelMatrix = m_Scene->GetModelMatrix().invert();
+            //m_ModelMatrix.invert();
+        igm::vec4 transformedPos = invModelMatrix * igm::vec4(worldPos, 1.0f);
+        worldPos = igm::vec3(transformedPos);
+    //}
+
+    // 根据深度计算交点
+    return worldPos;
+}
+
+

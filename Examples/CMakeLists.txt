@@ -12,6 +12,7 @@ file(COPY "${CMAKE_BINARY_DIR}/Resources" DESTINATION ${CMAKE_CURRENT_BINARY_DIR
 file(COPY "Models" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 add_executable(testSetRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetRenderWindow.cpp")
 add_executable(testSetMultiRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetMultiWindow.cpp")
+add_executable(testMeshletRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/MeshletRendering.cpp")
 add_executable(testResetCameraView "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/ResetCameraView.cpp")
 add_executable(testSetCameraView "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetCameraView.cpp")
 add_executable(testSetLineWidth "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetLineWidth.cpp")
@@ -29,6 +30,20 @@ add_executable(testVectorAllCell "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/Test
 add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorCellInRange.cpp")
 add_executable(testVectorEveryNth "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorEveryNth.cpp")
 add_executable(testVectorSubData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorSubData.cpp")
+
+add_executable(testParallelCoordinatesData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestParallelCoordinatesData.cpp")
+add_executable(testVariableCorrelationData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableCorrelationData.cpp")
+add_executable(testVariableDensityData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableDensityData.cpp")
+add_executable(testPlotLineData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestPlotLineData.cpp")
+
+add_executable(testSetSelectionCallBack "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetSelectionCallBack.cpp")
+add_executable(testSetClearSelectionCallBackFunc "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetClearSelectionCallBackFunc.cpp")
+add_executable(testSetPointsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetPointsSelect.cpp")
+add_executable(testSetCellsSelect "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestSetCellsSelect.cpp")
+add_executable(testGetClosestPointsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestPointsInLine.cpp")
+add_executable(testGetClosestCellsInLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetClosestCellsInLine.cpp")
+add_executable(testGetPointsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetPointsInFrustum.cpp")
+add_executable(testGetCellsInFrustum "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Selection/TestGetCellsInFrustum.cpp")
 
 add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestDecoder.cpp")
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
@@ -48,10 +63,13 @@ add_executable(testContourLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestContourLi
 add_executable(testChangeColorRange "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeColorRange.cpp")
 add_executable(testChangeColorBar "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeColorBar.cpp")
 
+add_executable(testMultiscaleInteraction "${CMAKE_CURRENT_SOURCE_DIR}/MultiscaleInteraction/TestMultiscaleInteraction.cpp")
+
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetMultiRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testMeshletRendering PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testResetCameraView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetCameraView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetLineWidth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -71,6 +89,20 @@ target_link_libraries(testVectorCellInRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorEveryNth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorSubData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
+target_link_libraries(testParallelCoordinatesData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVariableCorrelationData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVariableDensityData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testPlotLineData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testSetSelectionCallBack PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetClearSelectionCallBackFunc PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetPointsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetCellsSelect PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetClosestPointsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetClosestCellsInLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetPointsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -87,6 +119,8 @@ target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testMultiscaleInteraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)

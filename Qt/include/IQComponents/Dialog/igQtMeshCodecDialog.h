@@ -3,44 +3,44 @@
  * @brief   网格编解码参数设置窗口
  */
 #pragma once
-#include <ui_igMeshCodecDialog.h>
-#include <QtWidgets/qtablewidget.h>
-#include <QtWidgets/qboxlayout.h>
-#include <QtWidgets/qpushbutton.h>
-#include <QtWidgets/qlineedit.h>
-#include <QtWidgets/qlabel.h>
-#include <QtWidgets/qheaderview.h>
-#include <QtWidgets/qtabwidget.h>
-#include <QtWidgets/qcheckbox.h>
-#include <QtCharts/QChart>
-#include <QtCharts/QBarSet>
-#include <QtCharts/QBarSeries>
+#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecFeature.h"
+#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecParamSet.h"
+#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshEncoder.h"
+#include "iGameDataObject.h"
+#include "iGamePointSet.h"
+#include "iGameSmartPointer.h"
+#include <QDebug>
+#include <QDialog>
+#include <QDoubleValidator>
+#include <QGridLayout>
+#include <QListWidgetItem>
+#include <QMap>
+#include <QMessageBox>
+#include <QVector>
+#include <QtCharts/QAreaSeries>
 #include <QtCharts/QBarCategoryAxis>
-#include <QtCharts/QValueAxis>
+#include <QtCharts/QBarSeries>
+#include <QtCharts/QBarSet>
+#include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
-#include <QtCharts/QAreaSeries>
+#include <QtCharts/QValueAxis>
+#include <QtWidgets/qboxlayout.h>
 #include <QtWidgets/qbuttongroup.h>
+#include <QtWidgets/qcheckbox.h>
 #include <QtWidgets/qgraphicsproxywidget.h>
-#include <QDialog>
-#include <QListWidgetItem>
-#include <QVector>
-#include <QMap>
-#include <QGridLayout>
-#include <functional>
-#include "iGameDataObject.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecParamSet.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecFeature.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshLoomEncoder.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshDecodedDataObject.h"
-#include "iGameSmartPointer.h"
-#include "iGamePointSet.h"
-#include <QMessageBox>
-#include <QDoubleValidator>
-#include <QDebug>
+#include <QtWidgets/qheaderview.h>
+#include <QtWidgets/qlabel.h>
+#include <QtWidgets/qlineedit.h>
+#include <QtWidgets/qpushbutton.h>
+#include <QtWidgets/qtablewidget.h>
+#include <QtWidgets/qtabwidget.h>
 #include <algorithm>
+#include <functional>
 #include <qfiledialog.h>
 #include <qmessagebox.h>
+#include <ui_igMeshCodecDialog.h>
+#include "IGC/iGameIGCWriter.h"
 
 QT_CHARTS_USE_NAMESPACE
 
@@ -70,9 +70,15 @@ private slots:
     void on_radioMantissaTruncation_toggled(bool checked);
     void on_radioLogQuantization_toggled(bool checked);
 
-    void on_txtDefaultError_textChanged(const QString& text);
-    void on_txtKeyError_textChanged(const QString& text);
-    void on_txtNonKeyError_textChanged(const QString& text);
+    // 原有输入框事件处理函数，已注释
+    // void on_txtDefaultError_textChanged(const QString& text);
+    // void on_txtKeyError_textChanged(const QString& text);
+    // void on_txtNonKeyError_textChanged(const QString& text);
+
+    // 新的滑块控件事件处理函数
+    void on_sliderDefaultLevel_valueChanged(int value);
+    void on_sliderKeyLevel_valueChanged(int value);
+    void on_sliderNonKeyLevel_valueChanged(int value);
 
     void on_cbVisualizeError_stateChanged(int state);
     void on_cbShowReport_stateChanged(int state);
@@ -91,8 +97,8 @@ private:
     // 标签页名称列表（保持顺序）
     QVector<QString> m_featureNames = {
         //"涡度",      // Vortex
-        "梯度 Frobenius Norm",      // Gradient
-        "拉普拉斯算子值 L2 Norm" // Laplacian
+        "梯度",      // Gradient
+        "拉普拉斯算子值" // Laplacian
     };
 
     enum class FeatureHistoGenStatus {
@@ -164,7 +170,7 @@ private:
 
     void InitAttrFeatureDatas();
 
-    void SetupErrorInputValidators();
+    // void SetupErrorInputValidators(); // 原有验证函数，已注释
 
     void updateAttributeDisplay();
 

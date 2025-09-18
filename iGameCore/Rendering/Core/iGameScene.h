@@ -21,6 +21,8 @@
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameShaderManager.h"
+#include "iGameCenterAxesModel.h"  // 新增头文件
+
 
 IGAME_NAMESPACE_BEGIN
 
@@ -210,6 +212,60 @@ public:
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
 
+    
+    /**
+     * @brief 切换中心坐标轴的显示状态
+     */
+    void ToggleCenterAxes();
+    /**
+     * @brief 获取中心坐标轴模型
+     * @return 中心坐标轴模型指针
+     */
+    SmartPointer<CenterAxesModel> GetCenterAxesModel() const {
+        return m_CenterAxesModel;
+    }
+
+    /**
+     * @brief 获取当前旋转中心（世界坐标）-考虑模型变换
+     */
+    igm::vec3 GetRotationCenter() const;
+
+
+    /**
+     * @brief 获取当前旋转中心（世界坐标）-未考虑模型变换
+     */ 
+    igm::vec3 GetRotationCenter_1() const;
+
+
+    /**
+     * @brief 设置旋转中心（世界坐标）
+     */
+    void SetRotationCenter(const igm::vec3 center);
+
+
+    /**
+     * @brief 根据模型矩阵更新实际旋转中心（局部坐标）
+     */
+    void UpdateRealRotationCenter(const igm::vec3 center);
+
+
+    /**
+     * @brief 重置旋转中心到包围球中心
+     */
+    void ResetRotationCenter() {
+        m_CustomRotationCenter = false;
+        this->Modified();
+    }
+
+    /**
+     * @brief 获取旋转中心在相机空间的深度
+     */
+    float GetRotationCenterDepth() const;
+
+    igm::vec3 ScreenToWorld(const igm::vec2& screenPos, float depth) const;
+
+
+
     /**
      * @brief 启用或禁用体绘制。
      * @param toggled 是否启用。
@@ -294,36 +350,38 @@ protected:
     Scene();
     ~Scene() override;
 
-    SmartPointer<GLShaderProgram> GetShader(ShaderType type);
-    void UpdateModelsBoundingSphere();
-    void InitOpenGL();
+    SmartPointer<GLShaderProgram> GetShader(ShaderType type);       //获取指定类型的着色器程序
+    void UpdateModelsBoundingSphere();                              //更新场景中所有可见模型的包围球(用于视锥剔除和相机定位)
+    void InitOpenGL();                                              
     void InitOIT();
-    void InitAxes();
+    void InitAxes();                                                //初始化场景坐标轴
     void InitInterator();
-
+    
+    //缓冲区相关
     void ResizeFrameBuffer();
-    void ResizeHzb();
+    void ResizeHzb();               
     void RefreshHzb();
-    void RefreshDrawCullDataBuffer();
+    void RefreshDrawCullDataBuffer();           
 
-    void DrawFrame();
+    void DrawFrame();           //主渲染流程(执行所有渲染通道)
     void ResolveFrame();
-    void RenderToQtFrame();
-
+    void RenderToQtFrame();     //将最终渲染结果输出到Qt的帧缓冲
+    
+    //渲染通道相关
     void ShadowPass();
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
-
+    //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(SmartPointer<DataObject> obj);
     void UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj);
     void UpdateCameraClippingRange();
     static void CalculateFrameRate();
 
-    SmartPointer<HandlePool<SmartPointer<Model>>> m_ModelPool;
-    IGuint m_CurrentModelID;
-    //SmartPointer<HandlePool<SmartPointer<Meshleter>>> m_Meshleters;
+    SmartPointer<HandlePool<SmartPointer<Model>>> m_ModelPool;      //模型池
+    IGuint m_CurrentModelID;                                        //当前模型id
+    
 
     std::function<void()> m_UpdateFunctor;
     std::function<void()> m_MakeCurrentFunctor;
@@ -336,19 +394,19 @@ protected:
     SmartPointer<Interactor> m_Interactor;
 
     SmartPointer<FontManager> m_FontManager;
-    SmartPointer<ShaderManager> m_ShaderManager;
+    SmartPointer<ShaderManager> m_ShaderManager;        //着色管理器
 
-    igm::mat4 m_ModelRotate; //Rotation matrix passing through the origin
-    igm::mat4 m_ModelMatrix;
+    igm::mat4 m_ModelRotate; //Rotation matrix passing through the origin //绕原点的旋转矩阵
+    igm::mat4 m_ModelMatrix;                                              //模型变换矩阵
     igm::vec3 m_BackgroundColor;
 
-    uint32_t m_VisibleModelsCount;
-    igm::vec4 m_ModelsBoundingSphere;
+    uint32_t m_VisibleModelsCount;                      //可见模型数量
+    igm::vec4 m_ModelsBoundingSphere;                   //场景包围球（中心坐标+半径）
 
     // used to draw full-screen triangle
     SmartPointer<GLVertexArray> m_EmptyVAO;
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef GL_SUPPORTS_MSAA     //MSAA相关
     GLint samples;
     SmartPointer<GLFramebuffer> m_FramebufferMultisampled;
     SmartPointer<GLTexture2dMultisample> m_ColorTextureMultisampled;
@@ -362,27 +420,36 @@ protected:
     SmartPointer<GLTexture2d> m_ColorTexture;
     SmartPointer<GLTexture2d> m_DepthTexture;
 #endif
-
+    //OIT(顺序无关透明度)相关
     SmartPointer<GLTexture2d> m_OITHeadPointerTexture;
     SmartPointer<GLBuffer> m_OITHeadPointerInitializer;
     SmartPointer<GLBuffer> m_OITAtomicCounterBuffer;
     SmartPointer<GLBuffer> m_OITLinkedListBuffer;
     SmartPointer<GLTextureBuffer> m_OITLinkedListTexture;
-
+    //HZB(层次Z缓冲)相关
     unsigned int m_HzbWidth, m_HzbHeight, m_HzbLevels;
     SmartPointer<GLTexture2d> m_HzbTexture;
-
+    //绘制工具
     SmartPointer<Painter2D> m_Painter2D;
     SmartPointer<Painter3D> m_Painter3D;
 
-    bool m_FinishInit;
-    bool m_EnableVolumeRendering;
+    bool m_FinishInit;                  // 是否完成初始化
+    bool m_EnableVolumeRendering;       // 是否启用体绘制
+
+
+    // 新增成员变量
+    SmartPointer<CenterAxesModel> m_CenterAxesModel;
+    bool m_CenterAxesVisible = false; // 控制显示开关
+    igm::vec3 m_RotationCenter; // 独立存储旋转中心
+    igm::vec3 m_RealRotationCenter;
+    bool m_CustomRotationCenter = false; // 标记是否使用自定义旋转中心
 
     friend class RenderWindow;
     friend class Model;
     friend class Axes;
     friend class Interactor;
     friend class BasicStyle;
+    friend class DragCenterStyle; // 拖拽中心样式
     friend class PainterBase;
     friend class Painter2D;
     friend class Painter3D;

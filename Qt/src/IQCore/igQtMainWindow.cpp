@@ -224,6 +224,48 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->GetScene()->RotateNinetyCounterClockwise();
         rendererWidget->update();
     });
+
+
+    
+     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) { 
+        /*qDebug() << "Toggle state:" << checked;*/
+        
+        rendererWidget->GetScene()->ToggleCenterAxes(); 
+        ui->action_ShowCenter->setChecked(checked);
+
+        rendererWidget->update();
+
+     });
+
+     connect(ui->action_PickCenter, &QAction::triggered, this, [&](bool checked) {
+         //qDebug() << "PickCenter Toggle state:" << checked;
+         //if (ui->action_PickCenter->isChecked()) {
+         //    rendererWidget->ChangeInteractorStyle(Interactor::PickCenterStyle);
+         //} else {
+         //    // 退出选择模式
+         //    rendererWidget->setProperty("isPickingCenter", false);
+         //    rendererWidget->setCursor(Qt::ArrowCursor);
+         //    rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+         //}
+         /*rendererWidget->update();*/
+         //拖拽
+         if (checked) {
+             // 显示坐标轴并进入拖拽模式
+             rendererWidget->GetScene()->GetCenterAxesModel()->SetVisibility(true);
+             rendererWidget->ChangeInteractorStyle(Interactor::DragCenterStyle);
+             //rendererWidget->setCursor(Qt::CrossCursor);
+         } else {
+             // 退出选择模式
+             rendererWidget->setCursor(Qt::ArrowCursor);
+             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+         }
+         rendererWidget->update();
+     });
+
+
+
+
+
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
         QString path =
                 QFileDialog::getSaveFileName(nullptr, "Save Screen shot", "", "PNG Images(*.png);;BMP Images(*.bmp)");
@@ -434,6 +476,39 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto mesh = DynamicCast<SurfaceMesh>(obj);
+
+        //auto& attr = mesh->GetAttributeSet()->GetAttribute(mesh->GetAttributeIndex());
+        //FloatArray::Pointer att = FloatArray::New();
+        //att->SetName(attr.pointer->GetName());
+        //for (int i = 0; i < attr.pointer->GetNumberOfElements(); i++) {
+        //    float val[3]{};
+        //    attr.pointer->GetElement(i, val);
+        //    att->AddValue(std::min(1500.f, std::sqrt(val[0] * val[0] + val[1] * val[1] + val[2] * val[2])));
+        //}
+        //mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, att);
+        //modelTreeWidget->updateAllAttriubute(mesh);
+
+        mesh->BuildFaceLinks();
+        auto& attr = mesh->GetAttributeSet()->GetAttribute(3);
+        FloatArray::Pointer att = FloatArray::New();
+        att->SetName(attr.pointer->GetName());
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+            igIndex cell[32]{};
+            int size = mesh->GetPointToNeighborFaces(i, cell);
+            float val = 0;
+            for (int j = 0; j < size; j++) { 
+                val += attr.pointer->GetValue(cell[j]);
+            }
+            val /= size;
+            att->AddValue(val);
+        }
+        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, att);
+        modelTreeWidget->updateAllAttriubute(mesh);
+    });
+
     //if (false)
     //connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -619,33 +694,33 @@ void igQtMainWindow::initAllFilters() {
     //    }
     //});
     //
-    //if (false)
-    //connect(mesh_processing->addAction("New Simplification"), &QAction::triggered, this, [&](bool checked) {
-    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-    //    //auto attrSet = AttributeSet::New();
-    //    //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
-    //    //obj->SetAttributeSet(attrSet);
-    //    //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-    //    //rendererWidget->update();  
-    //    //return;
+    if (true)
+    connect(mesh_processing->addAction("New Simplification"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        //auto attrSet = AttributeSet::New();
+        //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
+        //obj->SetAttributeSet(attrSet);
+        //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+        //rendererWidget->update();  
+        //return;
 
-    //    //Triangulation::Pointer triangulation = Triangulation::New();
-    //    //triangulation->SetInput(obj);
-    //    //triangulation->Execute();
-    //    //obj = triangulation->GetOutput();
+        //Triangulation::Pointer triangulation = Triangulation::New();
+        //triangulation->SetInput(obj);
+        //triangulation->Execute();
+        //obj = triangulation->GetOutput();
 
 
-    //    //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
-    //    //obj->SetAttributeSet(AttributeSet::New());
-    //    MeshSimplifier::Pointer Sim = MeshSimplifier::New();
-    //    Sim->SetInput(obj);
-    //    if (Sim->Execute()) {
-    //        auto new_mesh = Sim->GetOutput(0);
+        //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
+        //obj->SetAttributeSet(AttributeSet::New());
+        MeshSimplifier::Pointer Sim = MeshSimplifier::New();
+        Sim->SetInput(obj);
+        if (Sim->Execute()) {
+            auto new_mesh = Sim->GetOutput(0);
 
-    //        modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-    //        rendererWidget->update();  
-    //    }
-    //});
+            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            rendererWidget->update();  
+        }
+    });
 
 
     connect(ui->menu_filters->addAction("插值"), &QAction::triggered, this, [&](bool checked) {

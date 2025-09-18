@@ -14,6 +14,7 @@
 #include "iGameStreamlineStyle.h"
 #include <string>
 #include <map>
+#include "iGameDragCenterStyle.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -32,6 +33,8 @@ public:
         DragPointStyle,           // 点拖动
         SlicingStyle,             // 切片
         StreamLine,               // 流形的线
+        //PickCenterStyle,            // 点选中心点
+        DragCenterStyle,          // 拖动中心点
     };
 
     /**
@@ -81,6 +84,11 @@ public:
     void RequestFaceSelectionStyle(SmartPointer<Selection> s,
                                    double selectRadius,
                                    bool selectOrUnSelect = true);
+
+
+    void RequestPickCenterStyle(SmartPointer<Selection> s);
+    // 添加新方法声明
+    void RequestDragCenterStyle(SmartPointer<Selection> s);
 
     /**
      * @brief 将s绑定到交互器上

@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -32,7 +28,7 @@ static void SetOrthographicProjection() {
     }
 
     auto camera = scene->GetCamera();
-    camera->SetCameraType(iGame::Camera::CameraType::ORTHOGRAPHIC);
+    camera->SetType(iGame::Camera::Type::ORTHOGRAPHIC);
 
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
@@ -49,6 +45,4 @@ static void SetOrthographicProjection() {
     window->Show();
 }
 
-int main() {
-    SetOrthographicProjection();
-}
+int main() { SetOrthographicProjection(); }

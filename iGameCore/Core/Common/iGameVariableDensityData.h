@@ -14,12 +14,6 @@ public:
     void SetCopyNum(int copyNum);
     int GetCopyNum() const;
 
-    void SetChoosedObjectIndexs(const std::set<int>& objIds);
-    void AddChoosedObjectIndex(int objId);
-    void RemoveChoosedObjectIndex(int objId);
-    void ClearChoosedObjectIndex();
-    const std::set<int>& GetChoosedObjectIndexs();
-
     void SetDensity(const std::vector<std::vector<int>>& density);
     const std::vector<std::vector<int>>& GetDensity();
 
@@ -36,8 +30,6 @@ public:
 
 protected:
     int m_CopyNum{};
-
-    std::set<int> m_ChoosedObjIndexs;
 
     std::vector<std::vector<int>> m_Density; //[variableIndex][dataLevel]
     std::vector<std::vector<int>> m_ChoosedDensity; //[variableIndex][dataLevel]
@@ -66,28 +58,26 @@ public:
                                                          const std::vector<double>& minValueInVariables,
                                                          ElementArray<AttributeSet::Attribute>::Pointer attrs,
                                                          IGenum dataType, const std::set<int>& objIndexs);
+    static std::vector<std::vector<int>> GenerateDefaultDensity(int variableNum, int copyNum);
     static std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
     GenerateDensityColor(int copyNum, int brightness, ScalarsToColors::Pointer colorMap);
+    static std::vector<std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>>
+    GenerateDefaultDensityColor(int copyNum);
     static std::set<int> GenerateChoosedObjectIndexs(
             const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
             IGenum dataType);
 
 public:
     /* delete func */
-    void SetObjectDatas(const std::vector<std::vector<double>>& objectDatas) = delete;
-    const std::vector<std::vector<double>>& GetObjectDatas() = delete;
-
-    void SetChoosedObjectDatas(const std::map<int, std::vector<double>>& choosedObjectDatas) = delete;
-    void AddChoosedObjectData(int objId, const std::vector<double>& objData) = delete;
-    void RemoveChoosedObjectData(int objId) = delete;
-    void ClearChoosedObjectData() = delete;
-    const std::map<int, std::vector<double>>& GetChoosedObjectData() = delete;
+    void SetKeyObjectIds(const std::vector<int>& keyObjIds) = delete;
+    const std::vector<int>& GetKeyObjectIds() = delete;
 
 public:
     /* init func */
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
                        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
                        int objNum, int boxNum, ScalarsToColors::Pointer colorMap);
+    static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int boxNum);
 
 protected:
     VariableDensityData() = default;
@@ -95,7 +85,14 @@ protected:
 
 public:
     /* choose func */
-    std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue,
-                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum);
+    std::vector<igIndex> FiltInRangeIds(int variableIndex, double variableMinValue, double variableMaxValue);
+
+public:
+    /* selection set */
+    void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
+
+protected:
+    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultClearSelectionCallBackFunc();
 };
 IGAME_NAMESPACE_END

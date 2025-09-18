@@ -2,60 +2,79 @@
 
 IGAME_NAMESPACE_BEGIN
 
-bool IGCReader::Execute() {
-    clock_t start, end;
-    start = clock();
-
-    clock_t time1 = clock();
-    if (!Open()) {
-        std::cerr << "Open failure\n";
-        return false;
-    }
-    clock_t time2 = clock();
-    std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
-    if (!Parsing()) {
-        std::cerr << "Parsing failure\n";
-        return false;
-    }
-    if (!Close()) {
-        std::cerr << "Close failure\n";
-        return false;
-    }
-    clock_t time3 = clock();
-    std::cout << "Generate DataObject Cost " << time3 - time2 << "ms\n";
-    this->SetOutput(0, m_Output);
-    end = clock();
-    std::cout << "Read file success! The time cost: " << end - start << "ms" << std::endl;
-    return true;
-}
-
 bool IGCReader::Parsing()
 {
-    // 创建 MeshEncodedDataObject 来传递文件路径
-    auto encodedData = MeshEncodedDataObject::New();
-    
-    // 只传递文件路径
-    encodedData->SetFilePath(m_FilePath);
+    return ParsingWithMemoryMapping();
+}
 
-    // 创建 MeshLoomDecoder 实例
-    auto decoder = MeshLoomDecoder::New();
+bool IGCReader::ParsingWithMemoryMapping()
+{
+    MeshDecoder::Pointer decoder = MeshDecoder::New();
+
+    decoder->SetMemoryMappingData(this->FILESTART, 
+                                  this->IS, 
+                                  this->FILEEND, 
+                                  this->m_FileSize);
     
-    // 设置解码器的输入
-    decoder->SetInput(encodedData);
-    
-    // 执行解码
     if (!decoder->Execute()) {
         return false;
     }
     
-    // 获取解码器的输出并从中提取原始网格数据
-    auto decodedData = DynamicCast<MeshDecodedDataObject>(decoder->GetOutput());
-    if (!decodedData) {
+    m_DecodedOutput = decoder->GetOutput();
+    return true;
+}
+
+bool IGCReader::ParsingWithFilePath()
+{
+    MeshDecoder::Pointer decoder = MeshDecoder::New();
+
+    EncodedMeshData::Pointer encodedData = CreateEncodedDataFromFile();
+    if (!encodedData) {
         return false;
     }
-    m_Output = decodedData->GetMeshData();
+
+    decoder->SetInput(0, encodedData);
     
+    if (!decoder->Execute()) {
+        return false;
+    }
+    
+    m_DecodedOutput = decoder->GetOutput();
     return true;
+}
+
+EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
+{
+    std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << m_FilePath << std::endl;
+        return nullptr;
+    }
+
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    std::vector<char> buffer(fileSize);
+    if (!file.read(buffer.data(), fileSize)) {
+        std::cerr << "Failed to read file: " << m_FilePath << std::endl;
+        return nullptr;
+    }
+    file.close();
+
+    EncodedMeshData::Pointer encodedData = EncodedMeshData::New();
+    encodedData->m_Buffers.resize(fileSize);
+    std::memcpy(encodedData->m_Buffers.data(), buffer.data(), fileSize);
+    
+    return encodedData;
+}
+
+bool IGCReader::CreateDataObject()
+{
+    if (m_DecodedOutput) {
+        m_Output = m_DecodedOutput;
+        return true;
+    }
+    return false;
 }
 
 IGAME_NAMESPACE_END

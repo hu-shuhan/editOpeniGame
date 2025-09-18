@@ -33,7 +33,9 @@ void Interactor::CreateDefaultStyle() {
 
 void Interactor::FilterEvent(IEvent event) {
     if (m_Scene == nullptr) return;
-    if (!m_Internal) { CreateDefaultStyle(); }
+    if (!m_Internal) { 
+        std::cout << "FilterEvent: Creating default style" << std::endl;
+        CreateDefaultStyle(); }
     m_Internal->FilterEvent(event);
     for (auto& specialInternal: m_SpecialInternals)
         specialInternal.second->FilterEvent(event);
@@ -80,6 +82,38 @@ void Interactor::RequestFaceSelectionStyle(SmartPointer<Selection> s,
     act->SetSelectRadius(selectRadius);
     act->SetSelectOrUnSelect(selectOrUnSelect);
     act->Initialize(this, s);
+    m_Internal = act;
+    is_Base = false;
+}
+
+void Interactor::RequestPickCenterStyle(SmartPointer<Selection> s) {
+    if (!s) return;
+
+    // 创建并初始化中心点选择交互样式
+    auto act = SingleSelectionStyle::New();
+
+    // 设置为点选择类型（只需要选择单个点作为中心）
+    act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
+
+    // 添加特殊标志表示这是中心点选择模式
+    /*act->SetIsCenterPickMode(true);*/
+
+    // 初始化交互样式并设置为当前活动交互器
+    act->Initialize(this, s);
+    m_Internal = act;
+    is_Base = false;
+}
+
+// 在Interactor.cpp中添加实现
+void Interactor::RequestDragCenterStyle(SmartPointer<Selection> s) {
+    if (!m_Scene) return;
+
+    // 创建并设置拖拽交互器
+    auto act = DragCenterStyle::New();
+    act->Initialize(this);
+    auto model = m_Scene->GetCenterAxesModel();
+    act->SetAxesModel(model);
+    // 设置为当前交互器
     m_Internal = act;
     is_Base = false;
 }

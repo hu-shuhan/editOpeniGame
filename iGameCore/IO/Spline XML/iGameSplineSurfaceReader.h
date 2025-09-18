@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @class   iGameSplineSurfaceReader
  * @brief   iGameSplineSurfaceReader's brief
  */
@@ -8,18 +8,19 @@
 #include <iGameXMLFileReader.h>
 
 IGAME_NAMESPACE_BEGIN
-    class SplineSurfaceReader : public iGameXMLFileReader{
-    public:
-        I_OBJECT(SplineSurfaceReader)
+class SplineSurfaceReader : public iGameXMLFileReader {
+public:
+    I_OBJECT(SplineSurfaceReader)
 
-        bool Parsing() override;
-        static Pointer New(){return new SplineSurfaceReader;}
-    public:
-        bool Execute() override;
+    bool Parsing() override;
+    static Pointer New() { return new SplineSurfaceReader; }
 
-    protected:
-        SplineSurfaceReader();
-        ~SplineSurfaceReader() override = default;
-    };
+public:
+    bool Execute() override;
+
+protected:
+    SplineSurfaceReader();
+    ~SplineSurfaceReader() override = default;
+};
 IGAME_NAMESPACE_END
 #endif

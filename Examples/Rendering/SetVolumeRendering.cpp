@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -55,6 +51,4 @@ static void SetVolumeRendering() {
     window->Show();
 }
 
-int main() {
-    SetVolumeRendering();
-}
+int main() { SetVolumeRendering(); }

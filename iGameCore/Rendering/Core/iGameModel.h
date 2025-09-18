@@ -207,6 +207,7 @@ public:
      */
     bool IsAccelerationEnabled() const;
 
+
 protected:
     Model();
     ~Model() override;
@@ -278,7 +279,6 @@ protected:
 
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Meshleter> m_Meshleter;
-    SmartPointer<Selection> m_Selection;
     SmartPointer<Filter> m_Filter;
     SmartPointer<Painter3D> m_Painter3D;
 

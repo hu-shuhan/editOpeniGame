@@ -23,7 +23,6 @@
 #include "Abaqus/iGameODBReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "IGC/iGameIGCReader.h"
-#include "iGameMeshCodec/iGameMeshLoomDecoder.h"
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name)
