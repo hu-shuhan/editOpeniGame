@@ -11,6 +11,7 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameStructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 class ConvertToSurfaceMesh : public Filter {
@@ -51,7 +52,11 @@ protected:
      */
     virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
     
-
+        
+    /**
+     * 对结构化网格进行转换
+     */
+    virtual bool ExecuteWithStructuredMesh(StructuredMesh::Pointer vm);
 
 private:
 };
