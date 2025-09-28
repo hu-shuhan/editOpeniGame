@@ -90,7 +90,6 @@ void igQtJsonCommandHandler::handleCommandMessage(const QJsonObject& jsonObj)
     }
     
     QString action = content.value("action").toString();
-    QString message = content.value("message").toString();
     
     
     // 检查命令执行器是否已创建

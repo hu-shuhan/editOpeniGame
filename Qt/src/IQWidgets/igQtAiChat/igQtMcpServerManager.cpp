@@ -561,13 +561,13 @@ private:
             }
 
             // 方法2：使用taskkill强制终止（更可靠）
-            QString killCommand = QString("taskkill /f /pid %1").arg(serverProcess);
+            QString killCommand = QString("taskkill /f /pid %1 >nul 2>&1").arg(serverProcess);
             // qDebug() << "执行命令:" << killCommand;
             int result = system(killCommand.toLocal8Bit().constData());
             // qDebug() << "taskkill结果:" << result;
 
             // 方法3：终止所有python.exe进程（最后手段）
-            QString killAllPython = "taskkill /f /im python.exe";
+            QString killAllPython = "taskkill /f /im python.exe >nul 2>&1";
             // qDebug() << "执行备用命令:" << killAllPython;
             system(killAllPython.toLocal8Bit().constData());
 

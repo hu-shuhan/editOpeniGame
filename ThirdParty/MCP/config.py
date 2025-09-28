@@ -16,7 +16,7 @@ SELECTED_MODEL = "nuwa"  # 可选: "qwen", "gemini", "openai", "claude", "nuwa"
 QWEN_CONFIG = {
     "API_KEY": "sk-8002cd18b7194f85b33e1307fdd85a6f",
     "BASE_URL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "MODEL": "qwen-plus",
+    "MODEL": "qwen-vl-plus",  # 使用支持视觉的模型
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }
@@ -51,7 +51,7 @@ CLAUDE_CONFIG = {
 NUWA_CONFIG = {
     "API_KEY": "sk-jYrjDnqiZ894oHHkJlmtKTsCP4L4RJCz0o7isE5oJ4vZJ90S",
     "BASE_URL": "https://api.nuwaapi.com/v1",
-    "MODEL": "claude-3-5-sonnet-20241022",
+    "MODEL": "claude-3-7-sonnet-20250219",
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }

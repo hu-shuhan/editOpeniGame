@@ -13,28 +13,7 @@ import base64
 from Client.client import MCPClient
 import config
 
-# 图像处理相关导入
-try:
-    import matplotlib
-    matplotlib.use('Agg')  # 使用非GUI后端，避免线程问题
-    import matplotlib.pyplot as plt
-    import matplotlib.image as mpimg
-    from PIL import Image
-    import io
-    IMAGING_AVAILABLE = True
-    print("✅ matplotlib和PIL已安装，图像保存功能已启用")
-except ImportError:
-    IMAGING_AVAILABLE = False
-    print("⚠️ matplotlib/PIL 未安装，图像显示功能将受限")
-    # 即使没有matplotlib，我们仍然尝试导入base64来验证数据
-    try:
-        from PIL import Image
-        import io
-        PIL_ONLY = True
-        print("✅ 检测到PIL，可以保存图像文件")
-    except ImportError:
-        PIL_ONLY = False
-        print("❌ PIL也不可用，无法处理图像")
+
 
 # 全局变量用于进程管理
 global_bridge_server = None
@@ -112,7 +91,7 @@ class MCPBridge:
         self.active_sessions = {}  # 存储活跃的会话状态
         self.command_queue = {}    # 每个客户端的命令队列
         
-        print(f"桥梁服务器初始化完成，监听 {self.host}:{self.port}")
+        # print(f"桥梁服务器初始化完成，监听 {self.host}:{self.port}")
 
     def cleanup(self):
         """清理桥梁服务器资源"""
@@ -194,11 +173,11 @@ class MCPBridge:
             asyncio.set_event_loop(self.mcp_loop)
             
             async def setup_mcp():
-                print("创建共享的MCP客户端实例...")
+                # print("创建共享的MCP客户端实例...")
                 self.mcp_client = MCPClient()
                 server_script_path = os.path.join(os.path.dirname(__file__), "Servers", "server.py")
                 await self.mcp_client.connect_to_server(server_script_path)
-                print("共享MCP客户端创建成功")
+                # print("共享MCP客户端创建成功")
             
             # 初始化MCP客户端
             self.mcp_loop.run_until_complete(setup_mcp())
@@ -217,27 +196,33 @@ class MCPBridge:
         print("MCP客户端线程启动完成")
     
     def process_query_sync(self, message, client_id=None):
-        """解析JSON消息，支持多工具调用的智能处理"""
+        """处理查询消息，支持文本和JSON格式"""
         if not self.mcp_client or not self.mcp_loop:
             return "MCP客户端未初始化"
 
-        # 解析JSON消息，根据type判断类型
-        message_json = json.loads(message)
-        message_type = message_json.get("type", "unknown")
+        try:
+            # 尝试解析为JSON
+            message_json = json.loads(message)
+            message_type = message_json.get("type", "unknown")
 
-        if message_type == "question":
-            # 新的用户问题，使用增强的AI处理
-            return self.process_user_question(message_json.get('content', ''), client_id)
-        elif message_type == "operation_result":
-            # 特殊处理操作结果，特别是包含图像的结果
-            return self.handle_operation_result(message_json, client_id)
-        else:
-            ai_prompt = f"收到消息: {json.dumps(message_json, ensure_ascii=False)}\n请根据消息内容回答。"
-            return self.process_ai_query(ai_prompt)
+            if message_type == "question" or message_type == "query":
+                # 新的用户问题，使用增强的AI处理
+                return self.process_user_question(message_json.get('content', ''), client_id)
+            elif message_type == "operation_result" or message_type == "execution_result":
+                # 特殊处理操作结果，特别是包含图像的结果
+                return self.handle_operation_result(message_json, client_id)
+            else:
+                ai_prompt = f"收到消息: {json.dumps(message_json, ensure_ascii=False)}\n请根据消息内容回答。"
+                return self.process_ai_query(ai_prompt)
+        except json.JSONDecodeError:
+            # 不是JSON，按普通文本处理
+            return self.process_user_question(message, client_id)
 
     def process_user_question(self, user_question, client_id=None):
-        """处理用户问题，支持智能多工具调用"""
+        """处理用户问题，简化逻辑：判断返回类型并相应处理"""
         try:
+            print(f"🤖 [DEBUG] 开始处理用户问题: {user_question}")
+            
             # 为客户端创建会话状态
             if client_id and client_id not in self.active_sessions:
                 self.active_sessions[client_id] = {
@@ -246,19 +231,9 @@ class MCPBridge:
                     "stage": "initial"
                 }
 
-            # 使用增强的AI提示，让AI能够规划多步骤操作
-            ai_prompt = f"""
-用户问题: {user_question}
-
-你是一个智能的3D模型处理助手。请分析用户的需求，制定合适的执行计划。
-
-如果用户的需求需要多个步骤才能完成，你可以：
-1. 首先调用必要的工具收集信息
-2. 基于结果决定下一步操作
-3. 最终向用户提供完整的回答
-
-请根据用户问题选择合适的工具并执行操作。
-"""
+            # 简洁的AI提示
+            ai_prompt = f"用户问题: {user_question}"
+            print(f"🤖 [DEBUG] 发送给MCP客户端的提示: {ai_prompt}")
 
             # 让AI处理
             future = asyncio.run_coroutine_threadsafe(
@@ -267,10 +242,29 @@ class MCPBridge:
             )
 
             ai_result = future.result(timeout=30)
-            return self.handle_tool_result(ai_result, client_id)
+            print(f"🤖 [DEBUG] MCP客户端返回结果: {ai_result}")
+            
+            # 检查AI结果是否是command类型JSON
+            try:
+                result_json = json.loads(ai_result)
+                if isinstance(result_json, dict) and result_json.get("type") == "command":
+                    # 是command类型 - 发送给主进程执行并等待结果
+                    print(f"⚡ [DEBUG] MCP客户端返回command类型，发送给主进程执行")
+                    print(f"⚡ [DEBUG] 命令详情: {json.dumps(result_json, ensure_ascii=False, indent=2)}")
+                    return ai_result  # 直接返回，格式已经正确
+                else:
+                    # 不是command类型 - AI已经回答了，发送给主进程显示
+                    print(f"💬 [DEBUG] MCP客户端返回非command类型，AI已回答")
+                    return ai_result
+            except json.JSONDecodeError:
+                # 不是JSON - AI已经回答了，发送给主进程显示
+                print(f"💬 [DEBUG] MCP客户端返回非JSON格式，AI已回答")
+                return ai_result
 
         except Exception as e:
-            return f"处理用户问题时出错: {str(e)}"
+            error_msg = f"处理用户问题时出错: {str(e)}"
+            print(f"❌ [DEBUG] {error_msg}")
+            return error_msg
 
     def process_ai_query(self, ai_prompt):
         """处理普通AI查询"""
@@ -304,8 +298,8 @@ class MCPBridge:
                 has_images, images, processed_content = self.detect_and_extract_images(content)
                 
                 if has_images and images:
-                    # 如果检测到图像，直接在桥梁服务器中处理
-                    image_result = self.process_and_display_images(images, "工具执行结果", processed_content)
+                    # 如果检测到图像，处理图像信息但不保存
+                    image_result = self.process_images_info(images, "工具执行结果", processed_content)
                     return image_result
                 else:
                     # 没有图像时的正常处理
@@ -322,7 +316,7 @@ class MCPBridge:
             # 检查是否包含图像
             has_images, images, processed_result = self.detect_and_extract_images(tool_result)
             if has_images and images:
-                image_result = self.process_and_display_images(images, "AI回复", processed_result)
+                image_result = self.process_images_info(images, "AI回复", processed_result)
                 return image_result
             return tool_result
 
@@ -359,74 +353,6 @@ class MCPBridge:
         
         return json.dumps({"type": "reply", "content": "没有需要执行的命令"}, ensure_ascii=False)
 
-    def try_save_images(self, images):
-        """
-        尝试保存图像到文件，即使matplotlib不可用
-        
-        Args:
-            images: 图像信息列表
-        Returns:
-            list: 成功保存的文件路径列表
-        """
-        saved_files = []
-        
-        for i, image_info in enumerate(images):
-            try:
-                image_data_b64 = image_info.get("data", "")
-                image_key = image_info.get("key", f"image_{i}")
-                
-                # 检查图像数据有效性
-                if not image_data_b64 or image_data_b64 in ["no_renderer", "image_null", ""]:
-                    print(f"❌ 图像 {image_key}: 无效的图像数据")
-                    continue
-                
-                # 尝试用基础base64库解码（不需要PIL）
-                try:
-                    image_bytes = base64.b64decode(image_data_b64)
-                    print(f"✅ 图像 {image_key}: Base64解码成功，数据大小 {len(image_bytes)} 字节")
-                    
-                    # 保存原始字节数据
-                    raw_filename = f"image_{i}_{image_key}_raw.bin"
-                    with open(raw_filename, 'wb') as f:
-                        f.write(image_bytes)
-                    print(f"✅ 保存原始数据到: {raw_filename}")
-                    saved_files.append(raw_filename)
-                    
-                    # 尝试检测图像格式
-                    if image_bytes.startswith(b'\xff\xd8\xff'):
-                        ext = '.jpg'
-                    elif image_bytes.startswith(b'\x89PNG'):
-                        ext = '.png'
-                    elif image_bytes.startswith(b'BM'):
-                        ext = '.bmp'
-                    else:
-                        print(f"⚠️ 图像 {image_key}: 未知格式，尝试PNG")
-                        ext = '.png'
-                    
-                    # 保存为图像文件
-                    img_filename = f"image_{i}_{image_key}{ext}"
-                    with open(img_filename, 'wb') as f:
-                        f.write(image_bytes)
-                    print(f"✅ 保存图像文件到: {img_filename}")
-                    saved_files.append(img_filename)
-                    
-                    # 如果有PIL，尝试验证图像
-                    if 'PIL_ONLY' in globals() and PIL_ONLY:
-                        try:
-                            img = Image.open(io.BytesIO(image_bytes))
-                            print(f"✅ PIL验证成功: {img.format} {img.size} {img.mode}")
-                        except Exception as pil_e:
-                            print(f"⚠️ PIL验证失败: {pil_e}")
-                    
-                except Exception as decode_e:
-                    print(f"❌ 图像 {image_key}: Base64解码失败 - {decode_e}")
-                    continue
-                    
-            except Exception as e:
-                print(f"❌ 处理图像 {i} 时出错: {e}")
-                continue
-        
-        return saved_files
 
     def detect_and_extract_images(self, data):
         """
@@ -524,9 +450,9 @@ class MCPBridge:
         
         return False
 
-    def process_and_display_images(self, images, context="", text_content=""):
+    def process_images_info(self, images, context="", text_content=""):
         """
-        处理并显示图像，并生成模型总结
+        处理图像信息，不保存到本地，只返回图像数量和基本信息
         Args:
             images: 提取的图像列表
             context: 上下文信息
@@ -537,107 +463,23 @@ class MCPBridge:
         if not images:
             return f"{context}\n{text_content}"
         
-        if not IMAGING_AVAILABLE:
-            print(f"⚠️ 检测到 {len(images)} 个图像，matplotlib不可用，尝试保存图像文件...")
-            # 尝试验证和保存图像数据
-            saved_files = self.try_save_images(images)
-            if saved_files:
-                files_list = "\n".join([f"- {f}" for f in saved_files])
-                return f"{context}\n{text_content}\n\n✅ 检测到 {len(images)} 个图像，已保存到文件：\n{files_list}\n\n请手动打开查看图像是否正确。"
-            else:
-                return f"{context}\n{text_content}\n\n❌ 检测到 {len(images)} 个图像，但无法处理（缺少PIL库）"
-        
-        print(f"🖼️ 检测到 {len(images)} 个图像，正在处理和显示...")
-        displayed_images = []
-        failed_images = []
+        print(f"🖼️ 检测到 {len(images)} 个图像")
+        valid_images = 0
         
         for i, image_info in enumerate(images):
-            try:
-                image_data_b64 = image_info.get("data", "")
-                image_key = image_info.get("key", f"image_{i}")
-                image_path_info = image_info.get("path", "unknown")
-                
-                # 检查图像数据有效性
-                if not image_data_b64 or image_data_b64 in ["no_renderer", "image_null", ""]:
-                    failed_images.append(f"{image_key}: 无效的图像数据")
-                    continue
-                
-                # 解码Base64图像
-                image_data = base64.b64decode(image_data_b64)
-                image = Image.open(io.BytesIO(image_data))
-                
-                # 使用matplotlib保存图像
-                plt.figure(figsize=(10, 8))
-                plt.imshow(image)
-                plt.title(f"Image: {image_key}", fontsize=14)  # 使用英文避免字体问题
-                plt.axis('off')
-                plt.tight_layout()
-                
-                # 保存图像文件
-                save_filename = f"model_image_{i}_{image_key}.png"
-                plt.savefig(save_filename, dpi=150, bbox_inches='tight')
-                plt.close()  # 关闭figure释放内存
-                print(f"✅ 图像已保存到: {save_filename}")
-                
-                displayed_images.append({
-                    "key": image_key,
-                    "size": f"{image.width}x{image.height}",
-                    "source_path": image_path_info
-                })
-                
-            except Exception as e:
-                failed_images.append(f"{image_key}: {str(e)}")
+            image_data_b64 = image_info.get("data", "")
+            image_key = image_info.get("key", f"image_{i}")
+            
+            # 检查图像数据有效性
+            if image_data_b64 and image_data_b64 not in ["no_renderer", "image_null", ""]:
+                valid_images += 1
+                print(f"✅ 图像 {image_key}: 有效")
+            else:
+                print(f"❌ 图像 {image_key}: 无效的图像数据")
         
-        # 如果检测到模型信息和图像，优先显示AI分析结果
-        if context and "操作:" in context and text_content and displayed_images:
-            try:
-                # 提取纯文本的模型信息
-                model_info_text = ""
-                try:
-                    # 尝试解析JSON获取description字段
-                    text_json = json.loads(text_content)
-                    if isinstance(text_json, dict) and "description" in text_json:
-                        model_info_text = text_json["description"]
-                    else:
-                        model_info_text = text_content
-                except:
-                    # 如果不是JSON，直接使用原文本
-                    model_info_text = text_content
-                
-                print(f"📊 正在分析模型: {model_info_text[:100]}...")
-                
-                # 调用模型分析工具
-                future = asyncio.run_coroutine_threadsafe(
-                    self.mcp_client.call_tool("analyze_model_summary", {
-                        "model_info": model_info_text,
-                        "has_image": True,
-                        "image_description": f"模型的3D可视化图像已保存到文件"
-                    }),
-                    self.mcp_loop
-                )
-                
-                analysis_result = future.result(timeout=15)
-                
-                # 解析分析结果，只返回AI分析内容
-                try:
-                    analysis_json = json.loads(analysis_result)
-                    if analysis_json.get("type") == "reply":
-                        analysis_content = analysis_json.get("content", "")
-                        if analysis_content:
-                            return f"🤖 {analysis_content}"
-                except:
-                    # 如果不是JSON格式，直接返回
-                    if analysis_result and "分析模型信息时发生错误" not in analysis_result:
-                        return f"🤖 {analysis_result}"
-                        
-            except Exception as e:
-                print(f"生成模型总结时出错: {e}")
-                # 如果分析失败，回退到简洁的基础信息
-                pass
-        
-        # 回退方案：返回简洁的基础信息
-        if displayed_images:
-            return f"✅ 模型信息获取成功，图像已保存到 {len(displayed_images)} 个文件"
+        # 返回简洁的信息
+        if valid_images > 0:
+            return f"✅ 操作完成，检测到 {valid_images} 个有效图像"
         else:
             return f"{context}\n{text_content}" if context and text_content else "操作完成"
 
@@ -656,12 +498,6 @@ class MCPBridge:
             next_command = self.get_next_command(client_id, action, success)
             
             if next_command:
-                # 如果有下一个命令，先处理当前结果，然后执行下一个命令
-                if has_images and images:
-                    # 保存图像处理结果，但不阻塞下一个命令
-                    threading.Thread(target=self.process_and_display_images, 
-                                   args=(images, f"操作: {action}", processed_message)).start()
-                
                 # 返回下一个命令
                 return next_command
             
@@ -684,53 +520,47 @@ class MCPBridge:
             str: AI生成的总结
         """
         try:
-            # 如果有图像，先处理图像（但不显示原始数据）
+            # 如果有图像，收集图像信息（但不保存到本地）
             image_context = ""
             if has_images and images:
-                # 后台处理图像，但收集上下文信息
-                processed_images = []
+                valid_images = 0
                 for i, image_info in enumerate(images):
-                    try:
-                        image_data_b64 = image_info.get("data", "")
-                        image_key = image_info.get("key", f"image_{i}")
-                        
-                        if image_data_b64 and image_data_b64 not in ["no_renderer", "image_null", ""]:
-                            # 解码并保存图像
-                            image_data = base64.b64decode(image_data_b64)
-                            image = Image.open(io.BytesIO(image_data))
-                            
-                            # 保存图像文件
-                            save_filename = f"model_image_{i}_{image_key}.png"
-                            if IMAGING_AVAILABLE:
-                                plt.figure(figsize=(10, 8))
-                                plt.imshow(image)
-                                plt.title(f"Image: {image_key}", fontsize=14)
-                                plt.axis('off')
-                                plt.tight_layout()
-                                plt.savefig(save_filename, dpi=150, bbox_inches='tight')
-                                plt.close()
-                            else:
-                                # 直接保存原始图像
-                                image.save(save_filename)
-                            
-                            processed_images.append({
-                                "filename": save_filename,
-                                "size": f"{image.width}x{image.height}",
-                                "key": image_key
-                            })
-                            print(f"✅ 图像已保存到: {save_filename}")
-                    except Exception as e:
-                        print(f"❌ 处理图像失败: {e}")
+                    image_data_b64 = image_info.get("data", "")
+                    image_key = image_info.get("key", f"image_{i}")
+                    
+                    if image_data_b64 and image_data_b64 not in ["no_renderer", "image_null", ""]:
+                        valid_images += 1
+                        print(f"✅ 图像 {image_key}: 有效")
+                    else:
+                        print(f"❌ 图像 {image_key}: 无效的图像数据")
                 
-                if processed_images:
-                    image_context = f"已保存 {len(processed_images)} 个图像文件: " + ", ".join([img["filename"] for img in processed_images])
+                if valid_images > 0:
+                    image_context = f"检测到 {valid_images} 个有效图像"
             
-            # 构建AI提示，根据不同工具类型优化
-            prompt = self.build_smart_prompt(action, success, message, image_context)
+            # 构建完整的查询信息
+            info_parts = []
             
-            # 调用AI生成总结
+            # 添加操作状态
+            status = "成功" if success else "失败"
+            info_parts.append(f"操作: {action} ({status})")
+            
+            # 添加原始消息内容
+            if message:
+                info_parts.append(f"详细信息: {message}")
+            
+            # 添加图像上下文
+            if image_context:
+                info_parts.append(f"图像处理: {image_context}")
+            
+            # 构建完整的查询文本
+            full_info = "\n".join(info_parts)
+            
+            # 构建简洁的AI查询
+            query = f"操作结果: {full_info}\n\n请用自然语言告诉用户操作结果。"
+            
+            # 统一调用AI查询，自动处理图像数据
             future = asyncio.run_coroutine_threadsafe(
-                self.mcp_client.process_query(prompt),
+                self.mcp_client.process_query(query, images if has_images else None),
                 self.mcp_loop
             )
             result = future.result(timeout=30)
@@ -751,81 +581,6 @@ class MCPBridge:
             status = "✅ 成功" if success else "❌ 失败"
             return f"{status} {action}: {message}"
 
-    def build_smart_prompt(self, action, success, message, image_context=""):
-        """
-        根据工具类型构建智能提示
-        """
-        status = "成功" if success else "失败"
-        
-        # 根据不同的操作类型定制提示
-        if action == "get_model_info":
-            if success:
-                prompt = f"""
-                用户刚刚获取了3D模型信息，操作成功。原始数据：{message}
-                {f'图像信息：{image_context}' if image_context else ''}
-                
-                请分析这个3D模型，用自然、专业的语言告诉用户：
-                1. 这是什么类型的模型
-                2. 模型的规模和复杂度
-                3. 模型的几何特征
-                4. 可能的应用场景
-                
-                请直接给出分析结果，不要提及技术细节或原始数据。
-                """
-            else:
-                prompt = f"获取模型信息失败：{message}。请用友好的语言告诉用户发生了什么，并建议解决方案。"
-        
-        elif action == "open_file":
-            if success:
-                prompt = f"用户成功打开了文件。结果：{message}。请用简洁友好的语言确认文件已打开，并提示用户可以进行下一步操作。"
-            else:
-                prompt = f"文件打开失败：{message}。请分析可能的原因并给出解决建议。"
-        
-        elif action in ["camera_control", "change_camera_type"]:
-            if success:
-                prompt = f"视角调整成功。请简洁地确认操作完成。"
-            else:
-                prompt = f"视角调整失败：{message}。请说明问题并建议解决方案。"
-        
-        elif action in ["save_file_as", "save_screenshot"]:
-            if success:
-                prompt = f"文件保存成功。结果：{message}。请确认保存完成并告知用户文件位置。"
-            else:
-                prompt = f"文件保存失败：{message}。请分析原因并提供解决建议。"
-        
-        elif action == "get_model_eight_views":
-            if success:
-                prompt = f"""
-                用户成功获取了模型的八个视角图像。
-                {f'图像信息：{image_context}' if image_context else ''}
-                
-                请告诉用户：
-                1. 已成功获取了模型从8个不同角度的视图
-                2. 这些视角包括前后、上下、左右的各种组合
-                3. 这些多角度图像有助于全面了解模型的3D结构
-                4. 用户可以查看保存的图像文件来观察模型的不同侧面
-                
-                请用简洁友好的语言确认操作完成。
-                """
-            else:
-                prompt = f"获取八视角图像失败：{message}。请分析原因并提供解决建议。"
-        
-        else:
-            # 通用处理
-            prompt = f"""
-            操作 '{action}' {status}。
-            结果：{message}
-            {f'图像信息：{image_context}' if image_context else ''}
-            
-            请用自然、友好的语言向用户报告这个结果，重点说明：
-            1. 操作是否成功
-            2. 用户得到了什么
-            3. 下一步可以做什么（如果适用）
-            
-            避免显示技术细节和原始数据。
-            """
-        
-        return prompt
 
     def get_next_command(self, client_id, completed_action, success):
         """获取下一个要执行的命令"""
@@ -873,7 +628,7 @@ class MCPBridge:
             return None
 
     def handle_client(self, client_socket, addr):
-        """处理客户端连接，支持多工具调用"""
+        """处理客户端连接，支持双向JSON消息通信"""
         client_id = f"{addr[0]}:{addr[1]}"
         print(f"客户端 {client_id} 已连接")
         
@@ -894,11 +649,8 @@ class MCPBridge:
                     cleanup_and_exit()
                     break
 
-                # 处理消息，传入客户端ID以支持会话状态
-                answer = self.process_query_sync(message, client_id)
-
-                # 检查是否是命令并开始执行流程
-                self.execute_command_flow(client_socket, answer, client_id)
+                # 处理不同类型的消息
+                self.handle_message(client_socket, message, client_id)
 
         except Exception as e:
             print(f"客户端处理错误: {e}")
@@ -908,63 +660,165 @@ class MCPBridge:
             client_socket.close()
             print(f"客户端 {client_id} 已断开连接")
 
-    def execute_command_flow(self, client_socket, answer, client_id):
-        """执行命令流程，支持多命令串联"""
+    def handle_message(self, client_socket, message, client_id):
+        """处理不同类型的消息"""
+        try:
+            print(f"📨 [DEBUG] 收到消息: {message}")
+            
+            # 尝试解析JSON消息
+            try:
+                message_json = json.loads(message)
+                message_type = message_json.get("type", "")
+                print(f"📨 [DEBUG] 解析为JSON消息，类型: {message_type}")
+                
+                if message_type == "query" or message_type == "question":
+                    # 主进程发送的问题
+                    print(f"❓ [DEBUG] 收到主进程问题: {message_json.get('content', '')}")
+                    self.handle_query_message(client_socket, message_json, client_id)
+                    
+                elif message_type == "execution_result" or message_type == "operation_result":
+                    # 主进程返回的执行结果
+                    print(f"✅ [DEBUG] 收到主进程执行结果: {message_json.get('content', '')}")
+                    self.handle_execution_result(client_socket, message_json, client_id)
+                    
+                else:
+                    # 其他类型消息，按普通文本处理
+                    print(f"❓ [DEBUG] 收到未知类型消息: {message_type}")
+                    self.handle_text_message(client_socket, message, client_id)
+                    
+            except json.JSONDecodeError:
+                # 不是JSON，按普通文本消息处理
+                print(f"📝 [DEBUG] 不是JSON，按文本消息处理: {message}")
+                self.handle_text_message(client_socket, message, client_id)
+                
+        except Exception as e:
+            print(f"❌ [DEBUG] 处理消息时出错: {e}")
+            self.send_message_to_client(client_socket, {
+                "type": "error",
+                "content": f"处理消息时出错: {str(e)}",
+                "timestamp": str(time.time())
+            })
+
+    def handle_query_message(self, client_socket, message_json, client_id):
+        """处理主进程发送的问题"""
+        query_content = message_json.get("content", "")
+        
+        # 调用AI处理问题
+        answer = self.process_query_sync(query_content, client_id)
+        
+        # 检查AI回答是否是命令
         try:
             answer_json = json.loads(answer)
-            answer_type = answer_json.get("type", "")
-            
-            if answer_type == "command":
-                # 发送命令并等待结果
+            if answer_json.get("type") == "command":
+                # 是命令，发送给主进程执行
+                print(f"AI返回命令，发送给主进程执行: {answer_json.get('command', '')}")
+                
+                # 保存会话状态，等待执行结果
+                if client_id not in self.active_sessions:
+                    self.active_sessions[client_id] = {}
+                self.active_sessions[client_id]["waiting_for_execution"] = True
+                self.active_sessions[client_id]["original_query"] = query_content
+                
+                # 提取命令内容并发送给主进程
+                print(f"🔍 [DEBUG] handle_query_message解析到的命令JSON结构: {json.dumps(answer_json, ensure_ascii=False, indent=2)}")
+                
+                # 直接发送标准格式的命令给主进程
+                print(f"📤 [DEBUG] handle_query_message发送标准格式命令给主进程: {json.dumps(answer_json, ensure_ascii=False)}")
                 self.send_message_to_client(client_socket, answer_json)
-                
-                # 等待主进程执行结果
-                result = self.receive_message(client_socket)
-                if result:
-                    # 处理执行结果，可能触发下一个命令
-                    next_response = self.process_query_sync(result, client_id)
-                    
-                    # 递归处理，支持命令链
-                    if self.is_command_response(next_response):
-                        self.execute_command_flow(client_socket, next_response, client_id)
-                    else:
-                        # 最终回复
-                        self.send_final_reply(client_socket, next_response)
             else:
-                # 非命令回复，直接发送
-                self.send_final_reply(client_socket, answer)
-                
+                # 不是命令，直接回复
+                self.send_message_to_client(client_socket, {
+                    "type": "reply",
+                    "content": answer,
+                    "timestamp": str(time.time())
+                })
         except json.JSONDecodeError:
-            # 不是JSON，作为普通回复处理
-            self.send_final_reply(client_socket, answer)
+            # AI回答不是JSON，直接回复
+            self.send_message_to_client(client_socket, {
+                "type": "reply", 
+                "content": answer,
+                "timestamp": str(time.time())
+            })
 
-    def is_command_response(self, response):
-        """检查响应是否是命令"""
-        try:
-            response_json = json.loads(response)
-            return response_json.get("type") == "command"
-        except:
-            return False
+    def handle_execution_result(self, client_socket, message_json, client_id):
+        """处理主进程返回的执行结果"""
+        execution_result = message_json.get("content", "")
+        print(f"🔄 [DEBUG] 处理执行结果: {execution_result}")
+        
+        # 检查是否有等待中的会话
+        if client_id in self.active_sessions and self.active_sessions[client_id].get("waiting_for_execution"):
+            original_query = self.active_sessions[client_id].get("original_query", "")
+            print(f"🔄 [DEBUG] 找到等待中的会话，原始问题: {original_query}")
+            
+            # 基于执行结果让AI生成最终回答
+            result_prompt = f"用户问题：{original_query}\n命令执行结果：{execution_result}\n请基于执行结果用自然语言回答用户的问题。"
+            print(f"🔄 [DEBUG] 生成最终回答的提示: {result_prompt}")
+            
+            final_answer = self.process_query_sync(result_prompt, client_id)
+            print(f"🔄 [DEBUG] AI生成的最终回答: {final_answer}")
+            
+            # 发送最终回答
+            reply_message = {
+                "type": "reply",
+                "content": final_answer,
+                "timestamp": str(time.time())
+            }
+            print(f"📤 [DEBUG] 发送最终回答: {json.dumps(reply_message, ensure_ascii=False)}")
+            self.send_message_to_client(client_socket, reply_message)
+            
+            # 清理会话状态
+            self.active_sessions[client_id]["waiting_for_execution"] = False
+            print(f"🔄 [DEBUG] 会话状态已清理")
+        else:
+            print(f"❌ [DEBUG] 收到执行结果但没有等待中的会话: {client_id}")
+            print(f"❌ [DEBUG] 当前会话状态: {self.active_sessions.get(client_id, '无')}")
 
-    def send_final_reply(self, client_socket, content):
-        """发送最终回复给客户端"""
+    def handle_text_message(self, client_socket, message, client_id):
+        """处理普通文本消息（兼容旧版本）"""
+        print(f"🔍 [DEBUG] 处理文本消息: {message}")
+        
+        # 调用AI处理
+        answer = self.process_query_sync(message, client_id)
+        print(f"🔍 [DEBUG] AI返回结果: {answer}")
+        
+        # 检查是否是命令
         try:
-            if isinstance(content, str):
-                # 如果是字符串，尝试解析为JSON
-                try:
-                    content_json = json.loads(content)
-                    self.send_message_to_client(client_socket, content_json)
-                except:
-                    # 不是JSON，包装为reply消息
-                    self.send_message_to_client(client_socket, {
-                        "type": "reply",
-                        "content": content,
-                        "timestamp": str(time.time())
-                    })
+            answer_json = json.loads(answer)
+            if answer_json.get("type") == "command":
+                # 是命令，发送给主进程执行
+                print(f"✅ [DEBUG] 检测到命令类型: {answer_json.get('command', '')}")
+                print(f"🔄 [DEBUG] 保存会话状态，等待主进程执行...")
+                
+                # 保存会话状态
+                if client_id not in self.active_sessions:
+                    self.active_sessions[client_id] = {}
+                self.active_sessions[client_id]["waiting_for_execution"] = True
+                self.active_sessions[client_id]["original_query"] = message
+                
+                # 提取命令内容并发送给主进程
+                print(f"🔍 [DEBUG] 解析到的命令JSON结构: {json.dumps(answer_json, ensure_ascii=False, indent=2)}")
+                
+                # 直接发送标准格式的命令给主进程
+                print(f"📤 [DEBUG] handle_text_message发送标准格式命令给主进程: {json.dumps(answer_json, ensure_ascii=False)}")
+                self.send_message_to_client(client_socket, answer_json)
             else:
-                self.send_message_to_client(client_socket, content)
-        except Exception as e:
-            print(f"发送最终回复时出错: {e}")
+                # 不是命令，直接回复
+                print(f"📝 [DEBUG] 不是命令，直接回复: {answer}")
+                self.send_message_to_client(client_socket, {
+                    "type": "reply",
+                    "content": answer,
+                    "timestamp": str(time.time())
+                })
+        except json.JSONDecodeError:
+            # 不是JSON，直接回复
+            print(f"📝 [DEBUG] 不是JSON格式，直接回复: {answer}")
+            self.send_message_to_client(client_socket, {
+                "type": "reply",
+                "content": answer,
+                "timestamp": str(time.time())
+            })
+
+
 
     def cleanup_client(self, client_id):
         """清理客户端相关状态"""
@@ -985,10 +839,8 @@ class MCPBridge:
             self.sock.bind((self.host, self.port))
             self.sock.listen(config.MAX_CONNECTIONS)
             print(f"=== MCP Bridge Server ===")
-            print(f"桥梁服务器已启动，监听 {self.host}:{self.port}")
-            print(f"使用模型: {config.MODEL}")
-            print(f"💡 支持关闭命令: SHUTDOWN_SERVER, CLOSE_SERVER, EXIT_SERVER")
-            print("等待客户端连接...\n")
+            print(f"Server started on {self.host}:{self.port}")
+            print(f"Model: {config.MODEL}")
             
             while not global_shutdown_event.is_set():
                 try:
@@ -1017,6 +869,7 @@ class MCPBridge:
             print(f"桥梁服务器错误: {e}")
         finally:
             self.cleanup()
+    
 
 if __name__ == "__main__":
     bridge = MCPBridge()

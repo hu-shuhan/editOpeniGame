@@ -2,6 +2,7 @@ import asyncio
 import os
 import json
 import sys
+import time
 from http.client import responses
 from typing import Optional, List
 from contextlib import AsyncExitStack
@@ -53,6 +54,9 @@ class MCPClient:
         self.conversation_history = []
         # 创建会话文件夹
         self.session_folder = self._create_session_folder()
+        # 缓存工具列表，避免重复获取
+        self._cached_tools = None
+        self._cached_response = None
 
     def _create_session_folder(self) -> str:
         """创建新的会话文件夹"""
@@ -126,12 +130,12 @@ class MCPClient:
                 ClientSession(self.stdio, self.write)
             )
 
-            print("正在初始化服务器连接...")
+            # print("正在初始化服务器连接...")
             await self.session.initialize()
 
             response = await self.session.list_tools()
             tools = response.tools
-            print("\n已连接到服务器，支持以下工具:", [tool.name for tool in tools])
+            # print("\n已连接到服务器，支持以下工具:", [tool.name for tool in tools])
 
         except Exception as e:
             print(f"\n连接错误: {e}")
@@ -140,38 +144,43 @@ class MCPClient:
             await self.cleanup()
             raise
 
-    async def process_query(self, query: str) -> str:
-        try:
-            # 获取可用工具列表
-            response = await self.session.list_tools()
-            available_tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.inputSchema
-                    }
-                } for tool in response.tools
-            ]
 
-            # 构建完整的对话历史，但排除之前的工具调用记录
-            messages = []
-            for msg in self.conversation_history:
-                # 只保留用户消息和AI的非工具调用回复，跳过工具调用相关的消息
-                if isinstance(msg, dict):
-                    role = msg.get("role")
-                    if role in ["user", "system"]:
-                        messages.append(msg)
-                    elif role == "assistant" and not msg.get("tool_calls"):
-                        # 只保留不包含工具调用的AI回复
-                        messages.append(msg)
-                    # 跳过 role == "tool" 和包含 tool_calls 的消息
+
+    async def process_query(self, query: str, images: list = None) -> str:
+        """处理查询，按照简化的逻辑：
+        1. 不需要调用工具 -> 直接让AI回答
+        2. 需要调用工具且返回command -> 直接返回JSON
+        3. 需要调用工具且返回非command -> 结合工具结果让AI回答
+        """
+        try:
+            # 检查session是否已连接
+            if not self.session:
+                raise RuntimeError("MCP session not initialized")
             
-            # 自动生成系统提示
+            # 获取可用工具列表（使用缓存避免重复连接）
+            if self._cached_tools is None:
+                response = await self.session.list_tools()
+                self._cached_response = response
+                self._cached_tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.inputSchema
+                        }
+                    } for tool in response.tools
+                ]
+            else:
+                response = self._cached_response
+            available_tools = self._cached_tools
+
+            # 构建消息
+            messages = []
+            
+            # 添加系统消息
             tools_description = []
             for tool in response.tools:
-                # 提取工具的关键信息
                 name = tool.name
                 desc = tool.description.split('.')[0] if '.' in tool.description else tool.description
                 tools_description.append(f"- 使用 {name} 工具可以{desc}")
@@ -182,28 +191,40 @@ class MCPClient:
                     "你是一个智能的3D模型处理助手，可以帮助用户操作和分析3D模型。\n"
                     "你有以下可用的工具：\n"
                     f"{chr(10).join(tools_description)}\n\n"
-                    "## 工具使用指南：\n"
-                    "1. **打开文件**：当用户说要打开/加载某个文件时，使用 `open_file` 工具\n"
-                    "2. **模型信息**：当用户询问当前模型的信息时，使用 `get_model_info` 工具\n"
-                    "3. **相机控制**：当用户要调整视角、缩放、旋转时，使用 `camera_control` 工具\n"
-                    "4. **文件查找**：只有当用户明确询问文件路径或位置时，才使用 `get_desktop_file_path` 等查找工具\n"
-                    "5. **保存操作**：当用户要保存文件或截图时，使用相应的保存工具\n\n"
-                    "## 重要规则：\n"
-                    "- 用户说\"打开xxx文件\"时，直接使用 `open_file` 工具，不要先查找路径\n"
-                    "- 优先选择能直接完成用户目标的工具\n"
-                    "- 用自然、友好的语言回复用户\n"
-                    "- 当检测到图像时，会自动显示并分析模型特征\n\n"
-                    "对于非3D模型相关的问题，你可以直接回答，不需要使用工具。"
+                    "## 重要行为准则：\n"
+                    "- **不要**只是告诉用户如何使用工具，而是**直接调用工具**为用户完成任务\n"
+                    "- **不要**提供操作步骤说明，而是**直接执行操作**\n\n"
+                    "## 工作流程：\n"
+                    "1. 理解用户需求\n"
+                    "2. 立即调用相应的工具\n"
+                    "3. 基于工具结果给用户友好的回复\n\n"
+                    "记住：你的任务是**执行操作**，不是**指导操作**。"
                 )
             }
+            messages.append(system_message)
             
-            # 确保系统消息在对话历史的最开始
-            if not messages or messages[0]["role"] != "system":
-                messages.insert(0, system_message)
-            
-            messages.append({"role": "user", "content": query})
+            # 构建用户消息
+            if images and len(images) > 0:
+                # 包含图像的消息
+                user_content = [{"type": "text", "text": query}]
+                
+                # 处理图像数据
+                for image_info in images:
+                    image_data_b64 = image_info.get("data", "")
+                    if image_data_b64 and image_data_b64 not in ["no_renderer", "image_null", ""]:
+                        user_content.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_data_b64}"
+                            }
+                        })
+                
+                messages.append({"role": "user", "content": user_content})
+            else:
+                # 纯文本消息
+                messages.append({"role": "user", "content": query})
 
-            # 调用大模型
+            # 调用大模型（包含工具调用支持）
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -212,107 +233,67 @@ class MCPClient:
                 max_tokens=config.MAX_TOKENS,
                 temperature=config.TEMPERATURE
             )
-
+            
             # 处理模型响应
             message = response.choices[0].message
-            messages.append(message)
-            # 如果模型决定使用工具
-            if message.tool_calls:
-                for tool_call in message.tool_calls:
-                    tool_name = tool_call.function.name
-                    print(f"=== 准备调用工具 ===")
-                    print(f"工具名称: {tool_name}")
-   
-                    tool_args = json.loads(tool_call.function.arguments)
-                    print(f"工具参数: {tool_args}")
-                    
-                    # 调用工具
-                    result = await self.session.call_tool(tool_name, tool_args)
-                    tool_output = result.content[0].text
-                    
-                    # print(f"=== 工具调用结果 ===")
-                    # print(f"工具输出: {tool_output}")
-                    # print(f"输出长度: {len(tool_output)}")
-                    
-                    # 将工具调用结果添加到对话历史
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": tool_name,
-                        "content": tool_output
-                    })
+            
+            # 情况1：不需要调用工具 - 直接返回AI回答
+            if not message.tool_calls:
+                print(f"[DEBUG] 无工具调用")
+                return message.content
+            
+            # 情况2和3：需要调用工具
+            print(f"[DEBUG] 开始执行工具调用...")
+            
+            # 执行所有工具调用
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
                 
-                # 检查工具调用结果中是否包含JSON命令
-                has_command = False
-                command_output = ""
+                print(f"=== 准备调用工具 ===")
+                print(f"工具名称: {tool_name}")
+                print(f"工具参数: {tool_args}")
                 
-                for msg in messages:
-                    if isinstance(msg, dict) and msg.get("role") == "tool":
-                        content = msg.get("content", "")
-                        try:
-                            # 尝试解析JSON
-                            json_data = json.loads(content)
-                            if isinstance(json_data, dict) and json_data.get("type") == "command":
-                                has_command = True
-                                command_output = content
-                                break
-                        except:
-                            # 如果不是JSON格式，继续检查
-                            pass
+                # 调用工具
+                result = await self.session.call_tool(tool_name, tool_args)
+                tool_output = result.content[0].text
                 
-                if has_command:
-                    # 如果工具返回了命令，直接返回工具输出，不让AI模型重新处理
-                    # print(f"=== 检测到工具返回JSON命令，直接返回 ===")
-                    # print(f"工具输出: {command_output}")
-                    final_output = command_output
-                else:
-                    # 让模型基于工具调用结果生成最终回复
-                    response = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages
-                    )
-                    final_output = response.choices[0].message.content
-            else:
-                final_output = message.content
-
-            # 更新对话历史，但只保留用户查询和最终AI回复，不保留工具调用过程
-            # 添加用户查询
-            self.conversation_history.append({"role": "user", "content": query})
-            # 添加AI的最终回复
-            self.conversation_history.append({"role": "assistant", "content": final_output})
-
-            # 限制对话历史长度，避免无限增长
-            max_history_length = 20  # 保留最近10轮对话（每轮包含用户和AI消息）
-            if len(self.conversation_history) > max_history_length:
-                # 保留系统消息和最近的对话
-                system_messages = [msg for msg in self.conversation_history if msg.get("role") == "system"]
-                recent_messages = self.conversation_history[-max_history_length:]
-                self.conversation_history = system_messages + recent_messages
-
-            # 保存对话记录
-            try:
-                # 获取当前会话中的文件数量作为序号
-                existing_files = [f for f in os.listdir(self.session_folder) if f.endswith('.txt')]
-                file_index = len(existing_files) + 1
+                # 检查工具返回是否是command类型
+                try:
+                    json_data = json.loads(tool_output)
+                    if isinstance(json_data, dict) and json_data.get("type") == "command":
+                        # 情况2：工具返回command - 直接返回JSON，不添加到messages
+                        print(f"=== 检测到工具返回JSON命令，交由桥梁服务器处理 ===")
+                        print(f"命令内容: {tool_output}")
+                        print(f"[DEBUG] 工具调用完成，结果长度: {len(tool_output)}")
+                        return tool_output
+                except:
+                    # 不是JSON格式，继续处理
+                    pass
                 
-                filename = self._generate_filename(query, file_index)
-                file_path = os.path.join(self.session_folder, filename)
-
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(f"用户提问: {query}\n\n")
-                    f.write(f"模型回复:\n{final_output}\n")
-
-                # print(f"对话记录已保存为: {file_path}")
-            except Exception as e:
-                print(f"保存对话记录失败: {e}")
-                # 文件保存失败不影响回答的返回
-                
-            return final_output
+                # 只有非command类型才添加到对话历史
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": tool_name,
+                    "content": tool_output
+                })
+            
+            # 情况3：工具返回非command - 结合工具结果让AI回答
+            print(f"[DEBUG] 工具调用完成，结果长度: {len('combined_result')}")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=config.MAX_TOKENS,
+                temperature=config.TEMPERATURE
+            )
+            return response.choices[0].message.content
 
         except Exception as e:
-            error_message = f"处理查询时发生错误: {str(e)}"
+            error_message = f"处理统一查询时发生错误: {str(e)}"
             print(f"\n{error_message}")
             return error_message
+
 
     async def call_tool(self, tool_name: str, tool_args: dict) -> str:
         """
