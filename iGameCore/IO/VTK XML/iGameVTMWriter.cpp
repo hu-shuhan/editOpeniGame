@@ -1,4 +1,4 @@
-#include "iGameVTMWriter.h"
+ï»¿#include "iGameVTMWriter.h"
 #include "iGameVTSWriter.h"
 #include "iGameVTUWriter.h"
 #include <filesystem>
@@ -13,21 +13,21 @@ bool VTMWriter::GenerateBuffers() {
 
     tinyxml2::XMLDocument doc;
 
-    // VTM ¸ù½Úµã
+    // VTM æ ¹èŠ‚ç‚¹
     auto* root = doc.NewElement("VTKFile");
     root->SetAttribute("type", "vtkMultiBlockDataSet");
     root->SetAttribute("version", "1.0");
     root->SetAttribute("byte_order", "LittleEndian");
     doc.InsertFirstChild(root);
 
-    // MultiBlockDataSet ½Úµã
+    // MultiBlockDataSet èŠ‚ç‚¹
     auto* multiBlock = doc.NewElement("vtkMultiBlockDataSet");
     root->InsertEndChild(multiBlock);
 
-    // Ð´×Ó¿é£¬Ö±½Ó°Ñ DataObject µÄ½á¹¹Ð´µ½ multiBlock ÏÂÃæ
+    // å†™å­å—ï¼Œç›´æŽ¥æŠŠ DataObject çš„ç»“æž„å†™åˆ° multiBlock ä¸‹é¢
     WriteSubBlocks(doc, multiBlock, m_DataObject, fileDir);
 
-    // ´òÓ¡µ½ buffer
+    // æ‰“å°åˆ° buffer
     tinyxml2::XMLPrinter printer;
     doc.Print(&printer);
 
@@ -37,7 +37,7 @@ bool VTMWriter::GenerateBuffers() {
     m_TemporaryBuffers.emplace_back(buffer);
     TransferBuffer();
 
-    return true; // ×îÖÕÓÉ FileWriter::WriteToFile µ÷ÓÃ SaveBufferDataToFile()
+    return true; // æœ€ç»ˆç”± FileWriter::WriteToFile è°ƒç”¨ SaveBufferDataToFile()
 }
 
 void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parentElem, DataObject::Pointer obj,
@@ -48,13 +48,13 @@ void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement*
             auto child = it->second;
 
             if (child->HasSubDataObject()) {
-                // ×ÓÈÝÆ÷ -> Block
+                // å­å®¹å™¨ -> Block
                 auto* blockElem = doc.NewElement("Block");
                 blockElem->SetAttribute("index", blockIndex);
                 blockElem->SetAttribute("name", ("Block_" + std::to_string(blockIndex)).c_str());
                 parentElem->InsertEndChild(blockElem);
 
-                // µÝ¹éÐ´×Ó¶ÔÏó
+                // é€’å½’å†™å­å¯¹è±¡
                 WriteSubBlocks(doc, blockElem, child, fileDir);
 
             } else if (child->GetDataObjectType() == IG_STRUCTURED_MESH) {

@@ -1,4 +1,4 @@
-#ifndef iGameDrawObject_h
+ï»¿#ifndef iGameDrawObject_h
 #define iGameDrawObject_h
 
 #include "iGameClipper.h"
@@ -26,19 +26,19 @@ protected:
     ~DrawObject() override = default;
 
 public:
-    bool IsDrawable() override { return true; }                 // ±êÊ¶¿ÉÒÔ±»äÖÈ¾
-    virtual void ConvertToDrawableData();                       //×ª»¯Îª¿ÉäÖÈ¾Ä£Ê½£¨µ±Ç°¶ÔÏó¼°ÆäËùÓĞ×Ó¶ÔÏó£©
-    virtual bool IsUseSinglePassWireframeRendering();           // ÊÇ·ñÊ¹ÓÃµ¥Í¨µÀÏß¿òäÖÈ¾
+    bool IsDrawable() override { return true; }                 // æ ‡è¯†å¯ä»¥è¢«æ¸²æŸ“
+    virtual void ConvertToDrawableData();                       //è½¬åŒ–ä¸ºå¯æ¸²æŸ“æ¨¡å¼ï¼ˆå½“å‰å¯¹è±¡åŠå…¶æ‰€æœ‰å­å¯¹è±¡ï¼‰
+    virtual bool IsUseSinglePassWireframeRendering();           // æ˜¯å¦ä½¿ç”¨å•é€šé“çº¿æ¡†æ¸²æŸ“
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
-    bool IsUseColor();                  //ÊÇ·ñÊ¹ÓÃÑÕÉ«
-    bool IsUseNormalSmooth();           //ÊÇ·ñÊ¹ÓÃ·¨ÏßÆ½»¬
+    bool IsUseColor();                  //æ˜¯å¦ä½¿ç”¨é¢œè‰²
+    bool IsUseNormalSmooth();           //æ˜¯å¦ä½¿ç”¨æ³•çº¿å¹³æ»‘
 
-    void SetVisibility(bool f);         //ÉèÖÃ¿É¼ûĞÔ
-    bool GetVisibility();               //»ñÈ¡¿É¼ûĞÔ
+    void SetVisibility(bool f);         //è®¾ç½®å¯è§æ€§
+    bool GetVisibility();               //è·å–å¯è§æ€§
     /*ViewStyle's detail. See iGameType.h */
-    //ÑùÊ½ÉèÖÃ£¬Ìí¼Ó£¬É¾³ı£¬»ñÈ¡£¬¶ÔÄ£ĞÍ¸ù½ÚµãÌí¼ÓÑùÊ½£¬»ñÈ¡Ä£ĞÍ¸ù½ÚµãÑùÊ½
+    //æ ·å¼è®¾ç½®ï¼Œæ·»åŠ ï¼Œåˆ é™¤ï¼Œè·å–ï¼Œå¯¹æ¨¡å‹æ ¹èŠ‚ç‚¹æ·»åŠ æ ·å¼ï¼Œè·å–æ¨¡å‹æ ¹èŠ‚ç‚¹æ ·å¼
     void SetViewStyle(IGenum mode);
     void AddViewStyle(IGenum mode);
     void RemoveViewStyle(IGenum mode);
@@ -46,54 +46,54 @@ public:
     void AddViewStyleOfModel(IGenum mode);
     unsigned int GetViewStyleOfModel();
 
-    virtual bool GetClipped();          //ÊÇ·ñÔÊĞí²Ã¼ô
+    virtual bool GetClipped();          //æ˜¯å¦å…è®¸è£å‰ª
     iGameClipper::Pointer GetClipper();
-    //ÉèÖÃºÍ»ñÈ¡Í¸Ã÷¶È
+    //è®¾ç½®å’Œè·å–é€æ˜åº¦
     void SetTransparency(float transparency);
     float GetTransparency();
-    //µãµÄ´óĞ¡
+    //ç‚¹çš„å¤§å°
     void SetPointSize(float size);
     int GetPointSize();
-    //ÏßµÄ¿í¶È
+    //çº¿çš„å®½åº¦
     void SetLineWidth(float size);
     int GetLineWidth();
-    //¶Ôµ±Ç°¶ÔÏó¼°Æä×Ó¶ÔÏó/µ±Ç°¶ÔÏóËùÊôµÄÕû¸öÄ£ĞÍÉèÖÃÊôĞÔ¿ÉÊÓ»¯²ÎÊı
+    //å¯¹å½“å‰å¯¹è±¡åŠå…¶å­å¯¹è±¡/å½“å‰å¯¹è±¡æ‰€å±çš„æ•´ä¸ªæ¨¡å‹è®¾ç½®å±æ€§å¯è§†åŒ–å‚æ•°
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
     void SetShellRenderingOption(bool option);
 
-    FloatArray::Pointer GetRenderPoints();                  // »ñÈ¡µ±Ç°äÖÈ¾ÓÃµÄ¶¥µãÊı¾İ
-    void SetRenderPoints(FloatArray::Pointer points);       // Ö±½ÓÉèÖÃ¶¥µãÊı¾İ
-    // ÉèÖÃ¶à±ßĞÎÆ«ÒÆ
+    FloatArray::Pointer GetRenderPoints();                  // è·å–å½“å‰æ¸²æŸ“ç”¨çš„é¡¶ç‚¹æ•°æ®
+    void SetRenderPoints(FloatArray::Pointer points);       // ç›´æ¥è®¾ç½®é¡¶ç‚¹æ•°æ®
+    // è®¾ç½®å¤šè¾¹å½¢åç§»
     void SetPolygonOffsetParameters(float factor, float units);
     void GetPolygonOffsetParameters(float& factor, float& units);
-    // ÉèÖÃÏßÆ«ÒÆ
+    // è®¾ç½®çº¿åç§»
     void SetLineOffsetParameters(float factor, float units);
     void GetLineOffsetParameters(float& factor, float& units);
-    // ÉèÖÃµãÆ«ÒÆ
+    // è®¾ç½®ç‚¹åç§»
     void SetPointOffsetParameters(float units);
     void GetPointOffsetParameters(float& units);
-    // ÉèÖÃºÍ»ñÈ¡ÏÔÊ¾¶ÔÏó
+    // è®¾ç½®å’Œè·å–æ˜¾ç¤ºå¯¹è±¡
     void SetDisplayObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetDisplayObject();
 
-    // ÉèÖÃ/»ñÈ¡"Ê¼ÖÕÖÃ¶¥"±êÖ¾Î»
+    // è®¾ç½®/è·å–"å§‹ç»ˆç½®é¡¶"æ ‡å¿—ä½
     void SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
     bool IsAlwaysOnTop() const { return m_AlwaysOnTop; }
 
 protected:
-    // OpenGL×ÊÔ´¹ÜÀí
+    // OpenGLèµ„æºç®¡ç†
     void CreateDrawBuffer();
     void SyncGpuBuffers();
-    // VAOÅäÖÃ¸¨Öú·½·¨
+    // VAOé…ç½®è¾…åŠ©æ–¹æ³•
     static void SetPositionBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
-    bool m_AutoUpdateDrawData;              // ÊÇ·ñ×Ô¶¯¸üĞÂGPUÊı¾İ
-    DrawObject::Pointer m_DisplayObject;    // µ±Ç°ÏÔÊ¾¶ÔÏó
+    bool m_AutoUpdateDrawData;              // æ˜¯å¦è‡ªåŠ¨æ›´æ–°GPUæ•°æ®
+    DrawObject::Pointer m_DisplayObject;    // å½“å‰æ˜¾ç¤ºå¯¹è±¡
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
@@ -101,39 +101,39 @@ protected:
     GLVertexArray::Pointer m_CellVAO;
     GLBuffer::Pointer m_CellPositionVBO, m_CellColorVBO;
     GLBuffer::Pointer m_CellEBO;
-    //¶¥µãµÄ×ø±êÑÕÉ«·¨ÏßÎÆÀí
+    //é¡¶ç‚¹çš„åæ ‡é¢œè‰²æ³•çº¿çº¹ç†
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
     FloatArray::Pointer m_Normals;
     FloatArray::Pointer m_Textures;
-    //µãÏßÈı½ÇĞÎË÷Òı
+    //ç‚¹çº¿ä¸‰è§’å½¢ç´¢å¼•
     UnsignedIntArray::Pointer m_PointIndices;
     UnsignedIntArray::Pointer m_LineIndices;
     UnsignedIntArray::Pointer m_TriangleIndices;
-    // µ¥Í¨µÀÏß¿òäÖÈ¾
+    // å•é€šé“çº¿æ¡†æ¸²æŸ“
     bool m_UseSinglePassWireframeRendering{true};
     UnsignedCharArray::Pointer m_TriangleEdgeMasks;
     GLBuffer::Pointer m_EdgeMaskBuffer;
     GLTextureBuffer::Pointer m_EdgeMaskTexture;
-    // µ¥ÔªÊı¾İ
+    // å•å…ƒæ•°æ®
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
 
-    unsigned int m_ViewStyle;   // ÊÓÍ¼ÑùÊ½
-    bool m_Visibility;          //ÊÇ·ñ¿É¼û
+    unsigned int m_ViewStyle;   // è§†å›¾æ ·å¼
+    bool m_Visibility;          //æ˜¯å¦å¯è§
 
-    bool m_AlwaysOnTop = false; // ÊÇ·ñÖÃ¶¥Ä¬ÈÏ²»ÖÃ¶¥
+    bool m_AlwaysOnTop = false; // æ˜¯å¦ç½®é¡¶é»˜è®¤ä¸ç½®é¡¶
 
-    bool m_Flag;                // ±ê¼ÇÊÇ·ñÒÑ³õÊ¼»¯OpenGL»º³åÇø
-    bool m_UseColor;            //ÊÇ·ñÊ¹ÓÃÑÕÉ«ÊôĞÔ
-    bool m_UseNormalSmooth;     // ÊÇ·ñÆôÓÃ·¨ÏßÆ½»¬
-    bool m_ColorWithCell;       // ÑÕÉ«ÊÇ·ñ»ùÓÚµ¥Ôª£¨·Ç¶¥µã£©
+    bool m_Flag;                // æ ‡è®°æ˜¯å¦å·²åˆå§‹åŒ–OpenGLç¼“å†²åŒº
+    bool m_UseColor;            //æ˜¯å¦ä½¿ç”¨é¢œè‰²å±æ€§
+    bool m_UseNormalSmooth;     // æ˜¯å¦å¯ç”¨æ³•çº¿å¹³æ»‘
+    bool m_ColorWithCell;       // é¢œè‰²æ˜¯å¦åŸºäºå•å…ƒï¼ˆéé¡¶ç‚¹ï¼‰
     float m_PointSize;          
     float m_LineWidth;          
-    int m_CellPositionSize; // µ¥ÔªÎ»ÖÃÊı¾İµÄ´óĞ¡£¨ËÆºõÃ»ÓÃµ½£©
+    int m_CellPositionSize; // å•å…ƒä½ç½®æ•°æ®çš„å¤§å°ï¼ˆä¼¼ä¹æ²¡ç”¨åˆ°ï¼‰
 
-    // Éî¶ÈÆ«ÒÆÏà¹Ø²ÎÊı
+    // æ·±åº¦åç§»ç›¸å…³å‚æ•°
     // https://www.khronos.org/opengl/wiki/Polygon_Offset_and_Point_and_Lines
     float m_PolygonFactor; // now implement with GL_POLYGON_OFFSET_FILL
     float m_PolygonOffset; // now implement with GL_POLYGON_OFFSET_FILL
@@ -146,11 +146,11 @@ protected:
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency;               // Í¸Ã÷¶È
+    float m_Transparency;               // é€æ˜åº¦
     bool m_ExecuteShell;
-    bool m_ReConvertToDrawableData;     // ÊÇ·ñĞèÒªÖØĞÂ×ª»»Êı¾İ
+    bool m_ReConvertToDrawableData;     // æ˜¯å¦éœ€è¦é‡æ–°è½¬æ¢æ•°æ®
 
-    iGameClipper::Pointer m_Clipper;    // ²Ã¼ôÆ÷¶ÔÏó
+    iGameClipper::Pointer m_Clipper;    // è£å‰ªå™¨å¯¹è±¡
 
     friend class Model;
     friend class Scene;
@@ -159,7 +159,7 @@ protected:
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);
 };
-//µİ¹é´¦ÀíËùÓĞ×Ó¶ÔÏóµÄÄ£°åº¯ÊıÊµÏÖ
+//é€’å½’å¤„ç†æ‰€æœ‰å­å¯¹è±¡çš„æ¨¡æ¿å‡½æ•°å®ç°
 template<typename Functor, typename... Args>
 inline void DrawObject::ProcessSubDataObjects(Functor&& functor, Args&&... args) {
     if (HasSubDataObject()) {

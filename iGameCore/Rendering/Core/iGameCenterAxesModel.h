@@ -1,4 +1,4 @@
-#ifndef IGAME_CENTER_AXES_MODEL_H
+ï»¿#ifndef IGAME_CENTER_AXES_MODEL_H
 #define IGAME_CENTER_AXES_MODEL_H
 
 
@@ -11,12 +11,12 @@ IGAME_NAMESPACE_BEGIN
 
 /**
  * @class CenterAxesModel
- * @brief ÏÔÊ¾Ğı×ªÖĞĞÄµÄ¹Ì¶¨ÈıÉ«×ø±êÖáÄ£ĞÍ£¨Ê¼ÖÕäÖÈ¾ÔÚ×îÉÏ²ã£©
+ * @brief æ˜¾ç¤ºæ—‹è½¬ä¸­å¿ƒçš„å›ºå®šä¸‰è‰²åæ ‡è½´æ¨¡å‹ï¼ˆå§‹ç»ˆæ¸²æŸ“åœ¨æœ€ä¸Šå±‚ï¼‰
  * 
- * ÌØĞÔ£º
- * - ¹Ì¶¨¼¸ºÎÊı¾İ£¨µ¥Î»³¤¶ÈXYZÖáÏß£©
- * - Í¨¹ıÄ£ĞÍ¾ØÕó¶¯Ì¬¿ØÖÆÎ»ÖÃ/Ëõ·Å
- * - Ä¬ÈÏ½ûÓÃÉî¶È²âÊÔÈ·±£²»±»ÕÚµ²
+ * ç‰¹æ€§ï¼š
+ * - å›ºå®šå‡ ä½•æ•°æ®ï¼ˆå•ä½é•¿åº¦XYZè½´çº¿ï¼‰
+ * - é€šè¿‡æ¨¡å‹çŸ©é˜µåŠ¨æ€æ§åˆ¶ä½ç½®/ç¼©æ”¾
+ * - é»˜è®¤ç¦ç”¨æ·±åº¦æµ‹è¯•ç¡®ä¿ä¸è¢«é®æŒ¡
  */
 class CenterAxesModel : public DrawObject {
 public:
@@ -29,7 +29,7 @@ public:
 
     void ConvertToDrawableData() override;
     /**
-     * @brief ×¼±¸äÖÈ¾Êı¾İ
+     * @brief å‡†å¤‡æ¸²æŸ“æ•°æ®
      */
     void PrepareForRendering();
 
@@ -44,12 +44,12 @@ public:
 
 protected:
     void InitializeGeometry();
-    // ÖØĞ´Êı¾İ×ª»»·½·¨
+    // é‡å†™æ•°æ®è½¬æ¢æ–¹æ³•
     //void ConvertToDrawableData() override;
 
 private:
-    void UpdateGeometry(); // ÄÚ²¿¼¸ºÎ¸üĞÂ·½·¨
-    // ¹Ì¶¨²ÎÊı
+    void UpdateGeometry(); // å†…éƒ¨å‡ ä½•æ›´æ–°æ–¹æ³•
+    // å›ºå®šå‚æ•°
     static constexpr float DEFAULT_AXIS_LENGTH = 0.2f;
     static constexpr float DEFAULT_LINE_WIDTH = 1.0f;
     bool m_GeometryInitialized{false};

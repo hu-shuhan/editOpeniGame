@@ -1,4 +1,4 @@
-#ifndef IGAME_DRAG_CENTER_STYLE_H
+ï»¿#ifndef IGAME_DRAG_CENTER_STYLE_H
 #define IGAME_DRAG_CENTER_STYLE_H
 
 #include "iGameCamera.h"
@@ -17,7 +17,7 @@ class DragCenterStyle : public InteractorStyle {
 public:
     I_OBJECT(DragCenterStyle);
     static Pointer New() { return new DragCenterStyle(); }
-    // ±ØĞëÊµÏÖµÄ´¿Ğéº¯Êı
+    // å¿…é¡»å®ç°çš„çº¯è™šå‡½æ•°
     void Initialize(SmartPointer<Interactor> interactor) override;
 
     void SetAxesModel(const SmartPointer<CenterAxesModel>& model) {
@@ -26,7 +26,7 @@ public:
     void MousePressEvent(IEvent event) override;
     void MouseMoveEvent(IEvent event) override;
     void MouseReleaseEvent(IEvent event) override;
-    void WheelEvent(IEvent event) override {} // ²»ĞèÒª´¦Àí¹öÂÖÊÂ¼ş£¬µ«±ØĞëÊµÏÖ
+    void WheelEvent(IEvent event) override {} // ä¸éœ€è¦å¤„ç†æ»šè½®äº‹ä»¶ï¼Œä½†å¿…é¡»å®ç°
 
 protected:
     DragCenterStyle();
@@ -39,7 +39,7 @@ private:
     SmartPointer<Camera> m_Camera;
     bool m_IsDragging = false;
     igm::vec2 m_LastMousePos;
-    float m_CameraMoveSpeed = 0.005f; // ÓëBasicStyle±£³ÖÒ»ÖÂ
+    float m_CameraMoveSpeed = 0.005f; // ä¸BasicStyleä¿æŒä¸€è‡´
 };
 
 IGAME_NAMESPACE_END

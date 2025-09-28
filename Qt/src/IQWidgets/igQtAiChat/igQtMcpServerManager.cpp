@@ -562,24 +562,24 @@ private:
 
             // 方法2：使用taskkill强制终止（更可靠）
             QString killCommand = QString("taskkill /f /pid %1").arg(serverProcess);
-            qDebug() << "执行命令:" << killCommand;
+            // qDebug() << "执行命令:" << killCommand;
             int result = system(killCommand.toLocal8Bit().constData());
-            qDebug() << "taskkill结果:" << result;
+            // qDebug() << "taskkill结果:" << result;
 
             // 方法3：终止所有python.exe进程（最后手段）
             QString killAllPython = "taskkill /f /im python.exe";
-            qDebug() << "执行备用命令:" << killAllPython;
+            // qDebug() << "执行备用命令:" << killAllPython;
             system(killAllPython.toLocal8Bit().constData());
 
 #else
             // Linux/Mac系统
-            qDebug() << "发送SIGTERM信号到进程" << serverProcess;
+            // qDebug() << "发送SIGTERM信号到进程" << serverProcess;
             kill(serverProcess, SIGTERM);
             usleep(1000000); // 等待1秒
 
             // 检查进程是否还存在
             if (kill(serverProcess, 0) == 0) {
-                qDebug() << "进程仍存在，发送SIGKILL信号";
+                // qDebug() << "进程仍存在，发送SIGKILL信号";
                 kill(serverProcess, SIGKILL);
                 usleep(500000); // 再等待500ms
             }

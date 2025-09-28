@@ -1,4 +1,4 @@
-#ifndef iGameLagrangePrism_h
+ï»¿#ifndef iGameLagrangePrism_h
 #define iGameLagrangePrism_h
 
 #include "iGameLagrangeLine.h"
@@ -13,13 +13,13 @@ public:
     I_OBJECT(LagrangePrism);
     static Pointer New() { return new LagrangePrism; }
 
-    IGenum GetCellType() const noexcept override { return IG_LAGRANGE_PRISM; } // Ê¹ÓÃWedge×÷ÎªPrismµÄÀàÐÍ
+    IGenum GetCellType() const noexcept override { return IG_LAGRANGE_PRISM; } // ä½¿ç”¨Wedgeä½œä¸ºPrismçš„ç±»åž‹
     int GetNumberOfEdges() override { return 9; }
     int GetNumberOfFaces() override { return 5; }
 
     int GetNumberOfPoints() override {
         if (m_Order <= 0) return 0;
-        // ¹«Ê½: (p+1)*(p+2)/2 * (p+1) = (p+1)^2 * (p+2) / 2
+        // å…¬å¼: (p+1)*(p+2)/2 * (p+1) = (p+1)^2 * (p+2) / 2
         return (m_Order + 1) * (m_Order + 1) * (m_Order + 2) / 2;
     }
 
@@ -46,10 +46,10 @@ public:
         if (numFacePoints == 0) return nullptr;
 
         LagrangeFace* face = nullptr;
-        // ÀâÖùÌåÓÐÁ½¸öÈý½ÇÐÎÃæºÍÈý¸öËÄ±ßÐÎÃæ
-        if (faceId < 2) { // Ç°Á½¸öÃæÊÇÈý½ÇÐÎ
+        // æ£±æŸ±ä½“æœ‰ä¸¤ä¸ªä¸‰è§’å½¢é¢å’Œä¸‰ä¸ªå››è¾¹å½¢é¢
+        if (faceId < 2) { // å‰ä¸¤ä¸ªé¢æ˜¯ä¸‰è§’å½¢
             face = m_TriFace.get();
-        } else { // ºóÈý¸öÃæÊÇËÄ±ßÐÎ
+        } else { // åŽä¸‰ä¸ªé¢æ˜¯å››è¾¹å½¢
             face = m_QuadFace.get();
         }
 
@@ -102,7 +102,7 @@ public:
     int GetFacePointIds(const int faceId, const igIndex*& ptIds) override {
         if (faceId < 0 || faceId >= 5) return 0;
         switch (m_Order) {
-            case 1: { // ÏßÐÔ (6½Úµã)
+            case 1: { // çº¿æ€§ (6èŠ‚ç‚¹)
                 static const igIndex faces[5][4] = {{0, 1, 2, -1},
                                                     {3, 5, 4, -1},
                                                     {0, 1, 4, 3},
@@ -111,7 +111,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId < 2) ? 3 : 4;
             }
-            case 2: { // ¶þ´Î (18½Úµã)
+            case 2: { // äºŒæ¬¡ (18èŠ‚ç‚¹)
                 static const igIndex faces[5][9] = {{0, 1, 2, 6, 7, 8, -1, -1, -1},
                                                     {3, 4, 5, 9, 10, 11, -1, -1, -1},
                                                     {0, 1, 4, 3, 6, 13, 9, 12, 15},
@@ -120,7 +120,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId < 2) ? 6 : 9;
             }
-            case 3: { // Èý´Î (40½Úµã)
+            case 3: { // ä¸‰æ¬¡ (40èŠ‚ç‚¹)
                 static const igIndex faces[5][16] = {{0, 1, 2, 6, 7, 8, 9, 10, 11, 36, -1, -1, -1, -1, -1, -1},
                                                      {3, 4, 5, 12, 13, 14, 15, 16, 17, 37, -1, -1, -1, -1, -1, -1},
                                                      {0, 1, 4, 3, 6, 7, 20, 21, 13, 12, 19, 18, 24, 25, 26, 27},
@@ -129,7 +129,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId < 2) ? 10 : 16;
             }
-            case 4: { // ËÄ´Î (75½Úµã)
+            case 4: { // å››æ¬¡ (75èŠ‚ç‚¹)
                 static const igIndex faces[5][25] = {
                         {0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 60, 61, 62, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
                         {3,  4,  5,  15, 16, 17, 18, 19, 20, 21, 22, 23, 63,

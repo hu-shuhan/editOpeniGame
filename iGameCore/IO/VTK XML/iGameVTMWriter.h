@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "iGameDataObject.h"
 #include "iGameFileWriter.h"
@@ -15,11 +15,11 @@ public:
     ~VTMWriter() override = default;
 
 protected:
-    /// Éú³É VTM ÎÄ¼şµÄ»º³åÇøÄÚÈİ£¨ÓÉ¸¸Àà WriteToFile() µ÷ÓÃ£©
+    /// ç”Ÿæˆ VTM æ–‡ä»¶çš„ç¼“å†²åŒºå†…å®¹ï¼ˆç”±çˆ¶ç±» WriteToFile() è°ƒç”¨ï¼‰
     bool GenerateBuffers() override;
 
 private:
-    /// Ğ´×Ó¿éĞÅÏ¢£¨µİ¹é»ò¶ş²ãÕ¹¿ª£©
+    /// å†™å­å—ä¿¡æ¯ï¼ˆé€’å½’æˆ–äºŒå±‚å±•å¼€ï¼‰
     void WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parentElem, DataObject::Pointer obj,
                         const std::string& fileDir);
 };
