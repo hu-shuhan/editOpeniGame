@@ -158,6 +158,8 @@
     <property name="title">
      <string>帮助</string>
     </property>
+    <addaction name="action_AiChat"/>
+    <addaction name="separator"/>
     <addaction name="action_About"/>
     <addaction name="action_ContactUs"/>
    </widget>
@@ -855,6 +857,14 @@
   <action name="action_EditMode">
    <property name="text">
     <string>模式编辑</string>
+   </property>
+  </action>
+  <action name="action_AiChat">
+   <property name="text">
+    <string>AI聊天助手</string>
+   </property>
+   <property name="toolTip">
+    <string>打开AI聊天助手</string>
    </property>
   </action>
   <action name="action_About">

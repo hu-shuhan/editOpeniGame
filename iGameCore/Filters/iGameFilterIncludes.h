@@ -26,3 +26,5 @@
 #include "iGameSelectionFilters/iGameGetClosestCellsInLine.h"
 #include "iGameSelectionFilters/iGameGetPointsInFrustum.h"
 #include "iGameSelectionFilters/iGameGetCellsInFrustum.h"
+#include "UndefinedFilters/iGameCurvatureFilter.h"
+#include "UndefinedFilters/iGameGradientFilter.h"

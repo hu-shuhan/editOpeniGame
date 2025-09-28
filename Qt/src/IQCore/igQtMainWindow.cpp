@@ -36,9 +36,10 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
-#include <fcntl.h> // 鐢ㄤ簬 open
+#include <fcntl.h> 
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
@@ -82,6 +83,19 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+    
+    // 初始化AI聊天DockWidget
+    aiChatDockWidget = new QDockWidget(this);
+    aiChatDockWidget->setWindowTitle("AI聊天助手");
+    aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
+    aiChatDockWidget->setWidget(aiChatWidget);
+    aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    aiChatDockWidget->hide(); // 初始隐藏
+    this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
+    
+    // 设置DockWidget的默认大小
+    aiChatDockWidget->resize(400, 600);
     ui->dockWidget_ScalarField->hide();
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
@@ -263,7 +277,7 @@ void igQtMainWindow::initAllComponents() {
      });
 
 
-
+    
 
 
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
@@ -335,6 +349,15 @@ void igQtMainWindow::initAllComponents() {
                 QMessageBox::warning(this, "错误", "请输入有效的线程数（大于0的整数）。");
             }
         });
+    });
+
+    // AI聊天助手
+    connect(ui->action_AiChat, &QAction::triggered, this, [&](bool checked) {
+        if (aiChatDockWidget->isVisible()) {
+            aiChatDockWidget->hide();
+        } else {
+            aiChatDockWidget->show();
+        }
     });
 
     initAllDockWidgetConnectWithAction();

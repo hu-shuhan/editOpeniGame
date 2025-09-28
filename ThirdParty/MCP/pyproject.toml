@@ -1,0 +1,14 @@
+[project]
+name = "mcp-project"
+version = "0.1.0"
+description = "MCP AI Assistant with Socket Server for C++ Client Communication"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp>=0.2.0",
+    "python-dotenv>=1.0.0",
+    "openai>=1.0.0",
+    "mcp>=1.0.0",
+    "matplotlib>=3.5.0",
+    "Pillow>=10.0.0",
+]

@@ -11,7 +11,7 @@ if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "-fPIC")
 endif ()
 #--------------------------------------------------------------------
-# Set Cmake Option to On/OFF.
+# Set Cmake Option to On/OFF.S
 #--------------------------------------------------------------------
 
 # Add an option that the user can set with the -D parameter
