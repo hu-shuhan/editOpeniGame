@@ -1,4 +1,4 @@
-
+ï»¿
 #ifndef iGameLagrangeLine_h
 #define iGameLagrangeLine_h
 
@@ -11,17 +11,17 @@ public:
     I_OBJECT(LagrangeLine);
     static Pointer New() { return new LagrangeLine; }
 
-    // ÉèÖÃ/»ñÈ¡µ¥ÔªµÄ½×Êı
+    // è®¾ç½®/è·å–å•å…ƒçš„é˜¶æ•°
     void SetOrder(int order) { m_Order = order; }
     int GetOrder() const { return m_Order; }
 
-    // Í³Ò»Ê¹ÓÃ IG_QUADRATIC_EDGE ´ú±íËùÓĞ¸ß½×±ß
+    // ç»Ÿä¸€ä½¿ç”¨ IG_QUADRATIC_EDGE ä»£è¡¨æ‰€æœ‰é«˜é˜¶è¾¹
     IGenum GetCellType() const noexcept override { return IG_QUADRATIC_EDGE; }
 
-    // ¶¥µãÊıÓÉ½×Êı¶¯Ì¬¾ö¶¨
+    // é¡¶ç‚¹æ•°ç”±é˜¶æ•°åŠ¨æ€å†³å®š
     int GetNumberOfPoints() override { return m_Order + 1; }
 
-    // 1Dµ¥ÔªÃ»ÓĞ±ßºÍÃæ
+    // 1Då•å…ƒæ²¡æœ‰è¾¹å’Œé¢
     int GetNumberOfEdges() override { return 0; }
     int GetNumberOfFaces() override { return 0; }
     Cell* GetEdge(const int) override { return nullptr; }
