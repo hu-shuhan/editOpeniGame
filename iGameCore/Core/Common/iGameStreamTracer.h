@@ -62,6 +62,7 @@ public:
 	* @param[out] streamColor Output streamline color data
 	*/
     void initStreamTracer(Model::Pointer _model);
+    void initStreamTracer(DataObject::Pointer obj);
     void initSubmodelLinks();
     std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
                                                            std::vector<std::vector<float>>& streamColor,
