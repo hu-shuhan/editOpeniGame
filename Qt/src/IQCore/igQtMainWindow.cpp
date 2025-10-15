@@ -39,7 +39,7 @@
 #include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
@@ -83,7 +83,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
-    
+
     // 初始化AI聊天DockWidget
     aiChatDockWidget = new QDockWidget(this);
     aiChatDockWidget->setWindowTitle("AI聊天助手");
@@ -93,7 +93,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
-    
+
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
     ui->dockWidget_ScalarField->hide();
@@ -240,11 +240,11 @@ void igQtMainWindow::initAllComponents() {
     });
 
 
-    
-     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) { 
+
+     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) {
         /*qDebug() << "Toggle state:" << checked;*/
-        
-        rendererWidget->GetScene()->ToggleCenterAxes(); 
+
+        rendererWidget->GetScene()->ToggleCenterAxes();
         ui->action_ShowCenter->setChecked(checked);
 
         rendererWidget->update();
@@ -277,7 +277,7 @@ void igQtMainWindow::initAllComponents() {
      });
 
 
-    
+
 
 
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
@@ -518,11 +518,11 @@ void igQtMainWindow::initAllFilters() {
         auto& attr = mesh->GetAttributeSet()->GetAttribute(3);
         FloatArray::Pointer att = FloatArray::New();
         att->SetName(attr.pointer->GetName());
-        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
             igIndex cell[32]{};
             int size = mesh->GetPointToNeighborFaces(i, cell);
             float val = 0;
-            for (int j = 0; j < size; j++) { 
+            for (int j = 0; j < size; j++) {
                 val += attr.pointer->GetValue(cell[j]);
             }
             val /= size;
@@ -593,7 +593,7 @@ void igQtMainWindow::initAllFilters() {
     //    auto Points = Points::New();
     //    auto Attrs = AttributeSet::New();
     //    auto oldAttrs = mesh->GetAttributeSet();
-    //    for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+    //    for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) {
     //        auto& att = oldAttrs->GetAttribute(j);
     //        auto arr = FloatArray::New();
     //        arr->SetName(att.pointer->GetName());
@@ -603,24 +603,24 @@ void igQtMainWindow::initAllFilters() {
 
     //    std::cout << result_size << std::endl;
     //    std::vector<int> is_deleted(vertex_count, 1);
-    //    for (int i = 0; i < target_index_count; i++) { 
+    //    for (int i = 0; i < target_index_count; i++) {
     //        is_deleted[destination[i]] = 0;
     //    }
     //    int count = 0;
     //    float val[32];
     //    std::vector<int> vertex_map(vertex_count, 0);
     //    for (int i = 0; i < is_deleted.size(); i++) {
-    //        if (!is_deleted[i]) { 
+    //        if (!is_deleted[i]) {
     //            vertex_map[i] = count;
     //            count++;
     //            Points->AddPoint(mesh->GetPoint(i));
-    //            for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+    //            for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) {
     //                oldAttrs->GetAttribute(j).pointer->GetElement(i, val);
     //                Attrs->GetAttribute(j).pointer->AddElement(val);
     //            }
     //        }
     //    }
-    //    for (int i = 0; i < target_index_count; i++) { 
+    //    for (int i = 0; i < target_index_count; i++) {
     //        destination[i] = vertex_map[destination[i]];
     //    }
     //    for (int i = 0; i < target_index_count / 3; i++) {
@@ -724,7 +724,7 @@ void igQtMainWindow::initAllFilters() {
         //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
         //obj->SetAttributeSet(attrSet);
         //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-        //rendererWidget->update();  
+        //rendererWidget->update();
         //return;
 
         //Triangulation::Pointer triangulation = Triangulation::New();
@@ -741,7 +741,7 @@ void igQtMainWindow::initAllFilters() {
             auto new_mesh = Sim->GetOutput(0);
 
             modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();  
+            rendererWidget->update();
         }
     });
 
@@ -1195,8 +1195,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](DrawObject::Pointer mesh) { 
-            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); 
+            [&](DrawObject::Pointer mesh) {
+            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm);
         });
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
