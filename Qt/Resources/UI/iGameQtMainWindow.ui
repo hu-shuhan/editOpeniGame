@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1415</height>
+    <height>1868</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1336,36 +1336,6 @@
   <action name="action_TetSimplification">
    <property name="text">
     <string>四面体简化</string>
-   </property>
-  </action>
-  <action name="action_test_01">
-   <property name="text">
-    <string>test_01</string>
-   </property>
-  </action>
-  <action name="action_test_02">
-   <property name="text">
-    <string>test_02</string>
-   </property>
-  </action>
-  <action name="action_test_03">
-   <property name="text">
-    <string>test_03</string>
-   </property>
-  </action>
-  <action name="action_test_04">
-   <property name="text">
-    <string>test_04</string>
-   </property>
-  </action>
-  <action name="action_test_05">
-   <property name="text">
-    <string>test_05</string>
-   </property>
-  </action>
-  <action name="action_test_06">
-   <property name="text">
-    <string>test_06</string>
    </property>
   </action>
   <action name="action_select_point">
