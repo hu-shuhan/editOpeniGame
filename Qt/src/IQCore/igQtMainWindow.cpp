@@ -1543,8 +1543,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_TensorField->show();
-        ui->widget_TensorField->UpdateScalarsNameList();
-        ui->widget_TensorField->UpdateTensorsNameList();
+        ui->widget_TensorField->InitTensorWidget();
     });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
