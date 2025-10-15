@@ -35,6 +35,10 @@ public:
 
     void HandleDrag(igm::vec3 worldOffset);
 
+    // 新增方法
+    void SetScreenSize(float pixelSize) { m_BaseScreenSize = pixelSize; }
+    void UpdateAxisScale(float cameraDistance, float fov, int viewportHeight);
+
 
     CenterAxesModel();
     ~CenterAxesModel() override = default;
@@ -54,9 +58,11 @@ private:
     static constexpr float DEFAULT_LINE_WIDTH = 1.0f;
     bool m_GeometryInitialized{false};
     igm::vec3 m_RotationCenter;
-
     igm::mat4 m_ModelMatrix;
 
+    // 新增：动态缩放控制
+    float m_CurrentAxisLength = DEFAULT_AXIS_LENGTH; // 当前轴长
+    float m_BaseScreenSize = 20.0f;                  // 目标屏幕像素大小
 
 
 };

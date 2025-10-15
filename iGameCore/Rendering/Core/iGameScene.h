@@ -237,6 +237,9 @@ public:
     igm::vec3 GetRotationCenter_1() const;
 
 
+    void UpdateAxisSize();
+
+
     /**
      * @brief 设置旋转中心（世界坐标）
      */

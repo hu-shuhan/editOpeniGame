@@ -18,6 +18,8 @@ BasicStyle::BasicStyle() {
     m_CameraScaleSpeed = 1.0f;
     m_CameraMoveSpeed = 0.01f;
     m_MouseMode = NoButton;
+
+    m_CenterAxesModel = nullptr;
 }
 
 BasicStyle::~BasicStyle() {}
@@ -26,6 +28,7 @@ void BasicStyle::Initialize(SmartPointer<Interactor> interactor) {
     m_Interactor = interactor;
     m_Scene = interactor->GetScene();
     m_Camera = interactor->GetCamera();
+    m_CenterAxesModel = m_Scene->GetCenterAxesModel();
 }
 
 void BasicStyle::MousePressEvent(IEvent event) {
@@ -77,6 +80,24 @@ void BasicStyle::WheelEvent(IEvent event) {
     m_Camera->SetPosition(newPos);
 
     UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
+
+
+    if (m_CenterAxesModel && m_Camera) {
+        // 获取相机到旋转中心的距离
+        igm::vec3 rotationCenter = m_Scene->GetRotationCenter();
+        igm::vec3 cameraPos = m_Camera->GetPosition();
+        float cameraDistance = (cameraPos - rotationCenter).length();
+
+        // 获取视口尺寸
+        auto viewport = m_Camera->GetViewPort();
+        int viewportHeight = viewport.y;
+
+        // 假设相机的FOV为45度（根据实际调整）
+        float fov = IGM_PI / 4.0f; // 45度弧度值
+
+        // 调用坐标轴模型的更新方法
+        m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
+    }
 }
 
 void BasicStyle::LeftButtonMouseMove() { ModelRotation(); }

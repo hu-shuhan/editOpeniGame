@@ -67,17 +67,6 @@ Scene::Scene() {
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
 
-
-    // 初始化中心坐标轴模型
-    //m_CenterAxesModel = CenterAxesModel::New();
-    //m_CenterAxesModel->SetScene(this);      // 设置关联场景
-    //m_CenterAxesModel->SetVisibility(true); // 默认可见
-    //m_CenterAxesModel = CenterAxesModel::New();
-    //auto* rawPtr = new CenterAxesModel();    
-    //m_CenterAxesModel = rawPtr;              
-    //m_CenterAxesModel->SetVisibility(false); // 默认隐藏
-    //m_CenterAxesVisible = false;
-
 }
 Scene::~Scene() {}
 
@@ -247,7 +236,10 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
 
     if (visibility) {
         m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
+        if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
+            ResetCameraView();
+            UpdateAxisSize();
+        } // CenterAxesModel is visible
     } else {
         m_VisibleModelsCount--;
     }
@@ -1311,6 +1303,27 @@ float Scene::GetRotationCenterDepth() const {
     return -viewPos.z; // OpenGL相机看向-z方向
 }
 
+
+void Scene::UpdateAxisSize() {
+    if (m_CenterAxesModel && m_Camera) {
+        // 获取相机到旋转中心的距离
+        igm::vec3 rotationCenter = GetRotationCenter();
+        igm::vec3 cameraPos = m_Camera->GetPosition();
+        float cameraDistance = (cameraPos - rotationCenter).length();
+
+        // 获取视口尺寸
+        auto viewport = m_Camera->GetViewPort();
+        int viewportHeight = viewport.y;
+
+        // 假设相机的FOV为45度（根据实际调整）
+        float fov = IGM_PI / 4.0f; // 45度弧度值
+
+        // 调用坐标轴模型的更新方法
+        m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
+    }
+}
+
+
 igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
     // 将屏幕坐标转换为标准化设备坐标
     const igm::uvec2 viewport = m_Camera->GetViewPort();
@@ -1388,6 +1401,10 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
+    if (!m_CustomRotationCenter) {
+        SetRotationCenter(m_ModelsBoundingSphere.xyz());
+
+    }
 }
 
 void Scene::CalculateFrameRate() {

@@ -82,6 +82,17 @@ void CenterAxesModel::PrepareForRendering() {
     SyncGpuBuffers();
 }
 
+void CenterAxesModel::UpdateAxisScale(float cameraDistance, float fov,
+                                      int viewportHeight) {
+    // 根据相机距离动态计算轴长，保持屏幕固定大小
+    float scaleFactor = (cameraDistance * m_BaseScreenSize) /
+                        (viewportHeight * tan(fov * 0.5f));
+    m_CurrentAxisLength = scaleFactor;
+
+    // 触发几何更新
+    ConvertToDrawableData();
+}
+
 void CenterAxesModel::ConvertToDrawableData() {
     // 如果几何数据未初始化，先初始化基本结构
     if (!m_GeometryInitialized) {
@@ -100,22 +111,22 @@ void CenterAxesModel::ConvertToDrawableData() {
     m_Positions->AddElement3(center.x, center.y, center.z);
 
     // X轴起点和终点 (索引1和2)
-    m_Positions->AddElement3(center[0] - DEFAULT_AXIS_LENGTH, center[1],
+    m_Positions->AddElement3(center[0] - m_CurrentAxisLength, center[1],
                              center[2]);
-    m_Positions->AddElement3(center[0] + DEFAULT_AXIS_LENGTH, center[1],
+    m_Positions->AddElement3(center[0] + m_CurrentAxisLength, center[1],
                              center[2]);
 
     // Y轴起点和终点 (索引3和4)
-    m_Positions->AddElement3(center[0], center[1] - DEFAULT_AXIS_LENGTH,
+    m_Positions->AddElement3(center[0], center[1] - m_CurrentAxisLength,
                              center[2]);
-    m_Positions->AddElement3(center[0], center[1] + DEFAULT_AXIS_LENGTH,
+    m_Positions->AddElement3(center[0], center[1] + m_CurrentAxisLength,
                              center[2]);
 
     // Z轴起点和终点 (索引5和6)
     m_Positions->AddElement3(center[0], center[1],
-                             center[2] - DEFAULT_AXIS_LENGTH);
+                             center[2] - m_CurrentAxisLength);
     m_Positions->AddElement3(center[0], center[1],
-                             center[2] + DEFAULT_AXIS_LENGTH);
+                             center[2] + m_CurrentAxisLength);
 
     //=== 2. 更新颜色数据 (保持不变) ===
 
