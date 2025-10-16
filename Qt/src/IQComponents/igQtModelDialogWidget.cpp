@@ -161,7 +161,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
 
 int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
-    modelTreeWidget->setCurrentModelItem(item);
+    //modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 
     unsigned int id = 0;
@@ -181,8 +181,10 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 
     auto model = scene->GetModelById(id);
 
-    currentModel = model;
+    //currentModel = model;
+    scene->SetCurrentModel(model);
 
+    item->setModelId(id);
     item->setName(QString::fromStdString(obj->GetName()));
     item->setModel(model);
 
@@ -216,7 +218,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 
     updateCurrentModelProperty(model.get());
     updateCurrentModelInfo();
-    QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
+    //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
     return id;
 }
@@ -244,7 +246,10 @@ int igQtModelDialogWidget::updateCurrentModelInfo() {
     return 1;
 }
 void igQtModelDialogWidget::updateCurrentModelProperty(iGame::Model* model) {
-    currentModel = model;
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    scene->SetCurrentModel(model);
+
+    //currentModel = model;
     auto obj = DynamicCast<iGame::DrawObject>(model->GetDataObject());
     if (obj) {
         prop_PointSize->setEnabled(true);
@@ -268,26 +273,33 @@ int igQtModelDialogWidget::updateCloudPicture() {
     return 1;
 }
 void igQtModelDialogWidget::deleteCurrentModel() {
-
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     // 获取当前选中的QTreeWidgetItem
-    QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
-    std::cout << "Delete current model: " << currentItem << std::endl;
-
+    ModelTreeWidgetItem* currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
     if (currentItem == nullptr) return;
+
+    int id = currentItem->getModelId();
+    scene->RemoveModel(id);
+    scene->Update();
+
+    std::cout << "Delete current model: " << currentItem << std::endl;
+    
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }
 
-    iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
-    iGame::SceneManager::Instance()->GetCurrentScene()->Update();
-
-    if (dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem())) {
-        modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem()));
+    //iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
+    //iGame::SceneManager::Instance()->GetCurrentScene()->Update();
+    currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
+    if (currentItem) {
+        scene->SetCurrentModel(currentItem->getModelId());
+        //modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem()));
     } else {
-        modelTreeWidget->setCurrentModelItem(nullptr);
+        //modelTreeWidget->setCurrentModelItem(nullptr);
     }
 }
 
 void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVariant& value) {
+    auto currentModel = GetCurrentModel();
     if (property == prop_PointSize) {
         //std::cout << value.toInt() << std::endl;
         if (currentModel) {
@@ -327,3 +339,8 @@ void igQtModelDialogWidget::SetAccelerateState(bool b) {
     }
 }
 int igQtModelDialogWidget::GetAccelerateState() { return m_AutoAccelerate; }
+
+iGame::Model* igQtModelDialogWidget::GetCurrentModel() {
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    return scene->GetCurrentModel();
+}
