@@ -7,7 +7,7 @@
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameInteractor.h>
-#include <iGameDataChangeData.h>
+#include <iGamePlotLineData.h>
 #include <QCheckBox>
 #include <QMouseEvent>
 #include <QPainter>
@@ -108,8 +108,8 @@ private:
 
 private:
     /* sub */
-    DataChangeData::Pointer _GenerateDataChangeDatas(IGenum dataType);
-    void _SetRadialData(DataChangeData::Pointer Data);
+    PlotLineData::Pointer _GenerateDataChangeDatas(IGenum dataType);
+    void _SetRadialData(PlotLineData::Pointer Data);
     void _ClearVariableButton();
     void _SetVariableButton(int variableNum, const std::vector<std::string>& variableName);
     void _ClearVariableColorWidget();
@@ -119,29 +119,28 @@ private:
     void _SetChoosedVariableColorWidget(int variableNum, const std::vector<std::tuple<int, int, int>>& variableColor);
     void _SetChoosedVariableColorWidgetColor(int variableNum,
                                              const std::vector<std::tuple<int, int, int>>& variableColor);
-    void _GenerateVariableImage(int variableIndex, DataChangeData::Pointer dataChangeData);
-    void _GenerateChoosedVariableImage(int variableIndex, const DataChangeData::Pointer dataChangeData);
+    void _GenerateVariableImage(int variableIndex, PlotLineData::Pointer dataChangeData);
+    void _GenerateChoosedVariableImage(int variableIndex, const PlotLineData::Pointer dataChangeData);
     void _GenerateVariableImage(const std::vector<bool>& variableShow,
-                                DataChangeData::Pointer dataChangeData);
+                                PlotLineData::Pointer dataChangeData);
     void _GenerateChoosedVariableImage(const std::vector<bool>& variableShow,
-                                       DataChangeData::Pointer dataChangeData);
+                                       PlotLineData::Pointer dataChangeData);
     void _ResetVariableImage(int variableNum);
     void _SetLightUi(int unchoosedLight, int choosedLight);
-    void _TryUpdateChoosedPointData(DataChangeData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
-    void _TryUpdateChoosedCellData(DataChangeData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
+    void _TryUpdateChoosedPointData(PlotLineData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
+    void _TryUpdateChoosedCellData(PlotLineData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
     void _CalculateDrawFrame(int w, int h, QRect& drawFrame);
     void _CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& smallDrawFrame);
     QImage _DrawVariableImage(double minValue, double maxValue, double minDistance, double maxDistance,
                               const std::vector<int>& objDrawSort, int variableIndex,
-                              const std::vector<double>& objDistance, const std::vector<std::vector<double>>& objData,
-                              const std::tuple<int, int, int>& color, int alpha, const std::set<int> choosedObjIds,
-                              const std::map<int, int>& objIndexs);
+                              const std::vector<double>& objDistance, const std::tuple<int, int, int>& color, int alpha,
+                              const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs,
+                              CtxPresObjData_Main* theData);
     QImage _DrawChoosedVariableImage(double minValue, double maxValue, double minDistance, double maxDistance,
                                      const std::vector<int>& objDrawSort, int variableIndex,
-                                     const std::vector<double>& objDistance,
-                                     const std::vector<std::vector<double>>& objData,
-                                     const std::tuple<int, int, int>& color, int alpha,
-                                     const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs);
+                                     const std::vector<double>& objDistance, const std::tuple<int, int, int>& color,
+                                     int alpha, const std::set<int> choosedObjIds, const std::map<int, int>& objIndexs,
+                                     CtxPresObjData_Main* theData);
     void _DrawPoint(double minValue, double maxValue, double minDistance, double maxDistance, double value,
                     double distance, std::shared_ptr<QPainter> painter, const QRect& drawFrame);
     void _DrawBackground(const QRect& range);
@@ -163,7 +162,7 @@ private:
     std::string m_RadialIntName;
     Model::Pointer m_Model;
     UnstructuredMesh::Pointer m_Mesh;
-    std::vector<DataChangeData::Pointer> m_DataChangeDatas;
+    std::vector<PlotLineData::Pointer> m_DataChangeDatas;
     int m_CurrentModelDataIndex{-1};
     std::tuple<int, int, int> m_BackgroundColor{};
     std::vector<QImage> m_VariableImages;

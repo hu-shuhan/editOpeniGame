@@ -248,7 +248,7 @@ void iGameCGNSReader::GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t
     if (cellDim == 3 && size[2] > 1) { structType = HEXA_8; }
     m_StructuredMesh->SetPoints(m_Points);
     igIndex tmpSize[3] = {0};
-    for (int i = 0; i < 3; i++) { tmpSize[i] = size[i]; }
+    for (int i = 0; i < cellDim; i++) { tmpSize[i] = size[i]; }
     m_StructuredMesh->SetDimensionSize(tmpSize);
     m_StructuredMesh->GenStructuredCellConnectivities();
 }

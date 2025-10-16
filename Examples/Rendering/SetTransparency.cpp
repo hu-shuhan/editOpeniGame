@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -49,6 +45,4 @@ static void SetTransparency() {
     window->Show();
 }
 
-int main() {
-    SetTransparency();
-}
+int main() { SetTransparency(); }

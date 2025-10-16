@@ -42,10 +42,13 @@ igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
 
 igQtFileLoader::~igQtFileLoader() {}
 void igQtFileLoader::LoadOnlineS() {
+#if defined(_WIN32) || defined(_WIN64)
     std::thread server_thread(serverThread);
     server_thread.join();
+    #endif
 }
 void igQtFileLoader::LoadOnlineC() {
+#if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
                            "*.vtm *.cgns *.odb *.igc)",
                            "VTK file(*.vtk)",
@@ -61,6 +64,7 @@ void igQtFileLoader::LoadOnlineC() {
     std::thread client_thread(clientThread, selected_idx, filePath);
     client_thread.join();
     this->OpenFile("./ReceivedFile.igc");
+    #endif
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
@@ -232,7 +236,7 @@ void igQtFileLoader::SaveFileAs() {
     if (!obj) return;
     std::string filePath = QFileDialog::getSaveFileName(nullptr, "Save file as ", "",
                                                         "Surface Mesh(*.obj *.off *.stl *.vtk);;Volume Mesh(*.mesh "
-                                                        "*.vtk *.ex2 *.e *.pvd *.vts)")
+                                                        "*.vtk *.ex2 *.e *.pvd *.vts *.vtm)")
                                    .toStdString();
     if (filePath.empty()) {
         igDebug("Could not save file with error file path\n");

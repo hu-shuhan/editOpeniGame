@@ -212,7 +212,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     seedPoints[5] = streamtracer->GetMesh()->GetBoundingBox().max;
     seedPoints[6] = streamtracer->GetMesh()->GetBoundingBox().min;
     // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
-    auto seeds = streamtracer->seedPCoordGenerate(numOfSeeds, seedPoints[control * 2], seedPoints[control * 2 + 1]);
+    auto seeds = streamtracer->seedPCoordGenerate(numOfSeeds, seedPoints[5], seedPoints[6]);
     //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);
     //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
     std::vector<std::vector<float>> streamlineColor;

@@ -1,7 +1,3 @@
-//
-// Created by Sumzeek on 11/26/2024.
-//
-
 #pragma once
 
 #include "iGameFileIO.h"
@@ -51,6 +47,4 @@ static void SetPointSize() {
     window->Show();
 }
 
-int main() {
-    SetPointSize();
-}
+int main() { SetPointSize(); }

@@ -1,4 +1,4 @@
-#ifndef iGamePointSet_h
+ï»¿#ifndef iGamePointSet_h
 #define iGamePointSet_h
 
 #include "iGameDrawObject.h"
@@ -88,8 +88,8 @@ public:
     /* Selection */
 public:
     /**
-     * @brief »ñÈ¡Ä£ĞÍµÄÑ¡Ôñ¶ÔÏó¡£
-     * @return Selection ¶ÔÏóµÄÖ¸Õë¡£
+     * @brief è·å–æ¨¡å‹çš„é€‰æ‹©å¯¹è±¡ã€‚
+     * @return Selection å¯¹è±¡çš„æŒ‡é’ˆã€‚
      */
     SmartPointer<Selection> GetSelection(Model* model = nullptr);
 

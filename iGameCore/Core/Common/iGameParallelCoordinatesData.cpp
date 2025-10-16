@@ -38,18 +38,20 @@ ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     int variableNum = variableNames.size();
     if (variableNum == 0) return ParallelCoordinatesData::Pointer();
     auto Data = ParallelCoordinatesData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableSort(ParallelCoordinatesData::GenerateDefaultVariableSort(variableNum));
     Data->SetVariableName(variableNames);
     auto variableIndex = ParallelCoordinatesData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
-    auto objDatas = ParallelCoordinatesData::GenerateObjectDatas(attrs, dataType, objNum, 10000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, objDatas));
+    auto keyObjIds = ParallelCoordinatesData::GenerateKeyObjectIds(objNum, 10000);
+    Data->SetKeyObjectIds(keyObjIds);
+    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjDatas = ParallelCoordinatesData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
-    Data->SetChoosedObjectDatas(choosedObjDatas);
-    Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, choosedObjDatas));
+    auto choosedObjIds = ParallelCoordinatesData::GenerateChoosedObjectIds(selectedItems, dataType);
+    Data->SetChoosedObjectIds(choosedObjIds);
+    Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, choosedObjIds, Data));
     Data->SetChoosedDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetChoosedLight()));
     auto [minValue, maxValue] = ParallelCoordinatesData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
@@ -68,14 +70,16 @@ ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<Attri
     if (variableNum == 0) return ParallelCoordinatesData::Pointer();
     int objNum = ParallelCoordinatesData::GetLegalAttrsObjNum(attrs, dataType);
     auto Data = ParallelCoordinatesData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableSort(ParallelCoordinatesData::GenerateDefaultVariableSort(variableNum));
     Data->SetVariableName(variableNames);
     auto variableIndex = ParallelCoordinatesData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
-    auto objDatas = ParallelCoordinatesData::GenerateObjectDatas(attrs, dataType, objNum, 10000);
-    Data->SetObjectDatas(objDatas);
-    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, objDatas));
+    auto keyObjIds = ParallelCoordinatesData::GenerateKeyObjectIds(objNum, 10000);
+    Data->SetKeyObjectIds(keyObjIds);
+    Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     //auto choosedObjDatas = ParallelCoordinatesData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);
     //Data->SetChoosedObjectDatas(choosedObjDatas);
@@ -93,8 +97,9 @@ ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<Attri
 }
 
 std::vector<igIndex>
-ParallelCoordinatesData::FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues,
-                                        ElementArray<AttributeSet::Attribute>::Pointer attrs, int objNum) {
+ParallelCoordinatesData::FiltInRangeIds(const std::map<int, std::pair<double, double>>& variableMinMaxValues) {
+    auto& attrs = m_Attrs;
+    auto& objNum = m_ObjNum;
     std::vector<igIndex> ids;
     static mutex IDS_MUTEX;
     ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
@@ -120,11 +125,47 @@ ParallelCoordinatesData::FiltInRangeIds(const std::map<int, std::pair<double, do
     return ids;
 }
 
-bool ParallelCoordinatesData::NotInFilterValueRange(const std::vector<double>& objData) {
-    for (int i = 0; i < objData.size(); i++) {
-        if (objData[i] < this->GetFilterMinValue()[i] || this->GetFilterMaxValue()[i] < objData[i]) return true;
+bool ParallelCoordinatesData::NotInFilterValueRange(int objId) {
+    for (int variableIndex = 0; variableIndex < m_VariableNum; variableIndex++) {
+        if (GetObjectData(objId, variableIndex) < GetFilterMinValue()[variableIndex] ||
+            GetFilterMaxValue()[variableIndex] < GetObjectData(objId, variableIndex))
+            return true;
     }
     return false;
+}
+
+void ParallelCoordinatesData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
+    selection->_SetSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultSelectionCallBackFunc, this,
+                                          std::placeholders::_1);
+    selection->_SetClearSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultClearSelectionCallBackFunc,
+                                               this);
+}
+
+void ParallelCoordinatesData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+    auto Data = this;
+    for (auto& e: _events) {
+        switch (e.type) {
+            case iGame::Selection::Event::Type::PickPoint:
+                if (Data->GetDataType() != IG_POINT) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            case iGame::Selection::Event::Type::PickFace:
+                if (Data->GetDataType() != IG_CELL) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void ParallelCoordinatesData::DefaultClearSelectionCallBackFunc() {
+    auto Data = this;
+    Data->ClearChoosedObjectIds();
 }
 
 IGAME_NAMESPACE_END

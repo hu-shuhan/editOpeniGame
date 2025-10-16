@@ -5,14 +5,14 @@ bool iGameGeneratePlotLineData::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
-    RUN();
+    Run();
     SetOutput(0, m_Data);
     return true;
 }
 
-void iGameGeneratePlotLineData::RUN() {
+void iGameGeneratePlotLineData::Run() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    m_Data = DataChangeData::New(attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
+    m_Data = PlotLineData::New(attrs, m_DataType, MIN_H, MAX_H, MIN_S, MAX_S);
     m_Data->SetRadialData(attrs, m_StartPoint, m_EndPoint, m_Mesh);
 }
 

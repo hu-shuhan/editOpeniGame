@@ -1,6 +1,7 @@
 #include "iGameModelGeometryFilter.h"
 #include "Mutex/iGameAtomicMutex.h"
 #include "iGameThreadPool.h"
+#include "Convert/iGameConvertToSurfaceMesh.h"
 #include <mutex>
 #include <omp.h>
 IGAME_NAMESPACE_BEGIN
@@ -137,7 +138,6 @@ bool iGameModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::P
         case IG_UNSTRUCTURED_MESH:
             return this->ExecuteWithUnstructuredGrid(input, output, excFaces);
         case IG_STRUCTURED_MESH:
-            //return this->ExecuteWithVolumeMesh(input, output, excFaces);
             return this->ExecuteWithStructuredGrid(input, output, excFaces);
         default:
             break;
@@ -1256,7 +1256,17 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer inpu
                                                         SurfaceMesh::Pointer exc, bool* extracFace) {
     ;
     StructuredMesh::Pointer Grid = DynamicCast<StructuredMesh>(input);
-    if (Grid->GetDimension() != 3) { return 0; }
+    Grid->GenStructuredCellConnectivities();
+    if (Grid->GetDimension() != 3) { 
+       ConvertToSurfaceMesh::Pointer filter = ConvertToSurfaceMesh::New();
+        filter->SetInput(Grid);
+        filter->Execute();
+        bool result = this->ExecuteWithSurfaceMesh(filter->GetSurfaceMesh(), output, exc);
+        if (result == 0) {
+            output = filter->GetSurfaceMesh();
+            return 1;
+        }
+    }
     //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
     //                     << Grid->GetNumberOfCells() << " cells.");
     igIndex i = 0, j = 0, k = 0;

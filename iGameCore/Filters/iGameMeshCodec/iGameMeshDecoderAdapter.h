@@ -38,6 +38,11 @@ public:
             this->m_DataObj = StructuredMesh::New();
             break;
         }
+        case IG_POINT_SET:
+        {
+            this->m_DataObj = PointSet::New();
+            break;
+        }
         default:
             break;
         }

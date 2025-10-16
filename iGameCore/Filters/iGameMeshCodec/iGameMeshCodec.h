@@ -1,10 +1,5 @@
-/*
-build by revoke
-code name 'Spinning Jenny'
-*/
-
-#ifndef MeshLoomCodec_h
-#define MeshLoomCodec_h
+#ifndef MeshCodec_h
+#define MeshCodec_h
 #include<iGameThreadPool.h>
 #include "iGameMacro.h"
 #include "iGameMeshCodecParamSet.h"
@@ -20,7 +15,6 @@ class MeshCodec : public Filter {
 public:
     I_OBJECT(MeshCodec);
 
-    // Filter 基类要求的空的 Execute 方法（子类实现具体逻辑）
     bool Execute() override { return true; }
 
 protected:
@@ -28,15 +22,6 @@ protected:
 
     using IndexBufferCodec = MeshOptModifiedIndexBufferCodec;
     CodecParameters m_codecParams;
-
-    // void UpdateProgress(double p) {
-    //     if (m_Progress) {
-    //         m_Progress->UpdateProgress(p);
-    //     }
-    //     else {
-    //         m_Progress = ProgressObserver::Instance();
-    //     }
-    // }
 
     template<typename Func>
     void ProgressParallelFor(int start, int end, float startProgress, float endProgress, Func&& process, int numThreads = ThreadPool::GetDefaultThreadCount()) {

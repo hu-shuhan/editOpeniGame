@@ -23,6 +23,7 @@
 #include "Abaqus/iGameODBReader.h"
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "IGC/iGameIGCReader.h"
+#include <VTK XML/iGameVTMWriter.h>
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name)
@@ -392,7 +393,8 @@ bool  FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataOb
 	}
 	case iGame::FileIO::VTM:
 	{
-
+        VTMWriter::Pointer writer = VTMWriter::New();
+        result = writer->WriteToFile(dataObject, file_name);
 		break;
 	}
 	default:

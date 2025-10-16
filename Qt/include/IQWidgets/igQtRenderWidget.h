@@ -47,6 +47,10 @@ public:
   void mouseMoveEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
 
+  igm::vec3 GetWorldPositionFromDepth(const QPoint& screenPos, float depth);   //
+  //igm::vec3 PickPointWithRay(const QPoint& screenPos);//
+  //float GetDepthAtPixel(const QPoint& pos);//
+
   iGame::SmartPointer<iGame::Scene> m_Scene;
   iGame::SmartPointer<iGame::Interactor> m_Interactor;
 };

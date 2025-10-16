@@ -180,12 +180,13 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
 #endif
 
-    // map meshlet culling shader block
-#ifdef IGAME_OPENGL_VERSION_460
+// map meshlet culling shader block
+#if defined(IGAME_OPENGL_VERSION_460) && defined(GL_SUPPORTS_MESH_SHADER)
     shader = this->GetShader(ShaderType::CULLINGPHASE1);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+
     shader = this->GetShader(ShaderType::CULLINGPHASE2);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);

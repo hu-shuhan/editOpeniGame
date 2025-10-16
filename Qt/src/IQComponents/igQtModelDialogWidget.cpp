@@ -176,6 +176,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         }
     } else {
         id = scene->AddModel(obj);
+        //std::cout << "Add model id: " << id << std::endl;
     }
 
     auto model = scene->GetModelById(id);
@@ -215,6 +216,8 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
 
     updateCurrentModelProperty(model.get());
     updateCurrentModelInfo();
+    QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
+    //std::cout << "add current model: " << currentItem << std::endl;
     return id;
 }
 
@@ -268,6 +271,8 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     // 获取当前选中的QTreeWidgetItem
     QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
+    std::cout << "Delete current model: " << currentItem << std::endl;
+
     if (currentItem == nullptr) return;
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }

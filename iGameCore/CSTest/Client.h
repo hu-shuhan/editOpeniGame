@@ -1,4 +1,7 @@
 #pragma once
+
+#if defined(_WIN32) || defined(_WIN64)
+
 #include <filesystem> // 需要C++17支持
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
@@ -103,3 +106,5 @@ void clientThread(int selected_idx, std::string filePath) {
      closesocket(clientSocket);
      WSACleanup();
  }
+
+#endif

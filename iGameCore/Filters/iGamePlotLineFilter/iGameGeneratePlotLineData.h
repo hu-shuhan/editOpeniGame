@@ -1,5 +1,5 @@
 #pragma once
-#include <iGameDataChangeData.h>
+#include <iGamePlotLineData.h>
 #include <iGameDataObject.h>
 #include <iGameFilter.h>
 #include <iGameModel.h>
@@ -10,12 +10,12 @@ class iGameGeneratePlotLineData : public Filter {
 public:
     I_OBJECT(iGameGeneratePlotLineData);
     static Pointer New(IGenum dataType, const Point& startPoint, const Point& endPoint) {
-        new iGameGeneratePlotLineData(dataType, startPoint, endPoint);
+        return new iGameGeneratePlotLineData(dataType, startPoint, endPoint);
     }
     bool Execute() override;
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameGeneratePlotLineData(IGenum dataType, const Point& startPoint, const Point& endPoint);
@@ -29,6 +29,6 @@ private:
 
 private:
     /* Output */
-    DataChangeData::Pointer m_Data;
+    PlotLineData::Pointer m_Data;
 };
 IGAME_NAMESPACE_END

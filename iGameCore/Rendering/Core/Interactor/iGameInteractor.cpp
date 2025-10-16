@@ -33,7 +33,9 @@ void Interactor::CreateDefaultStyle() {
 
 void Interactor::FilterEvent(IEvent event) {
     if (m_Scene == nullptr) return;
-    if (!m_Internal) { CreateDefaultStyle(); }
+    if (!m_Internal) { 
+        std::cout << "FilterEvent: Creating default style" << std::endl;
+        CreateDefaultStyle(); }
     m_Internal->FilterEvent(event);
     for (auto& specialInternal: m_SpecialInternals)
         specialInternal.second->FilterEvent(event);
@@ -80,6 +82,38 @@ void Interactor::RequestFaceSelectionStyle(SmartPointer<Selection> s,
     act->SetSelectRadius(selectRadius);
     act->SetSelectOrUnSelect(selectOrUnSelect);
     act->Initialize(this, s);
+    m_Internal = act;
+    is_Base = false;
+}
+
+void Interactor::RequestPickCenterStyle(SmartPointer<Selection> s) {
+    if (!s) return;
+
+    // ???????????????????????
+    auto act = SingleSelectionStyle::New();
+
+    // ?????????????????????????????????
+    act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
+
+    // ??????????????????????????
+    /*act->SetIsCenterPickMode(true);*/
+
+    // ??????????????????????????????
+    act->Initialize(this, s);
+    m_Internal = act;
+    is_Base = false;
+}
+
+// ??Interactor.cpp????????
+void Interactor::RequestDragCenterStyle(SmartPointer<Selection> s) {
+    if (!m_Scene) return;
+
+    // ???????????????????
+    auto act = DragCenterStyle::New();
+    act->Initialize(this);
+    auto model = m_Scene->GetCenterAxesModel();
+    act->SetAxesModel(model);
+    // ??????????????
     m_Internal = act;
     is_Base = false;
 }
