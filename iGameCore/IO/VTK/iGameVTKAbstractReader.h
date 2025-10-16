@@ -1,4 +1,4 @@
-#ifndef iGameVTKAbstractReader_h
+﻿#ifndef iGameVTKAbstractReader_h
 #define iGameVTKAbstractReader_h
 
 #include "iGameFileReader.h"
@@ -58,6 +58,13 @@ public:
 		TRIQUADRATIC_PYRAMID = 37,
 
 		POLYHEDRON = 42,
+        LAGRANGE_CURVE = 68,
+        LAGRANGE_TRIANGLE = 69,
+        LAGRANGE_QUADRILATERAL = 70,
+        LAGRANGE_TETRAHEDRON = 71,
+        LAGRANGE_HEXAHEDRON = 72,
+        LAGRANGE_PRISM = 73,
+        LAGRANGE_PYRAMID = 74,
 	};
 
 	const int vtkLegacyReaderMajorVersion = 5;

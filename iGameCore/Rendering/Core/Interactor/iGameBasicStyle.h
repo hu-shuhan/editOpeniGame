@@ -30,6 +30,11 @@ public:
         }
     };
 
+    void SetCenterAxesModel(const SmartPointer<class CenterAxesModel>& axesModel) {
+        m_CenterAxesModel = axesModel;
+    }
+
+
     void Initialize(SmartPointer<Interactor> interactor) override;
     void MousePressEvent(IEvent event) override;
     void MouseMoveEvent(IEvent event) override;
@@ -89,6 +94,9 @@ protected:
     float m_CameraScaleSpeed;
     float m_CameraMoveSpeed;
     MouseButton m_MouseMode;
+
+    
+    SmartPointer<class CenterAxesModel> m_CenterAxesModel;
 };
 IGAME_NAMESPACE_END
 #endif

@@ -66,6 +66,8 @@ Scene::Scene() {
 
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
+
+    m_CenterAxesModel = CenterAxesModel::New();
 }
 Scene::~Scene() {}
 
@@ -80,6 +82,17 @@ bool Scene::Initialize() {
     InitAxes();
 
     ResetCameraView();
+
+    // 添加中心坐标轴到模型池
+    m_CenterAxesModel->AddViewStyle(
+            IG_WIREFRAME);                   // 添加线框视图样式（默认不显示线）
+    m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
+    m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
+    m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
+    AddModel(m_CenterAxesModel);                // 加入模型池
+    m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
+    // 添加中心坐标轴到模型池
+
 
     m_FinishInit = true;
     return true;
@@ -223,7 +236,10 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
 
     if (visibility) {
         m_VisibleModelsCount++;
-        if (m_VisibleModelsCount == 1) { ResetCameraView(); }
+        if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
+            ResetCameraView();
+            UpdateAxisSize();
+        } // CenterAxesModel is visible
     } else {
         m_VisibleModelsCount--;
     }
@@ -312,7 +328,9 @@ void Scene::InitOpenGL() {
 #endif
 
     // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
+#ifdef IGAME_OPENGL_VERSION_460
     glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+#endif
 
     // create empty VAO to render full-screen triangle
     m_EmptyVAO->Create();
@@ -698,21 +716,25 @@ void Scene::DrawFrame() {
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
+
             TransparentPass();
         } else {
             VolumeRenderingPass();
         }
+
 
         // draw scene painter
         m_Painter2D->Draw();
         m_Painter3D->Draw();
     }
 
+
     // draw axes in bottom left
     {
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
         glClear(GL_DEPTH_BUFFER_BIT);
         m_Axes->Draw();
+        /*if (m_CenterAxes && m_CenterAxes->IsVisible()) { m_CenterAxes->Draw(); }*/
     }
 }
 
@@ -799,11 +821,28 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f) { model->Draw(); }
-
+        if (drawObject->GetTransparency() == 1.0f &&
+            !drawObject->IsAlwaysOnTop()) {
+            model->Draw();
+        }
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(); }
     }
+
+    // 第二次遍历：专门渲染AlwaysOnTop模型（最后绘制）
+    glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        if (model->IsAccelerationEnabled()) { continue; }
+
+        // draw mesh
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (drawObject->GetTransparency() == 1.0f &&
+            drawObject->IsAlwaysOnTop()) {
+            model->Draw();
+        }
+    }
+    glEnable(GL_DEPTH_TEST); // 恢复深度测试
 
     // meshleter mesh
     #ifdef GL_SUPPORTS_MESH_SHADER
@@ -1070,6 +1109,7 @@ void Scene::ResetCameraViewToPositiveX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeX() {
@@ -1087,6 +1127,7 @@ void Scene::ResetCameraViewToNegativeX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveY() {
@@ -1103,6 +1144,7 @@ void Scene::ResetCameraViewToPositiveY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeY() {
@@ -1120,6 +1162,7 @@ void Scene::ResetCameraViewToNegativeY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveZ() {
@@ -1136,6 +1179,7 @@ void Scene::ResetCameraViewToPositiveZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeZ() {
@@ -1150,6 +1194,7 @@ void Scene::ResetCameraViewToNegativeZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToIsometric() {
@@ -1167,6 +1212,7 @@ void Scene::ResetCameraViewToIsometric() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::RotateNinetyClockwise() {
@@ -1182,10 +1228,13 @@ void Scene::RotateNinetyClockwise() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+    std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
+    std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
@@ -1198,7 +1247,112 @@ void Scene::RotateNinetyCounterClockwise() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
+    UpdateRealRotationCenter(m_RotationCenter);
 }
+
+
+// 切换显示状态实现
+void Scene::ToggleCenterAxes() {
+    m_CenterAxesVisible = !m_CenterAxesVisible;
+    m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
+
+    //this->Modified(); // 触发重绘
+}
+
+igm::vec3 Scene::GetRotationCenter() const {
+    return m_CustomRotationCenter
+                   ? m_RealRotationCenter
+                   : (m_ModelMatrix *
+                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
+                             .xyz();
+}
+
+igm::vec3 Scene::GetRotationCenter_1() const {
+    return m_CustomRotationCenter
+                   ? m_RotationCenter
+                   : (m_ModelMatrix *
+                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
+                             .xyz();
+}
+
+void Scene::UpdateRealRotationCenter(const igm::vec3 center) {
+    if (m_CustomRotationCenter) {
+        igm::vec4 localPos = m_ModelMatrix * igm::vec4(center, 1.0f);
+        m_RealRotationCenter = igm::vec3(localPos);
+        //std::cout << "real center" << m_RealRotationCenter << std::endl;
+        this->Modified();
+    }
+}
+
+void Scene::SetRotationCenter(const igm::vec3 center) {
+    m_RotationCenter = center;
+    m_RealRotationCenter = center; // 更新实际旋转中心
+    m_CenterAxesModel->SetRotationCenter(center);
+    m_CustomRotationCenter = true;
+
+    UpdateRealRotationCenter(m_RealRotationCenter);
+    this->Modified();
+}
+
+float Scene::GetRotationCenterDepth() const {
+    igm::vec3 center = GetRotationCenter();
+
+    igm::vec4 viewPos = m_Camera->GetViewMatrix() * igm::vec4(center, 1.0f);
+    return -viewPos.z; // OpenGL相机看向-z方向
+}
+
+
+void Scene::UpdateAxisSize() {
+    if (m_CenterAxesModel && m_Camera) {
+        // 获取相机到旋转中心的距离
+        igm::vec3 rotationCenter = GetRotationCenter();
+        igm::vec3 cameraPos = m_Camera->GetPosition();
+        float cameraDistance = (cameraPos - rotationCenter).length();
+
+        // 获取视口尺寸
+        auto viewport = m_Camera->GetViewPort();
+        int viewportHeight = viewport.y;
+
+        // 假设相机的FOV为45度（根据实际调整）
+        float fov = IGM_PI / 4.0f; // 45度弧度值
+
+        // 调用坐标轴模型的更新方法
+        m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
+    }
+}
+
+
+igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
+    // 将屏幕坐标转换为标准化设备坐标
+    const igm::uvec2 viewport = m_Camera->GetViewPort();
+    float x = (2.0f * screenPos.x) / viewport.x - 1.0f;
+    float y = 1.0f - (2.0f * screenPos.y) / viewport.y;
+
+    // 获取投影和视图矩阵
+    igm::mat4 projection = m_Camera->GetProjectionMatrix();
+    igm::mat4 view = m_Camera->GetViewMatrix();
+
+    // 计算逆矩阵
+    igm::mat4 invVP = (projection * view).invert();
+
+    // 创建近平面和远平面点
+    igm::vec4 nearPoint(x, y, -1.0f, 1.0f);
+    igm::vec4 farPoint(x, y, 1.0f, 1.0f);
+
+    // 转换为世界坐标
+    igm::vec4 nearResult = invVP * nearPoint;
+    igm::vec4 farResult = invVP * farPoint;
+    nearResult /= nearResult.w;
+    farResult /= farResult.w;
+
+    // 计算射线方向
+    igm::vec3 rayDir = igm::vec3(farResult) - igm::vec3(nearResult);
+    rayDir = rayDir.normalize();
+
+    // 根据深度计算交点
+    return igm::vec3(m_Camera->GetPosition()) + rayDir * depth;
+}
+
 
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
@@ -1222,6 +1376,9 @@ void Scene::UpdateModelsBoundingSphere() {
         auto model = it->second;
 
         if (!model->GetVisibility()) { continue; }
+        //坐标轴不计算包围盒
+        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
+        if (drawObject->IsAlwaysOnTop()) { continue; }
         box.combine(model->GetDataObject()->GetBoundingBox());
         box.combine(model->GetPainter3D()->GetBoundingBox());
     }
@@ -1240,6 +1397,9 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
+    if (!m_CustomRotationCenter) {
+        SetRotationCenter(m_ModelsBoundingSphere.xyz());
+    }
 }
 
 void Scene::CalculateFrameRate() {

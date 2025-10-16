@@ -278,6 +278,21 @@ public:
     IGsize GetRealMemorySize() override;
     bool GetClipped() override { return true; }
 
+    void ClearAllLinks() { 
+        m_VolumeLinks = nullptr;
+        m_VolumeEdges = nullptr;
+        m_VolumeEdgeLinks = nullptr;
+        m_VolumeFaces = nullptr;
+        m_VolumeFaceLinks = nullptr;
+
+        m_Faces = nullptr;
+        m_FaceLinks = nullptr;
+        m_FaceEdges = nullptr;
+        m_FaceEdgeLinks = nullptr;
+        m_Edges = nullptr;
+        m_EdgeLinks = nullptr;
+    }
+
     static IGenum GetVolumeTypeWithPointNum(int npts) {
         switch (npts) {
             case 4:

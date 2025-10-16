@@ -2,6 +2,10 @@
 #include <iGameStreamTracer.h>
 #include <iGameThreadPool.h>
 #include <shared_mutex>
+#include <atomic>
+#include <future>
+#include <algorithm>
+#include <unordered_set>
 
 // Initialize static thread_local members
 thread_local iGameStreamTracer::TrigCache iGameStreamTracer::trigCache;
@@ -21,6 +25,11 @@ float DC[6] = {37.0 / 378.0 - 2825.0 / 27648.0,
                125.0 / 594.0 - 13525.0 / 55296.0,
                -277.0 / 14336.0,
                512.0 / 1771.0 - 1.0 / 4.0};
+void iGameStreamTracer::initStreamTracer(DataObject::Pointer obj) {
+    auto newModel = Model::New();
+    newModel->SetDataObject(obj);
+    initStreamTracer(newModel);
+}
 void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     model = _model;
     if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
@@ -31,8 +40,10 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->RequestEditStatus();
         } else {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->SetShouldBuildEageLinks(false);
             mesh->SetShouldBuildFaceLinks(false);
             mesh->SetShouldBuildFaceEageLinks(false);
@@ -49,8 +60,11 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            mesh->ClearAllLinks();
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->SetShouldBuildEageLinks(false);
             mesh->SetShouldBuildFaceLinks(false);
             mesh->SetShouldBuildFaceEageLinks(false);
@@ -91,6 +105,9 @@ void iGameStreamTracer::initSubmodelLinks() {
     auto it = temData->SubDataObjectIteratorBegin();
     for (; it != temData->SubDataObjectIteratorEnd(); ++it) {
         auto vol = DynamicCast<VolumeMesh>(it->second);
+        // Initialize adjacency for each sub-model
+        SetMesh(vol);
+        InitAdjacent(vol->GetCells(), vol->GetNumberOfPoints());
         vol->BuildVolumeLinks();
     }
 }
@@ -985,15 +1002,17 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
             int numOfVolumes = mesh->GetNumberOfVolumes();
             if (ptFinder[0]) {
                 igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
-                VolumeMesh::ReturnContainer nearVolume;
-                int find = mesh->GetPointToNeighborVolumes(temPointId, nearVolume);
-                for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
+                // Use vetex_link adjacency data instead of mesh method
+                for (long long k = vetex_link.offset[temPointId]; k < vetex_link.offset[temPointId + 1]; k++) {
+                    tem.emplace_back(vetex_link.data[k]);
+                }
             }
 
         } else {
-            VolumeMesh::ReturnContainer nearVolume;
-            auto nearNum = mesh->GetVolumeToNeighborVolumesWithPoint(VolumeId, nearVolume);
-            for (int i = 0; i < nearVolume.size(); i++) { tem.emplace_back(nearVolume[i]); }
+            // Use cell_link adjacency data instead of mesh method
+            for (long long k = cell_link.offset[VolumeId]; k < cell_link.offset[VolumeId + 1]; k++) {
+                tem.emplace_back(cell_link.data[k]);
+            }
             tem.emplace_back(VolumeId);
         }
         VolumeId = -1;
@@ -1739,4 +1758,150 @@ void iGameStreamTracer::precomputeTrigValues() {
             trigCache.asinCache[i] = std::asin(angle);
         }
     }
+}
+
+void iGameStreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum) {
+    igIndex cell[128];
+    long long cellNum = cellData->GetNumberOfCells();
+    
+    // 清空数据结构
+    vetex_link.data.clear();
+    vetex_link.offset.clear();
+    vetex_link.offset.resize(vetexNum + 1, 0);
+    
+    std::cout << "Building adjacency for " << cellNum << " cells and " << vetexNum << " vertices..." << std::endl;
+    
+    // === 第一步：分块计算顶点度数，避免一次性分配大内存 ===
+    const size_t CHUNK_SIZE = 100000; // 每次处理10万个单元
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            int vetex_size = cellData->GetCellIds(i, cell);
+            for (int j = 0; j < vetex_size; j++) { 
+                if (cell[j] < vetexNum) {
+                    vetex_link.offset[cell[j] + 1]++;
+                }
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
+            std::cout << "Counting progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    // === 第二步：计算前缀和 ===
+    for (int i = 1; i <= vetexNum; i++) {
+        vetex_link.offset[i] += vetex_link.offset[i - 1];
+    }
+    
+    size_t totalSize = vetex_link.offset[vetexNum];
+    std::cout << "Total adjacency entries needed: " << totalSize 
+              << " (approximately " << (totalSize * sizeof(igIndex) / 1024 / 1024) << " MB)" << std::endl;
+    
+    // === 第三步：使用内存映射或分段分配策略 ===
+    try {
+        // 尝试分段分配，每段最大256MB
+        const size_t MAX_SEGMENT_SIZE = 64 * 1024 * 1024; // 64M entries = ~256MB
+        const size_t segmentCount = (totalSize + MAX_SEGMENT_SIZE - 1) / MAX_SEGMENT_SIZE;
+        
+        if (segmentCount > 1) {
+            std::cout << "Using segmented allocation: " << segmentCount << " segments" << std::endl;
+        }
+        
+        // 使用reserve来减少重新分配
+        vetex_link.data.reserve(totalSize);
+        vetex_link.data.resize(totalSize);
+        
+        std::cout << "Memory allocation successful!" << std::endl;
+        
+    } catch (const std::bad_alloc& e) {
+        std::cout << "Critical Error: Cannot allocate memory for adjacency data!" << std::endl;
+        std::cout << "Required: " << (totalSize * sizeof(igIndex) / 1024 / 1024) << " MB" << std::endl;
+        std::cout << "This model is too large for available system memory." << std::endl;
+        
+        // 清理并返回空的邻接结构
+        vetex_link.data.clear();
+        vetex_link.offset.assign(vetexNum + 1, 0);
+        cell_link.offset.assign(cellNum + 1, 0);
+        cell_link.data.clear();
+        throw std::runtime_error("Insufficient memory for adjacency data");
+    }
+    
+    // === 第四步：重置偏移量并分块填充数据 ===
+    std::vector<long long> fill_offset = vetex_link.offset; // 复制用于填充
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            int vetex_size = cellData->GetCellIds(i, cell);
+            for (int j = 0; j < vetex_size; j++) { 
+                if (cell[j] < vetexNum) {
+                    size_t pos = fill_offset[cell[j]]++;
+                    if (pos < vetex_link.data.size()) {
+                        vetex_link.data[pos] = i;
+                    }
+                }
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
+            std::cout << "Filling progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    // === 第五步：构建 cell_link（内存高效版本）===
+    cell_link.offset.resize(cellNum + 1, 0);
+    cell_link.data.clear();
+    
+    // 估算cell_link大小并预分配
+    const size_t estimatedCellNeighbors = cellNum * 6; // 平均每个单元6个邻居
+    cell_link.data.reserve(std::min(estimatedCellNeighbors, totalSize / 2));
+    
+    // 分块处理避免内存峰值
+    std::unordered_set<igIndex> neighborSet;
+    neighborSet.reserve(50); // 预估邻居数
+    
+    for (size_t chunk_start = 0; chunk_start < cellNum; chunk_start += CHUNK_SIZE) {
+        size_t chunk_end = std::min(chunk_start + CHUNK_SIZE, (size_t)cellNum);
+        
+        for (size_t i = chunk_start; i < chunk_end; i++) {
+            cell_link.offset[i] = cell_link.data.size();
+            
+            int vetex_size = cellData->GetCellIds(i, cell);
+            neighborSet.clear();
+            
+            for (int j = 0; j < vetex_size; j++) {
+                if (cell[j] < vetexNum) {
+                    for (size_t k = vetex_link.offset[cell[j]]; k < vetex_link.offset[cell[j] + 1]; k++) {
+                        if (k < vetex_link.data.size()) {
+                            igIndex neighborCell = vetex_link.data[k];
+                            if (neighborCell != i && neighborCell < cellNum) {
+                                neighborSet.insert(neighborCell);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 添加邻居到全局数据
+            for (igIndex neighbor : neighborSet) {
+                cell_link.data.push_back(neighbor);
+            }
+        }
+        
+        if ((chunk_start / CHUNK_SIZE) % 50 == 0) {
+            std::cout << "Cell link progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+        }
+    }
+    
+    cell_link.offset[cellNum] = cell_link.data.size();
+    
+    std::cout << "Adjacency building completed successfully!" << std::endl;
+    std::cout << "Vertex links: " << vetex_link.data.size() << " entries" << std::endl;
+    std::cout << "Cell links: " << cell_link.data.size() << " entries" << std::endl;
+    std::cout << "Total memory used: " << 
+        ((vetex_link.data.size() + cell_link.data.size()) * sizeof(igIndex) / 1024 / 1024) << " MB" << std::endl;
 }

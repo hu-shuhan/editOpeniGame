@@ -8,7 +8,7 @@
 igQtTensorWidget::igQtTensorWidget(QWidget* parent) : QWidget(parent), ui(new Ui::TensorView) {
 	ui->setupUi(this);
 	UpdateComponentsShow(false);
-	this->m_Manager = iGame::iGameTensorBase::New();
+	this->m_Manager = nullptr;
 
 	ui->GlyphTypeComboBox->clear();
 	ui->GlyphTypeComboBox->addItem("Ellipsoid");
@@ -85,32 +85,20 @@ void igQtTensorWidget::UpdateComponentsShow(bool flag)
 		ui->btn_Apply->show();
 	}
 }
-void igQtTensorWidget::UpdateScalarsNameList()
+void igQtTensorWidget::InitTensorWidget() 
 {
-	ui->ScalarInfoComboBox->clear();
-	ui->ScalarInfoComboBox->addItem("Solid");
-	auto sceneManager = iGame::SceneManager::Instance();
-	auto scene = sceneManager->GetCurrentScene();
-	if (!scene)return;
-	auto currentModel = scene->GetCurrentModel();
-	if (!currentModel)return;
-	auto obj = currentModel->GetDataObject();
-	if (!obj)return;
-	auto AttributeSet = obj->GetAttributeSet();
-	if (!AttributeSet)return;
-	auto allAttributes = AttributeSet->GetAllAttributes();
-	if (!allAttributes)return;
-	for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
-		auto attribute = allAttributes->GetElement(i);
-		if (attribute.type == IG_SCALAR && attribute.attachmentType == IG_POINT) {
-			if (attribute.pointer) {
-				ui->ScalarInfoComboBox->addItem(QString::fromStdString(attribute.pointer->GetName()));
-			}
-		}
-	}
+	this->m_Manager = iGame::iGameTensorBase::New();
+	this->m_Generated = false;
+	this->m_DataObject = nullptr;
+	this->m_Manager->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+		this->parentWidget()->hide();
+		UpdateComponentsShow(false);
+		});
+	UpdateInfoCombox();
 }
-void igQtTensorWidget::UpdateTensorsNameList()
-{
+void igQtTensorWidget::UpdateInfoCombox() {
+
+	bool hasTensor = false;
 	ui->TensorInfoComboBox->clear();
 	auto sceneManager = iGame::SceneManager::Instance();
 	auto scene = sceneManager->GetCurrentScene();
@@ -129,11 +117,26 @@ void igQtTensorWidget::UpdateTensorsNameList()
 		if (attribute.type == IG_TENSOR && attribute.attachmentType == IG_POINT) {
 			if (attribute.pointer) {
 				ui->TensorInfoComboBox->addItem(QString::fromStdString(attribute.pointer->GetName()));
+				hasTensor = true;
 			}
 		}
 	}
-
+	if (hasTensor == false) {
+		this->m_DataObject = nullptr;
+		return ;
+	}
+	ui->ScalarInfoComboBox->clear();
+	ui->ScalarInfoComboBox->addItem("Solid");
+	for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+		auto attribute = allAttributes->GetElement(i);
+		if (attribute.type == IG_SCALAR && attribute.attachmentType == IG_POINT) {
+			if (attribute.pointer) {
+				ui->ScalarInfoComboBox->addItem(QString::fromStdString(attribute.pointer->GetName()));
+			}
+		}
+	}
 }
+
 void igQtTensorWidget::InitTensorAttributes()
 {
 	if (!this->m_DataObject)return;
@@ -149,6 +152,7 @@ void igQtTensorWidget::InitTensorAttributes()
 }
 void igQtTensorWidget::ShowTensorField()
 {
+	if (!this->m_DataObject || !this->m_Manager)return;
 	this->m_Manager->ShowTensorField();
 	this->UpdateComponentsShow(true);
 	m_Generated = true;
@@ -186,6 +190,7 @@ void igQtTensorWidget::UpdateGlyphColors()
 }
 void igQtTensorWidget::GenerateVectorField()
 {
+	if (!this->m_DataObject || !this->m_Manager)return;
 	auto data = this->m_Manager->GenerateVectorField();
 	if (!m_DataObject->GetAttributeSet()) {
 		m_DataObject->SetAttributeSet(AttributeSet::New());

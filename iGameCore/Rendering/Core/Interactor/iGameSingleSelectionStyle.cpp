@@ -61,6 +61,9 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
         if (m_Selection
             //&& !obj->HasSubDataObject()
             ) {
+            auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+                    m_Model->GetDataObject());
+
             std::vector<int> selectedPointIds;
             auto& thisPoint = m_Points->GetPoint(id);
             
@@ -72,17 +75,17 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                 }
             }
 
-            if (m_Select_OR_UnSelect) {
+            if (m_SelectOrUnSelect) {
                 auto events = Selection::GenerateEvents(
                         selectedPointIds, IG_POINT,
-                        Selection::Event::Operate::Add, m_Points.get(),
-                        m_Cells.get(), m_Model->GetPainter3D().get());
+                        Selection::Event::Operate::Add, mesh,
+                        m_Model->GetPainter3D().get());
                 m_Selection->SelectionCallBackEvent(events);
             } else {
                 auto events = Selection::GenerateEvents(
                         selectedPointIds, IG_POINT,
-                        Selection::Event::Operate::Remove, m_Points.get(),
-                        m_Cells.get(), m_Model->GetPainter3D().get());
+                        Selection::Event::Operate::Remove, mesh,
+                        m_Model->GetPainter3D().get());
                 m_Selection->SelectionCallBackEvent(events);
             }
             //auto painter = m_Model->GetPainter3D();
@@ -223,17 +226,15 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
                 }
             }
 
-            if (m_Select_OR_UnSelect) {
+            if (m_SelectOrUnSelect) {
                 auto events = Selection::GenerateEvents(
                         selectedCellIds, IG_CELL,
-                        Selection::Event::Operate::Add, m_Points.get(),
-                        m_Cells.get(), m_Model->GetPainter3D().get());
+                        Selection::Event::Operate::Add, mesh, m_Model->GetPainter3D().get());
                 m_Selection->SelectionCallBackEvent(events);
             } else {
                 auto events = Selection::GenerateEvents(
                         selectedCellIds, IG_CELL,
-                        Selection::Event::Operate::Remove, m_Points.get(),
-                        m_Cells.get(), m_Model->GetPainter3D().get());
+                        Selection::Event::Operate::Remove, mesh, m_Model->GetPainter3D().get());
                 m_Selection->SelectionCallBackEvent(events);
             }
             //auto painter = m_Model->GetPainter3D();

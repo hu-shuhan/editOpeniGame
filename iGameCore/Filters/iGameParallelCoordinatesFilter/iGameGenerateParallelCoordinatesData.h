@@ -12,7 +12,7 @@ public:
     bool Execute() override;
 
 private:
-    void RUN();
+    void Run();
 
 protected:
     iGameGenerateParallelCoordinatesData(IGenum dataType);

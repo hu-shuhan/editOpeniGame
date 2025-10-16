@@ -35,7 +35,7 @@ protected:
     //When selecting points or faces, select the radius at one time.
     double m_SelectRadius{};
     //true means select. false means unselect
-    bool m_Select_OR_UnSelect{true};
+    bool m_SelectOrUnSelect{true};
 
     SmartPointer<Points> m_Points;
     SmartPointer<CellArray> m_Cells;

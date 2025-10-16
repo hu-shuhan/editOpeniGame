@@ -1,6 +1,6 @@
 #include "iGameVariableDensityData.h"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 #include <iGameThreadPool.h>
 #include <mutex>
 using namespace std;
@@ -49,7 +49,7 @@ static void rgbToHsb(float r, float g, float b, float& h, float& s, float& bVal)
 
 static void hsbToRgb(float h, float s, float bVal, float& r, float& g, float& b) {
     float c = bVal * s;
-    float x = c * (1.0f - std::fabs(std::fmodf(h / 60.0f, 2.0f) - 1.0f));
+    float x = c * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
     float m = bVal - c;
 
     float r1, g1, b1;
@@ -110,16 +110,6 @@ void VariableDensityData::SetCopyNum(int copyNum) { m_CopyNum = copyNum; }
 
 int VariableDensityData::GetCopyNum() const { return m_CopyNum; }
 
-void VariableDensityData::SetChoosedObjectIndexs(const std::set<int>& objIds) { m_ChoosedObjIndexs = objIds; }
-
-void VariableDensityData::AddChoosedObjectIndex(int objId) { m_ChoosedObjIndexs.insert(objId); }
-
-void VariableDensityData::RemoveChoosedObjectIndex(int objId) { m_ChoosedObjIndexs.erase(objId); }
-
-void VariableDensityData::ClearChoosedObjectIndex() { m_ChoosedObjIndexs.clear(); }
-
-const std::set<int>& VariableDensityData::GetChoosedObjectIndexs() { return m_ChoosedObjIndexs; }
-
 void VariableDensityData::SetDensity(const std::vector<std::vector<int>>& density) { m_Density = density; }
 
 const std::vector<std::vector<int>>& VariableDensityData::GetDensity() { return m_Density; }
@@ -162,10 +152,10 @@ int VariableDensityData::CalculateCopyIndexByValue(int copyNum, double value, do
     return index;
 }
 
-std::vector<std::vector<int>>
-VariableDensityData::GenerateDensity(int variableNum, int copyNum, const std::vector<double>& maxValueInVariables,
-                                          const std::vector<double>& minValueInVariables,
-                                          const std::vector<std::vector<double>>& objDatas) {
+std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableNum, int copyNum,
+                                                                   const std::vector<double>& maxValueInVariables,
+                                                                   const std::vector<double>& minValueInVariables,
+                                                                   const std::vector<std::vector<double>>& objDatas) {
 
     if (variableNum <= 0 || copyNum <= 0 || maxValueInVariables.size() < static_cast<size_t>(variableNum) ||
         minValueInVariables.size() < static_cast<size_t>(variableNum)) {
@@ -200,7 +190,7 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     std::vector<std::vector<int>> counts(variableNum, std::vector<int>(copyNum, 0));
     if (objCount == 0) return counts;
 
-    
+
     static mutex CountMutex;
     ThreadPool::parallelFor(
             0, objCount,
@@ -258,10 +248,10 @@ std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableN
     //return counts;
 }
 
-std::vector<std::vector<int>>
-VariableDensityData::GenerateDensity(int variableNum, int copyNum, const std::vector<double>& maxValueInVariables,
-                                          const std::vector<double>& minValueInVariables,
-                                          const std::map<int, std::vector<double>>& objDatas) {
+std::vector<std::vector<int>> VariableDensityData::GenerateDensity(int variableNum, int copyNum,
+                                                                   const std::vector<double>& maxValueInVariables,
+                                                                   const std::vector<double>& minValueInVariables,
+                                                                   const std::map<int, std::vector<double>>& objDatas) {
     if (variableNum <= 0 || copyNum <= 0 || maxValueInVariables.size() < static_cast<size_t>(variableNum) ||
         minValueInVariables.size() < static_cast<size_t>(variableNum)) {
         return {};
@@ -382,13 +372,15 @@ VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, I
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableDensityData::Pointer();
     auto Data = VariableDensityData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetCopyNum(boxNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
     auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
     auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
-    Data->SetChoosedObjectIndexs(choosedObjIds);
+    Data->SetChoosedObjectIds(choosedObjIds);
     auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
     Data->SetMaxValueInVariables(maxValue);
@@ -413,6 +405,8 @@ VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet:
     if (variableNum == 0) return VariableDensityData::Pointer();
     int objNum = VariableDensityData::GetLegalAttrsObjNum(attrs, dataType);
     auto Data = VariableDensityData::New();
+    Data->SetAttributes(attrs);
+    Data->SetObjectNum(objNum);
     Data->SetCopyNum(boxNum);
     Data->SetVariableNum(variableNum);
     Data->SetVariableName(variableNames);
@@ -435,9 +429,9 @@ VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet:
 }
 
 std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, double variableMinValue,
-                                                         double variableMaxValue,
-                                                         ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                         int objNum) {
+                                                         double variableMaxValue) {
+    auto& attrs = m_Attrs;
+    auto& objNum = m_ObjNum;
     std::vector<igIndex> ids;
     static mutex IDS_MUTEX;
     ThreadPool::parallelFor(0, objNum, [&](int st, int ed) {
@@ -455,4 +449,49 @@ std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, dou
     });
     return ids;
 }
+
+void VariableDensityData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
+    selection->_SetSelectionCallBackEvent(funcName, &VariableDensityData::DefaultSelectionCallBackFunc, this,
+                                          std::placeholders::_1);
+    selection->_SetClearSelectionCallBackEvent(funcName, &VariableDensityData::DefaultClearSelectionCallBackFunc,
+                                               this);
+}
+
+void VariableDensityData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+    auto Data = this;
+    for (auto& e: _events) {
+        switch (e.type) {
+            case iGame::Selection::Event::Type::PickPoint:
+                if (Data->GetDataType() != IG_POINT) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) {
+                    //Data->AddChoosedObjectId(e.pickId);
+                    Data->m_ChoosedObjIds.insert(e.pickId);
+                } else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            case iGame::Selection::Event::Type::PickFace:
+                if (Data->GetDataType() != IG_CELL) break;
+                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
+                else if (e.operate == iGame::Selection::Event::Operate::Remove)
+                    Data->RemoveChoosedObjectId(e.pickId);
+                break;
+            default:
+                break;
+        }
+    }
+    auto choosedDensity = iGame::VariableDensityData::GenerateDensity(
+            Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+            m_Attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
+    Data->SetChoosedDensity(choosedDensity);
+}
+
+void VariableDensityData::DefaultClearSelectionCallBackFunc() {
+    auto Data = this;
+    Data->ClearChoosedObjectIds();
+    auto choosedDensity = iGame::VariableDensityData::GenerateDensity(
+            Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),
+            m_Attrs, Data->GetDataType(), Data->GetChoosedObjectIds());
+    Data->SetChoosedDensity(choosedDensity);
+}
+
 IGAME_NAMESPACE_END

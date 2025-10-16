@@ -43,6 +43,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	connect(SetCustomScaleRangeUi->btnCancle, &QPushButton::clicked, this,
 		[&]() { this->SetCustomScaleRangeWidget->hide(); });
     connect(ui->radioButton_Liner, &QRadioButton::toggled, this, [&](bool checked){
+		if(this->m_ColorMapper==nullptr)return;
         if(checked) this->m_ColorMapper->SetMapTypeToRGBLiner();
         else this->m_ColorMapper->SetMapTypeToRGBSTEP();
         showScalarView();
@@ -152,7 +153,7 @@ void igQtScalarViewWidget::initScalarInfo()
 void igQtScalarViewWidget::showScalarView() {
 	loadScalarData();
 	initScalarRange();
-	//updateDrawStyle();
+	updateDrawStyle();
 	initScalarInfo();
 }
 void igQtScalarViewWidget::updateDrawStyle() {
@@ -176,6 +177,7 @@ void igQtScalarViewWidget::editColorBar() {
 }
 void igQtScalarViewWidget::rescaleRange() {
 	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper; }
+	if (currentSelectedScalarIdx < 0) return;
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     iGame::DataObject::Pointer obj=nullptr;
     if (scene) {

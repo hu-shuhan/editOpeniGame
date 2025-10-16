@@ -209,12 +209,7 @@ void igQtParallelCoordinatesWidget::RangeChooseObj(const QRect& chooseRange, con
 
     //choose
     if (variableMinMaxValues.size() == 0) return;
-    auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    int objNum{};
-    if (type == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
-    else
-        objNum = m_Mesh->GetNumberOfCells();
-    ids = Data->FiltInRangeIds(variableMinMaxValues, attrs, objNum);
+    ids = Data->FiltInRangeIds(variableMinMaxValues);
 }
 
 void igQtParallelCoordinatesWidget::EndRangeChoose() {
@@ -235,8 +230,7 @@ void igQtParallelCoordinatesWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, drawImageArea, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh->GetPoints().get(),
-                                            m_Mesh->GetCells().get(), m_Model->GetPainter3D().get());
+    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
     m_Model->GetSelection()->SelectionCallBackEvent(events);
     update();
 }
@@ -342,7 +336,7 @@ void igQtParallelCoordinatesWidget::UpdateChoosedColor() {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     auto colorMap = m_Mesh->GetColorMapper();
     Data->SetChoosedObjectColor(ParallelCoordinatesData::GenerateObjectColors(
-            m_ColorVariableIndex, Data->GetChoosedObjectData(), Data->GetMaxValueInVariables(),
+            m_ColorVariableIndex, Data->GetChoosedObjectIds(), Data, Data->GetMaxValueInVariables(),
             Data->GetMinValueInVariables(), Data->GetChoosedLight(), colorMap));
 }
 
@@ -351,7 +345,7 @@ void igQtParallelCoordinatesWidget::UpdateUnChoosedColor() {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     auto colorMap = m_Mesh->GetColorMapper();
     Data->SetObjectColor(ParallelCoordinatesData::GenerateObjectColors(
-            m_ColorVariableIndex, Data->GetObjectDatas(), Data->GetMaxValueInVariables(),
+            m_ColorVariableIndex, Data->GetKeyObjectIds(), Data, Data->GetMaxValueInVariables(),
             Data->GetMinValueInVariables(), Data->GetUnChoosedLight(), colorMap));
 }
 
@@ -373,32 +367,30 @@ void igQtParallelCoordinatesWidget::UpdateChoosedData(const std::vector<Selectio
             switch (e.type) {
                 case Selection::Event::Type::PickPoint:
                     if (Data->GetDataType() != IG_POINT) break;
-                    if (e.operate == Selection::Event::Operate::Add)
-                        Data->AddChoosedObjectData(e.pickId, GetObjectData(Data->GetDataType(), e.pickId));
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectData(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 case Selection::Event::Type::PickFace:
                     if (Data->GetDataType() != IG_CELL) break;
-                    if (e.operate == Selection::Event::Operate::Add)
-                        Data->AddChoosedObjectData(e.pickId, GetObjectData(Data->GetDataType(), e.pickId));
+                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
                     else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectData(e.pickId);
+                        Data->RemoveChoosedObjectId(e.pickId);
                     break;
                 default:
                     break;
             }
         }
-        Data->SetChoosedObjectDrawSorts(
-                ParallelCoordinatesData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+        Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(
+                Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
     }
 }
 
 void igQtParallelCoordinatesWidget::ClearChoosedData() {
     for (auto& Data: m_ParallelCoordinatesDatas) {
-        Data->ClearChoosedObjectData();
-        Data->SetChoosedObjectDrawSorts(
-                ParallelCoordinatesData::GenerateObjectDrawSorts(Data->GetVariableNum(), Data->GetChoosedObjectData()));
+        Data->ClearChoosedObjectIds();
+        Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(
+                Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
     }
 }
 
@@ -720,7 +712,7 @@ void igQtParallelCoordinatesWidget::UpdatingLinkImage() {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     std::vector<QPoint> linkTopPoints;
     std::vector<QPoint> linkBottomPoints;
-    int objNum = Data->GetObjectDatas().size();
+    int objNum = Data->GetKeyObjectIds().size();
     int w = max(1000, defaultW / max(objNum / 1000, 1));
     int h = min<int>(1000, max(50, defaultH / max(objNum / 1000, 1)) * Data->GetVariableSort().size());
     auto image = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
@@ -743,7 +735,7 @@ void igQtParallelCoordinatesWidget::UpdatingChoosedLinkImage() {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
     std::vector<QPoint> linkTopPoints;
     std::vector<QPoint> linkBottomPoints;
-    int objNum = Data->GetChoosedObjectData().size();
+    int objNum = Data->GetChoosedObjectIds().size();
     int w = max(1000, defaultW / max(objNum / 1000, 1));
     int h = min<int>(1000, max(50, defaultH / max(objNum / 1000, 1)) * Data->GetVariableSort().size());
     m_ChoosedLinkImage = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
@@ -792,33 +784,32 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
                                                            std::vector<QPoint>& linkBottomPoints,
                                                            const std::shared_ptr<QPainter>& painter) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
-    auto& objDatas = Data->GetObjectDatas();
     auto& drawSort = Data->GetObjectDrawSorts()[std::max(0, m_ColorVariableIndex)];
     if (Data->GetVariableSort().size() == 1) {
         int variableIndex = Data->GetVariableSort().front();
-        for (auto& objIndex: drawSort) {
-            auto& objData = objDatas[objIndex];
-            if (Data->NotInFilterValueRange(objData)) continue;
-            painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
-            GenerateDrawLinkImage(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
-                                  linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
-                                  Data->GetMaxValueInVariables()[variableIndex],
-                                  Data->GetMinValueInVariables()[variableIndex],
-                                  Data->GetMaxValueInVariables()[variableIndex],
-                                  Data->GetMinValueInVariables()[variableIndex], painter);
+        for (auto& objId: drawSort) {
+            if (Data->NotInFilterValueRange(objId)) continue;
+            painter->setPen(
+                    QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
+            GenerateDrawLinkImage(
+                    linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
+                    linkBottomPoints.front().y(), Data->GetObjectData(objId, variableIndex),
+                    Data->GetObjectData(objId, variableIndex), Data->GetMaxValueInVariables()[variableIndex],
+                    Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex],
+                    Data->GetMinValueInVariables()[variableIndex], painter);
         }
         return;
     }
-    for (auto& objIndex: drawSort) {
-        auto& objData = objDatas[objIndex];
-        if (Data->NotInFilterValueRange(objData)) continue;
-        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIndex), Data->GetUnChoosedAlpha()), 1));
+    for (auto& objId: drawSort) {
+        if (Data->NotInFilterValueRange(objId)) continue;
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];
             int variableIndexB = Data->GetVariableSort()[sortIndex + 1];
             GenerateDrawLinkImage(
                     linkTopPoints[sortIndex].x(), linkTopPoints[sortIndex + 1].x(), linkTopPoints[sortIndex].y(),
-                    linkBottomPoints[sortIndex].y(), objData[variableIndexA], objData[variableIndexB],
+                    linkBottomPoints[sortIndex].y(), Data->GetObjectData(objId, variableIndexA),
+                    Data->GetObjectData(objId, variableIndexB),
                     Data->GetMaxValueInVariables()[variableIndexA], Data->GetMinValueInVariables()[variableIndexA],
                     Data->GetMaxValueInVariables()[variableIndexB], Data->GetMinValueInVariables()[variableIndexB],
                     painter);
@@ -830,36 +821,33 @@ void igQtParallelCoordinatesWidget::GenerateChoosedDrawLinksImage(std::vector<QP
                                                                   std::vector<QPoint>& linkBottomPoints,
                                                                   const std::shared_ptr<QPainter>& painter) {
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
-    auto& choosedObjDatas = Data->GetChoosedObjectData();
     auto& choosedDrawSort = Data->GetChoosedObjDrawSorts()[std::max(0, m_ColorVariableIndex)];
     if (Data->GetVariableSort().size() == 1) {
         int variableIndex = Data->GetVariableSort().front();
-        for (auto& objIndex: choosedDrawSort) {
-            auto& objData = choosedObjDatas.at(objIndex);
-            if (Data->NotInFilterValueRange(objData)) continue;
-            painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha()), 1));
-            GenerateDrawLinkImage(linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
-                                  linkBottomPoints.front().y(), objData[variableIndex], objData[variableIndex],
-                                  Data->GetMaxValueInVariables()[variableIndex],
-                                  Data->GetMinValueInVariables()[variableIndex],
-                                  Data->GetMaxValueInVariables()[variableIndex],
-                                  Data->GetMinValueInVariables()[variableIndex], painter);
+        for (auto& objId: choosedDrawSort) {
+            if (Data->NotInFilterValueRange(objId)) continue;
+            painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objId), Data->GetChoosedAlpha()), 1));
+            GenerateDrawLinkImage(
+                    linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
+                    linkBottomPoints.front().y(), Data->GetObjectData(objId, variableIndex),
+                    Data->GetObjectData(objId, variableIndex), Data->GetMaxValueInVariables()[variableIndex],
+                    Data->GetMinValueInVariables()[variableIndex], Data->GetMaxValueInVariables()[variableIndex],
+                    Data->GetMinValueInVariables()[variableIndex], painter);
         }
         return;
     }
-    for (auto& objIndex: choosedDrawSort) {
-        auto& objData = choosedObjDatas.at(objIndex);
-        if (Data->NotInFilterValueRange(objData)) continue;
-        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objIndex), Data->GetChoosedAlpha()), 1));
+    for (auto& objId: choosedDrawSort) {
+        if (Data->NotInFilterValueRange(objId)) continue;
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(true, objId), Data->GetChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];
             int variableIndexB = Data->GetVariableSort()[sortIndex + 1];
             GenerateDrawLinkImage(
                     linkTopPoints[sortIndex].x(), linkTopPoints[sortIndex + 1].x(), linkTopPoints[sortIndex].y(),
-                    linkBottomPoints[sortIndex].y(), objData[variableIndexA], objData[variableIndexB],
-                    Data->GetMaxValueInVariables()[variableIndexA], Data->GetMinValueInVariables()[variableIndexA],
-                    Data->GetMaxValueInVariables()[variableIndexB], Data->GetMinValueInVariables()[variableIndexB],
-                    painter);
+                    linkBottomPoints[sortIndex].y(), Data->GetObjectData(objId, variableIndexA),
+                    Data->GetObjectData(objId, variableIndexB), Data->GetMaxValueInVariables()[variableIndexA],
+                    Data->GetMinValueInVariables()[variableIndexA], Data->GetMaxValueInVariables()[variableIndexB],
+                    Data->GetMinValueInVariables()[variableIndexB], painter);
         }
     }
 }

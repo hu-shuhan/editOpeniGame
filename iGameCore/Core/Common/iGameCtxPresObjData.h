@@ -5,11 +5,19 @@
 #include <map>
 #include <string>
 #include <tuple>
+#include <set>
 #include <iGameScalarsToColors.h>
 IGAME_NAMESPACE_BEGIN
 class CtxPresObjData_Main {
 public:
     CtxPresObjData_Main() = default;
+
+    void SetAttributes(ElementArray<AttributeSet::Attribute>::Pointer attrs);
+
+    void SetObjectNum(int objNum);
+    int GetObjectNum() const;
+
+    double GetObjectData(int objId, int variableIndex);
 
     void SetVariableNum(int variableNum);
     int GetVariableNum() const;
@@ -20,14 +28,14 @@ public:
     void SetVariableIndex(const std::vector<std::pair<int, int>>& variableIndex);
     const std::vector<std::pair<int, int>>& GetVariableIndex();
 
-    void SetObjectDatas(const std::vector<std::vector<double>>& objectDatas);
-    const std::vector<std::vector<double>>& GetObjectDatas();
+    void SetKeyObjectIds(const std::vector<int>& keyObjIds);
+    const std::vector<int>& GetKeyObjectIds();
 
-    void SetChoosedObjectDatas(const std::map<int, std::vector<double>>& choosedObjectDatas);
-    void AddChoosedObjectData(int objId, const std::vector<double>& objData);
-    void RemoveChoosedObjectData(int objId);
-    void ClearChoosedObjectData();
-    const std::map<int, std::vector<double>>& GetChoosedObjectData();
+    void SetChoosedObjectIds(const std::set<int>& choosedObjIds);
+    void AddChoosedObjectId(int objId);
+    void RemoveChoosedObjectId(int objId);
+    void ClearChoosedObjectIds();
+    const std::set<int>& GetChoosedObjectIds();
 
     void SetMaxValueInVariables(const std::vector<double>& maxValueInVariables);
     const std::vector<double>& GetMaxValueInVariables();
@@ -42,13 +50,16 @@ public:
     IGenum GetDataType() const;
 
 protected:
+    ElementArray<AttributeSet::Attribute>::Pointer m_Attrs;
+    int m_ObjNum{};
+
     int m_VariableNum{};
     std::vector<std::string> m_VariableName;
 
+public:
     std::vector<std::pair<int, int>> m_VariableIndex;
-
-    std::vector<std::vector<double>> m_ObjectDatas;
-    std::map<int, std::vector<double>> m_ChoosedObjectDatas;
+    std::vector<int> m_KeyObjIds;
+    std::set<int> m_ChoosedObjIds;
 
     std::vector<double> m_MaxValueInVariables;
     std::vector<double> m_MinValueInVariables;
@@ -61,13 +72,10 @@ public:
                                                           IGenum dataType);
     static std::vector<std::pair<int, int>> GenerateVariableIndex(ElementArray<AttributeSet::Attribute>::Pointer attrs,
                                                                   IGenum dataType);
-    static std::vector<double> GenerateObjectData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                                                  int objId);
-    static std::vector<std::vector<double>> GenerateObjectDatas(ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                                IGenum dataTypeint, int objNum, int maxObjNum);
-    static std::map<int, std::vector<double>> GenerateChoosedObjectDatas(
-            const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-            ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
+    static std::vector<int> GenerateKeyObjectIds(int objNum, int maxObjNum);
+    static std::set<int>
+    GenerateChoosedObjectIds(const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
+                             IGenum dataType);
     static std::pair<std::vector<double>, std::vector<double>>
     GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
     static std::string GenerateDataTypeName(IGenum dataType);
@@ -136,18 +144,18 @@ protected:
 
 public:
     /* static funcs */
-    static std::vector<std::vector<int>> GenerateObjectDrawSorts(int variableNum,
-                                                                 const std::vector<std::vector<double>>& objcetValues);
-    static std::vector<std::vector<int>>
-    GenerateObjectDrawSorts(int variableNum, const std::map<int, std::vector<double>>& objcetValues);
+    static std::vector<std::vector<int>> GenerateObjectDrawSorts(int variableNum, const std::vector<int>& objIds,
+                                                                 CtxPresObjData_Main* theData);
+    static std::vector<std::vector<int>> GenerateObjectDrawSorts(int variableNum, const std::set<int>& objIds,
+                                                                 CtxPresObjData_Main* theData);
     static std::vector<std::vector<int>> GenerateDefaultObjectDrawSorts(int variableNum);
     static std::tuple<int, int, int> GenerateDefaultColor(int brightNess);
     static std::vector<std::tuple<int, int, int>>
-    GenerateObjectColors(int variableIndex, const std::vector<std::vector<double>>& objDatas,
+    GenerateObjectColors(int variableIndex, const std::vector<int>& objIds, CtxPresObjData_Main* theData,
                          const std::vector<double>& maxValues, const std::vector<double>& minValues, int brightness,
                          ScalarsToColors::Pointer colorMap);
     static std::map<int, std::tuple<int, int, int>>
-    GenerateObjectColors(int variableIndex, const std::map<int, std::vector<double>>& objDatas,
+    GenerateObjectColors(int variableIndex, const std::set<int>& objIds, CtxPresObjData_Main* theData,
                          const std::vector<double>& maxValues, const std::vector<double>& minValues, int brightness,
                          ScalarsToColors::Pointer colorMap);
 };

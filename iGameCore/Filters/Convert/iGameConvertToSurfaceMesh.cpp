@@ -33,7 +33,7 @@ bool ConvertToSurfaceMesh::Execute() {
         case IG_UNSTRUCTURED_MESH:
             return this->ExecuteWithUnstructuredMesh(DynamicCast<UnstructuredMesh>(input));
         case IG_STRUCTURED_MESH:
-            return this->ExecuteWithVolumeMesh(DynamicCast<VolumeMesh>(input));
+            return this->ExecuteWithStructuredMesh(DynamicCast<StructuredMesh>(input));
         default:
             return false;
     }
@@ -160,6 +160,26 @@ bool ConvertToSurfaceMesh::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
     return false;
 }
 
+bool ConvertToSurfaceMesh::ExecuteWithStructuredMesh(StructuredMesh::Pointer sm) {
+    if (!sm) return false;
+
+    SurfaceMesh::Pointer outputMesh = nullptr;
+
+    if (sm->GetDimension() == 3) { 
+        return ExecuteWithVolumeMesh(sm);
+    }
+    outputMesh = SurfaceMesh::New();
+    outputMesh->SetPoints(sm->GetPoints());
+    outputMesh->SetFaces(sm->GetFaces());
+    outputMesh->SetAttributeSet(sm->GetAttributeSet());
+
+    if (outputMesh) {
+        this->SetOutput(outputMesh);
+        return true;
+    }
+
+    return false;
+}
 
 void ConvertToSurfaceMesh::SetConvertMethod(ConvertMethod CM) {
     this->m_ConvertMethod = CM;

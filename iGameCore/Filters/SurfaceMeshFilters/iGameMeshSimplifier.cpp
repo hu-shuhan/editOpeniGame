@@ -1,13 +1,15 @@
 #include "iGameMeshSimplifier.h"
-#include "iGameThreadPool.h"
 #include "iGameScene.h"
 #include "iGameSceneManager.h"
+#include "iGameThreadPool.h"
 #include <algorithm>
-#include <iGameVolumeMesh.h>
 #include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
+#include <iomanip>
 
 IGAME_NAMESPACE_BEGIN
-namespace meshsmp {
+namespace meshsmp
+{
 
 
 typedef unsigned int int_t;
@@ -29,17 +31,13 @@ public:
         return length;
     }
 
-    T Dot(const TVector3<T>& v) const { 
-        return x * v.x + y * v.y + z * v.z;
-    }
+    T Dot(const TVector3<T>& v) const { return x * v.x + y * v.y + z * v.z; }
 
     TVector3<T> Cross(const TVector3<T>& v) const {
         return TVector3<T>{y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x};
     }
 
-    double Length() const { 
-        return std::sqrt(x * x + y * y + z * z);
-    }
+    double Length() const { return std::sqrt(x * x + y * y + z * z); }
 
     TVector3<T> operator+(const TVector3<T>& v) const { return TVector3<T>{x + v.x, y + v.y, z + v.z}; }
     TVector3<T> operator-(const TVector3<T>& v) const { return TVector3<T>{x - v.x, y - v.y, z - v.z}; }
@@ -59,8 +57,6 @@ public:
     typedef TVector3<T> Point;
     Point Min;
     Point Max;
-
-
 };
 typedef TBox3<float> Box3;
 
@@ -210,7 +206,7 @@ typedef TGradient<float> Gradient;
 class Octree {
 public:
     struct Node {
-        Node() { }
+        Node() {}
         Node(Node* Parent, int Level) {
             this->Parent = Parent;
             this->Level = Level;
@@ -224,8 +220,7 @@ public:
         bool IsLeaf{true};
     };
 
-    void Initialize(const Box3& bbox)
-    {
+    void Initialize(const Box3& bbox) {
         BBox = bbox;
         MaxDepth = 0;
         Num = 1 << MaxDepth;
@@ -245,8 +240,7 @@ public:
         Nodes.push_back(root);
     }
 
-    Node* FindNode(const Vector3i& path) const
-    {
+    Node* FindNode(const Vector3i& path) const {
         assert(path.x >= 0 && path.x < Num);
         assert(path.y >= 0 && path.y < Num);
         assert(path.z >= 0 && path.z < Num);
@@ -255,8 +249,7 @@ public:
         int rootLevel = 0;
         int shiftLevel = MaxDepth - 1;
 
-        while (shiftLevel >= rootLevel) 
-        {
+        while (shiftLevel >= rootLevel) {
             int nextSon = 0;
             if ((path.z >> shiftLevel) % 2) nextSon += 1;
             if ((path.y >> shiftLevel) % 2) nextSon += 2;
@@ -285,7 +278,7 @@ public:
         switch (no) {
             case 0: // 左后下
                 node->Voxel = Box3{bbox.Min, center};
-                break; 
+                break;
             case 1: // 左后上
                 node->Voxel = Box3{Vector3{bbox.Min.x, bbox.Min.y, center.z}, Vector3{center.x, center.y, bbox.Max.z}};
                 break;
@@ -294,19 +287,19 @@ public:
                 break;
             case 3: // 右后上
                 node->Voxel = Box3{Vector3{bbox.Min.x, center.y, center.z}, Vector3{center.x, bbox.Max.y, bbox.Max.z}};
-                break;                    
+                break;
             case 4: // 左前下
                 node->Voxel = Box3{Vector3{center.x, bbox.Min.y, bbox.Min.z}, Vector3{bbox.Max.x, center.y, center.z}};
-                break;                    
+                break;
             case 5: // 左前上
                 node->Voxel = Box3{Vector3{center.x, bbox.Min.y, center.z}, Vector3{bbox.Max.x, center.y, bbox.Max.z}};
-                break;                    
+                break;
             case 6: // 右前下
                 node->Voxel = Box3{Vector3{center.x, center.y, bbox.Min.z}, Vector3{bbox.Max.x, bbox.Max.y, center.z}};
                 break;
             case 7: // 右前上
                 node->Voxel = Box3{center, bbox.Max};
-                break; 
+                break;
             default:
                 break;
         }
@@ -331,8 +324,7 @@ public:
         for (int i = 0; i < 8; ++i) { Node* node = NewSon(parent, i); }
     }
 
-    Vector3i Interize(const Vector3& pf) const 
-    {
+    Vector3i Interize(const Vector3& pf) const {
         Vector3i pi{};
 
         assert(pf.x >= BBox.Min.x && pf.x <= BBox.Max.x);
@@ -348,8 +340,7 @@ public:
         if (pi.z >= Num) pi.z = Num - 1;
         return pi;
     }
-    Vector3 DeInterize(const Vector3i& pi) const 
-    {
+    Vector3 DeInterize(const Vector3i& pi) const {
         Vector3 pf{};
 
         assert(pi.x >= 0 && pi.x < Num);
@@ -363,8 +354,7 @@ public:
         return pf;
     }
 
-    Node* Root() const 
-    {
+    Node* Root() const {
         if (Nodes.size() > 0) return Nodes[0];
         return nullptr;
     }
@@ -380,7 +370,7 @@ private:
 
 struct Collapse {
     // collapse v0 -> v1
-    int_t v0; 
+    int_t v0;
     int_t v1;
 
     float error;
@@ -391,7 +381,7 @@ static bool debug = true;
 static void print() { std::cout << std::endl; }
 
 template<typename First, typename... Rest>
-static void print(First&& first, Rest&&... rest)  {
+static void print(First&& first, Rest&&... rest) {
     if (debug) {
         std::cout << first << " ";
         print(std::forward<Rest>(rest)...);
@@ -407,8 +397,7 @@ public:
 
     template<typename... Rest>
     void print(Rest&&... rest) const {
-        if (debug)
-        {
+        if (debug) {
             std::cout << "[Time Cost: " << std::setw(3) << std::left << GetTime() << "ms] ";
             print_impl(std::forward<Rest>(rest)...);
         }
@@ -419,8 +408,7 @@ private:
 
     template<typename First, typename... Rest>
     void print_impl(First&& first, Rest&&... rest) const {
-        if (debug) 
-        {
+        if (debug) {
             std::cout << first;
             print_impl(std::forward<Rest>(rest)...);
         }
@@ -430,11 +418,9 @@ private:
 
 class TriMeshInternalSimplifier {
 public:
-    TriMeshInternalSimplifier(std::vector<int_t>& Indices,
-                              const std::vector<Point3>& VertexPositions,
+    TriMeshInternalSimplifier(std::vector<int_t>& Indices, const std::vector<Point3>& VertexPositions,
                               const std::vector<Attribute>& VertexAttributes,
-                              const std::vector<float>& AttributeWeights, size_t TargetCount,
-                              float TargetError);
+                              const std::vector<float>& AttributeWeights, size_t TargetCount, float TargetError);
 
     size_t DoWork();
 
@@ -480,41 +466,35 @@ private:
     void BuildVertexOctree();
 
     //-------------- Input's Data--------------//
-    std::vector<int_t>& Indices; // 三角形索引数组
-    const std::vector<Point3>& VertexPositions; // 顶点数组
+    std::vector<int_t>& Indices;                    // 三角形索引数组
+    const std::vector<Point3>& VertexPositions;     // 顶点数组
     const std::vector<Attribute>& VertexAttributes; // 顶点的属性数组
-    const std::vector<float>& AttributeWeights; // 属性权重数组
-    size_t TargetCount; // 需要减少到的索引数
-    float TargetError; // 
+    const std::vector<float>& AttributeWeights;     // 属性权重数组
+    size_t TargetCount;                             // 需要减少到的索引数
+    float TargetError;                              //
 
     float ErrorLimit;
     size_t NeedCollapsedIndexCount;
-    size_t IndexCount; // Indices数组长度
-    size_t VertexCount; // 顶点个数
-    size_t AttributeCount; // 属性个数
+    size_t IndexCount;                // Indices数组长度
+    size_t VertexCount;               // 顶点个数
+    size_t AttributeCount;            // 属性个数
     MVertexAdjacency VertexAdjacency; // 顶点的邻接面
     std::vector<Quadric> VertexQuadrics;
     std::vector<Quadric> AttributeQuadrics;
     std::vector<Gradient> AttributeGradients;
-    std::vector<Collapse> Collapses; // 坍缩边数组
-    std::vector<int_t> CollapseOrder; // 坍缩权重的排序数组
-    std::vector<int_t> VertexRemap; // 顶点重映射，用于坍缩后的顶点映射
+    std::vector<Collapse> Collapses;         // 坍缩边数组
+    std::vector<int_t> CollapseOrder;        // 坍缩权重的排序数组
+    std::vector<int_t> VertexRemap;          // 顶点重映射，用于坍缩后的顶点映射
     std::vector<unsigned char> VertexLocked; // 用于标记顶点是否被坍缩
 };
 
-TriMeshInternalSimplifier::TriMeshInternalSimplifier(
-    std::vector<int_t>& Indices,
-    const std::vector<Point3>& VertexPositions,
-    const std::vector<Attribute>& VertexAttributes,
-    const std::vector<float>& AttributeWeights,
-    size_t TargetCount, float TargetError)
-    : Indices(Indices), 
-    VertexPositions(VertexPositions), 
-    VertexAttributes(VertexAttributes),
-    AttributeWeights(AttributeWeights), 
-    TargetCount(TargetCount),
-    TargetError(TargetError)
-{
+TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices,
+                                                     const std::vector<Point3>& VertexPositions,
+                                                     const std::vector<Attribute>& VertexAttributes,
+                                                     const std::vector<float>& AttributeWeights, size_t TargetCount,
+                                                     float TargetError)
+    : Indices(Indices), VertexPositions(VertexPositions), VertexAttributes(VertexAttributes),
+      AttributeWeights(AttributeWeights), TargetCount(TargetCount), TargetError(TargetError) {
     IndexCount = Indices.size();
     VertexCount = VertexPositions.size();
     AttributeCount = VertexAttributes.size();
@@ -522,8 +502,7 @@ TriMeshInternalSimplifier::TriMeshInternalSimplifier(
     ErrorLimit = TargetError * TargetError;
 }
 
-size_t TriMeshInternalSimplifier::DoWork() 
-{ 
+size_t TriMeshInternalSimplifier::DoWork() {
     Timer time, time2;
     time2.start();
     time.start();
@@ -531,8 +510,7 @@ size_t TriMeshInternalSimplifier::DoWork()
     // 一些数组的初始化
     VertexQuadrics.resize(VertexCount);
     memset(VertexQuadrics.data(), 0, VertexCount * sizeof(Quadric));
-    if (AttributeCount > 0)
-    {
+    if (AttributeCount > 0) {
         AttributeQuadrics.resize(VertexCount);
         memset(AttributeQuadrics.data(), 0, VertexCount * sizeof(Quadric));
 
@@ -560,8 +538,7 @@ size_t TriMeshInternalSimplifier::DoWork()
     time.print("Initialize");
     int Sequence = 0;
 
-    while (IndexCount > TargetCount)
-    {
+    while (IndexCount > TargetCount) {
         print("Sequence ", Sequence++);
 
         time.start();
@@ -610,24 +587,18 @@ size_t TriMeshInternalSimplifier::DoWork()
     return IndexCount;
 }
 
-size_t TriMeshInternalSimplifier::DoWorkParallel() 
-{ 
-    return 0;
-}
+size_t TriMeshInternalSimplifier::DoWorkParallel() { return 0; }
 
-void TriMeshInternalSimplifier::BuildVertexAdjacency() 
-{ 
+void TriMeshInternalSimplifier::BuildVertexAdjacency() {
     memset(VertexAdjacency.Offsets.data(), 0, (VertexCount + 1) * sizeof(int_t));
 
-    for (int_t i = 0; i < IndexCount; ++i) 
-    { 
+    for (int_t i = 0; i < IndexCount; ++i) {
         int_t idx = Indices[i] + 1;
         VertexAdjacency.Offsets[idx]++;
     }
 
     int_t Offset = 0;
-    for (int_t i = 0; i < VertexCount; ++i) 
-    {
+    for (int_t i = 0; i < VertexCount; ++i) {
         int_t idx = i + 1;
         int_t Count = VertexAdjacency.Offsets[idx];
         VertexAdjacency.Offsets[idx] = Offset;
@@ -651,8 +622,7 @@ void TriMeshInternalSimplifier::BuildVertexAdjacency()
     }
 }
 
-void TriMeshInternalSimplifier::FillVertexQuadrics() 
-{
+void TriMeshInternalSimplifier::FillVertexQuadrics() {
     for (int_t i = 0; i < IndexCount; i += 3) {
         int_t i0 = Indices[i];
         int_t i1 = Indices[i + 1];
@@ -667,10 +637,8 @@ void TriMeshInternalSimplifier::FillVertexQuadrics()
     }
 }
 
-void TriMeshInternalSimplifier::FillAttributeQuadrics() 
-{
-    for (size_t i = 0; i < IndexCount; i += 3) 
-    {
+void TriMeshInternalSimplifier::FillAttributeQuadrics() {
+    for (size_t i = 0; i < IndexCount; i += 3) {
         int_t i0 = Indices[i + 0];
         int_t i1 = Indices[i + 1];
         int_t i2 = Indices[i + 2];
@@ -684,8 +652,7 @@ void TriMeshInternalSimplifier::FillAttributeQuadrics()
         AttributeQuadrics[i1] += Q;
         AttributeQuadrics[i2] += Q;
 
-        for (size_t k = 0; k < AttributeCount; ++k)
-        { 
+        for (size_t k = 0; k < AttributeCount; ++k) {
             AttributeGradients[i0 * AttributeCount + k] += G[k];
             AttributeGradients[i1 * AttributeCount + k] += G[k];
             AttributeGradients[i2 * AttributeCount + k] += G[k];
@@ -693,8 +660,7 @@ void TriMeshInternalSimplifier::FillAttributeQuadrics()
     }
 }
 
-void TriMeshInternalSimplifier::ComputeAttributeQuadient(int_t faceId, Quadric& Q, Gradient* G) 
-{
+void TriMeshInternalSimplifier::ComputeAttributeQuadient(int_t faceId, Quadric& Q, Gradient* G) {
     // 我们使用下面这个线性插值函数计算新位置 pos 处的属性值
     //      eval(pos) = pos.x * gx + pos.y * gy + pos.z * gz + gw
     // 其中，gx/gy/gz 是属性梯度，gw是基准常数值
@@ -751,7 +717,7 @@ void TriMeshInternalSimplifier::ComputeAttributeQuadient(int_t faceId, Quadric& 
         float a0 = Attr.Primitive[i0 * Attr.Stride + Attr.Offset] * AttributeWeights[k];
         float a1 = Attr.Primitive[i1 * Attr.Stride + Attr.Offset] * AttributeWeights[k];
         float a2 = Attr.Primitive[i2 * Attr.Stride + Attr.Offset] * AttributeWeights[k];
-        
+
 
         // compute gradient of eval(pos) for x/y/z/w
         // the formulas below are obtained by directly computing derivative of eval(pos) = a0 * u + a1 * v + a2 * w
@@ -785,15 +751,12 @@ void TriMeshInternalSimplifier::ComputeAttributeQuadient(int_t faceId, Quadric& 
     }
 }
 
-size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) 
-{
+size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) {
     size_t Count = 0;
     for (size_t i = 0; i < IndexCount; i += 3) {
         static const int next[3] = {1, 2, 0};
 
-        if (Count + 3 > CollapseCapacity) {
-            break;
-        }
+        if (Count + 3 > CollapseCapacity) { break; }
 
         for (int e = 0; e < 3; ++e) {
             int_t i0 = Indices[i + e];
@@ -816,7 +779,6 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity)
                 }
 
                 c.error += fabsf(r);
-
             }
 
             Collapses[Count++] = c;
@@ -825,8 +787,7 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity)
     return Count;
 }
 
-void TriMeshInternalSimplifier::SortEdgeCollapses(size_t EdgeCollapseCount) 
-{
+void TriMeshInternalSimplifier::SortEdgeCollapses(size_t EdgeCollapseCount) {
     //std::sort(Collapses.begin(), Collapses.begin() + Length,
     //          [](const Collapse& o1, const Collapse& o2) { return o1.error < o2.error; });
 
@@ -869,19 +830,17 @@ void TriMeshInternalSimplifier::SortEdgeCollapses(size_t EdgeCollapseCount)
     }
 }
 
-size_t TriMeshInternalSimplifier::ExecuteEdgeCollapses(size_t EdgeCollapseCount) 
-{ 
+size_t TriMeshInternalSimplifier::ExecuteEdgeCollapses(size_t EdgeCollapseCount) {
     // 本次循环需要简化的面数量
     size_t TargetTriangleCount = (IndexCount - TargetCount) / 3;
-    
+
     // 坍缩的面数量
     size_t CollapseCount = 0;
 
-    for (size_t i = 0; i < EdgeCollapseCount; ++i)
-    {
+    for (size_t i = 0; i < EdgeCollapseCount; ++i) {
         const Collapse& c = Collapses[CollapseOrder[i]];
-        
-        if (c.error > ErrorLimit) break; 
+
+        if (c.error > ErrorLimit) break;
 
         if (c.error > Collapses[CollapseOrder[EdgeCollapseCount / 2]].error &&
             CollapseCount > TargetTriangleCount / 6) {
@@ -891,11 +850,9 @@ size_t TriMeshInternalSimplifier::ExecuteEdgeCollapses(size_t EdgeCollapseCount)
         int_t i0 = c.v0;
         int_t i1 = c.v1;
 
-        if (VertexLocked[i0] | VertexLocked[i1]) continue; 
+        if (VertexLocked[i0] | VertexLocked[i1]) continue;
 
-        if (!IsCollapsable(i0, i1)) {
-            continue;
-        }
+        if (!IsCollapsable(i0, i1)) { continue; }
 
         VertexRemap[i0] = i1;
         VertexLocked[i0] = 1;
@@ -924,15 +881,13 @@ static bool HasTriangleFlip(const Vector3& a, const Vector3& b, const Vector3& c
     return ndp <= 0.25f * sqrtf(abc * abd);
 }
 
-bool TriMeshInternalSimplifier::IsCollapsable(int_t v, int_t to_v) 
-{
+bool TriMeshInternalSimplifier::IsCollapsable(int_t v, int_t to_v) {
     const Vector3& v0 = VertexPositions[v];
     const Vector3& v1 = VertexPositions[to_v];
 
     size_t Begin = VertexAdjacency.Begin(v);
-    
-    for (size_t i = 0; i < VertexAdjacency.Num(v); ++i)
-    {
+
+    for (size_t i = 0; i < VertexAdjacency.Num(v); ++i) {
         auto& e = VertexAdjacency.Data[Begin + i];
         int_t i0 = VertexRemap[e.next];
         int_t i1 = VertexRemap[e.prev];
@@ -944,10 +899,8 @@ bool TriMeshInternalSimplifier::IsCollapsable(int_t v, int_t to_v)
     return true;
 }
 
-void TriMeshInternalSimplifier::UpdateQuadrics() 
-{
-    for (size_t i = 0; i < VertexCount; ++i) 
-    {
+void TriMeshInternalSimplifier::UpdateQuadrics() {
+    for (size_t i = 0; i < VertexCount; ++i) {
         // 要么这个顶点早被删了，要么坍缩时没有影响到该顶点
         if (VertexRemap[i] == i) continue;
 
@@ -956,21 +909,18 @@ void TriMeshInternalSimplifier::UpdateQuadrics()
 
         VertexQuadrics[r] += VertexQuadrics[i];
 
-        if (AttributeCount) 
-        {
+        if (AttributeCount) {
             AttributeQuadrics[r] += AttributeQuadrics[i];
-            for (size_t k = 0; k < AttributeCount; ++k)
-            { 
+            for (size_t k = 0; k < AttributeCount; ++k) {
                 AttributeGradients[r * AttributeCount + k] += AttributeGradients[i * AttributeCount + k];
             }
         }
     }
 }
 
-size_t TriMeshInternalSimplifier::RemapIndices() 
-{
+size_t TriMeshInternalSimplifier::RemapIndices() {
     size_t k = 0;
-     
+
     for (size_t i = 0; i < IndexCount; i += 3) {
         int_t v0 = VertexRemap[Indices[i + 0]];
         int_t v1 = VertexRemap[Indices[i + 1]];
@@ -987,18 +937,13 @@ size_t TriMeshInternalSimplifier::RemapIndices()
     return k;
 }
 
-void TriMeshInternalSimplifier::BuildVertexOctree() 
-{
+void TriMeshInternalSimplifier::BuildVertexOctree() {}
 
-}
-
-static float RescalePositions(std::vector<Point3>& VertexPositions, Points::Pointer Points)
-{
+static float RescalePositions(std::vector<Point3>& VertexPositions, Points::Pointer Points) {
     float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
     float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    for (size_t i = 0; i < Points->GetNumberOfPoints(); ++i) 
-    {
+    for (size_t i = 0; i < Points->GetNumberOfPoints(); ++i) {
         auto& v = Points->GetPoint(i);
 
         VertexPositions.push_back({v[0], v[1], v[2]});
@@ -1016,7 +961,7 @@ static float RescalePositions(std::vector<Point3>& VertexPositions, Points::Poin
     extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
     extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
     extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
-    
+
     float scale = extent == 0 ? 0.f : 1.f / extent;
 
     for (size_t i = 0; i < Points->GetNumberOfPoints(); ++i) {
@@ -1060,8 +1005,7 @@ private:
 
     void FillAttributeQuadrics();
 
-    void LUSolveLinearSystem(double** A, int* index, double* x, int size) 
-    {
+    void LUSolveLinearSystem(double** A, int* index, double* x, int size) {
         int i, j, ii, idx;
         double sum;
         //
@@ -1104,9 +1048,7 @@ private:
                 if ((temp2 = std::abs(A[i][j])) > largest) { largest = temp2; }
             }
 
-            if (largest == 0.0) {
-                return 0;
-            }
+            if (largest == 0.0) { return 0; }
             tmpSize[i] = 1.0 / largest;
         }
         //
@@ -1143,9 +1085,7 @@ private:
             //
             index[j] = maxI;
 
-            if (std::abs(A[j][j]) <= 1e-12) {
-                return 0;
-            }
+            if (std::abs(A[j][j]) <= 1e-12) { return 0; }
 
             if (j != (size - 1)) {
                 temp1 = 1.0 / A[j][j];
@@ -1241,9 +1181,7 @@ private:
         }
 
         // now find the inverse
-        if (InvertMatrix(m, inverse, 3) == 0) {
-            return 0;
-        }
+        if (InvertMatrix(m, inverse, 3) == 0) { return 0; }
 
         return 1;
     }
@@ -1334,14 +1272,12 @@ private:
                 int_t i0 = Indices[i + edges[j][0]];
                 int_t i1 = Indices[i + edges[j][1]];
 
-                if (IsSurfaceVertex[i0] ^ IsSurfaceVertex[i1]) { 
-                    continue;
-                }
+                if (IsSurfaceVertex[i0] ^ IsSurfaceVertex[i1]) { continue; }
 
                 const Vector3& v = VertexPositions[i1];
 
                 Collapse c = {i0, i1, 0.f};
-                
+
                 c.error = VertexQuadrics[i0].Error(v);
 
                 if (AttributeCount) {
@@ -1423,7 +1359,7 @@ private:
                 CollapseCount > EdgeCollapseCount / 24) {
                 break;
             }
-            
+
             int_t i0 = c.v0;
             int_t i1 = c.v1;
 
@@ -1517,8 +1453,7 @@ private:
                (b.z - a.z) * ((c.x - a.x) * (d.y - a.y) - (c.y - a.y) * (d.x - a.x));
     }
 
-    static bool HasTetraFlip(const Point3& a, const Point3& b, const Point3& c, const Point3& d, const Point3& e)
-    {
+    static bool HasTetraFlip(const Point3& a, const Point3& b, const Point3& c, const Point3& d, const Point3& e) {
         float v1 = SignedVolume(a, b, c, d);
         float v2 = SignedVolume(a, b, c, e);
 
@@ -1530,7 +1465,7 @@ private:
         return diff.Dot(normal);
     }
 
-   static bool CheckFlip(const Point3& p1, const Point3& p2, const Point3& pA, const Point3& pB, const Point3& pC) {
+    static bool CheckFlip(const Point3& p1, const Point3& p2, const Point3& pA, const Point3& pB, const Point3& pC) {
         Vector3 v1 = pB - pA;
         Vector3 v2 = pC - pA;
         Vector3 normal = v1.Cross(v2);
@@ -1542,14 +1477,14 @@ private:
     }
 
     //-------------- Input's Data--------------//
-    std::vector<int_t>& Indices;                    // 四面体索引数组
-    const std::vector<Point3>& VertexPositions;     // 顶点数组
-    const std::vector<unsigned char>& IsSurfaceVertex;// 记录哪些顶点在表面
-    const std::vector<int_t>& SurfaceIndices;       // 
-    const std::vector<Attribute>& VertexAttributes; // 顶点的属性数组
-    const std::vector<float>& AttributeWeights;     // 属性权重数组
-    size_t TargetCount;                             // 需要减少到的索引数
-    float TargetError;                              //
+    std::vector<int_t>& Indices;                       // 四面体索引数组
+    const std::vector<Point3>& VertexPositions;        // 顶点数组
+    const std::vector<unsigned char>& IsSurfaceVertex; // 记录哪些顶点在表面
+    const std::vector<int_t>& SurfaceIndices;          //
+    const std::vector<Attribute>& VertexAttributes;    // 顶点的属性数组
+    const std::vector<float>& AttributeWeights;        // 属性权重数组
+    size_t TargetCount;                                // 需要减少到的索引数
+    float TargetError;                                 //
 
 
     size_t IndexCount;                // Indices数组长度
@@ -1573,16 +1508,14 @@ TetraMeshInternalSimplifier::TetraMeshInternalSimplifier(std::vector<int_t>& Ind
                                                          const std::vector<float>& AttributeWeights, size_t TargetCount,
                                                          float TargetError)
     : Indices(Indices), VertexPositions(VertexPositions), IsSurfaceVertex(IsSurfaceVertex),
-      SurfaceIndices(SurfaceIndices), VertexAttributes(VertexAttributes),
-      AttributeWeights(AttributeWeights), TargetCount(TargetCount), TargetError(TargetError) 
-{
+      SurfaceIndices(SurfaceIndices), VertexAttributes(VertexAttributes), AttributeWeights(AttributeWeights),
+      TargetCount(TargetCount), TargetError(TargetError) {
     IndexCount = Indices.size();
     VertexCount = VertexPositions.size();
     AttributeCount = VertexAttributes.size();
 }
 
-size_t TetraMeshInternalSimplifier::DoWork() 
-{
+size_t TetraMeshInternalSimplifier::DoWork() {
     AttributeCount = 0;
     // 一些数组的初始化
     VertexQuadrics.resize(VertexCount);
@@ -1597,10 +1530,10 @@ size_t TetraMeshInternalSimplifier::DoWork()
 
     VertexAdjacency.Offsets.resize(VertexCount + 1);
     VertexAdjacency.Data.resize(IndexCount);
-    BuildVertexAdjacency(); 
+    BuildVertexAdjacency();
 
     FillVertexQuadrics();
-    
+
     if (AttributeCount > 0) FillAttributeQuadrics();
 
     // 坍缩边的最大容量
@@ -1613,7 +1546,7 @@ size_t TetraMeshInternalSimplifier::DoWork()
 
     Timer time;
     int Sequence = 0;
-    
+
     while (IndexCount > TargetCount) {
         print("Sequence ", Sequence++);
 
@@ -1660,11 +1593,9 @@ size_t TetraMeshInternalSimplifier::DoWork()
     }
 
     return IndexCount;
-
 }
 
-void TetraMeshInternalSimplifier::BuildVertexAdjacency() 
-{
+void TetraMeshInternalSimplifier::BuildVertexAdjacency() {
     memset(VertexAdjacency.Offsets.data(), 0, (VertexCount + 1) * sizeof(int_t));
 
     for (int_t i = 0; i < IndexCount; ++i) {
@@ -1705,10 +1636,8 @@ void TetraMeshInternalSimplifier::BuildVertexAdjacency()
     }
 }
 
-void TetraMeshInternalSimplifier::FillVertexQuadrics() 
-{
-    for (int_t i = 0; i < SurfaceIndices.size(); i += 3)
-    {
+void TetraMeshInternalSimplifier::FillVertexQuadrics() {
+    for (int_t i = 0; i < SurfaceIndices.size(); i += 3) {
         int_t i0 = Indices[i];
         int_t i1 = Indices[i + 1];
         int_t i2 = Indices[i + 2];
@@ -1721,47 +1650,41 @@ void TetraMeshInternalSimplifier::FillVertexQuadrics()
         VertexQuadrics[i2] += Q;
     }
 
-    for (int_t i = 0; i < IndexCount; i += 4) 
-    {
+    for (int_t i = 0; i < IndexCount; i += 4) {
         int_t i0 = Indices[i];
         int_t i1 = Indices[i + 1];
         int_t i2 = Indices[i + 2];
         int_t i3 = Indices[i + 3];
 
         Quadric Q;
-        if (!IsSurfaceVertex[i0])
-        {
+        if (!IsSurfaceVertex[i0]) {
             Q.ByTriangle(VertexPositions[i1], VertexPositions[i2], VertexPositions[i3]);
             VertexQuadrics[i0] += Q;
         }
-        if (!IsSurfaceVertex[i1]) 
-        {
+        if (!IsSurfaceVertex[i1]) {
             Q.ByTriangle(VertexPositions[i2], VertexPositions[i0], VertexPositions[i3]);
             VertexQuadrics[i1] += Q;
         }
-        if (!IsSurfaceVertex[i2]) 
-        {
+        if (!IsSurfaceVertex[i2]) {
             Q.ByTriangle(VertexPositions[i0], VertexPositions[i1], VertexPositions[i3]);
             VertexQuadrics[i2] += Q;
         }
-        if (!IsSurfaceVertex[i3]) 
-        {
+        if (!IsSurfaceVertex[i3]) {
             Q.ByTriangle(VertexPositions[i0], VertexPositions[i2], VertexPositions[i1]);
             VertexQuadrics[i3] += Q;
         }
     }
 }
 
-void TetraMeshInternalSimplifier::FillAttributeQuadrics() 
-{
+void TetraMeshInternalSimplifier::FillAttributeQuadrics() {
     for (size_t i = 0; i < IndexCount; i += 4) {
-        
+
         int_t i0 = Indices[i + 0];
         int_t i1 = Indices[i + 1];
         int_t i2 = Indices[i + 2];
         int_t i3 = Indices[i + 3];
         int_t faceId = i / 4;
-        
+
         Quadric Q;
         Gradient G[32];
         ComputeAttributeQuadient(faceId, Q, G);
@@ -1806,22 +1729,19 @@ struct Collapse {
 class TetraMeshInternalSimplifier {
 public:
     TetraMeshInternalSimplifier(std::vector<int_t>& Indices, std::vector<Point3>& VertexPositions,
-        const std::vector<unsigned char>& IsSurfaceVertex,
-        const std::vector<int_t>& SurfaceIndices,
-        std::vector<Attribute>& VertexAttributes, const std::vector<float>& AttributeWeights,
-        size_t TargetCount, float TargetError)
+                                const std::vector<unsigned char>& IsSurfaceVertex,
+                                const std::vector<int_t>& SurfaceIndices, std::vector<Attribute>& VertexAttributes,
+                                const std::vector<float>& AttributeWeights, size_t TargetCount, float TargetError)
         : Indices(Indices), VertexPositions(VertexPositions), IsSurfaceVertex(IsSurfaceVertex),
-        SurfaceIndices(SurfaceIndices), VertexAttributes(VertexAttributes), AttributeWeights(AttributeWeights),
-        TargetCount(TargetCount), TargetError(TargetError)
-    {
+          SurfaceIndices(SurfaceIndices), VertexAttributes(VertexAttributes), AttributeWeights(AttributeWeights),
+          TargetCount(TargetCount), TargetError(TargetError) {
         IndexCount = Indices.size();
         VertexCount = VertexPositions.size();
         AttributeCount = VertexAttributes.size();
         TetraCount = IndexCount / 4;
     }
 
-    size_t DoWork() 
-    { 
+    size_t DoWork() {
         VAdjacency.Offsets.resize(VertexCount + 1);
         VAdjacency.Data.resize(IndexCount);
         Adjacency.Offsets.resize(TetraCount + 1);
@@ -1836,8 +1756,7 @@ public:
         VertexRemap.resize(VertexCount);
         VertexLocked.resize(VertexCount);
 
-        while (IndexCount > TargetCount) 
-        {
+        while (IndexCount > TargetCount) {
             BuildVertexAdjacency();
 
             size_t CollapseCount = BuildCollapses(CollapseCapacity);
@@ -1860,13 +1779,9 @@ public:
         return IndexCount;
     }
 
-    void BuildSurfaceMesh()
-    {
+    void BuildSurfaceMesh() {}
 
-    }
-
-    void BuildVertexAdjacency()
-    {
+    void BuildVertexAdjacency() {
         memset(VAdjacency.Offsets.data(), 0, (VertexCount + 1) * sizeof(int_t));
 
         for (int_t i = 0; i < IndexCount; ++i) {
@@ -1901,27 +1816,23 @@ public:
         memset(Adjacency.Offsets.data(), 0, (TetraCount + 1) * sizeof(int_t));
         std::vector<unsigned char> Visited(TetraCount);
         std::vector<int_t> Cache(512);
-        
-        for (int_t i = 0; i < IndexCount; i += 4)
-        {
+
+        for (int_t i = 0; i < IndexCount; i += 4) {
             int_t cellId = i / 4;
             int_t Count = 0;
-            for (int_t j = 0; j < 4; ++j) 
-            { 
+            for (int_t j = 0; j < 4; ++j) {
                 int_t v = Indices[i + j];
                 size_t Begin = VAdjacency.Begin(v);
                 for (size_t k = 0; k < VAdjacency.Num(v); ++k) {
                     int_t id = VAdjacency.Data[Begin + k];
-                    if (Visited[id] == 0 && id != cellId) { 
+                    if (Visited[id] == 0 && id != cellId) {
                         Adjacency.Offsets[cellId + 1]++;
                         Visited[id] = 1;
                         Cache[Count++] = id;
                     }
                 }
             }
-            for (int_t j = 0; j < Count; ++j) { 
-                Visited[Cache[j]] = 0;
-            }
+            for (int_t j = 0; j < Count; ++j) { Visited[Cache[j]] = 0; }
         }
 
         Offset = 0;
@@ -1932,11 +1843,9 @@ public:
             Offset += Count;
         }
 
-        if (Adjacency.Data.size() == 0)
-            Adjacency.Data.resize(Offset * 1.2);
+        if (Adjacency.Data.size() == 0) Adjacency.Data.resize(Offset * 1.2);
 
-        for (int_t i = 0; i < IndexCount; i += 4) 
-        {
+        for (int_t i = 0; i < IndexCount; i += 4) {
             int_t cellId = i / 4;
             int_t Count = 0;
             for (int_t j = 0; j < 4; ++j) {
@@ -1956,8 +1865,7 @@ public:
         }
     }
 
-    size_t BuildCollapses(size_t CollapseCapacity)
-    {
+    size_t BuildCollapses(size_t CollapseCapacity) {
         std::vector<std::pair<float, float>> OriginFeature(IndexCount / 4);
         for (size_t i = 0; i < IndexCount; i += 4) {
             int_t i0 = Indices[i];
@@ -2014,19 +1922,17 @@ public:
                 // 遍历邻接体有多少个点和这个体不同
                 int_t Count = 0, v;
                 int_t Ids[4]{};
-                for (size_t k = 0; k < 4; ++k) { 
+                for (size_t k = 0; k < 4; ++k) {
                     int_t t = Indices[cid * 4 + k];
-                    if (Existed[t] == 0) { 
+                    if (Existed[t] == 0) {
                         Ids[Count++] = t; // 不存在
                     } else {
                         v = t;
                     }
                 }
-                if (Count == 3) { 
-                    int a = 1;
-                }
+                if (Count == 3) { int a = 1; }
                 if (Count == 3 && HasFlip(VertexPositions[v], NewPosition, VertexPositions[Ids[0]],
-                                          VertexPositions[Ids[1]], VertexPositions[Ids[2]])) { 
+                                          VertexPositions[Ids[1]], VertexPositions[Ids[2]])) {
                     HasFlips = true;
                     ShouldCollapsed[ShouldCollapsedCount++] = cid;
                     break;
@@ -2085,8 +1991,7 @@ public:
         return CollapseCount;
     }
 
-    void SortCollapses(size_t CollapseCount)
-    {
+    void SortCollapses(size_t CollapseCount) {
         //std::sort(Collapses.begin(), Collapses.begin() + CollapseCount,
         //          [](const Collapse& o1, const Collapse& o2) { return o1.error < o2.error; });
         //return;
@@ -2129,16 +2034,12 @@ public:
         }
     }
 
-    size_t ExecuteCollapses(size_t CollapseCount) 
-    {
+    size_t ExecuteCollapses(size_t CollapseCount) {
         size_t Count = 0;
-        for (size_t i = 0; i < CollapseCount; ++i)
-        {
+        for (size_t i = 0; i < CollapseCount; ++i) {
             const Collapse& c = Collapses[CollapseOrder[i]];
 
-            if (c.error > Collapses[CollapseOrder[CollapseCount / 2]].error && Count > CollapseCount / 6) {
-                break;
-            }
+            if (c.error > Collapses[CollapseOrder[CollapseCount / 2]].error && Count > CollapseCount / 6) { break; }
             int_t id = c.id;
             int_t t = id * 4;
             int_t i0 = Indices[t + 0];
@@ -2151,12 +2052,13 @@ public:
             VertexPositions[i0] =
                     (VertexPositions[i0] + VertexPositions[i1] + VertexPositions[i2] + VertexPositions[i3]) / 4;
 
-            for (int k = 0; k < AttributeCount; ++k) { 
+            for (int k = 0; k < AttributeCount; ++k) {
                 auto& Attr = VertexAttributes[k];
                 Attr.Primitive[i0 * Attr.Stride + Attr.Offset] = (Attr.Primitive[i0 * Attr.Stride + Attr.Offset] +
                                                                   Attr.Primitive[i1 * Attr.Stride + Attr.Offset] +
                                                                   Attr.Primitive[i2 * Attr.Stride + Attr.Offset] +
-                                                                  Attr.Primitive[i3 * Attr.Stride + Attr.Offset]) / 4;
+                                                                  Attr.Primitive[i3 * Attr.Stride + Attr.Offset]) /
+                                                                 4;
             }
 
             VertexRemap[i1] = i0;
@@ -2172,8 +2074,7 @@ public:
         return Count;
     }
 
-    size_t RemapIndices()
-    {
+    size_t RemapIndices() {
         size_t k = 0;
 
         for (size_t i = 0; i < IndexCount; i += 4) {
@@ -2194,8 +2095,7 @@ public:
         return k;
     }
 
-    std::pair<float, float> QAngleEdge(const Point3& v0, const Point3& v1, const Point3& v2, const Point3& v3)
-    {
+    std::pair<float, float> QAngleEdge(const Point3& v0, const Point3& v1, const Point3& v2, const Point3& v3) {
         auto DihedralAngle = [](const Point3& a, const Point3& b, const Point3& c, const Point3& d) -> float {
             // 计算面 (a, b, c) 和 (a, b, d) 的二面角
             Point3 n1 = (b - a).Cross(c - a);
@@ -2241,10 +2141,10 @@ private:
     size_t TargetCount;                                // 需要减少到的索引数
     float TargetError;                                 //
 
-    size_t IndexCount;                // Indices数组长度
-    size_t TetraCount;                // Indices数组长度
-    size_t VertexCount;               // 顶点个数
-    size_t AttributeCount;            // 属性个数
+    size_t IndexCount;     // Indices数组长度
+    size_t TetraCount;     // Indices数组长度
+    size_t VertexCount;    // 顶点个数
+    size_t AttributeCount; // 属性个数
 
     VertexAdjacency VAdjacency;
     VertexAdjacency Adjacency;
@@ -2253,11 +2153,10 @@ private:
     std::vector<int_t> VertexRemap;          // 顶点重映射，用于坍缩后的顶点映射
     std::vector<unsigned char> VertexLocked; // 用于标记顶点是否被坍缩
 };
-}
+} // namespace mesh_tetra_simplifier
 
-bool MeshSimplifier::Execute() 
-{ 
-    
+bool MeshSimplifier::Execute() {
+
     //Box3 box{{0, 0, 0}, {1, 1, 1}};
     //Octree o;
     //o.Initialize(box);
@@ -2279,8 +2178,7 @@ bool MeshSimplifier::Execute()
     //      node->Voxel.Max.z);
     //return false;
 
-    if (DynamicCast<SurfaceMesh>(GetInput(0)))
-    {
+    if (DynamicCast<SurfaceMesh>(GetInput(0))) {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
         std::vector<int_t> Indices;
@@ -2335,9 +2233,7 @@ bool MeshSimplifier::Execute()
         NewMesh->SetPoints(Mesh->GetPoints());
         NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
         SetOutput(NewMesh);
-    } 
-    else if (DynamicCast<UnstructuredMesh>(GetInput(0)))
-    {
+    } else if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
         using namespace mesh_tetra_simplifier;
         UnstructuredMesh::Pointer Mesh;
         SurfaceMesh::Pointer SMesh;
@@ -2432,8 +2328,8 @@ bool MeshSimplifier::Execute()
         int c = 0;
         Points::Pointer NewPoints = Points::New();
         auto bbox = Mesh->GetBoundingBox();
-        for (int i = 0; i < PointExisted.size(); i++) { 
-            if (PointExisted[i]) { 
+        for (int i = 0; i < PointExisted.size(); i++) {
+            if (PointExisted[i]) {
                 PointMap[i] = c++;
                 NewPoints->AddPoint(VertexPositions[i].x * scale + bbox.min[0],
                                     VertexPositions[i].y * scale + bbox.min[1],
@@ -2453,7 +2349,7 @@ bool MeshSimplifier::Execute()
             float ele[16]{};
             int c = 0;
             for (int i = 0; i < Mesh->GetNumberOfPoints(); i++) {
-                if (PointExisted[i]) { 
+                if (PointExisted[i]) {
                     attr.pointer->GetElement(i, ele);
                     attr.pointer->SetElement(c++, ele);
                 }
@@ -2467,7 +2363,7 @@ bool MeshSimplifier::Execute()
         SetOutput(NewMesh);
     }
 
-    return true; 
+    return true;
 }
 
 MeshSimplifier::MeshSimplifier() {
