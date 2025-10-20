@@ -125,6 +125,7 @@ target_link_libraries(testConvertToSurfaceMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGET
 
 target_link_libraries(testAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testClip PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSlice PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testDeformation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testContourLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
