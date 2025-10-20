@@ -329,6 +329,7 @@ public:
 		}
 	}
 
+// region deprecated
 	/*
 	static void CalError(
 		std::vector<unsigned char>& dest,
@@ -482,7 +483,12 @@ private:
 	return CalErrorFunc(originFloat.data(), encodedFloat.data(), floatParams);
 	}
 	*/
+
+// endregion
+
 };
+
+// region deprecated
 
 // 适用于无法直接逐元素设置误差的第三方编码器进行关键/非关键区域的数据压缩
 //class ThirdPartyDualPrecisionCodec {
@@ -756,6 +762,8 @@ private:
 //		stream_close(stream);
 //	}
 //};
+
+// endregion
 
 IGAME_NAMESPACE_END
 #endif
