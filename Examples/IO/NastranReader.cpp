@@ -11,20 +11,18 @@ int main(){
     std::string arguments = "--bdf " + bdfPath + " --op2 " + op2Path + " --output " + outputPath;
 
 
-    // --- 2. 拼接完整的命令 ---
-    // 最终命令格式："C:\path\to.exe" arg1 arg2 ...
-    // 我们给 .exe 路径也加上引号，防止路径本身包含空格
+
     std::string fullCommand = "\"" + exePath + "\" " + arguments;
 
     int returnCode = system(fullCommand.c_str());
 
     if (returnCode == 0) {
-        std::cout << "Success to  transfer Nastran to VTK！" << std::endl;
+        std::cout << "Success to  transfer Nastran to VTK锟斤拷" << std::endl;
     } else {
         std::cerr << "Error to transfer Nastran to VTK" << std::endl;
     }
 
-    /* 创建场景*/
+
     auto scene = iGame::Scene::New();
     /* Test CGNS File Reader's output. Add it into Scene*/
     const std::string fileName = outputPath;
