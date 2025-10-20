@@ -5,7 +5,6 @@
 #else
 #include <QtCore/Qtextcodec.h>
 #endif
-#include <iGameScene.h>
 
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
