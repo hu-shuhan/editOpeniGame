@@ -75,7 +75,7 @@ add_executable(testVortexExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureE
 add_executable(testCurvatureExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/CurvatureExtraction.cpp")
 add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/GradientExtraction.cpp")
 add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
-add_executable(testVotexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VotexDetection.cpp")
+add_executable(testVortexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexDetection.cpp")
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
