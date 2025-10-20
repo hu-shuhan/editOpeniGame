@@ -4,6 +4,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 #=================
 set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
+#set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Debug")
+else()
+    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Release")
+endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DPLATFORM_WINDOWS)
@@ -91,6 +97,48 @@ if (ENABLE_CGNS_MODULE)
     #  ${HDF5_LIBRARIES}/../libsz.lib
     #  ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
+
+if (ENABLE_LIBTORCH_MODULE)
+    target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
+
+    target_include_directories(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/include
+            ${LIBTORCH_DIR}/include/torch/csrc/api/include
+    )
+
+    target_link_libraries(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/lib/torch.lib
+            ${LIBTORCH_DIR}/lib/c10.lib
+            ${LIBTORCH_DIR}/lib/torch_cpu.lib
+    )
+endif ()
+
+if (ENABLE_LIBTORCH_MODULE)
+    # Include
+    #    target_include_directories(${MODULE_NAME} PUBLIC
+    #            ${LIBTORCH_DIR}/include
+    #            ${LIBTORCH_DIR}/include/torch/csrc/api/include
+    #    )
+    target_include_directories(${MODULE_NAME} PRIVATE
+            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include>
+            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include/torch/csrc/api/include>
+    )
+
+    message(STATUS "LIBTORCH_DIR: ${LIBTORCH_DIR}")
+    message(STATUS "Include directories: ${LIBTORCH_DIR}/include ${LIBTORCH_DIR}/include/torch/csrc/api/include")
+
+
+    # Link
+    target_link_libraries(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/lib/torch.lib
+            ${LIBTORCH_DIR}/lib/c10.lib
+            ${LIBTORCH_DIR}/lib/torch_cpu.lib
+    )
+
+
+    message(STATUS "LibTorch include directories: ${LIBTORCH_DIR}/include")
+    message(STATUS "LibTorch libraries: ${LIBTORCH_DIR}/lib/torch.lib ${LIBTORCH_DIR}/lib/c10.lib")
+endif ()
 
 #find_package(AbqSDK)
 #if (${AbqSDK_FOUND})

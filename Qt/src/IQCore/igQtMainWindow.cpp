@@ -18,6 +18,7 @@
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
+#include "UndefinedFilters/iGameVortexDetection.h"
 #include "iGameARAPTest.h"
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
@@ -803,6 +804,20 @@ void igQtMainWindow::initAllFilters() {
 
         //data = DynamicCast<DrawObject>(data)->GetDisplayObject();
 
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
+
+            modelTreeWidget->updateAllAttriubute(data);
+            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }
+    });
+
+    QAction* vortexPrection = view->addAction("PredictVortex");
+    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        VortexDetection::Pointer filter = VortexDetection::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
