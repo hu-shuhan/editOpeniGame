@@ -9,6 +9,11 @@
 #include "SurfaceMeshFilters/Tests/iGameSurfaceSimplification.h"
 #include "SurfaceMeshFilters/Tests/iGameGradient.h"
 
+#include "Convert/iGameConvertPolyhedralCells.h"
+#include "Convert/iGameConvertToPointCloud.h"
+#include "Convert/iGameConvertToSurfaceMesh.h"
+#include "Convert/iGameConvertToVolumeMesh.h"
+
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "Interactor/iGameInteractor.h"
 
@@ -18,7 +23,7 @@
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-#include "iGameARAPTest.h"
+#include "Tests/iGameARAPTest.h"
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -44,7 +49,7 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGameVolumeMeshFilterTest.h>
+#include <Tests/iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -499,6 +504,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    if (false)
     connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto mesh = DynamicCast<SurfaceMesh>(obj);
@@ -744,8 +750,6 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
-
-
 
 
 
