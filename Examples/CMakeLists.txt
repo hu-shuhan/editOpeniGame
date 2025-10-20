@@ -49,6 +49,11 @@ add_executable(testDecoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestD
 add_executable(testEncoder "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestEncoder.cpp")
 add_executable(testSimplification "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Compression/TestSimplification.cpp")
 
+add_executable(testConvertPolyhedralCells "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertPolyhedralCells.cpp")
+add_executable(testConvertToPointCloud "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToPointCloud.cpp")
+add_executable(testConvertToVolumeMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToVolumeMesh.cpp")
+add_executable(testConvertToSurfaceMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToSurfaceMesh.cpp")
+
 add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
 add_executable(testNurbsMesh "${CMAKE_CURRENT_SOURCE_DIR}/IO/NurbsMesh.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
@@ -110,6 +115,11 @@ target_link_libraries(testGetCellsInFrustum PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testDecoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testEncoder PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSimplification PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testConvertPolyhedralCells PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testConvertToPointCloud PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testConvertToVolumeMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testConvertToSurfaceMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testClip PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

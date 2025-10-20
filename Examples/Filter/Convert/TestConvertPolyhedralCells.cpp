@@ -2,25 +2,24 @@
 #include <iGameFileIO.h>
 #include <iGameScene.h>
 #include <iGameRenderWindow.h>
-#include <SurfaceMeshFilters/iGameSimplification.h>
-#include <SurfaceMeshFilters/iGameTriangulation.h>
+#include <Convert/iGameConvertPolyhedralCells.h>
+
 
 int main(){
     // Create a new scene
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/mazewheel.obj";
+    const std::string fileName = "./Models/StreamTest.vtk";
 
     auto obj = iGame::FileIO::ReadFile(fileName);
 
-    // If model is not triangle mesh, this will occur error
-    auto filter = iGame::Simplification::New();
-    filter->SetTargetReduction(0.5);
+    auto filter = iGame::ConvertPolyhedralCells::New();
     filter->SetInput(obj);
-    filter->Execute();
 
-    obj = filter->GetOutput();
+    if (filter->Execute()) { 
+        obj = filter->GetOutput();
+    }
 
     scene->AddModel(obj);
 
