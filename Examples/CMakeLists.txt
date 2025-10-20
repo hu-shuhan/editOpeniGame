@@ -143,7 +143,7 @@ target_link_libraries(testVortexExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCurvatureExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testVotexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVortexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
