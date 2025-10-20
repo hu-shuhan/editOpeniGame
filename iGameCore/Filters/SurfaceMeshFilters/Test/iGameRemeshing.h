@@ -39,7 +39,7 @@ private:
 	//using Vector = Vector3f;
  //   class Adjacency {
  //   public:
- //       // Èı½ÇĞÎÖĞÒ»¸ö¶¥µãµÄ¶ÔÅ¼±ß
+ //       // ä¸‰è§’å½¢ä¸­ä¸€ä¸ªé¡¶ç‚¹çš„å¯¹å¶è¾¹
  //       struct DualEdge {
  //           int_t next;
  //           int_t prev;

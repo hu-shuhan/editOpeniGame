@@ -815,6 +815,20 @@ void igQtMainWindow::initAllFilters() {
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
         }
     });
+
+    QAction* vortexPrection = view->addAction("PredictVortex");
+    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        VortexDetection::Pointer filter = VortexDetection::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
+
+            modelTreeWidget->updateAllAttriubute(data);
+            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }
+    });
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {

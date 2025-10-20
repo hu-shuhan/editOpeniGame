@@ -15,7 +15,7 @@ static void ImportNurbsMesh() {
     // Read the file and add it to the scene
     const std::string fileName = "./Models/circle.xml";
     //const std::string fileName = "./Models/surface.xml";
-    //const std::string fileName = "./Models/hand.xml";
+    // const std::string fileName = "./Models/hand.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
     iGame::NurbsReader::Pointer reader = iGame::NurbsReader::New();
@@ -54,7 +54,7 @@ static void ImportNurbsMesh() {
     window->Show();
 }
 
-int main(){
+int main() {
     ImportNurbsMesh();
     return 0;
 }
