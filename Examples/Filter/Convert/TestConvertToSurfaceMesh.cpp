@@ -13,6 +13,10 @@ int main(){
     const std::string fileName = "./Models/StreamTest.vtk";
 
     auto obj = iGame::FileIO::ReadFile(fileName);
+    if (obj == nullptr) {
+        std::cout << "Read ERROR!\n";
+        return 0;
+    }
 
     auto filter = iGame::ConvertToSurfaceMesh::New();
     filter->SetInput(obj);

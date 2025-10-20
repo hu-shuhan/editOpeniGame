@@ -9,6 +9,7 @@
 #include "SurfaceMeshFilters/Tests/iGameSurfaceSimplification.h"
 #include "SurfaceMeshFilters/Tests/iGameGradient.h"
 
+#include "UndefinedFilters/iGameVortexDetection.h"
 #include "Convert/iGameConvertPolyhedralCells.h"
 #include "Convert/iGameConvertToPointCloud.h"
 #include "Convert/iGameConvertToSurfaceMesh.h"
