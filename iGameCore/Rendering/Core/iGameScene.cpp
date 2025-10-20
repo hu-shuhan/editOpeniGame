@@ -306,21 +306,16 @@ void Scene::InitOpenGL() {
 
     // log opengl info
     {
-        IGAME_RENDERING_TRACE(
-                "==================== OpenGL Info ====================");
+        IGAME_RENDERING_INFO("OpenGL Info:");
         const GLubyte* vendor = glGetString(GL_VENDOR);
-        IGAME_RENDERING_TRACE("Vendor: {}",
-                              reinterpret_cast<const char*>(vendor));
+        IGAME_RENDERING_INFO("    Vendor: {}",
+                             reinterpret_cast<const char*>(vendor));
         const GLubyte* renderer = glGetString(GL_RENDERER);
-        IGAME_RENDERING_TRACE("Renderer: {}",
-                              reinterpret_cast<const char*>(renderer));
+        IGAME_RENDERING_INFO("    Renderer: {}",
+                             reinterpret_cast<const char*>(renderer));
         const GLubyte* version = glGetString(GL_VERSION);
-        IGAME_RENDERING_TRACE("Version: {}",
-                              reinterpret_cast<const char*>(version));
-        GLint numExtensions = 0;
-        glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-        IGAME_RENDERING_TRACE(
-                "=====================================================");
+        IGAME_RENDERING_INFO("    Version: {}",
+                             reinterpret_cast<const char*>(version));
     }
 
 #ifdef GL_SUPPORTS_MSAA
@@ -361,7 +356,7 @@ void Scene::InitOpenGL() {
         m_Painter3D->SetBrush(Color::Green);
 
         //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
-        //m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        // m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
         //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
         //                          {1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});

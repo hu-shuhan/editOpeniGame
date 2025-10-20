@@ -37,6 +37,8 @@ public slots:
     void onPropertyChanged(QtProperty* property, const QVariant& value);
     static void SetAccelerateState(bool b);
     static int GetAccelerateState();
+    iGame::Model* GetCurrentModel();
+
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
@@ -46,7 +48,7 @@ protected:
     void UpdateCurrentModel(iGame::Model::Pointer model);
 
 private:
-    iGame::Model* currentModel;
+    //iGame::Model* currentModel;
 
     igQtModelTreeWidget* modelTreeWidget;
     QtTreePropertyBrowser* propertyWidget;

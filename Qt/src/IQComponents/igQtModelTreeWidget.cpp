@@ -190,12 +190,12 @@ QTreeWidgetItem* igQtModelTreeWidget::getChild(const QPoint& p) const {
     return dynamic_cast<QTreeWidgetItem*>(itemAt(p));
 }
 
-void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
-    currentModelItem = item;
-    //std::cout << "change\n";
-}
+//void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
+//    currentModelItem = item;
+//    //std::cout << "change\n";
+//}
 
-ModelTreeWidgetItem* igQtModelTreeWidget::getCurrentModelItem() { return currentModelItem; }
+//ModelTreeWidgetItem* igQtModelTreeWidget::getCurrentModelItem() { return currentModelItem; }
 
 //void igQtModelTreeWidget::setCurrentModel(ModelTreeWidgetItem* item) {
 //    if (currentModel) {
@@ -232,7 +232,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
             if (current) { current->hide(); }
             item->setCurrentChild(nullptr);
-            if (currentModelItem != item) { this->setCurrentModelItem(item); }
+
+            //if (currentModelItem != item) { this->setCurrentModelItem(item); }
         }
 
 
@@ -240,9 +241,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         int index = child->data(0, Qt::UserRole).toInt();
         ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
         if (parent) {
+            auto currentModelItem = currentItem();
             if (currentModelItem != parent) {
-                this->setCurrentModelItem(parent);
-                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModel());
+                //this->setCurrentModelItem(parent);
+                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
                 emit ChangeCurrentModel(parent->getModel());
             }
             AttribTreeWidgetItem* current{nullptr};
