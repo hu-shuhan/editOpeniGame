@@ -28,17 +28,17 @@ void DragCenterStyle::MousePressEvent(IEvent event) {
 void DragCenterStyle::MouseMoveEvent(IEvent event) {
     if (!m_IsDragging || !m_Camera || !m_Scene || !m_AxesModel) return;
 
-    // 1. ¼ÆËãÆÁÄ»¿Õ¼äÆ«ÒÆÁ¿
+    // 1. è®¡ç®—å±å¹•ç©ºé—´åç§»é‡
     igm::vec2 offset = event.pos - m_LastMousePos;
     igm::vec3 moveOffset(offset.x * m_CameraMoveSpeed,
                          -offset.y * m_CameraMoveSpeed,
-                         0.0f // Z·ÖÁ¿Îª0±£³ÖÉî¶È²»±ä
+                         0.0f // Zåˆ†é‡ä¸º0ä¿æŒæ·±åº¦ä¸å˜
     );
 
-    // 2. ×ª»»ÎªÊÀ½ç¿Õ¼äÎ»ÒÆ
+    // 2. è½¬æ¢ä¸ºä¸–ç•Œç©ºé—´ä½ç§»
     igm::mat4 invViewMatrix = m_Camera->GetViewMatrix().invert();
     igm::vec3 worldOffset = (invViewMatrix * igm::vec4(moveOffset, 0.0f)).xyz();
-    //¿¼ÂÇÄ£ÐÍÐý×ª¶Ô·½ÏòµÄÓ°Ïì
+    //è€ƒè™‘æ¨¡åž‹æ—‹è½¬å¯¹æ–¹å‘çš„å½±å“
     igm::mat4 modelMatrix = m_Scene->GetModelMatrix();
     igm::mat4 invModelMatrix = modelMatrix.invert();
     igm::vec3 modelSpaceOffset =
@@ -46,7 +46,7 @@ void DragCenterStyle::MouseMoveEvent(IEvent event) {
 
     worldOffset = modelSpaceOffset;
 
-    // 3. ¸üÐÂ×ø±êÖáÄ£ÐÍÎ»ÖÃ
+    // 3. æ›´æ–°åæ ‡è½´æ¨¡åž‹ä½ç½®
     m_AxesModel->HandleDrag(worldOffset);
     m_Scene->SetRotationCenter(m_AxesModel->GetRotationCenter());
 

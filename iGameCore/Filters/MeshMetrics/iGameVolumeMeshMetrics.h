@@ -20,38 +20,38 @@ public:
     static Pointer New() { return new VolumeMeshMetrics; }
 
     enum VolumeMetric {
-        TET_EDGE_RATIO,         //±ß³¤±È
-        TET_VOLUME,             // Ìå»ý
-        TET_ASPECT_RATIO,       // ×Ýºá±È
-        TET_JACOBIAN,           // ÑÅ¿É±È
-        TET_COLLAPSE_RATIO,     // ËúÏÝÂÊ
-        TET_VOL_SKEW,           // Ìå»ýÍáÐ±¶È
-        TET_MIN_ANGLE,          // ×îÐ¡ÄÚ½Ç
-        TET_EQUIANGLE_SKEWNESS, // µÈ½ÇÐ±ÂÊ
-        TET_INRADIUS,           // ÄÚÇÐÇò°ë¾¶
-        TET_CIRCUMRADIUS,       // Íâ½ÓÇò°ë¾¶
-        TET_VOL_ASPECT_RATIO,    // Ìå³¤¿í±È
+        TET_EDGE_RATIO,         //è¾¹é•¿æ¯”
+        TET_VOLUME,             // ä½“ç§¯
+        TET_ASPECT_RATIO,       // çºµæ¨ªæ¯”
+        TET_JACOBIAN,           // é›…å¯æ¯”
+        TET_COLLAPSE_RATIO,     // å¡Œé™·çŽ‡
+        TET_VOL_SKEW,           // ä½“ç§¯æ­ªæ–œåº¦
+        TET_MIN_ANGLE,          // æœ€å°å†…è§’
+        TET_EQUIANGLE_SKEWNESS, // ç­‰è§’æ–œçŽ‡
+        TET_INRADIUS,           // å†…åˆ‡çƒåŠå¾„
+        TET_CIRCUMRADIUS,       // å¤–æŽ¥çƒåŠå¾„
+        TET_VOL_ASPECT_RATIO,    // ä½“é•¿å®½æ¯”
 
-        //ÁùÃæÌå
-        HEX_VOLUME,               // Ìå»ý
-        HEX_TAPER,                // ×¶¶È
-        HEX_JACOBIAN,             // ÑÅ¿É±È
-        HEX_EDGE_RATIO,           // ³¤¿í±È
-        HEX_MAX_EDGE_RATIO,       // ×î´ó³¤¿í±È
-        HEX_SKEW,                 // ÍáÐ±¶È
-        HEX_STRETCH,              // ÉìÕ¹¶È
-        HEX_DIAGONAL,             // ¶Ô½ÇÏß±ÈÖµ
-        HEX_RELATIVE_SIZE_SQUARED, // Ïà¶Ô´óÐ¡Æ½·½
+        //å…­é¢ä½“
+        HEX_VOLUME,               // ä½“ç§¯
+        HEX_TAPER,                // é”¥åº¦
+        HEX_JACOBIAN,             // é›…å¯æ¯”
+        HEX_EDGE_RATIO,           // é•¿å®½æ¯”
+        HEX_MAX_EDGE_RATIO,       // æœ€å¤§é•¿å®½æ¯”
+        HEX_SKEW,                 // æ­ªæ–œåº¦
+        HEX_STRETCH,              // ä¼¸å±•åº¦
+        HEX_DIAGONAL,             // å¯¹è§’çº¿æ¯”å€¼
+        HEX_RELATIVE_SIZE_SQUARED, // ç›¸å¯¹å¤§å°å¹³æ–¹
 
 
-        // ÐÂÔöÁùÃæÌåÖ¸±ê
-        HEX_MIN_SCALED_JACOBIAN, // ×îÐ¡±êÁ¿ÑÅ¿É±È
-        HEX_AVG_SCALED_JACOBIAN,         // Æ½¾ù±êÁ¿ÑÅ¿É±È
+        // æ–°å¢žå…­é¢ä½“æŒ‡æ ‡
+        HEX_MIN_SCALED_JACOBIAN, // æœ€å°æ ‡é‡é›…å¯æ¯”
+        HEX_AVG_SCALED_JACOBIAN,         // å¹³å‡æ ‡é‡é›…å¯æ¯”
 
-        // ÐÂÔöËÄÃæÌåÖ¸±ê
-        TET_ASPECT_RATIO_ALT, // Ìæ´ú×Ýºá±È¼ÆËã·½·¨
-        TET_VOLUME_ALT,         // ËÄÃæÌåÌå»ý£¨Ìæ´ú·½·¨£©
-        HEX_VOLUME_ALT,         // ÁùÃæÌåÌå»ý£¨Ìæ´ú·½·¨£©
+        // æ–°å¢žå››é¢ä½“æŒ‡æ ‡
+        TET_ASPECT_RATIO_ALT, // æ›¿ä»£çºµæ¨ªæ¯”è®¡ç®—æ–¹æ³•
+        TET_VOLUME_ALT,         // å››é¢ä½“ä½“ç§¯ï¼ˆæ›¿ä»£æ–¹æ³•ï¼‰
+        HEX_VOLUME_ALT,         // å…­é¢ä½“ä½“ç§¯ï¼ˆæ›¿ä»£æ–¹æ³•ï¼‰
 
     };
 
@@ -64,9 +64,9 @@ public:
 protected:
     VolumeMeshMetrics();
     ~VolumeMeshMetrics();
-    VolumeMetric m_Metric = VolumeMetric::TET_EDGE_RATIO; //ÖÊÁ¿Ö¸±êÀàÐÍ
+    VolumeMetric m_Metric = VolumeMetric::TET_EDGE_RATIO; //è´¨é‡æŒ‡æ ‡ç±»åž‹
 
-    //ËÄÃæÌå
+    //å››é¢ä½“
     double ComputeMetric(igIndex vNum, igIndex* vhs);
     static std::vector<double> GetMinAndMaxLenOfCell(const std::vector<iGame::Point>& points);
     static double GetAreaOfFace(iGame::Point v1, iGame::Point v2, iGame::Point v3);
@@ -92,7 +92,7 @@ protected:
     static double GetEquiangleSkewnessOfCell(const std::vector<iGame::Point>& points);
 
 
-    // ÁùÃæÌå
+    // å…­é¢ä½“
     static double ComputeHexVolume(const std::vector<iGame::Point>& points);
     static double ComputeHexTaper(const std::vector<iGame::Point>& points);
     static double ComputeHexJacobian(const std::vector<iGame::Point>& points);

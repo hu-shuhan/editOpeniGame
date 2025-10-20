@@ -673,7 +673,7 @@ void igQtParallelCoordinatesWidget::DrawLinkImage(QRect& linkImageArea) {
         painter.setFont(font);
         painter.drawText(linkImageArea, Qt::AlignCenter, "Loading...");
     } else {
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // ÉèÖÃÆ½»¬Ëõ·Å
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // è®¾ç½®å¹³æ»‘ç¼©æ”¾
         {
             std::lock_guard lg(m_LinkImageMutex);
             painter.drawImage(linkImageArea, m_LinkImage);

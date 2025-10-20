@@ -4,7 +4,7 @@
 IGAME_NAMESPACE_BEGIN
 
 CenterAxesModel::CenterAxesModel() {
-    // ³õÊ¼»¯ËùÓĞ±ØĞèµÄÊı×é
+    // åˆå§‹åŒ–æ‰€æœ‰å¿…éœ€çš„æ•°ç»„
     m_RotationCenter = igm::vec3(0.0f, 0.0f, 0.0f);
     m_Positions = FloatArray::New();
     m_Colors = FloatArray::New();
@@ -12,11 +12,11 @@ CenterAxesModel::CenterAxesModel() {
 
     InitializeGeometry();
 
-    // ÉèÖÃäÖÈ¾²ÎÊı£¨Ê¹ÓÃ¿ÉÓÃµÄ¹«¹²½Ó¿Ú£©
+    // è®¾ç½®æ¸²æŸ“å‚æ•°ï¼ˆä½¿ç”¨å¯ç”¨çš„å…¬å…±æ¥å£ï¼‰
     SetVisibility(false);
     SetLineWidth(DEFAULT_LINE_WIDTH);
 
-    // Í¨¹ı¶à±ßĞÎÆ«ÒÆÈ·±£ÔÚ×îÉÏ²ãäÖÈ¾
+    // é€šè¿‡å¤šè¾¹å½¢åç§»ç¡®ä¿åœ¨æœ€ä¸Šå±‚æ¸²æŸ“
     SetPolygonOffsetParameters(0.0f, -10.0f);
 }
 
@@ -33,46 +33,46 @@ igm::vec3 CenterAxesModel::GetRotationCenter() const {
 void CenterAxesModel::InitializeGeometry() {
     if (m_GeometryInitialized) return;
 
-    //=== 1. ³õÊ¼»¯¶¥µãÊı¾İ ===
+    //=== 1. åˆå§‹åŒ–é¡¶ç‚¹æ•°æ® ===
     //m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
-    m_Positions->AddElement3(m_RotationCenter.x, m_RotationCenter.y, m_RotationCenter.z); // Ô­µã (Ë÷Òı0)
-    m_Positions->AddElement3(-DEFAULT_AXIS_LENGTH, 0.0f, 0.0f); // XÖáÆğµã (Ë÷Òı1)
-    m_Positions->AddElement3(DEFAULT_AXIS_LENGTH, 0.0f, 0.0f); // XÖáÖÕµã (Ë÷Òı2)
-    m_Positions->AddElement3(0.0f, -DEFAULT_AXIS_LENGTH, 0.0f); // YÖáÆğµã (Ë÷Òı3)
-    m_Positions->AddElement3(0.0f, DEFAULT_AXIS_LENGTH, 0.0f); // YÖáÖÕµã (Ë÷Òı4)
-    m_Positions->AddElement3(0.0f, 0.0f, -DEFAULT_AXIS_LENGTH); // ZÖáÆğµã (Ë÷Òı5)
-    m_Positions->AddElement3(0.0f, 0.0f, DEFAULT_AXIS_LENGTH); // ZÖáÖÕµã (Ë÷Òı6)
+    m_Positions->AddElement3(m_RotationCenter.x, m_RotationCenter.y, m_RotationCenter.z); // åŸç‚¹ (ç´¢å¼•0)
+    m_Positions->AddElement3(-DEFAULT_AXIS_LENGTH, 0.0f, 0.0f); // Xè½´èµ·ç‚¹ (ç´¢å¼•1)
+    m_Positions->AddElement3(DEFAULT_AXIS_LENGTH, 0.0f, 0.0f); // Xè½´ç»ˆç‚¹ (ç´¢å¼•2)
+    m_Positions->AddElement3(0.0f, -DEFAULT_AXIS_LENGTH, 0.0f); // Yè½´èµ·ç‚¹ (ç´¢å¼•3)
+    m_Positions->AddElement3(0.0f, DEFAULT_AXIS_LENGTH, 0.0f); // Yè½´ç»ˆç‚¹ (ç´¢å¼•4)
+    m_Positions->AddElement3(0.0f, 0.0f, -DEFAULT_AXIS_LENGTH); // Zè½´èµ·ç‚¹ (ç´¢å¼•5)
+    m_Positions->AddElement3(0.0f, 0.0f, DEFAULT_AXIS_LENGTH); // Zè½´ç»ˆç‚¹ (ç´¢å¼•6)
 
-    //=== 2. ³õÊ¼»¯ÑÕÉ«Êı¾İ ===
+    //=== 2. åˆå§‹åŒ–é¢œè‰²æ•°æ® ===
     //m_Colors = FloatArray::New();
     m_Colors->SetDimension(3);
-    // Ã¿¸ö¶¥µã¶ÔÓ¦ÑÕÉ«£¨ÓëÎ»ÖÃÒ»Ò»¶ÔÓ¦£©
-    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // Ô­µãÑÕÉ«
-    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // XÖáºìÉ«
+    // æ¯ä¸ªé¡¶ç‚¹å¯¹åº”é¢œè‰²ï¼ˆä¸ä½ç½®ä¸€ä¸€å¯¹åº”ï¼‰
+    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // åŸç‚¹é¢œè‰²
+    m_Colors->AddElement3(1.0f, 0.0f, 0.0f); // Xè½´çº¢è‰²
     m_Colors->AddElement3(1.0f, 0.0f, 0.0f); 
-    m_Colors->AddElement3(0.0f, 1.0f, 0.0f); // YÖáÂÌÉ«
+    m_Colors->AddElement3(0.0f, 1.0f, 0.0f); // Yè½´ç»¿è‰²
     m_Colors->AddElement3(0.0f, 1.0f, 0.0f); 
-    m_Colors->AddElement3(0.0f, 0.0f, 1.0f); // ZÖáÀ¶É«
+    m_Colors->AddElement3(0.0f, 0.0f, 1.0f); // Zè½´è“è‰²
     m_Colors->AddElement3(0.0f, 0.0f, 1.0f); 
 
-    //=== 3. ³õÊ¼»¯Ïß¶ÎË÷Òı ===
+    //=== 3. åˆå§‹åŒ–çº¿æ®µç´¢å¼• ===
     //m_LineIndices = UnsignedIntArray::New();
     m_LineIndices->SetDimension(2);
-    m_LineIndices->AddElement2(1, 2); // XÖá
-    m_LineIndices->AddElement2(3, 4); // YÖá
-    m_LineIndices->AddElement2(5, 6); // ZÖá
+    m_LineIndices->AddElement2(1, 2); // Xè½´
+    m_LineIndices->AddElement2(3, 4); // Yè½´
+    m_LineIndices->AddElement2(5, 6); // Zè½´
 
-    //=== 4. ÅäÖÃäÖÈ¾²ÎÊı ===
+    //=== 4. é…ç½®æ¸²æŸ“å‚æ•° ===
     SetLineWidth(DEFAULT_LINE_WIDTH);
-    SetPolygonOffsetParameters(0.0f, -10.0f); // ·ÀÖ¹Éî¶È³åÍ»
+    SetPolygonOffsetParameters(0.0f, -10.0f); // é˜²æ­¢æ·±åº¦å†²çª
 
-    //=== 5. ±ê¼ÇÊı¾İÒÑ¸üĞÂ ===
-    m_UseColor = true; // ÆôÓÃÑÕÉ«
+    //=== 5. æ ‡è®°æ•°æ®å·²æ›´æ–° ===
+    m_UseColor = true; // å¯ç”¨é¢œè‰²
     m_Positions->Modified();
     m_Colors->Modified();
     m_LineIndices->Modified();
-    //Modified(); // Í¨ÖªDrawObject»ùÀà
+    //Modified(); // é€šçŸ¥DrawObjectåŸºç±»
 
     m_GeometryInitialized = true;
 }
@@ -84,66 +84,66 @@ void CenterAxesModel::PrepareForRendering() {
 
 void CenterAxesModel::UpdateAxisScale(float cameraDistance, float fov,
                                       int viewportHeight) {
-    // ¸ù¾İÏà»ú¾àÀë¶¯Ì¬¼ÆËãÖá³¤£¬±£³ÖÆÁÄ»¹Ì¶¨´óĞ¡
+    // æ ¹æ®ç›¸æœºè·ç¦»åŠ¨æ€è®¡ç®—è½´é•¿ï¼Œä¿æŒå±å¹•å›ºå®šå¤§å°
     float scaleFactor = (cameraDistance * m_BaseScreenSize) /
                         (viewportHeight * tan(fov * 0.5f));
     m_CurrentAxisLength = scaleFactor;
 
-    // ´¥·¢¼¸ºÎ¸üĞÂ
+    // è§¦å‘å‡ ä½•æ›´æ–°
     ConvertToDrawableData();
 }
 
 void CenterAxesModel::ConvertToDrawableData() {
-    // Èç¹û¼¸ºÎÊı¾İÎ´³õÊ¼»¯£¬ÏÈ³õÊ¼»¯»ù±¾½á¹¹
+    // å¦‚æœå‡ ä½•æ•°æ®æœªåˆå§‹åŒ–ï¼Œå…ˆåˆå§‹åŒ–åŸºæœ¬ç»“æ„
     if (!m_GeometryInitialized) {
         InitializeGeometry();
         return;
     }
 
-    // »ñÈ¡µ±Ç°Ğı×ªÖĞĞÄÎ»ÖÃ
+    // è·å–å½“å‰æ—‹è½¬ä¸­å¿ƒä½ç½®
     const auto& center = m_RotationCenter; 
 
-    //=== 1. ¸üĞÂ¶¥µãÎ»ÖÃÊı¾İ ===
+    //=== 1. æ›´æ–°é¡¶ç‚¹ä½ç½®æ•°æ® ===
     m_Positions->Reset();
     m_Positions->SetDimension(3);
 
-    // Ô­µã (Ë÷Òı0)
+    // åŸç‚¹ (ç´¢å¼•0)
     m_Positions->AddElement3(center.x, center.y, center.z);
 
-    // XÖáÆğµãºÍÖÕµã (Ë÷Òı1ºÍ2)
+    // Xè½´èµ·ç‚¹å’Œç»ˆç‚¹ (ç´¢å¼•1å’Œ2)
     m_Positions->AddElement3(center[0] - m_CurrentAxisLength, center[1],
                              center[2]);
     m_Positions->AddElement3(center[0] + m_CurrentAxisLength, center[1],
                              center[2]);
 
-    // YÖáÆğµãºÍÖÕµã (Ë÷Òı3ºÍ4)
+    // Yè½´èµ·ç‚¹å’Œç»ˆç‚¹ (ç´¢å¼•3å’Œ4)
     m_Positions->AddElement3(center[0], center[1] - m_CurrentAxisLength,
                              center[2]);
     m_Positions->AddElement3(center[0], center[1] + m_CurrentAxisLength,
                              center[2]);
 
-    // ZÖáÆğµãºÍÖÕµã (Ë÷Òı5ºÍ6)
+    // Zè½´èµ·ç‚¹å’Œç»ˆç‚¹ (ç´¢å¼•5å’Œ6)
     m_Positions->AddElement3(center[0], center[1],
                              center[2] - m_CurrentAxisLength);
     m_Positions->AddElement3(center[0], center[1],
                              center[2] + m_CurrentAxisLength);
 
-    //=== 2. ¸üĞÂÑÕÉ«Êı¾İ (±£³Ö²»±ä) ===
+    //=== 2. æ›´æ–°é¢œè‰²æ•°æ® (ä¿æŒä¸å˜) ===
 
-    //=== 3. ¸üĞÂÏß¶ÎË÷Òı (±£³Ö²»±ä) ===
+    //=== 3. æ›´æ–°çº¿æ®µç´¢å¼• (ä¿æŒä¸å˜) ===
 
 
-    //=== 4. ±ê¼ÇÊı¾İÒÑ¸üĞÂ ===
+    //=== 4. æ ‡è®°æ•°æ®å·²æ›´æ–° ===
     m_Positions->Modified();
-    Modified(); // Í¨Öª»ùÀàÊı¾İÒÑ¸üĞÂ
+    Modified(); // é€šçŸ¥åŸºç±»æ•°æ®å·²æ›´æ–°
 }
 
 void CenterAxesModel::HandleDrag(igm::vec3 worldOffset) {
-    // ¸üĞÂĞı×ªÖĞĞÄ£¨±£³ÖÔ­Éî¶È£©
+    // æ›´æ–°æ—‹è½¬ä¸­å¿ƒï¼ˆä¿æŒåŸæ·±åº¦ï¼‰
     m_RotationCenter += worldOffset;
-    SetRotationCenter(m_RotationCenter); // Í¬²½µ½³¡¾°
+    SetRotationCenter(m_RotationCenter); // åŒæ­¥åˆ°åœºæ™¯
 
-    // Á¢¼´Ë¢ĞÂ¼¸ºÎÊı¾İ
+    // ç«‹å³åˆ·æ–°å‡ ä½•æ•°æ®
     ConvertToDrawableData();
     SyncGpuBuffers();
 }
