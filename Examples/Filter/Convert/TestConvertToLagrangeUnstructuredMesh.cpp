@@ -20,7 +20,7 @@ int main() {
         return 0;
     }
     auto input = obj;
-    //新建切割的filter
+    //新建转换为lagrange网格的filter
     auto filter = iGame::ConvertToLagrangeUnstructuredMesh::New();
     //设置输入
     filter->SetInput(input);

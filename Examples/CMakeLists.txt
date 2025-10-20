@@ -63,6 +63,7 @@ add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/TestAnimatio
 add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
 
 add_executable(testClip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestClip.cpp")
+add_executable(testSlice "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestSlice.cpp")
 add_executable(testDeformation "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestStressDeformationFilter.cpp")
 add_executable(testContourLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestContourLine.cpp")
 
@@ -76,6 +77,10 @@ add_executable(testCurvatureExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Featu
 add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/GradientExtraction.cpp")
 add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
 add_executable(testVortexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexDetection.cpp")
+
+add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
+add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
+add_executable(testConvertToLagrangeUnstructuredMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp")
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -144,7 +149,10 @@ target_link_libraries(testVortexExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCurvatureExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testVortexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testSplineSurfaceReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSplineVolumeReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
