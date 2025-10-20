@@ -36,6 +36,9 @@ public:
     void GetPlane(float o[3], float n[3]);
     void GetPlane(double o[3], double n[3]);
     ///@}
+
+    void SetInvert(bool _in);
+
 protected:
     ModelClip();
 
@@ -45,7 +48,7 @@ protected:
     double m_Origin[3];
 
 
-    bool m_InsideOut = true;
+    bool m_invert = true;
 
     /**
      * 计算顶点的value值和cell的状态，顶点的values值为点到切割面的带符号距离，

@@ -1,16 +1,16 @@
-#include <iostream>
-#include <iGameVolume.h>
+#include <Slice/iGameSliceFilter.h>
 #include <Core/iGameScene.h>
-#include <iGameRenderWindow.h>
-#include <iGameMultiRenderWindowManager.h>
-#include <iGameInteractor.h>
-#include <iGameFileIO.h>
-#include <Clip/iGameClipFilter.h>
 #include <VectorView/iGameVectorBase.h>
+#include <iGameFileIO.h>
+#include <iGameInteractor.h>
+#include <iGameMultiRenderWindowManager.h>
+#include <iGameRenderWindow.h>
+#include <iGameVolume.h>
+#include <iostream>
 
-int main(){
+int main() {
 
-    /* åˆ›å»ºåœºæ™¯*/
+    /* ´´½¨³¡¾°*/
     auto scene = iGame::Scene::New();
     const std::string fileName = "./Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
@@ -20,28 +20,24 @@ int main(){
         return 0;
     }
     auto input = obj;
-    //æ–°å»ºåˆ‡å‰²çš„filter
-    auto filter = iGame::ClipFilter::New();
-    //è®¾ç½®è¾“å…¥
+    //ĞÂ½¨ÇĞ¸îµÄfilter
+    auto filter = iGame::SliceFilter::New();
+    //ÉèÖÃÊäÈë
     filter->SetInput(input);
     auto bound = input->GetBoundingBox();
     auto ori = (bound.min + bound.max) / 2;
-    float n[3] = { 0, 1, 0 };
-    float o[3] = { ori[0], ori[1], ori[2] };
-    //è®¾ç½®åˆ‡å‰²çš„å¹³é¢
+    float n[3] = {0, 1, 0};
+    float o[3] = {ori[0], ori[1], ori[2]};
+    //ÉèÖÃÇĞ¸îµÄÆ½Ãæ
     filter->SetPlane(o, n);
-    //è®¾ç½®æ˜¯å¦ç¿»è½¬
-    filter->SetInvert(true);
-    //æ‰§è¡Œåˆ‡å‰²
+    //Ö´ĞĞÇĞ¸î
     filter->Execute();
-    //è¿”å›ç»“æœ
+    //·µ»Ø½á¹û
     auto res = filter->GetOutput();
     (DynamicCast<iGame::DrawObject>(res))->SetViewStyle(IG_SURFACE);
-    (DynamicCast<iGame::DrawObject>(res))->ViewCloudPicture(scene,0);
-    if (res != nullptr) {
-        scene->AddModel(res);
-    }
-    /* å¯åŠ¨çª—å£è®¾ç½®*/
+    (DynamicCast<iGame::DrawObject>(res))->ViewCloudPicture(scene, 0);
+    if (res != nullptr) { scene->AddModel(res); }
+    /* Æô¶¯´°¿ÚÉèÖÃ*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
