@@ -57,11 +57,13 @@ add_executable(testConvertToSurfaceMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Conv
 add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
 add_executable(testNurbsReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NurbsReader.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
+add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.cpp")
 
 add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/TestAnimation.cpp")
 add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
 
 add_executable(testClip "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestClip.cpp")
+add_executable(testSlice "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestSlice.cpp")
 add_executable(testDeformation "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestStressDeformationFilter.cpp")
 add_executable(testContourLine "${CMAKE_CURRENT_SOURCE_DIR}/Filter/TestContourLine.cpp")
 
@@ -74,7 +76,11 @@ add_executable(testVortexExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureE
 add_executable(testCurvatureExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/CurvatureExtraction.cpp")
 add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/GradientExtraction.cpp")
 add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
-add_executable(testVotexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VotexDetection.cpp")
+add_executable(testVortexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexDetection.cpp")
+
+add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
+add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
+add_executable(testConvertToLagrangeUnstructuredMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp")
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -124,6 +130,7 @@ target_link_libraries(testConvertToSurfaceMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGET
 
 target_link_libraries(testAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testClip PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSlice PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testDeformation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testContourLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
@@ -131,6 +138,7 @@ target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testNurbsReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testNastranReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -141,7 +149,11 @@ target_link_libraries(testVortexExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCurvatureExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testVotexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVortexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testSplineSurfaceReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSplineVolumeReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
