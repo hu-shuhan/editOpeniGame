@@ -149,6 +149,7 @@ target_link_libraries(testVortexExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCurvatureExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testVortexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testSplineSurfaceReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSplineVolumeReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
