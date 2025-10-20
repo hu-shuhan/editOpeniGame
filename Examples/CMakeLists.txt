@@ -57,6 +57,7 @@ add_executable(testConvertToSurfaceMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Conv
 add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
 add_executable(testNurbsReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NurbsReader.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
+add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.cpp")
 
 add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/TestAnimation.cpp")
 add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
@@ -131,6 +132,7 @@ target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testNurbsReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testNastranReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

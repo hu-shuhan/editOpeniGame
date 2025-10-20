@@ -78,6 +78,28 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests" DESTINATION Resources)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders/GLSL" DESTINATION Resources/Shaders)
 
+    # Install Python scripts for NastranReader
+
+#        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/Python/pyNastran")
+#            install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/Python/pyNastran"
+#                    DESTINATION Resources/Python
+#                    FILES_MATCHING PATTERN "*.py"
+#                    PATTERN "__pycache__" EXCLUDE
+#                    PATTERN "*.pyc" EXCLUDE)
+#            message(STATUS "将安装Python脚本到 Resources/Python/pyNastran")
+#        endif()
+
+if(ENABLE_NASTRAN_MODULE)
+    # Install Nastran converter executable
+    set(NASTRAN_CONVERTER_EXE "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/Python/pyNastranLib/nastran_to_vtk_cli.exe")
+    if(EXISTS "${NASTRAN_CONVERTER_EXE}")
+        install(FILES "${NASTRAN_CONVERTER_EXE}"
+                DESTINATION bin/NastranConverter)
+        message(STATUS "将安装Nastran转换器到 bin/NastranConverter/nastran_to_vtk_cli.exe")
+    else()
+        message(WARNING "未找到Nastran转换器: ${NASTRAN_CONVERTER_EXE}")
+    endif()
+endif ()
 
     # 导出模块的 CMake 配置文件，供其他项目查找使用
     install(EXPORT ${MODULE_NAME}Targets
