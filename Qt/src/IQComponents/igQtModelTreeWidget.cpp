@@ -1,7 +1,6 @@
 #include <IQComponents/igQtModelTreeWidget.h>
 
-ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
-    : QTreeWidgetItem(parent), visibility(true) {
+ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(parent), visibility(true) {
     QWidget* buttonWidget = new QWidget(parent);
     QHBoxLayout* layout = new QHBoxLayout(buttonWidget);
 
@@ -37,18 +36,15 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent)
     view_points->setConcernFunctor(&ModelTreeWidgetItem::showPoints, this);
     view_points->setCancelFunctor(&ModelTreeWidgetItem::hidePoints, this);
 
-    view_wireframe->setConcernFunctor(&ModelTreeWidgetItem::showWireframe,
-                                      this);
+    view_wireframe->setConcernFunctor(&ModelTreeWidgetItem::showWireframe, this);
     view_wireframe->setCancelFunctor(&ModelTreeWidgetItem::hideWireframe, this);
 
     view_fill->setConcernFunctor(&ModelTreeWidgetItem::showFill, this);
     view_fill->setCancelFunctor(&ModelTreeWidgetItem::hideFill, this);
 
-    view_pickedItem->setConcernFunctor(&ModelTreeWidgetItem::showPickedItem,
-                                       this);
-    view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem,
-                                      this);
-    this->parent=parent;
+    view_pickedItem->setConcernFunctor(&ModelTreeWidgetItem::showPickedItem, this);
+    view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem, this);
+    this->parent = parent;
 }
 iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
 
@@ -56,8 +52,8 @@ void ModelTreeWidgetItem::setModel(iGame::Model::Pointer model) {
     this->model = model;
     view_fill->setChecked(true);
     view_pickedItem->setChecked(true);
-//    view_wireframe->setChecked(true);
-//    showWireframe();
+    //    view_wireframe->setChecked(true);
+    //    showWireframe();
     showFill();
     showPickedItem();
 }
@@ -74,23 +70,17 @@ void ModelTreeWidgetItem::changeVisibility() {
 void ModelTreeWidgetItem::changeVisibility(bool vis) {
     if (!vis) {
         hide();
-    }
-    else {
+    } else {
         show();
     }
 }
 void ModelTreeWidgetItem::viewAttribute(int index, int dim) {
     model->ViewCloudPicture(index, dim);
     Q_EMIT dynamic_cast<igQtModelTreeWidget*>(this->parent)->ViewCloudPicture();
-
 }
 
-void ModelTreeWidgetItem::setCurrentChild(QTreeWidgetItem* child) {
-    current_child = child;
-}
-QTreeWidgetItem* ModelTreeWidgetItem::getCurrentChild() {
-    return current_child;
-}
+void ModelTreeWidgetItem::setCurrentChild(QTreeWidgetItem* child) { current_child = child; }
+QTreeWidgetItem* ModelTreeWidgetItem::getCurrentChild() { return current_child; }
 
 bool ModelTreeWidgetItem::getVisibility() const { return visibility; }
 
@@ -161,16 +151,13 @@ void ModelTreeWidgetItem::update() {
     if (model) { model->Update(); }
 }
 
-AttribTreeWidgetItem::AttribTreeWidgetItem(int index,
-                                         QTreeWidget* treeview,
-                     ModelTreeWidgetItem* parent)
+AttribTreeWidgetItem::AttribTreeWidgetItem(int index, QTreeWidget* treeview, ModelTreeWidgetItem* parent)
     : index(index), QTreeWidgetItem(parent), parent(parent) {
 
     QWidget* widget = new QWidget(treeview);
     comboBox = new MComboBox(this, widget);
-    comboBox->setStyleSheet(
-            "QComboBox { background-color: transparent; }"
-            "QComboBox QAbstractItemView { background-color: white; }");
+    comboBox->setStyleSheet("QComboBox { background-color: transparent; }"
+                            "QComboBox QAbstractItemView { background-color: white; }");
 
     setDimension(1);
 
@@ -183,22 +170,18 @@ void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
 
     comboBox->addItem("magnitude");
-    if (length < 2)return;
+    if (length < 2) return;
     if (length < 4) {
         if (length > 0) comboBox->addItem(QString::fromStdString("x"));
         if (length > 1) comboBox->addItem(QString::fromStdString("y"));
         if (length > 2) comboBox->addItem(QString::fromStdString("z"));
-    }
-    else {
-        for (int i = 0; i < length; i++) {
-            comboBox->addItem(QString::fromStdString("D" + std::to_string(i)));
-        }
+    } else {
+        for (int i = 0; i < length; i++) { comboBox->addItem(QString::fromStdString("D" + std::to_string(i))); }
     }
     comboBox->setCurrentIndex(0);
 }
 
-igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent)
-    : QTreeWidget(parent) {}
+igQtModelTreeWidget::igQtModelTreeWidget(QWidget* parent) : QTreeWidget(parent) {}
 
 ModelTreeWidgetItem* igQtModelTreeWidget::getItem(const QPoint& p) const {
     return dynamic_cast<ModelTreeWidgetItem*>(itemAt(p));
@@ -207,17 +190,15 @@ QTreeWidgetItem* igQtModelTreeWidget::getChild(const QPoint& p) const {
     return dynamic_cast<QTreeWidgetItem*>(itemAt(p));
 }
 
-void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
-    currentModelItem = item;
-    //std::cout << "change\n";
-}
+//void igQtModelTreeWidget::setCurrentModelItem(ModelTreeWidgetItem* item) {
+//    currentModelItem = item;
+//    //std::cout << "change\n";
+//}
 
-ModelTreeWidgetItem* igQtModelTreeWidget::getCurrentModelItem() {
-    return currentModelItem;
-}
+//ModelTreeWidgetItem* igQtModelTreeWidget::getCurrentModelItem() { return currentModelItem; }
 
 //void igQtModelTreeWidget::setCurrentModel(ModelTreeWidgetItem* item) {
-//    if (currentModel) { 
+//    if (currentModel) {
 //        auto* current = dynamic_cast<AttribTreeWidgetItem*>(
 //                currentModel->getCurrentChild());
 //        if (current) { current->hide(); }
@@ -235,9 +216,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         // Gets the position of the click and the position of the icon
         QRect iconItem = visualItemRect(item);
         QSize iconSize = item->icon(0).actualSize(QSize(20, 24));
-        QRect iconRect(iconItem.left() + 4,
-                       iconItem.top() +
-                               (iconItem.height() - iconSize.height()) / 2,
+        QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
                        iconSize.width(), iconSize.height());
 
         // Determine if the icon area has been clicked
@@ -245,48 +224,39 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             item->changeVisibility();
             call = false;
         } else if (currentItem() != item) { // Check operation
-            iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(
-                    item->getModel());
+            iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
             setItemSelected(item, true);
             item->getModel()->ViewCloudPicture(-1);
             emit ChangeCurrentModel(item->getModel());
             Q_EMIT ViewCloudPicture();
-            auto* current = dynamic_cast<AttribTreeWidgetItem*>(
-                    item->getCurrentChild());
+            auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
             if (current) { current->hide(); }
             item->setCurrentChild(nullptr);
-            if (currentModelItem != item) { this->setCurrentModelItem(item); }
+
+            //if (currentModelItem != item) { this->setCurrentModelItem(item); }
         }
 
 
     } else if ((child = getChild(event->pos())) && child) {
         int index = child->data(0, Qt::UserRole).toInt();
-        ModelTreeWidgetItem* parent =
-                dynamic_cast<ModelTreeWidgetItem*>(child->parent());
+        ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
         if (parent) {
+            auto currentModelItem = currentItem();
             if (currentModelItem != parent) {
-                this->setCurrentModelItem(parent);
-                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(
-                    parent->getModel());
+                //this->setCurrentModelItem(parent);
+                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
                 emit ChangeCurrentModel(parent->getModel());
-                
             }
             AttribTreeWidgetItem* current{nullptr};
-            if (parent->getCurrentChild()) {
-                current = dynamic_cast<AttribTreeWidgetItem*>(
-                        parent->getCurrentChild());
-            }
+            if (parent->getCurrentChild()) { current = dynamic_cast<AttribTreeWidgetItem*>(parent->getCurrentChild()); }
 
             if (current) { current->hide(); }
-            AttribTreeWidgetItem* c =
-                    dynamic_cast<AttribTreeWidgetItem*>(child);
+            AttribTreeWidgetItem* c = dynamic_cast<AttribTreeWidgetItem*>(child);
             c->show();
             parent->setCurrentChild(child);
 
             int dim = c->currentIndex();
-            if (dim == -1) { 
-                dim = 0;
-            }
+            if (dim == -1) { dim = 0; }
             c->viewAttribute(dim - 1);
             Q_EMIT ViewCloudPicture();
         }

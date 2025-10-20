@@ -927,7 +927,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension) {
-    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+    if (!m_ColorMapper->GetStable() && m_ColorMapper->GetMTime() <= this->GetMTime()) {
         double magnitude_min = attrRange->GetValue(0);
         double magnitude_max = attrRange->GetValue(1);
         if (magnitude_min < magnitude_max) {

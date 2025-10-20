@@ -65,6 +65,10 @@ add_executable(testChangeColorBar "${CMAKE_CURRENT_SOURCE_DIR}/ColorBar/ChangeCo
 
 add_executable(testMultiscaleInteraction "${CMAKE_CURRENT_SOURCE_DIR}/MultiscaleInteraction/TestMultiscaleInteraction.cpp")
 
+add_executable(testVortexExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexExtraction.cpp")
+add_executable(testCurvatureExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/CurvatureExtraction.cpp")
+add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/GradientExtraction.cpp")
+add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
 
 # Link libraries for each target
 target_link_libraries(testSetRenderWindow PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -121,6 +125,11 @@ target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testMultiscaleInteraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+
+target_link_libraries(testVortexExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testCurvatureExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)

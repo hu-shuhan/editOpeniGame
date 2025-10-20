@@ -1,4 +1,4 @@
-ï»¿#ifndef IGAME_CENTER_AXES_MODEL_H
+#ifndef IGAME_CENTER_AXES_MODEL_H
 #define IGAME_CENTER_AXES_MODEL_H
 
 
@@ -35,7 +35,7 @@ public:
 
     void HandleDrag(igm::vec3 worldOffset);
 
-    // ÐÂÔö·½·¨
+    // ????????
     void SetScreenSize(float pixelSize) { m_BaseScreenSize = pixelSize; }
     void UpdateAxisScale(float cameraDistance, float fov, int viewportHeight);
 
@@ -60,9 +60,9 @@ private:
     igm::vec3 m_RotationCenter;
     igm::mat4 m_ModelMatrix;
 
-    // ÐÂÔö£º¶¯Ì¬Ëõ·Å¿ØÖÆ
-    float m_CurrentAxisLength = DEFAULT_AXIS_LENGTH; // µ±Ç°Öá³¤
-    float m_BaseScreenSize = 20.0f;                  // Ä¿±êÆÁÄ»ÏñËØ´óÐ¡
+    // ????????????????
+    float m_CurrentAxisLength = DEFAULT_AXIS_LENGTH; // ?????
+    float m_BaseScreenSize = 20.0f;                  // ???????????Ð¡
 
 
 };

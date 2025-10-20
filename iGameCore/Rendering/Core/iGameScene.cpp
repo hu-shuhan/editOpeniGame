@@ -67,6 +67,7 @@ Scene::Scene() {
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
 
+    m_CenterAxesModel = CenterAxesModel::New();
 }
 Scene::~Scene() {}
 
@@ -83,9 +84,8 @@ bool Scene::Initialize() {
     ResetCameraView();
 
     // 添加中心坐标轴到模型池
-    m_CenterAxesModel = CenterAxesModel::New();
-    
-    m_CenterAxesModel->AddViewStyle(IG_WIREFRAME); // 添加线框视图样式（默认不显示线）
+    m_CenterAxesModel->AddViewStyle(
+            IG_WIREFRAME);                   // 添加线框视图样式（默认不显示线）
     m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
     m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
     m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
@@ -728,7 +728,7 @@ void Scene::DrawFrame() {
         m_Painter3D->Draw();
     }
 
-    
+
     // draw axes in bottom left
     {
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
@@ -736,9 +736,6 @@ void Scene::DrawFrame() {
         m_Axes->Draw();
         /*if (m_CenterAxes && m_CenterAxes->IsVisible()) { m_CenterAxes->Draw(); }*/
     }
-
-    
-
 }
 
 void Scene::ResolveFrame() {
@@ -824,7 +821,8 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f && !drawObject->IsAlwaysOnTop()) {
+        if (drawObject->GetTransparency() == 1.0f &&
+            !drawObject->IsAlwaysOnTop()) {
             model->Draw();
         }
         // draw painter(since painter does not support transparency)
@@ -839,7 +837,8 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f && drawObject->IsAlwaysOnTop()) {
+        if (drawObject->GetTransparency() == 1.0f &&
+            drawObject->IsAlwaysOnTop()) {
             model->Draw();
         }
     }
@@ -1234,8 +1233,7 @@ void Scene::RotateNinetyClockwise() {
 
 void Scene::RotateNinetyCounterClockwise() {
     igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz()
-              << std::endl;
+    std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
     std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
@@ -1356,8 +1354,6 @@ igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
 }
 
 
-
-
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
@@ -1403,7 +1399,6 @@ void Scene::UpdateModelsBoundingSphere() {
     m_ModelsBoundingSphere = igm::vec4{center, radius};
     if (!m_CustomRotationCenter) {
         SetRotationCenter(m_ModelsBoundingSphere.xyz());
-
     }
 }
 
