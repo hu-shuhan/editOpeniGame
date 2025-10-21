@@ -9,21 +9,21 @@ IGAME_NAMESPACE_BEGIN
 
 class LagrangeFace : public Cell {
 public:
-    // ÉèÖÃ/»ñÈ¡µ¥ÔªµÄ½×Êı
+    // è®¾ç½®/è·å–å•å…ƒçš„é˜¶æ•°
     void SetOrder(int order) { m_Order = order; }
     int GetOrder() const { return m_Order; }
 
-    // 2Dµ¥ÔªÃ»ÓĞÃæ
+    // 2Då•å…ƒæ²¡æœ‰é¢
     int GetNumberOfFaces() override { return 0; }
     Cell* GetFace(const int) override { return nullptr; }
 
-    // ¶¯Ì¬Éú³ÉÒ»¸öLagrangeLine¶ÔÏóÀ´±íÊ¾±ß
+    // åŠ¨æ€ç”Ÿæˆä¸€ä¸ªLagrangeLineå¯¹è±¡æ¥è¡¨ç¤ºè¾¹
     Cell* GetEdge(const int edgeId) override {
         const igIndex* ptIds = nullptr;
         int numEdgePoints = GetEdgePointIds(edgeId, ptIds);
         if (numEdgePoints == 0) return nullptr;
 
-        m_Edge->SetOrder(numEdgePoints - 1); // ±ßµÄ½×ÊıÊÇ½ÚµãÊı-1
+        m_Edge->SetOrder(numEdgePoints - 1); // è¾¹çš„é˜¶æ•°æ˜¯èŠ‚ç‚¹æ•°-1
         m_Edge->Reset();
         m_Edge->m_PointIds->SetNumberOfIds(numEdgePoints);
         m_Edge->m_Points->SetNumberOfPoints(numEdgePoints);
@@ -35,7 +35,7 @@ public:
         return m_Edge.get();
     }
 
-    // ×ÓÀà±ØĞëÊµÏÖÕâĞ©´¿Ğéº¯Êı
+    // å­ç±»å¿…é¡»å®ç°è¿™äº›çº¯è™šå‡½æ•°
     virtual int GetNumberOfEdges() = 0;
     virtual int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) = 0;
 

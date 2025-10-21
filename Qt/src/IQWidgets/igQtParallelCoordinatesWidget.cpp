@@ -673,7 +673,7 @@ void igQtParallelCoordinatesWidget::DrawLinkImage(QRect& linkImageArea) {
         painter.setFont(font);
         painter.drawText(linkImageArea, Qt::AlignCenter, "Loading...");
     } else {
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // ÉèÖÃÆ½»¬Ëõ·Å
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // è®¾ç½®å¹³æ»‘ç¼©æ”¾
         {
             std::lock_guard lg(m_LinkImageMutex);
             painter.drawImage(linkImageArea, m_LinkImage);
@@ -788,9 +788,10 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
     if (Data->GetVariableSort().size() == 1) {
         int variableIndex = Data->GetVariableSort().front();
         for (auto& objId: drawSort) {
+            auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
             if (Data->NotInFilterValueRange(objId)) continue;
             painter->setPen(
-                    QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
+                    QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha()), 1));
             GenerateDrawLinkImage(
                     linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                     linkBottomPoints.front().y(), Data->GetObjectData(objId, variableIndex),
@@ -801,8 +802,9 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
         return;
     }
     for (auto& objId: drawSort) {
+        auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
         if (Data->NotInFilterValueRange(objId)) continue;
-        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];
             int variableIndexB = Data->GetVariableSort()[sortIndex + 1];

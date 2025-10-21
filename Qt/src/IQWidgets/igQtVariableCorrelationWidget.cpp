@@ -675,10 +675,11 @@ void igQtVariableCorrelationWidget::_DrawCorImage(int mainVariableIndex, int sub
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
     for (auto& objId: objDrawSort) {
+        auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
         _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
+                   Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
     }
 }
 
@@ -724,7 +725,7 @@ void igQtVariableCorrelationWidget::_DrawImages(const QRect& range) {
         painter.setFont(font);
         painter.drawText(range, Qt::AlignCenter, "Loading...");
     } else {
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // ÉèÖÃÆ½»¬Ëõ·Å
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // è®¾ç½®å¹³æ»‘ç¼©æ”¾
         {
             std::lock_guard lg(m_CorImageMutex);
             painter.drawImage(range, m_CorImage);

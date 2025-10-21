@@ -1,6 +1,7 @@
 #include <IGC/iGameIGCReader.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
+#include <iGameFileIO.h>
 #include <string>
 
 int main() {
@@ -10,11 +11,8 @@ int main() {
     // Read the file and add it to the scene
     const std::string fileName = "./Models/comp.igc";
 
-    iGame::IGCReader::Pointer reader = iGame::IGCReader::New();
-    reader->SetFilePath(fileName);
-    reader->Execute();
+    iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 
-    iGame::DataObject::Pointer obj = reader->GetOutput();
     scene->AddModel(obj);
 
     // Set up the render window

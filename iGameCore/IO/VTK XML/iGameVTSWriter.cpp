@@ -20,7 +20,7 @@ void VTSWriter::WriteHeaderToBuffer() {
     auto buffer = CharArray::New();
 
 
-    auto dims = m_StructuredMesh->GetDimensionSize(); // 假设 StructuredMesh 提供维度获取方法
+    auto dims = m_StructuredMesh->GetDimensionSize(); // 鍋囪 StructuredMesh 鎻愪緵缁村害鑾峰彇鏂规硶
 
     std::string data = "<VTKFile type=\"StructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\">\n";
     data += "<StructuredGrid WholeExtent=\"0 " + std::to_string(dims[0] - 1) + " 0 " + std::to_string(dims[1] - 1) +

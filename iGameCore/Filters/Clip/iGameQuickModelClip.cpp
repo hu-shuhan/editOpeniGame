@@ -1021,7 +1021,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
                     default:
                         igError("invalid cell type!");
                 }
-                if ((!this->m_InsideOut && theColor == COLOR0) || (this->m_InsideOut && theColor == COLOR1)) {
+                if ( theColor == COLOR1 ) {
                     thisCase += nCellPts;
                     continue;
                 }

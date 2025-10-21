@@ -29,7 +29,10 @@ public:
     const std::vector<std::pair<int, int>>& GetVariableIndex();
 
     void SetKeyObjectIds(const std::vector<int>& keyObjIds);
-    const std::vector<int>& GetKeyObjectIds();
+    const std::vector<int>& GetKeyObjectIds() const;
+
+    void SetKeyObjectIdToIndexMap(const std::map<int, int>& keyObjIdToIndex);
+    const std::map<int, int>& GetKeyObjectIdToIndexMap() const;
 
     void SetChoosedObjectIds(const std::set<int>& choosedObjIds);
     void AddChoosedObjectId(int objId);
@@ -59,6 +62,7 @@ protected:
 public:
     std::vector<std::pair<int, int>> m_VariableIndex;
     std::vector<int> m_KeyObjIds;
+    std::map<int, int> m_KeyObjIdToIndexs;
     std::set<int> m_ChoosedObjIds;
 
     std::vector<double> m_MaxValueInVariables;
@@ -79,6 +83,7 @@ public:
     static std::pair<std::vector<double>, std::vector<double>>
     GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
     static std::string GenerateDataTypeName(IGenum dataType);
+    static std::map<int, int> GenerateKeyObjectIdToIndexs(const std::vector<int>& objectIds);
 
 protected:
     static bool LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);

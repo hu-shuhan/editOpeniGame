@@ -19,29 +19,29 @@ public:
 	static Pointer New() { return new SurfaceMeshMetrics; }
 
 	enum SurfaceMetric {
-        //Í¨ÓÃÖ¸±ê
-        FACE_AREA, // Èı½ÇĞÎÃæ»ı
-        MAX_ANGLE, // ×î´óÄÚ½Ç
-        MIN_ANGLE, // ×îĞ¡ÄÚ½Ç
-        JACOBIAN,     // ÑÅ¿É±È
-        ASPECT_RATIO,       // ×İºá±È
-        EDGE_RATIO,         // ±ß³¤±È
+        //é€šç”¨æŒ‡æ ‡
+        FACE_AREA, // ä¸‰è§’å½¢é¢ç§¯
+        MAX_ANGLE, // æœ€å¤§å†…è§’
+        MIN_ANGLE, // æœ€å°å†…è§’
+        JACOBIAN,     // é›…å¯æ¯”
+        ASPECT_RATIO,       // çºµæ¨ªæ¯”
+        EDGE_RATIO,         // è¾¹é•¿æ¯”
 
-        // ËÄ±ßĞÎÌØÓĞÖ¸±ê
-        WARPAGE,     // ÇÌÇú¶È
-        TAPER,       // ×¶¶È
-        SKEW,        // ÍáĞ±¶È
+        // å››è¾¹å½¢ç‰¹æœ‰æŒ‡æ ‡
+        WARPAGE,     // ç¿˜æ›²åº¦
+        TAPER,       // é”¥åº¦
+        SKEW,        // æ­ªæ–œåº¦
 
-        ANGLE_QUALITY,  // ½Ç¶ÈÖÊÁ¿ (0-1)
-        MESH_VOLUME,    // ·â±ÕÍø¸ñÌå»ı
-        FACE_MIN_ANGLE, // ÃæÆ¬×îĞ¡½Ç¶È(¶È)
-        FACE_MAX_ANGLE, // ÃæÆ¬×î´ó½Ç¶È(¶È)
+        ANGLE_QUALITY,  // è§’åº¦è´¨é‡ (0-1)
+        MESH_VOLUME,    // å°é—­ç½‘æ ¼ä½“ç§¯
+        FACE_MIN_ANGLE, // é¢ç‰‡æœ€å°è§’åº¦(åº¦)
+        FACE_MAX_ANGLE, // é¢ç‰‡æœ€å¤§è§’åº¦(åº¦)
 
-        MESH_QUALITY,        // Íø¸ñÖÊÁ¿
+        MESH_QUALITY,        // ç½‘æ ¼è´¨é‡
 
-        // ĞÂÔöÏî
-        FACE_MIN_ANGLE_QUALITY, // Ãæ×îĞ¡½ÇÖÊÁ¿ (0-1) - MeshMath.h
-        MESH_VOLUME_SURFACE,            // ±íÃæÍø¸ñÌå»ı - MeshMath.h
+        // æ–°å¢é¡¹
+        FACE_MIN_ANGLE_QUALITY, // é¢æœ€å°è§’è´¨é‡ (0-1) - MeshMath.h
+        MESH_VOLUME_SURFACE,            // è¡¨é¢ç½‘æ ¼ä½“ç§¯ - MeshMath.h
 	};
 
 	void SetSurfaceMetric(SurfaceMetric mode) {
@@ -60,14 +60,14 @@ public:
 protected:
 	SurfaceMeshMetrics();
 	~SurfaceMeshMetrics();
-    SurfaceMetric m_Metric = SurfaceMetric::FACE_AREA; //ÖÊÁ¿Ö¸±êÀàĞÍ
+    SurfaceMetric m_Metric = SurfaceMetric::FACE_AREA; //è´¨é‡æŒ‡æ ‡ç±»å‹
 
 	double ComputeMetric(igIndex vNum, igIndex* vhs);
 
-    // Í¨ÓÃ¸¨Öú·½·¨
+    // é€šç”¨è¾…åŠ©æ–¹æ³•
     static double GetInternalAnglesOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2);
 
-    // Èı½ÇĞÎ
+    // ä¸‰è§’å½¢
     static double ComputeTriangleArea(const std::vector<iGame::Point>& points);
     static double ComputeTriangleMaxAngle(const std::vector<iGame::Point>& points);
     static double ComputeTriangleMinAngle(const std::vector<iGame::Point>& points);
@@ -76,7 +76,7 @@ protected:
     static double ComputeTriangleEdgeRatio(const std::vector<iGame::Point>& points);
     static double ComputeTriangleMeshQuality(const std::vector<iGame::Point>& points);
 
-    //ËÄ±ßĞÎ
+    //å››è¾¹å½¢
     static double ComputeQuadArea(const std::vector<iGame::Point>& points);
     static double ComputeQuadMaxAngle(const std::vector<iGame::Point>& points);
     static double ComputeQuadMinAngle(const std::vector<iGame::Point>& points);
@@ -93,8 +93,8 @@ protected:
     static double ComputeSurfaceVolume(const std::vector<iGame::Point>& points);
     static double ComputeTotalSurfaceVolume(iGame::CellArray::Pointer faces, iGame::Points::Pointer points);
 
-	iGame::CellArray::Pointer m_Faces = nullptr;		//´æ´¢±íÃæÍø¸ñµÄÃæĞÅÏ¢
-	iGame::Points::Pointer m_Points = nullptr;			//´æ´¢±íÃæÍø¸ñµÄµãĞÅÏ¢
+	iGame::CellArray::Pointer m_Faces = nullptr;		//å­˜å‚¨è¡¨é¢ç½‘æ ¼çš„é¢ä¿¡æ¯
+	iGame::Points::Pointer m_Points = nullptr;			//å­˜å‚¨è¡¨é¢ç½‘æ ¼çš„ç‚¹ä¿¡æ¯
     static constexpr double PI = 3.14159265358979323846;
 };
 

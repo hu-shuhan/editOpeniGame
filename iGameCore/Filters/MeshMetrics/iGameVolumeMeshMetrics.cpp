@@ -42,18 +42,18 @@ bool VolumeMeshMetrics::Execute() {
             break;
         }
         default:
-            igDebug("ÇëÊäÈëÌåÍø¸ñ½øĞĞÖÊÁ¿¼ì²â");
+            igDebug("è¯·è¾“å…¥ä½“ç½‘æ ¼è¿›è¡Œè´¨é‡æ£€æµ‹");
             break;
     }
     if (!m_Cells) {
-        igDebug("Ã»ÓĞÌåÍø¸ñµ¥Ôª");
+        igDebug("æ²¡æœ‰ä½“ç½‘æ ¼å•å…ƒ");
         return false;
 
     }
-    igIndex vhs[IGAME_CELL_MAX_SIZE] = {0}; //´æ´¢Ã¿¸öÃæµÄ¶¥µãË÷ÒıÊı×é
-    igIndex vNum = 0;                       //Ã¿¸öÃæµÄ¶¥µãÊıÁ¿
+    igIndex vhs[IGAME_CELL_MAX_SIZE] = {0}; //å­˜å‚¨æ¯ä¸ªé¢çš„é¡¶ç‚¹ç´¢å¼•æ•°ç»„
+    igIndex vNum = 0;                       //æ¯ä¸ªé¢çš„é¡¶ç‚¹æ•°é‡
 
-    igIndex cellNum = m_Cells->GetNumberOfCells(); //×ÜÃæÊı
+    igIndex cellNum = m_Cells->GetNumberOfCells(); //æ€»é¢æ•°
 
     iGame::DoubleArray::Pointer metricArray = iGame::DoubleArray::New();
 
@@ -65,9 +65,9 @@ bool VolumeMeshMetrics::Execute() {
     dataRange->AddValue(0.0);
     dataRange->AddValue(1.0);
     for (igIndex i = 0; i < cellNum; i++) {
-        vNum = m_Cells->GetCellIds(i, vhs);             // »ñÈ¡¶¥µãË÷Òı
-        double metric = this->ComputeMetric(vNum, vhs); // ¼ÆËãÖÊÁ¿Ö¸±ê
-        metricArray->AddValue(metric);                  // ´æ´¢½á¹û
+        vNum = m_Cells->GetCellIds(i, vhs);             // è·å–é¡¶ç‚¹ç´¢å¼•
+        double metric = this->ComputeMetric(vNum, vhs); // è®¡ç®—è´¨é‡æŒ‡æ ‡
+        metricArray->AddValue(metric);                  // å­˜å‚¨ç»“æœ
     }
 
 
@@ -92,9 +92,9 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
     //double len= (p[1]-p[0]).norm();
     //return ComputeA(vNum, vhs);
 
-    // ¸ù¾İ¶¥µãÊıÁ¿Ñ¡Ôñ¼ÆËã·½·¨
+    // æ ¹æ®é¡¶ç‚¹æ•°é‡é€‰æ‹©è®¡ç®—æ–¹æ³•
     if (vNum == 4) {
-        // ËÄÃæÌå
+        // å››é¢ä½“
         switch (m_Metric) {
             case TET_EDGE_RATIO:
                 return ComputeTetEdgeRatio(points);
@@ -133,7 +133,7 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
                 break;
         }
     } else if (vNum == 8) {
-        // ÁùÃæÌå
+        // å…­é¢ä½“
         switch (m_Metric) {
             case HEX_VOLUME:
                 return ComputeHexVolume(points);
@@ -171,7 +171,7 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
 
 
 /*
-	* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄ×îĞ¡/×î´ó³¤¶È
+	* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„æœ€å°/æœ€å¤§é•¿åº¦
 */
 std::vector<double> VolumeMeshMetrics::GetMinAndMaxLenOfCell(const std::vector<iGame::Point>& points) {
     double minLength = DBL_MAX, maxLength = 0.0;
@@ -191,8 +191,8 @@ std::vector<double> VolumeMeshMetrics::GetMinAndMaxLenOfCell(const std::vector<i
 }
 
 /*
-	* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄ±ß³¤±È ×î³¤±ß/×î¶Ì±ß
-	* ÕıËÄÃæÌå£º1
+	* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„è¾¹é•¿æ¯” æœ€é•¿è¾¹/æœ€çŸ­è¾¹
+	* æ­£å››é¢ä½“ï¼š1
 	*/
 double VolumeMeshMetrics::ComputeTetEdgeRatio(const std::vector<iGame::Point>& points) {
     std::vector<double> result = GetMinAndMaxLenOfCell(points);
@@ -200,7 +200,7 @@ double VolumeMeshMetrics::ComputeTetEdgeRatio(const std::vector<iGame::Point>& p
 }
 
 /*
-* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄÌå»ı
+* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„ä½“ç§¯
 */
 double VolumeMeshMetrics::ComputeTetVolume(const std::vector<iGame::Point>& points) {
     std::vector<iGame::Point> L(3);
@@ -213,14 +213,14 @@ double VolumeMeshMetrics::ComputeTetVolume(const std::vector<iGame::Point>& poin
 }
 
 /*
-* ¼ÆËãÄ³Ò»¸öÃæµÄÃæ»ı 
+* è®¡ç®—æŸä¸€ä¸ªé¢çš„é¢ç§¯ 
 */
 double VolumeMeshMetrics::GetAreaOfFace(iGame::Point v1, iGame::Point v2, iGame::Point v3) {
     return ((v2 - v1).cross(v3 - v1)).norm() / 2.0;
 }
 
 /*
-* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄÃæ»ı ¸Ãµã¶ÔÓ¦ÃæµÄÃæ»ı 
+* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„é¢ç§¯ è¯¥ç‚¹å¯¹åº”é¢çš„é¢ç§¯ 
 */
 std::vector<double> VolumeMeshMetrics::GetAreaOfCell(const std::vector<iGame::Point>& points) {
    
@@ -242,7 +242,7 @@ std::vector<double> VolumeMeshMetrics::GetAreaOfCell(const std::vector<iGame::Po
 }
 
 /*
-* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄÄÚÇĞÇòµÄ°ë¾¶  3*volume/sum(area)
+* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„å†…åˆ‡çƒçš„åŠå¾„  3*volume/sum(area)
 */
 double VolumeMeshMetrics::GetInradiusOfCell(const std::vector<iGame::Point>& points) {
     std::vector<double> areas = GetAreaOfCell(points);
@@ -253,7 +253,7 @@ double VolumeMeshMetrics::GetInradiusOfCell(const std::vector<iGame::Point>& poi
 }
 
 	/*
-	* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄÍâ½ÓÇòµÄÇòĞÄ
+	* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„å¤–æ¥çƒçš„çƒå¿ƒ
 	*/
 iGame::Point VolumeMeshMetrics::GetOuterCircle(const std::vector<iGame::Point>& points) {
 
@@ -280,7 +280,7 @@ iGame::Point VolumeMeshMetrics::GetOuterCircle(const std::vector<iGame::Point>& 
 }
 
 /*
-	* ¼ÆËãÄ³Ò»¸öËÄÃæÌåµ¥ÔªµÄÍâ½ÓÇòµÄ°ë¾¶
+	* è®¡ç®—æŸä¸€ä¸ªå››é¢ä½“å•å…ƒçš„å¤–æ¥çƒçš„åŠå¾„
 	*/
 double VolumeMeshMetrics::GetCircumradiusOfCell(const std::vector<iGame::Point>& points) {
     iGame::Point outcircle = GetOuterCircle(points);
@@ -289,9 +289,9 @@ double VolumeMeshMetrics::GetCircumradiusOfCell(const std::vector<iGame::Point>&
 }
 
 	/*
-	* ¼ÆËãÄ³¸öËÄÃæÌåµÄ×İºá±È   ×î³¤±ß/( 2*sqrt(6)*ÄÚÇĞ°ë¾¶)   
-	* ½ÓÊÜ·¶Î§£º[1,3]
-	* ×îºÃ£º1
+	* è®¡ç®—æŸä¸ªå››é¢ä½“çš„çºµæ¨ªæ¯”   æœ€é•¿è¾¹/( 2*sqrt(6)*å†…åˆ‡åŠå¾„)   
+	* æ¥å—èŒƒå›´ï¼š[1,3]
+	* æœ€å¥½ï¼š1
 	*/
 double VolumeMeshMetrics::GetAspectRatioOfCell(const std::vector<iGame::Point>& points) {
     double r = GetInradiusOfCell(points);
@@ -303,16 +303,16 @@ double VolumeMeshMetrics::GetAspectRatioOfCell(const std::vector<iGame::Point>& 
 }
 
 /*
-	* ¼ÆËãÄ³¸öËÄÃæÌåµÄÑÅ¿É±ÈĞĞÁĞÊ½µÄ½á¹û Îª 6±¶µÄÌå»ı
-	* ½ÓÊÜ·¶Î§£º[0,DBL MAX]
-	* µ¥Î»³¤¶ÈÕıËÄÃæÌå£ºsqrt(2)/2
+	* è®¡ç®—æŸä¸ªå››é¢ä½“çš„é›…å¯æ¯”è¡Œåˆ—å¼çš„ç»“æœ ä¸º 6å€çš„ä½“ç§¯
+	* æ¥å—èŒƒå›´ï¼š[0,DBL MAX]
+	* å•ä½é•¿åº¦æ­£å››é¢ä½“ï¼šsqrt(2)/2
     */
 double VolumeMeshMetrics::GetJacobianOfCell(const std::vector<iGame::Point>& points) {
     return ComputeTetVolume(points) * 6.0;
 }
 
 /*
-	* ¼ÆËãÄ³¸öËÄÃæÌåµÄÄ³µãµÄËúÏİÂÊ
+	* è®¡ç®—æŸä¸ªå››é¢ä½“çš„æŸç‚¹çš„å¡Œé™·ç‡
 	*/
 double VolumeMeshMetrics::GetCollapseRatioOfVertex(iGame::Point v1, iGame::Point v2, iGame::Point v3,
                                                           double volume) {
@@ -326,10 +326,10 @@ double VolumeMeshMetrics::GetCollapseRatioOfVertex(iGame::Point v1, iGame::Point
 }
 
 /*
-	* ¼ÆËãÄ³¸öËÄÃæÌåµÄËúÏİÂÊ   Ä³µãËùÔÚ¸ß ³ıÒÔ ¸Ãµã¶ÔÓ¦µÄÃæµÄ×î³¤±ß¡£
-	* ·µ»ØËÄ¸öµãµÄÖĞ×îĞ¡ËúÏİÂÊ
-	* ½ÓÊÜ·¶Î§£º[0.1,DBL MAX]
-	* ×îºÃ£ºsqrt(6)/3
+	* è®¡ç®—æŸä¸ªå››é¢ä½“çš„å¡Œé™·ç‡   æŸç‚¹æ‰€åœ¨é«˜ é™¤ä»¥ è¯¥ç‚¹å¯¹åº”çš„é¢çš„æœ€é•¿è¾¹ã€‚
+	* è¿”å›å››ä¸ªç‚¹çš„ä¸­æœ€å°å¡Œé™·ç‡
+	* æ¥å—èŒƒå›´ï¼š[0.1,DBL MAX]
+	* æœ€å¥½ï¼šsqrt(6)/3
 	*/
 double VolumeMeshMetrics::GetCollapseRatioOfCell(const std::vector<iGame::Point>& points) {
     double volume = ComputeTetVolume(points);
@@ -343,9 +343,9 @@ double VolumeMeshMetrics::GetCollapseRatioOfCell(const std::vector<iGame::Point>
 }
 
 /*
-	*µÃµ½Ä³¸öËÄÃæÌåÌå»ıÍáĞ±¶È (Íâ½ÓÇòµÄÕıËÄÃæÌåµÄÌå»ı-Ìå»ı)/Íâ½ÓÇòµÄÕıËÄÃæÌåµÄÌå»ı
-	* ½ÓÊÜ·¶Î§£º[0,1]
-	* ×îºÃ£º0
+	*å¾—åˆ°æŸä¸ªå››é¢ä½“ä½“ç§¯æ­ªæ–œåº¦ (å¤–æ¥çƒçš„æ­£å››é¢ä½“çš„ä½“ç§¯-ä½“ç§¯)/å¤–æ¥çƒçš„æ­£å››é¢ä½“çš„ä½“ç§¯
+	* æ¥å—èŒƒå›´ï¼š[0,1]
+	* æœ€å¥½ï¼š0
 	*/
 double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<iGame::Point>& points){
     double circumRadius = GetCircumradiusOfCell(points);
@@ -357,7 +357,7 @@ double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<iGame::Point>& poin
 }
 
 /*
-	*µÃµ½Ä³¸öËÄÃæÌåµÄÄ³Ò»µãÍáĞ±¶È   Ä³¸ö½Úµãµ½¶Ô±ßÖĞµãµÄÏß¶Î Óë ÁíÍâÁ½Ìõ±ßÖĞµãÁ¬½ÓµÄÏß¶ÎÖ®¼ä µÄ½ÏĞ¡µÄ½Ç
+	*å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æŸä¸€ç‚¹æ­ªæ–œåº¦   æŸä¸ªèŠ‚ç‚¹åˆ°å¯¹è¾¹ä¸­ç‚¹çš„çº¿æ®µ ä¸ å¦å¤–ä¸¤æ¡è¾¹ä¸­ç‚¹è¿æ¥çš„çº¿æ®µä¹‹é—´ çš„è¾ƒå°çš„è§’
 	*/
 double VolumeMeshMetrics::GetSkewnessOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2) {
 
@@ -370,9 +370,9 @@ double VolumeMeshMetrics::GetSkewnessOfVertex(iGame::Point v0, iGame::Point v1, 
 }
 
 /*
-	*µÃµ½Ä³¸öËÄÃæÌåµÄÄ³¸öÃæµÄÍáĞ±¶È   ÎªÈı¸öµãµÄÍáĞ±¶ÈÖĞµÄ×î´óÖµ  Ä³¸ö½Úµãµ½¶Ô±ßÖĞµãµÄÏß¶Î Óë ÁíÍâÁ½Ìõ±ßÖĞµãÁ¬½ÓµÄÏß¶ÎÖ®¼ä µÄ½ÏĞ¡µÄ½Ç
-	* ½ÓÊÜ·¶Î§:(0,90]
-	* ×îºÃ£º90
+	*å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æŸä¸ªé¢çš„æ­ªæ–œåº¦   ä¸ºä¸‰ä¸ªç‚¹çš„æ­ªæ–œåº¦ä¸­çš„æœ€å¤§å€¼  æŸä¸ªèŠ‚ç‚¹åˆ°å¯¹è¾¹ä¸­ç‚¹çš„çº¿æ®µ ä¸ å¦å¤–ä¸¤æ¡è¾¹ä¸­ç‚¹è¿æ¥çš„çº¿æ®µä¹‹é—´ çš„è¾ƒå°çš„è§’
+	* æ¥å—èŒƒå›´:(0,90]
+	* æœ€å¥½ï¼š90
 	*/
 double VolumeMeshMetrics::GetSkewnessOfFace(const std::vector<iGame::Point>& points) {
     double skewOfFace = 0;
@@ -384,7 +384,7 @@ double VolumeMeshMetrics::GetSkewnessOfFace(const std::vector<iGame::Point>& poi
 }
 
 /*
-	*µÃµ½Ä³¸öËÄÃæÌåµÄÄ³¸öÃæµÄµÄv0µÄÄÚ½Ç
+	*å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æŸä¸ªé¢çš„çš„v0çš„å†…è§’
 	*/
 double VolumeMeshMetrics::GetInternalAnglesOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2) {
 
@@ -395,7 +395,7 @@ double VolumeMeshMetrics::GetInternalAnglesOfVertex(iGame::Point v0, iGame::Poin
 }
 
 /*
-	*µÃµ½Ä³¸öËÄÃæÌåµÄÄ³¸öÃæµÄÈı¸öÄÚ½Ç 
+	*å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æŸä¸ªé¢çš„ä¸‰ä¸ªå†…è§’ 
 	*/
 std::vector<double> VolumeMeshMetrics::GetInternalAnglesOfFace(const std::vector<iGame::Point>& points) {
     std::vector<double> angles;
@@ -407,15 +407,15 @@ std::vector<double> VolumeMeshMetrics::GetInternalAnglesOfFace(const std::vector
 
 
 /*
-* µÃµ½Ä³¸öËÄÃæÌåµÄËùÓĞÃæµÄÄÚ½Ç  
+* å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æ‰€æœ‰é¢çš„å†…è§’  
 */
 std::vector<std::vector<double>> VolumeMeshMetrics::GetInternalAnglesOfCell(const std::vector<iGame::Point>& points) {
     std::vector<std::vector<double>> angles;
 
-    // ËÄÃæÌåµÄËÄ¸öÃæ
+    // å››é¢ä½“çš„å››ä¸ªé¢
     std::vector<std::vector<iGame::Point>> faces = {
-            {points[1], points[2], points[3]}, // ÅÅ³ıpoints[0]µÄÃæ
-            {points[0], points[2], points[3]}, // ÅÅ³ıpoints[1]µÄÃæ
+            {points[1], points[2], points[3]}, // æ’é™¤points[0]çš„é¢
+            {points[0], points[2], points[3]}, // æ’é™¤points[1]çš„é¢
             {points[0], points[1], points[3]}, // ...
             {points[0], points[1], points[2]}  
     };
@@ -425,12 +425,12 @@ std::vector<std::vector<double>> VolumeMeshMetrics::GetInternalAnglesOfCell(cons
     return angles;
 }
 /*
-    *µÃµ½Ä³¸öËÄÃæÌåµÄ×îĞ¡ÄÚ½Ç£¬½Ç¶ÈÖÆ
+    *å¾—åˆ°æŸä¸ªå››é¢ä½“çš„æœ€å°å†…è§’ï¼Œè§’åº¦åˆ¶
     */
 double VolumeMeshMetrics::GetMinInternalAnglesOfCell(const std::vector<iGame::Point>& points) {
     double min_angle = DBL_MAX;
 
-    // ¼ÆËãËÄ¸öÃæµÄ×îĞ¡ÄÚ½Ç
+    // è®¡ç®—å››ä¸ªé¢çš„æœ€å°å†…è§’
     std::vector<std::vector<iGame::Point>> faces = {{points[1], points[2], points[3]},
                                                     {points[0], points[2], points[3]},
                                                     {points[0], points[1], points[3]},
@@ -445,7 +445,7 @@ double VolumeMeshMetrics::GetMinInternalAnglesOfCell(const std::vector<iGame::Po
 }
 
 	/*
-	* ¼ÆËãÄ³¸öËÄÃæÌåv0ËùÔÚµÄ¸ßµÄ³¤¶È
+	* è®¡ç®—æŸä¸ªå››é¢ä½“v0æ‰€åœ¨çš„é«˜çš„é•¿åº¦
 	*/
 double VolumeMeshMetrics::GetHighOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2, iGame::Point v3) {
     iGame::Point normOfFace = ((v2 - v1).cross(v3 - v1)).normalized();
@@ -453,8 +453,8 @@ double VolumeMeshMetrics::GetHighOfVertex(iGame::Point v0, iGame::Point v1, iGam
 }
 
 /*
-	* ¼ÆËãÄ³¸öËÄÃæÌåµÄÌå³¤¿í±È   ×î³¤±ß/×î¶Ì¸ß
-	* µ¥Î»ÕıËÄÃæÌå£ºsqrt(3)/2
+	* è®¡ç®—æŸä¸ªå››é¢ä½“çš„ä½“é•¿å®½æ¯”   æœ€é•¿è¾¹/æœ€çŸ­é«˜
+	* å•ä½æ­£å››é¢ä½“ï¼šsqrt(3)/2
 	*/
 double VolumeMeshMetrics::GetVolAspectRatioOfCell(const std::vector<iGame::Point>& points) {
     double maxLength = GetMinAndMaxLenOfCell(points)[1];
@@ -467,12 +467,12 @@ double VolumeMeshMetrics::GetVolAspectRatioOfCell(const std::vector<iGame::Point
 }
 
 	/*
-	* ¼ÆËãËùÓĞËÄÃæÌåµÄµÈ½ÇĞ±ÂÊ  max( (Qmax-Qe)/(180-Qe)£¬(Qe-Qmin)/Qe ) Qmax ×î´ó½Ç Qmin×îĞ¡ Qe 60£¨Èı½ÇĞÎ£©»ò90£¨ËÄ±ßĞÎ£© acos(1/3.0)ËÄÃæÌå
-	* ¼ÆËã³ö¶şÃæ½Ç ÇóÆäµÈ½ÇĞ±ÂÊ´óĞ¡
-	* ÔÙÇóËùÓĞÃæÖĞµÄ×î´ó½Ç ºÍ×îĞ¡½Ç  Ëã³öµÈ½ÇĞ±ÂÊ
-	* È¡Á½ÕßÖĞ½Ï´óµÄÒ»¸ö
+	* è®¡ç®—æ‰€æœ‰å››é¢ä½“çš„ç­‰è§’æ–œç‡  max( (Qmax-Qe)/(180-Qe)ï¼Œ(Qe-Qmin)/Qe ) Qmax æœ€å¤§è§’ Qminæœ€å° Qe 60ï¼ˆä¸‰è§’å½¢ï¼‰æˆ–90ï¼ˆå››è¾¹å½¢ï¼‰ acos(1/3.0)å››é¢ä½“
+	* è®¡ç®—å‡ºäºŒé¢è§’ æ±‚å…¶ç­‰è§’æ–œç‡å¤§å°
+	* å†æ±‚æ‰€æœ‰é¢ä¸­çš„æœ€å¤§è§’ å’Œæœ€å°è§’  ç®—å‡ºç­‰è§’æ–œç‡
+	* å–ä¸¤è€…ä¸­è¾ƒå¤§çš„ä¸€ä¸ª
 	* 
-	* ×îºÃ£º0
+	* æœ€å¥½ï¼š0
 	*
 	*/
 double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<iGame::Point>& points) {
@@ -489,7 +489,7 @@ double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<iGame::Po
     iGame::Vector3f acd = (cd.cross(ad)).normalized();
     iGame::Vector3f bcd = (bc.cross(cd)).normalized();
 
-    //¶şÃæ½Ç
+    //äºŒé¢è§’
     double alpha = acos(-(abc * abd));
     double beta = acos(-(abc * acd));
     double gamma = acos(-(abc * bcd));
@@ -521,7 +521,7 @@ double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<iGame::Po
     double maxEquiangleSkew = dihedralMaxSkew;
     maxEquiangleSkew = std::max(maxEquiangleSkew, dihedralMinSkew);
 
-    //ÃæÉÏµÄÄÚ½Ç
+    //é¢ä¸Šçš„å†…è§’
     /*double angles[12];
 
 		angles[0] = acos(-(ab * bc));
@@ -573,10 +573,10 @@ double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<iGame::Po
 
 
 
-//ÁùÃæÌå
+//å…­é¢ä½“
 
 
-// Ìå»ı
+// ä½“ç§¯
 double VolumeMeshMetrics::ComputeHexVolume(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -594,7 +594,7 @@ double VolumeMeshMetrics::ComputeHexVolume(const std::vector<iGame::Point>& poin
     return X_1.dot(X_2.cross(X_3)) / 64.0;
 }
 
-// ×¶¶È, range : [0, MAX], acceptable range [0, 0.5], unit cube : 0
+// é”¥åº¦, range : [0, MAX], acceptable range [0, 0.5], unit cube : 0
 double VolumeMeshMetrics::ComputeHexTaper(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -620,7 +620,7 @@ double VolumeMeshMetrics::ComputeHexTaper(const std::vector<iGame::Point>& point
     return (std::max)({T_12, T_13, T_23});
 }
 
-// ÑÅ¿É±È, range : [0, MAX], acceptable range [0, MAX], unit cube : 1
+// é›…å¯æ¯”, range : [0, MAX], acceptable range [0, MAX], unit cube : 1
 double VolumeMeshMetrics::ComputeHexJacobian(const std::vector<iGame::Point>& points) {
     //be caution about order
 
@@ -697,7 +697,7 @@ double VolumeMeshMetrics::ComputeHexJacobian(const std::vector<iGame::Point>& po
     return jacobian;
 }
 
-// ³¤¿í±È , range : [1, MAX], acceptable range [1, MAX], unit cube : 1
+// é•¿å®½æ¯” , range : [1, MAX], acceptable range [1, MAX], unit cube : 1
 double VolumeMeshMetrics::ComputeHexEdgeRatio(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -728,7 +728,7 @@ double VolumeMeshMetrics::ComputeHexEdgeRatio(const std::vector<iGame::Point>& p
     return *max_ele / *min_ele;
 }
 
-// ×î´ó³¤¿í±È , range : [1, MAX], acceptable range [1, 1.3], unit cube : 1
+// æœ€å¤§é•¿å®½æ¯” , range : [1, MAX], acceptable range [1, 1.3], unit cube : 1
 double VolumeMeshMetrics::ComputeHexMaxEdgeRatio(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -754,7 +754,7 @@ double VolumeMeshMetrics::ComputeHexMaxEdgeRatio(const std::vector<iGame::Point>
     return (std::max)({A_12, A_13, A_23});
 }
 
-    // Ìå»ıÍáĞ±¶È/ÍáĞ±¶È , range : [0, 1], acceptable range [0, 0.5], unit cube : 0
+    // ä½“ç§¯æ­ªæ–œåº¦/æ­ªæ–œåº¦ , range : [0, 1], acceptable range [0, 0.5], unit cube : 0
 double VolumeMeshMetrics::ComputeHexSkew(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -780,7 +780,7 @@ double VolumeMeshMetrics::ComputeHexSkew(const std::vector<iGame::Point>& points
     return (std::max)({skew_12, skew_13, skew_23});
 }
 
-    // ÉìÕ¹¶È , range : [0, 1], acceptable range [0.25, 1], unit cube : 1
+    // ä¼¸å±•åº¦ , range : [0, 1], acceptable range [0.25, 1], unit cube : 1
 double VolumeMeshMetrics::ComputeHexStretch(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -818,7 +818,7 @@ double VolumeMeshMetrics::ComputeHexStretch(const std::vector<iGame::Point>& poi
     return std::sqrt(3.0f) * L_min / D_max;
 }
 
-// ¶Ô½ÇÏß³¤¶È±ÈÖµ, range : [0, 1], acceptable range [0.65, 1], unit cube : 1
+// å¯¹è§’çº¿é•¿åº¦æ¯”å€¼, range : [0, 1], acceptable range [0.65, 1], unit cube : 1
 double VolumeMeshMetrics::ComputeHexDiagonal(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -842,7 +842,7 @@ double VolumeMeshMetrics::ComputeHexDiagonal(const std::vector<iGame::Point>& po
     return *min_ele / *max_ele;
 }
 
-// Ïà¶Ô´óĞ¡Æ½·½, range : [0, 1], acceptable range [0, 1], unit cube : ÒÀÀµÓÚÆ½¾ùÌå»ı
+// ç›¸å¯¹å¤§å°å¹³æ–¹, range : [0, 1], acceptable range [0, 1], unit cube : ä¾èµ–äºå¹³å‡ä½“ç§¯
 double VolumeMeshMetrics::ComputeHexRelativeSizeSquared(const std::vector<iGame::Point>& points, float average_volume) {
     auto D = ComputeHexVolume(points) / average_volume;
     auto sqr_q = (std::min)(D, 1.0f / D);
@@ -850,21 +850,21 @@ double VolumeMeshMetrics::ComputeHexRelativeSizeSquared(const std::vector<iGame:
     return sqr_q * sqr_q;
 }
 
-// ÁùÃæÌå×îĞ¡±êÁ¿ÑÅ¿É±È
+// å…­é¢ä½“æœ€å°æ ‡é‡é›…å¯æ¯”
 double VolumeMeshMetrics::ComputeHexMinScaledJacobian(const std::vector<iGame::Point>& points) {
     double min_det = 2.f; // the value of Scaled Jacobian is the	determinant of the matrix Jacobian
     std::unordered_map<int, std::vector<int>> neighbor;
     std::vector<std::pair<int, int>> edges = {
-            {0, 1}, {1, 2}, {2, 3}, {3, 0}, // µ×Ãæ
-            {4, 5}, {5, 6}, {6, 7}, {7, 4}, // ¶¥Ãæ
-            {0, 4}, {1, 5}, {2, 6}, {3, 7}  // ²àÃæ
+            {0, 1}, {1, 2}, {2, 3}, {3, 0}, // åº•é¢
+            {4, 5}, {5, 6}, {6, 7}, {7, 4}, // é¡¶é¢
+            {0, 4}, {1, 5}, {2, 6}, {3, 7}  // ä¾§é¢
     };
     for (const auto& edge: edges) {
         neighbor[edge.first].push_back(edge.second);
         neighbor[edge.second].push_back(edge.first);
     }
 
-    // ¶ÔÃ¿¸ö¶¥µã¼ÆËãÑÅ¿É±È¾ØÕóĞĞÁĞÊ½
+    // å¯¹æ¯ä¸ªé¡¶ç‚¹è®¡ç®—é›…å¯æ¯”çŸ©é˜µè¡Œåˆ—å¼
     for (int i = 0; i < 8; ++i) {
         auto& v = points[i];
         auto adjvh = neighbor[i];
@@ -905,11 +905,11 @@ double VolumeMeshMetrics::ComputeHexMinScaledJacobian(const std::vector<iGame::P
     return min_det;
 }
 
-// ÁùÃæÌåÆ½¾ù±êÁ¿ÑÅ¿É±È
+// å…­é¢ä½“å¹³å‡æ ‡é‡é›…å¯æ¯”
 double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::Point>& points) {
     double sum_det = 0.0;
 
-    // ¹¹½¨ÁÚ½Ó¹ØÏµ
+    // æ„å»ºé‚»æ¥å…³ç³»
     std::unordered_map<int, std::vector<int>> neighbor;
 
     std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
@@ -922,13 +922,13 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::P
 
     int valid_vertices = 0;
 
-    // ¶ÔÃ¿¸ö¶¥µã¼ÆËãÑÅ¿É±È¾ØÕóĞĞÁĞÊ½
+    // å¯¹æ¯ä¸ªé¡¶ç‚¹è®¡ç®—é›…å¯æ¯”çŸ©é˜µè¡Œåˆ—å¼
     for (int i = 0; i < 8; ++i) {
         auto& v = points[i];
         auto adjvh = neighbor[i];
 
         if (adjvh.size() != 3) {
-            continue; // Ìø¹ı²»Âú×ãÌõ¼şµÄ¶¥µã
+            continue; // è·³è¿‡ä¸æ»¡è¶³æ¡ä»¶çš„é¡¶ç‚¹
         }
 
         valid_vertices++;
@@ -937,11 +937,11 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::P
         auto v2 = points[adjvh[1]];
         auto v3 = points[adjvh[2]];
 
-        // ¼ÆËãÖĞĞÄµã²¢È·¶¨·¨Ïò
+        // è®¡ç®—ä¸­å¿ƒç‚¹å¹¶ç¡®å®šæ³•å‘
         auto center = (v1 + v2 + v3) / 3.0;
         auto vec = (center - v).normalized();
 
-        // µ÷Õû¶¥µãË³ĞòÒÔÈ·±£ÕıÈ·µÄ·¨Ïò
+        // è°ƒæ•´é¡¶ç‚¹é¡ºåºä»¥ç¡®ä¿æ­£ç¡®çš„æ³•å‘
         auto vec12 = v2 - v1;
         auto vec13 = v3 - v1;
         auto normal = (vec12.cross(vec13)).normalized();
@@ -949,7 +949,7 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::P
 
         if (cosine < 0) { std::swap(v2, v3); }
 
-        // ¹¹½¨Èı¸ö±ßµÄµ¥Î»ÏòÁ¿
+        // æ„å»ºä¸‰ä¸ªè¾¹çš„å•ä½å‘é‡
         std::vector<Vector3d> ev(3);
         auto tmp1 = v1 - v;
         ev[0] = tmp1.normalized();
@@ -958,7 +958,7 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::P
         auto tmp3 = v3 - v;
         ev[2] = tmp3.normalized();
 
-        // ¹¹½¨ÑÅ¿É±È¾ØÕó
+        // æ„å»ºé›…å¯æ¯”çŸ©é˜µ
         Eigen::Matrix3d J;
         J << ev[0][0], ev[1][0], ev[2][0], ev[0][1], ev[1][1], ev[2][1], ev[0][2], ev[1][2], ev[2][2];
 
@@ -968,14 +968,14 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<iGame::P
     return (valid_vertices > 0) ? sum_det / valid_vertices : 0.0;
 }
 
-// ËÄÃæÌåÌæ´ú×İºá±È¼ÆËã·½·¨
+// å››é¢ä½“æ›¿ä»£çºµæ¨ªæ¯”è®¡ç®—æ–¹æ³•
 double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<iGame::Point>& points) {
     if (points.size() != 4) {
         igDebug("Error: It is not a tet mesh!");
         return 0.0;
     }
 
-    // ¼ÆËã×î³¤±ß³¤¶È
+    // è®¡ç®—æœ€é•¿è¾¹é•¿åº¦
     double len_max = 0.0;
     std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
 
@@ -1001,7 +1001,7 @@ double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<iGame::Poin
         double numerator = std::abs(normal.dot(v) + d);
         double denominator = normal.norm();
 
-        double height = numerator / std::max(denominator, 1e-7); // ±ÜÃâ³ıÒÔÁã
+        double height = numerator / std::max(denominator, 1e-7); // é¿å…é™¤ä»¥é›¶
         height_min = std::min(height_min, height);
     }
 
@@ -1012,7 +1012,7 @@ double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<iGame::Poin
 
 
 
-//ËÄÃæÌåÌå»ı¼ÆËã - »ùÓÚMeshMath.hÖĞµÄget_volume_tetahedral_mesh
+//å››é¢ä½“ä½“ç§¯è®¡ç®— - åŸºäºMeshMath.hä¸­çš„get_volume_tetahedral_mesh
 double VolumeMeshMetrics::ComputeTetVolumeAlt(const std::vector<iGame::Point>& points) {
     if (points.size() != 4) { return 0.0; }
 
@@ -1032,19 +1032,19 @@ double VolumeMeshMetrics::ComputeTetVolumeAlt(const std::vector<iGame::Point>& p
     return std::abs(volume_mesh) / 6.0;
 }
 
-//ÁùÃæÌåÌå»ı¼ÆËã - »ùÓÚMeshMath.hÖĞµÄget_volume_hexahedral_mesh  
+//å…­é¢ä½“ä½“ç§¯è®¡ç®— - åŸºäºMeshMath.hä¸­çš„get_volume_hexahedral_mesh  
 double VolumeMeshMetrics::ComputeHexVolumeAlt(const std::vector<iGame::Point>& points) {
     if (points.size() != 8) { return 0.0; }
 
     double volume_mesh = 0;
 
     std::vector<std::vector<std::vector<int>>> quad_faces = {
-            {{0, 1, 2}, {2, 3, 0}}, // µ×Ãæ
-            {{4, 5, 6}, {6, 7, 4}}, // ¶¥Ãæ
-            {{0, 1, 5}, {5, 4, 0}}, // Ç°Ãæ
-            {{2, 3, 7}, {7, 6, 2}}, // ºóÃæ
-            {{0, 3, 7}, {7, 4, 0}}, // ×óÃæ
-            {{1, 2, 6}, {6, 5, 1}}  // ÓÒÃæ
+            {{0, 1, 2}, {2, 3, 0}}, // åº•é¢
+            {{4, 5, 6}, {6, 7, 4}}, // é¡¶é¢
+            {{0, 1, 5}, {5, 4, 0}}, // å‰é¢
+            {{2, 3, 7}, {7, 6, 2}}, // åé¢
+            {{0, 3, 7}, {7, 4, 0}}, // å·¦é¢
+            {{1, 2, 6}, {6, 5, 1}}  // å³é¢
     };
 
     for (const auto& quad: quad_faces) {
