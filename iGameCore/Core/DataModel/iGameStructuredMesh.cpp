@@ -5,13 +5,18 @@
 IGAME_NAMESPACE_BEGIN
 
 StructuredMesh::~StructuredMesh() {}
-void StructuredMesh::SetDimensionSize(igIndex s[3]) {
+void StructuredMesh::SetDimensionSize(igIndex s[3]){
+    if (s[2] <= 1) s[2] = 1;
+    if (s[0] == size[0] && s[1] == size[1] && s[2] == size[2]) { 
+        return ;
+    }
     std::copy(s, s + 3, this->size);
     if (size[2] <= 1) {
         size[2] = 1;
         this->Dimension = 2;
     } else
         this->Dimension = 3;
+    this->m_BuildStructuredConnectivty = false;
 }
 IGsize StructuredMesh::GetNumberOfCells() {
     if (size[2] > 1) return GetNumberOfVolumes();
@@ -71,6 +76,7 @@ void StructuredMesh::BuildStructuredFaces() {
     }
 }
 void StructuredMesh::GenStructuredCellConnectivities() {
+    if (m_BuildStructuredConnectivty) return;
     if (size[2] <= 1) {
         size[2] = 1;
         this->Dimension = 2;

@@ -1,24 +1,24 @@
-#ifndef iGameLagrangeVolume_h
+ï»¿#ifndef iGameLagrangeVolume_h
 #define iGameLagrangeVolume_h
 
-#include "iGameCell.h" // Ö±½Ó¼Ì³Ğ×Ô Cell
+#include "iGameCell.h" // ç›´æ¥ç»§æ‰¿è‡ª Cell
 
 IGAME_NAMESPACE_BEGIN
 
-// ËùÓĞ3DÀ­¸ñÀÊÈÕµ¥ÔªµÄ³éÏó»ùÀà
+// æ‰€æœ‰3Dæ‹‰æ ¼æœ—æ—¥å•å…ƒçš„æŠ½è±¡åŸºç±»
 class LagrangeVolume : public Cell {
 public:
-    // ÉèÖÃ/»ñÈ¡µ¥ÔªµÄ½×Êı
+    // è®¾ç½®/è·å–å•å…ƒçš„é˜¶æ•°
     void SetOrder(int order) { m_Order = order; }
     int GetOrder() const { return m_Order; }
 
-    // ÉùÃ÷3Dµ¥Ôª±ØĞë¾ß±¸µÄ´¿Ğéº¯Êı½Ó¿Ú£¬ÓÉ×ÓÀà(ÈçLagrangeHexahedron)ÊµÏÖ
+    // å£°æ˜3Då•å…ƒå¿…é¡»å…·å¤‡çš„çº¯è™šå‡½æ•°æ¥å£ï¼Œç”±å­ç±»(å¦‚LagrangeHexahedron)å®ç°
     virtual int GetNumberOfEdges() = 0;
     virtual int GetNumberOfFaces() = 0;
     virtual int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) = 0;
     virtual int GetFacePointIds(const int faceId, const igIndex*& ptIds) = 0;
 
-    // ´Ó Cell ¼Ì³ĞµÄ´¿Ğéº¯ÊıÒ²ĞèÒªÔÚ´ËÉùÃ÷»òÊµÏÖ
+    // ä» Cell ç»§æ‰¿çš„çº¯è™šå‡½æ•°ä¹Ÿéœ€è¦åœ¨æ­¤å£°æ˜æˆ–å®ç°
     virtual Cell* GetEdge(const int edgeId) = 0;
     virtual Cell* GetFace(const int faceId) = 0;
 

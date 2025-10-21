@@ -35,6 +35,9 @@ public:
     void setCurrentChild(QTreeWidgetItem* child);
     QTreeWidgetItem* getCurrentChild();
 
+    int getModelId() const { return modelId; }
+    void setModelId(int id) { modelId = id; }
+
 protected:
     bool getVisibility() const;
 
@@ -103,8 +106,8 @@ public:
     ModelTreeWidgetItem* getItem(const QPoint& p) const;
     QTreeWidgetItem* getChild(const QPoint& p) const;
 
-    void setCurrentModelItem(ModelTreeWidgetItem* item);
-    ModelTreeWidgetItem* getCurrentModelItem();
+    //void setCurrentModelItem(ModelTreeWidgetItem* item);
+    //ModelTreeWidgetItem* getCurrentModelItem();
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -114,5 +117,5 @@ signals:
     void ViewCloudPicture();
 
 private:
-    ModelTreeWidgetItem* currentModelItem{nullptr};
+    //ModelTreeWidgetItem* currentModelItem{nullptr};
 };

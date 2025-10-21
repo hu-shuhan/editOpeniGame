@@ -1,4 +1,4 @@
-#ifndef iGameLagrangeHexahedron_h
+ï»¿#ifndef iGameLagrangeHexahedron_h
 #define iGameLagrangeHexahedron_h
 
 #include "iGameLagrangeLine.h"
@@ -22,34 +22,34 @@ public:
         return (m_Order + 1) * (m_Order + 1) * (m_Order + 1);
     }
 
-    // GetEdge ºÍ GetFace µÄº¯ÊıÌå¶¨ÒåÔÚÎÄ¼şÄ©Î²
+    // GetEdge å’Œ GetFace çš„å‡½æ•°ä½“å®šä¹‰åœ¨æ–‡ä»¶æœ«å°¾
     Cell* GetEdge(const int edgeId) override;
     Cell* GetFace(const int faceId) override;
 
     int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) override {
         if (edgeId < 0 || edgeId >= 12) return 0;
         switch (m_Order) {
-            case 1: { // ÏßĞÔ (2½Úµã) ±ß
+            case 1: { // çº¿æ€§ (2èŠ‚ç‚¹) è¾¹
                 static const igIndex edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
                                                      {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
                 ptIds = edges[edgeId];
                 return 2;
             }
-            case 2: { // ¶ş´Î (3½Úµã) ±ß
+            case 2: { // äºŒæ¬¡ (3èŠ‚ç‚¹) è¾¹
                 static const igIndex edges[12][3] = {{0, 1, 8},  {1, 2, 9},  {2, 3, 10}, {3, 0, 11},
                                                      {4, 5, 12}, {5, 6, 13}, {6, 7, 14}, {7, 4, 15},
                                                      {0, 4, 16}, {1, 5, 17}, {2, 6, 18}, {3, 7, 19}};
                 ptIds = edges[edgeId];
                 return 3;
             }
-            case 3: { // Èı´Î (4½Úµã) ±ß
+            case 3: { // ä¸‰æ¬¡ (4èŠ‚ç‚¹) è¾¹
                 static const igIndex edges[12][4] = {{0, 1, 8, 9},   {1, 2, 10, 11}, {2, 3, 12, 13}, {3, 0, 14, 15},
                                                      {4, 5, 16, 17}, {5, 6, 18, 19}, {6, 7, 20, 21}, {7, 4, 22, 23},
                                                      {0, 4, 24, 25}, {1, 5, 26, 27}, {2, 6, 28, 29}, {3, 7, 30, 31}};
                 ptIds = edges[edgeId];
                 return 4;
             }
-            case 4: { // ËÄ´Î (5½Úµã) ±ß
+            case 4: { // å››æ¬¡ (5èŠ‚ç‚¹) è¾¹
                 static const igIndex edges[12][5] = {{0, 1, 8, 9, 10},   {1, 2, 11, 12, 13}, {2, 3, 14, 15, 16},
                                                      {3, 0, 17, 18, 19}, {4, 5, 20, 21, 22}, {5, 6, 23, 24, 25},
                                                      {6, 7, 26, 27, 28}, {7, 4, 29, 30, 31}, {0, 4, 32, 33, 34},
@@ -65,15 +65,15 @@ public:
     int GetFacePointIds(const int faceId, const igIndex*& ptIds) override {
         if (faceId < 0 || faceId >= 6) return 0;
         switch (m_Order) {
-            case 1: { // ÏßĞÔ (4½ÚµãÃæ)
+            case 1: { // çº¿æ€§ (4èŠ‚ç‚¹é¢)
                 static const igIndex faces[6][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}, {0, 1, 5, 4},
                                                     {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}};
                 ptIds = faces[faceId];
                 return 4;
             }
-            case 2: { // ¶ş´Î (9½ÚµãÃæ), ´¿À­¸ñÀÊÈÕ (27½ÚµãÌå)
-                // ½ÚµãË³Ğò: [4½Çµã, 4±ßÖĞµã, 1ÃæĞÄµã]
-                // ½Úµã±àºÅ: ½Ç(0-7), ±ß(8-19), Ãæ(20-25), Ìå(26)
+            case 2: { // äºŒæ¬¡ (9èŠ‚ç‚¹é¢), çº¯æ‹‰æ ¼æœ—æ—¥ (27èŠ‚ç‚¹ä½“)
+                // èŠ‚ç‚¹é¡ºåº: [4è§’ç‚¹, 4è¾¹ä¸­ç‚¹, 1é¢å¿ƒç‚¹]
+                // èŠ‚ç‚¹ç¼–å·: è§’(0-7), è¾¹(8-19), é¢(20-25), ä½“(26)
                 static const igIndex faces[6][9] = {
                         {0, 1, 2, 3, 8, 9, 10, 11, 24},   
                         {4, 5, 6, 7, 12, 13, 14, 15, 25}, 
@@ -85,9 +85,9 @@ public:
                 ptIds = faces[faceId];
                 return 9;
             }
-            case 3: { // Èı´Î (16½ÚµãÃæ), ´¿À­¸ñÀÊÈÕ (64½ÚµãÌå)
-                // ½ÚµãË³Ğò: [4½Çµã, 8±ß½Úµã(Ã¿±ß2¸ö), 4ÃæÄÚ½Úµã]
-                // ½Úµã±àºÅ: ½Ç(0-7), ±ß(8-31), Ãæ(32-55), Ìå(56-63)
+            case 3: { // ä¸‰æ¬¡ (16èŠ‚ç‚¹é¢), çº¯æ‹‰æ ¼æœ—æ—¥ (64èŠ‚ç‚¹ä½“)
+                // èŠ‚ç‚¹é¡ºåº: [4è§’ç‚¹, 8è¾¹èŠ‚ç‚¹(æ¯è¾¹2ä¸ª), 4é¢å†…èŠ‚ç‚¹]
+                // èŠ‚ç‚¹ç¼–å·: è§’(0-7), è¾¹(8-31), é¢(32-55), ä½“(56-63)
                 static const igIndex faces[6][16] = {
                         {0, 1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 52, 53, 54, 55},   // Bottom
                         {4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23, 56, 57, 58, 59}, // Top
@@ -99,9 +99,9 @@ public:
                 ptIds = faces[faceId];
                 return 16;
             }
-            case 4: { // ËÄ´Î (25½ÚµãÃæ), ´¿À­¸ñÀÊÈÕ (125½ÚµãÌå)
-                // ½ÚµãË³Ğò: [4½Çµã, 12±ß½Úµã(Ã¿±ß3¸ö), 9ÃæÄÚ½Úµã]
-                // ½Úµã±àºÅ: ½Ç(0-7), ±ß(8-43), Ãæ(44-97), Ìå(98-124)
+            case 4: { // å››æ¬¡ (25èŠ‚ç‚¹é¢), çº¯æ‹‰æ ¼æœ—æ—¥ (125èŠ‚ç‚¹ä½“)
+                // èŠ‚ç‚¹é¡ºåº: [4è§’ç‚¹, 12è¾¹èŠ‚ç‚¹(æ¯è¾¹3ä¸ª), 9é¢å†…èŠ‚ç‚¹]
+                // èŠ‚ç‚¹ç¼–å·: è§’(0-7), è¾¹(8-43), é¢(44-97), ä½“(98-124)
                 static const igIndex faces[6][25] = {
                         {0,  1,  2,  3,  8,  9,  10, 11, 12, 13, 14, 15, 16,
                          17, 18, 19, 89, 90, 91, 92, 93, 94, 95, 96, 97}, // Bottom
@@ -137,7 +137,7 @@ private:
 };
 
 
-// --- GetEdge ºÍ GetFace µÄº¯ÊıÌå¶¨Òå ---
+// --- GetEdge å’Œ GetFace çš„å‡½æ•°ä½“å®šä¹‰ ---
 inline Cell* LagrangeHexahedron::GetEdge(const int edgeId) {
     const igIndex* ptIds = nullptr;
     int numEdgePoints = GetEdgePointIds(edgeId, ptIds);

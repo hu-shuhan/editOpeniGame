@@ -1,4 +1,4 @@
-#ifndef iGameLagrangePyramid_h
+ï»¿#ifndef iGameLagrangePyramid_h
 #define iGameLagrangePyramid_h
 
 #include "iGameLagrangeQuadrilateral.h"
@@ -19,7 +19,7 @@ public:
 
     int GetNumberOfPoints() override {
         if (m_Order <= 0) return 0;
-        // ¹«Ê½: N = (p+1)(p+2)(2p+3)/6
+        // å…¬å¼: N = (p+1)(p+2)(2p+3)/6
         return (m_Order + 1) * (m_Order + 2) * (2 * m_Order + 3) / 6;
     }
 
@@ -46,9 +46,9 @@ public:
         if (numFacePoints == 0) return nullptr;
 
         LagrangeFace* face = nullptr;
-        if (faceId == 0) { // µÚÒ»¸öÃæÊÇËÄ±ßÐÎµ×Ãæ
+        if (faceId == 0) { // ç¬¬ä¸€ä¸ªé¢æ˜¯å››è¾¹å½¢åº•é¢
             face = m_QuadFace.get();
-        } else { // ºóËÄ¸öÃæÊÇÈý½ÇÐÎ²àÃæ
+        } else { // åŽå››ä¸ªé¢æ˜¯ä¸‰è§’å½¢ä¾§é¢
             face = m_TriFace.get();
         }
 
@@ -99,7 +99,7 @@ public:
     int GetFacePointIds(const int faceId, const igIndex*& ptIds) override {
         if (faceId < 0 || faceId >= 5) return 0;
         switch (m_Order) {
-            case 1: { // ÏßÐÔ (5½Úµã)
+            case 1: { // çº¿æ€§ (5èŠ‚ç‚¹)
                 static const igIndex faces[5][4] = {{0, 1, 2, 3},
                                                     {0, 4, 1, -1},
                                                     {1, 4, 2, -1},
@@ -108,7 +108,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId == 0) ? 4 : 3;
             }
-            case 2: { // ¶þ´Î (14½Úµã)
+            case 2: { // äºŒæ¬¡ (14èŠ‚ç‚¹)
                 static const igIndex faces[5][9] = {{0, 1, 2, 3, 5, 6, 7, 8, 13},
                                                     {0, 4, 1, 9, 10, 5, -1, -1, -1},
                                                     {1, 4, 2, 10, 11, 6, -1, -1, -1},
@@ -117,7 +117,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId == 0) ? 9 : 6;
             }
-            case 3: { // Èý´Î (31½Úµã)
+            case 3: { // ä¸‰æ¬¡ (31èŠ‚ç‚¹)
                 static const igIndex faces[5][16] = {{0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 21, 22, 23, 24},
                                                      {0, 4, 1, 13, 14, 15, 16, 21, 25, 22},
                                                      {1, 4, 2, 15, 16, 17, 18, 22, 26, 23},
@@ -126,7 +126,7 @@ public:
                 ptIds = faces[faceId];
                 return (faceId == 0) ? 16 : 10;
             }
-            case 4: { // ËÄ´Î (55½Úµã)
+            case 4: { // å››æ¬¡ (55èŠ‚ç‚¹)
                 static const igIndex faces[5][25] = {
                         {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 29, 30, 31, 32, 33, 34, 35, 36, 37},
                         {0, 4, 1, 17, 18, 19, 20, 21, 22, 7, 6, 5, 38, 39, 40},

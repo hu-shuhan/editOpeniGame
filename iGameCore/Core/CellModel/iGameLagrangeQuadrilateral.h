@@ -1,4 +1,4 @@
-#ifndef iGameLagrangeQuadrilateral_h
+ï»¿#ifndef iGameLagrangeQuadrilateral_h
 #define iGameLagrangeQuadrilateral_h
 
 #include "iGameLagrangeFace.h"
@@ -12,7 +12,7 @@ public:
 
     IGenum GetCellType() const noexcept override { return IG_LAGRANGE_QUADRILATERAL; }
 
-    // Ê¹ÓÃÍ¨ÓÃ¹«Ê½£¬Ö§³ÖÈÎÒâ½×
+    // ä½¿ç”¨é€šç”¨å…¬å¼ï¼Œæ”¯æŒä»»æ„é˜¶
     int GetNumberOfPoints() override {
         if (m_Order <= 0) return 0;
         return (m_Order + 1) * (m_Order + 1);
@@ -22,22 +22,22 @@ public:
     int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) override {
         if (edgeId < 0 || edgeId >= 4) return 0;
         switch (m_Order) {
-            case 1: { // ÏßĞÔ (2½Úµã±ß) - Óë iGameQuad.h ¶ÔÆë
+            case 1: { // çº¿æ€§ (2èŠ‚ç‚¹è¾¹) - ä¸ iGameQuad.h å¯¹é½
                 static const igIndex linearEdges[4][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}};
                 ptIds = linearEdges[edgeId];
                 return 2;
             }
-            case 2: { // ¶ş´Î (3½Úµã±ß)
+            case 2: { // äºŒæ¬¡ (3èŠ‚ç‚¹è¾¹)
                 static const igIndex quadraticEdges[4][3] = {{0, 1, 4}, {1, 2, 5}, {2, 3, 6}, {3, 0, 7}};
                 ptIds = quadraticEdges[edgeId];
                 return 3;
             }
-            case 3: { // Èı´Î (4½Úµã±ß)
+            case 3: { // ä¸‰æ¬¡ (4èŠ‚ç‚¹è¾¹)
                 static const igIndex cubicEdges[4][4] = {{0, 1, 4, 5}, {1, 2, 6, 7}, {2, 3, 8, 9}, {3, 0, 10, 11}};
                 ptIds = cubicEdges[edgeId];
                 return 4;
             }
-            case 4: { // ËÄ´Î (5½Úµã±ß)
+            case 4: { // å››æ¬¡ (5èŠ‚ç‚¹è¾¹)
                 static const igIndex quarticEdges[4][5] = {{0, 1, 4, 5, 6},
                                                            {1, 2, 7, 8, 9},
                                                            {2, 3, 10, 11, 12},

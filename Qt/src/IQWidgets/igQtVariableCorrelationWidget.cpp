@@ -725,7 +725,7 @@ void igQtVariableCorrelationWidget::_DrawImages(const QRect& range) {
         painter.setFont(font);
         painter.drawText(range, Qt::AlignCenter, "Loading...");
     } else {
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // ÉèÖÃÆ½»¬Ëõ·Å
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true); // è®¾ç½®å¹³æ»‘ç¼©æ”¾
         {
             std::lock_guard lg(m_CorImageMutex);
             painter.drawImage(range, m_CorImage);

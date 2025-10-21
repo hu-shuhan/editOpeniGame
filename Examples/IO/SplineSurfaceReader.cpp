@@ -4,11 +4,11 @@
 
 #pragma once
 
-#include "Spline XML/iGameSplineVolumeReader.h"
+#include "Spline XML/iGameSplineSurfaceReader.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
 
-static void ImportSplineVolume() {
+static void ImportSplineSurface() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -16,7 +16,7 @@ static void ImportSplineVolume() {
     const std::string fileName = "./Models/Bridge.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
-    iGame::SplineVolumeReader::Pointer reader = iGame::SplineVolumeReader::New();
+    iGame::SplineSurfaceReader::Pointer reader = iGame::SplineSurfaceReader::New();
     reader->SetFilePath(fileName);
     reader->Execute();
     iGame::DataObject::Pointer dataObj = reader->GetOutput();
@@ -43,6 +43,6 @@ static void ImportSplineVolume() {
 }
 
 int main() {
-    ImportSplineVolume();
+    ImportSplineSurface();
     return 0;
 }

@@ -1,4 +1,4 @@
-#ifndef iGameLagrangeUnstructuredMesh_h
+ï»¿#ifndef iGameLagrangeUnstructuredMesh_h
 #define iGameLagrangeUnstructuredMesh_h
 
 
@@ -24,20 +24,20 @@ public:
     I_OBJECT(LagrangeUnstructuredMesh);
     static SmartPointer<LagrangeUnstructuredMesh> New() { return new LagrangeUnstructuredMesh; }
 
-    // --- Êı¾İÉèÖÃÓë·ÃÎÊ ---
+    // --- æ•°æ®è®¾ç½®ä¸è®¿é—® ---
     void AddCell(igIndex* cell_nodes, int num_nodes, IGenum specific_cell_type, int order);
 
     IGsize GetNumberOfCells() const noexcept;
     int GetCellPointIds(const IGsize cellId, const igIndex*& ids);
     void GetCellPointIds(const IGsize cellId, IdArray::Pointer ids);
 
-    // ·µ»Ø¾«È·µÄµ¥ÔªÀàĞÍ (e.g., IG_LAGRANGE_HEXAHEDRON)
+    // è¿”å›ç²¾ç¡®çš„å•å…ƒç±»å‹ (e.g., IG_LAGRANGE_HEXAHEDRON)
     IGenum GetSpecificCellType(const IGsize cellId) const;
     int GetCellOrder(const IGsize cellId) const;
 
     IGenum GetDataObjectType() const override { return IG_LAGRANGE_UNSTRUCTURED_MESH; }
 
-    // --- äÖÈ¾ÓëÊı¾İ×ª»» ---
+    // --- æ¸²æŸ“ä¸æ•°æ®è½¬æ¢ ---
     Cell* GetCell(const IGsize cellId);
     void ConvertToDrawableData() override;
 
@@ -50,13 +50,13 @@ protected:
     LagrangeUnstructuredMesh();
     ~LagrangeUnstructuredMesh() override = default;
 
-    // --- ºËĞÄÊı¾İ´æ´¢ ---
+    // --- æ ¸å¿ƒæ•°æ®å­˜å‚¨ ---
     CellArray::Pointer m_Cells{};
-    UnsignedIntArray::Pointer m_CellShapes{}; // ´æ´¢¾«È·µÄµ¥ÔªÀàĞÍ
+    UnsignedIntArray::Pointer m_CellShapes{}; // å­˜å‚¨ç²¾ç¡®çš„å•å…ƒç±»å‹
     IntArray::Pointer m_CellOrders{};
 
-    ArrayObject::Pointer m_CellQualityData{}; // ÓÃÓÚ´æ´¢Ô­Ê¼µÄµ¥ÔªÖÊÁ¿Êı¾İ
-    FloatArray::Pointer m_TriangleQualities{};  // ÓÃÓÚ´æ´¢Ã¿¸öäÖÈ¾Èı½ÇĞÎµÄÖÊÁ¿
+    ArrayObject::Pointer m_CellQualityData{}; // ç”¨äºå­˜å‚¨åŸå§‹çš„å•å…ƒè´¨é‡æ•°æ®
+    FloatArray::Pointer m_TriangleQualities{};  // ç”¨äºå­˜å‚¨æ¯ä¸ªæ¸²æŸ“ä¸‰è§’å½¢çš„è´¨é‡
 private:
 
 };

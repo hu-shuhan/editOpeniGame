@@ -236,7 +236,7 @@ void igQtFileLoader::SaveFileAs() {
     if (!obj) return;
     std::string filePath = QFileDialog::getSaveFileName(nullptr, "Save file as ", "",
                                                         "Surface Mesh(*.obj *.off *.stl *.vtk);;Volume Mesh(*.mesh "
-                                                        "*.vtk *.ex2 *.e *.pvd *.vts)")
+                                                        "*.vtk *.ex2 *.e *.pvd *.vts *.vtm)")
                                    .toStdString();
     if (filePath.empty()) {
         igDebug("Could not save file with error file path\n");

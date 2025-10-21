@@ -1,0 +1,5 @@
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_subdirectory(Debug)
+else()
+    add_subdirectory(Release)
+endif()

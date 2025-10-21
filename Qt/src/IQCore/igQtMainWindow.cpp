@@ -9,6 +9,12 @@
 #include "SurfaceMeshFilters/Tests/iGameSurfaceSimplification.h"
 #include "SurfaceMeshFilters/Tests/iGameGradient.h"
 
+#include "UndefinedFilters/iGameVortexDetection.h"
+#include "Convert/iGameConvertPolyhedralCells.h"
+#include "Convert/iGameConvertToPointCloud.h"
+#include "Convert/iGameConvertToSurfaceMesh.h"
+#include "Convert/iGameConvertToVolumeMesh.h"
+
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "Interactor/iGameInteractor.h"
 
@@ -18,7 +24,7 @@
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-#include "iGameARAPTest.h"
+#include "Tests/iGameARAPTest.h"
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -36,14 +42,15 @@
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
-#include <fcntl.h> // 鐢ㄤ簬 open
+#include <fcntl.h>
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGameVolumeMeshFilterTest.h>
+#include <Tests/iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -82,6 +89,19 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->setCentralWidget(rendererWidget);
     this->ColorManagerWidget = new igQtColorManagerWidget;
     ColorManagerWidget->setGeometry(400, 500, 780, 1000);
+
+    // 初始化AI聊天DockWidget
+    aiChatDockWidget = new QDockWidget(this);
+    aiChatDockWidget->setWindowTitle("AI聊天助手");
+    aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
+    aiChatDockWidget->setWidget(aiChatWidget);
+    aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    aiChatDockWidget->hide(); // 初始隐藏
+    this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
+
+    // 设置DockWidget的默认大小
+    aiChatDockWidget->resize(400, 600);
     ui->dockWidget_ScalarField->hide();
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
@@ -226,11 +246,11 @@ void igQtMainWindow::initAllComponents() {
     });
 
 
-    
-     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) { 
+
+     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) {
         /*qDebug() << "Toggle state:" << checked;*/
-        
-        rendererWidget->GetScene()->ToggleCenterAxes(); 
+
+        rendererWidget->GetScene()->ToggleCenterAxes();
         ui->action_ShowCenter->setChecked(checked);
 
         rendererWidget->update();
@@ -335,6 +355,15 @@ void igQtMainWindow::initAllComponents() {
                 QMessageBox::warning(this, "错误", "请输入有效的线程数（大于0的整数）。");
             }
         });
+    });
+
+    // AI聊天助手
+    connect(ui->action_AiChat, &QAction::triggered, this, [&](bool checked) {
+        if (aiChatDockWidget->isVisible()) {
+            aiChatDockWidget->hide();
+        } else {
+            aiChatDockWidget->show();
+        }
     });
 
     initAllDockWidgetConnectWithAction();
@@ -476,6 +505,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    if (false)
     connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto mesh = DynamicCast<SurfaceMesh>(obj);
@@ -495,11 +525,11 @@ void igQtMainWindow::initAllFilters() {
         auto& attr = mesh->GetAttributeSet()->GetAttribute(3);
         FloatArray::Pointer att = FloatArray::New();
         att->SetName(attr.pointer->GetName());
-        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) { 
+        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
             igIndex cell[32]{};
             int size = mesh->GetPointToNeighborFaces(i, cell);
             float val = 0;
-            for (int j = 0; j < size; j++) { 
+            for (int j = 0; j < size; j++) {
                 val += attr.pointer->GetValue(cell[j]);
             }
             val /= size;
@@ -570,7 +600,7 @@ void igQtMainWindow::initAllFilters() {
     //    auto Points = Points::New();
     //    auto Attrs = AttributeSet::New();
     //    auto oldAttrs = mesh->GetAttributeSet();
-    //    for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+    //    for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) {
     //        auto& att = oldAttrs->GetAttribute(j);
     //        auto arr = FloatArray::New();
     //        arr->SetName(att.pointer->GetName());
@@ -580,24 +610,24 @@ void igQtMainWindow::initAllFilters() {
 
     //    std::cout << result_size << std::endl;
     //    std::vector<int> is_deleted(vertex_count, 1);
-    //    for (int i = 0; i < target_index_count; i++) { 
+    //    for (int i = 0; i < target_index_count; i++) {
     //        is_deleted[destination[i]] = 0;
     //    }
     //    int count = 0;
     //    float val[32];
     //    std::vector<int> vertex_map(vertex_count, 0);
     //    for (int i = 0; i < is_deleted.size(); i++) {
-    //        if (!is_deleted[i]) { 
+    //        if (!is_deleted[i]) {
     //            vertex_map[i] = count;
     //            count++;
     //            Points->AddPoint(mesh->GetPoint(i));
-    //            for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) { 
+    //            for (int j = 0; j < oldAttrs->GetNumberOfAttributes(); j++) {
     //                oldAttrs->GetAttribute(j).pointer->GetElement(i, val);
     //                Attrs->GetAttribute(j).pointer->AddElement(val);
     //            }
     //        }
     //    }
-    //    for (int i = 0; i < target_index_count; i++) { 
+    //    for (int i = 0; i < target_index_count; i++) {
     //        destination[i] = vertex_map[destination[i]];
     //    }
     //    for (int i = 0; i < target_index_count / 3; i++) {
@@ -701,7 +731,7 @@ void igQtMainWindow::initAllFilters() {
         //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
         //obj->SetAttributeSet(attrSet);
         //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-        //rendererWidget->update();  
+        //rendererWidget->update();
         //return;
 
         //Triangulation::Pointer triangulation = Triangulation::New();
@@ -718,726 +748,14 @@ void igQtMainWindow::initAllFilters() {
             auto new_mesh = Sim->GetOutput(0);
 
             modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();  
+            rendererWidget->update();
         }
     });
 
 
-    connect(ui->menu_filters->addAction("插值"), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
-        auto mesh = DynamicCast<VolumeMesh>(obj);
-        mesh->InitPolyhedronVertices();
-        auto PointNum = mesh->GetNumberOfPoints();
-        auto CellNum = mesh->GetNumberOfVolumes();
-        std::vector<std::vector<int>> adj;
-        adj.reserve(PointNum + CellNum);
-        igIndex chs[IGAME_CELL_MAX_SIZE];
-        igIndex ccnt = 0;
-        Points::Pointer New_Points = Points::New();
-        New_Points->Reserve(PointNum + CellNum);
-        for (igIndex i = 0; i < PointNum; i++) {
-            ccnt = mesh->GetPointToNeighborVolumes(i, chs);
-            std::vector<int> tmp;
-            tmp.reserve(ccnt);
-            for (igIndex j = 0; j < ccnt; j++) { tmp.push_back(chs[j]); }
-            New_Points->AddPoint(mesh->GetPoint(i));
-            adj.push_back(tmp);
-        }
-        CellArray::Pointer New_Cells = CellArray::New();
-        igIndex vhs[IGAME_CELL_MAX_SIZE];
-        igIndex vcnt = 0;
-        for (igIndex i = 0; i < CellNum; i++) {
-            vcnt = mesh->GetVolumePointIds(i, vhs);
-            if (vcnt == 4) {
-                New_Cells->AddCellIds(vhs, vcnt);
-            } else if (vcnt > 4) {
-                Point new_p = {0, 0, 0};
-                std::vector<int> tmp;
-                tmp.reserve(vcnt);
-                for (igIndex j = 0; j < vcnt; j++) {
-                    new_p += mesh->GetPoint(vhs[j]);
-                    tmp.emplace_back(vhs[j]);
-                }
-                new_p /= vcnt;
-                auto new_vh = New_Points->AddPoint(new_p);
-                adj.push_back(tmp);
-                igIndex fhs[IGAME_CELL_MAX_SIZE];
-                igIndex fcnt = 0;
-                fcnt = mesh->GetVolumeFaceIds(i, fhs);
-                for (igIndex j = 0; j < fcnt; j++) {
-                    vcnt = mesh->GetFacePointIds(fhs[j], vhs);
-                    for (int k = 2; k < vcnt; k++) { New_Cells->AddCellId4(vhs[0], vhs[k - 1], vhs[k], new_vh); }
-                }
-            }
-        }
-        auto New_AttribteSeet = AttributeSet::New();
-        auto Ori_AttributeSet = mesh->GetAttributeSet();
-        for (int i = 0; i < Ori_AttributeSet->GetNumberOfAttributes(); i++) {
-            auto attribute = Ori_AttributeSet->GetAttribute(i);
-            std::cout << i << std::endl;
-            if (attribute.attachmentType == IG_CELL) {
-                double values[64];
-                auto Ori_Array = attribute.pointer;
-                int dimension = Ori_Array->GetDimension();
-                auto Array = DoubleArray::New();
-                Array->SetName(Ori_Array->GetName());
-                Array->SetDimension(dimension);
-                Array->Reserve(New_Points->GetNumberOfPoints());
-                for (int id = 0; id < PointNum; id++) {
-                    double new_values[3] = {0, 0, 0};
-                    int NeiNum = adj[id].size();
-                    for (int j = 0; j < NeiNum; j++) {
-                        Ori_Array->GetElement(adj[id][j], values);
-                        for (int k = 0; k < dimension; k++) { new_values[k] += values[k]; }
-                    }
-                    if (NeiNum) {
-                        for (int k = 0; k < dimension; k++) { new_values[k] /= NeiNum; }
-                    }
-                    Array->AddElement(new_values);
-                }
-                for (int id = PointNum; id < New_Points->GetNumberOfPoints(); id++) {
-                    double new_values[3] = {0, 0, 0};
-                    int NeiNum = adj[id].size();
-                    for (int j = 0; j < NeiNum; j++) {
-                        Array->GetElement(adj[id][j], values);
-                        for (int k = 0; k < dimension; k++) { new_values[k] += values[k]; }
-                    }
-                    if (NeiNum) {
-                        for (int k = 0; k < dimension; k++) { new_values[k] /= NeiNum; }
-                    }
-                    Array->AddElement(new_values);
-                }
-                New_AttribteSeet->AddAttribute(attribute.type, IG_POINT, Array, nullptr);
-            }
-        }
-
-        VolumeMesh::Pointer New_Mesh = VolumeMesh::New();
-        New_Mesh->SetPoints(New_Points);
-        New_Mesh->SetVolumes(New_Cells);
-        New_Mesh->SetAttributeSet(New_AttribteSeet);
-        modelTreeWidget->addDataObjectToModelTree(New_Mesh, Algorithm);
-        rendererWidget->update();
-    });
-    connect(ui->menu_filters->addAction("细分"), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
-        auto mesh = DynamicCast<SurfaceMesh>(obj);
-        mesh->RequestEditStatus();
-        auto res = SurfaceMesh::New();
-        int pointNum = mesh->GetNumberOfPoints();
-        int edgeNum = mesh->GetNumberOfEdges();
-        int faceNum = mesh->GetNumberOfFaces();
-        auto OutPoints = Points::New();
-        OutPoints->Reserve(pointNum + edgeNum);
-        res->SetPoints(OutPoints);
-        auto OutCells = CellArray::New();
-        OutCells->Reserve(faceNum * 12);
-        res->SetFaces(OutCells);
-        for (igIndex pointID = 0; pointID < pointNum; pointID++) { OutPoints->AddPoint(mesh->GetPoint(pointID)); }
-        igIndex edge[2] = {};
-        for (igIndex edgeID = 0; edgeID < edgeNum; edgeID++) {
-            mesh->GetEdgePointIds(edgeID, edge);
-            auto p1 = mesh->GetPoint(edge[0]);
-            auto p2 = mesh->GetPoint(edge[1]);
-            auto p = (p1 + p2) * 0.5;
-            OutPoints->AddPoint(p);
-        }
-        igIndex vhs[64];
-        igIndex vcnt = 0;
-        igIndex ehs[64];
-        igIndex ecnt = 0;
-        for (igIndex faceID = 0; faceID < faceNum; faceID++) {
-            vcnt = mesh->GetFacePointIds(faceID, vhs);
-            ecnt = mesh->GetFaceEdgeIds(faceID, ehs);
-            OutCells->AddCellId3(ehs[0] + pointNum, ehs[1] + pointNum, ehs[2] + pointNum);
-            igIndex tri[3];
-            int index = 0;
-            for (int i = 0; i < vcnt; i++) {
-                index = 0;
-                tri[index++] = vhs[i];
-                for (int j = 0; j < ecnt; j++) {
-                    mesh->GetEdgePointIds(ehs[j], edge);
-                    if (edge[0] == vhs[i] || edge[1] == vhs[i]) { tri[index++] = ehs[j] + pointNum; }
-                }
-                OutCells->AddCellIds(tri, 3);
-            }
-        }
-        auto inAttributeSet = mesh->GetAttributeSet();
-        for (int i = 0; i < inAttributeSet->GetNumberOfAttributes(); i++) {
-            auto attr = inAttributeSet->GetAttribute(i);
-            if (attr.GetAttachmentType() == IG_POINT) {
-                auto inArray = attr.pointer;
-                auto array = DoubleArray::New();
-                array->SetName(inArray->GetName());
-                array->SetDimension(inArray->GetDimension());
-                array->Reserve(pointNum + edgeNum);
-                double values[64];
-                for (int i = 0; i < pointNum; i++) {
-                    attr.pointer->GetElement(i, values);
-                    array->AddElement(values);
-                }
-                double values1[64];
-                double values2[64];
-                for (int i = 0; i < edgeNum; i++) {
-                    mesh->GetEdgePointIds(i, edge);
-                    array->GetElement(edge[0], values1);
-                    array->GetElement(edge[1], values2);
-                    for (int j = 0; j < inArray->GetDimension(); j++) { values[j] = (values1[j] + values2[j]) * 0.5; }
-                    array->AddElement(values);
-                }
-                res->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, array, nullptr);
-                break;
-            }
-        }
-        modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
-        rendererWidget->update();
-    });
-    QAction* mesh_Sphere = ui->menu_filters->addAction("球形判断");
-    connect(mesh_Sphere, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return;
-        if (obj->HasSubDataObject()) { obj = obj->GetSubDataObject(0); }
-        QString result = "";
-        auto mesh = DynamicCast<PointSet>(obj);
-        auto array = DoubleArray::New();
-        array->SetName("Compute_Radius");
-        array->Reserve(mesh->GetNumberOfPoints());
-        auto error = DoubleArray::New();
-        error->SetName("Error");
-        error->Reserve(mesh->GetNumberOfPoints());
-        auto points = mesh->GetPoints();
-        double radius = 0.0;
-        double r = 0.0;
-        double wucha = 0.0;
-        double Min = 1e9;
-        double Max = 0;
-        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-            auto p = mesh->GetPoint(i);
-            r = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-            array->AddValue(r);
-        }
-        auto bound = mesh->GetBoundingBox();
-        double a = bound.max[0] - bound.min[0];
-        double b = bound.max[1] - bound.min[1];
-        double c = bound.max[2] - bound.min[2];
-        radius = (a + b + c) / 6;
-        double value = 0.0;
-        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-            value = abs(array->GetValue(i) - radius);
-            wucha += value;
-            error->AddValue(value);
-            Max = std::max(Max, value);
-            Min = std::min(Min, value);
-        }
-        std::cout << wucha << '\n';
-        wucha /= mesh->GetNumberOfPoints();
-        wucha /= radius;
-        wucha *= 100;
-        DoubleArray::Pointer range = DoubleArray::New();
-        range->AddValue(0);
-        range->AddValue(Max * 4);
-
-        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, array);
-        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, error, range);
-
-        modelTreeWidget->updateAllAttriubute(mesh);
-        result += "\n计算得到半径为" + QString::number(radius);
-        result += "\n误差为" + QString::number(wucha) + "%";
-        QMessageBox::information(this, "球形判断", result);
-    });
-
-    /*
-	connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
-			this, [&](bool checked) {
-
-		auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-		int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
-		if (index == -1) index = 0;
-		Triangulation::Pointer triangulation = Triangulation::New();
-		triangulation->SetInput(obj);
-		triangulation->Execute();
-		obj = triangulation->GetOutput();
-		auto mesh = DynamicCast<SurfaceMesh>(obj);
-
-		unsigned int* destination;
-		unsigned int* indices = reinterpret_cast<unsigned int*>(mesh->GetFaces()->GetCellIdArray()->RawPointer());
-		const size_t index_count = mesh->GetNumberOfFaces() * 3;
-		float* vertex_positions = mesh->GetPoints()->RawPointer();
-		size_t vertex_count = mesh->GetNumberOfPoints();
-		size_t vertex_positions_stride = sizeof(float) * 3;
-		float* vertex_attributes = nullptr;
-
-		// vertex_attributes = DynamicCast<FloatArray>(mesh->GetAttributeSet()->GetAttribute(index).pointer)->RawPointer();
-		size_t vertex_attributes_stride = sizeof(float);
-		float attribute_weights[1]{1};
-		size_t attribute_count = 0;
-		unsigned char* vertex_lock = nullptr;
-		size_t target_index_count = index_count * 0.1;
-		float target_error = 0.01f;
-		unsigned int options = 0;
-		float out_error = 0.0f;
 
 
-		float* result_error = &out_error;
 
-		destination = new unsigned int[index_count];
-		size_t result_size = meshsmp_simplifyTriMeshWithAttributes(
-				indices, index_count, vertex_positions, vertex_count, vertex_attributes, attribute_count,
-				attribute_weights, target_index_count, target_error, result_error);
-
-		//size_t result_size = tri::simplifyWithAttributes(destination, indices, index_count, vertex_positions, vertex_count,
-		//                               vertex_positions_stride, vertex_attributes, vertex_attributes_stride,
-		//                               attribute_weights, attribute_count, vertex_lock, target_index_count,
-		//                               target_error, options, result_error);
-
-		//size_t result_size =
-		//        meshopt_simplify(destination, indices, index_count, vertex_positions, vertex_count,
-		//                         vertex_positions_stride, target_index_count, target_error, options, result_error);
-
-
-		//size_t result_size =
-		//        meshopt_simplifySloppy(destination, indices, index_count, vertex_positions, vertex_count,
-		//                               vertex_positions_stride, target_index_count, target_error, result_error);
-		auto Mesh = SurfaceMesh::New();
-		auto Faces = CellArray::New();
-		std::cout << result_size << std::endl;
-		for (int i = 0; i < target_index_count / 3; i++) {
-			Faces->AddCellId3(destination[i * 3], destination[i * 3 + 1], destination[i * 3 + 2]);
-		}
-
-		Mesh->SetPoints(mesh->GetPoints());
-		Mesh->SetFaces(Faces);
-		Mesh->SetAttributeSet(mesh->GetAttributeSet());
-		modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
-		rendererWidget->update();
-			});
-	connect(mesh_processing->addAction("Simplification"), &QAction::triggered,
-			this, [&](bool checked) {
-
-			//SurfaceMesh::Pointer mesh = SurfaceMesh::New();
-			//clock_t start, end;
-			//start = clock();
-			//Points::Pointer points = Points::New();
-			//CellArray::Pointer cells = CellArray::New();
-			//for (int i = 0; i < 10000000; i++) {
-			//    points->AddPoint(Point(1, 0, 0));
-			//    points->AddPoint(Point(0, 1, 0));
-			//    points->AddPoint(Point(0, 0, 1));
-			//    igIndex face[3]{i * 3 + 0, i * 3 + 1, i * 3 + 2};
-			//    cells->AddCellIds(face, 3);
-			//}
-			//mesh->SetPoints(points);
-			//mesh->SetFaces(cells);
-			//end = clock();
-			//std::cout << end - start << std::endl;
-			//start = clock();
-			//for (int i = 0; i < 10000000; i++) {
-			//    igIndex face[3]{};
-			//    mesh->GetFacePointIds(i, face);
-			//    if (face[0] == 0) { face[0] = 1; }
-			//}
-			//end = clock();
-			//std::cout << end - start << std::endl;
-			//return;
-			if(false){
-				auto getCot = [](const Vector3d& a, const Vector3d& b, const Vector3d& c) -> double {
-						auto ba = a - b;
-						auto ca = a - c;
-						return ba.dot(ca) / ba.cross(ca).length();
-				};
-				auto getArea = [](const Vector3d& a, const Vector3d& b, const Vector3d& c) -> double {
-					Vector3d d10 = b - a;
-					Vector3d d20 = c - a;
-
-					return CrossProduct(d10, d20).norm() / 2;
-				};
-
-
-				auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-				int index = DynamicCast<DrawObject>(obj)->GetAttributeIndex();
-				if (index == -1) index = 0;
-				Triangulation::Pointer triangulation = Triangulation::New();
-				triangulation->SetInput(obj);
-				triangulation->Execute();
-				obj = triangulation->GetOutput();
-				auto mesh = DynamicCast<SurfaceMesh>(obj);
-
-				//auto mesh = DynamicCast<SurfaceMesh>(DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh());
-
-				auto& attrb = mesh->GetAttributeSet()->GetAttribute(index).pointer;
-				int d = attrb->GetDimension();
-				FloatArray::Pointer scalar = FloatArray::New();
-				scalar->SetDimension(d);
-				mesh->RequestEditStatus();
-
-				std::vector<double> L(mesh->GetNumberOfPoints());
-
-				for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-					double area = 0.0;
-					double val[8]{0.0};
-					double sum_cot = 0.0;
-					igIndex ids[64]{0};
-					int size = mesh->GetPointToNeighborEdges(i, ids);
-					for (int j = 0; j < size; j++) {
-						igIndex e[2]{0}, id[2]{0}, f[3]{0};
-						mesh->GetEdgePointIds(ids[j], e);
-						int size1 = mesh->GetEdgeToNeighborFaces(ids[j], id);
-						double cot = 0.0;
-						for (int k = 0; k < size1; k++) {
-							mesh->GetFacePointIds(id[k], f);
-							cot += getCot(mesh->GetPoint(f[0] + f[1] + f[2] - e[0] - e[1]), mesh->GetPoint(e[0]),
-								   mesh->GetPoint(e[1]));
-						}
-						cot /= size1;
-						sum_cot += cot;
-
-						for (int k = 0; k < d; k++) {
-							val[k] += cot *
-									  (attrb->GetValue(i * d + k) - attrb->GetValue((e[0] + e[1] - i) * d + k));
-						}
-					}
-					for (int k = 0; k < d; k++) {
-						val[k] = val[k] / sum_cot;
-					}
-					scalar->AddElement(val);
-					L[i] = val[0];
-					//igIndex ids[64]{0};
-					//int size = mesh->GetPointToNeighborFaces(i, ids);
-					//double p = attrb->GetValue(i);
-					//Point v = mesh->GetPoint(i);
-					//for (int j = 0; j < size; j++) {
-					//    igIndex f[3]{0};
-					//    mesh->GetFacePointIds(ids[j], f);
-					//    val += (p - (attrb->GetValue(f[0]) + attrb->GetValue(f[1]) + attrb->GetValue(f[2])) / 3) /
-					//           (v - (mesh->GetPoint(f[0]) + mesh->GetPoint(f[1]) + mesh->GetPoint(f[2])) / 3).norm();
-					//}
-					//val /= size;
-					//scalar->AddValue(val);
-				}
-				//double minVal = 1e27;
-				//double maxVal = -1e27;
-				//for (int i = 0; i < scalar->GetNumberOfValues(); i++) {
-				//    //if (std::abs(scalar->GetValue(i)) > 100) {
-				//    //    scalar->SetValue(i, 100 * scalar->GetValue(i) / std::abs(scalar->GetValue(i)));
-				//    //}
-				//    double val = scalar->GetValue(i);
-				//    minVal = std::min(minVal, val);
-				//    maxVal = std::max(maxVal, val);
-				//}
-				//for (int i = 0; i < scalar->GetNumberOfValues(); i++) {
-				//    scalar->SetValue(i, (scalar->GetValue(i) - minVal) / (maxVal - minVal));
-				//}
-
-
-				//SurfaceMesh::Pointer Mesh = SurfaceMesh::New();
-				//igIndex edgeId = 34523;
-				//igIndex e[2]{0};
-				//mesh->GetEdgePointIds(edgeId, e);
-				//double L1 = L[e[0]];
-				//double L2 = L[e[1]];
-				//auto& p1 = mesh->GetPoint(e[0]);
-				//auto& p2 = mesh->GetPoint(e[1]);
-				//igIndex ids[64]{}, f[2]{}, fids[3]{};
-				//auto new_p = (p1 + p2) / 2;
-				//int size = mesh->GetEdgeToOneRingFaces(edgeId, ids);
-				//mesh->GetEdgeToNeighborFaces(edgeId, f);
-				//CellArray::Pointer cells = CellArray::New();
-				//std::vector<int> visited(mesh->GetNumberOfFaces(), 0);
-				//for (int i = 0; i < size; i++) {
-				//    if (ids[i] != f[0] && ids[i] != f[1]) {
-				//        mesh->GetFacePointIds(ids[i], fids);
-				//        for (int j = 0; j < 3; j++) {
-				//            if (fids[j] == e[0] || fids[j] == e[1]) {
-				//                fids[j] = e[0];
-				//                break;
-				//            }
-				//        }
-				//        visited[ids[i]] = 1;
-				//        cells->AddCellIds(fids, 3);
-				//    }
-				//}
-				//mesh->SetPoint(e[0], new_p);
-				//mesh->SetPoint(e[1], new_p);
-				//for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-				//    if (visited[i] == 0) {
-				//        mesh->DeleteFace(i);
-				//    }
-				//}
-				//
-				//mesh->GarbageCollection();
-				mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, scalar);
-				modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
-				rendererWidget->update();
-
-
-				//Mesh->SetPoints(mesh->GetPoints());
-				//Mesh->SetFaces(cells);
-				//modelTreeWidget->addDataObjectToModelTree(Mesh, Algorithm);
-				//rendererWidget->update();
-
-				return;
-			}
-
-
-		if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-
-		Triangulation::Pointer triangulation = Triangulation::New();
-		auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-		triangulation->SetInput(obj);
-		triangulation->Execute();
-		obj = triangulation->GetOutput();
-
-		Simplification::Pointer filter = Simplification::New();
-		filter->SetTargetReduction(0.0001);
-		filter->SetInput(obj);
-		filter->SetAllScalarCheck(false);
-		filter->SetActivedAttribIndices({0, 1, 2});
-		filter->Execute();
-
-		modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-		rendererWidget->update();
-		return;
-		bool flag = false;
-		switch (obj->GetDataObjectType()) {
-			case IG_SURFACE_MESH:
-				flag = true;
-				break;
-			case IG_UNSTRUCTURED_MESH: {
-				auto mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
-				if (mesh) {
-					obj = mesh;
-					flag = true;
-					break;
-				} else {
-					mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToVolumeMesh();
-					if (mesh) {
-						auto show = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
-						if (show) {
-							flag = true;
-							obj = show;
-						}
-					}
-				}
-			} break;
-			default:
-				break;
-		}
-
-		//    bool flag = false;
-		//    switch (obj->GetDataObjectType()) {
-		//        case IG_SURFACE_MESH:
-		//            flag = true;
-		//            break;
-		//        case IG_UNSTRUCTURED_MESH:
-		//        {
-		//            auto mesh = DynamicCast<UnstructuredMesh>(obj)
-		//                                ->TransferToSurfaceMesh();
-		//            if (mesh) {
-		//                obj = mesh;
-		//                flag = true;
-		//                break;
-		//            }
-		//            else {
-		//                mesh = DynamicCast<UnstructuredMesh>(obj)
-		//                               ->TransferToVolumeMesh();
-		//                if (mesh) {
-		//                    auto show = DynamicCast<UnstructuredMesh>(obj)
-		//                                        ->GetDisplayObject();
-		//                    if (show) {
-		//                        flag = true;
-		//                        obj = show;
-		//                    }
-		//                }
-		//            }
-		//        }
-		//            break;
-		//        default:
-		//            break;
-		//    }
-
-		//    triangulation->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-		//    triangulation->SetInput(obj);
-		//    triangulation->Execute();
-
-		//    obj = triangulation->GetOutput();
-		//
-
-		//Simplification::Pointer filter = Simplification::New();
-		////Gradient::Pointer filter = Gradient::New();
-		//filter->SetInput(obj);
-		////filter->SetModel(rendererWidget->GetScene()->GetCurrentModel());
-		//filter->Execute();
-
-		////auto mesh = DynamicCast<SurfaceMesh>(obj);
-		////mesh->RequestEditStatus();
-		////igIndex ids[8]{};
-		////for (int i = 0; i < mesh->GetNumberOfEdges(); i++) {
-		////    int size = mesh->GetEdgeToNeighborFaces(i, ids);
-		////    if (size > 2) { std::cout << "123\n"; }
-		////}
-		//modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-		//rendererWidget->update();
-	});
-	*/
-    connect(ui->action_test_02, &QAction::triggered, this, [&](bool checked) {
-        StructuredMesh::Pointer mesh = StructuredMesh::New();
-        Points::Pointer points = Points::New();
-        int x = 100, y = 100, z = 100;
-        igIndex dim[3] = {x, y, z};
-        double step[3] = {1.0 / x, 1.0 / y, 1.0 / z};
-        points->Reserve(x * y * z);
-        for (int i = 0; i < x; i++) {
-            for (int j = 0; j < y; j++) {
-                for (int k = 0; k < z; k++) {
-                    points->AddPoint(Point{float(i * step[0]), float(j * step[1]), float(k * step[2])});
-                }
-            }
-        }
-        mesh->SetDimensionSize(dim);
-        mesh->SetPoints(points);
-        mesh->GenStructuredCellConnectivities();
-        mesh->SetName("undefined_mesh");
-        modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::File);
-    });
-
-    connect(ui->action_test_03, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        SurfaceMesh::Pointer mesh = SurfaceMesh::New();
-        Points::Pointer points = Points::New();
-        points->AddPoint(0, 0, 0);
-        points->AddPoint(1, 0, 0);
-        points->AddPoint(0, 1, 0);
-
-        CellArray::Pointer faces = CellArray::New();
-        faces->AddCellId3(0, 1, 2);
-
-        mesh->SetPoints(points);
-        mesh->SetFaces(faces);
-        mesh->SetName("undefined_mesh");
-        rendererWidget->AddDataObject(mesh);
-    });
-
-    connect(ui->action_test_04, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        SurfaceMeshFilterTest::Pointer fp = SurfaceMeshFilterTest::New();
-        fp->SetInput(rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-        fp->Execute();
-        rendererWidget->update();
-    });
-
-    // connect(ui->action_test_05, &QAction::triggered, this, [&](bool checked) {
-    //     VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(
-    //         rendererWidget->GetScene()->GetCurrentModel()->GetDataObject());
-    //     for (int i = 0; i < 100; i++) {
-    //         mesh->DeleteVolume(i);
-    //     }
-
-    //});
-
-    connect(ui->action_test_06, &QAction::triggered, this, [&](bool checked) {
-        //      LineSource::Pointer source = LineSource::New();
-        //      Points::Pointer points = Points::New();
-        //      FloatArray::Pointer colors = FloatArray::New();
-        //      CellArray::Pointer polylines = CellArray::New();
-        //      CellArray::Pointer lines = CellArray::New();
-        //      IdArray::Pointer pl = IdArray::New();
-        //      for (int i = 0; i < 10; ++i) {
-        //          float theta = 2 * M_PI * i / 10;
-        //          float x = std::cos(theta);
-        //          float y = std::sin(theta);
-        //          IGsize ptId = points->AddPoint(Point{ x, y, 0.0f});
-        //          colors->AddValue((x + y) / 2);
-        //          pl->AddId(ptId);
-        //      }
-        //      polylines->AddCellIds(pl);
-
-        // IGsize ptId0 = points->A
-        //  ddPoint(Point{0, 0, 0});
-        // IGsize ptId1 = points->AddPoint(Point{0, 0, 1});
-        //       colors->AddValue(0.3);
-        //       colors->AddValue(0.4);
-        //       lines->AddCellId2(ptId0, ptId1);
-
-        //      source->SetPoints(points);
-        //      source->SetColors(colors);
-        //      source->SetLines(lines);
-        //      source->SetPolyLines(polylines);
-        //      source->SetName("undefined_line_source");
-        //      rendererWidget->AddDataObject(source);
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        UnstructuredMesh::Pointer mesh = UnstructuredMesh::New();
-        Points::Pointer points = Points::New();
-        CellArray::Pointer cells = CellArray::New();
-        UnsignedIntArray::Pointer types = UnsignedIntArray::New();
-        FloatArray::Pointer property = FloatArray::New();
-        property->SetName("scalar");
-
-        points->AddPoint(-0.5, -0.5, 0);
-        points->AddPoint(0.5, -0.5, 0);
-        points->AddPoint(0, 0.5, 0);
-        points->AddPoint(0, 0, 0.6);
-
-        points->AddPoint(1, 1, 0);
-        points->AddPoint(2, 1, 0);
-        points->AddPoint(1, 2, 0);
-
-        property->AddValue(-0.5);
-        property->AddValue(0.5);
-        property->AddValue(0);
-        property->AddValue(0);
-        property->AddValue(1);
-        property->AddValue(2);
-        property->AddValue(1);
-
-        cells->AddCellId4(0, 1, 2, 3);
-        types->AddValue(IG_TETRA);
-
-        cells->AddCellId3(4, 5, 6);
-        types->AddValue(IG_TRIANGLE);
-
-        StringArray::Pointer sa = StringArray::New();
-        sa->AddElement("scalar");
-
-        mesh->GetMetadata()->AddStringArray(ATTRIBUTE_NAME_ARRAY, sa);
-        mesh->GetAttributeSet()->AddScalar(IG_POINT, property);
-        mesh->SetPoints(points);
-        mesh->SetCells(cells, types);
-        mesh->SetName("undefined_unstructured_mesh");
-
-        modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::File);
-        // this->updateCurrentDataObject();
-    });
-
-
-    //    auto action_subdivision = ui->menuTest->addAction("rgbscalar");
-    //    connect(action_subdivision, &QAction::triggered, this, [&](bool checked) {
-    //        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-    //        auto input = rendererWidget->GetScene()
-    //            ->GetCurrentModel()
-    //            ->GetDataObject();
-    //        auto mesh=DynamicCast<UnstructuredMesh>(input)->TransferToSurfaceMesh();
-    //        auto attributeset=input->GetAttributeSet();
-    //        double rgb[3]={0,0,0};
-    //        int fcnt= mesh->GetNumberOfFaces();
-    //        auto array = DoubleArray::New();
-    //        array->SetDimension(3);
-    //        array->Reserve(fcnt);
-    //        array->SetName("rgb");
-    //        for (int i = 0; i < fcnt; i++) {
-    //            rgb[1]=double(i)/double(fcnt);
-    //            array->AddElement(rgb);
-    //        }
-    //        attributeset->AddAttribute(IG_RGB,IG_CELL,array);
-    //        modelTreeWidget->addDataObjectToModelTree(mesh,
-    //            ItemSource::File);
-    //    });
-
-    //     cp
 
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
@@ -1498,6 +816,20 @@ void igQtMainWindow::initAllFilters() {
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
         }
     });
+
+    QAction* vortexPrection = view->addAction("PredictVortex");
+    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        VortexDetection::Pointer filter = VortexDetection::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
+
+            modelTreeWidget->updateAllAttriubute(data);
+            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }
+    });
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
@@ -1520,8 +852,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(ui->action_Tensor, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_TensorField->show();
-        ui->widget_TensorField->UpdateScalarsNameList();
-        ui->widget_TensorField->UpdateTensorsNameList();
+        ui->widget_TensorField->InitTensorWidget();
     });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -1529,15 +860,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_ParallelCoordinatesField->show();
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
-    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-    //    if (ui->dockWidget_ParallelCoordinatesField->isHidden()) return;
-    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
-    //    if (model == nullptr) {
-    //        ui->dockWidget_ParallelCoordinatesField->hide();
-    //        return;
-    //    }
-    //    ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
-    //});
+
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -1549,15 +872,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_VariableCorrelationField->show();
         ui->widget_VariableCorrelationField->SetModel(model);
     });
-    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-    //    if (ui->dockWidget_VariableCorrelationField->isHidden()) return;
-    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
-    //    if (model == nullptr) {
-    //        ui->dockWidget_VariableCorrelationField->hide();
-    //        return;
-    //    }
-    //    ui->widget_VariableCorrelationField->SetModel(model);
-    //});
+
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -1570,15 +885,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_VariableDensityField->show();
         ui->widget_VariableDensityField->SetModel(model);
     });
-    //connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
-    //    if (ui->dockWidget_VariableDensityField->isHidden()) return;
-    //    auto model = rendererWidget->GetScene()->GetCurrentModel();
-    //    if (model == nullptr) {
-    //        ui->dockWidget_VariableDensityField->hide();
-    //        return;
-    //    }
-    //    ui->widget_VariableDensityField->SetModel(model);
-    //});
+
     connect(ui->widget_VariableDensityField, &igQtVariableDensityWidget::SIGNAL_RefreshDataClicked, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -1598,10 +905,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) { DataChangeFunc(this); });
     connect(ui->widget_DataChangeField, &igQtDataChangeWidget::SIGNAL_RefreshDataClicked, this,
             [&]() { DataChangeFunc(this); });
-    //connect(ui->widget_DataChangeField, &igQtDataChangeWidget::Hided, this, [&]() {
-    //    rendererWidget->GetScene()->GetInteractor()->RemoveSepcialInteractor(
-    //            ui->widget_DataChangeField->GetInteractorName());
-    //});
+
     connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
             auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -1910,8 +1214,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](DrawObject::Pointer mesh) { 
-            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); 
+            [&](DrawObject::Pointer mesh) {
+            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm);
         });
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
@@ -1959,41 +1263,14 @@ void igQtMainWindow::initAllMySignalConnections() {
                 res->Modified();
                 rendererWidget->update();
             });
-    // connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_ScalarField,
-    // &igQtScalarViewWidget::getScalarsName); connect(fileLoader,
-    // &igQtFileLoader::FinishReading, ui->widget_TensorField, [&]() {
-    //	ui->widget_TensorField->UpdateTensorsNameList();
-    //	});
-    // connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_SearchInfo,
-    // &igQtSearchInfoWidget::updateDataProducer);
+
 
     connect(fileLoader, &igQtFileLoader::AddFileToModelList, ui->modelTreeView, &igQtModelListView::AddModel);
-    // connect(rendererWidget, &igQtRenderWidget::AddDataObjectToModelList,
-    // ui->modelTreeView, &igQtModelListView::AddModel); connect(rendererWidget,
-    // &igQtRenderWidget::UpdateCurrentDataObject, this,
-    // &igQtMainWindow::updateCurrentDataObject);
 
-    // connect(fileLoader, &igQtFileLoader::LoadAnimationFile,
-    // ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
 
     connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
 
-    // connect(ui->widget_Animation,
-    // &igQtAnimationWidget::PlayAnimation_interpolate, rendererWidget,
-    // &igQtModelDrawWidget::PlayAnimation_interpolate);
 
-    // connect(ui->widget_FlowField, &igQtStreamTracerWidget::sendstreams,
-    // rendererWidget, &igQtModelDrawWidget::DrawStreamline);
-    // connect(ui->widget_FlowField, &igQtStreamTracerWidget::updatestreams,
-    // rendererWidget, &igQtModelDrawWidget::UpdateStreamline);
-
-    // connect(ui->modelTreeView, &igQtModelListView::UpdateCurrentScene, this,
-    // &igQtMainWindow::updateCurrentSceneWidget); connect(ui->modelTreeView,
-    // &igQtModelListView::UpdateCurrentItemToOtherQtModule, this,
-    // &igQtMainWindow::updateCurrentDataObject);
-
-    // connect(ui->modelTreeView, &igQtModelListView::ChangeModelVisible,
-    // rendererWidget, &igQtModelDrawWidget::changeTargetModelVisible);
 
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
@@ -2015,29 +1292,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         ui->widget_ScalarField->updateDrawStyle();
         this->rendererWidget->getColorBarWidget()->update();
     });
-    // connect(ui->widget_EditMode, &igQtEditModeWidget::ChangeCutFlag,
-    // rendererWidget, &igQtModelDrawWidget::UpdateCutFlag);
-    // connect(ui->widget_EditMode,
-    // &igQtEditModeWidget::UpdateCurrentModelCutPlane, rendererWidget,
-    // &igQtModelDrawWidget::UpdateCutPlane); connect(ui->widget_EditMode,
-    // &igQtEditModeWidget::ChangeEditModeToModelView, rendererWidget,
-    // &igQtModelDrawWidget::UpdateEditModeToModelView);
-    // connect(ui->widget_EditMode, &igQtEditModeWidget::ChangeEditModeToPickItem,
-    // rendererWidget, &igQtModelDrawWidget::UpdateEditModeToPickItem);
-    // connect(this->rendererWidget,
-    // &igQtModelDrawWidget::updateSelectedFramePlane, this, [&]() {
-    //	ui->widget_SearchInfo->searchDataWithFramePlane();
-    //	});
-    // connect(this->rendererWidget, &igQtModelDrawWidget::updatePickRay, this,
-    // [&](Vector3f p, Vector3f dir) {
-    // ui->widget_SearchInfo->searchDataWithRay(p,
-    // dir);
-    //	});
-    // connect(ui->widget_SearchInfo, &igQtSearchInfoWidget::showSearchedPoint,
-    // this, [&](iGameFloatArray* points) {
-    //	this->rendererWidget->DrawSelectedPoint(points);
-    //	});
-    //
+
     connect(ui->widget_VectorField, &igQtVectorWidget::DrawDireVector, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
     });
@@ -2050,13 +1305,10 @@ void igQtMainWindow::initAllMySignalConnections() {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
     });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateTensorGlyphs, this, [&](iGame::DataObject::Pointer res) {
-        //res->Modified();
         rendererWidget->update();
     });
     connect(ui->widget_TensorField, &igQtTensorWidget::UpdateAttributes, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->updateAllAttriubute(res);
-        // modelTreeWidget->addDataObjectToModelTree(res,
-        // ItemSource::Algorithm);
     });
 
     connect(ui->widget_ContourExtract, &igQtContourExtractWidget::DrawContourModel, this,
@@ -2423,19 +1675,7 @@ void igQtMainWindow::initAllInteractor() {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
     });
-    //connect(ui->action_select_points, &QAction::triggered, this,
-    //        [&](bool checked) {
-    //            if (ui->action_select_points->isChecked()) {
-    //                if (ui->action_select_point->isChecked()) {
-    //                    ui->action_select_point->setChecked(false);
-    //                }
-    //                rendererWidget->ChangeInteractorStyle(
-    //                        Interactor::MultiPointSelectionStyle);
-    //            } else {
-    //                rendererWidget->ChangeInteractorStyle(
-    //                        Interactor::BasicStyle);
-    //            }
-    //        });
+
 
     connect(ui->action_select_face, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_select_face->isChecked()) {
@@ -2445,19 +1685,6 @@ void igQtMainWindow::initAllInteractor() {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
     });
-    //connect(ui->action_select_faces, &QAction::triggered, this,
-    //        [&](bool checked) {
-    //            if (ui->action_select_faces->isChecked()) {
-    //                if (ui->action_select_face->isChecked()) {
-    //                    ui->action_select_face->setChecked(false);
-    //                }
-    //                rendererWidget->ChangeInteractorStyle(
-    //                        Interactor::MultiFaceSelectionStyle);
-    //            } else {
-    //                rendererWidget->ChangeInteractorStyle(
-    //                        Interactor::BasicStyle);
-    //            }
-    //        });
     connect(ui->action_drag_point, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_drag_point->isChecked()) {
             rendererWidget->ChangeInteractorStyle(Interactor::DragPointStyle);
@@ -2466,16 +1693,7 @@ void igQtMainWindow::initAllInteractor() {
         }
     });
 
-    //connect(ui->action_slicing, &QAction::triggered, this,
-    //    [&](bool checked) {
-    //        if (ui->action_slicing->isChecked()) {
-    //            rendererWidget->ChangeInteractorStyle(
-    //                    Interactor::SlicingStyle);
-    //        } else {
-    //            rendererWidget->ChangeInteractorStyle(
-    //                    Interactor::BasicStyle);
-    //        }
-    //    });
+
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }

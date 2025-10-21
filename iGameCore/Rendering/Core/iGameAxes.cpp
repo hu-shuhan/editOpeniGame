@@ -1,4 +1,4 @@
-#include "iGameAxes.h"
+ï»¿#include "iGameAxes.h"
 #include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -124,17 +124,17 @@ void Axes::Initialize() {
 }
 
 void Axes::Draw() {
-    /*1.×¼±¸½×¶Î£ºÉèÖÃÉî¶È²âÊÔºÍÊÓ¿Ú
-    2.¾ØÕóÉèÖÃ£º¼ÆËã¹Ì¶¨µÄÊÓÍ¼ºÍÍ¶Ó°¾ØÕó£¬½áºÏ³¡¾°Ðý×ª
-    3.¼¸ºÎÌåäÖÈ¾£º°ó¶¨×ÅÉ«Æ÷ºÍ²ÎÊý£¬»æÖÆÈý¸öÖáµÄ¼¸ºÎÌå(°üÀ¨¼ýÍ·ºÍÔ­µãÁ¢·½Ìå)
-    4.ÎÄ×ÖäÖÈ¾£º£¬ÇÐ»»µ½ÎÄ×ÖÄ£Ê½£¬·Ö±ðäÖÈ¾X YZÈý¸ö×Ö·û±êÇ©
-    5.ÇåÀí£º»Ö¸´äÖÈ¾×´Ì¬*/
+    /*1.å‡†å¤‡é˜¶æ®µï¼šè®¾ç½®æ·±åº¦æµ‹è¯•å’Œè§†å£
+    2.çŸ©é˜µè®¾ç½®ï¼šè®¡ç®—å›ºå®šçš„è§†å›¾å’ŒæŠ•å½±çŸ©é˜µï¼Œç»“åˆåœºæ™¯æ—‹è½¬
+    3.å‡ ä½•ä½“æ¸²æŸ“ï¼šç»‘å®šç€è‰²å™¨å’Œå‚æ•°ï¼Œç»˜åˆ¶ä¸‰ä¸ªè½´çš„å‡ ä½•ä½“(åŒ…æ‹¬ç®­å¤´å’ŒåŽŸç‚¹ç«‹æ–¹ä½“)
+    4.æ–‡å­—æ¸²æŸ“ï¼šï¼Œåˆ‡æ¢åˆ°æ–‡å­—æ¨¡å¼ï¼Œåˆ†åˆ«æ¸²æŸ“X YZä¸‰ä¸ªå­—ç¬¦æ ‡ç­¾
+    5.æ¸…ç†ï¼šæ¢å¤æ¸²æŸ“çŠ¶æ€*/
 
-    // use reversed-z buffer·´ÏòÉî¶È²âÊÔ
+    // use reversed-z bufferåå‘æ·±åº¦æµ‹è¯•
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
-    // update range½«×ø±êÖáäÖÈ¾µ½Ö÷ÊÓ¿Ú×óÏÂ½ÇµÄ1/10ÇøÓò
+    // update rangeå°†åæ ‡è½´æ¸²æŸ“åˆ°ä¸»è§†å£å·¦ä¸‹è§’çš„1/10åŒºåŸŸ
     int vp[4];
     glGetIntegerv(GL_VIEWPORT, vp);
     int scale = std::max(vp[2] - vp[0], vp[3] - vp[1]) / 10;
@@ -143,15 +143,15 @@ void Axes::Draw() {
     glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
 
 
-    // fixed position¹Ì¶¨ÊÓÍ¼¾ØÕó£¬Ïà»úÎ»ÖÃ¹Ì¶¨ÔÚZÖá3.5µ¥Î»´¦£¬¹Û²ìÔ­µã(0, 0, 0)£¬ÉÏ·½ÏòÎªYÖáÕý·½Ïò£¬ÓÒÊÖ×ø±êÏµRH
+    // fixed positionå›ºå®šè§†å›¾çŸ©é˜µï¼Œç›¸æœºä½ç½®å›ºå®šåœ¨Zè½´3.5å•ä½å¤„ï¼Œè§‚å¯ŸåŽŸç‚¹(0, 0, 0)ï¼Œä¸Šæ–¹å‘ä¸ºYè½´æ­£æ–¹å‘ï¼Œå³æ‰‹åæ ‡ç³»RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
     static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
                                           igm::vec3{0.0f, 1.0f, 0.0f});
-    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f); //¹Ì¶¨Í¶Ó°¾ØÕó£¬fov45¡ã£¬¿í¸ß±È1.0£¬½ü²Ã¼ôÃæ0.01µ¥Î»
+    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f); //å›ºå®šæŠ•å½±çŸ©é˜µï¼Œfov45Â°ï¼Œå®½é«˜æ¯”1.0ï¼Œè¿‘è£å‰ªé¢0.01å•ä½
 
-    igm::mat4 model = m_Scene->m_ModelRotate;//Ê¹ÓÃ³¡¾°µÄÐý×ª¾ØÕó£¬×ø±êÖáÓë³¡¾°Í¬²½Ðý×ª
+    igm::mat4 model = m_Scene->m_ModelRotate;//ä½¿ç”¨åœºæ™¯çš„æ—‹è½¬çŸ©é˜µï¼Œåæ ‡è½´ä¸Žåœºæ™¯åŒæ­¥æ—‹è½¬
     igm::mat4 mvp = proj * view * model;
-    //×ÅÉ«ºÍ×ÖÌå¹ÜÀíÆ÷
+    //ç€è‰²å’Œå­—ä½“ç®¡ç†å™¨
     auto shaderManager = m_Scene->m_ShaderManager;
     auto fontManager = m_Scene->m_FontManager;
 
@@ -168,7 +168,7 @@ void Axes::Draw() {
     auto textureY = fontManager->GetTexture(L'Y');
     auto textureZ = fontManager->GetTexture(L'Z');
 
-    //draw axes »æÖÆ×ø±êÖá
+    //draw axes ç»˜åˆ¶åæ ‡è½´
     {
         axesShader->SetUniformi("isDrawFont", 0);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

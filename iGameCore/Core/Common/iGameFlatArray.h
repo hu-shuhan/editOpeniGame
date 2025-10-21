@@ -46,6 +46,7 @@ public:
     bool ShallowCopy(FlatArray<TValue>::Pointer other) { return false; }
     bool DeepCopy(FlatArray<TValue>::Pointer other) {
         if (other == nullptr) { return false; }
+        SetName(other->GetName());
 
         m_Dimension = other->m_Dimension;
         this->Reserve(other->GetNumberOfElements());

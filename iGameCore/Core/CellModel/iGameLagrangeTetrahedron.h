@@ -1,4 +1,4 @@
-#ifndef iGameLagrangeTetrahedron_h
+ï»¿#ifndef iGameLagrangeTetrahedron_h
 #define iGameLagrangeTetrahedron_h
 
 #include "iGameLagrangeVolume.h"
@@ -43,7 +43,7 @@ public:
         int numFacePoints = GetFacePointIds(faceId, ptIds);
         if (numFacePoints == 0) return nullptr;
 
-        // ËÄÃæÌåµÄÃæ¶¼ÊÇÈı½ÇĞÎ
+        // å››é¢ä½“çš„é¢éƒ½æ˜¯ä¸‰è§’å½¢
         LagrangeTriangle* face = m_TriFace.get();
 
         face->SetOrder(m_Order);
@@ -60,26 +60,26 @@ public:
     int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) override {
         if (edgeId < 0 || edgeId >= 6) return 0;
         switch (m_Order) {
-            case 1: { // ÏßĞÔ (2½Úµã) ±ß
+            case 1: { // çº¿æ€§ (2èŠ‚ç‚¹) è¾¹
                 static const igIndex edges[6][2] = {{0, 1}, {1, 2}, {2, 0}, {0, 3}, {1, 3}, {2, 3}};
                 ptIds = edges[edgeId];
                 return 2;
             }
-            case 2: { // ¶ş´Î (3½Úµã) ±ß
-                // ½ÚµãË³Ğò: [½Çµã1, ½Çµã2, ±ßÖĞµã]
+            case 2: { // äºŒæ¬¡ (3èŠ‚ç‚¹) è¾¹
+                // èŠ‚ç‚¹é¡ºåº: [è§’ç‚¹1, è§’ç‚¹2, è¾¹ä¸­ç‚¹]
                 static const igIndex edges[6][3] = {{0, 1, 4}, {1, 2, 5}, {2, 0, 6}, {0, 3, 7}, {1, 3, 8}, {2, 3, 9}};
                 ptIds = edges[edgeId];
                 return 3;
             }
-            case 3: { // Èı´Î (4½Úµã) ±ß
-                // ½ÚµãË³Ğò: [½Çµã1, ½Çµã2, ±ßÄÚ²¿µã1, ±ßÄÚ²¿µã2]
+            case 3: { // ä¸‰æ¬¡ (4èŠ‚ç‚¹) è¾¹
+                // èŠ‚ç‚¹é¡ºåº: [è§’ç‚¹1, è§’ç‚¹2, è¾¹å†…éƒ¨ç‚¹1, è¾¹å†…éƒ¨ç‚¹2]
                 static const igIndex edges[6][4] = {{0, 1, 4, 5},   {1, 2, 6, 7},   {2, 0, 8, 9},
                                                     {0, 3, 10, 11}, {1, 3, 12, 13}, {2, 3, 14, 15}};
                 ptIds = edges[edgeId];
                 return 4;
             }
-            case 4: { // ËÄ´Î (5½Úµã) ±ß
-                // ½ÚµãË³Ğò: [½Çµã1, ½Çµã2, ±ßÄÚ²¿µã1, ±ßÄÚ²¿µã2, ±ßÄÚ²¿µã3]
+            case 4: { // å››æ¬¡ (5èŠ‚ç‚¹) è¾¹
+                // èŠ‚ç‚¹é¡ºåº: [è§’ç‚¹1, è§’ç‚¹2, è¾¹å†…éƒ¨ç‚¹1, è¾¹å†…éƒ¨ç‚¹2, è¾¹å†…éƒ¨ç‚¹3]
                 static const igIndex edges[6][5] = {{0, 1, 4, 5, 6},    {1, 2, 7, 8, 9},    {2, 0, 10, 11, 12},
                                                     {0, 3, 13, 14, 15}, {1, 3, 16, 17, 18}, {2, 3, 19, 20, 21}};
                 ptIds = edges[edgeId];
@@ -93,12 +93,12 @@ public:
     int GetFacePointIds(const int faceId, const igIndex*& ptIds) override {
         if (faceId < 0 || faceId >= 4) return 0;
         switch (m_Order) {
-            case 1: { // ÏßĞÔÃæ (3½Úµã)
+            case 1: { // çº¿æ€§é¢ (3èŠ‚ç‚¹)
                 static const igIndex linearFaces[4][3] = {{0, 1, 2}, {0, 3, 1}, {1, 3, 2}, {2, 3, 0}};
                 ptIds = linearFaces[faceId];
                 return 3;
             }
-            case 2: { // ¶ş´ÎÃæ (6½Úµã)
+            case 2: { // äºŒæ¬¡é¢ (6èŠ‚ç‚¹)
                 static const igIndex quadraticFaces[4][6] = {{0, 1, 2, 4, 5, 6},
                                                              {0, 3, 1, 7, 8, 4},
                                                              {1, 3, 2, 8, 9, 5},
@@ -106,7 +106,7 @@ public:
                 ptIds = quadraticFaces[faceId];
                 return 6;
             }
-            case 3: { // Èı´ÎÃæ (10½Úµã)
+            case 3: { // ä¸‰æ¬¡é¢ (10èŠ‚ç‚¹)
                 static const igIndex cubicFaces[4][10] = {{0, 1, 2, 4, 5, 6, 7, 10, 11, 12},
                                                           {0, 3, 1, 8, 9, 4, 5, 13, 14, 10},
                                                           {1, 3, 2, 9, 6, 8, 7, 15, 16, 11},
@@ -114,7 +114,7 @@ public:
                 ptIds = cubicFaces[faceId];
                 return 10;
             }
-            case 4: { // ËÄ´ÎÃæ (15½Úµã)
+            case 4: { // å››æ¬¡é¢ (15èŠ‚ç‚¹)
                 static const igIndex quarticFaces[4][15] = {{0, 1, 2, 4, 5, 6, 7, 8, 12, 13, 14, 15, 21, 22, 23},
                                                             {0, 3, 1, 9, 10, 4, 5, 11, 16, 17, 12, 13, 24, 25, 21},
                                                             {1, 3, 2, 10, 6, 9, 8, 11, 18, 19, 14, 15, 26, 27, 22},

@@ -368,9 +368,12 @@ protected:
 	int m_NumberOfBoxes{ 1 };
 	int m_NumberOfPointsPerBox{ 1 };
 	double m_Threshold{ 0.01 };
+    
+
 
 	int m_Size{}, m_SizeSquared{}; // m_Size = 2 ^ m_Depth
 	int m_Depth{};                 // Tree's depth
 };
+
 IGAME_NAMESPACE_END
 #endif

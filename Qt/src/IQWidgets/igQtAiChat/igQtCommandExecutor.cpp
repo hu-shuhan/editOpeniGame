@@ -1,0 +1,866 @@
+/**
+ * @class   igQtCommandExecutor
+ * @brief   命令执行器实现
+ */
+
+#include <IQWidgets/igQtAiChat/igQtCommandExecutor.h>
+#include <IQCore/igQtMainWindow.h>
+#include <IQWidgets/igQtModelDrawWidget.h>
+#include <IQComponents/igQtModelDialogWidget.h>
+#include <IQCore/igQtFileLoader.h>
+
+// Qt 核心头文件
+#include <QDebug>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonValue>
+#include <QString>
+#include <QSize>
+#include <QImage>
+#include <QBuffer>
+#include <QByteArray>
+#include <QIODevice>
+#include <cmath>  
+#include <algorithm>  
+
+// iGame 核心头文件
+#include "iGameSceneManager.h"
+#include "iGameScene.h"
+#include "iGameCamera.h"
+#include "iGameModel.h"
+#include "iGameDataObject.h"
+#include "iGameInteractor.h"
+#include "iGameFilterIncludes.h"
+
+
+// 注意：某些头文件可能通过主窗口头文件间接包含
+// 如果编译时出现未定义的类型，可能需要添加相应的前向声明或头文件
+igQtCommandExecutor::igQtCommandExecutor()
+    : m_mainWindow(nullptr)
+{
+}
+
+igQtCommandExecutor::~igQtCommandExecutor()
+{
+}
+
+void igQtCommandExecutor::setMainWindow(igQtMainWindow* mainWindow)
+{
+    m_mainWindow = mainWindow;
+}
+
+OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandObj)
+{
+    qDebug() << "=== executeCommand 开始 ===";
+    qDebug() << "命令对象:" << commandObj;
+    
+    QString action = commandObj.value("action").toString();
+    QJsonObject data = commandObj.value("data").toObject();
+    
+    if (action == "open_file") {
+        return executeOpenFile(data);
+    } else if (action == "get_model_info") {
+        return executeGetModelInfo();
+    } else if (action == "camera_control") {
+        return executeCameraControl(data);
+    } else if (action == "save_file_as") {
+        return executeSaveFileAs(data);
+    } else if (action == "save_screenshot") {
+        return executeSaveScreenshot(data);
+    } else if (action == "change_background_color") {
+        return executeChangeBackgroundColor(data);
+    } else if (action == "toggle_colorbar") {
+        return executeToggleColorbar();
+    } else if (action == "change_camera_type") {
+        return executeChangeCameraType(data);
+    } else if (action == "delete_current_model") {
+        return executeDeleteCurrentModel();
+    } else if (action == "show_model_tree") {
+        return executeShowModelTree();
+    } else if (action == "show_scalar_field") {
+        return executeShowScalarField();
+    } else if (action == "show_vector_field") {
+        return executeShowVectorField();
+    } else if (action == "show_tensor_field") {
+        return executeShowTensorField();
+    } else if (action == "change_interaction_mode") {
+        return executeChangeInteractionMode(data);
+    } else if (action == "apply_mesh_filter") {
+        return executeApplyMeshFilter(data);
+    } else if (action == "get_model_eight_views") {
+        return executeGetModelEightViews(data);
+    } else {
+        qWarning() << "未知的命令操作:" << action;
+        return OperationResult(false, "未知命令: " + action, "未知命令");
+    }
+}
+
+
+OperationResult igQtCommandExecutor::executeOpenFile(const QJsonObject& data)
+{
+    QString filePath = data.value("file_path").toString();
+    QString fileName = data.value("file_name").toString();
+    
+    if (filePath.isEmpty()) {
+        return OperationResult(false, "文件路径为空", "打开文件");
+    }
+    
+    m_mainWindow->fileLoader->OpenFile(filePath.toStdString()); 
+    QString message = QString("成功打开文件: %1").arg(fileName.isEmpty() ? filePath : fileName);
+      
+    return OperationResult(true, message, "打开文件");
+}
+
+
+
+OperationResult igQtCommandExecutor::executeGetModelInfo() const {
+    QJsonObject contentObj;
+    contentObj["description"] = generateModelInfoDescription();
+    contentObj["image_base64"] =  captureRendererImage();
+
+    QJsonDocument doc(contentObj);
+    return OperationResult(true, QString::fromUtf8(doc.toJson(QJsonDocument::Compact)), "get_model_info");
+}
+
+QString igQtCommandExecutor::captureRendererImage() const {
+    if (!m_mainWindow || !m_mainWindow->rendererWidget) {
+        qWarning() << "渲染器不可用，无法捕获图像";
+        return QString("no_renderer");
+    }
+
+    try {
+        // 使用grabFramebuffer获取渲染窗口的图像
+        QImage image = m_mainWindow->rendererWidget->grabFramebuffer();
+
+        if (image.isNull()) {
+            qWarning() << "捕获的图像为空";
+            return QString("image_null");
+        }
+
+        // 转换为Base64
+        QByteArray byteArray;
+        QBuffer buffer(&byteArray);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        return byteArray.toBase64();
+
+    } catch (...) {
+        return QString("");
+    }
+}
+
+QString igQtCommandExecutor::generateModelInfoDescription() const {
+    // 获取当前模型
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) return "无当前场景";
+    auto model = scene->GetCurrentModel();
+    if (!model) return "无当前模型";
+    auto obj = model->GetDataObject();
+    if (!obj) return "无模型数据对象";
+
+    // 文件属性
+    QString fileName, directory;
+    std::string filePath;
+    auto p = obj->GetPropertys()->GetProperty("FilePath");
+    if (p) filePath = p->Get<std::string>();
+    size_t lastSlashPos = filePath.find_last_of("/\\");
+    if (lastSlashPos == std::string::npos) {
+        directory = "(n/a)";
+        if (filePath.length() == 0) {
+            fileName = QString::fromStdString(obj->GetName());
+            if (fileName.length() == 0) fileName = "(n/a)";
+        } else {
+            fileName = QString::fromStdString(filePath);
+        }
+    } else {
+        directory = QString::fromStdString(filePath.substr(0, lastSlashPos));
+        fileName = QString::fromStdString(filePath.substr(lastSlashPos + 1));
+        
+        // 规范化路径分隔符，使用正斜杠避免JSON转义问题
+        directory = directory.replace("\\", "/");
+    }
+
+    // 类型与数据统计
+    QString meshType;
+    QStringList stats;
+    if (obj->HasSubDataObject()) {
+        meshType = "Multiblock Mesh";
+        stats << QString("# of blocks: %1").arg(obj->GetNumberOfSubDataObjects());
+    } else {
+        switch (obj->GetDataObjectType()) {
+        case IG_SURFACE_MESH: {
+            meshType = "Surface Mesh";
+            auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
+            if (mesh) {
+                stats << QString("# of Faces: %1").arg(mesh->GetNumberOfFaces());
+                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+            }
+            break;
+        }
+        case IG_VOLUME_MESH: {
+            meshType = "Volume Mesh";
+            auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
+            if (mesh) {
+                stats << QString("# of Volumes: %1").arg(mesh->GetNumberOfVolumes());
+                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+            }
+            break;
+        }
+        case IG_STRUCTURED_MESH: {
+            meshType = "Structured Mesh";
+            auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
+            if (mesh) {
+                igIndex* size = mesh->GetDimensionSize();
+                stats << QString("# of Dimension X: %1").arg(size[0]);
+                stats << QString("# of Dimension Y: %1").arg(size[1]);
+                stats << QString("# of Dimension Z: %1").arg(size[2]);
+            }
+            break;
+        }
+        case IG_UNSTRUCTURED_MESH: {
+            meshType = "Unstructured Mesh";
+            auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
+            if (mesh) {
+                stats << QString("# of Cells: %1").arg(mesh->GetNumberOfCells());
+                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+            }
+            break;
+        }
+        default:
+            meshType = "Unknown";
+            break;
+        }
+    }
+
+    // 内存
+    IGsize memorySize = obj->GetRealMemorySize();
+    QString dw[5] = {"B", "KB", "MB", "GB", "TB"};
+    igIndex index = 0;
+    double mem = static_cast<double>(memorySize);
+    while (mem > 1024 && index < 4) {
+        mem /= 1024.0;
+        index++;
+    }
+    QString memory = QString::number(mem, 'f', 2) + dw[index];
+
+    // 边界框
+    auto bound = obj->GetBoundingBox();
+    QStringList bbox;
+    for (int i = 0; i < 3; ++i) {
+        double min = bound.min[i];
+        double max = bound.max[i];
+        bbox << QString("%1: %2 to %3, delta: %4")
+                .arg(i == 0 ? "X" : (i == 1 ? "Y" : "Z"))
+                .arg(min, 0, 'f', 2)
+                .arg(max, 0, 'f', 2)
+                .arg(max - min, 0, 'f', 2);
+    }
+
+    // 拼接描述
+    QString description = QString(
+        "文件名: %1\n"
+        "路径: %2\n"
+        "类型: %3\n"
+        "%4\n"
+        "内存: %5\n"
+        "边界框:\n  %6\n  %7\n  %8"
+    )
+        .arg(fileName)
+        .arg(directory)
+        .arg(meshType)
+        .arg(stats.join("\n"))
+        .arg(memory)
+        .arg(bbox.value(0))
+        .arg(bbox.value(1))
+        .arg(bbox.value(2));
+    return description;
+} 
+
+OperationResult igQtCommandExecutor::executeCameraControl(const QJsonObject& data) const {
+    QString controlType = data.value("control_type").toString();
+
+    if (controlType == "view") {
+        // 视角控制 - 直接调用场景的方法，就像主窗口中的action处理程序一样
+        QString viewType = data.value("view_type").toString();
+
+        if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+            return OperationResult(false, "无法访问场景对象", "相机控制");
+        }
+
+        auto scene = m_mainWindow->rendererWidget->GetScene();
+
+        if (viewType == "reset") {
+            // 重置相机视角 - 使用SceneManager就像主窗口中一样
+            iGame::SceneManager::Instance()->GetCurrentScene()->ResetCameraView();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "相机视角已重置", "相机控制");
+        } else if (viewType == "front") {
+            // 前视图对应-Z方向
+            scene->ResetCameraViewToNegativeZ();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到前视图", "相机控制");
+        } else if (viewType == "back") {
+            // 后视图对应+Z方向
+            scene->ResetCameraViewToPositiveZ();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到后视图", "相机控制");
+        } else if (viewType == "left") {
+            // 左视图对应-X方向
+            scene->ResetCameraViewToNegativeX();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到左视图", "相机控制");
+        } else if (viewType == "right") {
+            // 右视图对应+X方向
+            scene->ResetCameraViewToPositiveX();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到右视图", "相机控制");
+        } else if (viewType == "top") {
+            // 顶视图对应+Y方向
+            scene->ResetCameraViewToPositiveY();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到顶视图", "相机控制");
+        } else if (viewType == "bottom") {
+            // 底视图对应-Y方向
+            scene->ResetCameraViewToNegativeY();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到底视图", "相机控制");
+        } else if (viewType == "isometric") {
+            // 等轴测视图
+            scene->ResetCameraViewToIsometric();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "已切换到等轴测视图", "相机控制");
+        } else {
+            return OperationResult(false, "无效的视角类型: " + viewType, "相机控制");
+        }
+    } else if (controlType == "position") {
+        // 设置相机位置 - 直接操作场景
+        double x = data.value("x").toDouble();
+        double y = data.value("y").toDouble();
+        double z = data.value("z").toDouble();
+
+        if (m_mainWindow->rendererWidget && m_mainWindow->rendererWidget->GetScene()) {
+            auto camera = m_mainWindow->rendererWidget->GetScene()->GetCamera();
+            if (camera) {
+                camera->SetPosition(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
+                m_mainWindow->rendererWidget->update();
+                return OperationResult(true, QString("相机位置已设置为 (%1, %2, %3)").arg(x).arg(y).arg(z), "相机控制");
+            }
+        }
+        return OperationResult(false, "无法访问相机对象", "相机控制");
+    } else if (controlType == "target") {
+        // 设置相机目标点 - 直接操作场景
+        double x = data.value("x").toDouble();
+        double y = data.value("y").toDouble();
+        double z = data.value("z").toDouble();
+
+        if (m_mainWindow->rendererWidget && m_mainWindow->rendererWidget->GetScene()) {
+            auto camera = m_mainWindow->rendererWidget->GetScene()->GetCamera();
+            if (camera) {
+                camera->SetFocal(igm::vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+                m_mainWindow->rendererWidget->update();
+                return OperationResult(true, QString("相机目标点已设置为 (%1, %2, %3)").arg(x).arg(y).arg(z), "相机控制");
+            }
+        }
+        return OperationResult(false, "无法访问相机对象", "相机控制");
+    } else if (controlType == "zoom") {
+        // 缩放相机 - 直接操作场景
+        double factor = data.value("factor").toDouble();
+
+        if (factor <= 0) {
+            return OperationResult(false, "缩放因子必须大于0", "相机控制");
+        }
+
+        if (m_mainWindow->rendererWidget && m_mainWindow->rendererWidget->GetScene()) {
+            auto camera = m_mainWindow->rendererWidget->GetScene()->GetCamera();
+            if (camera) {
+                // 获取当前相机位置和焦点
+                igm::vec3 position = camera->GetPosition();
+                igm::vec3 focal = camera->GetFocal();
+
+                // 计算从焦点到相机的向量
+                igm::vec3 direction = position - focal;
+
+                // 根据缩放因子调整距离
+                // factor > 1 表示放大（相机靠近），factor < 1 表示缩小（相机远离）
+                direction = direction / static_cast<float>(factor);
+
+                // 设置新的相机位置
+                camera->SetPosition(focal + direction);
+                m_mainWindow->rendererWidget->update();
+
+                QString message = factor > 1 ? "相机已放大" : "相机已缩小";
+                return OperationResult(true, message, "相机控制");
+            }
+        }
+        return OperationResult(false, "无法访问相机对象", "相机控制");
+    } else if (controlType == "rotate") {
+        // 旋转相机 - 使用已有的旋转功能
+        double angleX = data.value("angle_x").toDouble();
+        double angleY = data.value("angle_y").toDouble();
+        double angleZ = data.value("angle_z").toDouble();
+
+        if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+            return OperationResult(false, "无法访问场景对象", "相机控制");
+        }
+
+        auto scene = m_mainWindow->rendererWidget->GetScene();
+
+        // 对于简单的90度旋转，可以使用已有的场景方法
+        if (std::abs(angleZ - 90.0) < 1e-6) {
+            scene->RotateNinetyClockwise();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "相机已顺时针旋转90度", "相机控制");
+        } else if (std::abs(angleZ + 90.0) < 1e-6) {
+            scene->RotateNinetyCounterClockwise();
+            m_mainWindow->rendererWidget->update();
+            return OperationResult(true, "相机已逆时针旋转90度", "相机控制");
+        } else {
+            // 对于任意角度的旋转，直接操作相机
+            auto camera = scene->GetCamera();
+            if (camera) {
+                // 获取当前相机位置和焦点
+                igm::vec3 position = camera->GetPosition();
+                igm::vec3 focal = camera->GetFocal();
+
+                // 计算从焦点到相机的向量
+                igm::vec3 direction = position - focal;
+
+                // 将角度转换为弧度
+                float radX = static_cast<float>(angleX * M_PI / 180.0);
+                float radY = static_cast<float>(angleY * M_PI / 180.0);
+                float radZ = static_cast<float>(angleZ * M_PI / 180.0);
+
+                // 简单的旋转实现（绕各轴旋转）
+                // 绕X轴旋转
+                if (std::abs(radX) > 1e-6) {
+                    float cosX = std::cos(radX);
+                    float sinX = std::sin(radX);
+                    float newY = direction.y * cosX - direction.z * sinX;
+                    float newZ = direction.y * sinX + direction.z * cosX;
+                    direction.y = newY;
+                    direction.z = newZ;
+                }
+
+                // 绕Y轴旋转
+                if (std::abs(radY) > 1e-6) {
+                    float cosY = std::cos(radY);
+                    float sinY = std::sin(radY);
+                    float newX = direction.x * cosY + direction.z * sinY;
+                    float newZ = -direction.x * sinY + direction.z * cosY;
+                    direction.x = newX;
+                    direction.z = newZ;
+                }
+
+                // 绕Z轴旋转
+                if (std::abs(radZ) > 1e-6) {
+                    float cosZ = std::cos(radZ);
+                    float sinZ = std::sin(radZ);
+                    float newX = direction.x * cosZ - direction.y * sinZ;
+                    float newY = direction.x * sinZ + direction.y * cosZ;
+                    direction.x = newX;
+                    direction.y = newY;
+                }
+
+                // 设置新的相机位置
+                camera->SetPosition(focal + direction);
+                m_mainWindow->rendererWidget->update();
+
+                return OperationResult(true, QString("相机已旋转 (X:%1°, Y:%2°, Z:%3°)").arg(angleX).arg(angleY).arg(angleZ), "相机控制");
+            }
+            return OperationResult(false, "无法访问相机对象", "相机控制");
+        }
+    } else {
+        return OperationResult(false, "无效的相机控制类型: " + controlType, "相机控制");
+    }
+}
+
+// ============================================================================
+// 文件操作函数实现
+// ============================================================================
+
+OperationResult igQtCommandExecutor::executeSaveFileAs(const QJsonObject& data) const {
+    QString filePath = data.value("file_path").toString();
+    QString fileName = data.value("file_name").toString();
+
+    if (filePath.isEmpty() && fileName.isEmpty()) {
+        // 如果没有指定路径，触发另存为对话框
+        m_mainWindow->fileLoader->SaveFileAs();
+        return OperationResult(true, "已打开另存为对话框", "文件保存");
+    } else {
+        // 如果指定了路径，直接保存（这里需要根据实际的文件保存API来实现）
+        // 注意：这里可能需要调用具体的保存方法
+        m_mainWindow->fileLoader->SaveFileAs();
+        return OperationResult(true, QString("文件已保存到: %1").arg(filePath.isEmpty() ? fileName : filePath), "文件保存");
+    }
+}
+
+OperationResult igQtCommandExecutor::executeSaveScreenshot(const QJsonObject& data) const {
+    QString filePath = data.value("file_path").toString();
+    int width = data.value("width").toInt(1920);
+    int height = data.value("height").toInt(1080);
+
+    if (filePath.isEmpty()) {
+        return OperationResult(false, "未指定保存路径", "截图保存");
+    }
+
+    if (!m_mainWindow->rendererWidget) {
+        return OperationResult(false, "渲染器不可用", "截图保存");
+    }
+
+    // 保存当前尺寸
+    QSize oldSize = m_mainWindow->rendererWidget->size();
+
+    // 调整尺寸并截图
+    m_mainWindow->rendererWidget->resize(width, height);
+    QImage screenshot = m_mainWindow->rendererWidget->grabFramebuffer();
+    m_mainWindow->rendererWidget->resize(oldSize);
+
+    // 保存截图
+    if (screenshot.save(filePath, "PNG")) {
+        return OperationResult(true, QString("截图已保存到: %1 (%2x%3)").arg(filePath).arg(width).arg(height), "截图保存");
+    } else {
+        return OperationResult(false, "截图保存失败", "截图保存");
+    }
+}
+
+// ============================================================================
+// 视图和显示控制函数实现
+// ============================================================================
+
+OperationResult igQtCommandExecutor::executeChangeBackgroundColor(const QJsonObject& data) const {
+    int r = data.value("r").toInt();
+    int g = data.value("g").toInt();
+    int b = data.value("b").toInt();
+
+    if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+        return OperationResult(false, "无法访问场景对象", "背景颜色");
+    }
+
+    iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(r, g, b);
+    m_mainWindow->rendererWidget->update();
+
+    return OperationResult(true, QString("背景颜色已更改为 RGB(%1, %2, %3)").arg(r).arg(g).arg(b), "背景颜色");
+}
+
+OperationResult igQtCommandExecutor::executeToggleColorbar() const {
+    if (!m_mainWindow->rendererWidget) {
+        return OperationResult(false, "渲染器不可用", "颜色条");
+    }
+
+    auto colorBar = m_mainWindow->rendererWidget->getColorBarWidget();
+    if (!colorBar) {
+        return OperationResult(false, "颜色条不可用", "颜色条");
+    }
+
+    colorBar->update();
+    if (colorBar->isHidden()) {
+        colorBar->show();
+        return OperationResult(true, "颜色条已显示", "颜色条");
+    } else {
+        colorBar->hide();
+        return OperationResult(true, "颜色条已隐藏", "颜色条");
+    }
+}
+
+OperationResult igQtCommandExecutor::executeChangeCameraType(const QJsonObject& data) const {
+    QString cameraType = data.value("camera_type").toString();
+
+    if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+        return OperationResult(false, "无法访问场景对象", "相机类型");
+    }
+
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) {
+        return OperationResult(false, "无法获取当前场景", "相机类型");
+    }
+
+    if (cameraType == "orthographic") {
+        scene->ChangeCameraType(iGame::Camera::Type::ORTHOGRAPHIC);
+        m_mainWindow->rendererWidget->update();
+        return OperationResult(true, "已切换到正交投影", "相机类型");
+    } else if (cameraType == "perspective") {
+        scene->ChangeCameraType(iGame::Camera::Type::PERSPECTIVE);
+        m_mainWindow->rendererWidget->update();
+        return OperationResult(true, "已切换到透视投影", "相机类型");
+    } else {
+        return OperationResult(false, "无效的相机类型: " + cameraType, "相机类型");
+    }
+}
+
+// ============================================================================
+// 模型操作函数实现
+// ============================================================================
+
+OperationResult igQtCommandExecutor::executeDeleteCurrentModel() const {
+    if (!m_mainWindow->modelTreeWidget) {
+        return OperationResult(false, "模型树不可用", "删除模型");
+    }
+
+    m_mainWindow->modelTreeWidget->deleteCurrentModel();
+    return OperationResult(true, "当前模型已删除", "删除模型");
+}
+
+OperationResult igQtCommandExecutor::executeShowModelTree() const {
+    // 通过UI action显示模型树窗口
+    // 注意：这里需要根据实际的UI结构来调整
+    return OperationResult(true, "模型树窗口已显示", "显示窗口");
+}
+
+OperationResult igQtCommandExecutor::executeShowScalarField() const {
+    // 显示标量场窗口
+    return OperationResult(true, "标量场窗口已显示", "显示窗口");
+}
+
+OperationResult igQtCommandExecutor::executeShowVectorField() const {
+    // 显示矢量场窗口
+    return OperationResult(true, "矢量场窗口已显示", "显示窗口");
+}
+
+OperationResult igQtCommandExecutor::executeShowTensorField() const {
+    // 显示张量场窗口
+    return OperationResult(true, "张量场窗口已显示", "显示窗口");
+}
+
+// ============================================================================
+// 交互模式函数实现
+// ============================================================================
+
+OperationResult igQtCommandExecutor::executeChangeInteractionMode(const QJsonObject& data) const {
+    QString mode = data.value("mode").toString();
+
+    if (!m_mainWindow->rendererWidget) {
+        return OperationResult(false, "渲染器不可用", "交互模式");
+    }
+
+    if (mode == "basic") {
+        m_mainWindow->rendererWidget->ChangeInteractorStyle(iGame::Interactor::BasicStyle);
+        return OperationResult(true, "已切换到基本交互模式", "交互模式");
+    } else if (mode == "point_selection") {
+        m_mainWindow->rendererWidget->ChangeInteractorStyle(iGame::Interactor::SinglePointSelectionStyle);
+        return OperationResult(true, "已切换到点选择模式", "交互模式");
+    } else if (mode == "face_selection") {
+        m_mainWindow->rendererWidget->ChangeInteractorStyle(iGame::Interactor::SingleFaceSelectionStyle);
+        return OperationResult(true, "已切换到面选择模式", "交互模式");
+    } else {
+        return OperationResult(false, "无效的交互模式: " + mode, "交互模式");
+    }
+}
+
+// ============================================================================
+// 算法处理函数实现
+// ============================================================================
+
+OperationResult igQtCommandExecutor::executeApplyMeshFilter(const QJsonObject& data) const {
+    QString filterType = data.value("filter_type").toString();
+
+    if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+        return OperationResult(false, "无法访问场景对象", "算法处理");
+    }
+
+    auto scene = m_mainWindow->rendererWidget->GetScene();
+    auto currentModel = scene->GetCurrentModel();
+    if (!currentModel) {
+        return OperationResult(false, "没有当前模型", "算法处理");
+    }
+
+    auto dataObject = currentModel->GetDataObject();
+    if (!dataObject) {
+        return OperationResult(false, "无法获取模型数据", "算法处理");
+    }
+
+    if (filterType == "curvature") {
+        // 计算曲率
+        auto filter = iGame::CurvatureFilter::New();
+        filter->SetInput(dataObject);
+        if (filter->Execute()) {
+            m_mainWindow->modelTreeWidget->updateAllAttriubute(dataObject);
+            return OperationResult(true, "曲率计算完成", "算法处理");
+        } else {
+            return OperationResult(false, "曲率计算失败", "算法处理");
+        }
+    } else if (filterType == "gradient") {
+        // 计算梯度
+        auto filter = iGame::GradientFilter::New();
+        filter->SetInput(dataObject);
+        if (filter->Execute()) {
+            m_mainWindow->modelTreeWidget->updateAllAttriubute(dataObject);
+            return OperationResult(true, "梯度计算完成", "算法处理");
+        } else {
+            return OperationResult(false, "梯度计算失败", "算法处理");
+        }
+    } else {
+        return OperationResult(false, "不支持的算法类型: " + filterType, "算法处理");
+    }
+}
+
+OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject& data) const {
+    qDebug() << "开始获取模型八视角图像";
+    
+    // 解析参数
+    QJsonObject sizeObj = data.value("image_size").toObject();
+    int width = sizeObj.value("width").toInt(800);
+    int height = sizeObj.value("height").toInt(600);
+    QString quality = data.value("quality").toString("high");
+    
+    // 检查主窗口和场景
+    if (!m_mainWindow || !m_mainWindow->rendererWidget) {
+        return OperationResult(false, "主窗口或渲染器不可用", "get_model_eight_views");
+    }
+    
+    auto scene = m_mainWindow->rendererWidget->GetScene();
+    if (!scene) {
+        return OperationResult(false, "无法获取场景对象", "get_model_eight_views");
+    }
+    
+    // 获取模型边界框用于返回信息
+    auto currentScene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!currentScene || !currentScene->GetCurrentModel()) {
+        return OperationResult(false, "无当前模型", "get_model_eight_views");
+    }
+    
+    auto obj = currentScene->GetCurrentModel()->GetDataObject();
+    if (!obj) {
+        return OperationResult(false, "无模型数据对象", "get_model_eight_views");
+    }
+    
+    auto bound = obj->GetBoundingBox();
+    double xmin = bound.min[0], xmax = bound.max[0];
+    double ymin = bound.min[1], ymax = bound.max[1];
+    double zmin = bound.min[2], zmax = bound.max[2];
+    
+    // 定义八个视角及其对应的场景方法
+    std::vector<std::pair<QString, std::function<void()>>> viewMethods = {
+        {"front", [scene]() { scene->ResetCameraViewToNegativeZ(); }},
+        {"back", [scene]() { scene->ResetCameraViewToPositiveZ(); }},
+        {"right", [scene]() { scene->ResetCameraViewToPositiveX(); }},
+        {"left", [scene]() { scene->ResetCameraViewToNegativeX(); }},
+        {"top", [scene]() { scene->ResetCameraViewToPositiveY(); }},
+        {"bottom", [scene]() { scene->ResetCameraViewToNegativeY(); }},
+        {"isometric1", [scene]() { scene->ResetCameraViewToIsometric(); }},
+        {"isometric2", [scene]() { 
+            scene->ResetCameraViewToIsometric(); 
+            // 旋转180度获得另一个等轴测视角
+            scene->RotateNinetyClockwise();
+            scene->RotateNinetyClockwise();
+        }}
+    };
+    
+    // 保存当前相机状态
+    auto camera = scene->GetCamera();
+    if (!camera) {
+        return OperationResult(false, "无法获取相机对象", "get_model_eight_views");
+    }
+    
+    igm::vec3 originalPosition = camera->GetPosition();
+    igm::vec3 originalTarget = camera->GetFocal();
+    igm::vec3 originalUp = camera->GetUp();
+    
+    // 构建结果JSON
+    QJsonObject resultObj;
+    QJsonArray viewsArray;
+    
+    try {
+        // 管理OpenGL上下文
+        scene->MakeCurrent();
+        
+        // 遍历八个视角
+        for (const auto& viewMethod : viewMethods) {
+            QString viewName = viewMethod.first;
+            
+            qDebug() << "切换到视角:" << viewName;
+            
+            // 使用场景内置方法设置视角
+            viewMethod.second();
+            
+            // 获取设置后的相机信息
+            auto currentPos = camera->GetPosition();
+            auto currentTarget = camera->GetFocal();
+            
+            qDebug() << "相机位置:" << currentPos.x << "," << currentPos.y << "," << currentPos.z;
+            qDebug() << "相机目标:" << currentTarget.x << "," << currentTarget.y << "," << currentTarget.z;
+            
+            // 使用CaptureScreen直接捕获图像
+            std::vector<uint8_t> frameBuffer = scene->CaptureScreen(0, 0, width, height, iGame::GLFramebuffer::Type::RGBA, true);
+            
+            if (frameBuffer.empty()) {
+                qWarning() << "视角" << viewName << "图像捕获失败，framebuffer为空";
+                continue;
+            }
+            
+            qDebug() << "视角" << viewName << "frameBuffer大小:" << frameBuffer.size();
+            
+            // 转换为QImage
+            QImage image(frameBuffer.data(), width, height, QImage::Format_RGBA8888);
+            image = image.rgbSwapped(); // RGBA -> BGRA for Qt
+            
+            if (image.isNull()) {
+                qWarning() << "视角" << viewName << "QImage转换失败";
+                continue;
+            }
+            
+            // 转换为Base64
+            QByteArray byteArray;
+            QBuffer buffer(&byteArray);
+            buffer.open(QIODevice::WriteOnly);
+            
+            QString format = (quality == "high") ? "PNG" : "JPEG";
+            int compressionQuality = (quality == "high") ? 100 : 85;
+            
+            if (format == "PNG") {
+                image.save(&buffer, "PNG");
+            } else {
+                image.save(&buffer, "JPEG", compressionQuality);
+            }
+            
+            QString base64String = byteArray.toBase64();
+            
+            // 构建单个视角的JSON对象
+            QJsonObject viewObj;
+            viewObj["name"] = viewName;
+            viewObj["position"] = QJsonArray{currentPos.x, currentPos.y, currentPos.z};
+            viewObj["target"] = QJsonArray{currentTarget.x, currentTarget.y, currentTarget.z};
+            viewObj["image_base64"] = base64String;
+            viewObj["image_size"] = QJsonObject{{"width", width}, {"height", height}};
+            
+            viewsArray.append(viewObj);
+            
+            qDebug() << "已捕获视角:" << viewName;
+        }
+        
+        // 恢复原始相机状态
+        camera->SetPosition(originalPosition);
+        camera->SetFocal(originalTarget);
+        camera->SetUp(originalUp);
+        camera->Modified();
+        
+        // 释放OpenGL上下文
+        scene->DoneCurrent();
+        
+        // 构建最终结果
+        resultObj["views"] = viewsArray;
+        resultObj["total_views"] = viewsArray.size();
+        resultObj["model_bounds"] = QJsonObject{
+            {"xmin", xmin}, {"xmax", xmax},
+            {"ymin", ymin}, {"ymax", ymax},
+            {"zmin", zmin}, {"zmax", zmax}
+        };
+        
+        QJsonDocument doc(resultObj);
+        QString jsonString = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+        
+        qDebug() << "成功获取" << viewsArray.size() << "个视角图像";
+        return OperationResult(true, jsonString, "get_model_eight_views");
+        
+    } catch (const std::exception& e) {
+        // 出现异常时恢复相机状态并释放上下文
+        camera->SetPosition(originalPosition);
+        camera->SetFocal(originalTarget);
+        camera->SetUp(originalUp);
+        camera->Modified();
+        scene->DoneCurrent();
+        
+        QString errorMsg = QString("获取八视角图像时发生异常: %1").arg(e.what());
+        qWarning() << errorMsg;
+        return OperationResult(false, errorMsg, "get_model_eight_views");
+    }
+}

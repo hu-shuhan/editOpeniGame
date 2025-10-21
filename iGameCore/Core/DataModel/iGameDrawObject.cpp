@@ -241,8 +241,8 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
     // process this object
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index, dimension); }
     
-    //¼ÇÂ¼µ±Ç°¼¤»îµÄÊôĞÔË÷ÒıºÍÎ¬¶Èµ½m_AttributeIndex/m_AttributeDimension
-    // ±ê¼Çm_AttributeHelperºÍ¶ÔÏó×ÔÉíÎªÒÑĞŞ¸Ä£¨´¥·¢ÖØĞÂäÖÈ¾£©
+    //è®°å½•å½“å‰æ¿€æ´»çš„å±æ€§ç´¢å¼•å’Œç»´åº¦åˆ°m_AttributeIndex/m_AttributeDimension
+    // æ ‡è®°m_AttributeHelperå’Œå¯¹è±¡è‡ªèº«ä¸ºå·²ä¿®æ”¹ï¼ˆè§¦å‘é‡æ–°æ¸²æŸ“ï¼‰
     if (index == -1) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;

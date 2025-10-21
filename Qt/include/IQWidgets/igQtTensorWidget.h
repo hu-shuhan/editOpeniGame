@@ -22,8 +22,8 @@ public slots:
 	void ShowTensorField();
 	void UpdateGlyphType();
 	void UpdateGlyphScale(double s);
-	void UpdateTensorsNameList();
-	void UpdateScalarsNameList();
+	void UpdateInfoCombox();
+	void InitTensorWidget();
 	void UpdateGlyphColors();
 	void UpdateComponentsShow(bool);
 	void GenerateVectorField();
@@ -35,8 +35,8 @@ signals:
 	void UpdateAttributes(DataObject::Pointer);
 private:
 	Ui::TensorView* ui;
-	iGameTensorBase* m_Manager;
-	DataObject* m_DataObject;
+	iGameTensorBase* m_Manager=nullptr;
+	DataObject* m_DataObject=nullptr;
 	bool m_Generated = false;
 	//iGame::iGamePoints* Points;
 	//iGame::iGameFloatArray* TensorAttributes;

@@ -28,6 +28,7 @@ class igQtProgressBarWidget;
 class igQtModelDialogWidget;
 class igQtModelClipWidget;
 class igQtDeformationWidget;
+class igQtAiChatWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -64,6 +65,10 @@ public:
     QComboBox* viewStyleCombox;
     QComboBox* attributeViewIndexCombox;
     QComboBox* attributeViewDimCombox;
+    
+    // AI Chat DockWidget
+    QDockWidget* aiChatDockWidget;
+    igQtAiChatWidget* aiChatWidget;
 
 private slots:
     void updateRecentFilePaths();

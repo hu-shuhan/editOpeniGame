@@ -11,6 +11,7 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameStructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 class ConvertToSurfaceMesh : public Filter {
@@ -18,7 +19,7 @@ class ConvertToSurfaceMesh : public Filter {
 public:
     I_OBJECT(ConvertToSurfaceMesh);
     static Pointer New() { return new ConvertToSurfaceMesh; }
-    ~ConvertToSurfaceMesh();
+    
 
     bool Execute() override;
     //返回转换后的输出网格，结果为表面网格
@@ -38,6 +39,7 @@ public:
 
 protected:
     ConvertToSurfaceMesh();
+    ~ConvertToSurfaceMesh();
 
     ConvertMethod m_ConvertMethod = IG_CONVERT_SURFACE_MESH;
 
@@ -51,7 +53,11 @@ protected:
      */
     virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
     
-
+        
+    /**
+     * 对结构化网格进行转换
+     */
+    virtual bool ExecuteWithStructuredMesh(StructuredMesh::Pointer vm);
 
 private:
 };

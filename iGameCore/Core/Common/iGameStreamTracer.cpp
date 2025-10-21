@@ -25,6 +25,11 @@ float DC[6] = {37.0 / 378.0 - 2825.0 / 27648.0,
                125.0 / 594.0 - 13525.0 / 55296.0,
                -277.0 / 14336.0,
                512.0 / 1771.0 - 1.0 / 4.0};
+void iGameStreamTracer::initStreamTracer(DataObject::Pointer obj) {
+    auto newModel = Model::New();
+    newModel->SetDataObject(obj);
+    initStreamTracer(newModel);
+}
 void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     model = _model;
     if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
@@ -56,6 +61,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            mesh->ClearAllLinks();
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
