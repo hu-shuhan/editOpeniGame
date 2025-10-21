@@ -675,10 +675,11 @@ void igQtVariableCorrelationWidget::_DrawCorImage(int mainVariableIndex, int sub
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
     for (auto& objId: objDrawSort) {
+        auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
         _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
+                   Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
     }
 }
 
