@@ -51,7 +51,7 @@ CLAUDE_CONFIG = {
 NUWA_CONFIG = {
     "API_KEY": "sk-jYrjDnqiZ894oHHkJlmtKTsCP4L4RJCz0o7isE5oJ4vZJ90S",
     "BASE_URL": "https://api.nuwaapi.com/v1",
-    "MODEL": "claude-3-7-sonnet-20250219",
+    "MODEL": "deepseek-v3",
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }
