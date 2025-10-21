@@ -29,6 +29,7 @@ class igQtModelDialogWidget;
 class igQtModelClipWidget;
 class igQtDeformationWidget;
 class igQtAiChatWidget;
+class igQtCommandManager;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -69,6 +70,9 @@ public:
     // AI Chat DockWidget
     QDockWidget* aiChatDockWidget;
     igQtAiChatWidget* aiChatWidget;
+    
+    // Command Manager for MCP Server
+    igQtCommandManager* commandManager;
 
 private slots:
     void updateRecentFilePaths();
