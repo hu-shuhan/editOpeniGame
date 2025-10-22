@@ -91,6 +91,7 @@ private:
 
     // 算法处理函数
     OperationResult executeApplyMeshFilter(const QJsonObject& data) const;
+    OperationResult executeClipFilter(const QJsonObject& data) const;
 
     //获取八视角图像
     OperationResult executeGetModelEightViews(const QJsonObject& data) const;

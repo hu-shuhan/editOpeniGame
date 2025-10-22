@@ -1056,6 +1056,48 @@ def apply_mesh_filter(filter_type: str, **parameters) -> str:
     except Exception as e:
         return f"Error applying mesh filter: {e}"
 
+@mcp.tool()
+def apply_mesh_clip_filter(    
+    pos_x: float = 0.0,
+    pos_y: float = 0.0,
+    pos_z: float = 0.0,
+    normal_x: float = 0.0,
+    normal_y: float = 0.0,
+    normal_z: float = 0.0
+) -> str:
+    """对当前网格应用裁剪滤波器（Clip Filter）
+
+    Args:
+        pos_x (float): 裁剪平面上的点 X 坐标
+        pos_y (float): 裁剪平面上的点 Y 坐标
+        pos_z (float): 裁剪平面上的点 Z 坐标
+        normal_x (float): 裁剪平面的法向量 X 分量
+        normal_y (float): 裁剪平面的法向量 Y 分量
+        normal_z (float): 裁剪平面的法向量 Z 分量
+    """
+    try:
+        # 组织命令参数
+        data = {
+            "pos_x": pos_x,
+            "pos_y": pos_y,
+            "pos_z": pos_z,
+            "normal_x": normal_x,
+            "normal_y": normal_y,
+            "normal_z": normal_z,
+        }
+
+        # 获取 iGameVis 连接实例
+        igamevis = get_igamevis_connection()
+
+        # 发送命令
+        result = igamevis.send_command("apply_mesh_clip_filter", data)
+
+        # 格式化并返回结果
+        return format_tool_result(result, "Mesh clip filter applied successfully")
+
+    except Exception as e:
+        return f"Error applying mesh clip filter: {e}"
+
 # ============================================================================
 # Prompts for AI Assistant
 # ============================================================================

@@ -32,7 +32,6 @@
 #include "iGameInteractor.h"
 #include "iGameFilterIncludes.h"
 
-
 // 注意：某些头文件可能通过主窗口头文件间接包含
 // 如果编译时出现未定义的类型，可能需要添加相应的前向声明或头文件
 igQtCommandExecutor::igQtCommandExecutor()
@@ -89,7 +88,9 @@ OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandOb
         return executeChangeInteractionMode(data);
     } else if (action == "apply_mesh_filter") {
         return executeApplyMeshFilter(data);
-    } else if (action == "get_model_eight_views") {
+    }else if (action == "apply_mesh_clip_filter") {
+        return executeClipFilter(data);
+    }else if (action == "get_model_eight_views") {
         return executeGetModelEightViews(data);
     } else {
         qWarning() << "未知的命令操作:" << action;
@@ -802,6 +803,66 @@ OperationResult igQtCommandExecutor::executeApplyMeshFilter(const QJsonObject& d
         }
     } else {
         return OperationResult(false, "不支持的算法类型: " + filterType, "算法处理");
+    }
+}
+OperationResult igQtCommandExecutor::executeClipFilter(const QJsonObject& data) const {
+    if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+        return OperationResult(false, "无法访问场景对象", "算法处理");
+    }
+
+    // 使用辅助函数获取当前模型的 DataObject
+    QString errorMsg;
+    auto dataObject = getCurrentDataObject(&errorMsg);
+    if (!dataObject) {
+        return OperationResult(false, errorMsg, "算法处理");
+    }
+
+    try {
+        // 1️⃣ 解析输入参数
+        float pos_x = data.contains("pos_x") ? static_cast<float>(data["pos_x"].toDouble()) : 0.0f;
+        float pos_y = data.contains("pos_y") ? static_cast<float>(data["pos_y"].toDouble()) : 0.0f;
+        float pos_z = data.contains("pos_z") ? static_cast<float>(data["pos_z"].toDouble()) : 0.0f;
+        float normal_x = data.contains("normal_x") ? static_cast<float>(data["normal_x"].toDouble()) : 0.0f;
+        float normal_y = data.contains("normal_y") ? static_cast<float>(data["normal_y"].toDouble()) : 1.0f;
+        float normal_z = data.contains("normal_z") ? static_cast<float>(data["normal_z"].toDouble()) : 0.0f;
+        bool invert = data.contains("invert") ? data["invert"].toBool() : false;
+
+        // 2️⃣ 创建 ClipFilter 实例
+        auto input = dataObject;
+        auto filter = iGame::ClipFilter::New();
+
+        // 3️⃣ 设置输入数据
+        filter->SetInput(input);
+
+        // 4️⃣ 设置切割平面参数
+        float origin[3] = { pos_x, pos_y, pos_z };
+        float normal[3] = { normal_x, normal_y, normal_z };
+        filter->SetPlane(origin, normal);
+
+        // 5️⃣ 设置是否翻转
+        filter->SetInvert(invert);
+
+        // 6️⃣ 执行切割
+        filter->Execute();
+
+        // 7️⃣ 获取结果对象
+        auto resultObj = filter->GetOutput();
+        if (!resultObj) {
+            return OperationResult(false, "ClipFilter 执行失败：输出对象为空", "算法处理");
+        }
+
+        // 8️⃣ 将结果添加到场景
+        m_mainWindow->modelTreeWidget->addDataObjectToModelTree(resultObj, ItemSource::Algorithm);
+
+        // 9️⃣ 返回成功结果
+        return OperationResult(true, "切割滤波器已成功应用", "算法处理");
+
+    }
+    catch (const std::exception& e) {
+        return OperationResult(false, QString("执行切割滤波器时发生异常：%1").arg(e.what()), "算法处理");
+    }
+    catch (...) {
+        return OperationResult(false, "执行切割滤波器时发生未知错误", "算法处理");
     }
 }
 
