@@ -366,10 +366,71 @@ def format_tool_result(result: Dict[str, Any], default_message: str = "Operation
     logger.info(f"result_type: {result_type}, content: {content}")
     # 如果是失败类型，添加错误前缀让 AI 明确知道操作失败
     if result_type == "failure":
-        return f"❌ 操作失败: {content}"
+        return f"❌ Operation processed with failure: {content}"
     else:
         # 成功情况，直接返回内容
         return content
+
+def parse_igamevis_result_with_images(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> List[Any]:
+    """
+    解析 iGameVis 返回结果，自动提取文本和图像（通用函数）
+    
+    Args:
+        result: iGameVis 返回的结果字典
+        default_message: 默认成功消息
+    
+    Returns:
+        List[TextContent | ImageContent]: MCP 标准内容列表
+    
+    Note:
+        图像字段命名规范（固定格式）：
+        - 单图：image_base64
+        - 多图：image_base64_0, image_base64_1, image_base64_2, ...
+    """
+    from mcp.types import TextContent, ImageContent
+    
+    result_type = result.get("type", "unknown")
+    content = result.get("content", default_message)
+    
+    # 失败情况
+    if result_type == "failure":
+        return [TextContent(type="text", text=f"❌ 操作失败: {content}")]
+    
+    # 尝试解析 JSON
+    try:
+        content_json = json.loads(content)
+        if not isinstance(content_json, dict):
+            return [TextContent(type="text", text=str(content))]
+        
+        contents = []
+        images = []  # [(key, base64), ...]
+        text_parts = []
+        
+        # 分离文本和图像字段
+        for key, value in content_json.items():
+            if key == "image_base64" or key.startswith("image_base64_"):
+                # 图像字段
+                if value:
+                    # 移除 data URI 前缀（如果有）
+                    base64_data = value.split(",", 1)[1] if value.startswith("data:") else value
+                    images.append((key, base64_data))
+            else:
+                # 文本字段
+                text_parts.append(f"{key}: {json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value}")
+        
+        # 添加文本
+        if text_parts:
+            contents.append(TextContent(type="text", text="\n".join(text_parts)))
+        
+        # 添加图像（按字段名排序）
+        for key, base64_data in sorted(images):
+            contents.append(ImageContent(type="image", data=base64_data, mimeType="image/png"))
+            logger.info(f"添加图像: {key}")
+        
+        return contents if contents else [TextContent(type="text", text=content)]
+        
+    except (json.JSONDecodeError, TypeError):
+        return [TextContent(type="text", text=str(content))]
 
 # ============================================================================
 # File Operations Tools
@@ -588,15 +649,17 @@ def open_file(file_path_or_name: str) -> str:
 # ============================================================================
 
 @mcp.tool()
-def get_model_info() -> str:
-    """获取当前模型信息"""
+def get_model_info() -> List[Any]:
+    """获取当前模型信息（包含描述和图像）"""
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("get_model_info", {})
         
-        return format_tool_result(result, "No model information available")
+        # 使用通用函数自动解析文本和图像
+        return parse_igamevis_result_with_images(result, "No model information available")
     except Exception as e:
-        return f"Error getting model info: {e}"
+        from mcp.types import TextContent
+        return [TextContent(type="text", text=f"Error getting model info: {e}")]
 
 
 

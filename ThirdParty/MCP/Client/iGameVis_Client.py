@@ -253,46 +253,43 @@ class iGameVisMCPClient:
                         )
                         logger.info(f"工具 {tool_name} 执行成功")
                         
-                        # 处理结果，检测是否包含图像
-                        result_str = str(result)
+                        # 处理 MCP 返回的内容列表
+                        text_parts = []
                         
-                        # 尝试解析 JSON 并提取图像
-                        try:
-                            # result 可能是 [TextContent(type='text', text='...')]
-                            # 需要提取 text 内容
-                            if hasattr(result, '__iter__') and len(result) > 0:
-                                first_item = result[0]
-                                if hasattr(first_item, 'text'):
-                                    result_str = first_item.text
-                            
-                            # 尝试解析为 JSON
-                            result_json = json.loads(result_str)
-                            
-                            # 检查是否包含 image_base64
-                            if isinstance(result_json, dict) and 'image_base64' in result_json:
-                                image_base64 = result_json['image_base64']
-                                logger.info(f"检测到图像数据，长度: {len(image_base64)}")
-                                
-                                # 保存图像供后续发送
-                                captured_images.append({
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{image_base64}"
-                                    }
-                                })
-                                
-                                # 从结果中移除图像数据，只保留描述
-                                result_json_without_image = {k: v for k, v in result_json.items() if k != 'image_base64'}
-                                result_str = json.dumps(result_json_without_image, ensure_ascii=False)
-                        except (json.JSONDecodeError, AttributeError, IndexError):
-                            # 如果不是 JSON 或解析失败，使用原始字符串
-                            pass
+                        # result 是 [TextContent(...), ImageContent(...), ...]
+                        if hasattr(result, '__iter__'):
+                            for item in result:
+                                if hasattr(item, 'type'):
+                                    if item.type == 'text' and hasattr(item, 'text'):
+                                        text_parts.append(item.text)
+                                    elif item.type == 'image' and hasattr(item, 'data'):
+                                        # 提取图像数据
+                                        base64_data = item.data
+                                        mime_type = getattr(item, 'mimeType', 'image/png')
+                                        
+                                        # 构建 data URI（OpenAI API 需要完整的 data URI）
+                                        if not base64_data.startswith("data:"):
+                                            image_data = f"data:{mime_type};base64,{base64_data}"
+                                        else:
+                                            image_data = base64_data
+                                        
+                                        logger.info(f"检测到图像，数据长度: {len(base64_data) if isinstance(base64_data, str) else 'N/A'}")
+                                        captured_images.append({
+                                            "type": "image_url",
+                                            "image_url": {"url": image_data}
+                                        })
+                                else:
+                                    # 如果没有 type 属性，转为字符串
+                                    text_parts.append(str(item))
+                        else:
+                            text_parts.append(str(result))
                         
-                        # 构建工具响应消息
+                        # 构建工具响应消息（只包含文本）
+                        result_text = "\n".join(text_parts) if text_parts else "操作完成"
                         tool_messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
-                            "content": result_str
+                            "content": result_text
                         })
                     except Exception as e:
                         logger.error(f"工具 {tool_name} 执行失败: {e}")
