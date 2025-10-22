@@ -71,7 +71,7 @@ public:
     QDockWidget* aiChatDockWidget;
     igQtAiChatWidget* aiChatWidget;
     
-    // Command Manager for MCP Server
+    // Command Manager for MCP Server (¶Ë¿Ú 12345)
     igQtCommandManager* commandManager;
 
 private slots:

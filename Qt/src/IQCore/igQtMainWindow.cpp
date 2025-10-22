@@ -72,16 +72,16 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
     
-    // 初始化命令管理器并启动MCP服务器
+    // 初始化命令管理器并建立与 MCP Tool Server 的连接
     commandManager = new igQtCommandManager(this);
-    if (!commandManager->startServer("localhost", 12345)) {
-        qWarning() << "MCP命令服务器启动失败！";
+    if (!commandManager->startConnection("localhost", 12345)) {
+        qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
     }
 }
 igQtMainWindow::~igQtMainWindow() {
     // 清理命令管理器
     if (commandManager) {
-        commandManager->stopServer();
+        commandManager->stopConnection();
         delete commandManager;
         commandManager = nullptr;
     }

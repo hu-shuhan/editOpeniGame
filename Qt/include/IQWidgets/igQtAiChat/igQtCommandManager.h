@@ -1,8 +1,8 @@
 /**
  * @class   igQtCommandManager
- * @brief   命令管理器 - 作为socket服务器接收来自MCP服务器的命令
+ * @brief   命令管理器 - iGameVis 与 MCP Tool Server 之间的命令通信管理
  * @author  OpenAI Assistant
- * @note    监听端口12345，接收JSON命令并转发给CommandExecutor执行
+ * @note    通过 Socket 连接（端口12345）实现 iGameVis 与 MCP Tool Server 的命令交互
  */
 
  #pragma once
@@ -11,67 +11,67 @@
  #include <QJsonObject>
  #include <IQCore/igQtExportModule.h>
  
- // 前向声明
- class igQtCommandExecutor;
- class igQtMainWindow;
- class CommandServerThread;
+// 前向声明
+class igQtCommandExecutor;
+class igQtMainWindow;
+class igQtSocketServerThread;
  
  /**
   * @brief 命令管理器类
   * 
-  * 这个类作为socket服务器运行在主进程中，监听来自MCP服务器的连接。
-  * 它接收JSON格式的命令，解析后通过CommandExecutor执行实际操作。
+  * 管理 iGameVis 与 MCP Tool Server 之间的 Socket 通信连接。
+  * 接收来自 MCP 的操作命令，通过 CommandExecutor 执行，并返回结果。
   * 
-  * 注意：这不是一个QObject，因为它只是一个简单的连接管理器
+  * 注意：这不是一个QObject，通过回调机制实现命令处理
   */
  class IG_QT_MODULE_EXPORT igQtCommandManager {
  public:
-     /**
-      * @brief 构造函数
-      * @param mainWindow 主窗口指针，用于创建CommandExecutor
-      */
-     explicit igQtCommandManager(igQtMainWindow* mainWindow);
+    /**
+     * @brief 构造函数
+     * @param mainWindow 主窗口指针，用于创建CommandExecutor
+     */
+    explicit igQtCommandManager(igQtMainWindow* mainWindow);
+    
+    /**
+     * @brief 析构函数
+     */
+    ~igQtCommandManager();
+    
+    /**
+     * @brief 启动与 MCP Tool Server 的连接
+     * @param host 连接地址，默认为"localhost"
+     * @param port 连接端口，默认为12345
+     * @return 成功返回true，失败返回false
+     */
+    bool startConnection(const QString& host = "localhost", int port = 12345);
+    
+    /**
+     * @brief 停止与 MCP Tool Server 的连接
+     */
+    void stopConnection();
+    
+    /**
+     * @brief 检查是否已连接
+     * @return 已连接返回true，否则返回false
+     */
+    bool isConnected() const;
      
-     /**
-      * @brief 析构函数
-      */
-     ~igQtCommandManager();
-     
-     /**
-      * @brief 启动命令服务器
-      * @param host 监听地址，默认为"localhost"
-      * @param port 监听端口，默认为12345
-      * @return 成功返回true，失败返回false
-      */
-     bool startServer(const QString& host = "localhost", int port = 12345);
-     
-     /**
-      * @brief 停止命令服务器
-      */
-     void stopServer();
-     
-     /**
-      * @brief 检查服务器是否正在运行
-      * @return 运行中返回true，否则返回false
-      */
-     bool isRunning() const;
-     
-     /**
-      * @brief 发送响应给客户端
-      * @param response JSON响应对象
-      */
-     void sendResponse(const QJsonObject& response);
- 
-     /**
-      * @brief 处理接收到的命令（由服务器线程回调）
-      * @param commandJson JSON格式的命令字符串
-      */
-     void handleCommand(const QString& commandJson);
- 
- private:
-     igQtCommandExecutor* m_executor;    // 命令执行器（内部管理）
-     CommandServerThread* m_serverThread; // 服务器线程
-     bool m_isRunning;                    // 运行状态标志
+    /**
+     * @brief 发送响应给 MCP Tool Server
+     * @param response JSON响应对象
+     */
+    void sendResponse(const QJsonObject& response);
+
+    /**
+     * @brief 处理从 MCP Tool Server 接收到的命令（内部回调）
+     * @param commandJson JSON格式的命令字符串
+     */
+    void handleCommand(const QString& commandJson);
+
+private:
+    igQtCommandExecutor* m_executor;           // 命令执行器（内部管理）
+    igQtSocketServerThread* m_connectionThread; // Socket 通信线程
+    bool m_isConnected;                        // 连接状态标志
      
      // 禁用拷贝
      igQtCommandManager(const igQtCommandManager&) = delete;
