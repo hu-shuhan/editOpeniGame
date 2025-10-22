@@ -47,6 +47,7 @@ ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetVariableIndex(variableIndex);
     auto keyObjIds = ParallelCoordinatesData::GenerateKeyObjectIds(objNum, 10000);
     Data->SetKeyObjectIds(keyObjIds);
+    Data->SetKeyObjectIdToIndexMap(ParallelCoordinatesData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     auto choosedObjIds = ParallelCoordinatesData::GenerateChoosedObjectIds(selectedItems, dataType);
@@ -79,6 +80,7 @@ ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<Attri
     Data->SetVariableIndex(variableIndex);
     auto keyObjIds = ParallelCoordinatesData::GenerateKeyObjectIds(objNum, 10000);
     Data->SetKeyObjectIds(keyObjIds);
+    Data->SetKeyObjectIdToIndexMap(ParallelCoordinatesData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     //auto choosedObjDatas = ParallelCoordinatesData::GenerateChoosedObjectDatas(selectedItems, attrs, dataType);

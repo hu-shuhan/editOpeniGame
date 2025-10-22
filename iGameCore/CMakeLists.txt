@@ -4,6 +4,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 #=================
 set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
+#set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Debug")
+else()
+    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Release")
+endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DPLATFORM_WINDOWS)
@@ -62,6 +68,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Rendering/Core/Painter>
         $<INSTALL_INTERFACE:include/Rendering/Core/RenderWindow>
         $<INSTALL_INTERFACE:include/Rendering/OpenGL>
+
 )
 set(ThirdParty_lib_dependency)
 list(APPEND ThirdParty_lib_dependency
@@ -83,14 +90,55 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    # HDF5库已经通过CGNS模块链接，不需要重复链接
-    # find_package(HDF5)
-    # target_link_libraries(
-    #  ${MODULE_NAME} PUBLIC
-    #  ${HDF5_LIBRARIES}/../libzlib.lib
-    #  ${HDF5_LIBRARIES}/../libsz.lib
-    #  ${HDF5_LIBRARIES}/../libaec.lib)
+#        find_package(HDF5)
+#        target_link_libraries(
+#         ${MODULE_NAME} PUBLIC
+#         ${HDF5_LIBRARIES}/../libzlib.lib
+#         ${HDF5_LIBRARIES}/../libsz.lib
+#         ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
+
+if (ENABLE_LIBTORCH_MODULE)
+    target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
+
+    target_include_directories(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/include
+            ${LIBTORCH_DIR}/include/torch/csrc/api/include
+    )
+
+    target_link_libraries(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/lib/torch.lib
+            ${LIBTORCH_DIR}/lib/c10.lib
+            ${LIBTORCH_DIR}/lib/torch_cpu.lib
+    )
+endif ()
+
+if (ENABLE_LIBTORCH_MODULE)
+    # Include
+    #    target_include_directories(${MODULE_NAME} PUBLIC
+    #            ${LIBTORCH_DIR}/include
+    #            ${LIBTORCH_DIR}/include/torch/csrc/api/include
+    #    )
+    target_include_directories(${MODULE_NAME} PRIVATE
+            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include>
+            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include/torch/csrc/api/include>
+    )
+
+    message(STATUS "LIBTORCH_DIR: ${LIBTORCH_DIR}")
+    message(STATUS "Include directories: ${LIBTORCH_DIR}/include ${LIBTORCH_DIR}/include/torch/csrc/api/include")
+
+
+    # Link
+    target_link_libraries(${MODULE_NAME} PRIVATE
+            ${LIBTORCH_DIR}/lib/torch.lib
+            ${LIBTORCH_DIR}/lib/c10.lib
+            ${LIBTORCH_DIR}/lib/torch_cpu.lib
+    )
+
+
+    message(STATUS "LibTorch include directories: ${LIBTORCH_DIR}/include")
+    message(STATUS "LibTorch libraries: ${LIBTORCH_DIR}/lib/torch.lib ${LIBTORCH_DIR}/lib/c10.lib")
+endif ()
 
 #find_package(AbqSDK)
 #if (${AbqSDK_FOUND})
@@ -99,12 +147,27 @@ ENDIF ()
 #    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
 #endif ()
 #
-#find_package(FFMPEG)
-#if (${FFMPEG_FOUND})
-#    message("Find FFMPEG")
-#    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
-#    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
-#endif ()
+find_package(FFMPEG)
+if (${FFMPEG_FOUND})
+    message("Find FFMPEG")
+    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+endif ()
+
+#if(Python3_FOUND)
+#    target_include_directories(${MODULE_NAME} PUBLIC
+#        ${Python3_INCLUDE_DIRS}
+#        ${pybind11_INCLUDE_DIRS}
+#    )
+#    # 添加编译定义
+#    add_compile_definitions(PYNASTRAN_SCRIPT_PATH="${PYNASTRAN_SCRIPT_DIR}")
+#
+#    message(STATUS "Python集成已启用")
+#    message(STATUS "  - Python Include: ${Python3_INCLUDE_DIRS}")
+#    message(STATUS "  - pybind11 Include: ${pybind11_INCLUDE_DIRS}")
+#    message(STATUS "  - Python Scripts: ${PYNASTRAN_SCRIPT_DIR}")
+#endif()
+
 
 #if (ENABLE_GPSCUDA_MODULE)
 #    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)

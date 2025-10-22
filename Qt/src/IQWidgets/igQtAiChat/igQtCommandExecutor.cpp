@@ -51,8 +51,8 @@ void igQtCommandExecutor::setMainWindow(igQtMainWindow* mainWindow)
 
 OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandObj)
 {
-    qDebug() << "=== executeCommand 开始 ===";
-    qDebug() << "命令对象:" << commandObj;
+    // qDebug() << "=== executeCommand 开始 ===";
+    // qDebug() << "命令对象:" << commandObj;
     
     QString action = commandObj.value("action").toString();
     QJsonObject data = commandObj.value("data").toObject();

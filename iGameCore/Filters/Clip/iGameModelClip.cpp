@@ -531,13 +531,16 @@ double ModelClip::GetCutValue(Point x) {
             this->m_Normal[2] * (x[2] - this->m_Origin[2]));
 }
 double ModelClip::GetPointValue(igIndex pId, Points::Pointer points) {
+    double value = 0.0; 
     switch (m_ClipMethod) {
         case iGame::ModelClip::IG_PLANE:
-            return this->GetCutValue(points->GetPoint(pId));
+            value = this->GetCutValue(points->GetPoint(pId));
             break;
         default:
             break;
     }
+    if (m_invert) return value;
+    else return -value;
     return -1;
 }
 void ModelClip::SetPlane(float o[3], float n[3]) {
@@ -579,5 +582,7 @@ void ModelClip::GetPlane(double o[3], double n[3]) {
     o[1] = m_Origin[1];
     o[2] = m_Origin[2];
 }
-
+void ModelClip::SetInvert(bool _in) { 
+    this->m_invert = _in;
+}
 IGAME_NAMESPACE_END

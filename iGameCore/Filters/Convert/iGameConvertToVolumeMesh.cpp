@@ -5,11 +5,6 @@
 
 IGAME_NAMESPACE_BEGIN
 
-ConvertToVolumeMesh::ConvertToVolumeMesh() {
-    this->SetNumberOfInputs(1);
-    this->SetNumberOfOutputs(1);
-}
-
 ConvertToVolumeMesh::~ConvertToVolumeMesh() {}
 
 bool ConvertToVolumeMesh::Execute() {
@@ -148,6 +143,10 @@ void ConvertToVolumeMesh::SetConvertMethod(ConvertMethod CM) {
     this->m_ConvertMethod = CM;
 }
 
+ConvertToVolumeMesh::ConvertToVolumeMesh() {
+    this->SetNumberOfInputs(1);
+    this->SetNumberOfOutputs(1);
+}
 
 
 IGAME_NAMESPACE_END

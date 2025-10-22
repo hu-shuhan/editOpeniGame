@@ -155,7 +155,13 @@ const std::vector<std::pair<int, int>>& CtxPresObjData_Main::GetVariableIndex() 
 
 void CtxPresObjData_Main::SetKeyObjectIds(const std::vector<int>& keyObjIds) { m_KeyObjIds = keyObjIds; }
 
-const std::vector<int>& CtxPresObjData_Main::GetKeyObjectIds() { return m_KeyObjIds; }
+const std::vector<int>& CtxPresObjData_Main::GetKeyObjectIds() const { return m_KeyObjIds; }
+
+void CtxPresObjData_Main::SetKeyObjectIdToIndexMap(const std::map<int, int>& keyObjIdToIndex) {
+    m_KeyObjIdToIndexs = keyObjIdToIndex;
+}
+
+const std::map<int, int>& CtxPresObjData_Main::GetKeyObjectIdToIndexMap() const { return m_KeyObjIdToIndexs; }
 
 void CtxPresObjData_Main::SetChoosedObjectIds(const std::set<int>& choosedObjIds) { m_ChoosedObjIds = choosedObjIds; }
 
@@ -280,6 +286,12 @@ std::string CtxPresObjData_Main::GenerateDataTypeName(IGenum dataType) {
             return "";
             break;
     }
+}
+
+std::map<int, int> CtxPresObjData_Main::GenerateKeyObjectIdToIndexs(const std::vector<int>& objectIds) {
+    std::map<int, int> re;
+    for (int i = 0; i < objectIds.size(); i++) { re[objectIds[i]] = i; }
+    return re;
 }
 
 bool CtxPresObjData_Main::LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
@@ -445,7 +457,9 @@ const std::tuple<int, int, int>& CtxPresObjData_Draw::GetObjectColor(bool choose
         if (m_ChoosedObjectColor.count(objId) == 0) return m_ChoosedDefaultColor;
         return m_ChoosedObjectColor.at(objId);
     } else {
-        if (objId < 0 || m_ObjectColor.size() <= objId) return m_DefaultColor;
+        if (objId < 0 || m_ObjectColor.size() <= objId) {
+            return m_DefaultColor;
+        }
         return m_ObjectColor[objId];
     }
 }

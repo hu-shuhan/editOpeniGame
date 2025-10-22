@@ -9,6 +9,12 @@
 #include "SurfaceMeshFilters/Tests/iGameSurfaceSimplification.h"
 #include "SurfaceMeshFilters/Tests/iGameGradient.h"
 
+#include "UndefinedFilters/iGameVortexDetection.h"
+#include "Convert/iGameConvertPolyhedralCells.h"
+#include "Convert/iGameConvertToPointCloud.h"
+#include "Convert/iGameConvertToSurfaceMesh.h"
+#include "Convert/iGameConvertToVolumeMesh.h"
+
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "Interactor/iGameInteractor.h"
 
@@ -18,7 +24,7 @@
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-#include "iGameARAPTest.h"
+#include "Tests/iGameARAPTest.h"
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -37,6 +43,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
+#include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
@@ -44,7 +51,7 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGameVolumeMeshFilterTest.h>
+#include <Tests/iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -64,6 +71,20 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllInteractor();
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
+    
+    // 初始化命令管理器并建立与 MCP Tool Server 的连接
+    commandManager = new igQtCommandManager(this);
+    if (!commandManager->startConnection("localhost", 12345)) {
+        qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
+    }
+}
+igQtMainWindow::~igQtMainWindow() {
+    // 清理命令管理器
+    if (commandManager) {
+        commandManager->stopConnection();
+        delete commandManager;
+        commandManager = nullptr;
+    }
 }
 void igQtMainWindow::initArgs(const QStringList& args) {
     int argc = args.size();
@@ -363,7 +384,6 @@ void igQtMainWindow::initAllComponents() {
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
 }
-igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");
@@ -499,6 +519,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
+    if (false)
     connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto mesh = DynamicCast<SurfaceMesh>(obj);
@@ -751,8 +772,6 @@ void igQtMainWindow::initAllFilters() {
 
 
 
-
-
     QMenu* view = ui->menu_filters->addMenu("特征提取");
     QAction* curvature = view->addAction("Get Curvature");
     connect(curvature, &QAction::triggered, this, [&](bool checked) {
@@ -803,6 +822,20 @@ void igQtMainWindow::initAllFilters() {
 
         //data = DynamicCast<DrawObject>(data)->GetDisplayObject();
 
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
+
+            modelTreeWidget->updateAllAttriubute(data);
+            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }
+    });
+
+    QAction* vortexPrection = view->addAction("PredictVortex");
+    connect(vortexPrection, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        VortexDetection::Pointer filter = VortexDetection::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);

@@ -19,7 +19,7 @@ class ConvertToSurfaceMesh : public Filter {
 public:
     I_OBJECT(ConvertToSurfaceMesh);
     static Pointer New() { return new ConvertToSurfaceMesh; }
-    ~ConvertToSurfaceMesh();
+    
 
     bool Execute() override;
     //返回转换后的输出网格，结果为表面网格
@@ -39,6 +39,7 @@ public:
 
 protected:
     ConvertToSurfaceMesh();
+    ~ConvertToSurfaceMesh();
 
     ConvertMethod m_ConvertMethod = IG_CONVERT_SURFACE_MESH;
 

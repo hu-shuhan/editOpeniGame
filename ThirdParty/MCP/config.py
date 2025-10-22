@@ -51,7 +51,7 @@ CLAUDE_CONFIG = {
 NUWA_CONFIG = {
     "API_KEY": "sk-jYrjDnqiZ894oHHkJlmtKTsCP4L4RJCz0o7isE5oJ4vZJ90S",
     "BASE_URL": "https://api.nuwaapi.com/v1",
-    "MODEL": "claude-3-7-sonnet-20250219",
+    "MODEL": "deepseek-v3",
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }
@@ -80,7 +80,7 @@ MCP_SERVER_TIMEOUT = 30  # MCP服务器连接超时时间（秒）
 SOCKET_TIMEOUT = 60      # 套接字超时时间（秒）
 
 # 日志配置
-LOG_LEVEL = "ERROR"
+LOG_LEVEL = "WARNING"  # WARNING 级别，只显示警告和错误
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 # 模型选择菜单

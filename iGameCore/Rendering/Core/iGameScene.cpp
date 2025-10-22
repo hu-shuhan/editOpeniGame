@@ -267,11 +267,24 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView() {
-    UpdateModelsBoundingSphere();
+void Scene::ResetCameraView(SmartPointer<Model> model) {
+    if (model == nullptr) {
+        UpdateModelsBoundingSphere();
+    } else {
+        auto& box = model->GetDataObject()->GetBoundingBox();
+        double* center = box.center().pointer();
+        float x = static_cast<float>(center[0]);
+        float y = static_cast<float>(center[1]);
+        float z = static_cast<float>(center[2]);
+
+        double diameter = box.diag();
+        float radius = static_cast<float>(diameter / 2.0);
+
+        m_ModelsBoundingSphere = igm::vec4{x, y, z, radius};
+    }
+
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
@@ -306,21 +319,16 @@ void Scene::InitOpenGL() {
 
     // log opengl info
     {
-        IGAME_RENDERING_TRACE(
-                "==================== OpenGL Info ====================");
+        IGAME_RENDERING_INFO("OpenGL Info:");
         const GLubyte* vendor = glGetString(GL_VENDOR);
-        IGAME_RENDERING_TRACE("Vendor: {}",
-                              reinterpret_cast<const char*>(vendor));
+        IGAME_RENDERING_INFO("    Vendor: {}",
+                             reinterpret_cast<const char*>(vendor));
         const GLubyte* renderer = glGetString(GL_RENDERER);
-        IGAME_RENDERING_TRACE("Renderer: {}",
-                              reinterpret_cast<const char*>(renderer));
+        IGAME_RENDERING_INFO("    Renderer: {}",
+                             reinterpret_cast<const char*>(renderer));
         const GLubyte* version = glGetString(GL_VERSION);
-        IGAME_RENDERING_TRACE("Version: {}",
-                              reinterpret_cast<const char*>(version));
-        GLint numExtensions = 0;
-        glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-        IGAME_RENDERING_TRACE(
-                "=====================================================");
+        IGAME_RENDERING_INFO("    Version: {}",
+                             reinterpret_cast<const char*>(version));
     }
 
 #ifdef GL_SUPPORTS_MSAA
@@ -361,7 +369,7 @@ void Scene::InitOpenGL() {
         m_Painter3D->SetBrush(Color::Green);
 
         //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
-        //m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        // m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
         //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
         //                          {1.0f, -1.0f, 0.0f});
         //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
@@ -1249,7 +1257,6 @@ void Scene::RotateNinetyCounterClockwise() {
     m_ModelRotate = rotate * m_ModelRotate;
     UpdateRealRotationCenter(m_RotationCenter);
 }
-
 
 // 切换显示状态实现
 void Scene::ToggleCenterAxes() {

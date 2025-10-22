@@ -99,6 +99,27 @@ file(MAKE_DIRECTORY ${RENDERING_RESOURCES_OUTPUT_DIR})
 file(COPY ${RENDERING_ASSESTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Assests)
 file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Shaders)
 
+# Copy Nastran converter executable to build directory
+if(@ENABLE_NASTRAN_MODULE@)
+    # Get absolute path for install directory
+    get_filename_component(IGAMEVIS_INSTALL_DIR_ABS "${IGAMEVIS_INSTALL_DIR}" ABSOLUTE)
+    set(NASTRAN_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/NastranConverter/nastran_to_vtk_cli.exe")
+    
+
+    if(EXISTS "${NASTRAN_CONVERTER_SOURCE}")
+        file(COPY "${NASTRAN_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+    else()
+        message(WARNING "could not Find NastranConverter: ${NASTRAN_CONVERTER_SOURCE}")
+    endif()
+endif()
+
+# # Copy Python scripts for NastranReader if they exist
+# set(PYTHON_SCRIPTS_SOURCE_DIR ${IGAMEVIS_INSTALL_DIR}/Resources/Python)
+# if(EXISTS ${PYTHON_SCRIPTS_SOURCE_DIR})
+#     file(COPY ${PYTHON_SCRIPTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Python)
+#     message(STATUS "已复制Python脚本到: ${RENDERING_RESOURCES_OUTPUT_DIR}/Python")
+# endif()
+
 
 mark_as_advanced(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR)
 mark_as_advanced(IGAMEVIS_CORE_INCLUDE_DIRS)

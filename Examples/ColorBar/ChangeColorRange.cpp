@@ -31,12 +31,12 @@ int main() {
 	float rgb[3] = { 0,0,0 };
 	float value = 0.4;
 	//初始range下的mapper映射0.4的value得到的rgb
-	mapper->MapColor(value, rgb);
+	mapper->GetColor(value, rgb);
 	std::cout << rgb[0] << ' ' << rgb[1] << ' ' << rgb[2] << '\n';
 	//自定义range
-	mapper->SetRange(0.3, 0.6);
+	mapper->SetRange(0.7, 0.8);
 	//修改后range下的mapper映射0.4的value得到的rgb
-	mapper->MapColor(value, rgb);
+	mapper->GetColor(value, rgb);
 	std::cout << rgb[0] << ' ' << rgb[1] << ' ' << rgb[2] << '\n';
 	//更新mapper的状态
 	mapper->Modified();
