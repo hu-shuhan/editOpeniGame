@@ -185,122 +185,126 @@ QString igQtCommandExecutor::generateModelInfoDescription() const {
     auto obj = getCurrentDataObject(&errorMsg);
     if (!obj) return errorMsg;
 
-    // 文件属性
-    QString fileName, directory;
+
+    QStringList info;
+    
+    // ========== 1. 文件信息 ==========
     std::string filePath;
-    auto p = obj->GetPropertys()->GetProperty("FilePath");
-    if (p) filePath = p->Get<std::string>();
-    size_t lastSlashPos = filePath.find_last_of("/\\");
-    if (lastSlashPos == std::string::npos) {
-        directory = "(n/a)";
-        if (filePath.length() == 0) {
-            fileName = QString::fromStdString(obj->GetName());
-            if (fileName.length() == 0) fileName = "(n/a)";
+    if (auto p = obj->GetPropertys()->GetProperty("FilePath")) {
+        filePath = p->Get<std::string>();
+    }
+    
+    QString fileName, directory;
+    if (filePath.empty()) {
+        fileName = QString::fromStdString(obj->GetName());
+        if (fileName.isEmpty()) fileName = "(未命名)";
+        directory = "(无路径)";
+    } else {
+        size_t lastSlash = filePath.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            fileName = QString::fromStdString(filePath.substr(lastSlash + 1));
+            directory = QString::fromStdString(filePath.substr(0, lastSlash)).replace("\\", "/");
         } else {
             fileName = QString::fromStdString(filePath);
+            directory = "(当前目录)";
         }
-    } else {
-        directory = QString::fromStdString(filePath.substr(0, lastSlashPos));
-        fileName = QString::fromStdString(filePath.substr(lastSlashPos + 1));
-        
-        // 规范化路径分隔符，使用正斜杠避免JSON转义问题
-        directory = directory.replace("\\", "/");
     }
-
-    // 类型与数据统计
+    
+    info << QString("📁 文件名: %1").arg(fileName);
+    info << QString("📂 路径: %1").arg(directory);
+    
+    // ========== 2. 网格类型和统计信息 ==========
     QString meshType;
     QStringList stats;
+    
     if (obj->HasSubDataObject()) {
-        meshType = "Multiblock Mesh";
-        stats << QString("# of blocks: %1").arg(obj->GetNumberOfSubDataObjects());
+        meshType = "多块网格 (Multiblock)";
+        stats << QString("  • 块数量: %1").arg(obj->GetNumberOfSubDataObjects());
     } else {
         switch (obj->GetDataObjectType()) {
-        case IG_SURFACE_MESH: {
-            meshType = "Surface Mesh";
-            auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj);
-            if (mesh) {
-                stats << QString("# of Faces: %1").arg(mesh->GetNumberOfFaces());
-                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+        case IG_SURFACE_MESH:
+            meshType = "表面网格 (Surface Mesh)";
+            if (auto mesh = iGame::DynamicCast<iGame::SurfaceMesh>(obj)) {
+                stats << QString("  • 面片数: %1").arg(mesh->GetNumberOfFaces());
+                stats << QString("  • 顶点数: %1").arg(mesh->GetNumberOfPoints());
             }
             break;
-        }
-        case IG_VOLUME_MESH: {
-            meshType = "Volume Mesh";
-            auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj);
-            if (mesh) {
-                stats << QString("# of Volumes: %1").arg(mesh->GetNumberOfVolumes());
-                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+        case IG_VOLUME_MESH:
+            meshType = "体网格 (Volume Mesh)";
+            if (auto mesh = iGame::DynamicCast<iGame::VolumeMesh>(obj)) {
+                stats << QString("  • 体元数: %1").arg(mesh->GetNumberOfVolumes());
+                stats << QString("  • 顶点数: %1").arg(mesh->GetNumberOfPoints());
             }
             break;
-        }
-        case IG_STRUCTURED_MESH: {
-            meshType = "Structured Mesh";
-            auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj);
-            if (mesh) {
+        case IG_STRUCTURED_MESH:
+            meshType = "结构网格 (Structured Mesh)";
+            if (auto mesh = iGame::DynamicCast<iGame::StructuredMesh>(obj)) {
                 igIndex* size = mesh->GetDimensionSize();
-                stats << QString("# of Dimension X: %1").arg(size[0]);
-                stats << QString("# of Dimension Y: %1").arg(size[1]);
-                stats << QString("# of Dimension Z: %1").arg(size[2]);
+                stats << QString("  • X维度: %1").arg(size[0]);
+                stats << QString("  • Y维度: %1").arg(size[1]);
+                stats << QString("  • Z维度: %1").arg(size[2]);
             }
             break;
-        }
-        case IG_UNSTRUCTURED_MESH: {
-            meshType = "Unstructured Mesh";
-            auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-            if (mesh) {
-                stats << QString("# of Cells: %1").arg(mesh->GetNumberOfCells());
-                stats << QString("# of Points: %1").arg(mesh->GetNumberOfPoints());
+        case IG_UNSTRUCTURED_MESH:
+            meshType = "非结构网格 (Unstructured Mesh)";
+            if (auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj)) {
+                stats << QString("  • 单元数: %1").arg(mesh->GetNumberOfCells());
+                stats << QString("  • 顶点数: %1").arg(mesh->GetNumberOfPoints());
             }
             break;
-        }
         default:
-            meshType = "Unknown";
+            meshType = "未知类型";
             break;
         }
     }
-
-    // 内存
-    IGsize memorySize = obj->GetRealMemorySize();
-    QString dw[5] = {"B", "KB", "MB", "GB", "TB"};
-    igIndex index = 0;
-    double mem = static_cast<double>(memorySize);
-    while (mem > 1024 && index < 4) {
+    
+    info << QString("🔷 类型: %1").arg(meshType);
+    if (!stats.isEmpty()) {
+        info << stats.join("\n");
+    }
+    
+    // ========== 3. 内存占用 ==========
+    double mem = static_cast<double>(obj->GetRealMemorySize());
+    const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+    int unitIndex = 0;
+    while (mem >= 1024.0 && unitIndex < 4) {
         mem /= 1024.0;
-        index++;
+        unitIndex++;
     }
-    QString memory = QString::number(mem, 'f', 2) + dw[index];
-
-    // 边界框
+    info << QString("💾 内存: %1 %2").arg(mem, 0, 'f', 2).arg(units[unitIndex]);
+    
+    // ========== 4. 边界框 ==========
     auto bound = obj->GetBoundingBox();
-    QStringList bbox;
+    const char* axes[] = {"X", "Y", "Z"};
+    QStringList bboxLines;
     for (int i = 0; i < 3; ++i) {
-        double min = bound.min[i];
-        double max = bound.max[i];
-        bbox << QString("%1: %2 to %3, delta: %4")
-                .arg(i == 0 ? "X" : (i == 1 ? "Y" : "Z"))
-                .arg(min, 0, 'f', 2)
-                .arg(max, 0, 'f', 2)
-                .arg(max - min, 0, 'f', 2);
+        double delta = bound.max[i] - bound.min[i];
+        bboxLines << QString("  • %1: [%2, %3], Δ=%4")
+            .arg(axes[i])
+            .arg(bound.min[i], 0, 'f', 2)
+            .arg(bound.max[i], 0, 'f', 2)
+            .arg(delta, 0, 'f', 2);
     }
-
-    // 拼接描述
-    QString description = QString(
-        "文件名: %1\n"
-        "路径: %2\n"
-        "类型: %3\n"
-        "%4\n"
-        "内存: %5\n"
-        "边界框:\n  %6\n  %7\n  %8"
-    )
-        .arg(fileName)
-        .arg(directory)
-        .arg(meshType)
-        .arg(stats.join("\n"))
-        .arg(memory)
-        .arg(bbox.value(0))
-        .arg(bbox.value(1))
-        .arg(bbox.value(2));
-    return description;
+    info << "📏 边界框:";
+    info << bboxLines.join("\n");
+    
+   // ========== 5. 当前属性信息 ==========
+    int currentAttributeIndex = obj->GetCurrentAttributeIndex();
+    if(currentAttributeIndex >= 0) {
+        int currentDimension = obj->GetAttributeDimension();
+        auto attr = obj->GetAttributeSet()->GetAttribute(currentAttributeIndex);
+        if(attr.pointer) {
+            QString attributeName = QString::fromStdString(attr.pointer->GetName());
+            info << QString("🔍 当前绘制的属性为: %1").arg(attributeName);
+            if(currentDimension > 0) {
+                info << QString("  • 绘制的属性维度为第%1维度").arg(currentDimension + 1);
+            }
+            else {
+                info << QString("  • 绘制的属性维度为magnitude");
+            }
+        }
+    }
+    return info.join("\n");
 } 
 
 OperationResult igQtCommandExecutor::executeCameraControl(const QJsonObject& data) const {
