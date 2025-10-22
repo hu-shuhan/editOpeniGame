@@ -1,18 +1,13 @@
 /**
  * @class   iGameSocketConnection
  * @brief   通用Socket服务器连接类 - 可用于Command和Chat通信
- * @author  OpenAI Assistant
+ * @author  XSong
  * @note    在独立线程中运行socket服务器，监听来自客户端的连接
  */
 
-#pragma once
+#ifndef iGameSocketConnection_h
+#define iGameSocketConnection_h
 
-// 在包含任何 Windows 头文件之前定义 NOMINMAX，防止 min/max 宏污染
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#endif
 
 #include <thread>
 #include <string>
@@ -164,3 +159,5 @@ private:
 };
 
 IGAME_NAMESPACE_END
+
+#endif
