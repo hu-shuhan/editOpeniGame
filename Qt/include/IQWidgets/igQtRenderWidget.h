@@ -32,7 +32,8 @@ public:
 
   void AddDataObject(iGame::SmartPointer<iGame::DataObject> obj);
   void ChangeInteractor(iGame::SmartPointer<iGame::Interactor> it);
-  void ChangeInteractorStyle(IGenum style, double interactorRadius = 0, bool selectOrUnSelect = true);
+  void ChangeInteractorStyle(IGenum style, double interactorRadius = 0, bool selectOrUnSelect = true,
+                             int selectVariableIndex = -1, double selectVariableRange = 1);
   void update() { QOpenGLWidget::update(); }
 
     iGame::Interactor* getInteractor();

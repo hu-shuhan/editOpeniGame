@@ -59,14 +59,18 @@ void Interactor::RequestDragPointStyle(SmartPointer<Selection> s) {
 }
 
 void Interactor::RequestPointSelectionStyle(SmartPointer<Selection> s,
-                                            double selectRadius, 
-                                            bool selectOrUnSelect) {
+                                            double selectRadius,
+                                            bool selectOrUnSelect,
+                                            int selectVariableIndex,
+                                            double selectVariableRange) {
     if (!s) return;
     //InitModel();
     auto act = SingleSelectionStyle::New();
     act->SetSelectedType(SelectionStyle::SelectedType::SelectPoint);
     act->SetSelectRadius(selectRadius);
     act->SetSelectOrUnSelect(selectOrUnSelect);
+    act->SetSelectVairableIndex(selectVariableIndex);
+    act->SetSelectVariableRange(selectVariableRange);
     act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;
@@ -74,13 +78,17 @@ void Interactor::RequestPointSelectionStyle(SmartPointer<Selection> s,
 
 void Interactor::RequestFaceSelectionStyle(SmartPointer<Selection> s,
                                            double selectRadius,
-                                           bool selectOrUnSelect) {
+                                           bool selectOrUnSelect,
+                                           int selectVariableIndex,
+                                           double selectVariableRange) {
     if (!s) return;
     //InitModel();
     auto act = SingleSelectionStyle::New();
     act->SetSelectedType(SelectionStyle::SelectedType::SelectCell);
     act->SetSelectRadius(selectRadius);
     act->SetSelectOrUnSelect(selectOrUnSelect);
+    act->SetSelectVairableIndex(selectVariableIndex);
+    act->SetSelectVariableRange(selectVariableRange);
     act->Initialize(this, s);
     m_Internal = act;
     is_Base = false;

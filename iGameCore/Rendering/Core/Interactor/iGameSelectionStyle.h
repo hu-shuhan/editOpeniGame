@@ -15,8 +15,12 @@ public:
     void SetSelectedType(SelectedType type);
     SelectedType GetSelectedType() const;
     void SetSelectRadius(double selectRadius);
-    void SetSelectOrUnSelect(bool select = true);
     double GetSelectRadius() const;
+    void SetSelectOrUnSelect(bool select = true);
+    void SetSelectVairableIndex(int variableIndex = -1);
+    int GetSelectVariableIndex() const;
+    void SetSelectVariableRange(double variableRange = 1);
+    double GetSelectVariableRange() const;
 
     void Initialize(SmartPointer<Interactor> interactor,
                     SmartPointer<Selection> selection);
@@ -36,6 +40,14 @@ protected:
     double m_SelectRadius{};
     //true means select. false means unselect
     bool m_SelectOrUnSelect{true};
+    //In context selection, the subscript of the variable that is based on.
+    //A value of -1 indicates that no context selection is made.
+    int m_SelectVariableIndex{-1};
+    //In context selection, the range of selected variables.
+    //When it is 1, it means all the values from the minimum value to the maximum value.
+    //Under normal circumstances, the minimum is 0.
+    //When it is -1, it means automatic judgment.
+    double m_SelectVariableRange{1};
 
     SmartPointer<Points> m_Points;
     SmartPointer<CellArray> m_Cells;
