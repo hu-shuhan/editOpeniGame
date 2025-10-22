@@ -4,8 +4,10 @@
  */
 
 #include <IQWidgets/igQtAiChat/igQtChatManager.h>
-#include <IQWidgets/igQtAiChat/igQtSocketServerThread.h>
+#include <ProcessCommunication/iGameSocketConnection.h>
 #include <IQCore/igQtMainWindow.h>
+#include <QCoreApplication>
+#include <QMetaObject>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -39,27 +41,41 @@ bool igQtChatManager::startConnection(const QString& host, int port)
     }
 
     // 1. 先启动 Socket 监听
-    m_connectionThread = new igQtSocketServerThread(host, port, nullptr);
-    
-    // 设置消息回调
-    m_connectionThread->setMessageCallback([this](const QString& messageJson) {
-        this->handleMessage(messageJson);
-    });
-    
-    // 设置连接状态回调
-    m_connectionThread->setConnectionCallback([this](bool connected) {
-        // 通过消息回调通知 Widget 更新 UI（发送特殊类型的消息）
-        if (m_messageCallback) {
-            QJsonObject statusMsg;
-            statusMsg["type"] = "connection_status";
-            statusMsg["connected"] = connected;
-            QJsonDocument doc(statusMsg);
-            m_messageCallback(doc.toJson(QJsonDocument::Compact));
-        }
+    m_connectionThread = new iGame::iGameSocketConnection(host.toStdString(), port);
+
+    // 设置消息回调（切回主线程）
+    m_connectionThread->setMessageCallback([this](const std::string& messageJson) {
+        const QString msg = QString::fromStdString(messageJson);
+        QMetaObject::invokeMethod(
+            qApp,
+            [this, msg]() {
+                this->handleMessage(msg);
+            },
+            Qt::QueuedConnection);
     });
 
-    // 启动通信线程
-    m_connectionThread->start();
+    // 设置连接状态回调（切回主线程）
+    m_connectionThread->setConnectionCallback([this](bool connected) {
+        QMetaObject::invokeMethod(
+            qApp,
+            [this, connected]() {
+                if (m_messageCallback) {
+                    QJsonObject statusMsg;
+                    statusMsg["type"] = "connection_status";
+                    statusMsg["connected"] = connected;
+                    QJsonDocument doc(statusMsg);
+                    m_messageCallback(doc.toJson(QJsonDocument::Compact));
+                }
+            },
+            Qt::QueuedConnection);
+    });
+
+    if (!m_connectionThread->start()) {
+        qWarning() << "Failed to start socket connection";
+        delete m_connectionThread;
+        m_connectionThread = nullptr;
+        return false;
+    }
     m_isConnected = true;
 
     // 2. 启动 AiChat 对话服务器进程（在后台异步启动）
@@ -81,10 +97,8 @@ void igQtChatManager::stopConnection()
     // 1. 停止 AiChat 对话服务器进程
     stopAiChatServerProcess();
 
-    // 2. 停止 Socket 通信线程
+    // 2. 停止 Socket 通信连接
     m_connectionThread->stop();
-    m_connectionThread->wait(3000);
-    
     delete m_connectionThread;
     m_connectionThread = nullptr;
     m_isConnected = false;
@@ -117,10 +131,10 @@ void igQtChatManager::sendMessage(const QJsonObject& message)
 
     // 将消息转换为JSON字符串
     QJsonDocument doc(message);
-    QByteArray messageData = doc.toJson(QJsonDocument::Compact);
+    QString messageStr = doc.toJson(QJsonDocument::Compact);
 
-    // 通过通信线程发送消息给 AiChat
-    m_connectionThread->sendResponse(messageData);
+    // 通过通信连接发送消息给 AiChat
+    m_connectionThread->sendResponse(messageStr.toStdString());
 }
 
 bool igQtChatManager::startAiChatServerProcess()

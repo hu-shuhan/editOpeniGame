@@ -5,8 +5,10 @@
 
 #include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <IQWidgets/igQtAiChat/igQtCommandExecutor.h>
-#include <IQWidgets/igQtAiChat/igQtSocketServerThread.h>
+#include <ProcessCommunication/iGameSocketConnection.h>
 #include <IQCore/igQtMainWindow.h>
+#include <QCoreApplication>
+#include <QMetaObject>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -46,16 +48,27 @@ bool igQtCommandManager::startConnection(const QString& host, int port)
         return false;
     }
 
-    // 创建 Socket 通信线程
-    m_connectionThread = new igQtSocketServerThread(host, port, nullptr);
+    // 创建 Socket 通信连接
+    m_connectionThread = new iGame::iGameSocketConnection(host.toStdString(), port);
     
-    // 设置命令接收回调
-    m_connectionThread->setMessageCallback([this](const QString& messageJson) {
-        this->handleCommand(messageJson);
+    // 设置命令接收回调（切回主线程）
+    m_connectionThread->setMessageCallback([this](const std::string& messageJson) {
+        const QString msg = QString::fromStdString(messageJson);
+        QMetaObject::invokeMethod(
+            qApp,
+            [this, msg]() {
+                this->handleCommand(msg);
+            },
+            Qt::QueuedConnection);
     });
 
-    // 启动通信线程
-    m_connectionThread->start();
+    // 启动通信连接
+    if (!m_connectionThread->start()) {
+        qWarning() << "Failed to start socket connection";
+        delete m_connectionThread;
+        m_connectionThread = nullptr;
+        return false;
+    }
     m_isConnected = true;
 
     return true;
@@ -68,8 +81,6 @@ void igQtCommandManager::stopConnection()
     }
 
     m_connectionThread->stop();
-    m_connectionThread->wait(3000);
-    
     delete m_connectionThread;
     m_connectionThread = nullptr;
     m_isConnected = false;
@@ -149,8 +160,8 @@ void igQtCommandManager::sendResponse(const QJsonObject& response)
 
     // 将响应转换为JSON字符串
     QJsonDocument doc(response);
-    QByteArray responseData = doc.toJson(QJsonDocument::Compact);
+    QString responseStr = doc.toJson(QJsonDocument::Compact);
 
-    // 通过通信线程发送给 MCP Tool Server
-    m_connectionThread->sendResponse(responseData);
+    // 通过通信连接发送给 MCP Tool Server
+    m_connectionThread->sendResponse(responseStr.toStdString());
 }
