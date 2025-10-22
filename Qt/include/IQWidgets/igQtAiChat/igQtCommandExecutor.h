@@ -18,6 +18,10 @@
 // 前向声明
 class igQtMainWindow;
 
+namespace iGame {
+    class DataObject;
+}
+
 // 操作结果结构体
 struct OperationResult {
     bool success;
@@ -54,6 +58,12 @@ private:
     QString generateModelInfoDescription() const;
     QString captureRendererImage() const;
     OperationResult executeGetModelInfo() const;
+    
+    // 辅助函数：将 QImage 转换为 base64 字符串
+    static QString convertImageToBase64(const QImage& image, const char* format = "PNG", int quality = -1);
+    
+    // 辅助函数：获取当前模型的 DataObject
+    iGame::DataObject* getCurrentDataObject(QString* errorMessage = nullptr) const;
 
     OperationResult executeOpenFile(const QJsonObject& data);
 

@@ -113,10 +113,53 @@ OperationResult igQtCommandExecutor::executeOpenFile(const QJsonObject& data)
 
 
 
+// 辅助函数：将 QImage 转换为 base64 字符串
+QString igQtCommandExecutor::convertImageToBase64(const QImage& image, const char* format, int quality) {
+    if (image.isNull()) {
+        qWarning() << "convertImageToBase64: 输入图像为空";
+        return QString("");
+    }
+    
+    QByteArray byteArray;
+    QBuffer buffer(&byteArray);
+    buffer.open(QIODevice::WriteOnly);
+    
+    // quality = -1 表示使用默认值，否则使用指定的压缩质量（适用于 JPEG）
+    if (!image.save(&buffer, format, quality)) {
+        qWarning() << "convertImageToBase64: 图像保存失败";
+        return QString("");
+    }
+    
+    return byteArray.toBase64();
+}
+
+// 辅助函数：获取当前模型的 DataObject
+iGame::DataObject* igQtCommandExecutor::getCurrentDataObject(QString* errorMessage) const {
+    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+    if (!scene) {
+        if (errorMessage) *errorMessage = "无当前场景";
+        return nullptr;
+    }
+    
+    auto model = scene->GetCurrentModel();
+    if (!model) {
+        if (errorMessage) *errorMessage = "无当前模型";
+        return nullptr;
+    }
+    
+    auto obj = model->GetDataObject();
+    if (!obj) {
+        if (errorMessage) *errorMessage = "无模型数据对象";
+        return nullptr;
+    }
+    
+    return obj;
+}
+
 OperationResult igQtCommandExecutor::executeGetModelInfo() const {
     QJsonObject contentObj;
     contentObj["description"] = generateModelInfoDescription();
-    contentObj["image_base64"] =  captureRendererImage();
+    contentObj["image_base64"] = captureRendererImage();
 
     QJsonDocument doc(contentObj);
     return OperationResult(true, QString::fromUtf8(doc.toJson(QJsonDocument::Compact)), "get_model_info");
@@ -129,34 +172,18 @@ QString igQtCommandExecutor::captureRendererImage() const {
     }
 
     try {
-        // 使用grabFramebuffer获取渲染窗口的图像
-        QImage image = m_mainWindow->rendererWidget->grabFramebuffer();
-
-        if (image.isNull()) {
-            qWarning() << "捕获的图像为空";
-            return QString("image_null");
-        }
-
-        // 转换为Base64
-        QByteArray byteArray;
-        QBuffer buffer(&byteArray);
-        buffer.open(QIODevice::WriteOnly);
-        image.save(&buffer, "PNG");
-        return byteArray.toBase64();
-
+        // 使用辅助函数转换为 Base64
+        return convertImageToBase64(m_mainWindow->rendererWidget->grabFramebuffer());
     } catch (...) {
         return QString("");
     }
 }
 
 QString igQtCommandExecutor::generateModelInfoDescription() const {
-    // 获取当前模型
-    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    if (!scene) return "无当前场景";
-    auto model = scene->GetCurrentModel();
-    if (!model) return "无当前模型";
-    auto obj = model->GetDataObject();
-    if (!obj) return "无模型数据对象";
+    // 使用辅助函数获取当前模型的 DataObject
+    QString errorMsg;
+    auto obj = getCurrentDataObject(&errorMsg);
+    if (!obj) return errorMsg;
 
     // 文件属性
     QString fileName, directory;
@@ -657,15 +684,11 @@ OperationResult igQtCommandExecutor::executeApplyMeshFilter(const QJsonObject& d
         return OperationResult(false, "无法访问场景对象", "算法处理");
     }
 
-    auto scene = m_mainWindow->rendererWidget->GetScene();
-    auto currentModel = scene->GetCurrentModel();
-    if (!currentModel) {
-        return OperationResult(false, "没有当前模型", "算法处理");
-    }
-
-    auto dataObject = currentModel->GetDataObject();
+    // 使用辅助函数获取当前模型的 DataObject
+    QString errorMsg;
+    auto dataObject = getCurrentDataObject(&errorMsg);
     if (!dataObject) {
-        return OperationResult(false, "无法获取模型数据", "算法处理");
+        return OperationResult(false, errorMsg, "算法处理");
     }
 
     if (filterType == "curvature") {
@@ -712,15 +735,11 @@ OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject
         return OperationResult(false, "无法获取场景对象", "get_model_eight_views");
     }
     
-    // 获取模型边界框用于返回信息
-    auto currentScene = iGame::SceneManager::Instance()->GetCurrentScene();
-    if (!currentScene || !currentScene->GetCurrentModel()) {
-        return OperationResult(false, "无当前模型", "get_model_eight_views");
-    }
-    
-    auto obj = currentScene->GetCurrentModel()->GetDataObject();
+    // 使用辅助函数获取当前模型的 DataObject（用于获取边界框信息）
+    QString errorMsg;
+    auto obj = getCurrentDataObject(&errorMsg);
     if (!obj) {
-        return OperationResult(false, "无模型数据对象", "get_model_eight_views");
+        return OperationResult(false, errorMsg, "get_model_eight_views");
     }
     
     auto bound = obj->GetBoundingBox();
@@ -798,21 +817,10 @@ OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject
                 continue;
             }
             
-            // 转换为Base64
-            QByteArray byteArray;
-            QBuffer buffer(&byteArray);
-            buffer.open(QIODevice::WriteOnly);
-            
-            QString format = (quality == "high") ? "PNG" : "JPEG";
+            // 使用辅助函数转换为 Base64
+            const char* format = (quality == "high") ? "PNG" : "JPEG";
             int compressionQuality = (quality == "high") ? 100 : 85;
-            
-            if (format == "PNG") {
-                image.save(&buffer, "PNG");
-            } else {
-                image.save(&buffer, "JPEG", compressionQuality);
-            }
-            
-            QString base64String = byteArray.toBase64();
+            QString base64String = convertImageToBase64(image, format, compressionQuality);
             
             // 构建单个视角的JSON对象
             QJsonObject viewObj;
