@@ -154,6 +154,12 @@ class iGameVisMCPClient:
                 return f"Error: {result.content}"
             else:
                 logger.info(f"Tool call successful")
+                # 打印工具返回的内容（截断长内容）
+                result_str = str(result.content)
+                if len(result_str) > 500:
+                    logger.info(f"Tool result (truncated): {result_str[:500]}...")
+                else:
+                    logger.info(f"Tool result: {result_str}")
                 return result.content
                 
         except Exception as e:
@@ -230,6 +236,8 @@ class iGameVisMCPClient:
                 
                 # 执行所有工具调用
                 tool_messages = []
+                captured_images = []  # 收集图像数据
+                
                 for tool_call in message.tool_calls:
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
@@ -245,11 +253,46 @@ class iGameVisMCPClient:
                         )
                         logger.info(f"工具 {tool_name} 执行成功")
                         
+                        # 处理结果，检测是否包含图像
+                        result_str = str(result)
+                        
+                        # 尝试解析 JSON 并提取图像
+                        try:
+                            # result 可能是 [TextContent(type='text', text='...')]
+                            # 需要提取 text 内容
+                            if hasattr(result, '__iter__') and len(result) > 0:
+                                first_item = result[0]
+                                if hasattr(first_item, 'text'):
+                                    result_str = first_item.text
+                            
+                            # 尝试解析为 JSON
+                            result_json = json.loads(result_str)
+                            
+                            # 检查是否包含 image_base64
+                            if isinstance(result_json, dict) and 'image_base64' in result_json:
+                                image_base64 = result_json['image_base64']
+                                logger.info(f"检测到图像数据，长度: {len(image_base64)}")
+                                
+                                # 保存图像供后续发送
+                                captured_images.append({
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{image_base64}"
+                                    }
+                                })
+                                
+                                # 从结果中移除图像数据，只保留描述
+                                result_json_without_image = {k: v for k, v in result_json.items() if k != 'image_base64'}
+                                result_str = json.dumps(result_json_without_image, ensure_ascii=False)
+                        except (json.JSONDecodeError, AttributeError, IndexError):
+                            # 如果不是 JSON 或解析失败，使用原始字符串
+                            pass
+                        
                         # 构建工具响应消息
                         tool_messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
-                            "content": str(result)
+                            "content": result_str
                         })
                     except Exception as e:
                         logger.error(f"工具 {tool_name} 执行失败: {e}")
@@ -263,14 +306,30 @@ class iGameVisMCPClient:
                 messages.append(message.model_dump())
                 messages.extend(tool_messages)
                 
+                # 如果有捕获的图像，作为用户消息附加
+                if captured_images:
+                    logger.info(f"添加 {len(captured_images)} 张图像到对话")
+                    image_content = [
+                        {"type": "text", "text": "这是工具返回的图像，请帮我分析："}
+                    ]
+                    image_content.extend(captured_images)
+                    messages.append({
+                        "role": "user",
+                        "content": image_content  # 使用列表格式支持多模态
+                    })
+                
                 # 再次调用 AI，让它基于工具结果生成最终回复
                 logger.info("获取最终响应...")
+                # 如果有图像，使用更长的超时时间
+                timeout = 120.0 if captured_images else 30.0
+                logger.info(f"使用超时时间: {timeout}秒")
+                
                 final_response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.1,
                     max_tokens=4000,
-                    timeout=30.0
+                    timeout=timeout
                 )
                 
                 return final_response.choices[0].message.content
@@ -280,7 +339,7 @@ class iGameVisMCPClient:
             
         except Exception as e:
             logger.error(f"Error processing message: {e}")
-            logger.exception("详细错误:")
+            # logger.exception("详细错误:")
             return f"处理消息时出错: {e}"
 
     async def start_interactive_session(self):

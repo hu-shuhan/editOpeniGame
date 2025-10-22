@@ -44,7 +44,7 @@ CLAUDE_CONFIG = {
 NUWA_CONFIG = {
     "API_KEY": "sk-jYrjDnqiZ894oHHkJlmtKTsCP4L4RJCz0o7isE5oJ4vZJ90S",
     "BASE_URL": "https://api.nuwaapi.com/v1",
-    "MODEL": "deepseek-v3",
+    "MODEL": "gpt-4o",
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }
