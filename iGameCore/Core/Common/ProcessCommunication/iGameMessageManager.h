@@ -1,3 +1,9 @@
+/**
+ * @class   iGameMessageManager
+ * @brief   消息管理
+ * @author  XSong
+ * @note    消息管理器，用于负责接收消息以及发送消息，使用iGameSocketConnection进行进程间通信
+ */
 #ifndef iGameMessageManager_h
 #define iGameMessageManager_h
 
