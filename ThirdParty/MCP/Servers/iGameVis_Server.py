@@ -1057,57 +1057,6 @@ def apply_mesh_filter(filter_type: str, **parameters) -> str:
         return f"Error applying mesh filter: {e}"
 
 # ============================================================================
-# Screenshot Tool
-# ============================================================================
-
-@mcp.tool()
-def get_viewport_screenshot(max_size: int = 800) -> Image:
-    """
-    Capture a screenshot of the current iGameVis viewport.
-
-    Parameters:
-    - max_size: Maximum size in pixels for the largest dimension (default: 800)
-
-    Returns the screenshot as an Image.
-    """
-    try:
-        # Create temp file path
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, f"igamevis_screenshot_{os.getpid()}.png")
-
-        # Send command to iGameVis to save screenshot
-        igamevis = get_igamevis_connection()
-        result = igamevis.send_command("save_screenshot", {
-            "file_path": temp_path.replace("\\", "/"),
-            "width": max_size,
-            "height": max_size
-        })
-
-        # Check if screenshot was saved successfully
-        if result.get("type") == "failure":
-            raise Exception(result.get("content", "Unknown error"))
-
-        # Wait a moment for file to be written
-        import time
-        time.sleep(0.5)
-
-        if not os.path.exists(temp_path):
-            raise Exception("Screenshot file was not created")
-
-        # Read the file
-        with open(temp_path, 'rb') as f:
-            image_bytes = f.read()
-
-        # Delete the temp file
-        os.remove(temp_path)
-
-        return Image(data=image_bytes, format="png")
-
-    except Exception as e:
-        logger.error(f"Error capturing screenshot: {str(e)}")
-        raise Exception(f"Screenshot failed: {str(e)}")
-
-# ============================================================================
 # Prompts for AI Assistant
 # ============================================================================
 
