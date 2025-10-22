@@ -22,7 +22,7 @@
 #include <QClipboard>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <IQWidgets/igQtAiChat/igQtJsonCommandHandler.h>
+#include <IQWidgets/igQtAiChat/igQtChatManager.h>
 
 igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
     : QWidget(parent)
@@ -42,44 +42,26 @@ igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
     , statusLabel(nullptr)
     , typingLabel(nullptr)
     , typingTimer(nullptr)
-    , serverManager(nullptr)
-    , jsonCommandHandler(nullptr)
+    , chatManager(nullptr)
     , currentHistoryIndex(-1)
 {
     setupUI();
     setupConnections();
-    setupJsonCommandHandler(mainWindow);
     loadHistoryFromFile();
-    
-    // Initialize server manager
-    serverManager = new igQtMcpServerManager(this);
-    connect(serverManager, &igQtMcpServerManager::connected, 
-            this, [this]() { onConnectionStatusChanged(true); });
-    connect(serverManager, &igQtMcpServerManager::disconnected, 
-            this, [this]() { onConnectionStatusChanged(false); });
-    connect(serverManager, &igQtMcpServerManager::messageReceived, 
-            this, &igQtAiChatWidget::onMessageReceived);
-    connect(serverManager, &igQtMcpServerManager::errorOccurred, 
-            this, &igQtAiChatWidget::onServerError);
 }
 
 igQtAiChatWidget::~igQtAiChatWidget()
 {
     saveHistoryToFile();
-    if (serverManager) {
-        serverManager->disconnect();
-        delete serverManager;
-    }
-    if (jsonCommandHandler) {
-        delete jsonCommandHandler;
+    if (chatManager) {
+        chatManager->stopConnection();
+        delete chatManager;
     }
 }
 
 void igQtAiChatWidget::setMainWindow(igQtMainWindow* mainWindow)
 {
-    if (jsonCommandHandler) {
-        jsonCommandHandler->setMainWindow(mainWindow);
-    }
+    // 保留接口兼容性，但不再需要做任何事情
 }
 
 void igQtAiChatWidget::setupUI()
@@ -273,23 +255,17 @@ void igQtAiChatWidget::setupConnections()
     // Input connections
     connect(messageInput, &QLineEdit::returnPressed, this, &igQtAiChatWidget::onReturnPressed);
     connect(messageInput, &QLineEdit::textChanged, this, [this](const QString& text) {
-        sendButton->setEnabled(serverManager->isConnected() && !text.isEmpty());
+        // 当有文本且 ChatManager 已连接时启用发送按钮
+        bool canSend = chatManager && chatManager->isConnected() && !text.isEmpty();
+        sendButton->setEnabled(canSend);
     });
 }
 
-// Note: MCP functionality is now handled by ThirdParty/MCP bridge server
-// All MCP operations are processed by the bridge server, not locally
-void igQtAiChatWidget::setupMcpHandler()
-{
-    // MCP Handler removed - ThirdParty/MCP bridge server handles all MCP operations
-    // All AI model communication and tool calling is managed by bridge_server.py
-    qDebug() << "MCP handling delegated to ThirdParty/MCP bridge server";
-}
 
 void igQtAiChatWidget::onSendMessage()
 {
     QString message = messageInput->text().trimmed();
-    if (message.isEmpty() || !serverManager->isConnected()) {
+    if (message.isEmpty() || !chatManager || !chatManager->isConnected()) {
         return;
     }
 
@@ -304,71 +280,170 @@ void igQtAiChatWidget::onSendMessage()
     // Show typing indicator
     showTypingIndicator(true);
 
-    // 创建标准化的JSON消息格式
-    QJsonObject messageObj;
-    messageObj["type"] = "question";
-    messageObj["content"] = message;
-    messageObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-
-    QJsonDocument doc(messageObj);
-    QString jsonMessage = doc.toJson(QJsonDocument::Compact);
-
-    // Send JSON message through server manager
-    serverManager->sendMessage(jsonMessage);
+    // 通过 ChatManager 发送消息
+    QJsonObject chatMessage;
+    chatMessage["type"] = "chat";
+    chatMessage["content"] = message;
+    chatMessage["sender"] = "user";
+    chatMessage["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    
+    chatManager->sendMessage(chatMessage);
 }
 
 
 
 void igQtAiChatWidget::onConnectToServer()
 {
-    if (!serverManager->isConnected()) {
-        // 启动服务器并连接
-        connectButton->setText("启动并连接服务器...");
+    if (!chatManager || !chatManager->isConnected()) {
+        // 建立与 AiChat 的连接
+        connectButton->setText("正在启动监听...");
         connectButton->setEnabled(false);
         
-        if (!serverManager->startServerAndConnect(SERVER_HOST, SERVER_PORT)) {
-            connectButton->setText("连接服务器");
-            connectButton->setEnabled(true);
-            QMessageBox::warning(this, "连接失败", "无法启动服务器或连接失败");
+        if (!chatManager) {
+            chatManager = new igQtChatManager(nullptr);
+            
+            // 设置消息接收回调
+            chatManager->setMessageCallback([this](const QString& messageJson) {
+                // 从 AiChat 接收到消息，显示在界面上
+                this->onChatMessageReceived(messageJson);
+            });
         }
+        
+        if (!chatManager->startConnection("localhost", CHAT_SERVER_PORT)) {
+            qWarning() << "[AiChatWidget] 启动监听端口失败";
+            QMessageBox::warning(this, "连接失败", 
+                QString("无法启动监听端口 %1，可能端口已被占用").arg(CHAT_SERVER_PORT));
+            connectButton->setText("连接 AiChat");
+            connectButton->setEnabled(true);
+            return;
+        }
+        
+        // 监听已启动
+        onConnectionStatusChanged(true);
     } else {
-        serverManager->disconnect();
+        // 断开连接
+        if (chatManager) {
+            chatManager->stopConnection();
+        }
+        onConnectionStatusChanged(false);
     }
 }
 
 void igQtAiChatWidget::onDisconnectFromServer()
 {
-    serverManager->disconnect();
+    if (chatManager) {
+        chatManager->stopConnection();
+    }
+    onConnectionStatusChanged(false);
 }
 
 
 
-void igQtAiChatWidget::onMessageReceived(const QString& message)
+void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
 {
+    // 解析JSON消息
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(messageJson.toUtf8(), &parseError);
+    
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "[AiChatWidget] 聊天消息JSON解析错误:" << parseError.errorString();
+        return;
+    }
+    
+    if (!doc.isObject()) {
+        qWarning() << "[AiChatWidget] 无效的聊天消息格式";
+        return;
+    }
+    
+    QJsonObject messageObj = doc.object();
+    QString type = messageObj.value("type").toString();
+    
+    // 隐藏"正在输入"指示器
     showTypingIndicator(false);
     
-    // 转发消息给JSON处理器处理
-    if (jsonCommandHandler) {
-        jsonCommandHandler->processMessage(message);
-    } else {
-        // 没有处理器时，直接显示原始消息
-        addMessageToChat(message, false);
-        addMessageToHistory(message, false);
+    // 根据消息类型处理
+    if (type == "chat" || type == "message" || type == "response") {
+        // 显示聊天消息
+        QString content = messageObj.value("content").toString();
+        if (!content.isEmpty()) {
+            addMessageToChat(content, false);  // false表示不是用户消息
+            addMessageToHistory(content, false);
+        }
+        
+        // 发送确认响应
+        QJsonObject response;
+        response["type"] = "ack";
+        response["message"] = "消息已收到";
+        response["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        
+        if (chatManager) {
+            chatManager->sendMessage(response);
+        }
+    } 
+    else if (type == "connection_status") {
+        // 连接状态变化
+        bool connected = messageObj.value("connected").toBool();
+        if (connected) {
+            statusLabel->setText("已连接");
+            statusLabel->setStyleSheet(
+                "QLabel { "
+                "color: #27ae60; "
+                "font-weight: bold; "
+                "padding: 5px; "
+                "}"
+            );
+        } else {
+            statusLabel->setText("等待连接 (监听中)");
+            statusLabel->setStyleSheet(
+                "QLabel { "
+                "color: #f39c12; "
+                "font-weight: bold; "
+                "padding: 5px; "
+                "}"
+            );
+        }
+    }
+    else if (type == "ping") {
+        // 响应心跳
+        QJsonObject pong;
+        pong["type"] = "pong";
+        pong["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        
+        if (chatManager) {
+            chatManager->sendMessage(pong);
+        }
+    }
+    else if (type == "error") {
+        // 显示错误消息
+        QString errorMsg = messageObj.value("message").toString();
+        if (errorMsg.isEmpty()) {
+            errorMsg = messageObj.value("content").toString();
+        }
+        addMessageToChat("❌ 错误: " + errorMsg, false);
+        addMessageToHistory("错误: " + errorMsg, false);
+    }
+    else {
+        // 尝试提取内容显示
+        QString content = messageObj.value("content").toString();
+        if (!content.isEmpty()) {
+            addMessageToChat(content, false);
+            addMessageToHistory(content, false);
+        }
     }
 }
 
 void igQtAiChatWidget::onConnectionStatusChanged(bool connected)
 {
     if (connected) {
-        statusLabel->setText("已连接");
+        statusLabel->setText("等待连接 (监听中)");
         statusLabel->setStyleSheet(
             "QLabel { "
-            "color: #27ae60; "
+            "color: #f39c12; "
             "font-weight: bold; "
             "padding: 5px; "
             "}"
         );
-        connectButton->setText("断开连接");
+        connectButton->setText("停止监听");
         connectButton->setStyleSheet(
             "QPushButton { "
             "background-color: #e74c3c; "
@@ -430,30 +505,6 @@ void igQtAiChatWidget::onReturnPressed()
 void igQtAiChatWidget::onTypingTimerTimeout()
 {
     showTypingIndicator(false);
-}
-
-void igQtAiChatWidget::updateConnectionStatus()
-{
-    // This method can be used for periodic connection status updates
-}
-
-void igQtAiChatWidget::onMcpResponse(const QString& response)
-{
-    // Note: MCP responses are now handled by ThirdParty/MCP bridge server
-    // This function is kept for interface compatibility but not used
-    qDebug() << "MCP Response (deprecated):" << response;
-}
-
-void igQtAiChatWidget::onMcpError(const QString& error)
-{
-    // Note: MCP errors are now handled by ThirdParty/MCP bridge server
-    // This function is kept for interface compatibility but not used
-    qWarning() << "MCP Error (deprecated):" << error;
-}
-
-void igQtAiChatWidget::onServerError(const QString& error)
-{
-    QMessageBox::warning(this, "服务器错误", error);
 }
 
 void igQtAiChatWidget::addMessageToHistory(const QString& message, bool isUser)
@@ -696,47 +747,4 @@ void igQtAiChatWidget::updateMessageBubbleWidths()
             }
         }
     }
-}
-
-void igQtAiChatWidget::setupJsonCommandHandler(igQtMainWindow* mainWindow)
-{
-    // 创建JSON处理器
-    jsonCommandHandler = new igQtJsonCommandHandler(this);
-    
-    // 设置主窗口
-    if (mainWindow) {
-        jsonCommandHandler->setMainWindow(mainWindow);
-    }
-    
-    // 连接信号 - JSON处理器发送显示消息给Widget
-    connect(jsonCommandHandler, &igQtJsonCommandHandler::displayMessage,
-            this, [this](const QString& message, bool isFromAI) {
-                addMessageToChat(message, !isFromAI);  // isFromAI=true表示AI消息
-                if (isFromAI) {
-                    addMessageToHistory(message, false);
-                }
-            });
-    
-    // 连接操作完成信号 - 将操作结果发送给服务器
-    connect(jsonCommandHandler, &igQtJsonCommandHandler::operationCompleted,
-            this, [this](const QString& action, bool success, const QString& message) {
-                // 构造标准JSON格式的操作结果消息
-                QJsonObject contentObj;
-                contentObj["action"] = action;
-                contentObj["success"] = success;
-                contentObj["message"] = message;
-
-                QJsonObject resultObj;
-                resultObj["type"] = "operation_result";
-                resultObj["content"] = contentObj;
-                resultObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-
-                QJsonDocument doc(resultObj);
-                QString resultMessage = doc.toJson(QJsonDocument::Compact);
-
-                // 通过服务器管理器发送结果
-                if (serverManager && serverManager->isConnected()) {
-                    serverManager->sendMessage(resultMessage);
-                }
-            });
 }

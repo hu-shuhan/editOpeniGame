@@ -43,6 +43,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
+#include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <Sources/iGameLineTypePointsSource.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
@@ -71,6 +72,20 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllInteractor();
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
+    
+    // 初始化命令管理器并建立与 MCP Tool Server 的连接
+    commandManager = new igQtCommandManager(this);
+    if (!commandManager->startConnection("localhost", 12345)) {
+        qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
+    }
+}
+igQtMainWindow::~igQtMainWindow() {
+    // 清理命令管理器
+    if (commandManager) {
+        commandManager->stopConnection();
+        delete commandManager;
+        commandManager = nullptr;
+    }
 }
 void igQtMainWindow::initArgs(const QStringList& args) {
     int argc = args.size();
@@ -370,7 +385,6 @@ void igQtMainWindow::initAllComponents() {
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
 }
-igQtMainWindow::~igQtMainWindow() {}
 
 void igQtMainWindow::initAllFilters() {
     QMenu* mesh_processing = ui->menu_filters->addMenu("Remeshing Simplification");

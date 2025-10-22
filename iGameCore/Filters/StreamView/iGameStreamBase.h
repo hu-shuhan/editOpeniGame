@@ -2,8 +2,9 @@
 #define iGameStreamBase_h
 #include "iGameDrawObject.h"
 #include "iGameSurfaceMesh.h"
-#include <iGameFilter.h>
-#include <iGameStreamTracer.h>
+#include "iGameFilter.h"
+#include "iGameStreamTracer.h"
+
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class iGameStreamBase : virtual public Filter, virtual public DrawObject {

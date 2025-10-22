@@ -216,32 +216,46 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
     return GetOutput();
 }
 void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base,
-                                           int index_zone, cgsize_t* size) {
+    int index_zone, cgsize_t* size) {
     if (m_Points == nullptr) { m_Points = Points::New(); }
     m_Points->SetNumberOfPoints(pointNum);
     auto points = m_Points->RawPointer();
+
     for (int dim = 0; dim < positionDim; ++dim) {
-        std::string coordName = "Coordinate" + std::string(1, 'X' + dim);
+        // 获取 GridCoordinates 下第 dim+1 个坐标名称
+        char coordName[33];
+        CGNS_ENUMT(DataType_t) datatype;
+
+        int result = cg_coord_info(index_file, index_base, index_zone, dim + 1, &datatype, coordName);
+        if (CG_OK != result) {
+            std::cout << "Get coordinate info failed for dim " << dim
+                << ": " << cg_get_error() << std::endl;
+            continue;
+        }
+
         DoubleArray::Pointer CoordData = DoubleArray::New();
         CoordData->Resize(pointNum);
         auto coordData = CoordData->RawPointer();
-        cgsize_t range_min[3] = {1, 1, 1};
-        cgsize_t range_max[3] = {size[0], size[1], size[2]};
 
-        float*  ptr=nullptr;
-        int result = cg_coord_read(index_file, index_base, index_zone, coordName.c_str(), RealDouble, range_min,
-                                   range_max, coordData);
+        cgsize_t range_min[3] = { 1, 1, 1 };
+        cgsize_t range_max[3] = { size[0], size[1], size[2] };
+
+        result = cg_coord_read(index_file, index_base, index_zone, coordName, RealDouble, range_min,
+            range_max, coordData);
         if (CG_OK != result) {
             std::cout << "Read " << coordName << " Error: " << cg_get_error() << std::endl;
-        } else {
-            int idx = dim;
-            for (cgsize_t j = 0; j < pointNum; ++j) {
-                points[idx] = coordData[j];
-                idx += 3;
-            }
+            continue;
+        }
+
+        int idx = dim;
+        for (cgsize_t j = 0; j < pointNum; ++j) {
+            points[idx] = coordData[j];
+            idx += positionDim;
         }
     }
 }
+
+
 void iGameCGNSReader::GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t* size) {
     if (m_StructuredMesh == nullptr) { m_StructuredMesh = StructuredMesh::New(); }
     auto structType = QUAD_4;

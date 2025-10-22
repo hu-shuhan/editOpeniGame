@@ -13,10 +13,7 @@
 
 IGAME_NAMESPACE_BEGIN
 
-//返回二维数据
-//第一维：(k1 + k2) / 2.0;
-//第二维：k1 * k2;
-//现在默认取第一个数组：m_AttributeSet->GetAttribute(0)
+//返回两个数据
 class CurvatureFilter : public Filter {
 public:
     I_OBJECT(CurvatureFilter);
@@ -127,8 +124,11 @@ public:
             Points::Pointer Points = surface_Mesh->GetPoints();
             surface_Mesh->RequestEditStatus();
             // 附着在point
-            if (PointNum != 0 && attachmentType == 0)
-                return GetPointCurvature(0, Points, PointNum);
+            if (PointNum != 0 && attachmentType == 0) {
+                // return GetPointCurvature(0, Points, PointNum);
+                surface_Mesh = TriangulateSurfaceMesh(surface_Mesh);
+                return ComputeSurfaceCurvatureCotangent(surface_Mesh, attributeSet, curIndex);
+            }
             // 附着在cell
             else if (FaceNum != 0 && attachmentType == 1)
                 return GetOtherCurvature(0, FaceNum);
@@ -136,6 +136,234 @@ public:
 
         return false;
     }
+
+    bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh, AttributeSet::Pointer Attributes,
+                                      int Index) {
+    int nV = surface_Mesh->GetNumberOfPoints();
+    int nF = surface_Mesh->GetNumberOfFaces();
+    if (nV <= 0 || nF <= 0) return false;
+
+    auto attrSet = surface_Mesh->GetAttributeSet();
+    FloatArray::Pointer curv_mean = FloatArray::New();
+    curv_mean->SetDimension(1);
+    curv_mean->Reserve(nV);
+    curv_mean->SetName("cur_mean");
+    attrSet->AddScalar(IG_POINT, curv_mean);
+
+    FloatArray::Pointer curv_gaussian = FloatArray::New();
+    curv_gaussian->SetDimension(1);
+    curv_gaussian->Reserve(nV);
+    curv_gaussian->SetName("cur_gaussian");
+    attrSet->AddScalar(IG_POINT, curv_gaussian);
+
+    std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
+    std::vector<double> mixArea(nV, 0.0);
+    std::vector<double> angleSum(nV, 0.0);
+
+    auto toEigen = [](const Vector<float, 3>& p) -> Eigen::Vector3d {
+        return Eigen::Vector3d(double(p[0]), double(p[1]), double(p[2]));
+    };
+
+    auto triArea = [](const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& c) -> double {
+        return 0.5 * ((b - a).cross(c - a)).norm();
+    };
+
+    auto angleABC = [](const Eigen::Vector3d& A, const Eigen::Vector3d& B, const Eigen::Vector3d& C) -> double {
+        // 角B
+        Eigen::Vector3d u = (A - B).normalized();
+        Eigen::Vector3d v = (C - B).normalized();
+        double cosv = std::clamp(u.dot(v), -1.0, 1.0);
+        return std::acos(cosv);
+    };
+
+    auto cot = [](double ang) -> double {
+        double s = std::sin(ang);
+        double c = std::cos(ang);
+        const double eps = 1e-12;
+        if (std::abs(s) < eps) return (c >= 0 ? 1.0 / eps : -1.0 / eps);
+        return c / s;
+    };
+
+    for (int f = 0; f < nF; ++f) {
+        auto face = surface_Mesh->GetFace(f);
+        int m = face->GetNumberOfPoints();
+        if (m < 3) continue;
+
+        // 三角化
+        std::vector<int> vids(m);
+        for (int k = 0; k < m; ++k) vids[k] = int(face->GetPointId(k));
+
+        for (int k = 1; k + 1 < m; ++k) {
+            int i0 = vids[0], i1 = vids[k], i2 = vids[k + 1];
+            Eigen::Vector3d p0 = toEigen(surface_Mesh->GetPoint(i0));
+            Eigen::Vector3d p1 = toEigen(surface_Mesh->GetPoint(i1));
+            Eigen::Vector3d p2 = toEigen(surface_Mesh->GetPoint(i2));
+
+            double A = triArea(p0, p1, p2);
+            if (A <= 1e-20) continue;
+
+            double a0 = angleABC(p1, p0, p2);
+            double a1 = angleABC(p0, p1, p2);
+            double a2 = angleABC(p0, p2, p1);
+
+            angleSum[i0] += a0;
+            angleSum[i1] += a1;
+            angleSum[i2] += a2;
+
+            auto accumulateVoronoi = [&](int ivtx, double opp1, double opp2, const Eigen::Vector3d& Pi,
+                                         const Eigen::Vector3d& Pj, const Eigen::Vector3d& Pk) {
+                bool obtuse = (a0 > M_PI / 2) || (a1 > M_PI / 2) || (a2 > M_PI / 2);
+                if (!obtuse) {
+                    double lij = (Pj - Pi).squaredNorm();
+                    double lik = (Pk - Pi).squaredNorm();
+                    double v = (cot(opp1) * lij + cot(opp2) * lik) * 0.125;
+                    mixArea[ivtx] += v;
+                } else {
+                    int obtId = (a0 > M_PI / 2) ? i0 : (a1 > M_PI / 2 ? i1 : i2);
+                    if (ivtx == obtId) mixArea[ivtx] += 0.5 * A;
+                    else
+                        mixArea[ivtx] += 0.25 * A;
+                }
+            };
+
+            accumulateVoronoi(i0, a1, a2, p0, p1, p2);
+            accumulateVoronoi(i1, a0, a2, p1, p0, p2);
+
+            accumulateVoronoi(i2, a0, a1, p2, p0, p1);
+
+            double cot0 = cot(a2);
+            double cot1 = cot(a0);
+            double cot2 = cot(a1);
+
+            auto addEdgeContrib = [&](int ia, int ib, double cotOpp) {
+                Eigen::Vector3d xa = toEigen(surface_Mesh->GetPoint(ia));
+                Eigen::Vector3d xb = toEigen(surface_Mesh->GetPoint(ib));
+                Eigen::Vector3d e = xa - xb;
+                Hn[ia] += 0.5 * cotOpp * e;
+                Hn[ib] -= 0.5 * cotOpp * e;
+            };
+
+            addEdgeContrib(i0, i1, cot2);
+            addEdgeContrib(i1, i2, cot0);
+            addEdgeContrib(i2, i0, cot1);
+        }
+    }
+
+    for (int i = 0; i < nV; ++i) {
+        if (mixArea[i] <= 1e-20) mixArea[i] = 1e-20;
+    }
+
+    const double twoPi = 2.0 * M_PI;
+    for (int i = 0; i < nV; ++i) {
+        double H = Hn[i].norm() / (4.0 * mixArea[i]);
+
+        double K = (twoPi - angleSum[i]) / mixArea[i];
+
+        double disc = H * H - K;
+        if (disc < 0.0) disc = 0.0;
+        double sqrt_disc = std::sqrt(disc);
+        double kmax = H + sqrt_disc;
+        double kmin = H - sqrt_disc;
+
+        // 一：(k1 + k2)/2 = H
+        // 二：k1 * k2   = K
+        curv_mean->AddValue(H);
+        curv_gaussian->AddValue(K);
+    }
+
+    UpdateProgress(1.0);
+    return true;
+}
+
+double GetArea(Vector3d a, Vector3d b, Vector3d c) {
+    return CrossProduct(a - b, a - c).length() / 2;
+}
+
+ SurfaceMesh::Pointer TriangulateSurfaceMesh(SurfaceMesh::Pointer mesh) {
+    {
+        bool f = true;
+        igIndex face[16]{};
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+            int size = mesh->GetFacePointIds(i, face);
+            if (size != 3) {
+                f = false;
+                break;
+            }
+        }
+
+        if (f) {
+            return mesh;
+        }
+    }
+
+    auto attrbs = mesh->GetAttributeSet();
+
+    CellArray::Pointer Faces = CellArray::New();
+    Points::Pointer Points = mesh->GetPoints();
+
+    igIndex face[16]{}, tri[3]{};
+    for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+        int size = mesh->GetFacePointIds(i, face);
+
+        if (size == 3) {
+            Faces->AddCellId3(face[0], face[1], face[2]);
+        } else if (size == 4) {
+            Point p0 = mesh->GetPoint(face[0]);
+            Point p1 = mesh->GetPoint(face[1]);
+            Point p2 = mesh->GetPoint(face[2]);
+            Point p3 = mesh->GetPoint(face[3]);
+            double area01 = GetArea(p0, p1, p3);
+            double area02 = GetArea(p1, p2, p3);
+
+            double area11 = GetArea(p0, p1, p2);
+            double area12 = GetArea(p2, p3, p0);
+
+            double r0 = area01 / area02;
+            double r1 = area11 / area12;
+
+            if (r0 < 1) r0 = 1 / r0;
+            if (r1 < 1) r1 = 1 / r1;
+            if (r0 < r1) {
+                Faces->AddCellId3(face[0], face[1], face[3]);
+                Faces->AddCellId3(face[1], face[2], face[3]);
+            } else {
+                Faces->AddCellId3(face[0], face[1], face[2]);
+                Faces->AddCellId3(face[2], face[3], face[0]);
+            }
+
+        } else {
+            Point center(0, 0, 0);
+            for (int j = 0; j < size; j++) { center += Points->GetPoint(face[j]); }
+            center /= size;
+            igIndex newPtId = Points->AddPoint(center);
+
+            for (int j = 0; j < attrbs->GetNumberOfAttributes(); j++) {
+                auto& attrb = attrbs->GetAttribute(j);
+                if (attrb.isDeleted) continue;
+                if (attrb.attachmentType == IG_POINT) {
+                    double val[8]{0}, sum[8]{0};
+                    int dim = attrb.pointer->GetDimension();
+                    for (int k = 0; k < size; k++) {
+                        attrb.pointer->GetElement(face[k], val);
+                        for (int d = 0; d < dim; d++) { sum[d] += val[d]; }
+                    }
+                    for (int d = 0; d < dim; d++) { sum[d] /= size; }
+                    attrb.pointer->AddElement(sum);
+                }
+            }
+
+            for (int j = 0; j < size; j++) { Faces->AddCellId3(newPtId, face[j], face[(j + 1) % size]); }
+        }
+    }
+
+    SurfaceMesh::Pointer Mesh = SurfaceMesh::New();
+    Mesh->SetName(mesh->GetName());
+    Mesh->SetPoints(Points);
+    Mesh->SetFaces(Faces);
+    Mesh->SetAttributeSet(mesh->GetAttributeSet());
+
+    return Mesh;
+ }
 
     bool GetPointCurvature(int type, Points::Pointer Points, int PointNum) {
 
@@ -271,11 +499,22 @@ public:
         else if (type == 1)
             attributeSet = volume_Mesh->GetAttributeSet();
 
-        FloatArray::Pointer curvatures = FloatArray::New();
-        curvatures->SetDimension(2);
-        curvatures->Reserve(Num);
-        curvatures->SetName("curvatures");
-        attributeSet->AddScalar(IG_POINT, curvatures);
+        // FloatArray::Pointer curvatures = FloatArray::New();
+        // curvatures->SetDimension(2);
+        // curvatures->Reserve(Num);
+        // curvatures->SetName("curvatures");
+        // attributeSet->AddScalar(IG_POINT, curvatures);
+        FloatArray::Pointer curv_mean = FloatArray::New();
+        curv_mean->SetDimension(1);
+        curv_mean->Reserve(Num);
+        curv_mean->SetName("cur_mean");
+        attributeSet->AddScalar(IG_POINT, curv_mean);
+
+        FloatArray::Pointer curv_gaussian = FloatArray::New();
+        curv_gaussian->SetDimension(1);
+        curv_gaussian->Reserve(Num);
+        curv_gaussian->SetName("cur_gaussian");
+        attributeSet->AddScalar(IG_POINT, curv_gaussian);
 
         std::vector<std::array<float, 3>> gradient =
                 GetOtherGradient(type, Num);
@@ -373,8 +612,9 @@ public:
             curvature[idx][1] = k2;
             curvature[idx][2] = (k1 + k2) / 2.0;
             curvature[idx][3] = k1 * k2;
-
-            curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
+            curv_mean->AddValue(curvature[idx][2]);
+            curv_gaussian->AddValue(curvature[idx][3]);
+            // curvatures->AddElement2(curvature[idx][2], curvature[idx][3]);
         }
         UpdateProgress(1.0f);
         return true;

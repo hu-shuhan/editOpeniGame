@@ -74,7 +74,7 @@ public:
 
     torch::Tensor knn_smooth_labels(const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                     const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                    const std::vector<Eigen::Vector3f>& query_points, // Ҫ��ѯ�ĵ�
+                                    const std::vector<Eigen::Vector3f>& query_points, // 要查询的点
                                     int k = 8);
 
 #endif
