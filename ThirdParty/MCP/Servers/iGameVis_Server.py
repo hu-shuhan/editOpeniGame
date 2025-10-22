@@ -51,7 +51,7 @@ RECONNECT_DELAY = config.RECONNECT_DELAY
 # Configure logging - 输出到文件，因为 stdout 被 MCP 协议占用
 log_file = os.path.join(tempfile.gettempdir(), "igamevis_mcp_server.log")
 logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL), 
+    level=getattr(logging, LOG_LEVEL),
     format=config.LOG_FORMAT,
     handlers=[
         logging.FileHandler(log_file, mode='a', encoding='utf-8'),
@@ -75,12 +75,12 @@ class iGameVisConnection:
     host: str
     port: int
     sock: socket.socket = None
-    
+
     def connect(self) -> bool:
         """Connect to the iGameVis application socket server"""
         if self.sock:
             return True
-            
+
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.host, self.port))
@@ -90,7 +90,7 @@ class iGameVisConnection:
             logger.error(f"Failed to connect to iGameVis: {str(e)}")
             self.sock = None
             return False
-    
+
     def disconnect(self):
         """Disconnect from the iGameVis application"""
         if self.sock:
@@ -111,11 +111,11 @@ class iGameVisConnection:
                 if not chunk:
                     raise Exception("Connection closed while receiving length")
                 length_data += chunk
-            
+
             # 解析消息长度
             message_length = struct.unpack('I', length_data)[0]
             logger.info(f"Expecting message of length: {message_length}")
-            
+
             # 接收完整消息
             message_data = b''
             while len(message_data) < message_length:
@@ -124,10 +124,10 @@ class iGameVisConnection:
                 if not chunk:
                     raise Exception("Connection closed while receiving message")
                 message_data += chunk
-            
+
             logger.info(f"Received complete response ({len(message_data)} bytes)")
             return message_data
-            
+
         except Exception as e:
             logger.error(f"Error during receive: {str(e)}")
             raise
@@ -136,49 +136,49 @@ class iGameVisConnection:
         """Send a command to iGameVis and return the response"""
         if not self.sock and not self.connect():
             raise ConnectionError("Not connected to iGameVis")
-        
+
         # 构建命令，使用与原 server.py 相同的格式
         command = {
             "type": command_type,
             "content": params or {},
             "timestamp": datetime.now().isoformat()
         }
-        
+
         try:
             # Log the command being sent
             logger.info(f"📤 [SEND] Action: {command_type}")
             if params:
                 logger.info(f"📦 [PARAMS] {json.dumps(params, ensure_ascii=False)[:200]}")  # 最多打印200字符
-            
+
             # 序列化命令
             command_json = json.dumps(command, ensure_ascii=False)
             command_bytes = command_json.encode('utf-8')
-            
+
             logger.info(f"📨 [JSON] 发送 {len(command_bytes)} 字节: {command_json[:150]}...")  # 打印前150字符
-            
+
             # 发送消息长度（4字节）+ 消息内容
             length_bytes = struct.pack('I', len(command_bytes))
             self.sock.sendall(length_bytes + command_bytes)
             logger.info(f"✅ [SENT] 命令已发送，等待响应...")
-            
+
             # 设置超时
             self.sock.settimeout(COMMAND_TIMEOUT)
-            
+
             # 接收响应
             response_data = self.receive_full_response(self.sock)
             logger.info(f"📥 [RECV] 收到 {len(response_data)} 字节响应")
-            
+
             # 解析响应
             response = json.loads(response_data.decode('utf-8'))
             response_type = response.get('type', 'unknown')
             logger.info(f"📋 [RESPONSE] Type: {response_type}")
-            
+
             # 打印响应内容（简短版本）
             content_str = str(response.get('content', ''))[:200]
             logger.info(f"💬 [CONTENT] {content_str}")
-            
+
             return response
-            
+
         except socket.timeout:
             logger.error("Socket timeout while waiting for response from iGameVis")
             self.sock = None
@@ -206,7 +206,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
     """Manage server startup and shutdown lifecycle"""
     try:
         logger.info("iGameVisMCP server starting up")
-        
+
         # Try to connect to iGameVis on startup to verify it's available
         try:
             igamevis = get_igamevis_connection()
@@ -214,7 +214,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
         except Exception as e:
             logger.warning(f"Could not connect to iGameVis on startup: {str(e)}")
             logger.warning("Make sure iGameVis is running before using the tools")
-        
+
         yield {}
     finally:
         # Clean up the global connection on shutdown
@@ -237,7 +237,7 @@ _igamevis_connection = None
 def get_igamevis_connection():
     """Get or create a persistent iGameVis connection"""
     global _igamevis_connection
-    
+
     # If we have an existing connection, check if it's still valid
     if _igamevis_connection is not None:
         try:
@@ -252,7 +252,7 @@ def get_igamevis_connection():
             except:
                 pass
             _igamevis_connection = None
-    
+
     # Create a new connection if needed
     if _igamevis_connection is None:
         host = os.getenv("IGAMEVIS_HOST", DEFAULT_HOST)
@@ -263,7 +263,7 @@ def get_igamevis_connection():
             _igamevis_connection = None
             raise Exception("Could not connect to iGameVis. Make sure iGameVis is running.")
         logger.info("Created new persistent connection to iGameVis")
-    
+
     return _igamevis_connection
 
 # ============================================================================
@@ -347,14 +347,14 @@ def normalize_view_type(view_type: str) -> str:
 def format_tool_result(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> str:
     """
     统一格式化工具返回结果
-    
+
     Args:
         result: iGameVis 返回的结果字典，格式：{"type": "success"|"failure", "content": str, "timestamp": str}
         default_message: 默认成功消息
-    
+
     Returns:
         格式化后的字符串结果
-    
+
     Note:
         iGameVis (C++) 返回格式固定：
         - type: "success" (成功) 或 "failure" (失败)
@@ -374,38 +374,38 @@ def format_tool_result(result: Dict[str, Any], default_message: str = "Operation
 def parse_igamevis_result_with_images(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> List[Any]:
     """
     解析 iGameVis 返回结果，自动提取文本和图像（通用函数）
-    
+
     Args:
         result: iGameVis 返回的结果字典
         default_message: 默认成功消息
-    
+
     Returns:
         List[TextContent | ImageContent]: MCP 标准内容列表
-    
+
     Note:
         图像字段命名规范（固定格式）：
         - 单图：image_base64
         - 多图：image_base64_0, image_base64_1, image_base64_2, ...
     """
     from mcp.types import TextContent, ImageContent
-    
+
     result_type = result.get("type", "unknown")
     content = result.get("content", default_message)
-    
+
     # 失败情况
     if result_type == "failure":
         return [TextContent(type="text", text=f"❌ 操作失败: {content}")]
-    
+
     # 尝试解析 JSON
     try:
         content_json = json.loads(content)
         if not isinstance(content_json, dict):
             return [TextContent(type="text", text=str(content))]
-        
+
         contents = []
         images = []  # [(key, base64), ...]
         text_parts = []
-        
+
         # 分离文本和图像字段
         for key, value in content_json.items():
             if key == "image_base64" or key.startswith("image_base64_"):
@@ -417,18 +417,18 @@ def parse_igamevis_result_with_images(result: Dict[str, Any], default_message: s
             else:
                 # 文本字段
                 text_parts.append(f"{key}: {json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value}")
-        
+
         # 添加文本
         if text_parts:
             contents.append(TextContent(type="text", text="\n".join(text_parts)))
-        
+
         # 添加图像（按字段名排序）
         for key, base64_data in sorted(images):
             contents.append(ImageContent(type="image", data=base64_data, mimeType="image/png"))
             logger.info(f"添加图像: {key}")
-        
+
         return contents if contents else [TextContent(type="text", text=content)]
-        
+
     except (json.JSONDecodeError, TypeError):
         return [TextContent(type="text", text=str(content))]
 
@@ -491,13 +491,13 @@ def find_files_in_path(directory_path: str, extensions: list = None) -> str:
     """
     try:
         search_path = Path(directory_path)
-        
+
         if not search_path.exists():
             return f"Directory '{directory_path}' does not exist."
-        
+
         if not search_path.is_dir():
             return f"'{directory_path}' is not a directory."
-        
+
         if extensions is None:
             matching_files = [f for f in search_path.iterdir() if f.is_file()]
         else:
@@ -505,13 +505,13 @@ def find_files_in_path(directory_path: str, extensions: list = None) -> str:
             matching_files = []
             for pattern in search_patterns:
                 matching_files.extend(list(search_path.glob(pattern)))
-        
+
         if not matching_files:
             if extensions:
                 return f"No files with extensions {extensions} found in '{directory_path}'."
             else:
                 return f"No files found in '{directory_path}'."
-        
+
         if extensions:
             files_by_ext = {}
             for file in matching_files:
@@ -519,7 +519,7 @@ def find_files_in_path(directory_path: str, extensions: list = None) -> str:
                 if ext not in files_by_ext:
                     files_by_ext[ext] = []
                 files_by_ext[ext].append(file)
-            
+
             output = [f"Found {len(matching_files)} files in '{directory_path}':"]
             for ext, files in files_by_ext.items():
                 output.append(f"\n{ext.upper()} files ({len(files)}):")
@@ -529,9 +529,9 @@ def find_files_in_path(directory_path: str, extensions: list = None) -> str:
             output = [f"Found {len(matching_files)} files in '{directory_path}':"]
             for file in sorted(matching_files, key=lambda x: x.name):
                 output.append(f"- {file.name} (路径: {str(file).replace('\\', '/')})")
-        
+
         return "\n".join(output)
-        
+
     except Exception as e:
         return f"Error accessing directory '{directory_path}': {e}"
 
@@ -544,17 +544,17 @@ def get_desktop_file_path(filename: str) -> str:
         str: Full path of the file if found, or error message if not found
     """
     desktop_path = get_desktop_path()
-    
+
     try:
         exact_file = desktop_path / filename
         if exact_file.exists():
             return str(exact_file).replace("\\", "/")
-        
+
         matching_files = []
         for file in desktop_path.iterdir():
             if file.is_file() and filename.lower() in file.name.lower():
                 matching_files.append(file)
-        
+
         if not matching_files:
             return f"File '{filename}' not found on desktop."
         elif len(matching_files) == 1:
@@ -562,7 +562,7 @@ def get_desktop_file_path(filename: str) -> str:
         else:
             file_list = '\n'.join([f"- {file.name}: {str(file).replace('\\', '/')}" for file in matching_files])
             return f"Multiple files matching '{filename}' found:\n{file_list}"
-            
+
     except Exception as e:
         return f"Error searching for file: {e}"
 
@@ -578,10 +578,10 @@ def open_file_with_path(file_path: str) -> str:
         file_path_obj = Path(file_path)
         if not file_path_obj.exists():
             return f"Error: File '{file_path}' does not exist."
-        
+
         if not file_path_obj.is_file():
             return f"Error: '{file_path}' is not a file."
-        
+
         # Send command to iGameVis
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("open_file", {
@@ -589,9 +589,9 @@ def open_file_with_path(file_path: str) -> str:
             "file_name": file_path_obj.name,
             "file_extension": file_path_obj.suffix.lower()
         })
-        
+
         return format_tool_result(result, "File opened successfully")
-        
+
     except Exception as e:
         return f"Error opening file: {e}"
 
@@ -604,17 +604,17 @@ def open_desktop_file(filename: str) -> str:
         str: Result message from iGameVis or error message
     """
     desktop_path = get_desktop_path()
-    
+
     try:
         exact_file = desktop_path / filename
         if exact_file.exists():
             return open_file_with_path(str(exact_file).replace("\\", "/"))
-        
+
         matching_files = []
         for file in desktop_path.iterdir():
             if file.is_file() and filename.lower() in file.name.lower():
                 matching_files.append(file)
-        
+
         if not matching_files:
             return f"Error: File '{filename}' not found on desktop."
         elif len(matching_files) == 1:
@@ -622,7 +622,7 @@ def open_desktop_file(filename: str) -> str:
         else:
             file_list = '\n'.join([f"- {file.name}: {str(file).replace('\\', '/')}" for file in matching_files])
             return f"Multiple files matching '{filename}' found:\n{file_list}\n\nPlease use 'open_file_with_path' with the specific file path."
-            
+
     except Exception as e:
         return f"Error searching for file: {e}"
 
@@ -638,9 +638,9 @@ def open_file(file_path_or_name: str) -> str:
         file_path_obj = Path(file_path_or_name)
         if file_path_obj.exists() and file_path_obj.is_file():
             return open_file_with_path(str(file_path_obj).replace("\\", "/"))
-        
+
         return open_desktop_file(file_path_or_name)
-        
+
     except Exception as e:
         return f"Error opening file: {e}"
 
@@ -654,13 +654,46 @@ def get_model_info() -> List[Any]:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("get_model_info", {})
-        
+
         # 使用通用函数自动解析文本和图像
         return parse_igamevis_result_with_images(result, "No model information available")
     except Exception as e:
         from mcp.types import TextContent
         return [TextContent(type="text", text=f"Error getting model info: {e}")]
 
+
+@mcp.tool()
+def get_current_attribute() -> List[Any]:
+    """
+    获取当前绘制的云图属性的详细信息
+
+    返回当前正在显示的属性（云图）的完整信息，包括：
+    - 属性名称
+    - 属性类型（标量/矢量/张量）
+    - 属性维度信息
+    - 当前绘制的维度
+    - 数值范围
+    - 所属（点/单元）
+    - 数据数量
+
+    使用场景：
+    - 查询当前云图显示的是什么属性
+    - 了解属性的数值范围
+    - 查看属性的维度信息
+    - 分析属性的详细特征
+
+    Returns:
+        包含属性详细信息的文本描述
+    """
+    try:
+        igamevis = get_igamevis_connection()
+        result = igamevis.send_command("get_current_attribute", {})
+
+        # 使用通用函数自动解析文本和图像
+        return parse_igamevis_result_with_images(result, "No current attribute information available")
+    except Exception as e:
+        from mcp.types import TextContent
+        return [TextContent(type="text", text=f"Error getting current attribute: {e}")]
 
 
 # ============================================================================
@@ -758,7 +791,7 @@ def camera_control(
         # Send command to iGameVis
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("camera_control", data)
-        
+
         return format_tool_result(result, "Camera control executed successfully")
     except Exception as e:
         return f"Error controlling camera: {e}"
@@ -780,10 +813,10 @@ def save_file_as(file_path: str = "", file_name: str = "") -> str:
             data["file_path"] = file_path
         if file_name:
             data["file_name"] = file_name
-            
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("save_file_as", data)
-        
+
         return format_tool_result(result, "File saved successfully")
     except Exception as e:
         return f"Error saving file: {e}"
@@ -802,10 +835,10 @@ def save_screenshot(file_path: str, width: int = DEFAULT_SCREENSHOT_WIDTH, heigh
             "width": width,
             "height": height
         }
-        
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("save_screenshot", data)
-        
+
         return format_tool_result(result, "Screenshot saved successfully")
     except Exception as e:
         return f"Error saving screenshot: {e}"
@@ -828,10 +861,10 @@ def change_background_color(r: int, g: int, b: int) -> str:
             "g": max(0, min(255, g)),
             "b": max(0, min(255, b))
         }
-        
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_background_color", data)
-        
+
         return format_tool_result(result, "Background color changed successfully")
     except Exception as e:
         return f"Error changing background color: {e}"
@@ -842,7 +875,7 @@ def toggle_colorbar() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("toggle_colorbar", {})
-        
+
         return format_tool_result(result, "Colorbar toggled successfully")
     except Exception as e:
         return f"Error toggling colorbar: {e}"
@@ -861,10 +894,10 @@ def change_camera_type(camera_type: str) -> str:
 
     try:
         data = {"camera_type": camera_type.lower()}
-        
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_camera_type", data)
-        
+
         return format_tool_result(result, "Camera type changed successfully")
     except Exception as e:
         return f"Error changing camera type: {e}"
@@ -879,7 +912,7 @@ def delete_current_model() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("delete_current_model", {})
-        
+
         return format_tool_result(result, "Model deleted successfully")
     except Exception as e:
         return f"Error deleting model: {e}"
@@ -890,7 +923,7 @@ def show_model_tree() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_model_tree", {})
-        
+
         return format_tool_result(result, "Model tree window shown")
     except Exception as e:
         return f"Error showing model tree: {e}"
@@ -901,7 +934,7 @@ def show_scalar_field() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_scalar_field", {})
-        
+
         return format_tool_result(result, "Scalar field window shown")
     except Exception as e:
         return f"Error showing scalar field: {e}"
@@ -912,7 +945,7 @@ def show_vector_field() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_vector_field", {})
-        
+
         return format_tool_result(result, "Vector field window shown")
     except Exception as e:
         return f"Error showing vector field: {e}"
@@ -923,7 +956,7 @@ def show_tensor_field() -> str:
     try:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_tensor_field", {})
-        
+
         return format_tool_result(result, "Tensor field window shown")
     except Exception as e:
         return f"Error showing tensor field: {e}"
@@ -947,10 +980,10 @@ def change_interaction_mode(mode: str) -> str:
 
     try:
         data = {"mode": mode.lower()}
-        
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_interaction_mode", data)
-        
+
         return format_tool_result(result, "Interaction mode changed successfully")
     except Exception as e:
         return f"Error changing interaction mode: {e}"
@@ -963,34 +996,34 @@ def change_interaction_mode(mode: str) -> str:
 def get_model_eight_views(image_size: dict = None, quality: str = DEFAULT_IMAGE_QUALITY) -> str:
     """
     获取当前模型的八个视角图像
-    
+
     Args:
         image_size (dict): 图像尺寸，格式: {"width": 800, "height": 600}
         quality (str): 图像质量，"high" 或 "normal"
-    
+
     Returns:
         str: 操作结果信息
     """
     # 设置默认参数
     if image_size is None:
         image_size = {"width": 800, "height": 600}
-    
+
     # 验证参数
     if not isinstance(image_size, dict) or "width" not in image_size or "height" not in image_size:
         return "错误：image_size 必须包含 width 和 height"
-    
+
     if quality not in ["high", "normal"]:
         return "错误：quality 必须是 'high' 或 'normal'"
-    
+
     try:
         data = {
             "image_size": image_size,
             "quality": quality
         }
-        
+
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("get_model_eight_views", data)
-        
+
         return format_tool_result(result, "Eight views captured successfully")
     except Exception as e:
         return f"Error capturing eight views: {e}"
@@ -1018,7 +1051,7 @@ def apply_mesh_filter(filter_type: str, **parameters) -> str:
 
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("apply_mesh_filter", data)
-        
+
         return format_tool_result(result, "Mesh filter applied successfully")
     except Exception as e:
         return f"Error applying mesh filter: {e}"
@@ -1031,17 +1064,17 @@ def apply_mesh_filter(filter_type: str, **parameters) -> str:
 def get_viewport_screenshot(max_size: int = 800) -> Image:
     """
     Capture a screenshot of the current iGameVis viewport.
-    
+
     Parameters:
     - max_size: Maximum size in pixels for the largest dimension (default: 800)
-    
+
     Returns the screenshot as an Image.
     """
     try:
         # Create temp file path
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"igamevis_screenshot_{os.getpid()}.png")
-        
+
         # Send command to iGameVis to save screenshot
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("save_screenshot", {
@@ -1049,27 +1082,27 @@ def get_viewport_screenshot(max_size: int = 800) -> Image:
             "width": max_size,
             "height": max_size
         })
-        
+
         # Check if screenshot was saved successfully
         if result.get("type") == "failure":
             raise Exception(result.get("content", "Unknown error"))
-        
+
         # Wait a moment for file to be written
         import time
         time.sleep(0.5)
-        
+
         if not os.path.exists(temp_path):
             raise Exception("Screenshot file was not created")
-        
+
         # Read the file
         with open(temp_path, 'rb') as f:
             image_bytes = f.read()
-        
+
         # Delete the temp file
         os.remove(temp_path)
-        
+
         return Image(data=image_bytes, format="png")
-        
+
     except Exception as e:
         logger.error(f"Error capturing screenshot: {str(e)}")
         raise Exception(f"Screenshot failed: {str(e)}")

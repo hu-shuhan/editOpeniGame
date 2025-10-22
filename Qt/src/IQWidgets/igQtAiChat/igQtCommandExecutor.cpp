@@ -61,6 +61,8 @@ OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandOb
         return executeOpenFile(data);
     } else if (action == "get_model_info") {
         return executeGetModelInfo();
+    } else if (action == "get_current_attribute") {
+        return executeGetCurrentAttribute();
     } else if (action == "camera_control") {
         return executeCameraControl(data);
     } else if (action == "save_file_as") {
@@ -650,6 +652,89 @@ OperationResult igQtCommandExecutor::executeShowVectorField() const {
 OperationResult igQtCommandExecutor::executeShowTensorField() const {
     // 显示张量场窗口
     return OperationResult(true, "张量场窗口已显示", "显示窗口");
+}
+
+OperationResult igQtCommandExecutor::executeGetCurrentAttribute() const {
+    // 使用辅助函数获取当前模型的 DataObject
+    QString errorMsg;
+    auto obj = getCurrentDataObject(&errorMsg);
+    if (!obj) { return OperationResult(false, errorMsg, "get_current_attribute"); }
+
+    // 检查是否有当前属性
+    int currentAttributeIndex = obj->GetCurrentAttributeIndex();
+    if (currentAttributeIndex < 0) {
+        return OperationResult(false, "当前未绘制任何属性（云图）", "get_current_attribute");
+    }
+
+    // 获取属性信息
+    auto attrSet = obj->GetAttributeSet();
+    if (!attrSet) { return OperationResult(false, "无法获取属性集", "get_current_attribute"); }
+
+    auto attr = attrSet->GetAttribute(currentAttributeIndex);
+    if (!attr.pointer) { return OperationResult(false, "属性指针无效", "get_current_attribute"); }
+
+    QStringList info;
+
+    // ========== 1. 基本信息 ==========
+    QString attributeName = QString::fromStdString(attr.pointer->GetName());
+    info << QString("🎨 属性名称: %1").arg(attributeName);
+
+    // ========== 2. 属性类型和维度 ==========
+    int dimension = attr.pointer->GetDimension();
+    QString attrType;
+    if (dimension == 1) {
+        attrType = "标量 (Scalar)";
+    } else if (dimension == 3) {
+        attrType = "矢量 (Vector)";
+    } else if (dimension == 6 || dimension == 9) {
+        attrType = QString("张量 (Tensor %1x%2)").arg(dimension == 6 ? 3 : 3).arg(dimension == 6 ? 2 : 3);
+    } else {
+        attrType = QString("多维 (%1 维)").arg(dimension);
+    }
+    info << QString("📊 类型: %1").arg(attrType);
+    info << QString("  • 总维度数: %1").arg(dimension);
+
+    // ========== 3. 当前绘制的维度 ==========
+    int currentDimension = obj->GetAttributeDimension();
+    if (currentDimension < 0) {
+        info << QString("  • 当前绘制: Magnitude (幅值)");
+    } else {
+        info << QString("  • 当前绘制: 第 %1 维").arg(currentDimension + 1);
+    }
+
+    // ========== 4. 数据范围 ==========
+
+        auto range = attr.GetDataRange();
+    info << QString("📏 数值范围: [%1, %2]")
+                    .arg(range->GetValue(currentDimension * 2 + 2), 0, 'e', 4)
+                    .arg(range->GetValue(currentDimension * 2 + 3), 0, 'e', 4);
+
+    // ========== 5. 属性所属 ==========
+    QString attrLocation;
+    switch (attr.type) {
+        case IG_POINT:
+            attrLocation = "点 (Point)";
+            break;
+        case IG_CELL:
+            attrLocation = "单元 (Cell)";
+            break;
+        default:
+            attrLocation = "未知";
+            break;
+    }
+    info << QString("🔍 该属性是%1属性").arg(attrLocation);
+
+    // 构建 JSON 响应
+    QJsonObject contentObj;
+    contentObj["description"] = info.join("\n");
+    contentObj["attribute_name"] = attributeName;
+    contentObj["attribute_type"] = attrType;
+    contentObj["dimension"] = dimension;
+    contentObj["current_dimension"] = currentDimension;
+    contentObj["location"] = attrLocation;
+
+    QJsonDocument doc(contentObj);
+    return OperationResult(true, QString::fromUtf8(doc.toJson(QJsonDocument::Compact)), "get_current_attribute");
 }
 
 // ============================================================================
