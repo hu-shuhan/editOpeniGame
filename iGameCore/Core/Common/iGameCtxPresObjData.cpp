@@ -294,6 +294,10 @@ std::map<int, int> CtxPresObjData_Main::GenerateKeyObjectIdToIndexs(const std::v
     return re;
 }
 
+double CtxPresObjData_Main::GenerateObjData(int objectId, ElementArray<AttributeSet::Attribute>::Pointer attrs, const std::pair<int, int>& variableIndex_) {
+    return attrs->GetElement(variableIndex_.first).pointer->GetElementValue(objectId, variableIndex_.second);
+}
+
 bool CtxPresObjData_Main::LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
     for (int attrIndex = 0; attrIndex < attrs->Size(); attrIndex++) {
         auto& attr = attrs->GetElement(attrIndex);

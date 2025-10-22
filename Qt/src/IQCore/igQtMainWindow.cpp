@@ -50,6 +50,7 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
+#include <iGameCtxPresObjData.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
@@ -1546,56 +1547,77 @@ void igQtMainWindow::initAllInteractor() {
         else if (!checked && ui->dockWidget_SelectionField->isVisible())
             ui->dockWidget_SelectionField->hide();
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionStation, this,
-            [&](SelectionStation selectionStation) {
-                auto radius = ui->widget_SelectionField->GetSelectionRadius();
-                auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
-                switch (selectionStation) {
-                    case SelectionStation::NONE_SELECTION:
-                        rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-                        break;
-                    case SelectionStation::POINT_SELECTION:
-                        rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius,
-                                                              selectOrUnSelect);
-                        break;
-                    case SelectionStation::CELL_SELECTION:
-                        rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius,
-                                                              selectOrUnSelect);
-                        break;
-                    default:
-                        break;
-                }
-            });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectOrUnSelect, this, [&](bool selectOrUnSelect) {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionStateChanged, this, [&]() {
         auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
         auto radius = ui->widget_SelectionField->GetSelectionRadius();
+        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+        auto variableIndex = ui->widget_SelectionField->GetVariableIndex();
+        auto variableRange = ui->widget_SelectionField->GetVariableRange();
         switch (selectionStation) {
             case SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
-            case SelectionStation::POINT_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
+            case SelectionStation::POINT_SELECTION: {
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect,
+                                                      variableIndex, variableRange);
+            }
                 break;
-            case SelectionStation::CELL_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
+            case SelectionStation::CELL_SELECTION: {
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect,
+                                                      variableIndex, variableRange);
+            }
                 break;
             default:
                 break;
         }
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionRadius, this, [&](double radius) {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        switch (selectionStation) {
+            case SelectionStation::NONE_SELECTION:
+                ui->widget_SelectionField->SetVariableNames({});
+                break;
+            case SelectionStation::POINT_SELECTION: {
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) {
+                    ui->widget_SelectionField->SetVariableNames({});
+                } else {
+                    auto attrs = model->GetDataObject()->GetAttributeSet()->GetAllAttributes();
+                    auto variableNames = CtxPresObjData_Main::GenerateVariableNames(attrs, IG_POINT);
+                    ui->widget_SelectionField->SetVariableNames(variableNames);
+                }
+            }
+                break;
+            case SelectionStation::CELL_SELECTION: {
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) {
+                    ui->widget_SelectionField->SetVariableNames({});
+                } else {
+                    auto attrs = model->GetDataObject()->GetAttributeSet()->GetAllAttributes();
+                    auto variableNames = CtxPresObjData_Main::GenerateVariableNames(attrs, IG_CELL);
+                    ui->widget_SelectionField->SetVariableNames(variableNames);
+                }
+            }
+                break;
+            default:
+                break;
+        }
+        auto radius = ui->widget_SelectionField->GetSelectionRadius();
         auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+        auto variableIndex = ui->widget_SelectionField->GetVariableIndex();
+        auto variableRange = ui->widget_SelectionField->GetVariableRange();
         switch (selectionStation) {
             case SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
-            case SelectionStation::POINT_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
-                break;
-            case SelectionStation::CELL_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
-                break;
+            case SelectionStation::POINT_SELECTION: {
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect,
+                                                      variableIndex, variableRange);
+            } break;
+            case SelectionStation::CELL_SELECTION: {
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect,
+                                                      variableIndex, variableRange);
+            } break;
             default:
                 break;
         }
@@ -1638,28 +1660,28 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->SetDefaultSelectionButton();
         ui->widget_SelectionField->PreventSignalSend(false);
         return;
-        auto radius = ui->widget_SelectionField->GetSelectionRadius();
-        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
-        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
-        switch (selectionStation) {
-            case SelectionStation::NONE_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-                break;
-            case SelectionStation::POINT_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
-                break;
-            case SelectionStation::CELL_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
-                break;
-            default:
-                break;
-        }
-        auto visiable = ui->widget_SelectionField->GetSelectionShow();
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) return;
-        if (visiable) model->GetPainter3D()->ShowAll();
-        else
-            model->GetPainter3D()->HideAll();
+        //auto radius = ui->widget_SelectionField->GetSelectionRadius();
+        //auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        //auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
+        //switch (selectionStation) {
+        //    case SelectionStation::NONE_SELECTION:
+        //        rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+        //        break;
+        //    case SelectionStation::POINT_SELECTION:
+        //        rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect);
+        //        break;
+        //    case SelectionStation::CELL_SELECTION:
+        //        rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect);
+        //        break;
+        //    default:
+        //        break;
+        //}
+        //auto visiable = ui->widget_SelectionField->GetSelectionShow();
+        //auto model = rendererWidget->GetScene()->GetCurrentModel();
+        //if (model == nullptr) return;
+        //if (visiable) model->GetPainter3D()->ShowAll();
+        //else
+        //    model->GetPainter3D()->HideAll();
     });
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::Hided, this,
             [&]() { ui->action_ContextPreserving->setChecked(false); });

@@ -12,6 +12,11 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
     connect(ui->UnSelect, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionUnSelect);
     connect(ui->RadiusSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionRadiusSpinBox);
+    connect(ui->variableChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &igQtSelectionWidget::SelectionVariableIndex);
+    connect(ui->autoRange, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionVariableAutoCheck);
+    connect(ui->theRange, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &igQtSelectionWidget::SelectionVariableRange);
     connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStateShow);
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
     //ui->noneSelectionState->hide();
@@ -29,49 +34,89 @@ bool igQtSelectionWidget::GetSelectionShow() const { return m_SelectionShow; }
 
 bool igQtSelectionWidget::GetSelectOrUnSelect() const { return m_Select_Or_UnSelect; }
 
+int igQtSelectionWidget::GetVariableIndex() const { return m_VariableIndex; }
+
+double igQtSelectionWidget::GetVariableRange() const { return m_VariableRange; }
+
+void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
+    PreventSignalSend(true);
+    ui->variableChoose->clear();
+    ui->variableChoose->addItem("Null");
+    for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
+    m_VariableIndex = -1;
+    PreventSignalSend(false);
+}
+
 void igQtSelectionWidget::PreventSignalSend(bool prevent) { m_PreventSignalSend = prevent; }
 
-void igQtSelectionWidget::SetDefaultSelectionButton() { ui->NONE_SELECTION->click(); }
+void igQtSelectionWidget::SetDefaultSelectionButton() {
+    ui->NONE_SELECTION->click();
+    SetVariableNames({});
+}
 
 void igQtSelectionWidget::SelectionStationNone(bool checked) {
     if (!checked) return;
     m_SelectionStation = SelectionStation::NONE_SELECTION;
     if (m_PreventSignalSend) return;
-    emit SetSelectionStation(SelectionStation::NONE_SELECTION);
+    emit Signal_SetSelectionStationChanged();
 }
 
 void igQtSelectionWidget::SelectionStationPoint(bool checked) {
     if (!checked) return;
     m_SelectionStation = SelectionStation::POINT_SELECTION;
     if (m_PreventSignalSend) return;
-    emit SetSelectionStation(SelectionStation::POINT_SELECTION);
+    emit Signal_SetSelectionStationChanged();
 }
 
 void igQtSelectionWidget::SelectionStationCell(bool checked) {
     if (!checked) return;
     m_SelectionStation = SelectionStation::CELL_SELECTION;
     if (m_PreventSignalSend) return;
-    emit SetSelectionStation(SelectionStation::CELL_SELECTION);
+    emit Signal_SetSelectionStationChanged();
 }
 
 void igQtSelectionWidget::SelectionSelect(bool checked) {
     if (!checked) return;
     m_Select_Or_UnSelect = true;
     if (m_PreventSignalSend) return;
-    emit SetSelectOrUnSelect(m_Select_Or_UnSelect);
+    emit SetSelectionStateChanged();
 }
 
 void igQtSelectionWidget::SelectionUnSelect(bool checked) {
     if (!checked) return;
     m_Select_Or_UnSelect = false;
     if (m_PreventSignalSend) return;
-    emit SetSelectOrUnSelect(m_Select_Or_UnSelect);
+    emit SetSelectionStateChanged();
 }
 
 void igQtSelectionWidget::SelectionRadiusSpinBox(double radius) {
     m_SelectionRadius = radius;
     if (m_PreventSignalSend) return;
-    emit SetSelectionRadius(radius);
+    emit SetSelectionStateChanged();
+}
+
+void igQtSelectionWidget::SelectionVariableIndex(int index) {
+    m_VariableIndex = std::max<int>(-1, index - 1);
+    if (m_PreventSignalSend) return;
+    emit SetSelectionStateChanged();
+}
+
+void igQtSelectionWidget::SelectionVariableAutoCheck(bool checked) {
+    if (checked) {
+        m_VariableRange = -1;
+        ui->theRange->setEnabled(false);
+    } else {
+        m_VariableRange = ui->theRange->value();
+        ui->theRange->setEnabled(true);
+    }
+    if (m_PreventSignalSend) return;
+    emit SetSelectionStateChanged();
+}
+
+void igQtSelectionWidget::SelectionVariableRange(double range) {
+    m_VariableRange = range;
+    if (m_PreventSignalSend) return;
+    emit SetSelectionStateChanged();
 }
 
 void igQtSelectionWidget::ClearSelectionState() {

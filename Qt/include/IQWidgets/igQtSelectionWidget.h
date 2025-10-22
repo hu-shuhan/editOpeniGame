@@ -3,6 +3,8 @@
 
 #include <ui_SelectionView.h>
 #include <QWidget>
+#include <vector>
+#include <string>
 
 namespace Ui {
 class SelectionView;
@@ -21,13 +23,15 @@ public:
     double GetSelectionRadius() const;
     bool GetSelectionShow() const;
     bool GetSelectOrUnSelect() const;
+    int GetVariableIndex() const;
+    double GetVariableRange() const;
+    void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
 signals:
-    void SetSelectionStation(SelectionStation selectionStation);
-    void SetSelectOrUnSelect(bool selectOrUnSelect);
-    void SetSelectionRadius(double radius);
+    void Signal_SetSelectionStationChanged();
+    void SetSelectionStateChanged();
     void SetSelectionShow(bool show);
     void SetClearSelection();
     void Hided();
@@ -39,6 +43,9 @@ private slots:
     void SelectionSelect(bool checked);
     void SelectionUnSelect(bool checked);
     void SelectionRadiusSpinBox(double radius);
+    void SelectionVariableIndex(int index);
+    void SelectionVariableAutoCheck(bool checked);
+    void SelectionVariableRange(double range);
     void ClearSelectionState();
     void SelectionStateShow(bool unShow);
 
@@ -51,6 +58,8 @@ private:
     bool m_Select_Or_UnSelect{true};
     double m_SelectionRadius{};
     bool m_SelectionShow{true};
+    int m_VariableIndex{-1};
+    double m_VariableRange{1};
     bool m_PreventSignalSend{};
 };
 

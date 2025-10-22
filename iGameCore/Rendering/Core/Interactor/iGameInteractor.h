@@ -73,7 +73,9 @@ public:
      */
     void RequestPointSelectionStyle(SmartPointer<Selection> s,
                                     double selectRadius,
-                                    bool selectOrUnSelect = true);
+                                    bool selectOrUnSelect = true,
+                                    int selectVariableIndex = -1,
+                                    double selectVariableRange = 1);
 
     /**
      * @brief 切换成面选风格类型交互器
@@ -83,7 +85,9 @@ public:
      */
     void RequestFaceSelectionStyle(SmartPointer<Selection> s,
                                    double selectRadius,
-                                   bool selectOrUnSelect = true);
+                                   bool selectOrUnSelect = true,
+                                   int selectVariableIndex = -1,
+                                   double selectVariableRange = 1);
 
 
     void RequestPickCenterStyle(SmartPointer<Selection> s);
