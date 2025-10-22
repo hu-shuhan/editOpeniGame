@@ -352,7 +352,7 @@ std::vector<torch::Tensor> VortexDetection::extractPatches(const torch::Tensor& 
 //    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 //    //torch::Device device(torch::kCPU);
 //
-//    // ¹¹Ôì 3D Tensor
+//    // æ„é€  3D Tensor
 //
 //    std::cout << nx << " " << ny << " " << nz << std::endl;
 //    // torch::Tensor tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
@@ -460,7 +460,7 @@ torch::Tensor VortexDetection::gaussian_kernel1d(float sigma, int radius) {
         kernel[i] = v;
         sum += v;
     }
-    kernel /= sum; // ¹éÒ»»¯
+    kernel /= sum; // å½’ä¸€åŒ–
     return kernel;
 }
 
@@ -656,7 +656,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
                     //torch::Tensor logits = model.forward({patch}).toTuple()->elements()[0].toTensor(); // [1, 2, 64, 64, 64]
                     torch::Tensor prob;
                     if (logits.size(1) == 2) {
-                        prob = torch::sigmoid(logits.slice(1, 1, 2)); // È¡Ç°¾°Í¨µÀ [1, 1, 64, 64, 64]
+                        prob = torch::sigmoid(logits.slice(1, 1, 2)); // å–å‰æ™¯é€šé“ [1, 1, 64, 64, 64]
                     } else {
                         prob = torch::sigmoid(logits);
                     }
@@ -702,7 +702,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     Eigen::Vector3f block_size = range_vec / split;
     //Eigen::Vector3f range_vec = max_pos - min_pos;
     //Eigen::Vector3f block_size = range_vec / split;
-    // ³õÊ¼»¯ KD-Tree
+    // åˆå§‹åŒ– KD-Tree
     Eigen::MatrixXd points(gridPoints.size(), 3);
     for (size_t i = 0; i < gridPoints.size(); ++i) {
         points(i, 0) = gridPoints[i][0];
@@ -1027,7 +1027,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         }
     }
 
-    // ¼ÆËãÈ«¾Ö²½³¤
+    // è®¡ç®—å…¨å±€æ­¥é•¿
     auto sizes = result_volume_1.sizes();
     float depth = static_cast<float>(sizes[0]);
     float height = static_cast<float>(sizes[1]);
@@ -1047,7 +1047,7 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 
 torch::Tensor VortexDetection::knn_smooth_labels(const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                                  const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                                 const std::vector<Eigen::Vector3f>& query_points, // Òª²éÑ¯µÄµã
+                                                 const std::vector<Eigen::Vector3f>& query_points, // è¦æŸ¥è¯¢çš„ç‚¹
                                                  int k) {
  
     int nz = prob_vol_1.size(0);

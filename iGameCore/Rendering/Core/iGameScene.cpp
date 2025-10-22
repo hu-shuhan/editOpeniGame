@@ -267,11 +267,24 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView() {
-    UpdateModelsBoundingSphere();
+void Scene::ResetCameraView(SmartPointer<Model> model) {
+    if (model == nullptr) {
+        UpdateModelsBoundingSphere();
+    } else {
+        auto& box = model->GetDataObject()->GetBoundingBox();
+        double* center = box.center().pointer();
+        float x = static_cast<float>(center[0]);
+        float y = static_cast<float>(center[1]);
+        float z = static_cast<float>(center[2]);
+
+        double diameter = box.diag();
+        float radius = static_cast<float>(diameter / 2.0);
+
+        m_ModelsBoundingSphere = igm::vec4{x, y, z, radius};
+    }
+
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
@@ -1244,7 +1257,6 @@ void Scene::RotateNinetyCounterClockwise() {
     m_ModelRotate = rotate * m_ModelRotate;
     UpdateRealRotationCenter(m_RotationCenter);
 }
-
 
 // 切换显示状态实现
 void Scene::ToggleCenterAxes() {
