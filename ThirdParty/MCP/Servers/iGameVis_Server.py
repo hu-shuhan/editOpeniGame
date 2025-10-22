@@ -11,33 +11,38 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, List
 import os
+import sys
 from pathlib import Path
 import base64
 from datetime import datetime
 
+# 导入统一配置
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
+
 # ============================================================================
-# Configuration
+# Configuration (从 config.py 导入)
 # ============================================================================
 
 # iGameVis 连接配置
-DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 12345
+DEFAULT_HOST = config.IGAMEVIS_HOST
+DEFAULT_PORT = config.IGAMEVIS_PORT
 
 # 日志配置
-LOG_LEVEL = "WARNING"  # DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL = config.LOG_LEVEL
 
 # 超时配置
-CONNECTION_TIMEOUT = 30.0  # 连接超时时间（秒）
-COMMAND_TIMEOUT = 30.0     # 命令执行超时时间（秒）
+CONNECTION_TIMEOUT = config.MCP_CONNECTION_TIMEOUT
+COMMAND_TIMEOUT = config.MCP_COMMAND_TIMEOUT
 
 # 文件操作配置
-DEFAULT_SCREENSHOT_WIDTH = 1920
-DEFAULT_SCREENSHOT_HEIGHT = 1080
-DEFAULT_IMAGE_QUALITY = "high"  # high, normal
+DEFAULT_SCREENSHOT_WIDTH = config.DEFAULT_SCREENSHOT_WIDTH
+DEFAULT_SCREENSHOT_HEIGHT = config.DEFAULT_SCREENSHOT_HEIGHT
+DEFAULT_IMAGE_QUALITY = config.DEFAULT_IMAGE_QUALITY
 
 # 重连配置
-MAX_RECONNECT_ATTEMPTS = 3
-RECONNECT_DELAY = 1.0  # 重连延迟（秒）
+MAX_RECONNECT_ATTEMPTS = config.MAX_RECONNECT_ATTEMPTS
+RECONNECT_DELAY = config.RECONNECT_DELAY
 
 # ============================================================================
 # Logging Setup
@@ -47,7 +52,7 @@ RECONNECT_DELAY = 1.0  # 重连延迟（秒）
 log_file = os.path.join(tempfile.gettempdir(), "igamevis_mcp_server.log")
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL), 
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format=config.LOG_FORMAT,
     handlers=[
         logging.FileHandler(log_file, mode='a', encoding='utf-8'),
         # 不输出到 stderr，避免干扰 MCP 协议
@@ -56,9 +61,10 @@ logging.basicConfig(
 logger = logging.getLogger("iGameVisMCPServer")
 logger.info(f"===== iGameVis MCP Server 启动 ===== 日志文件: {log_file}")
 
-# 关闭MCP调试日志
-logging.getLogger('mcp').setLevel(logging.WARNING)
-logging.getLogger('mcp.server').setLevel(logging.WARNING)
+# 根据配置决定是否关闭 MCP 库的调试日志
+if not config.SHOW_MCP_DEBUG_LOGS:
+    logging.getLogger('mcp').setLevel(logging.WARNING)
+    logging.getLogger('mcp.server').setLevel(logging.WARNING)
 
 # ============================================================================
 # Connection Management
@@ -171,12 +177,6 @@ class iGameVisConnection:
             content_str = str(response.get('content', ''))[:200]
             logger.info(f"💬 [CONTENT] {content_str}")
             
-            # 检查是否有错误
-            if response.get("type") == "error":
-                logger.error(f"❌ [ERROR] iGameVis error: {response.get('content')}")
-                raise Exception(response.get("content", "Unknown error from iGameVis"))
-            
-            logger.info(f"✅ [SUCCESS] 命令 '{command_type}' 执行成功")
             return response
             
         except socket.timeout:
@@ -343,14 +343,33 @@ def normalize_view_type(view_type: str) -> str:
 
     return view_mapping.get(view_type, "")
 
-def format_number(num):
-    """格式化大数字显示"""
-    if num >= 1000000:
-        return f"{num/1000000:.1f}百万"
-    elif num >= 1000:
-        return f"{num/1000:.1f}千"
+
+def format_tool_result(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> str:
+    """
+    统一格式化工具返回结果
+    
+    Args:
+        result: iGameVis 返回的结果字典，格式：{"type": "success"|"failure", "content": str, "timestamp": str}
+        default_message: 默认成功消息
+    
+    Returns:
+        格式化后的字符串结果
+    
+    Note:
+        iGameVis (C++) 返回格式固定：
+        - type: "success" (成功) 或 "failure" (失败)
+        - content: QString，总是字符串类型（即使内容是 JSON 格式也是字符串）
+        - timestamp: ISO 格式时间戳
+    """
+    result_type = result.get("type", "unknown")
+    content = result.get("content", default_message)
+    logger.info(f"result_type: {result_type}, content: {content}")
+    # 如果是失败类型，添加错误前缀让 AI 明确知道操作失败
+    if result_type == "failure":
+        return f"❌ 操作失败: {content}"
     else:
-        return str(num)
+        # 成功情况，直接返回内容
+        return content
 
 # ============================================================================
 # File Operations Tools
@@ -510,11 +529,7 @@ def open_file_with_path(file_path: str) -> str:
             "file_extension": file_path_obj.suffix.lower()
         })
         
-        # Return the actual result from iGameVis
-        if result.get("type") == "reply":
-            return result.get("content", "File opened successfully")
-        else:
-            return f"File opened: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "File opened successfully")
         
     except Exception as e:
         return f"Error opening file: {e}"
@@ -568,35 +583,6 @@ def open_file(file_path_or_name: str) -> str:
     except Exception as e:
         return f"Error opening file: {e}"
 
-@mcp.tool()
-def get_file_info(file_path: str) -> str:
-    """Get information about a file.
-    Args:
-        file_path (str): Full path to the file
-    Returns:
-        str: File information including name, size, and path
-    """
-    try:
-        file_path_obj = Path(file_path)
-        if not file_path_obj.exists():
-            return f"Error: File '{file_path}' does not exist."
-        
-        file_size = file_path_obj.stat().st_size
-        file_size_mb = file_size / (1024 * 1024)
-        
-        info = f"""
-文件信息:
-- 文件名: {file_path_obj.name}
-- 格式: {file_path_obj.suffix.lower()}
-- 大小: {round(file_size_mb, 2)} MB
-- 路径: {str(file_path_obj.absolute()).replace("\\", "/")}
-"""
-        
-        return info
-        
-    except Exception as e:
-        return f"Error getting file info: {e}"
-
 # ============================================================================
 # Model Information Tools
 # ============================================================================
@@ -608,36 +594,11 @@ def get_model_info() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("get_model_info", {})
         
-        # Return the actual result from iGameVis
-        if result.get("type") == "reply":
-            return result.get("content", "No model information available")
-        else:
-            return json.dumps(result.get("content", {}), ensure_ascii=False, indent=2)
+        return format_tool_result(result, "No model information available")
     except Exception as e:
         return f"Error getting model info: {e}"
 
 
-
-    """
-    打开文件并获取模型信息 - 多步骤操作
-    Args:
-        file_path_or_name (str): 文件名或完整路径
-    Returns:
-        str: 操作结果信息
-    """
-    try:
-        # 第一步：打开文件
-        open_result = open_file(file_path_or_name)
-        if "Error" in open_result:
-            return open_result
-        
-        # 第二步：获取模型信息
-        model_info = get_model_info()
-        
-        return f"文件打开成功:\n{open_result}\n\n模型信息:\n{model_info}"
-        
-    except Exception as e:
-        return f"创建命令序列时出错: {str(e)}"
 
 # ============================================================================
 # Camera Control Tools
@@ -735,11 +696,7 @@ def camera_control(
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("camera_control", data)
         
-        # Return the actual result from iGameVis
-        if result.get("type") == "reply":
-            return result.get("content", "Camera control executed successfully")
-        else:
-            return f"Camera control executed: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Camera control executed successfully")
     except Exception as e:
         return f"Error controlling camera: {e}"
 
@@ -764,10 +721,7 @@ def save_file_as(file_path: str = "", file_name: str = "") -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("save_file_as", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "File saved successfully")
-        else:
-            return f"File saved: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "File saved successfully")
     except Exception as e:
         return f"Error saving file: {e}"
 
@@ -789,10 +743,7 @@ def save_screenshot(file_path: str, width: int = DEFAULT_SCREENSHOT_WIDTH, heigh
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("save_screenshot", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Screenshot saved successfully")
-        else:
-            return f"Screenshot saved: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Screenshot saved successfully")
     except Exception as e:
         return f"Error saving screenshot: {e}"
 
@@ -818,10 +769,7 @@ def change_background_color(r: int, g: int, b: int) -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_background_color", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Background color changed successfully")
-        else:
-            return f"Background color changed: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Background color changed successfully")
     except Exception as e:
         return f"Error changing background color: {e}"
 
@@ -832,10 +780,7 @@ def toggle_colorbar() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("toggle_colorbar", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Colorbar toggled successfully")
-        else:
-            return f"Colorbar toggled: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Colorbar toggled successfully")
     except Exception as e:
         return f"Error toggling colorbar: {e}"
 
@@ -857,10 +802,7 @@ def change_camera_type(camera_type: str) -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_camera_type", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Camera type changed successfully")
-        else:
-            return f"Camera type changed: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Camera type changed successfully")
     except Exception as e:
         return f"Error changing camera type: {e}"
 
@@ -875,10 +817,7 @@ def delete_current_model() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("delete_current_model", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Model deleted successfully")
-        else:
-            return f"Model deleted: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Model deleted successfully")
     except Exception as e:
         return f"Error deleting model: {e}"
 
@@ -889,10 +828,7 @@ def show_model_tree() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_model_tree", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Model tree window shown")
-        else:
-            return f"Model tree shown: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Model tree window shown")
     except Exception as e:
         return f"Error showing model tree: {e}"
 
@@ -903,10 +839,7 @@ def show_scalar_field() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_scalar_field", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Scalar field window shown")
-        else:
-            return f"Scalar field shown: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Scalar field window shown")
     except Exception as e:
         return f"Error showing scalar field: {e}"
 
@@ -917,10 +850,7 @@ def show_vector_field() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_vector_field", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Vector field window shown")
-        else:
-            return f"Vector field shown: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Vector field window shown")
     except Exception as e:
         return f"Error showing vector field: {e}"
 
@@ -931,10 +861,7 @@ def show_tensor_field() -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("show_tensor_field", {})
         
-        if result.get("type") == "reply":
-            return result.get("content", "Tensor field window shown")
-        else:
-            return f"Tensor field shown: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Tensor field window shown")
     except Exception as e:
         return f"Error showing tensor field: {e}"
 
@@ -961,10 +888,7 @@ def change_interaction_mode(mode: str) -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("change_interaction_mode", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Interaction mode changed successfully")
-        else:
-            return f"Interaction mode changed: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Interaction mode changed successfully")
     except Exception as e:
         return f"Error changing interaction mode: {e}"
 
@@ -1004,10 +928,7 @@ def get_model_eight_views(image_size: dict = None, quality: str = DEFAULT_IMAGE_
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("get_model_eight_views", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Eight views captured successfully")
-        else:
-            return f"Eight views captured: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Eight views captured successfully")
     except Exception as e:
         return f"Error capturing eight views: {e}"
 
@@ -1035,10 +956,7 @@ def apply_mesh_filter(filter_type: str, **parameters) -> str:
         igamevis = get_igamevis_connection()
         result = igamevis.send_command("apply_mesh_filter", data)
         
-        if result.get("type") == "reply":
-            return result.get("content", "Mesh filter applied successfully")
-        else:
-            return f"Mesh filter applied: {result.get('content', {}).get('message', 'Success')}"
+        return format_tool_result(result, "Mesh filter applied successfully")
     except Exception as e:
         return f"Error applying mesh filter: {e}"
 
@@ -1070,7 +988,7 @@ def get_viewport_screenshot(max_size: int = 800) -> Image:
         })
         
         # Check if screenshot was saved successfully
-        if result.get("type") == "error":
+        if result.get("type") == "failure":
             raise Exception(result.get("content", "Unknown error"))
         
         # Wait a moment for file to be written

@@ -23,10 +23,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 关闭MCP相关的调试日志
-logging.getLogger('mcp').setLevel(logging.WARNING)
-logging.getLogger('mcp.client').setLevel(logging.WARNING)
-logging.getLogger('mcp.server').setLevel(logging.WARNING)
+# 根据配置决定是否关闭 MCP 库的调试日志
+if not config.SHOW_MCP_DEBUG_LOGS:
+    logging.getLogger('mcp').setLevel(logging.WARNING)
+    logging.getLogger('mcp.client').setLevel(logging.WARNING)
+    logging.getLogger('mcp.server').setLevel(logging.WARNING)
 
 class iGameVisMCPClient:
     """iGameVis MCP Client - 专门用于与 iGameVis 应用程序交互的客户端"""
