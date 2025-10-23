@@ -31,6 +31,7 @@
 #include "iGameDataObject.h"
 #include "iGameInteractor.h"
 #include "iGameFilterIncludes.h"
+#include "iGameFileIO.h"
 
 // 注意：某些头文件可能通过主窗口头文件间接包含
 // 如果编译时出现未定义的类型，可能需要添加相应的前向声明或头文件
@@ -57,7 +58,7 @@ OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandOb
     QJsonObject data = commandObj.value("data").toObject();
     
     if (action == "open_file") {
-        return executeOpenFile(data);
+        return executeOpenFile(data);  
     } else if (action == "get_model_info") {
         return executeGetModelInfo();
     } else if (action == "get_current_attribute") {
@@ -76,14 +77,6 @@ OperationResult igQtCommandExecutor::executeCommand(const QJsonObject& commandOb
         return executeChangeCameraType(data);
     } else if (action == "delete_current_model") {
         return executeDeleteCurrentModel();
-    } else if (action == "show_model_tree") {
-        return executeShowModelTree();
-    } else if (action == "show_scalar_field") {
-        return executeShowScalarField();
-    } else if (action == "show_vector_field") {
-        return executeShowVectorField();
-    } else if (action == "show_tensor_field") {
-        return executeShowTensorField();
     } else if (action == "change_interaction_mode") {
         return executeChangeInteractionMode(data);
     } else if (action == "apply_mesh_filter") {
@@ -515,16 +508,33 @@ OperationResult igQtCommandExecutor::executeSaveFileAs(const QJsonObject& data) 
     QString filePath = data.value("file_path").toString();
     QString fileName = data.value("file_name").toString();
 
+    // 两者都为空 → 弹出另存为对话框
     if (filePath.isEmpty() && fileName.isEmpty()) {
-        // 如果没有指定路径，触发另存为对话框
         m_mainWindow->fileLoader->SaveFileAs();
         return OperationResult(true, "已打开另存为对话框", "文件保存");
-    } else {
-        // 如果指定了路径，直接保存（这里需要根据实际的文件保存API来实现）
-        // 注意：这里可能需要调用具体的保存方法
-        m_mainWindow->fileLoader->SaveFileAs();
-        return OperationResult(true, QString("文件已保存到: %1").arg(filePath.isEmpty() ? fileName : filePath), "文件保存");
     }
+
+    // 只使用 filePath，如果 fileName 有值则拼接
+    QString fullPath = filePath;
+    if (!fileName.isEmpty()) {
+        // 如果 filePath 末尾没有 '/' 或 '\'，加上分隔符
+        if (!filePath.endsWith('/') && !filePath.endsWith('\\')) {
+#ifdef _WIN32
+            fullPath += "\\";
+#else
+            fullPath += "/";
+#endif
+        }
+        fullPath += fileName;
+    }
+
+    // 获取当前对象并写入文件
+    auto obj = this->getCurrentDataObject();
+    if (iGame::FileIO::WriteFile(fullPath.toStdString(), obj)) {
+        QString message = QString("文件已保存到: %1").arg(fullPath);
+        return OperationResult(true, message, "文件保存");
+    }
+    return OperationResult(false, "文件保存失败", "文件保存");
 }
 
 OperationResult igQtCommandExecutor::executeSaveScreenshot(const QJsonObject& data) const {
@@ -631,27 +641,6 @@ OperationResult igQtCommandExecutor::executeDeleteCurrentModel() const {
 
     m_mainWindow->modelTreeWidget->deleteCurrentModel();
     return OperationResult(true, "当前模型已删除", "删除模型");
-}
-
-OperationResult igQtCommandExecutor::executeShowModelTree() const {
-    // 通过UI action显示模型树窗口
-    // 注意：这里需要根据实际的UI结构来调整
-    return OperationResult(true, "模型树窗口已显示", "显示窗口");
-}
-
-OperationResult igQtCommandExecutor::executeShowScalarField() const {
-    // 显示标量场窗口
-    return OperationResult(true, "标量场窗口已显示", "显示窗口");
-}
-
-OperationResult igQtCommandExecutor::executeShowVectorField() const {
-    // 显示矢量场窗口
-    return OperationResult(true, "矢量场窗口已显示", "显示窗口");
-}
-
-OperationResult igQtCommandExecutor::executeShowTensorField() const {
-    // 显示张量场窗口
-    return OperationResult(true, "张量场窗口已显示", "显示窗口");
 }
 
 OperationResult igQtCommandExecutor::executeGetCurrentAttribute() const {

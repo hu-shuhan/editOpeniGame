@@ -832,49 +832,6 @@ def delete_current_model() -> str:
     except Exception as e:
         return f"Error deleting model: {e}"
 
-@mcp.tool()
-def show_model_tree() -> str:
-    """显示模型树窗口"""
-    try:
-        igamevis = get_igamevis_connection()
-        result = igamevis.send_command("show_model_tree", {})
-
-        return format_tool_result(result, "Model tree window shown")
-    except Exception as e:
-        return f"Error showing model tree: {e}"
-
-@mcp.tool()
-def show_scalar_field() -> str:
-    """显示标量场窗口"""
-    try:
-        igamevis = get_igamevis_connection()
-        result = igamevis.send_command("show_scalar_field", {})
-
-        return format_tool_result(result, "Scalar field window shown")
-    except Exception as e:
-        return f"Error showing scalar field: {e}"
-
-@mcp.tool()
-def show_vector_field() -> str:
-    """显示矢量场窗口"""
-    try:
-        igamevis = get_igamevis_connection()
-        result = igamevis.send_command("show_vector_field", {})
-
-        return format_tool_result(result, "Vector field window shown")
-    except Exception as e:
-        return f"Error showing vector field: {e}"
-
-@mcp.tool()
-def show_tensor_field() -> str:
-    """显示张量场窗口"""
-    try:
-        igamevis = get_igamevis_connection()
-        result = igamevis.send_command("show_tensor_field", {})
-
-        return format_tool_result(result, "Tensor field window shown")
-    except Exception as e:
-        return f"Error showing tensor field: {e}"
 
 # ============================================================================
 # Interaction Mode Tools
