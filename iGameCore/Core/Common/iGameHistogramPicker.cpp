@@ -1,7 +1,9 @@
 #include "iGameHistogramPicker.h"
 #include <iGameCtxPresObjData.h>
+#include <cmath>
 IGAME_NAMESPACE_BEGIN
 static double RoadNumPer = 0.35;
+static double SmallRoadNumPer = 0.1;
 static double GetPer = 0.2;
 static double HalfGetPer = GetPer / 2;
 
@@ -36,15 +38,20 @@ HistogramPicker::HistogramPicker(ElementArray<AttributeSet::Attribute>::Pointer 
     m_MaxValue = maxValue;
     m_Density = GenerateDensity(attrs, variableIndex, keyObjIds, boxNum, minValue, maxValue);
     m_RoadNum = boxNum * RoadNumPer;
+    m_SmallRoadNum = boxNum * SmallRoadNumPer;
 }
 
 std::pair<double, double> HistogramPicker::CalculateMinMaxValueToPick(double value) {
+    if (m_Density.empty()) return {value, value};
     int mainBoxIndex = CalculateBoxIndexByValue(m_Density.size(), value, m_MaxValue, m_MinValue);
     int leftIndex{mainBoxIndex}, rightIndex{mainBoxIndex};
+    int theRoad = (double) (m_SmallRoadNum - m_RoadNum) / (double) (m_Density.size() / 2) *
+                          std::abs((double) (m_Density.size() / 2) - (double) mainBoxIndex) +
+                  (double) m_RoadNum;
     double accumulatedLeftPer{};
-    int leftRoad = m_RoadNum;
+    int leftRoad = theRoad;
     double accumulatedRightPer{};
-    int rightRoad = m_RoadNum;
+    int rightRoad = theRoad;
 
     while (leftRoad > 0 && accumulatedLeftPer <= HalfGetPer && leftIndex - 1 >= 0) {
         leftIndex--;

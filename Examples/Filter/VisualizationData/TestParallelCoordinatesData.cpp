@@ -3,6 +3,15 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <vector>
+
+static void ShowVariableSort(const std::vector<int>& vs) {
+    std::cout << std::endl;
+    std::cout << "VariableSort:" << std::endl;
+    for (auto& v: vs) { std::cout << v << ','; }
+    std::cout << std::endl;
+    std::cout << std::endl;
+}
 
 int main() {
     /*Read data*/
@@ -44,5 +53,10 @@ int main() {
     auto pointIds = theData->FiltInRangeIds(variableMinMaxValues);
     for (auto& pId: pointIds) { std::cout << pId << ' '; }
     std::cout << std::endl;
+
+    ShowVariableSort(theData->GetVariableSort());
+    theData->SetVariableSort(iGame::ParallelCoordinatesData::GenerateVariableSortByDiffValue(
+            theData->GetVariableSort(), theData->GetVariableDiffValue()));
+    ShowVariableSort(theData->GetVariableSort());
     return 0;
 }

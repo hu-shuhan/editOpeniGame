@@ -24,7 +24,9 @@ class igQtParallelCoordinatesSortVariableDialog : public QDialog {
 
 public:
     explicit igQtParallelCoordinatesSortVariableDialog(int variableNum, const std::vector<std::string>& variableNames,
-                                                       const std::vector<int>& variableSort, QWidget* parent = nullptr);
+                                                       const std::vector<int>& variableSort,
+                                                       const std::vector<std::vector<double>>& variableDiffValue,
+                                                       QWidget* parent = nullptr);
     ~igQtParallelCoordinatesSortVariableDialog();
 
 signals:
@@ -34,6 +36,7 @@ signals:
 public slots:
     void Slot_AllCancel();
     void Slot_AllChoose();
+    void Slot_AutoSort();
     void Slot_Confirm();
     void Slot_Cancel();
     void Slot_CheckBoxClicked(bool checked);
@@ -54,6 +57,7 @@ private:
     int m_VariableNum;
     const std::vector<std::string>& m_VariableNames;
     std::vector<int> m_VariableSort;
+    const std::vector<std::vector<double>>& m_VariableDiffValue;
     std::vector<VariableCheckBox*> m_VariableCheckBoxs;
     std::vector<QLabel*> m_VariableSortNumberLabels;
 };
