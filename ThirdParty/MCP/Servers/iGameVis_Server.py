@@ -270,9 +270,6 @@ def get_igamevis_connection():
 # Utility Functions
 # ============================================================================
 
-def get_desktop_path() -> Path:
-    """Get the desktop path for the current user."""
-    return Path(os.path.join(os.path.expanduser('~'), 'Desktop'))
 
 
 def format_tool_result(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> str:
@@ -366,6 +363,10 @@ def parse_igamevis_result_with_images(result: Dict[str, Any], default_message: s
 # ============================================================================
 # File Operations Tools
 # ============================================================================
+
+def get_desktop_path() -> Path:
+    """Get the desktop path for the current user."""
+    return Path(os.path.join(os.path.expanduser('~'), 'Desktop'))
 
 @mcp.tool()
 def get_user_desktop_path() -> str:

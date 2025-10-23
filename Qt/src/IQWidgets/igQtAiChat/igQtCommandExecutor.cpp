@@ -794,19 +794,13 @@ OperationResult igQtCommandExecutor::executeApplyMeshFilter(const QJsonObject& d
     }
 }
 OperationResult igQtCommandExecutor::executeClipFilter(const QJsonObject& data) const {
-    if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
-        return OperationResult(false, "无法访问场景对象", "算法处理");
-    }
-
     // 使用辅助函数获取当前模型的 DataObject
     QString errorMsg;
     auto dataObject = getCurrentDataObject(&errorMsg);
     if (!dataObject) {
         return OperationResult(false, errorMsg, "算法处理");
     }
-
     try {
-        // 1️⃣ 解析输入参数
         float pos_x = data.contains("pos_x") ? static_cast<float>(data["pos_x"].toDouble()) : 0.0f;
         float pos_y = data.contains("pos_y") ? static_cast<float>(data["pos_y"].toDouble()) : 0.0f;
         float pos_z = data.contains("pos_z") ? static_cast<float>(data["pos_z"].toDouble()) : 0.0f;
@@ -814,37 +808,20 @@ OperationResult igQtCommandExecutor::executeClipFilter(const QJsonObject& data) 
         float normal_y = data.contains("normal_y") ? static_cast<float>(data["normal_y"].toDouble()) : 1.0f;
         float normal_z = data.contains("normal_z") ? static_cast<float>(data["normal_z"].toDouble()) : 0.0f;
         bool invert = data.contains("invert") ? data["invert"].toBool() : false;
-
-        // 2️⃣ 创建 ClipFilter 实例
         auto input = dataObject;
         auto filter = iGame::ClipFilter::New();
-
-        // 3️⃣ 设置输入数据
         filter->SetInput(input);
-
-        // 4️⃣ 设置切割平面参数
         float origin[3] = { pos_x, pos_y, pos_z };
         float normal[3] = { normal_x, normal_y, normal_z };
         filter->SetPlane(origin, normal);
-
-        // 5️⃣ 设置是否翻转
         filter->SetInvert(invert);
-
-        // 6️⃣ 执行切割
         filter->Execute();
-
-        // 7️⃣ 获取结果对象
         auto resultObj = filter->GetOutput();
         if (!resultObj) {
             return OperationResult(false, "ClipFilter 执行失败：输出对象为空", "算法处理");
         }
-
-        // 8️⃣ 将结果添加到场景
         m_mainWindow->modelTreeWidget->addDataObjectToModelTree(resultObj, ItemSource::Algorithm);
-
-        // 9️⃣ 返回成功结果
         return OperationResult(true, "切割滤波器已成功应用", "算法处理");
-
     }
     catch (const std::exception& e) {
         return OperationResult(false, QString("执行切割滤波器时发生异常：%1").arg(e.what()), "算法处理");
@@ -856,36 +833,36 @@ OperationResult igQtCommandExecutor::executeClipFilter(const QJsonObject& data) 
 
 OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject& data) const {
     qDebug() << "开始获取模型八视角图像";
-    
+
     // 解析参数
     QJsonObject sizeObj = data.value("image_size").toObject();
     int width = sizeObj.value("width").toInt(800);
     int height = sizeObj.value("height").toInt(600);
     QString quality = data.value("quality").toString("high");
-    
+
     // 检查主窗口和场景
     if (!m_mainWindow || !m_mainWindow->rendererWidget) {
         return OperationResult(false, "主窗口或渲染器不可用", "get_model_eight_views");
     }
-    
+
     auto scene = m_mainWindow->rendererWidget->GetScene();
     if (!scene) {
         return OperationResult(false, "无法获取场景对象", "get_model_eight_views");
     }
-    
-    // 使用辅助函数获取当前模型的 DataObject（用于获取边界框信息）
+
+    // 获取当前模型对象
     QString errorMsg;
     auto obj = getCurrentDataObject(&errorMsg);
     if (!obj) {
         return OperationResult(false, errorMsg, "get_model_eight_views");
     }
-    
+
     auto bound = obj->GetBoundingBox();
     double xmin = bound.min[0], xmax = bound.max[0];
     double ymin = bound.min[1], ymax = bound.max[1];
     double zmin = bound.min[2], zmax = bound.max[2];
-    
-    // 定义八个视角及其对应的场景方法
+
+    // 八个视角
     std::vector<std::pair<QString, std::function<void()>>> viewMethods = {
         {"front", [scene]() { scene->ResetCameraViewToNegativeZ(); }},
         {"back", [scene]() { scene->ResetCameraViewToPositiveZ(); }},
@@ -894,117 +871,81 @@ OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject
         {"top", [scene]() { scene->ResetCameraViewToPositiveY(); }},
         {"bottom", [scene]() { scene->ResetCameraViewToNegativeY(); }},
         {"isometric1", [scene]() { scene->ResetCameraViewToIsometric(); }},
-        {"isometric2", [scene]() { 
-            scene->ResetCameraViewToIsometric(); 
-            // 旋转180度获得另一个等轴测视角
+        {"isometric2", [scene]() {
+            scene->ResetCameraViewToIsometric();
             scene->RotateNinetyClockwise();
             scene->RotateNinetyClockwise();
         }}
     };
-    
-    // 保存当前相机状态
+
+    // 保存相机状态
     auto camera = scene->GetCamera();
     if (!camera) {
         return OperationResult(false, "无法获取相机对象", "get_model_eight_views");
     }
-    
     igm::vec3 originalPosition = camera->GetPosition();
     igm::vec3 originalTarget = camera->GetFocal();
     igm::vec3 originalUp = camera->GetUp();
-    
-    // 构建结果JSON
+
     QJsonObject resultObj;
-    QJsonArray viewsArray;
-    
+
     try {
-        // 管理OpenGL上下文
         scene->MakeCurrent();
-        
-        // 遍历八个视角
+        int index = 0;
+
         for (const auto& viewMethod : viewMethods) {
-            QString viewName = viewMethod.first;
-            
-            qDebug() << "切换到视角:" << viewName;
-            
-            // 使用场景内置方法设置视角
-            viewMethod.second();
-            
-            // 获取设置后的相机信息
+            viewMethod.second();  // 设置视角
             auto currentPos = camera->GetPosition();
             auto currentTarget = camera->GetFocal();
-            
-            qDebug() << "相机位置:" << currentPos.x << "," << currentPos.y << "," << currentPos.z;
-            qDebug() << "相机目标:" << currentTarget.x << "," << currentTarget.y << "," << currentTarget.z;
-            
-            // 使用CaptureScreen直接捕获图像
+
             std::vector<uint8_t> frameBuffer = scene->CaptureScreen(0, 0, width, height, iGame::GLFramebuffer::Type::RGBA, true);
-            
-            if (frameBuffer.empty()) {
-                qWarning() << "视角" << viewName << "图像捕获失败，framebuffer为空";
-                continue;
-            }
-            
-            qDebug() << "视角" << viewName << "frameBuffer大小:" << frameBuffer.size();
-            
-            // 转换为QImage
+            if (frameBuffer.empty()) continue;
+
             QImage image(frameBuffer.data(), width, height, QImage::Format_RGBA8888);
-            image = image.rgbSwapped(); // RGBA -> BGRA for Qt
-            
-            if (image.isNull()) {
-                qWarning() << "视角" << viewName << "QImage转换失败";
-                continue;
-            }
-            
-            // 使用辅助函数转换为 Base64
+            image = image.rgbSwapped();
+
             const char* format = (quality == "high") ? "PNG" : "JPEG";
             int compressionQuality = (quality == "high") ? 100 : 85;
             QString base64String = convertImageToBase64(image, format, compressionQuality);
-            
-            // 构建单个视角的JSON对象
-            QJsonObject viewObj;
-            viewObj["name"] = viewName;
-            viewObj["position"] = QJsonArray{currentPos.x, currentPos.y, currentPos.z};
-            viewObj["target"] = QJsonArray{currentTarget.x, currentTarget.y, currentTarget.z};
-            viewObj["image_base64"] = base64String;
-            viewObj["image_size"] = QJsonObject{{"width", width}, {"height", height}};
-            
-            viewsArray.append(viewObj);
-            
-            qDebug() << "已捕获视角:" << viewName;
+
+            // 每个图像使用 image_base64_{index} 形式
+            resultObj[QString("image_base64_%1").arg(index)] = base64String;
+
+            // 可选：记录相机位置和目标
+            resultObj[QString("position_%1").arg(index)] = QJsonArray{ currentPos.x, currentPos.y, currentPos.z };
+            resultObj[QString("target_%1").arg(index)] = QJsonArray{ currentTarget.x, currentTarget.y, currentTarget.z };
+
+            index++;
         }
-        
+
         // 恢复原始相机状态
         camera->SetPosition(originalPosition);
         camera->SetFocal(originalTarget);
         camera->SetUp(originalUp);
         camera->Modified();
-        
-        // 释放OpenGL上下文
         scene->DoneCurrent();
-        
-        // 构建最终结果
-        resultObj["views"] = viewsArray;
-        resultObj["total_views"] = viewsArray.size();
+
+        // 模型边界信息
         resultObj["model_bounds"] = QJsonObject{
             {"xmin", xmin}, {"xmax", xmax},
             {"ymin", ymin}, {"ymax", ymax},
             {"zmin", zmin}, {"zmax", zmax}
         };
-        
+
         QJsonDocument doc(resultObj);
         QString jsonString = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
-        
-        qDebug() << "成功获取" << viewsArray.size() << "个视角图像";
+        qDebug() << "成功获取八视角图像";
+
         return OperationResult(true, jsonString, "get_model_eight_views");
-        
-    } catch (const std::exception& e) {
-        // 出现异常时恢复相机状态并释放上下文
+
+    }
+    catch (const std::exception& e) {
         camera->SetPosition(originalPosition);
         camera->SetFocal(originalTarget);
         camera->SetUp(originalUp);
         camera->Modified();
         scene->DoneCurrent();
-        
+
         QString errorMsg = QString("获取八视角图像时发生异常: %1").arg(e.what());
         qWarning() << errorMsg;
         return OperationResult(false, errorMsg, "get_model_eight_views");
