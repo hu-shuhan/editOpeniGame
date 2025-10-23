@@ -19,6 +19,7 @@ private:
     double m_MaxValue{};
     std::vector<double> m_Density;
     int m_RoadNum{};
+    int m_SmallRoadNum{};
 
 public:
     static std::vector<double> GenerateDensity(ElementArray<AttributeSet::Attribute>::Pointer attrs,

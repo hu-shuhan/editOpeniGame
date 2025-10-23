@@ -10,6 +10,58 @@ IGAME_NAMESPACE_BEGIN
 static int RandomPickNum = 5000;
 static int BoxNum = 500;
 
+static double SegmentIntersectsTriangle(const Point& start, const Point& end,
+                                        const Point& a, const Point& b,
+                                        const Point& c) {
+    Point dir = {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
+    Point ab = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+    Point ac = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+    Point pvec = dir.cross(ac);
+
+    double det = ab.dot(pvec);
+    if (std::abs(det) < 1e-7) { return -1; }
+
+    double invDet = 1.0 / det;
+    Point tvec = {start[0] - a[0], start[1] - a[1], start[2] - a[2]};
+    double u = tvec.dot(pvec) * invDet;
+    if (u < -1e-7 || u > 1 + 1e-7) { return -1; }
+
+    Point qvec = tvec.cross(ab);
+    double v = dir.dot(qvec) * invDet;
+    if (v < -1e-7 || u + v > 1 + 1e-7) { return -1; }
+
+    double t = ac.dot(qvec) * invDet;
+    if (t < 1e-7 || t > 1 - 1e-7) { return -1; }
+
+    if (u > 1e-7 && v > 1e-7 && u + v < 1 - 1e-7) { return t * dir.length(); }
+    return -1;
+}
+
+static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
+                              Cell* cell) {
+    auto faceNum = cell->GetNumberOfFaces();
+    if (faceNum == 0) {
+        int pointSize = cell->GetNumberOfPoints();
+        if (pointSize <= 2) return false;
+        auto& p0 = cell->GetPoint(0);
+        for (int i = 2; i < pointSize; i++) {
+            auto& p1 = cell->GetPoint(i - 1);
+            auto& p2 = cell->GetPoint(i);
+            auto dis =
+                    SegmentIntersectsTriangle(startPoint, endPoint, p0, p1, p2);
+            if (dis >= 0) return dis;
+        }
+        return -1;
+    } else {
+        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
+            auto face = cell->GetFace(faceIndex);
+            auto dis = IsLineCrossCell(startPoint, endPoint, face);
+            if (dis >= 0) return dis;
+        }
+        return -1;
+    }
+}
+
 SingleSelectionStyle::SingleSelectionStyle() {}
 SingleSelectionStyle::~SingleSelectionStyle() {}
 
@@ -29,146 +81,36 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     }
 }
 
-//static void DrawPoint(Painter3D::Pointer painter, const Point& point,
-//                      std::vector<IGuint>& drawHandles) {
-//    auto drawHandle = painter->DrawPoint(point);
-//    drawHandles.push_back(drawHandle);
-//}
-
 void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
-    if (m_Model == nullptr) { return; }
-    std::vector<std::pair<int, int>> variableIndexs;
-    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData;
-    auto attrs =
-            m_Model->GetDataObject()->GetAttributeSet()->GetAllAttributes();
-    if (m_SelectVariableIndex >= 0 && m_SelectVariableRange < 1.0) {
-        variableIndexs =
-                CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_POINT);
-        if (m_SelectVariableIndex >= variableIndexs.size()) return;
-        variableMinMaxData =
-                CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_POINT);
-    }
+    if (m_Model == nullptr || !m_Selection) { return; }
     auto mvp = m_Interactor->GetMVP();
     auto mvp_invert = mvp.invert();
 
     // 3D World coordinate
-    igm::vec3 point1 = GetNearWorldCoord(pos, mvp_invert);
-    igm::vec3 point2 = GetFarWorldCoord(pos, mvp_invert);
+    igm::vec3 point1_ = GetNearWorldCoord(pos, mvp_invert);
+    igm::vec3 point2_ = GetFarWorldCoord(pos, mvp_invert);
 
-    igm::vec3 dir = (point1 - point2).normalized();
-
-    igIndex id = -1;
-    Point p;
-    auto obj = m_Model->GetDataObject();
-    SmartPointer<PointPicker> picker = PointPicker::New();
-    picker->SetDataObject(obj);
-    id = picker->PickClosetPointOnLine(Vector3d(point1.x, point1.y, point1.z),
-                                       Vector3d(dir.x, dir.y, dir.z), p);
-
-    //m_Model->GetPointPainter()->Clear();
-    if (id != -1) {
-        /*
-        auto painter = m_Model->GetPainter3D();
-        painter->SetPen(10);
-        painter->SetPen(Color::Red);
-        painter->DrawPoint(p);
-        */
-
-        if (m_Selection
-            //&& !obj->HasSubDataObject()
-            ) {
-            auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
-                    m_Model->GetDataObject());
-
-            std::vector<int> selectedPointIds;
-            auto& thisPoint = m_Points->GetPoint(id);
-            
-
-            /*################################# CORE START #################################*/
-            if (m_SelectVariableIndex < 0 || m_SelectVariableRange >= 1.0) {
-                for (int pointId = 0; pointId < m_Points->GetNumberOfPoints();
-                     pointId++) {
-                    auto& point = m_Points->GetPoint(pointId);
-                    if ((thisPoint - point).length() <= m_SelectRadius) {
-                        selectedPointIds.push_back(pointId);
-                    }
-                }
-            } else if (m_SelectVariableRange >= 0) {
-                double dataRange =
-                        (variableMinMaxData.second[m_SelectVariableIndex] -
-                         variableMinMaxData.first[m_SelectVariableIndex]) *
-                        m_SelectVariableRange;
-                double thisPointData = CtxPresObjData_Main::GenerateObjData(
-                        id, attrs, variableIndexs[m_SelectVariableIndex]);
-                for (int pointId = 0; pointId < m_Points->GetNumberOfPoints();
-                     pointId++) {
-                    auto& point = m_Points->GetPoint(pointId);
-                    double pointData = CtxPresObjData_Main::GenerateObjData(
-                            pointId, attrs,
-                            variableIndexs[m_SelectVariableIndex]);
-                    if (((thisPoint - point).length() <= m_SelectRadius) &&
-                        (std::abs(thisPointData - pointData) <= dataRange)) {
-                        selectedPointIds.push_back(pointId);
-                    }
-                }
-            } else if (m_SelectVariableRange < 0) {
-                auto hisPicker = HistogramPicker(
-                        attrs, variableIndexs[m_SelectVariableIndex],
-                        m_Points->GetNumberOfPoints(), BoxNum, RandomPickNum,
-                        variableMinMaxData.first[m_SelectVariableIndex],
-                        variableMinMaxData.second[m_SelectVariableIndex]);
-                double thisPointData = CtxPresObjData_Main::GenerateObjData(
-                        id, attrs, variableIndexs[m_SelectVariableIndex]);
-                auto [minRange, maxRange] =
-                        hisPicker.CalculateMinMaxValueToPick(thisPointData);
-                for (int pointId = 0; pointId < m_Points->GetNumberOfPoints();
-                     pointId++) {
-                    auto& point = m_Points->GetPoint(pointId);
-                    double pointData = CtxPresObjData_Main::GenerateObjData(
-                            pointId, attrs,
-                            variableIndexs[m_SelectVariableIndex]);
-                    if (((thisPoint - point).length() <= m_SelectRadius) &&
-                        (minRange <= pointData && pointData <= maxRange)) {
-                        selectedPointIds.push_back(pointId);
-                    }
-                }
-            }
-            /*################################# CORE END #################################*/
-
-            if (m_SelectOrUnSelect) {
-                auto events = Selection::GenerateEvents(
-                        selectedPointIds, IG_POINT,
-                        Selection::Event::Operate::Add, mesh,
-                        m_Model->GetPainter3D().get());
-                m_Selection->SelectionCallBackEvent(events);
-            } else {
-                auto events = Selection::GenerateEvents(
-                        selectedPointIds, IG_POINT,
-                        Selection::Event::Operate::Remove, mesh,
-                        m_Model->GetPainter3D().get());
-                m_Selection->SelectionCallBackEvent(events);
-            }
-            //auto painter = m_Model->GetPainter3D();
-            //painter->SetPen(10);
-            //painter->SetPen(Color::Red);
-            //std::vector<Selection::Event> events;
-            //for (auto& pointId: selectedPointIds) {
-            //    Selection::Event e;
-            //    e.type = Selection::Event::PickPoint;
-            //    e.pickId = pointId;
-            //    auto& point = m_Points->GetPoint(pointId);
-            //    if (m_Select_OR_UnSelect) {
-            //        e.operate = Selection::Event::Operate::Add;
-            //        DrawPoint(painter, point, e.drawHandles);
-            //    }
-            //    else
-            //        e.operate = Selection::Event::Operate::Remove;
-            //    e.pos = point;
-            //    events.push_back(e);
-            //}
-            //m_Selection->SelectionCallBackEvent(events);
-        }
+    Point point1(point1_.x, point1_.y, point1_.z);
+    Point point2(point2_.x, point2_.y, point2_.z);
+    auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+            m_Model->GetDataObject());
+    auto ids = GetPointsInCondition(
+            point1, point2, mesh, m_SelectRadius, (m_SelectVariableIndex >= 0),
+            m_SelectVariableIndex, (m_SelectVariableRange < 0),
+            m_SelectVariableRange);
+    if (ids.empty()) return;
+    if (m_SelectOrUnSelect) {
+        auto events = Selection::GenerateEvents(
+                ids, IG_POINT, Selection::Event::Operate::Add, mesh,
+                m_Model->GetPainter3D().get());
+        m_Selection->SelectionCallBackEvent(events);
+    } else {
+        auto events = Selection::GenerateEvents(
+                ids, IG_POINT, Selection::Event::Operate::Remove, mesh,
+                m_Model->GetPainter3D().get());
+        m_Selection->SelectionCallBackEvent(events);
     }
+    return;
 }
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
@@ -184,182 +126,222 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
     return p;
 }
 
-//static void DrawCell(Painter3D::Pointer painter, Cell* cell,
-//                     std::vector<IGuint>& drawHandles) {
-//    if (cell == nullptr) return;
-//    auto faceNum = cell->GetNumberOfFaces();
-//    if (faceNum == 0) {
-//        int pointSize = cell->GetNumberOfPoints();
-//        if (pointSize <= 2) return;
-//        auto& p0 = cell->GetPoint(0);
-//        for (int i = 1; i < pointSize - 1; i++) {
-//            auto& p1 = cell->GetPoint(i);
-//            auto& p2 = cell->GetPoint(i + 1);
-//            auto drawHandle = painter->DrawTriangle(p0, p1, p2);
-//            drawHandles.push_back(drawHandle);
-//        }
-//    } else {
-//        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
-//            auto face = cell->GetFace(faceIndex);
-//            DrawCell(painter, face, drawHandles);
-//        }
-//    }
-//}
-
 void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
-    std::vector<std::pair<int, int>> variableIndexs;
-    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData;
-    auto attrs =
-            m_Model->GetDataObject()->GetAttributeSet()->GetAllAttributes();
-    if (m_SelectVariableIndex >= 0 && m_SelectVariableRange < 1.0) {
-        variableIndexs =
-                CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_CELL);
-        if (m_SelectVariableIndex >= variableIndexs.size()) return;
-        variableMinMaxData =
-                CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_CELL);
-    }
     auto mvp = m_Interactor->GetMVP();
     auto mvp_invert = mvp.invert();
 
     // 3D World coordinate
-    igm::vec3 point1 = GetNearWorldCoord(pos, mvp_invert);
-    igm::vec3 point2 = GetFarWorldCoord(pos, mvp_invert);
+    igm::vec3 point1_ = GetNearWorldCoord(pos, mvp_invert);
+    igm::vec3 point2_ = GetFarWorldCoord(pos, mvp_invert);
 
-    igm::vec3 dir = (point1 - point2).normalized();
+    Point point1(point1_.x, point1_.y, point1_.z);
+    Point point2(point2_.x, point2_.y, point2_.z);
+    auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+            m_Model->GetDataObject());
+    auto ids = GetCellsInCondition(
+            point1, point2, mesh, m_SelectRadius, (m_SelectVariableIndex >= 0),
+            m_SelectVariableIndex, (m_SelectVariableRange < 0),
+            m_SelectVariableRange);
+    if (ids.empty()) return;
+    if (m_SelectOrUnSelect) {
+        auto events = Selection::GenerateEvents(
+                ids, IG_CELL, Selection::Event::Operate::Add, mesh,
+                m_Model->GetPainter3D().get());
+        m_Selection->SelectionCallBackEvent(events);
+    } else {
+        auto events = Selection::GenerateEvents(
+                ids, IG_CELL, Selection::Event::Operate::Remove,
+                mesh, m_Model->GetPainter3D().get());
+        m_Selection->SelectionCallBackEvent(events);
+    }
+    return;
+}
 
-    Vector3Tovec3 t;
-    double zMax = -std::numeric_limits<double>::max();
-    igm::vec3 intersect;
-    igIndex id = -1;
-    for (int i = 0; i < m_Cells->GetNumberOfCells(); i++) {
-        igIndex face[IGAME_CELL_MAX_SIZE]{};
-        int size = m_Cells->GetCellIds(i, face);
-
-        bool flag = false;
-        auto& p0 = m_Points->GetPoint(face[0]);
-        for (int j = 2; j < size; j++) {
-            auto& p1 = m_Points->GetPoint(face[j - 1]);
-            auto& p2 = m_Points->GetPoint(face[j]);
-
-            if (IsIntersectTriangle(point1, point2, t(p0), t(p1), t(p2),
-                                    intersect)) {
-                flag = true;
-                break;
+std::vector<int> SingleSelectionStyle::GetPointsInCondition(
+        const Point& startPoint, const Point& endPoint,
+        UnstructuredMesh* mesh, double radius,
+        bool useVariableCondition, int variableIndex, bool useAutoValueRange,
+        double valueRange) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    SmartPointer<PointPicker> picker = PointPicker::New();
+    picker->SetDataObject(mesh);
+    Point p;
+    auto id = picker->PickClosetPointOnLine(startPoint, (endPoint - startPoint),
+                                            p);
+    if (id == -1) return re;
+    if (radius == 0) {
+        re.push_back(id);
+        return re;
+    }
+    auto points = mesh->GetPoints();
+    auto& thisPoint = points->GetPoint(id);
+    /*################################# CORE START #################################*/
+    if (useVariableCondition == false || variableIndex < 0 ||
+        (useAutoValueRange == false && valueRange >= 1.0)) {
+        for (int pointId = 0; pointId < points->GetNumberOfPoints();
+             pointId++) {
+            auto& point = points->GetPoint(pointId);
+            if ((thisPoint - point).length() <= radius) {
+                re.push_back(pointId);
             }
         }
+        return re;
+    }
 
-        if (flag) {
-            igm::vec3 center(0);
-            for (int j = 0; j < size; j++) {
-                auto& p = m_Points->GetPoint(face[j]);
-                center += t(p);
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_POINT);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_POINT);
+
+    if (valueRange >= 0 && useAutoValueRange == false) {
+        double dataRange = (variableMinMaxData.second[variableIndex] -
+                            variableMinMaxData.first[variableIndex]) *
+                           valueRange;
+        double thisPointData = CtxPresObjData_Main::GenerateObjData(
+                id, attrs, variableIndexs[variableIndex]);
+        for (int pointId = 0; pointId < points->GetNumberOfPoints();
+             pointId++) {
+            auto& point = points->GetPoint(pointId);
+            double pointData = CtxPresObjData_Main::GenerateObjData(
+                    pointId, attrs, variableIndexs[variableIndex]);
+            if (((thisPoint - point).length() <= radius) &&
+                (std::abs(thisPointData - pointData) <= dataRange)) {
+                re.push_back(pointId);
             }
-            center /= size;
-            igm::vec4 fDepth = mvp * igm::vec4(center, 1.0f);
-            fDepth /= fDepth.w;
-
-            if (zMax < fDepth.z && fDepth.z > 0 && fDepth.z < 1.0) {
-                id = i;
-                zMax = fDepth.z;
+        }
+    } else if (valueRange < 0 || useAutoValueRange == true) {
+        auto hisPicker = HistogramPicker(
+                attrs, variableIndexs[variableIndex],
+                points->GetNumberOfPoints(), BoxNum, RandomPickNum,
+                variableMinMaxData.first[variableIndex],
+                variableMinMaxData.second[variableIndex]);
+        double thisPointData = CtxPresObjData_Main::GenerateObjData(
+                id, attrs, variableIndexs[variableIndex]);
+        auto [minRange, maxRange] =
+                hisPicker.CalculateMinMaxValueToPick(thisPointData);
+        for (int pointId = 0; pointId < points->GetNumberOfPoints();
+             pointId++) {
+            auto& point = points->GetPoint(pointId);
+            double pointData = CtxPresObjData_Main::GenerateObjData(
+                    pointId, attrs, variableIndexs[variableIndex]);
+            if (((thisPoint - point).length() <= radius) &&
+                (minRange <= pointData && pointData <= maxRange)) {
+                re.push_back(pointId);
             }
         }
     }
-    //m_Model->GetFacePainter()->Clear();
-    if (id != -1) {
-        if (m_Selection) {
-            std::vector<int> selectedCellIds;
-            //std::vector<Point> selectedCellCenters;
+    return re;
+    /*################################# CORE END #################################*/
+}
 
-            igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
-            int thisCellSize = m_Cells->GetCellIds(id, thisCell);
-
-            //Obtain the average value of all points of the cell
-            //and obtain the cell within the radius accordingly.
-            iGame::Point thisCellCentralPoint =
-                    GetCentralOfCell(thisCellSize, thisCell, m_Points);
-
-            auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
-                    m_Model->GetDataObject());
-
-            /*################################# CORE START #################################*/
-            if (m_SelectVariableIndex < 0 || m_SelectVariableRange >= 1.0) {
-                //Calculate the center point of each surface and compare the radii.
-                for (int cellIndex = 0; cellIndex < m_Cells->GetNumberOfCells();
-                     cellIndex++) {
-                    igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
-                    int thatCellSize = m_Cells->GetCellIds(cellIndex, thatCell);
-                    Point thatCellCentralPoint =
-                            GetCentralOfCell(thatCellSize, thatCell, m_Points);
-                    if ((thisCellCentralPoint - thatCellCentralPoint)
-                                .length() <= m_SelectRadius) {
-                        selectedCellIds.push_back(cellIndex);
-                        //selectedCellCenters.push_back(thatCellCentralPoint);
-                    }
-                }
-            } else if (m_SelectVariableRange >= 0) {
-                double dataRange =
-                        (variableMinMaxData.second[m_SelectVariableIndex] -
-                         variableMinMaxData.first[m_SelectVariableIndex]) *
-                        m_SelectVariableRange;
-                double thisCellData = CtxPresObjData_Main::GenerateObjData(
-                        id, attrs, variableIndexs[m_SelectVariableIndex]);
-                for (int cellIndex = 0; cellIndex < m_Cells->GetNumberOfCells();
-                     cellIndex++) {
-                    igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
-                    int thatCellSize = m_Cells->GetCellIds(cellIndex, thatCell);
-                    Point thatCellCentralPoint =
-                            GetCentralOfCell(thatCellSize, thatCell, m_Points);
-                    double cellData = CtxPresObjData_Main::GenerateObjData(
-                            cellIndex, attrs,
-                            variableIndexs[m_SelectVariableIndex]);
-                    if (((thisCellCentralPoint - thatCellCentralPoint)
-                                 .length() <= m_SelectRadius) &&
-                        (std::abs(thisCellData - cellData) <= dataRange)) {
-                        selectedCellIds.push_back(cellIndex);
-                        //selectedCellCenters.push_back(thatCellCentralPoint);
-                    }
-                }
-            } else if (m_SelectVariableRange < 0) {
-            }
-            /*################################# CORE END #################################*/
-
-            if (m_SelectOrUnSelect) {
-                auto events = Selection::GenerateEvents(
-                        selectedCellIds, IG_CELL,
-                        Selection::Event::Operate::Add, mesh, m_Model->GetPainter3D().get());
-                m_Selection->SelectionCallBackEvent(events);
-            } else {
-                auto events = Selection::GenerateEvents(
-                        selectedCellIds, IG_CELL,
-                        Selection::Event::Operate::Remove, mesh, m_Model->GetPainter3D().get());
-                m_Selection->SelectionCallBackEvent(events);
-            }
-            //auto painter = m_Model->GetPainter3D();
-            //painter->SetPen(3);
-            //painter->SetPen(Color::Black);
-            //painter->SetBrush(Color::Red);
-            //std::vector<Selection::Event> events;
-            //for (int i = 0; i < selectedCellIds.size(); i++)
-            //{
-            //    auto& cellId = selectedCellIds[i];
-            //    auto& cellCenter = selectedCellCenters[i];
-            //    Selection::Event e;
-            //    e.type = Selection::Event::PickFace;
-            //    e.pickId = cellId;
-            //    if (m_Select_OR_UnSelect) {
-            //        e.operate = Selection::Event::Operate::Add;
-            //        DrawCell(painter, mesh->GetCell(cellId), e.drawHandles);
-            //    }
-            //    else
-            //        e.operate = Selection::Event::Operate::Remove;
-            //    e.pos = cellCenter;
-            //    //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
-            //    events.push_back(e);
-            //}
-            //m_Selection->SelectionCallBackEvent(events);
+std::vector<int> SingleSelectionStyle::GetCellsInCondition(
+        const Point& startPoint, const Point& endPoint,
+        UnstructuredMesh* mesh, double radius,
+        bool useVariableCondition, int variableIndex, bool useAutoValueRange,
+        double valueRange) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    double minDis = -1;
+    int id = -1;
+    for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
+        Cell* cell = mesh->GetCell(cellId);
+        auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+        if (dis < 0) continue;
+        if (minDis == -1 || dis < minDis) {
+            minDis = dis;
+            id = cellId;
         }
     }
+    if (id == -1) return re;
+    if (radius == 0) {
+        re.push_back(id);
+        return re;
+    }
+
+    auto cells = mesh->GetCells();
+    auto points = mesh->GetPoints();
+    igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
+    int thisCellSize = cells->GetCellIds(id, thisCell);
+    iGame::Point thisCellCentralPoint =
+            GetCentralOfCell(thisCellSize, thisCell, points);
+    /*################################# CORE START #################################*/
+    if (useVariableCondition == false || variableIndex < 0 ||
+        (useAutoValueRange == false && valueRange >= 1.0)) {
+        //Calculate the center point of each surface and compare the radii.
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+            int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+            Point thatCellCentralPoint =
+                    GetCentralOfCell(thatCellSize, thatCell, points);
+            if ((thisCellCentralPoint - thatCellCentralPoint).length() <=
+                radius) {
+                re.push_back(cellIndex);
+                //selectedCellCenters.push_back(thatCellCentralPoint);
+            }
+        }
+        return re;
+    }
+
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_CELL);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_CELL);
+
+    if (valueRange >= 0 && useAutoValueRange == false) {
+        double dataRange = (variableMinMaxData.second[variableIndex] -
+                            variableMinMaxData.first[variableIndex]) *
+                           valueRange;
+        double thisCellData = CtxPresObjData_Main::GenerateObjData(
+                id, attrs, variableIndexs[variableIndex]);
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+            int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+            Point thatCellCentralPoint =
+                    GetCentralOfCell(thatCellSize, thatCell, points);
+            double cellData = CtxPresObjData_Main::GenerateObjData(
+                    cellIndex, attrs, variableIndexs[variableIndex]);
+            if (((thisCellCentralPoint - thatCellCentralPoint).length() <=
+                 radius) &&
+                (std::abs(thisCellData - cellData) <= dataRange)) {
+                re.push_back(cellIndex);
+                //selectedCellCenters.push_back(thatCellCentralPoint);
+            }
+        }
+    } else if (valueRange < 0 || useAutoValueRange == true) {
+        auto hisPicker = HistogramPicker(
+                attrs, variableIndexs[variableIndex], cells->GetNumberOfCells(),
+                BoxNum, RandomPickNum, variableMinMaxData.first[variableIndex],
+                variableMinMaxData.second[variableIndex]);
+        double thisCellData = CtxPresObjData_Main::GenerateObjData(
+                id, attrs, variableIndexs[variableIndex]);
+        auto [minRange, maxRange] =
+                hisPicker.CalculateMinMaxValueToPick(thisCellData);
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+            int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+            Point thatCellCentralPoint =
+                    GetCentralOfCell(thatCellSize, thatCell, points);
+            double cellData = CtxPresObjData_Main::GenerateObjData(
+                    cellIndex, attrs, variableIndexs[variableIndex]);
+            if (((thisCellCentralPoint - thatCellCentralPoint).length() <=
+                 radius) &&
+                (minRange <= cellData && cellData <= maxRange)) {
+                re.push_back(cellIndex);
+                //selectedCellCenters.push_back(thatCellCentralPoint);
+            }
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
 }
 
 IGAME_NAMESPACE_END
