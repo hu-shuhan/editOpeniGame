@@ -7,6 +7,7 @@ iGameStreamBase::iGameStreamBase() {
     this->m_PositionColors->SetDimension(3);
     this->index = UnsignedIntArray::New();
     this->index->SetDimension(2);
+    DynamicCast<iGame::DrawObject>(this)->AddViewStyle(IG_WIREFRAME);
     streamFilter = new iGameStreamTracer;
 }
 iGameStreamBase::~iGameStreamBase() {}
