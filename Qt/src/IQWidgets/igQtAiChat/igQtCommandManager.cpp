@@ -101,7 +101,7 @@ void igQtCommandManager::handleCommand(const QString& commandJson)
         qWarning() << "JSON解析错误:" << parseError.errorString();
         
         QJsonObject errorResponse;
-        errorResponse["type"] = "error";
+        errorResponse["type"] = "failure";
         errorResponse["content"] = "JSON解析错误: " + parseError.errorString();
         errorResponse["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
         sendResponse(errorResponse);
@@ -112,7 +112,7 @@ void igQtCommandManager::handleCommand(const QString& commandJson)
         qWarning() << "无效的JSON格式：不是对象";
         
         QJsonObject errorResponse;
-        errorResponse["type"] = "error";
+        errorResponse["type"] = "failure";
         errorResponse["content"] = "无效的JSON格式";
         errorResponse["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
         sendResponse(errorResponse);
@@ -126,7 +126,7 @@ void igQtCommandManager::handleCommand(const QString& commandJson)
     // 快速处理ping命令
     if (commandType == "ping") {
         QJsonObject pongResponse;
-        pongResponse["type"] = "reply";
+        pongResponse["type"] = "success";
         pongResponse["content"] = "pong";
         pongResponse["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
         sendResponse(pongResponse);
@@ -143,7 +143,7 @@ void igQtCommandManager::handleCommand(const QString& commandJson)
 
     // 根据执行结果构建响应
     QJsonObject response;
-    response["type"] = result.success ? "reply" : "error";
+    response["type"] = result.success ? "success" : "failure";
     response["content"] = result.message;
     response["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
 
