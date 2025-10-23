@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @class   igQtMainWindow
  * @brief   igQtMainWindow's brief
  */
@@ -71,7 +71,7 @@ public:
     QDockWidget* aiChatDockWidget;
     igQtAiChatWidget* aiChatWidget;
     
-    // Command Manager for MCP Server (�˿� 12345)
+    // Command Manager for MCP Server (端口 12345)
     igQtCommandManager* commandManager;
 
 private slots:

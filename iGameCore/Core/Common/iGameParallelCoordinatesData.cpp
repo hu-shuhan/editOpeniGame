@@ -1,4 +1,4 @@
-#include "iGameParallelCoordinatesData.h"
+ï»¿#include "iGameParallelCoordinatesData.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -13,12 +13,12 @@ IGAME_NAMESPACE_BEGIN
 
 static int VariableDiffValueMaxObjNum = 1000;
 
-// ¼ÆËãÂ·¾¶×Ü³É±¾
+// è®¡ç®—è·¯å¾„æ€»æˆæœ¬
 static double calculateTotalCost(const std::vector<int>& solution, const std::vector<std::vector<double>>& diffValue,
                                  const std::vector<int>& variables) {
     double totalCost = 0.0;
 
-    // ¹¹½¨±äÁ¿µ½Ë÷ÒıµÄÓ³Éä
+    // æ„å»ºå˜é‡åˆ°ç´¢å¼•çš„æ˜ å°„
     std::unordered_map<int, int> var_to_index;
     for (size_t i = 0; i < variables.size(); ++i) { var_to_index[variables[i]] = i; }
 
@@ -33,15 +33,15 @@ static double calculateTotalCost(const std::vector<int>& solution, const std::ve
 
 static double ComputeVariance(const std::vector<double>& data) {
     if (data.empty()) {
-        return 0.0; // ¿ÕÏòÁ¿·µ»Ø 0
+        return 0.0; // ç©ºå‘é‡è¿”å› 0
     }
 
-    // ¼ÆËã¾ùÖµ
+    // è®¡ç®—å‡å€¼
     double sum = 0.0;
     for (double value: data) { sum += value; }
     double mean = sum / data.size();
 
-    // ¼ÆËã·½²î
+    // è®¡ç®—æ–¹å·®
     double variance = 0.0;
     for (double value: data) { variance += (value - mean) * (value - mean); }
     variance /= data.size();
@@ -49,7 +49,7 @@ static double ComputeVariance(const std::vector<double>& data) {
     return variance;
 }
 
-// ¶¯Ì¬¹æ»®Ëã·¨Çó½âÂÃĞĞÉÌÎÊÌâ
+// åŠ¨æ€è§„åˆ’ç®—æ³•æ±‚è§£æ—…è¡Œå•†é—®é¢˜
 static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diffValue,
                                     const std::vector<int>& variables) {
     int n = variables.size();
@@ -57,15 +57,15 @@ static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diff
     if (n == 0) return {};
     if (n == 1) return {variables[0]};
 
-    // dp[mask][i]: ·ÃÎÊ¹ımask¼¯ºÏÖĞµÄ½Úµã£¬µ±Ç°ÔÚ½ÚµãiµÄ×îĞ¡´ú¼Û
+    // dp[mask][i]: è®¿é—®è¿‡maské›†åˆä¸­çš„èŠ‚ç‚¹ï¼Œå½“å‰åœ¨èŠ‚ç‚¹içš„æœ€å°ä»£ä»·
     int totalStates = 1 << n;
     std::vector<std::vector<double>> dp(totalStates, std::vector<double>(n, std::numeric_limits<double>::max()));
     std::vector<std::vector<int>> parent(totalStates, std::vector<int>(n, -1));
 
-    // ³õÊ¼»¯£º´ÓÃ¿¸ö½Úµã¿ªÊ¼
+    // åˆå§‹åŒ–ï¼šä»æ¯ä¸ªèŠ‚ç‚¹å¼€å§‹
     for (int i = 0; i < n; ++i) { dp[1 << i][i] = 0; }
 
-    // ¶¯Ì¬¹æ»®
+    // åŠ¨æ€è§„åˆ’
     for (int mask = 1; mask < totalStates; ++mask) {
         for (int i = 0; i < n; ++i) {
             if ((mask & (1 << i)) == 0) continue;
@@ -84,7 +84,7 @@ static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diff
         }
     }
 
-    // ÕÒµ½×îÓÅÂ·¾¶
+    // æ‰¾åˆ°æœ€ä¼˜è·¯å¾„
     double minCost = std::numeric_limits<double>::max();
     int lastNode = -1;
     int fullMask = totalStates - 1;
@@ -96,7 +96,7 @@ static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diff
         }
     }
 
-    // »ØËİ¹¹½¨Â·¾¶
+    // å›æº¯æ„å»ºè·¯å¾„
     std::vector<int> path;
     int currentMask = fullMask;
     int currentNode = lastNode;
@@ -116,24 +116,24 @@ static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diff
     return path;
 }
 
-// Ä£ÄâÍË»ğËã·¨
+// æ¨¡æ‹Ÿé€€ç«ç®—æ³•
 static std::vector<int> solveWithSimulatedAnnealing(const std::vector<std::vector<double>>& diffValue,
                                                     const std::vector<int>& variables) {
     int n = variables.size();
 
-    // Ëæ»úÊıÉú³ÉÆ÷
+    // éšæœºæ•°ç”Ÿæˆå™¨
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> prob(0.0, 1.0);
     std::uniform_int_distribution<int> idxDist(0, n - 1);
 
-    // Ä£ÄâÍË»ğ²ÎÊı
+    // æ¨¡æ‹Ÿé€€ç«å‚æ•°
     double initialTemp = 1000.0;
     double finalTemp = 1e-8;
     double coolingRate = 0.999;
     int iterationsPerTemp = 50;
 
-    // ³õÊ¼½â
+    // åˆå§‹è§£
     std::vector<int> currentSolution = variables;
     std::shuffle(currentSolution.begin(), currentSolution.end(), rng);
     double currentCost = calculateTotalCost(currentSolution, diffValue, variables);
@@ -145,17 +145,17 @@ static std::vector<int> solveWithSimulatedAnnealing(const std::vector<std::vecto
 
     while (temp > finalTemp) {
         for (int i = 0; i < iterationsPerTemp; ++i) {
-            // Éú³ÉÁÚÓò½â
+            // ç”Ÿæˆé‚»åŸŸè§£
             std::vector<int> newSolution = currentSolution;
 
-            // Ëæ»úÑ¡ÔñÁ½ÖÖÁÚÓò²Ù×÷
+            // éšæœºé€‰æ‹©ä¸¤ç§é‚»åŸŸæ“ä½œ
             if (prob(rng) < 0.5) {
-                // ½»»»Á½¸öËæ»úÎ»ÖÃ
+                // äº¤æ¢ä¸¤ä¸ªéšæœºä½ç½®
                 int idx1 = idxDist(rng);
                 int idx2 = idxDist(rng);
                 std::swap(newSolution[idx1], newSolution[idx2]);
             } else {
-                // ·´×ªÒ»¶Î×ÓĞòÁĞ
+                // åè½¬ä¸€æ®µå­åºåˆ—
                 int idx1 = idxDist(rng);
                 int idx2 = idxDist(rng);
                 if (idx1 > idx2) std::swap(idx1, idx2);
@@ -165,7 +165,7 @@ static std::vector<int> solveWithSimulatedAnnealing(const std::vector<std::vecto
             double newCost = calculateTotalCost(newSolution, diffValue, variables);
             double costDiff = newCost - currentCost;
 
-            // ½ÓÊÜ×¼Ôò
+            // æ¥å—å‡†åˆ™
             if (costDiff < 0 || std::exp(-costDiff / temp) > prob(rng)) {
                 currentSolution = newSolution;
                 currentCost = newCost;
@@ -252,51 +252,51 @@ std::vector<int>
 ParallelCoordinatesData::GenerateVariableSortByDiffValue(const std::vector<int>& variableSort,
                                                          const std::vector<std::vector<double>>& diffValue) {
 
-    // 1. ´¦ÀíÌØÊâÇé¿ö
+    // 1. å¤„ç†ç‰¹æ®Šæƒ…å†µ
     if (variableSort.empty()) { return {}; }
 
     if (variableSort.size() == 1) { return variableSort; }
 
-    // ¼ì²é¾ØÕóÊÇ·ñ¶Ô³Æ
+    // æ£€æŸ¥çŸ©é˜µæ˜¯å¦å¯¹ç§°
     size_t n = diffValue.size();
     for (size_t i = 0; i < n; ++i) {
         if (diffValue[i].size() != n) {
-            // ¾ØÕó²»ÊÇ·½Õó£¬·µ»ØÔ­ÅÅĞò
+            // çŸ©é˜µä¸æ˜¯æ–¹é˜µï¼Œè¿”å›åŸæ’åº
             return variableSort;
         }
         for (size_t j = i + 1; j < n; ++j) {
             if (std::abs(diffValue[i][j] - diffValue[j][i]) > 1e-10) {
-                // ¾ØÕó²»¶Ô³Æ£¬·µ»ØÔ­ÅÅĞò
+                // çŸ©é˜µä¸å¯¹ç§°ï¼Œè¿”å›åŸæ’åº
                 return variableSort;
             }
         }
     }
 
-    // ´´½¨±äÁ¿Ë÷Òıµ½ÖµµÄÓ³Éä
+    // åˆ›å»ºå˜é‡ç´¢å¼•åˆ°å€¼çš„æ˜ å°„
     std::vector<int> variables = variableSort;
     std::sort(variables.begin(), variables.end());
     variables.erase(std::unique(variables.begin(), variables.end()), variables.end());
 
     size_t m = variables.size();
 
-    // ¹¹½¨±äÁ¿Ë÷ÒıÓ³Éä
+    // æ„å»ºå˜é‡ç´¢å¼•æ˜ å°„
     std::unordered_map<int, int> var_to_index;
     for (size_t i = 0; i < m; ++i) { var_to_index[variables[i]] = i; }
 
-    // ¹¹½¨×Ó²îÒì¾ØÕó
+    // æ„å»ºå­å·®å¼‚çŸ©é˜µ
     std::vector<std::vector<double>> subDiff(m, std::vector<double>(m, 0.0));
     for (size_t i = 0; i < m; ++i) {
         for (size_t j = 0; j < m; ++j) { subDiff[i][j] = diffValue[variables[i]][variables[j]]; }
     }
 
-    // 2. ¸ù¾İ±äÁ¿ÊıÁ¿Ñ¡ÔñËã·¨
+    // 2. æ ¹æ®å˜é‡æ•°é‡é€‰æ‹©ç®—æ³•
     std::vector<int> result;
 
     if (m <= 9) {
-        // Ê¹ÓÃ¾«È·µÄ¶¯Ì¬¹æ»®Ëã·¨£¨ÂÃĞĞÉÌÎÊÌâ£©
+        // ä½¿ç”¨ç²¾ç¡®çš„åŠ¨æ€è§„åˆ’ç®—æ³•ï¼ˆæ—…è¡Œå•†é—®é¢˜ï¼‰
         result = solveWithDP(subDiff, variables);
     } else {
-        // Ê¹ÓÃÄ£ÄâÍË»ğËã·¨
+        // ä½¿ç”¨æ¨¡æ‹Ÿé€€ç«ç®—æ³•
         result = solveWithSimulatedAnnealing(subDiff, variables);
     }
 

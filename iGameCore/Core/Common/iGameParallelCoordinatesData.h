@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <iGameDataObject.h>
 #include <vector>
 #include <utility>
@@ -46,10 +46,10 @@ public:
                               int objNum, int maxObjNum);
     //static std::vector<int> GenerateRareObjIdsInValue()
     /**
-     * ¸ù¾İ²îÒìÖµ¾ØÕóÖØĞÂÉú³É±äÁ¿ÅÅĞò
-     * @param variableSort Ô­ÓĞµÄ±äÁ¿ÅÅĞò£¬vectorÖĞµÄÖµÊÇ±äÁ¿Ë÷Òı
-     * @param diffValue ¶Ô³Æ¾ØÕó£¬diffValue[i][j]±íÊ¾±äÁ¿iºÍ±äÁ¿jÖ®¼äµÄ²îÒìÖµ
-     * @return ĞÂµÄ±äÁ¿ÅÅĞò£¬Ê¹µÃĞòÁĞÖĞÏàÁÚ±äÁ¿µÄ²îÒìÖµÖ®ºÍ×îĞ¡
+     * æ ¹æ®å·®å¼‚å€¼çŸ©é˜µé‡æ–°ç”Ÿæˆå˜é‡æ’åº
+     * @param variableSort åŸæœ‰çš„å˜é‡æ’åºï¼Œvectorä¸­çš„å€¼æ˜¯å˜é‡ç´¢å¼•
+     * @param diffValue å¯¹ç§°çŸ©é˜µï¼ŒdiffValue[i][j]è¡¨ç¤ºå˜é‡iå’Œå˜é‡jä¹‹é—´çš„å·®å¼‚å€¼
+     * @return æ–°çš„å˜é‡æ’åºï¼Œä½¿å¾—åºåˆ—ä¸­ç›¸é‚»å˜é‡çš„å·®å¼‚å€¼ä¹‹å’Œæœ€å°
      */
     static std::vector<int> GenerateVariableSortByDiffValue(const std::vector<int>& variableSort,
                                                             const std::vector<std::vector<double>>& diffValue);
