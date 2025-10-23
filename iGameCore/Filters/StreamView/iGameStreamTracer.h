@@ -205,6 +205,7 @@ private:
     std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
+    DataObjectId meshId = -1;
     bool isSubModel = false;
     bool isChange = false;
     std::vector<PointFinder::Pointer> ptFinder;
