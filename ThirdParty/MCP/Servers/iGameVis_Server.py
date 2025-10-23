@@ -274,75 +274,6 @@ def get_desktop_path() -> Path:
     """Get the desktop path for the current user."""
     return Path(os.path.join(os.path.expanduser('~'), 'Desktop'))
 
-def normalize_view_type(view_type: str) -> str:
-    """
-    标准化视角类型，支持多种表示方法
-    Args:
-        view_type (str): 输入的视角类型
-    Returns:
-        str: 标准化后的视角类型，如果无效则返回空字符串
-    """
-    if not view_type:
-        return ""
-
-    # 转换为小写并去除空格
-    view_type = view_type.lower().strip()
-
-    # 视角映射表：输入 -> 标准输出
-    view_mapping = {
-        # 标准名称
-        "reset": "reset",
-        "front": "front",
-        "back": "back",
-        "left": "left",
-        "right": "right",
-        "top": "top",
-        "bottom": "bottom",
-        "isometric": "isometric",
-
-        # 坐标轴简写形式
-        "+x": "right",      # 正X方向 = 右视图
-        "-x": "left",       # 负X方向 = 左视图
-        "+y": "top",        # 正Y方向 = 顶视图
-        "-y": "bottom",     # 负Y方向 = 底视图
-        "+z": "back",       # 正Z方向 = 后视图
-        "-z": "front",      # 负Z方向 = 前视图
-
-        # 完整坐标轴表示
-        "positive_x": "right",
-        "negative_x": "left",
-        "positive_y": "top",
-        "negative_y": "bottom",
-        "positive_z": "back",
-        "negative_z": "front",
-
-        # 其他常见别名
-        "pos_x": "right",
-        "neg_x": "left",
-        "pos_y": "top",
-        "neg_y": "bottom",
-        "pos_z": "back",
-        "neg_z": "front",
-
-        # 中文支持
-        "正x": "right",
-        "负x": "left",
-        "正y": "top",
-        "负y": "bottom",
-        "正z": "back",
-        "负z": "front",
-        "重置": "reset",
-        "前视": "front",
-        "后视": "back",
-        "左视": "left",
-        "右视": "right",
-        "顶视": "top",
-        "底视": "bottom",
-        "等轴测": "isometric"
-    }
-
-    return view_mapping.get(view_type, "")
-
 
 def format_tool_result(result: Dict[str, Any], default_message: str = "Operation completed successfully") -> str:
     """
@@ -703,98 +634,82 @@ def get_current_attribute() -> List[Any]:
 @mcp.tool()
 def camera_control(
     control_type: str,
-    view_type: str = "reset",
+    view_type: str = "",
     x: float = 0.0,
     y: float = 0.0,
     z: float = 0.0,
     factor: float = 1.0,
     angle_x: float = 0.0,
     angle_y: float = 0.0,
-    angle_z: float = 0.0
+    angle_z: float = 0.0,
+    angle: float = 0.0,  # 屏幕相对旋转使用
 ) -> str:
-    """相机控制工具 - 统一的相机操作接口，支持专业坐标轴表示法
-
-    特别适用于开发人员使用专业术语，如：
-    - 用户说"切换到+X视角" → 使用 view_type="+x"
-    - 用户说"看-Z方向" → 使用 view_type="-z"
-    - 用户说"正Y视图" → 使用 view_type="+y"
-
-    Args:
-        control_type (str): 控制类型，可选值：
-            - "view": 视角控制，需要 view_type 参数
-            - "position": 设置相机位置，需要 x, y, z 参数
-            - "target": 设置相机目标点，需要 x, y, z 参数
-            - "zoom": 缩放相机，需要 factor 参数
-            - "rotate": 旋转相机，需要 angle_x, angle_y, angle_z 参数
-        view_type (str): 视角类型，用于 control_type="view"，支持多种表示方法：
-            标准视角名称：
-            - "reset": 重置相机视角到默认位置
-            - "front": 前视图（-Z方向）
-            - "back": 后视图（+Z方向）
-            - "left": 左视图（-X方向）
-            - "right": 右视图（+X方向）
-            - "top": 顶视图（+Y方向）
-            - "bottom": 底视图（-Y方向）
-            - "isometric": 等轴测视图
-            专业坐标轴表示法：
-            - "+x", "positive_x": 正X方向视图（右视图）
-            - "-x", "negative_x": 负X方向视图（左视图）
-            - "+y", "positive_y": 正Y方向视图（顶视图）
-            - "-y", "negative_y": 负Y方向视图（底视图）
-            - "+z", "positive_z": 正Z方向视图（后视图）
-            - "-z", "negative_z": 负Z方向视图（前视图）
-        x (float): X坐标，用于 control_type="position" 或 "target"
-        y (float): Y坐标，用于 control_type="position" 或 "target"
-        z (float): Z坐标，用于 control_type="position" 或 "target"
-        factor (float): 缩放因子，用于 control_type="zoom"，>1为放大，<1为缩小
-        angle_x (float): X轴旋转角度（度），用于 control_type="rotate"
-        angle_y (float): Y轴旋转角度（度），用于 control_type="rotate"
-        angle_z (float): Z轴旋转角度（度），用于 control_type="rotate"
-    Returns:
-        str: Result message from iGameVis or error message
     """
-    valid_control_types = ["view", "position", "target", "zoom", "rotate"]
+    相机控制工具（Camera Control）
 
-    if control_type not in valid_control_types:
-        return f"Error: Invalid control type '{control_type}'. Valid types are: {', '.join(valid_control_types)}"
+    参数说明：
+        control_type:
+            - "view"          切换视角（需要 view_type）
+            - "position"      设置相机位置（需要 x,y,z）
+            - "target"        设置相机焦点（需要 x,y,z）
+            - "zoom"          缩放相机（需要 factor）
+            - "rotate"        绝对旋转（需要 angle_x, angle_y, angle_z）
+            - "rotate_screen" 相对旋转，视角顺时针旋转的角度（angle [-180,180]）
 
-    # 构建数据对象
-    data = {"control_type": control_type}
+        view_type:
+            当 control_type="view" 时使用，取值：
+            "reset", "front", "back", "left", "right", "top", "bottom", "isometric"
 
-    if control_type == "view":
-        # 标准化视角类型，支持多种表示方法
-        normalized_view_type = normalize_view_type(view_type)
-        if not normalized_view_type:
-            valid_examples = [
-                "标准名称: reset, front, back, left, right, top, bottom, isometric",
-                "坐标轴表示: +x, -x, +y, -y, +z, -z",
-                "完整表示: positive_x, negative_x, positive_y, negative_y, positive_z, negative_z"
-            ]
-            return f"Error: Invalid view type '{view_type}'. Valid formats:\n" + "\n".join(valid_examples)
-        data["view_type"] = normalized_view_type
+        x, y, z:
+            位置或目标坐标，仅当 control_type 为 "position" 或 "target" 时使用。
 
-    elif control_type == "position":
-        data.update({"x": x, "y": y, "z": z})
+        factor:
+            缩放因子，>1 表示放大，<1 表示缩小，仅当 control_type="zoom" 时使用。
 
-    elif control_type == "target":
-        data.update({"x": x, "y": y, "z": z})
+        angle_x, angle_y, angle_z:
+            绝对旋转角度，仅当 control_type="rotate" 时使用。
 
-    elif control_type == "zoom":
-        if factor <= 0:
-            return "Error: Zoom factor must be greater than 0"
-        data["factor"] = factor
+        angle:
+            相对当前视角的顺时针旋转角度，仅当 control_type="rotate_screen" 时使用。
+            按用户语义直接取值，逆时针需要取反，并放缩到[-180,180]
 
-    elif control_type == "rotate":
-        data.update({"angle_x": angle_x, "angle_y": angle_y, "angle_z": angle_z})
+    💡 AI 使用指南：
+        - 只选择 control_type 和对应参数。
+        - 屏幕旋转仅输出 angle，绝对旋转仅输出 angle_x/y/z。
+        - 不推理或映射视角词，直接输出 view_type。
+        - 仅返回有效参数组合。
 
+    示例：
+        "切换到前视图" → {"control_type": "view", "view_type": "front"}
+        "重置相机"     → {"control_type": "view", "view_type": "reset"}
+        "移动到 (10,5,0)" → {"control_type": "position", "x": 10, "y": 5, "z": 0}
+        "放大两倍"     → {"control_type": "zoom", "factor": 2.0}
+        "绕Z轴旋转90°" → {"control_type": "rotate", "angle_x": 0, "angle_y": 0, "angle_z": 90}
+        "顺时针旋转90°" → {"control_type": "rotate_screen", "angle": 90}
+        "逆时针旋转90°" → {"control_type": "rotate_screen", "angle": -90}
+    """
     try:
-        # Send command to iGameVis
         igamevis = get_igamevis_connection()
+        data = {
+            "control_type": control_type,
+            "view_type": view_type,
+            "x": x,
+            "y": y,
+            "z": z,
+            "factor": factor,
+            "angle_x": angle_x,
+            "angle_y": angle_y,
+            "angle_z": angle_z,
+            "angle": angle
+        }
         result = igamevis.send_command("camera_control", data)
-
         return format_tool_result(result, "Camera control executed successfully")
     except Exception as e:
         return f"Error controlling camera: {e}"
+
+
+
+
 
 # ============================================================================
 # File Operations Tools

@@ -309,7 +309,7 @@ QString igQtCommandExecutor::generateModelInfoDescription() const {
     }
     return info.join("\n");
 } 
-
+// 切换相机位置和相机聚焦点的功能暂时有问题
 OperationResult igQtCommandExecutor::executeCameraControl(const QJsonObject& data) const {
     QString controlType = data.value("control_type").toString();
 
@@ -432,78 +432,77 @@ OperationResult igQtCommandExecutor::executeCameraControl(const QJsonObject& dat
         double angleX = data.value("angle_x").toDouble();
         double angleY = data.value("angle_y").toDouble();
         double angleZ = data.value("angle_z").toDouble();
-
         if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
             return OperationResult(false, "无法访问场景对象", "相机控制");
         }
 
         auto scene = m_mainWindow->rendererWidget->GetScene();
 
-        // 对于简单的90度旋转，可以使用已有的场景方法
-        if (std::abs(angleZ - 90.0) < 1e-6) {
-            scene->RotateNinetyClockwise();
-            m_mainWindow->rendererWidget->update();
-            return OperationResult(true, "相机已顺时针旋转90度", "相机控制");
-        } else if (std::abs(angleZ + 90.0) < 1e-6) {
-            scene->RotateNinetyCounterClockwise();
-            m_mainWindow->rendererWidget->update();
-            return OperationResult(true, "相机已逆时针旋转90度", "相机控制");
-        } else {
-            // 对于任意角度的旋转，直接操作相机
-            auto camera = scene->GetCamera();
-            if (camera) {
-                // 获取当前相机位置和焦点
-                igm::vec3 position = camera->GetPosition();
-                igm::vec3 focal = camera->GetFocal();
+        // 对于任意角度的旋转，直接操作相机
+        auto camera = scene->GetCamera();
+        if (camera) {
+            // 获取当前相机位置和焦点
+            igm::vec3 position = camera->GetPosition();
+            igm::vec3 focal = camera->GetFocal();
 
-                // 计算从焦点到相机的向量
-                igm::vec3 direction = position - focal;
+            // 计算从焦点到相机的向量
+            igm::vec3 direction = position - focal;
 
-                // 将角度转换为弧度
-                float radX = static_cast<float>(angleX * M_PI / 180.0);
-                float radY = static_cast<float>(angleY * M_PI / 180.0);
-                float radZ = static_cast<float>(angleZ * M_PI / 180.0);
+            // 将角度转换为弧度
+            float radX = static_cast<float>(angleX * M_PI / 180.0);
+            float radY = static_cast<float>(angleY * M_PI / 180.0);
+            float radZ = static_cast<float>(angleZ * M_PI / 180.0);
 
-                // 简单的旋转实现（绕各轴旋转）
-                // 绕X轴旋转
-                if (std::abs(radX) > 1e-6) {
-                    float cosX = std::cos(radX);
-                    float sinX = std::sin(radX);
-                    float newY = direction.y * cosX - direction.z * sinX;
-                    float newZ = direction.y * sinX + direction.z * cosX;
-                    direction.y = newY;
-                    direction.z = newZ;
-                }
-
-                // 绕Y轴旋转
-                if (std::abs(radY) > 1e-6) {
-                    float cosY = std::cos(radY);
-                    float sinY = std::sin(radY);
-                    float newX = direction.x * cosY + direction.z * sinY;
-                    float newZ = -direction.x * sinY + direction.z * cosY;
-                    direction.x = newX;
-                    direction.z = newZ;
-                }
-
-                // 绕Z轴旋转
-                if (std::abs(radZ) > 1e-6) {
-                    float cosZ = std::cos(radZ);
-                    float sinZ = std::sin(radZ);
-                    float newX = direction.x * cosZ - direction.y * sinZ;
-                    float newY = direction.x * sinZ + direction.y * cosZ;
-                    direction.x = newX;
-                    direction.y = newY;
-                }
-
-                // 设置新的相机位置
-                camera->SetPosition(focal + direction);
-                m_mainWindow->rendererWidget->update();
-
-                return OperationResult(true, QString("相机已旋转 (X:%1°, Y:%2°, Z:%3°)").arg(angleX).arg(angleY).arg(angleZ), "相机控制");
+            // 简单的旋转实现（绕各轴旋转）
+            // 绕X轴旋转
+            if (std::abs(radX) > 1e-6) {
+                float cosX = std::cos(radX);
+                float sinX = std::sin(radX);
+                float newY = direction.y * cosX - direction.z * sinX;
+                float newZ = direction.y * sinX + direction.z * cosX;
+                direction.y = newY;
+                direction.z = newZ;
             }
-            return OperationResult(false, "无法访问相机对象", "相机控制");
+
+            // 绕Y轴旋转
+            if (std::abs(radY) > 1e-6) {
+                float cosY = std::cos(radY);
+                float sinY = std::sin(radY);
+                float newX = direction.x * cosY + direction.z * sinY;
+                float newZ = -direction.x * sinY + direction.z * cosY;
+                direction.x = newX;
+                direction.z = newZ;
+            }
+
+            // 绕Z轴旋转
+            if (std::abs(radZ) > 1e-6) {
+                float cosZ = std::cos(radZ);
+                float sinZ = std::sin(radZ);
+                float newX = direction.x * cosZ - direction.y * sinZ;
+                float newY = direction.x * sinZ + direction.y * cosZ;
+                direction.x = newX;
+                direction.y = newY;
+            }
+
+            // 设置新的相机位置
+            camera->SetPosition(focal + direction);
+            m_mainWindow->rendererWidget->update();
+
+            return OperationResult(true, QString("相机已旋转 (X:%1°, Y:%2°, Z:%3°)").arg(angleX).arg(angleY).arg(angleZ), "相机控制");
         }
-    } else {
+        return OperationResult(false, "无法访问相机对象", "相机控制");
+    }else if (controlType == "rotate_screen"){
+        double angle = data.value("angle").toDouble();
+        if (!m_mainWindow->rendererWidget || !m_mainWindow->rendererWidget->GetScene()) {
+            return OperationResult(false, "无法访问场景对象", "相机控制");
+        }
+
+        auto scene = m_mainWindow->rendererWidget->GetScene();
+        scene->RotateClockwise(angle);
+        m_mainWindow->rendererWidget->update();
+        return OperationResult(true, "相机已正确旋转", "相机控制");
+    }
+    else {
         return OperationResult(false, "无效的相机控制类型: " + controlType, "相机控制");
     }
 }
