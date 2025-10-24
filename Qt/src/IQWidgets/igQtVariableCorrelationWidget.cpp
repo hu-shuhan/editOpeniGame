@@ -241,8 +241,13 @@ void igQtVariableCorrelationWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    if (type == IG_POINT) {
+        auto events = Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
+        m_Model->GetSelection()->SelectionCallBackEvent(events);
+    } else if (type == IG_CELL) {
+        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
+        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
+    }
     update();
 }
 

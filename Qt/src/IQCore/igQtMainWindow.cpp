@@ -1561,30 +1561,6 @@ void igQtMainWindow::initAllInteractor() {
         else if (!checked && ui->dockWidget_SelectionField->isVisible())
             ui->dockWidget_SelectionField->hide();
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionStateChanged, this, [&]() {
-        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
-        auto radius = ui->widget_SelectionField->GetSelectionRadius();
-        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
-        auto variableIndex = ui->widget_SelectionField->GetVariableIndex();
-        auto variableRange = ui->widget_SelectionField->GetVariableRange();
-        switch (selectionStation) {
-            case SelectionStation::NONE_SELECTION:
-                rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-                break;
-            case SelectionStation::POINT_SELECTION: {
-                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect,
-                                                      variableIndex, variableRange);
-            }
-                break;
-            case SelectionStation::CELL_SELECTION: {
-                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect,
-                                                      variableIndex, variableRange);
-            }
-                break;
-            default:
-                break;
-        }
-    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
         switch (selectionStation) {
@@ -1616,21 +1592,15 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
-        auto radius = ui->widget_SelectionField->GetSelectionRadius();
-        auto selectOrUnSelect = ui->widget_SelectionField->GetSelectOrUnSelect();
-        auto variableIndex = ui->widget_SelectionField->GetVariableIndex();
-        auto variableRange = ui->widget_SelectionField->GetVariableRange();
         switch (selectionStation) {
             case SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
             case SelectionStation::POINT_SELECTION: {
-                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle, radius, selectOrUnSelect,
-                                                      variableIndex, variableRange);
+                rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
             } break;
             case SelectionStation::CELL_SELECTION: {
-                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle, radius, selectOrUnSelect,
-                                                      variableIndex, variableRange);
+                rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
             } break;
             default:
                 break;
@@ -1706,7 +1676,7 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->action_select_point, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_select_point->isChecked()) {
             if (ui->action_select_face->isChecked()) { ui->action_select_face->setChecked(false); }
-            rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle,0.1);
+            rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
         } else {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
@@ -1716,7 +1686,7 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->action_select_face, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_select_face->isChecked()) {
             if (ui->action_select_point->isChecked()) { ui->action_select_point->setChecked(false); }
-            rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle,0.1);
+            rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
         } else {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }

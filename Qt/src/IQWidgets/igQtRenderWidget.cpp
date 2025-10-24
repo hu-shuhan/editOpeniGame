@@ -47,8 +47,7 @@ void igQtRenderWidget::ChangeInteractor(iGame::SmartPointer<iGame::Interactor> i
     m_Scene->SetInteractor(m_Interactor);
 }
 
-void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadius, bool selectOrUnSelect,
-                                             int selectVariableIndex, double selectVariableRange) {
+void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
     if (!m_Scene || !m_Scene->GetCurrentModel()) { return; }
     switch (style) {
         case iGame::Interactor::BasicStyle:
@@ -61,8 +60,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(obj);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect, selectVariableIndex,
-                                                         selectVariableRange);
+                m_Interactor->RequestPointSelectionStyle(s);
 
             } else {
                 auto s = m_Scene->GetCurrentModel()->GetSelection();
@@ -75,8 +73,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(ps);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect, selectVariableIndex,
-                                                         selectVariableRange);
+                m_Interactor->RequestPointSelectionStyle(s);
             }
         } break;
         case iGame::Interactor::SingleFaceSelectionStyle: {
@@ -110,8 +107,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
             s->SetModel(model);
             m_Interactor->SetDataObject(obj);
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-            m_Interactor->RequestFaceSelectionStyle(s, interactorRadius, selectOrUnSelect, selectVariableIndex,
-                                                    selectVariableRange);
+            m_Interactor->RequestFaceSelectionStyle(s);
         } break;
         case iGame::Interactor::MultiPointSelectionStyle:
             //m_Interactor->RequestPointSelectionStyle(m_Scene->GetCurrentModel()->GetSelection());

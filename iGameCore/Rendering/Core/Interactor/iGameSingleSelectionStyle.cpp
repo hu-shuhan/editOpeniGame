@@ -1,9 +1,11 @@
 #include "iGameSingleSelectionStyle.h"
+#include "iGameCtxPresObjData.h"
+#include "iGameHistogramPicker.h"
 #include "iGameInteractor.h"
 #include "iGamePointPicker.h"
 #include "iGameUnstructuredMesh.h"
-#include "iGameCtxPresObjData.h"
-#include "iGameHistogramPicker.h"
+#include <iGameCellFaceExtracter.h>
+#include <iGameSelectionParameter.h>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -94,19 +96,23 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     Point point2(point2_.x, point2_.y, point2_.z);
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
+
     auto ids = GetPointsInCondition(
-            point1, point2, mesh, m_SelectRadius, (m_SelectVariableIndex >= 0),
-            m_SelectVariableIndex, (m_SelectVariableRange < 0),
-            m_SelectVariableRange);
+            point1, point2, mesh,
+            SelectionParameter::Instance().GetSelectionRadius(),
+            (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+            SelectionParameter::Instance().GetSelectVariableIndex(),
+            (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+            SelectionParameter::Instance().GetSelectVariableRange());
     if (ids.empty()) return;
-    if (m_SelectOrUnSelect) {
-        auto events = Selection::GenerateEvents(
-                ids, IG_POINT, Selection::Event::Operate::Add, mesh,
+    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
+        auto events = Selection::GeneratePointEvents(
+                ids, Selection::Event::Operate::Add, mesh,
                 m_Model->GetPainter3D().get());
         m_Selection->SelectionCallBackEvent(events);
     } else {
-        auto events = Selection::GenerateEvents(
-                ids, IG_POINT, Selection::Event::Operate::Remove, mesh,
+        auto events = Selection::GeneratePointEvents(
+                ids, Selection::Event::Operate::Remove, mesh,
                 m_Model->GetPainter3D().get());
         m_Selection->SelectionCallBackEvent(events);
     }
@@ -140,29 +146,32 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
     auto ids = GetCellsInCondition(
-            point1, point2, mesh, m_SelectRadius, (m_SelectVariableIndex >= 0),
-            m_SelectVariableIndex, (m_SelectVariableRange < 0),
-            m_SelectVariableRange);
+            point1, point2, mesh,
+            SelectionParameter::Instance().GetSelectionRadius(),
+            (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+            SelectionParameter::Instance().GetSelectVariableIndex(),
+            (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+            SelectionParameter::Instance().GetSelectVariableRange());
     if (ids.empty()) return;
-    if (m_SelectOrUnSelect) {
-        auto events = Selection::GenerateEvents(
-                ids, IG_CELL, Selection::Event::Operate::Add, mesh,
-                m_Model->GetPainter3D().get());
-        m_Selection->SelectionCallBackEvent(events);
+    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
+        //auto events = Selection::GenerateEvents(
+        //        ids, IG_CELL, Selection::Event::Operate::Add, mesh,
+        //        m_Model->GetPainter3D().get());
+        auto events = Selection::GenerateCellEvents(
+                ids, Selection::Event::Operate::Add, mesh);
+        m_Selection->SelectionCallBackEvent(events, true);
     } else {
-        auto events = Selection::GenerateEvents(
-                ids, IG_CELL, Selection::Event::Operate::Remove,
-                mesh, m_Model->GetPainter3D().get());
-        m_Selection->SelectionCallBackEvent(events);
+        auto events = Selection::GenerateCellEvents(
+                ids, Selection::Event::Operate::Remove, mesh);
+        m_Selection->SelectionCallBackEvent(events, true);
     }
     return;
 }
 
 std::vector<int> SingleSelectionStyle::GetPointsInCondition(
-        const Point& startPoint, const Point& endPoint,
-        UnstructuredMesh* mesh, double radius,
-        bool useVariableCondition, int variableIndex, bool useAutoValueRange,
-        double valueRange) {
+        const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
+        double radius, bool useVariableCondition, int variableIndex,
+        bool useAutoValueRange, double valueRange) {
     std::vector<int> re;
     if (mesh == nullptr) return re;
     SmartPointer<PointPicker> picker = PointPicker::New();
@@ -239,10 +248,9 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
 }
 
 std::vector<int> SingleSelectionStyle::GetCellsInCondition(
-        const Point& startPoint, const Point& endPoint,
-        UnstructuredMesh* mesh, double radius,
-        bool useVariableCondition, int variableIndex, bool useAutoValueRange,
-        double valueRange) {
+        const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
+        double radius, bool useVariableCondition, int variableIndex,
+        bool useAutoValueRange, double valueRange) {
     std::vector<int> re;
     if (mesh == nullptr) return re;
     double minDis = -1;
