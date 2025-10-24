@@ -32,7 +32,10 @@ void iGameStreamTracer::initStreamTracer(DataObject::Pointer obj) {
 }
 void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     model = _model;
-    if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+    if (meshId == model->GetDataObject()->GetDataObjectId()) {
+       
+    }
+     else if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
         auto temPtFinder = PointFinder::New();
@@ -97,7 +100,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     
     // Precompute trigonometric values for better performance
     precomputeTrigValues();
-    
+    meshId = model->GetDataObject()->GetDataObjectId();
     return;
 }
 void iGameStreamTracer::initSubmodelLinks() {
