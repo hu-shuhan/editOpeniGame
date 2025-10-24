@@ -251,7 +251,9 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     for (const auto& p: gridPoints) { eigenPoints.emplace_back(p[0], p[1], p[2]); }
 
-    torch::Tensor smooth_vals = knn_smooth_labels(result_volume_11, eigen_min, global_step, eigenPoints);
+    torch::Tensor smooth_vals = knn_smooth_labels(result_volume_11, eigen_min, global_step, eigenPoints, 16);
+
+    std::vector<float> Predict(NumPoints, 0.0f);
 
     FloatArray::Pointer vortexs = FloatArray::New();
     vortexs->SetDimension(1);
@@ -262,13 +264,284 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     for (int i = 0; i < NumPoints; ++i) {
         float value = smooth_vals[i].item<float>();
         vortexs->AddValue(value);
+        Predict[i] = value;
         //predictions.push_back(value);
     }
     auto t1 = std::chrono::high_resolution_clock::now();
     double elapsed = std::chrono::duration<double>(t1 - t0).count();
     std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
 
+    EvaluatePredictMetrics(Mesh, Attributes, Index, Predict);
+
     return true;
+}
+
+void VortexDetection::EvaluatePredictMetrics(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index,
+                                             const std::vector<float>& Predict) {
+    std::vector<float> Q = ComputePointQForVol(Mesh, Attributes, Index);
+    if (Q.size() != Predict.size()) { return; }
+
+    const size_t N = Q.size();
+    size_t count = 0;
+
+    for (size_t i = 0; i < N; ++i) {
+        int gt = (Q[i] > 0.0f) ? 1 : 0;
+        int pred = (Predict[i] > 0.01f) ? 1 : 0;
+        if ((pred == 1 && gt == 1) || (pred == 0 && gt == 0)) ++count;
+    }
+
+    const double eps = 1e-12;
+    double accuracy = static_cast<double>(count) / std::max<size_t>(1, N);
+    std::cout << "[VortexDetection::Execute] Accuracy  = " << accuracy << "\n";
+}
+
+std::vector<float> VortexDetection::ComputePointQForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet,
+                                                        int curIndex) {
+    int PointNum = volume_Mesh->GetNumberOfPoints();
+    int numCells = volume_Mesh->GetNumberOfVolumes();
+    ArrayObject::Pointer data = attributeSet->GetAttribute(curIndex).pointer;
+    if (attributeSet->GetAttribute(curIndex).attachmentType == IG_CELL) {
+        data = AttributeCell2Point(volume_Mesh->GetCells(), data, PointNum);
+    }
+
+
+    std::vector<std::array<float, 3>> gradients_x(PointNum, {0, 0, 0});
+    std::vector<std::array<float, 3>> gradients_y(PointNum, {0, 0, 0});
+    std::vector<std::array<float, 3>> gradients_z(PointNum, {0, 0, 0});
+    std::vector<float> volumes(PointNum, 0.0f);
+    std::vector<int> deg(PointNum, 0);
+
+    for (int cellId = 0; cellId < numCells; ++cellId) {
+        auto cell = volume_Mesh->GetVolume(cellId);
+
+        auto grad_x = ComputePointGradient(1, cell, data, 0);
+        auto grad_y = ComputePointGradient(1, cell, data, 1);
+        auto grad_z = ComputePointGradient(1, cell, data, 2);
+
+        for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
+            igIndex pid = cell->GetPointId(i);
+            for (int d = 0; d < 3; d++) {
+                gradients_x[pid][d] += grad_x[d];
+                gradients_y[pid][d] += grad_y[d];
+                gradients_z[pid][d] += grad_z[d];
+            }
+            deg[pid]++;
+        }
+    }
+    for (int i = 0; i < PointNum; ++i) {
+        if (deg[i] > 0) {
+            const float inv = 1.0f / static_cast<float>(deg[i]);
+            for (int d = 0; d < 3; ++d) {
+                gradients_x[i][d] *= inv;
+                gradients_y[i][d] *= inv;
+                gradients_z[i][d] *= inv;
+            }
+        }
+    }
+
+    std::vector<float> Q(PointNum, 0.0f);
+    //FloatArray::Pointer QCri = FloatArray::New();
+    //QCri->SetDimension(1);
+    //QCri->Reserve(PointNum);
+    //QCri->SetName("QCriteria");
+    //attributeSet->AddScalar(IG_POINT, QCri);
+
+    for (int i = 0; i < PointNum; ++i) {
+
+        const float ux = gradients_x[i][0], uy = gradients_x[i][1], uz = gradients_x[i][2];
+        const float vx = gradients_y[i][0], vy = gradients_y[i][1], vz = gradients_y[i][2];
+        const float wx = gradients_z[i][0], wy = gradients_z[i][1], wz = gradients_z[i][2];
+
+        const float omega_x = wy - vz; // ∂w/∂y - ∂v/∂z
+        const float omega_y = uz - wx; // ∂u/∂z - ∂w/∂x
+        const float omega_z = vx - uy; // ∂v/∂x - ∂u/∂y
+
+        // S = 0.5 (J + J^T)
+        const float Sxx = ux, Syy = vy, Szz = wz;
+        const float Sxy = 0.5f * (uy + vx);
+        const float Sxz = 0.5f * (uz + wx);
+        const float Syz = 0.5f * (vz + wy);
+
+        const float Oxy = 0.5f * (uy - vx);
+        const float Oxz = 0.5f * (uz - wx);
+        const float Oyz = 0.5f * (vz - wy);
+
+        const float S2 = (Sxx * Sxx + Syy * Syy + Szz * Szz) + 2.0f * (Sxy * Sxy + Sxz * Sxz + Syz * Syz);
+        const float O2 = 2.0f * (Oxy * Oxy + Oxz * Oxz + Oyz * Oyz);
+
+        const float Qval = 0.5f * (O2 - S2);
+        Q[i] = (Qval > 0.0025f) ? 1.0f : 0.0f;
+        //QCri->AddValue(Q[i]);
+    }
+    return Q;
+}
+
+std::array<float, 3> VortexDetection::ComputePointGradient(int type, Cell* cell, ArrayObject::Pointer data, int dim) {
+    if (type == 1) {
+        switch (cell->GetCellType()) {
+            case IG_TETRA: // 纯四面体
+                return ComputeTetPointGradient(cell, data, dim);
+            case IG_HEXAHEDRON: // 纯六面体
+                return ComputeHexPointGradient(cell, data, dim);
+            default: // 其他
+                return ComputePolyPointGradient(cell, data, dim);
+        }
+    }
+}
+
+ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+                                                          size_t PointNum) {
+    int dim = OriArray->GetDimension();
+
+    auto NewArray = FloatArray::New();
+    NewArray->SetName(OriArray->GetName());
+    NewArray->SetDimension(dim);
+    NewArray->Reserve(PointNum);
+
+    float scalar[16]{0}, temp[16]{0};
+    for (int i = 0; i < PointNum; ++i) { NewArray->AddElement(scalar); }
+
+    std::vector<int> PointAdjNum(PointNum, 0);
+
+    igIndex cell[IGAME_CELL_MAX_SIZE];
+
+    for (int i = 0; i < Cell->GetNumberOfCells(); ++i) {
+        int size = Cell->GetCellIds(i, cell);
+        OriArray->GetElement(i, scalar);
+        for (int j = 0; j < size; ++j) {
+            PointAdjNum[cell[j]]++;
+            NewArray->GetElement(cell[j], temp);
+            for (int d = 0; d < dim; ++d) temp[d] += scalar[d];
+            NewArray->SetElement(cell[j], temp);
+        }
+    }
+
+    for (int i = 0; i < PointNum; ++i) {
+        NewArray->GetElement(i, temp);
+        for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
+        NewArray->SetElement(i, temp);
+    }
+
+    return NewArray;
+}
+
+std::array<float, 3> VortexDetection::ComputeTetPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+    float centerValue = 0.0f;
+    float tetVolume = ComputeTetVolume(cell);
+    float avgEdgeLength = ComputeAverageEdgeLength(cell); // 计算平均边长
+
+    for (int i = 0; i < 4; i++) {
+        auto p = cell->GetPoint(i);
+        center[0] += p[0];
+        center[1] += p[1];
+        center[2] += p[2];
+        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+    }
+    for (int d = 0; d < 3; d++) center[d] /= 4.0f;
+    centerValue /= 4.0f;
+
+    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+
+    for (int i = 0; i < 4; ++i) {
+        auto p = cell->GetPoint(i);
+        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+
+        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+    }
+
+    for (int d = 0; d < 3; d++) gradient[d] /= (avgEdgeLength); // 改为边长归一化
+
+    return gradient;
+}
+
+std::array<float, 3> VortexDetection::ComputeHexPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+    float centerValue = 0.0f;
+
+    float avgEdgeLength = ComputeAverageEdgeLength(cell);
+
+    for (int i = 0; i < 8; i++) {
+        auto p = cell->GetPoint(i);
+        center[0] += p[0];
+        center[1] += p[1];
+        center[2] += p[2];
+        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+    }
+
+    for (int d = 0; d < 3; d++) center[d] /= 8.0f;
+    centerValue /= 8.0f;
+
+    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+
+    for (int i = 0; i < 8; ++i) {
+        auto p = cell->GetPoint(i);
+        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+
+        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+    }
+
+    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
+
+    return gradient;
+}
+
+std::array<float, 3> VortexDetection::ComputePolyPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+    int numOfPoints = cell->GetNumberOfPoints();
+
+    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+    float centerValue = 0.0f;
+
+    float avgEdgeLength = ComputeAverageEdgeLength(cell);
+
+    for (int i = 0; i < numOfPoints; i++) {
+        auto p = cell->GetPoint(i);
+        center[0] += p[0];
+        center[1] += p[1];
+        center[2] += p[2];
+        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+    }
+    for (int d = 0; d < 3; d++) center[d] /= static_cast<float>(numOfPoints);
+    centerValue /= static_cast<float>(numOfPoints);
+
+    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+    for (int i = 0; i < numOfPoints; ++i) {
+        auto p = cell->GetPoint(i);
+        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+    }
+    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
+
+    return gradient;
+}
+
+float VortexDetection::ComputeTetVolume(Cell* cell) {
+    auto p0 = cell->GetPoint(0);
+    auto p1 = cell->GetPoint(1);
+    auto p2 = cell->GetPoint(2);
+    auto p3 = cell->GetPoint(3);
+
+    std::array<float, 3> a = {p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+    std::array<float, 3> b = {p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
+    std::array<float, 3> c = {p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]};
+
+    std::array<float, 3> cross_bc = {b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2], b[0] * c[1] - b[1] * c[0]};
+
+    float dot_a = a[0] * cross_bc[0] + a[1] * cross_bc[1] + a[2] * cross_bc[2];
+    return std::abs(dot_a) / 6.0f;
+}
+
+float VortexDetection::ComputeAverageEdgeLength(Cell* cell) {
+    int num = cell->GetNumberOfEdges();
+    float totalLength = 0.0f;
+    for (int i = 0; i < num; ++i) {
+        auto* e = cell->GetEdge(i);
+        totalLength += (e->GetPoint(0) - e->GetPoint(1)).length();
+    }
+    return totalLength / num;
 }
 
 torch::Tensor VortexDetection::sigmoid(const torch::Tensor& x) { return 1.0 / (1.0 + (-x).exp()); }
