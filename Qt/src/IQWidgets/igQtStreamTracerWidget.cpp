@@ -200,7 +200,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     auto tem = model->GetDataObject();
     m_DataObject = tem;
 
-    streamtracer->initStreamTracer(model);
+    streamtracer->initStreamTracer(tem);
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
     //auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
@@ -248,6 +248,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     //	 streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     //}
     m_StreamBase->SetStreamLine(streamline, streamlineColor);
+    scene->ChangeModelVisibility(model, false);
     //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
     //   std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
     //   ATL::CString ch(msg.c_str());
@@ -265,8 +266,8 @@ void igQtStreamTracerWidget::generateStreamline() {
         isExisted = true;
         Selection = StreamLineSelection::New();
         Painter = scene->GetCurrentModel()->GetPainter3D();
-        Selection->Start = seedPoints[control * 2];
-        Selection->End = seedPoints[control * 2 + 1];
+        Selection->Start = seedPoints[5];
+        Selection->End = seedPoints[6];
         Selection->SetSelectionCallBackEvent(
                 [&](const std::vector<iGame::Selection::Event>& events) {
                     for (auto& event: events) {

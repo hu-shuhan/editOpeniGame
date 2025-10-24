@@ -1,10 +1,3 @@
-# MCP项目配置文件
-
-# 套接字服务器配置
-SOCKET_HOST = "127.0.0.1"
-SOCKET_PORT = 8080  # 修改这里来改变端口号
-MAX_CONNECTIONS = 5
-
 # =============================================================================
 # 多模型配置
 # =============================================================================
@@ -51,7 +44,7 @@ CLAUDE_CONFIG = {
 NUWA_CONFIG = {
     "API_KEY": "sk-jYrjDnqiZ894oHHkJlmtKTsCP4L4RJCz0o7isE5oJ4vZJ90S",
     "BASE_URL": "https://api.nuwaapi.com/v1",
-    "MODEL": "deepseek-v3",
+    "MODEL": "gpt-4o",
     "MAX_TOKENS": 1000,
     "TEMPERATURE": 0.7
 }
@@ -80,8 +73,30 @@ MCP_SERVER_TIMEOUT = 30  # MCP服务器连接超时时间（秒）
 SOCKET_TIMEOUT = 60      # 套接字超时时间（秒）
 
 # 日志配置
-LOG_LEVEL = "WARNING"  # WARNING 级别，只显示警告和错误
+LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+SHOW_MCP_DEBUG_LOGS = False  # 是否显示 MCP 库的调试日志（用于调试 MCP 通信问题）
+
+# =============================================================================
+# iGameVis MCP Server 配置
+# =============================================================================
+
+# iGameVis 应用程序连接配置
+IGAMEVIS_HOST = "localhost"
+IGAMEVIS_PORT = 12345
+
+# MCP Server 超时配置
+MCP_CONNECTION_TIMEOUT = 30.0  # 连接超时时间（秒）
+MCP_COMMAND_TIMEOUT = 30.0     # 命令执行超时时间（秒）
+
+# 截图和文件操作配置
+DEFAULT_SCREENSHOT_WIDTH = 1920
+DEFAULT_SCREENSHOT_HEIGHT = 1080
+DEFAULT_IMAGE_QUALITY = "high"  # high, normal
+
+# 重连配置
+MAX_RECONNECT_ATTEMPTS = 3
+RECONNECT_DELAY = 1.0  # 重连延迟（秒）
 
 # 模型选择菜单
 MODEL_MENU = {

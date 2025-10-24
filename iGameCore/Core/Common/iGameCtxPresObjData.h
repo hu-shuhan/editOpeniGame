@@ -84,6 +84,8 @@ public:
     GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
     static std::string GenerateDataTypeName(IGenum dataType);
     static std::map<int, int> GenerateKeyObjectIdToIndexs(const std::vector<int>& objectIds);
+    static double GenerateObjData(int objectId, ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                  const std::pair<int, int>& variableIndex_);
 
 protected:
     static bool LegalAttrs(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);

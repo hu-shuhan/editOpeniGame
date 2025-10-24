@@ -15,7 +15,10 @@
 
 // 前向声明
 class igQtMainWindow;
-class igQtSocketServerThread;
+
+namespace iGame {
+    class iGameSocketConnection;
+}
 
 /**
  * @brief 聊天管理器类
@@ -88,7 +91,7 @@ private:
     void stopAiChatServerProcess();
 
     igQtMainWindow* m_mainWindow;                          // 主窗口指针
-    igQtSocketServerThread* m_connectionThread;            // Socket 通信线程
+    iGame::iGameSocketConnection* m_connectionThread; // Socket 通信连接
     bool m_isConnected;                                    // 连接状态标志
     std::function<void(const QString&)> m_messageCallback; // 消息接收回调
     QProcess* m_aiChatServerProcess;                       // AiChat 对话服务器进程

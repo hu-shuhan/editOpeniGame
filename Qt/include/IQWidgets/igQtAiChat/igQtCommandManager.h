@@ -14,7 +14,10 @@
 // 前向声明
 class igQtCommandExecutor;
 class igQtMainWindow;
-class igQtSocketServerThread;
+
+namespace iGame {
+    class iGameSocketConnection;
+}
  
  /**
   * @brief 命令管理器类
@@ -24,7 +27,7 @@ class igQtSocketServerThread;
   * 
   * 注意：这不是一个QObject，通过回调机制实现命令处理
   */
- class IG_QT_MODULE_EXPORT igQtCommandManager {
+ class IG_QT_MODULE_EXPORT igQtCommandManager  {
  public:
     /**
      * @brief 构造函数
@@ -70,7 +73,7 @@ class igQtSocketServerThread;
 
 private:
     igQtCommandExecutor* m_executor;           // 命令执行器（内部管理）
-    igQtSocketServerThread* m_connectionThread; // Socket 通信线程
+    iGame::iGameSocketConnection* m_connectionThread; // Socket 通信连接
     bool m_isConnected;                        // 连接状态标志
      
      // 禁用拷贝
