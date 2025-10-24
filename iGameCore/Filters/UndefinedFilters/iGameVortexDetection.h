@@ -72,6 +72,8 @@ public:
     //                                   const Vector3f& minPosition, const Vector3f& maxPosition, int nx, int ny,
     //                                   int nz);
 
+
+
     torch::Tensor knn_smooth_labels(const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                     const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
                                     const std::vector<Eigen::Vector3f>& query_points,

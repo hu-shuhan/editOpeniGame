@@ -276,6 +276,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     return true;
 }
 
+
 void VortexDetection::EvaluatePredictMetrics(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index,
                                              const std::vector<float>& Predict) {
     std::vector<float> Q = ComputePointQForVol(Mesh, Attributes, Index);
