@@ -921,6 +921,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->widget_DataChangeField, &igQtDataChangeWidget::SIGNAL_RefreshDataClicked, this,
             [&]() { DataChangeFunc(this); });
 
+    ui->action_ContextPreserving->setVisible(false);
     connect(ui->action_ContextPreserving, &QAction::triggered, this, [&](bool checked) {
         if (checked && !ui->dockWidget_ContextPreservingShowField->isVisible()) {
             auto model = rendererWidget->GetScene()->GetCurrentModel();
