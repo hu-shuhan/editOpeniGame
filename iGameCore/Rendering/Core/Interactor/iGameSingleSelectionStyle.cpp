@@ -112,6 +112,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                 SelectionParameter::Instance().GetSelectVariableIndex(),
                 (SelectionParameter::Instance().GetSelectVariableRange() < 0),
                 SelectionParameter::Instance().GetSelectVariableRange());
+        ids = GetPointsOfCells(ids, mesh);
     }
 
     //auto ids = GetPointsInCondition(
@@ -129,7 +130,6 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     //        (SelectionParameter::Instance().GetSelectVariableRange() < 0),
     //        SelectionParameter::Instance().GetSelectVariableRange());
     if (ids.empty()) return;
-    ids = GetPointsOfCells(ids, mesh);
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         auto events = Selection::GeneratePointEvents(
                 ids, Selection::Event::Operate::Add, mesh,
