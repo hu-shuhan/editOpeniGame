@@ -13,7 +13,7 @@ bool iGameSetPointsSelect::Execute() {
 void iGameSetPointsSelect::Run() {
     auto selection = m_Mesh->GetSelection();
     auto Events =
-            Selection::GenerateEvents(m_Ids, IG_POINT, m_Operate, m_Mesh, m_Painter);
+            Selection::GeneratePointEvents(m_Ids, m_Operate, m_Mesh, m_Painter);
     selection->SelectionCallBackEvent(Events);
 }
 

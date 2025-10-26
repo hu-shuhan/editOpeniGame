@@ -20,10 +20,6 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	SetCustomScaleRangeUi->setupUi(SetCustomScaleRangeWidget);
 	SetCustomScaleRangeWidget->hide();
 	ui->widget_DataRangeSlider->hide();
-	connect(ui->scalarInfoComboBox, SIGNAL(currentIndexChanged(QString)), this,
-		SLOT(showScalarItem()));
-	connect(ui->scalarItemComboBox, SIGNAL(currentIndexChanged(QString)), this,
-		SLOT(showScalarView()));
 
 	connect(ui->btn_EditColorMap, &QPushButton::clicked, this,
 		&igQtScalarViewWidget::editColorBar);
@@ -49,63 +45,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
         showScalarView();
     });
 }
-void igQtScalarViewWidget::getScalarsName() {
-	//ui->scalarInfoComboBox->clear();
-	//ui->scalarInfoComboBox->addItem("Solider");
-	//auto manager = iGame::iGameManager::Instance();
-	//if (manager->GetModelList().size() == 0)return;
-	//auto model = manager->GetCurrentModel();
-	//auto dataset = model->DataSet;
-	//scalarInfo.clear();
-	//if (dataset->GetPointData() == nullptr)return;
-	//auto attributes = dataset->GetPointData()->GetAllScalars();
-	//for (int i = 0; i < attributes.size(); i++) {
-	//	auto data = dataset->GetPointData()->GetScalars(i);
-	//	std::string name = data->GetName();
-	//	int size = data->GetNumberOfComponents();
-	//	scalarInfo[name] = size;
-	//}
-	//for (auto it : scalarInfo) {
-	//	ui->scalarInfoComboBox->addItem(QString::fromStdString(it.first));
-	//}
-}
-void igQtScalarViewWidget::showScalarItem() {
-	//   this->currentSelectedScalarIdx = ui->scalarInfoComboBox->currentIndex();
-	//   modelColorManager->SetCurrentSelectedScalarIdx(currentSelectedScalarIdx - 1);
-	//auto scalarName = ui->scalarInfoComboBox->currentText().toStdString();
-	//int size = 0;
-	//for (auto& [_name, _size] : scalarInfo) {
-	//	if (_name == scalarName) {
-	//		size = _size;
-	//		break;
-	//	}
-	//}
-	////std::cout << scalarName << std::endl;
-	////std::cout << size << std::endl;
-	//ui->scalarItemComboBox->clear();
-	//if (size > 1) ui->scalarItemComboBox->addItem(QString::fromStdString("magnitude"));
-	//if (size > 0) ui->scalarItemComboBox->addItem(QString::fromStdString("x"));
-	//if (size > 1) ui->scalarItemComboBox->addItem(QString::fromStdString("y"));
-	//if (size > 2) ui->scalarItemComboBox->addItem(QString::fromStdString("z"));
-	//if (size > 3) ui->scalarItemComboBox->addItem(QString::fromStdString("u"));
-}
 void igQtScalarViewWidget::loadScalarData() {
-	//   this->currentSelectedScalarIdx = ui->scalarInfoComboBox->currentIndex();
-	//this->scalarName = ui->scalarInfoComboBox->currentText().toStdString();
-	//   this->scalarDimension = ui->scalarItemComboBox->currentIndex();
-	//   modelColorManager->SetCurrentSelectedScalarIdx(currentSelectedScalarIdx - 1);
-	//   modelColorManager->SetCurrentScalarComponentIdx(scalarDimension - 1);
-	//   this->scalarData = nullptr;
-	//if (scalarDimension == -1 || scalarName == "Solider")return;
-	//auto manager = iGame::iGameManager::Instance();
-	//if (manager->GetModelList().size() == 0)return;
-	//auto PointData = manager->GetCurrentModel()->DataSet->GetPointData();
-	//if (PointData != nullptr){
-	//	this->scalarData = PointData->GetScalars(scalarName);
-	//}
-	//return;
-
-
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	m_ColorMapper = nullptr;
 	iGame::DataObject::Pointer obj;
@@ -153,7 +93,6 @@ void igQtScalarViewWidget::initScalarInfo()
 void igQtScalarViewWidget::showScalarView() {
 	loadScalarData();
 	initScalarRange();
-	updateDrawStyle();
 	initScalarInfo();
 }
 void igQtScalarViewWidget::updateDrawStyle() {

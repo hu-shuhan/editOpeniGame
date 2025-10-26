@@ -6,15 +6,15 @@
 #define IGAMEVIS_INTERACTOR_H
 
 #include "iGameBasicStyle.h"
+#include "iGameDragCenterStyle.h"
 #include "iGameInteractorStyle.h"
 #include "iGameMultiSelectionStyle.h"
 #include "iGameSingleDragStyle.h"
 #include "iGameSingleSelectionStyle.h"
 #include "iGameSlicingStyle.h"
 #include "iGameStreamlineStyle.h"
-#include <string>
 #include <map>
-#include "iGameDragCenterStyle.h"
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -25,16 +25,16 @@ public:
 
     // 交互风格
     enum Style {
-        BasicStyle = 0,           // 基础
-        SinglePointSelectionStyle,// 点选
-        SingleFaceSelectionStyle, // 面选
-        MultiPointSelectionStyle, // 多个点选
-        MultiFaceSelectionStyle,  // 多个面选
-        DragPointStyle,           // 点拖动
-        SlicingStyle,             // 切片
-        StreamLine,               // 流形的线
+        BasicStyle = 0,            // 基础
+        SinglePointSelectionStyle, // 点选
+        SingleFaceSelectionStyle,  // 面选
+        MultiPointSelectionStyle,  // 多个点选
+        MultiFaceSelectionStyle,   // 多个面选
+        DragPointStyle,            // 点拖动
+        SlicingStyle,              // 切片
+        StreamLine,                // 流形的线
         //PickCenterStyle,            // 点选中心点
-        DragCenterStyle,          // 拖动中心点
+        DragCenterStyle, // 拖动中心点
     };
 
     /**
@@ -68,22 +68,14 @@ public:
     /**
      * @brief 切换成点选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
-     * @param double selectRadius 选择半径
-     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestPointSelectionStyle(SmartPointer<Selection> s,
-                                    double selectRadius,
-                                    bool selectOrUnSelect = true);
+    void RequestPointSelectionStyle(SmartPointer<Selection> s);
 
     /**
      * @brief 切换成面选风格类型交互器
      * @param Selection s 事件响应后将会通知的对象
-     * @param double selectRadius 选择半径
-     * @param bool selectOrUnSelect 选择或取消选择
      */
-    void RequestFaceSelectionStyle(SmartPointer<Selection> s,
-                                   double selectRadius,
-                                   bool selectOrUnSelect = true);
+    void RequestFaceSelectionStyle(SmartPointer<Selection> s);
 
 
     void RequestPickCenterStyle(SmartPointer<Selection> s);
@@ -102,7 +94,7 @@ public:
     //void RequestSlicingStyle();
     void RequestSlicingStyle(SmartPointer<Selection> s);
 
-     /**
+    /**
      * @brief 切换成流形的线类型交互器
      * @param Selection s 事件响应后将会通知的对象
      */

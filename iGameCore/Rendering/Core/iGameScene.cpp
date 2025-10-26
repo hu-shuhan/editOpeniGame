@@ -267,11 +267,24 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView() {
-    UpdateModelsBoundingSphere();
+void Scene::ResetCameraView(SmartPointer<Model> model) {
+    if (model == nullptr) {
+        UpdateModelsBoundingSphere();
+    } else {
+        auto& box = model->GetDataObject()->GetBoundingBox();
+        double* center = box.center().pointer();
+        float x = static_cast<float>(center[0]);
+        float y = static_cast<float>(center[1]);
+        float z = static_cast<float>(center[2]);
+
+        double diameter = box.diag();
+        float radius = static_cast<float>(diameter / 2.0);
+
+        m_ModelsBoundingSphere = igm::vec4{x, y, z, radius};
+    }
+
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
     float radius = m_ModelsBoundingSphere.w;
-
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
@@ -1210,41 +1223,57 @@ void Scene::ResetCameraViewToIsometric() {
     UpdateRealRotationCenter(m_RotationCenter);
 }
 
-void Scene::RotateNinetyClockwise() {
-    igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+void Scene::RotateClockwise(float angle) {
+    igm::vec4 center = igm::vec4{ m_ModelsBoundingSphere.xyz(), 1.0f };
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
 
-    auto radians = static_cast<float>(igm::radians(90.0f));
+    auto radians = static_cast<float>(igm::radians(angle));
     auto rotate =
-            igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
+        igm::rotate(igm::mat4{}, -radians, igm::vec3{ 0.0f, 0.0f, 1.0f });
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
     UpdateRealRotationCenter(m_RotationCenter);
+}
+void Scene::RotateNinetyClockwise() {
+    return this->RotateClockwise(90.0f);
+    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
+    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
+    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
+
+    //auto radians = static_cast<float>(igm::radians(90.0f));
+    //auto rotate =
+    //        igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
+    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+
+    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    //m_ModelRotate = rotate * m_ModelRotate;
+    //UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::RotateNinetyCounterClockwise() {
-    igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
-    std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
-    igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
+    return this->RotateClockwise(-90.0f);
+    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
+    //std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
+    //std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
+    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
+    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
+    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
 
-    auto radians = static_cast<float>(igm::radians(90.0f));
-    auto rotate =
-            igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
+    //auto radians = static_cast<float>(igm::radians(90.0f));
+    //auto rotate =
+    //        igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
 
-    igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
+    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
-    m_ModelMatrix = rotateSelf * m_ModelMatrix;
-    m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
+    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
+    //m_ModelRotate = rotate * m_ModelRotate;
+    //UpdateRealRotationCenter(m_RotationCenter);
 }
-
 
 // 切换显示状态实现
 void Scene::ToggleCenterAxes() {

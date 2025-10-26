@@ -241,8 +241,13 @@ void igQtVariableCorrelationWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    if (type == IG_POINT) {
+        auto events = Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
+        m_Model->GetSelection()->SelectionCallBackEvent(events);
+    } else if (type == IG_CELL) {
+        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
+        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
+    }
     update();
 }
 
@@ -675,10 +680,11 @@ void igQtVariableCorrelationWidget::_DrawCorImage(int mainVariableIndex, int sub
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
     for (auto& objId: objDrawSort) {
+        auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
         _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],
-                   Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
+                   Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha(), drawFrame, painter, 5);
     }
 }
 
