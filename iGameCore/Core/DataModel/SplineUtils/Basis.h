@@ -5,7 +5,7 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 class Basis {
 public:
     Basis() {}
@@ -43,5 +43,5 @@ private:
     int m_Degree;                // 次数
     std::vector<double> m_Knots; // 节点序列
 };
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NurbsSDK/MultiGeo.h"
+#include "SplineUtils/MultiGeo.h"
 #include "iGameDrawObject.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -14,9 +14,8 @@ public:
     IGenum GetDataObjectType() const override;
     bool IsUseSinglePassWireframeRendering() override;
 
-    void SetPatch(std::vector<NurbsSDK::Geometry>& geometrys);
-    void SetBoundary(std::vector<std::array<int, 2>> boundary);
-    void SetType(NurbsSDK::Type type);
+    void SetPatch(std::vector<SplineUtils::Geometry>& geometrys);
+    void SetType(SplineUtils::Type type);
     void SetSamples(size_t number);
 
     //Get real size of DataObject
@@ -35,7 +34,7 @@ protected:
     // Compute model bounding box
     void ComputeBoundingBox() override;
 
-    NurbsSDK::MultiGeo::Pointer m_Geometry;
+    SplineUtils::MultiGeo::Pointer m_Geometry;
     int m_Samples = 0;
 };
 

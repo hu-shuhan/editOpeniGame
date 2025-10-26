@@ -1,7 +1,7 @@
 #include "Volume.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 Volume::Volume(const int udegree, const int vdegree, const int wdegree, const std::vector<Point>& controlPoints,
                const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& wknots,
                const std::vector<double>& weights) {
@@ -162,5 +162,5 @@ void Volume::evalDers(std::vector<double>& u, std::vector<std::vector<double>>& 
         }
     }
 }
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

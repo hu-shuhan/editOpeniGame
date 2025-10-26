@@ -56,7 +56,7 @@ add_executable(testConvertToVolumeMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Conve
 add_executable(testConvertToSurfaceMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToSurfaceMesh.cpp")
 
 add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
-add_executable(testNurbsReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NurbsReader.cpp")
+add_executable(testSplineReaderCPU "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineReaderCPU.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
 add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.cpp")
 
@@ -137,7 +137,7 @@ target_link_libraries(testDeformation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testContourLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testNurbsReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSplineReaderCPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testNastranReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
