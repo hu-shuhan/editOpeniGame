@@ -29,3 +29,5 @@
 #include "UndefinedFilters/iGameCurvatureFilter.h"
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "Convert/iGameConvertToSurfaceMesh.h"
+#include "Convert/iGameConvertToVolumeMesh.h"
+#include "Convert/iGameConvertToPointCloud.h"

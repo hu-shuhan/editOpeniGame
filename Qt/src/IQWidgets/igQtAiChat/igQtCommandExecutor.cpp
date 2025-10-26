@@ -997,12 +997,18 @@ static void Convert(const std::string& folderIn, const std::string& folderOut) {
             Filter->SetConvertMethod(iGame::ConvertToSurfaceMesh::IG_EXTRACT_SURFACE_MESH);
             Filter->Execute();
             auto res = Filter->GetSurfaceMesh();
-            if (iGame::FileIO::WriteFile(outputPath, res)) {
-                ++successCount;
-            }
-            else {
+            if (!res || res->GetNumberOfPoints() == 0 || res->GetNumberOfFaces() == 0) {
                 std::cerr << "Failed to write file: " << outputPath << std::endl;
                 ++failCount;
+            }
+            else {
+                if (iGame::FileIO::WriteFile(outputPath, res)) {
+                    ++successCount;
+                }
+                else {
+                    std::cerr << "Failed to write file: " << outputPath << std::endl;
+                    ++failCount;
+                }
             }
         }
     }
