@@ -210,11 +210,13 @@ public:
     void ResetCameraViewToIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
-    void RotateClockwise(float radians);
+    void RotateClockwise(float angle);
+
     /**
      * @brief 切换中心坐标轴的显示状态
      */
     void ToggleCenterAxes();
+
     /**
      * @brief 获取中心坐标轴模型
      * @return 中心坐标轴模型指针
@@ -224,37 +226,22 @@ public:
     }
 
     /**
-     * @brief 获取当前旋转中心（世界坐标）-考虑模型变换
+     * @brief 获取当前旋转中心（世界坐标）
      */
     igm::vec3 GetRotationCenter() const;
 
-
-    /**
-     * @brief 获取当前旋转中心（世界坐标）-未考虑模型变换
-     */
-    igm::vec3 GetRotationCenter_1() const;
-
-
     void UpdateAxisSize();
 
-
     /**
-     * @brief 设置旋转中心（世界坐标）
+     * @brief 设置自定义旋转中心（世界坐标）
      */
     void SetRotationCenter(const igm::vec3 center);
-
-
-    /**
-     * @brief 根据模型矩阵更新实际旋转中心（局部坐标）
-     */
-    void UpdateRealRotationCenter(const igm::vec3 center);
-
 
     /**
      * @brief 重置旋转中心到包围球中心
      */
     void ResetRotationCenter() {
-        m_CustomRotationCenter = false;
+        m_UseCustomRotationCenter = false;
         this->Modified();
     }
 
@@ -264,7 +251,6 @@ public:
     float GetRotationCenterDepth() const;
 
     igm::vec3 ScreenToWorld(const igm::vec2& screenPos, float depth) const;
-
 
     /**
      * @brief 启用或禁用体绘制。
@@ -443,9 +429,12 @@ protected:
     // 新增成员变量
     SmartPointer<CenterAxesModel> m_CenterAxesModel;
     bool m_CenterAxesVisible = false; // 控制显示开关
-    igm::vec3 m_RotationCenter;       // 独立存储旋转中心
-    igm::vec3 m_RealRotationCenter;
-    bool m_CustomRotationCenter = false; // 标记是否使用自定义旋转中心
+
+    bool m_UseCustomRotationCenter = false;
+    igm::vec3 m_CustomRotationCenter;
+    // igm::vec3 m_RotationCenter;       // 独立存储旋转中心
+    // igm::vec3 m_RealRotationCenter;
+    // bool m_CustomRotationCenter = false; // 标记是否使用自定义旋转中心
 
     friend class RenderWindow;
     friend class Model;
