@@ -126,9 +126,10 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
 void Scene::RemoveModel(IGuint modelID) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto id = it->first;
-        auto m = it->second;
+        auto& m = it->second;
 
         if (id == modelID) {
+            m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
@@ -151,6 +152,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
         auto m = it->second;
 
         if (m == model) {
+            m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
@@ -171,7 +173,8 @@ void Scene::RemoveCurrentModel() {
 
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
 
-    model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
+    // 移动到RemoveModel里了
+    // model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
     RemoveModel(m_CurrentModelID);
 }
 
