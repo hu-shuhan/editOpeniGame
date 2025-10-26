@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
 #pragma comment(lib, "ws2_32.lib")
 #ifndef OPENCMD_H
 #define OPENCMD_H
-#include "Spline XML/iGameNurbsReader.h"
+#include "Spline XML/iGameSplineReaderCPU.h"
 #include "iGameFileIO.h"
 #include <string>
 class OpenCmd {

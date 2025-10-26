@@ -3,7 +3,7 @@
 #include "Geo.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 class Volume : public Geo {
 public:
     /// \brief 构造一条有理b样条曲线.
@@ -30,5 +30,5 @@ public:
     /// \brief 获得非零基函数值和导数，u长度3
     void evalDers(std::vector<double>& u, std::vector<std::vector<double>>& basisValue);
 };
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

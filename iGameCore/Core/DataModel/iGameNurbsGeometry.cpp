@@ -3,19 +3,17 @@
 
 IGAME_NAMESPACE_BEGIN
 
-NurbsGeometry::NurbsGeometry() { m_Geometry = NurbsSDK::MultiGeo::New(); }
+NurbsGeometry::NurbsGeometry() { m_Geometry = SplineUtils::MultiGeo::New(); }
 
 IGenum NurbsGeometry::GetDataObjectType() const { return IG_NURBS_GEOMETRY; }
 
 bool NurbsGeometry::IsUseSinglePassWireframeRendering() { return false; }
 
-void NurbsGeometry::SetPatch(std::vector<NurbsSDK::Geometry>& patchs) {
+void NurbsGeometry::SetPatch(std::vector<SplineUtils::Geometry>& patchs) {
     for (auto patch: patchs) { m_Geometry->AddPatch(patch); }
 }
 
-void NurbsGeometry::SetBoundary(std::vector<std::array<int, 2>> boundary) { m_Geometry->SetBoundaryInfo(boundary); }
-
-void NurbsGeometry::SetType(NurbsSDK::Type type) { m_Geometry->SetType(type); }
+void NurbsGeometry::SetType(SplineUtils::Type type) { m_Geometry->SetType(type); }
 
 void NurbsGeometry::SetSamples(size_t number) {
     if (number > 100) { igDebug("Sample number is too large and may cause performance issues"); }
@@ -42,11 +40,11 @@ void NurbsGeometry::ConvertToDrawableData() {
 
         if (m_Geometry->GetPatchSize() == 0) return;
 
-        if (m_Geometry->GetType() == NurbsSDK::Type::CURVE) {
+        if (m_Geometry->GetType() == SplineUtils::Type::CURVE) {
             ConvertToCurveData();
-        } else if (m_Geometry->GetType() == NurbsSDK::Type::SURFACE) {
+        } else if (m_Geometry->GetType() == SplineUtils::Type::SURFACE) {
             ConvertToSurfaceData();
-        } else if (m_Geometry->GetType() == NurbsSDK::Type::VOLUME) {
+        } else if (m_Geometry->GetType() == SplineUtils::Type::VOLUME) {
             ConvertToVolumeData();
         }
     }
@@ -310,171 +308,148 @@ void NurbsGeometry::ConvertToVolumeData() {
     }
     for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
-    // 3. 传入离散化面片
+    // 2. 传入离散化面片
     double sample_gap = 1.f / samples;
-    for (auto arr: m_Geometry->GetBoundaryInfo()) {
-        int patch_id = arr[0];
+    // Sample all six faces of each volume patch (faces: u=0,u=1,v=0,v=1,w=0,w=1)
+    for (int patch_id = 0; patch_id < m_Geometry->GetPatchSize(); ++patch_id) {
         auto currentPatch = m_Geometry->PatchPointer(patch_id);
-        if (arr[1] == 0) {
-            // u=0 or u=1, 固定u的大小
-            for (int v_sample = 0; v_sample < samples; ++v_sample) {
-                for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                    // 用离散采样点获取绘制店
-                    std::vector<double> v_0{0, w_sample * sample_gap, v_sample * sample_gap, 0};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{0, (w_sample + 1) * sample_gap, v_sample * sample_gap};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{0, (w_sample + 1) * sample_gap, (v_sample + 1) * sample_gap};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{0, w_sample * sample_gap, (v_sample + 1) * sample_gap};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
-            }
-        } else if (arr[1] == 1) {
-            for (int v_sample = 0; v_sample < samples; ++v_sample) {
-                for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                    // 用离散采样点获得绘制点
-                    std::vector<double> v_0{1, w_sample * sample_gap, v_sample * sample_gap, 0};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{1, (w_sample + 1) * sample_gap, v_sample * sample_gap};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{1, (w_sample + 1) * sample_gap, (v_sample + 1) * sample_gap};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{1, w_sample * sample_gap, (v_sample + 1) * sample_gap};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
-            }
-        } else if (arr[1] == 2) {
+        // face 0: u = 0
+        for (int v_sample = 0; v_sample < samples; ++v_sample) {
             for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                    // 用离散采样点获得绘制点
-                    std::vector<double> v_0{u_sample * sample_gap, 0, w_sample * sample_gap};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{(u_sample + 1) * sample_gap, 0, w_sample * sample_gap};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{(u_sample + 1) * sample_gap, 0, (w_sample + 1) * sample_gap};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{u_sample * sample_gap, 0, (w_sample + 1) * sample_gap};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
-            }
-        } else if (arr[1] == 3) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                    // 用离散采样点获得绘制点
-                    std::vector<double> v_0{u_sample * sample_gap, 1, w_sample * sample_gap};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{(u_sample + 1) * sample_gap, 1, w_sample * sample_gap};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{(u_sample + 1) * sample_gap, 1, (w_sample + 1) * sample_gap};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{u_sample * sample_gap, 1, (w_sample + 1) * sample_gap};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
-            }
-        } else if (arr[1] == 4) {
-            for (int v_sample = 0; v_sample < samples; ++v_sample) {
-                for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                    // 用离散采样点获得绘制点
-                    std::vector<double> v_0{u_sample * sample_gap, v_sample * sample_gap, 0};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 0};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 0};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 0};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
-            }
-
-        } else if (arr[1] == 5) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                    // 用离散采样点获得绘制点
-                    std::vector<double> v_0{u_sample * sample_gap, w_sample * sample_gap, 1};
-                    auto v0 = currentPatch->getPointAtParam(v_0);
-
-                    std::vector<double> v_1{(u_sample + 1) * sample_gap, w_sample * sample_gap, 1};
-                    auto v1 = currentPatch->getPointAtParam(v_1);
-
-                    std::vector<double> v_2{(u_sample + 1) * sample_gap, (w_sample + 1) * sample_gap, 1};
-                    auto v2 = currentPatch->getPointAtParam(v_2);
-
-                    std::vector<double> v_3{u_sample * sample_gap, (w_sample + 1) * sample_gap, 1};
-                    auto v3 = currentPatch->getPointAtParam(v_3);
-
-
-                    std::vector<std::vector<double>*> tempV{&v0, &v1, &v2, &v3};
-                    auto offset = points->GetNumberOfPoints();
-                    for (auto v: tempV) { points->AddPoint((*v)[0], (*v)[1], (*v)[2]); }
-                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-                }
+                std::vector<double> v0{0, v_sample * sample_gap, w_sample * sample_gap};
+                std::vector<double> v1{0, (v_sample + 1) * sample_gap, w_sample * sample_gap};
+                std::vector<double> v2{0, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
+                std::vector<double> v3{0, v_sample * sample_gap, (w_sample + 1) * sample_gap};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
             }
         }
+
+        // face 1: u = 1
+        for (int v_sample = 0; v_sample < samples; ++v_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                std::vector<double> v0{1, v_sample * sample_gap, w_sample * sample_gap};
+                std::vector<double> v1{1, (v_sample + 1) * sample_gap, w_sample * sample_gap};
+                std::vector<double> v2{1, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
+                std::vector<double> v3{1, v_sample * sample_gap, (w_sample + 1) * sample_gap};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+            }
+        }
+
+        // face 2: v = 0
+        for (int u_sample = 0; u_sample < samples; ++u_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                std::vector<double> v0{u_sample * sample_gap, 0, w_sample * sample_gap};
+                std::vector<double> v1{(u_sample + 1) * sample_gap, 0, w_sample * sample_gap};
+                std::vector<double> v2{(u_sample + 1) * sample_gap, 0, (w_sample + 1) * sample_gap};
+                std::vector<double> v3{u_sample * sample_gap, 0, (w_sample + 1) * sample_gap};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+            }
+        }
+
+        // face 3: v = 1
+        for (int u_sample = 0; u_sample < samples; ++u_sample) {
+            for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                std::vector<double> v0{u_sample * sample_gap, 1, w_sample * sample_gap};
+                std::vector<double> v1{(u_sample + 1) * sample_gap, 1, w_sample * sample_gap};
+                std::vector<double> v2{(u_sample + 1) * sample_gap, 1, (w_sample + 1) * sample_gap};
+                std::vector<double> v3{u_sample * sample_gap, 1, (w_sample + 1) * sample_gap};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+            }
+        }
+
+        // face 4: w = 0
+        for (int v_sample = 0; v_sample < samples; ++v_sample) {
+            for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 0};
+                std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 0};
+                std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 0};
+                std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 0};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+            }
+        }
+
+        // face 5: w = 1
+        for (int v_sample = 0; v_sample < samples; ++v_sample) {
+            for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 1};
+                std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 1};
+                std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 1};
+                std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 1};
+                auto p0 = currentPatch->getPointAtParam(v0);
+                auto p1 = currentPatch->getPointAtParam(v1);
+                auto p2 = currentPatch->getPointAtParam(v2);
+                auto p3 = currentPatch->getPointAtParam(v3);
+                auto offset = points->GetNumberOfPoints();
+                points->AddPoint(p0[0], p0[1], p0[2]);
+                points->AddPoint(p1[0], p1[1], p1[2]);
+                points->AddPoint(p2[0], p2[1], p2[2]);
+                points->AddPoint(p3[0], p3[1], p3[2]);
+                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+            }
+
+            m_Positions = points->ConvertToArray();
+            m_Positions->Modified();
+
+            m_PointIndices = pointIndices;
+            m_PointIndices->Modified();
+
+            m_LineIndices = edgeIndices;
+            m_LineIndices->Modified();
+
+            m_TriangleIndices = triangleIndices;
+            m_TriangleIndices->Modified();
+        }
     }
-
-    m_Positions = points->ConvertToArray();
-    m_Positions->Modified();
-
-    m_PointIndices = pointIndices;
-    m_PointIndices->Modified();
-
-    m_LineIndices = edgeIndices;
-    m_LineIndices->Modified();
-
-    m_TriangleIndices = triangleIndices;
-    m_TriangleIndices->Modified();
 }
-
 IGAME_NAMESPACE_END

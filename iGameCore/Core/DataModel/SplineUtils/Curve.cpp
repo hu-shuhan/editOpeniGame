@@ -1,7 +1,7 @@
 #include "Curve.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 Curve::Curve(const int degree, const std::vector<Point>& controlPoints, const std::vector<double>& knots,
              const std::vector<double>& weights) {
     m_ControlPoints = controlPoints;
@@ -97,5 +97,5 @@ void Curve::evalDers(std::vector<double>& u, std::vector<std::vector<double>>& b
         basisValue[1][i] = (Nu_ders[1][i] * w - Nu[i] * dNdxi) * fac;
     }
 }
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END
