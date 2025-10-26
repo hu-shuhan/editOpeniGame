@@ -1,18 +1,18 @@
 #include "iGameSceneManager.h"
+#include <IQComponents/Dialog/igQtParallelCoordinatesSortVariableDialog.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
-#include <iomanip>
-#include <iostream>
-#include <tuple>
+#include <QElapsedTimer>
 #include <QRgb>
+#include <algorithm>
 #include <climits>
 #include <cmath>
-#include <algorithm>
-#include <IQComponents/Dialog/igQtParallelCoordinatesSortVariableDialog.h>
-#include <unordered_set>
-#include <random>
 #include <iGameThreadPool.h>
+#include <iomanip>
+#include <iostream>
+#include <random>
 #include <thread>
-#include <QElapsedTimer>
+#include <tuple>
+#include <unordered_set>
 
 /**
  * @class   igQtParallelCoordinatesWidget
@@ -133,8 +133,8 @@ igQtParallelCoordinatesWidget::igQtParallelCoordinatesWidget(QWidget* parent)
     ui->setupUi(this);
     connect(ui->choosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtParallelCoordinatesWidget::ChoosedAlphaSliderChanged);
-    connect(ui->choosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,  
-           &igQtParallelCoordinatesWidget::ChoosedAlphaSpinBoxChanged);
+    connect(ui->choosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &igQtParallelCoordinatesWidget::ChoosedAlphaSpinBoxChanged);
     connect(ui->unChoosedAlphaSlider, &QSlider::valueChanged, this,
             &igQtParallelCoordinatesWidget::UnChoosedAlphaSliderChanged);
     connect(ui->unChoosedAlphaSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
@@ -230,8 +230,13 @@ void igQtParallelCoordinatesWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, drawImageArea, ids, type);
-    auto events = Selection::GenerateEvents(ids, type, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-    m_Model->GetSelection()->SelectionCallBackEvent(events);
+    if (type == IG_POINT) {
+        auto events = Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
+        m_Model->GetSelection()->SelectionCallBackEvent(events);
+    } else if (type == IG_CELL) {
+        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
+        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
+    }
     update();
 }
 
@@ -450,13 +455,9 @@ void igQtParallelCoordinatesWidget::GenerateModelDatas() {
     m_ParallelCoordinatesDatas.clear();
     m_CurrentModelDataIndex = -1;
     auto pointData = GeneratePointData();
-    if (pointData.IsNotNull()) {
-        m_ParallelCoordinatesDatas.push_back(pointData);
-    }
+    if (pointData.IsNotNull()) { m_ParallelCoordinatesDatas.push_back(pointData); }
     auto cellData = GenerateCellData();
-    if (cellData.IsNotNull()) {
-        m_ParallelCoordinatesDatas.push_back(cellData);
-    }
+    if (cellData.IsNotNull()) { m_ParallelCoordinatesDatas.push_back(cellData); }
     if (m_ParallelCoordinatesDatas.size() != 0) m_CurrentModelDataIndex = 0;
 }
 
@@ -573,8 +574,9 @@ void igQtParallelCoordinatesWidget::RefreshData() {
 void igQtParallelCoordinatesWidget::SetVariableSort() {
     if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_ParallelCoordinatesDatas[m_CurrentModelDataIndex];
-    igQtParallelCoordinatesSortVariableDialog* sortDialog = new igQtParallelCoordinatesSortVariableDialog(
-            Data->GetVariableNum(), Data->GetVariableName(), Data->GetVariableSort(), this);
+    igQtParallelCoordinatesSortVariableDialog* sortDialog =
+            new igQtParallelCoordinatesSortVariableDialog(Data->GetVariableNum(), Data->GetVariableName(),
+                                                          Data->GetVariableSort(), Data->GetVariableDiffValue(), this);
     connect(sortDialog, &igQtParallelCoordinatesSortVariableDialog::ReturnSort, this,
             &igQtParallelCoordinatesWidget::GetVariableSortFromDialog);
     sortDialog->exec();
@@ -788,9 +790,10 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
     if (Data->GetVariableSort().size() == 1) {
         int variableIndex = Data->GetVariableSort().front();
         for (auto& objId: drawSort) {
+            auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
             if (Data->NotInFilterValueRange(objId)) continue;
             painter->setPen(
-                    QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
+                    QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha()), 1));
             GenerateDrawLinkImage(
                     linkTopPoints.front().x(), linkTopPoints.back().x(), linkTopPoints.front().y(),
                     linkBottomPoints.front().y(), Data->GetObjectData(objId, variableIndex),
@@ -801,18 +804,18 @@ void igQtParallelCoordinatesWidget::GenerateDrawLinksImage(std::vector<QPoint>& 
         return;
     }
     for (auto& objId: drawSort) {
+        auto objIdx = Data->GetKeyObjectIdToIndexMap().at(objId);
         if (Data->NotInFilterValueRange(objId)) continue;
-        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objId), Data->GetUnChoosedAlpha()), 1));
+        painter->setPen(QPen(GetQColorFromTuple(Data->GetObjectColor(false, objIdx), Data->GetUnChoosedAlpha()), 1));
         for (int sortIndex = 0; sortIndex < Data->GetVariableSort().size() - 1; sortIndex++) {
             int variableIndexA = Data->GetVariableSort()[sortIndex];
             int variableIndexB = Data->GetVariableSort()[sortIndex + 1];
             GenerateDrawLinkImage(
                     linkTopPoints[sortIndex].x(), linkTopPoints[sortIndex + 1].x(), linkTopPoints[sortIndex].y(),
                     linkBottomPoints[sortIndex].y(), Data->GetObjectData(objId, variableIndexA),
-                    Data->GetObjectData(objId, variableIndexB),
-                    Data->GetMaxValueInVariables()[variableIndexA], Data->GetMinValueInVariables()[variableIndexA],
-                    Data->GetMaxValueInVariables()[variableIndexB], Data->GetMinValueInVariables()[variableIndexB],
-                    painter);
+                    Data->GetObjectData(objId, variableIndexB), Data->GetMaxValueInVariables()[variableIndexA],
+                    Data->GetMinValueInVariables()[variableIndexA], Data->GetMaxValueInVariables()[variableIndexB],
+                    Data->GetMinValueInVariables()[variableIndexB], painter);
         }
     }
 }

@@ -68,6 +68,7 @@ target_include_directories(${MODULE_NAME} PUBLIC
         $<INSTALL_INTERFACE:include/Rendering/Core/Painter>
         $<INSTALL_INTERFACE:include/Rendering/Core/RenderWindow>
         $<INSTALL_INTERFACE:include/Rendering/OpenGL>
+
 )
 set(ThirdParty_lib_dependency)
 list(APPEND ThirdParty_lib_dependency
@@ -89,13 +90,12 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    # HDF5库已经通过CGNS模块链接，不需要重复链接
-    # find_package(HDF5)
-    # target_link_libraries(
-    #  ${MODULE_NAME} PUBLIC
-    #  ${HDF5_LIBRARIES}/../libzlib.lib
-    #  ${HDF5_LIBRARIES}/../libsz.lib
-    #  ${HDF5_LIBRARIES}/../libaec.lib)
+#        find_package(HDF5)
+#        target_link_libraries(
+#         ${MODULE_NAME} PUBLIC
+#         ${HDF5_LIBRARIES}/../libzlib.lib
+#         ${HDF5_LIBRARIES}/../libsz.lib
+#         ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
@@ -147,12 +147,27 @@ endif ()
 #    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
 #endif ()
 #
-#find_package(FFMPEG)
-#if (${FFMPEG_FOUND})
-#    message("Find FFMPEG")
-#    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
-#    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
-#endif ()
+find_package(FFMPEG)
+if (${FFMPEG_FOUND})
+    message("Find FFMPEG")
+    target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+endif ()
+
+#if(Python3_FOUND)
+#    target_include_directories(${MODULE_NAME} PUBLIC
+#        ${Python3_INCLUDE_DIRS}
+#        ${pybind11_INCLUDE_DIRS}
+#    )
+#    # 添加编译定义
+#    add_compile_definitions(PYNASTRAN_SCRIPT_PATH="${PYNASTRAN_SCRIPT_DIR}")
+#
+#    message(STATUS "Python集成已启用")
+#    message(STATUS "  - Python Include: ${Python3_INCLUDE_DIRS}")
+#    message(STATUS "  - pybind11 Include: ${pybind11_INCLUDE_DIRS}")
+#    message(STATUS "  - Python Scripts: ${PYNASTRAN_SCRIPT_DIR}")
+#endif()
+
 
 #if (ENABLE_GPSCUDA_MODULE)
 #    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)

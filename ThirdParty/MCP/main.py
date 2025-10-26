@@ -99,4 +99,5 @@ def main():
             print(f"错误: {e}")
 
 if __name__ == "__main__":
-    main()
+    # main()
+    asyncio.run(start_mcp_client())

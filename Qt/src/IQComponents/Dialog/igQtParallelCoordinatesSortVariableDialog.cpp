@@ -1,17 +1,19 @@
-#include <IQComponents/Dialog/igQtParallelCoordinatesSortVariableDialog.h>
 #include "ui_igQtParallelCoordinatesSortVariableDialog.h"
-#include <cmath>
+#include <IQComponents/Dialog/igQtParallelCoordinatesSortVariableDialog.h>
 #include <algorithm>
+#include <cmath>
+#include <iGameParallelCoordinatesData.h>
 
 igQtParallelCoordinatesSortVariableDialog::igQtParallelCoordinatesSortVariableDialog(
         int variableNum, const std::vector<std::string>& variableNames, const std::vector<int>& variableSort,
-        QWidget* parent)
+        const std::vector<std::vector<double>>& variableDiffValue, QWidget* parent)
     : QDialog(parent), m_VariableNum(variableNum), m_VariableNames(variableNames), m_VariableSort(variableSort),
-      ui(new Ui::igQtParallelCoordinatesSortVariableDialog) {
+      m_VariableDiffValue(variableDiffValue), ui(new Ui::igQtParallelCoordinatesSortVariableDialog) {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
     connect(ui->allCancel, &QPushButton::clicked, this, &igQtParallelCoordinatesSortVariableDialog::Slot_AllCancel);
     connect(ui->allChoose, &QPushButton::clicked, this, &igQtParallelCoordinatesSortVariableDialog::Slot_AllChoose);
+    connect(ui->autoSort, &QPushButton::clicked, this, &igQtParallelCoordinatesSortVariableDialog::Slot_AutoSort);
     connect(ui->cancel, &QPushButton::clicked, this, &igQtParallelCoordinatesSortVariableDialog::Slot_Cancel);
     connect(ui->confirm, &QPushButton::clicked, this, &igQtParallelCoordinatesSortVariableDialog::Slot_Confirm);
     GenerateVariableLists();
@@ -23,6 +25,12 @@ igQtParallelCoordinatesSortVariableDialog::~igQtParallelCoordinatesSortVariableD
 void igQtParallelCoordinatesSortVariableDialog::Slot_AllCancel() { VariableAllUnCheck(); }
 
 void igQtParallelCoordinatesSortVariableDialog::Slot_AllChoose() { VariableAllSortToEnd(); }
+
+void igQtParallelCoordinatesSortVariableDialog::Slot_AutoSort() {
+    m_VariableSort =
+            iGame::ParallelCoordinatesData::GenerateVariableSortByDiffValue(m_VariableSort, m_VariableDiffValue);
+    UseVariableSortToSetLabel();
+}
 
 void igQtParallelCoordinatesSortVariableDialog::Slot_Confirm() {
     emit ReturnSort(m_VariableSort);

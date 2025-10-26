@@ -9,7 +9,7 @@
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
 #include "Sources/iGamePointsSource.h"
 #include "Sources/iGameLineTypePointsSource.h"
-#include "Clip/iGameModelClip.h"
+#include "Clip/iGameClipFilter.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "Contour/iGameContourFilter.h"

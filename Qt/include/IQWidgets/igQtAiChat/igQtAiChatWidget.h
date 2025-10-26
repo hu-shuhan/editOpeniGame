@@ -23,12 +23,9 @@
 #include <QListWidgetItem>
 #include <QResizeEvent>
 #include <IQCore/igQtExportModule.h>
-#include <IQWidgets/igQtAiChat/igQtMcpServerManager.h>
 
-class igQtMcpHandler;
-class igQtMcpServerManager;
-class igQtJsonCommandHandler;
 class igQtMainWindow;
+class igQtChatManager;
 class IG_QT_MODULE_EXPORT igQtAiChatWidget : public QWidget {
     Q_OBJECT
 
@@ -45,14 +42,10 @@ public slots:
     void onDisconnectFromServer();
 
 private slots:
-    void onMessageReceived(const QString& message);
+    void onChatMessageReceived(const QString& messageJson);  // 处理ChatManager的消息
     void onConnectionStatusChanged(bool connected);
     void onReturnPressed();
     void onTypingTimerTimeout();
-    void updateConnectionStatus();
-    void onMcpResponse(const QString& response);
-    void onMcpError(const QString& error);
-    void onServerError(const QString& error);
 
 signals:
     void sendMessageToServer(const QString& message);
@@ -67,7 +60,6 @@ private:
     void setupConnections();
     void setupChatPanel();
     void setupInputArea();
-    void setupMcpHandler();
     void addMessageToHistory(const QString& message, bool isUser = true);
     void addMessageToChat(const QString& message, bool isUser = true);
     void saveHistoryToFile();
@@ -75,9 +67,6 @@ private:
     void scrollToBottom();
     void showTypingIndicator(bool show);
     void updateMessageBubbleWidths();
-    
-    // JSON Command Processing - 简化接口
-    void setupJsonCommandHandler(igQtMainWindow* mainWindow = nullptr);
     
     // UI Components
     QVBoxLayout* mainLayout;
@@ -103,14 +92,8 @@ private:
     QLabel* typingLabel;
     QTimer* typingTimer;
     
-    // Server Manager - 统一的服务器管理接口
-    igQtMcpServerManager* serverManager;
-    
-    // JSON Command Handler - 统一的JSON消息处理器
-    igQtJsonCommandHandler* jsonCommandHandler;
-    
-    // MCP Handler (deprecated - functionality moved to ThirdParty/MCP bridge server)
-    igQtMcpHandler* mcpHandler;
+    // Chat Manager - 聊天消息通信管理器 (端口8080)
+    igQtChatManager* chatManager;
     
     // History
     QStringList chatHistory;
@@ -119,6 +102,5 @@ private:
     // Constants
     static constexpr int MAX_HISTORY_ITEMS = 100;
     static constexpr const char* HISTORY_FILE_PATH = "chat_history.json";
-    static constexpr const char* SERVER_HOST = "127.0.0.1";
-    static constexpr int SERVER_PORT = 8080;
+    static constexpr int CHAT_SERVER_PORT = 8080;  // ChatManager 监听端口
 }; 

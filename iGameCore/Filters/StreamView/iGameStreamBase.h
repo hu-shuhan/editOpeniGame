@@ -2,8 +2,9 @@
 #define iGameStreamBase_h
 #include "iGameDrawObject.h"
 #include "iGameSurfaceMesh.h"
-#include <iGameFilter.h>
-#include <iGameStreamTracer.h>
+#include "iGameFilter.h"
+#include "iGameStreamTracer.h"
+
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class iGameStreamBase : virtual public Filter, virtual public DrawObject {
@@ -21,6 +22,13 @@ public:
         m_StreamLineColor = streamLineColor;
         isUpdate = true;
         //ConvertToDrawableData();
+    }
+    IGsize GetRealMemorySize() {
+        IGsize res = this->DrawObject::GetRealMemorySize();
+        if (m_Points) res += m_Points->GetRealMemorySize();
+        if (m_PositionColors) res += m_PositionColors->GetRealMemorySize();
+
+        return 2*res ;
     }
 
 

@@ -14,9 +14,6 @@ public:
     enum SelectedType { None = -1, SelectPoint, SelectCell };
     void SetSelectedType(SelectedType type);
     SelectedType GetSelectedType() const;
-    void SetSelectRadius(double selectRadius);
-    void SetSelectOrUnSelect(bool select = true);
-    double GetSelectRadius() const;
 
     void Initialize(SmartPointer<Interactor> interactor,
                     SmartPointer<Selection> selection);
@@ -32,10 +29,6 @@ protected:
     ~SelectionStyle() override;
 
     SelectedType m_Type;
-    //When selecting points or faces, select the radius at one time.
-    double m_SelectRadius{};
-    //true means select. false means unselect
-    bool m_SelectOrUnSelect{true};
 
     SmartPointer<Points> m_Points;
     SmartPointer<CellArray> m_Cells;

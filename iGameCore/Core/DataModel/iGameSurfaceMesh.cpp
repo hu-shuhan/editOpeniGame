@@ -750,17 +750,18 @@ void SurfaceMesh::ConvertToDrawableData() {
             this->m_ColorMapper->SetVectorModeToComponent();
         }
         if (!attr.isDeleted) {
+            auto dataRange = attr.GetDataRange();
             if (attr.attachmentType == IG_POINT) {
                 if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
                     m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;
-                    this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
+                    this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
                 }
             } else if (attr.attachmentType == IG_CELL) {
                 if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
                     m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
                     m_ColorWithCell = true;
-                    this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
+                    this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
                 }
             }
         }

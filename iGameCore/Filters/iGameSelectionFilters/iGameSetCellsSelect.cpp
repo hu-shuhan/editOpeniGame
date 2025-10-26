@@ -12,8 +12,8 @@ bool iGameSetCellsSelect::Execute() {
 void iGameSetCellsSelect::Run() {
     auto selection = m_Mesh->GetSelection();
     auto Events =
-            Selection::GenerateEvents(m_Ids, IG_CELL, m_Operate, m_Mesh, m_Painter);
-    selection->SelectionCallBackEvent(Events);
+            Selection::GenerateCellEvents(m_Ids, m_Operate, m_Mesh);
+    selection->SelectionCallBackEvent(Events, true);
 }
 
 iGameSetCellsSelect::iGameSetCellsSelect(Selection::Event::Operate ope, const std::vector<int>& ids,

@@ -37,6 +37,8 @@ public:
     void UpdateAnimation(int keyframe_idx);
     void SetAttributeSet(AttributeSet::Pointer p);
     AttributeSet* GetAttributeSet() { return m_Attributes.get(); }
+    int GetCurrentAttributeIndex() { return m_AttributeIndex; }
+    int GetCurrentAttributeDimension(){return m_AttributeDimension;}
     Metadata* GetMetadata() { return m_Metadata.get(); }
     PropertyTree* GetPropertys() { return m_Propertys.get(); }
     const BoundingBox& GetBoundingBox() {
