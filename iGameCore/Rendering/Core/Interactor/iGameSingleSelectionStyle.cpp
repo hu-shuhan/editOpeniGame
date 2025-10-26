@@ -94,7 +94,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
 
-    std::vector<int> ids;
+    //std::vector<int> ids;
 
     //if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
     //    ids = GetPointsInCondition(
