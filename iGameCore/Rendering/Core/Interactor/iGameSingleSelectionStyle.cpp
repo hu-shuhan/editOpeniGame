@@ -275,6 +275,7 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
                 re.push_back(pointId);
             }
         }
+        re = GetFiltedPointsOfUsingAutoValueRange(id, re, mesh);
     }
     return re;
     /*################################# CORE END #################################*/
@@ -409,6 +410,52 @@ static void FindEdgesOfCell(Cell* cell,
             FindEdgesOfCell(face, edges);
         }
     }
+}
+
+static bool IfCellHavePoint(Cell* cell, const std::set<int>& pointIds) {
+    int pointNum = cell->GetNumberOfPoints();
+    for (int i = 0; i < pointNum; i++) {
+        auto pointId = cell->GetPointId(i);
+        if (pointIds.count(pointId) != 0) return true;
+    }
+    return false;
+}
+
+static bool IfCellHavePoint(Cell* cell, int _pointId) {
+    int pointNum = cell->GetNumberOfPoints();
+    for (int i = 0; i < pointNum; i++) {
+        auto pointId = cell->GetPointId(i);
+        if (pointId == _pointId) return true;
+    }
+    return false;
+}
+
+std::vector<int> SingleSelectionStyle::GetFiltedPointsOfUsingAutoValueRange(
+        int keyPointId, const std::vector<int>& pointIds,
+        UnstructuredMesh* mesh) {
+    std::set<int> pointIds_Set(pointIds.begin(), pointIds.end());
+    std::vector<int> cellIds;
+    int cellNum = mesh->GetNumberOfCells();
+    int keyCellId = -1;
+    for (int cellId = 0; cellId < cellNum; cellId++) {
+        auto cell = mesh->GetCell(cellId);
+        if (!IfCellHavePoint(cell, pointIds_Set)) continue;
+        if (keyCellId == -1 && IfCellHavePoint(cell, keyPointId))
+            keyCellId = cellId;
+        cellIds.push_back(cellId);
+    }
+    cellIds = GetFiltedCellsOfUsingAutoValueRange(keyCellId, cellIds, mesh);
+    std::set<int> pointIdInCells;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetCell(cellId);
+        int pointNum = cell->GetNumberOfPoints();
+        for (int i = 0; i < pointNum; i++) {
+            auto pointId = cell->GetPointId(i);
+            if (pointIds_Set.count(pointId) == 0) continue;
+            pointIdInCells.insert(pointId);
+        }
+    }
+    return std::vector<int>(pointIdInCells.begin(), pointIdInCells.end());
 }
 
 std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(

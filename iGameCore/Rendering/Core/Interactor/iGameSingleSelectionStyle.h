@@ -38,6 +38,10 @@ public:
                         int variableIndex = -1, bool useAutoValueRange = false,
                         double valueRange = 1.0);
     static std::vector<int>
+    GetFiltedPointsOfUsingAutoValueRange(int keyPointId,
+                                         const std::vector<int>& pointIds,
+                                         UnstructuredMesh* mesh);
+    static std::vector<int>
     GetFiltedCellsOfUsingAutoValueRange(int keyCellId,
                                         const std::vector<int>& cellIds,
                                         UnstructuredMesh* mesh);
