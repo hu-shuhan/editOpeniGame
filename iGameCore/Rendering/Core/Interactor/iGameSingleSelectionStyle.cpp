@@ -1,4 +1,4 @@
-#include "iGameSingleSelectionStyle.h"
+﻿#include "iGameSingleSelectionStyle.h"
 #include "iGameCtxPresObjData.h"
 #include "iGameHistogramPicker.h"
 #include "iGameInteractor.h"
@@ -6,6 +6,9 @@
 #include "iGameUnstructuredMesh.h"
 #include <iGameCellFaceExtracter.h>
 #include <iGameSelectionParameter.h>
+#include <map>
+#include <set>
+#include <queue>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -85,19 +88,20 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
 
 void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     if (m_Model == nullptr || !m_Selection) { return; }
-    auto mvp = m_Interactor->GetMVP();
-    auto mvp_invert = mvp.invert();
 
-    // 3D World coordinate
-    igm::vec3 point1_ = GetNearWorldCoord(pos, mvp_invert);
-    igm::vec3 point2_ = GetFarWorldCoord(pos, mvp_invert);
+    auto [point1, point2] = GetStartPointAndEndPoint(pos);
 
-    Point point1(point1_.x, point1_.y, point1_.z);
-    Point point2(point2_.x, point2_.y, point2_.z);
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
 
-    auto ids = GetPointsInCondition(
+    //auto ids = GetPointsInCondition(
+    //        point1, point2, mesh,
+    //        SelectionParameter::Instance().GetSelectionRadius(),
+    //        (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+    //        SelectionParameter::Instance().GetSelectVariableIndex(),
+    //        (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+    //        SelectionParameter::Instance().GetSelectVariableRange());
+    auto ids = GetCellsInCondition(
             point1, point2, mesh,
             SelectionParameter::Instance().GetSelectionRadius(),
             (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
@@ -105,6 +109,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
             (SelectionParameter::Instance().GetSelectVariableRange() < 0),
             SelectionParameter::Instance().GetSelectVariableRange());
     if (ids.empty()) return;
+    ids = GetPointsOfCells(ids, mesh);
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         auto events = Selection::GeneratePointEvents(
                 ids, Selection::Event::Operate::Add, mesh,
@@ -134,15 +139,9 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
 
 void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
-    auto mvp = m_Interactor->GetMVP();
-    auto mvp_invert = mvp.invert();
 
-    // 3D World coordinate
-    igm::vec3 point1_ = GetNearWorldCoord(pos, mvp_invert);
-    igm::vec3 point2_ = GetFarWorldCoord(pos, mvp_invert);
+    auto [point1, point2] = GetStartPointAndEndPoint(pos);
 
-    Point point1(point1_.x, point1_.y, point1_.z);
-    Point point2(point2_.x, point2_.y, point2_.z);
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
     auto ids = GetCellsInCondition(
@@ -166,6 +165,20 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
         m_Selection->SelectionCallBackEvent(events, true);
     }
     return;
+}
+
+std::pair<Point, Point>
+SingleSelectionStyle::GetStartPointAndEndPoint(igm::vec2 pos) {
+    auto mvp = m_Interactor->GetMVP();
+    auto mvp_invert = mvp.invert();
+
+    // 3D World coordinate
+    igm::vec3 point1_ = GetNearWorldCoord(pos, mvp_invert);
+    igm::vec3 point2_ = GetFarWorldCoord(pos, mvp_invert);
+
+    Point point1(point1_.x, point1_.y, point1_.z);
+    Point point2(point2_.x, point2_.y, point2_.z);
+    return {point1, point2};
 }
 
 std::vector<int> SingleSelectionStyle::GetPointsInCondition(
@@ -347,9 +360,92 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
                 //selectedCellCenters.push_back(thatCellCentralPoint);
             }
         }
+        re = GetFiltedCellsOfUsingAutoValueRange(id, re, mesh);
     }
     return re;
     /*################################# CORE END #################################*/
+}
+
+using PointId = int;
+using CellId = int;
+
+static void FindEdgesOfCell(Cell* cell,
+                            std::set<std::pair<PointId, PointId>>& edges) {
+    if (cell == nullptr) return;
+    auto faceNum = cell->GetNumberOfFaces();
+    if (faceNum == 0) {
+        int pointSize = cell->GetNumberOfPoints();
+        if (pointSize <= 1) return;
+        for (int pointI = 0; pointI < pointSize; pointI++) {
+            auto pointIA = pointI;
+            auto pointIB = (pointI + 1) % pointSize;
+            auto pointIdA = cell->GetPointId(pointIA);
+            auto pointIdB = cell->GetPointId(pointIB);
+            edges.insert(std::minmax(pointIdA, pointIdB));
+        }
+    } else {
+        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
+            auto face = cell->GetFace(faceIndex);
+            FindEdgesOfCell(face, edges);
+        }
+    }
+}
+
+std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(
+        int keyCellId, const std::vector<int>& cellIds,
+        UnstructuredMesh* mesh) {
+    if (mesh == nullptr || cellIds.empty()) return {};
+    std::map<std::pair<PointId, PointId>, std::set<CellId>> map_Edge_Cells;
+    std::map<CellId, std::set<std::pair<PointId, PointId>>> map_Cell_Edges;
+    //gather data
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetCell(cellId);
+        FindEdgesOfCell(cell, map_Cell_Edges[cellId]);
+        for (auto& edge: map_Cell_Edges[cellId]) {
+            map_Edge_Cells[edge].insert(cellId);
+        }
+    }
+    //find results
+    std::set<CellId> set_ChoosedCellIds;
+    std::queue<CellId> queue_CurrentCellIds;
+    set_ChoosedCellIds.insert(keyCellId);
+    queue_CurrentCellIds.push(keyCellId);
+    while (!queue_CurrentCellIds.empty()) {
+        auto currentCellId = queue_CurrentCellIds.front();
+        queue_CurrentCellIds.pop();
+        auto& edges = map_Cell_Edges[currentCellId];
+        for (auto& edge: edges) {
+            auto& cellIdsOfEdge = map_Edge_Cells[edge];
+            for (auto& cellId: cellIdsOfEdge) {
+                if (set_ChoosedCellIds.count(cellId) != 0) continue;
+                set_ChoosedCellIds.insert(cellId);
+                queue_CurrentCellIds.push(cellId);
+            }
+        }
+    }
+    return std::vector<int>(set_ChoosedCellIds.begin(),
+                            set_ChoosedCellIds.end());
+}
+
+static void GetPointsOfOneCell(Cell* cell, std::set<int>& reSet) {
+    if (cell == nullptr) return;
+    int pointNum = cell->GetNumberOfPoints();
+    for (int i = 0; i < pointNum; i++) {
+        auto pointId = cell->GetPointId(i);
+        reSet.insert(pointId);
+    }
+}
+
+std::vector<int>
+SingleSelectionStyle::GetPointsOfCells(const std::vector<int>& cellIds,
+                                       UnstructuredMesh* mesh) {
+    if (cellIds.empty() || mesh == nullptr) return {};
+    std::set<int> reSet;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetCell(cellId);
+        GetPointsOfOneCell(cell, reSet);
+    }
+    return std::vector<int>(reSet.begin(), reSet.end());
 }
 
 IGAME_NAMESPACE_END
