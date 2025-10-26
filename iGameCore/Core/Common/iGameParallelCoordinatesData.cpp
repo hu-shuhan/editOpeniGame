@@ -49,6 +49,11 @@ static double ComputeVariance(const std::vector<double>& data) {
     return variance;
 }
 
+static inline double GetPercentValue(double value, double minValue, double maxValue) {
+    if (minValue == maxValue) return 0.5;
+    return (value - minValue) / (maxValue - minValue);
+}
+
 // 动态规划算法求解旅行商问题
 static std::vector<int> solveWithDP(const std::vector<std::vector<double>>& diffValue,
                                     const std::vector<int>& variables) {
@@ -211,10 +216,9 @@ std::vector<int> ParallelCoordinatesData::GenerateDefaultVariableSort(int variab
     return re;
 }
 
-std::vector<std::vector<double>>
-ParallelCoordinatesData::GenerateVariableDiffValue(int variableNum,
-                                                   ElementArray<AttributeSet::Attribute>::Pointer attrs,
-                                                   IGenum dataType, int objNum, int maxObjNum) {
+std::vector<std::vector<double>> ParallelCoordinatesData::GenerateVariableDiffValue(
+        int variableNum, ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType, int objNum,
+        int maxObjNum, const std::vector<double>& minValues, const std::vector<double>& maxValues) {
     auto keyObjIds = CtxPresObjData_Main::GenerateKeyObjectIds(objNum, maxObjNum);
     std::vector<std::vector<double>> variableObjValues(variableNum, std::vector<double>(keyObjIds.size()));
     auto variableIndexs_ = CtxPresObjData_Main::GenerateVariableIndex(attrs, dataType);
@@ -232,7 +236,10 @@ ParallelCoordinatesData::GenerateVariableDiffValue(int variableNum,
         for (int variableIndexB = variableIndexA + 1; variableIndexB < variableNum; variableIndexB++) {
             for (int objIndex = 0; objIndex < keyObjIds.size(); objIndex++) {
                 betweenDiff[variableIndexA][variableIndexB][objIndex] =
-                        variableObjValues[variableIndexA][objIndex] - variableObjValues[variableIndexB][objIndex];
+                        GetPercentValue(variableObjValues[variableIndexA][objIndex], minValues[variableIndexA],
+                                        maxValues[variableIndexA]) -
+                        GetPercentValue(variableObjValues[variableIndexB][objIndex], minValues[variableIndexB],
+                                        maxValues[variableIndexB]);
             }
         }
     }
@@ -336,8 +343,8 @@ ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetMaxValueInVariables(maxValue);
     Data->SetFilterMinValue(minValue);
     Data->SetFilterMaxValue(maxValue);
-    Data->SetVariableDiffValue(ParallelCoordinatesData::GenerateVariableDiffValue(variableNum, attrs, dataType, objNum,
-                                                                                  VariableDiffValueMaxObjNum));
+    Data->SetVariableDiffValue(ParallelCoordinatesData::GenerateVariableDiffValue(
+            variableNum, attrs, dataType, objNum, VariableDiffValueMaxObjNum, minValue, maxValue));
     Data->SetDataType(dataType);
     Data->SetDataTypeName(ParallelCoordinatesData::GenerateDataTypeName(dataType));
     return Data;
@@ -372,8 +379,8 @@ ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<Attri
     Data->SetMaxValueInVariables(maxValue);
     Data->SetFilterMinValue(minValue);
     Data->SetFilterMaxValue(maxValue);
-    Data->SetVariableDiffValue(ParallelCoordinatesData::GenerateVariableDiffValue(variableNum, attrs, dataType, objNum,
-                                                                                  VariableDiffValueMaxObjNum));
+    Data->SetVariableDiffValue(ParallelCoordinatesData::GenerateVariableDiffValue(
+            variableNum, attrs, dataType, objNum, VariableDiffValueMaxObjNum, minValue, maxValue));
     Data->SetDataType(dataType);
     Data->SetDataTypeName(ParallelCoordinatesData::GenerateDataTypeName(dataType));
     return Data;

@@ -20,18 +20,13 @@ public:
     explicit igQtSelectionWidget(QWidget *parent = nullptr);
     ~igQtSelectionWidget();
     const SelectionStation& GetSelectionStation() const;
-    double GetSelectionRadius() const;
     bool GetSelectionShow() const;
-    bool GetSelectOrUnSelect() const;
-    int GetVariableIndex() const;
-    double GetVariableRange() const;
     void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
 signals:
     void Signal_SetSelectionStationChanged();
-    void SetSelectionStateChanged();
     void SetSelectionShow(bool show);
     void SetClearSelection();
     void Hided();
@@ -55,11 +50,7 @@ protected:
 private:
     Ui::SelectionView* ui;
     SelectionStation m_SelectionStation{};
-    bool m_Select_Or_UnSelect{true};
-    double m_SelectionRadius{};
     bool m_SelectionShow{true};
-    int m_VariableIndex{-1};
-    double m_VariableRange{1};
     bool m_PreventSignalSend{};
 };
 

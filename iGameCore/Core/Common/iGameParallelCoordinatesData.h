@@ -1,15 +1,15 @@
 ﻿#pragma once
-#include <iGameDataObject.h>
-#include <vector>
-#include <utility>
-#include <set>
 #include <algorithm>
-#include <map>
-#include <string>
-#include <tuple>
 #include <iGameCtxPresObjData.h>
+#include <iGameDataObject.h>
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
+#include <map>
+#include <set>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 IGAME_NAMESPACE_BEGIN
 class ParallelCoordinatesData : public DataObject, public CtxPresObjData_Main, public CtxPresObjData_Draw {
@@ -43,7 +43,8 @@ public:
     static std::vector<int> GenerateDefaultVariableSort(int variableNum);
     static std::vector<std::vector<double>>
     GenerateVariableDiffValue(int variableNum, ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                              int objNum, int maxObjNum);
+                              int objNum, int maxObjNum, const std::vector<double>& minValues,
+                              const std::vector<double>& maxValues);
     //static std::vector<int> GenerateRareObjIdsInValue()
     /**
      * 根据差异值矩阵重新生成变量排序

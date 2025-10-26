@@ -1,5 +1,5 @@
 #include <IQWidgets/igQtSelectionWidget.h>
-
+#include <iGameSelectionParameter.h>
 igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::SelectionView)
@@ -28,22 +28,14 @@ igQtSelectionWidget::~igQtSelectionWidget()
 
 const SelectionStation& igQtSelectionWidget::GetSelectionStation() const { return m_SelectionStation; }
 
-double igQtSelectionWidget::GetSelectionRadius() const { return m_SelectionRadius; }
-
 bool igQtSelectionWidget::GetSelectionShow() const { return m_SelectionShow; }
-
-bool igQtSelectionWidget::GetSelectOrUnSelect() const { return m_Select_Or_UnSelect; }
-
-int igQtSelectionWidget::GetVariableIndex() const { return m_VariableIndex; }
-
-double igQtSelectionWidget::GetVariableRange() const { return m_VariableRange; }
 
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
     ui->variableChoose->clear();
     ui->variableChoose->addItem("Null");
     for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
-    m_VariableIndex = -1;
+    iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
     PreventSignalSend(false);
 }
 
@@ -77,46 +69,34 @@ void igQtSelectionWidget::SelectionStationCell(bool checked) {
 
 void igQtSelectionWidget::SelectionSelect(bool checked) {
     if (!checked) return;
-    m_Select_Or_UnSelect = true;
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
+    iGame::SelectionParameter::Instance().SetSelectOrUnSelect(true);
 }
 
 void igQtSelectionWidget::SelectionUnSelect(bool checked) {
     if (!checked) return;
-    m_Select_Or_UnSelect = false;
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
+    iGame::SelectionParameter::Instance().SetSelectOrUnSelect(false);
 }
 
 void igQtSelectionWidget::SelectionRadiusSpinBox(double radius) {
-    m_SelectionRadius = radius;
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
+    iGame::SelectionParameter::Instance().SetSelectionRadius(radius);
 }
 
 void igQtSelectionWidget::SelectionVariableIndex(int index) {
-    m_VariableIndex = std::max<int>(-1, index - 1);
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
+    iGame::SelectionParameter::Instance().SetSelectVariableIndex(std::max<int>(-1, index - 1));
 }
 
 void igQtSelectionWidget::SelectionVariableAutoCheck(bool checked) {
     if (checked) {
-        m_VariableRange = -1;
+        iGame::SelectionParameter::Instance().SetSelectVariableRange(-1);
         ui->theRange->setEnabled(false);
     } else {
-        m_VariableRange = ui->theRange->value();
+        iGame::SelectionParameter::Instance().SetSelectVariableRange(ui->theRange->value());
         ui->theRange->setEnabled(true);
     }
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
 }
 
 void igQtSelectionWidget::SelectionVariableRange(double range) {
-    m_VariableRange = range;
-    if (m_PreventSignalSend) return;
-    emit SetSelectionStateChanged();
+    iGame::SelectionParameter::Instance().SetSelectVariableRange(range);
 }
 
 void igQtSelectionWidget::ClearSelectionState() {

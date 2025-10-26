@@ -151,7 +151,7 @@ public:
      * @param selectRadius 选择半径。
      */
     void RequestPointSelection(SmartPointer<Points> p,
-                               SmartPointer<Selection> s, double selectRadius);
+                               SmartPointer<Selection> s);
 
     /**
      * @brief 请求拖拽点集。

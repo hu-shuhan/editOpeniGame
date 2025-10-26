@@ -25,29 +25,6 @@ SelectionStyle::SelectedType SelectionStyle::GetSelectedType() const {
     return m_Type;
 }
 
-
-void SelectionStyle::SetSelectRadius(double selectRadius) {
-    m_SelectRadius = selectRadius;
-}
-
-void SelectionStyle::SetSelectOrUnSelect(bool select) {
-    m_SelectOrUnSelect = select;
-}
-
-void SelectionStyle::SetSelectVairableIndex(int variableIndex) {
-    m_SelectVariableIndex = variableIndex;
-}
-
-int SelectionStyle::GetSelectVariableIndex() const { return m_SelectVariableIndex; }
-
-void SelectionStyle::SetSelectVariableRange(double variableRange) {
-    m_SelectVariableRange = variableRange;
-}
-
-double SelectionStyle::GetSelectVariableRange() const { return m_SelectVariableRange; }
-
-double SelectionStyle::GetSelectRadius() const { return m_SelectRadius; }
-
 void SelectionStyle::Initialize(SmartPointer<Interactor> interactor,
                                 SmartPointer<Selection> selection) {
     BasicStyle::Initialize(interactor);
