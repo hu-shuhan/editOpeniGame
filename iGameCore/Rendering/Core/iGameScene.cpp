@@ -1082,11 +1082,12 @@ void Scene::UpdateCameraClippingRange() {
     UpdateModelsBoundingSphere();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 centerInWorld = (m_ModelMatrix * igm::vec4{center, 1.0f}).xyz();
     float radius = m_ModelsBoundingSphere.w;
     igm::vec3 cameraPos = m_Camera->GetPosition();
 
     igm::vec3 front = m_Camera->GetFront();
-    igm::vec3 v = center - cameraPos;
+    igm::vec3 v = centerInWorld - cameraPos;
     float dist = std::abs(front.dot(v) / front.length());
 
     float nearPlane = dist - radius;
@@ -1096,8 +1097,8 @@ void Scene::UpdateCameraClippingRange() {
     const float minGap = 0.0001f;
     if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
 
-    //std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
-    //          << std::endl;
+    // std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
+    //           << std::endl;
 
     m_Camera->SetClippingRange(nearPlane, farPlane);
 }
@@ -1221,55 +1222,25 @@ void Scene::ResetCameraViewToIsometric() {
     m_ModelRotate = rotate * m_ModelRotate;
 }
 
+void Scene::RotateNinetyClockwise() { return this->RotateClockwise(90.0f); }
+
+void Scene::RotateNinetyCounterClockwise() {
+    return this->RotateClockwise(-90.0f);
+}
+
 void Scene::RotateClockwise(float angle) {
-    igm::vec4 center = igm::vec4{ m_ModelsBoundingSphere.xyz(), 1.0f };
+    igm::vec4 center = igm::vec4{GetRotationCenter(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
 
     auto radians = static_cast<float>(igm::radians(angle));
     auto rotate =
-        igm::rotate(igm::mat4{}, -radians, igm::vec3{ 0.0f, 0.0f, 1.0f });
+            igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-}
-void Scene::RotateNinetyClockwise() {
-    return this->RotateClockwise(90.0f);
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-
-    //auto radians = static_cast<float>(igm::radians(90.0f));
-    //auto rotate =
-    //        igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
-    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
-
-    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
-    //m_ModelRotate = rotate * m_ModelRotate;
-    //UpdateRealRotationCenter(m_RotationCenter);
-}
-
-void Scene::RotateNinetyCounterClockwise() {
-    return this->RotateClockwise(-90.0f);
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
-    //std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-
-    //auto radians = static_cast<float>(igm::radians(90.0f));
-    //auto rotate =
-    //        igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
-
-    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
-
-    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
-    //m_ModelRotate = rotate * m_ModelRotate;
-    //UpdateRealRotationCenter(m_RotationCenter);
 }
 
 // 切换显示状态实现

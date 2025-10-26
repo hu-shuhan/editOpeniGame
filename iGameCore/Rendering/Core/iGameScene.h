@@ -210,7 +210,8 @@ public:
     void ResetCameraViewToIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
-    void RotateClockwise(float radians);
+    void RotateClockwise(float angle);
+
     /**
      * @brief 切换中心坐标轴的显示状态
      */
