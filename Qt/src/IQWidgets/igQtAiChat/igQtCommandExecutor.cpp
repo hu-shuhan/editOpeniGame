@@ -951,3 +951,63 @@ OperationResult igQtCommandExecutor::executeGetModelEightViews(const QJsonObject
         return OperationResult(false, errorMsg, "get_model_eight_views");
     }
 }
+
+
+#include "iGameFileIO.h"
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include "iGameFilterIncludes.h"
+namespace fs = std::filesystem;
+
+static void Convert(const std::string& folderIn, const std::string& folderOut) {
+    if (!fs::exists(folderIn) || !fs::is_directory(folderIn)) {
+        std::cerr << "❌ Invalid input folder path: " << folderIn << std::endl;
+        return;
+    }
+
+    // 如果输出文件夹不存在则创建
+    if (!fs::exists(folderOut)) {
+        fs::create_directories(folderOut);
+    }
+
+    int successCount = 0;
+    int failCount = 0;
+
+    for (const auto& entry : fs::directory_iterator(folderIn)) {
+        if (!entry.is_regular_file()) continue;
+
+        auto path = entry.path();
+        if (path.extension() == ".vtk") {
+            std::string vtkFile = path.string();
+            std::string plyFileName = path.stem().string() + ".obj";
+            std::string outputPath = (fs::path(folderOut) / plyFileName).string();
+
+            std::cout << "Reading: " << vtkFile << std::endl;
+            auto obj = iGame::FileIO::ReadFile(vtkFile);
+            if (!obj) {
+                std::cerr << "Failed to read file: " << vtkFile << std::endl;
+                ++failCount;
+                continue;
+            }
+
+            std::cout << "Writing: " << outputPath << std::endl;
+            auto Filter = iGame::ConvertToSurfaceMesh::New();
+            Filter->SetInput(obj);
+            Filter->SetConvertMethod(iGame::ConvertToSurfaceMesh::IG_EXTRACT_SURFACE_MESH);
+            Filter->Execute();
+            auto res = Filter->GetSurfaceMesh();
+            if (iGame::FileIO::WriteFile(outputPath, res)) {
+                ++successCount;
+            }
+            else {
+                std::cerr << "Failed to write file: " << outputPath << std::endl;
+                ++failCount;
+            }
+        }
+    }
+
+    std::cout << "Conversion finished. "
+        << successCount << " succeeded, "
+        << failCount << " failed." << std::endl;
+}

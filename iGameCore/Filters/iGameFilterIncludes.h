@@ -28,3 +28,4 @@
 #include "iGameSelectionFilters/iGameGetCellsInFrustum.h"
 #include "UndefinedFilters/iGameCurvatureFilter.h"
 #include "UndefinedFilters/iGameGradientFilter.h"
+#include "Convert/iGameConvertToSurfaceMesh.h"
