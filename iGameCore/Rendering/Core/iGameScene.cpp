@@ -271,23 +271,25 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
 void Scene::ResetCameraView(SmartPointer<Model> model) {
-    if (model == nullptr) {
-        UpdateModelsBoundingSphere();
-    } else {
+    UpdateModelsBoundingSphere();
+
+    igm::vec3 center = m_ModelsBoundingSphere.xyz();
+    float radius = m_ModelsBoundingSphere.w;
+    if (model != nullptr) {
         auto& box = model->GetDataObject()->GetBoundingBox();
-        double* center = box.center().pointer();
-        float x = static_cast<float>(center[0]);
-        float y = static_cast<float>(center[1]);
-        float z = static_cast<float>(center[2]);
+        double* c = box.center().pointer();
+        float x = static_cast<float>(c[0]);
+        float y = static_cast<float>(c[1]);
+        float z = static_cast<float>(c[2]);
 
         double diameter = box.diag();
-        float radius = static_cast<float>(diameter / 2.0);
+        float r = static_cast<float>(diameter / 2.0);
 
-        m_ModelsBoundingSphere = igm::vec4{x, y, z, radius};
+        SetRotationCenter(igm::vec3{x, y, z});
+        center = igm::vec3{x, y, z};
+        radius = r;
     }
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
-    float radius = m_ModelsBoundingSphere.w;
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
@@ -1108,7 +1110,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 void Scene::ResetCameraViewToPositiveX() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1120,13 +1122,12 @@ void Scene::ResetCameraViewToPositiveX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeX() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1138,13 +1139,12 @@ void Scene::ResetCameraViewToNegativeX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveY() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1155,13 +1155,12 @@ void Scene::ResetCameraViewToPositiveY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeY() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1173,13 +1172,12 @@ void Scene::ResetCameraViewToNegativeY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveZ() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1190,13 +1188,12 @@ void Scene::ResetCameraViewToPositiveZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeZ() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1205,13 +1202,12 @@ void Scene::ResetCameraViewToNegativeZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToIsometric() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1223,7 +1219,6 @@ void Scene::ResetCameraViewToIsometric() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::RotateClockwise(float angle) {
@@ -1239,7 +1234,6 @@ void Scene::RotateClockwise(float angle) {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 void Scene::RotateNinetyClockwise() {
     return this->RotateClockwise(90.0f);
@@ -1282,42 +1276,17 @@ void Scene::RotateNinetyCounterClockwise() {
 void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
-
-    //this->Modified(); // 触发重绘
 }
 
 igm::vec3 Scene::GetRotationCenter() const {
-    return m_CustomRotationCenter
-                   ? m_RealRotationCenter
-                   : (m_ModelMatrix *
-                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
-                             .xyz();
-}
-
-igm::vec3 Scene::GetRotationCenter_1() const {
-    return m_CustomRotationCenter
-                   ? m_RotationCenter
-                   : (m_ModelMatrix *
-                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
-                             .xyz();
-}
-
-void Scene::UpdateRealRotationCenter(const igm::vec3 center) {
-    if (m_CustomRotationCenter) {
-        igm::vec4 localPos = m_ModelMatrix * igm::vec4(center, 1.0f);
-        m_RealRotationCenter = igm::vec3(localPos);
-        //std::cout << "real center" << m_RealRotationCenter << std::endl;
-        this->Modified();
-    }
+    return m_UseCustomRotationCenter ? m_CustomRotationCenter
+                                     : m_ModelsBoundingSphere.xyz();
 }
 
 void Scene::SetRotationCenter(const igm::vec3 center) {
-    m_RotationCenter = center;
-    m_RealRotationCenter = center; // 更新实际旋转中心
+    m_UseCustomRotationCenter = true;
+    m_CustomRotationCenter = center;
     m_CenterAxesModel->SetRotationCenter(center);
-    m_CustomRotationCenter = true;
-
-    UpdateRealRotationCenter(m_RealRotationCenter);
     this->Modified();
 }
 
@@ -1424,9 +1393,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-    if (!m_CustomRotationCenter) {
-        SetRotationCenter(m_ModelsBoundingSphere.xyz());
-    }
 }
 
 void Scene::CalculateFrameRate() {
