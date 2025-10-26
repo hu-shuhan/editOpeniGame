@@ -96,32 +96,32 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
 
     std::vector<int> ids;
 
-    if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
-        ids = GetPointsInCondition(
-                point1, point2, mesh,
-                SelectionParameter::Instance().GetSelectionRadius(),
-                (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
-                SelectionParameter::Instance().GetSelectVariableIndex(),
-                (SelectionParameter::Instance().GetSelectVariableRange() < 0),
-                SelectionParameter::Instance().GetSelectVariableRange());
-    } else {
-        ids = GetCellsInCondition(
-                point1, point2, mesh,
-                SelectionParameter::Instance().GetSelectionRadius(),
-                (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
-                SelectionParameter::Instance().GetSelectVariableIndex(),
-                (SelectionParameter::Instance().GetSelectVariableRange() < 0),
-                SelectionParameter::Instance().GetSelectVariableRange());
-        ids = GetPointsOfCells(ids, mesh);
-    }
+    //if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
+    //    ids = GetPointsInCondition(
+    //            point1, point2, mesh,
+    //            SelectionParameter::Instance().GetSelectionRadius(),
+    //            (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+    //            SelectionParameter::Instance().GetSelectVariableIndex(),
+    //            (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+    //            SelectionParameter::Instance().GetSelectVariableRange());
+    //} else {
+    //    ids = GetCellsInCondition(
+    //            point1, point2, mesh,
+    //            SelectionParameter::Instance().GetSelectionRadius(),
+    //            (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+    //            SelectionParameter::Instance().GetSelectVariableIndex(),
+    //            (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+    //            SelectionParameter::Instance().GetSelectVariableRange());
+    //    ids = GetPointsOfCells(ids, mesh);
+    //}
 
-    //auto ids = GetPointsInCondition(
-    //        point1, point2, mesh,
-    //        SelectionParameter::Instance().GetSelectionRadius(),
-    //        (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
-    //        SelectionParameter::Instance().GetSelectVariableIndex(),
-    //        (SelectionParameter::Instance().GetSelectVariableRange() < 0),
-    //        SelectionParameter::Instance().GetSelectVariableRange());
+    auto ids = GetPointsInCondition(
+            point1, point2, mesh,
+            SelectionParameter::Instance().GetSelectionRadius(),
+            (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
+            SelectionParameter::Instance().GetSelectVariableIndex(),
+            (SelectionParameter::Instance().GetSelectVariableRange() < 0),
+            SelectionParameter::Instance().GetSelectVariableRange());
     //auto ids = GetCellsInCondition(
     //        point1, point2, mesh,
     //        SelectionParameter::Instance().GetSelectionRadius(),
