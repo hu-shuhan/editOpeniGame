@@ -97,7 +97,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     std::vector<int> ids;
 
     if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
-        auto ids = GetPointsInCondition(
+        ids = GetPointsInCondition(
                 point1, point2, mesh,
                 SelectionParameter::Instance().GetSelectionRadius(),
                 (SelectionParameter::Instance().GetSelectVariableIndex() >= 0),
