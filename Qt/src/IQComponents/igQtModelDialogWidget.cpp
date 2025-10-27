@@ -36,7 +36,7 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
                 if (attr.isDeleted) continue;
                 auto* aitem = new SubAttribTreeWidgetItem(i, tree, childItem);
                 aitem->setText(0, QString::fromStdString(attr.pointer->GetName()));
-                if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+                if (attr.attachmentType == IG_POINT) aitem->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
                 else if (attr.attachmentType == IG_CELL)
                     aitem->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
                 aitem->setDimension(attr.pointer->GetDimension());
@@ -188,7 +188,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    child->setSelected(true);
         //}
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
@@ -233,7 +233,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         if (attr.isDeleted) continue;
         AttribTreeWidgetItem* child = new AttribTreeWidgetItem(i, modelTreeWidget, item);
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point2.png"));
+        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());

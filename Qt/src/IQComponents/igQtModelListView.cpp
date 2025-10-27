@@ -75,7 +75,7 @@ igQtModelListView::igQtModelListView(QWidget* parent) : QTreeView(parent) {
 
 
     this->contextMenu = new QMenu(this);
-    QAction* action_Open = new QAction(QIcon(":/Ticon/Icons/icon (5).png"), "Open", this->contextMenu);
+    QAction* action_Open = new QAction(QIcon(":/Ticon/Icons/Open.png"), "Open", this->contextMenu);
     QAction* action_ShwoAll = new QAction(QIcon(":/Ticon/Icons/Eyeball.svg"), "Show All", this->contextMenu);
     QAction* action_HideAll = new QAction(QIcon(":/Ticon/Icons/EyeballClosed.svg"), "Hide All", this->contextMenu);
     QAction* action_Delete = new QAction(QIcon(":/Ticon/Icons/Delete.png"), "Delete", this->contextMenu);

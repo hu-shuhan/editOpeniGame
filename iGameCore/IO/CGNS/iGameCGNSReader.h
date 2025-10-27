@@ -30,7 +30,7 @@ public:
 
     void ChangeMixElementToMyCell(std::vector<cgsize_t>, int);
 
-    DataObject::Pointer GetOutput() {
+    DataObject::Pointer GetCurrentDataObject() {
         switch (this->m_DataObjectType) {
             case IG_NONE:
                 return nullptr;
@@ -40,8 +40,6 @@ public:
                 return m_UnstructuredMesh;
             case IG_VOLUME_MESH:
                 return m_VolumeMesh;
-            case IG_MULTIBLOCK_MESH:
-                return m_ParentObject;
             default:
                 return nullptr;
         }
