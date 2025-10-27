@@ -12,10 +12,14 @@ public:
     /// \param knots 节点序列.
     /// \param weights 每个控制点的权重，必须大于0.
     Surface(const int udegree, const int vdegree, const std::vector<Point>& controlPoints,
-            const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& weights);
+            const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& weights,
+            const std::vector<Scalar>& controlScalars = {});
 
     /// \brief 获得曲面某一参数点的物理坐标，u长度为2
     Point getPointAtParam(std::vector<double>& u);
+
+    /// \brief 获得曲面某一参数点的物理坐标，u长度为2
+    Scalar getScalarAtParam(std::vector<double>& u);
 
     /// \brief 获得曲面某一参数点的非零基函数索引，u长度为2
     void getConnectIndex(const std::vector<double>& u, std::vector<int>& index);

@@ -5,10 +5,10 @@
 
 IGAME_NAMESPACE_BEGIN
 
-class NurbsGeometry : public DrawObject {
+class SplineGeometry : public DrawObject {
 public:
-    I_OBJECT(NurbsGeometry);
-    static Pointer New() { return new NurbsGeometry; }
+    I_OBJECT(SplineGeometry);
+    static Pointer New() { return new SplineGeometry; }
 
 public:
     IGenum GetDataObjectType() const override;
@@ -24,8 +24,8 @@ public:
     void ConvertToDrawableData() override;
 
 protected:
-    NurbsGeometry();
-    ~NurbsGeometry() override = default;
+    SplineGeometry();
+    ~SplineGeometry() override = default;
 
     void ConvertToCurveData();
     void ConvertToSurfaceData();
@@ -35,6 +35,7 @@ protected:
     void ComputeBoundingBox() override;
 
     SplineUtils::MultiGeo::Pointer m_Geometry;
+    FloatArray::Pointer m_ScalarArray;
     int m_Samples = 0;
 };
 

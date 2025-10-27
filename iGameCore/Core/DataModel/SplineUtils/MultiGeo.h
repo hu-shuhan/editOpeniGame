@@ -18,6 +18,18 @@ public:
     static Pointer New() { return new MultiGeo; }
 
 public:
+    // 判断是否存在标量
+    inline bool hasScalars() { return m_Geometry[0]->m_ControlScalars.size() > 0; }
+
+    // 返回标量的维度
+    inline int getScalarDemension() {
+        if (hasScalars()) {
+            return m_Geometry[0]->m_ControlScalars[0].size();
+        } else {
+            return 0;
+        }
+    }
+
     void AddPatch(Geometry& geo) {
         m_Geometry.push_back(geo);
         this->Modified();

@@ -13,10 +13,13 @@ public:
     /// \param weights 每个控制点的权重，必须大于0.
     Volume(const int udegree, const int vdegree, const int wdegree, const std::vector<Point>& controlPoints,
            const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& wknots,
-           const std::vector<double>& weights);
+           const std::vector<double>& weights, const std::vector<Scalar>& controlScalars = {});
 
     /// \brief 获得体某一参数点的物理坐标，u长度为3
     Point getPointAtParam(std::vector<double>& u);
+
+    /// \brief 获得体某一参数点的物理坐标的标量值，u长度为3
+    Scalar getScalarAtParam(std::vector<double>& u);
 
     /// \brief 获得体某一参数点的非零基函数索引，u长度为3
     void getConnectIndex(const std::vector<double>& u, std::vector<int>& index);
