@@ -37,7 +37,6 @@ static void VortexExtract() {
     // The extracted features are added to the original model as a scalar
     int d = drawObj->GetAttributeSet()->GetNumberOfAttributes();
     drawObj->ViewCloudPicture(scene, d - 1);
-
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);

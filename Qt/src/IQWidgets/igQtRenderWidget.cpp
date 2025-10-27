@@ -47,7 +47,7 @@ void igQtRenderWidget::ChangeInteractor(iGame::SmartPointer<iGame::Interactor> i
     m_Scene->SetInteractor(m_Interactor);
 }
 
-void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadius, bool selectOrUnSelect) {
+void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
     if (!m_Scene || !m_Scene->GetCurrentModel()) { return; }
     switch (style) {
         case iGame::Interactor::BasicStyle:
@@ -60,7 +60,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(obj);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect);
+                m_Interactor->RequestPointSelectionStyle(s);
 
             } else {
                 auto s = m_Scene->GetCurrentModel()->GetSelection();
@@ -73,7 +73,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(ps);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-                m_Interactor->RequestPointSelectionStyle(s, interactorRadius, selectOrUnSelect);
+                m_Interactor->RequestPointSelectionStyle(s);
             }
         } break;
         case iGame::Interactor::SingleFaceSelectionStyle: {
@@ -107,7 +107,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
             s->SetModel(model);
             m_Interactor->SetDataObject(obj);
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
-            m_Interactor->RequestFaceSelectionStyle(s, interactorRadius, selectOrUnSelect);
+            m_Interactor->RequestFaceSelectionStyle(s);
         } break;
         case iGame::Interactor::MultiPointSelectionStyle:
             //m_Interactor->RequestPointSelectionStyle(m_Scene->GetCurrentModel()->GetSelection());
@@ -127,7 +127,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
             m_Interactor->SetDataObject(ps);
             m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
             m_Interactor->RequestDragPointStyle(s);
-            
+
         } break;
         //case iGame::Interactor::PickCenterStyle: {
         //    //点选中心
@@ -159,15 +159,15 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style, double interactorRadi
         //    m_Interactor->SetDataObject(obj);
         //    m_Interactor->SetPainter3D(model->GetPainter3D());
         //    m_Interactor->RequestPickCenterStyle(s); // 需要实现这个方法
-        //    
+        //
         //} break;
         case iGame::Interactor::DragCenterStyle: {
             this->setProperty("isDragingCenter", true);
             setCursor(Qt::SizeAllCursor); // 设置拖拽光标
 
             // 直接激活拖拽交互器，无需Selection对象
-            
-            m_Interactor->RequestDragCenterStyle(nullptr); 
+
+            m_Interactor->RequestDragCenterStyle(nullptr);
             /*this->setProperty("isDragingCenter", true);
             auto s = m_Scene->GetCurrentModel()->GetSelection();
             m_Interactor->RequestDragCenterStyle(s);*/

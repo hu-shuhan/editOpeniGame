@@ -27,7 +27,7 @@ bool FileReader::Execute() {
         return false;
     }
     clock_t time2 = clock();
-    std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
+    //std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
     if (!Parsing()) {
         std::cerr << "Parsing failure\n";
         return false;
@@ -41,7 +41,7 @@ bool FileReader::Execute() {
         return false;
     }
     clock_t time3 = clock();
-    std::cout << "Generate DataObject Cost " << time3 - time2 << "ms\n";
+    //std::cout << "Generate DataObject Cost " << time3 - time2 << "ms\n";
     
     if (m_Output) {
         m_Output->GetPropertys()->AddProperty(Variant::LongLong, "FileSize")->SetValue(static_cast<long long>(m_FileSize));
@@ -622,6 +622,7 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
 void FileReader::SetFilePath(const std::string& filePath) {
     this->m_FilePath = filePath;
     this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+    igDebug("Reading file: "+ filePath);
 }
 
 void FileReader::SkipNullData() {

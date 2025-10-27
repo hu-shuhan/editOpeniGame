@@ -126,6 +126,7 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetVariableIndex(variableIndex);
     auto keyObjIds = VariableCorrelationData::GenerateKeyObjectIds(objNum, 10000);
     Data->SetKeyObjectIds(keyObjIds);
+    Data->SetKeyObjectIdToIndexMap(VariableCorrelationData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     auto choosedObjIds = VariableCorrelationData::GenerateChoosedObjectIds(selectedItems, dataType);
@@ -158,6 +159,7 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetVariableIndex(variableIndex);
     auto keyObjIds = VariableCorrelationData::GenerateKeyObjectIds(objNum, 10000);
     Data->SetKeyObjectIds(keyObjIds);
+    Data->SetKeyObjectIdToIndexMap(VariableCorrelationData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
     Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateDefaultObjectDrawSorts(variableNum));

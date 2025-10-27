@@ -1,9 +1,9 @@
 #include "iGameModel.h"
 #include "iGameFilter.h"
 #include "iGameInteractor.h"
+#include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
 #include "iGameScene.h"
-#include "iGamePointSet.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -84,12 +84,11 @@ SmartPointer<Selection> Model::GetSelection() {
 }
 
 void Model::RequestPointSelection(SmartPointer<Points> p,
-                                  SmartPointer<Selection> s,
-                                  double selectRadius) {
+                                  SmartPointer<Selection> s) {
     if (m_Scene->GetInteractor() == nullptr) return;
     s->m_Points = p;
     s->m_Model = this;
-    m_Scene->GetInteractor()->RequestPointSelectionStyle(s, selectRadius);
+    m_Scene->GetInteractor()->RequestPointSelectionStyle(s);
 }
 
 void Model::RequestDragPoint(SmartPointer<Points> p,
@@ -237,6 +236,13 @@ void Model::Draw() {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
 
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
             glad_glPointSize(drawObject->m_PointSize);
 
             float u;
@@ -306,6 +312,14 @@ void Model::Draw() {
                 if (useColor) {
                     m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
                 } else {
+                    auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                    shader->Use();
+                    shader->SetUniform3f("inputColor",
+                                         igm::vec3{0.0f, 0.0f, 0.0f});
+                }
+
+                // 如果是样条对象，强制用黑色绘制控制线
+                if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
                     auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                     shader->Use();
                     shader->SetUniform3f("inputColor",

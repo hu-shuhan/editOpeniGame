@@ -5,11 +5,6 @@ set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
 #=================
 set(IGAMEVIS_CORE_ROOT_DIR ${IGAMEVIS_ROOT_DIR}/iGameCore)
 #set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch")
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Debug")
-else()
-    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Release")
-endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DPLATFORM_WINDOWS)
@@ -25,7 +20,7 @@ endif ()
 file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 
 # Currently, only shared libraries for the Linux system are supported
-if(IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
+if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
     add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
@@ -90,12 +85,12 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-#    find_package(HDF5)
-#    target_link_libraries(
-#     ${MODULE_NAME} PUBLIC
-#     ${HDF5_LIBRARIES}/../libzlib.lib
-#     ${HDF5_LIBRARIES}/../libsz.lib
-#     ${HDF5_LIBRARIES}/../libaec.lib)
+    #        find_package(HDF5)
+    #        target_link_libraries(
+    #         ${MODULE_NAME} PUBLIC
+    #         ${HDF5_LIBRARIES}/../libzlib.lib
+    #         ${HDF5_LIBRARIES}/../libsz.lib
+    #         ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
@@ -146,7 +141,7 @@ endif ()
 #    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
 #    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
 #endif ()
-#
+
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})
     message("Find FFMPEG")
@@ -173,33 +168,33 @@ endif ()
 #    message(STATUS "  - Python Scripts: ${PYNASTRAN_SCRIPT_DIR}")
 #endif()
 
+if (ENABLE_GPSCUDA_MODULE)
+    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
+    message("Enable GPSCuda Module.")
+    target_include_directories(${MODULE_NAME} PUBLIC
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
+            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm)
 
-#if (ENABLE_GPSCUDA_MODULE)
-#    target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
-#    message("Enable GPSCuda Module.")
-#    target_include_directories(${MODULE_NAME} PUBLIC
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/wmma_extension/include
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/include
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
-#            ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/extern/glm)
-#
-#    target_link_libraries(${MODULE_NAME} PUBLIC
-#            CommonLib
-#            Geom
-#            GPHelperIO
-#            GPSplineLib
-#    )
-#
-#    file(GLOB_RECURSE EXDLL ${CMAKE_CURRENT_SOURCE_DIR}../../CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
-#    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-#            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#            ${EXDLL}
-#            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-#    )
-#endif ()
+    target_link_libraries(${MODULE_NAME} PUBLIC
+            CommonLib
+            Geom
+            GPHelperIO
+            GPSplineLib
+    )
+
+    file(GLOB_RECURSE EXDLL ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL/*.dll)
+    add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${EXDLL}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
+endif ()
+
 #--------------------------------------------------------------------
 # Target link Module needed ThirdParty's lib
 #--------------------------------------------------------------------
@@ -226,3 +221,10 @@ endif ()
 #--------------------------------------------------------------------
 include(Cmake/CoreModuleInstall.cmake)
 #--------------------------------------------------------------------
+
+if (ENABLE_LIBTORCH_MODULE)
+    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
+    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
+    file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
+    file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
+endif ()

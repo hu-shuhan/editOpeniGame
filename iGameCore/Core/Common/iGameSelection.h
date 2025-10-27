@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <iGameCellFaceExtracter.h>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {
@@ -62,9 +63,17 @@ public:
 	static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
                                              UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
-	void SelectionCallBackEvent(const std::vector<Event>& _events);
+    static std::vector<Event> GeneratePointEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+                                                  UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
-	void SelectionCallBackEvent(const Event& event);
+    static std::vector<Event> GenerateCellEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+                                                 UnstructuredMesh* mesh, Painter3D* painter = nullptr);
+
+	void SelectionCallBackEvent(const std::vector<Event>& _events, bool letCellDrawWithExtracter = false);
+
+	void SelectionCallBackEvent(const Event& event, bool letCellDrawWithExtracter = false);
+
+	void SetOtherDrawHandles(const std::vector<IGuint>& handles);
 
 	//void AddSelectedItems(const std::vector<igIndex>& ids, IGenum type);
 
@@ -127,6 +136,10 @@ public:
 	void SetModel(Model* m) {
 		m_Model = m;
 	}
+
+	void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
+    const std::vector<int>& GetSeeAbleFaces();
+
 protected:
 	Selection() {}
 	~Selection() override = default;
@@ -141,7 +154,10 @@ protected:
 
 	void AddItem(const Event& event);
     std::map<Event::Type, std::map<igIndex, Event>> m_SelectedItems;
+    std::vector<IGuint> m_OtherDrawHandles;
+    CellFaceExtracter m_CellFaceExtracter;
 
+	std::vector<int> m_SeeAbleFaces; //pointIds,CellId
 
 	Points* m_Points{ nullptr };
 	CellArray* m_Cells{ nullptr };

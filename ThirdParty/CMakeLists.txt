@@ -13,6 +13,10 @@ add_subdirectory(Python)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 
+if (ENABLE_LIBTORCH_MODULE)
+    add_subdirectory(libtorch)
+endif ()
+
 if (ENABLE_CGNS_MODULE)
 
     #    find_package(Git QUIET)

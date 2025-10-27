@@ -5,7 +5,7 @@
 #include <iGameMultiRenderWindowManager.h>
 #include <iGameInteractor.h>
 #include <iGameFileIO.h>
-#include <Clip/iGameModelClip.h>
+#include <Clip/iGameClipFilter.h>
 #include <VectorView/iGameVectorBase.h>
 
 int main(){
@@ -21,7 +21,7 @@ int main(){
     }
     auto input = obj;
     //新建切割的filter
-    auto filter = iGame::ModelClip::New();
+    auto filter = iGame::ClipFilter::New();
     //设置输入
     filter->SetInput(input);
     auto bound = input->GetBoundingBox();
@@ -30,8 +30,8 @@ int main(){
     float o[3] = { ori[0], ori[1], ori[2] };
     //设置切割的平面
     filter->SetPlane(o, n);
-    //设置切割模式是clip还是slice
-    filter->SetIsSlice(true);
+    //设置是否翻转
+    filter->SetInvert(true);
     //执行切割
     filter->Execute();
     //返回结果

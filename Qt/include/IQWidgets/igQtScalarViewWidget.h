@@ -17,8 +17,6 @@ public:
 
 
 public slots:
-	void getScalarsName();
-	void showScalarItem();
 	void showScalarView();
 	void editColorBar();
 	void rescaleRange();

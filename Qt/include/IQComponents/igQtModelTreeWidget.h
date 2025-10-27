@@ -22,7 +22,7 @@ public:
 
     iGame::Model* getModel();
 
-    void setModel(iGame::Model::Pointer model);
+    void setModel(iGame::Model* model);
 
     void setName(const QString& name);
 
@@ -70,8 +70,8 @@ private:
     HoverButton* view_pickedItem;
 
     int modelId;
-    iGame::Model::Pointer model;
-    QTreeWidget* parent=nullptr;
+    iGame::Model* model{nullptr};
+    QTreeWidget* parent{nullptr};
     QTreeWidgetItem* current_child{nullptr};
 };
 

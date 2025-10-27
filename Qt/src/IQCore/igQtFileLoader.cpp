@@ -17,16 +17,14 @@
 #include "Spline XML/iGameSplineSurfaceReader.h"
 #include "Spline XML/iGameSplineVolumeReader.h"
 #endif
-#if defined(NASTRAN_ENABLE)
 #include "Nastran/iGameNastranReader.h"
-#endif
+#include "Abaqus/iGameODBReader.h"
 #include "Client.h"
 #include "Sever.h"
-#include "Spline XML/iGameNurbsReader.h"
-#include "Abaqus/iGameODBReader.h"
+#include "Spline XML/iGameSplineReaderCPU.h"
 
-#include <IQComponents/Dialog/igQtSplineOptionDialog.h>
 #include <IQComponents/Dialog/igQtBasicListOptionDialog.h>
+#include <IQComponents/Dialog/igQtSplineOptionDialog.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtFileType.h>
 
@@ -48,7 +46,7 @@ void igQtFileLoader::LoadOnlineS() {
 #if defined(_WIN32) || defined(_WIN64)
     std::thread server_thread(serverThread);
     server_thread.join();
-    #endif
+#endif
 }
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
@@ -67,7 +65,7 @@ void igQtFileLoader::LoadOnlineC() {
     std::thread client_thread(clientThread, selected_idx, filePath);
     client_thread.join();
     this->OpenFile("./ReceivedFile.igc");
-    #endif
+#endif
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
@@ -129,7 +127,7 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     emit NewModel(obj, ItemSource::File);
     emit FinishReading();
 }
-void igQtFileLoader::OpenODBFile(const std::string &filePath) {
+void igQtFileLoader::OpenODBFile(const std::string& filePath) {
 #if defined(AbqSDK_ENABLE)
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
@@ -138,11 +136,11 @@ void igQtFileLoader::OpenODBFile(const std::string &filePath) {
     dialog.setInfoList(stepNames);
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     dialog.setWindowTitle("ODB Reader Info");
-    dialog.setLabelName(filename,"More than one Step for \" %s \".Please choose one:");
-    if(dialog.exec() == QDialog::Accepted){
+    dialog.setLabelName(filename, "More than one Step for \" %s \".Please choose one:");
+    if (dialog.exec() == QDialog::Accepted) {
         int stepIdx = -1;
         stepIdx = dialog.getDialogOutput();
-        if(~stepIdx){
+        if (~stepIdx) {
             auto reader = iGame::ODBReader::New();
             DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
             obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
@@ -189,7 +187,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
             break;
         }
         default:
-            NurbsReader::Pointer reader = NurbsReader::New();
+            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
             reader->SetFilePath(filePath);
             reader->Execute();
             obj = reader->GetOutput();
@@ -211,7 +209,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
 #else
     DataObject::Pointer obj = nullptr;
     /* Without Cuda version, only support Nurbs Reader.*/
-    NurbsReader::Pointer reader = NurbsReader::New();
+    SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
     //reader->SetNurbsType(readerType);
     reader->SetFilePath(filePath);
     reader->Execute();

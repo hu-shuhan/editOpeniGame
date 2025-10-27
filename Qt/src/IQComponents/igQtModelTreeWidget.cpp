@@ -1,4 +1,6 @@
 #include <IQComponents/igQtModelTreeWidget.h>
+#include <QAction>
+#include <QMenu>
 
 ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(parent), visibility(true) {
     QWidget* buttonWidget = new QWidget(parent);
@@ -46,9 +48,9 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem, this);
     this->parent = parent;
 }
-iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
+iGame::Model* ModelTreeWidgetItem::getModel() { return this->model; }
 
-void ModelTreeWidgetItem::setModel(iGame::Model::Pointer model) {
+void ModelTreeWidgetItem::setModel(iGame::Model* model) {
     this->model = model;
     view_fill->setChecked(true);
     view_pickedItem->setChecked(true);
@@ -218,6 +220,16 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         QSize iconSize = item->icon(0).actualSize(QSize(20, 24));
         QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
                        iconSize.width(), iconSize.height());
+
+        if (event->button() == Qt::RightButton) {
+            QMenu menu(this);
+            QAction* setCenterAction = menu.addAction(QString::fromUtf8("设置旋转中心为当前模型"));
+            connect(setCenterAction, &QAction::triggered, this, [item]() {
+                auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                if (scene && item->getModel()) { scene->ResetCameraView(item->getModel()); }
+            });
+            menu.exec(viewport()->mapToGlobal(event->pos()));
+        }
 
         // Determine if the icon area has been clicked
         if (iconRect.contains(event->pos())) {

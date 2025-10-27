@@ -3,6 +3,8 @@
 
 #include <ui_SelectionView.h>
 #include <QWidget>
+#include <vector>
+#include <string>
 
 namespace Ui {
 class SelectionView;
@@ -18,16 +20,13 @@ public:
     explicit igQtSelectionWidget(QWidget *parent = nullptr);
     ~igQtSelectionWidget();
     const SelectionStation& GetSelectionStation() const;
-    double GetSelectionRadius() const;
     bool GetSelectionShow() const;
-    bool GetSelectOrUnSelect() const;
+    void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
 signals:
-    void SetSelectionStation(SelectionStation selectionStation);
-    void SetSelectOrUnSelect(bool selectOrUnSelect);
-    void SetSelectionRadius(double radius);
+    void Signal_SetSelectionStationChanged();
     void SetSelectionShow(bool show);
     void SetClearSelection();
     void Hided();
@@ -39,6 +38,11 @@ private slots:
     void SelectionSelect(bool checked);
     void SelectionUnSelect(bool checked);
     void SelectionRadiusSpinBox(double radius);
+    void SelectionVariableIndex(int index);
+    void SelectionVariableAutoCheck(bool checked);
+    void SelectionVariableRange(double range);
+    void SelectionSkipUnSeeAbleCell(bool checked);
+    void SelectionOnlySelectSeeAbleCells(bool checked);
     void ClearSelectionState();
     void SelectionStateShow(bool unShow);
 
@@ -48,8 +52,6 @@ protected:
 private:
     Ui::SelectionView* ui;
     SelectionStation m_SelectionStation{};
-    bool m_Select_Or_UnSelect{true};
-    double m_SelectionRadius{};
     bool m_SelectionShow{true};
     bool m_PreventSignalSend{};
 };

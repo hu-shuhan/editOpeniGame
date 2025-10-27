@@ -179,7 +179,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
         //std::cout << "Add model id: " << id << std::endl;
     }
 
-    auto model = scene->GetModelById(id);
+    iGame::Model* model = scene->GetModelById(id).get();
 
     //currentModel = model;
     scene->SetCurrentModel(model);
@@ -216,7 +216,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     modelTreeWidget->addTopLevelItem(item);
     modelTreeWidget->setCurrentItem(item);
 
-    updateCurrentModelProperty(model.get());
+    updateCurrentModelProperty(model);
     updateCurrentModelInfo();
     //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
