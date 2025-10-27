@@ -24,6 +24,7 @@
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "IGC/iGameIGCReader.h"
 #include <VTK XML/iGameVTMWriter.h>
+#include <Nastran/iGameNastranReader.h>
 
 IGAME_NAMESPACE_BEGIN
 IGenum FileIO::GetFileType(const std::string& file_name)
@@ -84,6 +85,9 @@ IGenum FileIO::GetFileType(const std::string& file_name)
 	} else if (FileSuffix == "odb") {
 		return ODB;
 	}
+    else if(FileSuffix == "bdf"){
+        return BDF;
+    }
 	return NONE;
 }
 
@@ -108,6 +112,7 @@ std::string FileIO::GetFileTypeAsString(IGenum type)
 	case CGNS:return "CGNS";
 	case INP:return "INP";
 	case ODB:return "ODB";
+	case BDF:return "BDF";
 	default:return "NONE";
 	}
 }
@@ -281,6 +286,16 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
 		resObj = reader->GetOutput();
 		break;
 	}
+    case iGame::FileIO::BDF:
+    {
+        NastranReader::Pointer reader = NastranReader::New();
+        reader->SetFilePath(file_name);
+        reader->Execute();
+        resObj = reader->GetOutput();
+        break;
+    }
+
+
 	default:
 		break;
 	}

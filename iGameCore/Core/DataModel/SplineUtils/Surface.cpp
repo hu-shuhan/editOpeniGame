@@ -1,12 +1,13 @@
 #include "Surface.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 Surface::Surface(const int udegree, const int vdegree, const std::vector<Point>& controlPoints,
                  const std::vector<double>& uknots, const std::vector<double>& vknots,
-                 const std::vector<double>& weights) {
+                 const std::vector<double>& weights, const std::vector<Scalar>& controlScalars) {
     m_Basis.resize(2);
     m_ControlPoints = controlPoints;
+    m_ControlScalars = controlScalars;
     m_Weights = weights;
     m_Basis[0] = Basis(udegree, uknots);
     m_Basis[1] = Basis(vdegree, vknots);
@@ -26,6 +27,21 @@ Point Surface::getPointAtParam(std::vector<double>& u) {
         point[2] += basisValue[i] * m_ControlPoints[index[i]][2];
     }
     return point;
+}
+
+Scalar Surface::getScalarAtParam(std::vector<double>& u) {
+    std::vector<double> basisValue;
+    std::vector<int> index;
+    eval(u, basisValue);
+    getConnectIndex(u, index);
+
+    Scalar scalar(m_ControlScalars[0].size());
+    for (int i = 0; i < basisValue.size(); ++i) {
+        for (int j = 0; j < m_ControlScalars[index[i]].size(); ++j) {
+            scalar[j] += basisValue[i] * m_ControlScalars[index[i]][j];
+        }
+    }
+    return scalar;
 }
 
 void Surface::getConnectIndex(const std::vector<double>& u, std::vector<int>& index) {
@@ -134,5 +150,5 @@ void Surface::evalDers(std::vector<double>& u, std::vector<std::vector<double>>&
         }
     }
 }
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

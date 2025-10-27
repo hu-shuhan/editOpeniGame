@@ -270,7 +270,7 @@ UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataO
             return re;
         case IG_MULTIBLOCK_MESH:
             return re;
-        case IG_NURBS_GEOMETRY:
+        case IG_SPLINE_GEOMETRY:
             return re;
         case IG_DATA_OBJECT_COUNT:
             return re;

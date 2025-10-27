@@ -3,7 +3,7 @@
 #include "Geo.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 class Surface : public Geo {
 public:
     /// \brief 构造一条有理b样条曲线.
@@ -12,10 +12,14 @@ public:
     /// \param knots 节点序列.
     /// \param weights 每个控制点的权重，必须大于0.
     Surface(const int udegree, const int vdegree, const std::vector<Point>& controlPoints,
-            const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& weights);
+            const std::vector<double>& uknots, const std::vector<double>& vknots, const std::vector<double>& weights,
+            const std::vector<Scalar>& controlScalars = {});
 
     /// \brief 获得曲面某一参数点的物理坐标，u长度为2
     Point getPointAtParam(std::vector<double>& u);
+
+    /// \brief 获得曲面某一参数点的物理坐标，u长度为2
+    Scalar getScalarAtParam(std::vector<double>& u);
 
     /// \brief 获得曲面某一参数点的非零基函数索引，u长度为2
     void getConnectIndex(const std::vector<double>& u, std::vector<int>& index);
@@ -29,5 +33,5 @@ public:
     /// \brief 获得非零基函数值和导数，u长度2
     void evalDers(std::vector<double>& u, std::vector<std::vector<double>>& basisValue);
 };
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

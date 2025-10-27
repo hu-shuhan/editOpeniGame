@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "Spline XML/iGameNurbsReader.h"
+#include "Spline XML/iGameSplineReaderCPU.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
 
@@ -13,12 +13,12 @@ static void ImportNurbsMesh() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/circle.xml";
-    //const std::string fileName = "./Models/surface.xml";
-    // const std::string fileName = "./Models/hand.xml";
+    const std::string fileName = "./Models/quarter_circle.xml";
+    //const std::string fileName = "./Models/teapot.xml";
+    // const std::string fileName = "./Models/Bridge.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
-    iGame::NurbsReader::Pointer reader = iGame::NurbsReader::New();
+    iGame::SplineReaderCPU::Pointer reader = iGame::SplineReaderCPU::New();
     reader->SetFilePath(fileName);
     reader->Execute();
     iGame::DataObject::Pointer dataObj = reader->GetOutput();
