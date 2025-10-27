@@ -42,6 +42,7 @@ private slots:
     void SelectionVariableAutoCheck(bool checked);
     void SelectionVariableRange(double range);
     void SelectionSkipUnSeeAbleCell(bool checked);
+    void SelectionOnlySelectSeeAbleCells(bool checked);
     void ClearSelectionState();
     void SelectionStateShow(bool unShow);
 

@@ -14,6 +14,11 @@ void SelectionParameter::SetSelectIgnoreUnSeeAbleCells(bool selectIgnoreUnSeeAbl
 }
 bool SelectionParameter::GetSelectIgnoreUnSeeAbleCells() const { return m_SelectIgnoreUnSeeAbleCells; }
 
+void SelectionParameter::SetSelectOnlySelectSeeAbleCells(bool selectOnlySelectSeeAbleCells) {
+    m_SelectOnlySelectSeeAbleCells = selectOnlySelectSeeAbleCells;
+}
+bool SelectionParameter::GetSelectOnlySelectSeeAbleCells() { return m_SelectOnlySelectSeeAbleCells; }
+
 void SelectionParameter::SetSelectOrUnSelect(bool selectOrUnSelect) { m_SelectOrUnSelect = selectOrUnSelect; }
 bool SelectionParameter::GetSelectOrUnSelect() const { return m_SelectOrUnSelect; }
 
