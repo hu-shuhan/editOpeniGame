@@ -29,6 +29,7 @@ public:
 		INP,
 		ODB,
 		CAS,
+		BDF,
 		FILETYPE_COUNT
 	};
 

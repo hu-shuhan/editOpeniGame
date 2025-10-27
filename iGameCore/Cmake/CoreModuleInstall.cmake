@@ -95,9 +95,9 @@ if(ENABLE_NASTRAN_MODULE)
     if(EXISTS "${NASTRAN_CONVERTER_EXE}")
         install(FILES "${NASTRAN_CONVERTER_EXE}"
                 DESTINATION bin/NastranConverter)
-        message(STATUS "将安装Nastran转换器到 bin/NastranConverter/nastran_to_vtk_cli.exe")
+        message(STATUS "Installing NastranTransfer to bin/NastranConverter/nastran_to_vtk_cli.exe")
     else()
-        message(WARNING "未找到Nastran转换器: ${NASTRAN_CONVERTER_EXE}")
+        message(WARNING "Can't Find NastranTransfer: ${NASTRAN_CONVERTER_EXE}")
     endif()
 endif ()
 

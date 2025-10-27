@@ -416,6 +416,10 @@ void Selection::Reset() {
 
 void Selection::ClearSelections() { Reset(); }
 
+void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbleFaces = seeAbleFaces; }
+
+const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
+
 void Selection::AddItem(const Event& event) {
     if (m_SelectedItems[event.type].count(event.pickId) != 0 && m_Model != nullptr) {
         auto painter = m_Model->GetPainter3D();

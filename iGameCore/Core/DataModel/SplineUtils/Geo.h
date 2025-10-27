@@ -6,9 +6,10 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 // 前三项为坐标    其它项则根据需求填充，如：位移，误差等  便于绘制
 using Point = std::vector<double>;
+using Scalar = std::vector<double>;
 
 class Geo {
 public:
@@ -17,6 +18,10 @@ public:
     //根据某个参数点坐标计算物理坐标点
     //u  参数点
     virtual Point getPointAtParam(std::vector<double>& u) = 0;
+
+    //根据某个参数点坐标计算物理坐标点的标量值
+    //u  参数点
+    virtual Scalar getScalarAtParam(std::vector<double>& u) = 0;
 
     //计算参数点的非零基函数的索引号
     //u  参数点
@@ -52,8 +57,9 @@ public:
 
 public:
     std::vector<Point> m_ControlPoints;
+    std::vector<Scalar> m_ControlScalars;
     std::vector<Basis> m_Basis;    // 基函数
     std::vector<double> m_Weights; // 权值
 };
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

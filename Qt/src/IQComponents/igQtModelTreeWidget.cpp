@@ -48,9 +48,9 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem, this);
     this->parent = parent;
 }
-iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
+iGame::Model* ModelTreeWidgetItem::getModel() { return this->model; }
 
-void ModelTreeWidgetItem::setModel(iGame::Model::Pointer model) {
+void ModelTreeWidgetItem::setModel(iGame::Model* model) {
     this->model = model;
     view_fill->setChecked(true);
     view_pickedItem->setChecked(true);
