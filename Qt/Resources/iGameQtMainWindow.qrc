@@ -1,120 +1,53 @@
 <RCC>
     <qresource prefix="/Ticon">
-        <file>Icons/6610 - View.png</file>
-        <file>Icons/Configuration.png</file>
-        <file>Icons/check.png</file>
-        <file>Icons/Delete.png</file>
-        <file>Icons/Document.png</file>
-        <file>Icons/File.png</file>
-        <file>Icons/begin.jpg</file>
-        <file>Icons/icon (1).ico</file>
-        <file>Icons/icon (1).png</file>
-        <file>Icons/icon (2).png</file>
-        <file>Icons/icon (3).png</file>
-        <file>Icons/icon (4).png</file>
-        <file>Icons/icon (5).png</file>
-        <file>Icons/icon (6).png</file>
-        <file>Icons/icon (7).png</file>
-        <file>Icons/icon (8).png</file>
-        <file>Icons/icon (9).png</file>
-        <file>Icons/icon (10).png</file>
-        <file>Icons/icon (11).png</file>
-        <file>Icons/icon (12).png</file>
-        <file>Icons/icon (13).png</file>
-        <file>Icons/Move.png</file>
-        <file>Icons/Setting.png</file>
-        <file>Icons/iGameLogo.png</file>
-        <file>Icons/point.png</file>
-        <file>Icons/colorPoint.png</file>
-        <file>Icons/clear.png</file>
-        <file>Icons/3Dmesh.png</file>
-        <file>Icons/facefill.png</file>
-        <file>Icons/mesh.png</file>
-        <file>Icons/import1.png</file>
-        <file>Icons/import2.png</file>
-        <file>Icons/file_export_icon.png</file>
-        <file>Icons/file_import_icon.png</file>
-        <file>Icons/add_bottom.png</file>
-        <file>Icons/add_left.png</file>
-        <file>Icons/add_right.png</file>
-        <file>Icons/add_top.png</file>
-        <file>Icons/branch_close.png</file>
-        <file>Icons/branch_open.png</file>
-        <file>Icons/calendar_nextmonth.png</file>
-        <file>Icons/calendar_prevmonth.png</file>
-        <file>Icons/checkbox_checked.png</file>
-        <file>Icons/checkbox_checked_disable.png</file>
-        <file>Icons/checkbox_parcial.png</file>
-        <file>Icons/checkbox_parcial_disable.png</file>
-        <file>Icons/checkbox_unchecked.png</file>
-        <file>Icons/checkbox_unchecked_disable.png</file>
-        <file>Icons/radiobutton_checked.png</file>
-        <file>Icons/radiobutton_checked_disable.png</file>
-        <file>Icons/radiobutton_unchecked.png</file>
-        <file>Icons/radiobutton_unchecked_disable.png</file>
-        <file>Icons/arrow_click_cursor_pointer_icon (1).png</file>
-        <file>Icons/arrow_click_cursor_pointer_icon .png</file>
-        <file>Icons/arrow_click_cursor_pointer_icon.png</file>
-        <file>Icons/knife_cutter_cut_cutlery_cutting_icon.png</file>
-        <file>Icons/CopyMesh.svg</file>
-        <file>Icons/RecoverMesh.svg</file>
-        <file>Icons/zuoxuanzhuan90du.svg</file>
-        <file>Icons/youxuanzhuan90du.svg</file>
         <file>Icons/+X.svg</file>
         <file>Icons/+Y.svg</file>
         <file>Icons/+Z.svg</file>
         <file>Icons/-X.svg</file>
         <file>Icons/-Y.svg</file>
         <file>Icons/-Z.svg</file>
-        <file>Icons/IsometricView.svg</file>
-        <file>Icons/ShowCenterAxes.svg</file>
-        <file>Icons/ResetCenter.svg</file>
-        <file>Icons/PickCenter.svg</file>
-        <file>Icons/ResetScaleRange.svg</file>
-        <file>Icons/SetScaleRange.svg</file>
-        <file>Icons/ScalarBar.svg</file>
-        <file>Icons/ShowOrientationAxes.svg</file>
+        <file>Icons/BackGround.svg</file>
+        <file>Icons/Deformation.svg</file>
+        <file>Icons/Delete.png</file>
+        <file>Icons/Eyeball.svg</file>
+        <file>Icons/EyeballClosed.svg</file>
         <file>Icons/Glyph.svg</file>
+        <file>Icons/IsometricView.svg</file>
+        <file>Icons/LoadFile.png</file>
+        <file>Icons/PickCenter.svg</file>
+        <file>Icons/ResetCenter.svg</file>
+        <file>Icons/ResetScaleRange.svg</file>
+        <file>Icons/ResetView.png</file>
+        <file>Icons/SaveFile.png</file>
+        <file>Icons/ScalarBar.svg</file>
+        <file>Icons/ScreenShot.svg</file>
+        <file>Icons/SetScaleRange.svg</file>
+        <file>Icons/ShowCenterAxes.svg</file>
+        <file>Icons/ShowOrientationAxes.svg</file>
+        <file>Icons/Slice.svg</file>
         <file>Icons/StreamTracer.svg</file>
         <file>Icons/VcrBack.svg</file>
+        <file>Icons/VcrDisabledLoop.svg</file>
         <file>Icons/VcrFirst.svg</file>
         <file>Icons/VcrForward.svg</file>
         <file>Icons/VcrLast.svg</file>
-        <file>Icons/VcrLoop.svg</file>
-        <file>Icons/VcrPause.svg</file>
         <file>Icons/VcrPlay.svg</file>
         <file>Icons/VcrReverse.svg</file>
-        <file>Icons/VcrDisabledLoop.svg</file>
-        <file>Icons/_Manage.png</file>
-        <file>Icons/Eyeball.svg</file>
-        <file>Icons/EyeballClosed.svg</file>
-        <file>Icons/ScreenShot.svg</file>
-        <file>Icons/animation_save_vcr.svg</file>
-        <file>Icons/select/select_face.png</file>
-        <file>Icons/select/selectView.png</file>
-        <file>Icons/select/select_vertex.png</file>
-        <file>Icons/select/select_vertex_geodesic.png</file>
-        <file>Icons/select/fill.png</file>
-        <file>Icons/select/points.png</file>
-        <file>Icons/select/wireframe.png</file>
-        <file>Icons/select/eye-open.png</file>
-        <file>Icons/select/eye-close.png</file>
-        <file>Icons/select/bbox.png</file>
-        <file>Icons/select/selected.png</file>
-        <file>Icons/select/selected_face.png</file>
-        <file>Icons/select/selected_vert.png</file>
-        <file>Icons/select/file.png</file>
-        <file>Icons/select/DragPoint.svg</file>
-        <file>Icons/orthographic.svg</file>
-        <file>Icons/Slice.svg</file>
-        <file>Icons/Deformation.svg</file>
-        <file>Icons/contourline.svg</file>
         <file>Icons/VolumeRendering.svg</file>
-        <file>Icons/BackGround.svg</file>
-        <file>Icons/select/hex.png</file>
-        <file>Icons/select/point.png</file>
-        <file>Icons/select/point2.png</file>
+        <file>Icons/animation_save_vcr.svg</file>
+        <file>Icons/chart.svg</file>
+        <file>Icons/check.png</file>
+        <file>Icons/clear.png</file>
+        <file>Icons/contourline.svg</file>
+        <file>Icons/iGameLogo.png</file>
+        <file>Icons/orthographic.svg</file>
+        <file>Icons/youxuanzhuan90du.svg</file>
+        <file>Icons/zuoxuanzhuan90du.svg</file>
         <file>Icons/select/ContextPreservingAction.png</file>
+        <file>Icons/select/DragPoint.svg</file>
+        <file>Icons/select/selectView.png</file>
+        <file>Icons/select/select_face.png</file>
+        <file>Icons/select/select_vertex_geodesic.png</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>

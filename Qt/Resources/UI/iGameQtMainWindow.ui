@@ -696,7 +696,7 @@
   <action name="action_SaveMesh">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/icon (5).png</normaloff>:/Ticon/Icons/icon (5).png</iconset>
+     <normaloff>:/Ticon/Icons/SaveFile.png</normaloff>:/Ticon/Icons/SaveFile.png</iconset>
    </property>
    <property name="text">
     <string>保存网格</string>
@@ -720,7 +720,7 @@
   <action name="action_LoadFile">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/icon (4).png</normaloff>:/Ticon/Icons/icon (4).png</iconset>
+     <normaloff>:/Ticon/Icons/LoadFile.png</normaloff>:/Ticon/Icons/LoadFile.png</iconset>
    </property>
    <property name="text">
     <string>打开文件</string>
@@ -750,7 +750,7 @@
   <action name="action_ResetView">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/icon (8).png</normaloff>:/Ticon/Icons/icon (8).png</iconset>
+     <normaloff>:/Ticon/Icons/ResetView.png</normaloff>:/Ticon/Icons/ResetView.png</iconset>
    </property>
    <property name="text">
     <string>重置视角</string>
