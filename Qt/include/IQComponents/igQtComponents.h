@@ -1,26 +1,22 @@
 #pragma once
 
-#include <QMouseEvent>
-#include <QDockWidget>
-#include <QTreeWidget>
-#include <QPushButton>
-#include <qboxlayout.h>
-#include <QObject>
 #include <QComboBox>
+#include <QDockWidget>
+#include <QMouseEvent>
+#include <QObject>
+#include <QPushButton>
+#include <QTreeWidget>
+#include <qboxlayout.h>
 
 #include <iostream>
 
 class HoverButton : public QPushButton {
     Q_OBJECT
 public:
-    HoverButton(const QString& text, QWidget* parent = nullptr)
-        : QPushButton(text, parent), m_checked(false) {
+    HoverButton(const QString& text, QWidget* parent = nullptr) : QPushButton(text, parent), m_checked(false) {
         init();
     }
-    HoverButton(QWidget* parent = nullptr)
-        : QPushButton(parent), m_checked(false) {
-        init();
-    }
+    HoverButton(QWidget* parent = nullptr) : QPushButton(parent), m_checked(false) { init(); }
 
     template<typename Functor, typename... Args>
     void setConcernFunctor(Functor&& functor, Args&&... args) {
@@ -94,14 +90,17 @@ private:
 
 
 class AttribTreeWidgetItem;
+class SubAttribTreeWidgetItem; // forward declaration for overload
 class MComboBox : public QComboBox {
     Q_OBJECT
 public:
     MComboBox(AttribTreeWidgetItem* item, QWidget* parent = nullptr);
+    MComboBox(SubAttribTreeWidgetItem* item, QWidget* parent = nullptr);
 
 private slots:
     void onItemActivated(int index);
 
 private:
-    AttribTreeWidgetItem* item;
+    AttribTreeWidgetItem* item{nullptr};
+    SubAttribTreeWidgetItem* subItem{nullptr};
 };
