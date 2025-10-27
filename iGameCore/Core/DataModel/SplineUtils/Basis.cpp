@@ -1,7 +1,7 @@
 #include "Basis.h"
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 Basis::Basis(int degree, const std::vector<double>& knots) {
     m_Degree = degree;
     m_Knots = knots;
@@ -109,5 +109,5 @@ void Basis::getAllNurbsBasisFunsDers(int i, double u, int nd, std::vector<std::v
         r *= (m_Degree - k);
     }
 }
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

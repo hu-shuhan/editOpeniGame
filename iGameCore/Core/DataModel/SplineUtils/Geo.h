@@ -6,7 +6,7 @@
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
+IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 // 前三项为坐标    其它项则根据需求填充，如：位移，误差等  便于绘制
 using Point = std::vector<double>;
 
@@ -55,5 +55,5 @@ public:
     std::vector<Basis> m_Basis;    // 基函数
     std::vector<double> m_Weights; // 权值
 };
-IGAME_NURBSSDK_NAMESPACE_END
+IGAME_SPLINEUTILS_NAMESPACE_END
 IGAME_NAMESPACE_END

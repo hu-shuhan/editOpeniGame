@@ -236,7 +236,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     targetPoints = targetPoints / split / 4;
 
-    std::string model_path = "../../../iGameCore/Filters/UndefinedFilters/model_1x64x64x64_0810_cpu.pt";
+    std::string model_path = "./Resources/AI/model_1x64x64x64_0810_cpu.pt";
 
     std::tuple<torch::Tensor, Eigen::Vector3f> result =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, targetPoints, split);
@@ -1260,7 +1260,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     try {
         model = torch::jit::load(model_path);
         std::cout << "Model loaded successfully." << std::endl;
-    } catch (const c10::Error& e) { std::cerr << "Error loading the model." << e.what() << std::endl; }
+    } catch (const c10::Error& e) { std::cerr << "Error loading the model. " << e.what() << std::endl; }
     Eigen::Vector3f min_pos_eigen(min_pos[0], min_pos[1], min_pos[2]);
     Eigen::Vector3f max_pos_eigen(max_pos[0], max_pos[1], max_pos[2]);
 
