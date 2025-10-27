@@ -729,42 +729,6 @@
     <string>打开文件</string>
    </property>
   </action>
-  <action name="action_SaveSurfacemesh">
-   <property name="text">
-    <string>表面网格</string>
-   </property>
-  </action>
-  <action name="action_Exit">
-   <property name="text">
-    <string>退出</string>
-   </property>
-  </action>
-  <action name="action_NextMesh">
-   <property name="checkable">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/arrow_click_cursor_pointer_icon (1).png</normaloff>:/Ticon/Icons/arrow_click_cursor_pointer_icon (1).png</iconset>
-   </property>
-   <property name="text">
-    <string>下一个模型</string>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>10</pointsize>
-    </font>
-   </property>
-  </action>
-  <action name="action_LastMesh">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/arrow_click_cursor_pointer_icon.png</normaloff>:/Ticon/Icons/arrow_click_cursor_pointer_icon.png</iconset>
-   </property>
-   <property name="text">
-    <string>上一个模型</string>
-   </property>
-  </action>
   <action name="action_ClearInfomation">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
@@ -796,57 +760,6 @@
    </property>
    <property name="menuRole">
     <enum>QAction::TextHeuristicRole</enum>
-   </property>
-  </action>
-  <action name="action_ViewNormal">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/colorPoint.png</normaloff>:/Ticon/Icons/colorPoint.png</iconset>
-   </property>
-   <property name="text">
-    <string>法向量可视化</string>
-   </property>
-  </action>
-  <action name="action_ShowFeature">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/icon (13).png</normaloff>:/Ticon/Icons/icon (13).png</iconset>
-   </property>
-   <property name="text">
-    <string>特征可视化</string>
-   </property>
-  </action>
-  <action name="action_FaceCull">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/6610 - View.png</normaloff>:/Ticon/Icons/6610 - View.png</iconset>
-   </property>
-   <property name="text">
-    <string>面剔除</string>
-   </property>
-  </action>
-  <action name="action_CopyMesh">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/CopyMesh.svg</normaloff>:/Ticon/Icons/CopyMesh.svg</iconset>
-   </property>
-   <property name="text">
-    <string>暂存网格</string>
-   </property>
-   <property name="toolTip">
-    <string>暂存网格</string>
-   </property>
-  </action>
-  <action name="action_RecoverMesh">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/RecoverMesh.svg</normaloff>:/Ticon/Icons/RecoverMesh.svg</iconset>
-   </property>
-   <property name="text">
-    <string>导入暂存网格</string>
-   </property>
-   <property name="toolTip">
-    <string>导入暂存网格</string>
    </property>
   </action>
   <action name="action_StrucDeformation">
@@ -993,30 +906,6 @@
    </property>
    <property name="toolTip">
     <string>Reset Camera View</string>
-   </property>
-  </action>
-  <action name="action_FaceFlatFill">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/facefill.png</normaloff>:/Ticon/Icons/facefill.png</iconset>
-   </property>
-   <property name="text">
-    <string>face flat fill</string>
-   </property>
-   <property name="toolTip">
-    <string>face flat fill</string>
-   </property>
-  </action>
-  <action name="action_FaceFill">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/icon (12).png</normaloff>:/Ticon/Icons/icon (12).png</iconset>
-   </property>
-   <property name="text">
-    <string>face fill</string>
-   </property>
-   <property name="toolTip">
-    <string>face fill</string>
    </property>
   </action>
   <action name="action_setViewToIsometric">
@@ -1351,41 +1240,6 @@
    </property>
    <property name="toolTip">
     <string>select point</string>
-   </property>
-  </action>
-  <action name="action_LineSource">
-   <property name="text">
-    <string>Line</string>
-   </property>
-  </action>
-  <action name="action_select_points">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/select/select_vertex_geodesic.png</normaloff>:/Ticon/Icons/select/select_vertex_geodesic.png</iconset>
-   </property>
-   <property name="text">
-    <string>select points</string>
-   </property>
-   <property name="toolTip">
-    <string>select points</string>
-   </property>
-  </action>
-  <action name="action_select_faces">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/select/select_face.png</normaloff>:/Ticon/Icons/select/select_face.png</iconset>
-   </property>
-   <property name="text">
-    <string>select faces</string>
-   </property>
-   <property name="toolTip">
-    <string>select faces</string>
    </property>
   </action>
   <action name="action_select_face">
