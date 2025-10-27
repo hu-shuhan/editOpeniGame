@@ -24,7 +24,7 @@ endif ()
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
@@ -96,7 +96,7 @@ if (WIN32 AND ENABLE_LIBTORCH_MODULE)
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
             COMMENT "Copying libtorch DLLs to output folder"
     )
-else ()
+elseif (ENABLE_LIBTORCH_MODULE)
     message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
 endif ()
 
