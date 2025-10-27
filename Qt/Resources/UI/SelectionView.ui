@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>245</width>
-    <height>186</height>
+    <width>280</width>
+    <height>234</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -155,6 +155,13 @@
         <string>选择状态</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QCheckBox" name="skipUnSeeAbleCell">
+          <property name="text">
+           <string>越过不可见面/体</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">

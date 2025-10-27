@@ -18,12 +18,25 @@ static int BoxNum = 500;
 static double SegmentIntersectsTriangle(const Point& start, const Point& end,
                                         const Point& a, const Point& b,
                                         const Point& c) {
+    // 计算方向向量（从start指向end）
     Point dir = {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
+    double segmentLength = dir.length();
+
+    // 如果线段长度为0，直接返回-1（没有交点）
+    if (segmentLength < 1e-7) { return -1; }
+
+    // 标准化方向向量，使其长度为1
+    Point normalizedDir = {(float) (dir[0] / segmentLength),
+                           (float) (dir[1] / segmentLength),
+                           (float) (dir[2] / segmentLength)};
+
     Point ab = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
     Point ac = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
-    Point pvec = dir.cross(ac);
 
+    // 使用标准化后的方向向量进行计算
+    Point pvec = normalizedDir.cross(ac);
     double det = ab.dot(pvec);
+
     if (std::abs(det) < 1e-7) { return -1; }
 
     double invDet = 1.0 / det;
@@ -32,13 +45,31 @@ static double SegmentIntersectsTriangle(const Point& start, const Point& end,
     if (u < -1e-7 || u > 1 + 1e-7) { return -1; }
 
     Point qvec = tvec.cross(ab);
-    double v = dir.dot(qvec) * invDet;
+    double v = normalizedDir.dot(qvec) * invDet;
     if (v < -1e-7 || u + v > 1 + 1e-7) { return -1; }
 
     double t = ac.dot(qvec) * invDet;
-    if (t < 1e-7 || t > 1 - 1e-7) { return -1; }
 
-    if (u > 1e-7 && v > 1e-7 && u + v < 1 - 1e-7) { return t * dir.length(); }
+    // 检查交点是否在线段范围内（从start出发，沿着方向向量的距离）
+    if (t < 1e-7) { return -1; }
+
+    if (u > 1e-7 && v > 1e-7 && u + v < 1 - 1e-7) {
+        return t; // 返回实际的距离值
+    }
+    return -1;
+}
+
+static double IsLineCrossFace(const Point& startPoint, const Point& endPoint,
+                              const std::vector<int>& face,
+                              UnstructuredMesh* mesh) {
+    if (face.size() <= 2) return -1;
+    auto& p0 = mesh->GetPoint(face[0]);
+    for (int i = 2; i < face.size(); i++) {
+        auto& p1 = mesh->GetPoint(face[i - 1]);
+        auto& p2 = mesh->GetPoint(face[i]);
+        auto dis = SegmentIntersectsTriangle(startPoint, endPoint, p0, p1, p2);
+        if (dis >= 0) return dis;
+    }
     return -1;
 }
 
@@ -47,7 +78,7 @@ static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
     auto faceNum = cell->GetNumberOfFaces();
     if (faceNum == 0) {
         int pointSize = cell->GetNumberOfPoints();
-        if (pointSize <= 2) return false;
+        if (pointSize <= 2) return -1;
         auto& p0 = cell->GetPoint(0);
         for (int i = 2; i < pointSize; i++) {
             auto& p1 = cell->GetPoint(i - 1);
@@ -281,6 +312,49 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
     /*################################# CORE END #################################*/
 }
 
+template<class T>
+static inline void SortVector(std::vector<T>& v) {
+    std::sort(v.begin(), v.end());
+}
+
+static void BuildSeeAbleFaceForMesh_AddCell(
+        int cellId, Cell* cell,
+        std::map<std::vector<int>, std::vector<int>>& result) {
+    if (cell == nullptr) return;
+    auto faceNum = cell->GetNumberOfFaces();
+    if (faceNum == 0) {
+        int pointSize = cell->GetNumberOfPoints();
+        if (pointSize <= 1) return;
+        std::vector<int> facePointIds;
+        for (int i = 0; i < pointSize; i++) {
+            auto pointId = cell->GetPointId(i);
+            facePointIds.push_back(pointId);
+        }
+        SortVector(facePointIds);
+        result[facePointIds].push_back(cellId);
+    } else {
+        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
+            auto face = cell->GetFace(faceIndex);
+            BuildSeeAbleFaceForMesh_AddCell(cellId, face, result);
+        }
+    }
+}
+
+static std::vector<int> BuildSeeAbleFaceForMesh(UnstructuredMesh* mesh) {
+    std::map<std::vector<int>, std::vector<int>> tempRe;
+    int cellNum = mesh->GetNumberOfCells();
+    for (int cellId = 0; cellId < cellNum; cellId++) {
+        auto cell = mesh->GetCell(cellId);
+        BuildSeeAbleFaceForMesh_AddCell(cellId, cell, tempRe);
+    }
+    std::set<int> reSet;
+    for (auto& face_cell: tempRe) {
+        if (face_cell.second.size() != 1) continue;
+        reSet.insert(face_cell.second.front());
+    }
+    return std::vector<int>(reSet.begin(), reSet.end());
+}
+
 std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
         double radius, bool useVariableCondition, int variableIndex,
@@ -289,13 +363,30 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
     if (mesh == nullptr) return re;
     double minDis = -1;
     int id = -1;
-    for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
-        Cell* cell = mesh->GetCell(cellId);
-        auto dis = IsLineCrossCell(startPoint, endPoint, cell);
-        if (dis < 0) continue;
-        if (minDis == -1 || dis < minDis) {
-            minDis = dis;
-            id = cellId;
+    if (SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells()) {
+        if (mesh->GetSelection()->GetSeeAbleFaces().empty()) {
+            mesh->GetSelection()->SetSeeAbleFaces(
+                    BuildSeeAbleFaceForMesh(mesh));
+        }
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleFaces();
+        for (auto& cellId: seeAbleFaces) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    } else {
+        for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
         }
     }
     if (id == -1) return re;

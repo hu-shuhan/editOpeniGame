@@ -11,6 +11,9 @@ public:
     void SetSelectionRadius(double selectionRadius);
     double GetSelectionRadius() const;
 
+    void SetSelectIgnoreUnSeeAbleCells(bool selectIgnoreUnSeeAbleCells);
+    bool GetSelectIgnoreUnSeeAbleCells() const;
+
     void SetSelectOrUnSelect(bool selectOrUnSelect);
     bool GetSelectOrUnSelect() const;
 
@@ -23,6 +26,7 @@ public:
 private:
     //When selecting points or faces, select the radius at one time.
     double m_SelectRadius{};
+    bool m_SelectIgnoreUnSeeAbleCells{false};
     //true means select. false means unselect
     bool m_SelectOrUnSelect{true};
     //In context selection, the subscript of the variable that is based on.

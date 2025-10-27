@@ -9,6 +9,11 @@ SelectionParameter& SelectionParameter::Instance() {
 void SelectionParameter::SetSelectionRadius(double selectionRadius) { m_SelectRadius = selectionRadius; }
 double SelectionParameter::GetSelectionRadius() const { return m_SelectRadius; }
 
+void SelectionParameter::SetSelectIgnoreUnSeeAbleCells(bool selectIgnoreUnSeeAbleCells) {
+    m_SelectIgnoreUnSeeAbleCells = selectIgnoreUnSeeAbleCells;
+}
+bool SelectionParameter::GetSelectIgnoreUnSeeAbleCells() const { return m_SelectIgnoreUnSeeAbleCells; }
+
 void SelectionParameter::SetSelectOrUnSelect(bool selectOrUnSelect) { m_SelectOrUnSelect = selectOrUnSelect; }
 bool SelectionParameter::GetSelectOrUnSelect() const { return m_SelectOrUnSelect; }
 

@@ -136,6 +136,10 @@ public:
 	void SetModel(Model* m) {
 		m_Model = m;
 	}
+
+	void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
+    const std::vector<int>& GetSeeAbleFaces();
+
 protected:
 	Selection() {}
 	~Selection() override = default;
@@ -153,6 +157,7 @@ protected:
     std::vector<IGuint> m_OtherDrawHandles;
     CellFaceExtracter m_CellFaceExtracter;
 
+	std::vector<int> m_SeeAbleFaces; //pointIds,CellId
 
 	Points* m_Points{ nullptr };
 	CellArray* m_Cells{ nullptr };
