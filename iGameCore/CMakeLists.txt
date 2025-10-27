@@ -90,12 +90,12 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-#        find_package(HDF5)
-#        target_link_libraries(
-#         ${MODULE_NAME} PUBLIC
-#         ${HDF5_LIBRARIES}/../libzlib.lib
-#         ${HDF5_LIBRARIES}/../libsz.lib
-#         ${HDF5_LIBRARIES}/../libaec.lib)
+#    find_package(HDF5)
+#    target_link_libraries(
+#     ${MODULE_NAME} PUBLIC
+#     ${HDF5_LIBRARIES}/../libzlib.lib
+#     ${HDF5_LIBRARIES}/../libsz.lib
+#     ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
@@ -152,6 +152,11 @@ if (${FFMPEG_FOUND})
     message("Find FFMPEG")
     target_compile_definitions(${MODULE_NAME} PUBLIC FFMPEG_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
+endif ()
+
+if (${ENABLE_NASTRAN_MODULE})
+    target_compile_definitions(${MODULE_NAME} PUBLIC NASTRAN_ENABLE)
+
 endif ()
 
 #if(Python3_FOUND)

@@ -24,7 +24,7 @@ endif ()
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 set(ENABLE_NASTRAN_MODULE ON CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
