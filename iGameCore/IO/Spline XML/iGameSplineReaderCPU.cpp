@@ -262,7 +262,7 @@ bool SplineReaderCPU::CreateDataObject() {
     sp->SetPatch(m_Patchs);
     sp->SetViewStyle(m_SplineType == SplineUtils::Type::CURVE ? IG_WIREFRAME : IG_SURFACE);
 
-    if (m_Patchs[0]->m_ControlScalars[0].size()) {
+    if (m_Patchs[0]->m_ControlScalars.size()) {
         FloatArray::Pointer scalarArray = FloatArray::New();
         scalarArray->SetDimension(m_Patchs[0]->m_ControlScalars[0].size());
         scalarArray->SetName("scalar");

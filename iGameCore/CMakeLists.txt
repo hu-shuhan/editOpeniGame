@@ -172,15 +172,17 @@ if (ENABLE_GPSCUDA_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
     message("Enable GPSCuda Module.")
     target_include_directories(${MODULE_NAME} PUBLIC
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm)
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm>
+            $<INSTALL_INTERFACE:include/ThirdParty/CMakeGPS>
+    )
 
-    target_link_libraries(${MODULE_NAME} PUBLIC
+    target_link_libraries(${MODULE_NAME} PRIVATE
             CommonLib
             Geom
             GPHelperIO

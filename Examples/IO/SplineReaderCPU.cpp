@@ -7,6 +7,7 @@
 #include "Spline XML/iGameSplineReaderCPU.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
+#include "iGameSplineGeometry.h"
 
 static void ImportNurbsMesh() {
     // Create a new scene
@@ -14,7 +15,7 @@ static void ImportNurbsMesh() {
 
     // Read the file and add it to the scene
     const std::string fileName = "./Models/quarter_circle.xml";
-    //const std::string fileName = "./Models/teapot.xml";
+    // const std::string fileName = "./Models/teapot.xml";
     // const std::string fileName = "./Models/Bridge.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
@@ -30,11 +31,11 @@ static void ImportNurbsMesh() {
     }
 
     // Change the display style to surface mode
-    auto nurbsObj = DynamicCast<iGame::NurbsGeometry>(dataObj);
-    if (nurbsObj) {
+    auto sg = DynamicCast<iGame::SplineGeometry>(dataObj);
+    if (sg) {
         // Set the display style to combine wireframe and surface modes for the object
-        nurbsObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE); // Surface mode
-        nurbsObj->SetSamples(0);
+        sg->SetViewStyle(IG_SURFACE); // Surface mode
+        sg->SetSamples(0);
     } else {
         igError("Not a nurbs object"); // Error if the object is not drawable
     }
