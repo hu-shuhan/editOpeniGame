@@ -22,6 +22,7 @@ add_executable(testSetTransparency "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetTra
 add_executable(testSetViewStyle "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetViewStyle.cpp")
 add_executable(testSetScalarField "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetScalarField.cpp")
 add_executable(testSetVolumeRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetVolumeRendering.cpp")
+add_executable(testSetRenderingPressure "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetRenderingPressure.cpp")
 
 add_executable(testChangeRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestSubDataRangeChangeAndRecollect.cpp")
 
@@ -96,6 +97,7 @@ target_link_libraries(testSetTransparency PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetViewStyle PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetScalarField PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetVolumeRendering PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetRenderingPressure PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 
 target_link_libraries(testChangeRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
