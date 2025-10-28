@@ -78,6 +78,8 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     if (!commandManager->startConnection("localhost", 12345)) {
         qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
     }
+
+    ThreadPool::Instance();
 }
 igQtMainWindow::~igQtMainWindow() {
     // 清理命令管理器
