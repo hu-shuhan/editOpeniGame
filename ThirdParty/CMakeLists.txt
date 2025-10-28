@@ -8,10 +8,14 @@ add_subdirectory(glfw-3.4)
 add_subdirectory(lzma)
 add_subdirectory(spdlog)
 add_subdirectory(zlib)
-#add_subdirectory(Python)
+add_subdirectory(Python)
 
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
+
+if (ENABLE_LIBTORCH_MODULE)
+    add_subdirectory(libtorch)
+endif ()
 
 if (ENABLE_CGNS_MODULE)
 

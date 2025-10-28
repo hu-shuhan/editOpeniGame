@@ -28,29 +28,17 @@ set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
-
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
 set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
-
-# set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch")
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Debug")
-else()
-    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch/Release")
-endif()
-
-
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(RENDERING_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core's Rendering Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
@@ -82,14 +70,6 @@ add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-if (ENABLE_LIBTORCH_MODULE)
-    include_directories(
-            ${LIBTORCH_DIR}/include
-            ${LIBTORCH_DIR}/include/torch/csrc/api/include
-    )
-endif ()
-
-
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -97,25 +77,29 @@ add_executable(${PROJECT_NAME} main.cpp)
 
 set(IGAMEVIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-if (ENABLE_LIBTORCH_MODULE)
-    target_include_directories(${PROJECT_NAME} PRIVATE
-        "${LIBTORCH_DIR}/include"
-        "${LIBTORCH_DIR}/include/torch/csrc/api/include"
+### ---- 运行时 DLL 拷贝（Windows）----------------------------------------
+if (WIN32 AND ENABLE_LIBTORCH_MODULE)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Debug")
+    else ()
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release")
+    endif ()
+
+    include_directories(
+            "${LIBTORCH_DIR}/include"
+            "${LIBTORCH_DIR}/include/torch/csrc/api/include"
     )
 
-endif()
-
-# ---- 运行时 DLL 拷贝（Windows）----------------------------------------
-if (WIN32 AND ENABLE_LIBTORCH_MODULE)
     file(GLOB TORCH_DLLS "${LIBTORCH_DIR}/lib/*.dll")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${TORCH_DLLS}
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMENT "Copying libtorch DLLs to output folder"
+            COMMENT "Copying libtorch DLLs to output folder"
     )
-endif()
-
+elseif (ENABLE_LIBTORCH_MODULE)
+    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
+endif ()
 
 #--------------------------------------------------------------------
 # Add subdirectories
@@ -137,29 +121,55 @@ if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
 
-#   由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
+# 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
 if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
 endif ()
 
-
-
-# 移动torchlib的dll
-if (ENABLE_LIBTORCH_MODULE)
-
-    # add_dependencies(${PROJECT_NAME} copy_torch_dlls)
-
-    #    set(LIBTORCH_DIR "${CMAKE_SOURCE_DIR}/ThirdParty/libtorch")
-    #    target_include_directories(${MODULE_NAME}
-    #            PRIVATE
-    #            ${LIBTORCH_DIR}/include
-    #            ${LIBTORCH_DIR}/include/torch/csrc/api/include
-    #    )
-endif ()
-
-
-#   编译时将默认的MSVC运行时库静态链接，用于exe的打包
+# 编译时将默认的MSVC运行时库静态链接，用于exe的打包
 if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif ()
+
+# If user requests GPSCUDA, check nvcc version. For Release builds where nvcc is missing
+# or too old, automatically disable GPSCUDA so that Release configure/build can proceed.
+if (ENABLE_GPSCUDA_MODULE)
+    find_program(NVCC_EXECUTABLE nvcc)
+    if (NOT NVCC_EXECUTABLE)
+        set(NVCC_FOUND FALSE)
+    else ()
+        set(NVCC_FOUND TRUE)
+        execute_process(COMMAND ${NVCC_EXECUTABLE} --version
+                OUTPUT_VARIABLE NVCC_OUTPUT
+                ERROR_VARIABLE NVCC_ERROR
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+        string(REGEX MATCH "release ([0-9]+)\\.([0-9]+)" _match "${NVCC_OUTPUT}")
+        if (_match)
+            string(REGEX REPLACE ".*release ([0-9]+)\\.([0-9]+).*" "\\1" NVCC_MAJOR "${NVCC_OUTPUT}")
+            string(REGEX REPLACE ".*release ([0-9]+)\\.([0-9]+).*" "\\2" NVCC_MINOR "${NVCC_OUTPUT}")
+            math(EXPR NVCC_VER_INT "${NVCC_MAJOR} * 100 + ${NVCC_MINOR}")
+        else ()
+            set(NVCC_VER_INT 0)
+        endif ()
+    endif ()
+
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        if (NOT NVCC_FOUND)
+            message(WARNING "ENABLE_GPSCUDA_MODULE=ON but nvcc not found. Disabling GPSCUDA for Release configure to allow build to continue. Install CUDA >=12.4 to re-enable GPU support.")
+            set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+        elseif (NVCC_VER_INT LESS 1204)
+            message(WARNING "Detected nvcc version ${NVCC_MAJOR}.${NVCC_MINOR} which is older than required 12.4. Disabling GPSCUDA for Release configure. Install CUDA >=12.4 to enable GPU support.")
+            set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+        endif ()
+    else ()
+        # For non-Release builds, just print detection info; keep the user's choice
+        if (NOT NVCC_FOUND)
+            message(STATUS "GPSCUDA requested but nvcc not found. Debug builds may still succeed without GPU.")
+        elseif (NVCC_VER_INT LESS 1204)
+            message(STATUS "GPSCUDA requested but detected nvcc ${NVCC_MAJOR}.${NVCC_MINOR}; CUDA >=12.4 is recommended.")
+        else ()
+            message(STATUS "Found nvcc ${NVCC_MAJOR}.${NVCC_MINOR} - GPU support enabled")
+        endif ()
+    endif ()
 endif ()

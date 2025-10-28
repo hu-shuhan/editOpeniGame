@@ -44,4 +44,7 @@ static void SetLineWidth() {
     window->Show();
 }
 
-int main() { SetLineWidth(); }
+int main() {
+    SetLineWidth();
+    return 0;
+}

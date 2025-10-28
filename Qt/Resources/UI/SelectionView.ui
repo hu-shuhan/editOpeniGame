@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>245</width>
-    <height>186</height>
+    <width>280</width>
+    <height>234</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -90,7 +90,7 @@
        <property name="title">
         <string>选择半径</string>
        </property>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <layout class="QVBoxLayout" name="verticalLayout_6">
         <item>
          <widget class="QDoubleSpinBox" name="RadiusSpinBox">
           <property name="decimals">
@@ -101,6 +101,13 @@
           </property>
           <property name="singleStep">
            <double>0.010000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="onlySelectSeeAbleCells">
+          <property name="text">
+           <string>只选可见面/体</string>
           </property>
          </widget>
         </item>
@@ -155,6 +162,13 @@
         <string>选择状态</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QCheckBox" name="skipUnSeeAbleCell">
+          <property name="text">
+           <string>越过不可见面/体</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">

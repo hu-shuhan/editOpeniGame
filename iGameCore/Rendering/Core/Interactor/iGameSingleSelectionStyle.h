@@ -36,7 +36,13 @@ public:
                         UnstructuredMesh* mesh, double radius = 0.0,
                         bool useVariableCondition = false,
                         int variableIndex = -1, bool useAutoValueRange = false,
-                        double valueRange = 1.0);
+                        double valueRange = 1.0,
+                        bool selectIgnoreUnSeeAbleCells = false,
+                        bool onlySelectSeeAbleCells = false);
+    static std::vector<int>
+    GetFiltedPointsOfUsingAutoValueRange(int keyPointId,
+                                         const std::vector<int>& pointIds,
+                                         UnstructuredMesh* mesh);
     static std::vector<int>
     GetFiltedCellsOfUsingAutoValueRange(int keyCellId,
                                         const std::vector<int>& cellIds,

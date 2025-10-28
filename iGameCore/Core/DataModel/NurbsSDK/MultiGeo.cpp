@@ -1,9 +1,0 @@
-#include "MultiGeo.h"
-#include <fstream>
-#include <regex>
-
-IGAME_NAMESPACE_BEGIN
-IGAME_NURBSSDK_NAMESPACE_BEGIN
-MultiGeo::~MultiGeo() {}
-IGAME_NURBSSDK_NAMESPACE_END
-IGAME_NAMESPACE_END

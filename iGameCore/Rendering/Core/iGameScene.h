@@ -16,11 +16,12 @@
 #include "OpenGL/GLTextureBuffer.h"
 #include "iGameAxes.h"
 #include "iGameCamera.h"
-#include "iGameCenterAxesModel.h" // 鏂板澶存枃浠?#10;#include "iGameFontManager.h"
+#include "iGameCenterAxesModel.h"
 #include "iGameInteractor.h"
 #include "iGameLight.h"
 #include "iGameModel.h"
 #include "iGameShaderManager.h"
+#include <chrono>
 
 
 IGAME_NAMESPACE_BEGIN
@@ -160,7 +161,7 @@ public:
     /**
      * @brief 重置相机视角到默认视图。
      */
-    void ResetCameraView(SmartPointer<Model> model = nullptr);
+    void ResetCameraView(SmartPointer<DataObject> dataObject = nullptr);
 
     /**
      * @brief 获取相机。
@@ -199,6 +200,30 @@ public:
     void Update();
 
     /**
+     * @brief 将渲染帧率限制为指定值（帧率上限）。
+     * @param fps 目标帧率，等于 0 则关闭此限制。
+     */
+    void SetTargetFps(unsigned int fps);
+    unsigned int GetTargetFps() const { return m_TargetFps; }
+
+    /**
+     * @brief 按 GPU 使用率进行帧率节流。举例：0.5 表示让 GPU 在一帧时间内仅繁忙 ~50%。
+     *
+     * @details
+     * 其代表的具体含义为分配给当前场景的 GPU 时间比例。 例如，上一帧渲染需要花费 120ms，
+     * 则设置为 0.5 则代表会将每帧渲染平均花费控制在 60ms 以内，从而节省 GPU 资源用于其他任务。
+     *
+     * @param usagePercent 使用率 0~1，<=0 关闭。
+     */
+    void SetGpuUsageLimit(float usagePercent);
+    float GetGpuUsageLimit() const { return m_GpuUsageLimit; }
+
+    /**
+     * @brief 显式开关帧率节流（当设置了 TargetFps 或 GpuUsageLimit 时自动开启）。
+     */
+    void EnableFramePacing(bool enable);
+
+    /**
      * @brief 将相机视角重置为各方向。
      */
     void ResetCameraViewToPositiveX();
@@ -210,11 +235,13 @@ public:
     void ResetCameraViewToIsometric();
     void RotateNinetyClockwise();
     void RotateNinetyCounterClockwise();
-    void RotateClockwise(float radians);
+    void RotateClockwise(float angle);
+
     /**
      * @brief 切换中心坐标轴的显示状态
      */
     void ToggleCenterAxes();
+
     /**
      * @brief 获取中心坐标轴模型
      * @return 中心坐标轴模型指针
@@ -224,37 +251,22 @@ public:
     }
 
     /**
-     * @brief 获取当前旋转中心（世界坐标）-考虑模型变换
+     * @brief 获取当前旋转中心（世界坐标）
      */
     igm::vec3 GetRotationCenter() const;
 
-
-    /**
-     * @brief 获取当前旋转中心（世界坐标）-未考虑模型变换
-     */
-    igm::vec3 GetRotationCenter_1() const;
-
-
     void UpdateAxisSize();
 
-
     /**
-     * @brief 设置旋转中心（世界坐标）
+     * @brief 设置自定义旋转中心（世界坐标）
      */
     void SetRotationCenter(const igm::vec3 center);
-
-
-    /**
-     * @brief 根据模型矩阵更新实际旋转中心（局部坐标）
-     */
-    void UpdateRealRotationCenter(const igm::vec3 center);
-
 
     /**
      * @brief 重置旋转中心到包围球中心
      */
     void ResetRotationCenter() {
-        m_CustomRotationCenter = false;
+        m_UseCustomRotationCenter = false;
         this->Modified();
     }
 
@@ -264,7 +276,6 @@ public:
     float GetRotationCenterDepth() const;
 
     igm::vec3 ScreenToWorld(const igm::vec2& screenPos, float depth) const;
-
 
     /**
      * @brief 启用或禁用体绘制。
@@ -379,7 +390,8 @@ protected:
     void UpdateObjectDataBlock(SmartPointer<DataObject> obj);
     void UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj);
     void UpdateCameraClippingRange();
-    static void CalculateFrameRate();
+
+    bool ShouldRenderThisCall() const;
 
     SmartPointer<HandlePool<SmartPointer<Model>>> m_ModelPool; //模型池
     IGuint m_CurrentModelID;                                   //当前模型id
@@ -439,13 +451,30 @@ protected:
     bool m_FinishInit;            // 是否完成初始化
     bool m_EnableVolumeRendering; // 是否启用体绘制
 
-
     // 新增成员变量
     SmartPointer<CenterAxesModel> m_CenterAxesModel;
     bool m_CenterAxesVisible = false; // 控制显示开关
-    igm::vec3 m_RotationCenter;       // 独立存储旋转中心
-    igm::vec3 m_RealRotationCenter;
-    bool m_CustomRotationCenter = false; // 标记是否使用自定义旋转中心
+
+    bool m_UseCustomRotationCenter = false;
+    igm::vec3 m_CustomRotationCenter;
+
+    // 帧率/使用率节流控制
+    bool m_FramePacingEnabled = false; // 全局开关
+    unsigned int m_TargetFps = 0.0f;   // >0：按目标 FPS 节流
+    float m_GpuUsageLimit = 0.0f;      // (0,1]：按 GPU 使用率节流
+
+    // GPU 计时器查询（双缓冲，避免等待当帧结果导致卡顿）
+    int m_TimeQueryIndex = 0;
+    unsigned int m_TimeQueries[2] = {0, 0};
+    bool m_TimeQueryReady[2] = {false, false};
+
+    // 平滑后的 GPU 帧时（毫秒）
+    double m_LastGpuTimeMs = 0.0;
+    double m_SmoothedGpuTimeMs = 0.0;
+
+    // 上一帧结束的时间点（用于“提前返回”判定）
+    std::chrono::steady_clock::time_point m_LastRenderEnd;
+    bool m_LastRenderEndValid = false;
 
     friend class RenderWindow;
     friend class Model;

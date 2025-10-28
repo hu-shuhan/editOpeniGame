@@ -64,6 +64,19 @@ public:
     void initStreamTracer(Model::Pointer _model);
     void initStreamTracer(DataObject::Pointer obj);
     void initSubmodelLinks();
+    std::vector<Vector3f> computeSubBlockCenters(const Vector3f& minCorner,
+    const Vector3f& maxCorner,
+    int splitCount
+);
+    std::vector<Vector3f> getAllSubBlockCenters(
+    const Vector3f& boxMax,      // 包围盒最大值
+    const Vector3f& boxMin,      // 包围盒最小值
+    const Vector3f& focusMax,    // 重点观察区域最大值
+    const Vector3f& focusMin,    // 重点观察区域最小值
+    int boxSplitCount,          // 包围盒分割数量（e×e×e）
+    int focusSplitCount         // 重点观察区域分割数量（f×f×f）
+);
+    std::vector<Vector3f> getModelSelect();
     std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
                                                            std::vector<std::vector<float>>& streamColor,
                                                            float lengthOfStreamLine, float lengthOfStep,
