@@ -160,7 +160,7 @@ public:
     /**
      * @brief 重置相机视角到默认视图。
      */
-    void ResetCameraView(SmartPointer<Model> model = nullptr);
+    void ResetCameraView(SmartPointer<DataObject> dataObject = nullptr);
 
     /**
      * @brief 获取相机。

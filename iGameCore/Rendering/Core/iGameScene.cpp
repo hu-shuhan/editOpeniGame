@@ -270,13 +270,13 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView(SmartPointer<Model> model) {
+void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
     UpdateModelsBoundingSphere();
 
     igm::vec3 center = m_ModelsBoundingSphere.xyz();
     float radius = m_ModelsBoundingSphere.w;
-    if (model != nullptr) {
-        auto& box = model->GetDataObject()->GetBoundingBox();
+    if (dataObject != nullptr) {
+        auto& box = dataObject->GetBoundingBox();
         double* c = box.center().pointer();
         float x = static_cast<float>(c[0]);
         float y = static_cast<float>(c[1]);
