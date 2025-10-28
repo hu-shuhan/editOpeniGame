@@ -1,11 +1,9 @@
-#pragma once
-
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
 #include "iGameScene.h"
 
-static void SetViewStyle() {
+static void SetRenderingPressure() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -18,20 +16,17 @@ static void SetViewStyle() {
         igError("Error reading the file");
     }
 
-    // Change the display style
+    scene->ResetCameraView();
+    // scene->SetGpuUsageLimit(0.1f); // Set GPU usage limit to 10%
+    scene->SetTargetFps(30.0f); // Set target FPS to 30
+
+    // Set the display style and point size for the object
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (drawObj) {
-        //drawObj->SetViewStyle(IG_POINTS);                             // Point mode
-        //drawObj->SetViewStyle(IG_WIREFRAME);                          // Wireframe mode
-        //drawObj->SetViewStyle(IG_SURFACE);                            // Surface mode
-        //drawObj->SetViewStyle(IG_POINTS | IG_WIREFRAME);              // Combined mode: Points + Wireframe
-        //drawObj->SetViewStyle(IG_POINTS | IG_SURFACE);                // Combined mode: Points + Surface
-        //drawObj->SetViewStyle(IG_WIREFRAME | IG_SURFACE);             // Combined mode: Wireframe + Surface
-        drawObj->SetViewStyle(IG_POINTS | IG_WIREFRAME | IG_SURFACE); // Combined mode: Points + Wireframe + Surface
+        drawObj->SetViewStyle(IG_SURFACE);
     } else {
-        igError("Not a drawable object");
+        igError("The object is not drawable");
     }
-
 
     // Set up the render window
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
@@ -49,6 +44,6 @@ static void SetViewStyle() {
 }
 
 int main() {
-    SetViewStyle();
+    SetRenderingPressure();
     return 0;
 }

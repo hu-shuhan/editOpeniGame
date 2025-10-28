@@ -56,4 +56,7 @@ static void SetCameraView() {
     window->Show();
 }
 
-int main() { SetCameraView(); }
+int main() {
+    SetCameraView();
+    return 0;
+}

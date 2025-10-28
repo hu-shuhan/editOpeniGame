@@ -9,7 +9,7 @@
 #include "iGameRenderWindow.h"
 #include "iGameSplineGeometry.h"
 
-static void ImportNurbsMesh() {
+static void ImportSplineFileWithCpuCompute() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -34,10 +34,10 @@ static void ImportNurbsMesh() {
     auto sg = DynamicCast<iGame::SplineGeometry>(dataObj);
     if (sg) {
         // Set the display style to combine wireframe and surface modes for the object
-        sg->SetViewStyle(IG_SURFACE); // Surface mode
+        sg->SetViewStyle(IG_WIREFRAME | IG_SURFACE);
         sg->SetSamples(0);
     } else {
-        igError("Not a nurbs object"); // Error if the object is not drawable
+        igError("Not a spline object"); // Error if the object is not drawable
     }
 
     // Set up the render window
@@ -56,6 +56,6 @@ static void ImportNurbsMesh() {
 }
 
 int main() {
-    ImportNurbsMesh();
+    ImportSplineFileWithCpuCompute();
     return 0;
 }

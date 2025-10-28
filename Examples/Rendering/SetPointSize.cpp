@@ -47,4 +47,7 @@ static void SetPointSize() {
     window->Show();
 }
 
-int main() { SetPointSize(); }
+int main() {
+    SetPointSize();
+    return 0;
+}
