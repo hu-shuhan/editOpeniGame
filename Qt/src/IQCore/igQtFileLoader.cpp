@@ -51,12 +51,13 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
-                           "Compression file(*.igc)"};
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
     QString selectedFilter;
     std::string filePath =
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
@@ -69,17 +70,19 @@ void igQtFileLoader::LoadOnlineC() {
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                             #if defined(AbqSDK_ENABLE)
                            "ABAQUS file(*.odb)",
                            #endif
                            "Spline file(*.xml)",
+
                             #if defined(NASTRAN_ENABLE)
                            "Nastran file(*.bdf *.op2)",
                             #endif
-                           "Compression file(*.igc)"};
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
     QString selectedFilter;
     QStringList filePath =
             QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
