@@ -23,8 +23,15 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCasReader.h")
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h")
 endif ()
+
+if(UNIX AND NOT APPLE)
+    find_package(OpenMP REQUIRED)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(${MODULE_NAME} PUBLIC OpenMP::OpenMP_CXX)
+    endif()
+endif()
 
 # add rendering core
 add_subdirectory(Rendering)

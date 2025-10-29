@@ -711,7 +711,7 @@ void Scene::Draw() {
                                GL_QUERY_RESULT_AVAILABLE, &available);
             GLCheckError();
             if (available == GL_TRUE) {
-                unsigned long long ns = 0ULL;
+                GLuint64 ns = 0ULL;
                 glGetQueryObjectui64v(m_TimeQueries[prevIdx], GL_QUERY_RESULT,
                                       &ns);
                 GLCheckError();
@@ -931,13 +931,12 @@ void Scene::ForwardPass() {
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
-    // TODO: BUG IN LINUX GNU 13.1.0, FIX IT
-    // for (auto& [id, model]: m_Models) {
-    //     model->Draw(this);
-    //     model->GetPainter3D()->Draw(this);
-    // }
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        model->Draw();
+        model->GetPainter3D()->Draw();
+    }
 #elif IGAME_OPENGL_VERSION_460
-
     // normal mesh
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
