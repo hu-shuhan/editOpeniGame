@@ -460,11 +460,11 @@ private:
                 std::vector<double> remappedDoubleAttrBuffer;
 
                 if (attrParams.valueSize == sizeof(float)) {
-                    auto floatAttrArray = DynamicCast<FlatArray<float>>(attr.pointer);
-                    remapAttributeValues(floatAttrArray, remappedFloatAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedFloatAttrBuffer, attrParams, i);
                 } else {
-                    auto doubleAttrArray = DynamicCast<FlatArray<double>>(attr.pointer);
-                    remapAttributeValues(doubleAttrArray, remappedDoubleAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedDoubleAttrBuffer, attrParams, i);
                 }
 
                 // 编码
