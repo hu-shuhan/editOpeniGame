@@ -22,10 +22,11 @@ igQtSplineOptionDialog::igQtSplineOptionDialog(QWidget* par) : QDialog(par) {
     m_IntroduceLabel = new QLabel(this);
 
     m_ListWidget = new QListWidget(this);
-    m_ListWidget->addItem("Spline Reader(CPU)");
+    m_ListWidget->addItem("Spline Surface Reader(CPU)");
+    m_ListWidget->addItem("Spline Volume Reader(CPU)");
 #if defined(GPSCUDA_ENABLE)
-    m_ListWidget->addItem("Spline Surface Reader");
-    m_ListWidget->addItem("Spline Volume Reader");
+    m_ListWidget->addItem("Spline Surface Reader(GPU)");
+    m_ListWidget->addItem("Spline Volume Reader(GPU)");
 #endif
 
     QHBoxLayout* hlay_buttons = new QHBoxLayout(this);
@@ -36,7 +37,6 @@ igQtSplineOptionDialog::igQtSplineOptionDialog(QWidget* par) : QDialog(par) {
     layout->addLayout(hlay_buttons);
     connect(okButton, &QPushButton::clicked, this, &igQtSplineOptionDialog::accept);
     connect(cancelButton, &QPushButton::clicked, this, &igQtSplineOptionDialog::reject);
-
 
     layout->addWidget(m_IntroduceLabel);
     layout->addWidget(m_ListWidget);

@@ -23,8 +23,15 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCasReader.h")
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h")
 endif ()
+
+if(UNIX AND NOT APPLE)
+    find_package(OpenMP REQUIRED)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(${MODULE_NAME} PUBLIC OpenMP::OpenMP_CXX)
+    endif()
+endif()
 
 # add rendering core
 add_subdirectory(Rendering)
@@ -74,6 +81,7 @@ list(APPEND ThirdParty_lib_dependency
         tinyXML2
         vtkkwiml
         lzma
+        libzstd_static
         glfw
         spdlog_header_only
         zlibstatic
@@ -85,12 +93,14 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    #        find_package(HDF5)
-    #        target_link_libraries(
-    #         ${MODULE_NAME} PUBLIC
-    #         ${HDF5_LIBRARIES}/../libzlib.lib
-    #         ${HDF5_LIBRARIES}/../libsz.lib
-    #         ${HDF5_LIBRARIES}/../libaec.lib)
+    set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+
+    find_package(HDF5)
+    #    target_link_libraries(
+    #            ${MODULE_NAME} PUBLIC
+    #            ${HDF5_LIBRARIES}/../libzlib.lib
+    #            ${HDF5_LIBRARIES}/../libsz.lib
+    #            ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)

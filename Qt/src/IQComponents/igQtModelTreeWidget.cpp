@@ -223,11 +223,35 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
 
         if (event->button() == Qt::RightButton) {
             QMenu menu(this);
+
+            // 菜单项 1：设置旋转中心
             QAction* setCenterAction = menu.addAction(QString::fromUtf8("设置旋转中心为当前模型"));
             connect(setCenterAction, &QAction::triggered, this, [item]() {
                 auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
                 if (scene && item->getModel()) { scene->ResetCameraView(item->getModel()->GetDataObject()); }
             });
+
+            // 菜单项 2：构建渲染加速结构
+            QAction* buildAccelAction = menu.addAction(QString::fromUtf8("构建渲染加速结构"));
+            connect(buildAccelAction, &QAction::triggered, this, [item]() {
+                auto model = item->getModel();
+                if (model && model->GetDataObject()) {
+                    auto drawObj = iGame::DynamicCast<iGame::DrawObject>(model->GetDataObject());
+                    if (drawObj) { drawObj->SetAccelerationOption(true); }
+                }
+            });
+
+            // 菜单项3：关闭加速结构
+            QAction* disableAccelAction = menu.addAction(QString::fromUtf8("关闭渲染加速结构"));
+            connect(disableAccelAction, &QAction::triggered, this, [item]() {
+                auto model = item->getModel();
+                if (model && model->GetDataObject()) {
+                    auto drawObj = iGame::DynamicCast<iGame::DrawObject>(model->GetDataObject());
+                    if (drawObj) { drawObj->SetAccelerationOption(false); }
+                }
+            });
+
+            // 弹出菜单
             menu.exec(viewport()->mapToGlobal(event->pos()));
         }
 

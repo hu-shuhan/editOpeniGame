@@ -13,6 +13,8 @@
 #include "OpenGL/GLTextureBuffer.h"
 #include "OpenGL/GLVertexArray.h"
 
+#include "Meshleter/iGameMeshleter.h"
+
 IGAME_NAMESPACE_BEGIN
 class Scene;
 
@@ -79,8 +81,20 @@ public:
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
 
     // 设置/获取"始终置顶"标志位
-    void SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
-    bool IsAlwaysOnTop() const { return m_AlwaysOnTop; }
+    void SetAlwaysOnTop(bool enable);
+    bool IsAlwaysOnTop() const;
+
+    /**
+     * @brief 设置是否启用加速渲染模式。
+     * @param enabled 若为 true，则启用加速渲染（如使用 Meshlet 结构化）；若为 false，则关闭。
+     */
+    void SetAccelerationOption(bool enabled);
+
+    /**
+     * @brief 获取加速渲染模式当前状态。
+     * @return true 表示加速结构已启用，false 表示已禁用。
+     */
+    bool GetAccelerationOption() const;
 
 protected:
     // OpenGL资源管理
@@ -99,6 +113,10 @@ protected:
         DrawObject::Pointer SimplifiedMesh; // 简化后的网格
     };
     RenderableMesh m_RenderableMesh;
+
+    // 加速结构
+    bool m_AccelerationOption = false;
+    Meshleter::Pointer m_Meshleter = nullptr;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
