@@ -270,7 +270,7 @@ UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataO
             return re;
         case IG_MULTIBLOCK_MESH:
             return re;
-        case IG_NURBS_GEOMETRY:
+        case IG_SPLINE_GEOMETRY:
             return re;
         case IG_DATA_OBJECT_COUNT:
             return re;
@@ -385,11 +385,12 @@ void UnstructuredMesh::ConvertToDrawableData() {
             // shell algorithm
             SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
             if (extract->Execute(this, surfaceMesh)) {
-                SetDisplayObject(surfaceMesh);
+                SetRenderableObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
                 ShellSuccess = false;
-                this->m_DisplayObject = nullptr;
+                this->m_RenderableMesh.SurfaceMesh = nullptr;
+                this->m_RenderableMesh.SimplifiedMesh = nullptr;
                 //igError("Failed to execute the shell algorithm.");
             }
         }

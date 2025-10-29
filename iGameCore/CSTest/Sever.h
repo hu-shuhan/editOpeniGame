@@ -8,7 +8,7 @@
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
 #include "IGC/iGameIGCWriter.h"
-#include "Spline XML/iGameNurbsReader.h"
+#include "Spline XML/iGameSplineReaderCPU.h"
 #include "iGameFileIO.h"
 #include "iGameMeshCodec/iGameMeshDecoder.h"
 #include "iGameMeshCodec/iGameMeshEncoder.h"

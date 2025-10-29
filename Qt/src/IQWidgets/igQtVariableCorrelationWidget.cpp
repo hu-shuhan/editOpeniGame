@@ -694,7 +694,10 @@ void igQtVariableCorrelationWidget::_DrawChoosedCorImage(int mainVariableIndex, 
     auto& objDrawSort = Data->GetChoosedObjDrawSorts()[mainVariableIndex];
     auto& variableMaxData = Data->GetMaxValueInVariables();
     auto& variableMinData = Data->GetMinValueInVariables();
-    for (auto& objId: objDrawSort) {
+    auto drawObjIndexs = VariableCorrelationData::GenerateKeyObjectIds(objDrawSort.size(), 1000);
+    for (auto& index: drawObjIndexs) {
+        auto& objId = objDrawSort[index];
+    //for (auto& objId: objDrawSort) {
         _DrawPoint(Data->GetObjectData(objId, mainVariableIndex), Data->GetObjectData(objId, subVariableIndex),
                    variableMaxData[mainVariableIndex], variableMinData[mainVariableIndex],
                    variableMaxData[subVariableIndex], variableMinData[subVariableIndex],

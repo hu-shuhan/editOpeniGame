@@ -48,9 +48,9 @@ ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(
     view_pickedItem->setCancelFunctor(&ModelTreeWidgetItem::hidePickedItem, this);
     this->parent = parent;
 }
-iGame::Model* ModelTreeWidgetItem::getModel() { return this->model.get(); }
+iGame::Model* ModelTreeWidgetItem::getModel() { return this->model; }
 
-void ModelTreeWidgetItem::setModel(iGame::Model::Pointer model) {
+void ModelTreeWidgetItem::setModel(iGame::Model* model) {
     this->model = model;
     view_fill->setChecked(true);
     view_pickedItem->setChecked(true);
@@ -226,7 +226,7 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             QAction* setCenterAction = menu.addAction(QString::fromUtf8("设置旋转中心为当前模型"));
             connect(setCenterAction, &QAction::triggered, this, [item]() {
                 auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-                if (scene && item->getModel()) { scene->ResetCameraView(item->getModel()); }
+                if (scene && item->getModel()) { scene->ResetCameraView(item->getModel()->GetDataObject()); }
             });
             menu.exec(viewport()->mapToGlobal(event->pos()));
         }
@@ -234,6 +234,12 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         // Determine if the icon area has been clicked
         if (iconRect.contains(event->pos())) {
             item->changeVisibility();
+            // sync all sub-block icons under this model to reflect current visibility
+            for (int i = 0; i < item->childCount(); ++i) {
+                if (auto* sub = dynamic_cast<SubObjectTreeWidgetItem*>(item->child(i))) {
+                    sub->SyncIconWithVisibility(true);
+                }
+            }
             call = false;
         } else if (currentItem() != item) { // Check operation
             iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
@@ -250,27 +256,90 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
 
 
     } else if ((child = getChild(event->pos())) && child) {
-        int index = child->data(0, Qt::UserRole).toInt();
-        ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
-        if (parent) {
-            auto currentModelItem = currentItem();
-            if (currentModelItem != parent) {
-                //this->setCurrentModelItem(parent);
-                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
-                emit ChangeCurrentModel(parent->getModel());
+        // Sub-data object item
+        if (auto* sub = dynamic_cast<SubObjectTreeWidgetItem*>(child)) {
+            // Right-click: set rotation center to sub-block bbox center
+            if (event->button() == Qt::RightButton) {
+                QMenu menu(this);
+                QAction* setCenterAction = menu.addAction(QString::fromUtf8("设置旋转中心为当前子块"));
+                connect(setCenterAction, &QAction::triggered, this, [sub]() {
+                    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                    if (!scene) { return; }
+                    auto draw = DynamicCast<iGame::DrawObject>(sub->getDataObject());
+                    if (!draw) { return; }
+                    scene->ResetCameraView(sub->getDataObject());
+                    scene->Update();
+                });
+                menu.exec(viewport()->mapToGlobal(event->pos()));
+            } else {
+                // Left click: eye icon toggle or select parent model
+                QRect iconItem = visualItemRect(sub);
+                QSize iconSize = sub->icon(0).actualSize(QSize(20, 24));
+                QRect iconRect(iconItem.left() + 4, iconItem.top() + (iconItem.height() - iconSize.height()) / 2,
+                               iconSize.width(), iconSize.height());
+                if (iconRect.contains(event->pos())) {
+                    sub->changeVisibility();
+                    call = false;
+                } else {
+                    if (auto* parent = dynamic_cast<ModelTreeWidgetItem*>(sub->parent())) {
+                        if (currentItem() != parent) {
+                            iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModel());
+                            emit ChangeCurrentModel(parent->getModel());
+                        }
+                    }
+
+                    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                    if (!scene) { return; }
+                    auto draw = DynamicCast<iGame::DrawObject>(sub->getDataObject());
+                    if (!draw) { return; }
+                    draw->ViewCloudPicture(scene, -1);
+                    Q_EMIT ViewCloudPicture();
+                }
             }
-            AttribTreeWidgetItem* current{nullptr};
-            if (parent->getCurrentChild()) { current = dynamic_cast<AttribTreeWidgetItem*>(parent->getCurrentChild()); }
+        } else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
+            // Handle sub-attribute selection display and apply
+            auto* parent = dynamic_cast<SubObjectTreeWidgetItem*>(sa->parent());
+            if (parent) {
+                // Hide previous
+                if (auto* current = dynamic_cast<SubAttribTreeWidgetItem*>(parent->getCurrentChild())) {
+                    current->hide();
+                }
+                // Show current
+                sa->show();
+                parent->setCurrentChild(sa);
+                int dim = sa->currentIndex();
+                if (dim == -1) dim = 0;
+                sa->viewAttribute(dim - 1);
+                call = false;
+            }
+        } else {
+            // Top-level attribute item under model
+            int index = child->data(0, Qt::UserRole).toInt();
+            ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
+            if (parent) {
+                auto currentModelItem = currentItem();
+                if (currentModelItem != parent) {
+                    //this->setCurrentModelItem(parent);
+                    iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
+                    emit ChangeCurrentModel(parent->getModel());
+                }
+                AttribTreeWidgetItem* current{nullptr};
+                if (parent->getCurrentChild()) {
+                    current = dynamic_cast<AttribTreeWidgetItem*>(parent->getCurrentChild());
+                }
 
-            if (current) { current->hide(); }
-            AttribTreeWidgetItem* c = dynamic_cast<AttribTreeWidgetItem*>(child);
-            c->show();
-            parent->setCurrentChild(child);
+                if (current) { current->hide(); }
+                AttribTreeWidgetItem* c = dynamic_cast<AttribTreeWidgetItem*>(child);
+                if (c) {
+                    c->show();
+                    parent->setCurrentChild(child);
 
-            int dim = c->currentIndex();
-            if (dim == -1) { dim = 0; }
-            c->viewAttribute(dim - 1);
-            Q_EMIT ViewCloudPicture();
+                    int dim = c->currentIndex();
+                    if (dim == -1) { dim = 0; }
+                    c->viewAttribute(dim - 1);
+                    Q_EMIT ViewCloudPicture();
+                }
+            }
         }
     }
     if (call) {

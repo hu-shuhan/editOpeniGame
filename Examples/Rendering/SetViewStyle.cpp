@@ -48,4 +48,7 @@ static void SetViewStyle() {
     window->Show();
 }
 
-int main() { SetViewStyle(); }
+int main() {
+    SetViewStyle();
+    return 0;
+}

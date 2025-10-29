@@ -2,7 +2,9 @@
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
+#include <algorithm>
 #include <chrono>
+#include <thread>
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
@@ -69,7 +71,38 @@ Scene::Scene() {
 
     m_CenterAxesModel = CenterAxesModel::New();
 }
-Scene::~Scene() {}
+
+Scene::~Scene() {
+    if (m_FinishInit) { glDeleteQueries(2, m_TimeQueries); }
+}
+
+bool Scene::ShouldRenderThisCall() const {
+    if (!m_FramePacingEnabled || !m_LastRenderEndValid) { return true; }
+
+    double targetMs = 0.0;
+    if (m_TargetFps > 0u) {
+        targetMs =
+                std::max(targetMs, 1000.0 / static_cast<double>(m_TargetFps));
+    }
+
+    if (m_GpuUsageLimit > 0.0f) {
+        double gpuMs = m_SmoothedGpuTimeMs > 0.0 ? m_SmoothedGpuTimeMs
+                                                 : m_LastGpuTimeMs;
+        if (gpuMs > 0.0) {
+            double expectedFrameMs =
+                    gpuMs / static_cast<double>(m_GpuUsageLimit);
+            targetMs = std::max(targetMs, expectedFrameMs);
+        }
+    }
+
+    if (targetMs <= 0.0) { return true; }
+
+    auto now = std::chrono::steady_clock::now();
+    double elapsedMs =
+            std::chrono::duration<double, std::milli>(now - m_LastRenderEnd)
+                    .count();
+    return elapsedMs >= targetMs;
+}
 
 bool Scene::Initialize() {
     if (m_FinishInit) {
@@ -126,9 +159,10 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
 void Scene::RemoveModel(IGuint modelID) {
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto id = it->first;
-        auto m = it->second;
+        auto& m = it->second;
 
         if (id == modelID) {
+            m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
@@ -151,6 +185,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
         auto m = it->second;
 
         if (m == model) {
+            m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
                 if (m_ModelPool->GetObjectCount() == 0) {
@@ -171,7 +206,8 @@ void Scene::RemoveCurrentModel() {
 
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
 
-    model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
+    // 移动到RemoveModel里了
+    // model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
     RemoveModel(m_CurrentModelID);
 }
 
@@ -267,24 +303,26 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView(SmartPointer<Model> model) {
-    if (model == nullptr) {
-        UpdateModelsBoundingSphere();
-    } else {
-        auto& box = model->GetDataObject()->GetBoundingBox();
-        double* center = box.center().pointer();
-        float x = static_cast<float>(center[0]);
-        float y = static_cast<float>(center[1]);
-        float z = static_cast<float>(center[2]);
+void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
+    UpdateModelsBoundingSphere();
+
+    igm::vec3 center = m_ModelsBoundingSphere.xyz();
+    float radius = m_ModelsBoundingSphere.w;
+    if (dataObject != nullptr) {
+        auto& box = dataObject->GetBoundingBox();
+        double* c = box.center().pointer();
+        float x = static_cast<float>(c[0]);
+        float y = static_cast<float>(c[1]);
+        float z = static_cast<float>(c[2]);
 
         double diameter = box.diag();
-        float radius = static_cast<float>(diameter / 2.0);
+        float r = static_cast<float>(diameter / 2.0);
 
-        m_ModelsBoundingSphere = igm::vec4{x, y, z, radius};
+        SetRotationCenter(igm::vec3{x, y, z});
+        center = igm::vec3{x, y, z};
+        radius = r;
     }
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
-    float radius = m_ModelsBoundingSphere.w;
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
@@ -348,6 +386,12 @@ void Scene::InitOpenGL() {
 
     // init framebuffer
     ResizeFrameBuffer();
+
+    // init gpu timer queries
+    glGenQueries(2, m_TimeQueries);
+    m_TimeQueryIndex = 0;
+    m_LastGpuTimeMs = 0.0;
+    m_SmoothedGpuTimeMs = 0.0;
 
     // painter2d test
     {
@@ -605,12 +649,27 @@ void Scene::ResizeHzb() {
 }
 
 void Scene::Draw() {
-    // reset camera
-    UpdateCameraClippingRange();
-
     // save default framebuffer, because it is not 0 in Qt
     GLint defaultFramebuffer = GL_NONE;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
+
+    // If throttling is enabled and the time point for the next frame has not been reached, return in advance (do not render)
+    if (m_FramePacingEnabled && m_LastRenderEndValid) {
+        if (!ShouldRenderThisCall()) {
+            // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
+            glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
+            RenderToQtFrame();
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return;
+        }
+    }
+
+    // reset camera
+    UpdateCameraClippingRange();
+
+    // Start counting the rendering time consumption
+    int curIdx = m_TimeQueryIndex;
+    glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
 
 #ifdef GL_SUPPORTS_MSAA
     // render to multisample framebuffer
@@ -639,7 +698,44 @@ void Scene::Draw() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 
-    CalculateFrameRate();
+    // End counting the rendering time consumption
+    glEndQuery(GL_TIME_ELAPSED);
+    GLCheckError();
+    {
+        int prevIdx = 1 - curIdx;
+        // Only query if the previous query has actually been issued at least once
+        if (m_TimeQueryReady[prevIdx]) {
+            GLint available = GL_FALSE;
+            GLCheckError();
+            glGetQueryObjectiv(m_TimeQueries[prevIdx],
+                               GL_QUERY_RESULT_AVAILABLE, &available);
+            GLCheckError();
+            if (available == GL_TRUE) {
+                GLuint64 ns = 0ULL;
+                glGetQueryObjectui64v(m_TimeQueries[prevIdx], GL_QUERY_RESULT,
+                                      &ns);
+                GLCheckError();
+                m_LastGpuTimeMs = static_cast<double>(ns) / 1000000.0;
+                if (m_SmoothedGpuTimeMs <= 0.0) {
+                    m_SmoothedGpuTimeMs = m_LastGpuTimeMs;
+                } else {
+                    const double alpha = 0.2;
+                    m_SmoothedGpuTimeMs = alpha * m_LastGpuTimeMs +
+                                          (1.0 - alpha) * m_SmoothedGpuTimeMs;
+                }
+                // We've consumed the previous result; mark it not-ready until next issued
+                m_TimeQueryReady[prevIdx] = false;
+            }
+        }
+        // Mark current query as issued so that it can be polled next frame
+        m_TimeQueryReady[curIdx] = true;
+        m_TimeQueryIndex = 1 - curIdx;
+    }
+
+    // Record the end time of this frame
+    m_LastRenderEnd = std::chrono::steady_clock::now();
+    m_LastRenderEndValid = true;
+
     GLCheckError();
 }
 
@@ -693,6 +789,28 @@ void Scene::Update() {
     if (m_UpdateFunctor) { m_UpdateFunctor(); }
 }
 
+void Scene::SetTargetFps(unsigned int fps) {
+    if (fps == 0u) {
+        m_TargetFps = 0u;
+    } else {
+        if (fps > 1000u) { fps = 1000u; }
+        m_TargetFps = fps;
+        m_FramePacingEnabled = true;
+    }
+}
+
+void Scene::SetGpuUsageLimit(float usagePercent) {
+    if (usagePercent <= 0.0f) {
+        m_GpuUsageLimit = 0.0f;
+        return;
+    }
+    if (usagePercent > 1.0f) usagePercent = 1.0f;
+    m_GpuUsageLimit = usagePercent;
+    m_FramePacingEnabled = true;
+}
+
+void Scene::EnableFramePacing(bool enable) { m_FramePacingEnabled = enable; }
+
 void Scene::Resize(int width, int height, int pixelRatio) {
     m_Camera->SetViewPort(width, height);
     m_Camera->SetDevicePixelRatio(pixelRatio);
@@ -724,12 +842,10 @@ void Scene::DrawFrame() {
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
-
             TransparentPass();
         } else {
             VolumeRenderingPass();
         }
-
 
         // draw scene painter
         m_Painter2D->Draw();
@@ -815,13 +931,12 @@ void Scene::ForwardPass() {
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
-    // TODO: BUG IN LINUX GNU 13.1.0, FIX IT
-    // for (auto& [id, model]: m_Models) {
-    //     model->Draw(this);
-    //     model->GetPainter3D()->Draw(this);
-    // }
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        model->Draw();
+        model->GetPainter3D()->Draw();
+    }
 #elif IGAME_OPENGL_VERSION_460
-
     // normal mesh
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
@@ -1077,11 +1192,12 @@ void Scene::UpdateCameraClippingRange() {
     UpdateModelsBoundingSphere();
 
     igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 centerInWorld = (m_ModelMatrix * igm::vec4{center, 1.0f}).xyz();
     float radius = m_ModelsBoundingSphere.w;
     igm::vec3 cameraPos = m_Camera->GetPosition();
 
     igm::vec3 front = m_Camera->GetFront();
-    igm::vec3 v = center - cameraPos;
+    igm::vec3 v = centerInWorld - cameraPos;
     float dist = std::abs(front.dot(v) / front.length());
 
     float nearPlane = dist - radius;
@@ -1091,8 +1207,8 @@ void Scene::UpdateCameraClippingRange() {
     const float minGap = 0.0001f;
     if (nearPlane < minGap * farPlane) { nearPlane = minGap * farPlane; }
 
-    //std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
-    //          << std::endl;
+    // std::cout << std::format("near: {}, far: {}.", nearPlane, farPlane)
+    //           << std::endl;
 
     m_Camera->SetClippingRange(nearPlane, farPlane);
 }
@@ -1105,7 +1221,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 void Scene::ResetCameraViewToPositiveX() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1117,13 +1233,12 @@ void Scene::ResetCameraViewToPositiveX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeX() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1135,13 +1250,12 @@ void Scene::ResetCameraViewToNegativeX() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveY() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1152,13 +1266,12 @@ void Scene::ResetCameraViewToPositiveY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeY() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1170,13 +1283,12 @@ void Scene::ResetCameraViewToNegativeY() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToPositiveZ() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1187,13 +1299,12 @@ void Scene::ResetCameraViewToPositiveZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToNegativeZ() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1202,13 +1313,12 @@ void Scene::ResetCameraViewToNegativeZ() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
 }
 
 void Scene::ResetCameraViewToIsometric() {
     ResetCameraView();
 
-    igm::vec3 center = igm::vec3{m_ModelsBoundingSphere};
+    igm::vec3 center = this->GetRotationCenter();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1220,101 +1330,44 @@ void Scene::ResetCameraViewToIsometric() {
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
+}
+
+void Scene::RotateNinetyClockwise() { return this->RotateClockwise(90.0f); }
+
+void Scene::RotateNinetyCounterClockwise() {
+    return this->RotateClockwise(-90.0f);
 }
 
 void Scene::RotateClockwise(float angle) {
-    igm::vec4 center = igm::vec4{ m_ModelsBoundingSphere.xyz(), 1.0f };
+    igm::vec4 center = igm::vec4{GetRotationCenter(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
 
     auto radians = static_cast<float>(igm::radians(angle));
     auto rotate =
-        igm::rotate(igm::mat4{}, -radians, igm::vec3{ 0.0f, 0.0f, 1.0f });
+            igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
 
     m_ModelMatrix = rotateSelf * m_ModelMatrix;
     m_ModelRotate = rotate * m_ModelRotate;
-    UpdateRealRotationCenter(m_RotationCenter);
-}
-void Scene::RotateNinetyClockwise() {
-    return this->RotateClockwise(90.0f);
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-
-    //auto radians = static_cast<float>(igm::radians(90.0f));
-    //auto rotate =
-    //        igm::rotate(igm::mat4{}, -radians, igm::vec3{0.0f, 0.0f, 1.0f});
-    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
-
-    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
-    //m_ModelRotate = rotate * m_ModelRotate;
-    //UpdateRealRotationCenter(m_RotationCenter);
-}
-
-void Scene::RotateNinetyCounterClockwise() {
-    return this->RotateClockwise(-90.0f);
-    //igm::vec4 center = igm::vec4{m_ModelsBoundingSphere.xyz(), 1.0f};
-    //std::cout << "Rotate Center: " << m_ModelsBoundingSphere.xyz() << std::endl;
-    //std::cout << "ModelMatrix: \n" << m_ModelMatrix << std::endl;
-    //igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
-    //igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
-    //igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
-
-    //auto radians = static_cast<float>(igm::radians(90.0f));
-    //auto rotate =
-    //        igm::rotate(igm::mat4{}, radians, igm::vec3{0.0f, 0.0f, 1.0f});
-
-    //igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;
-
-    //m_ModelMatrix = rotateSelf * m_ModelMatrix;
-    //m_ModelRotate = rotate * m_ModelRotate;
-    //UpdateRealRotationCenter(m_RotationCenter);
 }
 
 // 切换显示状态实现
 void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
-
-    //this->Modified(); // 触发重绘
 }
 
 igm::vec3 Scene::GetRotationCenter() const {
-    return m_CustomRotationCenter
-                   ? m_RealRotationCenter
-                   : (m_ModelMatrix *
-                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
-                             .xyz();
-}
-
-igm::vec3 Scene::GetRotationCenter_1() const {
-    return m_CustomRotationCenter
-                   ? m_RotationCenter
-                   : (m_ModelMatrix *
-                      igm::vec4(m_ModelsBoundingSphere.xyz(), 1.0f))
-                             .xyz();
-}
-
-void Scene::UpdateRealRotationCenter(const igm::vec3 center) {
-    if (m_CustomRotationCenter) {
-        igm::vec4 localPos = m_ModelMatrix * igm::vec4(center, 1.0f);
-        m_RealRotationCenter = igm::vec3(localPos);
-        //std::cout << "real center" << m_RealRotationCenter << std::endl;
-        this->Modified();
-    }
+    return m_UseCustomRotationCenter ? m_CustomRotationCenter
+                                     : m_ModelsBoundingSphere.xyz();
 }
 
 void Scene::SetRotationCenter(const igm::vec3 center) {
-    m_RotationCenter = center;
-    m_RealRotationCenter = center; // 更新实际旋转中心
+    m_UseCustomRotationCenter = true;
+    m_CustomRotationCenter = center;
     m_CenterAxesModel->SetRotationCenter(center);
-    m_CustomRotationCenter = true;
-
-    UpdateRealRotationCenter(m_RealRotationCenter);
     this->Modified();
 }
 
@@ -1421,26 +1474,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-    if (!m_CustomRotationCenter) {
-        SetRotationCenter(m_ModelsBoundingSphere.xyz());
-    }
-}
-
-void Scene::CalculateFrameRate() {
-    static float framesPerSecond = 0.0f; // This will store our fps
-    static auto lastTime = std::chrono::high_resolution_clock ::now();
-
-    auto currentTime = std::chrono::high_resolution_clock ::now();
-    ++framesPerSecond;
-
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                         currentTime - lastTime)
-                         .count();
-    if (time > 1.0f) {
-        lastTime = currentTime;
-        //std::cout << framesPerSecond << std::endl;
-        framesPerSecond = 0;
-    }
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,

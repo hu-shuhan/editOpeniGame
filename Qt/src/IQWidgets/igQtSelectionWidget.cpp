@@ -15,6 +15,9 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
     connect(ui->variableChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtSelectionWidget::SelectionVariableIndex);
     connect(ui->autoRange, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionVariableAutoCheck);
+    connect(ui->skipUnSeeAbleCell, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionSkipUnSeeAbleCell);
+    connect(ui->onlySelectSeeAbleCells, &QCheckBox::clicked, this,
+            &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
     connect(ui->theRange, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionVariableRange);
     connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStateShow);
@@ -97,6 +100,14 @@ void igQtSelectionWidget::SelectionVariableAutoCheck(bool checked) {
 
 void igQtSelectionWidget::SelectionVariableRange(double range) {
     iGame::SelectionParameter::Instance().SetSelectVariableRange(range);
+}
+
+void igQtSelectionWidget::SelectionSkipUnSeeAbleCell(bool checked) {
+    iGame::SelectionParameter::Instance().SetSelectIgnoreUnSeeAbleCells(checked);
+}
+
+void igQtSelectionWidget::SelectionOnlySelectSeeAbleCells(bool checked) {
+    iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(checked);
 }
 
 void igQtSelectionWidget::ClearSelectionState() {

@@ -3,6 +3,7 @@
 
 #include "iGameSelectionStyle.h"
 #include <vector>
+#include <utility>
 
 IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh;
@@ -20,6 +21,9 @@ protected:
     SingleSelectionStyle();
     ~SingleSelectionStyle() override;
 
+private:
+    std::pair<Point, Point> GetStartPointAndEndPoint(igm::vec2 pos);
+
 public:
     static std::vector<int>
     GetPointsInCondition(const Point& startPoint, const Point& endPoint,
@@ -32,7 +36,19 @@ public:
                         UnstructuredMesh* mesh, double radius = 0.0,
                         bool useVariableCondition = false,
                         int variableIndex = -1, bool useAutoValueRange = false,
-                        double valueRange = 1.0);
+                        double valueRange = 1.0,
+                        bool selectIgnoreUnSeeAbleCells = false,
+                        bool onlySelectSeeAbleCells = false);
+    static std::vector<int>
+    GetFiltedPointsOfUsingAutoValueRange(int keyPointId,
+                                         const std::vector<int>& pointIds,
+                                         UnstructuredMesh* mesh);
+    static std::vector<int>
+    GetFiltedCellsOfUsingAutoValueRange(int keyCellId,
+                                        const std::vector<int>& cellIds,
+                                        UnstructuredMesh* mesh);
+    static std::vector<int> GetPointsOfCells(const std::vector<int>& cellIds,
+                                             UnstructuredMesh* mesh);
 };
 IGAME_NAMESPACE_END
 #endif

@@ -26,17 +26,17 @@ protected:
     ~DrawObject() override = default;
 
 public:
-    bool IsDrawable() override { return true; }                 // 标识可以被渲染
-    virtual void ConvertToDrawableData();                       //转化为可渲染模式（当前对象及其所有子对象）
-    virtual bool IsUseSinglePassWireframeRendering();           // 是否使用单通道线框渲染
+    bool IsDrawable() override { return true; }       // 标识可以被渲染
+    virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
+    virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
-    bool IsUseColor();                  //是否使用颜色
-    bool IsUseNormalSmooth();           //是否使用法线平滑
+    bool IsUseColor();        //是否使用颜色
+    bool IsUseNormalSmooth(); //是否使用法线平滑
 
-    void SetVisibility(bool f);         //设置可见性
-    bool GetVisibility();               //获取可见性
+    void SetVisibility(bool f); //设置可见性
+    bool GetVisibility();       //获取可见性
     /*ViewStyle's detail. See iGameType.h */
     //样式设置，添加，删除，获取，对模型根节点添加样式，获取模型根节点样式
     void SetViewStyle(IGenum mode);
@@ -46,7 +46,7 @@ public:
     void AddViewStyleOfModel(IGenum mode);
     unsigned int GetViewStyleOfModel();
 
-    virtual bool GetClipped();          //是否允许裁剪
+    virtual bool GetClipped(); //是否允许裁剪
     iGameClipper::Pointer GetClipper();
     //设置和获取透明度
     void SetTransparency(float transparency);
@@ -63,8 +63,8 @@ public:
 
     void SetShellRenderingOption(bool option);
 
-    FloatArray::Pointer GetRenderPoints();                  // 获取当前渲染用的顶点数据
-    void SetRenderPoints(FloatArray::Pointer points);       // 直接设置顶点数据
+    FloatArray::Pointer GetRenderPoints();            // 获取当前渲染用的顶点数据
+    void SetRenderPoints(FloatArray::Pointer points); // 直接设置顶点数据
     // 设置多边形偏移
     void SetPolygonOffsetParameters(float factor, float units);
     void GetPolygonOffsetParameters(float& factor, float& units);
@@ -75,8 +75,8 @@ public:
     void SetPointOffsetParameters(float units);
     void GetPointOffsetParameters(float& units);
     // 设置和获取显示对象
-    void SetDisplayObject(DataObject::Pointer dataObject);
-    DrawObject::Pointer GetDisplayObject();
+    void SetRenderableObject(DataObject::Pointer dataObject);
+    DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
 
     // 设置/获取"始终置顶"标志位
     void SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
@@ -92,8 +92,13 @@ protected:
     static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
-    bool m_AutoUpdateDrawData;              // 是否自动更新GPU数据
-    DrawObject::Pointer m_DisplayObject;    // 当前显示对象
+    bool m_AutoUpdateDrawData; // 是否自动更新GPU数据
+
+    struct RenderableMesh {
+        DrawObject::Pointer SurfaceMesh;    // 表面网格
+        DrawObject::Pointer SimplifiedMesh; // 简化后的网格
+    };
+    RenderableMesh m_RenderableMesh;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
@@ -120,17 +125,17 @@ protected:
     FloatArray::Pointer m_CellColors;
     UnsignedIntArray::Pointer m_CellIndices;
 
-    unsigned int m_ViewStyle;   // 视图样式
-    bool m_Visibility;          //是否可见
+    unsigned int m_ViewStyle; // 视图样式
+    bool m_Visibility;        //是否可见
 
     bool m_AlwaysOnTop = false; // 是否置顶默认不置顶
 
-    bool m_Flag;                // 标记是否已初始化OpenGL缓冲区
-    bool m_UseColor;            //是否使用颜色属性
-    bool m_UseNormalSmooth;     // 是否启用法线平滑
-    bool m_ColorWithCell;       // 颜色是否基于单元（非顶点）
-    float m_PointSize;          
-    float m_LineWidth;          
+    bool m_Flag;            // 标记是否已初始化OpenGL缓冲区
+    bool m_UseColor;        //是否使用颜色属性
+    bool m_UseNormalSmooth; // 是否启用法线平滑
+    bool m_ColorWithCell;   // 颜色是否基于单元（非顶点）
+    float m_PointSize;
+    float m_LineWidth;
     int m_CellPositionSize; // 单元位置数据的大小（似乎没用到）
 
     // 深度偏移相关参数
@@ -146,11 +151,11 @@ protected:
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency;               // 透明度
+    float m_Transparency; // 透明度
     bool m_ExecuteShell;
-    bool m_ReConvertToDrawableData;     // 是否需要重新转换数据
+    bool m_ReConvertToDrawableData; // 是否需要重新转换数据
 
-    iGameClipper::Pointer m_Clipper;    // 裁剪器对象
+    iGameClipper::Pointer m_Clipper; // 裁剪器对象
 
     friend class Model;
     friend class Scene;

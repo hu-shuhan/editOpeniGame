@@ -1,41 +1,23 @@
 #include <iGameScene.h>
 #include <iGameFileIO.h>
 #include <iGameRenderWindow.h>
-
+#include <Nastran/iGameNastranReader.h>
 int main(){
-    std::string exePath = "nastran_to_vtk_cli.exe";
-    std::string outputPath = "./Models/NastranToVtu_ogs.vtu";
     std::string bdfPath = "./Models/ogs.bdf";
     std::string op2Path = "./Models/ogs.op2";
-
-    std::string arguments = "--bdf " + bdfPath + " --op2 " + op2Path + " --output " + outputPath;
-
-
-
-    std::string fullCommand = "\"" + exePath + "\" " + arguments;
-
-    int returnCode = system(fullCommand.c_str());
-
-    if (returnCode == 0) {
-        std::cout << "Success to  transfer Nastran to VTK��" << std::endl;
-    } else {
-        std::cerr << "Error to transfer Nastran to VTK" << std::endl;
-    }
-
-
-    auto scene = iGame::Scene::New();
-    /* Test CGNS File Reader's output. Add it into Scene*/
-    const std::string fileName = outputPath;
-    auto obj = iGame::FileIO::ReadFile(fileName);
-
+    iGame::NastranReader::Pointer rd = iGame::NastranReader::New();
+    rd->SetBDFFileName(bdfPath);
+    /* Optional, the op2 file path can be set to read physical field data*/
+    rd->SetOP2FileName(op2Path);
+    rd->Execute();
+    auto obj = rd->GetOutput();
     std::cout << "Attributes Num : " << obj->GetAttributeSet()->GetNumberOfAttributes() << std::endl;
-
     if (obj == nullptr) {
-        std::cout << "Read ERROR!\n";
-    } else {
-        scene->AddModel(obj);
+        std::cerr << "Error: Failed to load model" << std::endl;
+        return -1;
     }
     /* Launch window Settings */
+    auto scene = iGame::Scene::New();
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);
     window->SetScene(scene);
@@ -43,9 +25,8 @@ int main(){
     interactor->Initialize(scene);
     interactor->CreateDefaultStyle();
     window->SetInteractor(interactor);
-
+    scene->AddModel(obj);
     /* show single window */
     window->Show();
-
     return 0;
 }

@@ -103,6 +103,132 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     meshId = model->GetDataObject()->GetDataObjectId();
     return;
 }
+std::vector<Vector3f> iGameStreamTracer::computeSubBlockCenters(
+    const Vector3f& minCorner,
+    const Vector3f& maxCorner,
+    int splitCount
+) {
+    std::vector<Vector3f> centers;
+
+    Vector3f boxSize;
+    for (int i = 0; i < 3; ++i) {
+        boxSize[i] = maxCorner[i] - minCorner[i];
+    }
+
+    Vector3f subBlockSize;
+    for (int i = 0; i < 3; ++i) {
+        subBlockSize[i] = boxSize[i] / splitCount;
+    }
+
+    Vector3f halfSubBlockSize;
+    for (int i = 0; i < 3; ++i) {
+        halfSubBlockSize[i] = subBlockSize[i] / 2.0f;
+    }
+
+    for (int i = 0; i < splitCount; ++i) {
+        for (int j = 0; j < splitCount; ++j) {
+            for (int k = 0; k < splitCount; ++k) {
+                Vector3f currentMin;
+                currentMin[0] = minCorner[0] + i * subBlockSize[0];
+                currentMin[1] = minCorner[1] + j * subBlockSize[1];
+                currentMin[2] = minCorner[2] + k * subBlockSize[2];
+
+                Vector3f center;
+                center[0] = currentMin[0] + halfSubBlockSize[0];
+                center[1] = currentMin[1] + halfSubBlockSize[1];
+                center[2] = currentMin[2] + halfSubBlockSize[2];
+
+                centers.push_back(center);
+            }
+        }
+    }
+
+    return centers;
+}
+std::vector<Vector3f> iGameStreamTracer::getAllSubBlockCenters(
+    const Vector3f& boxMax,      // 包围盒最大值
+    const Vector3f& boxMin,      // 包围盒最小值
+    const Vector3f& focusMax,    // 重点观察区域最大值
+    const Vector3f& focusMin,    // 重点观察区域最小值
+    int boxSplitCount,          // 包围盒分割数量（e×e×e）
+    int focusSplitCount         // 重点观察区域分割数量（f×f×f）
+) {
+    std::vector<Vector3f> allCenters;
+
+    // 计算包围盒的所有子块中心
+    auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
+    allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
+
+    // 计算重点观察区域的所有子块中心
+    auto focusCenters = computeSubBlockCenters(focusMin, focusMax, focusSplitCount);
+    allCenters.insert(allCenters.end(), focusCenters.begin(), focusCenters.end());
+
+    return allCenters;
+}
+std::vector<Vector3f> iGameStreamTracer::getModelSelect() {
+    auto& select=model->GetSelection()->GetSelectedItems();
+    float minX=0, minY=0, minZ=0;
+    float maxX=0, maxY=0, maxZ=0;
+    if (select.find(Selection::Event::Type::PickFace)!=select.end()) {
+        auto&  cell=select.at(Selection::Event::Type::PickFace);
+        bool flag=true;
+        for (auto it=cell.begin(); it!=cell.end(); it++) {
+            igIndex pVolume[32]{};
+            int psize=mesh->GetVolumePointIds(it->first, pVolume);
+            for (int i=0; i<psize; i++) {
+                Point p=mesh->GetPoint(pVolume[i]);
+                if (flag) {
+                    flag=false;
+                    minX=p[0];
+                    minY=p[1];
+                    minZ=p[2];
+                    maxX=p[0];
+                    maxY=p[1];
+                    maxZ=p[2];
+                } else {
+                    minX=std::min(minX, p[0]);
+                    minY=std::min(minY, p[1]);
+                    minZ=std::min(minZ, p[2]);
+                    maxX=std::max(maxX, p[0]);
+                    maxY=std::max(maxY, p[1]);
+                    maxZ=std::max(maxZ, p[2]);
+                }
+            }
+        }
+    }
+    else if (select.find(Selection::Event::Type::PickPoint)!=select.end()) {
+        auto&  point=select.at(Selection::Event::Type::PickPoint);
+        bool start=true;
+        for (auto it=point.begin(); it!=point.end(); it++) {
+            Point p=mesh->GetPoint(it->first);
+            if (start) {
+                start=false;
+                minX=p[0];
+                minY=p[1];
+                minZ=p[2];
+                maxX=p[0];
+                maxY=p[1];
+                maxZ=p[2];
+            } else {
+                minX=std::min(minX, p[0]);
+                minY=std::min(minY, p[1]);
+                minZ=std::min(minZ, p[2]);
+                maxX=std::max(maxX, p[0]);
+                maxY=std::max(maxY, p[1]);
+                maxZ=std::max(maxZ, p[2]);
+            }
+        }
+    }
+    else {
+        std::cout<<"no selete"<<std::endl;
+    }
+    return getAllSubBlockCenters(mesh->GetBoundingBox().max,
+                                 mesh->GetBoundingBox().min,
+                                 Vector3f(maxX, maxY, maxZ),
+                                 Vector3f(minX, minY, minZ),
+                                 6,
+                                 8);
+}
 void iGameStreamTracer::initSubmodelLinks() {
     auto temData = model->GetDataObject();
     auto it = temData->SubDataObjectIteratorBegin();
