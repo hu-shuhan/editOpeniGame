@@ -236,6 +236,13 @@ void Model::Draw() {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
 
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
             glad_glPointSize(drawObject->m_PointSize);
 
             float u;
@@ -305,6 +312,14 @@ void Model::Draw() {
                 if (useColor) {
                     m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
                 } else {
+                    auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                    shader->Use();
+                    shader->SetUniform3f("inputColor",
+                                         igm::vec3{0.0f, 0.0f, 0.0f});
+                }
+
+                // 如果是样条对象，强制用黑色绘制控制线
+                if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
                     auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                     shader->Use();
                     shader->SetUniform3f("inputColor",

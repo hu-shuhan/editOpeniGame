@@ -1,5 +1,5 @@
 #include <OBJ/iGameOBJWriter.h>
-
+#include <Convert/iGameConvertToSurfaceMesh.h>
 IGAME_NAMESPACE_BEGIN
 
 
@@ -12,8 +12,13 @@ bool OBJWriter::GenerateBuffers()
 		m_SurfaceMesh = DynamicCast<SurfaceMesh>(m_DataObject);
 		break;
 	case IG_UNSTRUCTURED_MESH:
-		m_SurfaceMesh = DynamicCast<UnstructuredMesh>(m_DataObject)->TransferToSurfaceMesh();
+	{
+	    auto converter = iGame::ConvertToSurfaceMesh::New();
+		converter->SetInput(m_DataObject);
+		converter->Execute();
+		m_SurfaceMesh = converter->GetSurfaceMesh();
 		break;
+	}
 	default:
 		return false;
 	}

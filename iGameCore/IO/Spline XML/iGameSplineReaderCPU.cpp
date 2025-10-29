@@ -5,6 +5,9 @@
 
 
 #include "iGameSplineReaderCPU.h"
+
+#include "../../../Qt/include/IQCore/igQtFileType.h"
+
 #include <cmath>
 #include <iGameFileReader.h>
 #include <regex>
@@ -16,7 +19,7 @@ SplineReaderCPU::SplineReaderCPU() {
     SetNumberOfOutputs(1);
     SetNumberOfInputs(0);
     SetOutput(0, m_Output);
-    m_NurbsType = SplineUtils::Type::SURFACE;
+    m_SplineType = SplineUtils::Type::SURFACE;
 }
 
 SplineReaderCPU::~SplineReaderCPU() = default;
@@ -80,10 +83,11 @@ bool SplineReaderCPU::Parsing() {
         }
         // Determine type by first geometry; keep type for consistency
         auto inferType = [&](int n) {
-            return n == 1 ? SplineUtils::Type::CURVE : (n == 2 ? SplineUtils::Type::SURFACE : SplineUtils::Type::VOLUME);
+            return n == 1 ? SplineUtils::Type::CURVE
+                          : (n == 2 ? SplineUtils::Type::SURFACE : SplineUtils::Type::VOLUME);
         };
         SplineUtils::Type t = inferType(num);
-        if (m_Patchs.empty()) m_NurbsType = t;
+        if (m_Patchs.empty()) { m_SplineType = t; }
 
         // parse weights (inside basis or geometry)
         std::vector<double> weights;
@@ -99,7 +103,7 @@ bool SplineReaderCPU::Parsing() {
             }
         }
 
-        // parse control points: prefer <coefs>/<Coefs>, fallback to <points>/<Points>
+        // parse control points: prefer <coefs>/<Coefs>
         tinyxml2::XMLElement* coefs = geometry->FirstChildElement("coefs");
         if (!coefs) {
             IGAME_CORE_ERROR("[SplineReaderCPU]: Neither <coefs> found under <geometry>.");
@@ -114,6 +118,21 @@ bool SplineReaderCPU::Parsing() {
             float f = mAtof(token);
             token = strtok(nullptr, delimiters);
             s_points.push_back(std::to_string(f));
+        }
+
+        // parse control points: prefer <coefs>/<Coefs>
+        tinyxml2::XMLElement* e_scalars = geometry->FirstChildElement("scalars");
+        std::vector<std::string> s_scalars;
+        if (e_scalars) {
+            std::string value = e_scalars->GetText() ? e_scalars->GetText() : "";
+            char* data_p = const_cast<char*>(value.data());
+            while (*data_p == '\n' || *data_p == ' ' || *data_p == '\t' || *data_p == '\r') data_p++;
+            char* token = strtok(const_cast<char*>(value.c_str()), delimiters);
+            while (token != nullptr) {
+                float f = mAtof(token);
+                token = strtok(nullptr, delimiters);
+                s_scalars.push_back(std::to_string(f));
+            }
         }
 
         // infer degrees and control point counts from knot vectors (clamped open assumption)
@@ -163,6 +182,17 @@ bool SplineReaderCPU::Parsing() {
                     {std::stof(s_points[i * 3]), std::stof(s_points[i * 3 + 1]), std::stof(s_points[i * 3 + 2])});
         }
 
+        std::vector<SplineUtils::Scalar> scalars;
+        int dimension = s_scalars.size() / cptNum;
+        if (s_scalars.size()) {
+            scalars.reserve(cptNum);
+            for (int i = 0; i < cptNum; ++i) {
+                SplineUtils::Scalar scalar;
+                for (int j = 0; j < dimension; j++) { scalar.push_back(std::stof(s_scalars[i * dimension + j])); }
+                scalars.push_back(scalar);
+            }
+        }
+
         // normalize knots to [0,1]
         for (int d = 0; d < num; ++d) {
             const double interval = knots[d].back() - knots[d].front();
@@ -173,12 +203,15 @@ bool SplineReaderCPU::Parsing() {
         }
 
         std::shared_ptr<SplineUtils::Geo> patch;
-        if (num == 1) patch = std::make_shared<SplineUtils::Curve>(degree[0], points, knots[0], weights);
-        else if (num == 2)
-            patch = std::make_shared<SplineUtils::Surface>(degree[0], degree[1], points, knots[0], knots[1], weights);
-        else
+        if (num == 1) {
+            patch = std::make_shared<SplineUtils::Curve>(degree[0], points, knots[0], weights, scalars);
+        } else if (num == 2) {
+            patch = std::make_shared<SplineUtils::Surface>(degree[0], degree[1], points, knots[0], knots[1], weights,
+                                                           scalars);
+        } else {
             patch = std::make_shared<SplineUtils::Volume>(degree[0], degree[1], degree[2], points, knots[0], knots[1],
-                                                       knots[2], weights);
+                                                          knots[2], weights, scalars);
+        }
 
         m_Patchs.push_back(patch);
         return true;
@@ -223,15 +256,20 @@ bool SplineReaderCPU::Parsing() {
     return true;
 }
 bool SplineReaderCPU::CreateDataObject() {
-    NurbsGeometry::Pointer mesh = NurbsGeometry::New();
+    SplineGeometry::Pointer sp = SplineGeometry::New();
 
-    mesh->SetType(m_NurbsType);
-    mesh->SetPatch(m_Patchs);
-    mesh->SetViewStyle(IG_SURFACE);
-    //mesh->SetViewStyle(IG_POINTS | IG_WIREFRAME | IG_SURFACE);
+    sp->SetType(m_SplineType);
+    sp->SetPatch(m_Patchs);
+    sp->SetViewStyle(m_SplineType == SplineUtils::Type::CURVE ? IG_WIREFRAME : IG_SURFACE);
 
-    m_Output = mesh;
+    if (m_Patchs[0]->m_ControlScalars.size()) {
+        FloatArray::Pointer scalarArray = FloatArray::New();
+        scalarArray->SetDimension(m_Patchs[0]->m_ControlScalars[0].size());
+        scalarArray->SetName("scalar");
+        sp->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, scalarArray);
+    }
 
+    m_Output = sp;
     return true;
 }
 

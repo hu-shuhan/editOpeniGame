@@ -1,5 +1,8 @@
 #include "iGameDataObject.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameVolumeMesh.h"
+#include "iGameStructuredMesh.h"
+#include "iGameUnstructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
@@ -10,6 +13,12 @@ DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
             return PointSet::New();
         case IG_SURFACE_MESH:
             return SurfaceMesh::New();
+        case IG_VOLUME_MESH:
+            return VolumeMesh::New();
+        case IG_STRUCTURED_MESH:
+            return StructuredMesh::New();
+        case IG_UNSTRUCTURED_MESH:
+            return UnstructuredMesh::New();
         default:
             return nullptr;
     }

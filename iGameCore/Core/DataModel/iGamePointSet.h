@@ -52,6 +52,7 @@ public:
     IGsize GetRealMemorySize() override;
     /* Return original mesh with Display mesh's point index mapping. */
     FlatArray<igIndex>::Pointer GetPointMap();
+
 protected:
     PointSet();
     ~PointSet() override = default;
@@ -67,23 +68,14 @@ protected:
     bool m_InEditStatus{false};
     FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
-    //void Draw(Scene* scene) override;
 public:
-    //void Draw(Scene*) override;
-    //void DrawPhase1(Scene*) override;
-    //void DrawPhase2(Scene*) override;
-    //void TestOcclusionResults(Scene*) override;
     void ConvertToDrawableData() override;
-    //void ViewCloudPicture(Scene*, int index, int demension = -1) override;
 
     /* Range's first means minRange, second means maxRange. */
-    virtual void SetAttributeWithPointData(ArrayObject::Pointer attr,
-                                           DoubleArray::Pointer attrRange,
+    virtual void SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension = -1);
 
-    virtual void SetAttributeWithCellData(ArrayObject::Pointer attr,
-                                          DoubleArray::Pointer attrRange,
-                                          igIndex i = -1);
+    virtual void SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange, igIndex i = -1);
 
     /* Selection */
 public:

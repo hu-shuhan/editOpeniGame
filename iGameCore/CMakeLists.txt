@@ -23,7 +23,7 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCasReader.h")
 endif ()
 
 # add rendering core
@@ -149,6 +149,11 @@ if (${FFMPEG_FOUND})
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
 endif ()
 
+if (${ENABLE_NASTRAN_MODULE})
+    target_compile_definitions(${MODULE_NAME} PUBLIC NASTRAN_ENABLE)
+
+endif ()
+
 #if(Python3_FOUND)
 #    target_include_directories(${MODULE_NAME} PUBLIC
 #        ${Python3_INCLUDE_DIRS}
@@ -167,15 +172,17 @@ if (ENABLE_GPSCUDA_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
     message("Enable GPSCuda Module.")
     target_include_directories(${MODULE_NAME} PUBLIC
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm)
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm>
+            $<INSTALL_INTERFACE:include/ThirdParty/CMakeGPS>
+    )
 
-    target_link_libraries(${MODULE_NAME} PUBLIC
+    target_link_libraries(${MODULE_NAME} PRIVATE
             CommonLib
             Geom
             GPHelperIO

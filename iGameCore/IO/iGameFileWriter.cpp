@@ -27,7 +27,7 @@ FileWriter::~FileWriter()
 bool FileWriter::WriteToFile()
 {
 	if (!GenerateBuffers()) {
-		igError("Could not generate buffer to load.");
+		igDebug("Could not generate buffer to load.");
 		return false;
 	}
 	return SaveBufferDataToFile();
