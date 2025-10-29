@@ -281,45 +281,44 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         }
     }
     return true;
+}
+
+void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict) {
+    const size_t N = Predict.size();
+    const float gt_thresh = 0.0f;
+    const float pred_thresh = 0.095f;
+
+    // 2) 统计 TP/FP/TN/FN
+    size_t TP = 0, FP = 0, TN = 0, FN = 0;
+    for (size_t i = 0; i < N; ++i) {
+        const float q_val = Attributes_gc->GetValue(i);
+        const int g = (q_val > gt_thresh) ? 1 : 0;
+        const int p = (Predict[i] > pred_thresh) ? 1 : 0;
+
+        if (p == 1 && g == 1) ++TP;
+        else if (p == 1 && g == 0)
+            ++FP;
+        else if (p == 0 && g == 1)
+            ++FN;
+        else
+            ++TN;
     }
 
-void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
-                                                 const std::vector<float>& Predict) {
-        const size_t N = Predict.size();
-        const float gt_thresh = 0.0f;
-        const float pred_thresh = 0.13f;
+    const double eps = 1e-12;
+    const double total = static_cast<double>(TP + FP + TN + FN);
 
-        // 2) 统计 TP/FP/TN/FN
-        size_t TP = 0, FP = 0, TN = 0, FN = 0;
-        for (size_t i = 0; i < N; ++i) {
-            const float q_val = Attributes_gc->GetValue(i);
-            const int g = (q_val > gt_thresh) ? 1 : 0;
-            const int p = (Predict[i] > pred_thresh) ? 1 : 0;
+    const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
+    const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
+    //const double f1 = (precision + recall > 0.0) ? (2.0 * precision * recall / (precision + recall)) : 0.0;
+    const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
+                                    static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
 
-            if (p == 1 && g == 1) ++TP;
-            else if (p == 1 && g == 0)
-                ++FP;
-            else if (p == 0 && g == 1)
-                ++FN;
-            else
-                ++TN;
-        }
-
-        const double eps = 1e-12;
-        const double total = static_cast<double>(TP + FP + TN + FN);
-
-        const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
-        const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-        //const double f1 = (precision + recall > 0.0) ? (2.0 * precision * recall / (precision + recall)) : 0.0;
-        const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
-                                        static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
-
-        std::cout << "\n================ Evaluation Metrics ================\n";
-        std::cout << "Accuracy      : " << accuracy << "\n";
-        std::cout << "Precision     : " << precision << "\n";
-        std::cout << "Recall        : " << recall << "\n";
-        std::cout << "===================================================\n";
-    }
+    std::cout << "\n================ Evaluation Metrics ================\n";
+    std::cout << "Accuracy      : " << accuracy << "\n";
+    std::cout << "Precision     : " << precision << "\n";
+    std::cout << "Recall        : " << recall << "\n";
+    std::cout << "===================================================\n";
+}
 
 //std::vector<float> VortexDetection::ComputePointQForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet,
 //                                                        int curIndex) {
@@ -1404,7 +1403,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     int progress = 0;
     std::mutex progress_mutex;
     auto process_blocks_range = [&](int begin, int end) {
-
         //std::cout << "pool_.size():" << pool.size() << std::endl;
         for (int id = begin; id < end; ++id) {
             int bz = id / (split * split);
