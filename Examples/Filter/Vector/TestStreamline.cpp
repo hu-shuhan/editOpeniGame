@@ -55,9 +55,12 @@ int main() {
 
     auto streamtracer = m_StreamBase->streamFilter;
     streamtracer->initStreamTracer(_obj);
-    Vector3f P1 = streamtracer->GetMesh()->GetBoundingBox().max;
-    Vector3f P2 = streamtracer->GetMesh()->GetBoundingBox().min;
-    auto seeds = streamtracer->seedPCoordGenerate(200, P1, P2);
+    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max;//包围盒区域
+    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+    Vector3f centerMax=(boundMax-boundMin)/5+boundMin;//模拟被选中重点区域
+    auto seeds=streamtracer->getAllSubBlockCenters(boundMax,boundMin,centerMax,boundMin,4,6);//4，6为划分子块的数量
+   // auto seeds=streamtracer->seedPCoordGenerate(boundMax,boundMin,1000);//均匀生成1000个种子点
     std::vector<std::vector<float>> streamlineColor;
     std::vector<std::vector<float>> streamline;
     float lengthOfStreamLine=5;

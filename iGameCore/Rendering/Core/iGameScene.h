@@ -476,6 +476,9 @@ protected:
     std::chrono::steady_clock::time_point m_LastRenderEnd;
     bool m_LastRenderEndValid = false;
 
+    // 记录是否处于交互状态
+    bool m_IsInteracting = false;
+
     friend class RenderWindow;
     friend class Model;
     friend class Axes;

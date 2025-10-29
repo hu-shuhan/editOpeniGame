@@ -206,7 +206,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>种子点组</string>
+        <string>种子点生成方式</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -220,12 +220,12 @@
        </property>
        <item>
         <property name="text">
-         <string>1</string>
+         <string>起点终点均匀</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>2</string>
+         <string>重点区域选取</string>
         </property>
        </item>
       </widget>
