@@ -16,6 +16,7 @@ public:
 
 public:
     bool Parsing() override;
+    bool CreateDataObject() override;
 
 protected:
     SplineReaderGPU();

@@ -40,7 +40,7 @@ protected:
 
     SplineUtils::MultiGeo::Pointer m_Geometry;
     FloatArray::Pointer m_ScalarArray;
-    int m_Samples = 40;
+    int m_Samples = 5;
     bool m_SurfaceRenderForVolume = false;
 };
 

@@ -1,5 +1,5 @@
-#include <MeshKernel/Mesh.h>
 #if defined(GPSCUDA_ENABLE)
+#include <MeshKernel/Mesh.h>
 
 #include "iGameSplineReaderGPU.h"
 
@@ -16,6 +16,11 @@
 #include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN
+SplineReaderGPU::SplineReaderGPU() {
+    SetNumberOfInputs(0);
+    SetNumberOfOutputs(1);
+}
+
 bool SplineReaderGPU::Parsing() {
     // 判断是否是体数据
     auto* geometry = root->FirstChildElement("Geometry");
@@ -80,10 +85,12 @@ bool SplineReaderGPU::Parsing() {
         }
     }
 
+    return true;
+}
+
+bool SplineReaderGPU::CreateDataObject() {
     // 调用GPU离散成表面网格
     DataObject::Pointer output = nullptr;
-    m_Output = output;
-    SetOutput(0, m_Output);
 
     if (m_SurfaceRenderForVolume) {
         SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
@@ -111,9 +118,7 @@ bool SplineReaderGPU::Parsing() {
 
         for (auto i = 0; i < m_scene_gp.get_patchsurface_num(); i++) {
             for (auto p = 0; p < 5; p++) {
-                std::cout << 1 << std::endl;
                 for (auto q = 0; q < 5; q++) {
-                    std::cout << 2 << std::endl;
                     igIndex face[8][8]{};
                     for (auto j = 0; j < 64; j++) {
                         Point x = {result[i][(p * 5 + q) * 64 * 3 + j * 3], result[i][(p * 5 + q) * 64 * 3 + j * 3 + 1],
@@ -166,7 +171,7 @@ bool SplineReaderGPU::Parsing() {
 
         CSFile* csf;
         bool isSurface = false;
-        int isoNum = 40;
+        int isoNum = 5;
         gpmesh::CadSceneGP m_scene_gp;
         gpbezier::SurfaceConvertHelper SurfaceHelper;
         SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, isoNum);
@@ -240,13 +245,12 @@ bool SplineReaderGPU::Parsing() {
         }
     }
 
+    m_Output = output;
+    SetOutput(0, m_Output);
     UpdateProgress(1.0f);
+
     return true;
 }
 
-SplineReaderGPU::SplineReaderGPU() {
-    SetNumberOfInputs(0);
-    SetNumberOfOutputs(1);
-}
 IGAME_NAMESPACE_END
 #endif
