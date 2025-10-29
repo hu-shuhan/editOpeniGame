@@ -340,28 +340,20 @@ void Model::Draw() {
         }
     };
 
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
+    if (!renderableObject->m_Visibility) { return; }
 
-    if (!drawObject->m_Visibility) { return; }
-
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
 }
@@ -467,28 +459,20 @@ void Model::DrawWithTransparency() {
         }
     };
 
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
+    if (!renderableObject->m_Visibility) { return; }
 
-    if (!drawObject->m_Visibility) { return; }
-
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
 }
@@ -544,43 +528,31 @@ void Model::DrawWithVolume() {
         }
     };
 
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
+    if (!renderableObject->m_Visibility) { return; }
 
-    if (!drawObject->m_Visibility) { return; }
-
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
 }
 
 void Model::DrawPhase1() {
 #ifdef IGAME_OPENGL_VERSION_460
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
-
-    if (!drawObject->m_Visibility) { return; }
+    if (!renderableObject->m_Visibility) { return; }
 
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
@@ -688,18 +660,14 @@ void Model::DrawPhase1() {
     };
     #endif
 
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
 #endif
@@ -707,15 +675,11 @@ void Model::DrawPhase1() {
 
 void Model::DrawPhase2() {
 #ifdef IGAME_OPENGL_VERSION_460
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
-
-    if (!drawObject->m_Visibility) { return; }
+    if (!renderableObject->m_Visibility) { return; }
 
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
@@ -865,18 +829,14 @@ void Model::DrawPhase2() {
     };
     #endif
 
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
 #endif
@@ -955,28 +915,20 @@ void Model::TestOcclusionResults() {
         }*/
     };
 
-    auto dataObject = GetDataObject();
-    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    bool useSimplified = m_Scene->m_IsInteracting;
+    auto renderableObject = DynamicCast<DrawObject>(GetDataObject())
+                                    ->GetRenderableObject(useSimplified);
 
-    if (drawObject->m_DisplayObject != nullptr) {
-        dataObject = DynamicCast<DataObject>(drawObject->m_DisplayObject);
-        drawObject = DynamicCast<DrawObject>(dataObject);
-    }
+    if (!renderableObject->m_Visibility) { return; }
 
-    if (!drawObject->m_Visibility) { return; }
-
-    if (!dataObject->HasSubDataObject()) {
-        draw(dataObject);
+    if (!renderableObject->HasSubDataObject()) {
+        draw(renderableObject);
     } else {
-        for (auto it = dataObject->SubDataObjectIteratorBegin();
-             it != dataObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = renderableObject->SubDataObjectIteratorBegin();
+             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            if (subDrawObj->m_DisplayObject == nullptr) {
-                draw(subDataObj);
-            } else {
-                draw(subDrawObj->m_DisplayObject);
-            }
+            draw(subDrawObj->GetRenderableObject(useSimplified));
         }
     }
     #endif

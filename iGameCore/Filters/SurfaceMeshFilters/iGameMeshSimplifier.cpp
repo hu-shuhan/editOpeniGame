@@ -840,7 +840,7 @@ size_t TriMeshInternalSimplifier::ExecuteEdgeCollapses(size_t EdgeCollapseCount)
     for (size_t i = 0; i < EdgeCollapseCount; ++i) {
         const Collapse& c = Collapses[CollapseOrder[i]];
 
-        if (c.error > ErrorLimit) break;
+        //if (c.error > ErrorLimit) break;
 
         if (c.error > Collapses[CollapseOrder[EdgeCollapseCount / 2]].error &&
             CollapseCount > TargetTriangleCount / 6) {
@@ -2157,30 +2157,15 @@ private:
 
 bool MeshSimplifier::Execute() {
 
-    //Box3 box{{0, 0, 0}, {1, 1, 1}};
-    //Octree o;
-    //o.Initialize(box);
-    //o.NewAllSons(o.Root());
-    //o.NewAllSons(o.Root()->Sons[0]);
-    //auto i = o.Interize({0.1, 0.1, 0.1});
-    //auto* node = o.FindNode(i);
-    //print(node->Voxel.Min.x, node->Voxel.Min.y, node->Voxel.Min.z, node->Voxel.Max.x, node->Voxel.Max.y,
-    //      node->Voxel.Max.z);
-
-    //i = o.Interize({0.3, 0.3, 0.3});
-    //node = o.FindNode(i);
-    //print(node->Voxel.Min.x, node->Voxel.Min.y, node->Voxel.Min.z, node->Voxel.Max.x, node->Voxel.Max.y,
-    //      node->Voxel.Max.z);
-
-    //i = o.Interize({0.7, 0.7, 0.7});
-    //node = o.FindNode(i);
-    //print(node->Voxel.Min.x, node->Voxel.Min.y, node->Voxel.Min.z, node->Voxel.Max.x, node->Voxel.Max.y,
-    //      node->Voxel.Max.z);
-    //return false;
-
     if (DynamicCast<SurfaceMesh>(GetInput(0))) {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
+
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(Mesh);
+        triangulation->Execute();
+        Mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
         std::vector<int_t> Indices;
         std::vector<Point3> VertexPositions;
         std::vector<Attribute> VertexAttributes;
@@ -2188,6 +2173,9 @@ bool MeshSimplifier::Execute() {
 
         size_t TargetCount;
         float TargetError;
+        std::vector<int> PointDegree(Mesh->GetNumberOfPoints(), 0);
+        std::vector<std::vector<float>> AttrData;
+        AttributeSet::Pointer AttrSet = AttributeSet::New();
 
         igIndex face[IGAME_CELL_MAX_SIZE]{};
         for (int i = 0; i < Mesh->GetNumberOfFaces(); ++i) {
@@ -2195,26 +2183,68 @@ bool MeshSimplifier::Execute() {
             Indices.push_back(face[0]);
             Indices.push_back(face[1]);
             Indices.push_back(face[2]);
+
+            PointDegree[face[0]]++;
+            PointDegree[face[1]]++;
+            PointDegree[face[2]]++;
         }
         RescalePositions(VertexPositions, Mesh->GetPoints());
 
         for (int i = 0; Mesh->GetAttributeSet() && i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
             auto& attr = Mesh->GetAttributeSet()->GetAttribute(i);
-            for (int j = 0; j < attr.pointer->GetDimension(); ++j) {
-                Attribute Attr;
-                Attr.Primitive = DynamicCast<FloatArray>(attr.pointer)->RawPointer();
-                Attr.Stride = attr.pointer->GetDimension();
-                Attr.Offset = j;
-                VertexAttributes.push_back(Attr);
-                AttributeWeights.push_back(1);
+            if (attr.attachmentType == IG_POINT) {
+                int dim = attr.pointer->GetDimension();
+
+
+                FloatArray::Pointer arr = FloatArray::New();
+                arr->SetDimension(dim);
+                for (int k = 0; k < attr.pointer->GetNumberOfValues(); ++k) {
+                    arr->AddValue(static_cast<float>(attr.pointer->GetValue(k)));
+                }
+                AttrSet->AddAttribute(attr.type, IG_POINT, arr);
+
+                for (int j = 0; j < dim; ++j) {
+                    Attribute Attr;
+                    Attr.Primitive = arr->RawPointer();
+                    Attr.Stride = dim;
+                    Attr.Offset = j;
+                    VertexAttributes.push_back(Attr);
+                    AttributeWeights.push_back(1);
+                }
+            } else if (attr.attachmentType == IG_CELL) {
+                int dim = attr.pointer->GetDimension();
+
+                FloatArray::Pointer arr = FloatArray::New();
+                arr->SetDimension(dim);
+                arr->Resize(Mesh->GetNumberOfPoints());
+
+                for (int j = 0; j < Mesh->GetNumberOfFaces(); ++j) {
+                    int size = Mesh->GetFacePointIds(j, face);
+                    float cell[IGAME_CELL_MAX_SIZE];
+                    attr.pointer->GetElement(j, cell);
+                    for (int k = 0; k < size; ++k) {
+                        for (int d = 0; d < dim; ++d) {
+                            arr->SetValue(face[k] * dim + d,
+                                          arr->GetValue(face[k] * dim + d) + cell[d] / PointDegree[face[k]]);
+                        }
+                    }
+                }
+
+                for (int j = 0; j < dim; ++j) {
+                    Attribute Attr;
+                    Attr.Primitive = arr->RawPointer();
+                    Attr.Stride = dim;
+                    Attr.Offset = j;
+                    VertexAttributes.push_back(Attr);
+                    AttributeWeights.push_back(1);
+                }
+
+                AttrSet->AddAttribute(attr.type, IG_POINT, arr);
             }
         }
-        if (TargetFaceCount != 0) 
-        { 
+        if (TargetFaceCount != 0) {
             TargetCount = TargetFaceCount * 3;
-        }
-        else
-        {
+        } else {
             TargetCount = Indices.size() * (1 - this->TargetReduction);
         }
         TargetError = 0.01f;
@@ -2231,7 +2261,8 @@ bool MeshSimplifier::Execute() {
         }
         NewMesh->SetFaces(Faces);
         NewMesh->SetPoints(Mesh->GetPoints());
-        NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
+        NewMesh->SetAttributeSet(AttrSet);
+        std::cout << IndexCount / 3 << std::endl;
         SetOutput(NewMesh);
     } else if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
         using namespace mesh_tetra_simplifier;
@@ -2239,7 +2270,7 @@ bool MeshSimplifier::Execute() {
         SurfaceMesh::Pointer SMesh;
 
         Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
-        SMesh = DynamicCast<SurfaceMesh>(Mesh->GetDisplayObject());
+        SMesh = DynamicCast<SurfaceMesh>(Mesh->GetRenderableObject());
 
         std::vector<int_t> Indices;
         std::vector<int_t> SurfaceIndices;

@@ -1,4 +1,5 @@
 #include "iGameSurfaceMesh.h"
+#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 #include "iGameThreadPool.h"
@@ -729,6 +730,15 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 
 void SurfaceMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime()) {
+        // // 简化
+        // MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
+        // meshSimplifier->SetInput(this);
+        // meshSimplifier->SetTargetReduction(0.7);
+        // meshSimplifier->Execute();
+        // m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
+        // m_RenderableMesh.SimplifiedMesh->ConvertToDrawableData();
+
+        // 转换为可绘制数据
         GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices, m_TriangleEdgeMasks);
         m_Positions->Modified();
         m_LineIndices->Modified();
