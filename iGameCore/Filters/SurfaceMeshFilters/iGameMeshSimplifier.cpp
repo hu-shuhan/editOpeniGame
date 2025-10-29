@@ -465,6 +465,18 @@ private:
 
     void BuildVertexOctree();
 
+    Vector3 ComputeNormal(int_t faceId) {
+        return ComputeNormal(VertexPositions[Indices[faceId * 3 + 0]], VertexPositions[Indices[faceId * 3 + 1]],
+                             VertexPositions[Indices[faceId * 3 + 2]]);
+    }
+
+    Vector3 ComputeNormal(const Vector3& v0, const Vector3& v1, const Vector3& v2) {
+        Vector3 d10 = v1 - v0;
+        Vector3 d20 = v2 - v0;
+
+        return d10.Cross(d20);
+    }
+
     //-------------- Input's Data--------------//
     std::vector<int_t>& Indices;                    // 三角形索引数组
     const std::vector<Point3>& VertexPositions;     // 顶点数组
@@ -486,6 +498,7 @@ private:
     std::vector<int_t> CollapseOrder;        // 坍缩权重的排序数组
     std::vector<int_t> VertexRemap;          // 顶点重映射，用于坍缩后的顶点映射
     std::vector<unsigned char> VertexLocked; // 用于标记顶点是否被坍缩
+    std::vector<unsigned char> VertexFeature;
 };
 
 TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices,
@@ -501,6 +514,121 @@ TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices
     NeedCollapsedIndexCount = IndexCount - TargetCount;
     ErrorLimit = TargetError * TargetError;
 }
+
+struct FastEdgeHasher {
+    template<typename T1, typename T2>
+    size_t operator()(const std::pair<T1, T2>& p) const {
+        return std::hash<T1>()(p.first) ^ std::hash<T2>()(p.second);
+    }
+};
+
+class FastEdgeHashMap {
+private:
+    typedef std::pair<int, int> key_t;
+    typedef int val_t;
+    typedef FastEdgeHasher hash_t;
+    struct node { //每个哈希表的键值对
+        key_t key;
+        val_t val;
+        struct node* next;
+        node() : key(key_t{}), val(val_t{}), next(nullptr) {}
+        node(key_t key, val_t val) : key(key), val(val), next(nullptr) {}
+    };
+
+    size_t count;
+    size_t capacity;
+    node** data;
+
+public:
+    FastEdgeHashMap(int initCapacity = 16) : count(0), capacity(initCapacity) {
+        data = new node*[capacity];
+        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
+    }
+    ~FastEdgeHashMap() {
+        for (int i = 0; i < capacity; i++) {
+            if (data[i]) {
+                node* p = data[i];
+                while (p) {
+                    node* nxt = p->next;
+                    delete p;
+                    p = nxt;
+                }
+                data[i] = nullptr;
+            }
+        }
+        delete[] data;
+    }
+
+    size_t getIndex(key_t key) const {
+        size_t code = hash_t()(key);
+        code ^= (code >> 16);
+        return code & (capacity - 1);
+    }
+
+    bool addOrRemove(key_t key, val_t value, val_t& oldValue) {
+        if (count == capacity * 0.75) { resize(); }
+
+        size_t index = getIndex(key);
+        if (data[index] == nullptr) {
+            data[index] = new node(key, value);
+            count++;
+            return false;
+        }
+
+        if (data[index]->key == key) { 
+            node* tmp = data[index];
+            oldValue = tmp->val;
+            data[index] = data[index]->next;
+            count--;
+            delete tmp;
+            return true;
+        }
+
+        node* p = data[index];
+        while (p->next) {
+            if (p->next->key == key) {
+                node* tmp = p->next;
+                oldValue = tmp->val;
+                p->next = p->next->next;
+                count--;
+                delete tmp;
+                return true;
+            }
+            p = p->next;
+        }
+
+        p = new node(key, value);
+        p->next = data[index];
+        data[index] = p;
+        count++;
+        return false;
+    }
+
+private:
+    void resize() {
+        capacity *= 2;
+        node** old_data = data;
+        data = new node*[capacity];
+        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
+        for (int i = 0; i < capacity / 2; i++) {
+            if (old_data[i]) {
+                node* cur = old_data[i];
+                while (cur) {
+                    node* nxt = cur->next;
+                    insert(cur);
+                    cur = nxt;
+                }
+            }
+        }
+    }
+    void insert(node* p) {
+        size_t index = getIndex(p->key);
+        p->next = data[index];
+        data[index] = p;
+    }
+};
+
+
 
 size_t TriMeshInternalSimplifier::DoWork() {
     Timer time, time2;
@@ -533,6 +661,42 @@ size_t TriMeshInternalSimplifier::DoWork() {
 
     VertexRemap.resize(VertexCount);
     VertexLocked.resize(VertexCount);
+    VertexFeature.resize(VertexCount);
+
+    { 
+        FastEdgeHashMap mp(IndexCount);
+
+        static const int next[3] = {1, 2, 0};
+
+        for (size_t i = 0; i < IndexCount / 3; i++) {
+            
+            for (int e = 0; e < 3; ++e) {
+                int_t i0 = std::min(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
+                int_t i1 = std::max(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
+    
+                int faceId;
+                if (mp.addOrRemove(std::make_pair<int, int>(i0, i1), i, faceId)) {
+                    
+                    // 计算两个面的法向夹角（二面角）
+                    Vector3 n1 = ComputeNormal(faceId);
+                    Vector3 n2 = ComputeNormal(i);
+                    n1.Normalize();
+                    n2.Normalize();
+
+                    double cos_angle = n1.Dot(n2);
+                    cos_angle = std::max(-1.0, std::min(1.0, cos_angle)); // 数值稳定
+                    double angle = std::acos(cos_angle);
+
+                    // 如果二面角大于阈值，认为是特征边
+                    if (angle > 1.35 && angle < 1.75) {
+                        // 将该边的两个端点标记为特征顶点
+                        VertexFeature[i0] = 1;
+                        VertexFeature[i1] = 1;
+                    }
+                }
+            }
+        }
+    }
 
     time.end();
     time.print("Initialize");
@@ -645,7 +809,7 @@ void TriMeshInternalSimplifier::FillAttributeQuadrics() {
         int_t faceId = i / 3;
 
         Quadric Q;
-        Gradient G[32];
+        Gradient G[128];
         ComputeAttributeQuadient(faceId, Q, G);
 
         AttributeQuadrics[i0] += Q;
@@ -753,38 +917,51 @@ void TriMeshInternalSimplifier::ComputeAttributeQuadient(int_t faceId, Quadric& 
 
 size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) {
     size_t Count = 0;
-    for (size_t i = 0; i < IndexCount; i += 3) {
-        static const int next[3] = {1, 2, 0};
 
-        if (Count + 3 > CollapseCapacity) { break; }
+    static const int next[3] = {1, 2, 0};
 
-        for (int e = 0; e < 3; ++e) {
-            int_t i0 = Indices[i + e];
-            int_t i1 = Indices[i + next[e]];
+    auto f = [this](int start, int end) -> void {
+        for (size_t i = start; i < end; i++) {
+            // if (Count + 3 > CollapseCapacity) { break; }
 
-            Collapse c = {i0, i1, 0.f};
-            const Vector3& v = VertexPositions[i1];
-            c.error = VertexQuadrics[i0].Error(v);
+            for (int e = 0; e < 3; ++e) {
+                const int_t i0 = Indices[i * 3 + e];
+                const int_t i1 = Indices[i * 3 + next[e]];
 
-            if (AttributeCount) {
-                float r = AttributeQuadrics[i0].Eval(v);
+                Collapse c = {i0, i1, 0.f};
 
-                for (size_t k = 0; k < AttributeCount; ++k) {
-                    const Attribute& Attr = VertexAttributes[k];
-                    const Gradient& G = AttributeGradients[i0 * AttributeCount + k];
-                    float a = Attr.Primitive[i1 * Attr.Stride + Attr.Offset] * AttributeWeights[k];
-                    float g = v.x * G.gx + v.y * G.gy + v.z * G.gz + G.gw;
-
-                    r += a * (a * AttributeQuadrics[i0].w - 2 * g);
+                if (VertexFeature[i0] ^ VertexFeature[i1]) { 
+                    c.error = std::numeric_limits<float>::max() / 2;
+                    Collapses[i * 3 + e] = c;
+                    continue;
                 }
 
-                c.error += fabsf(r);
-            }
+                const Vector3& v = VertexPositions[i1];
+                c.error = VertexQuadrics[i0].Error(v);
 
-            Collapses[Count++] = c;
+                if (AttributeCount) {
+                    float r = AttributeQuadrics[i0].Eval(v);
+
+                    for (size_t k = 0; k < AttributeCount; ++k) {
+                        const Attribute& Attr = VertexAttributes[k];
+                        const Gradient& G = AttributeGradients[i0 * AttributeCount + k];
+                        float a = Attr.Primitive[i1 * Attr.Stride + Attr.Offset] * AttributeWeights[k];
+                        float g = v.x * G.gx + v.y * G.gy + v.z * G.gz + G.gw;
+
+                        r += a * (a * AttributeQuadrics[i0].w - 2 * g);
+                    }
+
+                    c.error += fabsf(r);
+                }
+                Collapses[i * 3 + e] = c;
+            }
         }
-    }
-    return Count;
+        
+    };
+
+    ThreadPool::parallelFor(0, IndexCount / 3, f);
+
+    return IndexCount;
 }
 
 void TriMeshInternalSimplifier::SortEdgeCollapses(size_t EdgeCollapseCount) {
@@ -840,10 +1017,10 @@ size_t TriMeshInternalSimplifier::ExecuteEdgeCollapses(size_t EdgeCollapseCount)
     for (size_t i = 0; i < EdgeCollapseCount; ++i) {
         const Collapse& c = Collapses[CollapseOrder[i]];
 
-        //if (c.error > ErrorLimit) break;
+        // if (c.error > ErrorLimit) break;
 
-        if (c.error > Collapses[CollapseOrder[EdgeCollapseCount / 2]].error &&
-            CollapseCount > TargetTriangleCount / 6) {
+        if (c.error > Collapses[CollapseOrder[EdgeCollapseCount / 3]].error &&
+            CollapseCount > TargetTriangleCount / 4) {
             break;
         }
 
@@ -1686,7 +1863,7 @@ void TetraMeshInternalSimplifier::FillAttributeQuadrics() {
         int_t faceId = i / 4;
 
         Quadric Q;
-        Gradient G[32];
+        Gradient G[128];
         ComputeAttributeQuadient(faceId, Q, G);
 
         AttributeQuadrics[i0] += Q;
@@ -2161,6 +2338,8 @@ bool MeshSimplifier::Execute() {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
 
+        int oldIndexCount = Mesh->GetFaces()->GetNumberOfCellIds();
+
         Triangulation::Pointer triangulation = Triangulation::New();
         triangulation->SetInput(Mesh);
         triangulation->Execute();
@@ -2178,6 +2357,7 @@ bool MeshSimplifier::Execute() {
         AttributeSet::Pointer AttrSet = AttributeSet::New();
 
         igIndex face[IGAME_CELL_MAX_SIZE]{};
+        float cell[IGAME_CELL_MAX_SIZE]{};
         for (int i = 0; i < Mesh->GetNumberOfFaces(); ++i) {
             int size = Mesh->GetFacePointIds(i, face);
             Indices.push_back(face[0]);
@@ -2219,8 +2399,9 @@ bool MeshSimplifier::Execute() {
                 arr->Resize(Mesh->GetNumberOfPoints());
 
                 for (int j = 0; j < Mesh->GetNumberOfFaces(); ++j) {
+                    
                     int size = Mesh->GetFacePointIds(j, face);
-                    float cell[IGAME_CELL_MAX_SIZE];
+                    
                     attr.pointer->GetElement(j, cell);
                     for (int k = 0; k < size; ++k) {
                         for (int d = 0; d < dim; ++d) {
@@ -2230,6 +2411,8 @@ bool MeshSimplifier::Execute() {
                     }
                 }
 
+                AttrSet->AddAttribute(attr.type, IG_POINT, arr);
+
                 for (int j = 0; j < dim; ++j) {
                     Attribute Attr;
                     Attr.Primitive = arr->RawPointer();
@@ -2238,16 +2421,14 @@ bool MeshSimplifier::Execute() {
                     VertexAttributes.push_back(Attr);
                     AttributeWeights.push_back(1);
                 }
-
-                AttrSet->AddAttribute(attr.type, IG_POINT, arr);
             }
         }
         if (TargetFaceCount != 0) {
             TargetCount = TargetFaceCount * 3;
         } else {
-            TargetCount = Indices.size() * (1 - this->TargetReduction);
+            TargetCount = oldIndexCount * (1 - this->TargetReduction);
         }
-        TargetError = 0.01f;
+        TargetError = 1.f;
 
         TriMeshInternalSimplifier Simplifier(Indices, VertexPositions, VertexAttributes, AttributeWeights, TargetCount,
                                              TargetError);

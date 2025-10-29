@@ -171,10 +171,11 @@ public:
         return ret;
     }
 
-    inline void normalize() {
+    inline double normalize() {
         double magnitude = std::sqrt(this->squaredNorm());
-        if (magnitude == 0) { return; }
+        if (magnitude == 0) { return 0.0; }
         for (int i = 0; i < dimension; ++i) { (*this)[i] /= magnitude; }
+        return magnitude;
     }
     inline Self scale(const Self& o) const {
         Self ret;
@@ -197,7 +198,9 @@ public:
         r[2] = (v_[0] * v[1]) - (v_[1] * v[0]);
         return r;
     }
-
+    inline double distance2(const Self& p) const {
+        return ((v_[0] - p[0]) * (v_[0] - p[0]) + (v_[1] - p[1]) * (v_[1] - p[1]) + (v_[2] - p[2]) * (v_[2] - p[2]));
+    }
     inline Self normalized() const {
         Self ret(*this);
         ret.normalize();

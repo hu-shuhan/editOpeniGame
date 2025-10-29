@@ -619,6 +619,35 @@ void igQtMainWindow::initAllFilters() {
                     // modelTreeWidget->updateAllAttriubute(mesh);
                 });
 
+
+    connect(mesh_processing->addAction("Triangulation"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        auto mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
+        modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+        rendererWidget->update();
+    });
+
+    connect(mesh_processing->addAction("提取体网格表面网格"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) { 
+            auto new_mesh = mesh->GetRenderableObject();
+            new_mesh->SetName(mesh->GetName() + "_surface");
+            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            rendererWidget->update();
+        } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)) {
+            auto new_mesh = mesh->GetRenderableObject();
+            new_mesh->SetName(mesh->GetName() + "_surface");
+            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            rendererWidget->update();
+        }
+    });
+
     //if (false)
     //connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
