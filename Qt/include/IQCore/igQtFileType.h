@@ -20,9 +20,10 @@ enum FileType {
 };
 
 enum SplineType {
-    Nurbs,
-    BSplineSurface,
-    BSplineVolume,
+    BSplineSurfaceCPU,
+    BSplineVolumeCPU,
+    BSplineSurfaceGPU,
+    BSplineVolumeGPU,
 };
 
 enum AnimationType {

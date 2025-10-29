@@ -35,8 +35,6 @@ public slots:
     int updateCloudPicture();
     void deleteCurrentModel();
     void onPropertyChanged(QtProperty* property, const QVariant& value);
-    static void SetAccelerateState(bool b);
-    static int GetAccelerateState();
     iGame::Model* GetCurrentModel();
 
 signals:

@@ -23,7 +23,6 @@
 #include "iGameShaderManager.h"
 #include <chrono>
 
-
 IGAME_NAMESPACE_BEGIN
 
 class Scene : public Object {
@@ -42,13 +41,6 @@ public:
      * @warning 调用函数前必须确保外部已正确创建OpenGL上下文，并且OpenGL上下文处于活跃状态。
      */
     bool Initialize();
-
-    /**
-     * @brief 添加一个数据对象作为模型。
-     * @param meshleter 网格重建器对象指针。
-     * @return 模型的唯一 ID。
-     */
-    IGuint AddModel(SmartPointer<Meshleter> meshleter);
 
     /**
      * @brief 添加一个数据对象作为模型。

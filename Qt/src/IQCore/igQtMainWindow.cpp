@@ -1304,10 +1304,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         else
             DeformationDockWidget->hide();
     });
-    QAction* action_SetAccelerate = ui->menu_file->addAction("关闭/启用加速结构");
-    connect(action_SetAccelerate, &QAction::triggered, this, [&](bool checked) {
-        this->modelTreeWidget->SetAccelerateState(!this->modelTreeWidget->GetAccelerateState());
-    });
 }
 void igQtMainWindow::initAllMySignalConnections() {
     // connect(rendererWidget, &igQtModelDrawWidget::insertToModelListView,

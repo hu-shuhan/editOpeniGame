@@ -3,7 +3,7 @@
 #include "Eigen/Eigenvalues"
 #include "iGameFilter.h"
 #include "iGamePointSet.h"
-#include "iGameStreamTracer.h"
+// #include "iGameStreamTracer.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameThreadPool.h"
 #include "iGameUnstructuredMesh.h"

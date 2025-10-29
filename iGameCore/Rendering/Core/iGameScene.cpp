@@ -126,22 +126,8 @@ bool Scene::Initialize() {
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
 
-
     m_FinishInit = true;
     return true;
-}
-
-IGuint Scene::AddModel(SmartPointer<Meshleter> meshleter) {
-    SmartPointer<Model> model = Model::New();
-    model->AccelerationOn();
-    model->SetMeshleter(meshleter);
-    model->SetScene(this);
-
-    auto modelID = m_ModelPool->AllocateObject(model);
-    m_CurrentModelID = modelID;
-
-    ChangeModelVisibility(model, true);
-    return modelID;
 }
 
 IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
@@ -711,7 +697,7 @@ void Scene::Draw() {
                                GL_QUERY_RESULT_AVAILABLE, &available);
             GLCheckError();
             if (available == GL_TRUE) {
-                unsigned long long ns = 0ULL;
+                GLuint64 ns = 0ULL;
                 glGetQueryObjectui64v(m_TimeQueries[prevIdx], GL_QUERY_RESULT,
                                       &ns);
                 GLCheckError();
@@ -931,17 +917,15 @@ void Scene::ForwardPass() {
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
-    // TODO: BUG IN LINUX GNU 13.1.0, FIX IT
-    // for (auto& [id, model]: m_Models) {
-    //     model->Draw(this);
-    //     model->GetPainter3D()->Draw(this);
-    // }
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        model->Draw();
+        model->GetPainter3D()->Draw();
+    }
 #elif IGAME_OPENGL_VERSION_460
-
     // normal mesh
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
@@ -957,7 +941,6 @@ void Scene::ForwardPass() {
     glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
@@ -1001,8 +984,6 @@ void Scene::ForwardPass() {
     {
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) {
                 model->TestOcclusionResults();
@@ -1012,8 +993,6 @@ void Scene::ForwardPass() {
         // draw phase1: draw visible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
         }
@@ -1025,8 +1004,6 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
         }
