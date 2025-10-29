@@ -226,8 +226,8 @@ std::vector<Vector3f> iGameStreamTracer::getModelSelect() {
                                  mesh->GetBoundingBox().min,
                                  Vector3f(maxX, maxY, maxZ),
                                  Vector3f(minX, minY, minZ),
-                                 4,
-                                 10);
+                                 6,
+                                 8);
 }
 void iGameStreamTracer::initSubmodelLinks() {
     auto temData = model->GetDataObject();
