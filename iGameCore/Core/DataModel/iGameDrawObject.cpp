@@ -395,14 +395,14 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_Positions->Modified();
     m_RenderableMesh.SurfaceMesh->SetColorMapper(this->GetColorMapper());
 
-    if (m_Name != "sukong_Step-1_4") {
-        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    } else {
+    //if (m_Name != "sukong_Step-1_4") {
+    //    m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    //} else {
         SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(dataObject);
         if (surfaceMesh) {
             MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
             meshSimplifier->SetInput(surfaceMesh);
-            meshSimplifier->SetTargetReduction(0.3);
+            meshSimplifier->SetTargetReduction(0.9);
             meshSimplifier->Execute();
             m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
         } else {
@@ -421,7 +421,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
         m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
         m_RenderableMesh.SimplifiedMesh->ConvertToDrawableData();
         m_RenderableMesh.SimplifiedMesh->SetColorMapper(this->GetColorMapper());
-    }
+    //}
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {

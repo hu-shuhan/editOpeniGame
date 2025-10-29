@@ -5,7 +5,7 @@
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecLZMA.h"
-#include "iGameMeshCodecZSTD.h"
+//#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -79,7 +79,7 @@ private:
         // MeshCodecLZMA::Decompress(bufDecompressed, buf);
         
         // ZSTD decompression (new implementation)
-        MeshCodecZSTD::Decompress(bufDecompressed, buf);
+        //MeshCodecZSTD::Decompress(bufDecompressed, buf);
 
         switch (type)
         {

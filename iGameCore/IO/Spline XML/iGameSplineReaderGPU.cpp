@@ -1,5 +1,5 @@
-#include <MeshKernel/Mesh.h>
 #if defined(GPSCUDA_ENABLE)
+#include <MeshKernel/Mesh.h>
 
 #include "iGameSplineReaderGPU.h"
 

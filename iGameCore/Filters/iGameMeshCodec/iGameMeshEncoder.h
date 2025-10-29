@@ -8,7 +8,7 @@
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
-#include "iGameMeshCodecZSTD.h"
+//#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -162,14 +162,14 @@ private:
         //         [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
         // ZSTD compression (new implementation)
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecZSTD::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecZSTD::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecZSTD::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecZSTD::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
         for (int i = 0; i < result.size(); i++) {
             result[i].wait();
