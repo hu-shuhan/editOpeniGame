@@ -164,7 +164,7 @@ public:
         }
         
         // 提取 cell/volume -> face 索引（多线程并行）
-        int maxThreadSize = 16;
+        int maxThreadSize = ThreadPool::GetDefaultThreadCount();
         const int tpResultReverseSize = volumeNum * 10 / maxThreadSize;
         std::vector<std::vector<unsigned int>> v2fIndexResults(maxThreadSize);
         std::vector<std::vector<unsigned int>> v2fOffsetResults(maxThreadSize);

@@ -710,8 +710,7 @@ private:
                             isFirstValue = false;
                         }
                     }
-                },
-                maxThreadSize);
+                });
 
         std::vector<int> offset; // 方便遍历
         for (int i = 0; i < threadRusult.size(); i++) {
