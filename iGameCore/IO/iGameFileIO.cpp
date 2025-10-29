@@ -25,65 +25,50 @@
 #include "IGC/iGameIGCReader.h"
 #include <VTK XML/iGameVTMWriter.h>
 #include <Nastran/iGameNastranReader.h>
+#include "Fluent/iGameCASReader.h"
 
 IGAME_NAMESPACE_BEGIN
-IGenum FileIO::GetFileType(const std::string& file_name)
-{
-	const char* pos = strrchr(file_name.data(), '.');
-	const char* fileEnd = file_name.data() + file_name.size();
-	std::string FileSuffix;
-	if (pos != nullptr) {
-		FileSuffix = std::string(pos + 1, fileEnd);
-	}
-	if (FileSuffix == "vtk") {
-		return VTK;
-	}
-	else if (FileSuffix == "igc") {
+IGenum FileIO::GetFileType(const std::string& file_name) {
+    const char* pos = strrchr(file_name.data(), '.');
+    const char* fileEnd = file_name.data() + file_name.size();
+    std::string FileSuffix;
+    if (pos != nullptr) { FileSuffix = std::string(pos + 1, fileEnd); }
+    if (FileSuffix == "vtk") {
+        return VTK;
+    } else if (FileSuffix == "igc") {
         return IGC;
-    }
-	else if (FileSuffix == "obj") {
-		return OBJ;
-	}
-	else if (FileSuffix == "mesh" || FileSuffix == "MESH") {
-		return MESH;
-	}
-	else if (FileSuffix == "off") {
-		return OFF;
-	}
-	else if (FileSuffix == "stl") {
-		return STL;
-	}
-	else if (FileSuffix == "ply") {
-		return PLY;
-	}
-	else if (FileSuffix == "step") {
-		return STEP;
-	}
-	else if (FileSuffix == "igs" || FileSuffix == "iges" || FileSuffix == "IGS" || FileSuffix == "IGES") {
-		return IGES;
-	}
-	else if (FileSuffix == "pvd") {
-		return PVD;
-	}
-	else if (FileSuffix == "vts") {
-		return VTS;
-	}
-	else if (FileSuffix == "vtu") {
-		return VTU;
-	}
-	else if (FileSuffix == "vtm") {
-		return VTM;
-	}
-	else if (FileSuffix == "e" || FileSuffix == "ex2" || FileSuffix == "EX2") {
-		return EX2;
-	}
-	else if (FileSuffix == "cgns") {
-		return CGNS;
-	}
-	else if (FileSuffix == "inp") {
-		return INP;
-	} else if (FileSuffix == "odb") {
-		return ODB;
+    } else if (FileSuffix == "obj") {
+        return OBJ;
+    } else if (FileSuffix == "mesh" || FileSuffix == "MESH") {
+        return MESH;
+    } else if (FileSuffix == "off") {
+        return OFF;
+    } else if (FileSuffix == "stl") {
+        return STL;
+    } else if (FileSuffix == "ply") {
+        return PLY;
+    } else if (FileSuffix == "step") {
+        return STEP;
+    } else if (FileSuffix == "igs" || FileSuffix == "iges" || FileSuffix == "IGS" || FileSuffix == "IGES") {
+        return IGES;
+    } else if (FileSuffix == "pvd") {
+        return PVD;
+    } else if (FileSuffix == "vts") {
+        return VTS;
+    } else if (FileSuffix == "vtu") {
+        return VTU;
+    } else if (FileSuffix == "vtm") {
+        return VTM;
+    } else if (FileSuffix == "e" || FileSuffix == "ex2" || FileSuffix == "EX2") {
+        return EX2;
+    } else if (FileSuffix == "cgns") {
+        return CGNS;
+    } else if (FileSuffix == "inp") {
+        return INP;
+    } else if (FileSuffix == "odb") {
+        return ODB;
+    } else if (FileSuffix == "cas") { 
+		return CAS;
 	}
     else if(FileSuffix == "bdf"){
         return BDF;
@@ -113,6 +98,7 @@ std::string FileIO::GetFileTypeAsString(IGenum type)
 	case INP:return "INP";
 	case ODB:return "ODB";
 	case BDF:return "BDF";
+    case CAS:return "CAS";
 	default:return "NONE";
 	}
 }
@@ -294,8 +280,15 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name)
         resObj = reader->GetOutput();
         break;
     }
-
-
+    case iGame::FileIO::CAS:
+	{
+        CASReader::Pointer reader = CASReader::New();
+        reader->SetFilePath(file_name);
+        reader->Execute();
+        resObj = reader->GetOutput();
+        break;
+    }
+	
 	default:
 		break;
 	}
