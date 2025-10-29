@@ -114,8 +114,16 @@ public:
     // 是否是两级索引的多面体网格
     bool IsSecondaryIndexPolyhedronMesh()
     {
-        return this->GetMeshType() == IG_VOLUME_MESH ?
-            DynamicCast<VolumeMesh>(this->m_DataObj)->GetIsPolyhedronType() : false;
+	    switch (this->GetMeshType()) {
+	        case IG_VOLUME_MESH: {
+	            return DynamicCast<VolumeMesh>(this->m_DataObj)->GetIsPolyhedronType();
+	        }
+	        case IG_UNSTRUCTURED_MESH: {
+	            return this->GetCellTypes()->GetValue(0) == IG_POLYHEDRON;
+	        }
+	        default:
+	            return false;
+	    }
     }
     
     void SplitSecondaryIndex(
