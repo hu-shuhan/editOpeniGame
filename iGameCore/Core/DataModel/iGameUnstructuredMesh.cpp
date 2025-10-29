@@ -385,11 +385,12 @@ void UnstructuredMesh::ConvertToDrawableData() {
             // shell algorithm
             SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
             if (extract->Execute(this, surfaceMesh)) {
-                SetDisplayObject(surfaceMesh);
+                SetRenderableObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
                 ShellSuccess = false;
-                this->m_DisplayObject = nullptr;
+                this->m_RenderableMesh.SurfaceMesh = nullptr;
+                this->m_RenderableMesh.SimplifiedMesh = nullptr;
                 //igError("Failed to execute the shell algorithm.");
             }
         }
