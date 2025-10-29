@@ -126,22 +126,8 @@ bool Scene::Initialize() {
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
 
-
     m_FinishInit = true;
     return true;
-}
-
-IGuint Scene::AddModel(SmartPointer<Meshleter> meshleter) {
-    SmartPointer<Model> model = Model::New();
-    model->AccelerationOn();
-    model->SetMeshleter(meshleter);
-    model->SetScene(this);
-
-    auto modelID = m_ModelPool->AllocateObject(model);
-    m_CurrentModelID = modelID;
-
-    ChangeModelVisibility(model, true);
-    return modelID;
 }
 
 IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
@@ -940,7 +926,6 @@ void Scene::ForwardPass() {
     // normal mesh
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
@@ -956,7 +941,6 @@ void Scene::ForwardPass() {
     glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
@@ -1000,8 +984,6 @@ void Scene::ForwardPass() {
     {
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) {
                 model->TestOcclusionResults();
@@ -1011,8 +993,6 @@ void Scene::ForwardPass() {
         // draw phase1: draw visible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
         }
@@ -1024,8 +1004,6 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
             auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
             if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
         }

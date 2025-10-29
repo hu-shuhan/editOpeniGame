@@ -17,7 +17,7 @@
 int main() {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
-    const std::string fileName = "D:/OpeniGame/editOpeniGame/Examples/Models/Quad_Plane_Tensor.vtk";
+    const std::string fileName = "./Models/Quad_Plane_Tensor.vtk";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) { std::cout << "Read ERROR!\n"; }
     auto mesh = iGame::DynamicCast<iGame::PointSet>(obj);

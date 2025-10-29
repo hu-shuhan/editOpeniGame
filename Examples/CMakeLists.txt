@@ -32,6 +32,7 @@ add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/
 add_executable(testVectorEveryNth "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorEveryNth.cpp")
 add_executable(testVectorSubData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorSubData.cpp")
 add_executable(testStreamline "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestStreamline.cpp")
+add_executable(testTensorView "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Tensor/TestTensorView.cpp")
 
 add_executable(testParallelCoordinatesData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestParallelCoordinatesData.cpp")
 add_executable(testVariableCorrelationData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableCorrelationData.cpp")
@@ -109,6 +110,7 @@ target_link_libraries(testVectorCellInRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorEveryNth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorSubData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testStreamline PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testTensorView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testParallelCoordinatesData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVariableCorrelationData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

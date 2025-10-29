@@ -8,9 +8,6 @@
 #include <qdebug.h>
 #include <qmenu.h>
 
-//默认一开始不加速
-bool igQtModelDialogWidget::m_AutoAccelerate = false;
-
 namespace
 {
 // Build sub-dataobject hierarchy under a given parent tree item
@@ -201,22 +198,7 @@ int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer o
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     //modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-
-    unsigned int id = 0;
-    if (GetAccelerateState()) {
-        iGame::SmartPointer<iGame::Meshleter> meshleter = nullptr;
-        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
-            meshleter = iGame::SurfaceMeshMeshleter::New();
-            meshleter->SetInput(obj);
-            id = scene->AddModel(meshleter);
-        } else {
-            return -1;
-        }
-    } else {
-        id = scene->AddModel(obj);
-        //std::cout << "Add model id: " << id << std::endl;
-    }
-
+    unsigned int id = scene->AddModel(obj);
     iGame::Model* model = scene->GetModelById(id).get();
 
     //currentModel = model;
@@ -361,16 +343,6 @@ void igQtModelDialogWidget::onPropertyChanged(QtProperty* property, const QVaria
         }
     }
 }
-
-void igQtModelDialogWidget::SetAccelerateState(bool b) {
-    m_AutoAccelerate = b;
-    if (b) {
-        IGAME_RENDERING_INFO("Enable accelerated rendering mode.");
-    } else {
-        IGAME_RENDERING_INFO("Disable accelerated rendering mode.");
-    }
-}
-int igQtModelDialogWidget::GetAccelerateState() { return m_AutoAccelerate; }
 
 iGame::Model* igQtModelDialogWidget::GetCurrentModel() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();

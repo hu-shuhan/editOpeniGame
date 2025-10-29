@@ -11,24 +11,25 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
     if (ENABLE_CGNS_MODULE)
+        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
         find_package(HDF5)
-        install(FILES
-                ${HDF5_LIBRARIES}/../libhdf5.lib
-                ${HDF5_LIBRARIES}/../libhdf5_hl.lib
-                ${HDF5_LIBRARIES}/../libhdf5_tools.lib
-                ${HDF5_LIBRARIES}/../libzlib.lib
-                ${HDF5_LIBRARIES}/../libsz.lib
-                ${HDF5_LIBRARIES}/../libaec.lib
-                DESTINATION lib/ThirdParty)
-
         #        install(FILES
-        #                ${HDF5_DIR}/../../lib/libhdf5.lib
-        #                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
-        #                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
-        #                ${HDF5_DIR}/../../lib/libzlib.lib
-        #                ${HDF5_DIR}/../../lib/libsz.lib
-        #                ${HDF5_DIR}/../../lib/libaec.lib
+        #                ${HDF5_LIBRARIES}/../libhdf5.lib
+        #                ${HDF5_LIBRARIES}/../libhdf5_hl.lib
+        #                ${HDF5_LIBRARIES}/../libhdf5_tools.lib
+        #                ${HDF5_LIBRARIES}/../libzlib.lib
+        #                ${HDF5_LIBRARIES}/../libsz.lib
+        #                ${HDF5_LIBRARIES}/../libaec.lib
         #                DESTINATION lib/ThirdParty)
+
+        install(FILES
+                ${HDF5_DIR}/../../lib/libhdf5.lib
+                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
+                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
+                ${HDF5_DIR}/../../lib/libzlib.lib
+                ${HDF5_DIR}/../../lib/libsz.lib
+                ${HDF5_DIR}/../../lib/libaec.lib
+                DESTINATION lib/ThirdParty)
 
         #        file(GLOB )
     endif ()
@@ -61,7 +62,9 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
         list(APPEND ThirdParty_lib_dependency ${FFMPEG_LIB_LIST})
 
         foreach (LIB ${FFMPEG_LIB_LIST})
-            #            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib)
+            #            message(WARNING ${temp${LIB}})
+            #            message(WARNING ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/FFMPEG)
+            #                install(FILES ${temp${LIB}} LIBRARY DESTINATION lib)
             file(COPY ${temp${LIB}} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/FFMPEG)
         endforeach ()
     endif ()

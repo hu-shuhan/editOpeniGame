@@ -15,6 +15,10 @@ public:
     I_OBJECT(SplineReaderCPU)
     static Pointer New() { return new SplineReaderCPU; }
 
+    inline void SetSurfaceRenderForVolume(bool surfaceRenderForVolume) {
+        m_SurfaceRenderForVolume = surfaceRenderForVolume;
+    }
+
 protected:
     SplineReaderCPU();
     ~SplineReaderCPU() override;
@@ -24,5 +28,6 @@ protected:
 
     SplineUtils::Type m_SplineType;
     std::vector<SplineUtils::Geometry> m_Patchs;
+    bool m_SurfaceRenderForVolume = false;
 };
 IGAME_NAMESPACE_END
