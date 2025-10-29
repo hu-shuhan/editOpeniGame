@@ -5,6 +5,7 @@
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecLZMA.h"
+//#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -74,7 +75,11 @@ private:
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        MeshCodecLZMA::Decompress(bufDecompressed, buf);
+        // LZMA decompression (old implementation)
+        // MeshCodecLZMA::Decompress(bufDecompressed, buf);
+        
+        // ZSTD decompression (new implementation)
+        //MeshCodecZSTD::Decompress(bufDecompressed, buf);
 
         switch (type)
         {
@@ -233,6 +238,17 @@ private:
             return;
         }
 
+        // 结构化网格：不需要解码cell连接关系，通过axisSize自动生成
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            StructuredMesh::Pointer mesh = DynamicCast<StructuredMesh>(this->m_DecoderAdapter->GetDataObj());
+            mesh->SetDimensionSize(this->m_codecParams.structuredMeshParams.axisSize);
+            mesh->GenStructuredCellConnectivities();
+            
+            m_DecompressProgress += 0.2;
+            UpdateProgress(m_DecompressProgress);
+            return;
+        }
+
         std::vector<unsigned char> inputTopo(buf.size());
         std::memcpy(inputTopo.data(), buf.data(), buf.size());
 
@@ -331,9 +347,7 @@ private:
             }
 
             // 写入网格
-
             bool unstructuredFlag = this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH;
-            bool structuredFlag = this->m_codecParams.meshType == IG_STRUCTURED_MESH;
 
             // 非结构化网格
             if (unstructuredFlag)
@@ -347,12 +361,9 @@ private:
                     this->m_DecoderAdapter->AddUnstructuredPolyCells(volume2pointsIndex, volume2pointsSize, outCellTypes);
                 }
             }
-            else if (structuredFlag)
-            {
-                this->m_DecoderAdapter->AddStructureCells(volume2pointsIndex, this->m_codecParams.structuredMeshParams.axisSize);
-            }
             else
             {
+                // SurfaceMesh或VolumeMesh（非结构化）
                 if (isFixedCellSize)
                 {
                     this->m_DecoderAdapter->AddSameTypeFixedCells(volume2pointsIndex, fixedCellSize);

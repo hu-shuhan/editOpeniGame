@@ -8,6 +8,7 @@
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
+//#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -150,14 +151,25 @@ private:
         ThreadPool* tp = ThreadPool::Instance();
         std::atomic<float> progress(0.8);
 
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
-        result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+        // LZMA compression (old implementation)
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+
+        // ZSTD compression (new implementation)
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        //result.push_back(tp->Commit(
+        //        [&]() -> void { MeshCodecZSTD::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
         for (int i = 0; i < result.size(); i++) {
             result[i].wait();
@@ -347,19 +359,32 @@ private:
         IGsize pointCount = this->m_codecParams.geomParams.elementCount;
         IGsize pointBufferSize = pointCount * this->m_codecParams.geomParams.dimension; // 一个顶点3个维度
 
-        // 重映射
-        pointIdRemap.resize(pointCount);
-        meshopt_spatialSortRemap(pointIdRemap.data(), points->RawPointer(), pointCount, sizeof(Vector3f));
-
-        UpdateProgress(0.1);
-
-        // 部署重映射
         std::vector<float> remappedPointBuffer(pointBufferSize);
-        meshopt_remapVertexBuffer(remappedPointBuffer.data(), points->RawPointer(), pointCount, sizeof(Vector3f),
-                                  pointIdRemap.data());
+        
+        // 结构化网格不做顶点重排序，保持原始顺序
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            // pointIdRemap保持为空，表示不需要重映射
+            pointIdRemap.clear();
+            
+            // 直接复制原始顶点坐标
+            std::memcpy(remappedPointBuffer.data(), points->RawPointer(), pointBufferSize * sizeof(float));
+            
+            UpdateProgress(0.1);
+        } else {
+            // 非结构化网格：进行顶点重排序优化
+            // 重映射
+            pointIdRemap.resize(pointCount);
+            meshopt_spatialSortRemap(pointIdRemap.data(), points->RawPointer(), pointCount, sizeof(Vector3f));
 
-        // key重映射
-        if (!m_geomErrorControl.isKeyElement.empty()) {
+            UpdateProgress(0.1);
+
+            // 部署重映射
+            meshopt_remapVertexBuffer(remappedPointBuffer.data(), points->RawPointer(), pointCount, sizeof(Vector3f),
+                                      pointIdRemap.data());
+        }
+
+        // key重映射 (仅非结构化网格需要)
+        if (!m_geomErrorControl.isKeyElement.empty() && !pointIdRemap.empty()) {
             std::vector<bool> remappedIsKey(pointCount, false);
 
             // 将原始关键元素标记转移到重映射后的位置
@@ -394,29 +419,45 @@ private:
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
 
         auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
-            size_t valueCount =
-                    params.dimension * (params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size());
-            remappedBuffer.resize(valueCount);
+            if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+                // 结构化网格：不需要重映射，直接复制原始数据
+                size_t valueCount = params.dimension * params.elementCount;
+                remappedBuffer.resize(valueCount);
 
-            size_t remappedElementCount = params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size();
-            std::vector<bool> remappedIskey(remappedElementCount, false);
-
-            ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
-                for (int j = start; j < end; j++) {
-                    igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
-
-                    // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
-
-                    for (int k = 0; k < params.dimension; k++) {
-                        remappedBuffer[remapIndex * params.dimension + k] =
-                                attrArray->GetValue(j * params.dimension + k);
+                ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedBuffer[j * params.dimension + k] = attrArray->GetValue(j * params.dimension + k);
+                        }
                     }
-                }
-            });
+                });
+                // isKeyElement保持不变，不需要重映射
+            } else {
+                // 非结构化网格：需要重映射
+                const auto& remapArray = params.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+                size_t valueCount = params.dimension * remapArray.size();
+                remappedBuffer.resize(valueCount);
 
-            // 用 remap 后的 iskey 替换原始的 iskey
-            m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
+                size_t remappedElementCount = remapArray.size();
+                std::vector<bool> remappedIskey(remappedElementCount, false);
+
+                ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = remapArray[j];
+
+                        // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
+                        if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
+
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedBuffer[remapIndex * params.dimension + k] =
+                                    attrArray->GetValue(j * params.dimension + k);
+                        }
+                    }
+                });
+
+                // 用 remap 后的 iskey 替换原始的 iskey
+                m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
+            }
         };
 
         std::mutex reportMutex;
@@ -431,11 +472,11 @@ private:
                 std::vector<double> remappedDoubleAttrBuffer;
 
                 if (attrParams.valueSize == sizeof(float)) {
-                    auto floatAttrArray = DynamicCast<FlatArray<float>>(attr.pointer);
-                    remapAttributeValues(floatAttrArray, remappedFloatAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedFloatAttrBuffer, attrParams, i);
                 } else {
-                    auto doubleAttrArray = DynamicCast<FlatArray<double>>(attr.pointer);
-                    remapAttributeValues(doubleAttrArray, remappedDoubleAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedDoubleAttrBuffer, attrParams, i);
                 }
 
                 // 编码
@@ -483,6 +524,23 @@ private:
     ) {
         if (this->m_codecParams.meshType == IG_POINT_SET) {
             payload.resize(0);
+            UpdateProgress(0.4);
+            return;
+        }
+
+        // 结构化网格：不需要编码cell连接关系，只需axisSize即可自动生成
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            // topCellRemap和bottomCellRemap保持为空
+            topCellRemap.clear();
+            bottomCellRemap.clear();
+            
+            // 不编码cell buffer和offset，payload为空
+            payload.resize(0);
+            this->m_codecParams.topoParams.topCellBufferSize = 0;
+            this->m_codecParams.topoParams.topCellBufferBinaryCount = 0;
+            this->m_codecParams.topoParams.topCellSizeBinaryCount = 0;
+            this->m_codecParams.topoParams.cellTypeBinaryCount = 0;
+            
             UpdateProgress(0.4);
             return;
         }
@@ -664,8 +722,7 @@ private:
                             isFirstValue = false;
                         }
                     }
-                },
-                maxThreadSize);
+                });
 
         std::vector<int> offset; // 方便遍历
         for (int i = 0; i < threadRusult.size(); i++) {
