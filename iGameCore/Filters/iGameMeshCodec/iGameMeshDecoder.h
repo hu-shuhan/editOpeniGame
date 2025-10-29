@@ -5,6 +5,7 @@
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecLZMA.h"
+#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -74,7 +75,11 @@ private:
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        MeshCodecLZMA::Decompress(bufDecompressed, buf);
+        // LZMA decompression (old implementation)
+        // MeshCodecLZMA::Decompress(bufDecompressed, buf);
+        
+        // ZSTD decompression (new implementation)
+        MeshCodecZSTD::Decompress(bufDecompressed, buf);
 
         switch (type)
         {

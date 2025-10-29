@@ -8,6 +8,7 @@
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
+#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
@@ -150,14 +151,25 @@ private:
         ThreadPool* tp = ThreadPool::Instance();
         std::atomic<float> progress(0.8);
 
+        // LZMA compression (old implementation)
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+
+        // ZSTD compression (new implementation)
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
         for (int i = 0; i < result.size(); i++) {
             result[i].wait();
