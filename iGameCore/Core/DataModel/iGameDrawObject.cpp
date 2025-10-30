@@ -408,6 +408,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     // } else {
     //     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
     // }
+
     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
 
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
