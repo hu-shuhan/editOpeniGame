@@ -523,7 +523,7 @@ struct FastEdgeHasher {
 };
 
 class FastEdgeHashMap {
-private:
+public:
     typedef std::pair<int, int> key_t;
     typedef int val_t;
     typedef FastEdgeHasher hash_t;
@@ -575,7 +575,7 @@ public:
             return false;
         }
 
-        if (data[index]->key == key) { 
+        if (data[index]->key == key) {
             node* tmp = data[index];
             oldValue = tmp->val;
             data[index] = data[index]->next;
@@ -629,7 +629,6 @@ private:
 };
 
 
-
 size_t TriMeshInternalSimplifier::DoWork() {
     Timer time, time2;
     time2.start();
@@ -663,20 +662,20 @@ size_t TriMeshInternalSimplifier::DoWork() {
     VertexLocked.resize(VertexCount);
     VertexFeature.resize(VertexCount);
 
-    { 
+    {
         FastEdgeHashMap mp(IndexCount);
 
         static const int next[3] = {1, 2, 0};
 
         for (size_t i = 0; i < IndexCount / 3; i++) {
-            
+
             for (int e = 0; e < 3; ++e) {
                 int_t i0 = std::min(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
                 int_t i1 = std::max(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
-    
+
                 int faceId;
                 if (mp.addOrRemove(std::make_pair<int, int>(i0, i1), i, faceId)) {
-                    
+
                     // 计算两个面的法向夹角（二面角）
                     Vector3 n1 = ComputeNormal(faceId);
                     Vector3 n2 = ComputeNormal(i);
@@ -930,7 +929,7 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) {
 
                 Collapse c = {i0, i1, 0.f};
 
-                if (VertexFeature[i0] ^ VertexFeature[i1]) { 
+                if (VertexFeature[i0] ^ VertexFeature[i1]) {
                     c.error = std::numeric_limits<float>::max() / 2;
                     Collapses[i * 3 + e] = c;
                     continue;
@@ -956,7 +955,6 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) {
                 Collapses[i * 3 + e] = c;
             }
         }
-        
     };
 
     ThreadPool::parallelFor(0, IndexCount / 3, f);
@@ -2345,6 +2343,9 @@ bool MeshSimplifier::Execute() {
         triangulation->Execute();
         Mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
 
+        //SetOutput(Mesh);
+        //return true;
+
         std::vector<int_t> Indices;
         std::vector<Point3> VertexPositions;
         std::vector<Attribute> VertexAttributes;
@@ -2399,9 +2400,9 @@ bool MeshSimplifier::Execute() {
                 arr->Resize(Mesh->GetNumberOfPoints());
 
                 for (int j = 0; j < Mesh->GetNumberOfFaces(); ++j) {
-                    
+
                     int size = Mesh->GetFacePointIds(j, face);
-                    
+
                     attr.pointer->GetElement(j, cell);
                     for (int k = 0; k < size; ++k) {
                         for (int d = 0; d < dim; ++d) {

@@ -635,16 +635,40 @@ void igQtMainWindow::initAllFilters() {
     connect(mesh_processing->addAction("提取体网格表面网格"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) { 
-            auto new_mesh = mesh->GetRenderableObject();
-            new_mesh->SetName(mesh->GetName() + "_surface");
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
-        } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)) {
-            auto new_mesh = mesh->GetRenderableObject();
-            new_mesh->SetName(mesh->GetName() + "_surface");
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
+        if (obj->HasSubDataObject()) {
+            auto sub_mesh = obj->GetSubDataObject(0);
+            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+            }
+
+        } else {
+            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (DrawObject::Pointer mesh = DynamicCast<DrawObject>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+            }
         }
     });
 
