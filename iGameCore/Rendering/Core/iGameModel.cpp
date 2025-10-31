@@ -522,15 +522,6 @@ void Model::DrawWithVolume() {
 
 void Model::DrawPhase1() {
 #ifdef IGAME_OPENGL_VERSION_460
-
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->GetAccelerationOption()) { return; }
-
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
-
-    if (!renderableObject->m_Visibility) { return; }
-
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -545,6 +536,8 @@ void Model::DrawPhase1() {
         if (!visibility) { return; }
 
         // draw
+        auto meshleter = drawObject->m_RenderableObeject->m_Meshleter;
+
         if (useColor && colorWithCell) {}
 
         if (viewStyle & IG_POINTS) {}
@@ -553,25 +546,25 @@ void Model::DrawPhase1() {
             auto shader = m_Scene->GetShader(ShaderType::CULLINGPHASE1);
             shader->Use();
 
-            unsigned int meshletCount = drawObject->m_Meshleter->m_MeshletCount;
+            unsigned int meshletCount = meshleter->m_MeshletCount;
             shader->SetUniformui("meshletCount", meshletCount);
 
             m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("hzbSampler", 1);
 
-            drawObject->m_Meshleter->m_MeshletBuffer->BindBase(3);
-            drawObject->m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
-            drawObject->m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
-            drawObject->m_Meshleter->m_PositionBuffer->BindBase(6);
-            drawObject->m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
+            meshleter->m_MeshletBuffer->BindBase(3);
+            meshleter->m_MeshletVertexBuffer->BindBase(4);
+            meshleter->m_MeshletTriangleBuffer->BindBase(5);
+            meshleter->m_PositionBuffer->BindBase(6);
+            meshleter->m_MeshletDescriptorBuffer->BindBase(10);
 
             auto cullDataBuffer = m_Scene->m_ShaderManager->GetCullDataBuffer();
             cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->SubData(
+            meshleter->m_InvisibleMeshletBuffer->SubData(
                     0, sizeof(unsigned int), &data);
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->BindBase(12);
+            meshleter->m_InvisibleMeshletBuffer->BindBase(12);
 
             const int meshletPerTask = 32;
 
@@ -583,13 +576,13 @@ void Model::DrawPhase1() {
             // add barrier when read SSBO
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             unsigned int invisibleMeshletCount = 0;
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
+            meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
-                                  drawObject->m_Meshleter->GetName(),
+                                  meshleter->GetName(),
                                   meshletCount - invisibleMeshletCount,
                                   meshletCount);
         #endif
@@ -609,6 +602,8 @@ void Model::DrawPhase1() {
         if (!visibility) { return; }
 
         // draw
+        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+
         if (useColor && colorWithCell) {}
 
         if (viewStyle & IG_POINTS) {}
@@ -616,36 +611,38 @@ void Model::DrawPhase1() {
         if (viewStyle & IG_SURFACE) {
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            drawObject->m_Meshleter->m_TriangleVAO->Bind();
+            meshleter->m_TriangleVAO->Bind();
             unsigned int visibleMeshletCount = 0;
-            drawObject->m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
+            meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &visibleMeshletCount);
-            drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Target(
+            meshleter->m_FinalDrawCommandBuffer->Target(
                     GL_DRAW_INDIRECT_BUFFER);
-            drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Bind();
+            meshleter->m_FinalDrawCommandBuffer->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         visibleMeshletCount, 0);
-            drawObject->m_Meshleter->m_TriangleVAO->Release();
+            meshleter->m_TriangleVAO->Release();
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
                                   "meshlet count:{}]",
-                                  drawObject->m_Meshleter->GetName(),
-                                  visibleMeshletCount,
-                                  drawObject->m_Meshleter->m_MeshletCount);
+                                  meshleter->GetName(), visibleMeshletCount,
+                                  meshleter->m_MeshletCount);
         #endif
         }
     };
     #endif
 
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->GetAccelerationOption()) { return; }
+
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 #endif
@@ -653,14 +650,6 @@ void Model::DrawPhase1() {
 
 void Model::DrawPhase2() {
 #ifdef IGAME_OPENGL_VERSION_460
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->GetAccelerationOption()) { return; }
-
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
-
-    if (!renderableObject->m_Visibility) { return; }
-
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -675,6 +664,8 @@ void Model::DrawPhase2() {
         if (!visibility) { return; }
 
         // draw
+        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+
         if (useColor && colorWithCell) {}
 
         if (viewStyle & IG_POINTS) {}
@@ -685,7 +676,7 @@ void Model::DrawPhase2() {
 
             // add barrier when read SSBO
             unsigned int invisibleMeshletCount = 0;
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
+            meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &invisibleMeshletCount);
 
             shader->SetUniformui("invisibleMeshletCount",
@@ -694,19 +685,19 @@ void Model::DrawPhase2() {
             m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("hzbSampler", 1);
 
-            drawObject->m_Meshleter->m_MeshletBuffer->BindBase(3);
-            drawObject->m_Meshleter->m_MeshletVertexBuffer->BindBase(4);
-            drawObject->m_Meshleter->m_MeshletTriangleBuffer->BindBase(5);
-            drawObject->m_Meshleter->m_PositionBuffer->BindBase(6);
-            drawObject->m_Meshleter->m_MeshletDescriptorBuffer->BindBase(10);
+            meshleter->m_MeshletBuffer->BindBase(3);
+            meshleter->m_MeshletVertexBuffer->BindBase(4);
+            meshleter->m_MeshletTriangleBuffer->BindBase(5);
+            meshleter->m_PositionBuffer->BindBase(6);
+            meshleter->m_MeshletDescriptorBuffer->BindBase(10);
 
             auto cullDataBuffer = m_Scene->m_ShaderManager->GetCullDataBuffer();
             cullDataBuffer->BindBase(11);
 
             unsigned int data = 0;
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->SubData(
+            meshleter->m_InvisibleMeshletBuffer->SubData(
                     0, sizeof(unsigned int), &data);
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->BindBase(12);
+            meshleter->m_InvisibleMeshletBuffer->BindBase(12);
 
             const int meshletPerTask = 32;
 
@@ -718,13 +709,13 @@ void Model::DrawPhase2() {
             // add barrier when read SSBO
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             unsigned int c = 0;
-            drawObject->m_Meshleter->m_InvisibleMeshletBuffer->GetSubData(
+            meshleter->m_InvisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &c);
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
-                                  drawObject->m_Meshleter->GetName(),
+                                  meshleter->GetName(),
                                   invisibleMeshletCount - c,
                                   invisibleMeshletCount);
         #endif
@@ -744,13 +735,15 @@ void Model::DrawPhase2() {
         if (!visibility) { return; }
 
         // draw
+        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+
         if (useColor && colorWithCell) {}
 
         if (viewStyle & IG_POINTS) {}
         if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
             unsigned int lastVisibleMeshletCount = 0;
-            drawObject->m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
+            meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &lastVisibleMeshletCount);
             // compute culling
             {
@@ -759,18 +752,18 @@ void Model::DrawPhase2() {
 
                 shader->SetUniformi("workMode", 0);
 
-                drawObject->m_Meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                drawObject->m_Meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_MeshletDescriptorBuffer->BindBase(1);
+                meshleter->m_DrawCommandBuffer->BindBase(2);
 
                 unsigned int data = 0;
-                drawObject->m_Meshleter->m_VisibleMeshletBuffer->SubData(
+                meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                drawObject->m_Meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(3);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
-                drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Target(
+                meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                drawObject->m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
@@ -780,43 +773,46 @@ void Model::DrawPhase2() {
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
 
-                auto count = drawObject->m_Meshleter->m_MeshletCount;
+                auto count = meshleter->m_MeshletCount;
                 glDispatchCompute(((count + 255) / 256), 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
 
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            drawObject->m_Meshleter->m_TriangleVAO->Bind();
+            meshleter->m_TriangleVAO->Bind();
             unsigned int count = 0;
-            drawObject->m_Meshleter->m_VisibleMeshletBuffer->GetSubData(
+            meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
-            drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Target(
+            meshleter->m_FinalDrawCommandBuffer->Target(
                     GL_DRAW_INDIRECT_BUFFER);
-            drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Bind();
+            meshleter->m_FinalDrawCommandBuffer->Bind();
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                                         count, 0);
-            drawObject->m_Meshleter->m_TriangleVAO->Release();
+            meshleter->m_TriangleVAO->Release();
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
                                   "meshlet count:{}]",
-                                  drawObject->m_Meshleter->GetName(), count,
-                                  drawObject->m_Meshleter->m_MeshletCount -
+                                  meshleter->GetName(), count,
+                                  meshleter->m_MeshletCount -
                                           lastVisibleMeshletCount);
         #endif
         }
     };
     #endif
 
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (!drawObject->GetAccelerationOption()) { return; }
+
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 #endif
@@ -834,6 +830,9 @@ void Model::TestOcclusionResults() {
 
         if (!visibility) { return; }
 
+        // test
+        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+
         if (useColor && colorWithCell) {}
 
         if (viewStyle & IG_POINTS) {}
@@ -846,18 +845,18 @@ void Model::TestOcclusionResults() {
 
                 shader->SetUniformi("workMode", 1);
 
-                drawObject->m_Meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                drawObject->m_Meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_MeshletDescriptorBuffer->BindBase(1);
+                meshleter->m_DrawCommandBuffer->BindBase(2);
 
                 unsigned int data = 0;
-                drawObject->m_Meshleter->m_VisibleMeshletBuffer->SubData(
+                meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                drawObject->m_Meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(3);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
-                drawObject->m_Meshleter->m_FinalDrawCommandBuffer->Target(
+                meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                drawObject->m_Meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
@@ -866,7 +865,7 @@ void Model::TestOcclusionResults() {
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
 
-                size_t count = drawObject->m_Meshleter->m_MeshletCount;
+                size_t count = meshleter->m_MeshletCount;
                 glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
                                   1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -874,15 +873,15 @@ void Model::TestOcclusionResults() {
         }
         /*
         unsigned int count = 0;
-        drawObject->m_Meshleter->m_VisibleMeshletBuffer->GetSubData(0, sizeof(unsigned int),
+        meshleter->m_VisibleMeshletBuffer->GetSubData(0, sizeof(unsigned int),
                                                         &count);
         std::cout << "Test Occlusion: [render count: " << count;
-        std::cout << ", meshlet count: " << drawObject->m_Meshleter->m_MeshletCount << "]"
+        std::cout << ", meshlet count: " << meshleter->m_MeshletCount << "]"
                   << std::endl;
 
         std::vector<DrawElementsIndirectCommand> readBackCommands(
-                drawObject->m_Meshleter->m_MeshletCount);
-        drawObject->m_Meshleter->m_DrawCommandBuffer->GetSubData(
+                meshleter->m_MeshletCount);
+        meshleter->m_DrawCommandBuffer->GetSubData(
                 0,
                 readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
                 readBackCommands.data());
@@ -898,19 +897,16 @@ void Model::TestOcclusionResults() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
     if (!drawObject->GetAccelerationOption()) { return; }
 
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
+    if (!drawObject->m_Visibility) { return; }
 
-    if (!renderableObject->m_Visibility) { return; }
-
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 #endif

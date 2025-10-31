@@ -29,7 +29,7 @@ set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
-set(ENABLE_LIBTORCH_MODULE ON CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
+set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)

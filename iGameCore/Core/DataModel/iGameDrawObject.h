@@ -108,15 +108,15 @@ protected:
 
     bool m_AutoUpdateDrawData; // 是否自动更新GPU数据
 
-    struct RenderableMesh {
-        DrawObject::Pointer SurfaceMesh;    // 表面网格
-        DrawObject::Pointer SimplifiedMesh; // 简化后的网格
-    };
-    RenderableMesh m_RenderableMesh;
-
     // 加速结构
     bool m_AccelerationOption = false;
-    Meshleter::Pointer m_Meshleter = nullptr;
+
+    struct RenderableMesh {
+        DrawObject::Pointer SurfaceMesh = nullptr;    // 表面网格
+        DrawObject::Pointer SimplifiedMesh = nullptr; // 简化后的网格
+        Meshleter::Pointer m_Meshleter = nullptr;
+    };
+    RenderableMesh m_RenderableMesh;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;

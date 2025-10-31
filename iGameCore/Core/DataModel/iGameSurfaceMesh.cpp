@@ -730,13 +730,8 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 
 void SurfaceMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime()) {
-        // // 简化
-        // MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
-        // meshSimplifier->SetInput(this);
-        // meshSimplifier->SetTargetReduction(0.7);
-        // meshSimplifier->Execute();
-        // m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
-        // m_RenderableMesh.SimplifiedMesh->ConvertToDrawableData();
+        // 为统一架构，设置可绘制对象为自身
+        SetRenderableObject(this);
 
         // 转换为可绘制数据
         GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices, m_TriangleEdgeMasks);
