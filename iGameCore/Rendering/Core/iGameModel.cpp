@@ -4,6 +4,7 @@
 #include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
 #include "iGameScene.h"
+#include <functional>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -133,31 +134,56 @@ void Model::SetPickedItemSwitch(bool action) {
     }
 }
 
-void Model::SetViewPointsSwitch(bool action) {
-    auto drawObject = DynamicCast<DrawObject>(GetDataObject());
-    if (action) {
-        drawObject->AddViewStyle(IG_POINTS);
-    } else {
-        drawObject->RemoveViewStyle(IG_POINTS);
+// Helper: apply a functor to every DrawObject in the model's DataObject tree (root included)
+namespace
+{
+static void
+ForEachDrawObject(DataObject::Pointer root,
+                  const std::function<void(DrawObject::Pointer)>& fn) {
+    if (!root) return;
+    // apply on this node if drawable
+    if (auto draw = DynamicCast<DrawObject>(root)) { fn(draw); }
+    // recurse children safely (even if non-draw DataObject exists)
+    if (root->HasSubDataObject()) {
+        for (auto it = root->SubDataObjectIteratorBegin();
+             it != root->SubDataObjectIteratorEnd(); ++it) {
+            ForEachDrawObject(it->second, fn);
+        }
     }
+}
+} // namespace
+
+void Model::SetViewPointsSwitch(bool action) {
+    auto root = GetDataObject();
+    ForEachDrawObject(root, [&](DrawObject::Pointer draw) {
+        if (action) {
+            draw->AddViewStyle(IG_POINTS);
+        } else {
+            draw->RemoveViewStyle(IG_POINTS);
+        }
+    });
 }
 
 void Model::SetViewWireframeSwitch(bool action) {
-    auto drawObject = DynamicCast<DrawObject>(GetDataObject());
-    if (action) {
-        drawObject->AddViewStyle(IG_WIREFRAME);
-    } else {
-        drawObject->RemoveViewStyle(IG_WIREFRAME);
-    }
+    auto root = GetDataObject();
+    ForEachDrawObject(root, [&](DrawObject::Pointer draw) {
+        if (action) {
+            draw->AddViewStyle(IG_WIREFRAME);
+        } else {
+            draw->RemoveViewStyle(IG_WIREFRAME);
+        }
+    });
 }
 
 void Model::SetViewFillSwitch(bool action) {
-    auto drawObject = DynamicCast<DrawObject>(GetDataObject());
-    if (action) {
-        drawObject->AddViewStyle(IG_SURFACE);
-    } else {
-        drawObject->RemoveViewStyle(IG_SURFACE);
-    }
+    auto root = GetDataObject();
+    ForEachDrawObject(root, [&](DrawObject::Pointer draw) {
+        if (action) {
+            draw->AddViewStyle(IG_SURFACE);
+        } else {
+            draw->RemoveViewStyle(IG_SURFACE);
+        }
+    });
 }
 
 void Model::SwitchOn(ViewSwitch type) { m_Switch |= (1ull << type); }

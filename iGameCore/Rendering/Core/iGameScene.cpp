@@ -307,6 +307,8 @@ void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
         SetRotationCenter(igm::vec3{x, y, z});
         center = igm::vec3{x, y, z};
         radius = r;
+    } else {
+        m_UseCustomRotationCenter = false;
     }
 
     m_ModelMatrix = igm::mat4{1.0f};
