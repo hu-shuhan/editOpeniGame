@@ -26,12 +26,12 @@ else ()
     add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h")
 endif ()
 
-if(UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE)
     find_package(OpenMP REQUIRED)
-    if(OpenMP_CXX_FOUND)
+    if (OpenMP_CXX_FOUND)
         target_link_libraries(${MODULE_NAME} PUBLIC OpenMP::OpenMP_CXX)
-    endif()
-endif()
+    endif ()
+endif ()
 
 # add rendering core
 add_subdirectory(Rendering)
@@ -189,7 +189,6 @@ if (ENABLE_GPSCUDA_MODULE)
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include>
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include>
             $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm>
-            $<INSTALL_INTERFACE:include/ThirdParty/CMakeGPS>
     )
 
     target_link_libraries(${MODULE_NAME} PRIVATE
