@@ -51,7 +51,7 @@ if (ENABLE_CGNS_MODULE)
     set(HDF5_BUILD_SHARED_LIBS OFF)
     set(HDF5_USE_STATIC_LIBRARIES ON)
     set(HDF5_PREFER_PARALLEL OFF)
-    add_subdirectory(CGNS)
+    add_subdirectory(cgns)
 
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()

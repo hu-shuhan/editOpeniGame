@@ -1,6 +1,6 @@
-[submodule "ThirdParty/CGNS"]
-	path = ThirdParty/CGNS
-	url = https://github.com/CGNS/CGNS.git
 [submodule "ThirdParty/zstd"]
 	path = ThirdParty/zstd
 	url = https://github.com/facebook/zstd.git
+[submodule "ThirdParty/cgns"]
+	path = ThirdParty/cgns
+	url = https://github.com/CGNS/CGNS.git
