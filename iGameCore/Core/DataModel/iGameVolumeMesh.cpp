@@ -1001,7 +1001,8 @@ void VolumeMesh::ConvertToDrawableData() {
         m_ReConvertToDrawableData) {
         m_ReConvertToDrawableData = false;
 
-        if (m_ExecuteShell) {
+        // extract surface mesh
+        {
             iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
             // update clip status
             auto box = m_Clipper->m_Box;
@@ -1019,9 +1020,12 @@ void VolumeMesh::ConvertToDrawableData() {
                 SetRenderableObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
-                igError("Failed to execute the shell algorithm.");
+                igDebug("Failed to execute the shell algorithm.");
             }
-        } else {
+        }
+
+        // convert original data
+        {
             UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
             edgeIndices->SetDimension(2);
             UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();

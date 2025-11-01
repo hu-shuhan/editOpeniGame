@@ -13,6 +13,7 @@ DrawObject::DrawObject() {
     m_AutoUpdateDrawData = true;
     m_RenderableMesh.SurfaceMesh = nullptr;
     m_RenderableMesh.SimplifiedMesh = nullptr;
+    m_RenderableMesh.Meshleter = nullptr;
 
     m_PointVAO = GLVertexArray::New();
     m_LineVAO = GLVertexArray::New();
@@ -79,21 +80,13 @@ DrawObject::DrawObject() {
     m_PointOffset = 0.0f;
 
     m_Transparency = 1.0f;
-    m_ExecuteShell = true;
     m_ReConvertToDrawableData = false;
 
     m_Clipper = iGameClipper::New();
 }
 
 void DrawObject::ConvertToDrawableData() {
-    // process renderable object
-    if (m_RenderableMesh.SurfaceMesh != nullptr) {
-        m_RenderableMesh.SurfaceMesh->ConvertToDrawableData();
-        m_RenderableMesh.SimplifiedMesh->ConvertToDrawableData();
-        return;
-    }
-
-    // process this object
+    // 当多子块文件时，父节点为DrawObject，在这里处理子块
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ConvertToDrawableData); }
 }
 
@@ -305,17 +298,6 @@ void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index, int dimension)
     }
 }
 
-void DrawObject::SetShellRenderingOption(bool option) {
-    if (m_ExecuteShell != option) {
-        m_ExecuteShell = option;
-        if (!option) {
-            m_RenderableMesh.SurfaceMesh = nullptr;
-            m_RenderableMesh.SimplifiedMesh = nullptr;
-        }
-        m_ReConvertToDrawableData = true;
-    }
-}
-
 FloatArray::Pointer DrawObject::GetRenderPoints() {
     // return renderable object
     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
@@ -384,7 +366,6 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 
     m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
     // Copy object status
-    m_RenderableMesh.SurfaceMesh->m_AccelerationOption = this->m_AccelerationOption;
     m_RenderableMesh.SurfaceMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SurfaceMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SurfaceMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
@@ -394,12 +375,10 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SurfaceMesh->m_Transparency = this->m_Transparency;
     m_RenderableMesh.SurfaceMesh->m_AttributeIndex = this->m_AttributeIndex;
     m_RenderableMesh.SurfaceMesh->m_AttributeDimension = this->m_AttributeDimension;
-    // The original should be invisible, and it should remain invisible after conversion.
-    m_RenderableMesh.SurfaceMesh->SetVisibility(this->GetVisibility());
     m_RenderableMesh.SurfaceMesh->m_UseColor = this->m_UseColor;
     // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
     m_Positions->Modified();
-    m_RenderableMesh.SurfaceMesh->SetColorMapper(this->GetColorMapper());
+    m_RenderableMesh.SurfaceMesh->m_ColorMapper = this->m_ColorMapper;
 
     //if (m_Name != "sukong_Step-1_4") {
     //    m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
@@ -415,7 +394,6 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     //     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
     // }
     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    m_RenderableMesh.SimplifiedMesh->m_AccelerationOption = this->m_AccelerationOption;
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
@@ -425,13 +403,12 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SimplifiedMesh->m_Transparency = this->m_Transparency;
     m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
     m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
-    m_RenderableMesh.SimplifiedMesh->SetVisibility(this->GetVisibility());
     m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
-    m_RenderableMesh.SimplifiedMesh->SetColorMapper(this->GetColorMapper());
+    m_RenderableMesh.SimplifiedMesh->m_ColorMapper = this->m_ColorMapper;
 
     // 设置Meshleter
-    m_RenderableMesh.m_Meshleter = SurfaceMeshMeshleter::New();
-    m_RenderableMesh.m_Meshleter->SetInput(dataObject);
+    m_RenderableMesh.Meshleter = SurfaceMeshMeshleter::New();
+    m_RenderableMesh.Meshleter->SetInput(dataObject);
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
@@ -581,6 +558,14 @@ void DrawObject::CreateDrawBuffer() {
 }
 
 void DrawObject::SyncGpuBuffers() {
+    // 多子块文件只需要处理子块
+    if (this->HasSubDataObject()) {
+        ProcessSubDataObjects(&DrawObject::SyncGpuBuffers);
+        return;
+    }
+
+    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
+
     // 当不是表面网格时，需要处理其抽壳后的表面网格
     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
         m_RenderableMesh.SurfaceMesh->SyncGpuBuffers();
@@ -588,17 +573,9 @@ void DrawObject::SyncGpuBuffers() {
     }
 
     // 当是表面网格时，还需要构建meshlet
-    if (m_AccelerationOption) { m_RenderableMesh.m_Meshleter->SyncGpuBuffers(); }
+    if (m_AccelerationOption) { m_RenderableMesh.Meshleter->SyncGpuBuffers(); }
 
-    // process this object
-    if (this->HasSubDataObject()) {
-        ProcessSubDataObjects(&DrawObject::SyncGpuBuffers);
-        return;
-    }
     this->CreateDrawBuffer();
-
-    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
-
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());
         m_PositionVBO->Modified();

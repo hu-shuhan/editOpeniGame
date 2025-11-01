@@ -63,8 +63,6 @@ public:
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
-    void SetShellRenderingOption(bool option);
-
     FloatArray::Pointer GetRenderPoints();            // 获取当前渲染用的顶点数据
     void SetRenderPoints(FloatArray::Pointer points); // 直接设置顶点数据
     // 设置多边形偏移
@@ -114,7 +112,7 @@ protected:
     struct RenderableMesh {
         DrawObject::Pointer SurfaceMesh = nullptr;    // 表面网格
         DrawObject::Pointer SimplifiedMesh = nullptr; // 简化后的网格
-        Meshleter::Pointer m_Meshleter = nullptr;
+        Meshleter::Pointer Meshleter = nullptr;
     };
     RenderableMesh m_RenderableMesh;
 
@@ -169,8 +167,7 @@ protected:
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency; // 透明度
-    bool m_ExecuteShell;
+    float m_Transparency;           // 透明度
     bool m_ReConvertToDrawableData; // 是否需要重新转换数据
 
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
@@ -178,6 +175,7 @@ protected:
     friend class Model;
     friend class Scene;
     friend class UnstructuredMesh;
+    friend class Meshleter;
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);

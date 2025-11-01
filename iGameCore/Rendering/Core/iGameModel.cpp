@@ -206,7 +206,8 @@ void Model::Draw() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency != drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -243,7 +244,7 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            glad_glPointSize(renderableObject->m_PointSize);
+            glPointSize(renderableObject->m_PointSize);
 
             float u;
             renderableObject->GetPointOffsetParameters(u);
@@ -366,7 +367,7 @@ void Model::DrawWithTransparency() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (!hasTransparency || drawObject->GetAccelerationOption()) { return; }
+        if (!hasTransparency) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
@@ -399,7 +400,7 @@ void Model::DrawWithTransparency() {
             shader->Use();
             shader->SetUniformi("colorMode", 1);
 
-            glad_glPointSize(renderableObject->m_PointSize);
+            glPointSize(renderableObject->m_PointSize);
 
             float u;
             renderableObject->GetPointOffsetParameters(u);
@@ -553,24 +554,80 @@ void Model::DrawPhase1() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto renderableObject = drawObject;
-        auto useColor = renderableObject->m_UseColor;
-        auto colorWithCell = renderableObject->m_ColorWithCell;
-        auto viewStyle = renderableObject->m_ViewStyle;
+        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
+        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+
+        auto useColor = drawObject->IsUseColor();
+        auto colorWithCell = drawObject->m_ColorWithCell;
+        auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
-
         if (useColor && colorWithCell) {}
 
-        if (viewStyle & IG_POINTS) {}
-        if (viewStyle & IG_WIREFRAME) {}
+        if (viewStyle & IG_POINTS) {
+            auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+            shader->Use();
+
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            glPointSize(surfaceObject->m_PointSize);
+
+            float u;
+            surfaceObject->GetPointOffsetParameters(u);
+
+            if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
+                surfaceObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements());
+            } else {
+                surfaceObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                        surfaceObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
+        }
+
+        if (viewStyle & IG_WIREFRAME) {
+            if (useColor) {
+                m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+            } else {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是样条对象，强制用黑色绘制控制线
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            glLineWidth(surfaceObject->m_LineWidth);
+
+            float f, u;
+            surfaceObject->GetLineOffsetParameters(f, u);
+
+            surfaceObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                    surfaceObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+        }
+
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::CULLINGPHASE1);
             shader->Use();
@@ -623,24 +680,80 @@ void Model::DrawPhase1() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto renderableObject = drawObject; // meshleter存储在当前模型中
-        auto useColor = renderableObject->IsUseColor();
-        auto colorWithCell = renderableObject->m_ColorWithCell;
-        auto viewStyle = renderableObject->GetViewStyle();
+        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
+        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+
+        auto useColor = drawObject->IsUseColor();
+        auto colorWithCell = drawObject->m_ColorWithCell;
+        auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
-
         if (useColor && colorWithCell) {}
 
-        if (viewStyle & IG_POINTS) {}
-        if (viewStyle & IG_WIREFRAME) {}
+        if (viewStyle & IG_POINTS) {
+            auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+            shader->Use();
+
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            glPointSize(surfaceObject->m_PointSize);
+
+            float u;
+            surfaceObject->GetPointOffsetParameters(u);
+
+            if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
+                surfaceObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements());
+            } else {
+                surfaceObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                        surfaceObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
+        }
+
+        if (viewStyle & IG_WIREFRAME) {
+            if (useColor) {
+                m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+            } else {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是样条对象，强制用黑色绘制控制线
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            glLineWidth(surfaceObject->m_LineWidth);
+
+            float f, u;
+            surfaceObject->GetLineOffsetParameters(f, u);
+
+            surfaceObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                    surfaceObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+        }
+
         if (viewStyle & IG_SURFACE) {
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
@@ -689,24 +802,80 @@ void Model::DrawPhase2() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto renderableObject = drawObject;
-        auto useColor = renderableObject->m_UseColor;
-        auto colorWithCell = renderableObject->m_ColorWithCell;
-        auto viewStyle = renderableObject->m_ViewStyle;
+        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
+        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+
+        auto useColor = drawObject->IsUseColor();
+        auto colorWithCell = drawObject->m_ColorWithCell;
+        auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
-
         if (useColor && colorWithCell) {}
 
-        if (viewStyle & IG_POINTS) {}
-        if (viewStyle & IG_WIREFRAME) {}
+        if (viewStyle & IG_POINTS) {
+            auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+            shader->Use();
+
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            glPointSize(surfaceObject->m_PointSize);
+
+            float u;
+            surfaceObject->GetPointOffsetParameters(u);
+
+            if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
+                surfaceObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements());
+            } else {
+                surfaceObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                        surfaceObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
+        }
+
+        if (viewStyle & IG_WIREFRAME) {
+            if (useColor) {
+                m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+            } else {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是样条对象，强制用黑色绘制控制线
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            glLineWidth(surfaceObject->m_LineWidth);
+
+            float f, u;
+            surfaceObject->GetLineOffsetParameters(f, u);
+
+            surfaceObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                    surfaceObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+        }
+
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::CULLINGPHASE2);
             shader->Use();
@@ -764,24 +933,80 @@ void Model::DrawPhase2() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto renderableObject = drawObject; // meshleter存储在当前模型中
-        auto useColor = renderableObject->IsUseColor();
-        auto colorWithCell = renderableObject->m_ColorWithCell;
-        auto viewStyle = renderableObject->GetViewStyle();
+        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
+        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+
+        auto useColor = drawObject->IsUseColor();
+        auto colorWithCell = drawObject->m_ColorWithCell;
+        auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
-
         if (useColor && colorWithCell) {}
 
-        if (viewStyle & IG_POINTS) {}
-        if (viewStyle & IG_WIREFRAME) {}
+        if (viewStyle & IG_POINTS) {
+            auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
+            shader->Use();
+
+            // 如果是样条对象，强制用红色绘制控制点
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            glPointSize(surfaceObject->m_PointSize);
+
+            float u;
+            surfaceObject->GetPointOffsetParameters(u);
+
+            if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
+                surfaceObject->m_PointVAO->DrawArrays(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements());
+            } else {
+                surfaceObject->m_PointVAO->DrawRangeElements(
+                        GL_POINTS, 0,
+                        surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                        surfaceObject->m_PointIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
+        }
+
+        if (viewStyle & IG_WIREFRAME) {
+            if (useColor) {
+                m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
+            } else {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是样条对象，强制用黑色绘制控制线
+            if (m_DataObject->GetDataObjectType() == IG_SPLINE_GEOMETRY) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
+            }
+
+            glLineWidth(surfaceObject->m_LineWidth);
+
+            float f, u;
+            surfaceObject->GetLineOffsetParameters(f, u);
+
+            surfaceObject->m_LineVAO->DrawRangeElements(
+                    GL_LINES, 0,
+                    surfaceObject->m_Positions->GetNumberOfElements() - 1,
+                    surfaceObject->m_LineIndices->GetNumberOfValues(),
+                    GL_UNSIGNED_INT);
+        }
+
         if (viewStyle & IG_SURFACE) {
             unsigned int lastVisibleMeshletCount = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
@@ -867,21 +1092,14 @@ void Model::TestOcclusionResults() {
         if (!drawObject->GetVisibility()) { return; }
 
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
-        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+        bool hasAcceleration = drawObject->GetAccelerationOption();
+        if (hasTransparency || !hasAcceleration) { return; }
 
         // compute
-        auto renderableObject = drawObject; // meshleter存储在当前模型中
-        auto useColor = renderableObject->IsUseColor();
-        auto colorWithCell = renderableObject->m_ColorWithCell;
-        auto viewStyle = renderableObject->GetViewStyle();
+        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto viewStyle = drawObject->GetViewStyle();
 
         // test
-        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
-
-        if (useColor && colorWithCell) {}
-
-        if (viewStyle & IG_POINTS) {}
-        if (viewStyle & IG_WIREFRAME) {}
         if (viewStyle & IG_SURFACE) {
             // compute culling
             {

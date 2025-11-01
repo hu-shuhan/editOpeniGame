@@ -368,8 +368,9 @@ void UnstructuredMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime() ||
         m_ReConvertToDrawableData) {
         m_ReConvertToDrawableData = false;
-        bool ShellSuccess = false;
-        if (m_ExecuteShell) {
+
+        // extract surface mesh
+        {
             iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
 
             // update clip status
@@ -385,7 +386,6 @@ void UnstructuredMesh::ConvertToDrawableData() {
             // shell algorithm
             SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
             if (extract->Execute(this, surfaceMesh)) {
-                ShellSuccess = true;
                 SetRenderableObject(surfaceMesh);
                 m_PointMap = extract->GetPointMap();
             } else {
@@ -394,7 +394,9 @@ void UnstructuredMesh::ConvertToDrawableData() {
                 igDebug("Failed to execute the shell algorithm.");
             }
         }
-        if (ShellSuccess == false) {
+
+        // convert original data
+        {
             auto pointIndices = UnsignedIntArray::New();
             pointIndices->SetDimension(1);
             auto edgeIndices = UnsignedIntArray::New();

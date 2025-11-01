@@ -1390,13 +1390,6 @@ igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
 
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
-    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
-        auto model = it->second;
-
-        if (!model->GetDataObject()->IsDrawable()) { continue; }
-        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        drawObject->SetShellRenderingOption(!toggled);
-    }
     Update();
 }
 
