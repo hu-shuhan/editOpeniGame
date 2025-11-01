@@ -384,6 +384,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 
     m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
     // Copy object status
+    m_RenderableMesh.SurfaceMesh->m_AccelerationOption = this->m_AccelerationOption;
     m_RenderableMesh.SurfaceMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SurfaceMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SurfaceMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
@@ -414,6 +415,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     //     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
     // }
     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    m_RenderableMesh.SimplifiedMesh->m_AccelerationOption = this->m_AccelerationOption;
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
@@ -450,6 +452,7 @@ void DrawObject::SetAccelerationOption(bool enabled) {
 #endif
 
     m_AccelerationOption = enabled;
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::SetAccelerationOption, enabled); }
 }
 
 bool DrawObject::GetAccelerationOption() const { return m_AccelerationOption; }
@@ -578,15 +581,13 @@ void DrawObject::CreateDrawBuffer() {
 }
 
 void DrawObject::SyncGpuBuffers() {
-    // process renderable object
+    // 当不是表面网格时，需要处理其抽壳后的表面网格
     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
         m_RenderableMesh.SurfaceMesh->SyncGpuBuffers();
         m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers();
-        if (m_AccelerationOption) { m_RenderableMesh.m_Meshleter->SyncGpuBuffers(); }
-        return;
     }
 
-    // 当是表面网格时，还需要构建meshlet'
+    // 当是表面网格时，还需要构建meshlet
     if (m_AccelerationOption) { m_RenderableMesh.m_Meshleter->SyncGpuBuffers(); }
 
     // process this object
@@ -596,13 +597,7 @@ void DrawObject::SyncGpuBuffers() {
     }
     this->CreateDrawBuffer();
 
-    if (m_AutoUpdateDrawData) {
-        ConvertToDrawableData();
-        if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-            m_RenderableMesh.SurfaceMesh->SyncGpuBuffers();
-            m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers();
-        }
-    }
+    if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
 
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());

@@ -34,10 +34,9 @@ SmartPointer<Scene> Model::GetScene() const { return m_Scene; }
 
 SmartPointer<DataObject> Model::GetDataObject() { return m_DataObject; }
 
-bool Model::GetVisibility() {
-    auto drawObject = DynamicCast<DrawObject>(GetDataObject());
-    return drawObject->GetVisibility();
-}
+void Model::SetVisibility(bool visibility) { m_Visibility = visibility; }
+
+bool Model::GetVisibility() const { return m_Visibility; }
 
 SmartPointer<Filter> Model::GetModelFilter() { return m_Filter; }
 
@@ -199,28 +198,35 @@ void Model::SyncGpuBuffers() {
 }
 
 void Model::Draw() {
+    if (!this->GetVisibility()) { return; }
+    bool useSimplified = m_Scene->m_IsInteracting;
+
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency != drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject->GetRenderableObject(useSimplified);
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         if (useColor && colorWithCell) {
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
             float f, u;
-            drawObject->GetPolygonOffsetParameters(f, u);
+            renderableObject->GetPolygonOffsetParameters(f, u);
 
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(f, u);
-            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
-                                              drawObject->m_CellPositionSize);
+            renderableObject->m_CellVAO->DrawArrays(
+                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
             glDisable(GL_POLYGON_OFFSET_FILL);
 
             return;
@@ -237,33 +243,34 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(renderableObject->m_PointSize);
 
             float u;
-            drawObject->GetPointOffsetParameters(u);
+            renderableObject->GetPointOffsetParameters(u);
 
-            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                drawObject->m_PointVAO->DrawArrays(
+            if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
+                renderableObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements());
+                        renderableObject->m_Positions->GetNumberOfElements());
             } else {
-                drawObject->m_PointVAO->DrawRangeElements(
+                renderableObject->m_PointVAO->DrawRangeElements(
                         GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() -
+                                1,
+                        renderableObject->m_PointIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
         }
 
         // whether to use single-pass wireframe rendering
         if (viewStyle & IG_WIREFRAME && viewStyle & IG_SURFACE &&
-            drawObject->IsUseSinglePassWireframeRendering()) {
+            renderableObject->IsUseSinglePassWireframeRendering()) {
             auto shader = m_Scene->GetShader(ShaderType::SINGLEPASSWIREFRAME);
             shader->Use();
 
-            shader->SetUniformf("lineWidth", drawObject->GetLineWidth());
+            shader->SetUniformf("lineWidth", renderableObject->GetLineWidth());
 
-            drawObject->m_EdgeMaskTexture->Active(GL_TEXTURE1);
+            renderableObject->m_EdgeMaskTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("edgeMasks", 1);
 
             if (useColor) {
@@ -279,10 +286,10 @@ void Model::Draw() {
                            (float) vp[3]};
             shader->SetUniform4f("vpDims", dims);
 
-            drawObject->m_TriangleVAO->DrawRangeElements(
+            renderableObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
-                    drawObject->m_Positions->GetNumberOfElements() - 1,
-                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    renderableObject->m_Positions->GetNumberOfElements() - 1,
+                    renderableObject->m_TriangleIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
         } else {
             if (viewStyle & IG_SURFACE) {
@@ -290,14 +297,16 @@ void Model::Draw() {
                 shader->Use();
 
                 float f, u;
-                drawObject->GetPolygonOffsetParameters(f, u);
+                renderableObject->GetPolygonOffsetParameters(f, u);
 
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(f, u);
-                drawObject->m_TriangleVAO->DrawRangeElements(
+                renderableObject->m_TriangleVAO->DrawRangeElements(
                         GL_TRIANGLES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() -
+                                1,
+                        renderableObject->m_TriangleIndices
+                                ->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
                 glDisable(GL_POLYGON_OFFSET_FILL);
             }
@@ -320,52 +329,53 @@ void Model::Draw() {
                                          igm::vec3{0.0f, 0.0f, 0.0f});
                 }
 
-                glLineWidth(drawObject->m_LineWidth);
+                glLineWidth(renderableObject->m_LineWidth);
 
                 float f, u;
-                drawObject->GetLineOffsetParameters(f, u);
+                renderableObject->GetLineOffsetParameters(f, u);
 
-                drawObject->m_LineVAO->DrawRangeElements(
+                renderableObject->m_LineVAO->DrawRangeElements(
                         GL_LINES, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_LineIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() -
+                                1,
+                        renderableObject->m_LineIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
         }
     };
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (drawObject->GetAccelerationOption()) { return; }
-
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
-
-    if (!renderableObject->m_Visibility) { return; }
-
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 }
 
 void Model::DrawWithTransparency() {
+    if (!this->GetVisibility()) { return; }
+    bool useSimplified = m_Scene->m_IsInteracting;
+
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (!hasTransparency || drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject->GetRenderableObject(useSimplified);
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         if (useColor && colorWithCell) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
@@ -373,12 +383,12 @@ void Model::DrawWithTransparency() {
             shader->SetUniformi("colorMode", 0);
 
             float f, u;
-            drawObject->GetPolygonOffsetParameters(f, u);
+            renderableObject->GetPolygonOffsetParameters(f, u);
 
             //glEnable(GL_POLYGON_OFFSET_FILL);
             //glPolygonOffset(f, u);
-            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
-                                              drawObject->m_CellPositionSize);
+            renderableObject->m_CellVAO->DrawArrays(
+                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
             //glDisable(GL_POLYGON_OFFSET_FILL);
 
             return;
@@ -389,22 +399,23 @@ void Model::DrawWithTransparency() {
             shader->Use();
             shader->SetUniformi("colorMode", 1);
 
-            glad_glPointSize(drawObject->m_PointSize);
+            glad_glPointSize(renderableObject->m_PointSize);
 
             float u;
-            drawObject->GetPointOffsetParameters(u);
+            renderableObject->GetPointOffsetParameters(u);
 
             //glEnable(GL_POLYGON_OFFSET_POINT);
             //glPolygonOffset(0.0f, u);
-            if (drawObject->m_PointIndices->GetNumberOfValues() == 0) {
-                drawObject->m_PointVAO->DrawArrays(
+            if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
+                renderableObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements());
+                        renderableObject->m_Positions->GetNumberOfElements());
             } else {
-                drawObject->m_PointVAO->DrawRangeElements(
+                renderableObject->m_PointVAO->DrawRangeElements(
                         GL_POINTS, 0,
-                        drawObject->m_Positions->GetNumberOfElements() - 1,
-                        drawObject->m_PointIndices->GetNumberOfValues(),
+                        renderableObject->m_Positions->GetNumberOfElements() -
+                                1,
+                        renderableObject->m_PointIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
             //glDisable(GL_POLYGON_OFFSET_POINT);
@@ -422,17 +433,17 @@ void Model::DrawWithTransparency() {
                 shader->SetUniform3f("inputColor", igm::vec3{0.0f, 0.0f, 0.0f});
             }
 
-            glLineWidth(drawObject->m_LineWidth);
+            glLineWidth(renderableObject->m_LineWidth);
 
             float f, u;
-            drawObject->GetLineOffsetParameters(f, u);
+            renderableObject->GetLineOffsetParameters(f, u);
 
             //glEnable(GL_POLYGON_OFFSET_LINE);
             //glPolygonOffset(f, u);
-            drawObject->m_LineVAO->DrawRangeElements(
+            renderableObject->m_LineVAO->DrawRangeElements(
                     GL_LINES, 0,
-                    drawObject->m_Positions->GetNumberOfElements() - 1,
-                    drawObject->m_LineIndices->GetNumberOfValues(),
+                    renderableObject->m_Positions->GetNumberOfElements() - 1,
+                    renderableObject->m_LineIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
             //glDisable(GL_POLYGON_OFFSET_LINE);
         }
@@ -442,82 +453,75 @@ void Model::DrawWithTransparency() {
             shader->SetUniformi("colorMode", 0);
 
             float f, u;
-            drawObject->GetPolygonOffsetParameters(f, u);
+            renderableObject->GetPolygonOffsetParameters(f, u);
 
             //glEnable(GL_POLYGON_OFFSET_FILL);
             //glPolygonOffset(f, u);
-            drawObject->m_TriangleVAO->DrawRangeElements(
+            renderableObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
-                    drawObject->m_Positions->GetNumberOfElements() - 1,
-                    drawObject->m_TriangleIndices->GetNumberOfValues(),
+                    renderableObject->m_Positions->GetNumberOfElements() - 1,
+                    renderableObject->m_TriangleIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
             //glDisable(GL_POLYGON_OFFSET_FILL);
         }
     };
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (drawObject->GetAccelerationOption()) { return; }
-
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
-
-    if (!renderableObject->m_Visibility) { return; }
-
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 }
 
 void Model::DrawWithVolume() {
+    if (!this->GetVisibility()) { return; }
+
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject; //体绘制用原始体进行渲染
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         if (useColor && colorWithCell) {
             auto shader = m_Scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
             float f, u;
-            drawObject->GetPolygonOffsetParameters(f, u);
+            renderableObject->GetPolygonOffsetParameters(f, u);
 
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(f, u);
-            drawObject->m_CellVAO->DrawArrays(GL_TRIANGLES, 0,
-                                              drawObject->m_CellPositionSize);
+            renderableObject->m_CellVAO->DrawArrays(
+                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
             glDisable(GL_POLYGON_OFFSET_FILL);
-
             return;
         }
 
         if (viewStyle & IG_POINTS) {}
-
         if (viewStyle & IG_WIREFRAME) {}
-
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
             float f, u;
-            drawObject->GetPolygonOffsetParameters(f, u);
+            renderableObject->GetPolygonOffsetParameters(f, u);
 
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(f, u);
-            drawObject->m_TriangleVAO->DrawRangeElements(
+            renderableObject->m_TriangleVAO->DrawRangeElements(
                     GL_TRIANGLES, 0,
                     drawObject->m_Positions->GetNumberOfElements() - 1,
                     drawObject->m_TriangleIndices->GetNumberOfValues(),
@@ -527,42 +531,41 @@ void Model::DrawWithVolume() {
     };
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (drawObject->GetAccelerationOption()) { return; }
-
-    bool useSimplified = m_Scene->m_IsInteracting;
-    auto renderableObject = drawObject->GetRenderableObject(useSimplified);
-
-    if (!renderableObject->m_Visibility) { return; }
-
-    if (!renderableObject->HasSubDataObject()) {
-        draw(renderableObject);
+    if (!drawObject->HasSubDataObject()) {
+        draw(drawObject);
     } else {
-        for (auto it = renderableObject->SubDataObjectIteratorBegin();
-             it != renderableObject->SubDataObjectIteratorEnd(); it++) {
+        for (auto it = drawObject->SubDataObjectIteratorBegin();
+             it != drawObject->SubDataObjectIteratorEnd(); it++) {
             auto subDataObj = it->second;
             auto subDrawObj = DynamicCast<DrawObject>(subDataObj);
-            draw(subDrawObj->GetRenderableObject(useSimplified));
+            draw(subDrawObj);
         }
     }
 }
 
 void Model::DrawPhase1() {
 #ifdef IGAME_OPENGL_VERSION_460
+    if (!this->GetVisibility()) { return; }
+
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject;
+        auto useColor = renderableObject->m_UseColor;
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->m_ViewStyle;
 
         // draw
-        auto meshleter = drawObject->m_RenderableObeject->m_Meshleter;
+        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
 
         if (useColor && colorWithCell) {}
 
@@ -616,19 +619,23 @@ void Model::DrawPhase1() {
     };
     #else
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject; // meshleter存储在当前模型中
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         // draw
-        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
 
         if (useColor && colorWithCell) {}
 
@@ -659,8 +666,6 @@ void Model::DrawPhase1() {
     #endif
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->GetAccelerationOption()) { return; }
-
     if (!drawObject->HasSubDataObject()) {
         draw(drawObject);
     } else {
@@ -676,21 +681,27 @@ void Model::DrawPhase1() {
 
 void Model::DrawPhase2() {
 #ifdef IGAME_OPENGL_VERSION_460
+    if (!this->GetVisibility()) { return; }
+
     #ifdef GL_SUPPORTS_MESH_SHADER
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject;
+        auto useColor = renderableObject->m_UseColor;
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->m_ViewStyle;
 
         // draw
-        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
 
         if (useColor && colorWithCell) {}
 
@@ -749,19 +760,23 @@ void Model::DrawPhase2() {
     };
     #else
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (!drawObject->GetVisibility()) { return; }
+
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+
+        // Render
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
-        auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
-
-        if (!visibility) { return; }
+        auto renderableObject = drawObject; // meshleter存储在当前模型中
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         // draw
-        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
 
         if (useColor && colorWithCell) {}
 
@@ -829,8 +844,6 @@ void Model::DrawPhase2() {
     #endif
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->GetAccelerationOption()) { return; }
-
     if (!drawObject->HasSubDataObject()) {
         draw(drawObject);
     } else {
@@ -847,17 +860,23 @@ void Model::DrawPhase2() {
 void Model::TestOcclusionResults() {
     // 只有计算着色器需要额外计算一次可见性
 #if defined(IGAME_OPENGL_VERSION_460) && !defined(GL_SUPPORTS_MESH_SHADER)
+    if (!this->GetVisibility()) { return; }
+
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
-        auto visibility = drawObject->m_Visibility;
-        auto useColor = drawObject->m_UseColor;
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->m_ViewStyle;
+        if (!drawObject->GetVisibility()) { return; }
 
-        if (!visibility) { return; }
+        bool hasTransparency = drawObject->GetTransparency() < 1.0f;
+        if (hasTransparency || !drawObject->GetAccelerationOption()) { return; }
+
+        // compute
+        auto renderableObject = drawObject; // meshleter存储在当前模型中
+        auto useColor = renderableObject->IsUseColor();
+        auto colorWithCell = renderableObject->m_ColorWithCell;
+        auto viewStyle = renderableObject->GetViewStyle();
 
         // test
-        auto meshleter = drawObject->m_RenderableMesh.m_Meshleter;
+        auto meshleter = renderableObject->m_RenderableMesh.m_Meshleter;
 
         if (useColor && colorWithCell) {}
 
@@ -897,34 +916,30 @@ void Model::TestOcclusionResults() {
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }
-        /*
-        unsigned int count = 0;
-        meshleter->m_VisibleMeshletBuffer->GetSubData(0, sizeof(unsigned int),
-                                                        &count);
-        std::cout << "Test Occlusion: [render count: " << count;
-        std::cout << ", meshlet count: " << meshleter->m_MeshletCount << "]"
-                  << std::endl;
 
-        std::vector<DrawElementsIndirectCommand> readBackCommands(
-                meshleter->m_MeshletCount);
-        meshleter->m_DrawCommandBuffer->GetSubData(
-                0,
-                readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
-                readBackCommands.data());
-        for (const auto& cmd: readBackCommands) {
-            //std::cout << "count: " << cmd.count << std::endl;
-            std::cout << "primCount: " << cmd.primCount << std::endl;
-            std::cout << "firstIndex: " << cmd.firstIndex << std::endl;
-            //std::cout << "baseVertex: " << cmd.baseVertex << std::endl;
-            //std::cout << "baseInstance: " << cmd.baseInstance << std::endl;
-        }*/
+        // unsigned int count = 0;
+        // meshleter->m_VisibleMeshletBuffer->GetSubData(0, sizeof(unsigned int),
+        //                                               &count);
+        // std::cout << "Test Occlusion: [render count: " << count;
+        // std::cout << ", meshlet count: " << meshleter->m_MeshletCount << "]"
+        //           << std::endl;
+        //
+        // std::vector<DrawElementsIndirectCommand> readBackCommands(
+        //         meshleter->m_MeshletCount);
+        // meshleter->m_DrawCommandBuffer->GetSubData(
+        //         0,
+        //         readBackCommands.size() * sizeof(DrawElementsIndirectCommand),
+        //         readBackCommands.data());
+        // for (const auto& cmd: readBackCommands) {
+        //     //std::cout << "count: " << cmd.count << std::endl;
+        //     std::cout << "primCount: " << cmd.primCount << std::endl;
+        //     std::cout << "firstIndex: " << cmd.firstIndex << std::endl;
+        //     //std::cout << "baseVertex: " << cmd.baseVertex << std::endl;
+        //     //std::cout << "baseInstance: " << cmd.baseInstance << std::endl;
+        // }
     };
 
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (!drawObject->GetAccelerationOption()) { return; }
-
-    if (!drawObject->m_Visibility) { return; }
-
     if (!drawObject->HasSubDataObject()) {
         draw(drawObject);
     } else {

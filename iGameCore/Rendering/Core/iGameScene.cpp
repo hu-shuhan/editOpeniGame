@@ -139,6 +139,7 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     m_CurrentModelID = modelID;
 
     ChangeModelVisibility(model, true);
+    Update();
     return modelID;
 }
 
@@ -158,6 +159,7 @@ void Scene::RemoveModel(IGuint modelID) {
                 }
             }
             UpdateModelsBoundingSphere();
+            Update();
             return;
         }
     }
@@ -181,6 +183,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
                 }
             }
             UpdateModelsBoundingSphere();
+            Update();
             return;
         }
     }
@@ -189,11 +192,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
 
 void Scene::RemoveCurrentModel() {
     auto model = m_ModelPool->GetObjectByHandle(m_CurrentModelID);
-
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
-
-    // 移动到RemoveModel里了
-    // model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
     RemoveModel(m_CurrentModelID);
 }
 
@@ -840,7 +839,6 @@ void Scene::DrawFrame() {
         m_Painter3D->Draw();
     }
 
-
     // draw axes in bottom left
     {
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
@@ -931,10 +929,7 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f &&
-            !drawObject->IsAlwaysOnTop()) {
-            model->Draw();
-        }
+        if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(); }
     }
@@ -946,10 +941,7 @@ void Scene::ForwardPass() {
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f &&
-            drawObject->IsAlwaysOnTop()) {
-            model->Draw();
-        }
+        if (drawObject->IsAlwaysOnTop()) { model->Draw(); }
     }
     glEnable(GL_DEPTH_TEST); // 恢复深度测试
 
@@ -960,10 +952,7 @@ void Scene::ForwardPass() {
         // Note: The first HZB culling pass must use the previous frame's data
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+            model->DrawPhase1();
         }
 
         // refresh phase 1: generate loacl hierarchical z-buffer & cull data
@@ -973,10 +962,7 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+            model->DrawPhase2();
         }
 
         // refresh phase2: generate global hierarchical z-buffer
@@ -986,17 +972,13 @@ void Scene::ForwardPass() {
     {
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->TestOcclusionResults();
-            }
+            model->TestOcclusionResults();
         }
 
         // draw phase1: draw visible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+            model->DrawPhase1();
         }
 
         // refresh phase1: generate loacl hierarchical z-buffer
@@ -1006,8 +988,7 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+            model->DrawPhase2();
         }
 
         // refresh phase2: generate global hierarchical z-buffer
@@ -1059,10 +1040,7 @@ void Scene::TransparentPass() {
         // add the result of drawing opaque objects
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() != 1.0f) {
-                model->DrawWithTransparency();
-            }
+            model->DrawWithTransparency();
         }
     }
     glDepthMask(GL_TRUE);
@@ -1409,7 +1387,6 @@ igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
     // 根据深度计算交点
     return igm::vec3(m_Camera->GetPosition()) + rayDir * depth;
 }
-
 
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;

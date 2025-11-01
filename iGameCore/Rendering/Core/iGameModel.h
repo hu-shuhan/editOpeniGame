@@ -41,12 +41,6 @@ public:
     SmartPointer<Scene> GetScene() const;
 
     /**
-     * @brief 获取模型的可见性状态。
-     * @return 可见性状态的布尔值。
-     */
-    bool GetVisibility();
-
-    /**
      * @brief 获取模型的过滤器。
      * @return 过滤器的指针。
      */
@@ -172,6 +166,17 @@ public:
      */
     SmartPointer<DataObject> GetDataObject();
 
+    /**
+      * @brief 设置模型是否可见。
+      * @param visibility 模型是否可见。
+      */
+    void SetVisibility(bool visibility);
+
+    /**
+      * @brief 查询模型是否可见。
+      */
+    bool GetVisibility() const;
+
 protected:
     Model();
     ~Model() override;
@@ -242,6 +247,7 @@ protected:
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Filter> m_Filter;
     SmartPointer<Painter3D> m_Painter3D;
+    bool m_Visibility = true;
 
     std::string m_FilePath;
     SmartPointer<Scene> m_Scene;
