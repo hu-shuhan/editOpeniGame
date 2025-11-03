@@ -50,20 +50,20 @@ public:
             }break;
             case IG_VOLUME_MESH: {
                 return false;
-                volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (volume_Mesh) {
-                    surface_Mesh = DynamicCast<SurfaceMesh>(
-                            volume_Mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
-                                                              curvatures);
-                }
+                // volume_Mesh = DynamicCast<VolumeMesh>(input);
+                // if (volume_Mesh) {
+                //     surface_Mesh = DynamicCast<SurfaceMesh>(
+                //             volume_Mesh->GetDisplayObject());
+                //     if (!surface_Mesh) return false;
+                //
+                //     if (!CheckType()) return false;
+                //
+                //     FloatArray::Pointer curvatures = FloatArray::New();
+                //     curvatures->SetDimension(2);
+                //     curvatures->SetName("curvatures");
+                //     volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                //                                               curvatures);
+                // }
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -76,16 +76,16 @@ public:
 
                 if (volume_Mesh) {
                     return false;
-                    surface_Mesh =
-                            DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
+                    // surface_Mesh =
+                    //         DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    // if (!surface_Mesh) return false;
+                    //
+                    // if (!CheckType()) return false;
+                    //
+                    // FloatArray::Pointer curvatures = FloatArray::New();
+                    // curvatures->SetDimension(2);
+                    // curvatures->SetName("curvatures");
+                    // mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
                 }
             } break;
             default:
