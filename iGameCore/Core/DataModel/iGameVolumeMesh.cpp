@@ -1216,8 +1216,10 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
     newPositions->SetDimension(3);
     newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
 
     float color[3]{};
     for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
@@ -1226,17 +1228,20 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
         colors->GetElement(i, color);
         for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
             int size = volume->GetFacePointIds(j, face);
-            for (int k = 2; k < size; k++) {
+            for (int k = 1; k < size - 1; k++) {
                 auto& p0 = volume->m_Points->GetPoint(face[0]);
                 newPositions->AddElement3(p0[0], p0[1], p0[2]);
-                auto& p1 = volume->m_Points->GetPoint(face[k - 1]);
+                auto& p1 = volume->m_Points->GetPoint(face[k]);
                 newPositions->AddElement3(p1[0], p1[1], p1[2]);
-                auto& p2 = volume->m_Points->GetPoint(face[k]);
+                auto& p2 = volume->m_Points->GetPoint(face[k + 1]);
                 newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
                 newColors->AddElement3(color[0], color[1], color[2]);
                 newColors->AddElement3(color[0], color[1], color[2]);
                 newColors->AddElement3(color[0], color[1], color[2]);
+
+                int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
+                newEdgeMasks->AddValue(mask);
             }
         }
     }
@@ -1248,5 +1253,8 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
 
     m_CellColors = newColors;
     m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 IGAME_NAMESPACE_END

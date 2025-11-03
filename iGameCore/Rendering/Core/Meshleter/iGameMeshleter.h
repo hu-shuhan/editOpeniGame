@@ -95,11 +95,11 @@ protected:
 
 #ifdef GL_SUPPORTS_MESH_SHADER
     // 如果支持OpenGL的Mesh Shader，这些缓冲被用于存储Meshlet数据
-    SmartPointer<GLBuffer> m_MeshletBuffer; ///< 存储Meshlet信息的缓冲
-    SmartPointer<GLBuffer> m_MeshletVertexBuffer;   ///< Meshlet顶点缓冲
-    SmartPointer<GLBuffer> m_MeshletTriangleBuffer; ///< Meshlet三角形缓冲
+    SmartPointer<GLBuffer> m_MeshletBuffer;           ///< 存储Meshlet信息的缓冲
+    SmartPointer<GLBuffer> m_MeshletVertexBuffer;     ///< Meshlet顶点缓冲
+    SmartPointer<GLBuffer> m_MeshletTriangleBuffer;   ///< Meshlet三角形缓冲
     SmartPointer<GLBuffer> m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
-    SmartPointer<GLBuffer> m_InvisibleMeshletBuffer; ///< 不可见Meshlet缓冲
+    SmartPointer<GLBuffer> m_InvisibleMeshletBuffer;  ///< 不可见Meshlet缓冲
 
     SmartPointer<GLBuffer> m_PositionBuffer; ///< 顶点位置缓冲
     SmartPointer<GLBuffer> m_ColorBuffer;    ///< 顶点颜色缓冲
@@ -118,7 +118,11 @@ protected:
     SmartPointer<GLBuffer> m_MeshletDescriptorBuffer; ///< Meshlet描述符缓冲
     SmartPointer<GLBuffer> m_DrawCommandBuffer;       ///< 绘制命令缓冲
     SmartPointer<GLBuffer> m_VisibleMeshletBuffer;    ///< 可见Meshlet缓冲
-    SmartPointer<GLBuffer> m_FinalDrawCommandBuffer; ///< 最终绘制命令缓冲
+    SmartPointer<GLBuffer> m_FinalDrawCommandBuffer;  ///< 最终绘制命令缓冲
+
+    SmartPointer<GLVertexArray> m_CellTriangleVAO; ///< 单元三角形顶点数组对象
+    SmartPointer<GLBuffer> m_CellPositionVBO;      ///< 单元顶点位置缓冲
+    SmartPointer<GLBuffer> m_CellColorVBO;         ///< 单元顶点颜色缓冲
 #endif
 
     friend class Model;
