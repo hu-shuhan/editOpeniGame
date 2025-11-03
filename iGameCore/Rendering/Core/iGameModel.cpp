@@ -245,6 +245,13 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
@@ -388,6 +395,13 @@ void Model::DrawWithTransparency() {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
             shader->SetUniformi("colorMode", 1);
+
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
 
             glPointSize(renderableObject->m_PointSize);
 
@@ -544,6 +558,13 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(surfaceObject->m_PointSize);
 
             float u;
@@ -668,6 +689,13 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(surfaceObject->m_PointSize);
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
@@ -781,6 +809,13 @@ void Model::DrawPhase2() {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
             glPointSize(surfaceObject->m_PointSize);
@@ -910,6 +945,13 @@ void Model::DrawPhase2() {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
             glPointSize(surfaceObject->m_PointSize);
