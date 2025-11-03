@@ -3,28 +3,28 @@
 // Created by m_ky on 2024/4/10.
 //
 
-#include "SurfaceMeshFilters/Tests/meshsimplifier/meshsimplifier.h"
-#include "SurfaceMeshFilters/Tests/simplifier.h"
+#include "SurfaceMeshFilters/Tests/iGameGradient.h"
 #include "SurfaceMeshFilters/Tests/iGameSimplification2.h"
 #include "SurfaceMeshFilters/Tests/iGameSurfaceSimplification.h"
-#include "SurfaceMeshFilters/Tests/iGameGradient.h"
+#include "SurfaceMeshFilters/Tests/meshsimplifier/meshsimplifier.h"
+#include "SurfaceMeshFilters/Tests/simplifier.h"
 
-#include "UndefinedFilters/iGameVortexDetection.h"
 #include "Convert/iGameConvertPolyhedralCells.h"
 #include "Convert/iGameConvertToPointCloud.h"
 #include "Convert/iGameConvertToSurfaceMesh.h"
 #include "Convert/iGameConvertToVolumeMesh.h"
+#include "UndefinedFilters/iGameVortexDetection.h"
 
-#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "Interactor/iGameInteractor.h"
+#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 
 #include "SurfaceMeshFilters/iGameSimplification.h"
 #include "SurfaceMeshFilters/iGameTriangulation.h"
+#include "Tests/iGameARAPTest.h"
 #include "UndefinedFilters/iGameCurvatureFilter.h"
 #include "UndefinedFilters/iGameGradientFilter.h"
 #include "UndefinedFilters/iGameLaplacianFilter.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
-#include "Tests/iGameARAPTest.h"
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -34,25 +34,25 @@
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtOpenGLWidgetManager.h>
 #include <IQWidgets/ColorManager/igQtColorManagerWidget.h>
+#include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
+#include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
-#include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
-#include <IQWidgets/igQtAiChat/igQtAiChatWidget.h>
-#include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <Sources/iGameLineTypePointsSource.h>
+#include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
+#include <iGameCtxPresObjData.h>
 #include <iGameDataSource.h>
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGameCtxPresObjData.h>
-#include <Tests/iGameVolumeMeshFilterTest.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -72,12 +72,14 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllInteractor();
     updateRecentFilePaths();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
-    
+
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
     commandManager = new igQtCommandManager(this);
     if (!commandManager->startConnection("localhost", 12345)) {
         qWarning() << "iGameVis 与 MCP Tool Server 连接失败！";
     }
+
+    ThreadPool::Instance();
 }
 igQtMainWindow::~igQtMainWindow() {
     // 清理命令管理器
@@ -165,9 +167,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
 }
-void igQtMainWindow::initToolbarComponent() {
-
-}
+void igQtMainWindow::initToolbarComponent() {}
 
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
@@ -262,44 +262,39 @@ void igQtMainWindow::initAllComponents() {
     });
 
 
-
-     connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) {
+    connect(ui->action_ShowCenter, &QAction::toggled, this, [&](bool checked) {
         /*qDebug() << "Toggle state:" << checked;*/
 
         rendererWidget->GetScene()->ToggleCenterAxes();
         ui->action_ShowCenter->setChecked(checked);
 
         rendererWidget->update();
+    });
 
-     });
-
-     connect(ui->action_PickCenter, &QAction::triggered, this, [&](bool checked) {
-         //qDebug() << "PickCenter Toggle state:" << checked;
-         //if (ui->action_PickCenter->isChecked()) {
-         //    rendererWidget->ChangeInteractorStyle(Interactor::PickCenterStyle);
-         //} else {
-         //    // 退出选择模式
-         //    rendererWidget->setProperty("isPickingCenter", false);
-         //    rendererWidget->setCursor(Qt::ArrowCursor);
-         //    rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-         //}
-         /*rendererWidget->update();*/
-         //拖拽
-         if (checked) {
-             // 显示坐标轴并进入拖拽模式
-             rendererWidget->GetScene()->GetCenterAxesModel()->SetVisibility(true);
-             rendererWidget->ChangeInteractorStyle(Interactor::DragCenterStyle);
-             //rendererWidget->setCursor(Qt::CrossCursor);
-         } else {
-             // 退出选择模式
-             rendererWidget->setCursor(Qt::ArrowCursor);
-             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
-         }
-         rendererWidget->update();
-     });
-
-
-
+    connect(ui->action_PickCenter, &QAction::triggered, this, [&](bool checked) {
+        //qDebug() << "PickCenter Toggle state:" << checked;
+        //if (ui->action_PickCenter->isChecked()) {
+        //    rendererWidget->ChangeInteractorStyle(Interactor::PickCenterStyle);
+        //} else {
+        //    // 退出选择模式
+        //    rendererWidget->setProperty("isPickingCenter", false);
+        //    rendererWidget->setCursor(Qt::ArrowCursor);
+        //    rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+        //}
+        /*rendererWidget->update();*/
+        //拖拽
+        if (checked) {
+            // 显示坐标轴并进入拖拽模式
+            rendererWidget->GetScene()->GetCenterAxesModel()->SetVisibility(true);
+            rendererWidget->ChangeInteractorStyle(Interactor::DragCenterStyle);
+            //rendererWidget->setCursor(Qt::CrossCursor);
+        } else {
+            // 退出选择模式
+            rendererWidget->setCursor(Qt::ArrowCursor);
+            rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+        }
+        rendererWidget->update();
+    });
 
 
     connect(ui->action_SaveScreenShot, &QAction::triggered, this, [&]() {
@@ -521,37 +516,160 @@ void igQtMainWindow::initAllFilters() {
     });
 
     if (false)
-    connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this, [&](bool checked) {
+        connect(mesh_processing->addAction("Simplification with half-edge"), &QAction::triggered, this,
+                [&](bool checked) {
+                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+                    // ConvertToSurfaceMesh::Pointer converter = ConvertToSurfaceMesh::New();
+                    // converter->SetInput(obj);
+                    // converter->Execute();
+
+                    auto mesh = DynamicCast<DrawObject>(obj)->GetRenderableObject();
+
+                    // std::vector<int> PointDegree(mesh->GetNumberOfPoints(), 0);
+                    // AttributeSet::Pointer AttrSet = AttributeSet::New();
+                    //
+                    // igIndex face[IGAME_CELL_MAX_SIZE]{};
+                    // for (int i = 0; i < mesh->GetNumberOfFaces(); ++i) {
+                    //     int size = mesh->GetFacePointIds(i, face);
+                    //
+                    //     PointDegree[face[0]]++;
+                    //     PointDegree[face[1]]++;
+                    //     PointDegree[face[2]]++;
+                    // }
+                    //
+                    // for (int i = 0; mesh->GetAttributeSet() && i < mesh->GetAttributeSet()->GetNumberOfAttributes();
+                    //      ++i) {
+                    //     auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+                    //     if (attr.attachmentType == IG_POINT) {
+                    //         int dim = attr.pointer->GetDimension();
+                    //
+                    //
+                    //         FloatArray::Pointer arr = FloatArray::New();
+                    //         arr->SetName(attr.pointer->GetName());
+                    //         arr->SetDimension(dim);
+                    //         for (int k = 0; k < attr.pointer->GetNumberOfValues(); ++k) {
+                    //             arr->AddValue(static_cast<float>(attr.pointer->GetValue(k)));
+                    //         }
+                    //         AttrSet->AddAttribute(IG_VECTOR, IG_POINT, arr);
+                    //
+                    //     } else if (attr.attachmentType == IG_CELL) {
+                    //         int dim = attr.pointer->GetDimension();
+                    //
+                    //         FloatArray::Pointer arr = FloatArray::New();
+                    //         arr->SetName(attr.pointer->GetName());
+                    //         arr->SetDimension(dim);
+                    //         arr->Resize(mesh->GetNumberOfPoints());
+                    //
+                    //         for (int j = 0; j < mesh->GetNumberOfFaces(); ++j) {
+                    //             int size = mesh->GetFacePointIds(j, face);
+                    //             float cell[IGAME_CELL_MAX_SIZE];
+                    //             attr.pointer->GetElement(j, cell);
+                    //             for (int k = 0; k < size; ++k) {
+                    //                 for (int d = 0; d < dim; ++d) {
+                    //                     arr->SetValue(face[k] * dim + d, arr->GetValue(face[k] * dim + d) +
+                    //                                                              cell[d] / PointDegree[face[k]]);
+                    //                 }
+                    //             }
+                    //         }
+                    //
+                    //         AttrSet->AddAttribute(IG_VECTOR, IG_POINT, arr);
+                    //     }
+                    // }
+                    //
+                    // SurfaceMesh::Pointer newMesh = SurfaceMesh::New();
+                    // newMesh->SetPoints(mesh->GetPoints());
+                    // newMesh->SetFaces(mesh->GetFaces());
+                    // newMesh->SetAttributeSet(AttrSet);
+                    // newMesh->SetName(mesh->GetName());
+
+                    Triangulation::Pointer triangulation = Triangulation::New();
+                    triangulation->SetInput(mesh);
+                    triangulation->Execute();
+                    mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
+                    modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+                    rendererWidget->update();
+
+                    return;
+                    //auto& attr = mesh->GetAttributeSet()->GetAttribute(mesh->GetAttributeIndex());
+                    //FloatArray::Pointer att = FloatArray::New();
+                    //att->SetName(attr.pointer->GetName());
+                    //for (int i = 0; i < attr.pointer->GetNumberOfElements(); i++) {
+                    //    float val[3]{};
+                    //    attr.pointer->GetElement(i, val);
+                    //    att->AddValue(std::min(1500.f, std::sqrt(val[0] * val[0] + val[1] * val[1] + val[2] * val[2])));
+                    //}
+                    //mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, att);
+                    //modelTreeWidget->updateAllAttriubute(mesh);
+
+                    // mesh->BuildFaceLinks();
+                    // auto& attr = mesh->GetAttributeSet()->GetAttribute(3);
+                    // FloatArray::Pointer att = FloatArray::New();
+                    // att->SetName(attr.pointer->GetName());
+                    // for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
+                    //     igIndex cell[32]{};
+                    //     int size = mesh->GetPointToNeighborFaces(i, cell);
+                    //     float val = 0;
+                    //     for (int j = 0; j < size; j++) { val += attr.pointer->GetValue(cell[j]); }
+                    //     val /= size;
+                    //     att->AddValue(val);
+                    // }
+                    // mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, att);
+                    // modelTreeWidget->updateAllAttriubute(mesh);
+                });
+
+
+    connect(mesh_processing->addAction("Triangulation"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        auto mesh = DynamicCast<SurfaceMesh>(obj);
 
-        //auto& attr = mesh->GetAttributeSet()->GetAttribute(mesh->GetAttributeIndex());
-        //FloatArray::Pointer att = FloatArray::New();
-        //att->SetName(attr.pointer->GetName());
-        //for (int i = 0; i < attr.pointer->GetNumberOfElements(); i++) {
-        //    float val[3]{};
-        //    attr.pointer->GetElement(i, val);
-        //    att->AddValue(std::min(1500.f, std::sqrt(val[0] * val[0] + val[1] * val[1] + val[2] * val[2])));
-        //}
-        //mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, att);
-        //modelTreeWidget->updateAllAttriubute(mesh);
+        Triangulation::Pointer triangulation = Triangulation::New();
+        triangulation->SetInput(obj);
+        triangulation->Execute();
+        auto mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
 
-        mesh->BuildFaceLinks();
-        auto& attr = mesh->GetAttributeSet()->GetAttribute(3);
-        FloatArray::Pointer att = FloatArray::New();
-        att->SetName(attr.pointer->GetName());
-        for (int i = 0; i < mesh->GetNumberOfPoints(); i++) {
-            igIndex cell[32]{};
-            int size = mesh->GetPointToNeighborFaces(i, cell);
-            float val = 0;
-            for (int j = 0; j < size; j++) {
-                val += attr.pointer->GetValue(cell[j]);
+        modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+        rendererWidget->update();
+    });
+
+    connect(mesh_processing->addAction("提取体网格表面网格"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        if (obj->HasSubDataObject()) {
+            auto sub_mesh = obj->GetSubDataObject(0);
+            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
             }
-            val /= size;
-            att->AddValue(val);
+
+        } else {
+            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+
+            } else if (DrawObject::Pointer mesh = DynamicCast<DrawObject>(obj)) {
+                auto new_mesh = mesh->GetRenderableObject();
+                new_mesh->SetName(mesh->GetName() + "_surface");
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+            }
         }
-        mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, att);
-        modelTreeWidget->updateAllAttriubute(mesh);
     });
 
     //if (false)
@@ -740,37 +858,32 @@ void igQtMainWindow::initAllFilters() {
     //});
     //
     if (true)
-    connect(mesh_processing->addAction("New Simplification"), &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        //auto attrSet = AttributeSet::New();
-        //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
-        //obj->SetAttributeSet(attrSet);
-        //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
-        //rendererWidget->update();
-        //return;
+        connect(mesh_processing->addAction("New Simplification"), &QAction::triggered, this, [&](bool checked) {
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            //auto attrSet = AttributeSet::New();
+            //attrSet->AddAttribute(IG_POINT, IG_SCALAR, obj->GetAttributeSet()->GetAttribute("U").pointer);
+            //obj->SetAttributeSet(attrSet);
+            //modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+            //rendererWidget->update();
+            //return;
 
-        //Triangulation::Pointer triangulation = Triangulation::New();
-        //triangulation->SetInput(obj);
-        //triangulation->Execute();
-        //obj = triangulation->GetOutput();
-
-
-        //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
-        //obj->SetAttributeSet(AttributeSet::New());
-        MeshSimplifier::Pointer Sim = MeshSimplifier::New();
-        Sim->SetInput(obj);
-        if (Sim->Execute()) {
-            auto new_mesh = Sim->GetOutput(0);
-
-            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-            rendererWidget->update();
-        }
-    });
+            //Triangulation::Pointer triangulation = Triangulation::New();
+            //triangulation->SetInput(obj);
+            //triangulation->Execute();
+            //obj = triangulation->GetOutput();
 
 
+            //obj = DynamicCast<UnstructuredMesh>(obj)->GetDisplayObject();
+            //obj->SetAttributeSet(AttributeSet::New());
+            MeshSimplifier::Pointer Sim = MeshSimplifier::New();
+            Sim->SetInput(obj);
+            if (Sim->Execute()) {
+                auto new_mesh = Sim->GetOutput(0);
 
-
-
+                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+                rendererWidget->update();
+            }
+        });
 
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
@@ -876,11 +989,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
 
-    connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this, [&]() {
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) return;
-        ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
-    });
+    connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
+            [&]() {
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) return;
+                ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
+            });
     connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -928,8 +1042,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             if (model == nullptr) return;
             ui->dockWidget_ContextPreservingShowField->show();
             ui->widget_ContextPreservingShowField->SetContextPreserving(model);
-        }
-        else if (!checked && ui->dockWidget_ContextPreservingShowField->isVisible())
+        } else if (!checked && ui->dockWidget_ContextPreservingShowField->isVisible())
             ui->dockWidget_ContextPreservingShowField->hide();
     });
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
@@ -1230,9 +1343,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         rendererWidget->getInteractor()->RequestSlicingStyle(SliceWidget->GetSelection());
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
-            [&](DrawObject::Pointer mesh) {
-            modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm);
-        });
+            [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
     connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
@@ -1247,10 +1358,6 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (checked) DeformationDockWidget->show();
         else
             DeformationDockWidget->hide();
-    });
-    QAction* action_SetAccelerate = ui->menu_file->addAction("关闭/启用加速结构");
-    connect(action_SetAccelerate, &QAction::triggered, this, [&](bool checked) {
-        this->modelTreeWidget->SetAccelerateState(!this->modelTreeWidget->GetAccelerateState());
     });
 }
 void igQtMainWindow::initAllMySignalConnections() {
@@ -1287,7 +1394,6 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
 
 
-
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
     //&igQtModelDrawWidget::UpdateCurrentModel);
@@ -1320,12 +1426,10 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(ui->widget_TensorField, &igQtTensorWidget::DrawTensorGlyphs, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
     });
-    connect(ui->widget_TensorField, &igQtTensorWidget::UpdateTensorGlyphs, this, [&](iGame::DataObject::Pointer res) {
-        rendererWidget->update();
-    });
-    connect(ui->widget_TensorField, &igQtTensorWidget::UpdateAttributes, this, [&](iGame::DataObject::Pointer res) {
-        modelTreeWidget->updateAllAttriubute(res);
-    });
+    connect(ui->widget_TensorField, &igQtTensorWidget::UpdateTensorGlyphs, this,
+            [&](iGame::DataObject::Pointer res) { rendererWidget->update(); });
+    connect(ui->widget_TensorField, &igQtTensorWidget::UpdateAttributes, this,
+            [&](iGame::DataObject::Pointer res) { modelTreeWidget->updateAllAttriubute(res); });
 
     connect(ui->widget_ContourExtract, &igQtContourExtractWidget::DrawContourModel, this,
             [&](iGame::DataObject::Pointer res) {
@@ -1577,8 +1681,7 @@ void igQtMainWindow::initAllInteractor() {
                     auto variableNames = CtxPresObjData_Main::GenerateVariableNames(attrs, IG_POINT);
                     ui->widget_SelectionField->SetVariableNames(variableNames);
                 }
-            }
-                break;
+            } break;
             case SelectionStation::CELL_SELECTION: {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
                 if (model == nullptr) {
@@ -1588,8 +1691,7 @@ void igQtMainWindow::initAllInteractor() {
                     auto variableNames = CtxPresObjData_Main::GenerateVariableNames(attrs, IG_CELL);
                     ui->widget_SelectionField->SetVariableNames(variableNames);
                 }
-            }
-                break;
+            } break;
             default:
                 break;
         }
@@ -1628,18 +1730,16 @@ void igQtMainWindow::initAllInteractor() {
         //else
         //    model->GetPainter3D()->HideAll();
         rendererWidget->update();
-        });
+    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
         model->GetSelection()->Reset();
         rendererWidget->update();
-        });
+    });
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
-            [&]() {
-            ui->action_SelectView->setChecked(false);
-        });
+            [&]() { ui->action_SelectView->setChecked(false); });
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();

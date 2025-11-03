@@ -167,16 +167,15 @@ public:
         this->SetStructuredCellArray(ca, dimension);
     }
     
-    // 以下仅用于二阶索引
+    // 以下仅用于二阶索引（多面体网格）
     void AddSecondaryIndexCells(
         std::vector<unsigned int> volume2facesIndex,
         std::vector<unsigned int> volume2facesSize,
         std::vector<unsigned int> face2pointsIndex,
         std::vector<unsigned int> face2pointsSize
     ) {
+        // 构建 Faces (face->points)
         CellArray::Pointer Faces = CellArray::New();
-        CellArray::Pointer Volumes = CellArray::New();
-
         {
             igIndex vhs[IGAME_CELL_MAX_SIZE];
             int cellVcnt;
@@ -189,29 +188,62 @@ public:
                 {
                     vhs[j] = face2pointsIndex[idx++];
                 }
-
                 Faces->AddCellIds(vhs, cellVcnt);
             }
         }
 
-        {
-            igIndex fhs[IGAME_CELL_MAX_SIZE];
-            int cellFcnt;
-            int idx = 0;
-
-            for (int i = 0; i < volume2facesSize.size(); i++)
+        // 根据网格类型选择不同的处理方式
+        if (this->m_MeshType == IG_VOLUME_MESH) {
+            // VolumeMesh: 直接使用 InitVolumesWithPolyhedron
+            CellArray::Pointer Volumes = CellArray::New();
             {
-                cellFcnt = volume2facesSize[i];
-                for (int j = 0; j < cellFcnt; j++)
-                {
-                    fhs[j] = volume2facesIndex[idx++];
-                }
+                igIndex fhs[IGAME_CELL_MAX_SIZE];
+                int cellFcnt;
+                int idx = 0;
 
-                Volumes->AddCellIds(fhs, cellFcnt);
+                for (int i = 0; i < volume2facesSize.size(); i++)
+                {
+                    cellFcnt = volume2facesSize[i];
+                    for (int j = 0; j < cellFcnt; j++)
+                    {
+                        fhs[j] = volume2facesIndex[idx++];
+                    }
+                    Volumes->AddCellIds(fhs, cellFcnt);
+                }
             }
+            DynamicCast<VolumeMesh>(this->m_DataObj)->InitVolumesWithPolyhedron(Faces, Volumes);
+        } 
+        else if (this->m_MeshType == IG_UNSTRUCTURED_MESH) {
+            // UnstructuredMesh: 构建多面体的展开格式
+            CellArray::Pointer realCells = CellArray::New();
+            UnsignedIntArray::Pointer CellTypes = UnsignedIntArray::New();
+            
+            igIndex realVhs[IGAME_CELL_MAX_SIZE] = {0};
+            igIndex vhs[IGAME_CELL_MAX_SIZE];
+            int v2fIdx = 0;
+            
+            int volumeNum = volume2facesSize.size();
+            CellTypes->Resize(volumeNum);
+            std::fill(CellTypes->RawPointer(), CellTypes->RawPointer() + volumeNum, IG_POLYHEDRON);
+            
+            for (int cellId = 0; cellId < volumeNum; cellId++) {
+                int realVcnt = 0;
+                int fcnt = volume2facesSize[cellId];
+                realVhs[realVcnt++] = fcnt;  // 第1个元素：face数量
+                
+                for (int i = 0; i < fcnt; i++) {
+                    igIndex faceId = volume2facesIndex[v2fIdx++];
+                    int vcnt = Faces->GetCellIds(faceId, vhs);
+                    realVhs[realVcnt++] = vcnt;  // 每个face的顶点数量
+                    for (int j = 0; j < vcnt; j++) {
+                        realVhs[realVcnt++] = vhs[j];  // face的顶点索引
+                    }
+                }
+                realCells->AddCellIds(realVhs, realVcnt);
+            }
+            
+            this->SetUnstructuredCellArray(realCells, CellTypes);
         }
-        
-        DynamicCast<VolumeMesh>(this->m_DataObj)->InitVolumesWithPolyhedron(Faces, Volumes);
     }
 
 private:

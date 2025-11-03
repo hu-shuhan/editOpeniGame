@@ -105,39 +105,36 @@ vec4 blend(vec4 currentColor, vec4 newColor) {
 vec4 CalculateFinalColor(int fragCount) {
     vec4 finalColor = GetResolveColor();
 
-    if (fragCount == 0) {
-        return finalColor;
-    }
-
     int slow = 0;
     float bias = 0.005;
 
     for (int fast = 1; fast <= fragCount; ++fast) {
-        bool shouldBlend = (fast == fragCount) ||
-        (uintBitsToFloat(fragments[slow].z) - uintBitsToFloat(fragments[fast].z) > bias);
+        bool shouldSkip = (fast != fragCount) &&
+        (uintBitsToFloat(fragments[slow].z) - uintBitsToFloat(fragments[fast].z) < bias);
+        if (shouldSkip) { continue; }
 
-        if (shouldBlend) {
-            vec4 color = vec4(0.0f);
-            int count = fast - slow;
-            for (int i = slow; i < fast; ++i) {
-                color += unpackUnorm4x8(fragments[i].y);
-            }
-            color /= float(count);
-
-            finalColor = blend(finalColor, color);
-
-            slow = fast;
+        vec4 color = vec4(0.0f);
+        int count = fast - slow;
+        for (int i = slow; i < fast; ++i) {
+            color += unpackUnorm4x8(fragments[i].y);
         }
+        color /= float(count);
+
+        finalColor = blend(finalColor, color);
+
+        slow = fast;
     }
 
     return vec4(finalColor.rgb, 1.0f);
 }
 
 void main() {
-    int fragCount;
+    int fragCount = BuildLocalFragmentList();
 
-    fragCount = BuildLocalFragmentList();
-    SortFragmentList(fragCount);
-
-    out_ScreenColor = CalculateFinalColor(fragCount);
+    if (fragCount != 0) {
+        SortFragmentList(fragCount);
+        out_ScreenColor = CalculateFinalColor(fragCount);
+    } else {
+        out_ScreenColor = GetResolveColor();
+    }
 }

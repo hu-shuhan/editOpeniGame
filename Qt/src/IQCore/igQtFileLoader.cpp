@@ -14,12 +14,13 @@
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
+#include "Spline XML/iGameSplineReaderGPU.h"
 #include "Spline XML/iGameSplineSurfaceReader.h"
 #include "Spline XML/iGameSplineVolumeReader.h"
 #endif
-#include "Nastran/iGameNastranReader.h"
 #include "Abaqus/iGameODBReader.h"
 #include "Client.h"
+#include "Nastran/iGameNastranReader.h"
 #include "Sever.h"
 #include "Spline XML/iGameSplineReaderCPU.h"
 
@@ -51,12 +52,13 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
-                           "Compression file(*.igc)"};
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
     QString selectedFilter;
     std::string filePath =
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
@@ -69,30 +71,34 @@ void igQtFileLoader::LoadOnlineC() {
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
-                            #if defined(AbqSDK_ENABLE)
+#if defined(AbqSDK_ENABLE)
                            "ABAQUS file(*.odb)",
-                           #endif
+#endif
                            "Spline file(*.xml)",
-                            #if defined(NASTRAN_ENABLE)
+
+#if defined(NASTRAN_ENABLE)
                            "Nastran file(*.bdf *.op2)",
-                            #endif
-                           "Compression file(*.igc)"};
+#endif
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
     QString selectedFilter;
-    QStringList filePath =
-            QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
+    QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
+
+    if (filePath.isEmpty()) { return; }
+
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     switch (selected_idx) {
         case FileType::Spline:
             this->OpenSplineFile(filePath[0].toStdString());
             break;
-    #if defined(AbqSDK_ENABLE)
+#if defined(AbqSDK_ENABLE)
         case FileType::ABAQUS:
             this->OpenODBFile(filePath[0].toStdString());
             break;
-    #endif
+#endif
 #if defined(NASTRAN_ENABLE)
         case FileType::BDF:
             this->OpenNastranFile(filePath);
@@ -157,7 +163,6 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath) {
 }
 
 void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
-
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
     igQtSplineOptionDialog dialog;
@@ -166,32 +171,47 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     SplineType readerType;
     if (dialog.exec() == QDialog::Accepted) {
         readerType = dialog.getDialogOutput();
-    } else
+    } else {
         return;
+    }
 
 #if defined(GPSCUDA_ENABLE)
     DataObject::Pointer obj = nullptr;
     switch (readerType) {
-        case SplineType::BSplineSurface: {
-            SplineSurfaceReader::Pointer reader = SplineSurfaceReader::New();
+        case SplineType::BSplineSurfaceCPU: {
+            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
             reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(true);
             reader->Execute();
             obj = reader->GetOutput();
             break;
         }
-        case SplineType::BSplineVolume: {
-            SplineVolumeReader::Pointer reader = SplineVolumeReader::New();
+        case SplineType::BSplineVolumeCPU: {
+            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
             reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(false);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        case SplineType::BSplineSurfaceGPU: {
+            SplineReaderGPU::Pointer reader = SplineReaderGPU::New();
+            reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(true);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        case SplineType::BSplineVolumeGPU: {
+            SplineReaderGPU::Pointer reader = SplineReaderGPU::New();
+            reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(false);
             reader->Execute();
             obj = reader->GetOutput();
             break;
         }
         default:
-            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
-            reader->SetFilePath(filePath);
-            reader->Execute();
-            obj = reader->GetOutput();
-            break;
+            igDebug("Spline file type not process.");
     }
     if (obj == nullptr) {
         igDebug("This file read error.");
@@ -240,8 +260,7 @@ void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
     // 规则：检查是否多于两个文件
     if (fileNames.size() > 2) {
         // QWidget* parent = this; // 如果 igQtFileLoader 继承自 QWidget，使用 'this' 作为父窗口更好
-        QMessageBox::warning(nullptr,
-                             "文件过多",
+        QMessageBox::warning(nullptr, "文件过多",
                              "您一次最多只能选择两个文件（一个 .bdf 模型文件和一个 .op2 结果文件）。");
         return;
     }
@@ -260,19 +279,14 @@ void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
             // 唯一允许的情况：只有一个文件，且是 bdf
             bdfPath = filePath;
             // op2Path 保持为空
-        }
-        else if (suffix == "op2") {
+        } else if (suffix == "op2") {
             // 错误：只选了一个 op2 文件
-            QMessageBox::warning(nullptr,
-                                 "文件选择错误",
+            QMessageBox::warning(nullptr, "文件选择错误",
                                  "您只选择了一个 OP2 (结果) 文件。请至少选择一个 BDF (模型) 文件。");
             return;
-        }
-        else {
+        } else {
             // 错误：选了其他类型的文件
-            QMessageBox::warning(nullptr,
-                                 "文件类型错误",
-                                 "您必须选择一个 .bdf 文件。");
+            QMessageBox::warning(nullptr, "文件类型错误", "您必须选择一个 .bdf 文件。");
             return;
         }
     }
@@ -288,15 +302,12 @@ void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
         if (suffix1 == "bdf" && suffix2 == "op2") {
             bdfPath = fileNames[0];
             op2Path = fileNames[1];
-        }
-        else if (suffix1 == "op2" && suffix2 == "bdf") {
+        } else if (suffix1 == "op2" && suffix2 == "bdf") {
             bdfPath = fileNames[1];
             op2Path = fileNames[0];
-        }
-        else {
+        } else {
             // 错误：不是 bdf + op2 的组合 (例如 两个bdf, 或一个bdf一个txt)
-            QMessageBox::warning(nullptr,
-                                 "文件组合错误",
+            QMessageBox::warning(nullptr, "文件组合错误",
                                  "您选择了两个文件，但它们必须是一个 .bdf 文件和一个 .op2 文件。");
             return;
         }
@@ -305,7 +316,7 @@ void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
     // --- 执行阶段 ---
     iGame::NastranReader::Pointer reader = iGame::NastranReader::New();
     reader->SetBDFFileName(bdfPath.toStdString());
-    if(!op2Path.isEmpty()) reader->SetOP2FileName(op2Path.toStdString());
+    if (!op2Path.isEmpty()) reader->SetOP2FileName(op2Path.toStdString());
     reader->Execute();
     DataObject::Pointer obj = reader->GetOutput();
 

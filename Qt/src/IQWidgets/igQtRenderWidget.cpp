@@ -11,11 +11,11 @@
 
 #include <IQWidgets/igQtRenderWidget.h>
 #include <QMouseEvent>
+#include <QOpenGLFunctions> //
 #include <iGamePointSet.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <qdebug.h>
-#include <QOpenGLFunctions>//
 
 igQtRenderWidget::igQtRenderWidget(QWidget* parent) : QOpenGLWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground, false);
@@ -166,11 +166,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             setCursor(Qt::SizeAllCursor); // 设置拖拽光标
 
             // 直接激活拖拽交互器，无需Selection对象
-
             m_Interactor->RequestDragCenterStyle(nullptr);
-            /*this->setProperty("isDragingCenter", true);
-            auto s = m_Scene->GetCurrentModel()->GetSelection();
-            m_Interactor->RequestDragCenterStyle(s);*/
         } break;
         default:
             break;
@@ -180,7 +176,6 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
 iGame::Interactor* igQtRenderWidget::getInteractor() { return m_Interactor.get(); }
 
 void igQtRenderWidget::initializeGL() {
-    //    qDebug() <<"Init GL start";
     // 目前当窗口
     iGame::SceneManager::Pointer sceneManager = iGame::SceneManager::Instance();
     m_Scene = sceneManager->NewScene();
@@ -192,7 +187,6 @@ void igQtRenderWidget::initializeGL() {
     m_Interactor = iGame::Interactor::New();
     m_Interactor->Initialize(m_Scene);
     m_Scene->SetInteractor(m_Interactor);
-    //    qDebug() <<"Init GL end";
 }
 
 void igQtRenderWidget::resizeGL(int w, int h) {
@@ -200,31 +194,10 @@ void igQtRenderWidget::resizeGL(int w, int h) {
     m_Scene->Resize(width(), height(), ratio);
 }
 
-void igQtRenderWidget::paintGL() {
-    //    qDebug() <<"Paint start";
-    m_Scene->Draw();
-    //    qDebug() <<"Paint end";
-}
+void igQtRenderWidget::paintGL() { m_Scene->Draw(); }
 
 
 void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
-
-    //if (this->property("isPickingCenter").toBool() && event->button() == Qt::LeftButton) {
-    //    // 获取当前中心点的深度
-    //    float currentDepth = m_Scene->GetRotationCenterDepth();
-    //    std::cout << "depth " << currentDepth << std::endl;
-
-    //    // 获取点击位置的世界坐标
-    //    igm::vec3 worldPos = GetWorldPositionFromDepth(event->pos(), currentDepth);
-    //    /*QPoint eventPos = event->pos();
-    //    igm::vec2 screenPos = igm::vec2(eventPos.x(), eventPos.y());
-    //    igm::vec3 worldPos = m_Scene->ScreenToWorld(screenPos, currentDepth);*/
-    //    // 设置新的中心点
-    //    m_Scene->SetRotationCenter(worldPos);
-    //    update();
-    //    return;
-    //}
-
     iGame::IEvent _event;
     switch (event->button()) {
         case Qt::NoButton:
@@ -307,16 +280,12 @@ igm::vec3 igQtRenderWidget::GetWorldPositionFromDepth(const QPoint& screenPos, f
     // 计算交点（世界坐标）
     igm::vec3 worldPos = igm::vec3(m_Scene->GetCamera()->GetPosition()) + rayDir * depth;
 
-    // 如果启用模型变换，则应用当前模型矩阵的逆变换 
+    // 如果启用模型变换，则应用当前模型矩阵的逆变换
     //if (applyModelMatrix) {
-        igm::mat4 invModelMatrix = m_Scene->GetModelMatrix().invert();
-            //m_ModelMatrix.invert();
-        igm::vec4 transformedPos = invModelMatrix * igm::vec4(worldPos, 1.0f);
-        worldPos = igm::vec3(transformedPos);
-    //}
+    igm::mat4 invModelMatrix = m_Scene->GetModelMatrix().invert();
+    igm::vec4 transformedPos = invModelMatrix * igm::vec4(worldPos, 1.0f);
+    worldPos = igm::vec3(transformedPos);
 
     // 根据深度计算交点
     return worldPos;
 }
-
-

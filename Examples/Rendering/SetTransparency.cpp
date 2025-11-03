@@ -45,4 +45,7 @@ static void SetTransparency() {
     window->Show();
 }
 
-int main() { SetTransparency(); }
+int main() {
+    SetTransparency();
+    return 0;
+}

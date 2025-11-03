@@ -4,13 +4,14 @@
 #include "iGameFilter.h"
 #include "iGameModel.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameTriangulation.h"
 
 IGAME_NAMESPACE_BEGIN
 class MeshSimplifier : public Filter {
 public:
     I_OBJECT(MeshSimplifier);
     static Pointer New() { return new MeshSimplifier; }
-    
+
     bool Execute() override;
 
     void SetTargetReduction(double target) { this->TargetReduction = target; }

@@ -41,12 +41,6 @@ public:
     SmartPointer<Scene> GetScene() const;
 
     /**
-     * @brief 获取模型的可见性状态。
-     * @return 可见性状态的布尔值。
-     */
-    bool GetVisibility();
-
-    /**
      * @brief 获取模型的过滤器。
      * @return 过滤器的指针。
      */
@@ -173,40 +167,15 @@ public:
     SmartPointer<DataObject> GetDataObject();
 
     /**
-     * @brief 设置网格重建器。
-     * @param meshleter 网格重建器指针。
-     */
-    void SetMeshleter(SmartPointer<Meshleter> meshleter);
+      * @brief 设置模型是否可见。
+      * @param visibility 模型是否可见。
+      */
+    void SetVisibility(bool visibility);
 
     /**
-     * @brief 获取网格重建器。
-     * @return 网格重建器对象的指针。
-     */
-    SmartPointer<Meshleter> GetMeshleter();
-
-    /**
-     * @brief 启用加速渲染模式。
-     * @details 调用此函数将激活加速结构，用于提升大规模场景的渲染性能。
-     * @note 启用后可能需要重新构建场景加速结构。
-     */
-    void AccelerationOn();
-
-    /**
-     * @brief 关闭加速渲染模式。
-     * @details 调用此函数将禁用加速结构，适用于调试或低资源场景。
-     * @note 关闭后会释放加速结构相关资源。
-     */
-    void AccelerationOff();
-
-    /**
-     * @brief 获取加速渲染模式当前状态。
-     * @return true 表示加速结构已启用，false 表示已禁用。
-     * @details 该状态反映最近一次调用AccelerateOn/Off后的生效状态，
-     *          可用于条件判断是否需要进行加速结构维护操作。
-     * @note 该状态查询不验证底层资源实际存在性，仅反映逻辑开关状态
-     */
-    bool IsAccelerationEnabled() const;
-
+      * @brief 查询模型是否可见。
+      */
+    bool GetVisibility() const;
 
 protected:
     Model();
@@ -275,12 +244,10 @@ protected:
      */
     bool GetSwitch(ViewSwitch type);
 
-    bool m_AccelerateOption;
-
     SmartPointer<DataObject> m_DataObject;
-    SmartPointer<Meshleter> m_Meshleter;
     SmartPointer<Filter> m_Filter;
     SmartPointer<Painter3D> m_Painter3D;
+    bool m_Visibility = true;
 
     std::string m_FilePath;
     SmartPointer<Scene> m_Scene;
