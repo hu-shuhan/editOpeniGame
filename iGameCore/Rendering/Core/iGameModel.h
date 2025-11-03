@@ -254,7 +254,6 @@ protected:
 
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Filter> m_Filter;
-    SmartPointer<Painter3D> m_Painter3D;
     bool m_Visibility = true;
     std::map<Painter3D::Usage, SmartPointer<Painter3D>> m_Painter3Ds;
 
