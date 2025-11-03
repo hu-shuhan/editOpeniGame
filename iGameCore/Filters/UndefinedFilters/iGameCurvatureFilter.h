@@ -342,7 +342,6 @@ double GetArea(Vector3d a, Vector3d b, Vector3d c) {
             return mesh;
         }
     }
-
     auto attrbs = mesh->GetAttributeSet();
 
     CellArray::Pointer Faces = CellArray::New();
