@@ -155,7 +155,7 @@ static void OutPutKeyMsgs(iGame::ParallelCoordinatesData::Pointer parallelCoordi
 }
 
 static void SelectPoints(iGame::UnstructuredMesh::Pointer mesh, const std::vector<int>& ids) {
-    auto filter = iGame::iGameSetPointsSelect::New(iGame::Selection::Event::Operate::Add, ids);
+    auto filter = iGame::iGameSetPointsSelect::New(iGame::Selection::Operate::Add, ids);
     filter->SetInput(mesh);
     filter->Execute();
 }
