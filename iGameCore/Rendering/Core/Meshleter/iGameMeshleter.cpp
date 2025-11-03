@@ -37,6 +37,8 @@ Meshleter::Meshleter() {
     m_CellTriangleVAO = GLVertexArray::New();
     m_CellPositionVBO = GLBuffer::New();
     m_CellColorVBO = GLBuffer::New();
+    m_CellDrawCommandBuffer = GLBuffer::New();
+    m_CellFinalDrawCommandBuffer = GLBuffer::New();
 #endif
 }
 
@@ -61,10 +63,30 @@ void Meshleter::SyncGpuBuffers() {
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
 
     auto positions = drawObject->m_Positions;
-    if (positions->GetMTime() > oldTime) { Build(); }
+    if (positions->GetMTime() > m_PositionVBO->GetMTime()) {
+        Build();
+
+        m_PositionVBO->Create();
+        m_PositionVBO->Target(GL_ARRAY_BUFFER);
+        m_PositionVBO->Allocate(positions->GetNumberOfValues() * sizeof(float),
+                                positions->RawPointer(), GL_STATIC_DRAW);
+        m_PositionVBO->Modified();
+
+        m_TriangleEBO->Create();
+        m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+        m_TriangleEBO->Allocate(m_MeshletIndices.size() * sizeof(unsigned int),
+                                m_MeshletIndices.data(), GL_STATIC_DRAW);
+
+        m_TriangleVAO->Create();
+        m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+                                    3 * sizeof(float));
+        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+                          GL_FLOAT, GL_FALSE, 0);
+        m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+    }
 
     auto colors = drawObject->m_Colors;
-    if (colors->GetMTime() > oldTime) {
+    if (colors->GetMTime() > m_ColorVBO->GetMTime()) {
         m_ColorVBO->Create();
         m_ColorVBO->Target(GL_ARRAY_BUFFER);
         GLAllocateGLBuffer(m_ColorVBO,
@@ -75,6 +97,38 @@ void Meshleter::SyncGpuBuffers() {
         m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
                                     3 * sizeof(float));
         GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+                          GL_FLOAT, GL_FALSE, 0);
+    }
+
+    auto cellPositions = drawObject->m_CellPositions;
+    if (cellPositions->GetMTime() > m_CellPositionVBO->GetMTime()) {
+        m_CellPositionVBO->Create();
+        m_CellPositionVBO->Target(GL_ARRAY_BUFFER);
+        m_CellPositionVBO->Allocate(
+                cellPositions->GetNumberOfValues() * sizeof(float),
+                cellPositions->RawPointer(), GL_STATIC_DRAW);
+        m_CellPositionVBO->Modified();
+
+        m_CellTriangleVAO->Create();
+        m_CellTriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_CellPositionVBO, 0,
+                                        3 * sizeof(float));
+        GLSetVertexAttrib(m_CellTriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+                          GL_FLOAT, GL_FALSE, 0);
+    }
+
+    auto cellColors = drawObject->m_CellColors;
+    if (cellColors->GetMTime() > m_CellColorVBO->GetMTime()) {
+        m_CellColorVBO->Create();
+        m_CellColorVBO->Target(GL_ARRAY_BUFFER);
+        GLAllocateGLBuffer(m_CellColorVBO,
+                           cellColors->GetNumberOfValues() * sizeof(float),
+                           cellColors->RawPointer());
+        m_CellColorVBO->Modified();
+
+        m_CellTriangleVAO->Create();
+        m_CellTriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_CellColorVBO, 0,
+                                        3 * sizeof(float));
+        GLSetVertexAttrib(m_CellTriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
                           GL_FLOAT, GL_FALSE, 0);
     }
 #endif

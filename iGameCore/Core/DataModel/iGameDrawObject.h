@@ -177,6 +177,7 @@ protected:
     friend class Scene;
     friend class UnstructuredMesh;
     friend class Meshleter;
+    friend class SurfaceMeshMeshleter;
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);

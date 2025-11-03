@@ -738,16 +738,27 @@ void Model::DrawPhase1() {
         if (viewStyle & IG_SURFACE) {
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            meshleter->m_TriangleVAO->Bind();
             unsigned int visibleMeshletCount = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &visibleMeshletCount);
-            meshleter->m_FinalDrawCommandBuffer->Target(
-                    GL_DRAW_INDIRECT_BUFFER);
-            meshleter->m_FinalDrawCommandBuffer->Bind();
-            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                        visibleMeshletCount, 0);
-            meshleter->m_TriangleVAO->Release();
+
+            if (colorWithCell) {
+                meshleter->m_CellTriangleVAO->Bind();
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr,
+                                          visibleMeshletCount, 0);
+                meshleter->m_CellTriangleVAO->Release();
+            } else {
+                meshleter->m_TriangleVAO->Bind();
+                meshleter->m_FinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_FinalDrawCommandBuffer->Bind();
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
+                                            nullptr, visibleMeshletCount, 0);
+                meshleter->m_TriangleVAO->Release();
+            }
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
@@ -1004,22 +1015,27 @@ void Model::DrawPhase2() {
                 shader->SetUniformi("workMode", 0);
 
                 meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_CellDrawCommandBuffer->BindBase(2);
+                meshleter->m_DrawCommandBuffer->BindBase(3);
 
                 unsigned int data = 0;
                 meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(4);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_SHADER_STORAGE_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->BindBase(5);
+
                 meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(6);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
                 cullDataBuffer->Target(GL_UNIFORM_BUFFER);
-                cullDataBuffer->BindBase(5);
+                cullDataBuffer->BindBase(7);
 
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
@@ -1031,16 +1047,26 @@ void Model::DrawPhase2() {
 
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            meshleter->m_TriangleVAO->Bind();
             unsigned int count = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
-            meshleter->m_FinalDrawCommandBuffer->Target(
-                    GL_DRAW_INDIRECT_BUFFER);
-            meshleter->m_FinalDrawCommandBuffer->Bind();
-            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                        count, 0);
-            meshleter->m_TriangleVAO->Release();
+
+            if (colorWithCell) {
+                meshleter->m_CellTriangleVAO->Bind();
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr, count, 0);
+                meshleter->m_CellTriangleVAO->Release();
+            } else {
+                meshleter->m_TriangleVAO->Bind();
+                meshleter->m_FinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_FinalDrawCommandBuffer->Bind();
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
+                                            nullptr, count, 0);
+                meshleter->m_TriangleVAO->Release();
+            }
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
@@ -1094,21 +1120,26 @@ void Model::TestOcclusionResults() {
                 shader->SetUniformi("workMode", 1);
 
                 meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_CellDrawCommandBuffer->BindBase(2);
+                meshleter->m_DrawCommandBuffer->BindBase(3);
 
                 unsigned int data = 0;
                 meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(4);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_SHADER_STORAGE_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->BindBase(5);
+
                 meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(6);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
-                cullDataBuffer->BindBase(5);
+                cullDataBuffer->BindBase(7);
 
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
