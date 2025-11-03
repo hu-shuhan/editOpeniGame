@@ -110,7 +110,7 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
             this->SelectPoint(_event.pos);
             break;
         case SelectionStyle::SelectCell:
-            this->SelectFace(_event.pos);
+            this->SelectCell(_event.pos);
             break;
         default:
             break;
@@ -162,15 +162,11 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     //        SelectionParameter::Instance().GetSelectVariableRange());
     if (ids.empty()) return;
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
-        auto events = Selection::GeneratePointEvents(
-                ids, Selection::Event::Operate::Add, mesh,
-                m_Model->GetPainter3D(Painter3D::Usage::Selection).get());
-        m_Selection->SelectionCallBackEvent(events);
+        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
+                                            Selection::Operate::Add);
     } else {
-        auto events = Selection::GeneratePointEvents(
-                ids, Selection::Event::Operate::Remove, mesh,
-                m_Model->GetPainter3D(Painter3D::Usage::Selection).get());
-        m_Selection->SelectionCallBackEvent(events);
+        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
+                                            Selection::Operate::Remove);
     }
     return;
 }
@@ -188,7 +184,7 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
     return p;
 }
 
-void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
+void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
 
     auto [point1, point2] = GetStartPointAndEndPoint(pos);
@@ -210,13 +206,11 @@ void SingleSelectionStyle::SelectFace(igm::vec2 pos) {
         //auto events = Selection::GenerateEvents(
         //        ids, IG_CELL, Selection::Event::Operate::Add, mesh,
         //        m_Model->GetPainter3D().get());
-        auto events = Selection::GenerateCellEvents(
-                ids, Selection::Event::Operate::Add, mesh);
-        m_Selection->SelectionCallBackEvent(events, true);
+        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
+                                            Selection::Operate::Add);
     } else {
-        auto events = Selection::GenerateCellEvents(
-                ids, Selection::Event::Operate::Remove, mesh);
-        m_Selection->SelectionCallBackEvent(events, true);
+        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
+                                            Selection::Operate::Remove);
     }
     return;
 }

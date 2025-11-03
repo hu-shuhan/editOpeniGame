@@ -168,14 +168,7 @@ void igQtDataChangeWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    if (type == IG_POINT) {
-        auto events =
-                Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-        m_Model->GetSelection()->SelectionCallBackEvent(events);
-    } else if (type == IG_CELL) {
-        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
-        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
-    }
+    m_Model->GetSelection()->SelectionCallBackEvent(type, ids, Selection::Operate::Add);
     update();
 }
 
@@ -354,27 +347,18 @@ void igQtDataChangeWidget::GenerateChoosedVariableImage() {
     _GenerateChoosedVariableImage(m_VariableShow, Data);
 }
 
-void igQtDataChangeWidget::UpdateChoosedData(const std::vector<Selection::Event>& _events) {
+void igQtDataChangeWidget::UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
     for (auto& Data: m_DataChangeDatas) {
-        for (auto& e: _events) {
-            switch (e.type) {
-                case Selection::Event::Type::PickPoint:
-                    if (Data->GetDataType() != IG_POINT) break;
-                    //_TryUpdateChoosedPointData(Data, e.pickId, e.operate);
-                    if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                case Selection::Event::Type::PickFace:
-                    if (Data->GetDataType() != IG_CELL) break;
-                    //_TryUpdateChoosedCellData(Data, e.pickId, e.operate);
-                    if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                default:
-                    break;
-            }
+        if (Data->GetDataType() != itemType) continue;
+        switch (ope) {
+            case Selection::Add:
+                for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+                break;
+            case Selection::Remove:
+                for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+                break;
+            default:
+                break;
         }
     }
 }
@@ -536,30 +520,6 @@ void igQtDataChangeWidget::_SetLightUi(int unchoosedLight, int choosedLight) {
     ui->choosedLightSpinBox->setValue(choosedLight);
 }
 
-void igQtDataChangeWidget::_TryUpdateChoosedPointData(PlotLineData::Pointer Data, int id,
-                                                      Selection::Event::Operate ope) {
-    if (Data.IsNull() || Data->GetDataType() != IG_POINT) return;
-    auto& objIds = Data->GetObjIndexs();
-    if (objIds.count(id) == 0) return;
-    if (ope == Selection::Event::Operate::Add) {
-        Data->AddChoosedObjectId(id);
-    } else if (ope == Selection::Event::Operate::Remove) {
-        Data->RemoveChoosedObjectId(id);
-    }
-}
-
-void igQtDataChangeWidget::_TryUpdateChoosedCellData(PlotLineData::Pointer Data, int id,
-                                                     Selection::Event::Operate ope) {
-    if (Data.IsNull() || Data->GetDataType() != IG_CELL) return;
-    auto& objIds = Data->GetObjIndexs();
-    if (objIds.count(id) == 0) return;
-    if (ope == Selection::Event::Operate::Add) {
-        Data->AddChoosedObjectId(id);
-    } else if (ope == Selection::Event::Operate::Remove) {
-        Data->RemoveChoosedObjectId(id);
-    }
-}
-
 void igQtDataChangeWidget::_CalculateDrawFrame(int w, int h, QRect& drawFrame) {
     drawFrame = InsetRectByBoundaryRatio(QRect(0, 0, w, h), boundaryRatio);
 }
@@ -672,7 +632,8 @@ void igQtDataChangeWidget::_DrawImages(const QRect& range) {
 
 void igQtDataChangeWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
-    selection->SetSelectionCallBackEvent(&igQtDataChangeWidget::SelectionCallbackEvent, this, std::placeholders::_1);
+    selection->SetSelectionCallBackEvent(&igQtDataChangeWidget::SelectionCallbackEvent, this, std::placeholders::_1,
+                                         std::placeholders::_2, std::placeholders::_3);
 }
 
 void igQtDataChangeWidget::SetClearSelectionCallback() {
@@ -684,8 +645,9 @@ void igQtDataChangeWidget::SetRadialPointMoveCallBack() {
     m_RadialStyle->SetPointMoveCallBack(std::bind(&igQtDataChangeWidget::RadialPointMoveCallBack, this));
 }
 
-void igQtDataChangeWidget::SelectionCallbackEvent(const std::vector<Selection::Event>& _events) {
-    UpdateChoosedData(_events);
+void igQtDataChangeWidget::SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids,
+                                                  Selection::Operate ope) {
+    UpdateChoosedData(itemType, ids, ope);
     GenerateChoosedVariableImage();
     update();
 }

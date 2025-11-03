@@ -30,7 +30,8 @@ public:
     enum class Usage : unsigned int {
         Default,
         BoundingBox,
-        Selection,
+        SelectedPoint,
+        SelectedCell,
         SelectionBox
     };
 

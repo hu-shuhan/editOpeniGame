@@ -166,56 +166,56 @@ std::vector<Vector3f> iGameStreamTracer::getAllSubBlockCenters(
     return allCenters;
 }
 std::vector<Vector3f> iGameStreamTracer::getModelSelect() {
-    auto& select=model->GetSelection()->GetSelectedItems();
+    auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
+    auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
     float minX=0, minY=0, minZ=0;
     float maxX=0, maxY=0, maxZ=0;
-    if (select.find(Selection::Event::Type::PickFace)!=select.end()) {
-        auto&  cell=select.at(Selection::Event::Type::PickFace);
-        bool flag=true;
-        for (auto it=cell.begin(); it!=cell.end(); it++) {
-            igIndex pVolume[32]{};
-            int psize=mesh->GetVolumePointIds(it->first, pVolume);
-            for (int i=0; i<psize; i++) {
-                Point p=mesh->GetPoint(pVolume[i]);
-                if (flag) {
-                    flag=false;
-                    minX=p[0];
-                    minY=p[1];
-                    minZ=p[2];
-                    maxX=p[0];
-                    maxY=p[1];
-                    maxZ=p[2];
-                } else {
-                    minX=std::min(minX, p[0]);
-                    minY=std::min(minY, p[1]);
-                    minZ=std::min(minZ, p[2]);
-                    maxX=std::max(maxX, p[0]);
-                    maxY=std::max(maxY, p[1]);
-                    maxZ=std::max(maxZ, p[2]);
-                }
+    if (!selectedPoints.empty()) {
+        auto& point = selectedPoints;
+        bool start = true;
+        for (auto it = point.begin(); it != point.end(); it++) {
+            Point p = mesh->GetPoint(*it);
+            if (start) {
+                start = false;
+                minX = p[0];
+                minY = p[1];
+                minZ = p[2];
+                maxX = p[0];
+                maxY = p[1];
+                maxZ = p[2];
+            } else {
+                minX = std::min(minX, p[0]);
+                minY = std::min(minY, p[1]);
+                minZ = std::min(minZ, p[2]);
+                maxX = std::max(maxX, p[0]);
+                maxY = std::max(maxY, p[1]);
+                maxZ = std::max(maxZ, p[2]);
             }
         }
-    }
-    else if (select.find(Selection::Event::Type::PickPoint)!=select.end()) {
-        auto&  point=select.at(Selection::Event::Type::PickPoint);
-        bool start=true;
-        for (auto it=point.begin(); it!=point.end(); it++) {
-            Point p=mesh->GetPoint(it->first);
-            if (start) {
-                start=false;
-                minX=p[0];
-                minY=p[1];
-                minZ=p[2];
-                maxX=p[0];
-                maxY=p[1];
-                maxZ=p[2];
-            } else {
-                minX=std::min(minX, p[0]);
-                minY=std::min(minY, p[1]);
-                minZ=std::min(minZ, p[2]);
-                maxX=std::max(maxX, p[0]);
-                maxY=std::max(maxY, p[1]);
-                maxZ=std::max(maxZ, p[2]);
+    } else if (!selectedCells.empty()) {
+        auto& cell = selectedCells;
+        bool flag = true;
+        for (auto it = cell.begin(); it != cell.end(); it++) {
+            igIndex pVolume[32]{};
+            int psize = mesh->GetVolumePointIds(*it, pVolume);
+            for (int i = 0; i < psize; i++) {
+                Point p = mesh->GetPoint(pVolume[i]);
+                if (flag) {
+                    flag = false;
+                    minX = p[0];
+                    minY = p[1];
+                    minZ = p[2];
+                    maxX = p[0];
+                    maxY = p[1];
+                    maxZ = p[2];
+                } else {
+                    minX = std::min(minX, p[0]);
+                    minY = std::min(minY, p[1]);
+                    minZ = std::min(minZ, p[2]);
+                    maxX = std::max(maxX, p[0]);
+                    maxY = std::max(maxY, p[1]);
+                    maxZ = std::max(maxZ, p[2]);
+                }
             }
         }
     }

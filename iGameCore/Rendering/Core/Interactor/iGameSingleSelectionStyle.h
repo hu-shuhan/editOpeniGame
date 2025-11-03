@@ -15,7 +15,7 @@ public:
     void MousePressEvent(IEvent _event) override;
 
     void SelectPoint(igm::vec2 pos);
-    void SelectFace(igm::vec2 pos);
+    void SelectCell(igm::vec2 pos);
 
 protected:
     SingleSelectionStyle();

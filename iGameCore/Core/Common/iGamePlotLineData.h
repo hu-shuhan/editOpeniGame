@@ -140,7 +140,7 @@ public:
     void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
 
 protected:
-    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultSelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void DefaultClearSelectionCallBackFunc();
 };
 IGAME_NAMESPACE_END
