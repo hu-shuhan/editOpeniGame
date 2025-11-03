@@ -31,7 +31,6 @@ DrawObject::DrawObject() {
     m_CellVAO = GLVertexArray::New();
     m_CellPositionVBO = GLBuffer::New();
     m_CellColorVBO = GLBuffer::New();
-    m_CellEBO = GLBuffer::New();
 
     m_Positions = FloatArray::New();
     m_Positions->SetDimension(3);
@@ -59,8 +58,10 @@ DrawObject::DrawObject() {
     m_CellPositions->SetDimension(3);
     m_CellColors = FloatArray::New();
     m_CellColors->SetDimension(3);
-    m_CellIndices = UnsignedIntArray::New();
-    m_CellIndices->SetDimension(3);
+    m_CellTriangleEdgeMasks = UnsignedCharArray::New();
+    m_CellTriangleEdgeMasks->SetDimension(1);
+    m_CellEdgeMaskBuffer = GLBuffer::New();
+    m_CellEdgeMaskTexture = GLTextureBuffer::New();
 
     m_ViewStyle = IG_SURFACE;
     m_Visibility = true;
@@ -308,55 +309,56 @@ FloatArray::Pointer DrawObject::GetRenderPoints() {
     return m_Positions;
 }
 void DrawObject::SetRenderPoints(FloatArray::Pointer points) { m_Positions = std::move(points); }
-void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
-    // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetPolygonOffsetParameters(factor, units);
-        m_RenderableMesh.SimplifiedMesh->SetPolygonOffsetParameters(factor, units);
-    }
 
-    // process this object
-    this->m_PolygonFactor = factor;
-    this->m_PolygonOffset = units;
-    this->Modified();
-}
-
-void DrawObject::GetPolygonOffsetParameters(float& factor, float& units) {
-    factor = this->m_PolygonFactor;
-    units = this->m_PolygonOffset;
-}
-
-void DrawObject::SetLineOffsetParameters(float factor, float units) {
-    // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetLineOffsetParameters(factor, units);
-        m_RenderableMesh.SimplifiedMesh->SetLineOffsetParameters(factor, units);
-    }
-
-    // process this object
-    this->m_LineFactor = factor;
-    this->m_LineOffset = units;
-    this->Modified();
-}
-
-void DrawObject::GetLineOffsetParameters(float& factor, float& units) {
-    factor = this->m_LineFactor;
-    units = this->m_LineOffset;
-}
-
-void DrawObject::SetPointOffsetParameters(float units) {
-    // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetPointOffsetParameters(units);
-        m_RenderableMesh.SimplifiedMesh->SetPointOffsetParameters(units);
-    }
-
-    // process this object
-    this->m_PointOffset = units;
-    this->Modified();
-}
-
-void DrawObject::GetPointOffsetParameters(float& units) { units = this->m_PointOffset; }
+// void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
+//     // process renderable object
+//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//         m_RenderableMesh.SurfaceMesh->SetPolygonOffsetParameters(factor, units);
+//         m_RenderableMesh.SimplifiedMesh->SetPolygonOffsetParameters(factor, units);
+//     }
+//
+//     // process this object
+//     this->m_PolygonFactor = factor;
+//     this->m_PolygonOffset = units;
+//     this->Modified();
+// }
+//
+// void DrawObject::GetPolygonOffsetParameters(float& factor, float& units) {
+//     factor = this->m_PolygonFactor;
+//     units = this->m_PolygonOffset;
+// }
+//
+// void DrawObject::SetLineOffsetParameters(float factor, float units) {
+//     // process renderable object
+//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//         m_RenderableMesh.SurfaceMesh->SetLineOffsetParameters(factor, units);
+//         m_RenderableMesh.SimplifiedMesh->SetLineOffsetParameters(factor, units);
+//     }
+//
+//     // process this object
+//     this->m_LineFactor = factor;
+//     this->m_LineOffset = units;
+//     this->Modified();
+// }
+//
+// void DrawObject::GetLineOffsetParameters(float& factor, float& units) {
+//     factor = this->m_LineFactor;
+//     units = this->m_LineOffset;
+// }
+//
+// void DrawObject::SetPointOffsetParameters(float units) {
+//     // process renderable object
+//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//         m_RenderableMesh.SurfaceMesh->SetPointOffsetParameters(units);
+//         m_RenderableMesh.SimplifiedMesh->SetPointOffsetParameters(units);
+//     }
+//
+//     // process this object
+//     this->m_PointOffset = units;
+//     this->Modified();
+// }
+//
+// void DrawObject::GetPointOffsetParameters(float& units) { units = this->m_PointOffset; }
 
 void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     if (dataObject->GetDataObjectType() != IG_SURFACE_MESH) {
@@ -460,8 +462,6 @@ void DrawObject::CreateDrawBuffer() {
         m_CellPositionVBO->Target(GL_ARRAY_BUFFER);
         m_CellColorVBO->Create();
         m_CellColorVBO->Target(GL_ARRAY_BUFFER);
-        m_CellEBO->Create();
-        m_CellEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
 
         m_EdgeMaskBuffer->Create();
         m_EdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
@@ -474,6 +474,13 @@ void DrawObject::CreateDrawBuffer() {
 
         m_EdgeMaskTexture->Create();
         m_EdgeMaskTexture->Buffer(GL_R8, m_EdgeMaskBuffer);
+
+        m_CellEdgeMaskBuffer->Create();
+        m_CellEdgeMaskBuffer->Target(GL_TEXTURE_BUFFER);
+        m_CellEdgeMaskBuffer->Allocate(sizeof(unsigned char), nullptr, GL_STATIC_DRAW);
+
+        m_CellEdgeMaskTexture->Create();
+        m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
 
         //// set point drawing format
         //{
@@ -660,11 +667,12 @@ void DrawObject::SyncGpuBuffers() {
         SetColorBufferToVAO(m_CellVAO, m_CellColorVBO);
     }
 
-    if (m_CellIndices->GetMTime() > m_CellEBO->GetMTime()) {
-        GLAllocateGLBuffer(m_CellEBO, m_CellIndices->GetNumberOfValues() * sizeof(float), m_CellIndices->RawPointer());
-        m_CellEBO->Modified();
+    if (m_CellTriangleEdgeMasks->GetMTime() > m_CellEdgeMaskBuffer->GetMTime()) {
+        GLAllocateGLBuffer(m_CellEdgeMaskBuffer, m_CellTriangleEdgeMasks->GetNumberOfValues() * sizeof(unsigned char),
+                           m_CellTriangleEdgeMasks->RawPointer());
+        m_CellEdgeMaskBuffer->Modified();
 
-        m_CellVAO->ElementBuffer(m_CellEBO);
+        m_CellEdgeMaskTexture->Buffer(GL_R8, m_CellEdgeMaskBuffer);
     }
 
     GLCheckError();

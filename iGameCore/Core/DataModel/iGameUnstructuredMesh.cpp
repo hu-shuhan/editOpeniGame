@@ -608,8 +608,10 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
     newPositions->SetDimension(3);
     newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
 
     float color[3]{};
     igIndex ids[IGAME_CELL_MAX_SIZE]{};
@@ -643,6 +645,9 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
+
+                    int mask = size == 3 ? 7 : j == 1 ? 3 : j == size - 2 ? 6 : 2;
+                    newEdgeMasks->AddValue(mask);
                 }
             } break;
             case IG_QUADRATIC_TRIANGLE:
@@ -660,6 +665,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
+                    newEdgeMasks->AddValue(5);
                 }
                 for (int j = 1; j < trueSize; ++j) {
                     const auto& p0 = this->GetPoint(ids[j]);
@@ -671,6 +677,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
+                    newEdgeMasks->AddValue(5);
                 }
                 for (int j = 2; j < trueSize; ++j) {
                     const auto& p0 = this->GetPoint(ids[trueSize]);
@@ -682,6 +689,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
                     newColors->AddElement3(color[0], color[1], color[2]);
+                    newEdgeMasks->AddValue(0);
                 }
             } break;
             case IG_TETRA:
@@ -693,10 +701,10 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                 const int* face = nullptr;
                 for (int f = 0; f < cell->GetNumberOfFaces(); ++f) {
                     int fsz = cell->GetFacePointIds(f, face);
-                    for (int k = 2; k < fsz; ++k) {
+                    for (int k = 1; k < fsz - 1; ++k) {
                         const auto& p0 = this->GetPoint(ids[face[0]]);
-                        const auto& p1 = this->GetPoint(ids[face[k - 1]]);
-                        const auto& p2 = this->GetPoint(ids[face[k]]);
+                        const auto& p1 = this->GetPoint(ids[face[k]]);
+                        const auto& p2 = this->GetPoint(ids[face[k + 1]]);
                         newPositions->AddElement3(p0[0], p0[1], p0[2]);
                         newPositions->AddElement3(p1[0], p1[1], p1[2]);
                         newPositions->AddElement3(p2[0], p2[1], p2[2]);
@@ -704,6 +712,9 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
+
+                        int mask = fsz == 3 ? 7 : k == 1 ? 3 : k == fsz - 2 ? 6 : 2;
+                        newEdgeMasks->AddValue(mask);
                     }
                 }
             } break;
@@ -721,6 +732,8 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
+                        int mask = realsize == 3 ? 7 : i == 1 ? 3 : i == realsize - 2 ? 6 : 2;
+                        newEdgeMasks->AddValue(mask);
                     }
                     index += realsize;
                 }
@@ -746,6 +759,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
+                        newEdgeMasks->AddValue(5);
                     }
                     for (int j = 1; j < base_face_size; ++j) {
                         const auto& p0 = this->GetPoint(ids[face[j]]);
@@ -757,6 +771,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
+                        newEdgeMasks->AddValue(5);
                     }
                     for (int j = 2; j < base_face_size; ++j) {
                         const auto& p0 = this->GetPoint(ids[face[base_face_size]]);
@@ -768,6 +783,7 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
                         newColors->AddElement3(color[0], color[1], color[2]);
+                        newEdgeMasks->AddValue(0);
                     }
                 }
             } break;
@@ -783,5 +799,8 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
 
     m_CellColors = newColors;
     m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 IGAME_NAMESPACE_END

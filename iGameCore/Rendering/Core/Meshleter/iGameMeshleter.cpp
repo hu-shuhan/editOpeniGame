@@ -33,6 +33,10 @@ Meshleter::Meshleter() {
     m_DrawCommandBuffer = GLBuffer::New();
     m_VisibleMeshletBuffer = GLBuffer::New();
     m_FinalDrawCommandBuffer = GLBuffer::New();
+
+    m_CellTriangleVAO = GLVertexArray::New();
+    m_CellPositionVBO = GLBuffer::New();
+    m_CellColorVBO = GLBuffer::New();
 #endif
 }
 
@@ -53,8 +57,26 @@ void Meshleter::SyncGpuBuffers() {
 #else
     if (!m_DataObject) { return; }
 
+    auto oldTime = this->GetMTime();
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (drawObject->m_Positions->GetMTime() > this->GetMTime()) { Build(); }
+
+    auto positions = drawObject->m_Positions;
+    if (positions->GetMTime() > oldTime) { Build(); }
+
+    auto colors = drawObject->m_Colors;
+    if (colors->GetMTime() > oldTime) {
+        m_ColorVBO->Create();
+        m_ColorVBO->Target(GL_ARRAY_BUFFER);
+        GLAllocateGLBuffer(m_ColorVBO,
+                           colors->GetNumberOfValues() * sizeof(float),
+                           colors->RawPointer());
+        m_ColorVBO->Modified();
+
+        m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+                                    3 * sizeof(float));
+        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+                          GL_FLOAT, GL_FALSE, 0);
+    }
 #endif
 }
 
