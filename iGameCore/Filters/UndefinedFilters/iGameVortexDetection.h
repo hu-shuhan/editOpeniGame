@@ -18,6 +18,9 @@
 #define slots Q_SLOTS
 #endif
 
+#include "StreamView/iGameStreamTracer.h"
+
+
 #include <vector>
 
 
@@ -90,6 +93,7 @@ protected:
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet::Pointer attributeSet{};
+    iGameStreamTracer::Pointer streamTracer{};
 
     int curIndex{-1};
     int curDim{-1};
