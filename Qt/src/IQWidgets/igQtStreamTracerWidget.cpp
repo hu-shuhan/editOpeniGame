@@ -10,6 +10,21 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
     connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
+    connect(ui->startX, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
+    connect(ui->startY, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
+    connect(ui->startZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
+    ui->startX->setText("0");
+    ui->startY->setText("0");
+    ui->startZ->setText("0");
+
+    connect(ui->endX, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
+    connect(ui->endY, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
+    connect(ui->endZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
+    ui->endX->setText("0");
+    ui->endY->setText("0");
+    ui->endZ->setText("0");
+
+    connect(ui->terminalSpeed, SIGNAL(textChanged(const QString&)), this, SLOT(changeterminalSpeed()));
     //connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
     //connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
@@ -51,14 +66,20 @@ void igQtStreamTracerWidget::hideEvent(QHideEvent* event) {
 void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
     if (isExisted) {
         auto scene = SceneManager::Instance()->GetCurrentScene();
-        Selection->Start = seedPoints[control * 2];
-        Selection->End = seedPoints[control * 2 + 1];
+        Selection->Start = startP;
+        Selection->End = endP;
         Selection->SetSelectionCallBackEvent(
                 [&](const std::vector<iGame::Selection::Event>& events) {
                     for (auto& event: events) {
                         if (event.type == iGame::Selection::Event::Change) {
-                            seedPoints[control * 2] = Selection->Start;
-                            seedPoints[control * 2 + 1] = Selection->End;
+                            startP = Selection->Start;
+                            endP = Selection->End;
+                            ui->startX->setText(QString::number(startP[0]));
+                            ui->startY->setText(QString::number(startP[1]));
+                            ui->startZ->setText(QString::number(startP[2]));
+                            ui->endX->setText(QString::number(endP[0]));
+                            ui->endY->setText(QString::number(endP[1]));
+                            ui->endZ->setText(QString::number(endP[2]));
                         }
                     }
                 },
@@ -103,12 +124,18 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
 }
 void igQtStreamTracerWidget::changeControl() {
     control = ui->control_comboBox->currentIndex();
-
-    generateStreamline();
     //std::cout << "current index=" << control <<std::endl;
 }
 void igQtStreamTracerWidget::changenumOfSeeds() {
     numOfSeeds = ui->numOfSeedLineEdit->text().toInt();
+    //std::cout << "current seeds=" << numOfSeeds << std::endl;
+}
+void igQtStreamTracerWidget::changeStart() {
+    startP = Vector3f(ui->startX->text().toFloat(), ui->startY->text().toFloat(), ui->startZ->text().toFloat());
+    //std::cout << "current seeds=" << numOfSeeds << std::endl;
+}
+void igQtStreamTracerWidget::changeEnd() {
+    endP = Vector3f(ui->endX->text().toFloat(), ui->endY->text().toFloat(), ui->endZ->text().toFloat());
     //std::cout << "current seeds=" << numOfSeeds << std::endl;
 }
 void igQtStreamTracerWidget::changelengthOfStreamLine() {
@@ -165,6 +192,14 @@ void igQtStreamTracerWidget::updateVectorNameList() {
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
     if (!obj) return;
+    startP= obj->GetBoundingBox().min;
+    endP= obj->GetBoundingBox().max;
+    ui->startX->setText(QString::number(startP[0]));
+    ui->startY->setText(QString::number(startP[1]));
+    ui->startZ->setText(QString::number(startP[2]));
+    ui->endX->setText(QString::number(endP[0]));
+    ui->endY->setText(QString::number(endP[1]));
+    ui->endZ->setText(QString::number(endP[2]));
     iGame::AttributeSet* _AttributeSet;
     if (obj->HasSubDataObject()) {
         auto it = obj->SubDataObjectIteratorBegin();
@@ -200,7 +235,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     auto tem = model->GetDataObject();
     m_DataObject = tem;
 
-    streamtracer->initStreamTracer(tem);
+    streamtracer->initStreamTracer(model);
     //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
     //auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
@@ -209,10 +244,16 @@ void igQtStreamTracerWidget::generateStreamline() {
                                               {536542, 2738820},
                                               {536542, 2658742},
                                               {5485895, 536542}};
-    seedPoints[5] = streamtracer->GetMesh()->GetBoundingBox().max;
-    seedPoints[6] = streamtracer->GetMesh()->GetBoundingBox().min;
+    //startP = streamtracer->GetMesh()->GetBoundingBox().max;
+    //endP = streamtracer->GetMesh()->GetBoundingBox().min;
     // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
-    auto seeds = streamtracer->seedPCoordGenerate(numOfSeeds, seedPoints[5], seedPoints[6]);
+    std::vector<Vector3f>seeds;
+    if (control==0) {
+        seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+    }
+    else {
+        seeds=streamtracer->getModelSelect();
+    }
     //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);
     //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
     std::vector<std::vector<float>> streamlineColor;
@@ -266,14 +307,20 @@ void igQtStreamTracerWidget::generateStreamline() {
         isExisted = true;
         Selection = StreamLineSelection::New();
         Painter = scene->GetCurrentModel()->GetPainter3D();
-        Selection->Start = seedPoints[5];
-        Selection->End = seedPoints[6];
+        Selection->Start = startP;
+        Selection->End =endP;
         Selection->SetSelectionCallBackEvent(
                 [&](const std::vector<iGame::Selection::Event>& events) {
                     for (auto& event: events) {
                         if (event.type == iGame::Selection::Event::Change) {
-                            seedPoints[control * 2] = Selection->Start;
-                            seedPoints[control * 2 + 1] = Selection->End;
+                            startP = Selection->Start;
+                            endP= Selection->End;
+                            ui->startX->setText(QString::number(startP[0]));
+                            ui->startY->setText(QString::number(startP[1]));
+                            ui->startZ->setText(QString::number(startP[2]));
+                            ui->endX->setText(QString::number(endP[0]));
+                            ui->endY->setText(QString::number(endP[1]));
+                            ui->endZ->setText(QString::number(endP[2]));
                         }
                     }
                 },

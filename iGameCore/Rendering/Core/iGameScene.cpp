@@ -2,7 +2,9 @@
 #include "iGameCommand.h"
 #include "iGameInteractor.h"
 #include "iGameRenderingLogger.h"
+#include <algorithm>
 #include <chrono>
+#include <thread>
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
@@ -69,7 +71,38 @@ Scene::Scene() {
 
     m_CenterAxesModel = CenterAxesModel::New();
 }
-Scene::~Scene() {}
+
+Scene::~Scene() {
+    if (m_FinishInit) { glDeleteQueries(2, m_TimeQueries); }
+}
+
+bool Scene::ShouldRenderThisCall() const {
+    if (!m_FramePacingEnabled || !m_LastRenderEndValid) { return true; }
+
+    double targetMs = 0.0;
+    if (m_TargetFps > 0u) {
+        targetMs =
+                std::max(targetMs, 1000.0 / static_cast<double>(m_TargetFps));
+    }
+
+    if (m_GpuUsageLimit > 0.0f) {
+        double gpuMs = m_SmoothedGpuTimeMs > 0.0 ? m_SmoothedGpuTimeMs
+                                                 : m_LastGpuTimeMs;
+        if (gpuMs > 0.0) {
+            double expectedFrameMs =
+                    gpuMs / static_cast<double>(m_GpuUsageLimit);
+            targetMs = std::max(targetMs, expectedFrameMs);
+        }
+    }
+
+    if (targetMs <= 0.0) { return true; }
+
+    auto now = std::chrono::steady_clock::now();
+    double elapsedMs =
+            std::chrono::duration<double, std::milli>(now - m_LastRenderEnd)
+                    .count();
+    return elapsedMs >= targetMs;
+}
 
 bool Scene::Initialize() {
     if (m_FinishInit) {
@@ -93,22 +126,8 @@ bool Scene::Initialize() {
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
 
-
     m_FinishInit = true;
     return true;
-}
-
-IGuint Scene::AddModel(SmartPointer<Meshleter> meshleter) {
-    SmartPointer<Model> model = Model::New();
-    model->AccelerationOn();
-    model->SetMeshleter(meshleter);
-    model->SetScene(this);
-
-    auto modelID = m_ModelPool->AllocateObject(model);
-    m_CurrentModelID = modelID;
-
-    ChangeModelVisibility(model, true);
-    return modelID;
 }
 
 IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
@@ -120,6 +139,7 @@ IGuint Scene::AddModel(SmartPointer<DataObject> obj) {
     m_CurrentModelID = modelID;
 
     ChangeModelVisibility(model, true);
+    Update();
     return modelID;
 }
 
@@ -139,6 +159,7 @@ void Scene::RemoveModel(IGuint modelID) {
                 }
             }
             UpdateModelsBoundingSphere();
+            Update();
             return;
         }
     }
@@ -162,6 +183,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
                 }
             }
             UpdateModelsBoundingSphere();
+            Update();
             return;
         }
     }
@@ -170,11 +192,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
 
 void Scene::RemoveCurrentModel() {
     auto model = m_ModelPool->GetObjectByHandle(m_CurrentModelID);
-
     if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
-
-    // 移动到RemoveModel里了
-    // model->GetDataObject()->InvokeEvent(Command::DeleteEvent);
     RemoveModel(m_CurrentModelID);
 }
 
@@ -270,13 +288,13 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView(SmartPointer<Model> model) {
+void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
     UpdateModelsBoundingSphere();
 
     igm::vec3 center = m_ModelsBoundingSphere.xyz();
     float radius = m_ModelsBoundingSphere.w;
-    if (model != nullptr) {
-        auto& box = model->GetDataObject()->GetBoundingBox();
+    if (dataObject != nullptr) {
+        auto& box = dataObject->GetBoundingBox();
         double* c = box.center().pointer();
         float x = static_cast<float>(c[0]);
         float y = static_cast<float>(c[1]);
@@ -288,6 +306,8 @@ void Scene::ResetCameraView(SmartPointer<Model> model) {
         SetRotationCenter(igm::vec3{x, y, z});
         center = igm::vec3{x, y, z};
         radius = r;
+    } else {
+        m_UseCustomRotationCenter = false;
     }
 
     m_ModelMatrix = igm::mat4{1.0f};
@@ -353,6 +373,12 @@ void Scene::InitOpenGL() {
 
     // init framebuffer
     ResizeFrameBuffer();
+
+    // init gpu timer queries
+    glGenQueries(2, m_TimeQueries);
+    m_TimeQueryIndex = 0;
+    m_LastGpuTimeMs = 0.0;
+    m_SmoothedGpuTimeMs = 0.0;
 
     // painter2d test
     {
@@ -610,12 +636,27 @@ void Scene::ResizeHzb() {
 }
 
 void Scene::Draw() {
-    // reset camera
-    UpdateCameraClippingRange();
-
     // save default framebuffer, because it is not 0 in Qt
     GLint defaultFramebuffer = GL_NONE;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFramebuffer);
+
+    // If throttling is enabled and the time point for the next frame has not been reached, return in advance (do not render)
+    if (m_FramePacingEnabled && m_LastRenderEndValid) {
+        if (!ShouldRenderThisCall()) {
+            // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
+            glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
+            RenderToQtFrame();
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return;
+        }
+    }
+
+    // reset camera
+    UpdateCameraClippingRange();
+
+    // Start counting the rendering time consumption
+    int curIdx = m_TimeQueryIndex;
+    glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
 
 #ifdef GL_SUPPORTS_MSAA
     // render to multisample framebuffer
@@ -644,7 +685,44 @@ void Scene::Draw() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 
-    CalculateFrameRate();
+    // End counting the rendering time consumption
+    glEndQuery(GL_TIME_ELAPSED);
+    GLCheckError();
+    {
+        int prevIdx = 1 - curIdx;
+        // Only query if the previous query has actually been issued at least once
+        if (m_TimeQueryReady[prevIdx]) {
+            GLint available = GL_FALSE;
+            GLCheckError();
+            glGetQueryObjectiv(m_TimeQueries[prevIdx],
+                               GL_QUERY_RESULT_AVAILABLE, &available);
+            GLCheckError();
+            if (available == GL_TRUE) {
+                GLuint64 ns = 0ULL;
+                glGetQueryObjectui64v(m_TimeQueries[prevIdx], GL_QUERY_RESULT,
+                                      &ns);
+                GLCheckError();
+                m_LastGpuTimeMs = static_cast<double>(ns) / 1000000.0;
+                if (m_SmoothedGpuTimeMs <= 0.0) {
+                    m_SmoothedGpuTimeMs = m_LastGpuTimeMs;
+                } else {
+                    const double alpha = 0.2;
+                    m_SmoothedGpuTimeMs = alpha * m_LastGpuTimeMs +
+                                          (1.0 - alpha) * m_SmoothedGpuTimeMs;
+                }
+                // We've consumed the previous result; mark it not-ready until next issued
+                m_TimeQueryReady[prevIdx] = false;
+            }
+        }
+        // Mark current query as issued so that it can be polled next frame
+        m_TimeQueryReady[curIdx] = true;
+        m_TimeQueryIndex = 1 - curIdx;
+    }
+
+    // Record the end time of this frame
+    m_LastRenderEnd = std::chrono::steady_clock::now();
+    m_LastRenderEndValid = true;
+
     GLCheckError();
 }
 
@@ -698,6 +776,28 @@ void Scene::Update() {
     if (m_UpdateFunctor) { m_UpdateFunctor(); }
 }
 
+void Scene::SetTargetFps(unsigned int fps) {
+    if (fps == 0u) {
+        m_TargetFps = 0u;
+    } else {
+        if (fps > 1000u) { fps = 1000u; }
+        m_TargetFps = fps;
+        m_FramePacingEnabled = true;
+    }
+}
+
+void Scene::SetGpuUsageLimit(float usagePercent) {
+    if (usagePercent <= 0.0f) {
+        m_GpuUsageLimit = 0.0f;
+        return;
+    }
+    if (usagePercent > 1.0f) usagePercent = 1.0f;
+    m_GpuUsageLimit = usagePercent;
+    m_FramePacingEnabled = true;
+}
+
+void Scene::EnableFramePacing(bool enable) { m_FramePacingEnabled = enable; }
+
 void Scene::Resize(int width, int height, int pixelRatio) {
     m_Camera->SetViewPort(width, height);
     m_Camera->SetDevicePixelRatio(pixelRatio);
@@ -729,18 +829,15 @@ void Scene::DrawFrame() {
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
-
             TransparentPass();
         } else {
             VolumeRenderingPass();
         }
 
-
         // draw scene painter
         m_Painter2D->Draw();
         m_Painter3D->Draw();
     }
-
 
     // draw axes in bottom left
     {
@@ -820,24 +917,19 @@ void Scene::ForwardPass() {
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
-    // TODO: BUG IN LINUX GNU 13.1.0, FIX IT
-    // for (auto& [id, model]: m_Models) {
-    //     model->Draw(this);
-    //     model->GetPainter3D()->Draw(this);
-    // }
+    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+        auto model = it->second;
+        model->Draw();
+        model->GetPainter3D()->Draw();
+    }
 #elif IGAME_OPENGL_VERSION_460
-
     // normal mesh
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f &&
-            !drawObject->IsAlwaysOnTop()) {
-            model->Draw();
-        }
+        if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) {
             //model->GetPainter3D()->Draw();
@@ -850,14 +942,10 @@ void Scene::ForwardPass() {
     glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
-        if (model->IsAccelerationEnabled()) { continue; }
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->GetTransparency() == 1.0f &&
-            drawObject->IsAlwaysOnTop()) {
-            model->Draw();
-        }
+        if (drawObject->IsAlwaysOnTop()) { model->Draw(); }
     }
     glEnable(GL_DEPTH_TEST); // 恢复深度测试
 
@@ -868,10 +956,7 @@ void Scene::ForwardPass() {
         // Note: The first HZB culling pass must use the previous frame's data
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+            model->DrawPhase1();
         }
 
         // refresh phase 1: generate loacl hierarchical z-buffer & cull data
@@ -881,10 +966,7 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+            model->DrawPhase2();
         }
 
         // refresh phase2: generate global hierarchical z-buffer
@@ -894,21 +976,13 @@ void Scene::ForwardPass() {
     {
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) {
-                model->TestOcclusionResults();
-            }
+            model->TestOcclusionResults();
         }
 
         // draw phase1: draw visible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase1(); }
+            model->DrawPhase1();
         }
 
         // refresh phase1: generate loacl hierarchical z-buffer
@@ -918,10 +992,7 @@ void Scene::ForwardPass() {
         // draw phase2: draw invisible meshlet
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            if (!model->IsAccelerationEnabled()) { continue; }
-
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() == 1.0f) { model->DrawPhase2(); }
+            model->DrawPhase2();
         }
 
         // refresh phase2: generate global hierarchical z-buffer
@@ -973,10 +1044,7 @@ void Scene::TransparentPass() {
         // add the result of drawing opaque objects
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
-            auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-            if (drawObject->GetTransparency() != 1.0f) {
-                model->DrawWithTransparency();
-            }
+            model->DrawWithTransparency();
         }
     }
     glDepthMask(GL_TRUE);
@@ -1324,16 +1392,8 @@ igm::vec3 Scene::ScreenToWorld(const igm::vec2& screenPos, float depth) const {
     return igm::vec3(m_Camera->GetPosition()) + rayDir * depth;
 }
 
-
 void Scene::SetVolumeRendering(bool toggled) {
     m_EnableVolumeRendering = toggled;
-    for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
-        auto model = it->second;
-
-        if (!model->GetDataObject()->IsDrawable()) { continue; }
-        auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        drawObject->SetShellRenderingOption(!toggled);
-    }
     Update();
 }
 
@@ -1368,23 +1428,6 @@ void Scene::UpdateModelsBoundingSphere() {
     float radius = (max - min).length() / 2;
 
     m_ModelsBoundingSphere = igm::vec4{center, radius};
-}
-
-void Scene::CalculateFrameRate() {
-    static float framesPerSecond = 0.0f; // This will store our fps
-    static auto lastTime = std::chrono::high_resolution_clock ::now();
-
-    auto currentTime = std::chrono::high_resolution_clock ::now();
-    ++framesPerSecond;
-
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                         currentTime - lastTime)
-                         .count();
-    if (time > 1.0f) {
-        lastTime = currentTime;
-        //std::cout << framesPerSecond << std::endl;
-        framesPerSecond = 0;
-    }
 }
 
 std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,

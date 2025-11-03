@@ -3,8 +3,9 @@
 IGAME_NAMESPACE_BEGIN
 IGAME_SPLINEUTILS_NAMESPACE_BEGIN
 Curve::Curve(const int degree, const std::vector<Point>& controlPoints, const std::vector<double>& knots,
-             const std::vector<double>& weights) {
+             const std::vector<double>& weights, const std::vector<Scalar>& controlScalars) {
     m_ControlPoints = controlPoints;
+    m_ControlScalars = controlScalars;
     m_Basis = {Basis(degree, knots)};
     m_Weights = weights;
     type = Gtype::Curve;
@@ -23,6 +24,21 @@ Point Curve::getPointAtParam(std::vector<double>& u) {
         point[2] += basisValue[i] * m_ControlPoints[index[i]][2];
     }
     return point;
+}
+
+Scalar Curve::getScalarAtParam(std::vector<double>& u) {
+    std::vector<double> basisValue;
+    std::vector<int> index;
+    eval(u, basisValue);
+    getConnectIndex(u, index);
+
+    Scalar scalar(m_ControlScalars[0].size());
+    for (int i = 0; i < basisValue.size(); ++i) {
+        for (int j = 0; j < m_ControlScalars[index[i]].size(); ++j) {
+            scalar[j] += basisValue[i] * m_ControlScalars[index[i]][j];
+        }
+    }
+    return scalar;
 }
 
 void Curve::getConnectIndex(const std::vector<double>& u, std::vector<int>& index) {

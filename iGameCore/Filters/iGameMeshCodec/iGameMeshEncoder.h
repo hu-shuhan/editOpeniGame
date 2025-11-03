@@ -9,6 +9,7 @@
 #include "iGameMeshCodecAdjacency.h"
 #include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
+#include "iGameMeshCodecZSTD.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
 #include "iGameThreadPool.h"
@@ -30,11 +31,8 @@ public:
         m_hasUIControlParams = true;
     }
 
-    bool Execute() override
-    {
-        if (!InitializeEncoder()) {
-            return false;
-        }
+    bool Execute() override {
+        if (!InitializeEncoder()) { return false; }
 
         std::vector<unsigned int> pointIdRemap;
         std::vector<unsigned int> topCellIdsRemap, bottomCellIdRemap;
@@ -44,8 +42,8 @@ public:
         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
         PayloadBuffer paramPayload(PayloadType::kParameterSet);
 
-        EncodePayloads(geomPayload, topoPayload, attrPayload, paramPayload, 
-                      pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
+        EncodePayloads(geomPayload, topoPayload, attrPayload, paramPayload, pointIdRemap, topCellIdsRemap,
+                       bottomCellIdRemap);
 
         CompressAndWritePayloads(geomPayload, topoPayload, attrPayload, paramPayload);
 
@@ -101,43 +99,35 @@ private:
     std::vector<std::pair<std::string, std::string>> m_report;
 
 
-// region caller
+    // region caller
     bool InitializeEncoder() {
         m_DataObj = GetInput(0);
-        if (!m_DataObj) {
-            return false;
-        }
+        if (!m_DataObj) { return false; }
 
         m_encodedData = EncodedMeshData::New();
         m_EncoderAdapter = new MeshEncoderAdapter(m_DataObj);
 
         InitParams();
 
-        if (m_hasUIControlParams) {
-            LoadUIControlParams(m_uiControlParams);
-        }
-        
+        if (m_hasUIControlParams) { LoadUIControlParams(m_uiControlParams); }
+
         InitAdjacencyScore();
         return true;
     }
 
-    void EncodePayloads(PayloadBuffer& geomPayload, PayloadBuffer& topoPayload, 
-                       PayloadBuffer& attrPayload, PayloadBuffer& paramPayload,
-                       std::vector<unsigned int>& pointIdRemap,
-                       std::vector<unsigned int>& topCellIdsRemap, 
-                       std::vector<unsigned int>& bottomCellIdRemap) {
-        
+    void EncodePayloads(PayloadBuffer& geomPayload, PayloadBuffer& topoPayload, PayloadBuffer& attrPayload,
+                        PayloadBuffer& paramPayload, std::vector<unsigned int>& pointIdRemap,
+                        std::vector<unsigned int>& topCellIdsRemap, std::vector<unsigned int>& bottomCellIdRemap) {
+
         this->GeomEncoder(geomPayload, pointIdRemap);
         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottomCellIdRemap);
         this->ParamsEncoder(paramPayload);
     }
 
-    void CompressAndWritePayloads(PayloadBuffer& geomPayload,
-                                 PayloadBuffer& topoPayload,
-                                 PayloadBuffer& attrPayload,
-                                 PayloadBuffer& paramPayload) {
-        
+    void CompressAndWritePayloads(PayloadBuffer& geomPayload, PayloadBuffer& topoPayload, PayloadBuffer& attrPayload,
+                                  PayloadBuffer& paramPayload) {
+
         int compressLevel = 1;
         int numThreads = ThreadPool::GetDefaultThreadCount();
 
@@ -150,14 +140,25 @@ private:
         ThreadPool* tp = ThreadPool::Instance();
         std::atomic<float> progress(0.8);
 
+        // LZMA compression (old implementation)
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+        // result.push_back(tp->Commit(
+        //         [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+
+        // ZSTD compression (new implementation)
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
         result.push_back(tp->Commit(
-                [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+                [&]() -> void { MeshCodecZSTD::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
 
         for (int i = 0; i < result.size(); i++) {
             result[i].wait();
@@ -177,11 +178,9 @@ private:
 
         auto calCR = [=]() -> void {
             long long sourceSize = -1;
-            
+
             auto fileSizeProperty = this->m_DataObj->GetPropertys()->GetProperty("FileSize");
-            if (fileSizeProperty) {
-                sourceSize = fileSizeProperty->Get<long long>();
-            }
+            if (fileSizeProperty) { sourceSize = fileSizeProperty->Get<long long>(); }
 
             if (sourceSize > 0) {
                 long long compressSize = m_encodedData->m_Buffers.size();
@@ -192,14 +191,12 @@ private:
             }
         };
 
-        if(m_showReport)
-            calCR();
+        if (m_showReport) calCR();
     }
-// endregion
+    // endregion
 
-// region I/O
-    void WriteBuf(const PayloadBuffer& buf)
-    {
+    // region I/O
+    void WriteBuf(const PayloadBuffer& buf) {
         uint32_t length = uint32_t(buf.size());
 
         // 计算总需要的字节数: 1字节类型 + 4字节长度 + payload数据
@@ -225,15 +222,13 @@ private:
         data[offset++] = static_cast<unsigned char>(length >> 0);
 
         // 写入 payload 数据
-        if (length > 0) {
-            std::memcpy(data + offset, buf.data(), length);
-        }
+        if (length > 0) { std::memcpy(data + offset, buf.data(), length); }
     }
 
     template<typename T>
     void AddErrorReport(const std::vector<T>& source, const std::vector<T>& quantized,
-                const FloatParameters& floatParams, const FloatErrorControlParameters& errorParams,
-                std::string dataName) {
+                        const FloatParameters& floatParams, const FloatErrorControlParameters& errorParams,
+                        std::string dataName) {
         if (m_showReport) {
             float keyError, nonKeyError;
             FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
@@ -248,9 +243,9 @@ private:
         }
     }
 
-// endregion
+    // endregion
 
-// region params control
+    // region params control
     void LoadUIControlParams(const UIControlParams& uiConParams) {
         m_showReport = uiConParams.showReport;
         m_codecParams.geomParams.lossyMode = uiConParams.errorBoundSetting[0].lossyMode;
@@ -277,11 +272,9 @@ private:
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
         // multiblock网格类型暂不支持
-        assert(this->m_codecParams.meshType == IG_SURFACE_MESH ||
-                this->m_codecParams.meshType == IG_VOLUME_MESH ||
-                this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
-                this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH ||
-                this->m_codecParams.meshType == IG_POINT_SET);
+        assert(this->m_codecParams.meshType == IG_SURFACE_MESH || this->m_codecParams.meshType == IG_VOLUME_MESH ||
+               this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
+               this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH || this->m_codecParams.meshType == IG_POINT_SET);
 
         // 点云特殊处理
         if (this->m_codecParams.meshType == IG_POINT_SET) {
@@ -322,9 +315,9 @@ private:
         this->m_codecParams.attrCount = this->m_codecParams.attrParams.size();
     }
 
-// endregion
+    // endregion
 
-// region main encoders
+    // region main encoders
     void ParamsEncoder(PayloadBuffer& payload) {
         ParametersWoAttr paramsWoAttr = static_cast<ParametersWoAttr>(this->m_codecParams);
         IGsize staticSize = sizeof(ParametersWoAttr);
@@ -347,19 +340,32 @@ private:
         IGsize pointCount = this->m_codecParams.geomParams.elementCount;
         IGsize pointBufferSize = pointCount * this->m_codecParams.geomParams.dimension; // 一个顶点3个维度
 
-        // 重映射
-        pointIdRemap.resize(pointCount);
-        meshopt_spatialSortRemap(pointIdRemap.data(), points->RawPointer(), pointCount, sizeof(Vector3f));
-
-        UpdateProgress(0.1);
-
-        // 部署重映射
         std::vector<float> remappedPointBuffer(pointBufferSize);
-        meshopt_remapVertexBuffer(remappedPointBuffer.data(), points->RawPointer(), pointCount, sizeof(Vector3f),
-                                  pointIdRemap.data());
 
-        // key重映射
-        if (!m_geomErrorControl.isKeyElement.empty()) {
+        // 结构化网格不做顶点重排序，保持原始顺序
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            // pointIdRemap保持为空，表示不需要重映射
+            pointIdRemap.clear();
+
+            // 直接复制原始顶点坐标
+            std::memcpy(remappedPointBuffer.data(), points->RawPointer(), pointBufferSize * sizeof(float));
+
+            UpdateProgress(0.1);
+        } else {
+            // 非结构化网格：进行顶点重排序优化
+            // 重映射
+            pointIdRemap.resize(pointCount);
+            meshopt_spatialSortRemap(pointIdRemap.data(), points->RawPointer(), pointCount, sizeof(Vector3f));
+
+            UpdateProgress(0.1);
+
+            // 部署重映射
+            meshopt_remapVertexBuffer(remappedPointBuffer.data(), points->RawPointer(), pointCount, sizeof(Vector3f),
+                                      pointIdRemap.data());
+        }
+
+        // key重映射 (仅非结构化网格需要)
+        if (!m_geomErrorControl.isKeyElement.empty() && !pointIdRemap.empty()) {
             std::vector<bool> remappedIsKey(pointCount, false);
 
             // 将原始关键元素标记转移到重映射后的位置
@@ -394,29 +400,45 @@ private:
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
 
         auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
-            size_t valueCount =
-                    params.dimension * (params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size());
-            remappedBuffer.resize(valueCount);
+            if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+                // 结构化网格：不需要重映射，直接复制原始数据
+                size_t valueCount = params.dimension * params.elementCount;
+                remappedBuffer.resize(valueCount);
 
-            size_t remappedElementCount = params.attachmentType == IG_POINT ? pointRemap.size() : topCellRemap.size();
-            std::vector<bool> remappedIskey(remappedElementCount, false);
-
-            ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
-                for (int j = start; j < end; j++) {
-                    igIndex remapIndex = params.attachmentType == IG_POINT ? pointRemap[j] : topCellRemap[j];
-
-                    // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
-
-                    for (int k = 0; k < params.dimension; k++) {
-                        remappedBuffer[remapIndex * params.dimension + k] =
-                                attrArray->GetValue(j * params.dimension + k);
+                ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedBuffer[j * params.dimension + k] = attrArray->GetValue(j * params.dimension + k);
+                        }
                     }
-                }
-            });
+                });
+                // isKeyElement保持不变，不需要重映射
+            } else {
+                // 非结构化网格：需要重映射
+                const auto& remapArray = params.attachmentType == IG_POINT ? pointRemap : topCellRemap;
+                size_t valueCount = params.dimension * remapArray.size();
+                remappedBuffer.resize(valueCount);
 
-            // 用 remap 后的 iskey 替换原始的 iskey
-            m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
+                size_t remappedElementCount = remapArray.size();
+                std::vector<bool> remappedIskey(remappedElementCount, false);
+
+                ThreadPool::parallelFor(0, params.elementCount, [&](int start, int end) -> void {
+                    for (int j = start; j < end; j++) {
+                        igIndex remapIndex = remapArray[j];
+
+                        // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
+                        if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
+
+                        for (int k = 0; k < params.dimension; k++) {
+                            remappedBuffer[remapIndex * params.dimension + k] =
+                                    attrArray->GetValue(j * params.dimension + k);
+                        }
+                    }
+                });
+
+                // 用 remap 后的 iskey 替换原始的 iskey
+                m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
+            }
         };
 
         std::mutex reportMutex;
@@ -431,11 +453,11 @@ private:
                 std::vector<double> remappedDoubleAttrBuffer;
 
                 if (attrParams.valueSize == sizeof(float)) {
-                    auto floatAttrArray = DynamicCast<FlatArray<float>>(attr.pointer);
-                    remapAttributeValues(floatAttrArray, remappedFloatAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedFloatAttrBuffer, attrParams, i);
                 } else {
-                    auto doubleAttrArray = DynamicCast<FlatArray<double>>(attr.pointer);
-                    remapAttributeValues(doubleAttrArray, remappedDoubleAttrBuffer, attrParams, i);
+                    // 直接使用attr.pointer，因为remapAttributeValues使用的是GetValue()虚函数
+                    remapAttributeValues(attr.pointer, remappedDoubleAttrBuffer, attrParams, i);
                 }
 
                 // 编码
@@ -483,6 +505,23 @@ private:
     ) {
         if (this->m_codecParams.meshType == IG_POINT_SET) {
             payload.resize(0);
+            UpdateProgress(0.4);
+            return;
+        }
+
+        // 结构化网格：不需要编码cell连接关系，只需axisSize即可自动生成
+        if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
+            // topCellRemap和bottomCellRemap保持为空
+            topCellRemap.clear();
+            bottomCellRemap.clear();
+
+            // 不编码cell buffer和offset，payload为空
+            payload.resize(0);
+            this->m_codecParams.topoParams.topCellBufferSize = 0;
+            this->m_codecParams.topoParams.topCellBufferBinaryCount = 0;
+            this->m_codecParams.topoParams.topCellSizeBinaryCount = 0;
+            this->m_codecParams.topoParams.cellTypeBinaryCount = 0;
+
             UpdateProgress(0.4);
             return;
         }
@@ -598,9 +637,9 @@ private:
         payload.resize(outputTopo.size());
         std::memcpy(payload.data(), outputTopo.data(), outputTopo.size());
     }
-// endregion
+    // endregion
 
-// region sub-encoders
+    // region sub-encoders
     // 和常规的delta encoder有点区别 产生的结果是每个cell的点的数量
     void DeltaEncoder(std::vector<uint32_t>& dest, std::vector<uint32_t> source) {
         IGsize destSize = source.size() - 1;
@@ -640,32 +679,29 @@ private:
         std::vector<std::vector<int>> threadRusult(
                 maxThreadSize); // 线程结果 按顺序存储了每个线程检测到的多个数据变换点的位置
 
-        ThreadPool::parallelFor(
-                0, sizeCount, maxThreadSize,
-                [&](int start, int end, int threadIndex) -> void {
-                    std::vector<int>& curResult = threadRusult[threadIndex];
+        ThreadPool::parallelFor(0, sizeCount, maxThreadSize, [&](int start, int end, int threadIndex) -> void {
+            std::vector<int>& curResult = threadRusult[threadIndex];
 
-                    // 找上一个block中最后一个值 判断是否本block的第一个值就是变换点
-                    bool isFirstValue = (start == 0);
-                    uint32_t prev;
+            // 找上一个block中最后一个值 判断是否本block的第一个值就是变换点
+            bool isFirstValue = (start == 0);
+            uint32_t prev;
 
-                    if (!isFirstValue) { prev = source[start - 1]; }
+            if (!isFirstValue) { prev = source[start - 1]; }
 
-                    for (int i = start; i < end; i++) {
-                        // 写入threadResult
-                        if (!isFirstValue && source[i] != prev) {
-                            curResult.push_back(i);
-                            prev = source[i];
-                        }
-                        if (isFirstValue) {
-                            curResult.push_back(0);
-                            prev = source[i];
+            for (int i = start; i < end; i++) {
+                // 写入threadResult
+                if (!isFirstValue && source[i] != prev) {
+                    curResult.push_back(i);
+                    prev = source[i];
+                }
+                if (isFirstValue) {
+                    curResult.push_back(0);
+                    prev = source[i];
 
-                            isFirstValue = false;
-                        }
-                    }
-                },
-                maxThreadSize);
+                    isFirstValue = false;
+                }
+            }
+        });
 
         std::vector<int> offset; // 方便遍历
         for (int i = 0; i < threadRusult.size(); i++) {
@@ -793,9 +829,9 @@ private:
             //this->m_Params.topoParams.cellSizeBinaryCount = encodeBuffer.size();
         }
     }
-// endregion
+    // endregion
 
-// region cache optimization
+    // region cache optimization
     // 下列与cache优化相关的代码改造自 meshoptimizer(license in thirdparty\meshoptimizer)
     static const size_t kCacheSizeMax = 16;
     static const size_t kValenceMax = 8;
@@ -1149,9 +1185,9 @@ private:
         assert(outputCell == cellCount);
     }
 
-// endregion
+    // endregion
 
-// region deprecated
+    // region deprecated
     // MeshLoomEncoder(std::string saveFilePath, DataObject::Pointer dataObj, UIControlParams uiConParams)
     //     : m_DataObj(dataObj), m_SaveFilePath(saveFilePath), m_EncoderAdapter(new MeshEncoderAdapter(dataObj)) {
     //     InitAdjacencyScore();
@@ -1159,131 +1195,131 @@ private:
     //     LoadUIControlParams(uiConParams);
     // }
 
-//     bool Execute() {
-//         // 尝试打开流
-//         if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
-//
-//         std::vector<unsigned int> pointIdRemap;
-//         std::vector<unsigned int> topCellIdsRemap, bottpmCellIdRemap;
-//
-//         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
-//         this->GeomEncoder(geomPayload, pointIdRemap);
-//
-//         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
-//         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-//
-//         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
-//         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
-//
-//         PayloadBuffer paramPayload(PayloadType::kParameterSet);
-//         this->ParamsEncoder(paramPayload);
-//
-//         // lzma
-//         int compressLevel = 1;
-//         int numThreads = ThreadPool::GetDefaultThreadCount();
-//
-//         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
-//         PayloadBuffer topoCompressed(PayloadType::kTopologyBrick);
-//         PayloadBuffer attrCompressed(PayloadType::kAttributeBrick);
-//         PayloadBuffer paramCompressed(PayloadType::kParameterSet);
-//
-//         std::vector<std::future<void>> result;
-//         ThreadPool* tp = ThreadPool::Instance();
-//
-//         std::atomic<float> progress(0.8);
-//
-//         result.push_back(tp->Commit(
-//                 [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
-//         result.push_back(tp->Commit(
-//                 [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
-//         result.push_back(tp->Commit(
-//                 [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
-//         result.push_back(tp->Commit(
-//                 [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
-//
-//         for (int i = 0; i < result.size(); i++) {
-//             result[i].wait();
-//             progress += 0.04;
-//             UpdateProgress(progress); // 似乎不支持多线程
-//         }
-//
-//         //WriteBuf(paramPayload, this->m_BytestreamFile); // 必须先写参数信息
-//         //WriteBuf(geomPayload, this->m_BytestreamFile);
-//         //WriteBuf(topoPayload, this->m_BytestreamFile);
-//         //WriteBuf(attrPayload, this->m_BytestreamFile);
-//
-//         WriteBuf(paramCompressed, this->m_BytestreamFile); // 必须先写参数信息
-//         WriteBuf(geomCompressed, this->m_BytestreamFile);
-//         WriteBuf(topoCompressed, this->m_BytestreamFile);
-//         WriteBuf(attrCompressed, this->m_BytestreamFile);
-//
-//         UpdateProgress(1.0);
-//         closeStream();
-//
-//         //std::vector<char> input(geomPayload.begin(), geomPayload.end());
-//         //std::vector<char> result;
-//         //MeshCodecLZMA::Compress(result, input, 10, 12);
-//
-//         //PayloadBuffer output;
-//
-//         //int ret = MeshCodecLZMA::Decompress(output, result);
-//
-//         //        auto calBpv = [=]() -> void {
-//         //            int geomSize = geomCompressed.size();
-//         //            int topoSize = topoCompressed.size();
-//         //            int attrSize = attrCompressed.size();
-//         //            int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
-//         //
-//         //            float geomBpv = geomSize * 8.0 / pointCount;
-//         //            float topoBpv = topoSize * 8.0 / pointCount;
-//         //            float attrBpv = attrSize * 8.0 / pointCount;
-//         //            float totalBpv = geomBpv + topoBpv + attrBpv;
-//         //
-//         //            std::cout << "Geom BPV: " << geomBpv << std::endl;
-//         //            std::cout << "Topo BPV: " << topoBpv << std::endl;
-//         //            std::cout << "Attr BPV: " << attrBpv << std::endl;
-//         //            std::cout << "Total BPV: " << totalBpv << std::endl;
-//         //
-//         //            this->m_UIconParams.cpStaResult->push_back("顶点坐标BPV: " + std::to_string(geomBpv));
-//         //            this->m_UIconParams.cpStaResult->push_back("拓扑BPV: " + std::to_string(topoBpv));
-//         //            this->m_UIconParams.cpStaResult->push_back("属性BPV: " + std::to_string(attrBpv));
-//         //            this->m_UIconParams.cpStaResult->push_back("综合BPV: " + std::to_string(totalBpv));
-//         //        };
-//         //
-//         auto calCR = [=]() -> void {
-//             long long sourceSize = -1;
-//
-// #ifdef _WIN32
-//             WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-//             auto filePath = this->m_DataObj->GetPropertys()->GetProperty("FilePath")->Get<std::string>();
-//             if (GetFileAttributesEx(filePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
-//                 LARGE_INTEGER size;
-//                 size.HighPart = fileInfo.nFileSizeHigh;
-//                 size.LowPart = fileInfo.nFileSizeLow;
-//                 sourceSize = size.QuadPart;
-//             } else {
-//                 sourceSize = -1;
-//             }
-// #else
-//             struct stat stat_buf;
-//             int rc = stat(filePath.c_str(), &stat_buf);
-//             sourceSize = (rc == 0 ? stat_buf.st_size : -1);
-// #endif
-//
-//             if (sourceSize != -1) {
-//                 long long compressSize =
-//                         geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
-//                 double cr = compressSize * 1.0 / sourceSize;
-//                 std::cout << "compress rate: " << cr << std::endl;
-//
-//                 m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
-//             }
-//         };
-//
-//         if(m_showReport)
-//             calCR();
-//         return true;
-//     }
+    //     bool Execute() {
+    //         // 尝试打开流
+    //         if (!m_SaveFilePath.empty() && !this->OpenStream(m_SaveFilePath)) { return false; }
+    //
+    //         std::vector<unsigned int> pointIdRemap;
+    //         std::vector<unsigned int> topCellIdsRemap, bottpmCellIdRemap;
+    //
+    //         PayloadBuffer geomPayload(PayloadType::kGeometryBrick);
+    //         this->GeomEncoder(geomPayload, pointIdRemap);
+    //
+    //         PayloadBuffer topoPayload(PayloadType::kTopologyBrick);
+    //         this->TopoEncoder(topoPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+    //
+    //         PayloadBuffer attrPayload(PayloadType::kAttributeBrick);
+    //         this->AttrEncoder(attrPayload, pointIdRemap, topCellIdsRemap, bottpmCellIdRemap);
+    //
+    //         PayloadBuffer paramPayload(PayloadType::kParameterSet);
+    //         this->ParamsEncoder(paramPayload);
+    //
+    //         // lzma
+    //         int compressLevel = 1;
+    //         int numThreads = ThreadPool::GetDefaultThreadCount();
+    //
+    //         PayloadBuffer geomCompressed(PayloadType::kGeometryBrick);
+    //         PayloadBuffer topoCompressed(PayloadType::kTopologyBrick);
+    //         PayloadBuffer attrCompressed(PayloadType::kAttributeBrick);
+    //         PayloadBuffer paramCompressed(PayloadType::kParameterSet);
+    //
+    //         std::vector<std::future<void>> result;
+    //         ThreadPool* tp = ThreadPool::Instance();
+    //
+    //         std::atomic<float> progress(0.8);
+    //
+    //         result.push_back(tp->Commit(
+    //                 [&]() -> void { MeshCodecLZMA::Compress(geomCompressed, geomPayload, compressLevel, numThreads); }));
+    //         result.push_back(tp->Commit(
+    //                 [&]() -> void { MeshCodecLZMA::Compress(topoCompressed, topoPayload, compressLevel, numThreads); }));
+    //         result.push_back(tp->Commit(
+    //                 [&]() -> void { MeshCodecLZMA::Compress(attrCompressed, attrPayload, compressLevel, numThreads); }));
+    //         result.push_back(tp->Commit(
+    //                 [&]() -> void { MeshCodecLZMA::Compress(paramCompressed, paramPayload, compressLevel, numThreads); }));
+    //
+    //         for (int i = 0; i < result.size(); i++) {
+    //             result[i].wait();
+    //             progress += 0.04;
+    //             UpdateProgress(progress); // 似乎不支持多线程
+    //         }
+    //
+    //         //WriteBuf(paramPayload, this->m_BytestreamFile); // 必须先写参数信息
+    //         //WriteBuf(geomPayload, this->m_BytestreamFile);
+    //         //WriteBuf(topoPayload, this->m_BytestreamFile);
+    //         //WriteBuf(attrPayload, this->m_BytestreamFile);
+    //
+    //         WriteBuf(paramCompressed, this->m_BytestreamFile); // 必须先写参数信息
+    //         WriteBuf(geomCompressed, this->m_BytestreamFile);
+    //         WriteBuf(topoCompressed, this->m_BytestreamFile);
+    //         WriteBuf(attrCompressed, this->m_BytestreamFile);
+    //
+    //         UpdateProgress(1.0);
+    //         closeStream();
+    //
+    //         //std::vector<char> input(geomPayload.begin(), geomPayload.end());
+    //         //std::vector<char> result;
+    //         //MeshCodecLZMA::Compress(result, input, 10, 12);
+    //
+    //         //PayloadBuffer output;
+    //
+    //         //int ret = MeshCodecLZMA::Decompress(output, result);
+    //
+    //         //        auto calBpv = [=]() -> void {
+    //         //            int geomSize = geomCompressed.size();
+    //         //            int topoSize = topoCompressed.size();
+    //         //            int attrSize = attrCompressed.size();
+    //         //            int pointCount = this->m_EncoderAdapter->GetNumberOfPoints();
+    //         //
+    //         //            float geomBpv = geomSize * 8.0 / pointCount;
+    //         //            float topoBpv = topoSize * 8.0 / pointCount;
+    //         //            float attrBpv = attrSize * 8.0 / pointCount;
+    //         //            float totalBpv = geomBpv + topoBpv + attrBpv;
+    //         //
+    //         //            std::cout << "Geom BPV: " << geomBpv << std::endl;
+    //         //            std::cout << "Topo BPV: " << topoBpv << std::endl;
+    //         //            std::cout << "Attr BPV: " << attrBpv << std::endl;
+    //         //            std::cout << "Total BPV: " << totalBpv << std::endl;
+    //         //
+    //         //            this->m_UIconParams.cpStaResult->push_back("顶点坐标BPV: " + std::to_string(geomBpv));
+    //         //            this->m_UIconParams.cpStaResult->push_back("拓扑BPV: " + std::to_string(topoBpv));
+    //         //            this->m_UIconParams.cpStaResult->push_back("属性BPV: " + std::to_string(attrBpv));
+    //         //            this->m_UIconParams.cpStaResult->push_back("综合BPV: " + std::to_string(totalBpv));
+    //         //        };
+    //         //
+    //         auto calCR = [=]() -> void {
+    //             long long sourceSize = -1;
+    //
+    // #ifdef _WIN32
+    //             WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+    //             auto filePath = this->m_DataObj->GetPropertys()->GetProperty("FilePath")->Get<std::string>();
+    //             if (GetFileAttributesEx(filePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
+    //                 LARGE_INTEGER size;
+    //                 size.HighPart = fileInfo.nFileSizeHigh;
+    //                 size.LowPart = fileInfo.nFileSizeLow;
+    //                 sourceSize = size.QuadPart;
+    //             } else {
+    //                 sourceSize = -1;
+    //             }
+    // #else
+    //             struct stat stat_buf;
+    //             int rc = stat(filePath.c_str(), &stat_buf);
+    //             sourceSize = (rc == 0 ? stat_buf.st_size : -1);
+    // #endif
+    //
+    //             if (sourceSize != -1) {
+    //                 long long compressSize =
+    //                         geomCompressed.size() + topoCompressed.size() + attrCompressed.size() + paramCompressed.size();
+    //                 double cr = compressSize * 1.0 / sourceSize;
+    //                 std::cout << "compress rate: " << cr << std::endl;
+    //
+    //                 m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
+    //             }
+    //         };
+    //
+    //         if(m_showReport)
+    //             calCR();
+    //         return true;
+    //     }
 
 
     /*

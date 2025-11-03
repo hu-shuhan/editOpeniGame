@@ -14,11 +14,13 @@
 #include "iGamePointSet.h"
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
+#include "Spline XML/iGameSplineReaderGPU.h"
 #include "Spline XML/iGameSplineSurfaceReader.h"
 #include "Spline XML/iGameSplineVolumeReader.h"
 #endif
 #include "Abaqus/iGameODBReader.h"
 #include "Client.h"
+#include "Nastran/iGameNastranReader.h"
 #include "Sever.h"
 #include "Spline XML/iGameSplineReaderCPU.h"
 
@@ -50,12 +52,13 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
-                           "Compression file(*.igc)"};
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
     QString selectedFilter;
     std::string filePath =
             QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
@@ -68,26 +71,41 @@ void igQtFileLoader::LoadOnlineC() {
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
+                           "*.vtm *.cgns *.odb *.igc *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
+#if defined(AbqSDK_ENABLE)
                            "ABAQUS file(*.odb)",
+#endif
                            "Spline file(*.xml)",
-                           "Compression file(*.igc)"};
-    QString selectedFilter;
-    std::string filePath =
-            QFileDialog::getOpenFileName(nullptr, "Load file", "", filters.join(";;"), &selectedFilter).toStdString();
-    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
 
+#if defined(NASTRAN_ENABLE)
+                           "Nastran file(*.bdf *.op2)",
+#endif
+                           "Compression file(*.igc)",
+                           "Fluent file(*.cas)"};
+    QString selectedFilter;
+    QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
+
+    if (filePath.isEmpty()) { return; }
+
+    auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
     switch (selected_idx) {
         case FileType::Spline:
-            this->OpenSplineFile(filePath);
+            this->OpenSplineFile(filePath[0].toStdString());
             break;
+#if defined(AbqSDK_ENABLE)
         case FileType::ABAQUS:
-            this->OpenODBFile(filePath);
+            this->OpenODBFile(filePath[0].toStdString());
             break;
+#endif
+#if defined(NASTRAN_ENABLE)
+        case FileType::BDF:
+            this->OpenNastranFile(filePath);
+            break;
+#endif
         default:
-            this->OpenFile(filePath);
+            this->OpenFile(filePath[0].toStdString());
             break;
     }
 }
@@ -145,7 +163,6 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath) {
 }
 
 void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
-
     using namespace iGame;
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return;
     igQtSplineOptionDialog dialog;
@@ -154,32 +171,47 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     SplineType readerType;
     if (dialog.exec() == QDialog::Accepted) {
         readerType = dialog.getDialogOutput();
-    } else
+    } else {
         return;
+    }
 
 #if defined(GPSCUDA_ENABLE)
     DataObject::Pointer obj = nullptr;
     switch (readerType) {
-        case SplineType::BSplineSurface: {
-            SplineSurfaceReader::Pointer reader = SplineSurfaceReader::New();
+        case SplineType::BSplineSurfaceCPU: {
+            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
             reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(true);
             reader->Execute();
             obj = reader->GetOutput();
             break;
         }
-        case SplineType::BSplineVolume: {
-            SplineVolumeReader::Pointer reader = SplineVolumeReader::New();
+        case SplineType::BSplineVolumeCPU: {
+            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
             reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(false);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        case SplineType::BSplineSurfaceGPU: {
+            SplineReaderGPU::Pointer reader = SplineReaderGPU::New();
+            reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(true);
+            reader->Execute();
+            obj = reader->GetOutput();
+            break;
+        }
+        case SplineType::BSplineVolumeGPU: {
+            SplineReaderGPU::Pointer reader = SplineReaderGPU::New();
+            reader->SetFilePath(filePath);
+            reader->SetSurfaceRenderForVolume(false);
             reader->Execute();
             obj = reader->GetOutput();
             break;
         }
         default:
-            SplineReaderCPU::Pointer reader = SplineReaderCPU::New();
-            reader->SetFilePath(filePath);
-            reader->Execute();
-            obj = reader->GetOutput();
-            break;
+            igDebug("Spline file type not process.");
     }
     if (obj == nullptr) {
         igDebug("This file read error.");
@@ -216,6 +248,94 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     emit FinishReading();
 #endif
 }
+void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
+#if defined(NASTRAN_ENABLE)
+    // --- 校验阶段 ---
+
+    // 规则：检查是否为空
+    if (fileNames.isEmpty()) {
+        return; // 没有文件，安静地返回
+    }
+
+    // 规则：检查是否多于两个文件
+    if (fileNames.size() > 2) {
+        // QWidget* parent = this; // 如果 igQtFileLoader 继承自 QWidget，使用 'this' 作为父窗口更好
+        QMessageBox::warning(nullptr, "文件过多",
+                             "您一次最多只能选择两个文件（一个 .bdf 模型文件和一个 .op2 结果文件）。");
+        return;
+    }
+
+    QString bdfPath = "";
+    QString op2Path = "";
+
+    // 规则：检查只有一个文件的情况
+    if (fileNames.size() == 1) {
+        const QString& filePath = fileNames.first();
+        QFileInfo fileInfo(filePath);
+        // 使用 .toLower() 确保后缀名比较时不区分大小写 (例如 .BDF 也能识别)
+        QString suffix = fileInfo.suffix().toLower();
+
+        if (suffix == "bdf") {
+            // 唯一允许的情况：只有一个文件，且是 bdf
+            bdfPath = filePath;
+            // op2Path 保持为空
+        } else if (suffix == "op2") {
+            // 错误：只选了一个 op2 文件
+            QMessageBox::warning(nullptr, "文件选择错误",
+                                 "您只选择了一个 OP2 (结果) 文件。请至少选择一个 BDF (模型) 文件。");
+            return;
+        } else {
+            // 错误：选了其他类型的文件
+            QMessageBox::warning(nullptr, "文件类型错误", "您必须选择一个 .bdf 文件。");
+            return;
+        }
+    }
+    // 规则：检查有两个文件的情况
+    else if (fileNames.size() == 2) {
+        QFileInfo file1(fileNames[0]);
+        QFileInfo file2(fileNames[1]);
+
+        QString suffix1 = file1.suffix().toLower();
+        QString suffix2 = file2.suffix().toLower();
+
+        // 检查是否为一个 bdf 和一个 op2 的组合
+        if (suffix1 == "bdf" && suffix2 == "op2") {
+            bdfPath = fileNames[0];
+            op2Path = fileNames[1];
+        } else if (suffix1 == "op2" && suffix2 == "bdf") {
+            bdfPath = fileNames[1];
+            op2Path = fileNames[0];
+        } else {
+            // 错误：不是 bdf + op2 的组合 (例如 两个bdf, 或一个bdf一个txt)
+            QMessageBox::warning(nullptr, "文件组合错误",
+                                 "您选择了两个文件，但它们必须是一个 .bdf 文件和一个 .op2 文件。");
+            return;
+        }
+    }
+
+    // --- 执行阶段 ---
+    iGame::NastranReader::Pointer reader = iGame::NastranReader::New();
+    reader->SetBDFFileName(bdfPath.toStdString());
+    if (!op2Path.isEmpty()) reader->SetOP2FileName(op2Path.toStdString());
+    reader->Execute();
+    DataObject::Pointer obj = reader->GetOutput();
+
+    if (obj == nullptr) {
+        igDebug("This file read error.");
+        return;
+    }
+    auto filePath = bdfPath.toStdString();
+    auto filename = filePath.substr(filePath.find_last_of('/') + 1);
+    obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+
+    this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+    emit NewModel(obj, ItemSource::File);
+    emit FinishReading();
+
+#endif
+}
+
 
 void igQtFileLoader::SaveFile() {
     //auto currentModel = iGame::iGameManager::Instance()->GetCurrentModel();

@@ -1,5 +1,8 @@
 #include "iGameDataObject.h"
+#include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
+#include "iGameUnstructuredMesh.h"
+#include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
@@ -10,6 +13,12 @@ DataObject::Pointer DataObject::CreateDataObject(IGenum type) {
             return PointSet::New();
         case IG_SURFACE_MESH:
             return SurfaceMesh::New();
+        case IG_VOLUME_MESH:
+            return VolumeMesh::New();
+        case IG_STRUCTURED_MESH:
+            return StructuredMesh::New();
+        case IG_UNSTRUCTURED_MESH:
+            return UnstructuredMesh::New();
         default:
             return nullptr;
     }
@@ -21,9 +30,7 @@ DataObject::Pointer DataObject::GetSubDataObject(DataObjectId id) {
 }
 
 DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
-    if (m_SubDataObjectsHelper == nullptr) {
-        m_SubDataObjectsHelper = SubDataObjectsHelper::New();
-    }
+    if (m_SubDataObjectsHelper == nullptr) { m_SubDataObjectsHelper = SubDataObjectsHelper::New(); }
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
 
@@ -60,26 +67,18 @@ int DataObject::GetNumberOfSubDataObjects() noexcept {
     return m_SubDataObjectsHelper->GetNumberOfSubDataObjects();
 }
 
-DataObject::SubIterator DataObject::SubDataObjectIteratorBegin() {
-    return m_SubDataObjectsHelper->Begin();
-}
+DataObject::SubIterator DataObject::SubDataObjectIteratorBegin() { return m_SubDataObjectsHelper->Begin(); }
 
-DataObject::SubConstIterator DataObject::SubDataObjectIteratorBegin() const {
-    return m_SubDataObjectsHelper->Begin();
-}
+DataObject::SubConstIterator DataObject::SubDataObjectIteratorBegin() const { return m_SubDataObjectsHelper->Begin(); }
 
-DataObject::SubIterator DataObject::SubDataObjectIteratorEnd() {
-    return m_SubDataObjectsHelper->End();
-}
+DataObject::SubIterator DataObject::SubDataObjectIteratorEnd() { return m_SubDataObjectsHelper->End(); }
 
 DataObject* DataObject::FindParent() {
     if (m_Parent != nullptr) { return m_Parent->FindParent(); }
     return this;
 }
 
-DataObject::SubConstIterator DataObject::SubDataObjectIteratorEnd() const {
-    return m_SubDataObjectsHelper->End();
-}
+DataObject::SubConstIterator DataObject::SubDataObjectIteratorEnd() const { return m_SubDataObjectsHelper->End(); }
 
 DataObjectId DataObject::GetIncrementDataObjectId() {
     static DataObjectId globalDataObjectId = 0;
@@ -124,37 +123,34 @@ int DataObject::GetAttributeIndex() { return this->m_AttributeIndex; }
 int DataObject::GetAttributeDimension() { return this->m_AttributeDimension; }
 
 
-
 StreamingData::Pointer DataObject::GetTimeFrames() {
     if (m_TimeFrames == nullptr) m_TimeFrames = StreamingData::New();
     return m_TimeFrames;
 }
 
 DeformationData::Pointer DataObject::GetDeformationData() {
-    if (nullptr == m_DeformationData) {
-        m_DeformationData = DeformationData::New();
-    }
+    if (nullptr == m_DeformationData) { m_DeformationData = DeformationData::New(); }
     return m_DeformationData;
 }
 
 bool DataObject::UpdateSubDataObjectDataRange() {
     /* Update SubDataObject's DataRange to Global DataRange and ReConvert Drawable data. */
-    if(m_SubDataObjectsHelper == nullptr) return false;
+    if (m_SubDataObjectsHelper == nullptr) return false;
     auto attributes = this->GetAttributeSet()->GetAllAttributes();
-    for(auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++ it){
-        if(!it->second->IsDrawable()) continue;
+    for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
+        if (!it->second->IsDrawable()) continue;
         const auto& obj = DynamicCast<DrawObject>(it->second);
-        const auto& display_obj = obj->GetDisplayObject();
+        const auto& display_obj = obj->GetRenderableObject();
 
-        for(int i = 0; i < attributes->GetNumberOfElements(); i ++){
+        for (int i = 0; i < attributes->GetNumberOfElements(); i++) {
             auto& par = attributes->GetElement(i);
-            if(par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()){
+            if (par.dataRange == nullptr || par.dataRange->GetMTime() < par.pointer->GetMTime()) {
                 par.UpdateAllDataRange();
             }
             obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
 
             /* Process Display mesh's DataRange. */
-            if(display_obj != nullptr) display_obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
+            if (display_obj != nullptr) display_obj->GetAttributeSet()->GetAttribute(i).dataRange = par.GetDataRange();
         }
         obj->ConvertToDrawableData();
     }
@@ -163,30 +159,28 @@ bool DataObject::UpdateSubDataObjectDataRange() {
 
 bool DataObject::ReCollectSubDataObjectDataRange() {
     /* Update SubDataObject's DataRange to Global DataRange and ReConvert Drawable data. */
-    if(m_SubDataObjectsHelper == nullptr) return false;
+    if (m_SubDataObjectsHelper == nullptr) return false;
     auto attributes = this->GetAttributeSet()->GetAllAttributes();
-    for(IGsize k = 0; k < attributes->GetNumberOfElements(); k ++){
-        double dataRange_max[64]{DBL_MIN}, dataRange_min[64] {DBL_MAX};
+    for (IGsize k = 0; k < attributes->GetNumberOfElements(); k++) {
+        double dataRange_max[64]{DBL_MIN}, dataRange_min[64]{DBL_MAX};
         auto par_attr = attributes->GetElement(k);
         int dim = par_attr.pointer->GetDimension();
-        for(auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++ it){
-                if(!it->second->IsDrawable()) continue;
-                const auto& obj = DynamicCast<DrawObject>(it->second);
-                const auto& display_obj = obj->GetDisplayObject();
-                auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
-                subAttribute.UpdateAllDataRange();
-                const auto& ScalarDataRange = subAttribute.GetDataRange();
-                for(int j = 0; j < subAttribute.pointer->GetDimension() + 1; j ++){
-                    dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
-                    dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
-                }
+        for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
+            if (!it->second->IsDrawable()) continue;
+            const auto& obj = DynamicCast<DrawObject>(it->second);
+            const auto& display_obj = obj->GetRenderableObject();
+            auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
+            subAttribute.UpdateAllDataRange();
+            const auto& ScalarDataRange = subAttribute.GetDataRange();
+            for (int j = 0; j < subAttribute.pointer->GetDimension() + 1; j++) {
+                dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
+                dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
+            }
         }
         DoubleArray::Pointer parent_dataRange = DoubleArray::New();
         parent_dataRange->SetDimension(2);
         parent_dataRange->Resize(dim + 1);
-        for(int j = 0; j < dim + 1; j ++){
-            parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
-        }
+        for (int j = 0; j < dim + 1; j++) { parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]}); }
         par_attr.SetDataRange(parent_dataRange);
     }
 
@@ -194,28 +188,26 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
 }
 
 void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
-        m_Attributes = p;
-        m_AttributeHelper->Modified();
+    m_Attributes = p;
+    m_AttributeHelper->Modified();
 }
 
 void DataObject::UpdateAnimation(int keyframe_idx) {
-    if(this->GetTimeFrames() == nullptr || this->GetTimeFrames()->GetTimeNum() <= keyframe_idx) return;
+    if (this->GetTimeFrames() == nullptr || this->GetTimeFrames()->GetTimeNum() <= keyframe_idx) return;
     auto timeFrameType = this->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
     auto timeFrameData = this->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
-    if(timeFrameType == StreamingType::MultiSubFiles){
+    if (timeFrameType == StreamingType::MultiSubFiles) {
         this->ClearSubDataObject();
-        for(auto& subObj : timeFrameData){
+        for (auto& subObj: timeFrameData) {
             auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
-            if(subDataObj){
-                this->AddSubDataObject(subDataObj);
-            }
+            if (subDataObj) { this->AddSubDataObject(subDataObj); }
         }
-    } else if(timeFrameType == StreamingType::SingleFieldAttributes){
+    } else if (timeFrameType == StreamingType::SingleFieldAttributes) {
         auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
-        if(attributeSet){
+        if (attributeSet) {
             this->SetAttributeSet(attributeSet);
             DynamicCast<iGame::PointSet>(this)->GetPoints()->Modified();
-            if(this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
+            if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
         }
     }
     this->ReCollectSubDataObjectDataRange();

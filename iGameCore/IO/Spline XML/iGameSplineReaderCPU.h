@@ -6,7 +6,7 @@
 #pragma once
 
 #include "SplineUtils/MultiGeo.h"
-#include "iGameNurbsGeometry.h"
+#include "iGameSplineGeometry.h"
 #include <XML/iGameXMLFileReader.h>
 
 IGAME_NAMESPACE_BEGIN
@@ -15,6 +15,10 @@ public:
     I_OBJECT(SplineReaderCPU)
     static Pointer New() { return new SplineReaderCPU; }
 
+    inline void SetSurfaceRenderForVolume(bool surfaceRenderForVolume) {
+        m_SurfaceRenderForVolume = surfaceRenderForVolume;
+    }
+
 protected:
     SplineReaderCPU();
     ~SplineReaderCPU() override;
@@ -22,7 +26,8 @@ protected:
     bool Parsing() override;
     bool CreateDataObject() override;
 
-    SplineUtils::Type m_NurbsType;
+    SplineUtils::Type m_SplineType;
     std::vector<SplineUtils::Geometry> m_Patchs;
+    bool m_SurfaceRenderForVolume = false;
 };
 IGAME_NAMESPACE_END

@@ -26,6 +26,7 @@ public:
 	void OpenFile(const std::string& fileName);
     void OpenSplineFile(const std::string& fileName);
     void OpenODBFile(const std::string& fileName);
+    void OpenNastranFile(const QStringList& fileNames);
 	void SaveFile();
 	void SaveFileAs();
 	void SaveCurrentFileToRecentFile(QString file_name);

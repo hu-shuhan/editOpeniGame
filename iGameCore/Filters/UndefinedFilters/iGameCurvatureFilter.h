@@ -50,20 +50,20 @@ public:
             }break;
             case IG_VOLUME_MESH: {
                 return false;
-                volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (volume_Mesh) {
-                    surface_Mesh = DynamicCast<SurfaceMesh>(
-                            volume_Mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
-                                                              curvatures);
-                }
+                // volume_Mesh = DynamicCast<VolumeMesh>(input);
+                // if (volume_Mesh) {
+                //     surface_Mesh = DynamicCast<SurfaceMesh>(
+                //             volume_Mesh->GetDisplayObject());
+                //     if (!surface_Mesh) return false;
+                //
+                //     if (!CheckType()) return false;
+                //
+                //     FloatArray::Pointer curvatures = FloatArray::New();
+                //     curvatures->SetDimension(2);
+                //     curvatures->SetName("curvatures");
+                //     volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                //                                               curvatures);
+                // }
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -76,16 +76,16 @@ public:
 
                 if (volume_Mesh) {
                     return false;
-                    surface_Mesh =
-                            DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
+                    // surface_Mesh =
+                    //         DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    // if (!surface_Mesh) return false;
+                    //
+                    // if (!CheckType()) return false;
+                    //
+                    // FloatArray::Pointer curvatures = FloatArray::New();
+                    // curvatures->SetDimension(2);
+                    // curvatures->SetName("curvatures");
+                    // mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
                 }
             } break;
             default:
@@ -184,7 +184,14 @@ public:
         return c / s;
     };
 
+    int progress = 0;
+    int block = std::max(1, nF / 100);
+
     for (int f = 0; f < nF; ++f) {
+        if (f >= block * progress) {
+            UpdateProgress(progress * 0.01);
+            progress++;
+        }
         auto face = surface_Mesh->GetFace(f);
         int m = face->GetNumberOfPoints();
         if (m < 3) continue;
@@ -253,6 +260,9 @@ public:
         if (mixArea[i] <= 1e-20) mixArea[i] = 1e-20;
     }
 
+    std::vector<double> H_values(nV);
+    std::vector<double> K_values(nV);
+
     const double twoPi = 2.0 * M_PI;
     for (int i = 0; i < nV; ++i) {
         double H = Hn[i].norm() / (4.0 * mixArea[i]);
@@ -265,11 +275,48 @@ public:
         double kmax = H + sqrt_disc;
         double kmin = H - sqrt_disc;
 
+        H_values[i] = H;
+        K_values[i] = K;
+
         // 一：(k1 + k2)/2 = H
         // 二：k1 * k2   = K
+        // curv_mean->AddValue(H);
+        // curv_gaussian->AddValue(K);
+    }
+    double H_mean = 0.0, K_mean = 0.0;
+    for (int i = 0; i < nV; ++i) {
+        H_mean += H_values[i];
+        K_mean += K_values[i];
+    }
+    H_mean /= nV;
+    K_mean /= nV;
+
+    double H_std = 0.0, K_std = 0.0;
+    for (int i = 0; i < nV; ++i) {
+        H_std += (H_values[i] - H_mean) * (H_values[i] - H_mean);
+        K_std += (K_values[i] - K_mean) * (K_values[i] - K_mean);
+    }
+    H_std = std::sqrt(H_std / nV);
+    K_std = std::sqrt(K_std / nV);
+
+    double H_threshold = 3.0 * H_std;
+    double K_threshold = 0.8 * K_std;
+
+    for (int i = 0; i < nV; ++i) {
+        double H = H_values[i];
+        double K = K_values[i];
+
+        if (std::abs(H - H_mean) > H_threshold)
+            H = H_mean + (H - H_mean) / std::abs(H - H_mean) * H_threshold;
+
+        if (std::abs(K - K_mean) > K_threshold)
+            K = K_mean + (K - K_mean) / std::abs(K - K_mean) * K_threshold;
+
+            // 一：(k1 + k2)/2 = H
+            // 二：k1 * k2   = K
         curv_mean->AddValue(H);
         curv_gaussian->AddValue(K);
-    }
+        }
 
     UpdateProgress(1.0);
     return true;
@@ -295,7 +342,6 @@ double GetArea(Vector3d a, Vector3d b, Vector3d c) {
             return mesh;
         }
     }
-
     auto attrbs = mesh->GetAttributeSet();
 
     CellArray::Pointer Faces = CellArray::New();

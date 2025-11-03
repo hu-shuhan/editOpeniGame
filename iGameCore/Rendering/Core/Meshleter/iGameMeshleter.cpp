@@ -1,4 +1,6 @@
 #include "iGameMeshleter.h"
+
+#include "iGameDrawObject.h"
 //#include <format>
 
 IGAME_NAMESPACE_BEGIN
@@ -49,9 +51,10 @@ void Meshleter::SyncGpuBuffers() {
     IGAME_RENDERING_ERROR("The OpenGL330 version does not support meshleter "
                           "accelerated rendering function");
 #else
-    if (m_DataObject && m_DataObject->GetMTime() > this->GetMTime()) {
-        Build();
-    }
+    if (!m_DataObject) { return; }
+
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (drawObject->m_Positions->GetMTime() > this->GetMTime()) { Build(); }
 #endif
 }
 

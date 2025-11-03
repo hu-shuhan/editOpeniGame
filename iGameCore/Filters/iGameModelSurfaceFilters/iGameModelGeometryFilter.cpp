@@ -508,7 +508,7 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, 
     igIndex64 numInputPts = Grid->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
     auto inPoints = Grid->GetPoints();
-    auto outPoints = inPoints;
+    auto outPoints = Points::New();
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
     StringArray::Pointer attrbNameArray = StringArray::New();
@@ -517,13 +517,13 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, 
     char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetFaces());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
-    if (!CellVisible) { return 0; }
+    if ((!CellVisible) && (Merging == false)) { return 0; }
     std::vector<igIndex> f2c;
     auto Faces = Grid->GetFaces();
     igIndex vcnt;
     igIndex vhs[IGAME_CELL_MAX_SIZE];
     for (i = 0; i < numCells; i++) {
-        if (CellVisible[i]) {
+        if (!CellVisible || CellVisible[i]) {
             vcnt = Faces->GetCellIds(i, vhs);
             Polygons->AddCellIds(vhs, vcnt);
             f2c.emplace_back(i);
@@ -532,6 +532,14 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, 
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
     for (i = 0; i < outAllDataArray->GetAllAttributes().GetPointer()->Size(); i++) {
         attrbNameArray->AddElement(outAllDataArray->GetAttribute(i).pointer.get()->GetName());
+    }
+    if (Merging) {
+        auto* extract = new ExtractCellBoundaries(nullptr,nullptr,nullptr);
+        extract->CreatePointMap(numInputPts);
+        ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
+        delete extract;
+    } else {
+        m_PointMap = nullptr;
     }
     output->SetPoints(outPoints);
     output->SetFaces(Polygons);

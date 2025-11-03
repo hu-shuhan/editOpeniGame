@@ -3,7 +3,7 @@
 #include "Eigen/Eigenvalues"
 #include "iGameFilter.h"
 #include "iGamePointSet.h"
-#include "iGameStreamTracer.h"
+// #include "iGameStreamTracer.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameThreadPool.h"
 #include "iGameUnstructuredMesh.h"
@@ -194,8 +194,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     int NumPoints = Mesh->GetNumberOfPoints();
 
-    ArrayObject::Pointer Data = Attributes->GetAttribute(Index).pointer;
-
+    std::vector<float> predict_vals(NumPoints, 0.f);
     ArrayObject::Pointer velocityData = Attributes->GetAttribute(Index).pointer;
     std::vector<Vector3f> gridPoints;
     std::vector<Vector3f> gridVelocities;
@@ -229,7 +228,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     Vector3f range = maxPosition - minPosition;
     float maxLen = std::max({range[0], range[1], range[2]});
 
-    int split = 3;
+    int split = 5;
 
     double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 4.0);
     int targetPoints = int(maxLen / (min_effective_edge + 1e-8)) + 1;
@@ -251,7 +250,8 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     for (const auto& p: gridPoints) { eigenPoints.emplace_back(p[0], p[1], p[2]); }
 
-    torch::Tensor smooth_vals = knn_smooth_labels(result_volume_11, eigen_min, global_step, eigenPoints, 16);
+    torch::Tensor smooth_vals =
+            knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 24);
 
     std::vector<float> Predict(NumPoints, 0.0f);
 
@@ -271,279 +271,303 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     double elapsed = std::chrono::duration<double>(t1 - t0).count();
     std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
 
-    EvaluatePredictMetrics(Mesh, Attributes, Index, Predict);
-
+    int dim = volume_Mesh->GetAttributeSet()->GetNumberOfAttributes();
+    for (int i = 0; i < dim; i++) {
+        std::string name = volume_Mesh->GetAttributeSet()->GetAttribute(i).pointer->GetName();
+        if (name == "PredictedLabel") {
+            ArrayObject::Pointer label = Attributes->GetAttribute(i).pointer;
+            EvaluatePredictMetrics(label, Predict);
+            break;
+        }
+    }
     return true;
 }
 
+void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict) {
+    const size_t N = Predict.size();
+    const float gt_thresh = 0.0f;
+    const float pred_thresh = 0.095f;
 
-void VortexDetection::EvaluatePredictMetrics(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index,
-                                             const std::vector<float>& Predict) {
-    std::vector<float> Q = ComputePointQForVol(Mesh, Attributes, Index);
-    if (Q.size() != Predict.size()) { return; }
-
-    const size_t N = Q.size();
-    size_t count = 0;
-
+    // 2) 统计 TP/FP/TN/FN
+    size_t TP = 0, FP = 0, TN = 0, FN = 0;
     for (size_t i = 0; i < N; ++i) {
-        int gt = (Q[i] > 0.0f) ? 1 : 0;
-        int pred = (Predict[i] > 0.01f) ? 1 : 0;
-        if ((pred == 1 && gt == 1) || (pred == 0 && gt == 0)) ++count;
+        const float q_val = Attributes_gc->GetValue(i);
+        const int g = (q_val > gt_thresh) ? 1 : 0;
+        const int p = (Predict[i] > pred_thresh) ? 1 : 0;
+
+        if (p == 1 && g == 1) ++TP;
+        else if (p == 1 && g == 0)
+            ++FP;
+        else if (p == 0 && g == 1)
+            ++FN;
+        else
+            ++TN;
     }
 
     const double eps = 1e-12;
-    double accuracy = static_cast<double>(count) / std::max<size_t>(1, N);
-    std::cout << "[VortexDetection::Execute] Accuracy  = " << accuracy << "\n";
+    const double total = static_cast<double>(TP + FP + TN + FN);
+
+    const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
+    const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
+    //const double f1 = (precision + recall > 0.0) ? (2.0 * precision * recall / (precision + recall)) : 0.0;
+    const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
+                                    static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
+
+    std::cout << "\n================ Evaluation Metrics ================\n";
+    std::cout << "Accuracy      : " << accuracy << "\n";
+    std::cout << "Precision     : " << precision << "\n";
+    std::cout << "Recall        : " << recall << "\n";
+    std::cout << "===================================================\n";
 }
 
-std::vector<float> VortexDetection::ComputePointQForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet,
-                                                        int curIndex) {
-    int PointNum = volume_Mesh->GetNumberOfPoints();
-    int numCells = volume_Mesh->GetNumberOfVolumes();
-    ArrayObject::Pointer data = attributeSet->GetAttribute(curIndex).pointer;
-    if (attributeSet->GetAttribute(curIndex).attachmentType == IG_CELL) {
-        data = AttributeCell2Point(volume_Mesh->GetCells(), data, PointNum);
-    }
-
-
-    std::vector<std::array<float, 3>> gradients_x(PointNum, {0, 0, 0});
-    std::vector<std::array<float, 3>> gradients_y(PointNum, {0, 0, 0});
-    std::vector<std::array<float, 3>> gradients_z(PointNum, {0, 0, 0});
-    std::vector<float> volumes(PointNum, 0.0f);
-    std::vector<int> deg(PointNum, 0);
-
-    for (int cellId = 0; cellId < numCells; ++cellId) {
-        auto cell = volume_Mesh->GetVolume(cellId);
-
-        auto grad_x = ComputePointGradient(1, cell, data, 0);
-        auto grad_y = ComputePointGradient(1, cell, data, 1);
-        auto grad_z = ComputePointGradient(1, cell, data, 2);
-
-        for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
-            igIndex pid = cell->GetPointId(i);
-            for (int d = 0; d < 3; d++) {
-                gradients_x[pid][d] += grad_x[d];
-                gradients_y[pid][d] += grad_y[d];
-                gradients_z[pid][d] += grad_z[d];
-            }
-            deg[pid]++;
-        }
-    }
-    for (int i = 0; i < PointNum; ++i) {
-        if (deg[i] > 0) {
-            const float inv = 1.0f / static_cast<float>(deg[i]);
-            for (int d = 0; d < 3; ++d) {
-                gradients_x[i][d] *= inv;
-                gradients_y[i][d] *= inv;
-                gradients_z[i][d] *= inv;
-            }
-        }
-    }
-
-    std::vector<float> Q(PointNum, 0.0f);
-    //FloatArray::Pointer QCri = FloatArray::New();
-    //QCri->SetDimension(1);
-    //QCri->Reserve(PointNum);
-    //QCri->SetName("QCriteria");
-    //attributeSet->AddScalar(IG_POINT, QCri);
-
-    for (int i = 0; i < PointNum; ++i) {
-
-        const float ux = gradients_x[i][0], uy = gradients_x[i][1], uz = gradients_x[i][2];
-        const float vx = gradients_y[i][0], vy = gradients_y[i][1], vz = gradients_y[i][2];
-        const float wx = gradients_z[i][0], wy = gradients_z[i][1], wz = gradients_z[i][2];
-
-        const float omega_x = wy - vz; // ∂w/∂y - ∂v/∂z
-        const float omega_y = uz - wx; // ∂u/∂z - ∂w/∂x
-        const float omega_z = vx - uy; // ∂v/∂x - ∂u/∂y
-
-        // S = 0.5 (J + J^T)
-        const float Sxx = ux, Syy = vy, Szz = wz;
-        const float Sxy = 0.5f * (uy + vx);
-        const float Sxz = 0.5f * (uz + wx);
-        const float Syz = 0.5f * (vz + wy);
-
-        const float Oxy = 0.5f * (uy - vx);
-        const float Oxz = 0.5f * (uz - wx);
-        const float Oyz = 0.5f * (vz - wy);
-
-        const float S2 = (Sxx * Sxx + Syy * Syy + Szz * Szz) + 2.0f * (Sxy * Sxy + Sxz * Sxz + Syz * Syz);
-        const float O2 = 2.0f * (Oxy * Oxy + Oxz * Oxz + Oyz * Oyz);
-
-        const float Qval = 0.5f * (O2 - S2);
-        Q[i] = (Qval > 0.0025f) ? 1.0f : 0.0f;
-        //QCri->AddValue(Q[i]);
-    }
-    return Q;
-}
-
-std::array<float, 3> VortexDetection::ComputePointGradient(int type, Cell* cell, ArrayObject::Pointer data, int dim) {
-    if (type == 1) {
-        switch (cell->GetCellType()) {
-            case IG_TETRA: // 纯四面体
-                return ComputeTetPointGradient(cell, data, dim);
-            case IG_HEXAHEDRON: // 纯六面体
-                return ComputeHexPointGradient(cell, data, dim);
-            default: // 其他
-                return ComputePolyPointGradient(cell, data, dim);
-        }
-    }
-}
-
-ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
-                                                          size_t PointNum) {
-    int dim = OriArray->GetDimension();
-
-    auto NewArray = FloatArray::New();
-    NewArray->SetName(OriArray->GetName());
-    NewArray->SetDimension(dim);
-    NewArray->Reserve(PointNum);
-
-    float scalar[16]{0}, temp[16]{0};
-    for (int i = 0; i < PointNum; ++i) { NewArray->AddElement(scalar); }
-
-    std::vector<int> PointAdjNum(PointNum, 0);
-
-    igIndex cell[IGAME_CELL_MAX_SIZE];
-
-    for (int i = 0; i < Cell->GetNumberOfCells(); ++i) {
-        int size = Cell->GetCellIds(i, cell);
-        OriArray->GetElement(i, scalar);
-        for (int j = 0; j < size; ++j) {
-            PointAdjNum[cell[j]]++;
-            NewArray->GetElement(cell[j], temp);
-            for (int d = 0; d < dim; ++d) temp[d] += scalar[d];
-            NewArray->SetElement(cell[j], temp);
-        }
-    }
-
-    for (int i = 0; i < PointNum; ++i) {
-        NewArray->GetElement(i, temp);
-        for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
-        NewArray->SetElement(i, temp);
-    }
-
-    return NewArray;
-}
-
-std::array<float, 3> VortexDetection::ComputeTetPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
-    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
-    float centerValue = 0.0f;
-    float tetVolume = ComputeTetVolume(cell);
-    float avgEdgeLength = ComputeAverageEdgeLength(cell); // 计算平均边长
-
-    for (int i = 0; i < 4; i++) {
-        auto p = cell->GetPoint(i);
-        center[0] += p[0];
-        center[1] += p[1];
-        center[2] += p[2];
-        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
-    }
-    for (int d = 0; d < 3; d++) center[d] /= 4.0f;
-    centerValue /= 4.0f;
-
-    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
-
-    for (int i = 0; i < 4; ++i) {
-        auto p = cell->GetPoint(i);
-        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
-        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
-
-        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
-    }
-
-    for (int d = 0; d < 3; d++) gradient[d] /= (avgEdgeLength); // 改为边长归一化
-
-    return gradient;
-}
-
-std::array<float, 3> VortexDetection::ComputeHexPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
-    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
-    float centerValue = 0.0f;
-
-    float avgEdgeLength = ComputeAverageEdgeLength(cell);
-
-    for (int i = 0; i < 8; i++) {
-        auto p = cell->GetPoint(i);
-        center[0] += p[0];
-        center[1] += p[1];
-        center[2] += p[2];
-        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
-    }
-
-    for (int d = 0; d < 3; d++) center[d] /= 8.0f;
-    centerValue /= 8.0f;
-
-    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
-
-    for (int i = 0; i < 8; ++i) {
-        auto p = cell->GetPoint(i);
-        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
-        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
-
-        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
-    }
-
-    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
-
-    return gradient;
-}
-
-std::array<float, 3> VortexDetection::ComputePolyPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
-    int numOfPoints = cell->GetNumberOfPoints();
-
-    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
-    float centerValue = 0.0f;
-
-    float avgEdgeLength = ComputeAverageEdgeLength(cell);
-
-    for (int i = 0; i < numOfPoints; i++) {
-        auto p = cell->GetPoint(i);
-        center[0] += p[0];
-        center[1] += p[1];
-        center[2] += p[2];
-        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
-    }
-    for (int d = 0; d < 3; d++) center[d] /= static_cast<float>(numOfPoints);
-    centerValue /= static_cast<float>(numOfPoints);
-
-    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
-    for (int i = 0; i < numOfPoints; ++i) {
-        auto p = cell->GetPoint(i);
-        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
-        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
-        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
-    }
-    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
-
-    return gradient;
-}
-
-float VortexDetection::ComputeTetVolume(Cell* cell) {
-    auto p0 = cell->GetPoint(0);
-    auto p1 = cell->GetPoint(1);
-    auto p2 = cell->GetPoint(2);
-    auto p3 = cell->GetPoint(3);
-
-    std::array<float, 3> a = {p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
-    std::array<float, 3> b = {p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
-    std::array<float, 3> c = {p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]};
-
-    std::array<float, 3> cross_bc = {b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2], b[0] * c[1] - b[1] * c[0]};
-
-    float dot_a = a[0] * cross_bc[0] + a[1] * cross_bc[1] + a[2] * cross_bc[2];
-    return std::abs(dot_a) / 6.0f;
-}
-
-float VortexDetection::ComputeAverageEdgeLength(Cell* cell) {
-    int num = cell->GetNumberOfEdges();
-    float totalLength = 0.0f;
-    for (int i = 0; i < num; ++i) {
-        auto* e = cell->GetEdge(i);
-        totalLength += (e->GetPoint(0) - e->GetPoint(1)).length();
-    }
-    return totalLength / num;
-}
+//std::vector<float> VortexDetection::ComputePointQForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet,
+//                                                        int curIndex) {
+//    int PointNum = volume_Mesh->GetNumberOfPoints();
+//    int numCells = volume_Mesh->GetNumberOfVolumes();
+//    ArrayObject::Pointer data = attributeSet->GetAttribute(curIndex).pointer;
+//    if (attributeSet->GetAttribute(curIndex).attachmentType == IG_CELL) {
+//        data = AttributeCell2Point(volume_Mesh->GetCells(), data, PointNum);
+//    }
+//
+//
+//    std::vector<std::array<float, 3>> gradients_x(PointNum, {0, 0, 0});
+//    std::vector<std::array<float, 3>> gradients_y(PointNum, {0, 0, 0});
+//    std::vector<std::array<float, 3>> gradients_z(PointNum, {0, 0, 0});
+//    std::vector<float> volumes(PointNum, 0.0f);
+//    std::vector<int> deg(PointNum, 0);
+//
+//    for (int cellId = 0; cellId < numCells; ++cellId) {
+//        auto cell = volume_Mesh->GetVolume(cellId);
+//
+//        auto grad_x = ComputePointGradient(1, cell, data, 0);
+//        auto grad_y = ComputePointGradient(1, cell, data, 1);
+//        auto grad_z = ComputePointGradient(1, cell, data, 2);
+//
+//        for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
+//            igIndex pid = cell->GetPointId(i);
+//            for (int d = 0; d < 3; d++) {
+//                gradients_x[pid][d] += grad_x[d];
+//                gradients_y[pid][d] += grad_y[d];
+//                gradients_z[pid][d] += grad_z[d];
+//            }
+//            deg[pid]++;
+//        }
+//    }
+//    for (int i = 0; i < PointNum; ++i) {
+//        if (deg[i] > 0) {
+//            const float inv = 1.0f / static_cast<float>(deg[i]);
+//            for (int d = 0; d < 3; ++d) {
+//                gradients_x[i][d] *= inv;
+//                gradients_y[i][d] *= inv;
+//                gradients_z[i][d] *= inv;
+//            }
+//        }
+//    }
+//
+//    std::vector<float> Q(PointNum, 0.0f);
+//    //FloatArray::Pointer QCri = FloatArray::New();
+//    //QCri->SetDimension(1);
+//    //QCri->Reserve(PointNum);
+//    //QCri->SetName("QCriteria");
+//    //attributeSet->AddScalar(IG_POINT, QCri);
+//
+//    for (int i = 0; i < PointNum; ++i) {
+//
+//        const float ux = gradients_x[i][0], uy = gradients_x[i][1], uz = gradients_x[i][2];
+//        const float vx = gradients_y[i][0], vy = gradients_y[i][1], vz = gradients_y[i][2];
+//        const float wx = gradients_z[i][0], wy = gradients_z[i][1], wz = gradients_z[i][2];
+//
+//        const float omega_x = wy - vz; // ∂w/∂y - ∂v/∂z
+//        const float omega_y = uz - wx; // ∂u/∂z - ∂w/∂x
+//        const float omega_z = vx - uy; // ∂v/∂x - ∂u/∂y
+//
+//        // S = 0.5 (J + J^T)
+//        const float Sxx = ux, Syy = vy, Szz = wz;
+//        const float Sxy = 0.5f * (uy + vx);
+//        const float Sxz = 0.5f * (uz + wx);
+//        const float Syz = 0.5f * (vz + wy);
+//
+//        const float Oxy = 0.5f * (uy - vx);
+//        const float Oxz = 0.5f * (uz - wx);
+//        const float Oyz = 0.5f * (vz - wy);
+//
+//        const float S2 = (Sxx * Sxx + Syy * Syy + Szz * Szz) + 2.0f * (Sxy * Sxy + Sxz * Sxz + Syz * Syz);
+//        const float O2 = 2.0f * (Oxy * Oxy + Oxz * Oxz + Oyz * Oyz);
+//
+//        const float Qval = 0.5f * (O2 - S2);
+//        Q[i] = (Qval > 0.0025f) ? 1.0f : 0.0f;
+//        //QCri->AddValue(Q[i]);
+//    }
+//    return Q;
+//}
+//
+//std::array<float, 3> VortexDetection::ComputePointGradient(int type, Cell* cell, ArrayObject::Pointer data, int dim) {
+//    if (type == 1) {
+//        switch (cell->GetCellType()) {
+//            case IG_TETRA: // 纯四面体
+//                return ComputeTetPointGradient(cell, data, dim);
+//            case IG_HEXAHEDRON: // 纯六面体
+//                return ComputeHexPointGradient(cell, data, dim);
+//            default: // 其他
+//                return ComputePolyPointGradient(cell, data, dim);
+//        }
+//    }
+//}
+//
+//ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+//                                                          size_t PointNum) {
+//    int dim = OriArray->GetDimension();
+//
+//    auto NewArray = FloatArray::New();
+//    NewArray->SetName(OriArray->GetName());
+//    NewArray->SetDimension(dim);
+//    NewArray->Reserve(PointNum);
+//
+//    float scalar[16]{0}, temp[16]{0};
+//    for (int i = 0; i < PointNum; ++i) { NewArray->AddElement(scalar); }
+//
+//    std::vector<int> PointAdjNum(PointNum, 0);
+//
+//    igIndex cell[IGAME_CELL_MAX_SIZE];
+//
+//    for (int i = 0; i < Cell->GetNumberOfCells(); ++i) {
+//        int size = Cell->GetCellIds(i, cell);
+//        OriArray->GetElement(i, scalar);
+//        for (int j = 0; j < size; ++j) {
+//            PointAdjNum[cell[j]]++;
+//            NewArray->GetElement(cell[j], temp);
+//            for (int d = 0; d < dim; ++d) temp[d] += scalar[d];
+//            NewArray->SetElement(cell[j], temp);
+//        }
+//    }
+//
+//    for (int i = 0; i < PointNum; ++i) {
+//        NewArray->GetElement(i, temp);
+//        for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
+//        NewArray->SetElement(i, temp);
+//    }
+//
+//    return NewArray;
+//}
+//
+//std::array<float, 3> VortexDetection::ComputeTetPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+//    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+//    float centerValue = 0.0f;
+//    float tetVolume = ComputeTetVolume(cell);
+//    float avgEdgeLength = ComputeAverageEdgeLength(cell); // 计算平均边长
+//
+//    for (int i = 0; i < 4; i++) {
+//        auto p = cell->GetPoint(i);
+//        center[0] += p[0];
+//        center[1] += p[1];
+//        center[2] += p[2];
+//        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+//    }
+//    for (int d = 0; d < 3; d++) center[d] /= 4.0f;
+//    centerValue /= 4.0f;
+//
+//    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+//
+//    for (int i = 0; i < 4; ++i) {
+//        auto p = cell->GetPoint(i);
+//        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+//        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+//
+//        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+//    }
+//
+//    for (int d = 0; d < 3; d++) gradient[d] /= (avgEdgeLength); // 改为边长归一化
+//
+//    return gradient;
+//}
+//
+//std::array<float, 3> VortexDetection::ComputeHexPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+//    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+//    float centerValue = 0.0f;
+//
+//    float avgEdgeLength = ComputeAverageEdgeLength(cell);
+//
+//    for (int i = 0; i < 8; i++) {
+//        auto p = cell->GetPoint(i);
+//        center[0] += p[0];
+//        center[1] += p[1];
+//        center[2] += p[2];
+//        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+//    }
+//
+//    for (int d = 0; d < 3; d++) center[d] /= 8.0f;
+//    centerValue /= 8.0f;
+//
+//    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+//
+//    for (int i = 0; i < 8; ++i) {
+//        auto p = cell->GetPoint(i);
+//        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+//        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+//
+//        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+//    }
+//
+//    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
+//
+//    return gradient;
+//}
+//
+//std::array<float, 3> VortexDetection::ComputePolyPointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
+//    int numOfPoints = cell->GetNumberOfPoints();
+//
+//    std::array<float, 3> center = {0.0f, 0.0f, 0.0f};
+//    float centerValue = 0.0f;
+//
+//    float avgEdgeLength = ComputeAverageEdgeLength(cell);
+//
+//    for (int i = 0; i < numOfPoints; i++) {
+//        auto p = cell->GetPoint(i);
+//        center[0] += p[0];
+//        center[1] += p[1];
+//        center[2] += p[2];
+//        centerValue += data->GetValue(cell->GetPointId(i) * 3 + dim);
+//    }
+//    for (int d = 0; d < 3; d++) center[d] /= static_cast<float>(numOfPoints);
+//    centerValue /= static_cast<float>(numOfPoints);
+//
+//    std::array<float, 3> gradient = {0.0f, 0.0f, 0.0f};
+//    for (int i = 0; i < numOfPoints; ++i) {
+//        auto p = cell->GetPoint(i);
+//        std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+//        float valDiff = data->GetValue(cell->GetPointId(i) * 3 + dim) - centerValue;
+//        for (int d = 0; d < 3; d++) gradient[d] += diff[d] * valDiff;
+//    }
+//    for (int d = 0; d < 3; d++) gradient[d] /= avgEdgeLength;
+//
+//    return gradient;
+//}
+//
+//float VortexDetection::ComputeTetVolume(Cell* cell) {
+//    auto p0 = cell->GetPoint(0);
+//    auto p1 = cell->GetPoint(1);
+//    auto p2 = cell->GetPoint(2);
+//    auto p3 = cell->GetPoint(3);
+//
+//    std::array<float, 3> a = {p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+//    std::array<float, 3> b = {p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]};
+//    std::array<float, 3> c = {p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]};
+//
+//    std::array<float, 3> cross_bc = {b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2], b[0] * c[1] - b[1] * c[0]};
+//
+//    float dot_a = a[0] * cross_bc[0] + a[1] * cross_bc[1] + a[2] * cross_bc[2];
+//    return std::abs(dot_a) / 6.0f;
+//}
+//
+//float VortexDetection::ComputeAverageEdgeLength(Cell* cell) {
+//    int num = cell->GetNumberOfEdges();
+//    float totalLength = 0.0f;
+//    for (int i = 0; i < num; ++i) {
+//        auto* e = cell->GetEdge(i);
+//        totalLength += (e->GetPoint(0) - e->GetPoint(1)).length();
+//    }
+//    return totalLength / num;
+//}
 
 torch::Tensor VortexDetection::sigmoid(const torch::Tensor& x) { return 1.0 / (1.0 + (-x).exp()); }
 
@@ -1292,17 +1316,95 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     std::vector<torch::Tensor> all_results_1(total_blocks);
 
 
-    int max_threads = (int) std::thread::hardware_concurrency();
-    int workers = std::min(total_blocks, max_threads);
-    static std::counting_semaphore<> infer_slots(workers);
-    at::set_num_threads(1);
-    at::set_num_interop_threads(1);
-    omp_set_num_threads(1);
-    std::atomic<int> next_block{0};
-    auto worker_task = [&]() {
-        while (true) {
-            int id = next_block.fetch_add(1, std::memory_order_relaxed);
-            if (id >= total_blocks) break;
+    //int max_threads = (int) std::thread::hardware_concurrency();
+    //int workers = std::min(total_blocks, max_threads);
+    //static std::counting_semaphore<> infer_slots(workers);
+    //at::set_num_threads(1);
+    //at::set_num_interop_threads(1);
+    //omp_set_num_threads(1);
+    //std::atomic<int> next_block{0};
+    //auto worker_task = [&]() {
+    //    while (true) {
+    //        int id = next_block.fetch_add(1, std::memory_order_relaxed);
+    //        if (id >= total_blocks) break;
+    //        int bz = id / (split * split);
+    //        int by = (id / split) % split;
+    //        int bx = id % split;
+    //        Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
+    //        sub_min = sub_min + min_pos_eigen;
+    //        Eigen::Vector3f sub_max = sub_min + block_size;
+    //        Eigen::Vector3f sub_range = sub_max - sub_min;
+    //        float max_len = sub_range.maxCoeff();
+    //        float uniform_step = max_len / (target_points - 1);
+    //        int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
+    //        int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
+    //        int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
+    //        Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
+    //        Eigen::Vector3f step = sub_range.cwiseQuotient(now);
+    //        torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
+    //        const int K = 32;
+    //        const double eps = 1e-6;
+    //        std::vector<double> weights(K, 0.0);
+    //        std::vector<int> idxs(K, 0);
+    //        std::vector<double> dists(K, 0.0);
+    //        //std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
+    //        for (int i = 0; i < nx; ++i) {
+    //            for (int j = 0; j < ny; ++j) {
+    //                for (int k = 0; k < nz; ++k) {
+    //                    Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
+    //                    Eigen::VectorXd pos_vec(3);
+    //                    pos_vec << pos[0], pos[1], pos[2];
+    //                    tree.query(pos_vec, K, idxs, dists);
+    //                    torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
+    //                    if (K == 1) {
+    //                        weighted_sum = torch::tensor(
+    //                                {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
+    //                                torch::kFloat32);
+    //                    } else {
+    //                        double dist_sum = 0.0;
+    //                        for (int l = 0; l < K; ++l) {
+    //                            double dist = dists[l];
+    //                            weights[l] = 1.0 / (dist * dist + eps);
+    //                            dist_sum += weights[l];
+    //                        }
+    //                        for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
+    //                        for (int l = 0; l < K; ++l) {
+    //                            weighted_sum +=
+    //                                    weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
+    //                                                                velocities(idxs[l], 2)},
+    //                                                               torch::kFloat32);
+    //                        }
+    //                    }
+    //                    grid_tensor[k][j][i] = weighted_sum;
+    //                }
+    //            }
+    //        }
+    //        torch::Tensor arr = grid_tensor.clone();
+    //        for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
+    //        arr = sigmoid(arr);
+    //        infer_slots.acquire();
+    //        torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
+    //        infer_slots.release();
+    //        all_results_1[id] = std::move(pred_block_1);
+    //        //std::cout << "end.  idx = " << id<< std::endl;
+    //    }
+    //};
+    //std::vector<std::thread> threads;
+    //threads.reserve(workers);
+    //for (int t = 0; t < workers; ++t) threads.emplace_back(worker_task);
+    //for (auto& t: threads) t.join();
+    //std::cout << "[All worker threads finished!]" << std::endl;
+
+
+    const double eps = 1e-6;
+    //int max_threads = (int) std::thread::hardware_concurrency();
+    //int workers = std::min(total_blocks, max_threads);
+    static std::counting_semaphore<> infer_slots(10);
+    int progress = 0;
+    std::mutex progress_mutex;
+    auto process_blocks_range = [&](int begin, int end) {
+        //std::cout << "pool_.size():" << pool.size() << std::endl;
+        for (int id = begin; id < end; ++id) {
             int bz = id / (split * split);
             int by = (id / split) % split;
             int bx = id % split;
@@ -1318,12 +1420,12 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
             Eigen::Vector3f step = sub_range.cwiseQuotient(now);
             torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-            const int K = 32;
-            const double eps = 1e-6;
+            /*const int K = 16;*/
+            const int K = 24;
             std::vector<double> weights(K, 0.0);
             std::vector<int> idxs(K, 0);
             std::vector<double> dists(K, 0.0);
-            //std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
+            static std::atomic<int> test_counter{0};
             for (int i = 0; i < nx; ++i) {
                 for (int j = 0; j < ny; ++j) {
                     for (int k = 0; k < nz; ++k) {
@@ -1345,10 +1447,12 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                             }
                             for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
                             for (int l = 0; l < K; ++l) {
-                                weighted_sum +=
-                                        weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-                                                                    velocities(idxs[l], 2)},
-                                                                   torch::kFloat32);
+                                if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
+                                    weighted_sum +=
+                                            weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
+                                                                        velocities(idxs[l], 2)},
+                                                                       torch::kFloat32);
+                                }
                             }
                         }
                         grid_tensor[k][j][i] = weighted_sum;
@@ -1362,94 +1466,12 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
             infer_slots.release();
             all_results_1[id] = std::move(pred_block_1);
-            //std::cout << "end.  idx = " << id<< std::endl;
+            //std::cout << "end." << std::endl;
         }
     };
-    std::vector<std::thread> threads;
-    threads.reserve(workers);
-    for (int t = 0; t < workers; ++t) threads.emplace_back(worker_task);
-    for (auto& t: threads) t.join();
-    //std::cout << "[All worker threads finished!]" << std::endl;
-
-
-    //const double eps = 1e-6;
-    //int max_threads = (int) std::thread::hardware_concurrency();
-    //int workers = std::min(total_blocks, max_threads);
-    //static std::counting_semaphore<> infer_slots(workers);
-
-    //int progress = 0;
-    //std::mutex progress_mutex;
-
-    //auto process_blocks_range = [&](int begin, int end) {
-    //    static thread_local bool printed = false;
-    //    for (int id = begin; id < end; ++id) {
-    //        int bz = id / (split * split);
-    //        int by = (id / split) % split;
-    //        int bx = id % split;
-    //        Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-    //        sub_min = sub_min + min_pos_eigen;
-    //        Eigen::Vector3f sub_max = sub_min + block_size;
-    //        Eigen::Vector3f sub_range = sub_max - sub_min;
-    //        float max_len = sub_range.maxCoeff();
-    //        float uniform_step = max_len / (target_points - 1);
-    //        int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
-    //        int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
-    //        int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
-    //        Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-    //        Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-    //        torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-    //        /*const int K = 16;*/
-    //        const int K = 32;
-    //        std::vector<double> weights(K, 0.0);
-    //        std::vector<int> idxs(K, 0);
-    //        std::vector<double> dists(K, 0.0);
-    //        static std::atomic<int> test_counter{0};
-    //        for (int i = 0; i < nx; ++i) {
-    //            for (int j = 0; j < ny; ++j) {
-    //                for (int k = 0; k < nz; ++k) {
-    //                    Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-
-    //                    Eigen::VectorXd pos_vec(3);
-    //                    pos_vec << pos[0], pos[1], pos[2];
-    //                    tree.query(pos_vec, K, idxs, dists);
-    //                    torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-    //                    if (K == 1) {
-    //                        weighted_sum = torch::tensor(
-    //                                {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
-    //                                torch::kFloat32);
-    //                    } else {
-    //                        double dist_sum = 0.0;
-    //                        for (int l = 0; l < K; ++l) {
-    //                            double dist = dists[l];
-    //                            weights[l] = 1.0 / (dist * dist + eps);
-    //                            dist_sum += weights[l];
-    //                        }
-    //                        for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-    //                        for (int l = 0; l < K; ++l) {
-    //                            if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
-    //                                weighted_sum +=
-    //                                        weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-    //                                                                    velocities(idxs[l], 2)},
-    //                                                                   torch::kFloat32);
-    //                            }
-    //                        }
-    //                    }
-    //                    grid_tensor[k][j][i] = weighted_sum;
-    //                }
-    //            }
-    //        }
-    //        torch::Tensor arr = grid_tensor.clone();
-    //        for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-    //        arr = sigmoid(arr);
-    //        infer_slots.acquire();
-    //        torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
-    //        infer_slots.release();
-    //        all_results_1[id] = std::move(pred_block_1);
-    //    }
-    //};
 
     //ThreadPool::parallelFor(0, total_blocks, process_blocks_range, workers);
-    //ThreadPool::parallelFor(0, total_blocks, process_blocks_range);
+    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
 
     /*int max_threads = (int) std::thread::hardware_concurrency();
     int workers = std::min(total_blocks, max_threads);
@@ -1506,7 +1528,8 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
     return torch::exp(-0.5 * torch::pow(dists / sigma, 2));
 }
 
-torch::Tensor VortexDetection::knn_smooth_labels(const torch::Tensor& prob_vol_1, // [nz, ny, nx]
+torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
+                                                 const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                                  const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
                                                  const std::vector<Eigen::Vector3f>& query_points, // 要查询的点
                                                  int k) {
@@ -1526,7 +1549,6 @@ torch::Tensor VortexDetection::knn_smooth_labels(const torch::Tensor& prob_vol_1
             }
         }
     }
-
     Eigen::MatrixXd coords_mat(grid_coords.size(), 3);
     for (int i = 0; i < grid_coords.size(); i++) { coords_mat.row(i) = grid_coords[i].cast<double>().transpose(); }
 
@@ -1551,7 +1573,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(const torch::Tensor& prob_vol_1
         torch::Tensor dists_t =
                 torch::from_blob(dists.data(), {(int) idxs.size()}, torch::kFloat64).to(torch::kFloat32).clone();
 
-        torch::Tensor weights = torch::exp(-0.5 * torch::pow(dists_t / 1.5, 2));
+        torch::Tensor weights = torch::exp(-0.5 * torch::pow(dists_t / 0.8, 2));
         weights = weights / (torch::sum(weights) + 1e-8);
 
         //torch::Tensor weights = gaussian_weights(dists_t);

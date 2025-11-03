@@ -23,7 +23,14 @@ file(GLOB_RECURSE IGAME_CORE_FILE CONFIGURE_DEPENDS ./*.h ./*.cpp)
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_library(${MODULE_NAME} SHARED ${IGAME_CORE_FILE})
 else ()
-    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE})
+    add_library(${MODULE_NAME} STATIC ${IGAME_CORE_FILE} "IO/Fluent/iGameCASReader.h")
+endif ()
+
+if (UNIX AND NOT APPLE)
+    find_package(OpenMP REQUIRED)
+    if (OpenMP_CXX_FOUND)
+        target_link_libraries(${MODULE_NAME} PUBLIC OpenMP::OpenMP_CXX)
+    endif ()
 endif ()
 
 # add rendering core
@@ -74,6 +81,7 @@ list(APPEND ThirdParty_lib_dependency
         tinyXML2
         vtkkwiml
         lzma
+        libzstd_static
         glfw
         spdlog_header_only
         zlibstatic
@@ -85,12 +93,14 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    #        find_package(HDF5)
-    #        target_link_libraries(
-    #         ${MODULE_NAME} PUBLIC
-    #         ${HDF5_LIBRARIES}/../libzlib.lib
-    #         ${HDF5_LIBRARIES}/../libsz.lib
-    #         ${HDF5_LIBRARIES}/../libaec.lib)
+    set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+
+    find_package(HDF5)
+    #    target_link_libraries(
+    #            ${MODULE_NAME} PUBLIC
+    #            ${HDF5_LIBRARIES}/../libzlib.lib
+    #            ${HDF5_LIBRARIES}/../libsz.lib
+    #            ${HDF5_LIBRARIES}/../libaec.lib)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
@@ -149,6 +159,11 @@ if (${FFMPEG_FOUND})
     target_link_libraries(${MODULE_NAME} PUBLIC ${FFMPEG_LIB_TARGETS})
 endif ()
 
+if (${ENABLE_NASTRAN_MODULE})
+    target_compile_definitions(${MODULE_NAME} PUBLIC NASTRAN_ENABLE)
+
+endif ()
+
 #if(Python3_FOUND)
 #    target_include_directories(${MODULE_NAME} PUBLIC
 #        ${Python3_INCLUDE_DIRS}
@@ -167,15 +182,16 @@ if (ENABLE_GPSCUDA_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC GPSCUDA_ENABLE)
     message("Enable GPSCuda Module.")
     target_include_directories(${MODULE_NAME} PUBLIC
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include
-            ${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm)
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/wmma_extension/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/cutlass/tools/util/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/oneTBB-2021.10.0/include>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern/glm>
+    )
 
-    target_link_libraries(${MODULE_NAME} PUBLIC
+    target_link_libraries(${MODULE_NAME} PRIVATE
             CommonLib
             Geom
             GPHelperIO

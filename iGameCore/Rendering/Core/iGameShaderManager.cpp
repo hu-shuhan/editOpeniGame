@@ -163,16 +163,20 @@ void ShaderManager::MapBufferBlock() {
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
 
     // map transparency link shader block
+#ifdef IGAME_OPENGL_VERSION_460
     shader = this->GetShader(ShaderType::TRANSPARENCYLINK);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+#endif
 
     // map volume rendering link shader block
+#ifdef IGAME_OPENGL_VERSION_460
     shader = this->GetShader(ShaderType::VOLUMERENDERINGLINK);
     shader->MapUniformBlock("CameraDataBlock", 0, m_CameraDataBlock);
     shader->MapUniformBlock("ObjectDataBlock", 1, m_ObjectDataBlock);
     shader->MapUniformBlock("UniformBufferObjectBlock", 2, m_UBOBlock);
+#endif
 
     // map culling computer shader block
 #ifdef IGAME_OPENGL_VERSION_460
@@ -274,6 +278,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("SINGLEPASSWIREFRAME");
             sp->AddShaders(vertex_vert, wireframe_geom, wireframe_frag);
         } break;
+#ifdef IGAME_OPENGL_VERSION_460
         case ShaderType::TRANSPARENCYLINK: {
             SmartPointer<GLShader> vertex_vert = GLShader::CreateShader(
                     std::string("./Resources/Shaders/Vertex.vert"),
@@ -334,6 +339,7 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
             sp->SetName("VOLUMERENDERINGSORT");
             sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
         } break;
+#endif
         case ShaderType::AXES: {
             SmartPointer<GLShader> axis_vert = GLShader::CreateShader(
                     std::string("./Resources/Shaders/Axis.vert"),

@@ -22,6 +22,7 @@ add_executable(testSetTransparency "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetTra
 add_executable(testSetViewStyle "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetViewStyle.cpp")
 add_executable(testSetScalarField "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetScalarField.cpp")
 add_executable(testSetVolumeRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetVolumeRendering.cpp")
+add_executable(testSetRenderingPressure "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/SetRenderingPressure.cpp")
 
 add_executable(testChangeRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestSubDataRangeChangeAndRecollect.cpp")
 
@@ -31,6 +32,7 @@ add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/
 add_executable(testVectorEveryNth "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorEveryNth.cpp")
 add_executable(testVectorSubData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorSubData.cpp")
 add_executable(testStreamline "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestStreamline.cpp")
+add_executable(testTensorView "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Tensor/TestTensorView.cpp")
 
 add_executable(testParallelCoordinatesData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestParallelCoordinatesData.cpp")
 add_executable(testVariableCorrelationData "${CMAKE_CURRENT_SOURCE_DIR}/Filter/VisualizationData/TestVariableCorrelationData.cpp")
@@ -59,6 +61,7 @@ add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
 add_executable(testSplineReaderCPU "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineReaderCPU.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
 add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.cpp")
+add_executable(testCASReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/CASReader.cpp")
 
 add_executable(testAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/TestAnimation.cpp")
 add_executable(testSaveAnimation "${CMAKE_CURRENT_SOURCE_DIR}/Animation/SaveAnimation.cpp")
@@ -96,6 +99,7 @@ target_link_libraries(testSetTransparency PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetViewStyle PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetScalarField PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSetVolumeRendering PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSetRenderingPressure PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 
 target_link_libraries(testChangeRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -106,6 +110,7 @@ target_link_libraries(testVectorCellInRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorEveryNth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorSubData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testStreamline PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testTensorView PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testParallelCoordinatesData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVariableCorrelationData PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -141,6 +146,7 @@ target_link_libraries(testSplineReaderCPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testNastranReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testCASReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testChangeColorRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testChangeColorBar PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

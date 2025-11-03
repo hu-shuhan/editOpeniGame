@@ -8,32 +8,35 @@ find_path(FFMPEG_PRIVATE_INCLUDE_DIR
         /usr/local/include
         /usr/include
         "D:/dev/FFMPEG/include"
+        "D:/OpeniGame/FFMPEG/include"
 )
 
-if(WIN32)
+if (WIN32)
     find_path(FFMPEG_PRIVATE_LIB
             NAMES
             avcodec.lib
             PATHS
             "D:/dev/FFMPEG/lib"
+            "D:/OpeniGame/FFMPEG/lib"
     )
-elseif(UNIX)
-    if(APPLE)
+elseif (UNIX)
+    if (APPLE)
         message(WARNING "FFMPEG Cmake is not support in this framework currently.")
-    else()
+    else ()
         find_path(FFMPEG_PRIVATE_LIB
                 NAMES
                 libavcodec.a
                 PATHS
                 /usr/lib/x86_64-linux-gnu
         )
-    endif()
+    endif ()
 endif ()
 find_path(FFMPEG_DLL_DIR
         NAMES
         avcodec-61.dll
         PATHS
         "D:/dev/FFMPEG/bin"
+        "D:/OpeniGame/FFMPEG/bin"
 )
 
 mark_as_advanced(FFMPEG_PRIVATE_INCLUDE_DIR)
@@ -54,7 +57,7 @@ mark_as_advanced(FFMPEG_LIB_LIST)
 
 set(FOUND_FFMPEG_LIB_FULL_PATH)
 set(FFMPEG_LIB_TARGETS)
-foreach(LIB ${FFMPEG_LIB_LIST})
+foreach (LIB ${FFMPEG_LIB_LIST})
     set(temp${LIB})
     find_library(temp${LIB}
             NAMES
@@ -73,7 +76,7 @@ foreach(LIB ${FFMPEG_LIB_LIST})
                 INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_PRIVATE_INCLUDE_DIR}")
         list(APPEND FFMPEG_LIB_TARGETS FFMPEG::${LIB})
     endif ()
-endforeach()
+endforeach ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(FFMPEG

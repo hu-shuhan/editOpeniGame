@@ -1,48 +1,51 @@
-////
-//// Created by m_ky on 2025/10/20.
-////
 //
-///**
-// * @class   iGameNastranReader
-// * @brief   使用Python pyNastran库读取Nastran BDF/OP2文件
-// */
+// Created by m_ky on 2025/10/20.
 //
-//#include "iGameNastranReader.h"
-//#include "iGamePoints.h"
-//#include "iGameFlatArray.h"
-//
+
+/**
+ * @class   iGameNastranReader
+ * @brief   使用Python pyNastran库读取Nastran BDF/OP2文件
+ */
+
+#include "iGameNastranReader.h"
+#include "iGamePoints.h"
+#include "iGameFlatArray.h"
+
 //#include <pybind11/pybind11.h>
 //#include <pybind11/embed.h>
 //#include <pybind11/numpy.h>
 //#include <pybind11/stl.h>
-//
-//#include <iostream>
-//#include <stdexcept>
-//
+
+#include <iostream>
+#include <stdexcept>
+#include <VTK XML/iGameVTUReader.h>
+#include <fstream> // Added for file existence checks
+#include <vector>  // Added for exe path search
+
 //namespace py = pybind11;
-//
-//IGAME_NAMESPACE_BEGIN
-//
+
+IGAME_NAMESPACE_BEGIN
+
 //// 静态成员初始化
 //std::shared_ptr<py::scoped_interpreter> NastranReader::s_PythonInterpreter = nullptr;
 //bool NastranReader::s_PythonInitialized = false;
-//
-//NastranReader::NastranReader() {
+
+NastranReader::NastranReader() {
 //    m_Mesh = UnstructuredMesh::New();
-//}
-//
-//NastranReader::~NastranReader() {
-//    // 注意: 不要在这里释放Python解释器，应该在程序结束时统一释放
-//}
-//
-//void NastranReader::SetBDFFileName(const std::string& filename) {
-//    m_BDFFilePath = filename;
-//    SetFilePath(filename);  // 同时设置基类的文件路径
-//}
-//
-//void NastranReader::SetOP2FileName(const std::string& filename) {
-//    m_OP2FilePath = filename;
-//}
+}
+
+NastranReader::~NastranReader() {
+    // 注意: 不要在这里释放Python解释器，应该在程序结束时统一释放
+}
+
+void NastranReader::SetBDFFileName(const std::string& filename) {
+    m_BDFFilePath = filename;
+    SetFilePath(filename);
+}
+
+void NastranReader::SetOP2FileName(const std::string& filename) {
+    m_OP2FilePath = filename;
+}
 //
 //bool NastranReader::InitializePythonEnvironment() {
 //    // 使用单例模式初始化Python解释器（整个应用生命周期只初始化一次）
@@ -69,78 +72,122 @@
 //    }
 //    return true;
 //}
-//
-//bool NastranReader::Parsing() {
-//    if (m_BDFFilePath.empty()) {
-//        std::cerr << "[NastranReader] 错误: 未设置BDF文件路径" << std::endl;
-//        return false;
-//    }
-//
-//    // 初始化Python环境
-//    if (!InitializePythonEnvironment()) {
-//        return false;
-//    }
-//
-//    try {
-//        // 导入Python包装器模块
-//        py::module_ nastran_wrapper = py::module_::import("nastran_reader_wrapper");
-//
-//        // 调用read_nastran_full函数
-//        py::object read_func = nastran_wrapper.attr("read_nastran_full");
-//
-//        py::object py_result;
-//        if (!m_OP2FilePath.empty()) {
-//            py_result = read_func(m_BDFFilePath, m_OP2FilePath);
-//        } else {
-//            py_result = read_func(m_BDFFilePath, py::none());
-//        }
-//
-//        // 转换为字典
-//        py::dict result_dict = py_result.cast<py::dict>();
-//
-//        // 检查是否成功
-//        if (!result_dict.contains("success") || !result_dict["success"].cast<bool>()) {
-//            std::string error_msg = "Unknown error";
-//            if (result_dict.contains("error")) {
-//                error_msg = result_dict["error"].cast<std::string>();
-//            }
-//            std::cerr << "[NastranReader] Python解析失败: " << error_msg << std::endl;
-//
-//            if (result_dict.contains("traceback")) {
-//                std::cerr << result_dict["traceback"].cast<std::string>() << std::endl;
-//            }
-//            return false;
-//        }
-//
-//        // 解析几何数据
-//        if (result_dict.contains("geometry")) {
-//            py::dict geom_dict = result_dict["geometry"].cast<py::dict>();
-//            if (!ParseGeometryData(geom_dict)) {
-//                std::cerr << "[NastranReader] 几何数据解析失败" << std::endl;
-//                return false;
-//            }
-//        }
-//
-//        // 解析结果数据（如果有）
-//        if (result_dict.contains("results") && !result_dict["results"].is_none()) {
-//            py::dict results_dict = result_dict["results"].cast<py::dict>();
-//            if (results_dict.contains("success") && results_dict["success"].cast<bool>()) {
-//                ParseResultsData(results_dict);
-//            }
-//        }
-//
-//        std::cout << "[NastranReader] 解析完成" << std::endl;
-//        return true;
-//
-//    } catch (const py::error_already_set& e) {
-//        std::cerr << "[NastranReader] Python异常: " << e.what() << std::endl;
-//        return false;
-//    } catch (const std::exception& e) {
-//        std::cerr << "[NastranReader] 异常: " << e.what() << std::endl;
-//        return false;
-//    }
-//}
-//
+
+
+bool NastranReader::Parsing() {
+    if (m_BDFFilePath.empty()) {
+        IGAME_ERROR( "[NastranReader] Error: 未设置BDF文件路径");
+        return false;
+    }
+    // 尝试多个可能的 exe 路径位置
+    std::vector<std::string> exePaths = {
+            "Resources\\pyNastranLib\\nastran_to_vtk_cli.exe",
+            "nastran_to_vtk_cli.exe",
+    };
+
+    std::string exePath;
+    bool exeFound = false;
+    for (const auto& path : exePaths) {
+        // 简单检查文件是否存在
+        std::ifstream file(path);
+        if (file.good()) {
+            exePath = path;
+            exeFound = true;
+            break;
+        }
+    }
+
+    if (!exeFound) {
+        IGAME_ERROR("[NastranReader] Error: nastran_to_vtk_cli.exe not found in any path");
+        IGAME_ERROR("[NastranReader] Please ensure the exe file exists");
+        return false;
+    }
+
+
+    std::string outputPath = m_BDFFilePath + ".vtu";
+
+    std::string arguments = " --force --bdf " + m_BDFFilePath + " --output " + outputPath;
+    if(!m_OP2FilePath.empty()) arguments += " --op2 " + m_OP2FilePath;
+    else
+        IGAME_WARN("Not set op2");
+    std::string fullCommand = exePath + arguments;
+    int returnCode = system(fullCommand.c_str());
+
+    if (returnCode == 0) {
+        IGAME_TRACE("Success to  transfer Nastran to VTK");
+    } else {
+        IGAME_ERROR("Error to transfer Nastran to VTK");
+    }
+    auto vtuReader = iGame::iGameVTUReader::New();
+    vtuReader->SetFilePath(outputPath);
+    vtuReader->Execute();
+    m_Output = vtuReader->GetOutput();
+    return true;
+    //    // 初始化Python环境
+    //    if (!InitializePythonEnvironment()) {
+    //        return false;
+    //    }
+    //
+    //    try {
+    //        // 导入Python包装器模块
+    //        py::module_ nastran_wrapper = py::module_::import("nastran_reader_wrapper");
+    //
+    //        // 调用read_nastran_full函数
+    //        py::object read_func = nastran_wrapper.attr("read_nastran_full");
+    //
+    //        py::object py_result;
+    //        if (!m_OP2FilePath.empty()) {
+    //            py_result = read_func(m_BDFFilePath, m_OP2FilePath);
+    //        } else {
+    //            py_result = read_func(m_BDFFilePath, py::none());
+    //        }
+    //
+    //        // 转换为字典
+    //        py::dict result_dict = py_result.cast<py::dict>();
+    //
+    //        // 检查是否成功
+    //        if (!result_dict.contains("success") || !result_dict["success"].cast<bool>()) {
+    //            std::string error_msg = "Unknown error";
+    //            if (result_dict.contains("error")) {
+    //                error_msg = result_dict["error"].cast<std::string>();
+    //            }
+    //            std::cerr << "[NastranReader] Python解析失败: " << error_msg << std::endl;
+    //
+    //            if (result_dict.contains("traceback")) {
+    //                std::cerr << result_dict["traceback"].cast<std::string>() << std::endl;
+    //            }
+    //            return false;
+    //        }
+    //
+    //        // 解析几何数据
+    //        if (result_dict.contains("geometry")) {
+    //            py::dict geom_dict = result_dict["geometry"].cast<py::dict>();
+    //            if (!ParseGeometryData(geom_dict)) {
+    //                std::cerr << "[NastranReader] 几何数据解析失败" << std::endl;
+    //                return false;
+    //            }
+    //        }
+    //
+    //        // 解析结果数据（如果有）
+    //        if (result_dict.contains("results") && !result_dict["results"].is_none()) {
+    //            py::dict results_dict = result_dict["results"].cast<py::dict>();
+    //            if (results_dict.contains("success") && results_dict["success"].cast<bool>()) {
+    //                ParseResultsData(results_dict);
+    //            }
+    //        }
+    //
+    //        std::cout << "[NastranReader] 解析完成" << std::endl;
+    //        return true;
+    //
+    //    } catch (const py::error_already_set& e) {
+    //        std::cerr << "[NastranReader] Python异常: " << e.what() << std::endl;
+    //        return false;
+    //    } catch (const std::exception& e) {
+    //        std::cerr << "[NastranReader] 异常: " << e.what() << std::endl;
+    //        return false;
+    //    }
+}
+
 //bool NastranReader::ParseGeometryData(py::dict& geom_dict) {
 //    try {
 //        int num_nodes = geom_dict["num_nodes"].cast<int>();
@@ -344,18 +391,28 @@
 //    return false;
 //    }
 //}
-//
-//bool NastranReader::CreateDataObject() {
+
+bool NastranReader::CreateDataObject() {
 //    m_Output = m_Mesh;
-//    return m_Output != nullptr;
-//}
-//
-//DataObject::Pointer NastranReader::GetOutput() {
-//    return m_Output;
-//}
-//
+    return m_Output != nullptr;
+}
+
+DataObject::Pointer NastranReader::GetOutput() {
+    return m_Output;
+}
+bool NastranReader::Execute() {
+    Parsing();
+    CreateDataObject();
+
+    return true;
+}
+void NastranReader::SetFilePath(const std::string& filePath) {
+    this->m_FilePath = filePath;
+    this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+}
+
 //UnstructuredMesh::Pointer NastranReader::GetUnstructuredMeshOutput() {
 //    return m_Mesh;
 //}
-//
-//IGAME_NAMESPACE_END
+
+IGAME_NAMESPACE_END

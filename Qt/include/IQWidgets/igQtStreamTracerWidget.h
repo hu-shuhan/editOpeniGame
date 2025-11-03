@@ -28,6 +28,8 @@ public slots:
     void changelengthOfStreamLine();
     void changelengthOfStep();
     void changemaxSteps();
+    void changeStart();
+    void changeEnd();
     void changeterminalSpeed();
     void Pressed();
     void Released();
@@ -45,6 +47,8 @@ private:
     SmartPointer<Painter3D> Painter;
     bool isExisted = false;
     int numOfSeeds;
+    Vector3f startP;
+    Vector3f endP;
     int control;
     float proportion;
     float lengthOfStreamLine;
