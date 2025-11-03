@@ -14,7 +14,6 @@ Model::Model() {
 
     m_DataObject = DataObject::New();
     m_Filter = Filter::New();
-    m_Painter3D = Painter3D::New();
 
     m_FilePath = "";
     m_Scene = nullptr;
