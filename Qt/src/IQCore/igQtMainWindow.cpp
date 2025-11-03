@@ -887,16 +887,8 @@ void igQtMainWindow::initAllFilters() {
 
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
-    QAction* curvature = view->addAction("Get Curvature");
-    connect(curvature, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        CurvatureFilter::Pointer filter = CurvatureFilter::New();
-        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
-    });
 
-    QAction* gradient = view->addAction("Get Gradient");
+    QAction* gradient = view->addAction("ComputeGradient");
     connect(gradient, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
@@ -905,7 +897,7 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
-    QAction* laplacian = view->addAction("Get Laplacian");
+    QAction* laplacian = view->addAction("ComputeLaplacian");
     connect(laplacian, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
@@ -914,7 +906,16 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
-    QAction* vortex = view->addAction("Get Vortex");
+    QAction* curvature = view->addAction("ComputeCurvature");
+    connect(curvature, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        CurvatureFilter::Pointer filter = CurvatureFilter::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+    });
+
+    QAction* vortex = view->addAction("ComputeVorticity");
     connect(vortex, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
