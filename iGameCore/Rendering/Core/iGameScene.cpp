@@ -839,7 +839,11 @@ void Scene::ForwardPass() {
             model->Draw();
         }
         // draw painter(since painter does not support transparency)
-        if (drawObject->GetVisibility()) { model->GetPainter3D()->Draw(); }
+        if (drawObject->GetVisibility()) {
+            //model->GetPainter3D()->Draw();
+            auto& painter3Ds = model->GetAllPainter3Ds();
+            for (auto& painter3D_: painter3Ds) { painter3D_.second->Draw(); }
+        }
     }
 
     // 第二次遍历：专门渲染AlwaysOnTop模型（最后绘制）

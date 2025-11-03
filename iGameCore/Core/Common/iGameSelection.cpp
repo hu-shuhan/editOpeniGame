@@ -174,70 +174,6 @@ static void DrawCell(UnstructuredMesh* mesh, Painter3D* painter, Cell* cell, std
 }
 
 std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
-                                                        Event::Operate ope, Points* points, CellArray* cellArrays,
-                                                        Painter3D* painter) {
-    switch (type) {
-        case IG_POINT: {
-            if (painter != nullptr) {
-                painter->SetPen(10);
-                painter->SetPen(Color::Red);
-            }
-            std::vector<Selection::Event> events;
-            for (auto& pointId: ids) {
-                Selection::Event e;
-                e.type = Selection::Event::PickPoint;
-                e.pickId = pointId;
-                auto& point = points->GetPoint(pointId);
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                e.pos = point;
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        case IG_CELL: {
-            if (painter != nullptr) {
-                painter->SetPen(3);
-                painter->SetPen(0.9f, 0.145f, 0.863f);
-            }
-            std::vector<Selection::Event> events;
-            for (int i = 0; i < ids.size(); i++) {
-                auto& cellId = ids[i];
-                igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
-                int thatCellSize{};
-                if (cellArrays != nullptr) { thatCellSize = cellArrays->GetCellIds(cellId, thatCell); }
-                Selection::Event e;
-                e.type = Selection::Event::PickFace;
-                e.pickId = cellId;
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) {
-                        if (cellArrays != nullptr && cellArrays->IsUseOffSet())
-                            DrawCell_OffSet(painter, thatCellSize, thatCell, points, e.drawHandles);
-                        else
-                            DrawCell(painter, thatCellSize, thatCell, points, e.drawHandles);
-                    }
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                if (points != nullptr) {
-                    auto cellCenter = GetCentralOfCell(thatCellSize, thatCell, points);
-                    e.pos = cellCenter;
-                }
-                //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        default:
-            return {};
-            break;
-    }
-}
-
-std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
                                                         Event::Operate ope, UnstructuredMesh* mesh,
                                                         Painter3D* painter) {
     if (mesh == nullptr) return {};
@@ -360,7 +296,7 @@ void Selection::SelectionCallBackEvent(const std::vector<Event>& _events, bool l
         }
         if (shouldDraw) {
             auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
-            auto painter = m_Model->GetPainter3D();
+            auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
             std::vector<IGuint> handles;
             DrawEdges(painter, edges, mesh, handles);
             SetOtherDrawHandles(handles);
@@ -381,7 +317,7 @@ void Selection::SelectionCallBackEvent(const Event& event, bool letCellDrawWithE
             else if (_event.operate == Event::Operate::Remove)
                 m_CellFaceExtracter.RemoveCell(id, cell);
             auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
-            auto painter = m_Model->GetPainter3D();
+            auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
             std::vector<IGuint> handles;
             DrawEdges(painter, edges, mesh, handles);
             SetOtherDrawHandles(handles);
@@ -393,7 +329,7 @@ void Selection::SelectionCallBackEvent(const Event& event, bool letCellDrawWithE
 
 void Selection::SetOtherDrawHandles(const std::vector<IGuint>& handles) {
     if (m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
+        auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
         for (auto& handle: m_OtherDrawHandles) { painter->Delete(handle); }
     }
     m_OtherDrawHandles = handles;
@@ -401,16 +337,10 @@ void Selection::SetOtherDrawHandles(const std::vector<IGuint>& handles) {
 
 void Selection::Reset() {
     if (m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
-        for (auto& selectedItem: m_SelectedItems) {
-            for (auto& _event: selectedItem.second) {
-                for (auto& drawHandle: _event.second.drawHandles) { painter->Delete(drawHandle); }
-            }
-        }
+        m_Model->GetPainter3D(Painter3D::Usage::Selection)->Clear();
     }
     m_SelectedItems.clear();
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
-    SetOtherDrawHandles({});
     m_CellFaceExtracter.Clear();
 }
 
@@ -420,9 +350,14 @@ void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbl
 
 const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
 
+void Selection::SetSelectVisable(bool visable) {
+    if (m_Model == nullptr) return;
+    m_Model->GetPainter3D(Painter3D::Usage::Selection)->SetTotallyHide(!visable);
+}
+
 void Selection::AddItem(const Event& event) {
     if (m_SelectedItems[event.type].count(event.pickId) != 0 && m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
+        auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
         auto& handles = m_SelectedItems[event.type][event.pickId].drawHandles;
         for (auto& handle: handles) { painter->Delete(handle); }
     }

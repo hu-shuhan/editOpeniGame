@@ -1610,23 +1610,27 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        auto& selectedItems = model->GetSelection()->GetSelectedItems();
-        if (visiable) {
-            for (auto& objsInType: selectedItems) {
-                for (auto& eventsInObj: objsInType.second) {
-                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
-                }
-            }
-        } else {
-            for (auto& objsInType: selectedItems) {
-                for (auto& eventsInObj: objsInType.second) {
-                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
-                }
-            }
-        }
+        model->GetSelection()->SetSelectVisable(visiable);
+
+        //auto& selectedItems = model->GetSelection()->GetSelectedItems();
+        //if (visiable) {
+        //    for (auto& objsInType: selectedItems) {
+        //        for (auto& eventsInObj: objsInType.second) {
+        //            for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
+        //        }
+        //    }
+        //} else {
+        //    for (auto& objsInType: selectedItems) {
+        //        for (auto& eventsInObj: objsInType.second) {
+        //            for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
+        //        }
+        //    }
+        //}
+        
         //if (visiable) model->GetPainter3D()->ShowAll();
         //else
         //    model->GetPainter3D()->HideAll();
+
         rendererWidget->update();
         });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {

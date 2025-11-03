@@ -164,12 +164,12 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         auto events = Selection::GeneratePointEvents(
                 ids, Selection::Event::Operate::Add, mesh,
-                m_Model->GetPainter3D().get());
+                m_Model->GetPainter3D(Painter3D::Usage::Selection).get());
         m_Selection->SelectionCallBackEvent(events);
     } else {
         auto events = Selection::GeneratePointEvents(
                 ids, Selection::Event::Operate::Remove, mesh,
-                m_Model->GetPainter3D().get());
+                m_Model->GetPainter3D(Painter3D::Usage::Selection).get());
         m_Selection->SelectionCallBackEvent(events);
     }
     return;

@@ -56,9 +56,6 @@ public:
 	};
 
 public:
-    [[deprecated("error method of draw cell")]]
-    static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
-                                             Points* points, CellArray* cellArrays, Painter3D* painter = nullptr);
 
 	static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
                                              UnstructuredMesh* mesh, Painter3D* painter = nullptr);
@@ -139,6 +136,8 @@ public:
 
 	void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
     const std::vector<int>& GetSeeAbleFaces();
+
+	void SetSelectVisable(bool visable);
 
 protected:
 	Selection() {}

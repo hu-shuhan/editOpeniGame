@@ -17,6 +17,7 @@
 #include "iGamePoints.h"
 #include "iGameSelection.h"
 #include <utility>
+#include <map>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -56,7 +57,14 @@ public:
      * @brief 获取3D绘制器。
      * @return Painter3D 对象的指针。
      */
-    SmartPointer<Painter3D> GetPainter3D();
+    SmartPointer<Painter3D>
+    GetPainter3D(Painter3D::Usage usage = Painter3D::Usage::Default);
+
+    /**
+     * @brief 获取全部3D绘制器。
+     * @return 存储Painter3D 对象的指针的map。
+     */
+    const std::map<Painter3D::Usage, SmartPointer<Painter3D>>& GetAllPainter3Ds();
 
     /**
      * @brief 设置模型的过滤器。
@@ -281,6 +289,7 @@ protected:
     SmartPointer<Meshleter> m_Meshleter;
     SmartPointer<Filter> m_Filter;
     SmartPointer<Painter3D> m_Painter3D;
+    std::map<Painter3D::Usage, SmartPointer<Painter3D>> m_Painter3Ds;
 
     std::string m_FilePath;
     SmartPointer<Scene> m_Scene;

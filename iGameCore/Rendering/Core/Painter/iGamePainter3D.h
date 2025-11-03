@@ -25,6 +25,16 @@ public:
     static Pointer New() { return new Painter3D; }
 
     /**
+     * @brief Painter3D的枚举类型。用于在Model中的区分
+     */
+    enum class Usage : unsigned int {
+        Default,
+        BoundingBox,
+        Selection,
+        SelectionBox
+    };
+
+    /**
      * @brief 绘制场景中的图形元素。
      * @warning 调用该函数前需要确保与其绑定的场景（Scene）OpenGL上下文处于活跃状态。
      */
