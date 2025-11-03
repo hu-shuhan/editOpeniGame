@@ -90,6 +90,8 @@ enum AttributeType {
 enum {
     IG_POINT = 0,
     IG_CELL,
+    IG_CHANGE,
+    IG_DRAGPOINT
 };
 
 // Streaming Data's String Type

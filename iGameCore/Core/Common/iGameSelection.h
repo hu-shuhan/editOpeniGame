@@ -1,17 +1,17 @@
 #ifndef iGameSelection_h
 #define iGameSelection_h
 
-#include "iGameObject.h"
-#include "iGameElementArray.h"
-#include "iGamePoints.h"
-#include "iGameIdArray.h"
 #include "iGameCellArray.h"
+#include "iGameElementArray.h"
+#include "iGameIdArray.h"
+#include "iGameObject.h"
+#include "iGamePoints.h"
 #include <functional>
+#include <iGameCellFaceExtracter.h>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-#include <iGameCellFaceExtracter.h>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {
@@ -35,70 +35,72 @@ class UnstructuredMesh;
 class Painter3D;
 class Selection : public Object {
 public:
-	I_OBJECT(Selection);
-	static Pointer New() { return new Selection; }
-	
-	struct Event {
-		enum Type {
-			PickPoint = 0,
-			DragPoint,
-			PickFace, 
-			PickLine,
-			Change
-		};
-        enum Operate { NoOperate = 0, Add, Remove };
+    I_OBJECT(Selection);
+    static Pointer New() { return new Selection; }
 
-		Type type{};
-        Operate operate{};
-        std::vector<IGuint> drawHandles{};
-        Vector3f pos{};
-        igIndex pickId{};
-	};
+    //struct Event {
+    //    enum Type { PickPoint = 0, DragPoint, PickFace, PickLine, Change };
+    //    enum Operate { NoOperate = 0, Add, Remove };
+
+    //    Type type{};
+    //    Operate operate{};
+    //    std::vector<IGuint> drawHandles{};
+    //    Vector3f pos{};
+    //    igIndex pickId{};
+    //};
+
+    enum Operate { NoOperate = 0, Add, Remove };
 
 public:
-    [[deprecated("error method of draw cell")]]
-    static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
-                                             Points* points, CellArray* cellArrays, Painter3D* painter = nullptr);
+    //static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
+    //                                            UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
-	static std::vector<Event> GenerateEvents(const std::vector<igIndex>& ids, IGenum type, Event::Operate ope,
-                                             UnstructuredMesh* mesh, Painter3D* painter = nullptr);
+    //   static std::vector<Event> GeneratePointEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+    //                                                 UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
-    static std::vector<Event> GeneratePointEvents(const std::vector<igIndex>& ids, Event::Operate ope,
-                                                  UnstructuredMesh* mesh, Painter3D* painter = nullptr);
+    //   static std::vector<Event> GenerateCellEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+    //                                                UnstructuredMesh* mesh, Painter3D* painter = nullptr);
 
-    static std::vector<Event> GenerateCellEvents(const std::vector<igIndex>& ids, Event::Operate ope,
-                                                 UnstructuredMesh* mesh, Painter3D* painter = nullptr);
+    //void SelectionCallBackEvent(const std::vector<Event>& _events, bool letCellDrawWithExtracter = false);
 
-	void SelectionCallBackEvent(const std::vector<Event>& _events, bool letCellDrawWithExtracter = false);
+    //void SelectionCallBackEvent(const Event& event, bool letCellDrawWithExtracter = false);
 
-	void SelectionCallBackEvent(const Event& event, bool letCellDrawWithExtracter = false);
+    void SelectionCallBackEvent(IGenum itemType, const std::vector<igIndex>& ids = {},
+                                Operate ope = Operate::NoOperate);
 
-	void SetOtherDrawHandles(const std::vector<IGuint>& handles);
+    void SelectionCallBackEvent(IGenum itemType, const igIndex& id, Operate ope = Operate::NoOperate);
 
-	//void AddSelectedItems(const std::vector<igIndex>& ids, IGenum type);
+    //void AddSelectedItems(const std::vector<igIndex>& ids, IGenum type);
 
-	//void RemoveSelectedItems(const std::vector<igIndex>& ids, IGenum type);
+    //void RemoveSelectedItems(const std::vector<igIndex>& ids, IGenum type);
 
-	const std::map<Event::Type, std::map<igIndex, Event>>& GetSelectedItems() const { return m_SelectedItems; }
+    const std::set<igIndex>& GetSelectedItems(IGenum itemType);
 
-	void Reset();
+    const std::set<igIndex>& GetSelectedCells();
 
-	void ClearSelections();
+    const std::set<igIndex>& GetSelectedPoints();
 
-	//template<typename Functor, typename... Args>
-	//void SetFilterEvent(Functor&& functor, Args&&... args) {
-	//	m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
-	//}
+    bool IsSelectedItem(IGenum itemType, igIndex itemId);
+
+    void Reset();
+
+    void ClearSelections();
+
+    //template<typename Functor, typename... Args>
+    //void SetFilterEvent(Functor&& functor, Args&&... args) {
+    //	m_Functor = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+    //}
 
     template<typename Functor, typename... Args>
     void _SetSelectionCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
-        std::function<void(const std::vector<Event>&)> func =
+        std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Operate ope)> func =
                 std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
         m_CallBackFunctor[funcKey] = func;
     }
 
-	void _SetSelectionCallBackEvent_(const std::string& funcName,
-                                     const std::function<void(const std::vector<Selection::Event>&)>& func) {
+    void _SetSelectionCallBackEvent_(
+            const std::string& funcName,
+            const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Operate ope)>& func) {
         m_CallBackFunctor[funcName] = func;
     }
 
@@ -111,59 +113,54 @@ public:
         m_ClearSelectionCallBackFunctor[funcKey] = func;
     }
 
-	void _SetClearSelectionCallBackEvent_(std::string funcName, const std::function<void()>& func) {
+    void _SetClearSelectionCallBackEvent_(std::string funcName, const std::function<void()>& func) {
         m_ClearSelectionCallBackFunctor[funcName] = func;
     }
 
-#define SetClearSelectionCallBackEvent(functor, ...)                                                                        \
+#define SetClearSelectionCallBackEvent(functor, ...)                                                                   \
     _SetClearSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
-	Points* GetPoints() {
-		return m_Points;
-	}
-	CellArray* GetCells(){
-		return m_Cells;
-	}
-	Model* GetModel(){
-		return m_Model;
-	}
-	void SetPoints(Points* p) {
-		m_Points = p;
-	}
-	void SetCells(CellArray* c) {
-		m_Cells = c;
-	}
-	void SetModel(Model* m) {
-		m_Model = m;
-	}
+    Points* GetPoints() { return m_Points; }
+    CellArray* GetCells() { return m_Cells; }
+    Model* GetModel() { return m_Model; }
+    void SetPoints(Points* p) { m_Points = p; }
+    void SetCells(CellArray* c) { m_Cells = c; }
+    void SetModel(Model* m) { m_Model = m; }
 
-	void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
+    void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
     const std::vector<int>& GetSeeAbleFaces();
 
+    void SetSelectVisable(bool visable);
+
 protected:
-	Selection() {}
-	~Selection() override = default;
+    Selection() {}
+    ~Selection() override = default;
 
-	//std::function<void(Event)> m_Functor;
+    //std::function<void(Event)> m_Functor;
 
-	//Vector3f m_Position{};
-	//igIndex m_PickedId{ -1 };
-	//IdArray::Pointer m_SelectedIds{};
-    std::map<std::string, std::function<void(const std::vector<Event>&)>> m_CallBackFunctor;
+    //Vector3f m_Position{};
+    //igIndex m_PickedId{ -1 };
+    //IdArray::Pointer m_SelectedIds{};
+    std::map<std::string, std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Operate ope)>>
+            m_CallBackFunctor;
     std::map<std::string, std::function<void()>> m_ClearSelectionCallBackFunctor;
 
-	void AddItem(const Event& event);
-    std::map<Event::Type, std::map<igIndex, Event>> m_SelectedItems;
-    std::vector<IGuint> m_OtherDrawHandles;
+    void AddItem(IGenum itemType, const igIndex& itemId, Operate ope);
+    void DrawPoints();
+    void DrawCells();
+    UnstructuredMesh* _GetMesh();
+
+    std::map<IGenum, std::set<igIndex>> m_SelectedItems;
     CellFaceExtracter m_CellFaceExtracter;
 
-	std::vector<int> m_SeeAbleFaces; //pointIds,CellId
+    std::vector<int> m_SeeAbleFaces; //pointIds,CellId
 
-	Points* m_Points{ nullptr };
-	CellArray* m_Cells{ nullptr };
-	Model* m_Model{ nullptr };
+    Points* m_Points{nullptr};
+    CellArray* m_Cells{nullptr};
+    Model* m_Model{nullptr};
+    UnstructuredMesh* m_Mesh{nullptr};
 
-	friend class Model;
+    friend class Model;
 };
 
 class StreamLineSelection : public Selection {
@@ -185,15 +182,15 @@ public:
     I_OBJECT(ClipSelection);
     static Pointer New() { return new ClipSelection; }
 
-	Vector3d PlanePoint;
+    Vector3d PlanePoint;
     Vector3d PlaneNormal;
     bool Preview;
 
-	void UpdatePlane() {
+    void UpdatePlane() {
         if (Update) Update();
-	}
+    }
 
-	template<typename Functor, typename... Args>
+    template<typename Functor, typename... Args>
     void SetUpdateFunction(Functor&& functor, Args&&... args) {
         Update = std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
     }
@@ -202,7 +199,7 @@ protected:
     ClipSelection() {}
     ~ClipSelection() override = default;
 
-	std::function<void()> Update;
+    std::function<void()> Update;
 };
 
 IGAME_NAMESPACE_END

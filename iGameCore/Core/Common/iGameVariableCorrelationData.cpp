@@ -110,10 +110,9 @@ std::vector<std::vector<double>> VariableCorrelationData::CalculateDefaultVariab
     return std::vector<std::vector<double>>(variableNum, std::vector<double>(variableNum, 0.0));
 }
 
-VariableCorrelationData::Pointer
-VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                             const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                             int objNum) {
+VariableCorrelationData::Pointer VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                              IGenum dataType, const std::set<igIndex>& selectedItems,
+                                                              int objNum) {
     auto variableNames = VariableCorrelationData::GenerateVariableNames(attrs, dataType);
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableCorrelationData::Pointer();
@@ -129,7 +128,7 @@ VariableCorrelationData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetKeyObjectIdToIndexMap(VariableCorrelationData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjIds = VariableCorrelationData::GenerateChoosedObjectIds(selectedItems, dataType);
+    auto& choosedObjIds = selectedItems;
     Data->SetChoosedObjectIds(choosedObjIds);
     Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(variableNum, choosedObjIds, Data));
     Data->SetChoosedDefaultColor(VariableCorrelationData::GenerateDefaultColor(Data->GetChoosedLight()));
@@ -203,30 +202,24 @@ std::vector<igIndex> VariableCorrelationData::FiltInRangeIds(int _mainVariableIn
 
 void VariableCorrelationData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
     selection->_SetSelectionCallBackEvent(funcName, &VariableCorrelationData::DefaultSelectionCallBackFunc, this,
-                                          std::placeholders::_1);
+                                          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     selection->_SetClearSelectionCallBackEvent(funcName, &VariableCorrelationData::DefaultClearSelectionCallBackFunc,
                                                this);
 }
 
-void VariableCorrelationData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+void VariableCorrelationData::DefaultSelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids,
+                                                           Selection::Operate ope) {
     auto Data = this;
-    for (auto& e: _events) {
-        switch (e.type) {
-            case iGame::Selection::Event::Type::PickPoint:
-                if (Data->GetDataType() != IG_POINT) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            case iGame::Selection::Event::Type::PickFace:
-                if (Data->GetDataType() != IG_CELL) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            default:
-                break;
-        }
+    if (Data->GetDataType() != itemType) return;
+    switch (ope) {
+        case Selection::Add:
+            for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+            break;
+        case Selection::Remove:
+            for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+            break;
+        default:
+            break;
     }
     Data->SetChoosedVariableCorrelation(iGame::VariableCorrelationData::CalculateVariableCorrelation(
             Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));

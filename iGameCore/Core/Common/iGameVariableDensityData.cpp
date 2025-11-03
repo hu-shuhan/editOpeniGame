@@ -336,38 +336,9 @@ VariableDensityData::GenerateDefaultDensityColor(int copyNum) {
                              std::tuple<int, int, int>(0, 0, 0), std::tuple<int, int, int>(0, 0, 0)));
 }
 
-std::set<int> VariableDensityData::GenerateChoosedObjectIndexs(
-        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, IGenum dataType) {
-    std::set<int> re;
-    switch (dataType) {
-        case IG_POINT: {
-            if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) break;
-            auto& selectedPoints = selectedItems.at(Selection::Event::Type::PickPoint);
-            for (auto& point: selectedPoints) {
-                auto pointId = point.first;
-                re.insert(pointId);
-            }
-            break;
-        }
-        case IG_CELL: {
-            if (selectedItems.count(Selection::Event::Type::PickFace) == 0) break;
-            auto& selectedCells = selectedItems.at(Selection::Event::Type::PickFace);
-            for (auto& cell: selectedCells) {
-                auto cellId = cell.first;
-                re.insert(cellId);
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    return re;
-}
-
-VariableDensityData::Pointer
-VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                         const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                         int objNum, int boxNum, ScalarsToColors::Pointer colorMap) {
+VariableDensityData::Pointer VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                      IGenum dataType,
+                                 const std::set<igIndex>& selectedItems, int objNum, int boxNum, ScalarsToColors::Pointer colorMap) {
     auto variableNames = VariableDensityData::GenerateVariableNames(attrs, dataType);
     int variableNum = variableNames.size();
     if (variableNum == 0) return VariableDensityData::Pointer();
@@ -379,7 +350,7 @@ VariableDensityData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, I
     Data->SetVariableName(variableNames);
     auto variableIndex = VariableDensityData::GenerateVariableIndex(attrs, dataType);
     Data->SetVariableIndex(variableIndex);
-    auto choosedObjIds = VariableDensityData::GenerateChoosedObjectIndexs(selectedItems, dataType);
+    auto& choosedObjIds = selectedItems;
     Data->SetChoosedObjectIds(choosedObjIds);
     auto [minValue, maxValue] = VariableDensityData::GenerateMinMaxData(attrs, dataType);
     Data->SetMinValueInVariables(minValue);
@@ -452,32 +423,24 @@ std::vector<igIndex> VariableDensityData::FiltInRangeIds(int _variableIndex, dou
 
 void VariableDensityData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
     selection->_SetSelectionCallBackEvent(funcName, &VariableDensityData::DefaultSelectionCallBackFunc, this,
-                                          std::placeholders::_1);
+                                          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     selection->_SetClearSelectionCallBackEvent(funcName, &VariableDensityData::DefaultClearSelectionCallBackFunc,
                                                this);
 }
 
-void VariableDensityData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+void VariableDensityData::DefaultSelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids,
+                                                       Selection::Operate ope) {
     auto Data = this;
-    for (auto& e: _events) {
-        switch (e.type) {
-            case iGame::Selection::Event::Type::PickPoint:
-                if (Data->GetDataType() != IG_POINT) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) {
-                    //Data->AddChoosedObjectId(e.pickId);
-                    Data->m_ChoosedObjIds.insert(e.pickId);
-                } else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            case iGame::Selection::Event::Type::PickFace:
-                if (Data->GetDataType() != IG_CELL) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            default:
-                break;
-        }
+    if (Data->GetDataType() != itemType) return;
+    switch (ope) {
+        case Selection::Add:
+            for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+            break;
+        case Selection::Remove:
+            for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+            break;
+        default:
+            break;
     }
     auto choosedDensity = iGame::VariableDensityData::GenerateDensity(
             Data->GetVariableNum(), Data->GetCopyNum(), Data->GetMaxValueInVariables(), Data->GetMinValueInVariables(),

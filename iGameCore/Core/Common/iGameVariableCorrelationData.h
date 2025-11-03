@@ -34,8 +34,7 @@ public:
 public:
     /* init func */
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                       const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                       int objNum);
+                       const std::set<igIndex>& selectedItems, int objNum);
     static Pointer New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
 
 protected:
@@ -53,7 +52,7 @@ public:
     void SetDefaultSelectionFunc(const std::string& funcName, Selection* selection);
 
 protected:
-    void DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events);
+    void DefaultSelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void DefaultClearSelectionCallBackFunc();
 };
 IGAME_NAMESPACE_END

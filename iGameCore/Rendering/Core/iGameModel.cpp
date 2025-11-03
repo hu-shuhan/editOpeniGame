@@ -14,7 +14,6 @@ Model::Model() {
 
     m_DataObject = DataObject::New();
     m_Filter = Filter::New();
-    m_Painter3D = Painter3D::New();
 
     m_FilePath = "";
     m_Scene = nullptr;
@@ -27,7 +26,6 @@ Model::~Model() {}
 
 void Model::SetScene(SmartPointer<Scene> scene) {
     m_Scene = scene;
-    m_Painter3D->SetScene(scene);
 }
 
 SmartPointer<Scene> Model::GetScene() const { return m_Scene; }
@@ -40,7 +38,18 @@ bool Model::GetVisibility() const { return m_Visibility; }
 
 SmartPointer<Filter> Model::GetModelFilter() { return m_Filter; }
 
-SmartPointer<Painter3D> Model::GetPainter3D() { return m_Painter3D; }
+SmartPointer<Painter3D> Model::GetPainter3D(Painter3D::Usage usage) {
+    if (m_Painter3Ds.count(usage) == 0) {
+        m_Painter3Ds[usage] = Painter3D::New();
+        m_Painter3Ds[usage]->SetScene(m_Scene);
+    }
+    return m_Painter3Ds[usage];
+}
+
+const std::map<Painter3D::Usage, SmartPointer<Painter3D>>&
+Model::GetAllPainter3Ds() {
+    return m_Painter3Ds;
+}
 
 void Model::SetModelFilter(SmartPointer<Filter> filter) { m_Filter = filter; }
 
@@ -104,6 +113,7 @@ void Model::Hide() {
 
 void Model::SetBoundingBoxSwitch(bool action) {
     auto drawObject = DynamicCast<DrawObject>(GetDataObject());
+    auto painter3D = GetPainter3D(Painter3D::Usage::BoundingBox);
     if (action) {
         SwitchOn(ViewSwitch::BoundingBox);
 
@@ -111,14 +121,14 @@ void Model::SetBoundingBoxSwitch(bool action) {
         Vector3d p1 = bbox.min;
         Vector3d p7 = bbox.max;
 
-        if (m_BboxHandle != 0) { m_Painter3D->Delete(m_BboxHandle); }
-        m_Painter3D->SetPen(5);
-        m_Painter3D->SetPen(Color::LightBlue);
-        m_Painter3D->SetBrush(Brush::Style::NoBrush);
-        m_BboxHandle = m_Painter3D->DrawCube(p1, p7);
+        if (m_BboxHandle != 0) { painter3D->Delete(m_BboxHandle); }
+        painter3D->SetPen(5);
+        painter3D->SetPen(Color::LightBlue);
+        painter3D->SetBrush(Brush::Style::NoBrush);
+        m_BboxHandle = painter3D->DrawCube(p1, p7);
     } else {
         SwitchOff(ViewSwitch::BoundingBox);
-        m_Painter3D->Hide(m_BboxHandle);
+        painter3D->Hide(m_BboxHandle);
     }
 }
 
@@ -126,10 +136,18 @@ void Model::SetPickedItemSwitch(bool action) {
     auto drawObject = DynamicCast<DrawObject>(GetDataObject());
     if (action) {
         SwitchOn(ViewSwitch::PickedItem);
-        if (drawObject->GetVisibility()) { m_Painter3D->ShowAll(); }
+        if (drawObject->GetVisibility()) {
+            for (auto& painter3D_: m_Painter3Ds) {
+                painter3D_.second->SetTotallyHide(false);
+            }
+            //m_Painter3D->ShowAll();
+        }
     } else {
         SwitchOff(ViewSwitch::PickedItem);
-        m_Painter3D->HideAll();
+        for (auto& painter3D_: m_Painter3Ds) {
+            painter3D_.second->SetTotallyHide(true);
+        }
+        //m_Painter3D->HideAll();
     }
 }
 

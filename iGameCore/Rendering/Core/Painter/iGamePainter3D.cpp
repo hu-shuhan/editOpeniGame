@@ -12,6 +12,7 @@ Painter3D::Painter3D() {}
 Painter3D::~Painter3D() {}
 
 void Painter3D::Draw() {
+    if (m_TotallyHide) return;
     igm::mat4 model = m_Scene->m_ModelMatrix;
 
     m_Scene->UpdateCameraDataBlock();

@@ -68,7 +68,7 @@ private:
     void UpdateChoosedColor();
     void UpdateUnChoosedColor();
     void UpdateBackgroundColor();
-    void UpdateChoosedData(const std::vector<Selection::Event>& _events);
+    void UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearChoosedData();
     //Set Ui Data
     void SetUiData();
@@ -119,7 +119,7 @@ private:
     void SetClearSelectionCallback();
 
 public:
-    void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearSelectionCallback();
 
 private:

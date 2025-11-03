@@ -137,6 +137,17 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     }
 }
 
+static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh) {
+    if (painter == nullptr || edges.empty() || mesh == nullptr) return;
+    painter->SetPen(3);
+    painter->SetPen(0.9f, 0.145f, 0.863f);
+    for (auto& edge: edges) {
+        auto& p1 = mesh->GetPoint(edge.first);
+        auto& p2 = mesh->GetPoint(edge.second);
+        auto handle = painter->DrawLine(p1, p2);
+    }
+}
+
 static void CollectCellLines(Cell* cell, std::vector<std::pair<int, int>>& lines) {
     if (cell == nullptr) return;
     auto faceNum = cell->GetNumberOfFaces();
@@ -173,244 +184,191 @@ static void DrawCell(UnstructuredMesh* mesh, Painter3D* painter, Cell* cell, std
     }
 }
 
-std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
-                                                        Event::Operate ope, Points* points, CellArray* cellArrays,
-                                                        Painter3D* painter) {
-    switch (type) {
-        case IG_POINT: {
-            if (painter != nullptr) {
-                painter->SetPen(10);
-                painter->SetPen(Color::Red);
-            }
-            std::vector<Selection::Event> events;
-            for (auto& pointId: ids) {
-                Selection::Event e;
-                e.type = Selection::Event::PickPoint;
-                e.pickId = pointId;
-                auto& point = points->GetPoint(pointId);
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                e.pos = point;
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        case IG_CELL: {
-            if (painter != nullptr) {
-                painter->SetPen(3);
-                painter->SetPen(0.9f, 0.145f, 0.863f);
-            }
-            std::vector<Selection::Event> events;
-            for (int i = 0; i < ids.size(); i++) {
-                auto& cellId = ids[i];
-                igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
-                int thatCellSize{};
-                if (cellArrays != nullptr) { thatCellSize = cellArrays->GetCellIds(cellId, thatCell); }
-                Selection::Event e;
-                e.type = Selection::Event::PickFace;
-                e.pickId = cellId;
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) {
-                        if (cellArrays != nullptr && cellArrays->IsUseOffSet())
-                            DrawCell_OffSet(painter, thatCellSize, thatCell, points, e.drawHandles);
-                        else
-                            DrawCell(painter, thatCellSize, thatCell, points, e.drawHandles);
-                    }
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                if (points != nullptr) {
-                    auto cellCenter = GetCentralOfCell(thatCellSize, thatCell, points);
-                    e.pos = cellCenter;
-                }
-                //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        default:
-            return {};
-            break;
-    }
+//std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
+//                                                        Event::Operate ope, UnstructuredMesh* mesh,
+//                                                        Painter3D* painter) {
+//    if (mesh == nullptr) return {};
+//    switch (type) {
+//        case IG_POINT: {
+//            if (painter != nullptr) {
+//                painter->SetPen(10);
+//                painter->SetPen(Color::Red);
+//            }
+//            std::vector<Selection::Event> events;
+//            for (auto& pointId: ids) {
+//                Selection::Event e;
+//                e.type = Selection::Event::PickPoint;
+//                e.pickId = pointId;
+//                auto& point = mesh->GetPoint(pointId);
+//                if (ope == Selection::Event::Operate::Add) {
+//                    e.operate = Selection::Event::Operate::Add;
+//                    if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
+//                } else
+//                    e.operate = Selection::Event::Operate::Remove;
+//                e.pos = point;
+//                events.push_back(e);
+//            }
+//            return events;
+//        } break;
+//        case IG_CELL: {
+//            if (painter != nullptr) {
+//                painter->SetPen(3);
+//                painter->SetPen(0.9f, 0.145f, 0.863f);
+//            }
+//            std::vector<Selection::Event> events;
+//            for (int i = 0; i < ids.size(); i++) {
+//                auto& cellId = ids[i];
+//                Cell* cell = mesh->GetCell(cellId);
+//                Selection::Event e;
+//                e.type = Selection::Event::PickFace;
+//                e.pickId = cellId;
+//                if (ope == Selection::Event::Operate::Add) {
+//                    e.operate = Selection::Event::Operate::Add;
+//                    if (painter != nullptr) { DrawCell(mesh, painter, cell, e.drawHandles); }
+//                } else
+//                    e.operate = Selection::Event::Operate::Remove;
+//                e.pos.setZero();
+//                e.pos = GetCentralOfCell(cell);
+//                //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
+//                events.push_back(e);
+//            }
+//            return events;
+//        } break;
+//        default:
+//            return {};
+//            break;
+//    }
+//}
+//
+//std::vector<Selection::Event> Selection::GeneratePointEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+//                                                             UnstructuredMesh* mesh, Painter3D* painter) {
+//    if (mesh == nullptr) return {};
+//    if (painter != nullptr) {
+//        painter->SetPen(10);
+//        painter->SetPen(Color::Red);
+//    }
+//    std::vector<Selection::Event> events;
+//    for (auto& pointId: ids) {
+//        Selection::Event e;
+//        e.type = Selection::Event::PickPoint;
+//        e.pickId = pointId;
+//        auto& point = mesh->GetPoint(pointId);
+//        if (ope == Selection::Event::Operate::Add) {
+//            e.operate = Selection::Event::Operate::Add;
+//            if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
+//        } else
+//            e.operate = Selection::Event::Operate::Remove;
+//        e.pos = point;
+//        events.push_back(e);
+//    }
+//    return events;
+//}
+//
+//std::vector<Selection::Event> Selection::GenerateCellEvents(const std::vector<igIndex>& ids, Event::Operate ope,
+//                                                            UnstructuredMesh* mesh, Painter3D* painter) {
+//    if (mesh == nullptr) return {};
+//    if (painter != nullptr) {
+//        painter->SetPen(3);
+//        painter->SetPen(0.9f, 0.145f, 0.863f);
+//    }
+//    std::vector<Selection::Event> events;
+//    for (int i = 0; i < ids.size(); i++) {
+//        auto& cellId = ids[i];
+//        Cell* cell = mesh->GetCell(cellId);
+//        Selection::Event e;
+//        e.type = Selection::Event::PickFace;
+//        e.pickId = cellId;
+//        if (ope == Selection::Event::Operate::Add) {
+//            e.operate = Selection::Event::Operate::Add;
+//            if (painter != nullptr) { DrawCell(mesh, painter, cell, e.drawHandles); }
+//        } else
+//            e.operate = Selection::Event::Operate::Remove;
+//        e.pos.setZero();
+//        e.pos = GetCentralOfCell(cell);
+//        //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
+//        events.push_back(e);
+//    }
+//    return events;
+//}
+//
+//void Selection::SelectionCallBackEvent(const std::vector<Event>& _events, bool letCellDrawWithExtracter) {
+//    if (_events.empty()) return;
+//    if (letCellDrawWithExtracter&&m_Model!=nullptr) {
+//        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+//        bool shouldDraw{};
+//        for (auto& _event: _events) {
+//            if (_event.type != Event::Type::PickFace) continue;
+//            shouldDraw = true;
+//            auto& id = _event.pickId;
+//            auto cell = mesh->GetCell(id);
+//            if (_event.operate == Event::Operate::Add) m_CellFaceExtracter.AddCell(id, cell);
+//            else if (_event.operate == Event::Operate::Remove)
+//                m_CellFaceExtracter.RemoveCell(id, cell);
+//        }
+//        if (shouldDraw) {
+//            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
+//            auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
+//            std::vector<IGuint> handles;
+//            DrawEdges(painter, edges, mesh, handles);
+//            SetOtherDrawHandles(handles);
+//        }
+//    }
+//    for (auto& _event: _events) { AddItem(_event); }
+//    for (auto& callBackFunc: m_CallBackFunctor_old) { callBackFunc.second(_events); }
+//}
+//
+//void Selection::SelectionCallBackEvent(const Event& event, bool letCellDrawWithExtracter) {
+//    if (letCellDrawWithExtracter && m_Model != nullptr) {
+//        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+//        auto& _event = event;
+//        if (_event.type == Event::Type::PickFace) {
+//            auto& id = _event.pickId;
+//            auto cell = mesh->GetCell(id);
+//            if (_event.operate == Event::Operate::Add) m_CellFaceExtracter.AddCell(id, cell);
+//            else if (_event.operate == Event::Operate::Remove)
+//                m_CellFaceExtracter.RemoveCell(id, cell);
+//            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
+//            auto painter = m_Model->GetPainter3D(Painter3D::Usage::Selection);
+//            std::vector<IGuint> handles;
+//            DrawEdges(painter, edges, mesh, handles);
+//            SetOtherDrawHandles(handles);
+//        }
+//    }
+//    AddItem(event);
+//    for (auto& callBackFunc: m_CallBackFunctor_old) { callBackFunc.second({event}); }
+//}
+
+void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igIndex>& ids, Operate ope) {
+    for (auto& id: ids) { AddItem(itemType, id, ope); }
+    for (auto& func: m_CallBackFunctor) { func.second(itemType, ids, ope); }
+    if (itemType == IG_POINT) DrawPoints();
+    else if (itemType == IG_CELL)
+        DrawCells();
 }
 
-std::vector<Selection::Event> Selection::GenerateEvents(const std::vector<igIndex>& ids, IGenum type,
-                                                        Event::Operate ope, UnstructuredMesh* mesh,
-                                                        Painter3D* painter) {
-    if (mesh == nullptr) return {};
-    switch (type) {
-        case IG_POINT: {
-            if (painter != nullptr) {
-                painter->SetPen(10);
-                painter->SetPen(Color::Red);
-            }
-            std::vector<Selection::Event> events;
-            for (auto& pointId: ids) {
-                Selection::Event e;
-                e.type = Selection::Event::PickPoint;
-                e.pickId = pointId;
-                auto& point = mesh->GetPoint(pointId);
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                e.pos = point;
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        case IG_CELL: {
-            if (painter != nullptr) {
-                painter->SetPen(3);
-                painter->SetPen(0.9f, 0.145f, 0.863f);
-            }
-            std::vector<Selection::Event> events;
-            for (int i = 0; i < ids.size(); i++) {
-                auto& cellId = ids[i];
-                Cell* cell = mesh->GetCell(cellId);
-                Selection::Event e;
-                e.type = Selection::Event::PickFace;
-                e.pickId = cellId;
-                if (ope == Selection::Event::Operate::Add) {
-                    e.operate = Selection::Event::Operate::Add;
-                    if (painter != nullptr) { DrawCell(mesh, painter, cell, e.drawHandles); }
-                } else
-                    e.operate = Selection::Event::Operate::Remove;
-                e.pos.setZero();
-                e.pos = GetCentralOfCell(cell);
-                //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
-                events.push_back(e);
-            }
-            return events;
-        } break;
-        default:
-            return {};
-            break;
-    }
+void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Operate ope) {
+    AddItem(itemType, id, ope);
+    for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
+    if (itemType == IG_POINT) DrawPoints();
+    else if (itemType == IG_CELL)
+        DrawCells();
 }
 
-std::vector<Selection::Event> Selection::GeneratePointEvents(const std::vector<igIndex>& ids, Event::Operate ope,
-                                                             UnstructuredMesh* mesh, Painter3D* painter) {
-    if (mesh == nullptr) return {};
-    if (painter != nullptr) {
-        painter->SetPen(10);
-        painter->SetPen(Color::Red);
-    }
-    std::vector<Selection::Event> events;
-    for (auto& pointId: ids) {
-        Selection::Event e;
-        e.type = Selection::Event::PickPoint;
-        e.pickId = pointId;
-        auto& point = mesh->GetPoint(pointId);
-        if (ope == Selection::Event::Operate::Add) {
-            e.operate = Selection::Event::Operate::Add;
-            if (painter != nullptr) DrawPoint(painter, point, e.drawHandles);
-        } else
-            e.operate = Selection::Event::Operate::Remove;
-        e.pos = point;
-        events.push_back(e);
-    }
-    return events;
-}
+const std::set<igIndex>& Selection::GetSelectedItems(IGenum itemType) { return m_SelectedItems[itemType]; }
 
-std::vector<Selection::Event> Selection::GenerateCellEvents(const std::vector<igIndex>& ids, Event::Operate ope,
-                                                            UnstructuredMesh* mesh, Painter3D* painter) {
-    if (mesh == nullptr) return {};
-    if (painter != nullptr) {
-        painter->SetPen(3);
-        painter->SetPen(0.9f, 0.145f, 0.863f);
-    }
-    std::vector<Selection::Event> events;
-    for (int i = 0; i < ids.size(); i++) {
-        auto& cellId = ids[i];
-        Cell* cell = mesh->GetCell(cellId);
-        Selection::Event e;
-        e.type = Selection::Event::PickFace;
-        e.pickId = cellId;
-        if (ope == Selection::Event::Operate::Add) {
-            e.operate = Selection::Event::Operate::Add;
-            if (painter != nullptr) { DrawCell(mesh, painter, cell, e.drawHandles); }
-        } else
-            e.operate = Selection::Event::Operate::Remove;
-        e.pos.setZero();
-        e.pos = GetCentralOfCell(cell);
-        //e.pos = Vector3f(intersect.x, intersect.y, intersect.z);
-        events.push_back(e);
-    }
-    return events;
-}
+const std::set<igIndex>& Selection::GetSelectedCells() { return m_SelectedItems[IG_CELL]; }
 
-void Selection::SelectionCallBackEvent(const std::vector<Event>& _events, bool letCellDrawWithExtracter) {
-    if (_events.empty()) return;
-    if (letCellDrawWithExtracter&&m_Model!=nullptr) {
-        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
-        bool shouldDraw{};
-        for (auto& _event: _events) {
-            if (_event.type != Event::Type::PickFace) continue;
-            shouldDraw = true;
-            auto& id = _event.pickId;
-            auto cell = mesh->GetCell(id);
-            if (_event.operate == Event::Operate::Add) m_CellFaceExtracter.AddCell(id, cell);
-            else if (_event.operate == Event::Operate::Remove)
-                m_CellFaceExtracter.RemoveCell(id, cell);
-        }
-        if (shouldDraw) {
-            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
-            auto painter = m_Model->GetPainter3D();
-            std::vector<IGuint> handles;
-            DrawEdges(painter, edges, mesh, handles);
-            SetOtherDrawHandles(handles);
-        }
-    }
-    for (auto& _event: _events) { AddItem(_event); }
-    for (auto& callBackFunc: m_CallBackFunctor) { callBackFunc.second(_events); }
-}
+const std::set<igIndex>& Selection::GetSelectedPoints() { return m_SelectedItems[IG_POINT]; }
 
-void Selection::SelectionCallBackEvent(const Event& event, bool letCellDrawWithExtracter) {
-    if (letCellDrawWithExtracter && m_Model != nullptr) {
-        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
-        auto& _event = event;
-        if (_event.type == Event::Type::PickFace) {
-            auto& id = _event.pickId;
-            auto cell = mesh->GetCell(id);
-            if (_event.operate == Event::Operate::Add) m_CellFaceExtracter.AddCell(id, cell);
-            else if (_event.operate == Event::Operate::Remove)
-                m_CellFaceExtracter.RemoveCell(id, cell);
-            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
-            auto painter = m_Model->GetPainter3D();
-            std::vector<IGuint> handles;
-            DrawEdges(painter, edges, mesh, handles);
-            SetOtherDrawHandles(handles);
-        }
-    }
-    AddItem(event);
-    for (auto& callBackFunc: m_CallBackFunctor) { callBackFunc.second({event}); }
-}
-
-void Selection::SetOtherDrawHandles(const std::vector<IGuint>& handles) {
-    if (m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
-        for (auto& handle: m_OtherDrawHandles) { painter->Delete(handle); }
-    }
-    m_OtherDrawHandles = handles;
-}
+bool Selection::IsSelectedItem(IGenum itemType, igIndex itemId) { return m_SelectedItems[itemType].count(itemId) != 0; }
 
 void Selection::Reset() {
     if (m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
-        for (auto& selectedItem: m_SelectedItems) {
-            for (auto& _event: selectedItem.second) {
-                for (auto& drawHandle: _event.second.drawHandles) { painter->Delete(drawHandle); }
-            }
-        }
+        m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint)->Clear();
+        m_Model->GetPainter3D(Painter3D::Usage::SelectedCell)->Clear();
     }
     m_SelectedItems.clear();
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
-    SetOtherDrawHandles({});
     m_CellFaceExtracter.Clear();
 }
 
@@ -420,17 +378,62 @@ void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbl
 
 const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
 
-void Selection::AddItem(const Event& event) {
-    if (m_SelectedItems[event.type].count(event.pickId) != 0 && m_Model != nullptr) {
-        auto painter = m_Model->GetPainter3D();
-        auto& handles = m_SelectedItems[event.type][event.pickId].drawHandles;
-        for (auto& handle: handles) { painter->Delete(handle); }
+void Selection::SetSelectVisable(bool visable) {
+    if (m_Model == nullptr) return;
+    m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint)->SetTotallyHide(!visable);
+    m_Model->GetPainter3D(Painter3D::Usage::SelectedCell)->SetTotallyHide(!visable);
+}
+
+void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
+    if (ope == Operate::Remove) {
+        m_SelectedItems[itemType].erase(itemId);
+        if (itemType == IG_CELL) {
+            auto mesh = _GetMesh();
+            if (mesh == nullptr) return;
+            auto cell = mesh->GetCell(itemId);
+            m_CellFaceExtracter.RemoveCell(itemId, cell);
+        }
+    } else if (ope == Operate::Add) {
+        m_SelectedItems[itemType].insert(itemId);
+        if (itemType == IG_CELL) {
+            auto mesh = _GetMesh();
+            if (mesh == nullptr) return;
+            auto cell = mesh->GetCell(itemId);
+            m_CellFaceExtracter.AddCell(itemId, cell);
+        }
     }
-    if (event.operate == Event::Operate::Remove) {
-        m_SelectedItems[event.type].erase(event.pickId);
-        return;
+}
+
+void Selection::DrawPoints() {
+    if (m_Model == nullptr) return;
+    auto mesh = _GetMesh();
+    if (mesh == nullptr) return;
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
+    if (painter == nullptr) return;
+    painter->Clear();
+    painter->SetPen(10);
+    painter->SetPen(Color::Red);
+    auto& pointIds = GetSelectedPoints();
+    for (auto& pId: pointIds) {
+        auto& point = mesh->GetPoint(pId);
+        painter->DrawPoint(point);
     }
-    m_SelectedItems[event.type][event.pickId] = event;
+}
+
+void Selection::DrawCells() {
+    if (m_Model == nullptr) return;
+    auto mesh = _GetMesh();
+    if (mesh == nullptr) return;
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
+    if (painter == nullptr) return;
+    auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
+    DrawEdges(painter, edges, mesh);
+}
+
+UnstructuredMesh* Selection::_GetMesh() {
+    if (m_Model == nullptr) return nullptr;
+    if (m_Mesh == nullptr) m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    return m_Mesh;
 }
 
 IGAME_NAMESPACE_END
