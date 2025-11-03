@@ -39,6 +39,7 @@ public:
     bool ComputeVorticityWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index);
     bool ComputeVorticityWithSurfaceMesh2(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index);
     bool ComputeVorticityWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index);
+    bool ComputeVorticityWithUnstructuredMesh(UnstructuredMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index);
     bool ComputeVorticityWithVolumeMesh2(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index);
 
     VectorGrad ComputeVectorGradByPlane(Cell* cell, ArrayObject* data);
@@ -77,6 +78,8 @@ public:
 
     // =========================== 体网格 Cell  ===========================
     bool ComputeCellVorticityForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex);
+    VectorGrad ComputeVectorGradByHex(Cell* cell, ArrayObject* data);
+    VectorGrad ComputeVectorGradByPolyhedron(Cell* cell, ArrayObject* data);
 
     std::array<float, 3> ComputePointGradientWithSurfaceMesh(Cell* cell, ArrayObject::Pointer data, int dim);
     std::array<float, 3> ComputePointGradientWithVolumeMesh(Cell* cell, ArrayObject::Pointer data, int dim);
