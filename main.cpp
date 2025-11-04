@@ -11,35 +11,6 @@
 #include <iGameScene.h>
 #include <iGameRenderWindow.h>
 int main(int argc, char* argv[]) {
-//        iGame::NastranReader::Pointer rd = iGame::NastranReader::New();
-//        rd->SetBDFFileName("D:/Project/editOpeniGame/Examples/Models/ogs.bdf");
-//        rd->SetFilePath("D:/Project/editOpeniGame/Examples/Models/ogs.bdf");
-//        rd->SetOP2FileName("D:/Project/editOpeniGame/Examples/Models/ogs.op2");
-//        rd->Execute();
-//        auto obj = rd->GetOutput();
-//        std::cout << "Attributes Num : " << obj->GetAttributeSet()->GetNumberOfAttributes() << std::endl;
-//
-//        if (obj == nullptr) {
-//            std::cerr << "Error: Failed to load model" << std::endl;
-//            return -1;
-//        }
-//
-//        /* Launch window Settings */
-//        auto scene = iGame::Scene::New();
-//        iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
-//        window->SetSize(1920, 1080);
-//        window->SetScene(scene);
-//
-//        auto interactor = iGame::Interactor::New();
-//        interactor->Initialize(scene);
-//        interactor->CreateDefaultStyle();
-//        window->SetInteractor(interactor);
-//
-//        scene->AddModel(obj);
-//
-//        /* show single window */
-//        window->Show();
-//
 
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持

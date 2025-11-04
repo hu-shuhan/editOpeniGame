@@ -69,30 +69,31 @@ void igQtFileLoader::LoadOnlineC() {
 }
 void igQtFileLoader::LoadFile() {
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc)",
-                           "VTK file(*.vtk)",
-                           "CGNS file(*.cgns)",
-                            #if defined(AbqSDK_ENABLE)
-                           "ABAQUS file(*.odb)",
-                           #endif
-                           "Spline file(*.xml)",
-                            #if defined(NASTRAN_ENABLE)
-                           "Nastran file(*.bdf *.op2)",
-                            #endif
-                           "Compression file(*.igc)"};
+                            "*.vtm *.cgns *.odb *.igc)",
+                            "VTK file(*.vtk)",
+                            "CGNS file(*.cgns)",
+#if defined(AbqSDK_ENABLE)
+                            "ABAQUS file(*.odb)",
+#endif
+                            "Spline file(*.xml)",
+#if defined(NASTRAN_ENABLE)
+                            "Nastran file(*.bdf *.op2)",
+#endif
+                            "Compression file(*.igc)"};
     QString selectedFilter;
     QStringList filePath =
             QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+    if(filePath.empty()) return ;
     switch (selected_idx) {
         case FileType::Spline:
             this->OpenSplineFile(filePath[0].toStdString());
             break;
-    #if defined(AbqSDK_ENABLE)
+#if defined(AbqSDK_ENABLE)
         case FileType::ABAQUS:
             this->OpenODBFile(filePath[0].toStdString());
             break;
-    #endif
+#endif
 #if defined(NASTRAN_ENABLE)
         case FileType::BDF:
             this->OpenNastranFile(filePath);
