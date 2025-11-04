@@ -6,6 +6,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include <cmath>
+#include <algorithm>
 #include "Convert/iGameConvertToVolumeMesh.h"
 IGAME_NAMESPACE_BEGIN
 bool VortexFilter::Execute()  {
@@ -304,10 +305,10 @@ bool VortexFilter::ComputeVorticityWithVolumeMesh(VolumeMesh::Pointer Mesh, Attr
             progress++;
             UpdateProgress(progress * 0.01);
         }
-        std::cout<<"11111111111"<<std::endl;
+        // std::cout<<"11111111111"<<std::endl;
         auto cell = Mesh->GetVolume(cellId);
 
-        std::cout<<"1122222222"<<std::endl;
+        // std::cout<<"1122222222"<<std::endl;
 
         VectorGrad grad;
         switch (cell->GetCellType()) {
@@ -357,50 +358,79 @@ bool VortexFilter::ComputeVorticityWithVolumeMesh(VolumeMesh::Pointer Mesh, Attr
         //     }
         // }
     }
-    std::cout<<"4"<<std::endl;
-    double mean_omega_x = 0.0, mean_omega_y = 0.0, mean_omega_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        mean_omega_x += omega_x_values[i];
-        mean_omega_y += omega_y_values[i];
-        mean_omega_z += omega_z_values[i];
-    }
-    mean_omega_x /= NumCells;
-    mean_omega_y /= NumCells;
-    mean_omega_z /= NumCells;
-
-    double std_omega_x = 0.0, std_omega_y = 0.0, std_omega_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        std_omega_x += (omega_x_values[i] - mean_omega_x) * (omega_x_values[i] - mean_omega_x);
-        std_omega_y += (omega_y_values[i] - mean_omega_y) * (omega_y_values[i] - mean_omega_y);
-        std_omega_z += (omega_z_values[i] - mean_omega_z) * (omega_z_values[i] - mean_omega_z);
-    }
-    std_omega_x = std::sqrt(std_omega_x / NumCells);
-    std_omega_y = std::sqrt(std_omega_y / NumCells);
-    std_omega_z = std::sqrt(std_omega_z / NumCells);
-
-    double threshold_omega_x = 5.0 * std_omega_x;
-    double threshold_omega_y = 5.0 * std_omega_y;
-    double threshold_omega_z = 5.0 * std_omega_z;
-
-    for (int i = 0; i < NumCells; ++i) {
-        double omega_x = omega_x_values[i];
-        double omega_y = omega_y_values[i];
-        double omega_z = omega_z_values[i];
-
-        if (std::abs(omega_x - mean_omega_x) > threshold_omega_x) {
-            omega_x = mean_omega_x + (omega_x - mean_omega_x) / std::abs(omega_x - mean_omega_x) * threshold_omega_x;
+    // std::cout<<"4"<<std::endl;
+    // double mean_omega_x = 0.0, mean_omega_y = 0.0, mean_omega_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     mean_omega_x += omega_x_values[i];
+    //     mean_omega_y += omega_y_values[i];
+    //     mean_omega_z += omega_z_values[i];
+    // }
+    // mean_omega_x /= NumCells;
+    // mean_omega_y /= NumCells;
+    // mean_omega_z /= NumCells;
+    //
+    // double std_omega_x = 0.0, std_omega_y = 0.0, std_omega_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     std_omega_x += (omega_x_values[i] - mean_omega_x) * (omega_x_values[i] - mean_omega_x);
+    //     std_omega_y += (omega_y_values[i] - mean_omega_y) * (omega_y_values[i] - mean_omega_y);
+    //     std_omega_z += (omega_z_values[i] - mean_omega_z) * (omega_z_values[i] - mean_omega_z);
+    // }
+    // std_omega_x = std::sqrt(std_omega_x / NumCells);
+    // std_omega_y = std::sqrt(std_omega_y / NumCells);
+    // std_omega_z = std::sqrt(std_omega_z / NumCells);
+    //
+    // double threshold_omega_x = 5.0 * std_omega_x;
+    // double threshold_omega_y = 5.0 * std_omega_y;
+    // double threshold_omega_z = 5.0 * std_omega_z;
+    //
+    // for (int i = 0; i < NumCells; ++i) {
+    //     double omega_x = omega_x_values[i];
+    //     double omega_y = omega_y_values[i];
+    //     double omega_z = omega_z_values[i];
+    //
+    //     if (std::abs(omega_x - mean_omega_x) > threshold_omega_x) {
+    //         omega_x = mean_omega_x + (omega_x - mean_omega_x) / std::abs(omega_x - mean_omega_x) * threshold_omega_x;
+    //     }
+    //
+    //     if (std::abs(omega_y - mean_omega_y) > threshold_omega_y) {
+    //         omega_y = mean_omega_y + (omega_y - mean_omega_y) / std::abs(omega_y - mean_omega_y) * threshold_omega_y;
+    //     }
+    //
+    //     if (std::abs(omega_z - mean_omega_z) > threshold_omega_z) {
+    //         omega_z = mean_omega_z + (omega_z - mean_omega_z) / std::abs(omega_z - mean_omega_z) * threshold_omega_z;
+    //     }
+    //
+    //     vorticities->AddElement3(omega_x, omega_y, omega_z);
+    // }
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
         }
+    };
 
-        if (std::abs(omega_y - mean_omega_y) > threshold_omega_y) {
-            omega_y = mean_omega_y + (omega_y - mean_omega_y) / std::abs(omega_y - mean_omega_y) * threshold_omega_y;
-        }
+    clamp_by_quantile(omega_x_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_y_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_z_values, 0.000005, 0.999995);
 
-        if (std::abs(omega_z - mean_omega_z) > threshold_omega_z) {
-            omega_z = mean_omega_z + (omega_z - mean_omega_z) / std::abs(omega_z - mean_omega_z) * threshold_omega_z;
-        }
-
-        vorticities->AddElement3(omega_x, omega_y, omega_z);
+    for (int i = 0; i < NumCells; ++i) {
+        vorticities->AddElement3(omega_x_values[i],
+                                 omega_y_values[i],
+                                 omega_z_values[i]);
     }
+
+    UpdateProgress(1.0);
+    return true;
 
     // FloatArray::Pointer vorticities = FloatArray::New();
     // vorticities->SetDimension(3);
@@ -515,73 +545,34 @@ bool VortexFilter::ComputeVorticityWithUnstructuredMesh(UnstructuredMesh::Pointe
         //     }
         // }
     }
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
+        }
+    };
 
-    double mean_omega_x = 0.0, mean_omega_y = 0.0, mean_omega_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        mean_omega_x += omega_x_values[i];
-        mean_omega_y += omega_y_values[i];
-        mean_omega_z += omega_z_values[i];
-    }
-    mean_omega_x /= NumCells;
-    mean_omega_y /= NumCells;
-    mean_omega_z /= NumCells;
-
-    double std_omega_x = 0.0, std_omega_y = 0.0, std_omega_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        std_omega_x += (omega_x_values[i] - mean_omega_x) * (omega_x_values[i] - mean_omega_x);
-        std_omega_y += (omega_y_values[i] - mean_omega_y) * (omega_y_values[i] - mean_omega_y);
-        std_omega_z += (omega_z_values[i] - mean_omega_z) * (omega_z_values[i] - mean_omega_z);
-    }
-    std_omega_x = std::sqrt(std_omega_x / NumCells);
-    std_omega_y = std::sqrt(std_omega_y / NumCells);
-    std_omega_z = std::sqrt(std_omega_z / NumCells);
-
-    double threshold_omega_x = 5.0 * std_omega_x;
-    double threshold_omega_y = 5.0 * std_omega_y;
-    double threshold_omega_z = 5.0 * std_omega_z;
+    clamp_by_quantile(omega_x_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_y_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_z_values, 0.000005, 0.999995);
 
     for (int i = 0; i < NumCells; ++i) {
-        double omega_x = omega_x_values[i];
-        double omega_y = omega_y_values[i];
-        double omega_z = omega_z_values[i];
-
-        if (std::abs(omega_x - mean_omega_x) > threshold_omega_x) {
-            omega_x = mean_omega_x + (omega_x - mean_omega_x) / std::abs(omega_x - mean_omega_x) * threshold_omega_x;
-        }
-
-        if (std::abs(omega_y - mean_omega_y) > threshold_omega_y) {
-            omega_y = mean_omega_y + (omega_y - mean_omega_y) / std::abs(omega_y - mean_omega_y) * threshold_omega_y;
-        }
-
-        if (std::abs(omega_z - mean_omega_z) > threshold_omega_z) {
-            omega_z = mean_omega_z + (omega_z - mean_omega_z) / std::abs(omega_z - mean_omega_z) * threshold_omega_z;
-        }
-
-        vorticities->AddElement3(omega_x, omega_y, omega_z);
+        vorticities->AddElement3(omega_x_values[i],
+                                 omega_y_values[i],
+                                 omega_z_values[i]);
     }
 
-    // FloatArray::Pointer vorticities = FloatArray::New();
-    // vorticities->SetDimension(3);
-    // vorticities->Reserve(NumPoints);
-    // vorticities->SetName("vorticities");
-    // attributeSet->AddScalar(IG_POINT, vorticities);
-    //
-    // ResetProgress();
-    // progress = 0;
-    // block = NumPoints / 100;
-    // for (int i = 0; i < NumPoints; ++i) {
-    //     if (i > block * progress) {
-    //         progress++;
-    //         UpdateProgress(progress * 0.01);
-    //     }
-    //
-    //     float omega_x = gradients_z[i][1] - gradients_y[i][2]; // ∂vz/∂y - ∂vy/∂z
-    //     float omega_y = gradients_x[i][2] - gradients_z[i][0]; // ∂vx/∂z - ∂vz/∂x
-    //     float omega_z = gradients_y[i][0] - gradients_x[i][1]; // ∂vy/∂x - ∂vx/∂y
-    //
-    //     float mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
-    //     vorticities->AddElement3(omega_x, omega_y, omega_z);
-    // }
+    UpdateProgress(1.0);
     return true;
 }
 
