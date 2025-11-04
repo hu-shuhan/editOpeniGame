@@ -42,7 +42,7 @@ private slots:
     void SelectionRadiusSpinBox(double radius);
     void SelectionVariableIndex(int index);
     void SelectionVariableAutoCheck(bool checked);
-    void SelectionVariableRange(double range);
+    void SelectionExpdRate(double rate);
     void SelectionSkipUnSeeAbleCell(bool checked);
     void SelectionOnlySelectSeeAbleCells(bool checked);
     void ClearSelectionState();
