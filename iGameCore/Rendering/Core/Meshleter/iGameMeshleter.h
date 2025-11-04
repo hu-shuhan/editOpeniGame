@@ -78,6 +78,12 @@ public:
      */
     void ReleaseGpuBuffers();
 
+    void SetRenderWithMeshlet(bool val) {
+        m_RenderWithMeshlet = val;
+        m_RenderWithMeshletChanged = true;
+    }
+    bool GetRenderWithMeshlet() const { return m_RenderWithMeshlet; }
+
 protected:
     Meshleter();
     ~Meshleter() override;
@@ -94,6 +100,8 @@ protected:
     SmartPointer<DataObject> m_DataObject; ///< 输入数据对象指针
     size_t m_MeshletCount = 0;             ///< Meshlet的数量
 
+    bool m_RenderWithMeshlet = false; ///< 是否每个meshlet独立颜色
+    bool m_RenderWithMeshletChanged = false;
     std::vector<unsigned int> m_MeshletIndices;
     std::vector<unsigned int> m_TriangleToFace;
     std::vector<MeshletDescriptor> m_MeshletDescriptors;
