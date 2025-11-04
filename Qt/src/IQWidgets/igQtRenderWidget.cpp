@@ -55,15 +55,16 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
             break;
         case iGame::Interactor::SinglePointSelectionStyle: {
             auto obj = m_Scene->GetCurrentModel()->GetDataObject();
+            if (obj == nullptr) return;
+            auto s = m_Scene->GetCurrentModel()->GetSelection();
+            if (s == nullptr) return;
             if (obj->HasSubDataObject()) {
-                auto s = m_Scene->GetCurrentModel()->GetSelection();
                 s->SetModel(m_Scene->GetCurrentModel());
                 m_Interactor->SetDataObject(obj);
                 m_Interactor->SetPainter3D(m_Scene->GetCurrentModel()->GetPainter3D());
                 m_Interactor->RequestPointSelectionStyle(s);
 
             } else {
-                auto s = m_Scene->GetCurrentModel()->GetSelection();
                 auto ps = DynamicCast<iGame::PointSet>(m_Scene->GetCurrentModel()->GetDataObject());
                 if (ps == nullptr) {
                     m_Interactor->RequestBasicStyle();
@@ -78,6 +79,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
         } break;
         case iGame::Interactor::SingleFaceSelectionStyle: {
             auto s = m_Scene->GetCurrentModel()->GetSelection();
+            if (s == nullptr) return;
             auto model = m_Scene->GetCurrentModel();
             auto obj = model->GetDataObject();
             iGame::Points::Pointer points;

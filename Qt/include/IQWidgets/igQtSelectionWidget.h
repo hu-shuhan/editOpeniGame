@@ -20,14 +20,16 @@ public:
     explicit igQtSelectionWidget(QWidget *parent = nullptr);
     ~igQtSelectionWidget();
     const SelectionStation& GetSelectionStation() const;
-    bool GetSelectionShow() const;
+    bool GetSelectItemShow() const;
+    bool GetSelectBoxShow() const;
     void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
 signals:
     void Signal_SetSelectionStationChanged();
-    void SetSelectionShow(bool show);
+    void SetSelectItemShow(bool show);
+    void SetSelectBoxShow(bool show);
     void SetClearSelection();
     void Hided();
 
@@ -44,7 +46,8 @@ private slots:
     void SelectionSkipUnSeeAbleCell(bool checked);
     void SelectionOnlySelectSeeAbleCells(bool checked);
     void ClearSelectionState();
-    void SelectionStateShow(bool unShow);
+    void SelectItemShow(bool unShow);
+    void SelectBoxShow(bool unShow);
 
 protected:
     void hideEvent(QHideEvent* event) override;
@@ -52,7 +55,8 @@ protected:
 private:
     Ui::SelectionView* ui;
     SelectionStation m_SelectionStation{};
-    bool m_SelectionShow{true};
+    bool m_SelectItemShow{true};
+    bool m_SelectBoxShow{true};
     bool m_PreventSignalSend{};
 };
 

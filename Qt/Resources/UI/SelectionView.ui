@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>280</width>
-    <height>234</height>
+    <width>285</width>
+    <height>295</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -172,7 +172,14 @@
         <item>
          <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">
-           <string>隐藏</string>
+           <string>隐藏选择对象</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="noneSelectBox">
+          <property name="text">
+           <string>隐藏包围框</string>
           </property>
          </widget>
         </item>

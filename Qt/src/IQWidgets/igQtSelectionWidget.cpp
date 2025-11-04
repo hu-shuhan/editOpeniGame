@@ -20,7 +20,8 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
     connect(ui->theRange, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionVariableRange);
-    connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStateShow);
+    connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectItemShow);
+    connect(ui->noneSelectBox, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectBoxShow);
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
     //ui->noneSelectionState->hide();
 }
@@ -31,7 +32,9 @@ igQtSelectionWidget::~igQtSelectionWidget()
 
 const SelectionStation& igQtSelectionWidget::GetSelectionStation() const { return m_SelectionStation; }
 
-bool igQtSelectionWidget::GetSelectionShow() const { return m_SelectionShow; }
+bool igQtSelectionWidget::GetSelectItemShow() const { return m_SelectItemShow; }
+
+bool igQtSelectionWidget::GetSelectBoxShow() const { return m_SelectBoxShow; }
 
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
@@ -115,11 +118,18 @@ void igQtSelectionWidget::ClearSelectionState() {
     emit SetClearSelection();
 }
 
-void igQtSelectionWidget::SelectionStateShow(bool unShow) {
+void igQtSelectionWidget::SelectItemShow(bool unShow) {
     auto show = !unShow;
-    m_SelectionShow = show;
+    m_SelectItemShow = show;
     if (m_PreventSignalSend) return;
-    emit SetSelectionShow(show);
+    emit SetSelectItemShow(show);
+}
+
+void igQtSelectionWidget::SelectBoxShow(bool unShow) {
+    auto show = !unShow;
+    m_SelectBoxShow = show;
+    if (m_PreventSignalSend) return;
+    emit SetSelectBoxShow(show);
 }
 
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {

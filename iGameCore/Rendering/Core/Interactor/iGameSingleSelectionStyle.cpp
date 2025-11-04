@@ -201,7 +201,6 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
             SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells(),
             SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
     if (ids.empty()) return;
-    std::cout << "Select id: " << ids[0] << std::endl;
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         //auto events = Selection::GenerateEvents(
         //        ids, IG_CELL, Selection::Event::Operate::Add, mesh,

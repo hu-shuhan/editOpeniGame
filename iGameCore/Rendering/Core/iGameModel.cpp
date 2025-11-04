@@ -80,7 +80,9 @@ void Model::SetFilePath(std::string filePath) { m_FilePath = filePath; }
 std::string Model::GetFilePath() { return this->m_FilePath; }
 
 SmartPointer<Selection> Model::GetSelection() {
-    return DynamicCast<PointSet>(GetDataObject())->GetSelection(this);
+    auto dataObj = DynamicCast<PointSet>(GetDataObject());
+    if (!dataObj) return nullptr;
+    return dataObj->GetSelection(this);
 }
 
 void Model::RequestPointSelection(SmartPointer<Points> p,

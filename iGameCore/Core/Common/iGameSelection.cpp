@@ -139,6 +139,7 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
 
 static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
+    painter->Clear();
     painter->SetPen(3);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
@@ -146,6 +147,15 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
         auto& p2 = mesh->GetPoint(edge.second);
         auto handle = painter->DrawLine(p1, p2);
     }
+}
+
+static void DrawBoundingBoxs(Painter3D* painter, const std::vector<std::pair<Point, Point>>& boxs) {
+    if (painter == nullptr || boxs.empty()) return;
+    painter->Clear();
+    painter->SetPen(5);
+    painter->SetPen(0.9f, 0.9f, 0.9f);
+    painter->SetBrush(iGame::Brush::Style::NoBrush);
+    for (auto& box_: boxs) { painter->DrawCube(box_.first, box_.second); }
 }
 
 static void CollectCellLines(Cell* cell, std::vector<std::pair<int, int>>& lines) {
@@ -342,16 +352,20 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
     for (auto& id: ids) { AddItem(itemType, id, ope); }
     for (auto& func: m_CallBackFunctor) { func.second(itemType, ids, ope); }
     if (itemType == IG_POINT) DrawPoints();
-    else if (itemType == IG_CELL)
-        DrawCells();
+    else if (itemType == IG_CELL) {
+        DrawCellEdges();
+        DrawCellBoundingBoxs();
+    }
 }
 
 void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Operate ope) {
     AddItem(itemType, id, ope);
     for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
     if (itemType == IG_POINT) DrawPoints();
-    else if (itemType == IG_CELL)
-        DrawCells();
+    else if (itemType == IG_CELL) {
+        DrawCellEdges();
+        DrawCellBoundingBoxs();
+    }
 }
 
 const std::set<igIndex>& Selection::GetSelectedItems(IGenum itemType) { return m_SelectedItems[itemType]; }
@@ -366,6 +380,7 @@ void Selection::Reset() {
     if (m_Model != nullptr) {
         m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint)->Clear();
         m_Model->GetPainter3D(Painter3D::Usage::SelectedCell)->Clear();
+        m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->Clear();
     }
     m_SelectedItems.clear();
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
@@ -378,29 +393,22 @@ void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbl
 
 const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
 
-void Selection::SetSelectVisable(bool visable) {
+void Selection::SetSelectItemVisable(bool visable) {
     if (m_Model == nullptr) return;
     m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint)->SetTotallyHide(!visable);
     m_Model->GetPainter3D(Painter3D::Usage::SelectedCell)->SetTotallyHide(!visable);
 }
 
+void Selection::SetSelectBoxVisable(bool visable) {
+    if (m_Model == nullptr) return;
+    m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
+}
+
 void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
     if (ope == Operate::Remove) {
         m_SelectedItems[itemType].erase(itemId);
-        if (itemType == IG_CELL) {
-            auto mesh = _GetMesh();
-            if (mesh == nullptr) return;
-            auto cell = mesh->GetCell(itemId);
-            m_CellFaceExtracter.RemoveCell(itemId, cell);
-        }
     } else if (ope == Operate::Add) {
         m_SelectedItems[itemType].insert(itemId);
-        if (itemType == IG_CELL) {
-            auto mesh = _GetMesh();
-            if (mesh == nullptr) return;
-            auto cell = mesh->GetCell(itemId);
-            m_CellFaceExtracter.AddCell(itemId, cell);
-        }
     }
 }
 
@@ -420,14 +428,24 @@ void Selection::DrawPoints() {
     }
 }
 
-void Selection::DrawCells() {
+void Selection::DrawCellEdges() {
     if (m_Model == nullptr) return;
     auto mesh = _GetMesh();
     if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
     if (painter == nullptr) return;
-    auto edges = m_CellFaceExtracter.GetExtractPointIdPairs();
+    auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
     DrawEdges(painter, edges, mesh);
+}
+
+void Selection::DrawCellBoundingBoxs() {
+    if (m_Model == nullptr) return;
+    auto mesh = _GetMesh();
+    if (mesh == nullptr) return;
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
+    if (painter == nullptr) return;
+    auto boxs = m_CellFaceExtracter.GetExtractBoundingBoxs(m_SelectedItems[IG_CELL], mesh);
+    DrawBoundingBoxs(painter, boxs);
 }
 
 UnstructuredMesh* Selection::_GetMesh() {
