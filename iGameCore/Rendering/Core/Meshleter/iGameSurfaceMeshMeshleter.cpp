@@ -163,40 +163,42 @@ void SurfaceMeshMeshleter::Build() {
         }
 #else
         // Record indirect Command
-        std::vector<unsigned int> meshletIndices(meshletTriangles.size());
-        std::vector<MeshletDescriptor> meshletDescriptors(meshlet_count);
-        std::vector<DrawElementsIndirectCommand> drawCommands(meshlet_count);
+        m_MeshletIndices.resize(meshletTriangles.size());
+        m_MeshletDescriptors.resize(meshlet_count);
+        m_ElementsDrawCommands.resize(meshlet_count);
+        m_ArraysDrawCommands.resize(meshlet_count);
+
         for (size_t i = 0; i < meshlet_count; ++i) {
             const meshopt_Meshlet& m = meshlets[i];
             const meshopt_Bounds& b = meshlet_bounds[i];
 
             for (auto j = m.triangle_offset;
                  j < m.triangle_offset + m.triangle_count * 3; j++) {
-                meshletIndices[j] =
+                m_MeshletIndices[j] =
                         meshletVertices[m.vertex_offset + meshletTriangles[j]];
             }
 
-            meshletDescriptors[i] = {
+            m_MeshletDescriptors[i] = {
                     igm::vec4{b.center[0], b.center[1], b.center[2], b.radius},
                     igm::vec4{0.0f}};
 
-            drawCommands[i] = {m.triangle_count * 3, 0, m.triangle_offset, 0,
-                               0};
+            m_ElementsDrawCommands[i] = DrawElementsIndirectCommand{
+                    m.triangle_count * 3, 0, m.triangle_offset, 0, 0};
+
+            // DrawArraysIndirectCommand.first is the starting vertex index.
+            // Our triangle-based offsets are in triangles (3 vertices each),
+            // so convert triangle offset -> vertex offset by multiplying by 3.
+            m_ArraysDrawCommands[i] = DrawArraysIndirectCommand{
+                    m.triangle_count * 3, 0, m.triangle_offset * 3, 0};
         }
 
-        // create buffer
+        // create draw command buffers
         {
             m_MeshletDescriptorBuffer->Create();
             m_MeshletDescriptorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
             m_MeshletDescriptorBuffer->Allocate(
                     meshlet_count * sizeof(MeshletDescriptor),
-                    meshletDescriptors.data(), GL_STATIC_DRAW);
-
-            m_DrawCommandBuffer->Create();
-            m_DrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            m_DrawCommandBuffer->Allocate(
-                    meshlet_count * sizeof(DrawElementsIndirectCommand),
-                    drawCommands.data(), GL_STATIC_DRAW);
+                    m_MeshletDescriptors.data(), GL_STATIC_DRAW);
 
             m_VisibleMeshletBuffer->Create();
             m_VisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
@@ -206,29 +208,29 @@ void SurfaceMeshMeshleter::Build() {
             //                                          sizeof(unsigned int),
             //                                  nullptr, GL_DYNAMIC_DRAW);
 
+            m_DrawCommandBuffer->Create();
+            m_DrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_DrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawElementsIndirectCommand),
+                    m_ElementsDrawCommands.data(), GL_STATIC_DRAW);
+
             m_FinalDrawCommandBuffer->Create();
             m_FinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
             m_FinalDrawCommandBuffer->Allocate(
                     meshlet_count * sizeof(DrawElementsIndirectCommand),
                     nullptr, GL_DYNAMIC_DRAW);
 
-            m_PositionVBO->Create();
-            m_PositionVBO->Target(GL_ARRAY_BUFFER);
-            m_PositionVBO->Allocate(vertex_count * 3 * sizeof(float),
-                                    vertex_positions, GL_STATIC_DRAW);
+            m_CellDrawCommandBuffer->Create();
+            m_CellDrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_CellDrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawArraysIndirectCommand),
+                    m_ArraysDrawCommands.data(), GL_STATIC_DRAW);
 
-            m_TriangleEBO->Create();
-            m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-            m_TriangleEBO->Allocate(meshletIndices.size() *
-                                            sizeof(unsigned int),
-                                    meshletIndices.data(), GL_STATIC_DRAW);
-
-            m_TriangleVAO->Create();
-            m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
-                                        3 * sizeof(float));
-            GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
-                              GL_FLOAT, GL_FALSE, 0);
-            m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+            m_CellFinalDrawCommandBuffer->Create();
+            m_CellFinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
+            m_CellFinalDrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawArraysIndirectCommand), nullptr,
+                    GL_DYNAMIC_DRAW);
         }
 #endif
 
