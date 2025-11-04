@@ -4,7 +4,6 @@
 #include "iGameEncodedMeshData.h"
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
-#include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecZSTD.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
