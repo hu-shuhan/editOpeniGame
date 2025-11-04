@@ -130,7 +130,8 @@ public:
     void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
     const std::vector<int>& GetSeeAbleFaces();
 
-    void SetSelectVisable(bool visable);
+    void SetSelectItemVisable(bool visable);
+    void SetSelectBoxVisable(bool visable);
 
 protected:
     Selection() {}
@@ -147,7 +148,8 @@ protected:
 
     void AddItem(IGenum itemType, const igIndex& itemId, Operate ope);
     void DrawPoints();
-    void DrawCells();
+    void DrawCellEdges();
+    void DrawCellBoundingBoxs();
     UnstructuredMesh* _GetMesh();
 
     std::map<IGenum, std::set<igIndex>> m_SelectedItems;

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>280</width>
-    <height>234</height>
+    <width>285</width>
+    <height>209</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -121,13 +121,6 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QComboBox" name="variableChoose">
-          <property name="toolTip">
-           <string>变量选择</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QCheckBox" name="autoRange">
           <property name="text">
            <string>自动范围</string>
@@ -135,15 +128,28 @@
          </widget>
         </item>
         <item>
-         <widget class="QDoubleSpinBox" name="theRange">
+         <widget class="QComboBox" name="variableChoose">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="toolTip">
-           <string>范围</string>
+           <string>变量选择</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QDoubleSpinBox" name="expdRate">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>取值比例</string>
           </property>
           <property name="decimals">
            <number>5</number>
           </property>
           <property name="maximum">
-           <double>1.000000000000000</double>
+           <double>5.000000000000000</double>
           </property>
           <property name="singleStep">
            <double>0.100000000000000</double>
@@ -172,7 +178,14 @@
         <item>
          <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">
-           <string>隐藏</string>
+           <string>隐藏选择对象</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="noneSelectBox">
+          <property name="text">
+           <string>隐藏包围框</string>
           </property>
          </widget>
         </item>

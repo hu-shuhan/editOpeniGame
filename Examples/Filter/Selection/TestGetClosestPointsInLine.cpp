@@ -5,11 +5,11 @@
 #include <iostream>
 
 static void ShowFilterFunc(iGame::UnstructuredMesh::Pointer mesh, const iGame::Point& startPoint,
-                           const iGame::Point& endPoint, double radius = 0.0, bool useVariableCondition = false,
-                           int variableIndex = -1, bool useAutoValueRange = false, double valueRange = 1.0) {
+                           const iGame::Point& endPoint, double radius = 0.0, bool useAutoValueRange = false,
+                           int variableIndex = -1, double expdRate = 1.0) {
     /*Set filter*/
-    auto filter = iGame::iGameGetClosestPointsInLine::New(startPoint, endPoint, radius, useVariableCondition,
-                                                          variableIndex, useAutoValueRange, valueRange);
+    auto filter = iGame::iGameGetClosestPointsInLine::New(startPoint, endPoint, radius, useAutoValueRange,
+                                                          variableIndex, expdRate);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -34,8 +34,8 @@ int main() {
         return 0;
     }
     ShowFilterFunc(mesh, iGame::Point(1.0f, 0.0f, 0.0f), iGame::Point(-1.0f, 0.0f, 0.0f), 0.2);
-    ShowFilterFunc(mesh, iGame::Point(1.0f, 0.0f, 0.0f), iGame::Point(-1.0f, 0.0f, 0.0f), 0.2, true, 0, false, 0.05);
-    ShowFilterFunc(mesh, iGame::Point(1.0f, 0.0f, 0.0f), iGame::Point(-1.0f, 0.0f, 0.0f), 0.2, true, 0, true);
+    ShowFilterFunc(mesh, iGame::Point(1.0f, 0.0f, 0.0f), iGame::Point(-1.0f, 0.0f, 0.0f), 0.2, true, 0, 1.0);
+    ShowFilterFunc(mesh, iGame::Point(1.0f, 0.0f, 0.0f), iGame::Point(-1.0f, 0.0f, 0.0f), 0.2, true, 0, 0.1);
 
     return 0;
 }

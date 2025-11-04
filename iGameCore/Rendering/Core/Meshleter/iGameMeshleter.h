@@ -95,6 +95,7 @@ protected:
     size_t m_MeshletCount = 0;             ///< Meshlet的数量
 
     std::vector<unsigned int> m_MeshletIndices;
+    std::vector<unsigned int> m_TriangleToFace;
     std::vector<MeshletDescriptor> m_MeshletDescriptors;
     std::vector<DrawElementsIndirectCommand> m_ElementsDrawCommands;
     std::vector<DrawArraysIndirectCommand> m_ArraysDrawCommands;
@@ -126,11 +127,12 @@ protected:
     SmartPointer<GLBuffer> m_DrawCommandBuffer;       ///< 绘制命令缓冲
     SmartPointer<GLBuffer> m_FinalDrawCommandBuffer;  ///< 最终绘制命令缓冲
 
-    SmartPointer<GLVertexArray> m_CellTriangleVAO; ///< 单元三角形顶点数组对象
-    SmartPointer<GLBuffer> m_CellPositionVBO;      ///< 单元顶点位置缓冲
-    SmartPointer<GLBuffer> m_CellColorVBO;         ///< 单元顶点颜色缓冲
-    SmartPointer<GLBuffer> m_CellDrawCommandBuffer;       ///< 绘制命令缓冲
-    SmartPointer<GLBuffer> m_CellFinalDrawCommandBuffer;  ///< 最终绘制命令缓冲
+    // 单元渲染相关缓冲
+    SmartPointer<GLVertexArray> m_CellTriangleVAO;  ///< 单元三角形顶点数组对象
+    SmartPointer<GLBuffer> m_CellPositionVBO;       ///< 单元顶点位置缓冲
+    SmartPointer<GLBuffer> m_CellColorVBO;          ///< 单元顶点颜色缓冲
+    SmartPointer<GLBuffer> m_CellDrawCommandBuffer; ///< 绘制命令缓冲
+    SmartPointer<GLBuffer> m_CellFinalDrawCommandBuffer; ///< 最终绘制命令缓冲
 #endif
 
     friend class Model;

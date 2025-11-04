@@ -13,28 +13,18 @@ bool iGameGetClosestPointsInLine::Execute() {
 const std::vector<int>& iGameGetClosestPointsInLine::GetResult() { return m_Ids; }
 
 void iGameGetClosestPointsInLine::Run() {
-    //if (m_Radius == 0) {
-        m_Ids = SingleSelectionStyle::GetPointsInCondition(m_StartPoint, m_EndPoint, m_Mesh, m_Radius,
-                                                           m_UseVariableCondition, m_VariableIndex, m_UseAutoValueRange,
-                                                           m_ValueRange);
-    //    return;
-    //}
-    //auto cellIds = SingleSelectionStyle::GetCellsInCondition(m_StartPoint, m_EndPoint, m_Mesh, m_Radius,
-    //                                                         m_UseVariableCondition, m_VariableIndex,
-    //                                                         m_UseAutoValueRange, m_ValueRange);
-    //m_Ids = SingleSelectionStyle::GetPointsOfCells(cellIds, m_Mesh);
+    m_Ids = SingleSelectionStyle::GetPointsInCondition(m_StartPoint, m_EndPoint, m_Mesh, m_Radius, m_UseAutoValueRange,
+                                                       m_VariableIndex, m_ExpdRate);
 }
 
 iGameGetClosestPointsInLine::iGameGetClosestPointsInLine(const Point& startPoint, const Point& endPoint, double radius,
-                                                         bool useVariableCondition, int variableIndex,
-                                                         bool useAutoValueRange, double valueRange) {
+                                                         bool useAutoValueRange, int variableIndex, double expdRate) {
     m_StartPoint = startPoint;
     m_EndPoint = endPoint;
     m_Radius = radius;
-    m_UseVariableCondition = useVariableCondition;
-    m_VariableIndex = variableIndex;
     m_UseAutoValueRange = useAutoValueRange;
-    m_ValueRange = valueRange;
+    m_VariableIndex = variableIndex;
+    m_ExpdRate = expdRate;
     SetNumberOfInputs(1);
     SetNumberOfOutputs(0);
 }

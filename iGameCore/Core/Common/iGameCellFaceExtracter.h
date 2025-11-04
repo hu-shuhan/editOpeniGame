@@ -10,21 +10,24 @@ IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh;
 class CellFaceExtracter {
 public:
-    void AddCell(const std::vector<int>& ids, UnstructuredMesh* mesh);
-    void AddCell(int id, Cell* cell, bool useMutex = false);
-    void RemoveCell(const std::vector<int>& ids, UnstructuredMesh* mesh);
-    void RemoveCell(int id, Cell* cell, bool useMutex = false);
     void Clear();
-    std::set<std::pair<int, int>> GetExtractPointIdPairs();
+    std::set<std::pair<int, int>> GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds,
+                                                         UnstructuredMesh* mesh);
+    std::vector<std::pair<Point, Point>> GetExtractBoundingBoxs(const std::set<igIndex>& choosedCellIds,
+                                                                UnstructuredMesh* mesh);
 
 private:
     using PointId=int;
     using CellId=int;
-    std::mutex m_CellsMutex;
-    std::map<std::vector<PointId>, std::map<CellId, std::vector<std::pair<PointId, PointId>>>> m_Cells;
+    using Face=std::vector<PointId>;
+    using Edge=std::pair<PointId,PointId>;
+
+    std::map<Face, std::set<CellId>> m_FaceToCell;
+    std::map<Face, std::vector<Edge>> m_FaceToEdge;
+    std::map<CellId, std::set<Face>> m_CellToFace;
 
 private:
-    void _AddCell(int id, Cell* cell, bool useMutex);
-    void _RemoveCell(int id, Cell* cell, bool useMutex);
+    void VisitCell(int cellId, Cell* cell);
+    void _VisitCell(int cellId, Cell* cell);
 };
 IGAME_NAMESPACE_END

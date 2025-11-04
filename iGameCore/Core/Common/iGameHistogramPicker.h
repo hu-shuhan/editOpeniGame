@@ -12,7 +12,7 @@ public:
 
 public:
     const std::vector<double>& GetDensity();
-    std::pair<double, double> CalculateMinMaxValueToPick(double value);
+    std::pair<double, double> CalculateMinMaxValueToPick(double value, double expdRate = 1.0);
 
 private:
     double m_MinValue{};

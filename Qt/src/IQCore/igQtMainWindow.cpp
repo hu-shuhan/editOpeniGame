@@ -1710,36 +1710,28 @@ void igQtMainWindow::initAllInteractor() {
                 break;
         }
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionShow, this, [&](bool visiable) {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        model->GetSelection()->SetSelectVisable(visiable);
-
-        //auto& selectedItems = model->GetSelection()->GetSelectedItems();
-        //if (visiable) {
-        //    for (auto& objsInType: selectedItems) {
-        //        for (auto& eventsInObj: objsInType.second) {
-        //            for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
-        //        }
-        //    }
-        //} else {
-        //    for (auto& objsInType: selectedItems) {
-        //        for (auto& eventsInObj: objsInType.second) {
-        //            for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
-        //        }
-        //    }
-        //}
-        
-        //if (visiable) model->GetPainter3D()->ShowAll();
-        //else
-        //    model->GetPainter3D()->HideAll();
-
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectItemVisable(visiable);
+        rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectBoxShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectBoxVisable(visiable);
         rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        model->GetSelection()->Reset();
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->Reset();
         rendererWidget->update();
     });
 
@@ -1766,7 +1758,7 @@ void igQtMainWindow::initAllInteractor() {
         //    default:
         //        break;
         //}
-        //auto visiable = ui->widget_SelectionField->GetSelectionShow();
+        //auto visiable = ui->widget_SelectionField->GetSelectItemShow();
         //auto model = rendererWidget->GetScene()->GetCurrentModel();
         //if (model == nullptr) return;
         //if (visiable) model->GetPainter3D()->ShowAll();

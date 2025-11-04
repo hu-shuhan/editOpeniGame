@@ -18,9 +18,10 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
     connect(ui->skipUnSeeAbleCell, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionSkipUnSeeAbleCell);
     connect(ui->onlySelectSeeAbleCells, &QCheckBox::clicked, this,
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
-    connect(ui->theRange, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-            &igQtSelectionWidget::SelectionVariableRange);
-    connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStateShow);
+    connect(ui->expdRate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &igQtSelectionWidget::SelectionExpdRate);
+    connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectItemShow);
+    connect(ui->noneSelectBox, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectBoxShow);
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
     //ui->noneSelectionState->hide();
 }
@@ -31,7 +32,9 @@ igQtSelectionWidget::~igQtSelectionWidget()
 
 const SelectionStation& igQtSelectionWidget::GetSelectionStation() const { return m_SelectionStation; }
 
-bool igQtSelectionWidget::GetSelectionShow() const { return m_SelectionShow; }
+bool igQtSelectionWidget::GetSelectItemShow() const { return m_SelectItemShow; }
+
+bool igQtSelectionWidget::GetSelectBoxShow() const { return m_SelectBoxShow; }
 
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
@@ -89,17 +92,13 @@ void igQtSelectionWidget::SelectionVariableIndex(int index) {
 }
 
 void igQtSelectionWidget::SelectionVariableAutoCheck(bool checked) {
-    if (checked) {
-        iGame::SelectionParameter::Instance().SetSelectVariableRange(-1);
-        ui->theRange->setEnabled(false);
-    } else {
-        iGame::SelectionParameter::Instance().SetSelectVariableRange(ui->theRange->value());
-        ui->theRange->setEnabled(true);
-    }
+    iGame::SelectionParameter::Instance().SetAutoSelect(checked);
+    ui->variableChoose->setEnabled(checked);
+    ui->expdRate->setEnabled(checked);
 }
 
-void igQtSelectionWidget::SelectionVariableRange(double range) {
-    iGame::SelectionParameter::Instance().SetSelectVariableRange(range);
+void igQtSelectionWidget::SelectionExpdRate(double rate) {
+    iGame::SelectionParameter::Instance().SetAutoSelectExpdRate(rate);
 }
 
 void igQtSelectionWidget::SelectionSkipUnSeeAbleCell(bool checked) {
@@ -115,11 +114,18 @@ void igQtSelectionWidget::ClearSelectionState() {
     emit SetClearSelection();
 }
 
-void igQtSelectionWidget::SelectionStateShow(bool unShow) {
+void igQtSelectionWidget::SelectItemShow(bool unShow) {
     auto show = !unShow;
-    m_SelectionShow = show;
+    m_SelectItemShow = show;
     if (m_PreventSignalSend) return;
-    emit SetSelectionShow(show);
+    emit SetSelectItemShow(show);
+}
+
+void igQtSelectionWidget::SelectBoxShow(bool unShow) {
+    auto show = !unShow;
+    m_SelectBoxShow = show;
+    if (m_PreventSignalSend) return;
+    emit SetSelectBoxShow(show);
 }
 
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {
