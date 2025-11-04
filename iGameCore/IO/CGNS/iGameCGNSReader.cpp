@@ -1,8 +1,10 @@
 #if defined(CGNS_ENABLE)
 #include "iGameCGNSReader.h"
-
+#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
-iGameCGNSReader::iGameCGNSReader() {}
+iGameCGNSReader::iGameCGNSReader() {
+    this->SetNumberOfOutputs(1);
+}
 iGameCGNSReader::~iGameCGNSReader() {}
 
 void CollectNodeIDs(double parent_id, double node_id, int depth, std::vector<double>& node_ids) {
@@ -83,7 +85,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
     } else {
         // std::cout << "Base Num = " << nbases << std::endl;
     }
-
+    m_ParentObject = DrawObject::New();
     for (int index_base = 1; index_base <= nbases; index_base++) {
         char basename[100];
         int celldim, physdim;
@@ -181,37 +183,24 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
                                          size);
                     }
                     if (this->m_AttributeSet) {
-                        if (this->m_DataObjectType == IG_STRUCTURED_MESH) {
-                            this->m_StructuredMesh->SetAttributeSet(this->m_AttributeSet);
-                        }
-                        if (this->m_DataObjectType == IG_UNSTRUCTURED_MESH) {
-                            this->m_UnstructuredMesh->SetAttributeSet(this->m_AttributeSet);
-                        }
-                        if (this->m_DataObjectType == IG_VOLUME_MESH) {
-                            this->m_VolumeMesh->SetAttributeSet(this->m_AttributeSet);
-                        }
+                        this->GetCurrentDataObject()->SetAttributeSet(this->m_AttributeSet);
                     }
-                    //if (this->PolyDataSet != nullptr) {
-                    //	TransformPolyHedron(this->PolyDataSet, this->MultiBlockDataSet);
-                    //}
-                    //else
-                    //	this->MultiBlockDataSet->AddBlockToBack(DataSet);
                 }
-
-                if (nzones > 1) {
-                    if (m_ParentObject == nullptr) { m_ParentObject = DrawObject::New(); }
-                    m_ParentObject->AddSubDataObject(this->GetOutput());
-                    this->m_Points = nullptr;
-                    this->m_StructuredMesh = nullptr;
-                    this->m_UnstructuredMesh = nullptr;
-                    this->m_VolumeMesh = nullptr;
-                    this->m_AttributeSet = nullptr;
-                    this->m_DataObjectType = IG_MULTIBLOCK_MESH;
-                }
+                m_ParentObject->AddSubDataObject(this->GetCurrentDataObject());
+                this->m_Points = nullptr;
+                this->m_StructuredMesh = nullptr;
+                this->m_UnstructuredMesh = nullptr;
+                this->m_VolumeMesh = nullptr;
+                this->m_AttributeSet = nullptr;
             }
         }
     }
-
+    if (this->m_ParentObject->GetNumberOfSubDataObjects() == 1) {
+        auto dataobject = m_ParentObject->SubDataObjectIteratorBegin()->second;
+        this->SetOutput(m_ParentObject->SubDataObjectIteratorBegin()->second);
+    } else {
+        this->SetOutput(m_ParentObject);
+    }
     cg_close(index_file);
     return GetOutput();
 }
@@ -277,7 +266,7 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
     }
     //paraview只读取了部分的section，应该是非结构化网格只有一个section
     //nsections = 1;
-    igDebug("the number of sections is " << nsections);
+    //igDebug("the number of sections is " << nsections);
     int cgio_num;
     if (cg_get_cgio(index_file, &cgio_num) != CG_OK) {
         std::cout << "Get cgio num Error: " << cg_get_error() << std::endl;
@@ -293,8 +282,6 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
         cg_section_read(index_file, index_base, index_zone, index_section, sectionname, &type, &start, &end, &nbndry,
                         &parent_flag);
         cgsize_t num_elements = end - start + 1;
-        // std::cout << "section " << index_section << " " << sectionname << ' ' << start << ' ' << end << " "
-        //   << num_elements << '\n';
         if (type == NGON_n) hasPolyGon = true;
         else if (type == NFACE_n)
             hasPolyHedron = true;
@@ -318,7 +305,10 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
                 cg_section_read(index_file, index_base, index_zone, index_section, sectionname, &type, &start, &end,
                                 &nbndry, &parent_flag);
                 cgsize_t num_elements = end - start + 1;
-                //m_VolumeMesh->AddSection(start - 1, end - 1, sectionname, BoundryNames.count(sectionname));
+                //std::cout << "section " << index_section << " " << sectionname << ' ' << start << ' ' << end << " "
+                //          << num_elements << '\n';
+                bool is_boundry = BoundryNames.count(sectionname);
+                bool is_zone =  std::strncmp(sectionname, "zone_", 5) == 0;
                 if (type == NGON_n) {
                     cgsize_t elementDataSize;
                     cg_ElementDataSize(index_file, index_base, index_zone, index_section, &elementDataSize);

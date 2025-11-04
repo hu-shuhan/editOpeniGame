@@ -3,7 +3,7 @@
 //
 
 #include "iGameScene.h"
-
+#include <map>
 IGAME_NAMESPACE_BEGIN
 
 PainterBase::PainterBase() {
@@ -37,6 +37,9 @@ void PainterBase::HideAll() {
     m_PrimitivesPool->Modified();
 
     this->Modified();
+}
+void PainterBase::SetTotallyHide(bool totallyHide) {
+    m_TotallyHide = totallyHide;
 }
 void PainterBase::Show(IGuint handle) {
     if (!m_PrimitivesPool->CheckHandle(handle)) {
@@ -194,6 +197,7 @@ void PainterBase::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
 SmartPointer<Scene> PainterBase::GetScene() const { return m_Scene; }
 
 void PainterBase::Draw() {
+    if (m_TotallyHide) return;
     this->PackDrawableData();
 
     for (const auto& pair: m_VAOs) {
@@ -230,12 +234,12 @@ void PainterBase::PackDrawableData() {
 
     m_PrimitivesUpdateHelper->Modified();
 
-    std::unordered_map<float, SmartPointer<FloatArray>> packPositions;
-    std::unordered_map<float, SmartPointer<FloatArray>> packColors;
-    //std::unordered_map<float, FloatArray>> packNormals;
-    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packPointIndices;
-    std::unordered_map<float, SmartPointer<UnsignedIntArray>> packLineIndices;
-    std::unordered_map<float, SmartPointer<UnsignedIntArray>>
+    std::map<float, SmartPointer<FloatArray>> packPositions;
+    std::map<float, SmartPointer<FloatArray>> packColors;
+    //std::map<float, FloatArray>> packNormals;
+    std::map<float, SmartPointer<UnsignedIntArray>> packPointIndices;
+    std::map<float, SmartPointer<UnsignedIntArray>> packLineIndices;
+    std::map<float, SmartPointer<UnsignedIntArray>>
             packTriangleIndices;
 
     // create buffer array
@@ -273,10 +277,10 @@ void PainterBase::PackDrawableData() {
         float penWidth = primitive.penWidth;
         unsigned int offset = packPositions[penWidth]->GetNumberOfElements();
 
-        for (auto point: primitive.points) {
+        for (auto& point: primitive.points) {
             packPositions[penWidth]->AddElement3(point[0], point[1], point[2]);
         }
-        for (auto color: primitive.colors) {
+        for (auto& color: primitive.colors) {
             packColors[penWidth]->AddElement3(color[0], color[1], color[2]);
         }
         //for (auto normal: primitive.normals) {

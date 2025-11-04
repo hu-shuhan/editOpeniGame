@@ -18,6 +18,10 @@
 #define slots Q_SLOTS
 #endif
 
+#include "StreamView/iGameStreamTracer.h"
+#include "UndefinedFilters/iGameVortexFilter.h"
+
+
 #include <vector>
 
 
@@ -68,37 +72,20 @@ public:
                                                               const std::string& model_path, int target_points,
                                                               int split);
 
-    //std::vector<int64_t> runPrediction(const std::vector<Vector3f>& points, const std::vector<Vector3f>& velocities,
-    //                                   const Vector3f& minPosition, const Vector3f& maxPosition, int nx, int ny,
-    //                                   int nz);
+    ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+                                                          size_t PointNum);
 
+    std::vector<float> ComputePointQ(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet,
+                                                            int curIndex);
 
-
-    torch::Tensor knn_smooth_labels(const torch::Tensor& prob_vol_1, // [nz, ny, nx]
+    torch::Tensor knn_smooth_labels(std::vector<float> data_val, const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                     const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
                                     const std::vector<Eigen::Vector3f>& query_points,
                                     int k = 8);
 
-    void EvaluatePredictMetrics(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index,
+    void EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
                                                  const std::vector<float>& Predict);
 
-    std::vector<float> ComputePointQForVol(VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex);
-
-    ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
-                                                              size_t PointNum);
-
-    std::array<float, 3> ComputePointGradient(int type, Cell* cell, ArrayObject::Pointer data,
-                                                               int dim);
-
-    std::array<float, 3> ComputeTetPointGradient(Cell* cell, ArrayObject::Pointer data, int dim);
-
-    float ComputeTetVolume(Cell* cell);
-
-    float ComputeAverageEdgeLength(Cell* cell);
-
-    std::array<float, 3> ComputeHexPointGradient(Cell* cell, ArrayObject::Pointer data, int dim);
-
-    std::array<float, 3> ComputePolyPointGradient(Cell* cell, ArrayObject::Pointer data, int dim);
 
 #endif
 
@@ -109,6 +96,7 @@ protected:
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet::Pointer attributeSet{};
+    iGameStreamTracer::Pointer streamTracer{};
 
     int curIndex{-1};
     int curDim{-1};

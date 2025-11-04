@@ -99,14 +99,12 @@ vec3 CalculateFinalColor(int fragCount) {
 }
 
 void main() {
-    int fragCount;
-
-    fragCount = BuildLocalFragmentList();
+    int fragCount = BuildLocalFragmentList();
 
     if (fragCount != 0) {
         SortFragmentList(fragCount);
         out_ScreenColor = vec4(CalculateFinalColor(fragCount), 1.0f);
     } else {
-        out_ScreenColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        out_ScreenColor = vec4(0.5f, 0.5f, 0.5f, 0.0f);
     }
 }

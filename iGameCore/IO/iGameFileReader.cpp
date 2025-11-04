@@ -198,7 +198,10 @@ bool FileReader::Close() {
 }
 
 bool FileReader::CreateDataObject() {
-
+    if (this->GetOutput()) {
+        m_Output = this->GetOutput();
+        return true;
+    }
     int numFaces = m_Data.GetNumberOfFaces();
     int numVolumes = m_Data.GetNumberOfVolumes();
 

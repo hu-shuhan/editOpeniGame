@@ -45,4 +45,7 @@ static void SetOrthographicProjection() {
     window->Show();
 }
 
-int main() { SetOrthographicProjection(); }
+int main() {
+    SetOrthographicProjection();
+    return 0;
+}

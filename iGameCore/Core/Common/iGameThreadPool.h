@@ -101,6 +101,7 @@ public:
 
 private:
     ThreadPool(unsigned int num = std::thread::hardware_concurrency()) : stop_(false) {
+        //std::cout << "Thread number: " << num << std::endl;
         if (num <= 1) thread_num_ = 2;
         else
             thread_num_ = num;
@@ -124,6 +125,8 @@ private:
 	// 静态变量存储默认线程数量
 	static int defaultThreadCount;
 };
+
+
 
 IGAME_NAMESPACE_END
 #endif

@@ -14,7 +14,8 @@ void iGameSetSelectionCallBackFunc::Run() {
 }
 
 iGameSetSelectionCallBackFunc::iGameSetSelectionCallBackFunc(
-        const std::string& funcName, const std::function<void(const std::vector<Selection::Event>&)>& func) {
+        const std::string& funcName,
+        const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func) {
     m_FuncName = funcName;
     m_Func = func;
     SetNumberOfInputs(1);

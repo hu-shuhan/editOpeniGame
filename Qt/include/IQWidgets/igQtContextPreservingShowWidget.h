@@ -49,7 +49,7 @@ private slots:
     void Slot_UnChoosedLightSpinBoxChanged(int light);
 
 public:
-    void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
 
 protected:
     void hideEvent(QHideEvent* event) override;

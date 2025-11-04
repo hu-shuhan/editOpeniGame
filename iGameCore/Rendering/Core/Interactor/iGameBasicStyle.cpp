@@ -42,12 +42,15 @@ void BasicStyle::MouseMoveEvent(IEvent event) {
 
     switch (m_MouseMode) {
         case LeftButton:
+            m_Scene->m_IsInteracting = true;
             LeftButtonMouseMove();
             break;
         case RightButton:
+            m_Scene->m_IsInteracting = true;
             RightButtonMouseMove();
             break;
         case MiddleButton:
+            m_Scene->m_IsInteracting = true;
             MiddleButtonMouseMove();
             break;
         default:
@@ -56,7 +59,10 @@ void BasicStyle::MouseMoveEvent(IEvent event) {
     m_OldPoint2D = m_NewPoint2D;
 }
 
-void BasicStyle::MouseReleaseEvent(IEvent event) { m_MouseMode = NoButton; }
+void BasicStyle::MouseReleaseEvent(IEvent event) {
+    m_MouseMode = NoButton;
+    m_Scene->m_IsInteracting = false;
+}
 
 void BasicStyle::WheelEvent(IEvent event) {
     float wheelMoveDirection = 0.0;
@@ -140,7 +146,6 @@ void BasicStyle::ModelRotation() {
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
     igm::mat4 rotate = igm::rotate(
             igm::mat4{}, static_cast<float>(igm::radians(angle)), axis);
-
 
     // (6) 更新场景模型矩阵
     igm::mat4 rotateSelf = translateBack * rotate * translateToOrigin;

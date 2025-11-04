@@ -44,4 +44,7 @@ static void ResetCameraView() {
     window->Show();
 }
 
-int main() { ResetCameraView(); }
+int main() {
+    ResetCameraView();
+    return 0;
+}

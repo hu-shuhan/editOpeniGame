@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     auto filter =
-            iGame::iGameSetCellsSelect::New(iGame::Selection::Event::Operate::Add, std::vector<int>({0, 1, 2, 3}));
+            iGame::iGameSetCellsSelect::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3}));
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -25,11 +25,10 @@ int main() {
     /*Get results*/
     auto resultData = iGame::DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput(0));
     /*Result*/
-    auto& selectedData = resultData->GetSelection()->GetSelectedItems();
-    for (auto& everyTypeData: selectedData) {
-        std::cout << "DataType:" << everyTypeData.first << std::endl;
-        for (auto& everyObjData: everyTypeData.second) { std::cout << everyObjData.first << ' '; }
-        std::cout << "\n\n";
-    }
+    auto& selectedData = resultData->GetSelection()->GetSelectedItems(IG_CELL);
+    std::cout << "DataType:" << IG_CELL << std::endl;
+    std::cout << "Id:" << std::endl;
+    for (auto& id: selectedData) { std::cout << id << ','; }
+    std::cout << "\n\n";
     return 0;
 }

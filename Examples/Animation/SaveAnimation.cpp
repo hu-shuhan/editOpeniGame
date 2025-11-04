@@ -59,10 +59,6 @@ void SaveAnimationToMP4(iGame::Scene* currentScene, iGame::DataObject ::Pointer 
     inputInfo.frame_rate = 1;
     for (int i = 0; i < timeStepSize; i++) {
         PlayAnimation(currentObject, currentScene, i);
-
-        //        std::vector<uint8_t> tmp(image.bits(),
-        //                                 image.bits() + image.sizeInBytes());
-        //        inputInfo.bytes_per_line = image.bytesPerLine();
         auto tmp = currentScene->CaptureScreen(0, 0, width, height, GLFramebuffer::Type::RGBA, true);
         inputInfo.bytes_per_line = width * 4;
         std::cout << i << " " << tmp.size() << "\n";
@@ -136,5 +132,8 @@ int main(int argn, char** args) {
     window->SetScene(scene);
     window->SetSize(1920, 1080);
     SaveAnimationToMP4(scene, obj, "./AnimationExample.mp4");
+<<<<<<< HEAD
     SaveAnimationToGIF(scene, obj, "./AnimationExample.gif");
+=======
+>>>>>>> abf45bc8982411aeda3bd80081cb62c4532d536a
 }

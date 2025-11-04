@@ -229,34 +229,6 @@ std::vector<int> CtxPresObjData_Main::GenerateKeyObjectIds(int objNum, int maxOb
     return GenerateRandomSample(objNum, maxObjNum);
 }
 
-std::set<int> CtxPresObjData_Main::GenerateChoosedObjectIds(
-        const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems, IGenum dataType) {
-    std::set<int> re;
-    switch (dataType) {
-        case IG_POINT: {
-            if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) break;
-            auto& selectedPoints = selectedItems.at(Selection::Event::Type::PickPoint);
-            for (auto& point: selectedPoints) {
-                auto pointId = point.first;
-                re.insert(pointId);
-            }
-            break;
-        }
-        case IG_CELL: {
-            if (selectedItems.count(Selection::Event::Type::PickFace) == 0) break;
-            auto& selectedCells = selectedItems.at(Selection::Event::Type::PickFace);
-            for (auto& cell: selectedCells) {
-                auto cellId = cell.first;
-                re.insert(cellId);
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    return re;
-}
-
 std::pair<std::vector<double>, std::vector<double>>
 CtxPresObjData_Main::GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType) {
     vector<double> minData;

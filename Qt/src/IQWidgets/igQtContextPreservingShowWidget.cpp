@@ -164,22 +164,8 @@ void igQtContextPreservingShowWidget::DrawAttr(AttributeSet::Attribute& attr, in
 }
 
 static bool IsSelectedItem(Model::Pointer model, IGenum itemType, igIndex itemIndex) {
-    auto& selectedItems = model->GetSelection()->GetSelectedItems();
-    switch (itemType) {
-        case IG_POINT:
-            if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) return false;
-            if (selectedItems.at(Selection::Event::Type::PickPoint).count(itemIndex) == 0) return false;
-            return true;
-            break;
-        case IG_CELL:
-            if (selectedItems.count(Selection::Event::Type::PickFace) == 0) return false;
-            if (selectedItems.at(Selection::Event::Type::PickFace).count(itemIndex) == 0) return false;
-            return true;
-            break;
-        default:
-            return false;
-            break;
-    }
+    if (model == nullptr) return false;
+    return model->GetSelection()->IsSelectedItem(itemType, itemIndex);
 }
 
 static double SelectedPointPerOfFace(Model::Pointer model, Cell* face) {
@@ -317,7 +303,7 @@ void igQtContextPreservingShowWidget::DrawCellAttr(AttributeSet::Attribute& attr
 void igQtContextPreservingShowWidget::SetSelectionCallBack() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtContextPreservingShowWidget::SelectionCallbackEvent, this,
-                                         std::placeholders::_1);
+                                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 //Set m_Attrs And m_AttrsNames
@@ -404,7 +390,8 @@ void igQtContextPreservingShowWidget::Slot_UnChoosedLightSpinBoxChanged(int ligh
     UpdateDraw();
 }
 
-void igQtContextPreservingShowWidget::SelectionCallbackEvent(const std::vector<Selection::Event>& _events) {
+void igQtContextPreservingShowWidget::SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids,
+                                                             Selection::Operate ope) {
     UpdateDraw();
 }
 

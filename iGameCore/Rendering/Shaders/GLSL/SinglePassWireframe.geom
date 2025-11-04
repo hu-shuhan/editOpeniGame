@@ -58,9 +58,9 @@ void main() {
 
     // The shader normalizes the value and multiplies it by 255 to reconstruct the original value.
     float edgeValues = 255.0f * texelFetch(edgeMasks, gl_PrimitiveIDIn).r;
-    if (mod(edgeValues, 2.0f) < 1.0f) edgeEqn[0].w = lineWidth;
-    if (mod(edgeValues, 4.0f) < 2.0f) edgeEqn[1].w = lineWidth;
-    if (edgeValues < 4.0f) edgeEqn[2].w = lineWidth;
+    if (mod(edgeValues, 2.0f) < 1.0f) { edgeEqn[0].w = lineWidth; }
+    if (mod(edgeValues, 4.0f) < 2.0f) { edgeEqn[1].w = lineWidth; }
+    if (edgeValues < 4.0f) { edgeEqn[2].w = lineWidth; }
 
     for (int i = 0; i < 3; i++) {
         // When a geometry shader is active, gl_PrimitiveID must be assigned explicitly to ensure

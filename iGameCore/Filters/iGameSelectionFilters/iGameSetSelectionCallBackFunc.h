@@ -11,7 +11,7 @@ class iGameSetSelectionCallBackFunc : public Filter {
 public:
     I_OBJECT(iGameSetSelectionCallBackFunc);
     static Pointer New(const std::string& funcName,
-                       const std::function<void(const std::vector<Selection::Event>&)>& func) {
+        const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func) {
         return new iGameSetSelectionCallBackFunc(funcName, func);
     }
     bool Execute() override;
@@ -21,14 +21,14 @@ private:
 
 protected:
     iGameSetSelectionCallBackFunc(const std::string& funcName,
-                                  const std::function<void(const std::vector<Selection::Event>&)>& func);
+            const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func);
     ~iGameSetSelectionCallBackFunc() override = default;
 
 private:
     /* Input */
     UnstructuredMesh::Pointer m_Mesh;
     std::string m_FuncName;
-    std::function<void(const std::vector<Selection::Event>&)> m_Func;
+    std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)> m_Func;
 
 private:
     /* Output */

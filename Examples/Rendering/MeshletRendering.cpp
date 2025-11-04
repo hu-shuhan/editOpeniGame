@@ -51,4 +51,7 @@ static void MeshletRendering() {
     window->Show();
 }
 
-int main() { MeshletRendering(); }
+int main() {
+    MeshletRendering();
+    return 0;
+}

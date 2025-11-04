@@ -302,210 +302,295 @@ void SplineGeometry::ConvertToVolumeData() {
 
     // 1. 传入离散化面片
     double sample_gap = 1.f / samples;
-    // Sample all six faces of each volume patch (faces: u=0,u=1,v=0,v=1,w=0,w=1)
-    for (int patch_id = 0; patch_id < m_Geometry->GetPatchSize(); ++patch_id) {
-        auto currentPatch = m_Geometry->PatchPointer(patch_id);
-        // face 0: u = 0
-        for (int v_sample = 0; v_sample < samples; ++v_sample) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                std::vector<double> v0{0, v_sample * sample_gap, w_sample * sample_gap};
-                std::vector<double> v1{0, (v_sample + 1) * sample_gap, w_sample * sample_gap};
-                std::vector<double> v2{0, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
-                std::vector<double> v3{0, v_sample * sample_gap, (w_sample + 1) * sample_gap};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
-
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
-                    }
-                }
-
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-            }
-        }
-
-        // face 1: u = 1
-        for (int v_sample = 0; v_sample < samples; ++v_sample) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                std::vector<double> v0{1, v_sample * sample_gap, w_sample * sample_gap};
-                std::vector<double> v1{1, (v_sample + 1) * sample_gap, w_sample * sample_gap};
-                std::vector<double> v2{1, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
-                std::vector<double> v3{1, v_sample * sample_gap, (w_sample + 1) * sample_gap};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
-
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
-                    }
-                }
-
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-            }
-        }
-
-        // face 2: v = 0
-        for (int u_sample = 0; u_sample < samples; ++u_sample) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                std::vector<double> v0{u_sample * sample_gap, 0, w_sample * sample_gap};
-                std::vector<double> v1{(u_sample + 1) * sample_gap, 0, w_sample * sample_gap};
-                std::vector<double> v2{(u_sample + 1) * sample_gap, 0, (w_sample + 1) * sample_gap};
-                std::vector<double> v3{u_sample * sample_gap, 0, (w_sample + 1) * sample_gap};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
-
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
-                    }
-                }
-
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-            }
-        }
-
-        // face 3: v = 1
-        for (int u_sample = 0; u_sample < samples; ++u_sample) {
-            for (int w_sample = 0; w_sample < samples; ++w_sample) {
-                std::vector<double> v0{u_sample * sample_gap, 1, w_sample * sample_gap};
-                std::vector<double> v1{(u_sample + 1) * sample_gap, 1, w_sample * sample_gap};
-                std::vector<double> v2{(u_sample + 1) * sample_gap, 1, (w_sample + 1) * sample_gap};
-                std::vector<double> v3{u_sample * sample_gap, 1, (w_sample + 1) * sample_gap};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
-
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
-                    }
-                }
-
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
-            }
-        }
-
-        // face 4: w = 0
-        for (int v_sample = 0; v_sample < samples; ++v_sample) {
+    if (!m_SurfaceRenderForVolume) {
+        for (int patch_id = 0; patch_id < m_Geometry->GetPatchSize(); ++patch_id) {
+            auto currentPatch = m_Geometry->PatchPointer(patch_id);
             for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 0};
-                std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 0};
-                std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 0};
-                std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 0};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
+                for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                    for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                        // sample the 8 corners of the voxel [u,u+1] x [v,v+1] x [w,w+1]
+                        std::vector<double> p000{u_sample * sample_gap, v_sample * sample_gap, w_sample * sample_gap};
+                        std::vector<double> p100{(u_sample + 1) * sample_gap, v_sample * sample_gap,
+                                                 w_sample * sample_gap};
+                        std::vector<double> p110{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap,
+                                                 w_sample * sample_gap};
+                        std::vector<double> p010{u_sample * sample_gap, (v_sample + 1) * sample_gap,
+                                                 w_sample * sample_gap};
+                        std::vector<double> p001{u_sample * sample_gap, v_sample * sample_gap,
+                                                 (w_sample + 1) * sample_gap};
+                        std::vector<double> p101{(u_sample + 1) * sample_gap, v_sample * sample_gap,
+                                                 (w_sample + 1) * sample_gap};
+                        std::vector<double> p111{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap,
+                                                 (w_sample + 1) * sample_gap};
+                        std::vector<double> p011{u_sample * sample_gap, (v_sample + 1) * sample_gap,
+                                                 (w_sample + 1) * sample_gap};
 
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        auto P000 = currentPatch->getPointAtParam(p000);
+                        auto P100 = currentPatch->getPointAtParam(p100);
+                        auto P110 = currentPatch->getPointAtParam(p110);
+                        auto P010 = currentPatch->getPointAtParam(p010);
+                        auto P001 = currentPatch->getPointAtParam(p001);
+                        auto P101 = currentPatch->getPointAtParam(p101);
+                        auto P111 = currentPatch->getPointAtParam(p111);
+                        auto P011 = currentPatch->getPointAtParam(p011);
+
+                        auto offset = points->GetNumberOfPoints();
+                        // use the same ordering as control-cube below to make later reasoning consistent
+                        points->AddPoint(P000[0], P000[1], P000[2]); // 0
+                        points->AddPoint(P100[0], P100[1], P100[2]); // 1
+                        points->AddPoint(P101[0], P101[1], P101[2]); // 2
+                        points->AddPoint(P001[0], P001[1], P001[2]); // 3
+                        points->AddPoint(P010[0], P010[1], P010[2]); // 4
+                        points->AddPoint(P110[0], P110[1], P110[2]); // 5
+                        points->AddPoint(P111[0], P111[1], P111[2]); // 6
+                        points->AddPoint(P011[0], P011[1], P011[2]); // 7
+
+                        // 标量： if present, add scalars for the 8 corners in the same order
+                        if (currentPatch->m_ControlScalars.size()) {
+                            auto s000 = currentPatch->getScalarAtParam(p000);
+                            auto s100 = currentPatch->getScalarAtParam(p100);
+                            auto s101 = currentPatch->getScalarAtParam(p101);
+                            auto s001 = currentPatch->getScalarAtParam(p001);
+                            auto s010 = currentPatch->getScalarAtParam(p010);
+                            auto s110 = currentPatch->getScalarAtParam(p110);
+                            auto s111 = currentPatch->getScalarAtParam(p111);
+                            auto s011 = currentPatch->getScalarAtParam(p011);
+                            std::vector<SplineUtils::Scalar*> tempS{&s000, &s100, &s101, &s001,
+                                                                    &s010, &s110, &s111, &s011};
+                            for (auto s: tempS) {
+                                for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                            }
+                        }
+
+                        // add two triangles per cube face (6 faces)
+                        // face v=0 (bottom): 0,1,2,3
+                        triangleIndices->AddElement3(offset + 0, offset + 1, offset + 2);
+                        triangleIndices->AddElement3(offset + 0, offset + 2, offset + 3);
+                        // face v=1 (top): 4,7,6,5
+                        triangleIndices->AddElement3(offset + 4, offset + 7, offset + 6);
+                        triangleIndices->AddElement3(offset + 4, offset + 6, offset + 5);
+                        // face u=0: 0,3,7,4
+                        triangleIndices->AddElement3(offset + 0, offset + 3, offset + 7);
+                        triangleIndices->AddElement3(offset + 0, offset + 7, offset + 4);
+                        // face u=1: 1,5,6,2
+                        triangleIndices->AddElement3(offset + 1, offset + 5, offset + 6);
+                        triangleIndices->AddElement3(offset + 1, offset + 6, offset + 2);
+                        // face w=0: 0,4,5,1
+                        triangleIndices->AddElement3(offset + 0, offset + 4, offset + 5);
+                        triangleIndices->AddElement3(offset + 0, offset + 5, offset + 1);
+                        // face w=1: 3,2,6,7
+                        triangleIndices->AddElement3(offset + 3, offset + 2, offset + 6);
+                        triangleIndices->AddElement3(offset + 3, offset + 6, offset + 7);
                     }
                 }
-
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
             }
         }
+    } else {
+        // Sample all six faces of each volume patch (faces: u=0,u=1,v=0,v=1,w=0,w=1)
+        for (int patch_id = 0; patch_id < m_Geometry->GetPatchSize(); ++patch_id) {
+            auto currentPatch = m_Geometry->PatchPointer(patch_id);
+            // face 0: u = 0
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                    std::vector<double> v0{0, v_sample * sample_gap, w_sample * sample_gap};
+                    std::vector<double> v1{0, (v_sample + 1) * sample_gap, w_sample * sample_gap};
+                    std::vector<double> v2{0, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
+                    std::vector<double> v3{0, v_sample * sample_gap, (w_sample + 1) * sample_gap};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
 
-        // face 5: w = 1
-        for (int v_sample = 0; v_sample < samples; ++v_sample) {
-            for (int u_sample = 0; u_sample < samples; ++u_sample) {
-                std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 1};
-                std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 1};
-                std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 1};
-                std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 1};
-                auto p0 = currentPatch->getPointAtParam(v0);
-                auto p1 = currentPatch->getPointAtParam(v1);
-                auto p2 = currentPatch->getPointAtParam(v2);
-                auto p3 = currentPatch->getPointAtParam(v3);
-
-                auto offset = points->GetNumberOfPoints();
-                points->AddPoint(p0[0], p0[1], p0[2]);
-                points->AddPoint(p1[0], p1[1], p1[2]);
-                points->AddPoint(p2[0], p2[1], p2[2]);
-                points->AddPoint(p3[0], p3[1], p3[2]);
-                // 标量
-                if (currentPatch->m_ControlScalars.size()) {
-                    auto s0 = currentPatch->getScalarAtParam(v0);
-                    auto s1 = currentPatch->getScalarAtParam(v1);
-                    auto s2 = currentPatch->getScalarAtParam(v2);
-                    auto s3 = currentPatch->getScalarAtParam(v3);
-                    std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
-                    for (auto s: tempS) {
-                        for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
                     }
-                }
 
-                triangleIndices->AddElement3(offset, offset + 1, offset + 2);
-                triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
+            }
+
+            // face 1: u = 1
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                    std::vector<double> v0{1, v_sample * sample_gap, w_sample * sample_gap};
+                    std::vector<double> v1{1, (v_sample + 1) * sample_gap, w_sample * sample_gap};
+                    std::vector<double> v2{1, (v_sample + 1) * sample_gap, (w_sample + 1) * sample_gap};
+                    std::vector<double> v3{1, v_sample * sample_gap, (w_sample + 1) * sample_gap};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
+
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
+                    }
+
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
+            }
+
+            // face 2: v = 0
+            for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                    std::vector<double> v0{u_sample * sample_gap, 0, w_sample * sample_gap};
+                    std::vector<double> v1{(u_sample + 1) * sample_gap, 0, w_sample * sample_gap};
+                    std::vector<double> v2{(u_sample + 1) * sample_gap, 0, (w_sample + 1) * sample_gap};
+                    std::vector<double> v3{u_sample * sample_gap, 0, (w_sample + 1) * sample_gap};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
+
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
+                    }
+
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
+            }
+
+            // face 3: v = 1
+            for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                for (int w_sample = 0; w_sample < samples; ++w_sample) {
+                    std::vector<double> v0{u_sample * sample_gap, 1, w_sample * sample_gap};
+                    std::vector<double> v1{(u_sample + 1) * sample_gap, 1, w_sample * sample_gap};
+                    std::vector<double> v2{(u_sample + 1) * sample_gap, 1, (w_sample + 1) * sample_gap};
+                    std::vector<double> v3{u_sample * sample_gap, 1, (w_sample + 1) * sample_gap};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
+
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
+                    }
+
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
+            }
+
+            // face 4: w = 0
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                    std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 0};
+                    std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 0};
+                    std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 0};
+                    std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 0};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
+
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
+                    }
+
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
+            }
+
+            // face 5: w = 1
+            for (int v_sample = 0; v_sample < samples; ++v_sample) {
+                for (int u_sample = 0; u_sample < samples; ++u_sample) {
+                    std::vector<double> v0{u_sample * sample_gap, v_sample * sample_gap, 1};
+                    std::vector<double> v1{(u_sample + 1) * sample_gap, v_sample * sample_gap, 1};
+                    std::vector<double> v2{(u_sample + 1) * sample_gap, (v_sample + 1) * sample_gap, 1};
+                    std::vector<double> v3{u_sample * sample_gap, (v_sample + 1) * sample_gap, 1};
+                    auto p0 = currentPatch->getPointAtParam(v0);
+                    auto p1 = currentPatch->getPointAtParam(v1);
+                    auto p2 = currentPatch->getPointAtParam(v2);
+                    auto p3 = currentPatch->getPointAtParam(v3);
+
+                    auto offset = points->GetNumberOfPoints();
+                    points->AddPoint(p0[0], p0[1], p0[2]);
+                    points->AddPoint(p1[0], p1[1], p1[2]);
+                    points->AddPoint(p2[0], p2[1], p2[2]);
+                    points->AddPoint(p3[0], p3[1], p3[2]);
+                    // 标量
+                    if (currentPatch->m_ControlScalars.size()) {
+                        auto s0 = currentPatch->getScalarAtParam(v0);
+                        auto s1 = currentPatch->getScalarAtParam(v1);
+                        auto s2 = currentPatch->getScalarAtParam(v2);
+                        auto s3 = currentPatch->getScalarAtParam(v3);
+                        std::vector<SplineUtils::Scalar*> tempS{&s0, &s1, &s2, &s3};
+                        for (auto s: tempS) {
+                            for (int j = 0; j < s->size(); ++j) { scalars->AddValue((*s)[j]); }
+                        }
+                    }
+
+                    triangleIndices->AddElement3(offset, offset + 1, offset + 2);
+                    triangleIndices->AddElement3(offset, offset + 2, offset + 3);
+                }
             }
         }
     }

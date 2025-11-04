@@ -38,6 +38,7 @@ public:
     bool Execute() override;
 
     void SetFilePath(const std::string& filePath);
+    std::string GetFilePath() const { return m_FilePath; }
 
     DataObject::Pointer ReadFile(const std::string& filePath);
     /**

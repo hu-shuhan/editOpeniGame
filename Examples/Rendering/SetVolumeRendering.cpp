@@ -51,4 +51,7 @@ static void SetVolumeRendering() {
     window->Show();
 }
 
-int main() { SetVolumeRendering(); }
+int main() {
+    SetVolumeRendering();
+    return 0;
+}

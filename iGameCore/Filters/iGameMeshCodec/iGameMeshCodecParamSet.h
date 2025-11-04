@@ -8,7 +8,7 @@
 IGAME_NAMESPACE_BEGIN
 enum class LossyMode {
 	MantissaTruncation,  // 尾数截断
-	LogQuantization  // 对数量化
+	Quantization  // 量化
 };
 
 enum class ErrorMode{

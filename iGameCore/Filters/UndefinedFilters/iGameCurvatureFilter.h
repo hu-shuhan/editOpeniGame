@@ -9,6 +9,7 @@
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include <cmath>
+#include <unordered_set>
 
 
 IGAME_NAMESPACE_BEGIN
@@ -50,20 +51,20 @@ public:
             }break;
             case IG_VOLUME_MESH: {
                 return false;
-                volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (volume_Mesh) {
-                    surface_Mesh = DynamicCast<SurfaceMesh>(
-                            volume_Mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
-                                                              curvatures);
-                }
+                // volume_Mesh = DynamicCast<VolumeMesh>(input);
+                // if (volume_Mesh) {
+                //     surface_Mesh = DynamicCast<SurfaceMesh>(
+                //             volume_Mesh->GetDisplayObject());
+                //     if (!surface_Mesh) return false;
+                //
+                //     if (!CheckType()) return false;
+                //
+                //     FloatArray::Pointer curvatures = FloatArray::New();
+                //     curvatures->SetDimension(2);
+                //     curvatures->SetName("curvatures");
+                //     volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                //                                               curvatures);
+                // }
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -76,16 +77,16 @@ public:
 
                 if (volume_Mesh) {
                     return false;
-                    surface_Mesh =
-                            DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
+                    // surface_Mesh =
+                    //         DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    // if (!surface_Mesh) return false;
+                    //
+                    // if (!CheckType()) return false;
+                    //
+                    // FloatArray::Pointer curvatures = FloatArray::New();
+                    // curvatures->SetDimension(2);
+                    // curvatures->SetName("curvatures");
+                    // mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
                 }
             } break;
             default:
@@ -159,6 +160,7 @@ public:
     std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
     std::vector<double> mixArea(nV, 0.0);
     std::vector<double> angleSum(nV, 0.0);
+    std::vector<int> neighborCount(nV, 0);
 
     auto toEigen = [](const Vector<float, 3>& p) -> Eigen::Vector3d {
         return Eigen::Vector3d(double(p[0]), double(p[1]), double(p[2]));
@@ -183,8 +185,35 @@ public:
         if (std::abs(s) < eps) return (c >= 0 ? 1.0 / eps : -1.0 / eps);
         return c / s;
     };
+    std::vector<std::unordered_set<int>> vertexNeighbors(nV);
+     for (int f = 0; f < nF; ++f) {
+         auto face = surface_Mesh->GetFace(f);
+         int m = face->GetNumberOfPoints();
+         if (m < 3) continue;
+
+         std::vector<int> vids(m);
+         for (int k = 0; k < m; ++k) {
+             vids[k] = int(face->GetPointId(k));
+             neighborCount[vids[k]]++;
+         }
+
+         for (int k = 0; k < m; ++k) {
+             for (int j = 0; j < m; ++j) {
+                 if (k != j) {
+                     vertexNeighbors[vids[k]].insert(vids[j]);
+                 }
+             }
+         }
+     }
+
+    int progress = 0;
+    int block = std::max(1, nF / 100);
 
     for (int f = 0; f < nF; ++f) {
+        if (f >= block * progress) {
+            UpdateProgress(progress * 0.01);
+            progress++;
+        }
         auto face = surface_Mesh->GetFace(f);
         int m = face->GetNumberOfPoints();
         if (m < 3) continue;
@@ -250,13 +279,16 @@ public:
     }
 
     for (int i = 0; i < nV; ++i) {
-        if (mixArea[i] <= 1e-20) mixArea[i] = 1e-20;
+        if (mixArea[i] <= 1e-10) mixArea[i] = 1e-10;
     }
+
+    std::vector<double> H_values(nV);
+    std::vector<double> K_values(nV);
 
     const double twoPi = 2.0 * M_PI;
     for (int i = 0; i < nV; ++i) {
-        double H = Hn[i].norm() / (4.0 * mixArea[i]);
 
+        double H = Hn[i].norm() / (2.0 * mixArea[i]);
         double K = (twoPi - angleSum[i]) / mixArea[i];
 
         double disc = H * H - K;
@@ -265,11 +297,124 @@ public:
         double kmax = H + sqrt_disc;
         double kmin = H - sqrt_disc;
 
+        H_values[i] = H;
+        K_values[i] = K;
+
         // 一：(k1 + k2)/2 = H
         // 二：k1 * k2   = K
+        // curv_mean->AddValue(H);
+        // curv_gaussian->AddValue(K);
+    }
+    std::vector<bool> isBoundary(nV, false);
+    for (int i = 0; i < nV; ++i) {
+        if (neighborCount[i] < 3) {
+            isBoundary[i] = true;
+        }
+    }
+
+    for (int i = 0; i < nV; ++i) {
+        if (isBoundary[i]) {
+            double avgH = 0.0, avgK = 0.0;
+            int count = 0;
+
+            for (int neighbor : vertexNeighbors[i]) {
+                if (!isBoundary[neighbor]) {
+                    avgH += H_values[neighbor];
+                    avgK += K_values[neighbor];
+                    count++;
+                }
+            }
+
+            if (count > 0) {
+                H_values[i] = avgH / count;
+                K_values[i] = avgK / count;
+            } else {
+                double totalH = 0.0, totalK = 0.0;
+                int totalCount = 0;
+                for (int j = 0; j < nV; ++j) {
+                    if (!isBoundary[j]) {
+                        totalH += H_values[j];
+                        totalK += K_values[j];
+                        totalCount++;
+                    }
+                }
+                if (totalCount > 0) {
+                    H_values[i] = totalH / totalCount;
+                    K_values[i] = totalK / totalCount;
+                }
+            }
+        }
+    }
+    const int smoothIterations = 1;
+    std::vector<double> smoothedH = H_values;
+    std::vector<double> smoothedK = K_values;
+
+    for (int iter = 0; iter < smoothIterations; ++iter) {
+        std::vector<double> newH(nV, 0.0);
+        std::vector<double> newK(nV, 0.0);
+
+        for (int i = 0; i < nV; ++i) {
+            if (isBoundary[i]) {
+                newH[i] = smoothedH[i];
+                newK[i] = smoothedK[i];
+                continue;
+            }
+
+            double sumH = 0.0, sumK = 0.0;
+            int count = 0;
+
+            for (int neighbor : vertexNeighbors[i]) {
+                sumH += smoothedH[neighbor];
+                sumK += smoothedK[neighbor];
+                count++;
+            }
+
+            if (count > 0) {
+                newH[i] = 0.3 * smoothedH[i] + 0.7 * (sumH / count);
+                newK[i] = 0.3 * smoothedK[i] + 0.7 * (sumK / count);
+            } else {
+                newH[i] = smoothedH[i];
+                newK[i] = smoothedK[i];
+            }
+        }
+
+        smoothedH = newH;
+        smoothedK = newK;
+    }
+    double H_mean = 0.0, K_mean = 0.0;
+    for (int i = 0; i < nV; ++i) {
+        H_mean += smoothedH[i];
+        K_mean += smoothedK[i];
+    }
+    H_mean /= nV;
+    K_mean /= nV;
+
+    double H_std = 0.0, K_std = 0.0;
+    for (int i = 0; i < nV; ++i) {
+        H_std += (smoothedH[i] - H_mean) * (smoothedH[i] - H_mean);
+        K_std += (smoothedK[i] - K_mean) * (smoothedK[i] - K_mean);
+    }
+    H_std = std::sqrt(H_std / nV);
+    K_std = std::sqrt(K_std / nV);
+
+    double H_threshold = 5.0 * H_std;
+    double K_threshold = 1.0 * K_std;
+
+    for (int i = 0; i < nV; ++i) {
+        double H = smoothedH[i];
+        double K = smoothedK[i];
+
+        if (std::abs(H - H_mean) > H_threshold)
+            H = H_mean + (H - H_mean) / std::abs(H - H_mean) * H_threshold;
+
+        if (std::abs(K - K_mean) > K_threshold)
+            K = K_mean + (K - K_mean) / std::abs(K - K_mean) * K_threshold;
+
+            // 一：(k1 + k2)/2 = H
+            // 二：k1 * k2   = K
         curv_mean->AddValue(H);
         curv_gaussian->AddValue(K);
-    }
+        }
 
     UpdateProgress(1.0);
     return true;
@@ -295,7 +440,6 @@ double GetArea(Vector3d a, Vector3d b, Vector3d c) {
             return mesh;
         }
     }
-
     auto attrbs = mesh->GetAttributeSet();
 
     CellArray::Pointer Faces = CellArray::New();

@@ -47,19 +47,19 @@ public:
             } break;
             case IG_VOLUME_MESH: {
                 return false;
-                volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (volume_Mesh) {
-                    surface_Mesh = DynamicCast<SurfaceMesh>(
-                            volume_Mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
+                //volume_Mesh = DynamicCast<VolumeMesh>(input);
+                //if (volume_Mesh) {
+                //    surface_Mesh = DynamicCast<SurfaceMesh>(
+                //            volume_Mesh->GetDisplayObject());
+                //    if (!surface_Mesh) return false;
 
-                    if (!CheckType()) return false;
+                //    if (!CheckType()) return false;
 
-                    FloatArray::Pointer Laplacians = FloatArray::New();
-                    Laplacians->SetDimension(1);
-                    Laplacians->SetName("laplacians");
-                    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
-                }
+                //    FloatArray::Pointer Laplacians = FloatArray::New();
+                //    Laplacians->SetDimension(1);
+                //    Laplacians->SetName("laplacians");
+                //    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
+                //}
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -72,16 +72,16 @@ public:
 
                 if (volume_Mesh) {
                     return false;
-                    surface_Mesh =
-                            DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-                    if (!surface_Mesh) return false;
+                    //surface_Mesh =
+                    //        DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    //if (!surface_Mesh) return false;
 
-                    if (!CheckType()) return false;
+                    //if (!CheckType()) return false;
 
-                    FloatArray::Pointer Laplacians = FloatArray::New();
-                    Laplacians->SetDimension(1);
-                    Laplacians->SetName("laplacians");
-                    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
+                    //FloatArray::Pointer Laplacians = FloatArray::New();
+                    //Laplacians->SetDimension(1);
+                    //Laplacians->SetName("laplacians");
+                    //input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
                 }
             } break;
             default:
@@ -108,8 +108,8 @@ public:
             //else if (VolumeNum != 0 && attachmentType == 1)
             //    return GetOtherLaplacian(1, VolumeNum);
 
-        } 
-        
+        }
+
         if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
@@ -123,7 +123,7 @@ public:
             surface_Mesh->RequestEditStatus();
             // 附着在point
             if (PointNum != 0 && attachmentType == 0)
-                return GetPointLaplacian(0, Points, PointNum);
+                return GetPointLaplacian(0, Points, PointNum,surface_Mesh);
             // 附着在cell
             else if (FaceNum != 0 && attachmentType == 1)
                 return GetOtherLaplacian(0, FaceNum);
@@ -131,70 +131,127 @@ public:
         return false;
     }
     // 表面/体网格：点
-    bool GetPointLaplacian(int type, Points::Pointer Points, int PointNum) {
+    //bool GetPointLaplacian(int type, Points::Pointer Points, int PointNum) {
 
-        AttributeSet* attributeSet;
-        if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
-        else if (type == 1)
-            attributeSet = volume_Mesh->GetAttributeSet();
+    //    AttributeSet* attributeSet;
+    //    if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
+    //    else if (type == 1)
+    //        attributeSet = volume_Mesh->GetAttributeSet();
 
-        auto data = attributeSet->GetAttribute(curIndex).pointer;
+    //    auto data = attributeSet->GetAttribute(curIndex).pointer;
 
-        int dimension = data->GetDimension();
+    //    int dimension = data->GetDimension();
+    //    FloatArray::Pointer Laplacians = FloatArray::New();
+    //    Laplacians->SetDimension(1);
+    //    Laplacians->Reserve(PointNum);
+    //    Laplacians->SetName("laplacians");
+    //    attributeSet->AddScalar(IG_POINT, Laplacians);
+
+    //    std::vector<float> laplacian(PointNum, 0.0f);
+
+    //    igIndex neighborVerts[256]{};
+    //    int hundred = PointNum / 100;
+    //    // 计算点的梯度
+    //    int progress = 0;
+    //    int block = PointNum / 100;
+    //    for (igIndex idx = 0; idx < PointNum; ++idx) {
+    //        if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
+
+    //        int NeighborNum;
+
+    //        float temp = 0.0;
+    //        float weightSum = 0.0;
+    //        // 获取邻接顶点
+    //        if (type == 1)
+    //            NeighborNum = volume_Mesh->GetPointToOneRingPoints(
+    //                    idx, neighborVerts);
+    //        else if (type == 0)
+    //            NeighborNum = surface_Mesh->GetPointToOneRingPoints(
+    //                    idx, neighborVerts);
+
+    //        auto v1 = Points->GetPoint(idx);
+
+    //        for (int m = 0; m < NeighborNum; m++) {
+    //            Vector<float, 3> v2;
+    //            if (type == 1) v2 = volume_Mesh->GetPoint(neighborVerts[m]);
+    //            else if (type == 0)
+    //                v2 = surface_Mesh->GetPoint(neighborVerts[m]);
+
+    //            float x = v1[0] - v2[0];
+    //            float y = v1[1] - v2[1];
+    //            float z = v1[2] - v2[2];
+
+    //            // 标量计算时就算是三维数据也默认取第一维
+    //            double value = data->GetValue(dimension * idx) -
+    //                           data->GetValue(dimension * neighborVerts[m]);
+
+    //            float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
+    //            weightSum += weight;
+    //            temp += weight * value;
+    //        }
+    //        if (weightSum > 0) {
+    //            laplacian[idx] = temp / weightSum;
+    //            Laplacians->AddValue(laplacian[idx]);
+    //        }
+    //    }
+    //    UpdateProgress(1.0f);
+    //    return true;
+    //}
+    bool GetPointLaplacian(int type, Points::Pointer points, int pointNum, SurfaceMesh::Pointer surface_Mesh) {
+
+        AttributeSet* attrSet = surface_Mesh->GetAttributeSet();
+        if (!attrSet) return false;
+
+        auto data = attrSet->GetAttribute(curIndex).pointer;
+        const int dim = data->GetDimension();
+
         FloatArray::Pointer Laplacians = FloatArray::New();
         Laplacians->SetDimension(1);
-        Laplacians->Reserve(PointNum);
+        Laplacians->Reserve(pointNum);
         Laplacians->SetName("laplacians");
-        attributeSet->AddScalar(IG_POINT, Laplacians);
+        attrSet->AddScalar(IG_POINT, Laplacians);
 
-        std::vector<float> laplacian(PointNum, 0.0f);
+        igIndex neighborBuf[256];
+        constexpr double kEps = 1e-12;
 
-        igIndex neighborVerts[256]{};
-        int hundred = PointNum / 100;
-        // 计算点的梯度
-        int progress = 0;
-        int block = PointNum / 100;
-        for (igIndex idx = 0; idx < PointNum; ++idx) {
-            if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
+        const int step = std::max(1, pointNum / 100);
+        for (igIndex i = 0; i < pointNum; ++i) {
+            if (i % step == 0) UpdateProgress(double(i) / std::max(1, pointNum));
 
-            int NeighborNum;
-
-            float temp = 0.0;
-            float weightSum = 0.0;
-            // 获取邻接顶点
-            if (type == 1)
-                NeighborNum = volume_Mesh->GetPointToOneRingPoints(
-                        idx, neighborVerts);
-            else if (type == 0)
-                NeighborNum = surface_Mesh->GetPointToOneRingPoints(
-                        idx, neighborVerts);
-
-            auto v1 = Points->GetPoint(idx);
-
-            for (int m = 0; m < NeighborNum; m++) {
-                Vector<float, 3> v2;
-                if (type == 1) v2 = volume_Mesh->GetPoint(neighborVerts[m]);
-                else if (type == 0)
-                    v2 = surface_Mesh->GetPoint(neighborVerts[m]);
-
-                float x = v1[0] - v2[0];
-                float y = v1[1] - v2[1];
-                float z = v1[2] - v2[2];
-
-                // 标量计算时就算是三维数据也默认取第一维
-                double value = data->GetValue(dimension * idx) -
-                               data->GetValue(dimension * neighborVerts[m]);
-
-                float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
-                weightSum += weight;
-                temp += weight * value;
+            int nb = surface_Mesh->GetPointToOneRingPoints(i, neighborBuf);
+            igIndex* nbr = neighborBuf;
+            std::vector<igIndex> dyn;
+            if (nb > 256) {
+                dyn.resize(nb);
+                nb = surface_Mesh->GetPointToOneRingPoints(i, dyn.data());
+                nbr = dyn.data();
             }
-            if (weightSum > 0) {
-                laplacian[idx] = temp / weightSum;
-                Laplacians->AddValue(laplacian[idx]);
+
+            const auto pi = points->GetPoint(i);
+            const double fi = data->GetValue(dim * i);
+
+            double num = 0.0;
+            double wsum = 0.0;
+            for (int k = 0; k < nb; ++k) {
+                const igIndex j = nbr[k];
+                if (j == i) continue;
+
+                const auto pj = surface_Mesh->GetPoint(j);
+                const double dx = pi[0] - pj[0];
+                const double dy = pi[1] - pj[1];
+                const double dz = pi[2] - pj[2];
+
+                const double w = 1.0 / std::sqrt(dx * dx + dy * dy + dz * dz + kEps);
+                const double fj = data->GetValue(dim * j);
+                num += w * fj;
+                wsum += w;
             }
+
+            const double lap = (wsum > 0.0) ? (num / wsum - fi) : 0.0;
+            Laplacians->AddValue(static_cast<float>(lap));
         }
-        UpdateProgress(1.0f);
+
+        UpdateProgress(1.0);
         return true;
     }
 
