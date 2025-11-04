@@ -93,9 +93,10 @@ public:
         return this->InvokeEvent(event, nullptr);
     }
 
+
 protected:
-    Object() { /*this->Modified();*/ }
     ~Object() override;
+    Object() { /*this->Modified();*/ }
 
     TimeStamp m_MTime{};
     ObserverInternal* m_Internal{nullptr};

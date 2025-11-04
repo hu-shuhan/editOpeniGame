@@ -4,6 +4,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameTimer.h"
 #include "iGameUnstructuredMesh.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -31,8 +32,28 @@ void SurfaceMeshMeshleter::Build() {
                    (static_cast<size_t>(k[2]) * 83492791u);
         }
     };
-    std::unordered_map<std::array<unsigned int, 3>, unsigned int, KeyHash>
-            triToFace;
+    // Replace order-sensitive key with order-invariant key
+    struct TriKey {
+        unsigned int a, b, c;
+        static TriKey Make(unsigned int i0, unsigned int i1, unsigned int i2) {
+            unsigned int x = i0, y = i1, z = i2;
+            if (y < x) { std::swap(x, y); }
+            if (z < y) { std::swap(y, z); }
+            if (y < x) { std::swap(x, y); }
+            return {x, y, z};
+        }
+        bool operator==(const TriKey& other) const noexcept {
+            return a == other.a && b == other.b && c == other.c;
+        }
+    };
+    struct TriKeyHash {
+        size_t operator()(const TriKey& k) const noexcept {
+            return (static_cast<size_t>(k.a) * 73856093u) ^
+                   (static_cast<size_t>(k.b) * 19349663u) ^
+                   (static_cast<size_t>(k.c) * 83492791u);
+        }
+    };
+    std::unordered_map<TriKey, unsigned int, TriKeyHash> triToFace;
 
     // convert to draw date
     timer->Reset();
@@ -51,10 +72,12 @@ void SurfaceMeshMeshleter::Build() {
             int ncell = mesh->GetFacePointIds(i, cell);
             for (int j = 1; j < ncell - 1; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
-                triToFace[{static_cast<unsigned int>(cell[0]),
-                           static_cast<unsigned int>(cell[j]),
-                           static_cast<unsigned int>(cell[j + 1])}] =
-                        static_cast<unsigned int>(i);
+                // store by sorted vertex ids to be order-invariant
+                TriKey key =
+                        TriKey::Make(static_cast<unsigned int>(cell[0]),
+                                     static_cast<unsigned int>(cell[j]),
+                                     static_cast<unsigned int>(cell[j + 1]));
+                triToFace[key] = static_cast<unsigned int>(i);
                 // add edge mask
                 //int mask = ncell == 3 ? 7 : j == 1 ? 3 : j == ncell - 2 ? 6 : 2;
                 //triangleEdgeMasks->AddValue(mask);
@@ -187,7 +210,7 @@ void SurfaceMeshMeshleter::Build() {
         SmartPointer<FloatArray> cellPositions = FloatArray::New();
         cellPositions->Reserve(meshletTriangles.size() * 3);
 
-        unsigned int cellVertexOffset = 0u;
+        unsigned int triSize = 0u;
         for (size_t i = 0; i < meshlet_count; ++i) {
             const meshopt_Meshlet& m = meshlets[i];
             const meshopt_Bounds& b = meshlet_bounds[i];
@@ -202,9 +225,13 @@ void SurfaceMeshMeshleter::Build() {
                     cellPositions->AddValue(positions->GetValue(id * 3 + 1));
                     cellPositions->AddValue(positions->GetValue(id * 3 + 2));
                 }
-                m_TriangleToFace[j / 3] =
-                        triToFace[{m_MeshletIndices[j], m_MeshletIndices[j + 1],
-                                   m_MeshletIndices[j + 2]}];
+                // lookup by sorted key to be robust to different windings
+                TriKey key = TriKey::Make(m_MeshletIndices[j],
+                                          m_MeshletIndices[j + 1],
+                                          m_MeshletIndices[j + 2]);
+                auto it = triToFace.find(key);
+                m_TriangleToFace[triSize + (j - m.triangle_offset) / 3] =
+                        it != triToFace.end() ? it->second : 0u;
             }
 
             for (auto j = m.triangle_offset;
@@ -222,8 +249,8 @@ void SurfaceMeshMeshleter::Build() {
 
             // DrawArraysIndirectCommand.first is the starting vertex index.
             m_ArraysDrawCommands[i] = DrawArraysIndirectCommand{
-                    m.triangle_count * 3, 0, cellVertexOffset, 0};
-            cellVertexOffset += static_cast<unsigned int>(m.triangle_count * 3);
+                    m.triangle_count * 3, 0, triSize * 3, 0};
+            triSize += m.triangle_count;
         }
 
         // create draw command buffers

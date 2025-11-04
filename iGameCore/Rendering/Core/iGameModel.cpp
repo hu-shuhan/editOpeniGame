@@ -669,6 +669,9 @@ void Model::DrawPhase1() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
+        if (drawObject->m_RenderableMesh.Meshleter->GetRenderWithMeshlet()) {
+            drawObject->m_UseColor = true;
+        }
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -744,7 +747,7 @@ void Model::DrawPhase1() {
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &visibleMeshletCount);
 
-            if (colorWithCell) {
+            if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
                 meshleter->m_CellTriangleVAO->Bind();
                 meshleter->m_CellFinalDrawCommandBuffer->Target(
                         GL_DRAW_INDIRECT_BUFFER);
@@ -938,6 +941,9 @@ void Model::DrawPhase2() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
+        if (drawObject->m_RenderableMesh.Meshleter->GetRenderWithMeshlet()) {
+            drawObject->m_UseColor = true;
+        }
         m_Scene->UpdateObjectDataBlock(dataObject);
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
@@ -1053,7 +1059,7 @@ void Model::DrawPhase2() {
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
 
-            if (colorWithCell) {
+            if (colorWithCell || meshleter->GetRenderWithMeshlet()) {
                 meshleter->m_CellTriangleVAO->Bind();
                 meshleter->m_CellFinalDrawCommandBuffer->Target(
                         GL_DRAW_INDIRECT_BUFFER);

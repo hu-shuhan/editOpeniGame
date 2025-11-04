@@ -94,6 +94,9 @@ public:
      */
     bool GetAccelerationOption() const;
 
+    void SetRenderWithMeshlet(bool val) { m_RenderableMesh.Meshleter->SetRenderWithMeshlet(val); }
+    bool GetRenderWithMeshlet() const { return m_RenderableMesh.Meshleter->GetRenderWithMeshlet(); }
+
 protected:
     // OpenGL资源管理
     void CreateDrawBuffer();
