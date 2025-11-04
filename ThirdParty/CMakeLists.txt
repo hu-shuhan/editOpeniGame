@@ -56,11 +56,10 @@ if (ENABLE_CGNS_MODULE)
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
 
-# zstd - 放在CGNS之后以避免uninstall目标冲突
 set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
-# Force static-only to avoid installing zstd.dll
 set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
-add_subdirectory(zstd/build/cmake)
+
+add_subdirectory(zstd/build/cmake EXCLUDE_FROM_ALL)
