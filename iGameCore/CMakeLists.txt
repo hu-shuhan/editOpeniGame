@@ -80,7 +80,6 @@ list(APPEND ThirdParty_lib_dependency
         meshoptimizer
         tinyXML2
         vtkkwiml
-        lzma
         libzstd_static
         glfw
         spdlog_header_only
