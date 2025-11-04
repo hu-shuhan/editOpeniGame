@@ -62,7 +62,7 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
         v_basis[i] = LagrangeBasis1D(v, i, v_coords);
     }
 
-    Point interpolated_point{0,0,0};
+    Point interpolated_point{0, 0, 0};
     int k = 0;
 
     // 1. 处理4个角点
@@ -161,7 +161,7 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     double L2 = r;
     double L3 = s;
 
-    Point interpolated_point{0,0,0};
+    Point interpolated_point{0, 0, 0};
     int k = 0;
 
     // 1. 处理3个角点
@@ -439,7 +439,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         auto lineIndices = UnsignedIntArray::New();
         auto triangleIndices = UnsignedIntArray::New();
         auto triangleEdgeMasks = UnsignedCharArray::New();
-        m_TriangleQualities = FloatArray::New(); 
+        m_TriangleQualities = FloatArray::New();
         std::map<igIndex, igIndex> pointIndexMap;
         const int tessellation_divisions = 8;
         const igIndex numOriginalPoints = m_Points->GetNumberOfPoints();
@@ -462,7 +462,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
             Cell* cell = GetCell(id);
             if (!cell) continue;
 
-            // 生成线框 
+            // 生成线框
             const int num_edges = cell->GetNumberOfEdges();
             for (int i = 0; i < num_edges; ++i) {
                 const igIndex* edge_pt_ids = nullptr;
@@ -500,9 +500,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
             };
 
             if (auto* l_volume = dynamic_cast<LagrangeVolume*>(cell)) {
-                for (int i = 0; i < l_volume->GetNumberOfFaces(); i++) {
-                    process_face(l_volume->GetFace(i));
-                }
+                for (int i = 0; i < l_volume->GetNumberOfFaces(); i++) { process_face(l_volume->GetFace(i)); }
             } else if (auto* l_face = dynamic_cast<LagrangeFace*>(cell)) {
                 process_face(l_face);
             }
@@ -578,7 +576,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
 }
 
 void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
-                                                        igIndex dimension) { 
+                                                        igIndex dimension) {
     if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
         double magnitude_min = attrRange->GetValue(0);
         double magnitude_max = attrRange->GetValue(1);
@@ -604,12 +602,16 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
+
     newPositions->SetDimension(3);
     newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
 
     IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
     newPositions->Reserve(numTriangles * 3);
     newColors->Reserve(numTriangles * 3);
+    newEdgeMasks->Reserve(numTriangles);
 
     float color[3]{};
     igIndex vertexIds[3]{};
@@ -627,6 +629,8 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             m_Positions->GetElement(vertexIds[j], p);
             newPositions->AddElement3(p[0], p[1], p[2]);
             newColors->AddElement3(color[0], color[1], color[2]);
+            // TODO: 这里的边掩码需要根据具体需求进行调整
+            // newEdgeMasks.AddValue();
         }
     }
     m_CellPositionSize = newPositions->GetNumberOfElements();
@@ -635,6 +639,9 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
 
     m_CellColors = newColors;
     m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 
 IGAME_NAMESPACE_END

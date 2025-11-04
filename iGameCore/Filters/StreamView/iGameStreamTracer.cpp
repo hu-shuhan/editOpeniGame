@@ -103,6 +103,11 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
     meshId = model->GetDataObject()->GetDataObjectId();
     return;
 }
+
+Vector3f iGameStreamTracer::SampleVector(const Vector3f& coord, bool& inside, igIndex& VolumeId,
+                                         const std::string& vectorName, float terminalSpeed) {
+    return interpolationVector(coord, inside, VolumeId, vectorName, terminalSpeed);
+}
 std::vector<Vector3f> iGameStreamTracer::computeSubBlockCenters(
     const Vector3f& minCorner,
     const Vector3f& maxCorner,

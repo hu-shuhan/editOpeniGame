@@ -65,15 +65,15 @@ public:
 
     FloatArray::Pointer GetRenderPoints();            // 获取当前渲染用的顶点数据
     void SetRenderPoints(FloatArray::Pointer points); // 直接设置顶点数据
-    // 设置多边形偏移
-    void SetPolygonOffsetParameters(float factor, float units);
-    void GetPolygonOffsetParameters(float& factor, float& units);
-    // 设置线偏移
-    void SetLineOffsetParameters(float factor, float units);
-    void GetLineOffsetParameters(float& factor, float& units);
-    // 设置点偏移
-    void SetPointOffsetParameters(float units);
-    void GetPointOffsetParameters(float& units);
+    // // 设置多边形偏移
+    // void SetPolygonOffsetParameters(float factor, float units);
+    // void GetPolygonOffsetParameters(float& factor, float& units);
+    // // 设置线偏移
+    // void SetLineOffsetParameters(float factor, float units);
+    // void GetLineOffsetParameters(float& factor, float& units);
+    // // 设置点偏移
+    // void SetPointOffsetParameters(float units);
+    // void GetPointOffsetParameters(float& units);
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
@@ -121,7 +121,6 @@ protected:
     GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
     GLVertexArray::Pointer m_CellVAO;
     GLBuffer::Pointer m_CellPositionVBO, m_CellColorVBO;
-    GLBuffer::Pointer m_CellEBO;
     //顶点的坐标颜色法线纹理
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
@@ -139,7 +138,9 @@ protected:
     // 单元数据
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;
-    UnsignedIntArray::Pointer m_CellIndices;
+    UnsignedCharArray::Pointer m_CellTriangleEdgeMasks;
+    GLBuffer::Pointer m_CellEdgeMaskBuffer;
+    GLTextureBuffer::Pointer m_CellEdgeMaskTexture;
 
     unsigned int m_ViewStyle; // 视图样式
     bool m_Visibility;        //是否可见
@@ -176,6 +177,7 @@ protected:
     friend class Scene;
     friend class UnstructuredMesh;
     friend class Meshleter;
+    friend class SurfaceMeshMeshleter;
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);

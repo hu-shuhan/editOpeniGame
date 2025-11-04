@@ -24,9 +24,7 @@ Model::Model() {
 
 Model::~Model() {}
 
-void Model::SetScene(SmartPointer<Scene> scene) {
-    m_Scene = scene;
-}
+void Model::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
 
 SmartPointer<Scene> Model::GetScene() const { return m_Scene; }
 
@@ -238,21 +236,6 @@ void Model::Draw() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
-        if (useColor && colorWithCell) {
-            m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
-
-            float f, u;
-            renderableObject->GetPolygonOffsetParameters(f, u);
-
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
-            renderableObject->m_CellVAO->DrawArrays(
-                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
-            glDisable(GL_POLYGON_OFFSET_FILL);
-
-            return;
-        }
-
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -264,10 +247,14 @@ void Model::Draw() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
-            glPointSize(renderableObject->m_PointSize);
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
 
-            float u;
-            renderableObject->GetPointOffsetParameters(u);
+            glPointSize(renderableObject->m_PointSize);
 
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
                 renderableObject->m_PointVAO->DrawArrays(
@@ -291,10 +278,13 @@ void Model::Draw() {
 
             shader->SetUniformf("lineWidth", renderableObject->GetLineWidth());
 
-            renderableObject->m_EdgeMaskTexture->Active(GL_TEXTURE1);
+            auto edgeMaskTexture =
+                    colorWithCell ? renderableObject->m_CellEdgeMaskTexture
+                                  : renderableObject->m_EdgeMaskTexture;
+            edgeMaskTexture->Active(GL_TEXTURE1);
             shader->SetUniformi("edgeMasks", 1);
 
-            if (useColor) {
+            if (useColor && !colorWithCell) {
                 shader->SetUniformi("edgeColorMode", 0);
             } else {
                 shader->SetUniformi("edgeColorMode", 1);
@@ -307,21 +297,10 @@ void Model::Draw() {
                            (float) vp[3]};
             shader->SetUniform4f("vpDims", dims);
 
-            renderableObject->m_TriangleVAO->DrawRangeElements(
-                    GL_TRIANGLES, 0,
-                    renderableObject->m_Positions->GetNumberOfElements() - 1,
-                    renderableObject->m_TriangleIndices->GetNumberOfValues(),
-                    GL_UNSIGNED_INT);
-        } else {
-            if (viewStyle & IG_SURFACE) {
-                auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
-                shader->Use();
-
-                float f, u;
-                renderableObject->GetPolygonOffsetParameters(f, u);
-
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(f, u);
+            if (colorWithCell) {
+                renderableObject->m_CellVAO->DrawArrays(
+                        GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
+            } else {
                 renderableObject->m_TriangleVAO->DrawRangeElements(
                         GL_TRIANGLES, 0,
                         renderableObject->m_Positions->GetNumberOfElements() -
@@ -329,11 +308,30 @@ void Model::Draw() {
                         renderableObject->m_TriangleIndices
                                 ->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
-                glDisable(GL_POLYGON_OFFSET_FILL);
+            }
+        } else {
+            if (viewStyle & IG_SURFACE) {
+                auto shader = m_Scene->GetShader(ShaderType::BLINNPHONG);
+                shader->Use();
+
+                if (colorWithCell) {
+                    renderableObject->m_CellVAO->DrawArrays(
+                            GL_TRIANGLES, 0,
+                            renderableObject->m_CellPositionSize);
+                } else {
+                    renderableObject->m_TriangleVAO->DrawRangeElements(
+                            GL_TRIANGLES, 0,
+                            renderableObject->m_Positions
+                                            ->GetNumberOfElements() -
+                                    1,
+                            renderableObject->m_TriangleIndices
+                                    ->GetNumberOfValues(),
+                            GL_UNSIGNED_INT);
+                }
             }
 
             if (viewStyle & IG_WIREFRAME) {
-                if (useColor) {
+                if (useColor && !colorWithCell) {
                     m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
                 } else {
                     auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
@@ -351,9 +349,6 @@ void Model::Draw() {
                 }
 
                 glLineWidth(renderableObject->m_LineWidth);
-
-                float f, u;
-                renderableObject->GetLineOffsetParameters(f, u);
 
                 renderableObject->m_LineVAO->DrawRangeElements(
                         GL_LINES, 0,
@@ -398,35 +393,20 @@ void Model::DrawWithTransparency() {
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
 
-        if (useColor && colorWithCell) {
-            auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
-            shader->Use();
-            shader->SetUniformi("colorMode", 0);
-
-            float f, u;
-            renderableObject->GetPolygonOffsetParameters(f, u);
-
-            //glEnable(GL_POLYGON_OFFSET_FILL);
-            //glPolygonOffset(f, u);
-            renderableObject->m_CellVAO->DrawArrays(
-                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
-            //glDisable(GL_POLYGON_OFFSET_FILL);
-
-            return;
-        }
-
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
             shader->SetUniformi("colorMode", 1);
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(renderableObject->m_PointSize);
 
-            float u;
-            renderableObject->GetPointOffsetParameters(u);
-
-            //glEnable(GL_POLYGON_OFFSET_POINT);
-            //glPolygonOffset(0.0f, u);
             if (renderableObject->m_PointIndices->GetNumberOfValues() == 0) {
                 renderableObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -439,11 +419,10 @@ void Model::DrawWithTransparency() {
                         renderableObject->m_PointIndices->GetNumberOfValues(),
                         GL_UNSIGNED_INT);
             }
-            //glDisable(GL_POLYGON_OFFSET_POINT);
         }
 
         if (viewStyle & IG_WIREFRAME) {
-            if (useColor) {
+            if (useColor && !colorWithCell) {
                 auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
                 shader->Use();
                 shader->SetUniformi("colorMode", 1);
@@ -456,34 +435,30 @@ void Model::DrawWithTransparency() {
 
             glLineWidth(renderableObject->m_LineWidth);
 
-            float f, u;
-            renderableObject->GetLineOffsetParameters(f, u);
-
-            //glEnable(GL_POLYGON_OFFSET_LINE);
-            //glPolygonOffset(f, u);
             renderableObject->m_LineVAO->DrawRangeElements(
                     GL_LINES, 0,
                     renderableObject->m_Positions->GetNumberOfElements() - 1,
                     renderableObject->m_LineIndices->GetNumberOfValues(),
                     GL_UNSIGNED_INT);
-            //glDisable(GL_POLYGON_OFFSET_LINE);
         }
+
         if (viewStyle & IG_SURFACE) {
             auto shader = m_Scene->GetShader(ShaderType::TRANSPARENCYLINK);
             shader->Use();
             shader->SetUniformi("colorMode", 0);
 
-            float f, u;
-            renderableObject->GetPolygonOffsetParameters(f, u);
-
-            //glEnable(GL_POLYGON_OFFSET_FILL);
-            //glPolygonOffset(f, u);
-            renderableObject->m_TriangleVAO->DrawRangeElements(
-                    GL_TRIANGLES, 0,
-                    renderableObject->m_Positions->GetNumberOfElements() - 1,
-                    renderableObject->m_TriangleIndices->GetNumberOfValues(),
-                    GL_UNSIGNED_INT);
-            //glDisable(GL_POLYGON_OFFSET_FILL);
+            if (colorWithCell) {
+                renderableObject->m_CellVAO->DrawArrays(
+                        GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
+            } else {
+                renderableObject->m_TriangleVAO->DrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        renderableObject->m_Positions->GetNumberOfElements() -
+                                1,
+                        renderableObject->m_TriangleIndices
+                                ->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
         }
     };
 
@@ -512,24 +487,8 @@ void Model::DrawWithVolume() {
         m_Scene->UpdateUniformBufferObjectBlock(dataObject);
 
         auto renderableObject = drawObject; //体绘制用原始体进行渲染
-        auto useColor = renderableObject->IsUseColor();
         auto colorWithCell = renderableObject->m_ColorWithCell;
         auto viewStyle = renderableObject->GetViewStyle();
-
-        if (useColor && colorWithCell) {
-            auto shader = m_Scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
-            shader->Use();
-
-            float f, u;
-            renderableObject->GetPolygonOffsetParameters(f, u);
-
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
-            renderableObject->m_CellVAO->DrawArrays(
-                    GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
-            glDisable(GL_POLYGON_OFFSET_FILL);
-            return;
-        }
 
         if (viewStyle & IG_POINTS) {}
         if (viewStyle & IG_WIREFRAME) {}
@@ -537,17 +496,16 @@ void Model::DrawWithVolume() {
             auto shader = m_Scene->GetShader(ShaderType::VOLUMERENDERINGLINK);
             shader->Use();
 
-            float f, u;
-            renderableObject->GetPolygonOffsetParameters(f, u);
-
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(f, u);
-            renderableObject->m_TriangleVAO->DrawRangeElements(
-                    GL_TRIANGLES, 0,
-                    drawObject->m_Positions->GetNumberOfElements() - 1,
-                    drawObject->m_TriangleIndices->GetNumberOfValues(),
-                    GL_UNSIGNED_INT);
-            glDisable(GL_POLYGON_OFFSET_FILL);
+            if (colorWithCell) {
+                renderableObject->m_CellVAO->DrawArrays(
+                        GL_TRIANGLES, 0, renderableObject->m_CellPositionSize);
+            } else {
+                renderableObject->m_TriangleVAO->DrawRangeElements(
+                        GL_TRIANGLES, 0,
+                        drawObject->m_Positions->GetNumberOfElements() - 1,
+                        drawObject->m_TriangleIndices->GetNumberOfValues(),
+                        GL_UNSIGNED_INT);
+            }
         }
     };
 
@@ -600,6 +558,13 @@ void Model::DrawPhase1() {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
             glPointSize(surfaceObject->m_PointSize);
@@ -715,8 +680,6 @@ void Model::DrawPhase1() {
         auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        if (useColor && colorWithCell) {}
-
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -728,11 +691,14 @@ void Model::DrawPhase1() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(surfaceObject->m_PointSize);
-
-            float u;
-            surfaceObject->GetPointOffsetParameters(u);
-
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -747,7 +713,7 @@ void Model::DrawPhase1() {
         }
 
         if (viewStyle & IG_WIREFRAME) {
-            if (useColor) {
+            if (useColor && !colorWithCell) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
@@ -764,9 +730,6 @@ void Model::DrawPhase1() {
 
             glLineWidth(surfaceObject->m_LineWidth);
 
-            float f, u;
-            surfaceObject->GetLineOffsetParameters(f, u);
-
             surfaceObject->m_LineVAO->DrawRangeElements(
                     GL_LINES, 0,
                     surfaceObject->m_Positions->GetNumberOfElements() - 1,
@@ -777,16 +740,27 @@ void Model::DrawPhase1() {
         if (viewStyle & IG_SURFACE) {
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            meshleter->m_TriangleVAO->Bind();
             unsigned int visibleMeshletCount = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &visibleMeshletCount);
-            meshleter->m_FinalDrawCommandBuffer->Target(
-                    GL_DRAW_INDIRECT_BUFFER);
-            meshleter->m_FinalDrawCommandBuffer->Bind();
-            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                        visibleMeshletCount, 0);
-            meshleter->m_TriangleVAO->Release();
+
+            if (colorWithCell) {
+                meshleter->m_CellTriangleVAO->Bind();
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr,
+                                          visibleMeshletCount, 0);
+                meshleter->m_CellTriangleVAO->Release();
+            } else {
+                meshleter->m_TriangleVAO->Bind();
+                meshleter->m_FinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_FinalDrawCommandBuffer->Bind();
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
+                                            nullptr, visibleMeshletCount, 0);
+                meshleter->m_TriangleVAO->Release();
+            }
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
@@ -848,6 +822,13 @@ void Model::DrawPhase2() {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
                 shader->Use();
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
+            }
+
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
             }
 
             glPointSize(surfaceObject->m_PointSize);
@@ -968,8 +949,6 @@ void Model::DrawPhase2() {
         auto viewStyle = drawObject->GetViewStyle();
 
         // draw
-        if (useColor && colorWithCell) {}
-
         if (viewStyle & IG_POINTS) {
             auto shader = m_Scene->GetShader(ShaderType::NOLIGHT);
             shader->Use();
@@ -981,11 +960,14 @@ void Model::DrawPhase2() {
                 shader->SetUniform3f("inputColor", igm::vec3{1.0f, 0.0f, 0.0f});
             }
 
+            // 如果是cell标量，强制用白色绘制点
+            if (colorWithCell) {
+                auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
+                shader->Use();
+                shader->SetUniform3f("inputColor", igm::vec3{1.0f, 1.0f, 1.0f});
+            }
+
             glPointSize(surfaceObject->m_PointSize);
-
-            float u;
-            surfaceObject->GetPointOffsetParameters(u);
-
             if (surfaceObject->m_PointIndices->GetNumberOfValues() == 0) {
                 surfaceObject->m_PointVAO->DrawArrays(
                         GL_POINTS, 0,
@@ -1000,7 +982,7 @@ void Model::DrawPhase2() {
         }
 
         if (viewStyle & IG_WIREFRAME) {
-            if (useColor) {
+            if (useColor && !colorWithCell) {
                 m_Scene->GetShader(ShaderType::NOLIGHT)->Use();
             } else {
                 auto shader = m_Scene->GetShader(ShaderType::PURECOLOR);
@@ -1016,10 +998,6 @@ void Model::DrawPhase2() {
             }
 
             glLineWidth(surfaceObject->m_LineWidth);
-
-            float f, u;
-            surfaceObject->GetLineOffsetParameters(f, u);
-
             surfaceObject->m_LineVAO->DrawRangeElements(
                     GL_LINES, 0,
                     surfaceObject->m_Positions->GetNumberOfElements() - 1,
@@ -1039,22 +1017,27 @@ void Model::DrawPhase2() {
                 shader->SetUniformi("workMode", 0);
 
                 meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_CellDrawCommandBuffer->BindBase(2);
+                meshleter->m_DrawCommandBuffer->BindBase(3);
 
                 unsigned int data = 0;
                 meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(4);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_SHADER_STORAGE_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->BindBase(5);
+
                 meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(6);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
                 cullDataBuffer->Target(GL_UNIFORM_BUFFER);
-                cullDataBuffer->BindBase(5);
+                cullDataBuffer->BindBase(7);
 
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
@@ -1066,16 +1049,26 @@ void Model::DrawPhase2() {
 
             m_Scene->GetShader(ShaderType::BLINNPHONG)->Use();
 
-            meshleter->m_TriangleVAO->Bind();
             unsigned int count = 0;
             meshleter->m_VisibleMeshletBuffer->GetSubData(
                     0, sizeof(unsigned int), &count);
-            meshleter->m_FinalDrawCommandBuffer->Target(
-                    GL_DRAW_INDIRECT_BUFFER);
-            meshleter->m_FinalDrawCommandBuffer->Bind();
-            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
-                                        count, 0);
-            meshleter->m_TriangleVAO->Release();
+
+            if (colorWithCell) {
+                meshleter->m_CellTriangleVAO->Bind();
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->Bind();
+                glMultiDrawArraysIndirect(GL_TRIANGLES, nullptr, count, 0);
+                meshleter->m_CellTriangleVAO->Release();
+            } else {
+                meshleter->m_TriangleVAO->Bind();
+                meshleter->m_FinalDrawCommandBuffer->Target(
+                        GL_DRAW_INDIRECT_BUFFER);
+                meshleter->m_FinalDrawCommandBuffer->Bind();
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT,
+                                            nullptr, count, 0);
+                meshleter->m_TriangleVAO->Release();
+            }
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
@@ -1129,21 +1122,26 @@ void Model::TestOcclusionResults() {
                 shader->SetUniformi("workMode", 1);
 
                 meshleter->m_MeshletDescriptorBuffer->BindBase(1);
-                meshleter->m_DrawCommandBuffer->BindBase(2);
+                meshleter->m_CellDrawCommandBuffer->BindBase(2);
+                meshleter->m_DrawCommandBuffer->BindBase(3);
 
                 unsigned int data = 0;
                 meshleter->m_VisibleMeshletBuffer->SubData(
                         0, sizeof(unsigned int), &data);
-                meshleter->m_VisibleMeshletBuffer->BindBase(3);
+                meshleter->m_VisibleMeshletBuffer->BindBase(4);
 
                 // need switch to the GL_SHADER_STORAGE_BUFFER target
+                meshleter->m_CellFinalDrawCommandBuffer->Target(
+                        GL_SHADER_STORAGE_BUFFER);
+                meshleter->m_CellFinalDrawCommandBuffer->BindBase(5);
+
                 meshleter->m_FinalDrawCommandBuffer->Target(
                         GL_SHADER_STORAGE_BUFFER);
-                meshleter->m_FinalDrawCommandBuffer->BindBase(4);
+                meshleter->m_FinalDrawCommandBuffer->BindBase(6);
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
-                cullDataBuffer->BindBase(5);
+                cullDataBuffer->BindBase(7);
 
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
