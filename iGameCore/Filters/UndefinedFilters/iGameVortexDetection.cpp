@@ -289,7 +289,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict) {
     const size_t N = Predict.size();
     const float gt_thresh = 0.0f;
-    const float pred_thresh = 0.095f;
+    const float pred_thresh = 0.5f;
 
     // 2) 统计 TP/FP/TN/FN
     size_t TP = 0, FP = 0, TN = 0, FN = 0;
@@ -306,15 +306,15 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
         else
             ++TN;
     }
-
     const double eps = 1e-12;
     const double total = static_cast<double>(TP + FP + TN + FN);
 
     const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
-    const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-    //const double f1 = (precision + recall > 0.0) ? (2.0 * precision * recall / (precision + recall)) : 0.0;
     const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
                                     static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
+    const double r = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
+    const double recall = (precision + r > 0.0) ? (2.0 * precision * r / (precision + r)) : 0.0;
+
 
     std::cout << "\n================ Evaluation Metrics ================\n";
     std::cout << "Accuracy      : " << accuracy << "\n";
