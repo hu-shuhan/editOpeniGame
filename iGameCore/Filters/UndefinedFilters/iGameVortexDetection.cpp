@@ -182,7 +182,7 @@ struct BlockInfo {
 
 bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                      int Index, std::string name) {
-
+    std::cout<<"VortexDetection::DetectionVortex must in VolumeMesh!"<<std::endl;
     return true;
 }
 
@@ -919,26 +919,39 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
                     } else {
                         patch = patches[patch_idx].to(torch::kCPU);
                     }
-                    /*c10::IValue out = model.forward({patch});
-                    torch::Tensor logits = out.toTensor();*/
-                    torch::Tensor logits =
-                            const_cast<torch::jit::script::Module&>(*model_const).forward({patch}).toTensor();
-                    //torch::Tensor logits = model.forward({patch}).toTuple()->elements()[0].toTensor(); // [1, 2, 64, 64, 64]
+                    bool all_zero = torch::allclose(patch, torch::zeros_like(patch), 1e-20, 1e-20);
                     torch::Tensor prob;
-                    if (logits.size(1) == 2) {
-                        prob = torch::sigmoid(logits.slice(1, 1, 2)); // 取前景通道 [1, 1, 64, 64, 64]
+                    if (all_zero) {
+                        prob = torch::zeros({1, 1, patch_size, patch_size, patch_size}, patch.options());
+                        patch_idx++;
+                        continue;
                     } else {
-                        prob = torch::sigmoid(logits);
+                        torch::Tensor logits =
+                                const_cast<torch::jit::script::Module&>(*model_const).forward({patch}).toTensor();
+                        //torch::Tensor logits = model.forward({patch}).toTuple()->elements()[0].toTensor(); // [1, 2, 64, 64, 64]
+                        if (logits.size(1) == 2) {
+                            prob = torch::sigmoid(logits.slice(1, 1, 2)); // 取前景通道 [1, 1, 64, 64, 64]
+                        } else {
+                            prob = torch::sigmoid(logits);
+                        }
+                        torch::Tensor prob_w = prob * w_patch;
+
+                        prob_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
+                                prob_w;
+                        w_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
+                                w_patch;
+
+                        patch_idx += 1;
                     }
 
-                    torch::Tensor prob_w = prob * w_patch;
-
-                    prob_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
-                            prob_w;
-                    w_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
-                            w_patch;
-
-                    patch_idx += 1;
+                    // torch::Tensor prob_w = prob * w_patch;
+                    //
+                    // prob_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
+                    //         prob_w;
+                    // w_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
+                    //         w_patch;
+                    //
+                    // patch_idx += 1;
                 }
             }
         }
@@ -1280,6 +1293,67 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    return std::make_tuple(result_volume_11, global_step);
 //}
 
+torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
+                                                 const torch::Tensor& prob_vol_1, // [nz, ny, nx]
+                                                 const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
+                                                 const std::vector<Eigen::Vector3f>& query_points, // 要查询的点
+                                                 int k) {
+
+    int nz = prob_vol_1.size(0);
+    int ny = prob_vol_1.size(1);
+    int nx = prob_vol_1.size(2);
+
+    std::vector<Eigen::Vector3f> grid_coords;
+    grid_coords.reserve(nx * ny * nz);
+
+    for (int z = 0; z < nz; z++) {
+        for (int y = 0; y < ny; y++) {
+            for (int x = 0; x < nx; x++) {
+                Eigen::Vector3f pos = min_pos + Eigen::Vector3f(x, y, z).cwiseProduct(global_step);
+                grid_coords.push_back(pos);
+            }
+        }
+    }
+    Eigen::MatrixXd coords_mat(grid_coords.size(), 3);
+    for (int i = 0; i < grid_coords.size(); i++) { coords_mat.row(i) = grid_coords[i].cast<double>().transpose(); }
+
+    KDTree tree(coords_mat);
+
+    torch::Tensor flat_prob = prob_vol_1.flatten();
+
+    int N = query_points.size();
+    torch::Tensor smooth_1 = torch::zeros({N}, torch::kFloat32);
+
+    auto knn_worker = [&](int begin, int end) {
+        for (int i = begin; i < end; ++i) {
+            std::vector<int> idxs;
+            std::vector<double> dists;
+            Eigen::VectorXd query = query_points[i].cast<double>();
+
+            tree.query(query, k, idxs, dists);
+
+            torch::Tensor dists_t =
+                    torch::from_blob(dists.data(), {(int) idxs.size()}, torch::kFloat64).to(torch::kFloat32).clone();
+
+            torch::Tensor weights = torch::exp(-0.5 * torch::pow(dists_t / 0.8, 2));
+            weights = weights / (torch::sum(weights) + 1e-8);
+
+            torch::Tensor idxs_t =
+                    torch::from_blob(idxs.data(), {(int) idxs.size()}, torch::kInt32).to(torch::kLong).clone();
+            torch::Tensor neighbors = flat_prob.index_select(0, idxs_t);
+
+            float val = torch::sum(weights * neighbors).item<float>();
+            // if(data_val[i]>0.2 && smooth_1[i]>=0.000001 || smooth_1[i]>=threshold || (attribute!=nullptr && attribute->GetValue(i)&& (smooth_1[i]>=0.00000001 || data_val[i]>0.3)))
+            if (val>0.005)
+                smooth_1[i] = 1 ;
+            else smooth_1[i] = 0;
+
+        }
+    };
+    ThreadPool::parallelFor(0, N, knn_worker);
+    return smooth_1;
+}
+
 std::tuple<torch::Tensor, Eigen::Vector3f>
 VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
                                 const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path,
@@ -1354,7 +1428,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
 
             igIndex cachedVolumeId = -1;
-            const int K = 3;
+            const int K = 2;
             std::vector<double> weights(K, 0.0);
             std::vector<int> idxs(K, 0);
             std::vector<double> dists(K, 0.0);
@@ -1376,7 +1450,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                         else {
                             // grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
                             tree.query(pos_vec, K, idxs, dists);
-                            if (dists.size() == 0  || dists[0]>step[0] * 10) {
+                            if (dists.size() == 0  || dists[0]>step[0] * 16) {
                                 grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
                             }else{
                                 torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
@@ -1443,7 +1517,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     int workers = std::min(total_blocks, max_threads);
     static std::counting_semaphore<> infer_slots(workers);*/
 
-
     int nz_sub = all_results_1[0].size(0);
     int ny_sub = all_results_1[0].size(1);
     int nx_sub = all_results_1[0].size(2);
@@ -1490,68 +1563,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
 torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, float sigma) {
     return torch::exp(-0.5 * torch::pow(dists / sigma, 2));
-}
-
-torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
-                                                 const torch::Tensor& prob_vol_1, // [nz, ny, nx]
-                                                 const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                                 const std::vector<Eigen::Vector3f>& query_points, // 要查询的点
-                                                 int k) {
-
-    int nz = prob_vol_1.size(0);
-    int ny = prob_vol_1.size(1);
-    int nx = prob_vol_1.size(2);
-
-    std::vector<Eigen::Vector3f> grid_coords;
-    grid_coords.reserve(nx * ny * nz);
-
-    for (int z = 0; z < nz; z++) {
-        for (int y = 0; y < ny; y++) {
-            for (int x = 0; x < nx; x++) {
-                Eigen::Vector3f pos = min_pos + Eigen::Vector3f(x, y, z).cwiseProduct(global_step);
-                grid_coords.push_back(pos);
-            }
-        }
-    }
-    Eigen::MatrixXd coords_mat(grid_coords.size(), 3);
-    for (int i = 0; i < grid_coords.size(); i++) { coords_mat.row(i) = grid_coords[i].cast<double>().transpose(); }
-
-    KDTree tree(coords_mat);
-
-    torch::Tensor flat_prob = prob_vol_1.flatten();
-
-    int N = query_points.size();
-    torch::Tensor smooth_1 = torch::zeros({N}, torch::kFloat32);
-
-    auto knn_worker = [&](int begin, int end) {
-        for (int i = begin; i < end; ++i) {
-            std::vector<int> idxs;
-            std::vector<double> dists;
-            Eigen::VectorXd query = query_points[i].cast<double>();
-
-            tree.query(query, k, idxs, dists);
-
-            torch::Tensor dists_t =
-                    torch::from_blob(dists.data(), {(int) idxs.size()}, torch::kFloat64).to(torch::kFloat32).clone();
-
-            torch::Tensor weights = torch::exp(-0.5 * torch::pow(dists_t / 0.8, 2));
-            weights = weights / (torch::sum(weights) + 1e-8);
-
-            torch::Tensor idxs_t =
-                    torch::from_blob(idxs.data(), {(int) idxs.size()}, torch::kInt32).to(torch::kLong).clone();
-            torch::Tensor neighbors = flat_prob.index_select(0, idxs_t);
-
-            float val = torch::sum(weights * neighbors).item<float>();
-            // std::cout<<val<<std::endl;
-            // if(data_val[i]>0.2 && smooth_1[i]>=0.000001 || smooth_1[i]>=threshold || (attribute!=nullptr && attribute->GetValue(i)&& (smooth_1[i]>=0.00000001 || data_val[i]>0.3)))
-            if (val>0.01)
-                smooth_1[i] = 1 ;
-            else smooth_1[i] = 0;
-
-        }
-    };
-    ThreadPool::parallelFor(0, N, knn_worker);
-    return smooth_1;
 }
 
 #endif
