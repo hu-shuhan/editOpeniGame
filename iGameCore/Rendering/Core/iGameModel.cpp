@@ -3,8 +3,8 @@
 #include "iGameInteractor.h"
 #include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
-#include "iGameSurfaceMesh.h"
 #include "iGameScene.h"
+#include "iGameSurfaceMesh.h"
 #include <functional>
 
 IGAME_NAMESPACE_BEGIN
@@ -872,9 +872,6 @@ void Model::DrawPhase2() {
 
             glLineWidth(surfaceObject->m_LineWidth);
 
-            float f, u;
-            surfaceObject->GetLineOffsetParameters(f, u);
-
             surfaceObject->m_LineVAO->DrawRangeElements(
                     GL_LINES, 0,
                     surfaceObject->m_Positions->GetNumberOfElements() - 1,
@@ -943,18 +940,19 @@ void Model::DrawPhase2() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        if (drawObject->m_RenderableMesh.Meshleter->GetRenderWithMeshlet()) {
-            drawObject->m_UseColor = true;
-        }
-        m_Scene->UpdateObjectDataBlock(dataObject);
-        m_Scene->UpdateUniformBufferObjectBlock(dataObject);
-
-        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
         auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
-        auto useColor = drawObject->IsUseColor();
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->GetViewStyle();
+        if (meshleter->GetRenderWithMeshlet()) {
+            surfaceObject->m_UseColor = true;
+        }
+
+        m_Scene->UpdateObjectDataBlock(surfaceObject);
+        m_Scene->UpdateUniformBufferObjectBlock(surfaceObject);
+
+        auto useColor = surfaceObject->IsUseColor();
+        auto colorWithCell = surfaceObject->m_ColorWithCell;
+        auto viewStyle = surfaceObject->GetViewStyle();
 
         // draw
         if (viewStyle & IG_POINTS) {
