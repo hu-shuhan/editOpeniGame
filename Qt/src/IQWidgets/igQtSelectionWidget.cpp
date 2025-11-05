@@ -1,4 +1,4 @@
-#include <IQWidgets/igQtSelectionWidget.h>
+﻿#include <IQWidgets/igQtSelectionWidget.h>
 #include <iGameSelectionParameter.h>
 igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
     QWidget(parent),
@@ -20,6 +20,9 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget *parent) :
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
     connect(ui->expdRate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionExpdRate);
+    ui->expdRate->hide();
+    connect(ui->expdRateSlid, &QAbstractSlider::valueChanged, this, &igQtSelectionWidget::SelectionExpdRateSlid);
+    SetExpdRateSlidToolTip(ui->expdRateSlid->value());
     connect(ui->noneSelectionState, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectItemShow);
     connect(ui->noneSelectBox, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectBoxShow);
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
@@ -95,10 +98,16 @@ void igQtSelectionWidget::SelectionVariableAutoCheck(bool checked) {
     iGame::SelectionParameter::Instance().SetAutoSelect(checked);
     ui->variableChoose->setEnabled(checked);
     ui->expdRate->setEnabled(checked);
+    ui->expdRateSlid->setEnabled(checked);
 }
 
 void igQtSelectionWidget::SelectionExpdRate(double rate) {
     iGame::SelectionParameter::Instance().SetAutoSelectExpdRate(rate);
+}
+
+void igQtSelectionWidget::SelectionExpdRateSlid(int rate) {
+    iGame::SelectionParameter::Instance().SetAutoSelectExpdRate((double) rate / 100.0);
+    SetExpdRateSlidToolTip(rate);
 }
 
 void igQtSelectionWidget::SelectionSkipUnSeeAbleCell(bool checked) {
@@ -132,4 +141,9 @@ void igQtSelectionWidget::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
     if (m_PreventSignalSend) return;
     emit Hided();
+}
+
+void igQtSelectionWidget::SetExpdRateSlidToolTip(int value) {
+    ui->expdRateSlid->setToolTip(QString("取值比例：") + QString::number(value) + QString("%"));
+    ui->expdRateSlidTxt->setText(QString::number(value) + QString("%"));
 }
