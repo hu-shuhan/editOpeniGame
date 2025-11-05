@@ -43,6 +43,7 @@ private slots:
     void SelectionVariableIndex(int index);
     void SelectionVariableAutoCheck(bool checked);
     void SelectionExpdRate(double rate);
+    void SelectionExpdRateSlid(int rate);
     void SelectionSkipUnSeeAbleCell(bool checked);
     void SelectionOnlySelectSeeAbleCells(bool checked);
     void ClearSelectionState();
@@ -58,6 +59,9 @@ private:
     bool m_SelectItemShow{true};
     bool m_SelectBoxShow{true};
     bool m_PreventSignalSend{};
+
+private:
+    void SetExpdRateSlidToolTip(int value);
 };
 
 #endif // IGQTSELECTIONWIDGET_H
