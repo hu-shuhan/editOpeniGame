@@ -385,13 +385,13 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     // simplify mesh
     MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
     meshSimplifier->SetInput(dataObject);
-    meshSimplifier->SetTargetReduction(0.9);
+    meshSimplifier->SetTargetReduction(0.2); // 减少到20%
     if (meshSimplifier->Execute()) {
         m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
     } else {
         m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
     }
-
+    //m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;

@@ -498,7 +498,8 @@ private:
     std::vector<int_t> CollapseOrder;        // 坍缩权重的排序数组
     std::vector<int_t> VertexRemap;          // 顶点重映射，用于坍缩后的顶点映射
     std::vector<unsigned char> VertexLocked; // 用于标记顶点是否被坍缩
-    std::vector<unsigned char> VertexFeature;
+    std::vector<unsigned char> VertexFeature;// 用于标记顶点是否是特征顶点
+    std::vector<unsigned char> VertexBoundary;// 用于标记顶点是否是边界顶点
 };
 
 TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices,
@@ -604,6 +605,7 @@ public:
         return false;
     }
 
+    
 private:
     void resize() {
         capacity *= 2;
@@ -661,6 +663,7 @@ size_t TriMeshInternalSimplifier::DoWork() {
     VertexRemap.resize(VertexCount);
     VertexLocked.resize(VertexCount);
     VertexFeature.resize(VertexCount);
+    VertexBoundary.resize(VertexCount);
 
     {
         FastEdgeHashMap mp(IndexCount);
@@ -668,7 +671,6 @@ size_t TriMeshInternalSimplifier::DoWork() {
         static const int next[3] = {1, 2, 0};
 
         for (size_t i = 0; i < IndexCount / 3; i++) {
-
             for (int e = 0; e < 3; ++e) {
                 int_t i0 = std::min(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
                 int_t i1 = std::max(Indices[i * 3 + e], Indices[i * 3 + next[e]]);
@@ -692,6 +694,17 @@ size_t TriMeshInternalSimplifier::DoWork() {
                         VertexFeature[i0] = 1;
                         VertexFeature[i1] = 1;
                     }
+                }
+            }
+        }
+
+        for (int i = 0; i < mp.capacity; i++) {
+            if (mp.data[i]) {
+                auto* p = mp.data[i];
+                while (p) {
+                    VertexBoundary[p->key.first] = 1;
+                    VertexBoundary[p->key.second] = 1;
+                    p = p->next;
                 }
             }
         }
@@ -929,7 +942,7 @@ size_t TriMeshInternalSimplifier::BuildEdgeCollapses(size_t CollapseCapacity) {
 
                 Collapse c = {i0, i1, 0.f};
 
-                if (VertexFeature[i0] ^ VertexFeature[i1]) {
+                if (VertexFeature[i0] ^ VertexFeature[i1] || VertexBoundary[i0] || VertexBoundary[i1]) {
                     c.error = std::numeric_limits<float>::max() / 2;
                     Collapses[i * 3 + e] = c;
                     continue;
@@ -2427,7 +2440,7 @@ bool MeshSimplifier::Execute() {
         if (TargetFaceCount != 0) {
             TargetCount = TargetFaceCount * 3;
         } else {
-            TargetCount = oldIndexCount * (1 - this->TargetReduction);
+            TargetCount = oldIndexCount * this->TargetReduction;
         }
         TargetError = 1.f;
 

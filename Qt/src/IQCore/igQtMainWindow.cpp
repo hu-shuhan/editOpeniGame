@@ -650,19 +650,19 @@ void igQtMainWindow::initAllFilters() {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         if (obj->HasSubDataObject()) {
-            auto sub_mesh = obj->GetSubDataObject(0);
-            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
-                auto new_mesh = mesh->GetRenderableObject();
-                new_mesh->SetName(mesh->GetName() + "_surface");
-                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-                rendererWidget->update();
+            //auto sub_mesh = obj->GetSubDataObject(0);
+            //if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
+            //    auto new_mesh = mesh->GetRenderableObject();
+            //    new_mesh->SetName(mesh->GetName() + "_surface");
+            //    modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            //    rendererWidget->update();
 
-            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
-                auto new_mesh = mesh->GetRenderableObject();
-                new_mesh->SetName(mesh->GetName() + "_surface");
-                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-                rendererWidget->update();
-            }
+            //} else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
+            //    auto new_mesh = mesh->GetRenderableObject();
+            //    new_mesh->SetName(mesh->GetName() + "_surface");
+            //    modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            //    rendererWidget->update();
+            //}
 
         } else {
             if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) {

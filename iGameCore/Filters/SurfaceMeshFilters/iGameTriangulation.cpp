@@ -450,8 +450,10 @@ bool Triangulation::Execute() {
         else
         {
             Tris->Reset();
-
-            PolyVertexList poly(face->m_PointIds, face->m_Points, 0.0, 0);
+            if (k == 1918) { 
+                int a = 1;
+            }
+            PolyVertexList poly(face->m_PointIds, face->m_Points, 0.0, EarCutMeasureTypes::BEST_QUALITY);
             LocalPolyVertex* vtx;
             int i, j;
             
@@ -474,6 +476,9 @@ bool Triangulation::Execute() {
                 }
             } 
 
+            if (Tris->GetNumberOfIds() / 3 != 4) { 
+                std::cout << k << std::endl;
+            }
             for (i = 0; i < Tris->GetNumberOfIds() / 3; i++) {
                 Faces->AddCellId3(face->m_PointIds->GetId(Tris->GetId(3 * i + 0)),
                                   face->m_PointIds->GetId(Tris->GetId(3 * i + 1)),
