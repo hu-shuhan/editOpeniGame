@@ -185,7 +185,8 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         //    child->setSelected(true);
         //}
         child->setText(0, QString::fromStdString(attr.pointer->GetName()));
-        if (attr.attachmentType == IG_POINT) child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
+        if (attr.attachmentType == IG_POINT) 
+            child->setIcon(0, QIcon(":/Ticon/Icons/select/point.png"));
         else if (attr.attachmentType == IG_CELL)
             child->setIcon(0, QIcon(":/Ticon/Icons/select/hex.png"));
         child->setDimension(attr.pointer->GetDimension());
