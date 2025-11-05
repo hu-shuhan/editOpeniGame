@@ -17,6 +17,7 @@
 #include "iGamePoints.h"
 #include "iGameSelection.h"
 #include <utility>
+#include <map>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -41,12 +42,6 @@ public:
     SmartPointer<Scene> GetScene() const;
 
     /**
-     * @brief 获取模型的可见性状态。
-     * @return 可见性状态的布尔值。
-     */
-    bool GetVisibility();
-
-    /**
      * @brief 获取模型的过滤器。
      * @return 过滤器的指针。
      */
@@ -56,7 +51,14 @@ public:
      * @brief 获取3D绘制器。
      * @return Painter3D 对象的指针。
      */
-    SmartPointer<Painter3D> GetPainter3D();
+    SmartPointer<Painter3D>
+    GetPainter3D(Painter3D::Usage usage = Painter3D::Usage::Default);
+
+    /**
+     * @brief 获取全部3D绘制器。
+     * @return 存储Painter3D 对象的指针的map。
+     */
+    const std::map<Painter3D::Usage, SmartPointer<Painter3D>>& GetAllPainter3Ds();
 
     /**
      * @brief 设置模型的过滤器。
@@ -172,6 +174,17 @@ public:
      */
     SmartPointer<DataObject> GetDataObject();
 
+    /**
+      * @brief 设置模型是否可见。
+      * @param visibility 模型是否可见。
+      */
+    void SetVisibility(bool visibility);
+
+    /**
+      * @brief 查询模型是否可见。
+      */
+    bool GetVisibility() const;
+
 protected:
     Model();
     ~Model() override;
@@ -241,7 +254,8 @@ protected:
 
     SmartPointer<DataObject> m_DataObject;
     SmartPointer<Filter> m_Filter;
-    SmartPointer<Painter3D> m_Painter3D;
+    bool m_Visibility = true;
+    std::map<Painter3D::Usage, SmartPointer<Painter3D>> m_Painter3Ds;
 
     std::string m_FilePath;
     SmartPointer<Scene> m_Scene;

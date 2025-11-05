@@ -63,19 +63,17 @@ public:
     void ViewCloudPicture(Scene* scene, int index, int dimension = -1);
     void ViewCloudPictureOfModel(Scene* scene, int index, int dimension = -1);
 
-    void SetShellRenderingOption(bool option);
-
     FloatArray::Pointer GetRenderPoints();            // 获取当前渲染用的顶点数据
     void SetRenderPoints(FloatArray::Pointer points); // 直接设置顶点数据
-    // 设置多边形偏移
-    void SetPolygonOffsetParameters(float factor, float units);
-    void GetPolygonOffsetParameters(float& factor, float& units);
-    // 设置线偏移
-    void SetLineOffsetParameters(float factor, float units);
-    void GetLineOffsetParameters(float& factor, float& units);
-    // 设置点偏移
-    void SetPointOffsetParameters(float units);
-    void GetPointOffsetParameters(float& units);
+    // // 设置多边形偏移
+    // void SetPolygonOffsetParameters(float factor, float units);
+    // void GetPolygonOffsetParameters(float& factor, float& units);
+    // // 设置线偏移
+    // void SetLineOffsetParameters(float factor, float units);
+    // void GetLineOffsetParameters(float& factor, float& units);
+    // // 设置点偏移
+    // void SetPointOffsetParameters(float units);
+    // void GetPointOffsetParameters(float& units);
     // 设置和获取显示对象
     void SetRenderableObject(DataObject::Pointer dataObject);
     DrawObject::Pointer GetRenderableObject(bool useSimplified = false);
@@ -83,6 +81,8 @@ public:
     // 设置/获取"始终置顶"标志位
     void SetAlwaysOnTop(bool enable);
     bool IsAlwaysOnTop() const;
+
+    void SetShellRenderingOption(bool option);
 
     /**
      * @brief 设置是否启用加速渲染模式。
@@ -96,6 +96,9 @@ public:
      */
     bool GetAccelerationOption() const;
 
+    void SetRenderWithMeshlet(bool val) { m_RenderableMesh.Meshleter->SetRenderWithMeshlet(val); }
+    bool GetRenderWithMeshlet() const { return m_RenderableMesh.Meshleter->GetRenderWithMeshlet(); }
+
 protected:
     // OpenGL资源管理
     void CreateDrawBuffer();
@@ -107,23 +110,23 @@ protected:
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
     bool m_AutoUpdateDrawData; // 是否自动更新GPU数据
-
-    struct RenderableMesh {
-        DrawObject::Pointer SurfaceMesh;    // 表面网格
-        DrawObject::Pointer SimplifiedMesh; // 简化后的网格
-    };
-    RenderableMesh m_RenderableMesh;
+    bool m_ShellRendering = true; // 是否启用抽壳渲染
 
     // 加速结构
     bool m_AccelerationOption = false;
-    Meshleter::Pointer m_Meshleter = nullptr;
+
+    struct RenderableMesh {
+        DrawObject::Pointer SurfaceMesh = nullptr;    // 表面网格
+        DrawObject::Pointer SimplifiedMesh = nullptr; // 简化后的网格
+        Meshleter::Pointer Meshleter = nullptr;
+    };
+    RenderableMesh m_RenderableMesh;
 
     GLVertexArray::Pointer m_PointVAO, m_LineVAO, m_TriangleVAO;
     GLBuffer::Pointer m_PositionVBO, m_ColorVBO, m_NormalVBO, m_TextureVBO;
     GLBuffer::Pointer m_PointEBO, m_LineEBO, m_TriangleEBO;
     GLVertexArray::Pointer m_CellVAO;
     GLBuffer::Pointer m_CellPositionVBO, m_CellColorVBO;
-    GLBuffer::Pointer m_CellEBO;
     //顶点的坐标颜色法线纹理
     FloatArray::Pointer m_Positions;
     FloatArray::Pointer m_Colors;
@@ -141,7 +144,9 @@ protected:
     // 单元数据
     FloatArray::Pointer m_CellPositions;
     FloatArray::Pointer m_CellColors;
-    UnsignedIntArray::Pointer m_CellIndices;
+    UnsignedCharArray::Pointer m_CellTriangleEdgeMasks;
+    GLBuffer::Pointer m_CellEdgeMaskBuffer;
+    GLTextureBuffer::Pointer m_CellEdgeMaskTexture;
 
     unsigned int m_ViewStyle; // 视图样式
     bool m_Visibility;        //是否可见
@@ -169,8 +174,7 @@ protected:
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency; // 透明度
-    bool m_ExecuteShell;
+    float m_Transparency;           // 透明度
     bool m_ReConvertToDrawableData; // 是否需要重新转换数据
 
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
@@ -178,6 +182,8 @@ protected:
     friend class Model;
     friend class Scene;
     friend class UnstructuredMesh;
+    friend class Meshleter;
+    friend class SurfaceMeshMeshleter;
 
     template<typename Functor, typename... Args>
     void ProcessSubDataObjects(Functor&& functor, Args&&... args);

@@ -27,8 +27,12 @@ void SelectionParameter::SetSelectVariableIndex(int selectVariableIndex) {
 }
 int SelectionParameter::GetSelectVariableIndex() const { return m_SelectVariableIndex; }
 
-void SelectionParameter::SetSelectVariableRange(double selectVariableRange) {
-    m_SelectVariableRange = selectVariableRange;
-}
-double SelectionParameter::GetSelectVariableRange() const { return m_SelectVariableRange; }
+void SelectionParameter::SetAutoSelect(bool autoSelect) { m_AutoSelect = autoSelect; }
+
+bool SelectionParameter::GetAutoSelect() const { return m_AutoSelect; }
+
+void SelectionParameter::SetAutoSelectExpdRate(double autoSelectExpdRate) { m_AutoSelectExpdRate = autoSelectExpdRate; }
+
+double SelectionParameter::GetAutoSelectExpdRate() const { return m_AutoSelectExpdRate; }
+
 IGAME_NAMESPACE_END

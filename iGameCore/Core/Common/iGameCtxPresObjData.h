@@ -77,9 +77,6 @@ public:
     static std::vector<std::pair<int, int>> GenerateVariableIndex(ElementArray<AttributeSet::Attribute>::Pointer attrs,
                                                                   IGenum dataType);
     static std::vector<int> GenerateKeyObjectIds(int objNum, int maxObjNum);
-    static std::set<int>
-    GenerateChoosedObjectIds(const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                             IGenum dataType);
     static std::pair<std::vector<double>, std::vector<double>>
     GenerateMinMaxData(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType);
     static std::string GenerateDataTypeName(IGenum dataType);

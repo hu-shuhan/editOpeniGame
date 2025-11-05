@@ -730,13 +730,8 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 
 void SurfaceMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime()) {
-        // // 简化
-        // MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
-        // meshSimplifier->SetInput(this);
-        // meshSimplifier->SetTargetReduction(0.7);
-        // meshSimplifier->Execute();
-        // m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
-        // m_RenderableMesh.SimplifiedMesh->ConvertToDrawableData();
+        // 为统一架构，设置可绘制对象为自身
+        SetRenderableObject(this);
 
         // 转换为可绘制数据
         GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices, m_TriangleEdgeMasks);
@@ -960,8 +955,10 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
     newPositions->SetDimension(3);
     newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
     IGsize fcnt = this->GetNumberOfFaces();
     IGsize faceIdNum = this->GetFaces()->GetNumberOfCellIds();
     newPositions->Reserve(faceIdNum - fcnt * 2);
@@ -970,17 +967,20 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
     for (int i = 0; i < this->GetNumberOfFaces(); i++) {
         Face* face = this->GetFace(i);
         colors->GetElement(i, color);
-        for (int j = 2; j < face->GetCellSize(); j++) {
+        for (int j = 1; j < face->GetCellSize() - 1; j++) {
             auto& p0 = face->m_Points->GetPoint(0);
             newPositions->AddElement3(p0[0], p0[1], p0[2]);
-            auto& p1 = face->m_Points->GetPoint(j - 1);
+            auto& p1 = face->m_Points->GetPoint(j);
             newPositions->AddElement3(p1[0], p1[1], p1[2]);
-            auto& p2 = face->m_Points->GetPoint(j);
+            auto& p2 = face->m_Points->GetPoint(j + 1);
             newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
             newColors->AddElement3(color[0], color[1], color[2]);
             newColors->AddElement3(color[0], color[1], color[2]);
             newColors->AddElement3(color[0], color[1], color[2]);
+
+            int mask = face->GetCellSize() == 3 ? 7 : j == 1 ? 3 : j == face->GetCellSize() - 2 ? 6 : 2;
+            newEdgeMasks->AddValue(mask);
         }
     }
     m_CellPositionSize = newPositions->GetNumberOfElements();
@@ -990,6 +990,9 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
 
     m_CellColors = newColors;
     m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 
 

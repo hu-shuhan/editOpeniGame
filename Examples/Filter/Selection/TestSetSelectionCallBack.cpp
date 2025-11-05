@@ -4,10 +4,10 @@
 #include <iGameFileIO.h>
 #include <iGameSelectionFilters/iGameSetSelectionCallBackFunc.h>
 
-static void SelectionCallBackFunc(const std::vector<iGame::Selection::Event>& events) {
-    for (auto& e: events) {
-        std::cout << "Type:" << e.type << ' ' << "Operate:" << e.operate << ' ' << "Id:" << e.pickId << std::endl;
-    }
+static void SelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids, iGame::Selection::Operate ope) {
+    std::cout << "Type:" << itemType << ' ' << "Operate:" << ope << ' ' << "Id:" << std::endl;
+    for (auto& id: ids) { std::cout << id << ','; }
+    std::cout << std::endl;
 }
 
 int main() {
@@ -30,8 +30,7 @@ int main() {
     /*Get results*/
     auto resultData = iGame::DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput(0));
     /*Select*/
-    auto selectEvents = iGame::Selection::GenerateEvents(std::vector<igIndex>{0, 1, 2}, IG_POINT,
-                                                         iGame::Selection::Event::Operate::Add, mesh);
-    resultData->GetSelection()->SelectionCallBackEvent(selectEvents);
+    auto selectItems = std::vector<igIndex>{0, 1, 2};
+    resultData->GetSelection()->SelectionCallBackEvent(IG_POINT, selectItems, iGame::Selection::Operate::Add);
     return 0;
 }

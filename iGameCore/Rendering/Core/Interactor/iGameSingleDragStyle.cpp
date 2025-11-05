@@ -62,14 +62,12 @@ void SingleDragStyle::MouseMoveEvent(IEvent event) {
         igm::vec4 newPoint_WorldCoord = m_InvertedMVP * Point_NDC;
         newPoint_WorldCoord /= newPoint_WorldCoord.w;
         if (m_Selection) {
-            Selection::Event e;
-            e.type = Selection::Event::DragPoint;
-            e.pickId = m_SelectedPointId;
-            e.pos = Vector3f{newPoint_WorldCoord.x, newPoint_WorldCoord.y,
-                             newPoint_WorldCoord.z};
-            m_Selection->SelectionCallBackEvent(e);
+            auto epos = Vector3f{newPoint_WorldCoord.x, newPoint_WorldCoord.y,
+                                 newPoint_WorldCoord.z};
+            m_Selection->SelectionCallBackEvent(IG_DRAGPOINT,
+                                                m_SelectedPointId);
 
-            m_Points->SetPoint(m_SelectedPointId, e.pos);
+            m_Points->SetPoint(m_SelectedPointId, epos);
 
             // updating point coordinates requires a re-conversion
             auto drawObject = DynamicCast<DrawObject>(m_Model->GetDataObject());
@@ -79,7 +77,7 @@ void SingleDragStyle::MouseMoveEvent(IEvent event) {
             painter->Clear();
             painter->SetPen(10);
             painter->SetPen(Color::Red);
-            painter->DrawPoint(e.pos);
+            painter->DrawPoint(epos);
         }
     }
 }

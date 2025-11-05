@@ -100,7 +100,7 @@ private:
     void ResetVariableImage();
     void GenerateVariableImage();
     void GenerateChoosedVariableImage();
-    void UpdateChoosedData(const std::vector<Selection::Event>& _events);
+    void UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearChoosedData();
     void GenerateDataChangeDatas();
     void SetRadialData();//temp used by button
@@ -127,8 +127,6 @@ private:
                                        PlotLineData::Pointer dataChangeData);
     void _ResetVariableImage(int variableNum);
     void _SetLightUi(int unchoosedLight, int choosedLight);
-    void _TryUpdateChoosedPointData(PlotLineData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
-    void _TryUpdateChoosedCellData(PlotLineData::Pointer dataChangeData, int id, Selection::Event::Operate ope);
     void _CalculateDrawFrame(int w, int h, QRect& drawFrame);
     void _CalculatePaintDrawFrame(QRect& bigDrawFrame, QRect& smallDrawFrame);
     QImage _DrawVariableImage(double minValue, double maxValue, double minDistance, double maxDistance,
@@ -153,7 +151,7 @@ private:
     void SetRadialPointMoveCallBack();
 
 public:
-    void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearSelectionCallback();
     void RadialPointMoveCallBack();
 

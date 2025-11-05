@@ -8,6 +8,7 @@
 
 #include "iGameObject.h"
 #include <chrono>
+#include <string>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -77,5 +78,30 @@ protected:
      */
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
+
+class AutoTimer {
+public:
+    AutoTimer(const std::string& timerName,
+              Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+    AutoTimer(Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+    AutoTimer(int name, Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+    ~AutoTimer();
+
+private:
+    std::string m_TimerName;
+    Timer::Pointer m_Timer;
+    Timer::TimeUnit m_Unit;
+    static int GetAutoAddInt();
+};
+
+#define ___AT__(name) iGame::AutoTimer AT##name(##name)
+#define __AT__(line) ___AT__(line)
+#ifdef AT_DEBUG
+    #define _AT_ __AT__(__LINE__)
+#else
+    #define _AT_
+#endif // DEBUG
+    
+
 
 IGAME_NAMESPACE_END

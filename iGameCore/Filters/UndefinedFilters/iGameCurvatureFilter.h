@@ -6,14 +6,15 @@
 #include "iGameFilter.h"
 #include "iGamePointSet.h"
 #include "iGameSurfaceMesh.h"
-#include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
+#include "iGameUnstructuredMesh.h"
 #include <cmath>
+#include <unordered_set>
+#include <algorithm>
 
 
 IGAME_NAMESPACE_BEGIN
 
-//返回两个数据
 class CurvatureFilter : public Filter {
 public:
     I_OBJECT(CurvatureFilter);
@@ -32,7 +33,9 @@ public:
             curDim = input->GetAttributeDimension();
             if (curIndex < 0) return false;
 
-            int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
+            int dim = input->GetAttributeSet()
+                              ->GetAttribute(curIndex)
+                              .pointer->GetDimension();
             if (dim != 1) { return false; }
             return true;
         };
@@ -40,25 +43,28 @@ public:
         SetOutput(input);
 
         switch (input->GetDataObjectType()) {
-            case IG_SURFACE_MESH: {
+            case IG_SURFACE_MESH:
+            {
                 surface_Mesh = DynamicCast<SurfaceMesh>(input);
 
                 if (!CheckType()) return false;
-            } break;
+            }break;
             case IG_VOLUME_MESH: {
                 return false;
-                volume_Mesh = DynamicCast<VolumeMesh>(input);
-                if (volume_Mesh) {
-                    surface_Mesh = DynamicCast<SurfaceMesh>(volume_Mesh->GetRenderableObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
-                }
+                // volume_Mesh = DynamicCast<VolumeMesh>(input);
+                // if (volume_Mesh) {
+                //     surface_Mesh = DynamicCast<SurfaceMesh>(
+                //             volume_Mesh->GetDisplayObject());
+                //     if (!surface_Mesh) return false;
+                //
+                //     if (!CheckType()) return false;
+                //
+                //     FloatArray::Pointer curvatures = FloatArray::New();
+                //     curvatures->SetDimension(2);
+                //     curvatures->SetName("curvatures");
+                //     volume_Mesh->GetAttributeSet()->AddScalar(IG_POINT,
+                //                                               curvatures);
+                // }
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -71,15 +77,16 @@ public:
 
                 if (volume_Mesh) {
                     return false;
-                    surface_Mesh = DynamicCast<SurfaceMesh>(mesh->GetRenderableObject());
-                    if (!surface_Mesh) return false;
-
-                    if (!CheckType()) return false;
-
-                    FloatArray::Pointer curvatures = FloatArray::New();
-                    curvatures->SetDimension(2);
-                    curvatures->SetName("curvatures");
-                    mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
+                    // surface_Mesh =
+                    //         DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
+                    // if (!surface_Mesh) return false;
+                    //
+                    // if (!CheckType()) return false;
+                    //
+                    // FloatArray::Pointer curvatures = FloatArray::New();
+                    // curvatures->SetDimension(2);
+                    // curvatures->SetName("curvatures");
+                    // mesh->GetAttributeSet()->AddScalar(IG_POINT, curvatures);
                 }
             } break;
             default:
@@ -104,12 +111,14 @@ public:
 
             //else if (VolumeNum != 0 && attachmentType == 1)
             //    return GetOtherCurvature(1, VolumeNum);
+
         }
         if (surface_Mesh) {
             attributeSet = surface_Mesh->GetAttributeSet();
             if (attributeSet == nullptr) return false;
 
-            auto attachmentType = attributeSet->GetAttribute(curIndex).attachmentType;
+            auto attachmentType =
+                    attributeSet->GetAttribute(curIndex).attachmentType;
 
             int FaceNum = surface_Mesh->GetNumberOfFaces();
             int PointNum = surface_Mesh->GetNumberOfPoints();
@@ -129,229 +138,290 @@ public:
         return false;
     }
 
-    bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh, AttributeSet::Pointer Attributes,
-                                          int Index) {
-        int nV = surface_Mesh->GetNumberOfPoints();
-        int nF = surface_Mesh->GetNumberOfFaces();
-        if (nV <= 0 || nF <= 0) return false;
+bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh,
+                                      AttributeSet::Pointer Attributes,
+                                      int Index)
+{
+    const int nV = surface_Mesh->GetNumberOfPoints();
+    const int nF = surface_Mesh->GetNumberOfFaces();
+    if (nV <= 0 || nF <= 0) return false;
 
-        auto attrSet = surface_Mesh->GetAttributeSet();
-        FloatArray::Pointer curv_mean = FloatArray::New();
-        curv_mean->SetDimension(1);
-        curv_mean->Reserve(nV);
-        curv_mean->SetName("cur_mean");
-        attrSet->AddScalar(IG_POINT, curv_mean);
+    auto attrSet = surface_Mesh->GetAttributeSet();
 
-        FloatArray::Pointer curv_gaussian = FloatArray::New();
-        curv_gaussian->SetDimension(1);
-        curv_gaussian->Reserve(nV);
-        curv_gaussian->SetName("cur_gaussian");
-        attrSet->AddScalar(IG_POINT, curv_gaussian);
+    FloatArray::Pointer curv_mean = FloatArray::New();
+    curv_mean->SetDimension(1);
+    curv_mean->Resize(nV);
+    curv_mean->SetName("cur_mean");
+    attrSet->AddScalar(IG_POINT, curv_mean);
 
-        std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
-        std::vector<double> mixArea(nV, 0.0);
-        std::vector<double> angleSum(nV, 0.0);
+    FloatArray::Pointer curv_gaussian = FloatArray::New();
+    curv_gaussian->SetDimension(1);
+    curv_gaussian->Resize(nV);
+    curv_gaussian->SetName("cur_gaussian");
+    attrSet->AddScalar(IG_POINT, curv_gaussian);
 
-        auto toEigen = [](const Vector<float, 3>& p) -> Eigen::Vector3d {
-            return Eigen::Vector3d(double(p[0]), double(p[1]), double(p[2]));
-        };
+    auto toEigen = [](const Vector<float,3>& p)->Eigen::Vector3d {
+        return {double(p[0]), double(p[1]), double(p[2])};
+    };
+    auto triArea = [](const Eigen::Vector3d& a,
+                      const Eigen::Vector3d& b,
+                      const Eigen::Vector3d& c)->double {
+        return 0.5 * ((b-a).cross(c-a)).norm();
+    };
+    auto angleABC = [](const Eigen::Vector3d& A,
+                       const Eigen::Vector3d& B,
+                       const Eigen::Vector3d& C)->double {
+        Eigen::Vector3d u = (A - B).normalized();
+        Eigen::Vector3d v = (C - B).normalized();
+        double cosv = std::clamp(u.dot(v), -1.0, 1.0);
+        return std::acos(cosv);
+    };
+    auto cot = [](double ang)->double {
+        const double eps = 1e-8;  // 稳定些
+        double s = std::sin(ang);
+        double c = std::cos(ang);
+        if (std::abs(s) < eps) return (c >= 0 ? 1.0/eps : -1.0/eps);
+        return c / s;
+    };
 
-        auto triArea = [](const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& c) -> double {
-            return 0.5 * ((b - a).cross(c - a)).norm();
-        };
+    std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
+    std::vector<double> mixArea(nV, 0.0);
+    std::vector<double> angleSum(nV, 0.0);
 
-        auto angleABC = [](const Eigen::Vector3d& A, const Eigen::Vector3d& B, const Eigen::Vector3d& C) -> double {
-            // 角B
-            Eigen::Vector3d u = (A - B).normalized();
-            Eigen::Vector3d v = (C - B).normalized();
-            double cosv = std::clamp(u.dot(v), -1.0, 1.0);
-            return std::acos(cosv);
-        };
-
-        auto cot = [](double ang) -> double {
-            double s = std::sin(ang);
-            double c = std::cos(ang);
-            const double eps = 1e-12;
-            if (std::abs(s) < eps) return (c >= 0 ? 1.0 / eps : -1.0 / eps);
-            return c / s;
-        };
-
-        for (int f = 0; f < nF; ++f) {
-            auto face = surface_Mesh->GetFace(f);
-            int m = face->GetNumberOfPoints();
-            if (m < 3) continue;
-
-            // 三角化
-            std::vector<int> vids(m);
-            for (int k = 0; k < m; ++k) vids[k] = int(face->GetPointId(k));
-
-            for (int k = 1; k + 1 < m; ++k) {
-                int i0 = vids[0], i1 = vids[k], i2 = vids[k + 1];
-                Eigen::Vector3d p0 = toEigen(surface_Mesh->GetPoint(i0));
-                Eigen::Vector3d p1 = toEigen(surface_Mesh->GetPoint(i1));
-                Eigen::Vector3d p2 = toEigen(surface_Mesh->GetPoint(i2));
-
-                double A = triArea(p0, p1, p2);
-                if (A <= 1e-20) continue;
-
-                double a0 = angleABC(p1, p0, p2);
-                double a1 = angleABC(p0, p1, p2);
-                double a2 = angleABC(p0, p2, p1);
-
-                angleSum[i0] += a0;
-                angleSum[i1] += a1;
-                angleSum[i2] += a2;
-
-                auto accumulateVoronoi = [&](int ivtx, double opp1, double opp2, const Eigen::Vector3d& Pi,
-                                             const Eigen::Vector3d& Pj, const Eigen::Vector3d& Pk) {
-                    bool obtuse = (a0 > M_PI / 2) || (a1 > M_PI / 2) || (a2 > M_PI / 2);
-                    if (!obtuse) {
-                        double lij = (Pj - Pi).squaredNorm();
-                        double lik = (Pk - Pi).squaredNorm();
-                        double v = (cot(opp1) * lij + cot(opp2) * lik) * 0.125;
-                        mixArea[ivtx] += v;
-                    } else {
-                        int obtId = (a0 > M_PI / 2) ? i0 : (a1 > M_PI / 2 ? i1 : i2);
-                        if (ivtx == obtId) mixArea[ivtx] += 0.5 * A;
-                        else
-                            mixArea[ivtx] += 0.25 * A;
-                    }
-                };
-
-                accumulateVoronoi(i0, a1, a2, p0, p1, p2);
-                accumulateVoronoi(i1, a0, a2, p1, p0, p2);
-
-                accumulateVoronoi(i2, a0, a1, p2, p0, p1);
-
-                double cot0 = cot(a2);
-                double cot1 = cot(a0);
-                double cot2 = cot(a1);
-
-                auto addEdgeContrib = [&](int ia, int ib, double cotOpp) {
-                    Eigen::Vector3d xa = toEigen(surface_Mesh->GetPoint(ia));
-                    Eigen::Vector3d xb = toEigen(surface_Mesh->GetPoint(ib));
-                    Eigen::Vector3d e = xa - xb;
-                    Hn[ia] += 0.5 * cotOpp * e;
-                    Hn[ib] -= 0.5 * cotOpp * e;
-                };
-
-                addEdgeContrib(i0, i1, cot2);
-                addEdgeContrib(i1, i2, cot0);
-                addEdgeContrib(i2, i0, cot1);
-            }
+    struct EdgeKey {
+        int a, b;
+        bool operator==(const EdgeKey& o) const { return a==o.a && b==o.b; }
+    };
+    struct EdgeKeyHash {
+        size_t operator()(const EdgeKey& k) const {
+            return (size_t(k.a) << 32) ^ size_t(k.b);
         }
+    };
+    std::unordered_map<EdgeKey,int,EdgeKeyHash> edgeUse;
+    auto add_edge = [&](int u, int v){
+        if (u>v) std::swap(u,v);
+        edgeUse[{u,v}]++;
+    };
 
-        for (int i = 0; i < nV; ++i) {
-            if (mixArea[i] <= 1e-20) mixArea[i] = 1e-20;
+    int progress = 0;
+    int block = std::max(1, nF / 100);
+
+    for (int f = 0; f < nF; ++f) {
+        if (f >= block * progress) { UpdateProgress(progress * 0.01); ++progress; }
+
+        auto face = surface_Mesh->GetFace(f);
+        int m = face->GetNumberOfPoints();
+        if (m < 3) continue;
+
+        std::vector<int> vids(m);
+        for (int k = 0; k < m; ++k) vids[k] = int(face->GetPointId(k));
+
+        for (int k = 0; k < m; ++k) add_edge(vids[k], vids[(k+1)%m]);
+
+        for (int k = 1; k + 1 < m; ++k) {
+            int i0 = vids[0], i1 = vids[k], i2 = vids[k+1];
+            Eigen::Vector3d p0 = toEigen(surface_Mesh->GetPoint(i0));
+            Eigen::Vector3d p1 = toEigen(surface_Mesh->GetPoint(i1));
+            Eigen::Vector3d p2 = toEigen(surface_Mesh->GetPoint(i2));
+
+            double A = triArea(p0,p1,p2);
+            if (A <= 1e-20) continue;
+
+            double a0 = angleABC(p1, p0, p2); // at p0
+            double a1 = angleABC(p0, p1, p2); // at p1
+            double a2 = angleABC(p0, p2, p1); // at p2
+
+            angleSum[i0] += a0;
+            angleSum[i1] += a1;
+            angleSum[i2] += a2;
+
+            auto accumulateVoronoi = [&](int ivtx, double opp1, double opp2,
+                                         const Eigen::Vector3d& Pi,
+                                         const Eigen::Vector3d& Pj,
+                                         const Eigen::Vector3d& Pk) {
+                bool obtuse = (a0 > M_PI/2) || (a1 > M_PI/2) || (a2 > M_PI/2);
+                if (!obtuse) {
+                    double lij = (Pj - Pi).squaredNorm();
+                    double lik = (Pk - Pi).squaredNorm();
+                    double v = (cot(opp1) * lij + cot(opp2) * lik) * 0.125;
+                    mixArea[ivtx] += v;
+                } else {
+                    int obtId = (a0 > M_PI/2) ? i0 : ((a1 > M_PI/2) ? i1 : i2);
+                    if (ivtx == obtId) mixArea[ivtx] += 0.5 * A;
+                    else               mixArea[ivtx] += 0.25 * A;
+                }
+            };
+            accumulateVoronoi(i0, a1, a2, p0, p1, p2);
+            accumulateVoronoi(i1, a0, a2, p1, p0, p2);
+            accumulateVoronoi(i2, a0, a1, p2, p0, p1);
+
+            double cot0 = cot(a2);
+            double cot1 = cot(a0);
+            double cot2 = cot(a1);
+            auto addEdgeContrib = [&](int ia, int ib, double cotOpp) {
+                Eigen::Vector3d xa = toEigen(surface_Mesh->GetPoint(ia));
+                Eigen::Vector3d xb = toEigen(surface_Mesh->GetPoint(ib));
+                Eigen::Vector3d e = xa - xb;
+                Hn[ia] += 0.5 * cotOpp * e;
+                Hn[ib] -= 0.5 * cotOpp * e;
+            };
+            addEdgeContrib(i0,i1,cot2);
+            addEdgeContrib(i1,i2,cot0);
+            addEdgeContrib(i2,i0,cot1);
         }
-
-        const double twoPi = 2.0 * M_PI;
-        for (int i = 0; i < nV; ++i) {
-            double H = Hn[i].norm() / (4.0 * mixArea[i]);
-
-            double K = (twoPi - angleSum[i]) / mixArea[i];
-
-            double disc = H * H - K;
-            if (disc < 0.0) disc = 0.0;
-            double sqrt_disc = std::sqrt(disc);
-            double kmax = H + sqrt_disc;
-            double kmin = H - sqrt_disc;
-
-            // 一：(k1 + k2)/2 = H
-            // 二：k1 * k2   = K
-            curv_mean->AddValue(H);
-            curv_gaussian->AddValue(K);
-        }
-
-        UpdateProgress(1.0);
-        return true;
     }
 
-    double GetArea(Vector3d a, Vector3d b, Vector3d c) { return CrossProduct(a - b, a - c).length() / 2; }
+    std::vector<double> areas = mixArea;
+    std::vector<double> areasPos;
+    areasPos.reserve(nV);
+    for (double a : areas) if (a > 0) areasPos.push_back(a);
+    double areaFloor = 1e-10;
+    if (!areasPos.empty()) {
+        std::nth_element(areasPos.begin(),
+                         areasPos.begin() + areasPos.size()/2,
+                         areasPos.end());
+        double med = areasPos[areasPos.size()/2];
+        areaFloor = std::max(1e-12, med * 1e-4);
+    }
+    for (int i=0;i<nV;++i) if (mixArea[i] <= areaFloor) mixArea[i] = areaFloor;
 
-    SurfaceMesh::Pointer TriangulateSurfaceMesh(SurfaceMesh::Pointer mesh) {
-        {
-            bool f = true;
-            igIndex face[16]{};
-            for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-                int size = mesh->GetFacePointIds(i, face);
-                if (size != 3) {
-                    f = false;
-                    break;
-                }
-            }
 
-            if (f) { return mesh; }
+    std::vector<bool> isBoundary(nV,false);
+    for (auto& kv : edgeUse) {
+        if (kv.second == 1) {
+            isBoundary[kv.first.a] = true;
+            isBoundary[kv.first.b] = true;
         }
+    }
 
-        auto attrbs = mesh->GetAttributeSet();
+    std::vector<double> H_values(nV), K_values(nV);
+    const double twoPi = 2.0 * M_PI;
+    const double onePi = M_PI;
 
-        CellArray::Pointer Faces = CellArray::New();
-        Points::Pointer Points = mesh->GetPoints();
+    for (int i=0;i<nV;++i) {
+        double H = Hn[i].norm() / (2.0 * mixArea[i]);
+        double K = (isBoundary[i] ? (onePi - angleSum[i])
+                                  : (twoPi - angleSum[i])) / mixArea[i];
+        H_values[i] = H;
+        K_values[i] = K;
+    }
 
-        igIndex face[16]{}, tri[3]{};
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi){
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q){
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size()-1));
+            std::nth_element(tmp.begin(), tmp.begin()+idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo,hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
+        }
+    };
+    clamp_by_quantile(H_values, 0.02, 0.98);
+    clamp_by_quantile(K_values, 0.02, 0.98);
+
+    for (int i=0;i<nV;++i){
+        curv_mean->SetValue(i, H_values[i]);
+        curv_gaussian->SetValue(i, K_values[i]);
+    }
+
+    UpdateProgress(1.0);
+    return true;
+}
+
+double GetArea(Vector3d a, Vector3d b, Vector3d c) {
+    return CrossProduct(a - b, a - c).length() / 2;
+}
+
+ SurfaceMesh::Pointer TriangulateSurfaceMesh(SurfaceMesh::Pointer mesh) {
+    {
+        bool f = true;
+        igIndex face[16]{};
         for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
             int size = mesh->GetFacePointIds(i, face);
-
-            if (size == 3) {
-                Faces->AddCellId3(face[0], face[1], face[2]);
-            } else if (size == 4) {
-                Point p0 = mesh->GetPoint(face[0]);
-                Point p1 = mesh->GetPoint(face[1]);
-                Point p2 = mesh->GetPoint(face[2]);
-                Point p3 = mesh->GetPoint(face[3]);
-                double area01 = GetArea(p0, p1, p3);
-                double area02 = GetArea(p1, p2, p3);
-
-                double area11 = GetArea(p0, p1, p2);
-                double area12 = GetArea(p2, p3, p0);
-
-                double r0 = area01 / area02;
-                double r1 = area11 / area12;
-
-                if (r0 < 1) r0 = 1 / r0;
-                if (r1 < 1) r1 = 1 / r1;
-                if (r0 < r1) {
-                    Faces->AddCellId3(face[0], face[1], face[3]);
-                    Faces->AddCellId3(face[1], face[2], face[3]);
-                } else {
-                    Faces->AddCellId3(face[0], face[1], face[2]);
-                    Faces->AddCellId3(face[2], face[3], face[0]);
-                }
-
-            } else {
-                Point center(0, 0, 0);
-                for (int j = 0; j < size; j++) { center += Points->GetPoint(face[j]); }
-                center /= size;
-                igIndex newPtId = Points->AddPoint(center);
-
-                for (int j = 0; j < attrbs->GetNumberOfAttributes(); j++) {
-                    auto& attrb = attrbs->GetAttribute(j);
-                    if (attrb.isDeleted) continue;
-                    if (attrb.attachmentType == IG_POINT) {
-                        double val[8]{0}, sum[8]{0};
-                        int dim = attrb.pointer->GetDimension();
-                        for (int k = 0; k < size; k++) {
-                            attrb.pointer->GetElement(face[k], val);
-                            for (int d = 0; d < dim; d++) { sum[d] += val[d]; }
-                        }
-                        for (int d = 0; d < dim; d++) { sum[d] /= size; }
-                        attrb.pointer->AddElement(sum);
-                    }
-                }
-
-                for (int j = 0; j < size; j++) { Faces->AddCellId3(newPtId, face[j], face[(j + 1) % size]); }
+            if (size != 3) {
+                f = false;
+                break;
             }
         }
 
-        SurfaceMesh::Pointer Mesh = SurfaceMesh::New();
-        Mesh->SetName(mesh->GetName());
-        Mesh->SetPoints(Points);
-        Mesh->SetFaces(Faces);
-        Mesh->SetAttributeSet(mesh->GetAttributeSet());
-
-        return Mesh;
+        if (f) {
+            return mesh;
+        }
     }
+    auto attrbs = mesh->GetAttributeSet();
+
+    CellArray::Pointer Faces = CellArray::New();
+    Points::Pointer Points = mesh->GetPoints();
+
+    igIndex face[16]{}, tri[3]{};
+    for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+        int size = mesh->GetFacePointIds(i, face);
+
+        if (size == 3) {
+            Faces->AddCellId3(face[0], face[1], face[2]);
+        } else if (size == 4) {
+            Point p0 = mesh->GetPoint(face[0]);
+            Point p1 = mesh->GetPoint(face[1]);
+            Point p2 = mesh->GetPoint(face[2]);
+            Point p3 = mesh->GetPoint(face[3]);
+            double area01 = GetArea(p0, p1, p3);
+            double area02 = GetArea(p1, p2, p3);
+
+            double area11 = GetArea(p0, p1, p2);
+            double area12 = GetArea(p2, p3, p0);
+
+            double r0 = area01 / area02;
+            double r1 = area11 / area12;
+
+            if (r0 < 1) r0 = 1 / r0;
+            if (r1 < 1) r1 = 1 / r1;
+            if (r0 < r1) {
+                Faces->AddCellId3(face[0], face[1], face[3]);
+                Faces->AddCellId3(face[1], face[2], face[3]);
+            } else {
+                Faces->AddCellId3(face[0], face[1], face[2]);
+                Faces->AddCellId3(face[2], face[3], face[0]);
+            }
+
+        } else {
+            Point center(0, 0, 0);
+            for (int j = 0; j < size; j++) { center += Points->GetPoint(face[j]); }
+            center /= size;
+            igIndex newPtId = Points->AddPoint(center);
+
+            for (int j = 0; j < attrbs->GetNumberOfAttributes(); j++) {
+                auto& attrb = attrbs->GetAttribute(j);
+                if (attrb.isDeleted) continue;
+                if (attrb.attachmentType == IG_POINT) {
+                    double val[8]{0}, sum[8]{0};
+                    int dim = attrb.pointer->GetDimension();
+                    for (int k = 0; k < size; k++) {
+                        attrb.pointer->GetElement(face[k], val);
+                        for (int d = 0; d < dim; d++) { sum[d] += val[d]; }
+                    }
+                    for (int d = 0; d < dim; d++) { sum[d] /= size; }
+                    attrb.pointer->AddElement(sum);
+                }
+            }
+
+            for (int j = 0; j < size; j++) { Faces->AddCellId3(newPtId, face[j], face[(j + 1) % size]); }
+        }
+    }
+
+    SurfaceMesh::Pointer Mesh = SurfaceMesh::New();
+    Mesh->SetName(mesh->GetName());
+    Mesh->SetPoints(Points);
+    Mesh->SetFaces(Faces);
+    Mesh->SetAttributeSet(mesh->GetAttributeSet());
+
+    return Mesh;
+ }
 
     bool GetPointCurvature(int type, Points::Pointer Points, int PointNum) {
 
@@ -368,14 +438,16 @@ public:
         curvatures->SetName("curvatures");
         attributeSet->AddScalar(IG_POINT, curvatures);
 
-        std::vector<std::array<float, 3>> gradient = GetPointGradient(type, Points, PointNum);
-        std::vector<std::array<float, 4>> curvature(PointNum, {0.0f, 0.0f, 0.0f, 0.0f});
+        std::vector<std::array<float, 3>> gradient =
+                GetPointGradient(type, Points, PointNum);
+        std::vector<std::array<float, 4>> curvature(PointNum,
+                                                    {0.0f, 0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
         int hundred = PointNum / 100;
         for (igIndex idx = 0; idx < PointNum; ++idx) {
-            if (idx % hundred == 0) UpdateProgress((double) idx / PointNum);
+            if(idx % hundred == 0) UpdateProgress((double)idx / PointNum);
             auto v1 = Points->GetPoint(idx);
 
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
@@ -391,13 +463,17 @@ public:
 
                     int NeighborNum;
                     // 获取邻接顶点
-                    if (type == 1) NeighborNum = volume_Mesh->GetPointToOneRingPoints(idx, neighborVerts);
+                    if (type == 1)
+                        NeighborNum = volume_Mesh->GetPointToOneRingPoints(
+                                idx, neighborVerts);
                     else if (type == 0)
-                        NeighborNum = surface_Mesh->GetPointToOneRingPoints(idx, neighborVerts);
+                        NeighborNum = surface_Mesh->GetPointToOneRingPoints(
+                                idx, neighborVerts);
 
                     for (int m = 0; m < NeighborNum; m++) {
                         Vector<float, 3> v2;
-                        if (type == 1) v2 = volume_Mesh->GetPoint(neighborVerts[m]);
+                        if (type == 1)
+                            v2 = volume_Mesh->GetPoint(neighborVerts[m]);
                         else if (type == 0)
                             v2 = surface_Mesh->GetPoint(neighborVerts[m]);
 
@@ -413,8 +489,12 @@ public:
                         //                double value = std::sqrt(value1 * value1 + value2 * value2 + value3 * value3);
                         //                double value = v1[0];
 
-                        float temp = gradient[idx][i] - gradient[neighborVerts[m]][i]; //i=0:x i=1:y i=2:z
-                        float weight = 1.0 / std::sqrt(std::pow(x, 2) + std::pow(y, 2) + std::pow(z, 2));
+                        float temp = gradient[idx][i] -
+                                     gradient[neighborVerts[m]]
+                                             [i]; //i=0:x i=1:y i=2:z
+                        float weight = 1.0 / std::sqrt(std::pow(x, 2) +
+                                                       std::pow(y, 2) +
+                                                       std::pow(z, 2));
                         value += temp * weight;
                         weightSum += weight;
                     }
@@ -494,14 +574,16 @@ public:
         curv_gaussian->SetName("cur_gaussian");
         attributeSet->AddScalar(IG_POINT, curv_gaussian);
 
-        std::vector<std::array<float, 3>> gradient = GetOtherGradient(type, Num);
-        std::vector<std::array<float, 4>> curvature(Num, {0.0f, 0.0f, 0.0f, 0.0f});
+        std::vector<std::array<float, 3>> gradient =
+                GetOtherGradient(type, Num);
+        std::vector<std::array<float, 4>> curvature(Num,
+                                                    {0.0f, 0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(Num, 0.0f);
 
         igIndex neighborVerts[256]{};
         int hundred = Num / 100;
         for (igIndex idx = 0; idx < Num; ++idx) {
-            if (idx % hundred == 0) UpdateProgress((double) idx / Num);
+            if(idx % hundred == 0) UpdateProgress((double)idx / Num);
             Eigen::Vector3d gp(0.0, 0.0, 0.0);
             Eigen::Matrix3d hessian = Eigen::Matrix3d::Zero();
             gp(0) = gradient[idx][0];
@@ -517,10 +599,13 @@ public:
                     // 获取邻接顶点
                     if (type == 1)
                         // neighbors:volumeIds
-                        NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(idx, neighborVerts);
+                        NeighborNum =
+                                volume_Mesh->GetVolumeToNeighborVolumesWithFace(
+                                        idx, neighborVerts);
                     else if (type == 0)
                         // neighbors:faceIds
-                        NeighborNum = surface_Mesh->GetFaceToNeighborFaces(idx, neighborVerts);
+                        NeighborNum = surface_Mesh->GetFaceToNeighborFaces(
+                                idx, neighborVerts);
 
                     for (int m = 0; m < NeighborNum; m++) {
 
@@ -531,8 +616,10 @@ public:
                             auto size_v1 = v1->GetNumberOfPoints();
                             auto size_v2 = v2->GetNumberOfPoints();
 
-                            std::array<float, 3> v1_position = GetPosition_volume(v1, size_v1);
-                            std::array<float, 3> v2_position = GetPosition_volume(v2, size_v2);
+                            std::array<float, 3> v1_position =
+                                    GetPosition_volume(v1, size_v1);
+                            std::array<float, 3> v2_position =
+                                    GetPosition_volume(v2, size_v2);
 
                             x = v1_position[0] - v2_position[0];
                             y = v1_position[1] - v2_position[1];
@@ -545,8 +632,10 @@ public:
                             auto size_v1 = v1->GetNumberOfPoints();
                             auto size_v2 = v2->GetNumberOfPoints();
 
-                            std::array<float, 3> v1_position = GetPosition_face(v1, size_v1);
-                            std::array<float, 3> v2_position = GetPosition_face(v2, size_v2);
+                            std::array<float, 3> v1_position =
+                                    GetPosition_face(v1, size_v1);
+                            std::array<float, 3> v2_position =
+                                    GetPosition_face(v2, size_v2);
 
                             x = v1_position[0] - v2_position[0];
                             y = v1_position[1] - v2_position[1];
@@ -554,8 +643,12 @@ public:
                         }
 
 
-                        float temp = gradient[idx][i] - gradient[neighborVerts[m]][i]; //i=0:x i=1:y i=2:z
-                        float weight = 1.0 / std::sqrt(std::pow(x, 2) + std::pow(y, 2) + std::pow(z, 2));
+                        float temp = gradient[idx][i] -
+                                     gradient[neighborVerts[m]]
+                                             [i]; //i=0:x i=1:y i=2:z
+                        float weight = 1.0 / std::sqrt(std::pow(x, 2) +
+                                                       std::pow(y, 2) +
+                                                       std::pow(z, 2));
                         value += temp * weight;
                         weightSum += weight;
                     }
@@ -585,7 +678,8 @@ public:
         return true;
     }
 
-    std::vector<std::array<float, 3>> GetPointGradient(int type, Points::Pointer Points, int PointNum) {
+    std::vector<std::array<float, 3>>
+    GetPointGradient(int type, Points::Pointer Points, int PointNum) {
 
         AttributeSet* attributeSet;
         if (type == 0) attributeSet = surface_Mesh->GetAttributeSet();
@@ -595,7 +689,8 @@ public:
         auto data = attributeSet->GetAttribute(curIndex).pointer;
         int dimension = data->GetDimension();
 
-        std::vector<std::array<float, 3>> gradient(PointNum, {0.0f, 0.0f, 0.0f});
+        std::vector<std::array<float, 3>> gradient(PointNum,
+                                                   {0.0f, 0.0f, 0.0f});
         std::vector<float> sumWeights(PointNum, 0.0f);
 
         igIndex neighborVerts[256]{};
@@ -603,9 +698,12 @@ public:
         for (igIndex idx = 0; idx < PointNum; ++idx) {
             int NeighborNum;
             // 获取邻接顶点
-            if (type == 1) NeighborNum = volume_Mesh->GetPointToOneRingPoints(idx, neighborVerts);
+            if (type == 1)
+                NeighborNum = volume_Mesh->GetPointToOneRingPoints(
+                        idx, neighborVerts);
             else if (type == 0)
-                NeighborNum = surface_Mesh->GetPointToOneRingPoints(idx, neighborVerts);
+                NeighborNum = surface_Mesh->GetPointToOneRingPoints(
+                        idx, neighborVerts);
 
             auto v1 = Points->GetPoint(idx);
 
@@ -619,7 +717,8 @@ public:
                 float y = v1[1] - v2[1];
                 float z = v1[2] - v2[2];
 
-                double value = data->GetValue(dimension * idx) - data->GetValue(dimension * neighborVerts[m]);
+                double value = data->GetValue(dimension * idx) -
+                               data->GetValue(dimension * neighborVerts[m]);
 
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
                 sumWeights[idx] += weight;
@@ -656,11 +755,13 @@ public:
             // 获取邻接顶点
             if (type == 1)
                 // neighbors:volumeIds
-                NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(idx, neighborVerts);
+                NeighborNum = volume_Mesh->GetVolumeToNeighborVolumesWithFace(
+                        idx, neighborVerts);
 
             else if (type == 0)
                 // neighbors:faceIds
-                NeighborNum = surface_Mesh->GetFaceToNeighborFaces(idx, neighborVerts);
+                NeighborNum = surface_Mesh->GetFaceToNeighborFaces(
+                        idx, neighborVerts);
 
             for (int m = 0; m < NeighborNum; m++) {
                 float x, y, z;
@@ -671,8 +772,10 @@ public:
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
-                    std::array<float, 3> v1_position = GetPosition_volume(v1, size_v1);
-                    std::array<float, 3> v2_position = GetPosition_volume(v2, size_v2);
+                    std::array<float, 3> v1_position =
+                            GetPosition_volume(v1, size_v1);
+                    std::array<float, 3> v2_position =
+                            GetPosition_volume(v2, size_v2);
 
                     x = v1_position[0] - v2_position[0];
                     y = v1_position[1] - v2_position[1];
@@ -684,15 +787,18 @@ public:
                     auto size_v1 = v1->GetNumberOfPoints();
                     auto size_v2 = v2->GetNumberOfPoints();
 
-                    std::array<float, 3> v1_position = GetPosition_face(v1, size_v1);
-                    std::array<float, 3> v2_position = GetPosition_face(v2, size_v2);
+                    std::array<float, 3> v1_position =
+                            GetPosition_face(v1, size_v1);
+                    std::array<float, 3> v2_position =
+                            GetPosition_face(v2, size_v2);
 
                     x = v1_position[0] - v2_position[0];
                     y = v1_position[1] - v2_position[1];
                     z = v1_position[2] - v2_position[2];
                 }
                 // 标量计算时就算是三维数据也默认取第一维
-                double value = data->GetValue(idx * dimension) - data->GetValue(neighborVerts[m] * dimension);
+                double value = data->GetValue(idx * dimension) -
+                               data->GetValue(neighborVerts[m] * dimension);
 
                 float weight = 1.0f / std::sqrt(x * x + y * y + z * z);
                 sumWeights[idx] += weight;

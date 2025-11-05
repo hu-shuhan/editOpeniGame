@@ -230,13 +230,7 @@ void igQtParallelCoordinatesWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, drawImageArea, ids, type);
-    if (type == IG_POINT) {
-        auto events = Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-        m_Model->GetSelection()->SelectionCallBackEvent(events);
-    } else if (type == IG_CELL) {
-        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
-        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
-    }
+    m_Model->GetSelection()->SelectionCallBackEvent(type, ids, Selection::Operate::Add);
     update();
 }
 
@@ -366,25 +360,19 @@ void igQtParallelCoordinatesWidget::UpdateBackgroundColor() {
     m_BackgroundColor = CalculateBackgroundColor(colorBar);
 }
 
-void igQtParallelCoordinatesWidget::UpdateChoosedData(const std::vector<Selection::Event>& _events) {
+void igQtParallelCoordinatesWidget::UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids,
+                                                      Selection::Operate ope) {
     for (auto& Data: m_ParallelCoordinatesDatas) {
-        for (auto& e: _events) {
-            switch (e.type) {
-                case Selection::Event::Type::PickPoint:
-                    if (Data->GetDataType() != IG_POINT) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                case Selection::Event::Type::PickFace:
-                    if (Data->GetDataType() != IG_CELL) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                default:
-                    break;
-            }
+        if (Data->GetDataType() != itemType) continue;
+        switch (ope) {
+            case Selection::Add:
+                for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+                break;
+            case Selection::Remove:
+                for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+                break;
+            default:
+                break;
         }
         Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(
                 Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
@@ -467,7 +455,7 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateCellData
 
 ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGenum dataType) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
+    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems(dataType);
     int objNum{};
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
@@ -478,11 +466,12 @@ ParallelCoordinatesData::Pointer igQtParallelCoordinatesWidget::GenerateData(IGe
 void igQtParallelCoordinatesWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtParallelCoordinatesWidget::SelectionCallbackEvent, this,
-                                         std::placeholders::_1);
+                                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
-void igQtParallelCoordinatesWidget::SelectionCallbackEvent(const std::vector<Selection::Event>& _events) {
-    UpdateChoosedData(_events);
+void igQtParallelCoordinatesWidget::SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids,
+                                                           Selection::Operate ope) {
+    UpdateChoosedData(itemType, ids, ope);
     UpdateChoosedColor();
     UpdatingChoosedLinkImage();
     update();
@@ -686,16 +675,7 @@ void igQtParallelCoordinatesWidget::DrawLinkImage(QRect& linkImageArea) {
 
 bool igQtParallelCoordinatesWidget::IsChoosedObj(IGenum dataType, int objId) {
     auto selection = m_Model->GetSelection();
-    auto& selectedItems = selection->GetSelectedItems();
-    if (dataType == IG_POINT) {
-        if (selectedItems.count(Selection::Event::Type::PickPoint) == 0) return false;
-        if (selectedItems.at(Selection::Event::Type::PickPoint).count(objId) == 0) return false;
-        return true;
-    } else {
-        if (selectedItems.count(Selection::Event::Type::PickFace) == 0) return false;
-        if (selectedItems.at(Selection::Event::Type::PickFace).count(objId) == 0) return false;
-        return true;
-    }
+    return selection->IsSelectedItem(dataType, objId);
 }
 
 void igQtParallelCoordinatesWidget::SetUpdateLinkImage() {

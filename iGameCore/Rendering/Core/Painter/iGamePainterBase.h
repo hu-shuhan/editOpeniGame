@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <unordered_map>
+#include <map>
 
 #include "OpenGL/GLBuffer.h"
 #include "OpenGL/GLVertexArray.h"
@@ -48,6 +48,11 @@ public:
      * @brief 隐藏所有绘制元素。
      */
     void HideAll();
+
+    /**
+     * @brief 完全隐藏。将不会调用绘制函数
+     */
+    void SetTotallyHide(bool totallyHide);
 
     /**
      * @brief 显示指定的绘制元素。
@@ -189,17 +194,20 @@ protected:
 
     SmartPointer<Scene> m_Scene;
 
-    std::unordered_map<float, SmartPointer<GLVertexArray>> m_VAOs;
-    std::unordered_map<float, SmartPointer<GLBuffer>> m_PositionVBOs;
-    std::unordered_map<float, SmartPointer<GLBuffer>> m_ColorVBOs;
-    //std::unordered_map<float, SmartPointer<GLBuffer>> m_NormalVBOs;
-    std::unordered_map<float, SmartPointer<GLBuffer>> m_PointEBOs;
-    std::unordered_map<float, SmartPointer<GLBuffer>> m_LineEBOs;
-    std::unordered_map<float, SmartPointer<GLBuffer>> m_TriangleEBOs;
+    std::map<float, SmartPointer<GLVertexArray>> m_VAOs;
+    std::map<float, SmartPointer<GLBuffer>> m_PositionVBOs;
+    std::map<float, SmartPointer<GLBuffer>> m_ColorVBOs;
+    //std::map<float, SmartPointer<GLBuffer>> m_NormalVBOs;
+    std::map<float, SmartPointer<GLBuffer>> m_PointEBOs;
+    std::map<float, SmartPointer<GLBuffer>> m_LineEBOs;
+    std::map<float, SmartPointer<GLBuffer>> m_TriangleEBOs;
 
-    std::unordered_map<float, IGsize> m_PointEBOSizes;
-    std::unordered_map<float, IGsize> m_LineEBOSizes;
-    std::unordered_map<float, IGsize> m_TriangleEBOSizes;
+    std::map<float, IGsize> m_PointEBOSizes;
+    std::map<float, IGsize> m_LineEBOSizes;
+    std::map<float, IGsize> m_TriangleEBOSizes;
+
+    //if totally hide, the draw func will not be use
+    bool m_TotallyHide{};
 };
 
 IGAME_NAMESPACE_END

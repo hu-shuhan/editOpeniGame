@@ -69,9 +69,8 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         Selection->Start = startP;
         Selection->End = endP;
         Selection->SetSelectionCallBackEvent(
-                [&](const std::vector<iGame::Selection::Event>& events) {
-                    for (auto& event: events) {
-                        if (event.type == iGame::Selection::Event::Change) {
+                [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
+                    if (itemType == IG_CHANGE) {
                             startP = Selection->Start;
                             endP = Selection->End;
                             ui->startX->setText(QString::number(startP[0]));
@@ -79,11 +78,9 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
                             ui->startZ->setText(QString::number(startP[2]));
                             ui->endX->setText(QString::number(endP[0]));
                             ui->endY->setText(QString::number(endP[1]));
-                            ui->endZ->setText(QString::number(endP[2]));
-                        }
-                    }
+                            ui->endZ->setText(QString::number(endP[2]));}
                 },
-                std::placeholders::_1);
+                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);
@@ -308,23 +305,33 @@ void igQtStreamTracerWidget::generateStreamline() {
         Selection = StreamLineSelection::New();
         Painter = scene->GetCurrentModel()->GetPainter3D();
         Selection->Start = startP;
-        Selection->End =endP;
+        Selection->End = endP;
         Selection->SetSelectionCallBackEvent(
-                [&](const std::vector<iGame::Selection::Event>& events) {
-                    for (auto& event: events) {
-                        if (event.type == iGame::Selection::Event::Change) {
-                            startP = Selection->Start;
-                            endP= Selection->End;
-                            ui->startX->setText(QString::number(startP[0]));
-                            ui->startY->setText(QString::number(startP[1]));
-                            ui->startZ->setText(QString::number(startP[2]));
-                            ui->endX->setText(QString::number(endP[0]));
-                            ui->endY->setText(QString::number(endP[1]));
-                            ui->endZ->setText(QString::number(endP[2]));
-                        }
+                [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
+                    if (itemType == IG_CHANGE) {
+                        startP = Selection->Start;
+                        endP = Selection->End;
+                        ui->startX->setText(QString::number(startP[0]));
+                        ui->startY->setText(QString::number(startP[1]));
+                        ui->startZ->setText(QString::number(startP[2]));
+                        ui->endX->setText(QString::number(endP[0]));
+                        ui->endY->setText(QString::number(endP[1]));
+                        ui->endZ->setText(QString::number(endP[2]));
                     }
+                    //for (auto& event: events) {
+                    //    if (event.type == iGame::Selection::Event::Change) {
+                    //        startP = Selection->Start;
+                    //        endP= Selection->End;
+                    //        ui->startX->setText(QString::number(startP[0]));
+                    //        ui->startY->setText(QString::number(startP[1]));
+                    //        ui->startZ->setText(QString::number(startP[2]));
+                    //        ui->endX->setText(QString::number(endP[0]));
+                    //        ui->endY->setText(QString::number(endP[1]));
+                    //        ui->endZ->setText(QString::number(endP[2]));
+                    //    }
+                    //}
                 },
-                std::placeholders::_1);
+                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);

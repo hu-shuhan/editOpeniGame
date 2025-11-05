@@ -7,7 +7,6 @@
 #include "iGameMacro.h"
 #include "iGameMeshCodec.h"
 #include "iGameMeshCodecAdjacency.h"
-#include "iGameMeshCodecLZMA.h"
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshCodecZSTD.h"
 #include "iGameMeshEncoderAdapter.h"

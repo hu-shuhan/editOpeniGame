@@ -6,6 +6,8 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include <cmath>
+#include <algorithm>
+#include "Convert/iGameConvertToVolumeMesh.h"
 IGAME_NAMESPACE_BEGIN
 bool VortexFilter::Execute()  {
 
@@ -37,22 +39,23 @@ bool VortexFilter::Execute()  {
             volume_Mesh = DynamicCast<VolumeMesh>(input);
             if (!CheckType()) return false;
             return ComputeVorticityWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
-            
+
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
+
             surface_Mesh = mesh->TransferToSurfaceMesh();
-            volume_Mesh = mesh->TransferToVolumeMesh();
 
             if (surface_Mesh) {
                 if (!CheckType()) return false;
                 return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
             }
 
-            if (volume_Mesh) {
+            if (mesh) {
                 if (!CheckType()) return false;
-                return ComputeVorticityWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
+                return ComputeVorticityWithUnstructuredMesh(mesh, attributeSet, curIndex);
             }
+
         } break;
         default:
             return false;
@@ -104,12 +107,12 @@ std::array<float, 3> VortexFilter::ComputePointGradient(int type, Cell* cell, Ar
 std::array<float, 3> VortexFilter::ComputePointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
     switch (cell->GetCellType()) {
         case IG_TRIANGLE:
-        case IG_QUAD:     
-        case IG_POLYGON:  
+        case IG_QUAD:
+        case IG_POLYGON:
             return ComputePointGradient(cell, data, dim);
         case IG_TETRA:
-        case IG_HEXAHEDRON: 
-        case IG_POLYHEDRON: 
+        case IG_HEXAHEDRON:
+        case IG_POLYHEDRON:
             return ComputeHexPointGradient(cell, data, dim);
     }
 
@@ -171,7 +174,7 @@ bool VortexFilter::ComputeVorticityWithSurfaceMesh(SurfaceMesh::Pointer Mesh, At
     //    double mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
     //    vorticities->AddElement3(omega_x, omega_y, omega_z);
     //}
-    
+
     FloatArray::Pointer vorticities = FloatArray::New();
     vorticities->SetDimension(3);
     vorticities->Reserve(NumCells);
@@ -221,7 +224,7 @@ bool VortexFilter::ComputeVorticityWithSurfaceMesh2(SurfaceMesh::Pointer Mesh, A
     int progress = 0;
     int block = NumCells / 100;
     for (int cellId = 0; cellId < NumCells; ++cellId) {
-        if (cellId > block * progress) { 
+        if (cellId > block * progress) {
             progress++;
             UpdateProgress(progress * 0.01);
         }
@@ -273,62 +276,303 @@ bool VortexFilter::ComputeVorticityWithVolumeMesh(VolumeMesh::Pointer Mesh, Attr
                                                   int Index) {
     int NumPoints = Mesh->GetNumberOfPoints();
     int NumCells = Mesh->GetNumberOfVolumes();
+
     ArrayObject::Pointer Data = Attributes->GetAttribute(Index).pointer;
 
     if (Attributes->GetAttribute(Index).attachmentType == IG_CELL) {
-        Data = AttributeCell2Point(Mesh->GetFaces(), Data, NumPoints);
+        Data = AttributeCell2Point(Mesh->GetVolumes(), Data, NumPoints);
     }
+
+    FloatArray::Pointer vorticities = FloatArray::New();
+    vorticities->SetDimension(3);
+    vorticities->Reserve(NumCells);
+    vorticities->SetName("vorticities");
+    attributeSet->AddScalar(IG_CELL, vorticities);
 
     std::vector<std::array<float, 3>> gradients_x(NumPoints, {0, 0, 0});
     std::vector<std::array<float, 3>> gradients_y(NumPoints, {0, 0, 0});
     std::vector<std::array<float, 3>> gradients_z(NumPoints, {0, 0, 0});
 
+    std::vector<double> omega_x_values(NumCells);
+    std::vector<double> omega_y_values(NumCells);
+    std::vector<double> omega_z_values(NumCells);
+
     int progress = 0;
-    int block = NumCells / 90;
+    int block = NumCells / 100;
+
+    for (int cellId = 0; cellId < NumCells; ++cellId) {
+        if (cellId > block * progress) {
+            progress++;
+            UpdateProgress(progress * 0.01);
+        }
+        // std::cout<<"11111111111"<<std::endl;
+        auto cell = Mesh->GetVolume(cellId);
+
+        // std::cout<<"1122222222"<<std::endl;
+
+        VectorGrad grad;
+        switch (cell->GetCellType()) {
+            case IG_TETRA: {
+                grad = ComputeVectorGradByTetra(cell, Data);
+                break;
+            }
+            case IG_HEXAHEDRON: {
+                grad = ComputeVectorGradByHex(cell, Data);
+                break;
+            }
+            case IG_PYRAMID:
+            case IG_PRISM: {
+                grad = ComputeVectorGradByPolyhedron(cell, Data);
+                break;
+            }
+            case IG_POLYHEDRON: {
+                grad = ComputeVectorGradByPolyhedron(cell, Data);
+                break;
+            }
+            default: {
+                grad = ComputeVectorGradByPlane(cell, Data);
+                break;
+            }
+        }
+
+        // auto grad_x = ComputePointGradientWithVolumeMesh(cell, Data, 0);
+        // auto grad_y = ComputePointGradientWithVolumeMesh(cell, Data, 1);
+        // auto grad_z = ComputePointGradientWithVolumeMesh(cell, Data, 2);
+
+        double omega_x = grad.z.gy - grad.y.gz; // ∂vz/∂y - ∂vy/∂z
+        double omega_y = grad.x.gz - grad.z.gx; // ∂vx/∂z - ∂vz/∂x
+        double omega_z = grad.y.gx - grad.x.gy; // ∂vy/∂x - ∂vx/∂y
+
+        omega_x_values[cellId] = omega_x;
+        omega_y_values[cellId] = omega_y;
+        omega_z_values[cellId] = omega_z;
+
+        // vorticities->AddElement3(omega_x, omega_y, omega_z);
+
+        // for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
+        //     igIndex pid = cell->GetPointId(i);
+        //     for (int d = 0; d < 3; d++) {
+        //         gradients_x[pid][d] += grad_x[d];
+        //         gradients_y[pid][d] += grad_y[d];
+        //         gradients_z[pid][d] += grad_z[d];
+        //     }
+        // }
+    }
+    // std::cout<<"4"<<std::endl;
+    // double mean_omega_x = 0.0, mean_omega_y = 0.0, mean_omega_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     mean_omega_x += omega_x_values[i];
+    //     mean_omega_y += omega_y_values[i];
+    //     mean_omega_z += omega_z_values[i];
+    // }
+    // mean_omega_x /= NumCells;
+    // mean_omega_y /= NumCells;
+    // mean_omega_z /= NumCells;
+    //
+    // double std_omega_x = 0.0, std_omega_y = 0.0, std_omega_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     std_omega_x += (omega_x_values[i] - mean_omega_x) * (omega_x_values[i] - mean_omega_x);
+    //     std_omega_y += (omega_y_values[i] - mean_omega_y) * (omega_y_values[i] - mean_omega_y);
+    //     std_omega_z += (omega_z_values[i] - mean_omega_z) * (omega_z_values[i] - mean_omega_z);
+    // }
+    // std_omega_x = std::sqrt(std_omega_x / NumCells);
+    // std_omega_y = std::sqrt(std_omega_y / NumCells);
+    // std_omega_z = std::sqrt(std_omega_z / NumCells);
+    //
+    // double threshold_omega_x = 5.0 * std_omega_x;
+    // double threshold_omega_y = 5.0 * std_omega_y;
+    // double threshold_omega_z = 5.0 * std_omega_z;
+    //
+    // for (int i = 0; i < NumCells; ++i) {
+    //     double omega_x = omega_x_values[i];
+    //     double omega_y = omega_y_values[i];
+    //     double omega_z = omega_z_values[i];
+    //
+    //     if (std::abs(omega_x - mean_omega_x) > threshold_omega_x) {
+    //         omega_x = mean_omega_x + (omega_x - mean_omega_x) / std::abs(omega_x - mean_omega_x) * threshold_omega_x;
+    //     }
+    //
+    //     if (std::abs(omega_y - mean_omega_y) > threshold_omega_y) {
+    //         omega_y = mean_omega_y + (omega_y - mean_omega_y) / std::abs(omega_y - mean_omega_y) * threshold_omega_y;
+    //     }
+    //
+    //     if (std::abs(omega_z - mean_omega_z) > threshold_omega_z) {
+    //         omega_z = mean_omega_z + (omega_z - mean_omega_z) / std::abs(omega_z - mean_omega_z) * threshold_omega_z;
+    //     }
+    //
+    //     vorticities->AddElement3(omega_x, omega_y, omega_z);
+    // }
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
+        }
+    };
+
+    clamp_by_quantile(omega_x_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_y_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_z_values, 0.000005, 0.999995);
+
+    for (int i = 0; i < NumCells; ++i) {
+        vorticities->AddElement3(omega_x_values[i],
+                                 omega_y_values[i],
+                                 omega_z_values[i]);
+    }
+
+    UpdateProgress(1.0);
+    return true;
+
+    // FloatArray::Pointer vorticities = FloatArray::New();
+    // vorticities->SetDimension(3);
+    // vorticities->Reserve(NumPoints);
+    // vorticities->SetName("vorticities");
+    // attributeSet->AddScalar(IG_POINT, vorticities);
+    //
+    // ResetProgress();
+    // progress = 0;
+    // block = NumPoints / 100;
+    // for (int i = 0; i < NumPoints; ++i) {
+    //     if (i > block * progress) {
+    //         progress++;
+    //         UpdateProgress(progress * 0.01);
+    //     }
+    //
+    //     float omega_x = gradients_z[i][1] - gradients_y[i][2]; // ∂vz/∂y - ∂vy/∂z
+    //     float omega_y = gradients_x[i][2] - gradients_z[i][0]; // ∂vx/∂z - ∂vz/∂x
+    //     float omega_z = gradients_y[i][0] - gradients_x[i][1]; // ∂vy/∂x - ∂vx/∂y
+    //
+    //     float mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
+    //     vorticities->AddElement3(omega_x, omega_y, omega_z);
+    // }
+    return true;
+}
+
+bool VortexFilter::ComputeVorticityWithUnstructuredMesh(UnstructuredMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index) {
+    int NumPoints = Mesh->GetNumberOfPoints();
+    int NumCells = Mesh->GetNumberOfCells();
+
+    ArrayObject::Pointer Data = Attributes->GetAttribute(Index).pointer;
+
+    if (Attributes->GetAttribute(Index).attachmentType == IG_CELL) {
+        Data = AttributeCell2Point(Mesh->GetCells(), Data, NumPoints);
+    }
+
+    FloatArray::Pointer vorticities = FloatArray::New();
+    vorticities->SetDimension(3);
+    vorticities->Reserve(NumCells);
+    vorticities->SetName("vorticities");
+    attributeSet->AddScalar(IG_CELL, vorticities);
+
+    std::vector<std::array<float, 3>> gradients_x(NumPoints, {0, 0, 0});
+    std::vector<std::array<float, 3>> gradients_y(NumPoints, {0, 0, 0});
+    std::vector<std::array<float, 3>> gradients_z(NumPoints, {0, 0, 0});
+
+    std::vector<double> omega_x_values(NumCells);
+    std::vector<double> omega_y_values(NumCells);
+    std::vector<double> omega_z_values(NumCells);
+
+    int progress = 0;
+    int block = NumCells / 100;
+
     for (int cellId = 0; cellId < NumCells; ++cellId) {
         if (cellId > block * progress) {
             progress++;
             UpdateProgress(progress * 0.01);
         }
 
-        auto cell = volume_Mesh->GetVolume(cellId);
+        auto cell = Mesh->GetCell(cellId);
 
-        auto grad_x = ComputePointGradientWithVolumeMesh(cell, Data, 0);
-        auto grad_y = ComputePointGradientWithVolumeMesh(cell, Data, 1);
-        auto grad_z = ComputePointGradientWithVolumeMesh(cell, Data, 2);
+        VectorGrad grad;
+        switch (cell->GetCellType()) {
+            case IG_TETRA: {
 
-        for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
-            igIndex pid = cell->GetPointId(i);
-            for (int d = 0; d < 3; d++) {
-                gradients_x[pid][d] += grad_x[d];
-                gradients_y[pid][d] += grad_y[d];
-                gradients_z[pid][d] += grad_z[d];
+                grad = ComputeVectorGradByTetra(cell, Data);
+                break;
+            }
+            case IG_HEXAHEDRON: {
+
+                grad = ComputeVectorGradByHex(cell, Data);
+                break;
+            }
+            case IG_PYRAMID:
+            case IG_PRISM: {
+
+                grad = ComputeVectorGradByPolyhedron(cell, Data);
+                break;
+            }
+            case IG_POLYHEDRON: {
+
+                grad = ComputeVectorGradByPolyhedron(cell, Data);
+                break;
+            }
+            default: {
+
+                grad = ComputeVectorGradByPlane(cell, Data);
+                break;
             }
         }
+
+        // auto grad_x = ComputePointGradientWithVolumeMesh(cell, Data, 0);
+        // auto grad_y = ComputePointGradientWithVolumeMesh(cell, Data, 1);
+        // auto grad_z = ComputePointGradientWithVolumeMesh(cell, Data, 2);
+
+        double omega_x = grad.z.gy - grad.y.gz; // ∂vz/∂y - ∂vy/∂z
+        double omega_y = grad.x.gz - grad.z.gx; // ∂vx/∂z - ∂vz/∂x
+        double omega_z = grad.y.gx - grad.x.gy; // ∂vy/∂x - ∂vx/∂y
+
+        omega_x_values[cellId] = omega_x;
+        omega_y_values[cellId] = omega_y;
+        omega_z_values[cellId] = omega_z;
+
+        // vorticities->AddElement3(omega_x, omega_y, omega_z);
+
+        // for (int i = 0; i < cell->GetNumberOfPoints(); ++i) {
+        //     igIndex pid = cell->GetPointId(i);
+        //     for (int d = 0; d < 3; d++) {
+        //         gradients_x[pid][d] += grad_x[d];
+        //         gradients_y[pid][d] += grad_y[d];
+        //         gradients_z[pid][d] += grad_z[d];
+        //     }
+        // }
     }
-
-    FloatArray::Pointer vorticities = FloatArray::New();
-    vorticities->SetDimension(3);
-    vorticities->Reserve(NumPoints);
-    vorticities->SetName("vorticities");
-    attributeSet->AddScalar(IG_POINT, vorticities);
-
-    ResetProgress();
-    progress = 0;
-    block = NumPoints / 100;
-    for (int i = 0; i < NumPoints; ++i) {
-        if (i > block * progress) {
-            progress++;
-            UpdateProgress(progress * 0.01);
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
         }
-    
-        float omega_x = gradients_z[i][1] - gradients_y[i][2]; // ∂vz/∂y - ∂vy/∂z
-        float omega_y = gradients_x[i][2] - gradients_z[i][0]; // ∂vx/∂z - ∂vz/∂x
-        float omega_z = gradients_y[i][0] - gradients_x[i][1]; // ∂vy/∂x - ∂vx/∂y
+    };
 
-        float mag = sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z);
-        vorticities->AddElement3(omega_x, omega_y, omega_z);
+    clamp_by_quantile(omega_x_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_y_values, 0.000005, 0.999995);
+    clamp_by_quantile(omega_z_values, 0.000005, 0.999995);
+
+    for (int i = 0; i < NumCells; ++i) {
+        vorticities->AddElement3(omega_x_values[i],
+                                 omega_y_values[i],
+                                 omega_z_values[i]);
     }
+
+    UpdateProgress(1.0);
     return true;
 }
 
@@ -355,21 +599,21 @@ bool VortexFilter::ComputeVorticityWithVolumeMesh2(VolumeMesh::Pointer Mesh, Att
         double omega_x = grad.z.gy - grad.y.gz; // ∂vz/∂y - ∂vy/∂z
         double omega_y = grad.x.gz - grad.z.gx; // ∂vx/∂z - ∂vz/∂x
         double omega_z = grad.y.gx - grad.x.gy; // ∂vy/∂x - ∂vx/∂y
-        
+
         vorticities->AddElement3(omega_x, omega_y, omega_z);
     }
 
     return true;
 }
 
-VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByPlane(Cell* cell, ArrayObject* data) { 
+VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByPlane(Cell* cell, ArrayObject* data) {
     VectorGrad Grad;
     memset(&Grad, 0, sizeof(VectorGrad));
 
     Vector3f p0 = cell->GetPoint(0);
     int pid0 = cell->GetPointId(0);
 
-    std::vector<float> weights(cell->GetNumberOfPoints() - 2); 
+    std::vector<float> weights(cell->GetNumberOfPoints() - 2);
     float sum_area = 0.0;
 
     for (int i = 2; i < cell->GetNumberOfPoints(); ++i) {
@@ -383,7 +627,7 @@ VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByPlane(Cell* cell, Arra
         float area = normal.length() * 0.5f;
 
         if (area < 1e-8) area = 0;
-        
+
         weights[i - 2] = area;
         sum_area += area;
     }
@@ -449,9 +693,9 @@ VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByPlane(Cell* cell, Arra
     return Grad;
 }
 
-Vector3f VortexFilter::ComputeCenter(Cell* cell) {  
+Vector3f VortexFilter::ComputeCenter(Cell* cell) {
     Vector3f c(0,0,0);
-    for (int i = 0; i < cell->GetNumberOfPoints(); i++) { 
+    for (int i = 0; i < cell->GetNumberOfPoints(); i++) {
         c += cell->GetPoint(i);
     }
     c /= cell->GetNumberOfPoints();
@@ -506,8 +750,8 @@ bool VortexFilter::ComputePointVorticityForMesh(SurfaceMesh::Pointer surface_Mes
     return true;
 }
 
-VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByTetra(Cell* cell, ArrayObject* data) { 
-    
+VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByTetra(Cell* cell, ArrayObject* data) {
+
     Eigen::Matrix3f m = Eigen::Matrix3f::Zero();
     //float m[3][3];
     float derivs[12];
@@ -538,7 +782,7 @@ VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByTetra(Cell* cell, Arra
             sum[2] += derivs[8 + i] * value;
         }
 
-        for (int j = 0; j < 3; j++) { 
+        for (int j = 0; j < 3; j++) {
             derivs[3 * k + j] = sum[0] * m(j, 0) + sum[1] * m(j, 1) + sum[2] * m(j, 2);
         }
     }
@@ -552,6 +796,112 @@ VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByTetra(Cell* cell, Arra
     Grad.z.gx = derivs[6];
     Grad.z.gy = derivs[7];
     Grad.z.gz = derivs[8];
+    return Grad;
+}
+
+VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByHex(Cell* cell, ArrayObject* data) {
+
+    Vector3f center(0, 0, 0);
+    Vector3f vel_center(0, 0, 0);
+    int numPoints = cell->GetNumberOfPoints();
+
+    for (int i = 0; i < numPoints; ++i) {
+        auto p = cell->GetPoint(i);
+        center += p;
+        vel_center[0] += data->GetValue(cell->GetPointId(i) * 3 + 0);
+        vel_center[1] += data->GetValue(cell->GetPointId(i) * 3 + 1);
+        vel_center[2] += data->GetValue(cell->GetPointId(i) * 3 + 2);
+    }
+    center /= static_cast<float>(numPoints);
+    vel_center /= static_cast<float>(numPoints);
+
+    // 构建位置矩阵A和速度差矩阵B
+    Eigen::MatrixXf A(numPoints, 3);
+    Eigen::MatrixXf B(numPoints, 3);
+    for (int i = 0; i < numPoints; ++i) {
+        auto p = cell->GetPoint(i);
+        Vector3f diff = p - center;
+        A(i, 0) = diff[0]; A(i, 1) = diff[1]; A(i, 2) = diff[2];
+
+        B(i, 0) = data->GetValue(cell->GetPointId(i) * 3 + 0) - vel_center[0];
+        B(i, 1) = data->GetValue(cell->GetPointId(i) * 3 + 1) - vel_center[1];
+        B(i, 2) = data->GetValue(cell->GetPointId(i) * 3 + 2) - vel_center[2];
+    }
+
+    Eigen::MatrixXf G = (A.transpose() * A).ldlt().solve(A.transpose() * B);
+
+    VectorGrad Grad;
+    Grad.x.gx = G(0, 0);
+    Grad.x.gy = G(1, 0);
+    Grad.x.gz = G(2, 0);
+
+    Grad.y.gx = G(0, 1);
+    Grad.y.gy = G(1, 1);
+    Grad.y.gz = G(2, 1);
+
+    Grad.z.gx = G(0, 2);
+    Grad.z.gy = G(1, 2);
+    Grad.z.gz = G(2, 2);
+
+    return Grad;
+}
+
+VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByPolyhedron(Cell* cell, ArrayObject* data) {
+
+    std::unordered_set<igIndex> st;
+
+    Vector3f center(0, 0, 0);
+    Vector3f vel_center(0, 0, 0);
+    int numPoints = cell->GetNumberOfPoints();
+    //std::cout << cell  << " " <<  cell->m_PointIds->GetNumberOfIds()  << " " << cell->m_Points->GetNumberOfPoints() << std::endl;
+    std::vector<int> isExisted(numPoints, 0);
+
+    int count = 0;
+    for (int i = 0; i < numPoints; ++i) {
+        if (st.count(cell->GetPointId(i))) continue;
+        st.insert(cell->GetPointId(i));
+
+        isExisted[i] = 1;
+        count++;
+        auto p = cell->GetPoint(i);
+        center += p;
+        vel_center[0] += data->GetValue(cell->GetPointId(i) * 3 + 0);
+        vel_center[1] += data->GetValue(cell->GetPointId(i) * 3 + 1);
+        vel_center[2] += data->GetValue(cell->GetPointId(i) * 3 + 2);
+    }
+    center /= static_cast<float>(count);
+    vel_center /= static_cast<float>(count);
+
+    Eigen::MatrixXf A(count, 3);
+    Eigen::MatrixXf B(count, 3);
+    int i = 0;
+    for (int j = 0; j < numPoints; ++j) {
+        if (!isExisted[j]) continue;
+
+        auto p = cell->GetPoint(i);
+        Vector3f diff = p - center;
+        A(i, 0) = diff[0]; A(i, 1) = diff[1]; A(i, 2) = diff[2];
+
+        B(i, 0) = data->GetValue(cell->GetPointId(i) * 3 + 0) - vel_center[0];
+        B(i, 1) = data->GetValue(cell->GetPointId(i) * 3 + 1) - vel_center[1];
+        B(i, 2) = data->GetValue(cell->GetPointId(i) * 3 + 2) - vel_center[2];
+        i++;
+    }
+
+    Eigen::MatrixXf G = (A.transpose() * A + Eigen::MatrixXf::Identity(3, 3) * 1e-8).ldlt().solve(A.transpose() * B);
+    VectorGrad Grad;
+    Grad.x.gx = G(0, 0);
+    Grad.x.gy = G(1, 0);
+    Grad.x.gz = G(2, 0);
+
+    Grad.y.gx = G(0, 1);
+    Grad.y.gy = G(1, 1);
+    Grad.y.gz = G(2, 1);
+
+    Grad.z.gx = G(0, 2);
+    Grad.z.gy = G(1, 2);
+    Grad.z.gz = G(2, 2);
+
     return Grad;
 }
 

@@ -51,6 +51,7 @@ signals:
 	void LoadAnimationFile(std::vector<float>& timeValues);
 
 protected:
+
 	QList<QAction*> recentFileActionList;
 	int maxFileNr = 10;
     SceneManager::Pointer m_SceneManager;

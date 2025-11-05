@@ -4,7 +4,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameTimer.h"
 #include "iGameUnstructuredMesh.h"
-#include "iGameVolumeMesh.h"
+#include <algorithm>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -24,6 +24,36 @@ void SurfaceMeshMeshleter::Build() {
 
     SmartPointer<FloatArray> positions = FloatArray::New();
     SmartPointer<UnsignedIntArray> triangleIndices = UnsignedIntArray::New();
+    struct KeyHash {
+        size_t operator()(const std::array<unsigned int, 3>& k) const noexcept {
+            // simple combine
+            return (static_cast<size_t>(k[0]) * 73856093u) ^
+                   (static_cast<size_t>(k[1]) * 19349663u) ^
+                   (static_cast<size_t>(k[2]) * 83492791u);
+        }
+    };
+    // Replace order-sensitive key with order-invariant key
+    struct TriKey {
+        unsigned int a, b, c;
+        static TriKey Make(unsigned int i0, unsigned int i1, unsigned int i2) {
+            unsigned int x = i0, y = i1, z = i2;
+            if (y < x) { std::swap(x, y); }
+            if (z < y) { std::swap(y, z); }
+            if (y < x) { std::swap(x, y); }
+            return {x, y, z};
+        }
+        bool operator==(const TriKey& other) const noexcept {
+            return a == other.a && b == other.b && c == other.c;
+        }
+    };
+    struct TriKeyHash {
+        size_t operator()(const TriKey& k) const noexcept {
+            return (static_cast<size_t>(k.a) * 73856093u) ^
+                   (static_cast<size_t>(k.b) * 19349663u) ^
+                   (static_cast<size_t>(k.c) * 83492791u);
+        }
+    };
+    std::unordered_map<TriKey, unsigned int, TriKeyHash> triToFace;
 
     // convert to draw date
     timer->Reset();
@@ -34,13 +64,20 @@ void SurfaceMeshMeshleter::Build() {
         positions = mesh->GetPoints()->ConvertToArray();
         // indices
         triangleIndices->SetDimension(3);
+        // triangle to face map
+        triToFace.reserve(mesh->GetNumberOfFaces() * 2);
 
-        int i, ncell;
         igIndex cell[32]{};
-        for (i = 0; i < mesh->GetNumberOfFaces(); i++) {
-            ncell = mesh->GetFacePointIds(i, cell);
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+            int ncell = mesh->GetFacePointIds(i, cell);
             for (int j = 1; j < ncell - 1; j++) {
                 triangleIndices->AddElement3(cell[0], cell[j], cell[j + 1]);
+                // store by sorted vertex ids to be order-invariant
+                TriKey key =
+                        TriKey::Make(static_cast<unsigned int>(cell[0]),
+                                     static_cast<unsigned int>(cell[j]),
+                                     static_cast<unsigned int>(cell[j + 1]));
+                triToFace[key] = static_cast<unsigned int>(i);
                 // add edge mask
                 //int mask = ncell == 3 ? 7 : j == 1 ? 3 : j == ncell - 2 ? 6 : 2;
                 //triangleEdgeMasks->AddValue(mask);
@@ -163,40 +200,66 @@ void SurfaceMeshMeshleter::Build() {
         }
 #else
         // Record indirect Command
-        std::vector<unsigned int> meshletIndices(meshletTriangles.size());
-        std::vector<MeshletDescriptor> meshletDescriptors(meshlet_count);
-        std::vector<DrawElementsIndirectCommand> drawCommands(meshlet_count);
+        m_MeshletIndices.resize(meshletTriangles.size());
+        m_TriangleToFace.resize(meshletTriangles.size() / 3);
+        m_MeshletDescriptors.resize(meshlet_count);
+        m_ElementsDrawCommands.resize(meshlet_count);
+        m_ArraysDrawCommands.resize(meshlet_count);
+
+        // store cell positions for array draws
+        SmartPointer<FloatArray> cellPositions = FloatArray::New();
+        cellPositions->Reserve(meshletTriangles.size() * 3);
+
+        unsigned int triSize = 0u;
         for (size_t i = 0; i < meshlet_count; ++i) {
             const meshopt_Meshlet& m = meshlets[i];
             const meshopt_Bounds& b = meshlet_bounds[i];
 
             for (auto j = m.triangle_offset;
+                 j < m.triangle_offset + m.triangle_count * 3; j += 3) {
+                for (auto k = 0; k < 3; ++k) {
+                    auto id = meshletVertices[m.vertex_offset +
+                                              meshletTriangles[j + k]];
+                    m_MeshletIndices[j + k] = id;
+                    cellPositions->AddValue(positions->GetValue(id * 3 + 0));
+                    cellPositions->AddValue(positions->GetValue(id * 3 + 1));
+                    cellPositions->AddValue(positions->GetValue(id * 3 + 2));
+                }
+                // lookup by sorted key to be robust to different windings
+                TriKey key = TriKey::Make(m_MeshletIndices[j],
+                                          m_MeshletIndices[j + 1],
+                                          m_MeshletIndices[j + 2]);
+                auto it = triToFace.find(key);
+                m_TriangleToFace[triSize + (j - m.triangle_offset) / 3] =
+                        it != triToFace.end() ? it->second : 0u;
+            }
+
+            for (auto j = m.triangle_offset;
                  j < m.triangle_offset + m.triangle_count * 3; j++) {
-                meshletIndices[j] =
+                m_MeshletIndices[j] =
                         meshletVertices[m.vertex_offset + meshletTriangles[j]];
             }
 
-            meshletDescriptors[i] = {
+            m_MeshletDescriptors[i] = {
                     igm::vec4{b.center[0], b.center[1], b.center[2], b.radius},
                     igm::vec4{0.0f}};
 
-            drawCommands[i] = {m.triangle_count * 3, 0, m.triangle_offset, 0,
-                               0};
+            m_ElementsDrawCommands[i] = DrawElementsIndirectCommand{
+                    m.triangle_count * 3, 0, m.triangle_offset, 0, 0};
+
+            // DrawArraysIndirectCommand.first is the starting vertex index.
+            m_ArraysDrawCommands[i] = DrawArraysIndirectCommand{
+                    m.triangle_count * 3, 0, triSize * 3, 0};
+            triSize += m.triangle_count;
         }
 
-        // create buffer
+        // create draw command buffers
         {
             m_MeshletDescriptorBuffer->Create();
             m_MeshletDescriptorBuffer->Target(GL_SHADER_STORAGE_BUFFER);
             m_MeshletDescriptorBuffer->Allocate(
                     meshlet_count * sizeof(MeshletDescriptor),
-                    meshletDescriptors.data(), GL_STATIC_DRAW);
-
-            m_DrawCommandBuffer->Create();
-            m_DrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
-            m_DrawCommandBuffer->Allocate(
-                    meshlet_count * sizeof(DrawElementsIndirectCommand),
-                    drawCommands.data(), GL_STATIC_DRAW);
+                    m_MeshletDescriptors.data(), GL_STATIC_DRAW);
 
             m_VisibleMeshletBuffer->Create();
             m_VisibleMeshletBuffer->Target(GL_SHADER_STORAGE_BUFFER);
@@ -206,22 +269,46 @@ void SurfaceMeshMeshleter::Build() {
             //                                          sizeof(unsigned int),
             //                                  nullptr, GL_DYNAMIC_DRAW);
 
+            m_DrawCommandBuffer->Create();
+            m_DrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_DrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawElementsIndirectCommand),
+                    m_ElementsDrawCommands.data(), GL_STATIC_DRAW);
+
             m_FinalDrawCommandBuffer->Create();
             m_FinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
             m_FinalDrawCommandBuffer->Allocate(
                     meshlet_count * sizeof(DrawElementsIndirectCommand),
                     nullptr, GL_DYNAMIC_DRAW);
 
+            m_CellDrawCommandBuffer->Create();
+            m_CellDrawCommandBuffer->Target(GL_SHADER_STORAGE_BUFFER);
+            m_CellDrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawArraysIndirectCommand),
+                    m_ArraysDrawCommands.data(), GL_STATIC_DRAW);
+
+            m_CellFinalDrawCommandBuffer->Create();
+            m_CellFinalDrawCommandBuffer->Target(GL_DRAW_INDIRECT_BUFFER);
+            m_CellFinalDrawCommandBuffer->Allocate(
+                    meshlet_count * sizeof(DrawArraysIndirectCommand), nullptr,
+                    GL_DYNAMIC_DRAW);
+        }
+
+        // create position buffer
+        {
+            // element draw
             m_PositionVBO->Create();
             m_PositionVBO->Target(GL_ARRAY_BUFFER);
-            m_PositionVBO->Allocate(vertex_count * 3 * sizeof(float),
-                                    vertex_positions, GL_STATIC_DRAW);
+            m_PositionVBO->Allocate(positions->GetNumberOfValues() *
+                                            sizeof(float),
+                                    positions->RawPointer(), GL_STATIC_DRAW);
+            m_PositionVBO->Modified();
 
             m_TriangleEBO->Create();
             m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
-            m_TriangleEBO->Allocate(meshletIndices.size() *
+            m_TriangleEBO->Allocate(m_MeshletIndices.size() *
                                             sizeof(unsigned int),
-                                    meshletIndices.data(), GL_STATIC_DRAW);
+                                    m_MeshletIndices.data(), GL_STATIC_DRAW);
 
             m_TriangleVAO->Create();
             m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
@@ -229,6 +316,20 @@ void SurfaceMeshMeshleter::Build() {
             GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
                               GL_FLOAT, GL_FALSE, 0);
             m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+
+            // array draw
+            m_CellPositionVBO->Create();
+            m_CellPositionVBO->Target(GL_ARRAY_BUFFER);
+            m_CellPositionVBO->Allocate(
+                    cellPositions->GetNumberOfValues() * sizeof(float),
+                    cellPositions->RawPointer(), GL_STATIC_DRAW);
+            m_CellPositionVBO->Modified();
+
+            m_CellTriangleVAO->Create();
+            m_CellTriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_CellPositionVBO, 0,
+                                            3 * sizeof(float));
+            GLSetVertexAttrib(m_CellTriangleVAO, GL_LOCATION_IDX_0,
+                              GL_VBO_IDX_0, 3, GL_FLOAT, GL_FALSE, 0);
         }
 #endif
 

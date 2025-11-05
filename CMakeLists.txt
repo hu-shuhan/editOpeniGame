@@ -38,7 +38,7 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
@@ -125,51 +125,4 @@ endif ()
 if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
-endif ()
-
-# 编译时将默认的MSVC运行时库静态链接，用于exe的打包
-if (MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif ()
-
-# If user requests GPSCUDA, check nvcc version. For Release builds where nvcc is missing
-# or too old, automatically disable GPSCUDA so that Release configure/build can proceed.
-if (ENABLE_GPSCUDA_MODULE)
-    find_program(NVCC_EXECUTABLE nvcc)
-    if (NOT NVCC_EXECUTABLE)
-        set(NVCC_FOUND FALSE)
-    else ()
-        set(NVCC_FOUND TRUE)
-        execute_process(COMMAND ${NVCC_EXECUTABLE} --version
-                OUTPUT_VARIABLE NVCC_OUTPUT
-                ERROR_VARIABLE NVCC_ERROR
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-        string(REGEX MATCH "release ([0-9]+)\\.([0-9]+)" _match "${NVCC_OUTPUT}")
-        if (_match)
-            string(REGEX REPLACE ".*release ([0-9]+)\\.([0-9]+).*" "\\1" NVCC_MAJOR "${NVCC_OUTPUT}")
-            string(REGEX REPLACE ".*release ([0-9]+)\\.([0-9]+).*" "\\2" NVCC_MINOR "${NVCC_OUTPUT}")
-            math(EXPR NVCC_VER_INT "${NVCC_MAJOR} * 100 + ${NVCC_MINOR}")
-        else ()
-            set(NVCC_VER_INT 0)
-        endif ()
-    endif ()
-
-    if (CMAKE_BUILD_TYPE STREQUAL "Release")
-        if (NOT NVCC_FOUND)
-            message(WARNING "ENABLE_GPSCUDA_MODULE=ON but nvcc not found. Disabling GPSCUDA for Release configure to allow build to continue. Install CUDA >=12.4 to re-enable GPU support.")
-            set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
-        elseif (NVCC_VER_INT LESS 1204)
-            message(WARNING "Detected nvcc version ${NVCC_MAJOR}.${NVCC_MINOR} which is older than required 12.4. Disabling GPSCUDA for Release configure. Install CUDA >=12.4 to enable GPU support.")
-            set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
-        endif ()
-    else ()
-        # For non-Release builds, just print detection info; keep the user's choice
-        if (NOT NVCC_FOUND)
-            message(STATUS "GPSCUDA requested but nvcc not found. Debug builds may still succeed without GPU.")
-        elseif (NVCC_VER_INT LESS 1204)
-            message(STATUS "GPSCUDA requested but detected nvcc ${NVCC_MAJOR}.${NVCC_MINOR}; CUDA >=12.4 is recommended.")
-        else ()
-            message(STATUS "Found nvcc ${NVCC_MAJOR}.${NVCC_MINOR} - GPU support enabled")
-        endif ()
-    endif ()
 endif ()

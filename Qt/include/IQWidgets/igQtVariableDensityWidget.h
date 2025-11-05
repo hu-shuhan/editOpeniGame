@@ -86,7 +86,7 @@ private:
     void ClearVariableNameLabel();
     void SetVariablePosLabel(int x, int y);
     void ClearVariablePosLabel();
-    void UpdateChoosedData(const std::vector<Selection::Event>& _events);
+    void UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearChoosedData();
 
 private:
@@ -120,7 +120,7 @@ private:
     void SetClearSelectionCallback();
 
 public:
-    void SelectionCallbackEvent(const std::vector<Selection::Event>& _events);
+    void SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope);
     void ClearSelectionCallback();
 
 private:

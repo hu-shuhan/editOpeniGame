@@ -72,13 +72,7 @@ vec3 CalculateFinalColor(int fragCount) {
     float end_t = uintBitsToFloat(fragments[fragCount - 1].z);
     float interval_t = end_t - start_t;
 
-    int slow = 0;
-    float bias = 0.005;
-
     for (int i = 0; i < fragCount - 1; i++) {
-        bool shouldSkip = (uintBitsToFloat(fragments[i + 1].z) - uintBitsToFloat(fragments[i].z) < bias);
-        if (shouldSkip) { continue; }
-
         vec3 color1 = unpackUnorm4x8(fragments[i].y).xyz;
         float alpha1 = unpackUnorm4x8(fragments[i].y).a;
         float t1 = (uintBitsToFloat(fragments[i].z) - start_t) / interval_t;

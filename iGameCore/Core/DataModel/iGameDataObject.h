@@ -152,6 +152,7 @@ public:
     };
 
 protected:
+    ~DataObject() override{/*std::cout << "Destructed\n";*/};
     DataObject() {
         m_Attributes = AttributeSet::New();
         m_Metadata = Metadata::New();
@@ -177,7 +178,6 @@ protected:
 
         m_AttributeHelper = Object::New();
     }
-    ~DataObject() override{/*std::cout << "Destructed\n";*/};
 
     virtual void ComputeBoundingBox() {}
 

@@ -30,6 +30,9 @@ public:
     iGameStreamTracer() {};
     std::vector<Vector3f> subdataSeedGenerate(int numOfseed);
     std::vector<Vector3f> seedLineGenerate(int numOfseed);
+
+    Vector3f SampleVector(const Vector3f& coord, bool& inside, igIndex& VolumeId,
+                          const std::string& vectorName, float terminalSpeed);
     /**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data

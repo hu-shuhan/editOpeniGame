@@ -887,16 +887,8 @@ void igQtMainWindow::initAllFilters() {
 
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
-    QAction* curvature = view->addAction("Get Curvature");
-    connect(curvature, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        CurvatureFilter::Pointer filter = CurvatureFilter::New();
-        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
-    });
 
-    QAction* gradient = view->addAction("Get Gradient");
+    QAction* gradient = view->addAction("ComputeGradient");
     connect(gradient, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         GradientFilter::Pointer filter = GradientFilter::New();
@@ -905,7 +897,7 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
-    QAction* laplacian = view->addAction("Get Laplacian");
+    QAction* laplacian = view->addAction("ComputeLaplacian");
     connect(laplacian, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
@@ -914,7 +906,16 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
-    QAction* vortex = view->addAction("Get Vortex");
+    QAction* curvature = view->addAction("ComputeCurvature");
+    connect(curvature, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        CurvatureFilter::Pointer filter = CurvatureFilter::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+    });
+
+    QAction* vortex = view->addAction("ComputeVorticity");
     connect(vortex, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
@@ -1709,32 +1710,28 @@ void igQtMainWindow::initAllInteractor() {
                 break;
         }
     });
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectionShow, this, [&](bool visiable) {
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        auto& selectedItems = model->GetSelection()->GetSelectedItems();
-        if (visiable) {
-            for (auto& objsInType: selectedItems) {
-                for (auto& eventsInObj: objsInType.second) {
-                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Show(drawHandle); }
-                }
-            }
-        } else {
-            for (auto& objsInType: selectedItems) {
-                for (auto& eventsInObj: objsInType.second) {
-                    for (auto& drawHandle: eventsInObj.second.drawHandles) { model->GetPainter3D()->Hide(drawHandle); }
-                }
-            }
-        }
-        //if (visiable) model->GetPainter3D()->ShowAll();
-        //else
-        //    model->GetPainter3D()->HideAll();
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectItemVisable(visiable);
+        rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectBoxShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectBoxVisable(visiable);
         rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearSelection, this, [&]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        model->GetSelection()->Reset();
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->Reset();
         rendererWidget->update();
     });
 
@@ -1761,7 +1758,7 @@ void igQtMainWindow::initAllInteractor() {
         //    default:
         //        break;
         //}
-        //auto visiable = ui->widget_SelectionField->GetSelectionShow();
+        //auto visiable = ui->widget_SelectionField->GetSelectItemShow();
         //auto model = rendererWidget->GetScene()->GetCurrentModel();
         //if (model == nullptr) return;
         //if (visiable) model->GetPainter3D()->ShowAll();

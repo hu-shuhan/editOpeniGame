@@ -39,8 +39,8 @@ static void GradientExtract() {
     int d = drawObj->GetAttributeSet()->GetNumberOfAttributes();
 
     //make the results more visible by rescaling the colormap
-    drawObj->GetColorMapper()->SetRange(0, 255);
-    drawObj->GetColorMapper()->SetRangeStable(true);
+//    drawObj->GetColorMapper()->SetRange(0, 255);
+//    drawObj->GetColorMapper()->SetRangeStable(true);
     drawObj->ViewCloudPicture(scene, d - 1);
 
     // Set up the render window

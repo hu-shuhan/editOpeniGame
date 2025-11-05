@@ -241,13 +241,7 @@ void igQtVariableCorrelationWidget::EndRangeChoose() {
     std::vector<igIndex> ids;
     IGenum type{};
     RangeChooseObj(chooseRect, smallDrawFrame, ids, type);
-    if (type == IG_POINT) {
-        auto events = Selection::GeneratePointEvents(ids, Selection::Event::Add, m_Mesh, m_Model->GetPainter3D().get());
-        m_Model->GetSelection()->SelectionCallBackEvent(events);
-    } else if (type == IG_CELL) {
-        auto events = Selection::GenerateCellEvents(ids, Selection::Event::Add, m_Mesh);
-        m_Model->GetSelection()->SelectionCallBackEvent(events, true);
-    }
+    m_Model->GetSelection()->SelectionCallBackEvent(type, ids, Selection::Operate::Add);
     update();
 }
 
@@ -559,26 +553,20 @@ void igQtVariableCorrelationWidget::ClearMainSubPosLabel() {
     ui->subVariablePos->setText("");
 }
 
-void igQtVariableCorrelationWidget::UpdateChoosedData(const std::vector<Selection::Event>& _events) {
+void igQtVariableCorrelationWidget::UpdateChoosedData(IGenum itemType, const std::vector<igIndex>& ids,
+                                                      Selection::Operate ope) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     for (auto& Data: m_VariableCorrelationDatas) {
-        for (auto& e: _events) {
-            switch (e.type) {
-                case Selection::Event::Type::PickPoint:
-                    if (Data->GetDataType() != IG_POINT) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                case Selection::Event::Type::PickFace:
-                    if (Data->GetDataType() != IG_CELL) break;
-                    if (e.operate == Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                    else if (e.operate == Selection::Event::Operate::Remove)
-                        Data->RemoveChoosedObjectId(e.pickId);
-                    break;
-                default:
-                    break;
-            }
+        if (Data->GetDataType() != itemType) continue;
+        switch (ope) {
+            case Selection::Add:
+                for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+                break;
+            case Selection::Remove:
+                for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+                break;
+            default:
+                break;
         }
         Data->SetChoosedObjectDrawSorts(VariableCorrelationData::GenerateObjectDrawSorts(
                 Data->GetVariableNum(), Data->GetChoosedObjectIds(), Data));
@@ -608,7 +596,7 @@ void igQtVariableCorrelationWidget::UpdateChoosedCorrelation() {
 
 VariableCorrelationData::Pointer igQtVariableCorrelationWidget::_GenerateVariableCorrelationDatas(IGenum dataType) {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems();
+    auto& selectedItems = m_Model->GetSelection()->GetSelectedItems(dataType);
     int objNum{};
     if (dataType == IG_POINT) objNum = m_Mesh->GetNumberOfPoints();
     else
@@ -776,7 +764,7 @@ void igQtVariableCorrelationWidget::_DrawPoint(double mainVariableData, double s
 void igQtVariableCorrelationWidget::SetSelectionCallback() {
     auto selection = m_Model->GetSelection();
     selection->SetSelectionCallBackEvent(&igQtVariableCorrelationWidget::SelectionCallbackEvent, this,
-                                         std::placeholders::_1);
+                                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void igQtVariableCorrelationWidget::SetClearSelectionCallback() {
@@ -784,8 +772,9 @@ void igQtVariableCorrelationWidget::SetClearSelectionCallback() {
     selection->SetClearSelectionCallBackEvent(&igQtVariableCorrelationWidget::ClearSelectionCallback, this);
 }
 
-void igQtVariableCorrelationWidget::SelectionCallbackEvent(const std::vector<Selection::Event>& _events) {
-    UpdateChoosedData(_events);
+void igQtVariableCorrelationWidget::SelectionCallbackEvent(IGenum itemType, const std::vector<igIndex>& ids,
+                                                           Selection::Operate ope) {
+    UpdateChoosedData(itemType, ids, ope);
     SetChoosedVariableCorrelationDataColor(m_CurrentShowVariable.first);
     UpdateChoosedCorrelation();
     GenerateChoosedCorImage();

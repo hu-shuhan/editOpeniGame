@@ -20,7 +20,8 @@ public:
 		// 这里请求进行选点
 		Points* ps = mesh->GetPoints();
         fixed = m_Model->GetSelection();
-        fixed->SetSelectionCallBackEvent(&ARAPTest::CallbackEvent, this, std::placeholders::_1);
+        fixed->SetSelectionCallBackEvent(&ARAPTest::CallbackEvent, this, std::placeholders::_1, std::placeholders::_2,
+                                         std::placeholders::_3);
 
 		// 执行算法初始化
 		//auto painter = model->GetPainter();
@@ -42,7 +43,8 @@ public:
 		// 这里请求拖动点
 		Points* ps = mesh->GetPoints();
         moved = m_Model->GetSelection();
-        moved->SetSelectionCallBackEvent(&ARAPTest::CallbackEvent, this, std::placeholders::_1);
+        moved->SetSelectionCallBackEvent(&ARAPTest::CallbackEvent, this, std::placeholders::_1, std::placeholders::_2,
+                                         std::placeholders::_3);
 
 		return true;
 	}
@@ -59,26 +61,26 @@ public:
 		return true;
     }
 
-	void CallbackEvent(const std::vector<Selection::Event>& _events) {
-        for (auto& _event: _events) {
-            switch (_event.type) {
-                case Selection::Event::PickPoint:
+	void CallbackEvent(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
+        for (auto& id: ids) {
+            switch (itemType) {
+                case IG_POINT:
                     // 选几个固定点, 并保存下来
-                    std::cout << "Pick point id: " << _event.pickId << std::endl;
+                    std::cout << "Pick point id: " << id << std::endl;
                     break;
-                case Selection::Event::PickFace:
-                    std::cout << "Pick face id: " << _event.pickId << std::endl;
+                case IG_CELL:
+                    std::cout << "Pick face id: " << id << std::endl;
                     break;
-                case Selection::Event::DragPoint:
-                    std::cout << "Drag point id: " << _event.pickId << " " << _event.pos << std::endl;
-                    dragId = _event.pickId;
-                    dragNew = _event.pos;
+                case IG_DRAGPOINT:
+                    std::cout << "Drag point id: " << id << std::endl;
+                    dragId = id;
+                    dragNew = mesh->GetPoint(id);
                     this->Execute();
                     break;
                 default:
                     break;
             }
-        }
+		}
 	}
 
 protected:

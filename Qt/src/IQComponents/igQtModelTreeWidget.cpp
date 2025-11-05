@@ -236,8 +236,12 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             connect(buildAccelAction, &QAction::triggered, this, [item]() {
                 auto model = item->getModel();
                 if (model && model->GetDataObject()) {
+                    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
                     auto drawObj = iGame::DynamicCast<iGame::DrawObject>(model->GetDataObject());
-                    if (drawObj) { drawObj->SetAccelerationOption(true); }
+                    if (drawObj) {
+                        drawObj->SetAccelerationOption(true);
+                        scene->Update();
+                    }
                 }
             });
 
@@ -246,8 +250,27 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             connect(disableAccelAction, &QAction::triggered, this, [item]() {
                 auto model = item->getModel();
                 if (model && model->GetDataObject()) {
+                    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
                     auto drawObj = iGame::DynamicCast<iGame::DrawObject>(model->GetDataObject());
-                    if (drawObj) { drawObj->SetAccelerationOption(false); }
+                    if (drawObj) {
+                        drawObj->SetAccelerationOption(false);
+                        scene->Update();
+                    }
+                }
+            });
+
+            // 菜单项4：开启/关闭Meshlet可视化
+            QAction* meshletRenderingAction = menu.addAction(QString::fromUtf8("开启/关闭Meshlet可视化"));
+            connect(meshletRenderingAction, &QAction::triggered, this, [item]() {
+                auto model = item->getModel();
+                if (model && model->GetDataObject()) {
+                    auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+                    auto drawObj = iGame::DynamicCast<iGame::DrawObject>(model->GetDataObject());
+                    if (drawObj) {
+                        bool lastOption = drawObj->GetRenderWithMeshlet();
+                        drawObj->SetRenderWithMeshlet(!lastOption);
+                        scene->Update();
+                    }
                 }
             });
 

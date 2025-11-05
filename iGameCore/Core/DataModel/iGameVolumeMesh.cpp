@@ -997,116 +997,133 @@ void VolumeMesh::RequestVolumeStatus() {
 }
 
 void VolumeMesh::ConvertToDrawableData() {
+    // extract surface mesh
+    if (m_ShellRendering) {
+        // 绘制时使用的是父对象的属性
+        if (m_AttributeIndex == -1) {
+            m_UseColor = false;
+            m_ColorWithCell = false;
+        } else {
+            m_UseColor = true;
+        }
+
+        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime()) {
+            return;
+        }
+
+        bool extractShellSuccess = false;
+        iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
+        // update clip status
+        auto box = m_Clipper->m_Box;
+        if (box.m_Use) {
+            const auto& a = box.m_Bmin;
+            const auto& b = box.m_Bmax;
+            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+        }
+
+        auto plane = m_Clipper->m_Plane;
+        if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
+        // shell algorithm
+        SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+        if (extract->Execute(this, surfaceMesh)) {
+            extractShellSuccess = true;
+            SetRenderableObject(surfaceMesh);
+            m_PointMap = extract->GetPointMap();
+        } else {
+            igDebug("Failed to execute the shell algorithm.");
+        }
+
+        if (extractShellSuccess) { return; }
+    }
+
+    // convert original data
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime() ||
         m_ReConvertToDrawableData) {
         m_ReConvertToDrawableData = false;
+        UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
+        edgeIndices->SetDimension(2);
+        UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
+        triangleIndices->SetDimension(3);
+        UnsignedCharArray::Pointer triangleEdgeMasks = UnsignedCharArray::New();
+        triangleEdgeMasks->SetDimension(1);
 
-        if (m_ExecuteShell) {
-            iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
-            // update clip status
-            auto box = m_Clipper->m_Box;
-            if (box.m_Use) {
-                const auto& a = box.m_Bmin;
-                const auto& b = box.m_Bmax;
-                extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
-            }
-
-            auto plane = m_Clipper->m_Plane;
-            if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
-            // shell algorithm
-            SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-            if (extract->Execute(this, surfaceMesh)) {
-                SetRenderableObject(surfaceMesh);
-                m_PointMap = extract->GetPointMap();
-            } else {
-                igError("Failed to execute the shell algorithm.");
+        if (!this->IsPolyhedronType) {
+            for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
+                Volume* volume = this->GetVolume(i);
+                if (!m_Clipper->IsAllDisable()) {
+                    bool visible = true;
+                    for (int j = 0; j < volume->GetNumberOfPoints(); ++j) {
+                        const auto& point = volume->GetPoint(j);
+                        if (!m_Clipper->IsVisible(point.pointer())) {
+                            visible = false;
+                            break;
+                        }
+                    }
+                    if (!visible) continue;
+                }
+                const igIndex* face;
+                for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
+                    int size = volume->GetFacePointIds(j, face);
+                    for (int k = 1; k < size - 1; k++) {
+                        triangleIndices->AddElement3(volume->m_PointIds->GetId(face[0]),
+                                                        volume->m_PointIds->GetId(face[k]),
+                                                        volume->m_PointIds->GetId(face[k + 1]));
+                        // add edge mask
+                        int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
+                        triangleEdgeMasks->AddValue(mask);
+                    }
+                }
+                const igIndex* edge;
+                for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
+                    int size = volume->GetEdgePointIds(j, edge);
+                    edgeIndices->AddElement2(volume->m_PointIds->GetId(edge[0]),
+                                                volume->m_PointIds->GetId(edge[1]));
+                }
             }
         } else {
-            UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
-            edgeIndices->SetDimension(2);
-            UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
-            triangleIndices->SetDimension(3);
-            UnsignedCharArray::Pointer triangleEdgeMasks = UnsignedCharArray::New();
-            triangleEdgeMasks->SetDimension(1);
-
-            if (!this->IsPolyhedronType) {
-                for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
-                    Volume* volume = this->GetVolume(i);
-                    if (!m_Clipper->IsAllDisable()) {
-                        bool visible = true;
-                        for (int j = 0; j < volume->GetNumberOfPoints(); ++j) {
-                            const auto& point = volume->GetPoint(j);
+            igIndex fcnt = 0;
+            igIndex fhs[IGAME_CELL_MAX_SIZE];
+            igIndex face[IGAME_CELL_MAX_SIZE];
+            for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
+                fcnt = this->m_VolumeFaces->GetCellIds(i, fhs);
+                if (!m_Clipper->IsAllDisable()) {
+                    bool visible = true;
+                    for (int j = 0; j < fcnt; j++) {
+                        int size = this->m_Faces->GetCellIds(fhs[j], face);
+                        for (int k = 0; k < size; k++) {
+                            const auto& point = this->GetPoint(face[k]);
                             if (!m_Clipper->IsVisible(point.pointer())) {
                                 visible = false;
                                 break;
                             }
                         }
-                        if (!visible) continue;
+                        if (!visible) break;
                     }
-                    const igIndex* face;
-                    for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
-                        int size = volume->GetFacePointIds(j, face);
-                        for (int k = 1; k < size - 1; k++) {
-                            triangleIndices->AddElement3(volume->m_PointIds->GetId(face[0]),
-                                                         volume->m_PointIds->GetId(face[k]),
-                                                         volume->m_PointIds->GetId(face[k + 1]));
-                            // add edge mask
-                            int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
-                            triangleEdgeMasks->AddValue(mask);
-                        }
-                    }
-                    const igIndex* edge;
-                    for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
-                        int size = volume->GetEdgePointIds(j, edge);
-                        edgeIndices->AddElement2(volume->m_PointIds->GetId(edge[0]),
-                                                 volume->m_PointIds->GetId(edge[1]));
-                    }
+                    if (!visible) continue;
                 }
-            } else {
-                igIndex fcnt = 0;
-                igIndex fhs[IGAME_CELL_MAX_SIZE];
-                igIndex face[IGAME_CELL_MAX_SIZE];
-                for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
-                    fcnt = this->m_VolumeFaces->GetCellIds(i, fhs);
-                    if (!m_Clipper->IsAllDisable()) {
-                        bool visible = true;
-                        for (int j = 0; j < fcnt; j++) {
-                            int size = this->m_Faces->GetCellIds(fhs[j], face);
-                            for (int k = 0; k < size; k++) {
-                                const auto& point = this->GetPoint(face[k]);
-                                if (!m_Clipper->IsVisible(point.pointer())) {
-                                    visible = false;
-                                    break;
-                                }
-                            }
-                            if (!visible) break;
-                        }
-                        if (!visible) continue;
-                    }
-                    for (int j = 0; j < fcnt; j++) {
-                        int size = this->m_Faces->GetCellIds(fhs[j], face);
-                        for (int k = 1; k < size - 1; k++) {
-                            triangleIndices->AddElement3(face[0], face[k], face[k + 1]);
-                            // add edge mask
-                            int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
-                            triangleEdgeMasks->AddValue(mask);
-                        }
+                for (int j = 0; j < fcnt; j++) {
+                    int size = this->m_Faces->GetCellIds(fhs[j], face);
+                    for (int k = 1; k < size - 1; k++) {
+                        triangleIndices->AddElement3(face[0], face[k], face[k + 1]);
+                        // add edge mask
+                        int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
+                        triangleEdgeMasks->AddValue(mask);
                     }
                 }
             }
-
-            m_Positions = m_Points->ConvertToArray();
-            m_Positions->Modified();
-
-            m_LineIndices = edgeIndices;
-            m_LineIndices->Modified();
-
-            m_TriangleIndices = triangleIndices;
-            m_TriangleIndices->Modified();
-
-            m_TriangleEdgeMasks = triangleEdgeMasks;
-            m_TriangleEdgeMasks->Modified();
         }
+
+        m_Positions = m_Points->ConvertToArray();
+        m_Positions->Modified();
+
+        m_LineIndices = edgeIndices;
+        m_LineIndices->Modified();
+
+        m_TriangleIndices = triangleIndices;
+        m_TriangleIndices->Modified();
+
+        m_TriangleEdgeMasks = triangleEdgeMasks;
+        m_TriangleEdgeMasks->Modified();
     }
 
     // convert scalar data
@@ -1212,8 +1229,10 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
 
     FloatArray::Pointer newPositions = FloatArray::New();
     FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
     newPositions->SetDimension(3);
     newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
 
     float color[3]{};
     for (int i = 0; i < this->GetNumberOfVolumes(); i++) {
@@ -1222,17 +1241,20 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
         colors->GetElement(i, color);
         for (int j = 0; j < volume->GetNumberOfFaces(); j++) {
             int size = volume->GetFacePointIds(j, face);
-            for (int k = 2; k < size; k++) {
+            for (int k = 1; k < size - 1; k++) {
                 auto& p0 = volume->m_Points->GetPoint(face[0]);
                 newPositions->AddElement3(p0[0], p0[1], p0[2]);
-                auto& p1 = volume->m_Points->GetPoint(face[k - 1]);
+                auto& p1 = volume->m_Points->GetPoint(face[k]);
                 newPositions->AddElement3(p1[0], p1[1], p1[2]);
-                auto& p2 = volume->m_Points->GetPoint(face[k]);
+                auto& p2 = volume->m_Points->GetPoint(face[k + 1]);
                 newPositions->AddElement3(p2[0], p2[1], p2[2]);
 
                 newColors->AddElement3(color[0], color[1], color[2]);
                 newColors->AddElement3(color[0], color[1], color[2]);
                 newColors->AddElement3(color[0], color[1], color[2]);
+
+                int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
+                newEdgeMasks->AddValue(mask);
             }
         }
     }
@@ -1244,5 +1266,8 @@ void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray
 
     m_CellColors = newColors;
     m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 IGAME_NAMESPACE_END

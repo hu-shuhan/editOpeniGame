@@ -314,10 +314,9 @@ void ParallelCoordinatesData::SetVariableSort(const std::vector<int>& variableSo
 
 const std::vector<int>& ParallelCoordinatesData::GetVariableSort() { return m_VariableSort; }
 
-ParallelCoordinatesData::Pointer
-ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs, IGenum dataType,
-                             const std::map<Selection::Event::Type, std::map<igIndex, Selection::Event>>& selectedItems,
-                             int objNum) {
+ParallelCoordinatesData::Pointer ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attrs,
+                                                              IGenum dataType, const std::set<igIndex>& selectedItems,
+                                                              int objNum) {
     auto variableNames = ParallelCoordinatesData::GenerateVariableNames(attrs, dataType);
     int variableNum = variableNames.size();
     if (variableNum == 0) return ParallelCoordinatesData::Pointer();
@@ -334,7 +333,7 @@ ParallelCoordinatesData::New(ElementArray<AttributeSet::Attribute>::Pointer attr
     Data->SetKeyObjectIdToIndexMap(ParallelCoordinatesData::GenerateKeyObjectIdToIndexs(keyObjIds));
     Data->SetObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, keyObjIds, Data));
     Data->SetDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetUnChoosedLight()));
-    auto choosedObjIds = ParallelCoordinatesData::GenerateChoosedObjectIds(selectedItems, dataType);
+    auto& choosedObjIds = selectedItems;
     Data->SetChoosedObjectIds(choosedObjIds);
     Data->SetChoosedObjectDrawSorts(ParallelCoordinatesData::GenerateObjectDrawSorts(variableNum, choosedObjIds, Data));
     Data->SetChoosedDefaultColor(ParallelCoordinatesData::GenerateDefaultColor(Data->GetChoosedLight()));
@@ -426,30 +425,24 @@ bool ParallelCoordinatesData::NotInFilterValueRange(int objId) {
 
 void ParallelCoordinatesData::SetDefaultSelectionFunc(const std::string& funcName, Selection* selection) {
     selection->_SetSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultSelectionCallBackFunc, this,
-                                          std::placeholders::_1);
+                                          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     selection->_SetClearSelectionCallBackEvent(funcName, &ParallelCoordinatesData::DefaultClearSelectionCallBackFunc,
                                                this);
 }
 
-void ParallelCoordinatesData::DefaultSelectionCallBackFunc(const std::vector<Selection::Event>& _events) {
+void ParallelCoordinatesData::DefaultSelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids,
+                                                           Selection::Operate ope) {
     auto Data = this;
-    for (auto& e: _events) {
-        switch (e.type) {
-            case iGame::Selection::Event::Type::PickPoint:
-                if (Data->GetDataType() != IG_POINT) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            case iGame::Selection::Event::Type::PickFace:
-                if (Data->GetDataType() != IG_CELL) break;
-                if (e.operate == iGame::Selection::Event::Operate::Add) Data->AddChoosedObjectId(e.pickId);
-                else if (e.operate == iGame::Selection::Event::Operate::Remove)
-                    Data->RemoveChoosedObjectId(e.pickId);
-                break;
-            default:
-                break;
-        }
+    if (Data->GetDataType() != itemType) return;
+    switch (ope) {
+        case Selection::Add:
+            for (auto& id: ids) { Data->AddChoosedObjectId(id); }
+            break;
+        case Selection::Remove:
+            for (auto& id: ids) { Data->RemoveChoosedObjectId(id); }
+            break;
+        default:
+            break;
     }
 }
 
