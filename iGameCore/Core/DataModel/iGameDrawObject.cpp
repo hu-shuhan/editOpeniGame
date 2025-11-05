@@ -414,6 +414,8 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
+    if (!m_ShellRendering) { return this; }
+
     if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr) { return m_RenderableMesh.SimplifiedMesh; }
     if (m_RenderableMesh.SurfaceMesh != nullptr) { return m_RenderableMesh.SurfaceMesh; }
     return this;
@@ -422,6 +424,13 @@ DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
 
 bool DrawObject::IsAlwaysOnTop() const { return m_AlwaysOnTop; }
+
+void DrawObject::SetShellRenderingOption(bool option) {
+    if (m_ShellRendering != option) {
+        m_ShellRendering = option;
+        m_ReConvertToDrawableData = true;
+    }
+}
 
 void DrawObject::SetAccelerationOption(bool enabled) {
 #ifdef IGAME_OPENGL_VERSION_330
