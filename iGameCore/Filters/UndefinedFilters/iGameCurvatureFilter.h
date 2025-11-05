@@ -10,11 +10,11 @@
 #include "iGameUnstructuredMesh.h"
 #include <cmath>
 #include <unordered_set>
+#include <algorithm>
 
 
 IGAME_NAMESPACE_BEGIN
 
-//返回两个数据
 class CurvatureFilter : public Filter {
 public:
     I_OBJECT(CurvatureFilter);
@@ -138,132 +138,126 @@ public:
         return false;
     }
 
-    bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh, AttributeSet::Pointer Attributes,
-                                      int Index) {
-    int nV = surface_Mesh->GetNumberOfPoints();
-    int nF = surface_Mesh->GetNumberOfFaces();
+bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh,
+                                      AttributeSet::Pointer Attributes,
+                                      int Index)
+{
+    const int nV = surface_Mesh->GetNumberOfPoints();
+    const int nF = surface_Mesh->GetNumberOfFaces();
     if (nV <= 0 || nF <= 0) return false;
 
     auto attrSet = surface_Mesh->GetAttributeSet();
+
     FloatArray::Pointer curv_mean = FloatArray::New();
     curv_mean->SetDimension(1);
-    curv_mean->Reserve(nV);
+    curv_mean->Resize(nV);
     curv_mean->SetName("cur_mean");
     attrSet->AddScalar(IG_POINT, curv_mean);
 
     FloatArray::Pointer curv_gaussian = FloatArray::New();
     curv_gaussian->SetDimension(1);
-    curv_gaussian->Reserve(nV);
+    curv_gaussian->Resize(nV);
     curv_gaussian->SetName("cur_gaussian");
     attrSet->AddScalar(IG_POINT, curv_gaussian);
 
-    std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
-    std::vector<double> mixArea(nV, 0.0);
-    std::vector<double> angleSum(nV, 0.0);
-    std::vector<int> neighborCount(nV, 0);
-
-    auto toEigen = [](const Vector<float, 3>& p) -> Eigen::Vector3d {
-        return Eigen::Vector3d(double(p[0]), double(p[1]), double(p[2]));
+    auto toEigen = [](const Vector<float,3>& p)->Eigen::Vector3d {
+        return {double(p[0]), double(p[1]), double(p[2])};
     };
-
-    auto triArea = [](const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& c) -> double {
-        return 0.5 * ((b - a).cross(c - a)).norm();
+    auto triArea = [](const Eigen::Vector3d& a,
+                      const Eigen::Vector3d& b,
+                      const Eigen::Vector3d& c)->double {
+        return 0.5 * ((b-a).cross(c-a)).norm();
     };
-
-    auto angleABC = [](const Eigen::Vector3d& A, const Eigen::Vector3d& B, const Eigen::Vector3d& C) -> double {
-        // 角B
+    auto angleABC = [](const Eigen::Vector3d& A,
+                       const Eigen::Vector3d& B,
+                       const Eigen::Vector3d& C)->double {
         Eigen::Vector3d u = (A - B).normalized();
         Eigen::Vector3d v = (C - B).normalized();
         double cosv = std::clamp(u.dot(v), -1.0, 1.0);
         return std::acos(cosv);
     };
-
-    auto cot = [](double ang) -> double {
+    auto cot = [](double ang)->double {
+        const double eps = 1e-8;  // 稳定些
         double s = std::sin(ang);
         double c = std::cos(ang);
-        const double eps = 1e-12;
-        if (std::abs(s) < eps) return (c >= 0 ? 1.0 / eps : -1.0 / eps);
+        if (std::abs(s) < eps) return (c >= 0 ? 1.0/eps : -1.0/eps);
         return c / s;
     };
-    std::vector<std::unordered_set<int>> vertexNeighbors(nV);
-     for (int f = 0; f < nF; ++f) {
-         auto face = surface_Mesh->GetFace(f);
-         int m = face->GetNumberOfPoints();
-         if (m < 3) continue;
 
-         std::vector<int> vids(m);
-         for (int k = 0; k < m; ++k) {
-             vids[k] = int(face->GetPointId(k));
-             neighborCount[vids[k]]++;
-         }
+    std::vector<Eigen::Vector3d> Hn(nV, Eigen::Vector3d::Zero());
+    std::vector<double> mixArea(nV, 0.0);
+    std::vector<double> angleSum(nV, 0.0);
 
-         for (int k = 0; k < m; ++k) {
-             for (int j = 0; j < m; ++j) {
-                 if (k != j) {
-                     vertexNeighbors[vids[k]].insert(vids[j]);
-                 }
-             }
-         }
-     }
+    struct EdgeKey {
+        int a, b;
+        bool operator==(const EdgeKey& o) const { return a==o.a && b==o.b; }
+    };
+    struct EdgeKeyHash {
+        size_t operator()(const EdgeKey& k) const {
+            return (size_t(k.a) << 32) ^ size_t(k.b);
+        }
+    };
+    std::unordered_map<EdgeKey,int,EdgeKeyHash> edgeUse;
+    auto add_edge = [&](int u, int v){
+        if (u>v) std::swap(u,v);
+        edgeUse[{u,v}]++;
+    };
 
     int progress = 0;
     int block = std::max(1, nF / 100);
 
     for (int f = 0; f < nF; ++f) {
-        if (f >= block * progress) {
-            UpdateProgress(progress * 0.01);
-            progress++;
-        }
+        if (f >= block * progress) { UpdateProgress(progress * 0.01); ++progress; }
+
         auto face = surface_Mesh->GetFace(f);
         int m = face->GetNumberOfPoints();
         if (m < 3) continue;
 
-        // 三角化
         std::vector<int> vids(m);
         for (int k = 0; k < m; ++k) vids[k] = int(face->GetPointId(k));
 
+        for (int k = 0; k < m; ++k) add_edge(vids[k], vids[(k+1)%m]);
+
         for (int k = 1; k + 1 < m; ++k) {
-            int i0 = vids[0], i1 = vids[k], i2 = vids[k + 1];
+            int i0 = vids[0], i1 = vids[k], i2 = vids[k+1];
             Eigen::Vector3d p0 = toEigen(surface_Mesh->GetPoint(i0));
             Eigen::Vector3d p1 = toEigen(surface_Mesh->GetPoint(i1));
             Eigen::Vector3d p2 = toEigen(surface_Mesh->GetPoint(i2));
 
-            double A = triArea(p0, p1, p2);
+            double A = triArea(p0,p1,p2);
             if (A <= 1e-20) continue;
 
-            double a0 = angleABC(p1, p0, p2);
-            double a1 = angleABC(p0, p1, p2);
-            double a2 = angleABC(p0, p2, p1);
+            double a0 = angleABC(p1, p0, p2); // at p0
+            double a1 = angleABC(p0, p1, p2); // at p1
+            double a2 = angleABC(p0, p2, p1); // at p2
 
             angleSum[i0] += a0;
             angleSum[i1] += a1;
             angleSum[i2] += a2;
 
-            auto accumulateVoronoi = [&](int ivtx, double opp1, double opp2, const Eigen::Vector3d& Pi,
-                                         const Eigen::Vector3d& Pj, const Eigen::Vector3d& Pk) {
-                bool obtuse = (a0 > M_PI / 2) || (a1 > M_PI / 2) || (a2 > M_PI / 2);
+            auto accumulateVoronoi = [&](int ivtx, double opp1, double opp2,
+                                         const Eigen::Vector3d& Pi,
+                                         const Eigen::Vector3d& Pj,
+                                         const Eigen::Vector3d& Pk) {
+                bool obtuse = (a0 > M_PI/2) || (a1 > M_PI/2) || (a2 > M_PI/2);
                 if (!obtuse) {
                     double lij = (Pj - Pi).squaredNorm();
                     double lik = (Pk - Pi).squaredNorm();
                     double v = (cot(opp1) * lij + cot(opp2) * lik) * 0.125;
                     mixArea[ivtx] += v;
                 } else {
-                    int obtId = (a0 > M_PI / 2) ? i0 : (a1 > M_PI / 2 ? i1 : i2);
+                    int obtId = (a0 > M_PI/2) ? i0 : ((a1 > M_PI/2) ? i1 : i2);
                     if (ivtx == obtId) mixArea[ivtx] += 0.5 * A;
-                    else
-                        mixArea[ivtx] += 0.25 * A;
+                    else               mixArea[ivtx] += 0.25 * A;
                 }
             };
-
             accumulateVoronoi(i0, a1, a2, p0, p1, p2);
             accumulateVoronoi(i1, a0, a2, p1, p0, p2);
-
             accumulateVoronoi(i2, a0, a1, p2, p0, p1);
 
             double cot0 = cot(a2);
             double cot1 = cot(a0);
             double cot2 = cot(a1);
-
             auto addEdgeContrib = [&](int ia, int ib, double cotOpp) {
                 Eigen::Vector3d xa = toEigen(surface_Mesh->GetPoint(ia));
                 Eigen::Vector3d xb = toEigen(surface_Mesh->GetPoint(ib));
@@ -271,150 +265,70 @@ public:
                 Hn[ia] += 0.5 * cotOpp * e;
                 Hn[ib] -= 0.5 * cotOpp * e;
             };
-
-            addEdgeContrib(i0, i1, cot2);
-            addEdgeContrib(i1, i2, cot0);
-            addEdgeContrib(i2, i0, cot1);
+            addEdgeContrib(i0,i1,cot2);
+            addEdgeContrib(i1,i2,cot0);
+            addEdgeContrib(i2,i0,cot1);
         }
     }
 
-    for (int i = 0; i < nV; ++i) {
-        if (mixArea[i] <= 1e-10) mixArea[i] = 1e-10;
+    std::vector<double> areas = mixArea;
+    std::vector<double> areasPos;
+    areasPos.reserve(nV);
+    for (double a : areas) if (a > 0) areasPos.push_back(a);
+    double areaFloor = 1e-10;
+    if (!areasPos.empty()) {
+        std::nth_element(areasPos.begin(),
+                         areasPos.begin() + areasPos.size()/2,
+                         areasPos.end());
+        double med = areasPos[areasPos.size()/2];
+        areaFloor = std::max(1e-12, med * 1e-4);
+    }
+    for (int i=0;i<nV;++i) if (mixArea[i] <= areaFloor) mixArea[i] = areaFloor;
+
+
+    std::vector<bool> isBoundary(nV,false);
+    for (auto& kv : edgeUse) {
+        if (kv.second == 1) {
+            isBoundary[kv.first.a] = true;
+            isBoundary[kv.first.b] = true;
+        }
     }
 
-    std::vector<double> H_values(nV);
-    std::vector<double> K_values(nV);
-
+    std::vector<double> H_values(nV), K_values(nV);
     const double twoPi = 2.0 * M_PI;
-    for (int i = 0; i < nV; ++i) {
+    const double onePi = M_PI;
 
+    for (int i=0;i<nV;++i) {
         double H = Hn[i].norm() / (2.0 * mixArea[i]);
-        double K = (twoPi - angleSum[i]) / mixArea[i];
-
-        double disc = H * H - K;
-        if (disc < 0.0) disc = 0.0;
-        double sqrt_disc = std::sqrt(disc);
-        double kmax = H + sqrt_disc;
-        double kmin = H - sqrt_disc;
-
+        double K = (isBoundary[i] ? (onePi - angleSum[i])
+                                  : (twoPi - angleSum[i])) / mixArea[i];
         H_values[i] = H;
         K_values[i] = K;
-
-        // 一：(k1 + k2)/2 = H
-        // 二：k1 * k2   = K
-        // curv_mean->AddValue(H);
-        // curv_gaussian->AddValue(K);
     }
-    std::vector<bool> isBoundary(nV, false);
-    for (int i = 0; i < nV; ++i) {
-        if (neighborCount[i] < 3) {
-            isBoundary[i] = true;
+
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi){
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q){
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size()-1));
+            std::nth_element(tmp.begin(), tmp.begin()+idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo,hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
         }
+    };
+    clamp_by_quantile(H_values, 0.02, 0.98);
+    clamp_by_quantile(K_values, 0.02, 0.98);
+
+    for (int i=0;i<nV;++i){
+        curv_mean->SetValue(i, H_values[i]);
+        curv_gaussian->SetValue(i, K_values[i]);
     }
-
-    for (int i = 0; i < nV; ++i) {
-        if (isBoundary[i]) {
-            double avgH = 0.0, avgK = 0.0;
-            int count = 0;
-
-            for (int neighbor : vertexNeighbors[i]) {
-                if (!isBoundary[neighbor]) {
-                    avgH += H_values[neighbor];
-                    avgK += K_values[neighbor];
-                    count++;
-                }
-            }
-
-            if (count > 0) {
-                H_values[i] = avgH / count;
-                K_values[i] = avgK / count;
-            } else {
-                double totalH = 0.0, totalK = 0.0;
-                int totalCount = 0;
-                for (int j = 0; j < nV; ++j) {
-                    if (!isBoundary[j]) {
-                        totalH += H_values[j];
-                        totalK += K_values[j];
-                        totalCount++;
-                    }
-                }
-                if (totalCount > 0) {
-                    H_values[i] = totalH / totalCount;
-                    K_values[i] = totalK / totalCount;
-                }
-            }
-        }
-    }
-    const int smoothIterations = 1;
-    std::vector<double> smoothedH = H_values;
-    std::vector<double> smoothedK = K_values;
-
-    for (int iter = 0; iter < smoothIterations; ++iter) {
-        std::vector<double> newH(nV, 0.0);
-        std::vector<double> newK(nV, 0.0);
-
-        for (int i = 0; i < nV; ++i) {
-            if (isBoundary[i]) {
-                newH[i] = smoothedH[i];
-                newK[i] = smoothedK[i];
-                continue;
-            }
-
-            double sumH = 0.0, sumK = 0.0;
-            int count = 0;
-
-            for (int neighbor : vertexNeighbors[i]) {
-                sumH += smoothedH[neighbor];
-                sumK += smoothedK[neighbor];
-                count++;
-            }
-
-            if (count > 0) {
-                newH[i] = 0.3 * smoothedH[i] + 0.7 * (sumH / count);
-                newK[i] = 0.3 * smoothedK[i] + 0.7 * (sumK / count);
-            } else {
-                newH[i] = smoothedH[i];
-                newK[i] = smoothedK[i];
-            }
-        }
-
-        smoothedH = newH;
-        smoothedK = newK;
-    }
-    double H_mean = 0.0, K_mean = 0.0;
-    for (int i = 0; i < nV; ++i) {
-        H_mean += smoothedH[i];
-        K_mean += smoothedK[i];
-    }
-    H_mean /= nV;
-    K_mean /= nV;
-
-    double H_std = 0.0, K_std = 0.0;
-    for (int i = 0; i < nV; ++i) {
-        H_std += (smoothedH[i] - H_mean) * (smoothedH[i] - H_mean);
-        K_std += (smoothedK[i] - K_mean) * (smoothedK[i] - K_mean);
-    }
-    H_std = std::sqrt(H_std / nV);
-    K_std = std::sqrt(K_std / nV);
-
-    double H_threshold = 5.0 * H_std;
-    double K_threshold = 1.0 * K_std;
-
-    for (int i = 0; i < nV; ++i) {
-        double H = smoothedH[i];
-        double K = smoothedK[i];
-
-        if (std::abs(H - H_mean) > H_threshold)
-            H = H_mean + (H - H_mean) / std::abs(H - H_mean) * H_threshold;
-
-        if (std::abs(K - K_mean) > K_threshold)
-            K = K_mean + (K - K_mean) / std::abs(K - K_mean) * K_threshold;
-
-            // 一：(k1 + k2)/2 = H
-            // 二：k1 * k2   = K
-        curv_mean->AddValue(H);
-        curv_gaussian->AddValue(K);
-        }
 
     UpdateProgress(1.0);
     return true;

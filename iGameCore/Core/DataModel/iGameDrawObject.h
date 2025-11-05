@@ -82,6 +82,8 @@ public:
     void SetAlwaysOnTop(bool enable);
     bool IsAlwaysOnTop() const;
 
+    void SetShellRenderingOption(bool option);
+
     /**
      * @brief 设置是否启用加速渲染模式。
      * @param enabled 若为 true，则启用加速渲染（如使用 Meshlet 结构化）；若为 false，则关闭。
@@ -108,6 +110,7 @@ protected:
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
     bool m_AutoUpdateDrawData; // 是否自动更新GPU数据
+    bool m_ShellRendering = true; // 是否启用抽壳渲染
 
     // 加速结构
     bool m_AccelerationOption = false;

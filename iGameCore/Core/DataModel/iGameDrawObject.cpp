@@ -382,20 +382,16 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_Positions->Modified();
     m_RenderableMesh.SurfaceMesh->m_ColorMapper = this->m_ColorMapper;
 
-    //if (m_Name != "sukong_Step-1_4") {
-    //    m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    //} else {
-    // SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(dataObject);
-    // if (surfaceMesh) {
-    //     MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
-    //     meshSimplifier->SetInput(surfaceMesh);
-    //     meshSimplifier->SetTargetReduction(0.9);
-    //     meshSimplifier->Execute();
-    //     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
-    // } else {
-    //     m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    // }
-    m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    // simplify mesh
+    MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
+    meshSimplifier->SetInput(dataObject);
+    meshSimplifier->SetTargetReduction(0.9);
+    if (meshSimplifier->Execute()) {
+        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
+    } else {
+        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    }
+
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
@@ -414,6 +410,8 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
+    if (!m_ShellRendering) { return this; }
+
     if (useSimplified && m_RenderableMesh.SimplifiedMesh != nullptr) { return m_RenderableMesh.SimplifiedMesh; }
     if (m_RenderableMesh.SurfaceMesh != nullptr) { return m_RenderableMesh.SurfaceMesh; }
     return this;
@@ -422,6 +420,13 @@ DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
 
 bool DrawObject::IsAlwaysOnTop() const { return m_AlwaysOnTop; }
+
+void DrawObject::SetShellRenderingOption(bool option) {
+    if (m_ShellRendering != option) {
+        m_ShellRendering = option;
+        m_ReConvertToDrawableData = true;
+    }
+}
 
 void DrawObject::SetAccelerationOption(bool enabled) {
 #ifdef IGAME_OPENGL_VERSION_330
