@@ -34,9 +34,10 @@ bool GradientFilter::Execute() {
             return ComputeGradientWithSurfaceMesh(surface_Mesh, attributeSet, curIndex);
         } break;
         case IG_VOLUME_MESH: {
-            volume_Mesh = DynamicCast<VolumeMesh>(input);
-            if (!CheckType()) return false;
-            return ComputeGradientWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
+            return false;
+            // volume_Mesh = DynamicCast<VolumeMesh>(input);
+            // if (!CheckType()) return false;
+            // return ComputeGradientWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
 
         } break;
         case IG_UNSTRUCTURED_MESH: {
@@ -50,8 +51,9 @@ bool GradientFilter::Execute() {
             }
 
             if (volume_Mesh) {
-                if (!CheckType()) return false;
-                return ComputeGradientWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
+                return false;
+                // if (!CheckType()) return false;
+                // return ComputeGradientWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
             }
         } break;
         default:
@@ -135,62 +137,248 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
         }
 
         auto cell = Mesh->GetFace(cellId);
-        auto grad = ComputeVectorGradByPlane(cell, Data);
 
-        double omega_x = grad.x.gx;
-        double omega_y = grad.x.gy;
-        double omega_z = grad.x.gz;
-        gradient_values[cellId][0] = omega_x;
-        gradient_values[cellId][1] = omega_y;
-        gradient_values[cellId][2] = omega_z;
+        VectorGrad grad;
+        switch (cell->GetCellType()) {
+            case IG_TRIANGLE: {
+                Vector3f p0 = cell->GetPoint(0);
+                Vector3f p1 = cell->GetPoint(1);
+                Vector3f p2 = cell->GetPoint(2);
+
+                int pid0 = cell->GetPointId(0);
+                int pid1 = cell->GetPointId(1);
+                int pid2 = cell->GetPointId(2);
+
+                Vector3f v0 = p1 - p0;
+                Vector3f v1 = p2 - p0;
+
+                float d00 = v0.dot(v0);
+                float d01 = v0.dot(v1);
+                float d11 = v1.dot(v1);
+                float denom = d00 * d11 - d01 * d01;
+                float denomr = denom == 0 ? 0.f : 1.f / denom;
+
+                float gx1 = (d11 * v0[0] - d01 * v1[0]) * denomr;
+                float gx2 = (d00 * v1[0] - d01 * v0[0]) * denomr;
+                float gy1 = (d11 * v0[1] - d01 * v1[1]) * denomr;
+                float gy2 = (d00 * v1[1] - d01 * v0[1]) * denomr;
+                float gz1 = (d11 * v0[2] - d01 * v1[2]) * denomr;
+                float gz2 = (d00 * v1[2] - d01 * v0[2]) * denomr;
+
+                float a0 = Data->GetValue(pid0);
+                float a1 = Data->GetValue(pid1);
+                float a2 = Data->GetValue(pid2);
+
+                float gx = gx1 * (a1 - a0) + gx2 * (a2 - a0);
+                float gy = gy1 * (a1 - a0) + gy2 * (a2 - a0);
+                float gz = gz1 * (a1 - a0) + gz2 * (a2 - a0);
+
+                grad.x.gx = gx;
+                grad.x.gy = gy;
+                grad.x.gz = gz;
+                break;
+            }
+            case IG_QUAD: {
+                Vector3f p0 = cell->GetPoint(0);
+                Vector3f p1 = cell->GetPoint(1);
+                Vector3f p2 = cell->GetPoint(2);
+                Vector3f p3 = cell->GetPoint(3);
+
+                int pid0 = cell->GetPointId(0);
+                int pid1 = cell->GetPointId(1);
+                int pid2 = cell->GetPointId(2);
+                int pid3 = cell->GetPointId(3);
+
+                Vector3f v0_1 = p1 - p0;
+                Vector3f v1_1 = p2 - p0;
+
+                float d00_1 = v0_1.dot(v0_1);
+                float d01_1 = v0_1.dot(v1_1);
+                float d11_1 = v1_1.dot(v1_1);
+                float denom_1 = d00_1 * d11_1 - d01_1 * d01_1;
+                float denomr_1 = denom_1 == 0 ? 0.f : 1.f / denom_1;
+
+                float gx1_1 = (d11_1 * v0_1[0] - d01_1 * v1_1[0]) * denomr_1;
+                float gx2_1 = (d00_1 * v1_1[0] - d01_1 * v0_1[0]) * denomr_1;
+                float gy1_1 = (d11_1 * v0_1[1] - d01_1 * v1_1[1]) * denomr_1;
+                float gy2_1 = (d00_1 * v1_1[1] - d01_1 * v0_1[1]) * denomr_1;
+                float gz1_1 = (d11_1 * v0_1[2] - d01_1 * v1_1[2]) * denomr_1;
+                float gz2_1 = (d00_1 * v1_1[2] - d01_1 * v0_1[2]) * denomr_1;
+
+                float a0_1 = Data->GetValue(pid0);
+                float a1_1 = Data->GetValue(pid1);
+                float a2_1 = Data->GetValue(pid2);
+
+                float gx_1 = gx1_1 * (a1_1 - a0_1) + gx2_1 * (a2_1 - a0_1);
+                float gy_1 = gy1_1 * (a1_1 - a0_1) + gy2_1 * (a2_1 - a0_1);
+                float gz_1 = gz1_1 * (a1_1 - a0_1) + gz2_1 * (a2_1 - a0_1);
+
+                Vector3f v0_2 = p2 - p0;
+                Vector3f v1_2 = p3 - p0;
+
+                float d00_2 = v0_2.dot(v0_2);
+                float d01_2 = v0_2.dot(v1_2);
+                float d11_2 = v1_2.dot(v1_2);
+                float denom_2 = d00_2 * d11_2 - d01_2 * d01_2;
+                float denomr_2 = denom_2 == 0 ? 0.f : 1.f / denom_2;
+
+                float gx1_2 = (d11_2 * v0_2[0] - d01_2 * v1_2[0]) * denomr_2;
+                float gx2_2 = (d00_2 * v1_2[0] - d01_2 * v0_2[0]) * denomr_2;
+                float gy1_2 = (d11_2 * v0_2[1] - d01_2 * v1_2[1]) * denomr_2;
+                float gy2_2 = (d00_2 * v1_2[1] - d01_2 * v0_2[1]) * denomr_2;
+                float gz1_2 = (d11_2 * v0_2[2] - d01_2 * v1_2[2]) * denomr_2;
+                float gz2_2 = (d00_2 * v1_2[2] - d01_2 * v0_2[2]) * denomr_2;
+
+                float a0_2 = Data->GetValue(pid0);
+                float a2_2 = Data->GetValue(pid2);
+                float a3_2 = Data->GetValue(pid3);
+
+                float gx_2 = gx1_2 * (a2_2 - a0_2) + gx2_2 * (a3_2 - a0_2);
+                float gy_2 = gy1_2 * (a2_2 - a0_2) + gy2_2 * (a3_2 - a0_2);
+                float gz_2 = gz1_2 * (a2_2 - a0_2) + gz2_2 * (a3_2 - a0_2);
+
+                grad.x.gx = (gx_1 + gx_2) * 0.5f;
+                grad.x.gy = (gy_1 + gy_2) * 0.5f;
+                grad.x.gz = (gz_1 + gz_2) * 0.5f;
+                break;
+            }
+            default: {
+
+                Vector3f center(0, 0, 0);
+                float centerValue = 0.0f;
+                int numPoints = cell->GetNumberOfPoints();
+
+                for (int i = 0; i < numPoints; i++) {
+                    auto p = cell->GetPoint(i);
+                    center[0] += p[0];
+                    center[1] += p[1];
+                    center[2] += p[2];
+                    centerValue += Data->GetValue(cell->GetPointId(i));
+                }
+
+                center[0] /= numPoints;
+                center[1] /= numPoints;
+                center[2] /= numPoints;
+                centerValue /= numPoints;
+
+                std::array<float, 3> gradientApprox = {0.0f, 0.0f, 0.0f};
+                for (int i = 0; i < numPoints; ++i) {
+                    auto p = cell->GetPoint(i);
+                    std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
+                    float valDiff = Data->GetValue(cell->GetPointId(i)) - centerValue;
+
+                    for (int d = 0; d < 3; d++) {
+                        gradientApprox[d] += diff[d] * valDiff;
+                    }
+                }
+
+                float avgEdgeLength = ComputeAverageEdgeLength(cell);
+                if (avgEdgeLength > 1e-8f) {
+                    for (int d = 0; d < 3; d++) {
+                        gradientApprox[d] /= avgEdgeLength;
+                    }
+                }
+
+                grad.x.gx = gradientApprox[0];
+                grad.x.gy = gradientApprox[1];
+                grad.x.gz = gradientApprox[2];
+                break;
+            }
+        }
+
+        gradient_values[cellId][0] = grad.x.gx;
+        gradient_values[cellId][1] = grad.x.gy;
+        gradient_values[cellId][2] = grad.x.gz;
+    }
+        // auto grad = ComputeVectorGradByPlane(cell, Data);
+
+        //
+        // double omega_x = grad.x.gx;
+        // double omega_y = grad.x.gy;
+        // double omega_z = grad.x.gz;
+        // gradient_values[cellId][0] = omega_x;
+        // gradient_values[cellId][1] = omega_y;
+        // gradient_values[cellId][2] = omega_z;
 
         // gradient->AddElement3(omega_x, omega_y, omega_z);
-    }
-    double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        mean_x += gradient_values[i][0];
-        mean_y += gradient_values[i][1];
-        mean_z += gradient_values[i][2];
-    }
-    mean_x /= NumCells;
-    mean_y /= NumCells;
-    mean_z /= NumCells;
-
-    double std_x = 0.0, std_y = 0.0, std_z = 0.0;
-    for (int i = 0; i < NumCells; ++i) {
-        std_x += (gradient_values[i][0] - mean_x) * (gradient_values[i][0] - mean_x);
-        std_y += (gradient_values[i][1] - mean_y) * (gradient_values[i][1] - mean_y);
-        std_z += (gradient_values[i][2] - mean_z) * (gradient_values[i][2] - mean_z);
-    }
-    std_x = std::sqrt(std_x / NumCells);
-    std_y = std::sqrt(std_y / NumCells);
-    std_z = std::sqrt(std_z / NumCells);
-
-    double threshold_x = 5.0 * std_x;
-    double threshold_y = 5.0 * std_y;
-    double threshold_z = 5.0 * std_z;
-
-    for (int i = 0; i < NumCells; ++i) {
-        double omega_x = gradient_values[i][0];
-        double omega_y = gradient_values[i][1];
-        double omega_z = gradient_values[i][2];
-
-        if (std::abs(omega_x - mean_x) > threshold_x) {
-            omega_x = mean_x + (omega_x - mean_x) / std::abs(omega_x - mean_x) * threshold_x;
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(0.02);
+        double hi = nth_q(0.98);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
         }
+    };
 
-        if (std::abs(omega_y - mean_y) > threshold_y) {
-            omega_y = mean_y + (omega_y - mean_y) / std::abs(omega_y - mean_y) * threshold_y;
-        }
+    std::vector<double> xs(NumCells), ys(NumCells), zs(NumCells);
+    for (int i = 0; i < NumCells; ++i) {
+        xs[i] = gradient_values[i][0];
+        ys[i] = gradient_values[i][1];
+        zs[i] = gradient_values[i][2];
+    }
+    clamp_by_quantile(xs, 0.000, 1);
+    clamp_by_quantile(ys, 0.000, 1);
+    clamp_by_quantile(zs, 0.000, 1);
 
-        if (std::abs(omega_z - mean_z) > threshold_z) {
-            omega_z = mean_z + (omega_z - mean_z) / std::abs(omega_z - mean_z) * threshold_z;
-        }
-
-        gradient->AddElement3(omega_x, omega_y, omega_z);
+    for (int i = 0; i < NumCells; ++i) {
+        gradient->AddElement3(xs[i], ys[i], zs[i]);
     }
 
+    UpdateProgress(1.0);
     return true;
+    // double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     mean_x += gradient_values[i][0];
+    //     mean_y += gradient_values[i][1];
+    //     mean_z += gradient_values[i][2];
+    // }
+    // mean_x /= NumCells;
+    // mean_y /= NumCells;
+    // mean_z /= NumCells;
+    //
+    // double std_x = 0.0, std_y = 0.0, std_z = 0.0;
+    // for (int i = 0; i < NumCells; ++i) {
+    //     std_x += (gradient_values[i][0] - mean_x) * (gradient_values[i][0] - mean_x);
+    //     std_y += (gradient_values[i][1] - mean_y) * (gradient_values[i][1] - mean_y);
+    //     std_z += (gradient_values[i][2] - mean_z) * (gradient_values[i][2] - mean_z);
+    // }
+    // std_x = std::sqrt(std_x / NumCells);
+    // std_y = std::sqrt(std_y / NumCells);
+    // std_z = std::sqrt(std_z / NumCells);
+    //
+    // double threshold_x = 5.0 * std_x;
+    // double threshold_y = 5.0 * std_y;
+    // double threshold_z = 5.0 * std_z;
+    //
+    // for (int i = 0; i < NumCells; ++i) {
+    //     double omega_x = gradient_values[i][0];
+    //     double omega_y = gradient_values[i][1];
+    //     double omega_z = gradient_values[i][2];
+    //
+    //     if (std::abs(omega_x - mean_x) > threshold_x) {
+    //         omega_x = mean_x + (omega_x - mean_x) / std::abs(omega_x - mean_x) * threshold_x;
+    //     }
+    //
+    //     if (std::abs(omega_y - mean_y) > threshold_y) {
+    //         omega_y = mean_y + (omega_y - mean_y) / std::abs(omega_y - mean_y) * threshold_y;
+    //     }
+    //
+    //     if (std::abs(omega_z - mean_z) > threshold_z) {
+    //         omega_z = mean_z + (omega_z - mean_z) / std::abs(omega_z - mean_z) * threshold_z;
+    //     }
+    //
+    //     gradient->AddElement3(omega_x, omega_y, omega_z);
+    // }
+    //
+    // return true;
 }
 
 bool GradientFilter::ComputeGradientWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
