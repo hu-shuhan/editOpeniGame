@@ -81,7 +81,7 @@ list(APPEND ThirdParty_lib_dependency
         tinyXML2
         vtkkwiml
         lzma
-        libzstd_static
+#        libzstd_static
         glfw
         spdlog_header_only
         zlibstatic
@@ -145,12 +145,12 @@ if (ENABLE_LIBTORCH_MODULE)
     message(STATUS "LibTorch libraries: ${LIBTORCH_DIR}/lib/torch.lib ${LIBTORCH_DIR}/lib/c10.lib")
 endif ()
 
-#find_package(AbqSDK)
-#if (${AbqSDK_FOUND})
-#    message("Find abqsdk")
-#    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
-#    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
-#endif ()
+find_package(AbqSDK)
+if (${AbqSDK_FOUND})
+    message("Find abqsdk")
+    target_compile_definitions(${MODULE_NAME} PUBLIC AbqSDK_ENABLE)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${ABQ_LIB_TARGETS})
+endif ()
 
 find_package(FFMPEG)
 if (${FFMPEG_FOUND})
