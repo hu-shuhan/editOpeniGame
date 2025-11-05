@@ -999,6 +999,14 @@ void VolumeMesh::RequestVolumeStatus() {
 void VolumeMesh::ConvertToDrawableData() {
     // extract surface mesh
     if (m_ShellRendering) {
+        // 绘制时使用的是父对象的属性
+        if (m_AttributeIndex == -1) {
+            m_UseColor = false;
+            m_ColorWithCell = false;
+        } else {
+            m_UseColor = true;
+        }
+
         if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime()) {
             return;
         }

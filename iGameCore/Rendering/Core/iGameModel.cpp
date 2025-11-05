@@ -3,6 +3,7 @@
 #include "iGameInteractor.h"
 #include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
+#include "iGameSurfaceMesh.h"
 #include "iGameScene.h"
 #include <functional>
 
@@ -669,19 +670,19 @@ void Model::DrawPhase1() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto surfaceObject = drawObject->m_RenderableMesh.SurfaceMesh;
         auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
-            drawObject->m_UseColor = true;
+            surfaceObject->m_UseColor = true;
         }
 
         m_Scene->UpdateObjectDataBlock(surfaceObject);
         m_Scene->UpdateUniformBufferObjectBlock(surfaceObject);
 
-        auto useColor = drawObject->IsUseColor();
-        auto colorWithCell = drawObject->m_ColorWithCell;
-        auto viewStyle = drawObject->GetViewStyle();
+        auto useColor = surfaceObject->IsUseColor();
+        auto colorWithCell = surfaceObject->m_ColorWithCell;
+        auto viewStyle = surfaceObject->GetViewStyle();
 
         // draw
         if (viewStyle & IG_POINTS) {

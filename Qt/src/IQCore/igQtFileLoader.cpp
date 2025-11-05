@@ -90,6 +90,7 @@ void igQtFileLoader::LoadFile() {
     if (filePath.isEmpty()) { return; }
 
     auto selected_idx = static_cast<FileType>(filters.indexOf(selectedFilter));
+    if(filePath.empty()) return ;
     switch (selected_idx) {
         case FileType::Spline:
             this->OpenSplineFile(filePath[0].toStdString());

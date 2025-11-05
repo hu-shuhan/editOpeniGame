@@ -370,8 +370,6 @@ void UnstructuredMesh::ConvertToDrawableData() {
         if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime()) {
             return;
         }
-        
-        std::cout << "UnstructuredMesh extract surface" << std::endl;
 
         bool extractShellSuccess = false;
         if (m_ShellRendering) {

@@ -241,15 +241,11 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     std::tuple<torch::Tensor, Eigen::Vector3f> result =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, targetPoints, split);
     // auto t_02 = std::chrono::high_resolution_clock::now();
-
     // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
     // std::cout << "[VortexDetection:process_blocks:::Execute] Total time = " << elapsed_0 << " s" << std::endl;
-
     std::vector<float> predict_vals = ComputePointQ(Mesh, Attributes, Index);
-
     torch::Tensor result_volume_11 = std::get<0>(result);
     Eigen::Vector3f global_step = std::get<1>(result);
-
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
 
     std::vector<Eigen::Vector3f> eigenPoints;
@@ -293,7 +289,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict) {
     const size_t N = Predict.size();
     const float gt_thresh = 0.0f;
-    const float pred_thresh = 0.095f;
+    const float pred_thresh = 0.5f;
 
     // 2) 统计 TP/FP/TN/FN
     size_t TP = 0, FP = 0, TN = 0, FN = 0;
@@ -310,15 +306,15 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
         else
             ++TN;
     }
-
     const double eps = 1e-12;
     const double total = static_cast<double>(TP + FP + TN + FN);
 
     const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
-    const double recall = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-    //const double f1 = (precision + recall > 0.0) ? (2.0 * precision * recall / (precision + recall)) : 0.0;
     const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
                                     static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
+    const double r = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
+    const double recall = (precision + r > 0.0) ? (2.0 * precision * r / (precision + r)) : 0.0;
+
 
     std::cout << "\n================ Evaluation Metrics ================\n";
     std::cout << "Accuracy      : " << accuracy << "\n";
@@ -931,9 +927,9 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
                                 const_cast<torch::jit::script::Module&>(*model_const).forward({patch}).toTensor();
                         //torch::Tensor logits = model.forward({patch}).toTuple()->elements()[0].toTensor(); // [1, 2, 64, 64, 64]
                         if (logits.size(1) == 2) {
-                            prob = torch::sigmoid(logits.slice(1, 1, 2)); // 取前景通道 [1, 1, 64, 64, 64]
-                            // prob = torch::softmax(logits, 1);
-                            // prob = prob.slice(1, 1, 2);
+                            // prob = torch::sigmoid(logits.slice(1, 1, 2)); // 取前景通道 [1, 1, 64, 64, 64]
+                            prob = torch::softmax(logits, 1);
+                            prob = prob.slice(1, 1, 2);
                         } else {
                             prob = torch::sigmoid(logits);
                         }
@@ -1364,7 +1360,8 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
             torch::Tensor weights = torch::exp(-0.5 * torch::pow(valid_dists / 0.8, 2));
             weights = weights / (torch::sum(weights) + 1e-8);
             float val = torch::sum(weights * valid_neighbors).item<float>();
-            if(data_val[i]>=0.2 && val>=0.000001 || val>=0.0005&&data_val[i]>=0.1 || data_val[i]>=0.8)
+            if(data_val[i]>=0.2 && val>=0.000001 || val>=0.003&&data_val[i]>=0.15|| data_val[i]>=0.8 ||  val>=0.006)
+            // if(data_val[i]>=0.2 && val>=0.000001 || val>=0.001&&data_val[i]>=0.15 || data_val[i]>=0.8 || val>=0.0005)
             // if(data_val[i]>=0.2 && val>=0.00005 || val>=0.02)
             // if (val>0.005)
                 smooth_1[i] = 1 ;
@@ -1833,7 +1830,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         all_velocities_thread_safe[i].resize(total_blocks);
     }
     const double eps = 1e-6;
-    static std::counting_semaphore<> infer_slots(10);
+    static std::counting_semaphore<> infer_slots(15);
     // int progress = 0;
     std::mutex progress_mutex;
 
@@ -1922,7 +1919,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     };
 
     // ThreadPool::parallelFor(0, total_blocks, process_blocks_range);
-    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks * 2);
+    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
     auto t1 = std::chrono::high_resolution_clock::now();
     double elapsed = std::chrono::duration<double>(t1 - t0).count();
     std::cout << "[VortexDetection::Execute] process_blocks = " << elapsed << " s" << std::endl;
@@ -1957,8 +1954,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     Vector3f mean(mean_x, mean_y, mean_z);
     Vector3f std(std_x, std_y, std_z);
     //
-    // std::cout << "Computed mean: [" << mean[0] << ", " << mean[1] << ", " << mean[2] << "]" << std::endl;
-    // std::cout << "Computed std: [" << std[0] << ", " << std[1] << ", " << std[2] << "]" << std::endl;
+    std::cout << "Computed mean: [" << mean[0] << ", " << mean[1] << ", " << mean[2] << "]" << std::endl;
+    std::cout << "Computed std: [" << std[0] << ", " << std[1] << ", " << std[2] << "]" << std::endl;
 
     auto t3 = std::chrono::high_resolution_clock::now();
 
@@ -1975,7 +1972,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             }
     };
 
-    ThreadPool::parallelFor(0, total_blocks, processing, total_blocks * 2);
+    ThreadPool::parallelFor(0, total_blocks, processing, total_blocks);
 
     auto t4 = std::chrono::high_resolution_clock::now();
     double elapsed_2 = std::chrono::duration<double>(t4 - t3).count();

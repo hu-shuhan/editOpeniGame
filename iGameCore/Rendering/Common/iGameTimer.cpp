@@ -1,5 +1,5 @@
-#include "iGameTimer.h"
-
+﻿#include "iGameTimer.h"
+#include <iostream>
 IGAME_NAMESPACE_BEGIN
 
 Timer::Timer() { Reset(); }
@@ -34,6 +34,44 @@ size_t Timer::Elapsed(TimeUnit unit) const {
                     .count();
     }
     return 0;
+}
+
+AutoTimer::AutoTimer(const std::string& timerName, Timer::TimeUnit unit)
+    : m_TimerName(timerName), m_Unit(unit) {
+    m_Timer = Timer::New();
+}
+
+AutoTimer::AutoTimer(Timer::TimeUnit unit) : m_Unit(unit) {
+    m_TimerName = std::string("Timer") + std::to_string(GetAutoAddInt());
+    m_Timer = Timer::New();
+}
+
+AutoTimer::AutoTimer(int name, Timer::TimeUnit unit) : m_Unit(unit) {
+    m_TimerName = std::string("Timer") + std::to_string(name);
+    m_Timer = Timer::New();
+}
+
+AutoTimer::~AutoTimer() {
+    auto elsp = m_Timer->Elapsed(m_Unit);
+    std::cout << m_TimerName << ":" << elsp;
+    switch (m_Unit) {
+        case Timer::TimeUnit::Microseconds:
+            std::cout << " us";
+            break;
+        case Timer::TimeUnit::Milliseconds:
+            std::cout << " ms";
+            break;
+        case Timer::TimeUnit::Seconds:
+            std::cout << " s";
+            break;
+    }
+    std::cout << std::endl;
+}
+
+int AutoTimer::GetAutoAddInt() {
+    static int AutoAddInt = -1;
+    AutoAddInt++;
+    return AutoAddInt;
 }
 
 IGAME_NAMESPACE_END
