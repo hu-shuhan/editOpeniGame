@@ -1360,7 +1360,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
             torch::Tensor weights = torch::exp(-0.5 * torch::pow(valid_dists / 0.8, 2));
             weights = weights / (torch::sum(weights) + 1e-8);
             float val = torch::sum(weights * valid_neighbors).item<float>();
-            if(data_val[i]>=0.2 && val>=0.00001 || val>=0.001&&data_val[i]>=0.15|| data_val[i]>=0.8 ||  val>=0.005)
+            if(data_val[i]>=0.2 && val>=0.000001 || val>=0.003&&data_val[i]>=0.15|| data_val[i]>=0.8 ||  val>=0.006)
             // if(data_val[i]>=0.2 && val>=0.000001 || val>=0.001&&data_val[i]>=0.15 || data_val[i]>=0.8 || val>=0.0005)
             // if(data_val[i]>=0.2 && val>=0.00005 || val>=0.02)
             // if (val>0.005)
@@ -1830,7 +1830,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         all_velocities_thread_safe[i].resize(total_blocks);
     }
     const double eps = 1e-6;
-    static std::counting_semaphore<> infer_slots(10);
+    static std::counting_semaphore<> infer_slots(15);
     // int progress = 0;
     std::mutex progress_mutex;
 
@@ -1919,7 +1919,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     };
 
     // ThreadPool::parallelFor(0, total_blocks, process_blocks_range);
-    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks * 2);
+    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
     auto t1 = std::chrono::high_resolution_clock::now();
     double elapsed = std::chrono::duration<double>(t1 - t0).count();
     std::cout << "[VortexDetection::Execute] process_blocks = " << elapsed << " s" << std::endl;
@@ -1972,7 +1972,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             }
     };
 
-    ThreadPool::parallelFor(0, total_blocks, processing, total_blocks * 2);
+    ThreadPool::parallelFor(0, total_blocks, processing, total_blocks);
 
     auto t4 = std::chrono::high_resolution_clock::now();
     double elapsed_2 = std::chrono::duration<double>(t4 - t3).count();
