@@ -649,11 +649,6 @@ size_t TriMeshInternalSimplifier::DoWork() {
 
     VertexAdjacency.Offsets.resize(VertexCount + 1);
     VertexAdjacency.Data.resize(IndexCount);
-    // 先要建立一次邻接关系
-    BuildVertexAdjacency();
-
-    FillVertexQuadrics();
-    if (AttributeCount) FillAttributeQuadrics();
 
     // 坍缩边的最大容量
     size_t CollapseCapacity = IndexCount;
@@ -665,6 +660,26 @@ size_t TriMeshInternalSimplifier::DoWork() {
     VertexFeature.resize(VertexCount);
     VertexBoundary.resize(VertexCount);
 
+    time.end();
+    time.print("Resize");
+
+    time.start();
+    // 先要建立一次邻接关系
+    BuildVertexAdjacency();
+    time.end();
+    time.print("BuildVertexAdjacency");
+
+    time.start();
+    FillVertexQuadrics();
+    time.end();
+    time.print("FillVertexQuadrics");
+
+    time.start();
+    if (AttributeCount) FillAttributeQuadrics();
+    time.end();
+    time.print("FillAttributeQuadrics");
+
+    time.start();
     {
         FastEdgeHashMap mp(IndexCount);
 
@@ -711,51 +726,68 @@ size_t TriMeshInternalSimplifier::DoWork() {
     }
 
     time.end();
-    time.print("Initialize");
+    time.print("Feature and Boundary");
     int Sequence = 0;
 
     while (IndexCount > TargetCount) {
-        print("Sequence ", Sequence++);
-
         time.start();
         // 建立新的邻接关系
         BuildVertexAdjacency();
-        time.end();
-        time.print("1.BuildVertexAdjacency");
-
-        time.start();
         // 初始化坍缩边的误差
         size_t EdgeCollapseCount = BuildEdgeCollapses(CollapseCapacity);
-        time.end();
-        time.print("2.BuildEdgeCollapses");
-
-        time.start();
         // 给所有的坍缩边排序
         SortEdgeCollapses(EdgeCollapseCount);
-        time.end();
-        time.print("3.SortEdgeCollapses");
-
         // 初始化顶点映射
         for (size_t i = 0; i < VertexCount; ++i) VertexRemap[i] = i;
-
         // 初始化可访问顶点
         memset(VertexLocked.data(), 0, VertexCount * sizeof(unsigned char));
-
-        time.start();
         // 执行边坍缩
         size_t CollapseCount = ExecuteEdgeCollapses(EdgeCollapseCount);
-        time.end();
-        time.print("4.ExecuteEdgeCollapses");
-
-        time.start();
         UpdateQuadrics();
-        time.end();
-        time.print("5.UpdateQuadrics");
-
-        time.start();
         IndexCount = RemapIndices();
         time.end();
-        time.print("6.RemapIndices");
+        time.print(Sequence++);
+
+
+        //time.start();
+        //// 建立新的邻接关系
+        //BuildVertexAdjacency();
+        //time.end();
+        //time.print("1.BuildVertexAdjacency");
+
+        //time.start();
+        //// 初始化坍缩边的误差
+        //size_t EdgeCollapseCount = BuildEdgeCollapses(CollapseCapacity);
+        //time.end();
+        //time.print("2.BuildEdgeCollapses");
+
+        //time.start();
+        //// 给所有的坍缩边排序
+        //SortEdgeCollapses(EdgeCollapseCount);
+        //time.end();
+        //time.print("3.SortEdgeCollapses");
+
+        //// 初始化顶点映射
+        //for (size_t i = 0; i < VertexCount; ++i) VertexRemap[i] = i;
+
+        //// 初始化可访问顶点
+        //memset(VertexLocked.data(), 0, VertexCount * sizeof(unsigned char));
+
+        //time.start();
+        //// 执行边坍缩
+        //size_t CollapseCount = ExecuteEdgeCollapses(EdgeCollapseCount);
+        //time.end();
+        //time.print("4.ExecuteEdgeCollapses");
+
+        //time.start();
+        //UpdateQuadrics();
+        //time.end();
+        //time.print("5.UpdateQuadrics");
+
+        //time.start();
+        //IndexCount = RemapIndices();
+        //time.end();
+        //time.print("6.RemapIndices");
     }
 
     time2.end();

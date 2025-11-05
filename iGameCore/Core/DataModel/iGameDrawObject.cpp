@@ -387,7 +387,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     if (this->GetDataObjectType() != IG_SURFACE_MESH) {
         MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
         meshSimplifier->SetInput(dataObject);
-        meshSimplifier->SetTargetReduction(0.9);
+        meshSimplifier->SetTargetReduction(0.2);
         if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
     }
 
