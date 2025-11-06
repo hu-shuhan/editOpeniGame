@@ -285,7 +285,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     int split = 6;
 
-    double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, .8);
+    double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 8);
     int targetPoints = int(maxLen / (min_effective_edge + 1e-8)) + 1;
 
     targetPoints = targetPoints / split / 4;
@@ -1604,7 +1604,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
          dv.ge(0.8f) |
          sampled.ge(0.3f));
 
-    torch::Tensor out = dv.to(torch::kFloat32);
+    torch::Tensor out = sampled.to(torch::kFloat32);
     return out;
 }
 
@@ -2090,6 +2090,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             Eigen::Vector3f step = sub_range.cwiseQuotient(now);
             torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
 
+            std::cout<<"nx= "<<nx<<", ny= "<<ny<<", nz= "<<nz<<std::endl;
+
             const int K = 8;
             std::vector<double> weights(K, 0.0);
             std::vector<int> idxs(K, 0);
@@ -2103,34 +2105,34 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                         pos_vec << pos[0], pos[1], pos[2];
                         Vector3f pos_ (pos[0], pos[1], pos[2]);
                         tree.query(pos_vec, K, idxs, dists);
-                        if (dists.size() == 0  || dists[0]>step[0] * 8) {
-                            grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
-                        }else{
-                            torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-                            double dist_sum = 0.0;
-                            for (int l = 0; l < K; ++l) {
-                                double dist = dists[l];
-                                weights[l] = 1.0 / (dist + eps);
-                                dist_sum += weights[l];
-                            }
-                            for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-                            float vx = 0.f, vy = 0.f, vz = 0.f;
-                            for (int l = 0; l < (int)dists.size(); ++l) {
-                                const int idx = idxs[l];
-                                if (idx >= 0 && idx < velocities.rows()) {
-                                    const float w = static_cast<float>(weights[l]);
-                                    vx += w * static_cast<float>(velocities(idx, 0));
-                                    vy += w * static_cast<float>(velocities(idx, 1));
-                                    vz += w * static_cast<float>(velocities(idx, 2));
-                                }
-                            }
-                            grid_tensor[k][j][i] = torch::tensor({vx, vy, vz}, torch::kFloat32);
-                            // if (vx!=0 && vy!=0 && vz!=0) {
-                            all_velocities_thread_safe[0][id].push_back(vx);
-                            all_velocities_thread_safe[1][id].push_back(vy);
-                            all_velocities_thread_safe[2][id].push_back(vz);
-                            // }
+                        // if (dists.size() == 0  || dists[0]>step[0] * 8) {
+                        //     grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
+                        // }else{
+                        torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
+                        double dist_sum = 0.0;
+                        for (int l = 0; l < K; ++l) {
+                            double dist = dists[l];
+                            weights[l] = 1.0 / (dist + eps);
+                            dist_sum += weights[l];
                         }
+                        for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
+                        float vx = 0.f, vy = 0.f, vz = 0.f;
+                        for (int l = 0; l < (int)dists.size(); ++l) {
+                            const int idx = idxs[l];
+                            if (idx >= 0 && idx < velocities.rows()) {
+                                const float w = static_cast<float>(weights[l]);
+                                vx += w * static_cast<float>(velocities(idx, 0));
+                                vy += w * static_cast<float>(velocities(idx, 1));
+                                vz += w * static_cast<float>(velocities(idx, 2));
+                            }
+                        }
+                        grid_tensor[k][j][i] = torch::tensor({vx, vy, vz}, torch::kFloat32);
+                            // if (vx!=0 && vy!=0 && vz!=0) {
+                        all_velocities_thread_safe[0][id].push_back(vx);
+                        all_velocities_thread_safe[1][id].push_back(vy);
+                        all_velocities_thread_safe[2][id].push_back(vz);
+                            // }
+                        // }
                         // bool inside = false;
                         // Vector3f v = tracer.SampleVector(pos_, inside, cachedVolumeId, vectorName, terminalSpeed);
                         // if (inside) {
