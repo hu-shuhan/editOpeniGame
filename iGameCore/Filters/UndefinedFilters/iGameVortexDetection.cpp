@@ -250,7 +250,6 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     int NumPoints = Mesh->GetNumberOfPoints();
     ArrayObject::Pointer velocityData = Attributes->GetAttribute(Index).pointer;
-    std::cout << velocityData<<std::endl;
     std::vector<Vector3f> gridPoints;
     std::vector<Vector3f> gridVelocities;
 
@@ -260,11 +259,9 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     for (int i = 0; i < NumPoints; ++i) {
         Vector3f pt = Mesh->GetPoint(i);
-
         float vel_1 = velocityData->GetValue(i * 3 + 0);
         float vel_2 = velocityData->GetValue(i * 3 + 1);
         float vel_3 = velocityData->GetValue(i * 3 + 2);
-
         Vector3f vel(vel_1, vel_2, vel_3);
         gridPoints.push_back(pt);
         gridVelocities.push_back(vel);
@@ -792,7 +789,7 @@ torch::Tensor VortexDetection::gaussian_kernel1d(float sigma, int radius) {
         kernel[i] = v;
         sum += v;
     }
-    kernel /= sum; // 归一化
+    kernel /= sum;
     return kernel;
 }
 
@@ -813,11 +810,11 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
     int C = input.size(1);
 
     if (input.dim() == 3) {
-        input = input.unsqueeze(0).unsqueeze(0); // [1,1,D,H,W]
+        input = input.unsqueeze(0).unsqueeze(0);
         C = 1;
-    } else if (input.dim() == 4) {           // [D,H,W,C]
-        input = input.permute({3, 0, 1, 2}); // [C,D,H,W]
-        input = input.unsqueeze(0);          // [1,C,D,H,W]
+    } else if (input.dim() == 4) {
+        input = input.permute({3, 0, 1, 2});
+        input = input.unsqueeze(0);
         C = input.size(1);
     } else {
         TORCH_CHECK(false, "Unsupported input dim: ", input.dim());
@@ -834,7 +831,6 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
     } else {
         output = output.permute({1, 2, 3, 0}); // [D,H,W,C]
     }
-
     return output;
 }
 
@@ -1580,9 +1576,9 @@ torch::Tensor VortexDetection::knn_smooth_labels(
 
     for (int64_t i = 0; i < M; ++i) {
         const auto& qp = query_points[i];
-        const float rx = (qp[0] - min_pos[0]) * inv_sx; // x 索引
-        const float ry = (qp[1] - min_pos[1]) * inv_sy; // y 索引
-        const float rz = (qp[2] - min_pos[2]) * inv_sz; // z 索引
+        const float rx = (qp[0] - min_pos[0]) * inv_sx;
+        const float ry = (qp[1] - min_pos[1]) * inv_sy;
+        const float rz = (qp[2] - min_pos[2]) * inv_sz;
         float x_norm = Wx * rx - 1.0f;
         float y_norm = Hy * ry - 1.0f;
         float z_norm = Dz * rz - 1.0f;
@@ -1608,7 +1604,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
          dv.ge(0.8f) |
          sampled.ge(0.3f));
 
-    torch::Tensor out = cond.to(torch::kFloat32);
+    torch::Tensor out = dv.to(torch::kFloat32);
     return out;
 }
 
@@ -2107,7 +2103,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                         pos_vec << pos[0], pos[1], pos[2];
                         Vector3f pos_ (pos[0], pos[1], pos[2]);
                         tree.query(pos_vec, K, idxs, dists);
-                        if (dists.size() == 0  || dists[0]>step[0] * 4) {
+                        if (dists.size() == 0  || dists[0]>step[0] * 8) {
                             grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
                         }else{
                             torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
