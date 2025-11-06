@@ -80,7 +80,6 @@ VortexDetection::VortexDetection() {
 }
 
 
-
 #if defined(LibTorch_ENABLE)
 struct KDTree {
     struct PointCloud {
@@ -247,14 +246,17 @@ bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, 
 bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                     int Index, std::string name) {
 
-    //std::cout << "Hardware supports: " << std::thread::hardware_concurrency() << " threads.\n";
     auto t0 = std::chrono::high_resolution_clock::now();
 
     int NumPoints = Mesh->GetNumberOfPoints();
-
     ArrayObject::Pointer velocityData = Attributes->GetAttribute(Index).pointer;
+    std::cout << velocityData<<std::endl;
     std::vector<Vector3f> gridPoints;
     std::vector<Vector3f> gridVelocities;
+
+    if (Attributes->GetAttribute(Index).attachmentType == IG_CELL) {
+        velocityData = AttributeCell2Point(Mesh->GetCells(), velocityData, NumPoints);
+    }
 
     for (int i = 0; i < NumPoints; ++i) {
         Vector3f pt = Mesh->GetPoint(i);
@@ -1782,8 +1784,9 @@ std::vector<float> VortexDetection::ComputePointQ(VolumeMesh::Pointer volume_Mes
 }
 
 ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
-                                                          size_t PointNum) {
+                                                         size_t PointNum) {
     int dim = OriArray->GetDimension();
+
     auto NewArray = FloatArray::New();
     NewArray->SetName(OriArray->GetName());
     NewArray->SetDimension(dim);
@@ -1806,11 +1809,13 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
             NewArray->SetElement(cell[j], temp);
         }
     }
+
     for (int i = 0; i < PointNum; ++i) {
         NewArray->GetElement(i, temp);
         for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
         NewArray->SetElement(i, temp);
     }
+
     return NewArray;
 }
 
