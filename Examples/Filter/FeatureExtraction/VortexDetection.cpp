@@ -28,7 +28,7 @@ static void VortexDetectionExtract() {
     }
 
     // Select a scalar to extract features
-    drawObj->ViewCloudPicture(scene, 0);
+    drawObj->ViewCloudPicture(scene, 1);
     // Execute vortexFilter
     iGame::VortexDetection::Pointer filter = iGame::VortexDetection::New();
     filter->SetInput(drawObj);

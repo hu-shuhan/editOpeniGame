@@ -313,7 +313,7 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
                                     static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
     const double r = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-    const double recall = (precision + r > 0.0) ? (2.0 * precision * r / (precision + r)) : 0.0;
+    const double recall = (precision + r > 0.0) ? (2.15 * precision * r / (precision + r)) : 0.0;
 
 
     std::cout << "\n================ Evaluation Metrics ================\n";

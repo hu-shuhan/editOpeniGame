@@ -999,17 +999,11 @@ void VolumeMesh::RequestVolumeStatus() {
 void VolumeMesh::ConvertToDrawableData() {
     // extract surface mesh
     if (m_ShellRendering) {
-        // 绘制时使用的是父对象的属性
-        if (m_AttributeIndex == -1) {
-            m_UseColor = false;
-            m_ColorWithCell = false;
-        } else {
-            m_UseColor = true;
-        }
-
-        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime()) {
+        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime() &&
+            !m_ReConvertToDrawableData) {
             return;
         }
+        m_ReConvertToDrawableData = false;
 
         bool extractShellSuccess = false;
         iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
@@ -1066,8 +1060,8 @@ void VolumeMesh::ConvertToDrawableData() {
                     int size = volume->GetFacePointIds(j, face);
                     for (int k = 1; k < size - 1; k++) {
                         triangleIndices->AddElement3(volume->m_PointIds->GetId(face[0]),
-                                                        volume->m_PointIds->GetId(face[k]),
-                                                        volume->m_PointIds->GetId(face[k + 1]));
+                                                     volume->m_PointIds->GetId(face[k]),
+                                                     volume->m_PointIds->GetId(face[k + 1]));
                         // add edge mask
                         int mask = size == 3 ? 7 : k == 1 ? 3 : k == size - 2 ? 6 : 2;
                         triangleEdgeMasks->AddValue(mask);
@@ -1076,8 +1070,7 @@ void VolumeMesh::ConvertToDrawableData() {
                 const igIndex* edge;
                 for (int j = 0; j < volume->GetNumberOfEdges(); j++) {
                     int size = volume->GetEdgePointIds(j, edge);
-                    edgeIndices->AddElement2(volume->m_PointIds->GetId(edge[0]),
-                                                volume->m_PointIds->GetId(edge[1]));
+                    edgeIndices->AddElement2(volume->m_PointIds->GetId(edge[0]), volume->m_PointIds->GetId(edge[1]));
                 }
             }
         } else {

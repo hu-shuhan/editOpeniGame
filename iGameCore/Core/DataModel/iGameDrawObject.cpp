@@ -382,32 +382,27 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_Positions->Modified();
     m_RenderableMesh.SurfaceMesh->m_ColorMapper = this->m_ColorMapper;
 
-    if (m_Name != "driver_polyhedron_allcell_allarray_ascii") {
-        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    } else {
-        SurfaceMesh::Pointer surfaceMesh = DynamicCast<SurfaceMesh>(dataObject);
-        if (surfaceMesh) {
-            MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
-            meshSimplifier->SetInput(surfaceMesh);
-            meshSimplifier->SetTargetReduction(0.3);
-            meshSimplifier->Execute();
-            m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
-        } else {
-            m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-        }
-        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
-        m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
-        m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
-        m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
-        m_RenderableMesh.SimplifiedMesh->m_ColorWithCell = this->m_ColorWithCell;
-        m_RenderableMesh.SimplifiedMesh->m_PointSize = this->m_PointSize;
-        m_RenderableMesh.SimplifiedMesh->m_LineWidth = this->m_LineWidth;
-        m_RenderableMesh.SimplifiedMesh->m_Transparency = this->m_Transparency;
-        m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
-        m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
-        m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
-        m_RenderableMesh.SimplifiedMesh->m_ColorMapper = this->m_ColorMapper;
+    // simplify mesh
+    auto simplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    if (this->GetDataObjectType() != IG_SURFACE_MESH) {
+        MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
+        meshSimplifier->SetInput(dataObject);
+        meshSimplifier->SetTargetReduction(0.2);
+        if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
     }
+
+    m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
+    m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
+    m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
+    m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
+    m_RenderableMesh.SimplifiedMesh->m_ColorWithCell = this->m_ColorWithCell;
+    m_RenderableMesh.SimplifiedMesh->m_PointSize = this->m_PointSize;
+    m_RenderableMesh.SimplifiedMesh->m_LineWidth = this->m_LineWidth;
+    m_RenderableMesh.SimplifiedMesh->m_Transparency = this->m_Transparency;
+    m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
+    m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
+    m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
+    m_RenderableMesh.SimplifiedMesh->m_ColorMapper = this->m_ColorMapper;
 
     // 设置Meshleter
     m_RenderableMesh.Meshleter = SurfaceMeshMeshleter::New();

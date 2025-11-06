@@ -14,7 +14,9 @@ public:
 
     bool Execute() override;
 
-    void SetTargetReduction(double target) { this->TargetReduction = target; }
+    // Reduce to the target number. 
+    // target: [0,1]
+    void SetTargetReduction(float target) { this->TargetReduction = std::min(1.0f, std::max(0.0f, target)); }
     void SetTargetFaceCount(int target) { this->TargetFaceCount = target; }
 
 protected:
