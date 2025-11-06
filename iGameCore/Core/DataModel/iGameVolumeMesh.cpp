@@ -999,7 +999,7 @@ void VolumeMesh::RequestVolumeStatus() {
 void VolumeMesh::ConvertToDrawableData() {
     // extract surface mesh
     if (m_ShellRendering) {
-        // »æÖÆÊ±Ê¹ÓÃµÄÊÇ¸¸¶ÔÏóµÄÊôÐÔ
+        // ç»˜åˆ¶æ—¶ä½¿ç”¨çš„æ˜¯çˆ¶å¯¹è±¡çš„å±žæ€§
         if (m_AttributeIndex == -1) {
             m_UseColor = false;
             m_ColorWithCell = false;
