@@ -207,6 +207,10 @@ bool VortexFilter::ComputeVorticityWithSurfaceMesh2(SurfaceMesh::Pointer Mesh, A
         Data = AttributeCell2Point(Mesh->GetFaces(), Data, NumPoints);
     }
 
+    std::vector<double> omega_x_values(NumCells);
+    std::vector<double> omega_y_values(NumCells);
+    std::vector<double> omega_z_values(NumCells);
+
     //FloatArray::Pointer vorticities = FloatArray::New();
     //vorticities->SetDimension(3);
     //vorticities->Reserve(NumPoints);
@@ -237,12 +241,45 @@ bool VortexFilter::ComputeVorticityWithSurfaceMesh2(SurfaceMesh::Pointer Mesh, A
         double omega_y = grad.x.gz - grad.z.gx; // ∂vx/∂z - ∂vz/∂x
         double omega_z = grad.y.gx - grad.x.gy; // ∂vy/∂x - ∂vx/∂y
 
+        omega_x_values[cellId] = omega_x;
+        omega_y_values[cellId] = omega_y;
+        omega_z_values[cellId] = omega_z;
+
         //float va1 = grad.x.gx* center[0] + grad.x.gy* center[1] + grad.x.gz* center[2] + grad.x.gw;
         //float va2 = grad.y.gx* center[0] + grad.y.gy* center[1] + grad.y.gz* center[2] + grad.y.gw;
         //float va3 = grad.z.gx* center[0] + grad.z.gy* center[1] + grad.z.gz* center[2] + grad.z.gw;
         vorticities->AddElement3(omega_x, omega_y, omega_z);
         //vorticities->AddElement3(va1, va2, va3);
     }
+    auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
+        if (v.empty()) return;
+        std::vector<double> tmp = v;
+        auto nth_q = [&](double q) {
+            size_t idx = size_t(std::clamp(q, 0.0, 1.0) * (tmp.size() - 1));
+            std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
+            return tmp[idx];
+        };
+        double lo = nth_q(qlo);
+        double hi = nth_q(qhi);
+        if (lo > hi) std::swap(lo, hi);
+        for (double& x : v) {
+            if (x < lo) x = lo;
+            else if (x > hi) x = hi;
+        }
+    };
+
+    clamp_by_quantile(omega_x_values, 0.0001, 0.9999);
+    clamp_by_quantile(omega_y_values, 0.0001, 0.9999);
+    clamp_by_quantile(omega_z_values, 0.0001, 0.9999);
+
+    for (int i = 0; i < NumCells; ++i) {
+        vorticities->AddElement3(omega_x_values[i],
+                                 omega_y_values[i],
+                                 omega_z_values[i]);
+    }
+
+    UpdateProgress(1.0);
+    // return true;
 
     //for (int cellId = 0; cellId < NumCells; ++cellId) {
     //    auto cell = Mesh->GetFace(cellId);
