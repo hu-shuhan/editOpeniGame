@@ -84,6 +84,7 @@ list(APPEND ThirdParty_lib_dependency
         glfw
         spdlog_header_only
         zlibstatic
+        nanoflann
 )
 
 #--------------------------------------------------------------------

@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cstdint>
 
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
@@ -78,100 +80,156 @@ VortexDetection::VortexDetection() {
 }
 
 
-#if defined(LibTorch_ENABLE)
 
+#if defined(LibTorch_ENABLE)
 struct KDTree {
-    struct Node {
-        int idx = -1;
-        int left = -1, right = -1;
-        uint8_t axis = 0;
-        double split = 0.0;
+    struct PointCloud {
+        std::vector<std::vector<double>> pts;
+
+        inline size_t kdtree_get_point_count() const { return pts.size(); }
+        inline double kdtree_get_pt(size_t idx, size_t dim) const { return pts[idx][dim]; }
+        template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
     };
 
-    const Eigen::MatrixXd& pts;
-    std::vector<Node> nodes;
-    int root = -1;
+    using NanoFLANNIndex =
+        nanoflann::KDTreeSingleIndexAdaptor<
+            nanoflann::L2_Simple_Adaptor<double, PointCloud>,
+            PointCloud,
+            3 // 维度
+        >;
 
-    explicit KDTree(const Eigen::MatrixXd& points) : pts(points) {
-        std::vector<int> idxs(pts.rows());
-        std::iota(idxs.begin(), idxs.end(), 0);
-        nodes.reserve(pts.rows());
-        root = build(idxs, 0, (int) idxs.size(), /*axis=*/0);
-    }
+    PointCloud point_cloud;
+    std::unique_ptr<NanoFLANNIndex> index;
 
-    void query(const Eigen::VectorXd& query_point, int k, std::vector<int>& result,
-               std::vector<double>& distances) const {
-        if (pts.rows() == 0 || k <= 0) {
-            result.clear();
-            distances.clear();
-            return;
+    explicit KDTree(const Eigen::MatrixXd& points) {
+        const size_t rows = static_cast<size_t>(points.rows());
+        point_cloud.pts.assign(rows, std::vector<double>(3));
+        for (size_t i = 0; i < rows; ++i) {
+            point_cloud.pts[i][0] = points(static_cast<Eigen::Index>(i), 0);
+            point_cloud.pts[i][1] = points(static_cast<Eigen::Index>(i), 1);
+            point_cloud.pts[i][2] = points(static_cast<Eigen::Index>(i), 2);
         }
-        using Item = std::pair<double, int>; // (squared_dist, idx)
-        auto cmp = [](const Item& a, const Item& b) { return a.first < b.first; };
-        std::priority_queue<Item, std::vector<Item>, decltype(cmp)> heap(cmp);
+        index = std::make_unique<NanoFLANNIndex>(
+            3, point_cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+        index->buildIndex();
+    }
 
-        std::function<void(int)> dfs = [&](int ni) {
-            if (ni == -1) return;
-            const Node& nd = nodes[ni];
-            const int pi = nd.idx;
-
-            double d2 = sqDist(query_point, pi);
-            if ((int) heap.size() < k) heap.emplace(d2, pi);
-            else if (d2 < heap.top().first) {
-                heap.pop();
-                heap.emplace(d2, pi);
-            }
-
-            int ax = nd.axis;
-            double diff = query_point[ax] - nd.split;
-            int first = (diff < 0.0) ? nd.left : nd.right;
-            int second = (diff < 0.0) ? nd.right : nd.left;
-
-            dfs(first);
-
-            double worst = (heap.size() < (size_t) k) ? std::numeric_limits<double>::infinity() : heap.top().first;
-            if (diff * diff <= worst) dfs(second);
-        };
-
-        dfs(root);
-
-        int m = (int) heap.size();
-        result.resize(m);
-        distances.resize(m);
-        for (int i = m - 1; i >= 0; --i) {
-            result[i] = heap.top().second;
-            distances[i] = std::sqrt(heap.top().first);
-            heap.pop();
+    void query(const Eigen::VectorXd& q, int k,
+               std::vector<int>& result, std::vector<double>& distances) const {
+        if (point_cloud.pts.empty() || k <= 0) {
+            result.clear(); distances.clear(); return;
         }
-    }
 
-private:
-    int build(std::vector<int>& idxs, int l, int r, int axis) {
-        if (l >= r) return -1;
-        int m = (l + r) / 2;
+        double query_pt[3] = { q[0], q[1], q[2] };
 
-        std::nth_element(idxs.begin() + l, idxs.begin() + m, idxs.begin() + r,
-                         [&](int a, int b) { return pts(a, axis) < pts(b, axis); });
+        using IdxT = nanoflann::KNNResultSet<double>::IndexType;
+        std::vector<IdxT> idx_tmp(static_cast<size_t>(k));
+        distances.resize(static_cast<size_t>(k));
 
-        int cur = (int) nodes.size();
-        nodes.push_back({});
-        nodes[cur].idx = idxs[m];
-        nodes[cur].axis = (uint8_t) axis;
-        nodes[cur].split = pts(idxs[m], axis);
+        nanoflann::KNNResultSet<double> rs(static_cast<size_t>(k));
+        rs.init(idx_tmp.data(), distances.data());
+        index->findNeighbors(rs, &query_pt[0], nanoflann::SearchParameters());
 
-        int next_axis = (axis + 1) % 3;
-        nodes[cur].left = build(idxs, l, m, next_axis);
-        nodes[cur].right = build(idxs, m + 1, r, next_axis);
-        return cur;
-    }
+        const size_t n = rs.size();
+        idx_tmp.resize(n);
+        distances.resize(n);
 
-    inline double sqDist(const Eigen::VectorXd& q, int pi) const {
-        double dx = q[0] - pts(pi, 0);
-        double dy = q[1] - pts(pi, 1);
-        double dz = q[2] - pts(pi, 2);
-        return dx * dx + dy * dy + dz * dz;
+        result.resize(n);
+        for (size_t i = 0; i < n; ++i) result[i] = static_cast<int>(idx_tmp[i]);
     }
 };
+// struct KDTree {
+//     struct Node {
+//         int idx = -1;
+//         int left = -1, right = -1;
+//         uint8_t axis = 0;
+//         double split = 0.0;
+//     };
+//
+//     const Eigen::MatrixXd& pts;
+//     std::vector<Node> nodes;
+//     int root = -1;
+//
+//     explicit KDTree(const Eigen::MatrixXd& points) : pts(points) {
+//         std::vector<int> idxs(pts.rows());
+//         std::iota(idxs.begin(), idxs.end(), 0);
+//         nodes.reserve(pts.rows());
+//         root = build(idxs, 0, (int) idxs.size(), /*axis=*/0);
+//     }
+//
+//     void query(const Eigen::VectorXd& query_point, int k, std::vector<int>& result,
+//                std::vector<double>& distances) const {
+//         if (pts.rows() == 0 || k <= 0) {
+//             result.clear();
+//             distances.clear();
+//             return;
+//         }
+//         using Item = std::pair<double, int>; // (squared_dist, idx)
+//         auto cmp = [](const Item& a, const Item& b) { return a.first < b.first; };
+//         std::priority_queue<Item, std::vector<Item>, decltype(cmp)> heap(cmp);
+//
+//         std::function<void(int)> dfs = [&](int ni) {
+//             if (ni == -1) return;
+//             const Node& nd = nodes[ni];
+//             const int pi = nd.idx;
+//
+//             double d2 = sqDist(query_point, pi);
+//             if ((int) heap.size() < k) heap.emplace(d2, pi);
+//             else if (d2 < heap.top().first) {
+//                 heap.pop();
+//                 heap.emplace(d2, pi);
+//             }
+//
+//             int ax = nd.axis;
+//             double diff = query_point[ax] - nd.split;
+//             int first = (diff < 0.0) ? nd.left : nd.right;
+//             int second = (diff < 0.0) ? nd.right : nd.left;
+//
+//             dfs(first);
+//
+//             double worst = (heap.size() < (size_t) k) ? std::numeric_limits<double>::infinity() : heap.top().first;
+//             if (diff * diff <= worst) dfs(second);
+//         };
+//
+//         dfs(root);
+//
+//         int m = (int) heap.size();
+//         result.resize(m);
+//         distances.resize(m);
+//         for (int i = m - 1; i >= 0; --i) {
+//             result[i] = heap.top().second;
+//             distances[i] = std::sqrt(heap.top().first);
+//             heap.pop();
+//         }
+//     }
+//
+// private:
+//     int build(std::vector<int>& idxs, int l, int r, int axis) {
+//         if (l >= r) return -1;
+//         int m = (l + r) / 2;
+//
+//         std::nth_element(idxs.begin() + l, idxs.begin() + m, idxs.begin() + r,
+//                          [&](int a, int b) { return pts(a, axis) < pts(b, axis); });
+//
+//         int cur = (int) nodes.size();
+//         nodes.push_back({});
+//         nodes[cur].idx = idxs[m];
+//         nodes[cur].axis = (uint8_t) axis;
+//         nodes[cur].split = pts(idxs[m], axis);
+//
+//         int next_axis = (axis + 1) % 3;
+//         nodes[cur].left = build(idxs, l, m, next_axis);
+//         nodes[cur].right = build(idxs, m + 1, r, next_axis);
+//         return cur;
+//     }
+//
+//     inline double sqDist(const Eigen::VectorXd& q, int pi) const {
+//         double dx = q[0] - pts(pi, 0);
+//         double dy = q[1] - pts(pi, 1);
+//         double dz = q[2] - pts(pi, 2);
+//         return dx * dx + dy * dy + dz * dz;
+//     }
+// };
 
 struct BlockInfo {
     Vector3f minP, maxP;
@@ -190,7 +248,6 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
                                                     int Index, std::string name) {
 
     //std::cout << "Hardware supports: " << std::thread::hardware_concurrency() << " threads.\n";
-
     auto t0 = std::chrono::high_resolution_clock::now();
 
     int NumPoints = Mesh->GetNumberOfPoints();
@@ -229,7 +286,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     int split = 6;
 
-    double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 4.0);
+    double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, .8);
     int targetPoints = int(maxLen / (min_effective_edge + 1e-8)) + 1;
 
     targetPoints = targetPoints / split / 4;
@@ -842,10 +899,6 @@ std::tuple<torch::Tensor, int, int, int> VortexDetection::pad_tensor(const torch
     torch::Tensor padded = torch::zeros({Dp, Hp, Wp, C}, grid_tensor.options());
     padded.slice(0, 0, D).slice(1, 0, H).slice(2, 0, W).copy_(grid_tensor);
 
-    /*torch::Tensor padded = torch::nn::functional::pad(
-            grid_tensor, torch::nn::functional::PadFuncOptions({0, 0, 0, pad_W, 0, pad_H, 0, pad_D})
-                                 .mode(torch::kConstant)
-                                 .value(0));*/
     auto padded_sizes = padded.sizes();
     return {padded, pad_D, pad_H, pad_W};
 }
@@ -862,9 +915,9 @@ std::vector<torch::Tensor> VortexDetection::extract_patches(const torch::Tensor&
     for (int z = 0; z <= D - patch_size; z += stride) {
         for (int y = 0; y <= H - patch_size; y += stride) {
             for (int x = 0; x <= W - patch_size; x += stride) {
-                torch::Tensor patch = padded.slice(0, z, z + patch_size)    // Slice depth dimension (D)
-                                              .slice(1, y, y + patch_size)  // Slice height dimension (H)
-                                              .slice(2, x, x + patch_size); // Slice width dimension (W)
+                torch::Tensor patch = padded.slice(0, z, z + patch_size)
+                                              .slice(1, y, y + patch_size)
+                                              .slice(2, x, x + patch_size);
 
                 patch = patch.permute({3, 0, 1, 2}).unsqueeze(0); // [1, C, D, H, W]
                 patches.push_back(patch);
@@ -873,6 +926,139 @@ std::vector<torch::Tensor> VortexDetection::extract_patches(const torch::Tensor&
     }
     return patches;
 }
+
+// torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid_tensor,torch::jit::script::Module& model)
+// {
+//     torch::NoGradGuard no_grad;
+//     model.eval();
+//
+//     const int patch_size = 64;
+//     const int stride     = 32;
+//     const int max_batch  = 16;
+//
+//     auto device = torch::kCPU;
+//     auto dtype  = torch::kFloat32;
+//
+//     int pad_D = 0, pad_H = 0, pad_W = 0;
+//     torch::Tensor padded;
+//     {
+//         std::tie(padded, pad_D, pad_H, pad_W) = pad_tensor(grid_tensor, patch_size);
+//         padded = padded.contiguous();
+//     }
+//
+//     torch::Tensor prob_full = torch::zeros({1, 1, pad_D, pad_H, pad_W},
+//                                            torch::TensorOptions().dtype(dtype).device(device));
+//     torch::Tensor w_full    = torch::zeros_like(prob_full);
+//     static thread_local int   _hann_cached_ps = -1;
+//     static thread_local torch::Tensor w_patch; // [1,1,64,64,64]
+//     if (_hann_cached_ps != patch_size || !w_patch.defined()) {
+//         w_patch = _hann3d(patch_size).to(device).to(dtype);
+//         _hann_cached_ps = patch_size;
+//     }
+//
+//     torch::Tensor v = padded.permute({3, 0, 1, 2}).unsqueeze(0).contiguous();
+//     auto uD = v.unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride);
+//     auto uH = uD.unfold(3, patch_size, stride);
+//     auto uW = uH.unfold(4, patch_size, stride);
+//
+//     const int64_t nD = uW.size(2);
+//     const int64_t nH = uW.size(3);
+//     const int64_t nW = uW.size(4);
+//     const int64_t N  = nD * nH * nW;
+//     torch::Tensor patches_view = uW.contiguous().view({-1, 3, patch_size, patch_size, patch_size}); // [N,3,ps,ps,ps]
+//
+//     torch::Tensor maxabs = patches_view.abs().amax(/*dims=*/{1,2,3,4});  // [N]
+//     torch::Tensor mask   = maxabs > 1e-12;                               // [N]
+//     torch::Tensor sel    = torch::nonzero(mask).squeeze(1);              // [N_sel]
+//     const int64_t N_sel  = sel.numel();
+//
+//     if (N_sel == 0) {
+//         auto grid_sizes = grid_tensor.sizes(); // [D,H,W,3]
+//         const int64_t D = grid_sizes[0];
+//         const int64_t H = grid_sizes[1];
+//         const int64_t W = grid_sizes[2];
+//         torch::Tensor prob_cropped =
+//             prob_full.slice(2, 0, D).slice(3, 0, H).slice(4, 0, W).squeeze(0).squeeze(0).contiguous();
+//         return prob_cropped;
+//     }
+//     torch::Tensor patches_needed = patches_view.index_select(0, sel).contiguous();
+//     std::vector<int32_t> allZ, allY, allX;
+//     allZ.reserve(N); allY.reserve(N); allX.reserve(N);
+//     for (int64_t linear = 0; linear < N; ++linear) {
+//         int64_t id = linear / (nH * nW);
+//         int64_t rem = linear % (nH * nW);
+//         int64_t ih = rem / nW;
+//         int64_t iw = rem % nW;
+//         int32_t z0 = static_cast<int32_t>(id * stride);
+//         int32_t y0 = static_cast<int32_t>(ih * stride);
+//         int32_t x0 = static_cast<int32_t>(iw * stride);
+//         allZ.push_back(z0); allY.push_back(y0); allX.push_back(x0);
+//     }
+//     std::vector<int32_t> selZ, selY, selX;
+//     selZ.reserve(N_sel); selY.reserve(N_sel); selX.reserve(N_sel);
+//     {
+//         auto sel_acc = sel.data_ptr<int64_t>();
+//         for (int64_t i = 0; i < N_sel; ++i) {
+//             int64_t li = sel_acc[i];
+//             selZ.push_back(allZ[li]);
+//             selY.push_back(allY[li]);
+//             selX.push_back(allX[li]);
+//         }
+//     }
+//
+//     torch::Tensor logits_cat;
+//     const int64_t B = std::min<int64_t>(max_batch, N_sel);
+//     int64_t offset  = 0;
+//
+//     while (offset < N_sel) {
+//         const int64_t b = std::min<int64_t>(B, N_sel - offset);
+//         torch::Tensor in = patches_needed.narrow(/*dim=*/0, /*start=*/offset, /*length=*/b)
+//                                           .to(dtype).to(device);
+//
+//         torch::Tensor logits = model.forward({in}).toTensor();
+//
+//         torch::Tensor probs;
+//         if (logits.size(1) == 2) {
+//             probs = torch::softmax(logits, 1).slice(1, 1, 2).contiguous();
+//         } else {
+//             probs = torch::sigmoid(logits).contiguous();
+//         }
+//
+//         torch::Tensor probs_w = probs * w_patch;
+//         for (int64_t i = 0; i < b; ++i) {
+//             const int32_t z0 = selZ[offset + i];
+//             const int32_t y0 = selY[offset + i];
+//             const int32_t x0 = selX[offset + i];
+//
+//             auto dstP = prob_full.narrow(2, z0, patch_size)
+//                                   .narrow(3, y0, patch_size)
+//                                   .narrow(4, x0, patch_size); // [1,1,ps,ps,ps]
+//             auto dstW = w_full.narrow(2, z0, patch_size)
+//                                 .narrow(3, y0, patch_size)
+//                                 .narrow(4, x0, patch_size); // [1,1,ps,ps,ps]
+//
+//             dstP.add_(probs_w[i]);
+//             dstW.add_(w_patch);
+//         }
+//
+//         offset += b;
+//     }
+//
+//     prob_full = prob_full / (w_full + 1e-8);
+//
+//     auto grid_sizes = grid_tensor.sizes(); // [D,H,W,3]
+//     const int64_t D = grid_sizes[0];
+//     const int64_t H = grid_sizes[1];
+//     const int64_t W = grid_sizes[2];
+//
+//     torch::Tensor prob_cropped =
+//         prob_full.slice(2, 0, D).slice(3, 0, H).slice(4, 0, W)  // [1,1,D,H,W]
+//                  .squeeze(0).squeeze(0)                         // [D,H,W]
+//                  .contiguous();
+//
+//     return prob_cropped;
+// }
+
 
 
 torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid_tensor, const std::string& model_path,
@@ -885,8 +1071,6 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
     auto [padded, pad_D, apad_H, pad_W] = pad_tensor(grid_tensor, patch_size);
     std::vector<torch::Tensor> patches = extract_patches(padded, patch_size, stride);
 
-    //model.to(device);
-    //model.eval();
     auto padded_sizes = padded.sizes();
     int padded_D = padded_sizes[0];
     int padded_H = padded_sizes[1];
@@ -942,21 +1126,11 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 
                         patch_idx += 1;
                     }
-
-                    // torch::Tensor prob_w = prob * w_patch;
-                    //
-                    // prob_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
-                    //         prob_w;
-                    // w_full.slice(2, z, z + patch_size).slice(3, y, y + patch_size).slice(4, x, x + patch_size) +=
-                    //         w_patch;
-                    //
-                    // patch_idx += 1;
                 }
             }
         }
     }
     prob_full = prob_full / (w_full + 1e-8);
-
     auto grid_tensor_sizes = grid_tensor.sizes();
     int D = grid_tensor_sizes[0];
     int H = grid_tensor_sizes[1];
@@ -1292,85 +1466,148 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    return std::make_tuple(result_volume_11, global_step);
 //}
 
-torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
-                                                 const torch::Tensor& prob_vol_1, // [nz, ny, nx]
-                                                 const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                                 const std::vector<Eigen::Vector3f>& query_points,
-                                                 int k) {
+// torch::Tensor VortexDetection::knn_smooth_labels(  before
+//     std::vector<float> data_val,
+//     const torch::Tensor& prob_vol_1,
+//     const Eigen::Vector3f& min_pos,
+//     const Eigen::Vector3f& global_step,
+//     const std::vector<Eigen::Vector3f>& query_points,
+//     int k)
+// {
+//     auto prob = prob_vol_1.contiguous();
+//     const int nz = prob.size(0), ny = prob.size(1), nx = prob.size(2);
+//     const float* p = prob.data_ptr<float>();
+//
+//     const int N = (int)query_points.size();
+//     torch::Tensor out = torch::zeros({N}, torch::kFloat32);
+//     float* out_ptr = out.data_ptr<float>();
+//
+//     const double sigma = 2.0 * std::max({(double)global_step[0], (double)global_step[1], (double)global_step[2]});
+//     const double inv_two_sigma2 = (sigma>0)? 1.0/(2.0*sigma*sigma) : 1e6;
+//
+//     auto lin = [&](int x,int y,int z)->int64_t {
+//         return (int64_t)z*ny*nx + (int64_t)y*nx + x;
+//     };
+//
+//     auto worker = [&](int begin, int end){
+//         for (int i = begin; i < end; ++i) {
+//             const auto& qp = query_points[i];
+//             const float rx = (qp[0] - min_pos[0]) / global_step[0];
+//             const float ry = (qp[1] - min_pos[1]) / global_step[1];
+//             const float rz = (qp[2] - min_pos[2]) / global_step[2];
+//
+//             const int x0 = std::clamp((int)std::floor(rx), 0, nx-2);
+//             const int y0 = std::clamp((int)std::floor(ry), 0, ny-2);
+//             const int z0 = std::clamp((int)std::floor(rz), 0, nz-2);
+//             const int x1 = x0 + 1, y1 = y0 + 1, z1 = z0 + 1;
+//
+//             const float tx = rx - x0, ty = ry - y0, tz = rz - z0;
+//             const float w000 = (1-tx)*(1-ty)*(1-tz);
+//             const float w100 = tx*(1-ty)*(1-tz);
+//             const float w010 = (1-tx)*ty*(1-tz);
+//             const float w110 = tx*ty*(1-tz);
+//             const float w001 = (1-tx)*(1-ty)*tz;
+//             const float w101 = tx*(1-ty)*tz;
+//             const float w011 = (1-tx)*ty*tz;
+//             const float w111 = tx*ty*tz;
+//
+//             float val =
+//                 w000 * p[lin(x0,y0,z0)] +
+//                 w100 * p[lin(x1,y0,z0)] +
+//                 w010 * p[lin(x0,y1,z0)] +
+//                 w110 * p[lin(x1,y1,z0)] +
+//                 w001 * p[lin(x0,y0,z1)] +
+//                 w101 * p[lin(x1,y0,z1)] +
+//                 w011 * p[lin(x0,y1,z1)] +
+//                 w111 * p[lin(x1,y1,z1)];
+//
+//             const float dv = data_val[i];
+//             // out_ptr[i] = val;
+//             out_ptr[i] = ((dv >= 0.2f && val >= 0.01f) ||
+//                           (val >= 0.2f && dv >= 0.15f)  ||
+//                           (dv >= 0.8f)                     ||
+//                           (val >= 0.3f)) ? 1.f : 0.f;
+//         }
+//     };
+//
+//     ThreadPool::parallelFor(0, N, worker, 2048);
+//     return out;
+// }
 
-    int nz = prob_vol_1.size(0);
-    int ny = prob_vol_1.size(1);
-    int nx = prob_vol_1.size(2);
+static inline uint64_t expandBits(uint32_t v) {
+    uint64_t x = v & 0x1fffff;            // 21 bits
+    x = (x | (x << 32)) & 0x1f00000000ffffULL;
+    x = (x | (x << 16)) & 0x1f0000ff0000ffULL;
+    x = (x | (x << 8 )) & 0x100f00f00f00f00fULL;
+    x = (x | (x << 4 )) & 0x10c30c30c30c30c3ULL;
+    x = (x | (x << 2 )) & 0x1249249249249249ULL;
+    return x;
+}
+static inline uint64_t morton3D(uint32_t x, uint32_t y, uint32_t z) {
+    return (expandBits(x) << 0) | (expandBits(y) << 1) | (expandBits(z) << 2);
+}
 
-    std::vector<Eigen::Vector3f> grid_coords;
-    grid_coords.reserve(nx * ny * nz);
 
-    for (int z = 0; z < nz; z++) {
-        for (int y = 0; y < ny; y++) {
-            for (int x = 0; x < nx; x++) {
-                Eigen::Vector3f pos = min_pos + Eigen::Vector3f(x, y, z).cwiseProduct(global_step);
-                grid_coords.push_back(pos);
-            }
-        }
+torch::Tensor VortexDetection::knn_smooth_labels(
+    std::vector<float> data_val,
+    const torch::Tensor& prob_vol_1,
+    const Eigen::Vector3f& min_pos,
+    const Eigen::Vector3f& global_step,
+    const std::vector<Eigen::Vector3f>& query_points,
+    int /*k*/)
+{
+    auto vol = prob_vol_1.contiguous()
+               .unsqueeze(0).unsqueeze(0);
+
+    const int64_t D = vol.size(2);  // nz
+    const int64_t H = vol.size(3);  // ny
+    const int64_t W = vol.size(4);  // nx
+
+    const int64_t M = static_cast<int64_t>(query_points.size());
+
+    torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
+
+    auto* gptr = grid.data_ptr<float>();
+    const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
+    const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
+    const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
+
+    const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
+    const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
+    const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
+
+    for (int64_t i = 0; i < M; ++i) {
+        const auto& qp = query_points[i];
+        const float rx = (qp[0] - min_pos[0]) * inv_sx; // x 索引
+        const float ry = (qp[1] - min_pos[1]) * inv_sy; // y 索引
+        const float rz = (qp[2] - min_pos[2]) * inv_sz; // z 索引
+        float x_norm = Wx * rx - 1.0f;
+        float y_norm = Hy * ry - 1.0f;
+        float z_norm = Dz * rz - 1.0f;
+
+        float* dst = gptr + i * 3;
+        dst[0] = x_norm;
+        dst[1] = y_norm;
+        dst[2] = z_norm;
     }
-    Eigen::MatrixXd coords_mat(grid_coords.size(), 3);
-    for (int i = 0; i < grid_coords.size(); i++) { coords_mat.row(i) = grid_coords[i].cast<double>().transpose(); }
+    using namespace torch::nn::functional;
+    auto opts = GridSampleFuncOptions()
+    .mode(torch::kBilinear)
+    .padding_mode(torch::kBorder)
+    .align_corners(true);
+    torch::Tensor sampled = grid_sample(vol, grid, opts);
+    sampled = sampled.view({M});
 
-    KDTree tree(coords_mat);
-    torch::Tensor flat_prob = prob_vol_1.flatten();
-    torch::Tensor sorted = std::get<0>(torch::sort(flat_prob));
-    int total = sorted.size(0);
-    int idx = static_cast<int>(0.99 * (total-1));
-    float threshold = sorted[idx].item<float>();
+    torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
 
-    int N = query_points.size();
-    torch::Tensor smooth_1 = torch::zeros({N}, torch::kFloat32);
+    auto cond =
+        ((dv.ge(0.2f) & sampled.ge(0.01f)) |
+         (sampled.ge(0.2f) & dv.ge(0.15f)) |
+         dv.ge(0.8f) |
+         sampled.ge(0.3f));
 
-
-    auto knn_worker = [&](int begin, int end) {
-        for (int i = begin; i < end; ++i) {
-            std::vector<int> idxs;
-            std::vector<double> dists;
-            Eigen::VectorXd query = query_points[i].cast<double>();
-
-            tree.query(query, k, idxs, dists);
-
-            torch::Tensor dists_t =
-                    torch::from_blob(dists.data(), {(int) idxs.size()}, torch::kFloat64).to(torch::kFloat32).clone();
-            torch::Tensor idxs_t =
-                    torch::from_blob(idxs.data(), {(int) idxs.size()}, torch::kInt32).to(torch::kLong).clone();
-            torch::Tensor neighbors = flat_prob.index_select(0, idxs_t);
-            // torch::Tensor mask = (neighbors > 1e-10);
-            // torch::Tensor valid_neighbors = neighbors.masked_select(mask);
-            // torch::Tensor valid_dists = valid_neighbors.masked_select(mask);
-            // if (valid_neighbors.numel() == 0) {
-            //     smooth_1[i] = 0;
-            //     continue;
-            // }
-            torch::Tensor mask = (neighbors > 1e-15);
-            torch::Tensor valid_neighbors = neighbors.masked_select(mask);
-            torch::Tensor valid_idxs = idxs_t.masked_select(mask);
-            torch::Tensor valid_dists = dists_t.masked_select(mask);
-
-            if (valid_neighbors.numel() == 0) {
-                smooth_1[i] = 0;
-                continue;
-            }
-
-            torch::Tensor weights = torch::exp(-0.5 * torch::pow(valid_dists / 0.8, 2));
-            weights = weights / (torch::sum(weights) + 1e-8);
-            float val = torch::sum(weights * valid_neighbors).item<float>();
-            if(data_val[i]>=0.2 && val>=0.000001 || val>=0.003&&data_val[i]>=0.15|| data_val[i]>=0.8 ||  val>=0.006)
-            // if(data_val[i]>=0.2 && val>=0.000001 || val>=0.001&&data_val[i]>=0.15 || data_val[i]>=0.8 || val>=0.0005)
-            // if(data_val[i]>=0.2 && val>=0.00005 || val>=0.02)
-            // if (val>0.005)
-                smooth_1[i] = 1 ;
-            else smooth_1[i] = 0;
-
-        }
-    };
-    ThreadPool::parallelFor(0, N, knn_worker);
-    return smooth_1;
+    torch::Tensor out = cond.to(torch::kFloat32);
+    return out;
 }
 
 // torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val,
@@ -1785,7 +2022,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                                 int target_points, int split) {
 
     torch::jit::script::Module model;
-
     try {
         model = torch::jit::load(model_path);
         std::cout << "Model loaded successfully." << std::endl;
@@ -1795,9 +2031,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
     Eigen::Vector3f range_vec = max_pos_eigen - min_pos_eigen;
     Eigen::Vector3f block_size = range_vec / split;
-    //Eigen::Vector3f range_vec = max_pos - min_pos;
-    //Eigen::Vector3f block_size = range_vec / split;
-    // 初始化 KD-Tree
+
+
     Eigen::MatrixXd points(gridPoints.size(), 3);
     for (size_t i = 0; i < gridPoints.size(); ++i) {
         points(i, 0) = gridPoints[i][0];
@@ -1814,10 +2049,10 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         velocities(i, 2) = gridVelocities[i][2];
     }
 
-    iGameStreamTracer tracer;
-    tracer.initStreamTracer(volume_Mesh);
-    std::string vectorName = name;
-    float terminalSpeed = 0.0f;
+    // iGameStreamTracer tracer;
+    // tracer.initStreamTracer(volume_Mesh);
+    // std::string vectorName = name;
+    // float terminalSpeed = 0.0f;
 
     // Vector3f mean = {-1.572247e-04, -4.576315e-04, -2.9615819e-10};
     // Vector3f std = {2.6299512e-02, 2.8212167e-02, 1.9456959e-08};
@@ -1830,38 +2065,9 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         all_velocities_thread_safe[i].resize(total_blocks);
     }
     const double eps = 1e-6;
-    static std::counting_semaphore<> infer_slots(15);
+    static std::counting_semaphore<> infer_slots(20);
     // int progress = 0;
     std::mutex progress_mutex;
-
-    // struct I3 { int x,y,z; };
-    // struct I3Hash {
-    //     size_t operator()(const I3& a) const {
-    //         // 64-bit 组合哈希，避免冲突
-    //         return (uint64_t(uint32_t(a.x))*73856093ull) ^
-    //                (uint64_t(uint32_t(a.y))*19349663ull) ^
-    //                (uint64_t(uint32_t(a.z))*83492791ull);
-    //     }
-    // };
-    // struct I3Eq {
-    //     bool operator()(const I3& a, const I3& b) const { return a.x==b.x && a.y==b.y && a.z==b.z; }
-    // };
-    // Eigen::Vector3f global_range = max_pos_eigen - min_pos_eigen;
-    // Eigen::Vector3f target_grid_size(target_points, target_points, target_points);
-    // const Eigen::Vector3f cell = global_range.cwiseQuotient(target_grid_size - Eigen::Vector3f::Ones());
-    // Eigen::Vector3f inv = cell.cwiseInverse();
-    //
-    // std::unordered_map<I3, std::vector<int>, I3Hash, I3Eq> buckets;
-    // buckets.reserve(points.rows()*2);
-    //
-    // auto toKey = [&](const Eigen::Vector3f& p)->I3 {
-    //     Eigen::Array3f v = ((p - min_pos_eigen).array() * inv.array()).floor();
-    //     return {int(v[0]), int(v[1]), int(v[2])};
-    // };
-    // for (int i = 0; i < points.rows(); ++i) {
-    //     Eigen::Vector3f p(points(i,0), points(i,1), points(i,2));
-    //     buckets[toKey(p)].push_back(i);
-    // }
 
     auto t0 = std::chrono::high_resolution_clock::now();
     auto process_blocks_range = [&](int begin, int end) {
@@ -1883,8 +2089,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             Eigen::Vector3f step = sub_range.cwiseQuotient(now);
             torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
 
-            igIndex cachedVolumeId = -1;
-            const int K = 2;
+            const int K = 8;
             std::vector<double> weights(K, 0.0);
             std::vector<int> idxs(K, 0);
             std::vector<double> dists(K, 0.0);
@@ -1896,21 +2101,49 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                         Eigen::VectorXd pos_vec(3);
                         pos_vec << pos[0], pos[1], pos[2];
                         Vector3f pos_ (pos[0], pos[1], pos[2]);
-
-                        bool inside = false;
-                        Vector3f v = tracer.SampleVector(pos_, inside, cachedVolumeId, vectorName, terminalSpeed);
-                        if (inside) {
-                            torch::Tensor v_t = torch::tensor({v[0], v[1], v[2]}, torch::kFloat32);
-                            grid_tensor[k][j][i] = v_t;
-                            if (v[0]!=0.0f && v[1]!=0.0f && v[2]!=0.0f) {
-                                all_velocities_thread_safe[0][id].push_back(v[0]);
-                                all_velocities_thread_safe[1][id].push_back(v[1]);
-                                all_velocities_thread_safe[2][id].push_back(v[2]);
-                            }
-                        }
-                        else {
+                        tree.query(pos_vec, K, idxs, dists);
+                        if (dists.size() == 0  || dists[0]>step[0] * 4) {
                             grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
+                        }else{
+                            torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
+                            double dist_sum = 0.0;
+                            for (int l = 0; l < K; ++l) {
+                                double dist = dists[l];
+                                weights[l] = 1.0 / (dist + eps);
+                                dist_sum += weights[l];
+                            }
+                            for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
+                            float vx = 0.f, vy = 0.f, vz = 0.f;
+                            for (int l = 0; l < (int)dists.size(); ++l) {
+                                const int idx = idxs[l];
+                                if (idx >= 0 && idx < velocities.rows()) {
+                                    const float w = static_cast<float>(weights[l]);
+                                    vx += w * static_cast<float>(velocities(idx, 0));
+                                    vy += w * static_cast<float>(velocities(idx, 1));
+                                    vz += w * static_cast<float>(velocities(idx, 2));
+                                }
+                            }
+                            grid_tensor[k][j][i] = torch::tensor({vx, vy, vz}, torch::kFloat32);
+                            // if (vx!=0 && vy!=0 && vz!=0) {
+                            all_velocities_thread_safe[0][id].push_back(vx);
+                            all_velocities_thread_safe[1][id].push_back(vy);
+                            all_velocities_thread_safe[2][id].push_back(vz);
+                            // }
                         }
+                        // bool inside = false;
+                        // Vector3f v = tracer.SampleVector(pos_, inside, cachedVolumeId, vectorName, terminalSpeed);
+                        // if (inside) {
+                        //     torch::Tensor v_t = torch::tensor({v[0], v[1], v[2]}, torch::kFloat32);
+                        //     grid_tensor[k][j][i] = v_t;
+                        //     if (v[0]!=0.0f && v[1]!=0.0f && v[2]!=0.0f) {
+                        //         all_velocities_thread_safe[0][id].push_back(v[0]);
+                        //         all_velocities_thread_safe[1][id].push_back(v[1]);
+                        //         all_velocities_thread_safe[2][id].push_back(v[2]);
+                        //     }
+                        // }
+                        // else {
+                        //     grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
+                        // }
                     }
                 }
             }
@@ -1943,7 +2176,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             sum_sq += diff * diff;
         }
         float std = static_cast<float>(std::sqrt(sum_sq / values.size()));
-        if (std < 1e-8) std = 1.0f;
+        if (std < 1e-10) std = 1.0f;
         return {mean, std};
     };
 
@@ -1953,7 +2186,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
     Vector3f mean(mean_x, mean_y, mean_z);
     Vector3f std(std_x, std_y, std_z);
-    //
     std::cout << "Computed mean: [" << mean[0] << ", " << mean[1] << ", " << mean[2] << "]" << std::endl;
     std::cout << "Computed std: [" << std[0] << ", " << std[1] << ", " << std[2] << "]" << std::endl;
 
@@ -1961,6 +2193,19 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
     auto processing = [&](int begin, int end) {
          for (int id = begin; id < end; ++id) {
+             // const torch::Tensor& grid_tensor = all_grid_tensors[id];
+             // auto mean_t = torch::tensor({mean_x, mean_y, mean_z}).to(torch::kFloat32).reshape({1,1,1,3});
+             // auto std_t  = torch::tensor({std_x,  std_y,  std_z }).to(torch::kFloat32).reshape({1,1,1,3});
+             //
+             // torch::Tensor arr = grid_tensor.contiguous().clone();
+             // arr.sub_(mean_t).div_(std_t);
+             // arr = torch::sigmoid(arr);
+             // infer_slots.acquire();
+             // torch::Tensor pred_block_1 = run_prediction_on_block(arr, model);
+             // infer_slots.release();
+             //
+             // all_results_1[id] = std::move(pred_block_1); // [D,H,W]
+
              const torch::Tensor& grid_tensor = all_grid_tensors[id];
              torch::Tensor arr = grid_tensor.clone();
              for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }

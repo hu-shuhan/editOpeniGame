@@ -13,13 +13,15 @@
 #include <string>
 #if defined(LibTorch_ENABLE)
 #undef slots
-#include <torch/script.h>
 #include <torch/torch.h>
+#include <torch/script.h>
+#include <ATen/ATen.h>
 #define slots Q_SLOTS
 #endif
 
 #include "StreamView/iGameStreamTracer.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
+#include <nanoflann.hpp>
 
 
 #include <vector>
@@ -44,6 +46,7 @@ public:
 
     torch::Tensor run_prediction_on_block(const torch::Tensor& grid_tensor, const std::string& model_path,
                                           const torch::jit::script::Module& model);
+    // torch::Tensor run_prediction_on_block(const torch::Tensor& grid_tensor,torch::jit::script::Module& model);
 
     std::vector<torch::Tensor> extract_patches(const torch::Tensor& padded, int patch_size, int stride);
 
