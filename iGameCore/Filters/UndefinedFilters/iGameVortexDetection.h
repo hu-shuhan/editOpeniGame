@@ -68,12 +68,14 @@ public:
 
     double compute_percentile_edge_length_from_cells(const std::vector<Vector3f>& points,
                                                      const std::vector<Volume*>& cells, double percentile);
+    double compute_percentile_cell_volume(const std::vector<Vector3f>& points,
+                                                    const std::vector<Volume*>& cells,double percentile);
 
     std::tuple<torch::Tensor, Eigen::Vector3f> process_blocks(const std::vector<Vector3f>& gridPoints,
                                                               const std::vector<Vector3f>& gridVelocities,
                                                               const Vector3f& min_pos, const Vector3f& max_pos,
-                                                              const std::string& model_path, int target_points,
-                                                              int split);
+                                                              const std::string& model_path,
+                                                              int split,int nx,int ny,int nz);
 
     ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
                                                           size_t PointNum);
