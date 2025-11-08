@@ -82,15 +82,16 @@ if (WIN32 AND ENABLE_LIBTORCH_MODULE)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Debug")
     else ()
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release_GPU")
     endif ()
 
     include_directories(
             "${LIBTORCH_DIR}/include"
             "${LIBTORCH_DIR}/include/torch/csrc/api/include"
     )
-
-    file(GLOB TORCH_DLLS "${LIBTORCH_DIR}/lib/*.dll")
+    file(GLOB TORCH_DLLS
+            "${LIBTORCH_DIR}/lib/*.dll"
+            "${LIBTORCH_DIR}/bin/*.dll")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${TORCH_DLLS}
