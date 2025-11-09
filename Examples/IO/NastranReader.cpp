@@ -6,7 +6,9 @@ int main(){
     std::string bdfPath = "./Models/ogs.bdf";
     std::string op2Path = "./Models/ogs.op2";
     iGame::NastranReader::Pointer rd = iGame::NastranReader::New();
+    /* It is necessary, equivalent to SetFilePath */
     rd->SetBDFFileName(bdfPath);
+//    rd->SetFilePath(bdfPath);
     /* Optional, the op2 file path can be set to read physical field data*/
     rd->SetOP2FileName(op2Path);
     rd->Execute();

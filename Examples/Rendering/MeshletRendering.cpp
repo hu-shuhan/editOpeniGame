@@ -12,26 +12,17 @@ static void MeshletRendering() {
     // Read the file and add it to the scene
     const std::string fileName = "./Models/mazewheel.obj";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
+
+    auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (dataObj != nullptr) {
-        iGame::SmartPointer<iGame::Meshleter> meshleter = nullptr;
         if (dataObj->GetDataObjectType() == IG_SURFACE_MESH) {
-            meshleter = iGame::SurfaceMeshMeshleter::New();
-            meshleter->SetInput(dataObj);
-            scene->AddModel(meshleter);
+            drawObj->SetAccelerationOption(true);
+            scene->AddModel(dataObj);
         } else {
             igError(std::format("Input is not surface mesh({})", dataObj->GetDataObjectType()));
         }
     } else {
         igError("Error reading the file");
-    }
-
-    // Change the display style to wireframe and surface mode
-    auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
-    if (drawObj) {
-        // Set the display style to combine wireframe and surface modes for the object
-        drawObj->SetViewStyle(IG_SURFACE); // Combined mode: Wireframe + Surface
-    } else {
-        igError("Not a drawable object"); // Error if the object is not drawable
     }
 
     // Reset the camera view based on the model's bounding sphere

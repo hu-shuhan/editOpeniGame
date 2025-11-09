@@ -13,13 +13,15 @@
 #include <string>
 #if defined(LibTorch_ENABLE)
 #undef slots
-#include <torch/script.h>
 #include <torch/torch.h>
+#include <torch/script.h>
+#include <ATen/ATen.h>
 #define slots Q_SLOTS
 #endif
 
 #include "StreamView/iGameStreamTracer.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
+#include <nanoflann.hpp>
 
 
 #include <vector>
@@ -44,6 +46,7 @@ public:
 
     torch::Tensor run_prediction_on_block(const torch::Tensor& grid_tensor, const std::string& model_path,
                                           const torch::jit::script::Module& model);
+    // torch::Tensor run_prediction_on_block(const torch::Tensor& grid_tensor,torch::jit::script::Module& model);
 
     std::vector<torch::Tensor> extract_patches(const torch::Tensor& padded, int patch_size, int stride);
 
@@ -65,12 +68,14 @@ public:
 
     double compute_percentile_edge_length_from_cells(const std::vector<Vector3f>& points,
                                                      const std::vector<Volume*>& cells, double percentile);
+    double compute_percentile_cell_volume(const std::vector<Vector3f>& points,
+                                                    const std::vector<Volume*>& cells,double percentile);
 
     std::tuple<torch::Tensor, Eigen::Vector3f> process_blocks(const std::vector<Vector3f>& gridPoints,
                                                               const std::vector<Vector3f>& gridVelocities,
                                                               const Vector3f& min_pos, const Vector3f& max_pos,
-                                                              const std::string& model_path, int target_points,
-                                                              int split);
+                                                              const std::string& model_path,
+                                                              int split,int nx,int ny,int nz);
 
     ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
                                                           size_t PointNum);

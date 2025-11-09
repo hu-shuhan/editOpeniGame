@@ -367,9 +367,11 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
 void UnstructuredMesh::ConvertToDrawableData() {
     // extract surface mesh
     if (m_ShellRendering) {
-        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime()) {
+        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime() &&
+            !m_ReConvertToDrawableData) {
             return;
         }
+        m_ReConvertToDrawableData = false;
 
         bool extractShellSuccess = false;
         if (m_ShellRendering) {
@@ -529,17 +531,16 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     for (int i = 0; i < cell->GetNumberOfFaces(); i++) {
                         int base_face_size = cell->GetFacePointIds(i, face) / 2;
                         triangleIndices->AddElement3(ids[face[0]], ids[face[base_face_size]],
-                                                        ids[face[base_face_size * 2 - 1]]);
+                                                     ids[face[base_face_size * 2 - 1]]);
                         triangleEdgeMasks->AddValue(5);
                         for (int j = 1; j < base_face_size; j++) {
                             triangleIndices->AddElement3(ids[face[j]], ids[face[j + base_face_size]],
-                                                            ids[face[j + base_face_size - 1]]);
+                                                         ids[face[j + base_face_size - 1]]);
                             triangleEdgeMasks->AddValue(5);
                         }
                         for (int j = 2; j < base_face_size; j++) {
-                            triangleIndices->AddElement3(ids[face[base_face_size]],
-                                                            ids[face[base_face_size + j - 1]],
-                                                            ids[face[base_face_size + j]]);
+                            triangleIndices->AddElement3(ids[face[base_face_size]], ids[face[base_face_size + j - 1]],
+                                                         ids[face[base_face_size + j]]);
                             triangleEdgeMasks->AddValue(0);
                         }
                     }

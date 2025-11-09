@@ -632,23 +632,37 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
+    connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto mesh = DynamicCast<PointSet>(obj);
+        
+        FloatArray::Pointer arr = FloatArray::New();
+        arr->Resize(mesh->GetNumberOfPoints());
+        arr->SetName("123");
+        mesh->GetAttributeSet()->AddAttribute(IG_VECTOR, IG_POINT, arr);
+        mesh->ForceReConvertToDrawableData();
+
+        modelTreeWidget->updateAllAttriubute(obj);
+        rendererWidget->update();
+    });
+
     connect(mesh_processing->addAction("提取体网格表面网格"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         if (obj->HasSubDataObject()) {
-            auto sub_mesh = obj->GetSubDataObject(0);
-            if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
-                auto new_mesh = mesh->GetRenderableObject();
-                new_mesh->SetName(mesh->GetName() + "_surface");
-                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-                rendererWidget->update();
+            //auto sub_mesh = obj->GetSubDataObject(0);
+            //if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(sub_mesh)) {
+            //    auto new_mesh = mesh->GetRenderableObject();
+            //    new_mesh->SetName(mesh->GetName() + "_surface");
+            //    modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            //    rendererWidget->update();
 
-            } else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
-                auto new_mesh = mesh->GetRenderableObject();
-                new_mesh->SetName(mesh->GetName() + "_surface");
-                modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-                rendererWidget->update();
-            }
+            //} else if (UnstructuredMesh::Pointer mesh = DynamicCast<UnstructuredMesh>(sub_mesh)) {
+            //    auto new_mesh = mesh->GetRenderableObject();
+            //    new_mesh->SetName(mesh->GetName() + "_surface");
+            //    modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            //    rendererWidget->update();
+            //}
 
         } else {
             if (VolumeMesh::Pointer mesh = DynamicCast<VolumeMesh>(obj)) {
@@ -894,7 +908,9 @@ void igQtMainWindow::initAllFilters() {
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        if (filter->Execute()) { 
+            modelTreeWidget->updateAllAttriubute(data);
+        }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");

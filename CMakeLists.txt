@@ -26,10 +26,10 @@ endif ()
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
-set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
+set(ENABLE_NASTRAN_MODULE ON CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
-set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
+set(ENABLE_LIBTORCH_MODULE ON CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
@@ -38,7 +38,7 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
@@ -82,15 +82,16 @@ if (WIN32 AND ENABLE_LIBTORCH_MODULE)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Debug")
     else ()
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release_GPU")
     endif ()
 
     include_directories(
             "${LIBTORCH_DIR}/include"
             "${LIBTORCH_DIR}/include/torch/csrc/api/include"
     )
-
-    file(GLOB TORCH_DLLS "${LIBTORCH_DIR}/lib/*.dll")
+    file(GLOB TORCH_DLLS
+            "${LIBTORCH_DIR}/lib/*.dll"
+            "${LIBTORCH_DIR}/bin/*.dll")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${TORCH_DLLS}

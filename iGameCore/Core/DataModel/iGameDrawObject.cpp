@@ -383,15 +383,15 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SurfaceMesh->m_ColorMapper = this->m_ColorMapper;
 
     // simplify mesh
-    MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
-    meshSimplifier->SetInput(dataObject);
-    meshSimplifier->SetTargetReduction(0.9);
-    if (meshSimplifier->Execute()) {
-        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput());
-    } else {
-        m_RenderableMesh.SimplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    auto simplifiedMesh = DynamicCast<DrawObject>(dataObject);
+    if (this->GetDataObjectType() != IG_SURFACE_MESH) {
+        MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
+        meshSimplifier->SetInput(dataObject);
+        meshSimplifier->SetTargetReduction(0.2);
+        if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
     }
 
+    m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
     m_RenderableMesh.SimplifiedMesh->m_ViewStyle = this->m_ViewStyle;
     m_RenderableMesh.SimplifiedMesh->m_Visibility = this->m_Visibility;
     m_RenderableMesh.SimplifiedMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
