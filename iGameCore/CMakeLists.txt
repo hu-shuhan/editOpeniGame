@@ -80,12 +80,7 @@ list(APPEND ThirdParty_lib_dependency
         meshoptimizer
         tinyXML2
         vtkkwiml
-<<<<<<< HEAD
-        lzma
-#        libzstd_static
-=======
         libzstd_static
->>>>>>> a267883aa846850aa2ce681840d56976fb2bef9b
         glfw
         spdlog_header_only
         zlibstatic
