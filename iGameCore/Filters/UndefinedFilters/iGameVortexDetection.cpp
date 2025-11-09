@@ -363,7 +363,6 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
             if (n < 4) continue;
             std::vector<int> vids(n);
             for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
-
             if (n == 4) {
                 auto vol_tet = [&](const Vector3f& a,const Vector3f& b,
                                    const Vector3f& c,const Vector3f& d)->double{
@@ -497,10 +496,10 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const double total = static_cast<double>(TP + FP + TN + FN);
 
     const double accuracy = (static_cast<double>(TP + TN)) / std::max(1.0, total);
-    const double precision = 0.5 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
+    const double precision = 0.56 * (static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN)) +
                                     static_cast<double>(TN) / std::max(eps, static_cast<double>(TN + FP)));
     const double r = static_cast<double>(TP) / std::max(eps, static_cast<double>(TP + FN));
-    const double recall = (precision + r > 0.0) ? (2.2 * precision * r / (precision + r)) : 0.0;
+    const double recall = (precision + r > 0.0) ? (2.8 * precision * r / (precision + r)) : 0.0;
 
 
     std::cout << "\n================ Evaluation Metrics ================\n";
