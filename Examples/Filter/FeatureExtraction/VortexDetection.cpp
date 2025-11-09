@@ -13,7 +13,7 @@ static void VortexDetectionExtract() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/8_PredictedLabel.vtu";
+    const std::string fileName = "./Models/redsea_PredictedLabel.vtu";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);
