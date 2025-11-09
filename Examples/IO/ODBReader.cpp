@@ -10,7 +10,11 @@ void TestReadOnlyMesh(){
     const std::string fileName = "./Models/CP10_L6_DP1_new.odb";
     iGame::ODBReader::Pointer reader = iGame::ODBReader::New();
     /* Read */
-    auto obj = reader->ReadOdbRawMesh(fileName);
+    /* Read First Frame Field with raw Mesh */
+    auto obj = reader->ReadOdbFirstFrameMesh(fileName);
+
+    /* Read raw Mesh WITHOUT Field data*/
+//    auto obj = reader->ReadOdbRawMesh(fileName);
     /* Check Attribute num is ZERO. */
     std::cout << "======Attribute num  : " << obj->GetAttributeSet()->GetNumberOfAttributes() << '\n';
     if (obj == nullptr) {

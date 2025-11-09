@@ -132,8 +132,5 @@ int main(int argn, char** args) {
     window->SetScene(scene);
     window->SetSize(1920, 1080);
     SaveAnimationToMP4(scene, obj, "./AnimationExample.mp4");
-<<<<<<< HEAD
     SaveAnimationToGIF(scene, obj, "./AnimationExample.gif");
-=======
->>>>>>> abf45bc8982411aeda3bd80081cb62c4532d536a
 }
