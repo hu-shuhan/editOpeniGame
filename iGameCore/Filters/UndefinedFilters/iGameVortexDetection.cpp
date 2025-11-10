@@ -23,6 +23,7 @@
 #include <torch/torch.h>
 #include <ATen/ATen.h>
 #include <c10/core/ScalarType.h>
+#include <c10/core/DeviceType.h>
 using namespace torch::nn::functional;
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
@@ -344,94 +345,205 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     // std::cout<<"targetPoints = "<<targetPoints<<std::endl;
 
     int split = 6;
-    double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60);
-    double Lv = cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75));
-    double L = std::max(Lp, 0.5 * Lv);
-    double bbox_diag = range.norm();
-
-    double alpha = 1.3;
-    double h_raw = alpha * L;
-    double h_floor = bbox_diag * 1e-3;
-    double h_ceil = bbox_diag * 0.08;
+    const double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60.0);
+    const double Lv = std::cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75.0));
+    const double L  = std::max(Lp, 0.5 * Lv);
+    const double bbox_diag = double(range.norm());
+    const double alpha   = 1.3;
+    const double h_raw   = alpha * L;
+    const double h_floor = bbox_diag * 1e-3;
+    const double h_ceil  = bbox_diag * 0.08;
     double h = std::min(std::max(h_raw, h_floor), h_ceil);
 
-    auto sum_cell_volume = [&](const std::vector<Vector3f>& P,
-                           const std::vector<Volume*>& C)->double {
+    auto vol_tet4 = [](const Vector3f& a, const Vector3f& b,
+                       const Vector3f& c, const Vector3f& d) -> double
+    {
+        const double bax = double(b[0]) - double(a[0]);
+        const double bay = double(b[1]) - double(a[1]);
+        const double baz = double(b[2]) - double(a[2]);
+        const double cax = double(c[0]) - double(a[0]);
+        const double cay = double(c[1]) - double(a[1]);
+        const double caz = double(c[2]) - double(a[2]);
+        const double dax = double(d[0]) - double(a[0]);
+        const double day = double(d[1]) - double(a[1]);
+        const double daz = double(d[2]) - double(a[2]);
+        const double det = bax*(cay*daz - caz*day)
+                         - bay*(cax*daz - caz*dax)
+                         + baz*(cax*day - cay*dax);
+        return std::abs(det) * (1.0/6.0);
+    };
+
+    auto sum_cell_volume_parallel = [&](const std::vector<Vector3f>& P,
+                                        const std::vector<Volume*>&  C) -> double
+    {
         double sumV = 0.0;
-        for (auto cell : C) {
-            int n = cell->GetNumberOfPoints();
-            if (n < 4) continue;
-            std::vector<int> vids(n);
-            for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
-            if (n == 4) {
-                auto vol_tet = [&](const Vector3f& a,const Vector3f& b,
-                                   const Vector3f& c,const Vector3f& d)->double{
-                    double bax=b[0]-a[0], bay=b[1]-a[1], baz=b[2]-a[2];
-                    double cax=c[0]-a[0], cay=c[1]-a[1], caz=c[2]-a[2];
-                    double dax=d[0]-a[0], day=d[1]-a[1], daz=d[2]-a[2];
-                    double det = bax*(cay*daz - caz*day)
-                               - bay*(cax*daz - caz*dax)
-                               + baz*(cax*day - cay*dax);
-                    return std::abs(det)/6.0;
-                };
-                sumV += vol_tet(P[vids[0]], P[vids[1]], P[vids[2]], P[vids[3]]);
-            } else {
-                std::vector<double> el; el.reserve(n*(n-1)/2);
-                for (int j=0;j<n;++j) for (int k=j+1;k<n;++k){
-                    double len = (P[vids[j]] - P[vids[k]]).norm();
-                    if (len>1e-12 && std::isfinite(len)) el.push_back(len);
-                }
-                if (!el.empty()){
-                    size_t mid = el.size()/2;
-                    std::nth_element(el.begin(), el.begin()+mid, el.end());
-                    double Lm = el[mid];
-                    sumV += Lm*Lm*Lm;
+        #pragma omp parallel
+        {
+            std::vector<double> el;
+            el.reserve(64);
+            double local_sum = 0.0;
+            #pragma omp for schedule(guided)
+            for (int i = 0; i < (int)C.size(); ++i) {
+                Volume* cell = C[i];
+                const int n = cell->GetNumberOfPoints();
+                if (n < 4) continue;
+                if (n == 4) {
+                    const int id0 = cell->GetPointId(0);
+                    const int id1 = cell->GetPointId(1);
+                    const int id2 = cell->GetPointId(2);
+                    const int id3 = cell->GetPointId(3);
+                    local_sum += vol_tet4(P[id0], P[id1], P[id2], P[id3]);
+                } else {
+                    el.clear();
+                    el.reserve((size_t)n * (n - 1) / 2);
+                    for (int j = 0; j < n; ++j) {
+                        const int vj = cell->GetPointId(j);
+                        const auto& pj = P[vj];
+                        for (int k = j + 1; k < n; ++k) {
+                            const int vk = cell->GetPointId(k);
+                            const auto& pk = P[vk];
+                            const double dx = double(pj[0]) - double(pk[0]);
+                            const double dy = double(pj[1]) - double(pk[1]);
+                            const double dz = double(pj[2]) - double(pk[2]);
+                            const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
+                            if (len > 1e-12 && std::isfinite(len)) el.push_back(len);
+                        }
+                    }
+                    if (!el.empty()) {
+                        const size_t mid = el.size() / 2;
+                        std::nth_element(el.begin(), el.begin() + mid, el.end());
+                        const double Lm = el[mid];
+                        local_sum += Lm * Lm * Lm;
+                    }
                 }
             }
+            #pragma omp atomic
+            sumV += local_sum;
         }
         return sumV;
     };
-
-    double V_occ  = sum_cell_volume(gridPoints, gridCells);
-    double V_bbox = std::max(1e-18, double(range[0])*double(range[1])*double(range[2]));
-    double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
-
-    double sub_len_x = range[0] / split;
-    double sub_len_y = range[1] / split;
-    double sub_len_z = range[2] / split;
-    double V_sub = sub_len_x * sub_len_y * sub_len_z;
-    const long long V_TARGET = 96LL*96LL*96LL;
-    double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
-
-    double c_occ = 1.5;
+    const double V_occ  = sum_cell_volume_parallel(gridPoints, gridCells);
+    const double V_bbox = std::max(1e-18,
+                            double(range[0]) * double(range[1]) * double(range[2]));
+    const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+    const double sub_len_x = double(range[0]) / double(split);
+    const double sub_len_y = double(range[1]) / double(split);
+    const double sub_len_z = double(range[2]) / double(split);
+    const double V_sub     = sub_len_x * sub_len_y * sub_len_z;
+    const long long V_TARGET = 96LL * 96LL * 96LL;
+    const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
+    const double c_occ = 1.5;
     h = std::min(h, c_occ * h_occ);
 
     auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
     int nx = compute_n(sub_len_x);
     int ny = compute_n(sub_len_y);
     int nz = compute_n(sub_len_z);
-    int N_MIN = 12, N_MAX = 200;
-    long long VOX_CAP = 96LL*96LL*96LL;
+    const int N_MIN = 12, N_MAX = 200;
     nx = std::max(N_MIN, std::min(nx, N_MAX));
     ny = std::max(N_MIN, std::min(ny, N_MAX));
     nz = std::max(N_MIN, std::min(nz, N_MAX));
+
+    const long long VOX_CAP = 96LL * 96LL * 96LL;
     long long vox = 1LL * nx * ny * nz;
     if (vox > VOX_CAP) {
-        double s = std::cbrt(double(VOX_CAP)/double(vox));
-        nx = std::max(N_MIN, int(nx*s));
-        ny = std::max(N_MIN, int(ny*s));
-        nz = std::max(N_MIN, int(nz*s));
+        const double s = std::cbrt(double(VOX_CAP) / double(vox));
+        nx = std::max(N_MIN, int(nx * s));
+        ny = std::max(N_MIN, int(ny * s));
+        nz = std::max(N_MIN, int(nz * s));
     }
+
     std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+
+    // int split = 6;
+    // double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60);
+    // double Lv = cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75));
+    // double L = std::max(Lp, 0.5 * Lv);
+    // double bbox_diag = range.norm();
+    //
+    // double alpha = 1.3;
+    // double h_raw = alpha * L;
+    // double h_floor = bbox_diag * 1e-3;
+    // double h_ceil = bbox_diag * 0.08;
+    // double h = std::min(std::max(h_raw, h_floor), h_ceil);
+    //
+    // auto sum_cell_volume = [&](const std::vector<Vector3f>& P,
+    //                        const std::vector<Volume*>& C)->double {
+    //     double sumV = 0.0;
+    //     for (auto cell : C) {
+    //         int n = cell->GetNumberOfPoints();
+    //         if (n < 4) continue;
+    //         std::vector<int> vids(n);
+    //         for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
+    //         if (n == 4) {
+    //             auto vol_tet = [&](const Vector3f& a,const Vector3f& b,
+    //                                const Vector3f& c,const Vector3f& d)->double{
+    //                 double bax=b[0]-a[0], bay=b[1]-a[1], baz=b[2]-a[2];
+    //                 double cax=c[0]-a[0], cay=c[1]-a[1], caz=c[2]-a[2];
+    //                 double dax=d[0]-a[0], day=d[1]-a[1], daz=d[2]-a[2];
+    //                 double det = bax*(cay*daz - caz*day)
+    //                            - bay*(cax*daz - caz*dax)
+    //                            + baz*(cax*day - cay*dax);
+    //                 return std::abs(det)/6.0;
+    //             };
+    //             sumV += vol_tet(P[vids[0]], P[vids[1]], P[vids[2]], P[vids[3]]);
+    //         } else {
+    //             std::vector<double> el; el.reserve(n*(n-1)/2);
+    //             for (int j=0;j<n;++j) for (int k=j+1;k<n;++k){
+    //                 double len = (P[vids[j]] - P[vids[k]]).norm();
+    //                 if (len>1e-12 && std::isfinite(len)) el.push_back(len);
+    //             }
+    //             if (!el.empty()){
+    //                 size_t mid = el.size()/2;
+    //                 std::nth_element(el.begin(), el.begin()+mid, el.end());
+    //                 double Lm = el[mid];
+    //                 sumV += Lm*Lm*Lm;
+    //             }
+    //         }
+    //     }
+    //     return sumV;
+    // };
+    //
+    // double V_occ  = sum_cell_volume(gridPoints, gridCells);
+    // double V_bbox = std::max(1e-18, double(range[0])*double(range[1])*double(range[2]));
+    // double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+    //
+    // double sub_len_x = range[0] / split;
+    // double sub_len_y = range[1] / split;
+    // double sub_len_z = range[2] / split;
+    // double V_sub = sub_len_x * sub_len_y * sub_len_z;
+    // const long long V_TARGET = 96LL*96LL*96LL;
+    // double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
+    //
+    // double c_occ = 1.5;
+    // h = std::min(h, c_occ * h_occ);
+    //
+    // auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
+    // int nx = compute_n(sub_len_x);
+    // int ny = compute_n(sub_len_y);
+    // int nz = compute_n(sub_len_z);
+    // int N_MIN = 12, N_MAX = 200;
+    // long long VOX_CAP = 96LL*96LL*96LL;
+    // nx = std::max(N_MIN, std::min(nx, N_MAX));
+    // ny = std::max(N_MIN, std::min(ny, N_MAX));
+    // nz = std::max(N_MIN, std::min(nz, N_MAX));
+    // long long vox = 1LL * nx * ny * nz;
+    // if (vox > VOX_CAP) {
+    //     double s = std::cbrt(double(VOX_CAP)/double(vox));
+    //     nx = std::max(N_MIN, int(nx*s));
+    //     ny = std::max(N_MIN, int(ny*s));
+    //     nz = std::max(N_MIN, int(nz*s));
+    // }
+    // std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
 
     std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
 
-    // auto t_01 = std::chrono::high_resolution_clock::now();
+    auto t_001 = std::chrono::high_resolution_clock::now();
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split,nx,ny,nz,Mesh,Attributes,Index);
-    // auto t_02 = std::chrono::high_resolution_clock::now();
-    // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
-    // std::cout << "[VortexDetection:process_blocks:::Execute] Total time = " << elapsed_0 << " s" << std::endl;
+    auto t_002 = std::chrono::high_resolution_clock::now();
+    double elapsed_00 = std::chrono::duration<double>(t_002 - t_001).count();
+    std::cout << "[VortexDetection:process_blocks:::Execute] Total time = " << elapsed_00 << " s" << std::endl;
     // torch::Tensor result_volume_11 = std::get<0>(result);
     // Eigen::Vector3f global_step = std::get<1>(result);
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
@@ -440,9 +552,12 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     eigenPoints.reserve(gridPoints.size());
 
     for (const auto& p: gridPoints) { eigenPoints.emplace_back(p[0], p[1], p[2]); }
-
+    // auto t_01 = std::chrono::high_resolution_clock::now();
     torch::Tensor smooth_vals =
             knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5);
+    // auto t_02 = std::chrono::high_resolution_clock::now();
+    // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
+    // std::cout << "[VortexDetection:process_blocks:::Execute] knn_smooth_labels = " << elapsed_0 << " s" << std::endl;
     std::vector<float> Predict(NumPoints, 0.0f);
 
     FloatArray::Pointer vortexs = FloatArray::New();
@@ -684,36 +799,132 @@ torch::Tensor VortexDetection::gaussian_kernel3d(float sigma, int radius) {
     return k3.view({1, 1, 2 * radius + 1, 2 * radius + 1, 2 * radius + 1});
 }
 
+namespace F = torch::nn::functional;
+
+// ---------- 工具：缓存 1D 高斯核 ----------
+struct GaussKey {
+    float sigma = 0.f;
+    int   radius = 0;
+    at::ScalarType dtype = at::kFloat;
+    c10::DeviceType dev_type = c10::DeviceType::CPU;
+    int16_t dev_index = -1; // -1 表示默认
+
+    bool operator==(const GaussKey& o) const {
+        return sigma==o.sigma && radius==o.radius && dtype==o.dtype
+            && dev_type==o.dev_type && dev_index==o.dev_index;
+    }
+};
+
+static thread_local GaussKey g_key;
+static thread_local bool     g_has_cache = false;
+static thread_local torch::Tensor g_cached;  // [k]
+
+static torch::Tensor get_gauss1d(float sigma, int radius, at::ScalarType dtype, const at::Device& dev) {
+    GaussKey key;
+    key.sigma = sigma;
+    key.radius = radius;
+    key.dtype = dtype;
+    key.dev_type  = dev.type();
+    key.dev_index = dev.has_index() ? (int16_t)dev.index() : (int16_t)-1;
+
+    if (g_has_cache && g_key == key && g_cached.defined()) {
+        return g_cached;
+    }
+
+    const int k = 2 * radius + 1;
+    torch::Tensor x = torch::arange(-radius, radius + 1, torch::dtype(torch::kFloat32).device(torch::kCPU));
+    torch::Tensor g = torch::exp(-(x * x) / (2.0f * sigma * sigma));
+    g /= g.sum();
+    g = g.to(dtype).to(dev, false);
+
+    g_key = key;
+    g_cached = g;
+    g_has_cache = true;
+    return g_cached;
+}
+
+static torch::Tensor depthwise_conv3d_along(
+    const torch::Tensor& x /* [N,C,D,H,W] */,
+    const torch::Tensor& g1d /* [k] */,
+    int axis, int radius, int groups)
+{
+    TORCH_CHECK(x.dim() == 5, "x must be [N,C,D,H,W]");
+    const int64_t k = g1d.size(0);
+    torch::Tensor w;
+    if (axis == 2) {        // Z
+        w = g1d.view({1,1,k,1,1}).expand({groups,1,k,1,1}).contiguous();
+        auto xpad = F::pad(x, F::PadFuncOptions({0,0, 0,0, radius, radius}));
+        return F::conv3d(xpad, w, F::Conv3dFuncOptions().stride(1).padding(0).groups(groups));
+    } else if (axis == 3) { // Y
+        w = g1d.view({1,1,1,k,1}).expand({groups,1,1,k,1}).contiguous();
+        auto xpad = F::pad(x, F::PadFuncOptions({0,0, radius, radius, 0,0}));
+        return F::conv3d(xpad, w, F::Conv3dFuncOptions().stride(1).padding(0).groups(groups));
+    } else if (axis == 4) { // X
+        w = g1d.view({1,1,1,1,k}).expand({groups,1,1,1,k}).contiguous();
+        auto xpad = F::pad(x, F::PadFuncOptions({radius, radius, 0,0, 0,0}));
+        return F::conv3d(xpad, w, F::Conv3dFuncOptions().stride(1).padding(0).groups(groups));
+    } else {
+        TORCH_CHECK(false, "axis must be 2(Z),3(Y),4(X)");
+    }
+}
+
 torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigma, int radius) {
-    if (radius < 0) { radius = static_cast<int>(std::round(4.0f * sigma)); }
-
-    auto kernel = gaussian_kernel3d(sigma, radius);
-    int C = input.size(1);
-
+    if (radius < 0) radius = static_cast<int>(std::round(3.0f * sigma));
+    bool was_DHW  = false;
+    bool was_DHWC = false;
     if (input.dim() == 3) {
         input = input.unsqueeze(0).unsqueeze(0);
-        C = 1;
-    } else if (input.dim() == 4) {
-        input = input.permute({3, 0, 1, 2});
-        input = input.unsqueeze(0);
-        C = input.size(1);
+        was_DHW = true;
+    } else if (input.dim() == 4) { // 假定 [D,H,W,C]
+        input = input.permute({3,0,1,2}).unsqueeze(0);
+        was_DHWC = true;
     } else {
-        TORCH_CHECK(false, "Unsupported input dim: ", input.dim());
+        TORCH_CHECK(input.dim() == 5, "Unsupported input dim: ", input.dim());
     }
 
-    kernel = kernel.expand({C, 1, kernel.size(2), kernel.size(3), kernel.size(4)});
-    auto conv_opts = torch::nn::functional::Conv3dFuncOptions().stride(1).padding(radius).groups(C);
-
-    auto output = torch::nn::functional::conv3d(input, kernel, conv_opts); // [1,C,D,H,W]
-    output = output.squeeze(0);
-
-    if (C == 1) {
-        output = output.squeeze(0); // [D,H,W]
-    } else {
-        output = output.permute({1, 2, 3, 0}); // [D,H,W,C]
-    }
-    return output;
+    input = input.contiguous(at::MemoryFormat::ChannelsLast3d);
+    const int64_t C = input.size(1);
+    const auto dev   = input.device();
+    const auto dtype = input.scalar_type();
+    auto g1d = get_gauss1d(sigma, radius, dtype, dev);
+    auto out = depthwise_conv3d_along(input, g1d, 2, radius, (int)C);
+    out = depthwise_conv3d_along(out,   g1d, 3, radius, (int)C);
+    out = depthwise_conv3d_along(out,   g1d, 4, radius, (int)C);
+    if (was_DHW)       out = out.squeeze(0).squeeze(0);
+    else if (was_DHWC) out = out.squeeze(0).permute({1,2,3,0});
+    return out.contiguous();
 }
+
+// torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigma, int radius) {
+//     if (radius < 0) { radius = static_cast<int>(std::round(4.0f * sigma)); }
+//
+//     auto kernel = gaussian_kernel3d(sigma, radius);
+//     int C = input.size(1);
+//
+//     if (input.dim() == 3) {
+//         input = input.unsqueeze(0).unsqueeze(0);
+//         C = 1;
+//     } else if (input.dim() == 4) {
+//         input = input.permute({3, 0, 1, 2});
+//         input = input.unsqueeze(0);
+//         C = input.size(1);
+//     } else {
+//         TORCH_CHECK(false, "Unsupported input dim: ", input.dim());
+//     }
+//
+//     kernel = kernel.expand({C, 1, kernel.size(2), kernel.size(3), kernel.size(4)});
+//     auto conv_opts = torch::nn::functional::Conv3dFuncOptions().stride(1).padding(radius).groups(C);
+//
+//     auto output = torch::nn::functional::conv3d(input, kernel, conv_opts); // [1,C,D,H,W]
+//     output = output.squeeze(0);
+//
+//     if (C == 1) {
+//         output = output.squeeze(0); // [D,H,W]
+//     } else {
+//         output = output.permute({1, 2, 3, 0}); // [D,H,W,C]
+//     }
+//     return output;
+// }
 
 double VortexDetection::compute_percentile_edge_length_from_cells(const std::vector<Vector3f>& points,
                                                                   const std::vector<Volume*>& cells,
@@ -974,6 +1185,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(
                 if (local_patch_idx < static_cast<int>(device_patches.size())) {
                     patch_indices.emplace_back(z, y, x, local_patch_idx);
                 }
+
             }
         }
     }
@@ -1603,73 +1815,200 @@ static inline uint64_t morton3D(uint32_t x, uint32_t y, uint32_t z) {
 //     return out;
 // }
 
-// current
+// // current
+// torch::Tensor VortexDetection::knn_smooth_labels(
+//     std::vector<float> data_val,
+//     const torch::Tensor& prob_vol_1,
+//     const Eigen::Vector3f& min_pos,
+//     const Eigen::Vector3f& global_step,
+//     const std::vector<Eigen::Vector3f>& query_points,
+//     int /*k*/)
+// {
+//     auto vol = prob_vol_1.contiguous()
+//                .unsqueeze(0).unsqueeze(0);
+//     const int64_t D = vol.size(2);  // nz
+//     const int64_t H = vol.size(3);  // ny
+//     const int64_t W = vol.size(4);  // nx
+//     const int64_t M = static_cast<int64_t>(query_points.size());
+//     torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
+//     auto* gptr = grid.data_ptr<float>();
+//     const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
+//     const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
+//     const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
+//     std::vector<float> tmp;
+//     tmp.reserve(data_val.size());
+//     for (float v : data_val)
+//         if (v >= 0.1f) tmp.push_back(v);
+//     size_t n = tmp.size();
+//     size_t idx_93 = static_cast<size_t>(0.93 * (n - 1));
+//     size_t idx_40 = static_cast<size_t>(0.40 * (n - 1));
+//     size_t idx_20 = static_cast<size_t>(0.20 * (n - 1));
+//     std::nth_element(tmp.begin(), tmp.begin() + idx_93, tmp.end());
+//     float threshold_93 = tmp[idx_93];
+//     float threshold_40 = tmp[idx_40];
+//     float threshold_20 = tmp[idx_20];
+//     // std::cout << threshold << std::endl;
+//     const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
+//     const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
+//     const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
+//     auto worker = [&](int begin, int end) {
+//         for (int64_t i = begin; i < end; ++i) {
+//             const auto& qp = query_points[i];
+//             const float rx = (qp[0] - min_pos[0]) * inv_sx;
+//             const float ry = (qp[1] - min_pos[1]) * inv_sy;
+//             const float rz = (qp[2] - min_pos[2]) * inv_sz;
+//             float x_norm = Wx * rx - 1.0f;
+//             float y_norm = Hy * ry - 1.0f;
+//             float z_norm = Dz * rz - 1.0f;
+//             float* dst = gptr + i * 3;
+//             dst[0] = x_norm;
+//             dst[1] = y_norm;
+//             dst[2] = z_norm;
+//         }
+//     };
+//     ThreadPool::parallelFor(0, (int)M, worker,M);
+//     auto opts = GridSampleFuncOptions()
+//     .mode(torch::kBilinear)
+//     .padding_mode(torch::kBorder)
+//     .align_corners(true);
+//     torch::Tensor sampled = grid_sample(vol, grid, opts);
+//     sampled = sampled.view({M});
+//
+//     torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
+//     auto cond =
+//         ((dv.ge(threshold_40) & sampled.ge(0.001f)) |
+//          (sampled.ge(0.1f) & dv.ge(threshold_20)) |
+//          dv.ge(threshold_93) |
+//          sampled.ge(0.3f));
+//
+//     // torch::Tensor out = sampled.to(torch::kFloat32);
+//     torch::Tensor out = cond.to(torch::kFloat32);
+//     return out;
+// }
+
+
+namespace {
+inline int64_t suggest_chunk_size(int64_t M, int64_t D, int64_t H, int64_t W, bool prefer_cuda) {
+    if (!prefer_cuda) return std::min<int64_t>(M, 1'000'000);
+    const int64_t voxels = D * H * W;
+    if (voxels <= 64ll*64*64)      return std::min<int64_t>(M, 2'000'000);
+    if (voxels <= 128ll*128*128)   return std::min<int64_t>(M, 1'000'000);
+    if (voxels <= 192ll*192*192)   return std::min<int64_t>(M,   600'000);
+    if (voxels <= 256ll*256*256)   return std::min<int64_t>(M,   300'000);
+    return std::min<int64_t>(M,    200'000);
+}
+}
+
 torch::Tensor VortexDetection::knn_smooth_labels(
     std::vector<float> data_val,
     const torch::Tensor& prob_vol_1,
     const Eigen::Vector3f& min_pos,
     const Eigen::Vector3f& global_step,
     const std::vector<Eigen::Vector3f>& query_points,
-    int /*k*/)
-{
-    auto vol = prob_vol_1.contiguous()
-               .unsqueeze(0).unsqueeze(0);
-    const int64_t D = vol.size(2);  // nz
-    const int64_t H = vol.size(3);  // ny
-    const int64_t W = vol.size(4);  // nx
+    int /*k*/){
+    torch::NoGradGuard no_grad;
+
+    const int64_t D = prob_vol_1.size(0);
+    const int64_t H = prob_vol_1.size(1);
+    const int64_t W = prob_vol_1.size(2);
     const int64_t M = static_cast<int64_t>(query_points.size());
-    torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
-    auto* gptr = grid.data_ptr<float>();
-    const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
-    const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
-    const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
-    std::vector<float> tmp;
-    tmp.reserve(data_val.size());
-    for (float v : data_val)
-        if (v >= 0.1f) tmp.push_back(v);
-    size_t n = tmp.size();
-    size_t idx_93 = static_cast<size_t>(0.93 * (n - 1));
-    size_t idx_40 = static_cast<size_t>(0.40 * (n - 1));
-    std::nth_element(tmp.begin(), tmp.begin() + idx_93, tmp.end());
-    float threshold_93 = tmp[idx_93];
-    float threshold_40 = tmp[idx_40];
-    // std::cout << threshold << std::endl;
-    const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
-    const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
-    const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
-    auto worker = [&](int begin, int end) {
-        for (int64_t i = begin; i < end; ++i) {
-            const auto& qp = query_points[i];
-            const float rx = (qp[0] - min_pos[0]) * inv_sx;
-            const float ry = (qp[1] - min_pos[1]) * inv_sy;
-            const float rz = (qp[2] - min_pos[2]) * inv_sz;
-            float x_norm = Wx * rx - 1.0f;
-            float y_norm = Hy * ry - 1.0f;
-            float z_norm = Dz * rz - 1.0f;
-            float* dst = gptr + i * 3;
-            dst[0] = x_norm;
-            dst[1] = y_norm;
-            dst[2] = z_norm;
+
+    const bool prefer_cuda = prob_vol_1.is_cuda() && torch::cuda::is_available();
+    const torch::Device device = prefer_cuda ? prob_vol_1.device() : torch::kCPU;
+    const bool use_fp16 = prefer_cuda;
+
+    torch::Tensor vol5 = prob_vol_1;
+    if (vol5.device() != device) vol5 = vol5.to(device, /*non_blocking*/true);
+    vol5 = vol5.unsqueeze(0).unsqueeze(0)
+                 .contiguous(torch::MemoryFormat::ChannelsLast3d);
+
+    torch::Tensor dv_host = torch::from_blob((void*)data_val.data(), {M}, torch::kFloat32);
+    torch::Tensor dv = prefer_cuda ? dv_host.clone().to(device, true)
+                                   : dv_host.clone();
+
+    torch::Tensor pool = dv.masked_select(dv.ge(0.1f));
+    float thr46 = 0.f, thr93 = 0.f, thr25 = 0.f;
+    if (pool.numel() > 0) {
+        const int64_t n   = pool.size(0);
+        const int64_t k48 = std::max<int64_t>(1, (int64_t)std::floor(0.46 * (n - 1)) + 1);
+        const int64_t k93 = std::max<int64_t>(1, (int64_t)std::floor(0.93 * (n - 1)) + 1);
+        const int64_t k25 = std::max<int64_t>(1, (int64_t)std::floor(0.25 * (n - 1)) + 1);
+        thr46 = std::get<0>(pool.kthvalue(k48)).item<float>();
+        thr93 = std::get<0>(pool.kthvalue(k93)).item<float>();
+        thr25 = std::get<0>(pool.kthvalue(k25)).item<float>();
+    }
+    const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
+    const float inv_sx = (sx != 0.f) ? 1.f/sx : 0.f;
+    const float inv_sy = (sy != 0.f) ? 1.f/sy : 0.f;
+    const float inv_sz = (sz != 0.f) ? 1.f/sz : 0.f;
+
+    torch::Tensor min_t = torch::tensor({min_pos[0], min_pos[1], min_pos[2]},
+                                        torch::dtype(torch::kFloat32).device(device));
+    torch::Tensor inv_s = torch::tensor({inv_sx, inv_sy, inv_sz},
+                                        torch::dtype(torch::kFloat32).device(device));
+    torch::Tensor scale = torch::tensor({
+                                (W > 1) ? 2.f / float(W - 1) : 0.f,
+                                (H > 1) ? 2.f / float(H - 1) : 0.f,
+                                (D > 1) ? 2.f / float(D - 1) : 0.f
+                            }, torch::dtype(torch::kFloat32).device(device));
+    torch::Tensor cond_out = torch::empty(
+    {M},
+    torch::TensorOptions()
+        .dtype(torch::kFloat32)
+        .device(device)
+    );
+    static thread_local std::vector<float> q_chunk_host_vec; q_chunk_host_vec.reserve(3 * 100'000);
+
+    const int64_t CHUNK = suggest_chunk_size(M, D, H, W, prefer_cuda);
+    torch::nn::functional::GridSampleFuncOptions gs_opts;
+    gs_opts = gs_opts.mode(torch::kBilinear).padding_mode(torch::kBorder).align_corners(true);
+
+    for (int64_t start = 0; start < M; start += CHUNK) {
+        const int64_t end   = std::min<int64_t>(M, start + CHUNK);
+        const int64_t currN = end - start;
+
+        q_chunk_host_vec.resize(static_cast<size_t>(3 * currN));
+        for (int64_t i = 0; i < currN; ++i) {
+            const Eigen::Vector3f& q = query_points[start + i];
+            q_chunk_host_vec[3*i + 0] = q[0];
+            q_chunk_host_vec[3*i + 1] = q[1];
+            q_chunk_host_vec[3*i + 2] = q[2];
         }
-    };
-    ThreadPool::parallelFor(0, (int)M, worker,M);
-    auto opts = GridSampleFuncOptions()
-    .mode(torch::kBilinear)
-    .padding_mode(torch::kBorder)
-    .align_corners(true);
-    torch::Tensor sampled = grid_sample(vol, grid, opts);
-    sampled = sampled.view({M});
 
-    torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
-    auto cond =
-        ((dv.ge(threshold_40) & sampled.ge(0.001f)) |
-         (sampled.ge(0.1f) & dv.ge(0.15f)) |
-         dv.ge(threshold_93) |
-         sampled.ge(0.3f));
+        auto q_host = torch::from_blob(q_chunk_host_vec.data(),
+                                       {currN, 3}, torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
+        auto q = prefer_cuda
+                 ? q_host.to(device, torch::kFloat32, /*non_blocking*/true, /*copy*/true)
+                 : q_host.clone(); // CPU 直接 clone 为独立张量
 
-    // torch::Tensor out = sampled.to(torch::kFloat32);
-    torch::Tensor out = cond.to(torch::kFloat32);
-    return out;
+        auto gridM3 = (q - min_t) * inv_s;
+        gridM3.mul_(scale).add_(-1.0f);
+        auto grid = gridM3.view({1, currN, 1, 1, 3});
+
+        torch::Tensor sampled_chunk;
+        if (use_fp16) {
+            auto vol5_h = vol5.to(torch::kHalf);
+            auto grid_h = grid.to(torch::kHalf);
+            sampled_chunk = torch::nn::functional::grid_sample(vol5_h, grid_h, gs_opts)
+                                .view({currN}).to(torch::kFloat32);
+        } else {
+            sampled_chunk = torch::nn::functional::grid_sample(vol5, grid, gs_opts).view({currN});
+        }
+        auto dv_chunk = dv.narrow(0, start, currN); // [currN]
+        // auto cond_chunk = ((dv_chunk.ge(thr40)& sampled_chunk.ge(0.001f)) |
+        //                    (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr20))|
+        //                     dv_chunk.ge(thr93)|
+        //                     sampled_chunk.ge(0.3f))).to(torch::kFloat32);
+        auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
+             (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
+              dv_chunk.ge(thr93) |
+              sampled_chunk.ge(0.3f));
+        auto cond_chunk = mask.to(torch::TensorOptions().dtype(torch::kFloat32));
+        cond_out.narrow(0, start, currN).copy_(cond_chunk, prefer_cuda);
+    }
+
+    return cond_out.to(torch::kCPU);
+    // return cond_out;
 }
 
 // torch::Tensor VortexDetection::knn_smooth_labels(
@@ -2476,62 +2815,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         all_grid_tensors[id] = grid_tensor.contiguous();
     }
 };
-    // auto process_blocks_range = [&](int begin, int end) {
-    //     for (int id = begin; id < end; ++id) {
-    //         int bz = id / (split * split);
-    //         int by = (id / split) % split;
-    //         int bx = id % split;
-    //         Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-    //         sub_min = sub_min + min_pos_eigen;
-    //         Eigen::Vector3f sub_max = sub_min + block_size;
-    //         Eigen::Vector3f sub_range = sub_max - sub_min;
-    //         Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-    //         Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-    //         torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-    //         const int K = 8;
-    //         std::vector<double> weights(K, 0.0);
-    //         std::vector<int> idxs(K, 0);
-    //         std::vector<float> dists(K, 0.0);
-    //         static std::atomic<int> test_counter{0};
-    //         for (int i = 0; i < nx; ++i) {
-    //             for (int j = 0; j < ny; ++j) {
-    //                 for (int k = 0; k < nz; ++k) {
-    //                     Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-    //                     Eigen::VectorXd pos_vec(3);
-    //                     pos_vec << pos[0], pos[1], pos[2];
-    //                     tree.query(pos_vec, K, idxs, dists);
-    //                     if (dists.size() == 0  || dists[0]>step[0] * 16) {
-    //                         grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
-    //                     }else{
-    //                         torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-    //                         double dist_sum = 0.0;
-    //                         for (int l = 0; l < K; ++l) {
-    //                             double dist = dists[l];
-    //                             weights[l] = 1.0 / (dist + eps);
-    //                             dist_sum += weights[l];
-    //                         }
-    //                         for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-    //                         float vx = 0.f, vy = 0.f, vz = 0.f;
-    //                         for (int l = 0; l < (int)dists.size(); ++l) {
-    //                             const int idx = idxs[l];
-    //                             if (idx >= 0 && idx < velocities.rows()) {
-    //                                 const float w = static_cast<float>(weights[l]);
-    //                                 vx += w * static_cast<float>(velocities(idx, 0));
-    //                                 vy += w * static_cast<float>(velocities(idx, 1));
-    //                                 vz += w * static_cast<float>(velocities(idx, 2));
-    //                             }
-    //                         }
-    //                         grid_tensor[k][j][i] = torch::tensor({vx, vy, vz}, torch::kFloat32);
-    //                         all_velocities_thread_safe[0][id].push_back(vx);
-    //                         all_velocities_thread_safe[1][id].push_back(vy);
-    //                         all_velocities_thread_safe[2][id].push_back(vz);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         all_grid_tensors[id] = grid_tensor.contiguous();
-    //     }
-    // };
     ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
     std::vector<float> predict_vals = ComputePointQ(mesh, Attributes, Index);
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -2637,7 +2920,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             }
         }
     }
-
     auto sizes = result_volume_1.sizes();
     float depth = static_cast<float>(sizes[0]);
     float height = static_cast<float>(sizes[1]);
@@ -2646,7 +2928,11 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     Eigen::Vector3f volume_size(width, height, depth);
     Eigen::Vector3f global_step = range_vec.cwiseQuotient(volume_size);
 
+    // auto t7 = std::chrono::high_resolution_clock::now();
     torch::Tensor result_volume_11 = gaussian_filter3d(result_volume_1, 3, -1);
+    // auto t8 = std::chrono::high_resolution_clock::now();
+    // double elapsed_4 = std::chrono::duration<double>(t8 - t7).count();
+    // std::cout << "[VortexDetection::Execute] predict_after = " << elapsed_4 << " s" << std::endl;
     // return std::make_tuple(result_volume_11, global_step);
     return std::make_tuple(result_volume_11, global_step, std::move(predict_vals));
 }
