@@ -96,6 +96,7 @@ private:
 
 #define ___AT__(name) iGame::AutoTimer AT##name(##name)
 #define __AT__(line) ___AT__(line)
+//#define AT_DEBUG
 #ifdef AT_DEBUG
     #define _AT_ __AT__(__LINE__)
 #else

@@ -43,13 +43,13 @@ public:
 
 	// Get cell's index sequence.
 	// @Return: the size of sequence.
-	int GetCellIds(const IGsize cellId, igIndex* cell);
+    int GetCellIds(const IGsize cellId, igIndex* cell) const;
 
 	// Get cell's index sequence. Return the size of sequence.
-	int GetCellIds(const IGsize cellId, const igIndex*& cell);
+    int GetCellIds(const IGsize cellId, const igIndex*& cell) const;
 
 	// Get cell's index sequence.
-	void GetCellIds(const IGsize cellId, IdArray::Pointer cell);
+    void GetCellIds(const IGsize cellId, IdArray::Pointer cell) const;
 
 	// Set cell's index sequence.
 	// @param cell: index sequence

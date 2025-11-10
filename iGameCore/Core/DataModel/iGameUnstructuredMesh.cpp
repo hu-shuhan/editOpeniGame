@@ -16,50 +16,31 @@ void UnstructuredMesh::AddCell(igIndex* cell, int size, IGenum type) {
 }
 
 IGsize UnstructuredMesh::GetNumberOfCells() const noexcept { return m_Cells->GetNumberOfCells(); }
-void UnstructuredMesh::GetCellPointIds(const IGsize cellId, IdArray::Pointer cell) {
+void UnstructuredMesh::GetCellPointIds(const IGsize cellId, IdArray::Pointer cell) const {
     if (cell == nullptr) { return; }
     m_Cells->GetCellIds(cellId, cell);
 }
 
-int UnstructuredMesh::GetCellPointIds(const IGsize cellId, igIndex* cell) { return m_Cells->GetCellIds(cellId, cell); }
+int UnstructuredMesh::GetCellPointIds(const IGsize cellId, igIndex* cell) const {
+    return m_Cells->GetCellIds(cellId, cell);
+}
 
-int UnstructuredMesh::GetCellPointIds(const IGsize cellId, const igIndex*& cell) {
+int UnstructuredMesh::GetCellPointIds(const IGsize cellId, const igIndex*& cell) const {
     return m_Cells->GetCellIds(cellId, cell);
 }
 
 Cell* UnstructuredMesh::GetCell(const IGsize cellId) {
     Cell* cell = GetTypedCell(cellId);
-    if (cell == nullptr) { return nullptr; }
-    cell->Reset();
-    if (cell->GetCellType() != IG_POLYHEDRON) {
-        GetCellPointIds(cellId, cell->m_PointIds);
-        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
-            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
-        }
-    } else {
-        igIndex ids[IGAME_CELL_MAX_SIZE] = {};
-        igIndex size = m_Cells->GetCellIds(cellId, ids);
-        Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
-        polyhedron->m_FaceOffset->Reset();
-        polyhedron->m_FaceOffset->Reserve(ids[0]);
-        polyhedron->m_PointIds->Reserve(size);
-
-        igIndex index = 1;
-        igIndex faceVcnt = 0;
-        int offset = 0;
-        while (index < size) {
-            polyhedron->m_FaceOffset->AddId(offset);
-            faceVcnt = ids[index++];
-            for (igIndex id = 0; id < faceVcnt; id++) { polyhedron->m_PointIds->AddId(ids[index++]); }
-            offset += faceVcnt;
-        }
-        polyhedron->m_FaceOffset->AddId(offset);
-        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
-            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
-        }
-    }
+    auto result = _GetCell(cellId, cell);
+    if (!result) return nullptr;
     return cell;
 }
+
+bool UnstructuredMesh::GetCell(const IGsize cellId, Cell::Pointer& cell) {
+    GetTypedCell(cellId, cell);
+    return _GetCell(cellId, cell);
+}
+
 UnsignedIntArray* UnstructuredMesh::GetCellTypes() const { return m_Types; }
 
 IGenum UnstructuredMesh::GetCellType(const IGsize cellId) const { return m_Types->GetValue(cellId); }
@@ -285,6 +266,40 @@ IGsize UnstructuredMesh::GetRealMemorySize() {
     if (m_Types) res += m_Types->GetRealMemorySize();
     return res + sizeof(IGsize);
 }
+
+bool UnstructuredMesh::_GetCell(const IGsize cellId, Cell* cell) const {
+    if (cell == nullptr) { return false; }
+    cell->Reset();
+    if (cell->GetCellType() != IG_POLYHEDRON) {
+        GetCellPointIds(cellId, cell->m_PointIds);
+        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
+            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
+        }
+    } else {
+        igIndex ids[IGAME_CELL_MAX_SIZE] = {};
+        igIndex size = m_Cells->GetCellIds(cellId, ids);
+        Polyhedron::Pointer polyhedron = DynamicCast<Polyhedron>(cell);
+        polyhedron->m_FaceOffset->Reset();
+        polyhedron->m_FaceOffset->Reserve(ids[0]);
+        polyhedron->m_PointIds->Reserve(size);
+
+        igIndex index = 1;
+        igIndex faceVcnt = 0;
+        int offset = 0;
+        while (index < size) {
+            polyhedron->m_FaceOffset->AddId(offset);
+            faceVcnt = ids[index++];
+            for (igIndex id = 0; id < faceVcnt; id++) { polyhedron->m_PointIds->AddId(ids[index++]); }
+            offset += faceVcnt;
+        }
+        polyhedron->m_FaceOffset->AddId(offset);
+        for (int i = 0; i < cell->m_PointIds->GetNumberOfIds(); i++) {
+            cell->m_Points->AddPoint(GetPoint(cell->m_PointIds->GetId(i)));
+        }
+    }
+    return true;
+}
+
 Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
     Cell* cell = nullptr;
     switch (GetCellType(cellId)) {
@@ -362,6 +377,66 @@ Cell* UnstructuredMesh::GetTypedCell(const IGsize cellId) {
         } break;
     }
     return cell;
+}
+
+void UnstructuredMesh::GetTypedCell(const IGsize cellId, Cell::Pointer& cell) const {
+    if (cell != nullptr && cell->GetCellType() == GetCellType(cellId)) return;
+    switch (GetCellType(cellId)) {
+        case IG_LINE: {
+            cell = Line::New();
+        } break;
+        case IG_POLY_LINE: {
+            cell = PolyLine::New();
+        } break;
+        case IG_TRIANGLE: {
+            cell = Triangle::New();
+        } break;
+        case IG_QUAD: {
+            cell = Quad::New();
+        } break;
+        case IG_POLYGON: {
+            cell = Polygon::New();
+        } break;
+        case IG_TETRA: {
+            cell = Tetra::New();
+        } break;
+        case IG_HEXAHEDRON: {
+            cell = Hexahedron::New();
+        } break;
+        case IG_PRISM: {
+            cell = Prism::New();
+        } break;
+        case IG_PYRAMID: {
+            cell = Pyramid::New();
+        } break;
+        case IG_POLYHEDRON: {
+            cell = Polyhedron::New();
+        } break;
+        case IG_QUADRATIC_EDGE: {
+            cell = QuadraticLine::New();
+        } break;
+        case IG_QUADRATIC_TRIANGLE: {
+            cell = QuadraticTriangle::New();
+        } break;
+        case IG_QUADRATIC_QUAD: {
+            cell = QuadraticQuad::New();
+        } break;
+        case IG_QUADRATIC_TETRA: {
+            cell = QuadraticTetra::New();
+        } break;
+        case IG_QUADRATIC_HEXAHEDRON: {
+            cell = QuadraticHexahedron::New();
+        } break;
+        case IG_QUADRATIC_PRISM: {
+            cell = QuadraticPrism::New();
+        } break;
+        case IG_QUADRATIC_PYRAMID: {
+            cell = QuadraticPyramid::New();
+        } break;
+        default: {
+            cell = EmptyCell::New();
+        } break;
+    }
 }
 
 void UnstructuredMesh::ConvertToDrawableData() {

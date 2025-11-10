@@ -59,7 +59,7 @@ IGsize CellArray::GetNumberOfCells() const noexcept { return m_NumberOfCells; }
 
 // Get cell's index sequence.
 // @Return: the size of sequence.
-int CellArray::GetCellIds(const IGsize cellId, igIndex* cell) {
+int CellArray::GetCellIds(const IGsize cellId, igIndex* cell) const {
     int ncells = this->GetCellSize(cellId);
     igIndex* ptr = m_Buffer->RawPointer() + this->GetBeginOffset(cellId);
     for (int i = 0; i < ncells; i++) { cell[i] = ptr[i]; }
@@ -67,13 +67,13 @@ int CellArray::GetCellIds(const IGsize cellId, igIndex* cell) {
 }
 
 // Get cell's index sequence. Return the size of sequence.
-int CellArray::GetCellIds(const IGsize cellId, const igIndex*& cell) {
+int CellArray::GetCellIds(const IGsize cellId, const igIndex*& cell) const {
     cell = m_Buffer->RawPointer() + this->GetBeginOffset(cellId);
     return this->GetCellSize(cellId);
 }
 
 // Get cell's index sequence.
-void CellArray::GetCellIds(const IGsize cellId, IdArray::Pointer cell) {
+void CellArray::GetCellIds(const IGsize cellId, IdArray::Pointer cell) const {
     cell->Reset();
     IGuint begin = this->GetBeginOffset(cellId);
     int size = this->GetCellSize(cellId);

@@ -384,14 +384,14 @@ void Selection::Reset() {
     }
     m_SelectedItems.clear();
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
-    m_CellFaceExtracter.Clear();
 }
 
 void Selection::ClearSelections() { Reset(); }
 
-void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbleFaces = seeAbleFaces; }
-
-const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
+const std::vector<int>& Selection::GetSeeAbleCells(UnstructuredMesh* mesh) {
+    if (m_SeeAbleCells.empty()) { m_SeeAbleCells = m_CellFaceExtracter.GetSurfaceCellIds(mesh); }
+    return m_SeeAbleCells;
+}
 
 void Selection::SetSelectItemVisable(bool visable) {
     if (m_Model == nullptr) return;

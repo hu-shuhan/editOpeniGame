@@ -15,7 +15,6 @@
 #include "iGamePainter2D.h"
 #include "iGamePainter3D.h"
 #include "iGamePoints.h"
-#include "iGameSelection.h"
 #include <utility>
 #include <map>
 
@@ -23,7 +22,7 @@ IGAME_NAMESPACE_BEGIN
 
 class Scene;
 class Filter;
-
+class Selection;
 class Model : public Object {
 public:
     I_OBJECT(Model);
