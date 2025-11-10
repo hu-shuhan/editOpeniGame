@@ -3,8 +3,8 @@
 #include "iGameInteractor.h"
 #include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
-#include "iGameSelection.h"
 #include "iGameScene.h"
+#include "iGameSelection.h"
 #include "iGameSurfaceMesh.h"
 #include <functional>
 
@@ -220,6 +220,7 @@ void Model::SyncGpuBuffers() {
 void Model::Draw() {
     if (!this->GetVisibility()) { return; }
     bool useSimplified = m_Scene->m_IsInteracting;
+    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 66.6;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -378,6 +379,7 @@ void Model::Draw() {
 void Model::DrawWithTransparency() {
     if (!this->GetVisibility()) { return; }
     bool useSimplified = m_Scene->m_IsInteracting;
+    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 66.6;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
