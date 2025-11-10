@@ -17,6 +17,9 @@
 #include <memory>
 #include <algorithm>
 #include <cstdint>
+
+#if defined(LibTorch_ENABLE)
+#undef slots
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/script.h>
 #include <cuda_runtime.h>
@@ -25,6 +28,18 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/DeviceType.h>
 using namespace torch::nn::functional;
+
+#define slots Q_SLOTS
+#endif
+//
+// #include <ATen/cuda/CUDAContext.h>
+// #include <torch/script.h>
+// #include <cuda_runtime.h>
+// #include <torch/torch.h>
+// #include <ATen/ATen.h>
+// #include <c10/core/ScalarType.h>
+// #include <c10/core/DeviceType.h>
+// using namespace torch::nn::functional;
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
 #if defined(LibTorch_ENABLE)
