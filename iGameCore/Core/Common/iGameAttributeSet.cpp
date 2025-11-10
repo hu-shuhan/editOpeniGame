@@ -1,5 +1,5 @@
 #include "iGameAttributeSet.h"
-
+#include "iGameDrawObject.h"
 #include <utility>
 
 IGAME_NAMESPACE_BEGIN
@@ -73,6 +73,7 @@ const AttributeSet::Attribute& AttributeSet::GetVector(const std::string& name) 
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr) {
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false});
+    if (auto drawObject = dynamic_cast<DrawObject*>(m_DataObject)) { drawObject->ForceReConvertToDrawableData(); }
     return m_Buffer->GetNumberOfElements() - 1;
 }
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr,
@@ -80,6 +81,7 @@ IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const Arra
 
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false, dataRange});
+    if (auto drawObject = dynamic_cast<DrawObject*>(m_DataObject)) { drawObject->ForceReConvertToDrawableData(); }
     return m_Buffer->GetNumberOfElements() - 1;
 }
 

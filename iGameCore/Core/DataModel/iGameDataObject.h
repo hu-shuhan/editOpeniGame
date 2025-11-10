@@ -155,6 +155,8 @@ protected:
     ~DataObject() override{/*std::cout << "Destructed\n";*/};
     DataObject() {
         m_Attributes = AttributeSet::New();
+        m_Attributes->m_DataObject = this;
+
         m_Metadata = Metadata::New();
         //        m_TimeFrames = StreamingData::New();
         m_UniqueId = GetIncrementDataObjectId();

@@ -188,8 +188,11 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
 }
 
 void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
-    m_Attributes = p;
-    m_AttributeHelper->Modified();
+    if (p != m_Attributes) {
+        m_Attributes = p;
+        m_Attributes->m_DataObject = this;
+        m_AttributeHelper->Modified();
+    }
 }
 
 void DataObject::UpdateAnimation(int keyframe_idx) {

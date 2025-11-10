@@ -141,6 +141,9 @@ protected:
     ElementArray<Attribute>::Pointer m_tmpBuffer{};
 
     Attribute NONE{AttributeSet::Attribute::None()};
+
+    friend class DataObject;
+    DataObject* m_DataObject{nullptr};
 };
 IGAME_NAMESPACE_END
 #endif

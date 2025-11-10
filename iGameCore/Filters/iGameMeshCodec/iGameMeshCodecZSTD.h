@@ -24,7 +24,7 @@ public:
         // 计算压缩后的最大可能大小
         size_t sourceSize = source.size();
         size_t maxCompressedSize = ZSTD_compressBound(sourceSize);
-        
+
         if (ZSTD_isError(maxCompressedSize)) {
             dest.resize(0);
             return false;
@@ -94,7 +94,7 @@ public:
         }
 
         size_t headerSize = sizeof(size_t);
-        
+
         // 检查数据完整性
         if (source.size() < headerSize) {
             dest.resize(0);
