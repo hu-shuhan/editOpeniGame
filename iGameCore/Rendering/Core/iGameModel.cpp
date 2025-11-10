@@ -3,6 +3,7 @@
 #include "iGameInteractor.h"
 #include "iGamePointSet.h"
 #include "iGameRenderingLogger.h"
+#include "iGameSelection.h"
 #include "iGameScene.h"
 #include "iGameSurfaceMesh.h"
 #include <functional>
