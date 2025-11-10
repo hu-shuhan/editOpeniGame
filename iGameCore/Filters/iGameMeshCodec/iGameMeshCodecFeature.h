@@ -21,18 +21,26 @@ public:
         // 在dialog中 Index0代表顶点坐标
         // 初始化浮点数数据
         const auto& pointSet = DynamicCast<PointSet>(m_obj);
-        if (dataIndex == 0) {
+        if (dataIndex == 1) {
             m_dataType = DataType::Geom;
             m_Data = pointSet->GetPoints()->RawPointer();
             m_ElementNum = pointSet->GetNumberOfPoints();
             m_ElementDim = 3;
         } else {
             const auto& attr = m_obj->GetAttributeSet()->GetAttribute(dataIndex - 1);
-            m_Data = DynamicCast<FlatArray<float>>(attr.pointer)->RawPointer();
             m_ElementNum = attr.pointer->GetNumberOfElements();
             m_ElementDim = attr.pointer->GetDimension();
-
             m_dataType = attr.attachmentType == IG_CELL ? DataType::AttachCell : DataType::AttachPoint;
+
+            // 参考 AttrEncoder：通过 GetValue 统一读取，不依赖 RawPointer
+            m_AttrConverted.resize(m_ElementNum * m_ElementDim);
+            for (igIndex i = 0; i < static_cast<igIndex>(m_ElementNum); ++i) {
+                for (int k = 0; k < static_cast<int>(m_ElementDim); ++k) {
+                    m_AttrConverted[i * m_ElementDim + k] =
+                        static_cast<float>(attr.pointer->GetValue(i * m_ElementDim + k));
+                }
+            }
+            m_Data = m_AttrConverted.data();
         }
 
         // 初始化顶点数据
@@ -705,6 +713,9 @@ private:
 
     MeshEncoderAdapter* m_adapter;
     MeshCodecAdjacency::CellAdjacency m_Adj;
+
+    // 当属性底层并非 float 时，转储为 float 缓冲以统一计算路径
+    std::vector<float> m_AttrConverted;
 
     ProgressObserver* m_Progress{nullptr};
 
