@@ -33,12 +33,14 @@ public:
 		float min_val = source[0];
 
 
-		auto Quantize = [&](float value, int bits) -> float {
+        auto Quantize = [&](float value, int bits) -> float {
 			if (value == 0.0f) {
 				return 0.0f;
 			}
 
-			uint32_t max_quantized_value = (1U << bits) - 1;
+            // 防御：bits 非法或过大直接绕过
+            if (bits <= 0 || bits >= 32) return value;
+            uint32_t max_quantized_value = (1u << bits) - 1u;
 			float clipped_value = std::max(min_val, std::min(value, max_val));
 			float normalized_value = (clipped_value - min_val) / (max_val - min_val);
 			uint32_t quantized_value = static_cast<uint32_t>(
@@ -91,39 +93,56 @@ public:
 			return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
 			};
 
-		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc, std::function<int(float error)> errorFunc) -> void
-			{
-				switch (floatParams.errorMode)
-				{
+        // 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
+        // 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
+        // 这里按常用格式近似：FP32→保留23，FP24→保留15（近似24位格式），FP16→保留10（半精度尾数10位），FP8→保留3（E4M3）。
+        auto quantizeLevelToKeptMantissaBits = [=](int level) -> int {
+            switch (level) {
+            case 0: return 23; // FP32：保留全部23位尾数
+            case 1: return 15; // FP24：近似保留15位尾数
+            case 2: return 10; // FP16：保留约10位尾数
+            case 3: return 3;  // FP8 ：保留约3位尾数（E4M3）
+            default: return 23;
+            }
+        };
+
+		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc) -> void
+            {
+                const int valueBits = static_cast<int>(floatParams.valueSize * 8);
+                switch (floatParams.errorMode)
+                {
 				case ErrorMode::Default:
 				{
-					int bits = errorFunc(floatParams.defaultErrorBound);
-					
-					ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
-						for (int i = start; i < end; i++) {
-							source[i] = quantFunc(source[i], bits);
-						}
-						});
+                    int keepBits = quantizeLevelToKeptMantissaBits(floatParams.globalQuantizeLevel);
+                    // 仅当保留位数小于满精度(23)时执行量化
+                    if (keepBits < 23) {
+                        ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                            for (int i = start; i < end; i++) {
+                                source[i] = quantFunc(source[i], keepBits);
+                            }
+                        });
+                    }
 
 					break;
 				}
 				case ErrorMode::KeyArea:
 				{
-					int keyBits = errorFunc(floatParams.keyAreaErrorBound);
-					int nonKeyBits = errorFunc(floatParams.nonKeyAreaErrorBound);
+                    int criticalKeep = quantizeLevelToKeptMantissaBits(floatParams.criticalQuantizeLevel);
+                    int normalKeep   = quantizeLevelToKeptMantissaBits(floatParams.normalQuantizeLevel);
 
-					ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
-						for (int i = start; i < end; i++) {
-							if (errorParams.isKeyElement[i / dimension])
-							{
-								source[i] = quantFunc(source[i], keyBits);
-							}
-							else
-							{
-								source[i] = quantFunc(source[i], nonKeyBits);
-							}
-						}
-						});
+                    const bool applyCritical = (criticalKeep < 23);
+                    const bool applyNormal   = (normalKeep < 23);
+
+                    ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                        for (int i = start; i < end; i++) {
+                            const bool isKey = errorParams.isKeyElement[i / dimension];
+                            if (isKey) {
+                                if (applyCritical) source[i] = quantFunc(source[i], criticalKeep);
+                            } else {
+                                if (applyNormal) source[i] = quantFunc(source[i], normalKeep);
+                            }
+                        }
+                    });
 
 					break;
 				}
@@ -134,30 +153,41 @@ public:
 
 		if (floatParams.errorMode != ErrorMode::None)
 		{
-			switch (floatParams.lossyMode)
-			{
-			case LossyMode::Quantization:
-			{
-				for (const auto& val : source) {
-					if (val > max_val) {
-						max_val = val;
-					}
-					if (val < min_val) {
-						min_val = val;
-					}
-				}
+		    for (const auto& val : source) {
+		        if (val > max_val) {
+		            max_val = val;
+		        }
+		        if (val < min_val) {
+		            min_val = val;
+		        }
+		    }
 
-				doQuantize(Quantize, QuantizeStrengthToBits);
-				break;
-			}
-			case LossyMode::MantissaTruncation:
-			{
-				doQuantize(meshopt_quantizeFloat, MantissaStrengthToBits);
-				break;
-			}
-			default:
-				break;
-			}
+		    doQuantize(meshopt_quantizeFloat);
+
+			// switch (floatParams.lossyMode)
+			// {
+			// case LossyMode::Quantization:
+			// {
+			// 	for (const auto& val : source) {
+			// 		if (val > max_val) {
+			// 			max_val = val;
+			// 		}
+			// 		if (val < min_val) {
+			// 			min_val = val;
+			// 		}
+			// 	}
+			//
+			// 	doQuantize(Quantize);
+			// 	break;
+			// }
+			// case LossyMode::MantissaTruncation:
+			// {
+			// 	doQuantize(meshopt_quantizeFloat);
+			// 	break;
+			// }
+			// default:
+			// 	break;
+			// }
 		}
 
 		// 编码

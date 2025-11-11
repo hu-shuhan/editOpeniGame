@@ -22,6 +22,8 @@
 /ThirdParty/Python/pyNastran/*
 /ThirdParty/Python/pyNastranLib/nastran_to_vtk_cli.exe
 
-/Examples/Models/redsea_1_0_8.vtu
 /Examples/Models/CAD11
+/Examples/Models/Driver
+/Examples/Models/redsea
+/Examples/Models/sukong_Step-1_2.vtu
 /ThirdParty/libtorch/

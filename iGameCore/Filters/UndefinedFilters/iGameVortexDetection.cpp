@@ -17,7 +17,9 @@
 #include <memory>
 #include <algorithm>
 #include <cstdint>
+
 #if defined(LibTorch_ENABLE)
+#undef slots
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/script.h>
 #include <cuda_runtime.h>
@@ -26,7 +28,18 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/DeviceType.h>
 using namespace torch::nn::functional;
+
+#define slots Q_SLOTS
 #endif
+//
+// #include <ATen/cuda/CUDAContext.h>
+// #include <torch/script.h>
+// #include <cuda_runtime.h>
+// #include <torch/torch.h>
+// #include <ATen/ATen.h>
+// #include <c10/core/ScalarType.h>
+// #include <c10/core/DeviceType.h>
+// using namespace torch::nn::functional;
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
 #if defined(LibTorch_ENABLE)
@@ -303,7 +316,6 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
 
     std::cout << "[RUNTIME] torch::cuda::is_available=" << torch::cuda::is_available() << std::endl;
-
     auto t0 = std::chrono::high_resolution_clock::now();
     int NumPoints = Mesh->GetNumberOfPoints();
     ArrayObject::Pointer velocityData = Attributes->GetAttribute(Index).pointer;
@@ -375,64 +387,160 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         return std::abs(det) * (1.0/6.0);
     };
 
-    auto sum_cell_volume_parallel = [&](const std::vector<Vector3f>& P,
-                                        const std::vector<Volume*>&  C) -> double
+    // auto sum_cell_volume_parallel = [&](const std::vector<Vector3f>& P,
+    //                                     const std::vector<Volume*>&  C) -> double
+    // {
+    //     double sumV = 0.0;
+    //     #pragma omp parallel
+    //     {
+    //         std::vector<double> el;
+    //         el.reserve(64);
+    //         double local_sum = 0.0;
+    //         #pragma omp for schedule(guided)
+    //         for (int i = 0; i < (int)C.size(); ++i) {
+    //             Volume* cell = C[i];
+    //             const int n = cell->GetNumberOfPoints();
+    //             if (n < 4) continue;
+    //             if (n == 4) {
+    //                 const int id0 = cell->GetPointId(0);
+    //                 const int id1 = cell->GetPointId(1);
+    //                 const int id2 = cell->GetPointId(2);
+    //                 const int id3 = cell->GetPointId(3);
+    //                 local_sum += vol_tet4(P[id0], P[id1], P[id2], P[id3]);
+    //             } else {
+    //                 el.clear();
+    //                 el.reserve((size_t)n * (n - 1) / 2);
+    //                 for (int j = 0; j < n; ++j) {
+    //                     const int vj = cell->GetPointId(j);
+    //                     const auto& pj = P[vj];
+    //                     for (int k = j + 1; k < n; ++k) {
+    //                         const int vk = cell->GetPointId(k);
+    //                         const auto& pk = P[vk];
+    //                         const double dx = double(pj[0]) - double(pk[0]);
+    //                         const double dy = double(pj[1]) - double(pk[1]);
+    //                         const double dz = double(pj[2]) - double(pk[2]);
+    //                         const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
+    //                         if (len > 1e-12 && std::isfinite(len)) el.push_back(len);
+    //                     }
+    //                 }
+    //                 if (!el.empty()) {
+    //                     const size_t mid = el.size() / 2;
+    //                     std::nth_element(el.begin(), el.begin() + mid, el.end());
+    //                     const double Lm = el[mid];
+    //                     local_sum += Lm * Lm * Lm;
+    //                 }
+    //             }
+    //         }
+    //         #pragma omp atomic
+    //         sumV += local_sum;
+    //     }
+    //     return sumV;
+    // };
+    // const double V_occ  = sum_cell_volume_parallel(gridPoints, gridCells);
+    // const double V_bbox = std::max(1e-18,
+    //                         double(range[0]) * double(range[1]) * double(range[2]));
+    // const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+    // const double sub_len_x = double(range[0]) / double(split);
+    // const double sub_len_y = double(range[1]) / double(split);
+    // const double sub_len_z = double(range[2]) / double(split);
+    // const double V_sub     = sub_len_x * sub_len_y * sub_len_z;
+    // const long long V_TARGET = 96LL * 96LL * 96LL;
+    // const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
+    // const double c_occ = 1.5;
+    // h = std::min(h, c_occ * h_occ);
+    //
+    // auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
+    // int nx = compute_n(sub_len_x);
+    // int ny = compute_n(sub_len_y);
+    // int nz = compute_n(sub_len_z);
+    // const int N_MIN = 12, N_MAX = 200;
+    // nx = std::max(N_MIN, std::min(nx, N_MAX));
+    // ny = std::max(N_MIN, std::min(ny, N_MAX));
+    // nz = std::max(N_MIN, std::min(nz, N_MAX));
+    //
+    // const long long VOX_CAP = 96LL * 96LL * 96LL;
+    // long long vox = 1LL * nx * ny * nz;
+    // if (vox > VOX_CAP) {
+    //     const double s = std::cbrt(double(VOX_CAP) / double(vox));
+    //     nx = std::max(N_MIN, int(nx * s));
+    //     ny = std::max(N_MIN, int(ny * s));
+    //     nz = std::max(N_MIN, int(nz * s));
+    // }
+    //
+    // std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+    auto approx_cell_volume_by_bounded_edges = [&](const std::vector<Vector3f>& P, Volume* cell) -> double {
+        const int n = cell->GetNumberOfPoints();
+        if (n < 4) return 0.0;
+        if (n == 4) {
+            const int id0 = cell->GetPointId(0);
+            const int id1 = cell->GetPointId(1);
+            const int id2 = cell->GetPointId(2);
+            const int id3 = cell->GetPointId(3);
+            return vol_tet4(P[id0], P[id1], P[id2], P[id3]);
+        }
+
+        constexpr int KMAX = 64;
+        constexpr int VMAX = 16;
+        double buf[KMAX];
+        int m = 0;
+        const int stride = std::max(1, n / VMAX);
+        int vids[VMAX];
+        int vc = 0;
+        for (int j = 0; j < n && vc < VMAX; j += stride) {
+            vids[vc++] = cell->GetPointId(j);
+        }
+        if (vc < 4) {
+            vc = std::min(n, 4);
+            for (int j = 0; j < vc; ++j) vids[j] = cell->GetPointId(j);
+        }
+
+        for (int a = 0; a < vc && m < KMAX; ++a) {
+            const Vector3f& pa = P[vids[a]];
+            const int b1 = (a + 1);
+            const int b2 = (a + stride) < vc ? (a + stride) : -1;
+
+            auto push_len = [&](int b) {
+                if (b < 0 || b >= vc || m >= KMAX) return;
+                const Vector3f& pb = P[vids[b]];
+                const double dx = double(pa[0]) - double(pb[0]);
+                const double dy = double(pa[1]) - double(pb[1]);
+                const double dz = double(pa[2]) - double(pb[2]);
+                const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
+                if (len > 1e-12 && std::isfinite(len)) buf[m++] = len;
+            };
+
+            push_len(b1);
+            push_len(b2);
+        }
+
+        if (m == 0) return 0.0;
+        const int mid = m / 2;
+        std::nth_element(buf, buf + mid, buf + m);
+        const double Lm = buf[mid];
+        return Lm * Lm * Lm;
+    };
+    auto sum_cell_volume_parallel_fast = [&](const std::vector<Vector3f>& P,
+                                             const std::vector<Volume*>&  C) -> double
     {
         double sumV = 0.0;
-        #pragma omp parallel
-        {
-            std::vector<double> el;
-            el.reserve(64);
-            double local_sum = 0.0;
-            #pragma omp for schedule(guided)
-            for (int i = 0; i < (int)C.size(); ++i) {
-                Volume* cell = C[i];
-                const int n = cell->GetNumberOfPoints();
-                if (n < 4) continue;
-                if (n == 4) {
-                    const int id0 = cell->GetPointId(0);
-                    const int id1 = cell->GetPointId(1);
-                    const int id2 = cell->GetPointId(2);
-                    const int id3 = cell->GetPointId(3);
-                    local_sum += vol_tet4(P[id0], P[id1], P[id2], P[id3]);
-                } else {
-                    el.clear();
-                    el.reserve((size_t)n * (n - 1) / 2);
-                    for (int j = 0; j < n; ++j) {
-                        const int vj = cell->GetPointId(j);
-                        const auto& pj = P[vj];
-                        for (int k = j + 1; k < n; ++k) {
-                            const int vk = cell->GetPointId(k);
-                            const auto& pk = P[vk];
-                            const double dx = double(pj[0]) - double(pk[0]);
-                            const double dy = double(pj[1]) - double(pk[1]);
-                            const double dz = double(pj[2]) - double(pk[2]);
-                            const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
-                            if (len > 1e-12 && std::isfinite(len)) el.push_back(len);
-                        }
-                    }
-                    if (!el.empty()) {
-                        const size_t mid = el.size() / 2;
-                        std::nth_element(el.begin(), el.begin() + mid, el.end());
-                        const double Lm = el[mid];
-                        local_sum += Lm * Lm * Lm;
-                    }
-                }
-            }
-            #pragma omp atomic
-            sumV += local_sum;
+        #pragma omp parallel for schedule(dynamic,1) reduction(+:sumV)
+        for (int i = 0; i < (int)C.size(); ++i) {
+            Volume* cell = C[i];
+            if (!cell) continue;
+            sumV += approx_cell_volume_by_bounded_edges(P, cell);
         }
         return sumV;
     };
-    const double V_occ  = sum_cell_volume_parallel(gridPoints, gridCells);
-    const double V_bbox = std::max(1e-18,
-                            double(range[0]) * double(range[1]) * double(range[2]));
-    const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+    const double V_occ  = sum_cell_volume_parallel_fast(gridPoints, gridCells);
+    const double V_bbox = std::max(1e-18, double(range[0]) * double(range[1]) * double(range[2]));
+    const double f      = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+
     const double sub_len_x = double(range[0]) / double(split);
     const double sub_len_y = double(range[1]) / double(split);
     const double sub_len_z = double(range[2]) / double(split);
     const double V_sub     = sub_len_x * sub_len_y * sub_len_z;
-    const long long V_TARGET = 96LL * 96LL * 96LL;
+
+    constexpr long long V_TARGET = 96LL * 96LL * 96LL;
     const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
     const double c_occ = 1.5;
     h = std::min(h, c_occ * h_occ);
@@ -441,12 +549,13 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     int nx = compute_n(sub_len_x);
     int ny = compute_n(sub_len_y);
     int nz = compute_n(sub_len_z);
-    const int N_MIN = 12, N_MAX = 200;
+
+    constexpr int N_MIN = 12, N_MAX = 200;
     nx = std::max(N_MIN, std::min(nx, N_MAX));
     ny = std::max(N_MIN, std::min(ny, N_MAX));
     nz = std::max(N_MIN, std::min(nz, N_MAX));
 
-    const long long VOX_CAP = 96LL * 96LL * 96LL;
+    constexpr long long VOX_CAP = 96LL * 96LL * 96LL;
     long long vox = 1LL * nx * ny * nz;
     if (vox > VOX_CAP) {
         const double s = std::cbrt(double(VOX_CAP) / double(vox));
@@ -540,12 +649,9 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
 
     std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
 
-    auto t_001 = std::chrono::high_resolution_clock::now();
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split,nx,ny,nz,Mesh,Attributes,Index);
-    auto t_002 = std::chrono::high_resolution_clock::now();
-    double elapsed_00 = std::chrono::duration<double>(t_002 - t_001).count();
-    std::cout << "[VortexDetection:process_blocks:::Execute] Total time = " << elapsed_00 << " s" << std::endl;
+
     // torch::Tensor result_volume_11 = std::get<0>(result);
     // Eigen::Vector3f global_step = std::get<1>(result);
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
@@ -594,7 +700,6 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     const float gt_thresh = 0.0f;
     const float pred_thresh = 0.5f;
 
-    // 2) 统计 TP/FP/TN/FN
     size_t TP = 0, FP = 0, TN = 0, FN = 0;
     for (size_t i = 0; i < N; ++i) {
         const float q_val = Attributes_gc->GetValue(i);
@@ -928,118 +1033,304 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
 //     return output;
 // }
 
-double VortexDetection::compute_percentile_edge_length_from_cells(const std::vector<Vector3f>& points,
-                                                                  const std::vector<Volume*>& cells,
-                                                                  double percentile) {
-    std::set<std::pair<int, int>> seen_edges;
-    std::vector<double> edge_lengths;
+double VortexDetection::compute_percentile_edge_length_from_cells(
+    const std::vector<Vector3f>& points,
+    const std::vector<Volume*>&  cells,
+    double percentile)
+{
+    if (!std::isfinite(percentile)) percentile = 60.0;
+    percentile = std::clamp(percentile, 0.0, 100.0);
 
-    for (auto cell: cells) {
-        int num_pts = cell->GetNumberOfPoints();
-        for (int j = 0; j < num_pts; ++j) {
-            for (int k = j + 1; k < num_pts; ++k) {
-                int id1 = cell->GetPointId(j);
-                int id2 = cell->GetPointId(k);
-                if (id1 > id2) std::swap(id1, id2);
+    constexpr size_t EDGE_SAMPLES_CAP = 4096;
+    constexpr int    PER_CELL_EDGES   = 8;
+    constexpr int    VMAX             = 16;
 
-                auto edge_key = std::make_pair(id1, id2);
-                if (seen_edges.find(edge_key) != seen_edges.end()) continue;
-                seen_edges.insert(edge_key);
+    std::vector<float> r2;
+    r2.reserve(EDGE_SAMPLES_CAP);
 
-                double length = (points[id1] - points[id2]).norm();
-                if (length > 1e-6) edge_lengths.push_back(length);
+    const size_t nC = cells.size();
+    const size_t STEP_C = std::max<size_t>(1, nC / 2048);
+
+    for (size_t ci = 0; ci < nC && r2.size() < EDGE_SAMPLES_CAP; ci += STEP_C) {
+        Volume* cell = cells[ci];
+        if (!cell) continue;
+        const int m = cell->GetNumberOfPoints();
+        if (m < 2) continue;
+        std::vector<int> ids(m);
+        for (int j = 0; j < m; ++j) ids[j] = cell->GetPointId(j);
+
+        if (m <= 6) {
+            for (int j = 0; j < m && r2.size() < EDGE_SAMPLES_CAP; ++j) {
+                const int a = ids[j];
+                const auto& pa = points[a];
+                for (int k = j + 1; k < m && r2.size() < EDGE_SAMPLES_CAP; ++k) {
+                    const int b = ids[k];
+                    const auto& pb = points[b];
+                    const float dx = pa[0]-pb[0], dy = pa[1]-pb[1], dz = pa[2]-pb[2];
+                    const float v = dx*dx + dy*dy + dz*dz;
+                    if (v > 1e-12f && std::isfinite(v)) r2.push_back(v);
+                }
+            }
+        } else {
+            const int stride = std::max(1, m / VMAX);
+            int sel[VMAX], vc = 0;
+            for (int j = 0; j < m && vc < VMAX; j += stride) sel[vc++] = j;
+            if (vc < 4) { vc = std::min(m, 4); for (int j=0;j<vc;++j) sel[j] = j; }
+
+            int taken = 0;
+            for (int a = 0; a < vc && taken < PER_CELL_EDGES && r2.size() < EDGE_SAMPLES_CAP; ++a) {
+                const int ia = ids[sel[a]];
+                const auto& pa = points[ia];
+                const int b1 = a + 1;
+                const int b2 = (a + stride < vc ? a + stride : -1);
+                auto push_edge = [&](int bidx){
+                    if (bidx < 0 || bidx >= vc || r2.size() >= EDGE_SAMPLES_CAP) return;
+                    const int ib = ids[sel[bidx]];
+                    const auto& pb = points[ib];
+                    const float dx = pa[0]-pb[0], dy = pa[1]-pb[1], dz = pa[2]-pb[2];
+                    const float v  = dx*dx + dy*dy + dz*dz;
+                    if (v > 1e-12f && std::isfinite(v)) { r2.push_back(v); ++taken; }
+                };
+                push_edge(b1);
+                push_edge(b2);
             }
         }
     }
 
-    if (edge_lengths.empty()) return 0.01;
-    std::sort(edge_lengths.begin(), edge_lengths.end());
+    if (r2.empty()) return 0.01;
+    const size_t n = r2.size();
+    const double rank = percentile * 0.01 * double(n - 1);
+    const size_t lo = (size_t)std::floor(rank);
+    const size_t hi = (size_t)std::ceil(rank);
+    const double t  = rank - double(lo);
 
-    double rank = percentile / 100.0 * (edge_lengths.size() - 1);
-    size_t low_idx = static_cast<size_t>(std::floor(rank));
-    size_t high_idx = static_cast<size_t>(std::ceil(rank));
-    double t = rank - low_idx;
-    double percentile_val = edge_lengths[low_idx] * (1.0 - t) + edge_lengths[high_idx] * t;
-    return percentile_val;
+    std::nth_element(r2.begin(), r2.begin() + lo, r2.end());
+    float lo_r2 = r2[lo];
+    float hi_r2 = lo_r2;
+    if (hi != lo) {
+        std::nth_element(r2.begin(), r2.begin() + hi, r2.end());
+        hi_r2 = r2[hi];
+    }
+    const double lo_len = std::sqrt((double)lo_r2);
+    const double hi_len = std::sqrt((double)hi_r2);
+    return lo_len * (1.0 - t) + hi_len * t;
 }
 
+// double VortexDetection::compute_percentile_edge_length_from_cells(const std::vector<Vector3f>& points,
+//                                                                   const std::vector<Volume*>& cells,
+//                                                                   double percentile) {
+//     std::set<std::pair<int, int>> seen_edges;
+//     std::vector<double> edge_lengths;
+//
+//     for (auto cell: cells) {
+//         int num_pts = cell->GetNumberOfPoints();
+//         for (int j = 0; j < num_pts; ++j) {
+//             for (int k = j + 1; k < num_pts; ++k) {
+//                 int id1 = cell->GetPointId(j);
+//                 int id2 = cell->GetPointId(k);
+//                 if (id1 > id2) std::swap(id1, id2);
+//
+//                 auto edge_key = std::make_pair(id1, id2);
+//                 if (seen_edges.find(edge_key) != seen_edges.end()) continue;
+//                 seen_edges.insert(edge_key);
+//
+//                 double length = (points[id1] - points[id2]).norm();
+//                 if (length > 1e-6) edge_lengths.push_back(length);
+//             }
+//         }
+//     }
+//
+//     if (edge_lengths.empty()) return 0.01;
+//     std::sort(edge_lengths.begin(), edge_lengths.end());
+//
+//     double rank = percentile / 100.0 * (edge_lengths.size() - 1);
+//     size_t low_idx = static_cast<size_t>(std::floor(rank));
+//     size_t high_idx = static_cast<size_t>(std::ceil(rank));
+//     double t = rank - low_idx;
+//     double percentile_val = edge_lengths[low_idx] * (1.0 - t) + edge_lengths[high_idx] * t;
+//     return percentile_val;
+// }
 
 double VortexDetection::compute_percentile_cell_volume(
     const std::vector<Vector3f>& points,
-    const std::vector<Volume*>& cells,
+    const std::vector<Volume*>&  cells,
     double percentile)
 {
     if (!std::isfinite(percentile)) percentile = 75.0;
-    percentile = std::max(0.0, std::min(100.0, percentile));
-
-    std::vector<double> volumes;
-    volumes.reserve(cells.size());
+    percentile = std::clamp(percentile, 0.0, 100.0);
 
     auto tet_volume = [](const Vector3f& a,
                          const Vector3f& b,
                          const Vector3f& c,
                          const Vector3f& d) -> double
     {
-        double bax = b[0] - a[0], bay = b[1] - a[1], baz = b[2] - a[2];
-        double cax = c[0] - a[0], cay = c[1] - a[1], caz = c[2] - a[2];
-        double dax = d[0] - a[0], day = d[1] - a[1], daz = d[2] - a[2];
-
-        double det = bax * (cay * daz - caz * day)
-                   - bay * (cax * daz - caz * dax)
-                   + baz * (cax * day - cay * dax);
-
-        return std::abs(det) / 6.0;
+        const double bax = double(b[0]) - double(a[0]);
+        const double bay = double(b[1]) - double(a[1]);
+        const double baz = double(b[2]) - double(a[2]);
+        const double cax = double(c[0]) - double(a[0]);
+        const double cay = double(c[1]) - double(a[1]);
+        const double caz = double(c[2]) - double(a[2]);
+        const double dax = double(d[0]) - double(a[0]);
+        const double day = double(d[1]) - double(a[1]);
+        const double daz = double(d[2]) - double(a[2]);
+        const double det = bax*(cay*daz - caz*day)
+                         - bay*(cax*daz - caz*dax)
+                         + baz*(cax*day - cay*dax);
+        return std::abs(det) * (1.0/6.0);
     };
 
-    for (auto cell : cells) {
-        const int n = cell->GetNumberOfPoints();
-        if (n < 4) continue;
+    int nThreads = 1;
+    #ifdef _OPENMP
+        nThreads = omp_get_max_threads();
+    #endif
+        std::vector<std::vector<double>> local(nThreads);
 
-        std::vector<int> vids(n);
-        for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
+    #pragma omp parallel
+    {
+        int tid = 0;
+    #ifdef _OPENMP
+        tid = omp_get_thread_num();
+    #endif
+        auto& out = local[tid];
+        out.reserve(std::max<size_t>(cells.size()/std::max(1,nThreads), 1024));
 
-        if (n == 4) {
-            double v = tet_volume(points[vids[0]], points[vids[1]],
-                                  points[vids[2]], points[vids[3]]);
-            if (std::isfinite(v) && v > 1e-18) volumes.push_back(v);
-            continue;
-        }
+    #pragma omp for schedule(dynamic,1)
+        for (int ci = 0; ci < (int)cells.size(); ++ci) {
+            Volume* cell = cells[ci];
+            if (!cell) continue;
+            const int n = cell->GetNumberOfPoints();
+            if (n < 4) continue;
+            std::vector<int> ids(n);
+            for (int j = 0; j < n; ++j) ids[j] = cell->GetPointId(j);
 
-        std::vector<double> edge_lengths;
-        edge_lengths.reserve(static_cast<size_t>(n) * (n - 1) / 2);
-
-        for (int j = 0; j < n; ++j) {
-            for (int k = j + 1; k < n; ++k) {
-                const int id1 = vids[j], id2 = vids[k];
-                double len = (points[id1] - points[id2]).norm();
-                if (std::isfinite(len) && len > 1e-12) edge_lengths.push_back(len);
+            double v = 0.0;
+            if (n == 4) {
+                v = tet_volume(points[ids[0]], points[ids[1]],
+                               points[ids[2]], points[ids[3]]);
+            } else {
+                double minx=DBL_MAX,miny=DBL_MAX,minz=DBL_MAX;
+                double maxx=-DBL_MAX,maxy=-DBL_MAX,maxz=-DBL_MAX;
+                for (int j = 0; j < n; ++j) {
+                    const auto& p = points[ids[j]];
+                    const double x=p[0], y=p[1], z=p[2];
+                    if (x<minx) minx=x; if (x>maxx) maxx=x;
+                    if (y<miny) miny=y; if (y>maxy) maxy=y;
+                    if (z<minz) minz=z; if (z>maxz) maxz=z;
+                }
+                const double ex = std::max(0.0, maxx - minx);
+                const double ey = std::max(0.0, maxy - miny);
+                const double ez = std::max(0.0, maxz - minz);
+                const double Lm = std::sqrt((ex*ex + ey*ey + ez*ez)/3.0);
+                v = Lm * Lm * Lm;
             }
+            if (std::isfinite(v) && v > 1e-18) out.push_back(v);
         }
+    } // parallel
 
-        if (!edge_lengths.empty()) {
-            const size_t mid = edge_lengths.size() / 2;
-            std::nth_element(edge_lengths.begin(),
-                             edge_lengths.begin() + mid,
-                             edge_lengths.end());
-            double Lm   = edge_lengths[mid];
-            double vEst = Lm * Lm * Lm;
-            if (std::isfinite(vEst) && vEst > 1e-18) volumes.push_back(vEst);
-        }
+    size_t total = 0;
+    for (auto& v : local) total += v.size();
+    if (total == 0) return 1e-6;
+
+    std::vector<double> volumes;
+    volumes.reserve(total);
+    for (auto& v : local) {
+        volumes.insert(volumes.end(), v.begin(), v.end());
     }
+    const size_t n = volumes.size();
+    if (n == 1) return volumes[0];
 
-    if (volumes.empty()) return 1e-6;
+    const double rank = (percentile * 0.01) * (double(n) - 1.0);
+    const size_t lo = (size_t)std::floor(rank);
+    const size_t hi = (size_t)std::ceil(rank);
+    const double  t  = rank - double(lo);
 
-    std::sort(volumes.begin(), volumes.end());
-
-    const double rank   = percentile / 100.0 * (volumes.size() - 1);
-    const size_t lo     = static_cast<size_t>(std::floor(rank));
-    const size_t hi     = static_cast<size_t>(std::ceil(rank));
-    const double  t     = rank - lo;
-    const double  v_low = volumes[lo];
-    const double  v_hi  = volumes[hi];
-
-    return v_low * (1.0 - t) + v_hi * t;
+    std::nth_element(volumes.begin(), volumes.begin()+lo, volumes.end());
+    const double v_lo = volumes[lo];
+    double v_hi = v_lo;
+    if (hi != lo) {
+        std::nth_element(volumes.begin(), volumes.begin()+hi, volumes.end());
+        v_hi = volumes[hi];
+    }
+    return v_lo * (1.0 - t) + v_hi * t;
 }
+
+
+// double VortexDetection::compute_percentile_cell_volume(
+//     const std::vector<Vector3f>& points,
+//     const std::vector<Volume*>& cells,
+//     double percentile)
+// {
+//     if (!std::isfinite(percentile)) percentile = 75.0;
+//     percentile = std::max(0.0, std::min(100.0, percentile));
+//
+//     std::vector<double> volumes;
+//     volumes.reserve(cells.size());
+//
+//     auto tet_volume = [](const Vector3f& a,
+//                          const Vector3f& b,
+//                          const Vector3f& c,
+//                          const Vector3f& d) -> double
+//     {
+//         double bax = b[0] - a[0], bay = b[1] - a[1], baz = b[2] - a[2];
+//         double cax = c[0] - a[0], cay = c[1] - a[1], caz = c[2] - a[2];
+//         double dax = d[0] - a[0], day = d[1] - a[1], daz = d[2] - a[2];
+//
+//         double det = bax * (cay * daz - caz * day)
+//                    - bay * (cax * daz - caz * dax)
+//                    + baz * (cax * day - cay * dax);
+//
+//         return std::abs(det) / 6.0;
+//     };
+//
+//     for (auto cell : cells) {
+//         const int n = cell->GetNumberOfPoints();
+//         if (n < 4) continue;
+//
+//         std::vector<int> vids(n);
+//         for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
+//
+//         if (n == 4) {
+//             double v = tet_volume(points[vids[0]], points[vids[1]],
+//                                   points[vids[2]], points[vids[3]]);
+//             if (std::isfinite(v) && v > 1e-18) volumes.push_back(v);
+//             continue;
+//         }
+//
+//         std::vector<double> edge_lengths;
+//         edge_lengths.reserve(static_cast<size_t>(n) * (n - 1) / 2);
+//
+//         for (int j = 0; j < n; ++j) {
+//             for (int k = j + 1; k < n; ++k) {
+//                 const int id1 = vids[j], id2 = vids[k];
+//                 double len = (points[id1] - points[id2]).norm();
+//                 if (std::isfinite(len) && len > 1e-12) edge_lengths.push_back(len);
+//             }
+//         }
+//
+//         if (!edge_lengths.empty()) {
+//             const size_t mid = edge_lengths.size() / 2;
+//             std::nth_element(edge_lengths.begin(),
+//                              edge_lengths.begin() + mid,
+//                              edge_lengths.end());
+//             double Lm   = edge_lengths[mid];
+//             double vEst = Lm * Lm * Lm;
+//             if (std::isfinite(vEst) && vEst > 1e-18) volumes.push_back(vEst);
+//         }
+//     }
+//
+//     if (volumes.empty()) return 1e-6;
+//
+//     std::sort(volumes.begin(), volumes.end());
+//
+//     const double rank   = percentile / 100.0 * (volumes.size() - 1);
+//     const size_t lo     = static_cast<size_t>(std::floor(rank));
+//     const size_t hi     = static_cast<size_t>(std::ceil(rank));
+//     const double  t     = rank - lo;
+//     const double  v_low = volumes[lo];
+//     const double  v_hi  = volumes[hi];
+//
+//     return v_low * (1.0 - t) + v_hi * t;
+// }
 
 torch::Tensor VortexDetection::_hann3d(int patch_size) {
     torch::Tensor wz = torch::hann_window(patch_size, /*periodic=*/true).to(torch::kFloat32);
@@ -2716,21 +3007,19 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         std::cout << "[RUNTIME] Moving model to CUDA device" << std::endl;
         model.to(torch::kCUDA);
     }
+    auto t0 = std::chrono::high_resolution_clock::now();
     Eigen::Vector3f min_pos_eigen(min_pos[0], min_pos[1], min_pos[2]);
     Eigen::Vector3f max_pos_eigen(max_pos[0], max_pos[1], max_pos[2]);
 
     Eigen::Vector3f range_vec = max_pos_eigen - min_pos_eigen;
     Eigen::Vector3f block_size = range_vec / split;
-
     Eigen::MatrixXd points(gridPoints.size(), 3);
     for (size_t i = 0; i < gridPoints.size(); ++i) {
         points(i, 0) = gridPoints[i][0];
         points(i, 1) = gridPoints[i][1];
         points(i, 2) = gridPoints[i][2];
     }
-
     KDTree tree(points);
-
     Eigen::MatrixXd velocities(gridVelocities.size(), 3);
     for (size_t i = 0; i < gridVelocities.size(); ++i) {
         velocities(i, 0) = gridVelocities[i][0];
@@ -2744,7 +3033,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     for (int i = 0; i < 3; ++i) {
         all_velocities_thread_safe[i].resize(total_blocks);
     }
-    auto t0 = std::chrono::high_resolution_clock::now();
     auto process_blocks_range = [&](int begin, int end) {
     for (int id = begin; id < end; ++id) {
         const int bz = id / (split * split);
@@ -2766,8 +3054,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
         constexpr int K = 8;
         std::array<int32_t, K> nn_idx;
-        std::array<float,   K> nn_d2;
-        std::array<float,   K> w;
+        std::array<float, K> nn_d2;
+        std::array<float, K> w;
         const float sigma = 2.0f * step.maxCoeff();
         const float inv_sigma2 = (sigma > 0.f) ? 1.0f / (sigma * sigma) : 1e6f;
         const float dist2_gate = (16.0f * step[0]) * (16.0f * step[0]);
@@ -2819,10 +3107,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 };
     ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
     std::vector<float> predict_vals = ComputePointQ(mesh, Attributes, Index);
-    auto t1 = std::chrono::high_resolution_clock::now();
-    double elapsed = std::chrono::duration<double>(t1 - t0).count();
-    std::cout << "[VortexDetection::Execute] process_blocks = " << elapsed << " s" << std::endl;
-
     std::vector<float> all_velocities[3];
     for (int c = 0; c < 3; ++c) {
         for (int id = 0; id < total_blocks; ++id) {
@@ -2845,6 +3129,9 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         if (std < 1e-10) std = 1.0f;
         return {mean, std};
     };
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t1 - t0).count();
+    std::cout << "[VortexDetection::Execute] process_blocks = " << elapsed << " s" << std::endl;
 
     auto [mean_x, std_x] = compute_mean_std(all_velocities[0]);
     auto [mean_y, std_y] = compute_mean_std(all_velocities[1]);

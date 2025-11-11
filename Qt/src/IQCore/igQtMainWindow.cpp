@@ -189,7 +189,7 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return false;
+        if (!DynamicCast<PointSet>(obj)) return false;
 
         igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
         d->exec();

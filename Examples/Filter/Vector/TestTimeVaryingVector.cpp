@@ -1,9 +1,9 @@
-#include <iGameRenderWindow.h>
+#include <VectorView/iGameVectorBase.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
-#include <VectorView/iGameVectorBase.h>
+#include <iGameRenderWindow.h>
 
-int main(){
+int main() {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
     //    const std::string fileName = "D:\\Project\\editOpeniGame\\Examples\\Models/StreamTest.vtk";
@@ -11,14 +11,13 @@ int main(){
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
         scene->AddModel(obj);
-    }
-    else {
+    } else {
         std::cout << "Read ERROR!\n";
     }
     iGame::DrawObject::Pointer currentDrawObject = iGame::DynamicCast<iGame::DrawObject>(obj);
     /* 切换到不同帧，最终可视化具体帧的矢量场*/
     currentDrawObject->GetTimeFrames()->EnableCache();
-    std::cout << "Total Time nums : " << currentDrawObject->GetTimeFrames()->GetTimeNum() << endl;
+    std::cout << "Total Time nums : " << currentDrawObject->GetTimeFrames()->GetTimeNum() << std::endl;
     currentDrawObject->UpdateAnimation(8);
     //    currentDrawObject->UpdateAnimation(10);
 
@@ -37,8 +36,7 @@ int main(){
     if (_obj->HasSubDataObject()) {
         auto it = _obj->SubDataObjectIteratorBegin();
         _AttributeSet = it->second->GetAttributeSet();
-    }
-    else {
+    } else {
         _AttributeSet = _obj->GetAttributeSet();
     }
     if (!_AttributeSet) return 0;

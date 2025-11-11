@@ -2,7 +2,11 @@ set(MODULE_NAME "@MODULE_NAME@")
 
 set(IGAMEVIS_INSTALL_DIR "${CMAKE_CURRENT_LIST_DIR}/../../..")
 set(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR "${IGAMEVIS_INSTALL_DIR}/include")
-set(IGAMEVIS_CORE_PRIVATE_LIB "${IGAMEVIS_INSTALL_DIR}/lib" "${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty")
+set(IGAMEVIS_CORE_PRIVATE_LIB
+    "${IGAMEVIS_INSTALL_DIR}/lib"
+    "${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty"
+    "${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty/CMakeGPS" # <-- 为 GPSpline 和 TBB 添加路径
+)
 #find_path(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR
 #        NAMES
 #        Filters
@@ -71,7 +75,7 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.22/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
-     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/lzma
+ #    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/lzma
 
 )
 if(@AbqSDK_FOUND@)
@@ -86,6 +90,34 @@ if(@FFMPEG_FOUND@)
     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
 )
     list(APPEND IGAMEVIS_CORE_PRIVATE_LIB ${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty/FFMPEG)
+endif()
+
+if(@ENABLE_GPSCUDA_MODULE@)
+    message(STATUS "iGameCore: Configuring with GPSCUDA (GPSpline) module.")
+
+    # 1. 添加 GPSpline 相关的 include 路径
+    list(APPEND IGAMEVIS_CORE_INCLUDE_DIRS
+        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern"
+        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/wmma_extension/include"
+#        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/cutlass/include"
+ #       "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/cutlass/tools/util/include"
+        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/oneTBB-2021.10.0/include"
+        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/glm"
+        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/GPSpline"
+    )
+
+    # 2. 重新查找 CUDA (这是“老方式”的必要妥协)
+    #    因为 GPSplineLib 依赖 CUDA
+    find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            message(STATUS "iGameCore: Found CUDAToolkit for GPSpline dependency.")
+            list(APPEND IGAMEVIS_CORE_INCLUDE_DIRS ${CUDAToolkit_INCLUDE_DIRS})
+
+        else()
+            message(WARNING "iGameCore: CUDAToolkit not found. "
+                            "The project using iGameCore_module MUST run 'find_package(CUDAToolkit REQUIRED)' itself "
+                            "before linking to iGameCore.")
+    endif()
 endif()
 
 file(GLOB_RECURSE IGAMEVIS_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${IGAMEVIS_INSTALL_DIR}/bin/*.dll)
@@ -104,7 +136,7 @@ if(@ENABLE_NASTRAN_MODULE@)
     # Get absolute path for install directory
     get_filename_component(IGAMEVIS_INSTALL_DIR_ABS "${IGAMEVIS_INSTALL_DIR}" ABSOLUTE)
     set(NASTRAN_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/NastranConverter/nastran_to_vtk_cli.exe")
-    
+
 
     if(EXISTS "${NASTRAN_CONVERTER_SOURCE}")
         file(COPY "${NASTRAN_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
@@ -112,6 +144,14 @@ if(@ENABLE_NASTRAN_MODULE@)
         message(WARNING "could not Find NastranConverter: ${NASTRAN_CONVERTER_SOURCE}")
     endif()
 endif()
+
+# Copy Fluent converter executable to build directory
+set(FLUENT_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/FluentConverter/cas_converter.exe")
+if(EXISTS "${FLUENT_CONVERTER_SOURCE}")
+        file(COPY "${FLUENT_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+    else()
+        message(WARNING "could not Find FluentConverter: ${FLUENT_CONVERTER_SOURCE}")
+    endif()
 
 # # Copy Python scripts for NastranReader if they exist
 # set(PYTHON_SCRIPTS_SOURCE_DIR ${IGAMEVIS_INSTALL_DIR}/Resources/Python)
@@ -133,6 +173,25 @@ set(IGAMEVIS_CORE_LIB_LIST
 )
 set(FOUND_IGAMEVIS_CORE_LIB_FULL_PATH)
 set(IGAMEVIS_CORE_LIB_TARGETS)
+
+
+#----------------------------------------------
+# Find CUDA Package
+#----------------------------------------------
+if(@ENABLE_GPSCUDA_MODULE@)
+    list(APPEND IGAMEVIS_CORE_LIB_LIST
+        # Libs from CMakeGPS
+        GPSplineLib
+        GPHelperIO
+        Geom
+        CommonLib
+
+        # TBB libs (GPSplineLib 的依赖项)
+        tbb12       # 根据你之前的安装日志
+        tbbmalloc   # 根据你之前的安装日志
+    )
+endif()
+
 
 #----------------------------------------------
 # Find CGNS Package
@@ -194,6 +253,45 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
             endif ()
     endif()
 endforeach()
+
+if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
+    # (CUDAToolkit_FOUND 变量是在文件顶部设置的)
+
+    find_library(CUDA_cudart_lib NAMES cudart
+        HINTS ${CUDAToolkit_LIBRARY_DIR}
+        PATH_SUFFIXES lib/x64 lib64
+        NO_DEFAULT_PATH
+    )
+    find_library(CUDA_cudadevrt_lib NAMES cudadevrt
+        HINTS ${CUDAToolkit_LIBRARY_DIR}
+        PATH_SUFFIXES lib/x64 lib64
+        NO_DEFAULT_PATH
+    )
+
+    if(CUDA_cudart_lib AND CUDA_cudadevrt_lib)
+        message(STATUS "iGameCore: Found CUDA runtime libraries for linking.")
+
+        # 1. 将其添加到最终的库路径列表中
+        list(APPEND FOUND_IGAMEVIS_CORE_LIB_FULL_PATH ${CUDA_cudart_lib} ${CUDA_cudadevrt_lib})
+
+        # 2. 为它们创建 IMPORTED 目标并添加到目标列表
+        if (NOT TARGET @MODULE_NAME@::cudart)
+            add_library(@MODULE_NAME@::cudart UNKNOWN IMPORTED)
+            set_target_properties(@MODULE_NAME@::cudart PROPERTIES IMPORTED_LOCATION ${CUDA_cudart_lib})
+            list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::cudart)
+        endif()
+
+        if (NOT TARGET @MODULE_NAME@::cudadevrt)
+            add_library(@MODULE_NAME@::cudadevrt UNKNOWN IMPORTED)
+            set_target_properties(@MODULE_NAME@::cudadevrt PROPERTIES IMPORTED_LOCATION ${CUDA_cudadevrt_lib})
+            list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::cudadevrt)
+        endif()
+
+    else()
+        message(WARNING "iGameCore: Could not find cudart.lib or cudadevrt.lib in ${CUDAToolkit_LIBRARY_DIR}. "
+                        "Linking C++-only projects may fail with LNK2019 errors.")
+    endif()
+endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(@MODULE_NAME@

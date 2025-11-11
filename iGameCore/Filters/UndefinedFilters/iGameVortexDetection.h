@@ -22,8 +22,6 @@
 #include "StreamView/iGameStreamTracer.h"
 #include "UndefinedFilters/iGameVortexFilter.h"
 #include <nanoflann.hpp>
-
-
 #include <vector>
 
 
