@@ -219,6 +219,7 @@ void Model::SyncGpuBuffers() {
 void Model::Draw() {
     if (!this->GetVisibility()) { return; }
     bool useSimplified = m_Scene->m_IsInteracting;
+    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 33.3;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -377,6 +378,7 @@ void Model::Draw() {
 void Model::DrawWithTransparency() {
     if (!this->GetVisibility()) { return; }
     bool useSimplified = m_Scene->m_IsInteracting;
+    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 33.3;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);

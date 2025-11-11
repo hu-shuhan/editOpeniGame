@@ -11,6 +11,7 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
 
+    # -----------------------------------------------------------------
     install(CODE "
         file(GLOB ZSTD_ROOT_FILES \"\${CMAKE_INSTALL_PREFIX}/lib/libzstd.*\" \"\${CMAKE_INSTALL_PREFIX}/lib/zstd_static.*\")
         foreach(ZSTD_ROOT_FILE IN LISTS ZSTD_ROOT_FILES)
@@ -37,7 +38,6 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             )
         endif()
     ")
-    
 
 
     if (ENABLE_CGNS_MODULE)
@@ -74,7 +74,7 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 PATTERN "2024/win_b64" EXCLUDE
         )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
-        #        message(WARNING ${AbqSDK_DLL_DIR})
+        #        message(WARNING SDK${AbqSDK_DLL_DIR})
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 
@@ -126,10 +126,27 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     if (ENABLE_GPSCUDA_MODULE)
         # 首先尝试安装 CMakeGPS 源代码内的头文件（项目内放置的第三方）
         if (EXISTS "${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS")
-            # 安装 extern 下的头文件
+            # 安装 extern 目录，这会递归复制所有子目录（包括 cutlass/include）
             install(DIRECTORY "${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/extern"
                     DESTINATION include/ThirdParty/CMakeGPS
-                    FILES_MATCHING PATTERN "*.h")
+                    # 排除不需要安装的非代码文件/目录
+                    PATTERN ".git" EXCLUDE
+                    PATTERN ".github" EXCLUDE
+                    PATTERN ".gitignore" EXCLUDE
+                    PATTERN "build" EXCLUDE
+                    PATTERN "*.cmake" EXCLUDE
+                    PATTERN "*.txt" EXCLUDE
+                    PATTERN "*.md" EXCLUDE
+                    PATTERN "*.py" EXCLUDE
+            )
+            # 安装 GPSpline 自己的头文件
+            install(DIRECTORY "${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/GPSpline/"
+                    DESTINATION include/ThirdParty/CMakeGPS/GPSpline
+                    FILES_MATCHING
+                    PATTERN "*.h"    # 匹配 .h
+                    PATTERN "*.hpp"   # 匹配 .hpp
+                    PATTERN "*.inl"   # 匹配 .inl (以防万一)
+            )
             # 如果存在顶层 include 目录也安装
             if (EXISTS "${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/include")
                 install(DIRECTORY "${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/include"
@@ -182,7 +199,14 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             message(WARNING "Can't Find NastranTransfer: ${NASTRAN_CONVERTER_EXE}")
         endif ()
     endif ()
-
+    set(FLUENT_CONVERTER_EXE "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/Python/pyFluentLib/cas_converter.exe")
+    if (EXISTS "${FLUENT_CONVERTER_EXE}")
+        install(FILES "${FLUENT_CONVERTER_EXE}"
+                DESTINATION bin/FluentConverter)
+        message(STATUS "Installing FluentConverter to bin/FluentConverter/cas_converter.exe")
+    else ()
+        message(WARNING "Can't Find FluentConverter: ${FLUENT_CONVERTER_EXE}")
+    endif ()
     # 导出模块的 CMake 配置文件，供其他项目查找使用
     install(EXPORT ${MODULE_NAME}Targets
             FILE ${MODULE_NAME}Targets.cmake
@@ -203,18 +227,63 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
 
     # 如果 CMakeGPS 提供的目标存在，把它们也加入导出集合，避免 install(EXPORT ...) 报错
     set(_IGAMEGPS_DEPS)
-    foreach (_t IN ITEMS CommonLib Geom GPHelperIO GPSplineLib)
+    # -----------------------------------------------------------------
+    # 新增：手动安装 TBB 目标
+    # -----------------------------------------------------------------
+    if (TARGET tbb)
+        # 'tbb' 目标可以正常安装和导出，保持不变
+        # 这将安装 tbb.dll 和 tbb12.lib
+        install(TARGETS tbb
+                EXPORT ${MODULE_NAME}Targets
+                RUNTIME DESTINATION bin
+                LIBRARY DESTINATION lib/ThirdParty/CMakeGPS
+        )
+    endif ()
+
+    # 'tbbmalloc' 目标无法通过 install(TARGETS) 正确安装。
+    # 我们将从错误日志中给出的已知路径手动复制它的文件。
+
+    # 这是 TBB 在你的构建目录中创建的特定于编译器的文件夹
+    set(TBB_ARTIFACT_DIR "${CMAKE_BINARY_DIR}/msvc_19.36_cxx17_64_md_release")
+
+    # 添加一个检查，以防这个路径在未来发生变化
+    if (IS_DIRECTORY ${TBB_ARTIFACT_DIR})
+
+        # 1. 手动安装 tbbmalloc.dll 到 bin/
+        install(FILES "${TBB_ARTIFACT_DIR}/tbbmalloc.dll"
+                DESTINATION bin
+                CONFIGURATIONS Release
+                OPTIONAL # 使用 OPTIONAL 增加稳健性
+        )
+
+        # 2. 手动安装 tbbmalloc.lib 到与 tbb12.lib 相同的位置
+        install(FILES "${TBB_ARTIFACT_DIR}/tbbmalloc.lib"
+                DESTINATION lib/ThirdParty/CMakeGPS
+                CONFIGURATIONS Release
+                OPTIONAL
+        )
+
+    else ()
+        # 如果路径找不到，发出警告而不是让安装失败
+        message(WARNING "TBB artifact directory not found: ${TBB_ARTIFACT_DIR}. "
+                "tbbmalloc.dll/lib will not be installed. "
+                "This path may need updating in CoreModuleInstall.cmake if the MSVC compiler version changes.")
+    endif ()
+    # 将 GPU_header_lib 添加到列表中
+    foreach (_t IN ITEMS CommonLib Geom GPHelperIO GPSplineLib GPU_header_lib)
         if (TARGET ${_t})
             list(APPEND _IGAMEGPS_DEPS ${_t})
         endif ()
     endforeach ()
     if (_IGAMEGPS_DEPS)
+        # 现在 _IGAMEGPS_DEPS 列表包含了 GPSplineLib 和它的 INTERFACE 依赖 GPU_header_lib
         install(TARGETS ${_IGAMEGPS_DEPS}
                 EXPORT ${MODULE_NAME}Targets
                 ARCHIVE DESTINATION lib/ThirdParty/CMakeGPS
                 LIBRARY DESTINATION lib/ThirdParty/CMakeGPS
                 RUNTIME DESTINATION bin/ThirdParty/CMakeGPS
-                INCLUDES DESTINATION include/ThirdParty/CMakeGPS)
+                #                INCLUDES DESTINATION include/ThirdParty/CMakeGPS
+        )
     endif ()
 
     # 生成和安装 ${MODULE_NAME}Config.cmake 文件
