@@ -11,6 +11,7 @@
 #include "iGameMeshCodecZSTD.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
+#include <filesystem>
 #include "iGameThreadPool.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -56,25 +57,28 @@ public:
     static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
         UIControlParams params;
         params.showReport = false;
-        for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++) {
+        for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 2; i++) {
             iGame::FloatErrorControlParameters p;
 
             if (i == 0) {
+                p.dataName = "全体数据";
+                p.isKeyElement = std::vector<bool>();
+            } else if (i == 1) {
                 p.dataName = "顶点坐标";
                 p.isKeyElement =
                         std::vector<bool>(iGame::DynamicCast<iGame::PointSet>(dataObj)->GetNumberOfPoints(), false);
 
             } else {
-                auto attr = dataObj->GetAttributeSet()->GetAttribute(i - 1);
+                auto attr = dataObj->GetAttributeSet()->GetAttribute(i - 2);
                 p.dataName = attr.pointer->GetName();
                 p.isKeyElement = std::vector<bool>(attr.pointer->GetNumberOfElements(), false);
             }
 
             p.lossyMode = iGame::LossyMode::MantissaTruncation;
             p.errorMode = iGame::ErrorMode::None;
-            p.defaultErrorBound = 0.01;
-            p.keyAreaErrorBound = 0.01;
-            p.nonKeyAreaErrorBound = 0.01;
+            p.globalQuantizeLevel = 0;
+            p.criticalQuantizeLevel = 0;
+            p.normalQuantizeLevel = 0;
             params.errorBoundSetting.push_back(p);
         }
         return params;
@@ -175,18 +179,38 @@ private:
         UpdateProgress(1.0);
         SetOutput(m_encodedData);
 
-        auto calCR = [=]() -> void {
+        auto calCR = [this]() -> void {
             long long sourceSize = -1;
 
-            auto fileSizeProperty = this->m_DataObj->GetPropertys()->GetProperty("FileSize");
-            if (fileSizeProperty) { sourceSize = fileSizeProperty->Get<long long>(); }
+            // 1) 优先使用读取阶段写入的 FileSize 属性
+            if (auto fileSizeProperty = this->m_DataObj->GetPropertys()->GetProperty("FileSize")) {
+                sourceSize = fileSizeProperty->Get<long long>();
+            }
+
+            // 2) 若缺失或无效，尝试通过 FilePath 读取磁盘文件大小（适配 CGNS 等路径）
+            if (sourceSize <= 0) {
+                if (auto filePathProperty = this->m_DataObj->GetPropertys()->GetProperty("FilePath")) {
+                    const std::string filePath = filePathProperty->Get<std::string>();
+                    std::error_code ec;
+                    auto sz = std::filesystem::file_size(std::filesystem::path(filePath), ec);
+                    if (!ec) sourceSize = static_cast<long long>(sz);
+                }
+            }
+
+            // 3) 兜底：用对象的实际内存占用估算（保证报告不空）
+            if (sourceSize <= 0) {
+                sourceSize = static_cast<long long>(this->m_DataObj->GetRealMemorySize());
+            }
 
             if (sourceSize > 0) {
-                long long compressSize = m_encodedData->m_Buffers.size();
+                long long compressSize = static_cast<long long>(m_encodedData->m_Buffers.size());
                 double cr = compressSize * 1.0 / sourceSize;
                 std::cout << "compress rate: " << cr << std::endl;
 
                 m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
+            } else {
+                // 源大小不可用时，明确给出不可用提示，避免用户误解
+                m_report.push_back(std::make_pair("压缩率", std::string("N/A")));
             }
         };
 
@@ -247,23 +271,23 @@ private:
     // region params control
     void LoadUIControlParams(const UIControlParams& uiConParams) {
         m_showReport = uiConParams.showReport;
-        m_codecParams.geomParams.lossyMode = uiConParams.errorBoundSetting[0].lossyMode;
-        m_codecParams.geomParams.errorMode = uiConParams.errorBoundSetting[0].errorMode;
-        m_codecParams.geomParams.defaultErrorBound = uiConParams.errorBoundSetting[0].defaultErrorBound;
-        m_codecParams.geomParams.keyAreaErrorBound = uiConParams.errorBoundSetting[0].keyAreaErrorBound;
-        m_codecParams.geomParams.nonKeyAreaErrorBound = uiConParams.errorBoundSetting[0].nonKeyAreaErrorBound;
-        m_geomErrorControl = uiConParams.errorBoundSetting[0];
+        m_codecParams.geomParams.lossyMode = uiConParams.errorBoundSetting[1].lossyMode;
+        m_codecParams.geomParams.errorMode = uiConParams.errorBoundSetting[1].errorMode;
+        m_codecParams.geomParams.globalQuantizeLevel = uiConParams.errorBoundSetting[1].globalQuantizeLevel;
+        m_codecParams.geomParams.criticalQuantizeLevel = uiConParams.errorBoundSetting[1].criticalQuantizeLevel;
+        m_codecParams.geomParams.normalQuantizeLevel = uiConParams.errorBoundSetting[1].normalQuantizeLevel;
+        m_geomErrorControl = uiConParams.errorBoundSetting[1];
 
         m_attrErrorControl.resize(m_codecParams.attrCount);
-        for (int i = 1; i < uiConParams.errorBoundSetting.size(); i++) {
-            auto& attrParam = m_codecParams.attrParams[i - 1];
+        for (int i = 2; i < uiConParams.errorBoundSetting.size(); i++) {
+            auto& attrParam = m_codecParams.attrParams[i - 2];
             attrParam.lossyMode = uiConParams.errorBoundSetting[i].lossyMode;
             attrParam.errorMode = uiConParams.errorBoundSetting[i].errorMode;
-            attrParam.defaultErrorBound = uiConParams.errorBoundSetting[i].defaultErrorBound;
-            attrParam.keyAreaErrorBound = uiConParams.errorBoundSetting[i].keyAreaErrorBound;
-            attrParam.nonKeyAreaErrorBound = uiConParams.errorBoundSetting[i].nonKeyAreaErrorBound;
+            attrParam.globalQuantizeLevel = uiConParams.errorBoundSetting[i].globalQuantizeLevel;
+            attrParam.criticalQuantizeLevel = uiConParams.errorBoundSetting[i].criticalQuantizeLevel;
+            attrParam.normalQuantizeLevel = uiConParams.errorBoundSetting[i].normalQuantizeLevel;
 
-            m_attrErrorControl[i - 1] = uiConParams.errorBoundSetting[i];
+            m_attrErrorControl[i - 2] = uiConParams.errorBoundSetting[i];
         }
     }
 

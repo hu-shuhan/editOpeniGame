@@ -19,6 +19,7 @@
 #include <QVector>
 #include <QtCharts/QAreaSeries>
 #include <QtCharts/QBarCategoryAxis>
+#include <QtCharts/QCategoryAxis>
 #include <QtCharts/QBarSeries>
 #include <QtCharts/QBarSet>
 #include <QtCharts/QChart>
@@ -35,6 +36,11 @@
 #include <QtWidgets/qpushbutton.h>
 #include <QtWidgets/qtablewidget.h>
 #include <QtWidgets/qtabwidget.h>
+#include <QtWidgets/qstackedwidget.h>
+
+// forward declarations for pointer parameters
+class QComboBox;
+class QLabel;
 #include <algorithm>
 #include <functional>
 #include <qfiledialog.h>
@@ -55,50 +61,62 @@ signals:
     void refreshHistogramRequested(const QString& attributeName, const QString& analysisType);
 
 private slots:
-    void on_listAttributes_currentRowChanged(int currentRow);
-    void on_tabDataDist_currentChanged(int index);
+    void on_combo_boxFloatSelect_currentIndexChanged(int index);
     
-    void on_btnRefreshDataDist_clicked();
     void on_btnStartCompress_clicked();
-    void on_btnCancel_clicked();
-    void on_btnSetGlobalCompressMode_clicked();
+    void on_button_cancel_clicked();
 
-    void on_radioLossless_toggled(bool checked);
-    void on_radioDefaultErrorBound_toggled(bool checked);
-    void on_radioKeyErrorBound_toggled(bool checked);
-
-    void on_radioMantissaTruncation_toggled(bool checked);
-    void on_radioLogQuantization_toggled(bool checked);
+    void on_radio_losslessMode_toggled(bool checked);
+    void on_radio_globalMode_toggled(bool checked);
+    void on_radio_areaModel_toggled(bool checked);
 
     // 原有输入框事件处理函数，已注释
     // void on_txtDefaultError_textChanged(const QString& text);
     // void on_txtKeyError_textChanged(const QString& text);
     // void on_txtNonKeyError_textChanged(const QString& text);
 
-    // 新的滑块控件事件处理函数
-    void on_sliderDefaultLevel_valueChanged(int value);
-    void on_sliderKeyLevel_valueChanged(int value);
-    void on_sliderNonKeyLevel_valueChanged(int value);
+    // ComboBox量化等级选择事件处理函数
+    void on_comboBox_globalLevel_currentIndexChanged(int index);
+    void on_comboBox_criticalLevel_currentIndexChanged(int index);
+    void on_comboBox_normalLevel_currentIndexChanged(int index);
 
-    void on_cbVisualizeError_stateChanged(int state);
-    void on_cbShowReport_stateChanged(int state);
+    void on_checkbox_showReport_stateChanged(int state);
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
 private:
     Ui::MeshCodecDialog* ui;
     iGame::DataObject::Pointer m_dataObj;
     iGame::UIControlParams m_params;
+    
+    // UI选项索引与实际属性索引的偏移量
+    // 索引0: "全部数据"
+    // 索引1: "顶点坐标"
+    // 索引2+: 实际属性数据
+    static constexpr int ATTRIBUTE_OFFSET = 2;
+    
+    std::string m_AllDataName = "全部数据";
     std::string m_GeomName = "顶点坐标";
 
     // 属性列表
     int m_DataNum;
-    int m_featureNum;
     int m_binNum = 12;
 
-    // 标签页名称列表（保持顺序）
-    QVector<QString> m_featureNames = {
-        //"涡度",      // Vortex
-        "梯度",      // Gradient
-        "拉普拉斯算子值" // Laplacian
+    QVector<QString> m_quantizeLevel = {
+        "FP32",
+        "FP24",
+        "FP16",
+        "FP8"
+    };
+
+    // 压缩模式标记：无损/全局/分区
+    // 无损：黑色实心星(★)；全局：▲；分区：■
+    QVector<QString> m_modeMark = {
+        "★", // 无损
+        "▲", // 全局
+        "■"  // 分区
     };
 
     enum class FeatureHistoGenStatus {
@@ -107,42 +125,36 @@ private:
         Yes
     };
 
-    // 每种分析类型的直方图及复选框
-    struct FeatureTab {
-        QChartView* chartView;         // 图表视图
-        QVector<QCheckBox*> checkBoxes; // 复选框列表
-        QWidget* checkBoxContainer;
-    };
+    // 梯度直方图相关（使用每项各自的 QChart* 缓存）
+    QChartView* m_chartView = nullptr;         // 图表视图
+    QVector<QCheckBox*> m_checkBoxes;          // 复选框列表
+    QWidget* m_checkBoxContainer = nullptr;     // 复选框容器
+    QPushButton* m_refreshButton = nullptr;     // 悬浮的刷新按钮
+    // 用堆叠页切换关键区域（空页不占高度）
+    QStackedWidget* m_keyAreaStack = nullptr;
+    QWidget* m_keyAreaEmptyPage = nullptr;
+    int m_keyAreaLayoutIndex = -1;              // 在父布局中的位置
 
-    QVector<FeatureTab> m_featureTabs;
+    // 统一的尺寸重计算
+    void RecomputeDialogSize();
 
-    enum class FeatureName {
-        Gradient = 0,
-        Laplacian = 1
-    };
-
-    //enum class FeatureName {
-    //    Vortex = 0,
-    //    Gradient = 1,
-    //    Laplacian = 2
-    //};
-
+    // 每个属性数据的梯度特征数据
     struct AttrFeatureData {
-        QChart* histogram;
         std::vector<bool> checkStatus;
         FeatureHistoGenStatus genStatus;
 
         std::vector<std::vector<int>> idInBins;
+        // 缓存直方图的 x/y 轴数据，切换时复用避免重复计算
+        std::vector<float> xAxis;
+        std::vector<int> yAxis;
     };
 
-    QVector<QVector<AttrFeatureData>> m_attrFeatureDatas;
+    QVector<AttrFeatureData> m_attrFeatureDatas;
 
 private:
     void onCheckBoxStateChanged(int index, int state);
 
-    bool IsVaildAttrIndex(int);
-
-    bool IsVaildFeatureIndex(int);
+    bool IsValidAttrIndex(int);
 
     void InitIntro();
 
@@ -150,7 +162,12 @@ private:
 
     void InitAttributeList();
 
-    int GetCurrentFeatureIndex() const;
+    // 计算不同模式对应的mark
+    QString GetModeMark(iGame::ErrorMode mode) const;
+    // 刷新某一项Combo的前缀mark
+    void RefreshComboItemMark(int dataIndex);
+    // 刷新全部Combo项的前缀mark
+    void RefreshAllComboItemMarks();
 
     int GetCurrentDataIndex() const;
 
@@ -166,21 +183,48 @@ private:
 
     void LoadAttrFeatureWidget();
 
-    void InitFeatureTabs();
+    void InitHistogramView();
 
     void InitAttrFeatureDatas();
+    
+    void GenerateHistogram();
+    
+    void ShowRefreshButton();
+    
+    void HideRefreshButton();
+    
+    void PositionRefreshButton();
+
+    // 根据模式显示/隐藏“关键区域选择”并自适应窗口高度
+    void UpdateKeyAreaVisibility(bool show);
+    // 统一设置某组量化控件使能/禁用及文字灰化
+    void SetComboAndLabelEnabled(QComboBox* combo, QLabel* label, bool enabled);
+    // 切换三种模式时统一更新三个量化区域的使能与样式
+    void ApplyModeUI(bool lossless, bool global, bool area);
+    // 根据当前数据索引与模式，统一更新“产生直方图”按钮显示/隐藏
+    void UpdateRefreshButtonStateForCurrent();
+    // 根据参数的 errorMode 同步三种单选按钮（防止触发多余信号）
+    void SetRadiosFromErrorMode(iGame::ErrorMode mode);
 
     // void SetupErrorInputValidators(); // 原有验证函数，已注释
-
-    void updateAttributeDisplay();
+    
+    // 应用设置到全体数据或当前数据的辅助函数
+    template<typename Func>
+    void ApplySettingToData(Func setter);
 
     void ShowReportDialog(const std::vector<std::pair<std::string, std::string>>& report);
 
     void DrawFeatureHistogram(QChart* chart);
+    void DrawFeatureHistogramFromData(QChart* chart, const std::vector<float>& xAxis, const std::vector<int>& yAxis);
 
     void CalFeatureHistogram(std::vector<float>& xAxis, std::vector<int>& yAxis);
 
     void FrobeniusNorm(const std::vector<std::vector<std::array<float, 3>>>& gradient, std::vector<float>& result);
+    void SpectralNorm(const std::vector<std::vector<std::array<float, 3>>>& gradient, std::vector<float>& result);
 
     void L2Norm(const std::vector<std::vector<float>>& datas, std::vector<float>& result);
+
+    // 旧实现无需根据非均匀 bin 调整复选框列
+    // 将当前属性的分箱勾选状态应用到关键元素掩码
+    void ApplyCheckStatusToKeyElements(int dataIndex);
 };

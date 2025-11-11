@@ -21,9 +21,9 @@ struct FloatParameters {
 	LossyMode lossyMode; // 量化模式
 	ErrorMode errorMode;
 
-	float defaultErrorBound;
-	float keyAreaErrorBound;
-	float nonKeyAreaErrorBound;
+    int globalQuantizeLevel;
+    int criticalQuantizeLevel;
+    int normalQuantizeLevel;
 
 	// element 由一组value组成 当然也有可能是单个
 	IGsize valueSize; // 单个分量尺寸 单位byte
