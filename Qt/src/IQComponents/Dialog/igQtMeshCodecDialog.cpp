@@ -36,9 +36,12 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     InitHistogramView();
     InitAttributeList();
 
+    for (int i = 1; i < m_quantizeLevel.size(); i++) {
+        ui->comboBox_globalLevel->addItem(m_quantizeLevel[i]);
+    }
+
     // 初始化量化等级ComboBox选项
     for (const auto& level : m_quantizeLevel) {
-        ui->comboBox_globalLevel->addItem(level);
         ui->comboBox_criticalLevel->addItem(level);
         ui->comboBox_normalLevel->addItem(level);
     }
@@ -604,7 +607,7 @@ void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
 void igQtMeshCodecDialog::on_comboBox_globalLevel_currentIndexChanged(int index)
 {
     ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
-        setting.globalQuantizeLevel = index;
+        setting.globalQuantizeLevel = index + 1;
     });
 }
 
