@@ -2,8 +2,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_subdirectory(Debug)
     set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Debug")
 else()
-    add_subdirectory(Release)
-    set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release")
+    add_subdirectory(Release_GPU)
+    set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_GPU")
 endif()
 
 #include_directories(

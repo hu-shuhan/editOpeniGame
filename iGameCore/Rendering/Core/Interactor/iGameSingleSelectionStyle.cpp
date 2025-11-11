@@ -159,7 +159,6 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
 
 void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
-    _AT_;
     auto [point1, point2] = GetStartPointAndEndPoint(pos);
 
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
@@ -172,7 +171,6 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
             SelectionParameter::Instance().GetAutoSelectExpdRate(),
             SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells(),
             SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-    _AT_;
     if (ids.empty()) return;
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         m_Selection->SelectionCallBackEvent(IG_CELL, ids,
@@ -309,13 +307,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
     if (mesh == nullptr) return re;
     double minDis = -1;
     int id = -1;
-    _AT_;
     if (selectIgnoreUnSeeAbleCells) {
-        if (mesh->GetSelection()->GetSeeAbleFaces().empty()) {
-            mesh->GetSelection()->SetSeeAbleFaces(
-                    BuildSeeAbleFaceForMesh(mesh));
-        }
-        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleFaces();
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
         for (auto& cellId: seeAbleFaces) {
             Cell* cell = mesh->GetCell(cellId);
             auto dis = IsLineCrossCell(startPoint, endPoint, cell);
@@ -349,7 +342,6 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
     iGame::Point thisCellCentralPoint =
             GetCentralOfCell(thisCellSize, thisCell, points);
     /*################################# CORE START #################################*/
-    _AT_;
     if (useAutoSelect == false || variableIndex < 0) {
 
         auto _NormalSelectFunc = [&](int cellIndex) {
@@ -364,11 +356,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         };
 
         if (onlySelectSeeAbleCells) {
-            if (mesh->GetSelection()->GetSeeAbleFaces().empty()) {
-                mesh->GetSelection()->SetSeeAbleFaces(
-                        BuildSeeAbleFaceForMesh(mesh));
-            }
-            auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleFaces();
+            auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
             for (auto& cellIndex: seeAbleFaces) {
                 _NormalSelectFunc(cellIndex);
             }
@@ -381,7 +369,6 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         return re;
     }
 
-    _AT_;
     auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
     std::vector<std::pair<int, int>> variableIndexs =
             CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_CELL);
@@ -412,13 +399,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         }
     };
 
-    _AT_;
     if (onlySelectSeeAbleCells) {
-        if (mesh->GetSelection()->GetSeeAbleFaces().empty()) {
-            mesh->GetSelection()->SetSeeAbleFaces(
-                    BuildSeeAbleFaceForMesh(mesh));
-        }
-        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleFaces();
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
         for (auto& cellIndex: seeAbleFaces) { _AutoSelectFunc(cellIndex); }
     } else {
         for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();

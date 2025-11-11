@@ -40,9 +40,9 @@ public:
     IGsize GetNumberOfCells() const noexcept;
 
     // Get cell's point index by index cellId. Return ids's size
-    void GetCellPointIds(const IGsize cellId, IdArray::Pointer ids);
-    int GetCellPointIds(const IGsize cellId, igIndex* ids);
-    int GetCellPointIds(const IGsize cellId, const igIndex*& ids);
+    void GetCellPointIds(const IGsize cellId, IdArray::Pointer ids) const;
+    int GetCellPointIds(const IGsize cellId, igIndex* ids) const;
+    int GetCellPointIds(const IGsize cellId, const igIndex*& ids) const;
 
     // Get all cell's type.
     UnsignedIntArray* GetCellTypes() const;
@@ -52,6 +52,7 @@ public:
 
     // Get cell by index cellId, which is Thread-Unsafe
     Cell* GetCell(const IGsize cellId);
+    bool GetCell(const IGsize cellId, Cell::Pointer& cell);
     //Get DataObject Type
     IGenum GetDataObjectType() const { return IG_UNSTRUCTURED_MESH; }
 
@@ -83,8 +84,10 @@ protected:
     UnstructuredMesh();
     ~UnstructuredMesh() override = default;
 
+    bool _GetCell(const IGsize cellId, Cell* cell) const;
     // Get cell object according to cell type.
     Cell* GetTypedCell(const IGsize cellId);
+    void GetTypedCell(const IGsize cellId, Cell::Pointer& cell) const;
 
 private:
     CellArray::Pointer m_Cells{};        // Stores the PointIds of all cells

@@ -29,6 +29,7 @@ add_executable(testSetRenderingPressure "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/S
 add_executable(testChangeRange "${CMAKE_CURRENT_SOURCE_DIR}/Attribute/TestSubDataRangeChangeAndRecollect.cpp")
 
 add_executable(testVector "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVector.cpp")
+add_executable(testTimeVaryingVector "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestTimeVaryingVector.cpp")
 add_executable(testVectorAllCell "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorAllCell.cpp")
 add_executable(testVectorCellInRange "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorCellInRange.cpp")
 add_executable(testVectorEveryNth "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Vector/TestVectorEveryNth.cpp")
@@ -107,6 +108,7 @@ target_link_libraries(testSetRenderingPressure PUBLIC ${IGAMEVIS_CORE_LIB_TARGET
 target_link_libraries(testChangeRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testVector PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testTimeVaryingVector PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorAllCell PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorCellInRange PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVectorEveryNth PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})

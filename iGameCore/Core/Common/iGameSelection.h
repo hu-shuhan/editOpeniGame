@@ -127,8 +127,7 @@ public:
     void SetCells(CellArray* c) { m_Cells = c; }
     void SetModel(Model* m) { m_Model = m; }
 
-    void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
-    const std::vector<int>& GetSeeAbleFaces();
+    const std::vector<int>& GetSeeAbleCells(UnstructuredMesh* mesh);
 
     void SetSelectItemVisable(bool visable);
     void SetSelectBoxVisable(bool visable);
@@ -155,7 +154,7 @@ protected:
     std::map<IGenum, std::set<igIndex>> m_SelectedItems;
     CellFaceExtracter m_CellFaceExtracter;
 
-    std::vector<int> m_SeeAbleFaces; //pointIds,CellId
+    std::vector<int> m_SeeAbleCells; //pointIds,CellId
 
     Points* m_Points{nullptr};
     CellArray* m_Cells{nullptr};

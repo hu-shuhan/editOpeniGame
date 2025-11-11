@@ -409,6 +409,7 @@ bool NastranReader::Execute() {
 void NastranReader::SetFilePath(const std::string& filePath) {
     this->m_FilePath = filePath;
     this->m_FileName = filePath.substr(filePath.find_last_of('/') + 1, filePath.size());
+    m_BDFFilePath = filePath;
 }
 
 //UnstructuredMesh::Pointer NastranReader::GetUnstructuredMeshOutput() {
