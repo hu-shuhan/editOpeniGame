@@ -288,7 +288,13 @@ void igQtDataChangeWidget::DrawRadial() {
     m_RadialStyle->DrawRadial();
 }
 
-void igQtDataChangeWidget::GenerateBackgroundColor() { m_BackgroundColor = {255, 255, 255}; }
+void igQtDataChangeWidget::GenerateBackgroundColor() {
+    //########################### White ###########################
+    m_BackgroundColor = {242, 242, 242};
+    return;
+    //########################### White ###########################
+    m_BackgroundColor = {255, 255, 255};
+}
 
 void igQtDataChangeWidget::SetUiData() {
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;

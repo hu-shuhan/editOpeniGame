@@ -17,6 +17,7 @@
 #include <memory>
 #include <algorithm>
 #include <cstdint>
+#if defined(LibTorch_ENABLE)
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/script.h>
 #include <cuda_runtime.h>
@@ -25,6 +26,7 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/DeviceType.h>
 using namespace torch::nn::functional;
+#endif
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
 #if defined(LibTorch_ENABLE)
