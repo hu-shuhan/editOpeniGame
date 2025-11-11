@@ -24,22 +24,22 @@ endif ()
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
-set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
+set(ENABLE_NASTRAN_MODULE ON CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
-set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
+set(ENABLE_LIBTORCH_MODULE ON CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
-set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+set(ENABLE_GPSCUDA_MODULE ON CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
 if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
@@ -116,7 +116,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
-
 
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
