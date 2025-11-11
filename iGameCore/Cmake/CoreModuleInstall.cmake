@@ -11,19 +11,9 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             LIBRARY DESTINATION lib/ThirdParty
             INCLUDES DESTINATION include)
 
-    # -----------------------------------------------------------------
+
+    # fix zstd
     install(CODE "
-        file(GLOB ZSTD_ROOT_FILES \"\${CMAKE_INSTALL_PREFIX}/lib/libzstd.*\" \"\${CMAKE_INSTALL_PREFIX}/lib/zstd_static.*\")
-        foreach(ZSTD_ROOT_FILE IN LISTS ZSTD_ROOT_FILES)
-            file(REMOVE \"\${ZSTD_ROOT_FILE}\")
-        endforeach()
-        
-        file(REMOVE 
-            \"\${CMAKE_INSTALL_PREFIX}/include/zstd.h\"
-            \"\${CMAKE_INSTALL_PREFIX}/include/zstd_errors.h\"
-            \"\${CMAKE_INSTALL_PREFIX}/include/zdict.h\"
-        )
-        
         if(EXISTS \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/zstd_static.lib\")
             file(RENAME 
                 \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/zstd_static.lib\"
