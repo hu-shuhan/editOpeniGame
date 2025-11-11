@@ -110,6 +110,7 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     # Transform shader code to install directories
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Assests" DESTINATION Resources)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/Shaders/GLSL" DESTINATION Resources/Shaders)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Resources/AI" DESTINATION Resources)
 
     # Install Python scripts for NastranReader
 
