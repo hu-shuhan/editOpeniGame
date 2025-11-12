@@ -12,24 +12,6 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             INCLUDES DESTINATION include)
 
 
-    # fix zstd
-    install(CODE "
-        if(EXISTS \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/zstd_static.lib\")
-            file(RENAME 
-                \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/zstd_static.lib\"
-                \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/libzstd_static.lib\"
-            )
-        endif()
-        
-        if(EXISTS \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/libzstd.a\")
-            file(RENAME 
-                \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/libzstd.a\"
-                \"\${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/liblibzstd_static.a\"
-            )
-        endif()
-    ")
-
-
     if (ENABLE_CGNS_MODULE)
         set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
         find_package(HDF5)
