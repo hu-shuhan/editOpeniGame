@@ -49,6 +49,7 @@ bool iGameTensorFilter::Execute() {
     UpdateGlyphDrawIndexData();
     UpdateGlyphDrawColor();
     UpdateTensorObject();
+    return true;
 }
 
 void iGameTensorFilter::UpdateGlyphDrawPositionData() {

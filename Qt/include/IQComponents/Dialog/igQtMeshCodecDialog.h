@@ -105,7 +105,7 @@ private:
     int m_binNum = 12;
 
     QVector<QString> m_quantizeLevel = {
-        "FP32",
+        "无损",
         "FP24",
         "FP16",
         "FP8"
