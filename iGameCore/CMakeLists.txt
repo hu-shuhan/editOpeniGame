@@ -104,7 +104,7 @@ if (ENABLE_CGNS_MODULE)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
-    set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
+    list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
