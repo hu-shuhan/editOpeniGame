@@ -354,7 +354,7 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
     if (itemType == IG_POINT) DrawPoints();
     else if (itemType == IG_CELL) {
         DrawCellEdges();
-        DrawCellBoundingBoxs();
+        //DrawCellBoundingBoxs();
     }
 }
 
@@ -364,7 +364,7 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
     if (itemType == IG_POINT) DrawPoints();
     else if (itemType == IG_CELL) {
         DrawCellEdges();
-        DrawCellBoundingBoxs();
+        //DrawCellBoundingBoxs();
     }
 }
 

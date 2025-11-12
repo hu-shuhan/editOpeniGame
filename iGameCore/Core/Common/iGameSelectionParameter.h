@@ -6,6 +6,8 @@ private:
     SelectionParameter() = default;
 
 public:
+    enum SelectMode { RADIUS_MODE, CT_MODE, RADIUS_BOX_MODE, CT_BOX_MODE };
+
     static SelectionParameter& Instance();
 
     void SetSelectionRadius(double selectionRadius);
@@ -29,6 +31,13 @@ public:
     void SetAutoSelectExpdRate(double autoSelectExpdRate);
     double GetAutoSelectExpdRate() const;
 
+    void SetSelectMode(const SelectionParameter::SelectMode& selectMode);
+    const SelectionParameter::SelectMode& GetSelectMode() const;
+    bool IsRadiusMode() const;
+    bool IsCtMode() const;
+    bool IsRadiusBoxMode() const;
+    bool IsCtBoxMode() const;
+
 private:
     //When selecting points or faces, select the radius at one time.
     double m_SelectRadius{};
@@ -43,6 +52,8 @@ private:
     int m_SelectVariableIndex{-1};
     //Auto Select Expanding Rate
     double m_AutoSelectExpdRate{1.0};
+    //Select Mode
+    SelectMode m_SelectMode{SelectMode::RADIUS_MODE};
 };
 
 IGAME_NAMESPACE_END

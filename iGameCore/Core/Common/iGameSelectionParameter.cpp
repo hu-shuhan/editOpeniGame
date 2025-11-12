@@ -35,4 +35,16 @@ void SelectionParameter::SetAutoSelectExpdRate(double autoSelectExpdRate) { m_Au
 
 double SelectionParameter::GetAutoSelectExpdRate() const { return m_AutoSelectExpdRate; }
 
+void SelectionParameter::SetSelectMode(const SelectionParameter::SelectMode& selectMode) { m_SelectMode = selectMode; }
+
+const SelectionParameter::SelectMode& SelectionParameter::GetSelectMode() const { return m_SelectMode; }
+
+bool SelectionParameter::IsRadiusMode() const { return m_SelectMode == SelectMode::RADIUS_MODE; }
+
+bool SelectionParameter::IsCtMode() const { return m_SelectMode == SelectMode::CT_MODE; }
+
+bool SelectionParameter::IsRadiusBoxMode() const { return m_SelectMode == SelectMode::RADIUS_BOX_MODE; }
+
+bool SelectionParameter::IsCtBoxMode() const { return m_SelectMode == SelectMode::CT_BOX_MODE; }
+
 IGAME_NAMESPACE_END
