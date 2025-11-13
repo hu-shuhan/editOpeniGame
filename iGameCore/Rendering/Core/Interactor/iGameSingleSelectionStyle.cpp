@@ -100,6 +100,7 @@ static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
 }
 
 SingleSelectionStyle::SingleSelectionStyle() {}
+
 SingleSelectionStyle::~SingleSelectionStyle() {}
 
 void SingleSelectionStyle::MousePressEvent(IEvent _event) {
