@@ -17,7 +17,7 @@ public:
     bool GetSelectIgnoreUnSeeAbleCells() const;
 
     void SetSelectOnlySelectSeeAbleCells(bool selectOnlySelectSeeAbleCells);
-    bool GetSelectOnlySelectSeeAbleCells();
+    bool GetSelectOnlySelectSeeAbleCells() const;
 
     void SetSelectOrUnSelect(bool selectOrUnSelect);
     bool GetSelectOrUnSelect() const;
