@@ -104,6 +104,34 @@ std::vector<std::pair<Point, Point>> CellFaceExtracter::GetExtractBoundingBoxs(c
     return re;
 }
 
+std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds,
+                                                             UnstructuredMesh* mesh) {
+    if (choosedCellIds.empty() || mesh == nullptr) return {};
+    VisitMesh(mesh);
+    auto pMinMax = MinMaxPoint();
+    auto& [pMin, pMax] = pMinMax;
+    for (auto& cellId: choosedCellIds) {
+        auto cell = mesh->GetCell(cellId);
+        auto [cellPMin, cellPMax] = CellMinMaxPoint(cell);
+        MinPoint(pMin, cellPMin);
+        MaxPoint(pMax, cellPMax);
+    }
+    return pMinMax;
+}
+
+std::pair<Point, Point> CellFaceExtracter::GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds,
+                                                                UnstructuredMesh* mesh) {
+    if (choosedPointIds.empty() || mesh == nullptr) return {};
+    VisitMesh(mesh);
+    auto pMinMax = MinMaxPoint();
+    auto& [pMin, pMax] = pMinMax;
+    for (auto& pointId: choosedPointIds) {
+        auto& point = mesh->GetPoint(pointId);
+        MinMaxPoint(pMin, pMax, point);
+    }
+    return pMinMax;
+}
+
 std::vector<int> CellFaceExtracter::GetSurfaceCellIds(UnstructuredMesh* mesh) {
     if (mesh == nullptr) return {};
     VisitMesh(mesh);

@@ -166,6 +166,7 @@ protected:
     void AddItem(IGenum itemType, const igIndex& itemId, Operate ope);
     void DrawPoints();
     void DrawCellEdges();
+    void DrawBoundingBox(const std::pair<Point, Point>& p);
     void DrawCellBoundingBoxs();
     UnstructuredMesh* _GetMesh();
 

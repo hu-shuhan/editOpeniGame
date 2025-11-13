@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>259</width>
-    <height>250</height>
+    <height>244</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -238,6 +238,9 @@
         <property name="topMargin">
          <number>0</number>
         </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
         <item>
          <widget class="QRadioButton" name="radiusMode">
           <property name="text">
@@ -284,6 +287,12 @@
         <string>选择参数</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
         <property name="horizontalSpacing">
          <number>4</number>
         </property>

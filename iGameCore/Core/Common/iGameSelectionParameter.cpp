@@ -47,4 +47,6 @@ bool SelectionParameter::IsRadiusBoxMode() const { return m_SelectMode == Select
 
 bool SelectionParameter::IsCtBoxMode() const { return m_SelectMode == SelectMode::CT_BOX_MODE; }
 
+bool SelectionParameter::IsBoxMode() const { return IsRadiusBoxMode() || IsCtBoxMode(); }
+
 IGAME_NAMESPACE_END

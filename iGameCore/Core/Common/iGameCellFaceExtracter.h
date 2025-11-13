@@ -15,6 +15,8 @@ public:
                                                          UnstructuredMesh* mesh);
     std::vector<std::pair<Point, Point>> GetExtractBoundingBoxs(const std::set<igIndex>& choosedCellIds,
                                                                 UnstructuredMesh* mesh);
+    std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, UnstructuredMesh* mesh);
+    std::pair<Point, Point> GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds, UnstructuredMesh* mesh);
     std::vector<int> GetSurfaceCellIds(UnstructuredMesh* mesh);
 
 private:

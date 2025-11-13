@@ -37,6 +37,7 @@ public:
     bool IsCtMode() const;
     bool IsRadiusBoxMode() const;
     bool IsCtBoxMode() const;
+    bool IsBoxMode() const;
 
 private:
     //When selecting points or faces, select the radius at one time.

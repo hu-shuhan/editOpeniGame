@@ -105,7 +105,7 @@ SingleSelectionStyle::~SingleSelectionStyle() {}
 void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     SelectionStyle::MousePressEvent(_event);
 
-    if (_event.button != LeftButton) return;
+    if (_event.button != MiddleButton) return;
     switch (GetSelectedType()) {
         case SelectionStyle::SelectPoint:
             this->SelectPoint(_event.pos);
@@ -129,11 +129,18 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     auto ids = GetPointsInCondition(
             point1, point2, mesh,
             SelectionParameter::Instance().GetSelectionRadius(),
-            SelectionParameter::Instance().IsCtMode(),
+            SelectionParameter::Instance().IsCtMode() ||
+                    SelectionParameter::Instance().IsCtBoxMode(),
             SelectionParameter::Instance().GetSelectVariableIndex(),
             SelectionParameter::Instance().GetAutoSelectExpdRate());
 
     if (ids.empty()) return;
+
+    if (SelectionParameter::Instance().IsBoxMode()) {
+        m_Selection->SelectionCallBackEvent(IG_POINT_BOX, ids);
+        return;
+    }
+
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         m_Selection->SelectionCallBackEvent(IG_POINT, ids,
                                             Selection::Operate::Add);
@@ -163,15 +170,23 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
 
     auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
             m_Model->GetDataObject());
+
     auto ids = GetCellsInCondition(
             point1, point2, mesh,
             SelectionParameter::Instance().GetSelectionRadius(),
-            SelectionParameter::Instance().IsCtMode(),
+            SelectionParameter::Instance().IsCtMode() ||
+                    SelectionParameter::Instance().IsCtBoxMode(),
             SelectionParameter::Instance().GetSelectVariableIndex(),
             SelectionParameter::Instance().GetAutoSelectExpdRate(),
             SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells(),
             SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
     if (ids.empty()) return;
+
+    if (SelectionParameter::Instance().IsBoxMode()) {
+        m_Selection->SelectionCallBackEvent(IG_CELL_BOX, ids);
+        return;
+    }
+
     if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
         m_Selection->SelectionCallBackEvent(IG_CELL, ids,
                                             Selection::Operate::Add);
