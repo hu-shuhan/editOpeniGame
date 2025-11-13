@@ -9,6 +9,7 @@ add_subdirectory(spdlog)
 add_subdirectory(zlib)
 add_subdirectory(Python)
 add_subdirectory(nanoflann)
+add_subdirectory(zstd/build/cmake)
 # CGNS
 # Configure the compilation definition according to the value of MODULE_FLAG
 
@@ -54,11 +55,3 @@ if (ENABLE_CGNS_MODULE)
 
     message(" HDF5 PATH: " ${HDF5_DIR})
 endif ()
-
-set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
-set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
-set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
-
-add_subdirectory(zstd/build/cmake EXCLUDE_FROM_ALL)
