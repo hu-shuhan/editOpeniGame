@@ -49,19 +49,28 @@ igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
     , typingLabel(nullptr)
     , typingTimer(nullptr)
     , chatManager(nullptr)
-    , chatHistory()
-    , currentHistoryIndex(-1)
     , m_lastAiMessageLabel(nullptr)
     , m_streamingContent("")
 {
     setupUI();
     setupConnections();
-    loadHistoryFromFile();
+    
+    // 初始化 chatManager 用于检测 MCP 文件夹（不启动连接）
+    if (!chatManager) {
+        chatManager = new igQtChatManager(nullptr);
+        
+        // 设置消息接收回调
+        chatManager->setMessageCallback([this](const QString& messageJson) {
+            this->onChatMessageReceived(messageJson);
+        });
+    }
+    
+    // 检测 MCP 文件夹是否正确存在
+    updateMcpPathLabel();
 }
 
 igQtAiChatWidget::~igQtAiChatWidget()
 {
-    saveHistoryToFile();
     if (chatManager) {
         chatManager->stopConnection();
         delete chatManager;
@@ -245,9 +254,6 @@ void igQtAiChatWidget::setupConnections()
     // 安装事件过滤器以处理Enter键
     messageInput->installEventFilter(this);
     
-    // 初始化MCP路径显示
-    updateMcpPathLabel();
-    
     // 延迟调整输入框高度，确保文档已完全初始化
     QTimer::singleShot(0, this, &igQtAiChatWidget::adjustInputHeight);
 }
@@ -262,7 +268,6 @@ void igQtAiChatWidget::onSendMessage()
 
     // Add user message to chat
     addMessageToChat(message, true);
-    addMessageToHistory(message, true);
 
     // Clear input
     messageInput->setPlainText("");  // 使用setPlainText("")代替clear()避免光标警告
@@ -387,11 +392,6 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
         // 流式消息结束
         showTypingIndicator(false);
         
-        // 将完整的流式消息添加到历史记录
-        if (!m_streamingContent.isEmpty()) {
-            addMessageToHistory(m_streamingContent, false);
-        }
-        
         // 重置流式消息状态
         m_lastAiMessageLabel = nullptr;
         m_streamingContent.clear();
@@ -414,7 +414,6 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
         QString content = messageObj.value("content").toString();
         if (!content.isEmpty()) {
             addMessageToChat(content, false);  // false表示不是用户消息
-            addMessageToHistory(content, false);
         }
         
         // 发送确认响应
@@ -458,14 +457,12 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
             errorMsg = messageObj.value("content").toString();
         }
         addMessageToChat("❌ 错误: " + errorMsg, false);
-        addMessageToHistory("错误: " + errorMsg, false);
     }
     else {
         // 尝试提取内容显示
         QString content = messageObj.value("content").toString();
         if (!content.isEmpty()) {
             addMessageToChat(content, false);
-            addMessageToHistory(content, false);
         }
     }
 }
@@ -570,19 +567,6 @@ void igQtAiChatWidget::onTypingTimerTimeout()
     showTypingIndicator(false);
 }
 
-void igQtAiChatWidget::addMessageToHistory(const QString& message, bool isUser)
-{
-    QString prefix = isUser ? "您: " : "AI: ";
-    QString historyItem = prefix + message;
-    
-    chatHistory.append(historyItem);
-    
-    // Limit history size
-    if (chatHistory.size() > MAX_HISTORY_ITEMS) {
-        chatHistory.removeFirst();
-    }
-}
-
 void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
 {
     // Cursor风格：全宽消息块，简洁设计
@@ -605,8 +589,13 @@ void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
     contentLabel->setWordWrap(true);  // 启用自动换行
     contentLabel->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextBrowserInteraction);
     contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
-    contentLabel->setMaximumWidth(chatScrollArea->width() - 80);  // 设置最大宽度，确保换行
+    contentLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);  // 允许扩展以填充可用空间
+    
+    // 计算可用宽度：滚动区域宽度减去padding和边距
+    int availableWidth = chatScrollArea->viewport()->width() - 40;  // 减去左右padding
+    if (availableWidth > 0) {
+        contentLabel->setMaximumWidth(availableWidth);
+    }
     
     // 如果是AI消息，保存标签指针用于流式更新
     if (!isUser) {
@@ -642,54 +631,6 @@ void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
     
     // Scroll to bottom
     QTimer::singleShot(100, this, &igQtAiChatWidget::scrollToBottom);
-}
-
-void igQtAiChatWidget::saveHistoryToFile()
-{
-    QJsonObject historyObj;
-    QJsonArray historyArray;
-    
-    for (const QString& item : chatHistory) {
-        historyArray.append(item);
-    }
-    
-    historyObj["history"] = historyArray;
-    historyObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-    
-    QJsonDocument doc(historyObj);
-    
-    QFile file(HISTORY_FILE_PATH);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(doc.toJson());
-        file.close();
-    }
-}
-
-void igQtAiChatWidget::loadHistoryFromFile()
-{
-    QFile file(HISTORY_FILE_PATH);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) {
-        return;
-    }
-    
-    QJsonObject historyObj = doc.object();
-    QJsonArray historyArray = historyObj["history"].toArray();
-    
-    chatHistory.clear();
-    for (const QJsonValue& value : historyArray) {
-        if (value.isString()) {
-            chatHistory.append(value.toString());
-        }
-    }
-    
 }
 
 void igQtAiChatWidget::scrollToBottom()
@@ -739,8 +680,33 @@ bool igQtAiChatWidget::eventFilter(QObject* obj, QEvent* event)
 
 void igQtAiChatWidget::updateMessageBubbleWidths()
 {
-    // Cursor风格：全宽消息，不需要调整宽度
-    // 消息会自动填充整个容器宽度
+    // 更新所有消息标签的宽度，确保换行功能正常工作
+    if (!chatScrollArea || !chatContentWidget) {
+        return;
+    }
+    
+    int availableWidth = chatScrollArea->viewport()->width() - 40;  // 减去左右padding
+    if (availableWidth <= 0) {
+        return;
+    }
+    
+    // 遍历所有消息框，更新内容标签的宽度
+    QLayout* layout = chatContentLayout;
+    for (int i = 0; i < layout->count() - 1; ++i) {  // 排除最后的stretch
+        QLayoutItem* item = layout->itemAt(i);
+        if (item && item->widget()) {
+            QFrame* messageFrame = qobject_cast<QFrame*>(item->widget());
+            if (messageFrame) {
+                // 查找内容标签（userContentLabel 或 aiContentLabel）
+                QLabel* userLabel = messageFrame->findChild<QLabel*>("userContentLabel");
+                QLabel* aiLabel = messageFrame->findChild<QLabel*>("aiContentLabel");
+                QLabel* contentLabel = userLabel ? userLabel : aiLabel;
+                if (contentLabel) {
+                    contentLabel->setMaximumWidth(availableWidth);
+                }
+            }
+        }
+    }
 }
 
 void igQtAiChatWidget::onSetMcpPath()

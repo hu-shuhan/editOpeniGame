@@ -64,10 +64,7 @@ private:
     void setupConnections();
     void setupChatPanel();
     void setupInputArea();
-    void addMessageToHistory(const QString& message, bool isUser = true);
     void addMessageToChat(const QString& message, bool isUser = true);
-    void saveHistoryToFile();
-    void loadHistoryFromFile();
     void scrollToBottom();
     void showTypingIndicator(bool show);
     void updateMessageBubbleWidths();
@@ -105,16 +102,10 @@ private:
     // Chat Manager - 聊天消息通信管理器 (端口8080)
     igQtChatManager* chatManager;
     
-    // History
-    QStringList chatHistory;
-    int currentHistoryIndex;
-    
     // 流式消息相关
     QLabel* m_lastAiMessageLabel;      // 保存最后一条AI消息的标签指针
     QString m_streamingContent;         // 流式消息累积内容
     
     // Constants
-    static constexpr int MAX_HISTORY_ITEMS = 100;
-    static constexpr const char* HISTORY_FILE_PATH = "chat_history.json";
     static constexpr int CHAT_SERVER_PORT = 8080;  // ChatManager 监听端口
 }; 

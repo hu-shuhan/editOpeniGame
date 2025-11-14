@@ -118,12 +118,12 @@ QFrame#inputFrame {
     padding: 0px;
 }
 
-/* Message Input (Œﬁ±ﬂøÚ£¨»⁄»Î»›∆˜) */
+/* Message Input */
 QTextEdit#messageInput {
     border: none;
     background-color: transparent;
     padding: 8px;
-    font-size: 14px;
+    font-size: 16px;
     color: #2c3e50;
     font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
     line-height: 1.4;
@@ -133,7 +133,7 @@ QTextEdit#messageInput:focus {
     background-color: transparent;
 }
 
-/* Settings Button (≈‰÷√∞¥≈•£¨◊Ûœ¬Ω«–°Õº±Í) */
+/* Settings Button  */
 QPushButton#settingsButton {
     background-color: transparent;
     color: #95a5a6;
@@ -152,7 +152,7 @@ QPushButton#settingsButton:pressed {
     background-color: #d5dbdb;
 }
 
-/* Send Button (∑¢ÀÕ∞¥≈•£¨”“œ¬Ω«) */
+/* Send Button */
 QPushButton#sendButton {
     background-color: #3498db;
     color: white;
@@ -176,7 +176,7 @@ QPushButton#sendButton:disabled {
     color: #bdc3c7;
 }
 
-/* MCP Path Label (◊Ûœ¬Ω«£¨≈‰÷√∞¥≈•≈‘±ﬂ) */
+/* MCP Path Label */
 QLabel#mcpPathLabel {
     font-size: 11px;
     padding: 0px;
@@ -195,9 +195,9 @@ QLabel#mcpPathLabel[status="missing"] {
     color: #e74c3c;
 }
 
-/* ============ ????? ============ */
 
-/* ????? */
+
+
 QFrame#userMessageFrame {
     background-color: #f8f9fa;
     border: none;
@@ -205,7 +205,7 @@ QFrame#userMessageFrame {
     margin: 0px;
 }
 
-/* AI??? - ???????? */
+
 QFrame#aiMessageFrame {
     background-color: transparent;
     border: none;
@@ -213,7 +213,7 @@ QFrame#aiMessageFrame {
     margin: 0px;
 }
 
-/* ?????? */
+
 QLabel#userRoleLabel {
     font-size: 12px;
     font-weight: bold;
@@ -222,7 +222,7 @@ QLabel#userRoleLabel {
     padding: 0px;
 }
 
-/* AI???? */
+
 QLabel#aiRoleLabel {
     font-size: 12px;
     font-weight: bold;
@@ -231,7 +231,7 @@ QLabel#aiRoleLabel {
     padding: 0px;
 }
 
-/* ?????? */
+
 QLabel#userContentLabel {
     font-size: 14px;
     color: #2c3e50;
@@ -241,7 +241,7 @@ QLabel#userContentLabel {
     font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
 }
 
-/* AI???? */
+
 QLabel#aiContentLabel {
     font-size: 14px;
     color: #2c3e50;
@@ -251,7 +251,7 @@ QLabel#aiContentLabel {
     font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
 }
 
-/* ?????? */
+
 QLabel#messageTimeLabel {
     font-size: 11px;
     color: #95a5a6;

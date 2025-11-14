@@ -52,6 +52,16 @@ class iGameVisMCPClient:
         self.session: Optional[ClientSession] = None
         self.available_tools = []
         self.available_prompts = []
+        
+        # 聊天历史记录
+        self.chat_history: List[dict] = []
+        # 历史记录文件路径
+        history_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "history")
+        os.makedirs(history_dir, exist_ok=True)
+        self.history_file = os.path.join(history_dir, "chat_history.json")
+        
+        # 加载历史记录
+        self.load_history()
 
     async def connect_to_server(self, server_script_path: str):
         """连接到 iGameVis MCP 服务器"""
@@ -184,6 +194,58 @@ class iGameVisMCPClient:
         
         return tool_calls
 
+    def load_history(self):
+        """从文件加载聊天历史记录"""
+        try:
+            if os.path.exists(self.history_file):
+                with open(self.history_file, 'r', encoding='utf-8') as f:
+                    self.chat_history = json.load(f)
+                logger.info(f"已加载 {len(self.chat_history)} 条历史记录")
+            else:
+                self.chat_history = []
+                logger.info("历史记录文件不存在，创建新的历史记录")
+        except Exception as e:
+            logger.error(f"加载历史记录失败: {e}")
+            self.chat_history = []
+
+    def save_history(self):
+        """保存聊天历史记录到文件"""
+        try:
+            with open(self.history_file, 'w', encoding='utf-8') as f:
+                json.dump(self.chat_history, f, ensure_ascii=False, indent=2)
+            logger.info(f"已保存 {len(self.chat_history)} 条历史记录")
+        except Exception as e:
+            logger.error(f"保存历史记录失败: {e}")
+
+    def add_to_history(self, role: str, content: str, tool_calls=None, tool_call_id=None):
+        """添加消息到历史记录"""
+        message = {
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # 如果有工具调用，添加到消息中
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        
+        # 如果是工具响应，添加 tool_call_id
+        if tool_call_id:
+            message["tool_call_id"] = tool_call_id
+        
+        self.chat_history.append(message)
+        
+        # 限制历史记录长度，保留最近100条消息（避免上下文过长）
+        max_history = 100
+        if len(self.chat_history) > max_history:
+            # 保留系统消息和最近的对话
+            system_messages = [msg for msg in self.chat_history if msg.get("role") == "system"]
+            other_messages = [msg for msg in self.chat_history if msg.get("role") != "system"]
+            # 保留最近的对话
+            recent_messages = other_messages[-max_history:]
+            self.chat_history = system_messages + recent_messages
+            logger.info(f"历史记录已截断，保留最近 {max_history} 条消息")
+
     async def process_user_message(self, user_message: str, stream_callback=None):
         """处理用户消息并返回 AI 响应，使用 MCP 协议进行工具调用
         
@@ -217,11 +279,37 @@ class iGameVisMCPClient:
             
             logger.info(f"已加载 {len(tools)} 个工具")
             
-            # 构建消息
-            messages = [
-                {"role": "system", "content": "你是 iGameVis 的智能助手，专门帮助用户操作 iGameVis 3D 可视化应用程序。"},
-                {"role": "user", "content": user_message}
-            ]
+            # 构建消息，包含历史记录
+            messages = []
+            
+            # 添加系统消息（如果历史记录中没有）
+            system_content = "你是 iGameVis 的智能助手，专门帮助用户操作 iGameVis 3D 可视化应用程序。"
+            if not self.chat_history or not any(msg.get("role") == "system" for msg in self.chat_history):
+                messages.append({"role": "system", "content": system_content})
+            
+            # 添加历史记录（排除系统消息，因为上面已经添加了）
+            for hist_msg in self.chat_history:
+                # 只添加非系统消息，并且过滤掉 timestamp 等额外字段
+                if hist_msg.get("role") != "system":
+                    clean_msg = {
+                        "role": hist_msg.get("role"),
+                        "content": hist_msg.get("content")
+                    }
+                    # 如果有工具调用，保留
+                    if "tool_calls" in hist_msg:
+                        clean_msg["tool_calls"] = hist_msg["tool_calls"]
+                    # 如果是工具响应，保留 tool_call_id
+                    if "tool_call_id" in hist_msg:
+                        clean_msg["tool_call_id"] = hist_msg["tool_call_id"]
+                    messages.append(clean_msg)
+            
+            # 添加当前用户消息
+            messages.append({"role": "user", "content": user_message})
+            
+            # 添加用户消息到历史记录
+            self.add_to_history("user", user_message)
+            
+            logger.info(f"构建消息列表，包含 {len(messages)} 条消息（含历史记录）")
             
             # 调用 AI，启用 function calling
             logger.info("调用 AI...")
@@ -309,8 +397,27 @@ class iGameVisMCPClient:
                         })
                 
                 # 将工具调用和结果添加到对话历史
-                messages.append(message.model_dump())
+                assistant_msg = message.model_dump()
+                messages.append(assistant_msg)
                 messages.extend(tool_messages)
+                
+                # 添加助手消息（包含工具调用）到历史记录
+                tool_calls_data = []
+                if message.tool_calls:
+                    for tc in message.tool_calls:
+                        tool_calls_data.append({
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        })
+                self.add_to_history("assistant", "", tool_calls=tool_calls_data if tool_calls_data else None)
+                
+                # 添加工具响应到历史记录
+                for tool_msg in tool_messages:
+                    self.add_to_history("tool", tool_msg.get("content", ""), tool_call_id=tool_msg.get("tool_call_id"))
                 
                 # 如果有捕获的图像，作为用户消息附加
                 if captured_images:
@@ -351,6 +458,13 @@ class iGameVisMCPClient:
                                 # 调用回调函数，实时输出
                                 await stream_callback(delta.content)
                     
+                    # 添加最终AI响应到历史记录
+                    if full_content:
+                        self.add_to_history("assistant", full_content)
+                    
+                    # 保存历史记录
+                    self.save_history()
+                    
                     return full_content
                 else:
                     # 非流式模式
@@ -361,7 +475,16 @@ class iGameVisMCPClient:
                         max_tokens=4000,
                         timeout=timeout
                     )
-                    return final_response.choices[0].message.content
+                    final_content = final_response.choices[0].message.content
+                    
+                    # 添加最终AI响应到历史记录
+                    if final_content:
+                        self.add_to_history("assistant", final_content)
+                    
+                    # 保存历史记录
+                    self.save_history()
+                    
+                    return final_content
             
             # 没有工具调用，直接返回 AI 响应（支持流式）
             if stream_callback:
@@ -386,14 +509,36 @@ class iGameVisMCPClient:
                             full_content += delta.content
                             await stream_callback(delta.content)
                 
+                # 添加最终AI响应到历史记录
+                if full_content:
+                    self.add_to_history("assistant", full_content)
+                
+                # 保存历史记录
+                self.save_history()
+                
                 return full_content
             else:
-                return message.content
+                # 没有工具调用，直接返回 AI 响应
+                response_content = message.content
+                
+                # 添加最终AI响应到历史记录
+                if response_content:
+                    self.add_to_history("assistant", response_content)
+                
+                # 保存历史记录
+                self.save_history()
+                
+                return response_content
             
         except Exception as e:
             logger.error(f"Error processing message: {e}")
             # logger.exception("详细错误:")
             error_msg = f"处理消息时出错: {e}"
+            
+            # 添加错误消息到历史记录
+            self.add_to_history("assistant", error_msg)
+            self.save_history()
+            
             if stream_callback:
                 await stream_callback(error_msg)
             return error_msg
