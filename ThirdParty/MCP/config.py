@@ -73,7 +73,7 @@ MCP_SERVER_TIMEOUT = 30  # MCP服务器连接超时时间（秒）
 SOCKET_TIMEOUT = 60      # 套接字超时时间（秒）
 
 # 日志配置
-LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL = "ERROR"  # DEBUG, INFO, WARNING, ERROR
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 SHOW_MCP_DEBUG_LOGS = False  # 是否显示 MCP 库的调试日志（用于调试 MCP 通信问题）
 
@@ -97,12 +97,3 @@ DEFAULT_IMAGE_QUALITY = "high"  # high, normal
 # 重连配置
 MAX_RECONNECT_ATTEMPTS = 3
 RECONNECT_DELAY = 1.0  # 重连延迟（秒）
-
-# 模型选择菜单
-MODEL_MENU = {
-    "1": ("qwen", "阿里云通义千问"),
-    "2": ("gemini", "Google Gemini"),
-    "3": ("openai", "OpenAI GPT"),
-    "4": ("claude", "Anthropic Claude"),
-    "5": ("nuwa", "Nuwa")
-} 

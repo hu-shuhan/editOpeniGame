@@ -23,15 +23,12 @@ sys.path.insert(0, client_dir)
 # 导入 MCP 客户端
 try:
     from Client.iGameVis_Client import iGameVisMCPClient
-except ImportError:
-    try:
-        from iGameVis_Client import iGameVisMCPClient
-    except ImportError as e:
-        print(f"错误：无法导入 iGameVisMCPClient: {e}")
-        print(f"当前目录: {current_dir}")
-        print(f"Client 目录: {client_dir}")
-        print(f"sys.path: {sys.path}")
-        sys.exit(1)
+except ImportError as e:
+    print(f"错误：无法导入 iGameVisMCPClient: {e}")
+    print(f"当前目录: {current_dir}")
+    print(f"Client 目录: {client_dir}")
+    print(f"sys.path: {sys.path}")
+    sys.exit(1)
 
 # 导入配置
 import config
