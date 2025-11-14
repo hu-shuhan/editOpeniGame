@@ -342,33 +342,33 @@ class iGameVisMCPClient:
     async def start_interactive_session(self):
         """启动交互式会话"""
         print("=" * 60)
-        print("🎮 iGameVis 智能助手")
+        print("iGameVis Intelligent Assistant")
         print("=" * 60)
-        print("我是你的 iGameVis 助手，可以帮你操作 3D 可视化应用程序。")
-        print("输入 'quit' 或 'exit' 退出，输入 'help' 查看帮助。")
+        print("I am your iGameVis assistant, here to help you operate the 3D visualization application.")
+        print("Type 'quit' or 'exit' to quit, 'help' for help.")
         print("=" * 60)
         
         while True:
             try:
-                user_input = input("\n👤 你: ").strip()
+                user_input = input("\n[You]: ").strip()
                 
                 if user_input.lower() in ['quit', 'exit', '退出']:
-                    print("\n👋 再见！")
+                    print("\n[INFO] Goodbye!")
                     break
                 
                 if not user_input:
                     continue
                 
-                print("\n🤖 iGameVis助手: 正在处理...")
+                print("\n[iGameVis Assistant]: Processing...")
                 
                 response = await self.process_user_message(user_input)
-                print(f"\n🤖 iGameVis助手: {response}")
+                print(f"\n[iGameVis Assistant]: {response}")
                 
             except KeyboardInterrupt:
-                print("\n\n👋 再见！")
+                print("\n\n[INFO] Goodbye!")
                 break
             except Exception as e:
-                print(f"\n❌ 错误: {e}")
+                print(f"\n[ERROR] Error: {e}")
 
 
     async def cleanup(self):
@@ -391,22 +391,22 @@ async def main():
         )
         
         if not os.path.exists(server_path):
-            print(f"❌ 服务器文件不存在: {server_path}")
+            print(f"[ERROR] Server file not found: {server_path}")
             return
         
-        print("🔌 正在连接到 iGameVis MCP 服务器...")
+        print("[INFO] Connecting to iGameVis MCP Server...")
         
         if not await client.connect_to_server(server_path):
-            print("❌ 无法连接到服务器")
+            print("[ERROR] Failed to connect to server")
             return
         
-        print("✅ 连接成功！")
+        print("[OK] Connected successfully!")
         
         # 启动交互式会话
         await client.start_interactive_session()
         
     except Exception as e:
-        print(f"❌ 启动失败: {e}")
+        print(f"[ERROR] Startup failed: {e}")
         logger.error(f"Startup error: {e}")
     finally:
         await client.cleanup()

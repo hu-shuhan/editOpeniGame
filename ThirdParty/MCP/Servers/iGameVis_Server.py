@@ -456,11 +456,13 @@ def find_files_in_path(directory_path: str, extensions: list = None) -> str:
             for ext, files in files_by_ext.items():
                 output.append(f"\n{ext.upper()} files ({len(files)}):")
                 for file in sorted(files, key=lambda x: x.name):
-                    output.append(f"- {file.name} (路径: {str(file).replace('\\', '/')})")
+                    file_path = str(file).replace('\\', '/')
+                    output.append(f"- {file.name} (路径: {file_path})")
         else:
             output = [f"Found {len(matching_files)} files in '{directory_path}':"]
             for file in sorted(matching_files, key=lambda x: x.name):
-                output.append(f"- {file.name} (路径: {str(file).replace('\\', '/')})")
+                file_path = str(file).replace('\\', '/')
+                output.append(f"- {file.name} (路径: {file_path})")
 
         return "\n".join(output)
 
@@ -492,7 +494,11 @@ def get_desktop_file_path(filename: str) -> str:
         elif len(matching_files) == 1:
             return str(matching_files[0]).replace("\\", "/")
         else:
-            file_list = '\n'.join([f"- {file.name}: {str(file).replace('\\', '/')}" for file in matching_files])
+            files_info = []
+            for file in matching_files:
+                file_path = str(file).replace('\\', '/')
+                files_info.append(f"- {file.name}: {file_path}")
+            file_list = '\n'.join(files_info)
             return f"Multiple files matching '{filename}' found:\n{file_list}"
 
     except Exception as e:
@@ -552,7 +558,11 @@ def open_desktop_file(filename: str) -> str:
         elif len(matching_files) == 1:
             return open_file_with_path(str(matching_files[0]).replace("\\", "/"))
         else:
-            file_list = '\n'.join([f"- {file.name}: {str(file).replace('\\', '/')}" for file in matching_files])
+            files_info = []
+            for file in matching_files:
+                file_path = str(file).replace('\\', '/')
+                files_info.append(f"- {file.name}: {file_path}")
+            file_list = '\n'.join(files_info)
             return f"Multiple files matching '{filename}' found:\n{file_list}\n\nPlease use 'open_file_with_path' with the specific file path."
 
     except Exception as e:
