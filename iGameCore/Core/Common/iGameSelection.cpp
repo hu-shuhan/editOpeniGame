@@ -383,6 +383,10 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             DrawBoundingBox(pMinMax);
         } break;
+        case IG_CHANGE: {
+            for (auto& id : ids) { AddItem(itemType, id, ope); }
+            for (auto& func : m_CallBackFunctor) { func.second(itemType, ids, ope); }
+        } break;
         default:
             break;
     }
