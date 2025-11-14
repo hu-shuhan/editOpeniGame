@@ -99,14 +99,14 @@ void igQtChatManager::stopConnection()
         return;
     }
 
-    // 1. 停止 AiChat 对话服务器进程
-    stopAiChatServerProcess();
-
-    // 2. 停止 Socket 通信连接
+    // 1. 先停止 Socket 通信连接（优雅关闭）
     m_connectionThread->stop();
     delete m_connectionThread;
     m_connectionThread = nullptr;
     m_isConnected = false;
+
+    // 2. 再停止 AiChat 对话服务器进程
+    stopAiChatServerProcess();
 }
 
 bool igQtChatManager::isConnected() const

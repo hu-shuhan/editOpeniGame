@@ -1,0 +1,260 @@
+/* iGameAiTool AI Chat Widget Styles */
+
+/* Chat Group Box */
+QGroupBox#chatGroupBox {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin: 2px;
+    padding: 5px;
+    background-color: #ffffff;
+}
+
+/* Chat Scroll Area */
+QScrollArea#chatScrollArea {
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+    background-color: white;
+}
+
+/* Typing Indicator */
+QLabel#typingLabel {
+    color: #7f8c8d;
+    font-style: italic;
+    padding: 5px;
+}
+
+/* Status Label */
+QLabel#statusLabel {
+    font-weight: bold;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+QLabel#statusLabel[status="disconnected"] {
+    color: #e74c3c;
+}
+
+QLabel#statusLabel[status="waiting"] {
+    color: #f39c12;
+}
+
+QLabel#statusLabel[status="connected"] {
+    color: #27ae60;
+}
+
+/* MCP Path Label */
+QLabel#mcpPathLabel {
+    padding: 5px 8px;
+    font-size: 11px;
+}
+
+QLabel#mcpPathLabel[status="notset"] {
+    color: #7f8c8d;
+}
+
+QLabel#mcpPathLabel[status="found"] {
+    color: #27ae60;
+}
+
+QLabel#mcpPathLabel[status="missing"] {
+    color: #e74c3c;
+}
+
+/* Settings Button */
+QPushButton#settingsButton {
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+QPushButton#settingsButton:hover {
+    background-color: #7f8c8d;
+}
+
+QPushButton#settingsButton:pressed {
+    background-color: #6c7a7b;
+}
+
+/* Connect Button */
+QPushButton#connectButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#connectButton:hover {
+    background-color: #2980b9;
+}
+
+QPushButton#connectButton:pressed {
+    background-color: #21618c;
+}
+
+QPushButton#connectButton[status="disconnect"] {
+    background-color: #e74c3c;
+}
+
+QPushButton#connectButton[status="disconnect"]:hover {
+    background-color: #c0392b;
+}
+
+QPushButton#connectButton[status="disconnect"]:pressed {
+    background-color: #a93226;
+}
+
+/* Cursor-style Integrated Input Frame */
+QFrame#inputFrame {
+    background-color: #ffffff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 0px;
+}
+
+/* Message Input (Œﬁ±ﬂøÚ£¨»⁄»Î»›∆˜) */
+QTextEdit#messageInput {
+    border: none;
+    background-color: transparent;
+    padding: 8px;
+    font-size: 14px;
+    color: #2c3e50;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    line-height: 1.4;
+}
+
+QTextEdit#messageInput:focus {
+    background-color: transparent;
+}
+
+/* Settings Button (≈‰÷√∞¥≈•£¨◊Ûœ¬Ω«–°Õº±Í) */
+QPushButton#settingsButton {
+    background-color: transparent;
+    color: #95a5a6;
+    border: none;
+    border-radius: 3px;
+    font-size: 12px;
+    padding: 0px;
+}
+
+QPushButton#settingsButton:hover {
+    background-color: #ecf0f1;
+    color: #3498db;
+}
+
+QPushButton#settingsButton:pressed {
+    background-color: #d5dbdb;
+}
+
+/* Send Button (∑¢ÀÕ∞¥≈•£¨”“œ¬Ω«) */
+QPushButton#sendButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 16px;
+}
+
+QPushButton#sendButton:hover {
+    background-color: #2980b9;
+}
+
+QPushButton#sendButton:pressed {
+    background-color: #21618c;
+}
+
+QPushButton#sendButton:disabled {
+    background-color: #ecf0f1;
+    color: #bdc3c7;
+}
+
+/* MCP Path Label (◊Ûœ¬Ω«£¨≈‰÷√∞¥≈•≈‘±ﬂ) */
+QLabel#mcpPathLabel {
+    font-size: 11px;
+    padding: 0px;
+    background-color: transparent;
+}
+
+QLabel#mcpPathLabel[status="notset"] {
+    color: #95a5a6;
+}
+
+QLabel#mcpPathLabel[status="found"] {
+    color: #27ae60;
+}
+
+QLabel#mcpPathLabel[status="missing"] {
+    color: #e74c3c;
+}
+
+/* ============ ????? ============ */
+
+/* ????? */
+QFrame#userMessageFrame {
+    background-color: #f8f9fa;
+    border: none;
+    padding: 16px 20px;
+    margin: 0px;
+}
+
+/* AI??? - ???????? */
+QFrame#aiMessageFrame {
+    background-color: transparent;
+    border: none;
+    padding: 8px 0px;
+    margin: 0px;
+}
+
+/* ?????? */
+QLabel#userRoleLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #3498db;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* AI???? */
+QLabel#aiRoleLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* ?????? */
+QLabel#userContentLabel {
+    font-size: 14px;
+    color: #2c3e50;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+}
+
+/* AI???? */
+QLabel#aiContentLabel {
+    font-size: 14px;
+    color: #2c3e50;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+}
+
+/* ?????? */
+QLabel#messageTimeLabel {
+    font-size: 11px;
+    color: #95a5a6;
+    margin: 0px;
+    padding: 0px;
+}

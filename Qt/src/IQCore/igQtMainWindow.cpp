@@ -114,7 +114,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
     aiChatDockWidget->setWidget(aiChatWidget);
     aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetClosable);
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
 

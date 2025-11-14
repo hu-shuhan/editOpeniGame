@@ -48,6 +48,7 @@ private slots:
     void onConnectionStatusChanged(bool connected);
     void onReturnPressed();
     void onTypingTimerTimeout();
+    void onInputTextChanged();  // 输入框文本改变
 
 signals:
     void sendMessageToServer(const QString& message);
@@ -56,6 +57,7 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;  // 事件过滤器
 
 private:
     void setupUI();
@@ -71,6 +73,8 @@ private:
     void updateMessageBubbleWidths();
     void appendToLastAiMessage(const QString& text);  // 追加文本到最后一条AI消息
     void updateMcpPathLabel();  // 更新MCP路径显示
+    void loadStyleSheet();      // 加载样式表
+    void adjustInputHeight();   // 动态调整输入框高度（Cursor风格）
     
     // UI Components
     QVBoxLayout* mainLayout;
@@ -87,7 +91,7 @@ private:
     // Input area
     QFrame* inputFrame;
     QHBoxLayout* inputLayout;
-    QLineEdit* messageInput;
+    QTextEdit* messageInput;  // 改为多行文本框
     QPushButton* sendButton;
     QPushButton* connectButton;
     QPushButton* settingsButton;  // 设置按钮
