@@ -78,6 +78,30 @@ public:
      */
     void setMessageCallback(std::function<void(const QString&)> callback);
 
+    /**
+     * @brief 设置 MCP 文件夹路径
+     * @param mcpPath MCP 文件夹的绝对路径
+     */
+    void setMcpPath(const QString& mcpPath);
+    
+    /**
+     * @brief 获取当前 MCP 文件夹路径
+     * @return MCP 文件夹路径
+     */
+    QString getMcpPath() const;
+    
+    /**
+     * @brief 设置 Python 解释器路径
+     * @param pythonPath Python 解释器的完整路径
+     */
+    void setPythonPath(const QString& pythonPath);
+    
+    /**
+     * @brief 获取当前 Python 解释器路径
+     * @return Python 解释器路径
+     */
+    QString getPythonPath() const;
+
 private:
     /**
      * @brief 启动 AiChat 对话服务器进程
@@ -95,6 +119,19 @@ private:
     bool m_isConnected;                                    // 连接状态标志
     std::function<void(const QString&)> m_messageCallback; // 消息接收回调
     QProcess* m_aiChatServerProcess;                       // AiChat 对话服务器进程
+    
+    QString m_mcpPath;                                     // MCP 文件夹路径
+    QString m_pythonPath;                                  // Python 解释器路径
+    
+    /**
+     * @brief 获取默认 MCP 路径（相对于应用程序目录）
+     */
+    QString getDefaultMcpPath() const;
+    
+    /**
+     * @brief 获取默认 Python 路径
+     */
+    QString getDefaultPythonPath() const;
     
     // 禁用拷贝
     igQtChatManager(const igQtChatManager&) = delete;

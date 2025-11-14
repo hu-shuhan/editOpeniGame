@@ -24,8 +24,13 @@ igQtChatManager::igQtChatManager(igQtMainWindow* mainWindow)
     , m_connectionThread(nullptr)
     , m_isConnected(false)
     , m_aiChatServerProcess(nullptr)
+    , m_mcpPath("")
+    , m_pythonPath("")
 {
     // iGameVis 与 AiChat 通信管理器初始化
+    // 初始化为默认路径
+    m_mcpPath = getDefaultMcpPath();
+    m_pythonPath = getDefaultPythonPath();
 }
 
 igQtChatManager::~igQtChatManager()
@@ -122,6 +127,53 @@ void igQtChatManager::setMessageCallback(std::function<void(const QString&)> cal
     m_messageCallback = callback;
 }
 
+void igQtChatManager::setMcpPath(const QString& mcpPath)
+{
+    m_mcpPath = mcpPath;
+    // 自动更新 Python 路径为 MCP 文件夹下的 venv 虚拟环境
+    m_pythonPath = getDefaultPythonPath();
+}
+
+QString igQtChatManager::getMcpPath() const
+{
+    return m_mcpPath;
+}
+
+void igQtChatManager::setPythonPath(const QString& pythonPath)
+{
+    m_pythonPath = pythonPath;
+}
+
+QString igQtChatManager::getPythonPath() const
+{
+    return m_pythonPath;
+}
+
+QString igQtChatManager::getDefaultMcpPath() const
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString mcpPath = QDir(appDir).filePath("../../../ThirdParty/MCP");
+    return QDir::cleanPath(mcpPath);
+}
+
+QString igQtChatManager::getDefaultPythonPath() const
+{
+    // 获取 MCP 文件夹路径
+    QString mcpPath = m_mcpPath;
+    if (mcpPath.isEmpty()) {
+        mcpPath = getDefaultMcpPath();
+    }
+    
+    // Python 就在 MCP 文件夹下的 .venv 虚拟环境中
+#ifdef Q_OS_WIN
+    QString pythonPath = QDir(mcpPath).filePath(".venv/Scripts/python.exe");
+#else
+    QString pythonPath = QDir(mcpPath).filePath(".venv/bin/python");
+#endif
+    
+    return QDir::cleanPath(pythonPath);
+}
+
 void igQtChatManager::sendMessage(const QJsonObject& message)
 {
     if (!m_connectionThread || !m_connectionThread->isClientConnected()) {
@@ -147,23 +199,26 @@ bool igQtChatManager::startAiChatServerProcess()
     // 创建 QProcess
     m_aiChatServerProcess = new QProcess();
 
-    // 获取 Python 脚本路径
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString pythonScript = QDir(appDir).filePath("../../../ThirdParty/MCP/iGameVis_Chat.py");
+    // 使用成员变量中的 MCP 路径
+    QString mcpPath = m_mcpPath;
+    if (mcpPath.isEmpty()) {
+        mcpPath = getDefaultMcpPath();
+    }
+    
+    // 构建 Python 脚本路径（从 MCP 文件夹开始）
+    QString pythonScript = QDir(mcpPath).filePath("iGameVis_Chat.py");
     pythonScript = QDir::cleanPath(pythonScript);
 
     // 检查脚本是否存在
     if (!QFile::exists(pythonScript)) {
-        qWarning() << "[ChatManager] AiChat 服务器脚本不存在:" << pythonScript;
+        qWarning() << "[ChatManager] 脚本不存在:" << pythonScript;
         delete m_aiChatServerProcess;
         m_aiChatServerProcess = nullptr;
         return false;
     }
 
-    // 设置工作目录
-    QString workingDir = QDir(appDir).filePath("../../../ThirdParty/MCP");
-    workingDir = QDir::cleanPath(workingDir);
-    m_aiChatServerProcess->setWorkingDirectory(workingDir);
+    // 设置工作目录为 MCP 文件夹
+    m_aiChatServerProcess->setWorkingDirectory(mcpPath);
 
     // 连接进程错误信号
     QObject::connect(m_aiChatServerProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
@@ -201,16 +256,11 @@ bool igQtChatManager::startAiChatServerProcess()
         }
     });
 
-    // 启动 Python 进程
-    QString pythonExe = "python";
-
-#ifdef Q_OS_WIN
-    // Windows 下尝试使用 conda 环境
-    QString condaPath = "D:/ProgramData/Anaconda3/envs/mcpenv/python.exe";
-    if (QFile::exists(condaPath)) {
-        pythonExe = condaPath;
+    // 使用成员变量中的 Python 路径（MCP文件夹下的venv虚拟环境）
+    QString pythonExe = m_pythonPath;
+    if (pythonExe.isEmpty()) {
+        pythonExe = getDefaultPythonPath();
     }
-#endif
 
     QStringList arguments;
     arguments << pythonScript;

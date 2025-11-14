@@ -184,8 +184,17 @@ class iGameVisMCPClient:
         
         return tool_calls
 
-    async def process_user_message(self, user_message: str) -> str:
-        """处理用户消息并返回 AI 响应，使用 MCP 协议进行工具调用"""
+    async def process_user_message(self, user_message: str, stream_callback=None):
+        """处理用户消息并返回 AI 响应，使用 MCP 协议进行工具调用
+        
+        Args:
+            user_message: 用户输入的消息
+            stream_callback: 可选的流式回调函数，接收每个生成的文本片段
+                            如果提供，将实时调用此函数；否则等待完整响应后返回
+        
+        Returns:
+            str: 完整的AI响应（如果使用流式，也会返回完整内容）
+        """
         try:
             logger.info(f"开始处理用户消息: {user_message}")
             
@@ -321,23 +330,73 @@ class iGameVisMCPClient:
                 timeout = 120.0 if captured_images else 30.0
                 logger.info(f"使用超时时间: {timeout}秒")
                 
-                final_response = self.client.chat.completions.create(
+                # 使用流式输出
+                if stream_callback:
+                    logger.info("使用流式输出模式")
+                    stream = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=0.1,
+                        max_tokens=4000,
+                        timeout=timeout,
+                        stream=True  # 启用流式输出
+                    )
+                    
+                    full_content = ""
+                    for chunk in stream:
+                        if chunk.choices and len(chunk.choices) > 0:
+                            delta = chunk.choices[0].delta
+                            if hasattr(delta, 'content') and delta.content:
+                                full_content += delta.content
+                                # 调用回调函数，实时输出
+                                await stream_callback(delta.content)
+                    
+                    return full_content
+                else:
+                    # 非流式模式
+                    final_response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=0.1,
+                        max_tokens=4000,
+                        timeout=timeout
+                    )
+                    return final_response.choices[0].message.content
+            
+            # 没有工具调用，直接返回 AI 响应（支持流式）
+            if stream_callback:
+                logger.info("使用流式输出模式（无工具调用）")
+                # 重新调用以获取流式响应
+                stream = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
                     temperature=0.1,
                     max_tokens=4000,
-                    timeout=timeout
+                    timeout=30.0,
+                    stream=True
                 )
                 
-                return final_response.choices[0].message.content
-            
-            # 没有工具调用，直接返回 AI 响应
-            return message.content
+                full_content = ""
+                for chunk in stream:
+                    if chunk.choices and len(chunk.choices) > 0:
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, 'content') and delta.content:
+                            full_content += delta.content
+                            await stream_callback(delta.content)
+                
+                return full_content
+            else:
+                return message.content
             
         except Exception as e:
             logger.error(f"Error processing message: {e}")
             # logger.exception("详细错误:")
-            return f"处理消息时出错: {e}"
+            error_msg = f"处理消息时出错: {e}"
+            if stream_callback:
+                await stream_callback(error_msg)
+            return error_msg
 
     async def start_interactive_session(self):
         """启动交互式会话"""
@@ -359,10 +418,20 @@ class iGameVisMCPClient:
                 if not user_input:
                     continue
                 
-                print("\n[iGameVis Assistant]: Processing...")
+                print("\n[iGameVis Assistant]: ", end='', flush=True)
                 
-                response = await self.process_user_message(user_input)
-                print(f"\n[iGameVis Assistant]: {response}")
+                # 定义流式回调函数，实时打印AI回答
+                async def console_stream_callback(text_chunk):
+                    """控制台流式输出回调"""
+                    print(text_chunk, end='', flush=True)
+                
+                # 使用流式模式处理消息
+                response = await self.process_user_message(
+                    user_input, 
+                    stream_callback=console_stream_callback
+                )
+                
+                print()  # 换行
                 
             except KeyboardInterrupt:
                 print("\n\n[INFO] Goodbye!")

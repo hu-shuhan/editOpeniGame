@@ -22,6 +22,8 @@
 #include <QClipboard>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFileDialog>
+#include <QDir>
 #include <IQWidgets/igQtAiChat/igQtChatManager.h>
 
 igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
@@ -39,11 +41,16 @@ igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
     , messageInput(nullptr)
     , sendButton(nullptr)
     , connectButton(nullptr)
+    , settingsButton(nullptr)
     , statusLabel(nullptr)
+    , mcpPathLabel(nullptr)
     , typingLabel(nullptr)
     , typingTimer(nullptr)
     , chatManager(nullptr)
+    , chatHistory()
     , currentHistoryIndex(-1)
+    , m_lastAiMessageLabel(nullptr)
+    , m_streamingContent("")
 {
     setupUI();
     setupConnections();
@@ -158,6 +165,40 @@ void igQtAiChatWidget::setupInputArea()
     
     bottomLayout->addStretch();
     
+    // MCP Path label
+    mcpPathLabel = new QLabel("MCP: 未设置", this);
+    mcpPathLabel->setStyleSheet(
+        "QLabel { "
+        "color: #7f8c8d; "
+        "padding: 5px 8px; "
+        "font-size: 11px; "
+        "}"
+    );
+    mcpPathLabel->setMaximumWidth(300);
+    mcpPathLabel->setToolTip("点击修改按钮设置 MCP 文件夹路径");
+    bottomLayout->addWidget(mcpPathLabel);
+    
+    // Settings button
+    settingsButton = new QPushButton("修改路径", this);
+    settingsButton->setStyleSheet(
+        "QPushButton { "
+        "background-color: #95a5a6; "
+        "color: white; "
+        "border: none; "
+        "padding: 5px 10px; "
+        "border-radius: 3px; "
+        "font-weight: bold; "
+        "font-size: 11px; "
+        "} "
+        "QPushButton:hover { "
+        "background-color: #7f8c8d; "
+        "} "
+        "QPushButton:pressed { "
+        "background-color: #6c7a7b; "
+        "}"
+    );
+    bottomLayout->addWidget(settingsButton);
+    
     // Connect button
     connectButton = new QPushButton("连接服务器", this);
     connectButton->setStyleSheet(
@@ -251,6 +292,7 @@ void igQtAiChatWidget::setupConnections()
     // Button connections
     connect(sendButton, &QPushButton::clicked, this, &igQtAiChatWidget::onSendMessage);
     connect(connectButton, &QPushButton::clicked, this, &igQtAiChatWidget::onConnectToServer);
+    connect(settingsButton, &QPushButton::clicked, this, &igQtAiChatWidget::onSetMcpPath);
     
     // Input connections
     connect(messageInput, &QLineEdit::returnPressed, this, &igQtAiChatWidget::onReturnPressed);
@@ -259,6 +301,9 @@ void igQtAiChatWidget::setupConnections()
         bool canSend = chatManager && chatManager->isConnected() && !text.isEmpty();
         sendButton->setEnabled(canSend);
     });
+    
+    // 初始化MCP路径显示
+    updateMcpPathLabel();
 }
 
 
@@ -277,6 +322,13 @@ void igQtAiChatWidget::onSendMessage()
     messageInput->clear();
     sendButton->setEnabled(false);
 
+    // 重置流式消息相关变量
+    m_lastAiMessageLabel = nullptr;
+    m_streamingContent.clear();
+    
+    // 创建一个空的AI消息占位符，用于接收流式内容
+    addMessageToChat("", false);  // 添加空的AI消息框
+    
     // Show typing indicator
     showTypingIndicator(true);
 
@@ -309,11 +361,28 @@ void igQtAiChatWidget::onConnectToServer()
             });
         }
         
+        // 检查虚拟环境是否存在
+        QString pythonPath = chatManager->getPythonPath();
+        if (!QFile::exists(pythonPath)) {
+            QString mcpPath = chatManager->getMcpPath();
+            QString errorMsg = QString(
+                "未找到 Python 虚拟环境！\n\n"
+                "MCP 路径: %1\n"
+                "期望的 Python 路径: %2\n\n"
+                "请在 MCP 文件夹中创建虚拟环境！\n"
+            ).arg(mcpPath).arg(pythonPath);
+            
+            QMessageBox::critical(this, "虚拟环境缺失", errorMsg);
+            connectButton->setText("连接服务器");
+            connectButton->setEnabled(true);
+            return;
+        }
+        
         if (!chatManager->startConnection("localhost", CHAT_SERVER_PORT)) {
             qWarning() << "[AiChatWidget] 启动监听端口失败";
             QMessageBox::warning(this, "连接失败", 
                 QString("无法启动监听端口 %1，可能端口已被占用").arg(CHAT_SERVER_PORT));
-            connectButton->setText("连接 AiChat");
+            connectButton->setText("连接服务器");
             connectButton->setEnabled(true);
             return;
         }
@@ -358,11 +427,42 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
     QJsonObject messageObj = doc.object();
     QString type = messageObj.value("type").toString();
     
-    // 隐藏"正在输入"指示器
-    showTypingIndicator(false);
-    
     // 根据消息类型处理
-    if (type == "chat" || type == "message" || type == "response") {
+    if (type == "stream") {
+        // 流式消息片段 - 追加到最后一条AI消息
+        QString content = messageObj.value("content").toString();
+        if (!content.isEmpty()) {
+            // 查找最后一条AI消息并追加内容
+            appendToLastAiMessage(content);
+        }
+    }
+    else if (type == "stream_end") {
+        // 流式消息结束
+        showTypingIndicator(false);
+        
+        // 将完整的流式消息添加到历史记录
+        if (!m_streamingContent.isEmpty()) {
+            addMessageToHistory(m_streamingContent, false);
+        }
+        
+        // 重置流式消息状态
+        m_lastAiMessageLabel = nullptr;
+        m_streamingContent.clear();
+        
+        // 发送确认响应
+        QJsonObject response;
+        response["type"] = "ack";
+        response["message"] = "消息已收到";
+        response["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        
+        if (chatManager) {
+            chatManager->sendMessage(response);
+        }
+    }
+    else if (type == "chat" || type == "message" || type == "response") {
+        // 隐藏"正在输入"指示器
+        showTypingIndicator(false);
+        
         // 显示聊天消息
         QString content = messageObj.value("content").toString();
         if (!content.isEmpty()) {
@@ -562,6 +662,15 @@ void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
     contentLabel->setWordWrap(true);
     contentLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    // 如果是AI消息，保存标签指针用于流式更新
+    if (!isUser) {
+        m_lastAiMessageLabel = contentLabel;
+        // 如果是空消息，设置一个提示
+        if (message.isEmpty()) {
+            contentLabel->setText("...");
+        }
+    }
 
     // 设置标签的尺寸策略为自适应内容
     contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
@@ -748,3 +857,119 @@ void igQtAiChatWidget::updateMessageBubbleWidths()
         }
     }
 }
+
+void igQtAiChatWidget::onSetMcpPath()
+{
+    // 直接打开文件夹选择对话框
+    QString currentPath = chatManager ? chatManager->getMcpPath() : "";
+    QString mcpPath = QFileDialog::getExistingDirectory(
+        this,
+        "选择 MCP 文件夹",
+        currentPath,
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+    
+    if (mcpPath.isEmpty()) {
+        return;  // 用户取消
+    }
+    
+    // 检查路径是否有效
+    QString scriptPath = QDir(mcpPath).filePath("iGameVis_Chat.py");
+    if (!QFile::exists(scriptPath)) {
+        QMessageBox::warning(this, "路径无效", 
+            QString("所选路径不包含 iGameVis_Chat.py 文件\n路径: %1").arg(mcpPath));
+        return;
+    }
+    
+    if (!chatManager) {
+        chatManager = new igQtChatManager(nullptr);
+        chatManager->setMessageCallback([this](const QString& messageJson) {
+            this->onChatMessageReceived(messageJson);
+        });
+    }
+    
+    chatManager->setMcpPath(mcpPath);
+    updateMcpPathLabel();
+    
+    // 检查虚拟环境是否存在
+    QString pythonPath = chatManager->getPythonPath();
+    if (!QFile::exists(pythonPath)) {
+        QMessageBox::warning(this, "虚拟环境未找到", 
+            QString("MCP 文件夹路径已设置为:\n%1\n\n但未找到 .venv 虚拟环境:\n%2\n\n请在 MCP 文件夹中创建虚拟环境:\npython -m venv .venv").arg(mcpPath).arg(pythonPath));
+    } else {
+        QMessageBox::information(this, "设置成功", 
+            QString("MCP 文件夹路径已设置为:\n%1\n\n虚拟环境: ✓ 已找到\n\n重新连接后生效").arg(mcpPath));
+    }
+}
+
+void igQtAiChatWidget::onSetPythonPath()
+{
+    // Python 路径自动从 MCP 文件夹下的 venv 获取，不需要手动设置
+}
+
+void igQtAiChatWidget::appendToLastAiMessage(const QString& text)
+{
+    if (!m_lastAiMessageLabel) {
+        qWarning() << "[AiChatWidget] 无法追加流式消息：没有活动的AI消息标签";
+        return;
+    }
+    
+    // 累积流式内容
+    m_streamingContent += text;
+    
+    // 更新标签显示
+    m_lastAiMessageLabel->setText(m_streamingContent);
+    
+    // 自动滚动到底部
+    QTimer::singleShot(10, this, &igQtAiChatWidget::scrollToBottom);
+}
+
+void igQtAiChatWidget::updateMcpPathLabel()
+{
+    if (!mcpPathLabel) {
+        return;
+    }
+    
+    if (chatManager) {
+        QString mcpPath = chatManager->getMcpPath();
+        QString pythonPath = chatManager->getPythonPath();
+        bool venvExists = QFile::exists(pythonPath);
+        
+        // 只显示文件夹名称，不显示完整路径
+        QDir mcpDir(mcpPath);
+        QString folderName = mcpDir.dirName();
+        
+        if (venvExists) {
+            mcpPathLabel->setText(QString("MCP: %1 ✓").arg(folderName));
+            mcpPathLabel->setStyleSheet(
+                "QLabel { "
+                "color: #27ae60; "
+                "padding: 5px 8px; "
+                "font-size: 11px; "
+                "}"
+            );
+            mcpPathLabel->setToolTip(QString("MCP路径: %1\n虚拟环境: ✓ 已找到").arg(mcpPath));
+        } else {
+            mcpPathLabel->setText(QString("MCP: %1 ✗").arg(folderName));
+            mcpPathLabel->setStyleSheet(
+                "QLabel { "
+                "color: #e74c3c; "
+                "padding: 5px 8px; "
+                "font-size: 11px; "
+                "}"
+            );
+            mcpPathLabel->setToolTip(QString("MCP路径: %1\n虚拟环境: ✗ 未找到").arg(mcpPath));
+        }
+    } else {
+        mcpPathLabel->setText("MCP: 未设置");
+        mcpPathLabel->setStyleSheet(
+            "QLabel { "
+            "color: #7f8c8d; "
+            "padding: 5px 8px; "
+            "font-size: 11px; "
+            "}"
+        );
+        mcpPathLabel->setToolTip("点击修改按钮设置 MCP 文件夹路径");
+    }
+}
+
