@@ -687,21 +687,17 @@ void Scene::Draw() {
 
     // End counting the rendering time consumption
     glEndQuery(GL_TIME_ELAPSED);
-    GLCheckError();
     {
         int prevIdx = 1 - curIdx;
         // Only query if the previous query has actually been issued at least once
         if (m_TimeQueryReady[prevIdx]) {
             GLint available = GL_FALSE;
-            GLCheckError();
             glGetQueryObjectiv(m_TimeQueries[prevIdx],
                                GL_QUERY_RESULT_AVAILABLE, &available);
-            GLCheckError();
             if (available == GL_TRUE) {
                 GLuint64 ns = 0ULL;
                 glGetQueryObjectui64v(m_TimeQueries[prevIdx], GL_QUERY_RESULT,
                                       &ns);
-                GLCheckError();
                 m_LastGpuTimeMs = static_cast<double>(ns) / 1000000.0;
                 if (m_SmoothedGpuTimeMs <= 0.0) {
                     m_SmoothedGpuTimeMs = m_LastGpuTimeMs;
