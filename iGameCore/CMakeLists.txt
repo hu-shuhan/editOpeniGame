@@ -104,96 +104,26 @@ if (ENABLE_CGNS_MODULE)
 ENDIF ()
 
 if (ENABLE_LIBTORCH_MODULE)
-
-    set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
+    list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PRIVATE ${TORCH_LIBRARIES})
+    target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
+    if (TARGET torch_cuda)
+        message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
+    else ()
+        message(WARNING "This LibTorch package looks CPU-only (no torch_cuda target).")
+    endif ()
+    #        get_target_property(_torch_imps torch IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
+    #        message(STATUS "Torch IMPORTED_LINK_INTERFACE (Release): ${_torch_imps}")
 
     if (TARGET torch_cuda)
         message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
-    else()
+    else ()
         message(WARNING "This LibTorch package looks CPU-only (no torch_cuda target).")
-    endif()
-endif()
+    endif ()
+endif ()
 
-
-#if (ENABLE_LIBTORCH_MODULE)
-##    set(CMAKE_CUDA_STANDARD 17)
-#    set(CMAKE_PREFIX_PATH ${LIBTORCH_DIR}/share/cmake/Torch)
-##    set(CMAKE_CUDA_ARCHITECTURES "86")
-##    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-##    set(CMAKE_CUDA_EXTENSIONS OFF)
-#
-#    find_package(Torch REQUIRED)
-#
-#    target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
-##    target_link_libraries(${MODULE_NAME} PRIVATE ${TORCH_LIBRARIES})
-#    target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
-#
-#    target_link_libraries(${MODULE_NAME} PRIVATE
-#            ${TORCH_LIBRARIES}
-#            torch_cuda
-#            c10_cuda
-#    )
-#    if (TARGET torch_cuda)
-#        set(TORCH_HAS_CUDA ON)
-#        get_target_property(_loc torch_cuda LOCATION)
-#        message(STATUS "Found torch_cuda -> ${_loc}")
-#    else()
-#        set(TORCH_HAS_CUDA OFF)
-#        message(STATUS "This LibTorch package looks CPU-only (no torch_cuda target).")
-#    endif()
-#    message(STATUS "Torch_DIR = ${Torch_DIR}")
-#    get_target_property(TORCH_IMP torch IMPORTED_IMPLIB)
-#    get_target_property(TORCH_LOC torch IMPORTED_LOCATION)
-#
-#endif ()
-#
-#if (ENABLE_LIBTORCH_MODULE)
-#    target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
-#
-#    target_include_directories(${MODULE_NAME} PRIVATE
-#            ${LIBTORCH_DIR}/include
-#            ${LIBTORCH_DIR}/include/torch/csrc/api/include
-#    )
-#
-#    target_link_libraries(${MODULE_NAME} PRIVATE
-#            ${LIBTORCH_DIR}/lib/torch.lib
-#            ${LIBTORCH_DIR}/lib/c10.lib
-#            ${LIBTORCH_DIR}/lib/c10_cuda.lib
-#            ${LIBTORCH_DIR}/lib/torch_cpu.lib
-#            ${LIBTORCH_DIR}/lib/torch_cuda.lib
-#    )
-#endif ()
-#
-#if (ENABLE_LIBTORCH_MODULE)
-#    # Include
-#    #    target_include_directories(${MODULE_NAME} PUBLIC
-#    #            ${LIBTORCH_DIR}/include
-#    #            ${LIBTORCH_DIR}/include/torch/csrc/api/include
-#    #    )
-#    target_include_directories(${MODULE_NAME} PRIVATE
-#            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include>
-#            $<BUILD_INTERFACE:${LIBTORCH_DIR}/include/torch/csrc/api/include>
-#    )
-#
-#    message(STATUS "LIBTORCH_DIR: ${LIBTORCH_DIR}")
-#    message(STATUS "Include directories: ${LIBTORCH_DIR}/include ${LIBTORCH_DIR}/include/torch/csrc/api/include")
-#
-#
-#    # Link
-#    target_link_libraries(${MODULE_NAME} PRIVATE
-#            ${LIBTORCH_DIR}/lib/torch.lib
-#            ${LIBTORCH_DIR}/lib/c10.lib
-#            ${LIBTORCH_DIR}/lib/c10_cuda.lib
-#            ${LIBTORCH_DIR}/lib/torch_cpu.lib
-#            ${LIBTORCH_DIR}/lib/torch_cuda.lib
-#    )
-#    message(STATUS "LibTorch include directories: ${LIBTORCH_DIR}/include")
-#    message(STATUS "LibTorch libraries: ${LIBTORCH_DIR}/lib/torch_cuda.lib ${LIBTORCH_DIR}/lib/c10_cuda.lib")
-#endif ()
 
 find_package(AbqSDK)
 if (${AbqSDK_FOUND})
@@ -289,3 +219,20 @@ include(Cmake/CoreModuleInstall.cmake)
 #    file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
 #    file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
 #endif ()
+
+if (ENABLE_LIBTORCH_MODULE)
+    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
+    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
+    file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
+    file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
+    install(
+            DIRECTORY ${RESOURCES_SOURCE_DIR}/
+            DESTINATION Resources
+            COMPONENT runtime
+            FILES_MATCHING
+            PATTERN "*"
+            PATTERN ".git*" EXCLUDE
+            PATTERN "__pycache__" EXCLUDE
+            PATTERN "*.psd" EXCLUDE
+    )
+endif ()

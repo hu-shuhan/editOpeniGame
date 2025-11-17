@@ -26,7 +26,7 @@ endif ()
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
-set(ENABLE_NASTRAN_MODULE ON CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
+set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
 set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
@@ -116,7 +116,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore_module)
 #导入Qt模块
 add_subdirectory(Qt)
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
-
 
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)

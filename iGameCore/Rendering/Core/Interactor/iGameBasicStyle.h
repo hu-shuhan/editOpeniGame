@@ -4,6 +4,7 @@
 #include "iGameCamera.h"
 #include "iGameInteractorStyle.h"
 #include "iGameVector.h"
+#include "iGameCenterAxesModel.h"
 #include "igm/igm.h"
 
 IGAME_NAMESPACE_BEGIN

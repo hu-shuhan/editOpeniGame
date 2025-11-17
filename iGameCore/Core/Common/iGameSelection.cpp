@@ -4,6 +4,7 @@
 #include <iGameUnstructuredMesh.h>
 #include <set>
 #include <utility>
+#include <iGameBoxStyle.h>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -156,6 +157,19 @@ static void DrawBoundingBoxs(Painter3D* painter, const std::vector<std::pair<Poi
     painter->SetPen(0.9f, 0.9f, 0.9f);
     painter->SetBrush(iGame::Brush::Style::NoBrush);
     for (auto& box_: boxs) { painter->DrawCube(box_.first, box_.second); }
+}
+
+static void DrawOneBoundingBox(Painter3D* painter, const Point& p1, const Point& p2) {
+    if (painter == nullptr) return;
+    painter->Clear();
+    painter->SetPen(5);
+    painter->SetPen(0.9f, 0.9f, 0.9f);
+    painter->SetBrush(iGame::Brush::Style::NoBrush);
+    painter->DrawCube(p1, p2);
+}
+
+static void DrawOneBoundingBox(Painter3D* painter, const std::pair<Point, Point>& box) {
+    DrawOneBoundingBox(painter, box.first, box.second);
 }
 
 static void CollectCellLines(Cell* cell, std::vector<std::pair<int, int>>& lines) {
@@ -349,22 +363,62 @@ static void DrawCell(UnstructuredMesh* mesh, Painter3D* painter, Cell* cell, std
 //}
 
 void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igIndex>& ids, Operate ope) {
-    for (auto& id: ids) { AddItem(itemType, id, ope); }
-    for (auto& func: m_CallBackFunctor) { func.second(itemType, ids, ope); }
-    if (itemType == IG_POINT) DrawPoints();
-    else if (itemType == IG_CELL) {
-        DrawCellEdges();
-        DrawCellBoundingBoxs();
+    switch (itemType) {
+        case IG_POINT: {
+            for (auto& id: ids) { AddItem(itemType, id, ope); }
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, ids, ope); }
+            DrawPoints();
+        } break;
+        case IG_CELL: {
+            for (auto& id: ids) { AddItem(itemType, id, ope); }
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, ids, ope); }
+            DrawCellEdges();
+        } break;
+        case IG_POINT_BOX: {
+            auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, _GetMesh());
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
+            SetBoxStyle(pMinMax);
+        } break;
+        case IG_CELL_BOX: {
+            auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, _GetMesh());
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
+            SetBoxStyle(pMinMax);
+        } break;
+        case IG_CHANGE: {
+            for (auto& func : m_CallBackFunctor) { func.second(itemType, ids, ope); }
+        } break;
+        default:
+            break;
     }
 }
 
 void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Operate ope) {
-    AddItem(itemType, id, ope);
-    for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
-    if (itemType == IG_POINT) DrawPoints();
-    else if (itemType == IG_CELL) {
-        DrawCellEdges();
-        DrawCellBoundingBoxs();
+    switch (itemType) {
+        case IG_POINT: {
+            AddItem(itemType, id, ope);
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
+            DrawPoints();
+        } break;
+        case IG_CELL: {
+            AddItem(itemType, id, ope);
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
+            DrawCellEdges();
+        } break;
+        case IG_POINT_BOX: {
+            auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, _GetMesh());
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
+            SetBoxStyle(pMinMax);
+        } break;
+        case IG_CELL_BOX: {
+            auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, _GetMesh());
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
+            SetBoxStyle(pMinMax);
+        } break;
+        case IG_CHANGE: {
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
+        } break;
+        default:
+            break;
     }
 }
 
@@ -384,14 +438,14 @@ void Selection::Reset() {
     }
     m_SelectedItems.clear();
     for (auto& callBackFunc: m_ClearSelectionCallBackFunctor) { callBackFunc.second(); }
-    m_CellFaceExtracter.Clear();
 }
 
 void Selection::ClearSelections() { Reset(); }
 
-void Selection::SetSeeAbleFaces(const std::vector<int>& seeAbleFaces) { m_SeeAbleFaces = seeAbleFaces; }
-
-const std::vector<int>& Selection::GetSeeAbleFaces() { return m_SeeAbleFaces; }
+const std::vector<int>& Selection::GetSeeAbleCells(UnstructuredMesh* mesh) {
+    if (m_SeeAbleCells.empty()) { m_SeeAbleCells = m_CellFaceExtracter.GetSurfaceCellIds(mesh); }
+    return m_SeeAbleCells;
+}
 
 void Selection::SetSelectItemVisable(bool visable) {
     if (m_Model == nullptr) return;
@@ -402,6 +456,18 @@ void Selection::SetSelectItemVisable(bool visable) {
 void Selection::SetSelectBoxVisable(bool visable) {
     if (m_Model == nullptr) return;
     m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
+}
+
+void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
+    if (m_Model == nullptr) return;
+    auto scene = m_Model->GetScene();
+    if (scene == nullptr) return;
+    auto interactor = scene->GetInteractor();
+    if (interactor == nullptr) return;
+    auto boxStyle = BoxStyle::New();
+    boxStyle->Initialize(interactor);
+    boxStyle->InitBox(p.first, p.second);
+    interactor->_SetSpecialInteractor("SelectBox", boxStyle);
 }
 
 void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
@@ -436,6 +502,15 @@ void Selection::DrawCellEdges() {
     if (painter == nullptr) return;
     auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
     DrawEdges(painter, edges, mesh);
+}
+
+void Selection::DrawBoundingBox(const std::pair<Point, Point>& p) {
+    if (m_Model == nullptr) return;
+    auto mesh = _GetMesh();
+    if (mesh == nullptr) return;
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
+    if (painter == nullptr) return;
+    DrawOneBoundingBox(painter, p);
 }
 
 void Selection::DrawCellBoundingBoxs() {

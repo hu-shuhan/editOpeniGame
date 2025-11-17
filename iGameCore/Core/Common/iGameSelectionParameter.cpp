@@ -17,7 +17,7 @@ bool SelectionParameter::GetSelectIgnoreUnSeeAbleCells() const { return m_Select
 void SelectionParameter::SetSelectOnlySelectSeeAbleCells(bool selectOnlySelectSeeAbleCells) {
     m_SelectOnlySelectSeeAbleCells = selectOnlySelectSeeAbleCells;
 }
-bool SelectionParameter::GetSelectOnlySelectSeeAbleCells() { return m_SelectOnlySelectSeeAbleCells; }
+bool SelectionParameter::GetSelectOnlySelectSeeAbleCells() const { return m_SelectOnlySelectSeeAbleCells; }
 
 void SelectionParameter::SetSelectOrUnSelect(bool selectOrUnSelect) { m_SelectOrUnSelect = selectOrUnSelect; }
 bool SelectionParameter::GetSelectOrUnSelect() const { return m_SelectOrUnSelect; }
@@ -34,5 +34,31 @@ bool SelectionParameter::GetAutoSelect() const { return m_AutoSelect; }
 void SelectionParameter::SetAutoSelectExpdRate(double autoSelectExpdRate) { m_AutoSelectExpdRate = autoSelectExpdRate; }
 
 double SelectionParameter::GetAutoSelectExpdRate() const { return m_AutoSelectExpdRate; }
+
+void SelectionParameter::SetSelectMode(const SelectionParameter::SelectMode& selectMode) { m_SelectMode = selectMode; }
+
+const SelectionParameter::SelectMode& SelectionParameter::GetSelectMode() const { return m_SelectMode; }
+
+bool SelectionParameter::IsRadiusMode() const { return m_SelectMode == SelectMode::RADIUS_MODE; }
+
+bool SelectionParameter::IsCtMode() const { return m_SelectMode == SelectMode::CT_MODE; }
+
+bool SelectionParameter::IsRadiusBoxMode() const { return m_SelectMode == SelectMode::RADIUS_BOX_MODE; }
+
+bool SelectionParameter::IsCtBoxMode() const { return m_SelectMode == SelectMode::CT_BOX_MODE; }
+
+bool SelectionParameter::IsBoxMode() const { return IsRadiusBoxMode() || IsCtBoxMode(); }
+
+iGame::SelectionParameter::SelectionStation SelectionParameter::GetSelectionStation() const {
+    return m_SelectionStation;
+}
+
+void SelectionParameter::SetSelectionStation(iGame::SelectionParameter::SelectionStation ss) {
+    m_SelectionStation = ss;
+}
+
+void SelectionParameter::SetInSelection(bool inSelection) { m_InSelection = inSelection; }
+
+bool SelectionParameter::GetInSelection() { return m_InSelection; }
 
 IGAME_NAMESPACE_END

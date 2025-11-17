@@ -53,6 +53,9 @@
 #include <iGamePointFinder.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
+#include <iGameBoxStyle.h>
+#include <iGameDynamicBox.h>
+#include <iGameSelectionParameter.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -114,7 +117,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
     aiChatDockWidget->setWidget(aiChatWidget);
     aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetClosable);
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
 
@@ -189,7 +192,7 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!obj) return false;
+        if (!DynamicCast<PointSet>(obj)) return false;
 
         igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
         d->exec();
@@ -1684,12 +1687,16 @@ void igQtMainWindow::initAllInteractor() {
             ui->dockWidget_SelectionField->hide();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
-        auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
+        if (!iGame::SelectionParameter::Instance().GetInSelection()) {
+            rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+            return;
+        }
+        auto selectionStation = iGame::SelectionParameter::Instance().GetSelectionStation();
         switch (selectionStation) {
-            case SelectionStation::NONE_SELECTION:
+            case iGame::SelectionParameter::SelectionStation::NONE_SELECTION:
                 ui->widget_SelectionField->SetVariableNames({});
                 break;
-            case SelectionStation::POINT_SELECTION: {
+            case iGame::SelectionParameter::SelectionStation::POINT_SELECTION: {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
                 if (model == nullptr) {
                     ui->widget_SelectionField->SetVariableNames({});
@@ -1699,7 +1706,7 @@ void igQtMainWindow::initAllInteractor() {
                     ui->widget_SelectionField->SetVariableNames(variableNames);
                 }
             } break;
-            case SelectionStation::CELL_SELECTION: {
+            case iGame::SelectionParameter::SelectionStation::CELL_SELECTION: {
                 auto model = rendererWidget->GetScene()->GetCurrentModel();
                 if (model == nullptr) {
                     ui->widget_SelectionField->SetVariableNames({});
@@ -1713,13 +1720,13 @@ void igQtMainWindow::initAllInteractor() {
                 break;
         }
         switch (selectionStation) {
-            case SelectionStation::NONE_SELECTION:
+            case iGame::SelectionParameter::SelectionStation::NONE_SELECTION:
                 rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
                 break;
-            case SelectionStation::POINT_SELECTION: {
+            case iGame::SelectionParameter::SelectionStation::POINT_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SinglePointSelectionStyle);
             } break;
-            case SelectionStation::CELL_SELECTION: {
+            case iGame::SelectionParameter::SelectionStation::CELL_SELECTION: {
                 rendererWidget->ChangeInteractorStyle(Interactor::SingleFaceSelectionStyle);
             } break;
             default:
@@ -1749,6 +1756,45 @@ void igQtMainWindow::initAllInteractor() {
         if (selection == nullptr) return;
         selection->Reset();
         rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearBox, this, [&]() {
+        auto scene = rendererWidget->GetScene();
+        scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+        rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(dataObj);
+        if (mesh == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        auto scene = rendererWidget->GetScene();
+        auto interactor = scene->GetInteractor();
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        if (boxStyle == nullptr) return;
+        auto dynamicBox = boxStyle->GetBox();
+        if (dynamicBox == nullptr) return;
+        auto faces = dynamicBox->GetAllFaces();
+        if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+            iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+            auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                    faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+            selection->SelectionCallBackEvent(IG_CELL, cellIds,
+                                              SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                      ? Selection::Operate::Add
+                                                      : Selection::Operate::Remove);
+        } else {
+            auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+            selection->SelectionCallBackEvent(IG_POINT, pointIds,
+                                              SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                      ? Selection::Operate::Add
+                                                      : Selection::Operate::Remove);
+        }
     });
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,

@@ -23,15 +23,12 @@ sys.path.insert(0, client_dir)
 # 导入 MCP 客户端
 try:
     from Client.iGameVis_Client import iGameVisMCPClient
-except ImportError:
-    try:
-        from iGameVis_Client import iGameVisMCPClient
-    except ImportError as e:
-        print(f"错误：无法导入 iGameVisMCPClient: {e}")
-        print(f"当前目录: {current_dir}")
-        print(f"Client 目录: {client_dir}")
-        print(f"sys.path: {sys.path}")
-        sys.exit(1)
+except ImportError as e:
+    print(f"错误：无法导入 iGameVisMCPClient: {e}")
+    print(f"当前目录: {current_dir}")
+    print(f"Client 目录: {client_dir}")
+    print(f"sys.path: {sys.path}")
+    sys.exit(1)
 
 # 导入配置
 import config
@@ -185,19 +182,36 @@ class iGameVisChatServer:
                 }
                 self.send_message(ack_message)
                 
-                # 使用 MCP 客户端获取 AI 回答
-                logger.info("正在获取 AI 回答...")
-                ai_response = await self.mcp_client.process_user_message(content)
+                # 定义流式回调函数，实时发送AI回答的片段
+                async def stream_callback(text_chunk):
+                    """流式输出回调函数，每次收到AI生成的文本片段时调用"""
+                    try:
+                        stream_message = {
+                            'type': 'stream',  # 标记为流式消息
+                            'content': text_chunk,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        self.send_message(stream_message)
+                        logger.debug(f"发送流式片段: {text_chunk[:50]}...")
+                    except Exception as e:
+                        logger.error(f"发送流式消息失败: {e}")
                 
-                logger.info(f"AI 回答: {ai_response[:100]}...")
+                # 使用 MCP 客户端获取 AI 回答（启用流式输出）
+                logger.info("正在获取 AI 回答（流式模式）...")
+                ai_response = await self.mcp_client.process_user_message(
+                    content,
+                    stream_callback=stream_callback  # 传入流式回调
+                )
                 
-                # 发送 AI 回答
-                response_message = {
-                    'type': 'response',
-                    'content': ai_response,
+                logger.info(f"AI 回答完成，总长度: {len(ai_response)}")
+                
+                # 发送结束标记，表示回答完成
+                end_message = {
+                    'type': 'stream_end',
+                    'message': 'AI 回答完成',
                     'timestamp': datetime.now().isoformat()
                 }
-                self.send_message(response_message)
+                self.send_message(end_message)
                 
             elif msg_type == 'ping':
                 # 响应 ping

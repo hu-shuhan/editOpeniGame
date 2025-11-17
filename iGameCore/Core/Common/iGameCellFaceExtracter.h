@@ -1,11 +1,11 @@
 #pragma once
-#include <iGameMacro.h>
-#include <vector>
-#include <map>
-#include <utility>
-#include <set>
 #include <iGameCell.h>
+#include <iGameMacro.h>
+#include <map>
 #include <mutex>
+#include <set>
+#include <utility>
+#include <vector>
 IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh;
 class CellFaceExtracter {
@@ -15,19 +15,28 @@ public:
                                                          UnstructuredMesh* mesh);
     std::vector<std::pair<Point, Point>> GetExtractBoundingBoxs(const std::set<igIndex>& choosedCellIds,
                                                                 UnstructuredMesh* mesh);
+    std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, UnstructuredMesh* mesh);
+    std::pair<Point, Point> GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds, UnstructuredMesh* mesh);
+    std::vector<int> GetSurfaceCellIds(UnstructuredMesh* mesh);
 
 private:
-    using PointId=int;
-    using CellId=int;
-    using Face=std::vector<PointId>;
-    using Edge=std::pair<PointId,PointId>;
-
-    std::map<Face, std::set<CellId>> m_FaceToCell;
-    std::map<Face, std::vector<Edge>> m_FaceToEdge;
-    std::map<CellId, std::set<Face>> m_CellToFace;
+    using PointId = int;
+    using CellId = int;
+    using FaceId = int;
+    using Face = std::vector<PointId>;
+    using Edge = std::pair<PointId, PointId>;
+    class FaceMsg {
+    public:
+        std::vector<CellId> Cells;
+        std::vector<Edge> Edges;
+    };
+    std::vector<FaceMsg> m_Faces;
+    std::vector<std::vector<FaceId>> m_CellToFace;
 
 private:
-    void VisitCell(int cellId, Cell* cell);
-    void _VisitCell(int cellId, Cell* cell);
+    void VisitMesh(UnstructuredMesh* mesh);
+
+    void _VisitCell(int cellId, Cell* cell, std::vector<std::vector<std::pair<Face, Face>>>& cellToPFace);
+    void _BuildFaceEdgeMsgs(FaceId id, std::vector<Face>& oriFaces);
 };
 IGAME_NAMESPACE_END

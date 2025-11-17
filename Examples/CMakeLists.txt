@@ -5,9 +5,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 project("test")
 #set(iGameCore_module_DIR "C:/Program Files (x86)/iGameVis/lib/cmake/iGameCore_module")
-set(iGameCore_module_DIR "${CMAKE_CURRENT_BINARY_DIR}/../install/iGameVis/lib/cmake/iGameCore_module")
+message(WARNING ${CMAKE_CURRENT_SOURCE_DIR})
+#set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../install/iGameVis/lib/cmake/iGameCore_module")
+set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release-1436/install/lib/cmake/iGameCore_module")
 find_package(iGameCore_module REQUIRED)
-
+if (MSVC)
+    add_compile_options(/utf-8)
+endif ()
 file(COPY "${CMAKE_BINARY_DIR}/Resources" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "Models" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 add_executable(testSetRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetRenderWindow.cpp")
@@ -169,3 +173,21 @@ target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CO
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
 target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
 target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
+target_compile_definitions(testSplineSurfaceReader PUBLIC GPSCUDA_ENABLE)
+target_compile_definitions(testSplineVolumeReader PUBLIC GPSCUDA_ENABLE)
+target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
+
+SET(Torch_DIR "D:/XuJiangjie/editOpeniGame/ThirdParty/libtorch/Release_GPU/share/cmake/Torch")
+find_package(Torch REQUIRED CONFIG)
+set(_torch_list torch c10 torch_cpu)
+if (TARGET torch_cuda)
+    list(APPEND _torch_list torch_cuda c10_cuda)
+endif ()
+if (TARGET caffe2_nvrtc)
+    list(APPEND _torch_list caffe2_nvrtc)
+endif ()
+target_link_libraries(testVortexDetection
+        PUBLIC
+        ${IGAMEVIS_CORE_LIB_TARGETS}
+        ${_torch_list}
+)

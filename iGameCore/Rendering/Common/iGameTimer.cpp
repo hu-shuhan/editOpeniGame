@@ -74,4 +74,38 @@ int AutoTimer::GetAutoAddInt() {
     return AutoAddInt;
 }
 
+AutoBlockTimer::AutoBlockTimer(int name, Timer::TimeUnit unit) : m_Unit(unit) {
+    SetTimeName(name);
+    m_Timer = Timer::New();
+}
+
+AutoBlockTimer::~AutoBlockTimer() { OutPut(); }
+
+void AutoBlockTimer::OneBlock(int name) {
+    OutPut();
+    SetTimeName(name);
+    m_Timer->Reset();
+}
+
+void AutoBlockTimer::SetTimeName(int name) {
+    m_TimerName = std::string("BlockTimer") + std::to_string(name);
+}
+
+void AutoBlockTimer::OutPut() {
+    auto elsp = m_Timer->Elapsed(m_Unit);
+    std::cout << m_TimerName << ":" << elsp;
+    switch (m_Unit) {
+        case Timer::TimeUnit::Microseconds:
+            std::cout << " us";
+            break;
+        case Timer::TimeUnit::Milliseconds:
+            std::cout << " ms";
+            break;
+        case Timer::TimeUnit::Seconds:
+            std::cout << " s";
+            break;
+    }
+    std::cout << std::endl;
+}
+
 IGAME_NAMESPACE_END

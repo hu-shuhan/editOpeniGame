@@ -94,12 +94,36 @@ private:
     static int GetAutoAddInt();
 };
 
+class AutoBlockTimer {
+public:
+    AutoBlockTimer(int name, Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+    ~AutoBlockTimer();
+    void OneBlock(int name);
+
+private:
+    std::string m_TimerName;
+    Timer::Pointer m_Timer;
+    Timer::TimeUnit m_Unit;
+    void SetTimeName(int name);
+    void OutPut();
+};
+
 #define ___AT__(name) iGame::AutoTimer AT##name(##name)
 #define __AT__(line) ___AT__(line)
+#define ___ABT_NEW__(name) iGame::AutoBlockTimer ABT_NEW(##name)
+#define __ABT_NEW__(line) ___ABT_NEW__(line)
+#define ___ABT__(name) ABT_NEW.OneBlock(##name)
+#define __ABT__(line) ___ABT__(line)
+
+//#define AT_DEBUG
 #ifdef AT_DEBUG
     #define _AT_ __AT__(__LINE__)
+    #define _ABT_NEW_ __ABT_NEW__(__LINE__)
+    #define _ABT_ __ABT__(__LINE__)
 #else
     #define _AT_
+    #define _ABT_NEW_
+    #define _ABT_
 #endif // DEBUG
     
 

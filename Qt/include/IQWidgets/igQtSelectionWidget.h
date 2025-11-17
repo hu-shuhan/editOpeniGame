@@ -5,12 +5,11 @@
 #include <QWidget>
 #include <vector>
 #include <string>
+#include <iGameSelectionParameter.h>
 
 namespace Ui {
 class SelectionView;
 }
-
-enum SelectionStation { NONE_SELECTION = 0, POINT_SELECTION, CELL_SELECTION };
 
 class igQtSelectionWidget : public QWidget
 {
@@ -19,7 +18,6 @@ class igQtSelectionWidget : public QWidget
 public:
     explicit igQtSelectionWidget(QWidget *parent = nullptr);
     ~igQtSelectionWidget();
-    const SelectionStation& GetSelectionStation() const;
     bool GetSelectItemShow() const;
     bool GetSelectBoxShow() const;
     void SetVariableNames(const std::vector<std::string>& variableNames = {});
@@ -32,36 +30,55 @@ signals:
     void SetSelectBoxShow(bool show);
     void SetClearSelection();
     void Hided();
+    void SetClearBox();
+    void SetUseBox();
 
 private slots:
     void SelectionStationNone(bool checked);
     void SelectionStationPoint(bool checked);
     void SelectionStationCell(bool checked);
+
     void SelectionSelect(bool checked);
     void SelectionUnSelect(bool checked);
+
+    void SelectionRadiusMode(bool checked);
+    void SelectionCtMode(bool checked);
+    void SelectionRadiusBoxMode(bool checked);
+    void SelectionCtBoxMode(bool checked);
+
     void SelectionRadiusSpinBox(double radius);
     void SelectionVariableIndex(int index);
     void SelectionVariableAutoCheck(bool checked);
     void SelectionExpdRate(double rate);
     void SelectionExpdRateSlid(int rate);
+
     void SelectionSkipUnSeeAbleCell(bool checked);
     void SelectionOnlySelectSeeAbleCells(bool checked);
+
     void ClearSelectionState();
     void SelectItemShow(bool unShow);
     void SelectBoxShow(bool unShow);
+
+    void ClearBox();
+    void UseBox();
 
 protected:
     void hideEvent(QHideEvent* event) override;
     
 private:
     Ui::SelectionView* ui;
-    SelectionStation m_SelectionStation{};
     bool m_SelectItemShow{true};
     bool m_SelectBoxShow{true};
     bool m_PreventSignalSend{};
 
 private:
     void SetExpdRateSlidToolTip(int value);
+    void HideAllSelectModeUi();
+    void HideSelectionTypeUi();
+    void ShowSelectionTypeUi();
+    void ShowRadiusUi();
+    void ShowCtUi();
+    void ShowBoxUi();
 };
 
 #endif // IGQTSELECTIONWIDGET_H

@@ -349,6 +349,10 @@ void igQtParallelCoordinatesWidget::UpdateUnChoosedColor() {
 }
 
 void igQtParallelCoordinatesWidget::UpdateBackgroundColor() {
+    //########################### White ###########################
+    m_BackgroundColor = {242, 242, 242};
+    return;
+    //########################### White ###########################
     if (m_CurrentModelDataIndex < 0 || m_ParallelCoordinatesDatas.size() <= m_CurrentModelDataIndex ||
         m_ColorVariableIndex < 0 ||
         m_ParallelCoordinatesDatas[m_CurrentModelDataIndex]->GetVariableNum() <= m_ColorVariableIndex) {

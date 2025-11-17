@@ -14,7 +14,7 @@ static void GradientExtract() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/driver-1.vtk";
+    const std::string fileName = "./Models/Driver/driver-1.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);
@@ -39,8 +39,8 @@ static void GradientExtract() {
     int d = drawObj->GetAttributeSet()->GetNumberOfAttributes();
 
     //make the results more visible by rescaling the colormap
-//    drawObj->GetColorMapper()->SetRange(0, 255);
-//    drawObj->GetColorMapper()->SetRangeStable(true);
+    //    drawObj->GetColorMapper()->SetRange(0, 255);
+    //    drawObj->GetColorMapper()->SetRangeStable(true);
     drawObj->ViewCloudPicture(scene, d - 1);
 
     // Set up the render window

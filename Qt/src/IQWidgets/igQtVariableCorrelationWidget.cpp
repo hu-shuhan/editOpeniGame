@@ -466,6 +466,10 @@ void igQtVariableCorrelationWidget::GenerateCorImage() {
 void igQtVariableCorrelationWidget::GenerateChoosedCorImage() { m_ChoosedCorImage = _DrawChoosedCorImage(); }
 
 void igQtVariableCorrelationWidget::GenerateBackgroundColor() {
+    //########################### White ###########################
+    m_BackgroundColor = {242, 242, 242};
+    return;
+    //########################### White ###########################
     if (m_CurrentModelDataIndex < 0 || m_VariableCorrelationDatas.size() <= m_CurrentModelDataIndex) {
         m_BackgroundColor = {255, 255, 255};
         return;

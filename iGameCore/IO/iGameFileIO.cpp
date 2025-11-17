@@ -295,7 +295,9 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
     std::filesystem::path pathObj(file_name);
     std::string baseName = pathObj.stem().string();
-    resObj->SetName(baseName);
+    if (resObj) {
+        resObj->SetName(baseName);
+    }
 
     end = clock();
     out.append(", success: ");

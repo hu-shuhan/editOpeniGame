@@ -24,8 +24,28 @@ bool CASReader::Parsing() {
     //std::string outputDir = inputPath.parent_path().string();
 
     // cas_converter.exe ??·??
-    fs::path exePath = "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe";
-    exePath = fs::absolute(exePath);
+    // 尝试多个可能的 exe 路径位置
+    std::vector<std::string> exePaths = {"Resources\\pyNastranLib\\cas_converter.exe", "cas_converter.exe",
+                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe"};
+
+    std::string exePath;
+    bool exeFound = false;
+    for (const auto& path: exePaths) {
+        // 简单检查文件是否存在
+        std::ifstream file(path);
+        if (file.good()) {
+            exePath = path;
+            exeFound = true;
+            break;
+        }
+    }
+
+    if (!exeFound) {
+        IGAME_ERROR("[CASReader] Error: cas_converter.exe not found in any path");
+        IGAME_ERROR("[CASReader] Please ensure the exe file exists");
+        return false;
+    }
+
     //std::string exePath = "./ThirdParty/Python/pyFluentLib/cas_converter.exe";
     //std::string exePath = "cas_converter.exe";
 

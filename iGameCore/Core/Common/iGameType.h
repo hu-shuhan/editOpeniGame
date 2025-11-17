@@ -86,12 +86,16 @@ enum AttributeType {
     IG_ATTRIBUTE_COUNT,
 };
 
-// AttributeWithElementType
 enum {
+    // AttributeWithElementType
     IG_POINT = 0,
     IG_CELL,
+    // Other
+    IG_POINT_BOX,
+    IG_CELL_BOX,
     IG_CHANGE,
-    IG_DRAGPOINT
+    IG_DRAGPOINT,
+    IG_MID_POINT
 };
 
 // Streaming Data's String Type

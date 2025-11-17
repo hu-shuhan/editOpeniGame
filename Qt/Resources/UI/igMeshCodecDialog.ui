@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MeshCodecDialog</class>
  <widget class="QDialog" name="MeshCodecDialog">
@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>600</height>
+    <width>1100</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,551 +30,315 @@
     <number>12</number>
    </property>
    <item>
-    <widget class="QLabel" name="lbIntro">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="font">
-      <font>
-       <italic>true</italic>
-      </font>
-     </property>
-     <property name="text">
-      <string>压缩说明</string>
-     </property>
-     <property name="margin">
-      <number>5</number>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <property name="spacing">
-      <number>0</number>
-     </property>
+    <layout class="QHBoxLayout" name="horizontalLayout_top">
      <item>
-      <widget class="QWidget" name="leftContainer" native="true">
+      <widget class="QLabel" name="label_intro">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>1</horstretch>
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+         <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_left">
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QGroupBox" name="leftPanel">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="title">
-           <string/>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout">
-           <item>
-            <widget class="QGroupBox" name="attributeListGroup">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>1</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="title">
-              <string>数据列表</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_3">
-              <item>
-               <widget class="QListWidget" name="listAttributes"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
+       <property name="font">
+        <font>
+         <italic>true</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>压缩说明</string>
+       </property>
+       <property name="margin">
+        <number>5</number>
+       </property>
       </widget>
      </item>
      <item>
-      <widget class="QWidget" name="rightContainer" native="true">
+      <spacer name="horizontalSpacer_2">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_floatSelect">
+       <property name="text">
+        <string>选择浮点数据: </string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="combo_boxFloatSelect">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>3</horstretch>
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>2</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_right">
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QGroupBox" name="rightPanel">
-          <property name="title">
-           <string/>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_4">
-           <item>
-            <widget class="QLabel" name="lblAttributeTitle">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="textTemplate" stdset="0">
-              <string>当前数据 - %1</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QFrame" name="frame">
-             <property name="frameShape">
-              <enum>QFrame::HLine</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Sunken</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="kerrorSettingsGroup">
-             <property name="title">
-              <string>压缩等级设置</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_6">
-              <item>
-               <layout class="QHBoxLayout" name="horizontalLayout_3">
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_default">
-                  <item>
-                   <widget class="QLabel" name="lblDefaultError">
-                    <property name="text">
-                     <string>统一压缩等级</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QSlider" name="sliderDefaultLevel">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="tickPosition">
-                     <enum>QSlider::TicksBelow</enum>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="lblPercent1">
-                    <property name="minimumSize">
-                     <size>
-                      <width>20</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>20</width>
-                      <height>16777215</height>
-                     </size>
-                    </property>
-                    <property name="text">
-                     <string>1</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer_5">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_4">
-                  <item>
-                   <widget class="QLabel" name="lblKeyError">
-                    <property name="text">
-                     <string>▲关键区域压缩等级</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QSlider" name="sliderKeyLevel">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="tickPosition">
-                     <enum>QSlider::TicksBelow</enum>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="lblPercent2">
-                    <property name="minimumSize">
-                     <size>
-                      <width>20</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>20</width>
-                      <height>16777215</height>
-                     </size>
-                    </property>
-                    <property name="text">
-                     <string>1</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item>
-                 <spacer name="horizontalSpacer">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_5">
-                  <item>
-                   <widget class="QLabel" name="lblNonKeyError">
-                    <property name="text">
-                     <string>■非关键区域压缩等级</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QSlider" name="sliderNonKeyLevel">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
-                    </property>
-                    <property name="tickPosition">
-                     <enum>QSlider::TicksBelow</enum>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="lblPercent3">
-                    <property name="minimumSize">
-                     <size>
-                      <width>20</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>20</width>
-                      <height>16777215</height>
-                     </size>
-                    </property>
-                    <property name="text">
-                     <string>1</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-               </layout>
-              </item>
-				 <item>
-					 <layout class="QHBoxLayout" name="horizontalLayout_compress_mode">
-						 <item>
-							 <layout class="QVBoxLayout" name="verticalLayout_2">
-								 <item>
-									 <layout class="QHBoxLayout" name="horizontalLayout_left_radio">
-										 <item>
-											 <widget class="QLabel" name="lblModeSettings">
-												 <property name="text">
-													 <string>模式设置:</string>
-												 </property>
-											 </widget>
-										 </item>
-										 <item>
-											 <widget class="QRadioButton" name="radioLossless">
-												 <property name="text">
-													 <string>无损压缩模式</string>
-												 </property>
-												 <property name="checked">
-													 <bool>true</bool>
-												 </property>
-												 <attribute name="buttonGroup">
-													 <string notr="true">buttonGroupLeft</string>
-												 </attribute>
-											 </widget>
-										 </item>
-										 <item>
-											 <widget class="QRadioButton" name="radioDefaultErrorBound">
-												 <property name="text">
-													 <string>统一压缩等级模式</string>
-												 </property>
-												 <attribute name="buttonGroup">
-													 <string notr="true">buttonGroupLeft</string>
-												 </attribute>
-											 </widget>
-										 </item>
-										 <item>
-											 <widget class="QRadioButton" name="radioKeyErrorBound">
-												 <property name="text">
-													 <string>区域压缩等级模式</string>
-												 </property>
-												 <attribute name="buttonGroup">
-													 <string notr="true">buttonGroupLeft</string>
-												 </attribute>
-											 </widget>
-										 </item>
-									 </layout>
-								 </item>
-								 <item>
-									 <layout class="QHBoxLayout" name="horizontalLayout_right_radio">
-										 <item>
-											 <widget class="QLabel" name="lblQuantizationSettings">
-												 <property name="text">
-													 <string>量化设置:</string>
-												 </property>
-											 </widget>
-										 </item>
-										 <item>
-											 <widget class="QRadioButton" name="radioMantissaTruncation">
-												 <property name="enabled">
-													 <bool>false</bool>
-												 </property>
-												 <property name="text">
-													 <string>尾数截断</string>
-												 </property>
-												 <property name="checked">
-													 <bool>true</bool>
-												 </property>
-												 <attribute name="buttonGroup">
-													 <string notr="true">buttonGroupRight</string>
-												 </attribute>
-											 </widget>
-										 </item>
-										 <item>
-											 <widget class="QRadioButton" name="radioLogQuantization">
-												 <property name="enabled">
-													 <bool>false</bool>
-												 </property>
-												 <property name="text">
-													 <string>均匀量化</string>
-												 </property>
-												 <attribute name="buttonGroup">
-													 <string notr="true">buttonGroupRight</string>
-												 </attribute>
-											 </widget>
-										 </item>
-										 <item>
-											 <spacer name="horizontalSpacer_quantization">
-												 <property name="orientation">
-													 <enum>Qt::Horizontal</enum>
-												 </property>
-												 <property name="sizeHint" stdset="0">
-													 <size>
-														 <width>40</width>
-														 <height>20</height>
-													 </size>
-												 </property>
-											 </spacer>
-										 </item>
-									 </layout>
-								 </item>
-							 </layout>
-						 </item>
-						 <item>
-							 <spacer name="horizontalSpacer_6">
-								 <property name="orientation">
-									 <enum>Qt::Horizontal</enum>
-								 </property>
-								 <property name="sizeHint" stdset="0">
-									 <size>
-										 <width>40</width>
-										 <height>20</height>
-									 </size>
-								 </property>
-							 </spacer>
-						 </item>
-						 <item>
-							 <widget class="QPushButton" name="btnSetGlobalCompressMode">
-								 <property name="sizePolicy">
-									 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-										 <horstretch>0</horstretch>
-										 <verstretch>0</verstretch>
-									 </sizepolicy>
-								 </property>
-								 <property name="text">
-									 <string>将设置应用到全体数据</string>
-								 </property>
-							 </widget>
-						 </item>
-					 </layout>
-				 </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="dataDistGroup">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>1</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="title">
-              <string>关键区域设置</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_5">
-              <item>
-               <widget class="QTabWidget" name="tabDataDist">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>1</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_8">
-             <item>
-              <widget class="QPushButton" name="btnRefreshDataDist">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>35</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>⟳</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_4">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="cbVisualizeError">
-               <property name="text">
-                <string>可视化误差</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="cbShowReport">
-               <property name="text">
-                <string>报告压缩率与误差</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="btnStartCompress">
-               <property name="minimumSize">
-                <size>
-                 <width>100</width>
-                 <height>35</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>执行压缩</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="btnCancel">
-               <property name="minimumSize">
-                <size>
-                 <width>100</width>
-                 <height>35</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>取消</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
       </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <widget class="QWidget" name="rightContainer" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>3</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_right">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QGroupBox" name="rightPanel">
+        <property name="title">
+         <string/>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <widget class="QGroupBox" name="groupbox_compressSetting">
+           <property name="title">
+            <string>压缩参数设置</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_6">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_quantize_level">
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_global">
+                <item>
+                 <widget class="QLabel" name="label_global">
+                  <property name="text">
+                   <string>全局量化等级</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QComboBox" name="comboBox_globalLevel"/>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_5">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_critical">
+                <item>
+                 <widget class="QLabel" name="label_critical">
+                  <property name="text">
+                   <string>关键区域量化等级</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QComboBox" name="comboBox_criticalLevel"/>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_normal">
+                <item>
+                 <widget class="QLabel" name="label_normal">
+                  <property name="text">
+                   <string>非关键区域量化等级</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QComboBox" name="comboBox_normalLevel"/>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_compress_mode">
+              <item>
+               <layout class="QVBoxLayout" name="verticalLayout_2">
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_left_radio">
+                  <item>
+                   <widget class="QLabel" name="label_quantize_setting">
+                    <property name="text">
+                     <string>量化模式设置:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="radio_losslessMode">
+                    <property name="text">
+                     <string>无损模式</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">buttonGroupLeft</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="radio_globalMode">
+                    <property name="text">
+                     <string>全局量化模式</string>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">buttonGroupLeft</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="radio_areaModel">
+                    <property name="text">
+                     <string>分区量化模式</string>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">buttonGroupLeft</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_right_radio"/>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_6">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QStackedWidget" name="stack_keyArea">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
+           </property>
+           <widget class="QWidget" name="page_empty">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+           <widget class="QGroupBox" name="groupbox_dataDistGroup">
+            <property name="title">
+             <string>关键区域选择</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_5"/>
+           </widget>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_bottom">
+           <item>
+            <spacer name="horizontalSpacer_4">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="checkbox_showReport">
+             <property name="text">
+              <string>压缩报告</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnStartCompress">
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>执行</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="button_cancel">
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>取消</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
    </item>
   </layout>
  </widget>
@@ -582,6 +346,5 @@
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroupLeft"/>
-  <buttongroup name="buttonGroupRight"/>
  </buttongroups>
 </ui>

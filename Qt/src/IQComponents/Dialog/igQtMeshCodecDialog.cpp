@@ -1,4 +1,12 @@
 #include "IQComponents/Dialog/igQtMeshCodecDialog.h"
+#include <QTimer>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QRadioButton>
+#include <QComboBox>
+#include <QFontMetrics>
+#include <limits>
+#include <cmath>
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
@@ -7,64 +15,95 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
 {
     ui->setupUi(this);
 
-    ui->cbVisualizeError->setVisible(false);
+    // 显示压缩报告选项
+    ui->checkbox_showReport->setVisible(true);
+
+    // 让对话框可根据内容自由收缩/展开
+    if (this->layout()) this->layout()->setSizeConstraint(QLayout::SetMinAndMaxSize);
 
     InitUIControlParams();
     InitIntro();
+    // 初始化radio的前缀标记
+    auto startsWithAny = [&](const QString& s) -> bool {
+        for (const auto& m : m_modeMark) { if (s.startsWith(m + " ")) return true; }
+        return false;
+    };
+    auto setWithMark = [&](QRadioButton* r, const QString& mark){ if(!r) return; QString t=r->text(); if(startsWithAny(t)){ for(const auto& m: m_modeMark){ if(t.startsWith(m+" ")){ t=t.mid(m.size()+1); break; } } } r->setText(mark+" "+t); };
+    setWithMark(ui->radio_losslessMode, m_modeMark[0]);
+    setWithMark(ui->radio_globalMode,   m_modeMark[1]);
+    setWithMark(ui->radio_areaModel,    m_modeMark[2]);
     InitAttrFeatureDatas();
-    // SetupErrorInputValidators();
-    InitFeatureTabs();
+    InitHistogramView();
     InitAttributeList();
 
-    // 连接标签页切换信号
-    connect(ui->tabDataDist, &QTabWidget::currentChanged, this, &igQtMeshCodecDialog::on_tabDataDist_currentChanged);
+    for (int i = 1; i < m_quantizeLevel.size(); i++) {
+        ui->comboBox_globalLevel->addItem(m_quantizeLevel[i]);
+    }
 
-    // 设置滑块控件属性
-    ui->sliderDefaultLevel->setMinimum(1);
-    ui->sliderDefaultLevel->setMaximum(10);
-    ui->sliderDefaultLevel->setTickInterval(1);
+    // 初始化量化等级ComboBox选项
+    for (const auto& level : m_quantizeLevel) {
+        ui->comboBox_criticalLevel->addItem(level);
+        ui->comboBox_normalLevel->addItem(level);
+    }
 
-    ui->sliderKeyLevel->setMinimum(1);
-    ui->sliderKeyLevel->setMaximum(10);
-    ui->sliderKeyLevel->setTickInterval(1);
-
-    ui->sliderNonKeyLevel->setMinimum(1);
-    ui->sliderNonKeyLevel->setMaximum(10);
-    ui->sliderNonKeyLevel->setTickInterval(1);
+    // 默认无损模式，禁用所有量化等级ComboBox和Label
+    ui->comboBox_globalLevel->setEnabled(false);
+    ui->label_global->setEnabled(false);
+    ui->label_global->setStyleSheet("QLabel { color: gray; }");
+    ui->comboBox_criticalLevel->setEnabled(false);
+    ui->label_critical->setEnabled(false);
+    ui->label_critical->setStyleSheet("QLabel { color: gray; }");
+    ui->comboBox_normalLevel->setEnabled(false);
+    ui->label_normal->setEnabled(false);
+    ui->label_normal->setStyleSheet("QLabel { color: gray; }");
+    
+    // 初始隐藏关键区域选择板块并压缩高度
+    ui->groupbox_dataDistGroup->setEnabled(false);
+    UpdateKeyAreaVisibility(false);
 }
 
-bool igQtMeshCodecDialog::IsVaildAttrIndex(int dataIndex)
+bool igQtMeshCodecDialog::IsValidAttrIndex(int dataIndex)
 {
     return (dataIndex >= 0 && dataIndex < m_DataNum);
 }
 
-bool igQtMeshCodecDialog::IsVaildFeatureIndex(int featureIndex)
-{
-    return (featureIndex >= 0 && featureIndex < m_featureNum);
-}
-
 void igQtMeshCodecDialog::InitIntro()
 {
-    ui->lbIntro->setText("1. 通过浮点数数据的梯度/拉普拉斯直方图以选定关键区域 \n2. 在未选定关键区域并采用区域压缩等级模式时，将以非关键区域压缩等级处理数据 \n3. “将统一压缩等级应用到全体数据”将不会覆盖处于区域压缩等级模式下的数据, 亦不能将区域压缩等级应用于全体数据");
+    ui->label_intro->setText(
+        "1. 通过选择数据来为每种数据单独地设置压缩参数\n"
+        "2. 当选择数据类型为\"全部数据\"时，不能设置分区量化模式\n"
+        "3. 仅当选择\"全部数据\"并修改参数时，才会将当前设置应用到所有数据；仅切换到\"全部数据\"不会影响现有各项参数\n"
+        "4. 当量化等级 ≥ 浮点精度时，浮点数将不会被量化"
+    );
 }
 
 void igQtMeshCodecDialog::InitUIControlParams()
 {
-    for (int i = 0; i < m_dataObj->GetAttributeSet()->GetNumberOfAttributes() + 1; i++)
+    // +2: 一个"全部数据"选项 + 一个"顶点坐标"选项
+    for (int i = 0; i < m_dataObj->GetAttributeSet()->GetNumberOfAttributes() + ATTRIBUTE_OFFSET; i++)
     {
         iGame::FloatErrorControlParameters p;
        
         if (i == 0)
         {
+            // 第一项：全部数据（特殊选项，用于全局设置）
+            p.dataName = m_AllDataName;
+            p.dimension = 0;  // 特殊标记，表示这是全局设置
+            p.elementCount = 0;
+            p.isKeyElement = std::vector<bool>();
+        }
+        else if (i == 1)
+        {
+            // 第二项：顶点坐标
             p.dataName = m_GeomName;
             p.dimension = 3;
             p.elementCount = iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints();
-            p.isKeyElement =
-                std::vector<bool>(p.elementCount, false);
+            p.isKeyElement = std::vector<bool>(p.elementCount, false);
         }
         else
         {
-            auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i - 1);
+            // 第三项开始：实际属性数据
+            auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i - ATTRIBUTE_OFFSET);
             p.dataName = attr.pointer->GetName();
             p.dimension = attr.pointer->GetDimension();
             p.elementCount = attr.pointer->GetNumberOfElements();
@@ -73,488 +112,549 @@ void igQtMeshCodecDialog::InitUIControlParams()
         
         p.lossyMode = iGame::LossyMode::MantissaTruncation;
         p.errorMode = iGame::ErrorMode::None;
-        p.defaultErrorBound = 0.01;
-        p.keyAreaErrorBound = 0.01;
-        p.nonKeyAreaErrorBound = 0.01;
+        p.globalQuantizeLevel = 0;
+        p.criticalQuantizeLevel = 0;
+        p.normalQuantizeLevel = 0;
         m_params.errorBoundSetting.push_back(p);
     }
 
     m_DataNum = m_params.errorBoundSetting.size();
-    m_featureNum = m_featureNames.size();
     m_params.showReport = false;
 }
 
 void igQtMeshCodecDialog::InitAttributeList()
 {
     // 清除属性列表
-    ui->listAttributes->clear();
+    ui->combo_boxFloatSelect->clear();
 
-    for (const auto& info : m_params.errorBoundSetting)
+    for (int i = 0; i < m_params.errorBoundSetting.size(); ++i)
     {
-        ui->listAttributes->addItem(QString::fromStdString(info.dataName));
+        auto& info = m_params.errorBoundSetting[i];
+        // 初始按参数的 errorMode 加前缀；默认均为无损
+        QString mark = m_modeMark[0];
+        if (info.errorMode == iGame::ErrorMode::Default) mark = m_modeMark[1];
+        else if (info.errorMode == iGame::ErrorMode::KeyArea) mark = m_modeMark[2];
+        ui->combo_boxFloatSelect->addItem(mark + " " + QString::fromStdString(info.dataName));
     }
     if (!m_params.errorBoundSetting.empty()) {
-        ui->listAttributes->setCurrentRow(0);
+        ui->combo_boxFloatSelect->setCurrentIndex(0);
     }
-}
-
-int igQtMeshCodecDialog::GetCurrentFeatureIndex() const
-{
-    return ui->tabDataDist->currentIndex();
 }
 
 int igQtMeshCodecDialog::GetCurrentDataIndex() const
 {
-    return ui->listAttributes->currentRow();
+    return ui->combo_boxFloatSelect->currentIndex();
 }
 
-void igQtMeshCodecDialog::on_listAttributes_currentRowChanged(int dataIndex)
+void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIndex)
 {
-    if (!IsVaildAttrIndex(dataIndex))
+    if (!IsValidAttrIndex(dataIndex))
         return;
 
     // 更新参数中的属性名称
     const auto& errorBoundSetting = m_params.errorBoundSetting[dataIndex];
 
-    // 将百分比转为1-10的整数范围（百分比*10作为滑块值）
-    ui->sliderDefaultLevel->setValue(static_cast<int>(errorBoundSetting.defaultErrorBound * 10));
-    ui->sliderKeyLevel->setValue(static_cast<int>(errorBoundSetting.keyAreaErrorBound * 10));
-    ui->sliderNonKeyLevel->setValue(static_cast<int>(errorBoundSetting.nonKeyAreaErrorBound * 10));
+    // 阻塞信号以避免在加载时触发change事件
+    ui->comboBox_globalLevel->blockSignals(true);
+    ui->comboBox_criticalLevel->blockSignals(true);
+    ui->comboBox_normalLevel->blockSignals(true);
 
-    // 更新数值显示标签（从滑块值获取）
-    ui->lblPercent1->setText(QString::number(ui->sliderDefaultLevel->value()));
-    ui->lblPercent2->setText(QString::number(ui->sliderKeyLevel->value()));
-    ui->lblPercent3->setText(QString::number(ui->sliderNonKeyLevel->value()));
+    // 设置三个量化等级ComboBox的当前值
+    // 全局量化等级：ComboBox从索引1开始（跳过"无损"），所以需要-1映射
+    if (errorBoundSetting.globalQuantizeLevel > 0) {
+        ui->comboBox_globalLevel->setCurrentIndex(errorBoundSetting.globalQuantizeLevel - 1);
+    } else {
+        ui->comboBox_globalLevel->setCurrentIndex(0); // 默认FP24
+    }
+    ui->comboBox_criticalLevel->setCurrentIndex(errorBoundSetting.criticalQuantizeLevel);
+    ui->comboBox_normalLevel->setCurrentIndex(errorBoundSetting.normalQuantizeLevel);
 
-    ui->radioLossless->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::None);
-    ui->radioDefaultErrorBound->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::Default);
-    ui->radioKeyErrorBound->setChecked(errorBoundSetting.errorMode == iGame::ErrorMode::KeyArea);
+    // 恢复信号
+    ui->comboBox_globalLevel->blockSignals(false);
+    ui->comboBox_criticalLevel->blockSignals(false);
+    ui->comboBox_normalLevel->blockSignals(false);
 
-    ui->radioMantissaTruncation->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::MantissaTruncation);
-    ui->radioLogQuantization->setChecked(errorBoundSetting.lossyMode == iGame::LossyMode::Quantization);
+    SetRadiosFromErrorMode(errorBoundSetting.errorMode);
 
-    ui->lblAttributeTitle->setText(ui->lblAttributeTitle->property("textTemplate").toString().arg(
-        QString::fromStdString(errorBoundSetting.dataName)));
-    
-    LoadAttrFeatureWidget();
+    // 当选择"全部数据"（索引0）时，禁用分区量化选项
+    if (dataIndex == 0) {
+        ui->radio_areaModel->setEnabled(false);
+        // 如果当前选中的是分区量化，切换到全局量化模式
+        if (ui->radio_areaModel->isChecked()) {
+            ui->radio_globalMode->setChecked(true);
+        }
+        // 隐藏直方图相关功能并收缩（内部已清理图表与复选框）
+        UpdateKeyAreaVisibility(false);
+        RecomputeDialogSize();
+    } else {
+        // 选择其他数据项时，启用分区量化选项
+        ui->radio_areaModel->setEnabled(true);
+        LoadAttrFeatureWidget();
+        // 根据当前单选状态决定是否显示关键区域分组
+        UpdateKeyAreaVisibility(ui->radio_areaModel->isChecked());
+    }
+    UpdateRefreshButtonStateForCurrent();
+}
+
+QString igQtMeshCodecDialog::GetModeMark(iGame::ErrorMode mode) const
+{
+    switch (mode) {
+    case iGame::ErrorMode::None:    return m_modeMark[0];
+    case iGame::ErrorMode::Default: return m_modeMark[1];
+    case iGame::ErrorMode::KeyArea: return m_modeMark[2];
+    default:                        return m_modeMark[0];
+    }
+}
+
+void igQtMeshCodecDialog::RefreshComboItemMark(int dataIndex)
+{
+    if (!IsValidAttrIndex(dataIndex)) return;
+    if (!ui->combo_boxFloatSelect) return;
+    auto mode = m_params.errorBoundSetting[dataIndex].errorMode;
+    QString mark = GetModeMark(mode);
+    QString name = QString::fromStdString(m_params.errorBoundSetting[dataIndex].dataName);
+    ui->combo_boxFloatSelect->setItemText(dataIndex, mark + " " + name);
+}
+
+void igQtMeshCodecDialog::RefreshAllComboItemMarks()
+{
+    if (!ui->combo_boxFloatSelect) return;
+    for (int i = 0; i < m_params.errorBoundSetting.size(); ++i) {
+        RefreshComboItemMark(i);
+    }
 }
 
 void igQtMeshCodecDialog::LoadAttrFeatureWidget()
 {
-    // 获取当前选择的特征索引
-    int featureIndex = GetCurrentFeatureIndex();
     int dataIndex = GetCurrentDataIndex();
 
-    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
+    if (!IsValidAttrIndex(dataIndex))
         return;
 
     // 检查是否有直方图数据
-    if (m_attrFeatureDatas[dataIndex][featureIndex].genStatus == FeatureHistoGenStatus::Yes) {
+    if (m_attrFeatureDatas[dataIndex].genStatus == FeatureHistoGenStatus::Yes) {
+        HideRefreshButton();
+        // 使用缓存的 x/y 数据重绘
+        ClearCurrentHistogram();
+        const auto& x = m_attrFeatureDatas[dataIndex].xAxis;
+        const auto& y = m_attrFeatureDatas[dataIndex].yAxis;
+        if (!x.empty() && !y.empty()) {
+            QChart* chart = new QChart();
+            DrawFeatureHistogramFromData(chart, x, y);
+            if (m_chartView) {
+                m_chartView->setChart(chart);
+            }
+        }
         LoadAllCheckBoxes();
+        // 同步复选状态到关键元素掩码
+        ApplyCheckStatusToKeyElements(dataIndex);
+        
+        // 已有直方图数据，启用关键/非关键区域量化等级
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, true);
     }
     else {
         // 没有数据，清空直方图并隐藏复选框
         ClearCurrentHistogram();
         HideAllCheckBoxes();
+        
+        // 没有直方图数据，禁用关键/非关键区域量化等级
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
+        
+        // 如果当前是分区量化模式，显示刷新按钮
+        if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea) {
+            ShowRefreshButton();
+        } else {
+            HideRefreshButton();
+        }
     }
 }
 
 /**
- * @brief 初始化特征选项卡
+ * @brief 初始化梯度直方图视图（不再使用选项卡）
  */
-void igQtMeshCodecDialog::InitFeatureTabs()
+void igQtMeshCodecDialog::InitHistogramView()
 {
-    // 清空现有标签页
-    ui->tabDataDist->clear();
+    // 获取直方图显示区域的父容器（假设UI中有一个容器用于显示直方图）
+    // 这里假设UI文件中 groupbox_dataDistGroup 内部有一个布局可以添加控件
+    QLayout* parentLayout = ui->groupbox_dataDistGroup->layout();
+    if (!parentLayout) {
+        parentLayout = new QVBoxLayout(ui->groupbox_dataDistGroup);
+        ui->groupbox_dataDistGroup->setLayout(parentLayout);
+    }
 
-    // 为每个特征创建标签页
-    for (int featureIndex = 0; featureIndex < m_featureNum; featureIndex++) {
-        // 创建标签页内容
-        QWidget* tabPage = new QWidget();
-        QVBoxLayout* layout = new QVBoxLayout(tabPage);
+    // 创建图表视图
+    m_chartView = new QChartView(ui->groupbox_dataDistGroup);
+    m_chartView->setRenderHint(QPainter::Antialiasing);
+    m_chartView->setMinimumHeight(220);
+    parentLayout->addWidget(m_chartView);
 
-        QChartView* chartView = new QChartView;
-        chartView->setRenderHint(QPainter::Antialiasing);
-        chartView->setMinimumHeight(220);
-        layout->addWidget(chartView);
+    // 创建悬浮的产生直方图按钮（作为chartView的子控件）
+    m_refreshButton = new QPushButton(m_chartView);
+    m_refreshButton->setText("产生梯度范数直方图");
+    {
+        QFontMetrics fm(m_refreshButton->font());
+        int calcW = fm.horizontalAdvance(m_refreshButton->text()) + 36;
+        int minW = 180;
+        m_refreshButton->setFixedSize(std::max(minW, calcW), 40);
+    }
+    m_refreshButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #4CAF50;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: 5px;"
+        "   font-size: 14px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #45a049;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #3d8b40;"
+        "}"
+        "QPushButton:disabled {"
+        "   background-color: #cccccc;"
+        "   color: #888888;"
+        "}"
+    );
+    
+    // 连接刷新按钮的点击信号
+    connect(m_refreshButton, &QPushButton::clicked, this, &igQtMeshCodecDialog::GenerateHistogram);
+    
+    // 初始时禁用并隐藏按钮（位置将在showEvent中设置）
+    m_refreshButton->setEnabled(false);
+    m_refreshButton->setVisible(false);
 
-        // 创建复选框容器和布局
-        QWidget* checkBoxContainer = new QWidget();
-        checkBoxContainer->setObjectName("checkBoxContainer");
-        checkBoxContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // 创建复选框容器和布局
+    m_checkBoxContainer = new QWidget(ui->groupbox_dataDistGroup);
+    m_checkBoxContainer->setObjectName("checkBoxContainer");
+    m_checkBoxContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // 放大复选框指示器尺寸，使勾选更易于交互
+    m_checkBoxContainer->setStyleSheet(
+        "QCheckBox::indicator { width: 18px; height: 18px; }"
+    );
 
-        QGridLayout* checkBoxLayout = new QGridLayout(checkBoxContainer);
-        checkBoxLayout->setContentsMargins(75, 5, 40, 5);
-        checkBoxLayout->setHorizontalSpacing(0);  // 水平间距设为0
-        checkBoxLayout->setVerticalSpacing(0);    // 垂直间距设为0
+    QGridLayout* checkBoxLayout = new QGridLayout(m_checkBoxContainer);
+    checkBoxLayout->setContentsMargins(75, 5, 40, 5);
+    checkBoxLayout->setHorizontalSpacing(0);  // 水平间距设为0
+    checkBoxLayout->setVerticalSpacing(0);    // 垂直间距设为0
 
-        QVector<QCheckBox*> checkBoxes;
-        for (int i = 0; i < m_binNum; i++) {
-            checkBoxLayout->setColumnStretch(i, 1);
-            QCheckBox* checkBox = new QCheckBox(checkBoxContainer);
-            checkBox->setText("");
-            checkBoxLayout->addWidget(checkBox, 0, i, Qt::AlignCenter);
-            checkBoxes.append(checkBox);
+    for (int i = 0; i < m_binNum; i++) {
+        checkBoxLayout->setColumnStretch(i, 1);
+        QCheckBox* checkBox = new QCheckBox(m_checkBoxContainer);
+        checkBox->setText("");
+        checkBoxLayout->addWidget(checkBox, 0, i, Qt::AlignCenter);
+        m_checkBoxes.append(checkBox);
 
-            connect(checkBox, &QCheckBox::stateChanged, this, [this, i](int state) {
-                onCheckBoxStateChanged(i, state);  // 传递索引和状态
-                });
-        }
+        connect(checkBox, &QCheckBox::stateChanged, this, [this, i](int state) {
+            onCheckBoxStateChanged(i, state);  // 传递索引和状态
+        });
+    }
 
-        layout->addWidget(checkBoxContainer);
+    parentLayout->addWidget(m_checkBoxContainer);
 
-        // 初始时隐藏复选框容器
-        checkBoxContainer->setVisible(false);
-        
-        // 添加标签页
-        ui->tabDataDist->addTab(tabPage, m_featureNames[featureIndex]);
+    // 初始时隐藏复选框容器
+    m_checkBoxContainer->setVisible(false);
 
-        // 保存每个特征的控件
-        FeatureTab ft;
-        ft.chartView = chartView;
-        ft.checkBoxes = checkBoxes;
-        ft.checkBoxContainer = checkBoxContainer;
-
-        m_featureTabs.push_back(ft);
+    // 直接绑定到 UI 中的堆叠控件
+    m_keyAreaStack = ui->stack_keyArea;
+    if (m_keyAreaStack) {
+        // page 0 是空页；page 1 是 groupbox_dataDistGroup
+        m_keyAreaEmptyPage = ui->page_empty;
+        m_keyAreaStack->setCurrentIndex(0);
     }
 }
 
 void igQtMeshCodecDialog::InitAttrFeatureDatas()
 {
+    // 为每个属性数据初始化梯度特征数据
     for (int i = 0; i < m_DataNum; i++)
     {
-        QVector<AttrFeatureData> featureDatas;
-        for (int j = 0; j < m_featureNum; j++)
-        {
-            AttrFeatureData data;
-            data.histogram = new QChart;
-            data.checkStatus = std::vector<bool>(m_binNum, false);
-            data.genStatus = FeatureHistoGenStatus::No;
+        AttrFeatureData data;
+        data.checkStatus = std::vector<bool>(m_binNum, false);
+        data.genStatus = FeatureHistoGenStatus::No;
 
-            featureDatas.push_back(data);
-        }
-        m_attrFeatureDatas.push_back(featureDatas);
+        m_attrFeatureDatas.push_back(data);
     }
-}
-
-/**
- * @brief 标签页切换响应函数
- * @param index 新的标签页索引
- */
-void igQtMeshCodecDialog::on_tabDataDist_currentChanged(int index)
-{
-    LoadAttrFeatureWidget();
 }
 
 void igQtMeshCodecDialog::onCheckBoxStateChanged(int binIndex, int state)
 {
     int dataIndex = GetCurrentDataIndex();
-    int featureIndex = GetCurrentFeatureIndex();
     
-    int dim = m_params.errorBoundSetting[dataIndex].dimension;
-    int elementNum = m_params.errorBoundSetting[dataIndex].elementCount;
-
-    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
+    if (!IsValidAttrIndex(dataIndex))
     {
         return;
     }
 
-    bool check = m_featureTabs[featureIndex].checkBoxes[binIndex]->isChecked();
-    m_attrFeatureDatas[dataIndex][featureIndex].checkStatus[binIndex] = check;
-
-    // AND
-    bool isKey = false;
-    for (int i = 0; i < m_featureNum; i++)
-    {
-        if (m_attrFeatureDatas[dataIndex][i].checkStatus[binIndex] == true)
-        {
-            isKey = true;
-        }
+    // 防御：若分箱尚未准备好或索引超界，直接返回
+    if (binIndex < 0 || binIndex >= m_binNum) {
+        return;
+    }
+    if (m_attrFeatureDatas.size() <= dataIndex) {
+        return;
+    }
+    if (m_attrFeatureDatas[dataIndex].idInBins.size() < static_cast<size_t>(m_binNum)) {
+        return;
     }
 
-    for (auto idx : m_attrFeatureDatas[dataIndex][featureIndex].idInBins[binIndex])
+    bool check = m_checkBoxes[binIndex]->isChecked();
+    m_attrFeatureDatas[dataIndex].checkStatus[binIndex] = check;
+
+    // 更新关键元素标记
+    const auto &binVec = m_attrFeatureDatas[dataIndex].idInBins[binIndex];
+    for (auto idx : binVec)
     {
-        m_params.errorBoundSetting[dataIndex].isKeyElement[idx] = isKey;
+        m_params.errorBoundSetting[dataIndex].isKeyElement[idx] = check;
     }
 }
 
 void igQtMeshCodecDialog::ClearCurrentHistogram() {
-    int featureIndex = GetCurrentFeatureIndex();
-    if (IsVaildFeatureIndex(featureIndex)) {
-        QChart* emptyChart = new QChart();
-        m_featureTabs[featureIndex].chartView->setChart(emptyChart);
+    if (m_chartView) {
+        // 当前绑定的chart会被QChartView接管并删除
+        m_chartView->setChart(new QChart());
     }
 }
 
 void igQtMeshCodecDialog::HideAllCheckBoxes() {
-    int featureIndex = GetCurrentFeatureIndex();
-    if (featureIndex >= 0 && featureIndex < m_featureNum) {
-        m_featureTabs[featureIndex].checkBoxContainer->setVisible(false);
+    if (m_checkBoxContainer) {
+        m_checkBoxContainer->setVisible(false);
     }
 }
 
 void igQtMeshCodecDialog::DisableAllCheckBoxes()
 {
-    int featureIndex = GetCurrentFeatureIndex();
-    if (featureIndex >= 0 && featureIndex < m_featureNum) {
-        m_featureTabs[featureIndex].checkBoxContainer->setEnabled(false);
+    if (m_checkBoxContainer) {
+        m_checkBoxContainer->setEnabled(false);
     }
 }
 
 void igQtMeshCodecDialog::EnableAllCheckBoxes()
 {
-    int featureIndex = GetCurrentFeatureIndex();
-    if (featureIndex >= 0 && featureIndex < m_featureNum) {
-        m_featureTabs[featureIndex].checkBoxContainer->setEnabled(true);
+    if (m_checkBoxContainer) {
+        m_checkBoxContainer->setEnabled(true);
     }
 }
 
 void igQtMeshCodecDialog::LoadAllCheckBoxes() {
-    int featureIndex = GetCurrentFeatureIndex();
     int dataIndex = GetCurrentDataIndex();
 
-    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
+    if (!IsValidAttrIndex(dataIndex))
         return;
 
-    AttrFeatureData data = m_attrFeatureDatas[dataIndex][featureIndex];
-
-    m_featureTabs[featureIndex].chartView->setChart(data.histogram);
-    m_featureTabs[featureIndex].checkBoxContainer->setVisible(true);
-
-    for (int i = 0; i < data.checkStatus.size(); i++)
-    {
-        m_featureTabs[featureIndex].checkBoxes[i]->blockSignals(true);
-        m_featureTabs[featureIndex].checkBoxes[i]->setChecked(data.checkStatus[i]);
-        m_featureTabs[featureIndex].checkBoxes[i]->blockSignals(false);
+    AttrFeatureData& data = m_attrFeatureDatas[dataIndex];
+    if (m_checkBoxContainer) {
+        m_checkBoxContainer->setVisible(true);
     }
-}
-
-// 原有输入验证函数，已保留但注释
-/*
-void igQtMeshCodecDialog::SetupErrorInputValidators()
-{
-    // 使用正则表达式验证器
-    // 允许: 0-100，最多5位小数
-    // 格式: 0-100 或 0-99.xxxxx
-    QRegExpValidator* validator = new QRegExpValidator(
-        QRegExp("(100(\\.0{0,5})?|[0-9]{1,2}(\\.[0-9]{0,5})?)"), this);
-
-    // 应用验证器到三个输入框
-    ui->txtDefaultError->setValidator(validator);
-    ui->txtKeyError->setValidator(validator);
-    ui->txtNonKeyError->setValidator(validator);
-}
-*/
-
-void igQtMeshCodecDialog::on_btnRefreshDataDist_clicked()
-{
-    int dataIndex = GetCurrentDataIndex();
-    int featureIndex = GetCurrentFeatureIndex();
-
-    if ((dataIndex<0 && dataIndex>m_DataNum) || (featureIndex<0 && featureIndex>m_featureNum))
-    {
-        return;
-    }
-
-    switch (m_attrFeatureDatas[dataIndex][featureIndex].genStatus)
-    {
-    case FeatureHistoGenStatus::Cant:
-    case FeatureHistoGenStatus::Yes:
-    {
-        return;
-    }
-    case FeatureHistoGenStatus::No:
-    {
-        /*
-        if (FeatureName(featureIndex) == FeatureName::Vortex)
-        {m_featureNames[featureIndex]
-            int dim = m_dataObj->GetAttributeSet()->GetAttribute(attrIndex).pointer->GetDimension();
-            if (dim != 2 && dim != 3)
-            {
-                QChart* chart = new QChart();
-                // 添加一些默认设置让图表正确渲染
-                chart->setTitle("");
-                chart->legend()->hide();
-                chart->createDefaultAxes();
-                chart->axes(Qt::Horizontal).first()->setVisible(false);
-                chart->axes(Qt::Vertical).first()->setVisible(false);
-
-                // 先设置图表到视图
-                m_featureTabs[featureIndex].chartView->setChart(chart);
-
-                // 确保图表完成初始布局
-                QApplication::processEvents();
-
-                // 创建简单文本标签
-                QGraphicsTextItem* label = new QGraphicsTextItem(chart);
-                label->setHtml("<div style='color: red; font-weight: bold; font-size: 12pt;'>仅支持二维/三维数据</div>");
-                label->setZValue(100); // 确保标签在前面
-
-                // 使用图表的几何中心而不是plotArea
-                qreal xCenter = chart->rect().width() / 2 - label->boundingRect().width() / 2;
-                qreal yCenter = chart->rect().height() / 2 - label->boundingRect().height() / 2;
-                label->setPos(xCenter, yCenter);
-
-                // 强制更新
-                m_featureTabs[featureIndex].chartView->update();
-                m_attrFeatureDatas[attrIndex][featureIndex].genStatus = FeatureHistoGenStatus::Cant;
-                break;
-            }
+    // 均匀分箱：复选框列采用统一伸展
+    for (int c = 0; c < m_binNum; ++c) {
+        if (auto grid = qobject_cast<QGridLayout*>(m_checkBoxContainer->layout())) {
+            grid->setColumnStretch(c, 1);
         }
-        */
-
-        DrawFeatureHistogram(m_attrFeatureDatas[dataIndex][featureIndex].histogram);
-        m_featureTabs[featureIndex].chartView->setChart(m_attrFeatureDatas[dataIndex][featureIndex].histogram);
-        LoadAllCheckBoxes();
-        m_attrFeatureDatas[dataIndex][featureIndex].genStatus = FeatureHistoGenStatus::Yes;
-        
-        break;
     }
+
+    for (int i = 0; i < data.checkStatus.size() && i < m_checkBoxes.size(); i++)
+    {
+        m_checkBoxes[i]->blockSignals(true);
+        m_checkBoxes[i]->setChecked(data.checkStatus[i]);
+        m_checkBoxes[i]->blockSignals(false);
     }
 }
 
-void igQtMeshCodecDialog::on_radioLossless_toggled(bool checked)
+// 旧的输入验证相关代码已移除
+
+void igQtMeshCodecDialog::GenerateHistogram()
 {
-    if (checked) {
-        // 无损模式下，禁用所有滑块控件
-        ui->sliderDefaultLevel->setEnabled(false);
-        ui->sliderKeyLevel->setEnabled(false);
-        ui->sliderNonKeyLevel->setEnabled(false);
-        ui->btnRefreshDataDist->setEnabled(false);
+    int dataIndex = GetCurrentDataIndex();
 
-        // 无损模式下，禁用右侧量化方式选择
-        ui->radioMantissaTruncation->setEnabled(false);
-        ui->radioLogQuantization->setEnabled(false);
+    if (dataIndex < 0 || dataIndex >= m_DataNum)
+    {
+        return;
+    }
 
-        // 无损模式下，启用全体数据设置按钮
-        ui->btnSetGlobalCompressMode->setEnabled(true);
+    // 隐藏刷新按钮
+    HideRefreshButton();
 
-        DisableAllCheckBoxes();
+    // 若未生成过则计算并缓存 x/y，之后按需重绘
+    if (m_attrFeatureDatas[dataIndex].genStatus != FeatureHistoGenStatus::Yes) {
+        QChart* chart = new QChart();
+        // 生成并绘制；在 DrawFeatureHistogram 内部会通过 CalFeatureHistogram 计算 x/y
+        DrawFeatureHistogram(chart);
+        if (m_chartView) m_chartView->setChart(chart);
+        m_attrFeatureDatas[dataIndex].genStatus = FeatureHistoGenStatus::Yes;
+    } else {
+        // 已经有缓存 x/y，直接重绘
+        const auto& x = m_attrFeatureDatas[dataIndex].xAxis;
+        const auto& y = m_attrFeatureDatas[dataIndex].yAxis;
+        QChart* chart = new QChart();
+        DrawFeatureHistogramFromData(chart, x, y);
+        if (m_chartView) m_chartView->setChart(chart);
+    }
+    LoadAllCheckBoxes();
+    // 同步复选状态到关键元素掩码
+    ApplyCheckStatusToKeyElements(dataIndex);
+    
+    // 直方图绘制完成后，启用关键/非关键区域量化等级
+    SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
+    SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, true);
+}
 
-        m_params.errorBoundSetting[GetCurrentDataIndex()].errorMode = iGame::ErrorMode::None;
+void igQtMeshCodecDialog::ShowRefreshButton()
+{
+    if (m_refreshButton && m_chartView) {
+        PositionRefreshButton();
+        m_refreshButton->setEnabled(true);
+        m_refreshButton->setVisible(true);
+        m_refreshButton->raise(); // 确保按钮在最上层
     }
 }
 
-void igQtMeshCodecDialog::on_radioDefaultErrorBound_toggled(bool checked)
+void igQtMeshCodecDialog::HideRefreshButton()
 {
-    if (checked) {
-        // 默认误差模式下，仅启用默认滑块控件
-        ui->sliderDefaultLevel->setEnabled(true);
-        ui->sliderKeyLevel->setEnabled(false);
-        ui->sliderNonKeyLevel->setEnabled(false);
-        ui->btnRefreshDataDist->setEnabled(false);
-
-        // 默认误差模式下，启用右侧量化方式选择
-        ui->radioMantissaTruncation->setEnabled(true);
-        ui->radioLogQuantization->setEnabled(true);
-
-        // 统一压缩等级模式下，启用全体数据设置按钮
-        ui->btnSetGlobalCompressMode->setEnabled(true);
-
-        DisableAllCheckBoxes();
-
-        m_params.errorBoundSetting[GetCurrentDataIndex()].errorMode = iGame::ErrorMode::Default;
+    if (m_refreshButton) {
+        m_refreshButton->setEnabled(false);
+        m_refreshButton->setVisible(false);
     }
 }
 
-void igQtMeshCodecDialog::on_radioKeyErrorBound_toggled(bool checked)
+void igQtMeshCodecDialog::PositionRefreshButton()
+{
+    if (m_refreshButton && m_chartView) {
+        // 将按钮居中放置在chartView中
+        int x = (m_chartView->width() - m_refreshButton->width()) / 2;
+        int y = (m_chartView->height() - m_refreshButton->height()) / 2;
+        m_refreshButton->move(x, y);
+    }
+}
+
+void igQtMeshCodecDialog::resizeEvent(QResizeEvent* event)
+{
+    QDialog::resizeEvent(event);
+    // 窗口大小改变时重新定位按钮
+    PositionRefreshButton();
+}
+
+void igQtMeshCodecDialog::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    // 窗口首次显示时定位按钮
+    PositionRefreshButton();
+}
+
+// 应用设置到全体数据或当前数据的辅助函数
+template<typename Func>
+void igQtMeshCodecDialog::ApplySettingToData(Func setter)
+{
+    int dataIndex = GetCurrentDataIndex();
+    if (!IsValidAttrIndex(dataIndex)) {
+        return;
+    }
+    
+    // 如果当前选择的是"全体数据"（索引0），则应用到所有数据项
+    if (dataIndex == 0) {
+        for (int i = 0; i < m_DataNum; i++) {
+            setter(m_params.errorBoundSetting[i]);
+        }
+    } else {
+        // 否则只修改当前数据项
+        setter(m_params.errorBoundSetting[dataIndex]);
+    }
+}
+
+void igQtMeshCodecDialog::on_radio_losslessMode_toggled(bool checked)
 {
     if (checked) {
-        // 区域误差模式下，仅启用关键区域和非关键区域滑块控件
-        ui->sliderDefaultLevel->setEnabled(false);
-        ui->sliderKeyLevel->setEnabled(true);
-        ui->sliderNonKeyLevel->setEnabled(true);
-        ui->btnRefreshDataDist->setEnabled(true);
+        // 无损：全部禁用
+        ApplyModeUI(true, false, false);
 
-        // 区域压缩模式下，禁用全体数据设置按钮
-        ui->btnSetGlobalCompressMode->setEnabled(false);
+        // 禁用并隐藏关键区域选择板块（内部已隐藏刷新按钮/复选框/图表）
+        ui->groupbox_dataDistGroup->setEnabled(false);
+        UpdateKeyAreaVisibility(false);
 
-        // 区域误差模式下，启用右侧量化方式选择
-        ui->radioMantissaTruncation->setEnabled(true);
-        ui->radioLogQuantization->setEnabled(true);
+        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
+            setting.errorMode = iGame::ErrorMode::None;
+        });
+        // 更新Combo前缀
+        int idx = GetCurrentDataIndex();
+        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        RecomputeDialogSize();
+    }
+}
 
-        m_params.errorBoundSetting[GetCurrentDataIndex()].errorMode = iGame::ErrorMode::KeyArea;
+void igQtMeshCodecDialog::on_radio_globalMode_toggled(bool checked)
+{
+    if (checked) {
+        // 全局：只启用全局量化
+        ApplyModeUI(false, true, false);
+
+        // 禁用并隐藏关键区域选择板块（内部已隐藏刷新按钮/复选框/图表）
+        ui->groupbox_dataDistGroup->setEnabled(false);
+        UpdateKeyAreaVisibility(false);
+
+        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
+            setting.errorMode = iGame::ErrorMode::Default;
+        });
+        // 更新Combo前缀
+        int idx = GetCurrentDataIndex();
+        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        RecomputeDialogSize();
+    }
+}
+
+void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
+{
+    if (checked) {
+        // 分区：启用关键/非关键两个量化
+        ApplyModeUI(false, false, true);
+
+        // 先写入模式参数，再显示区域并恢复直方图
+        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
+            setting.errorMode = iGame::ErrorMode::KeyArea;
+        });
+        // 更新Combo前缀
+        int idx = GetCurrentDataIndex();
+        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+
+        // 启用并显示关键区域选择板块
+        ui->groupbox_dataDistGroup->setEnabled(true);
+        UpdateKeyAreaVisibility(true);
+
+        // 若已有直方图，恢复显示；否则根据状态显示“产生直方图”按钮
+        LoadAttrFeatureWidget();
 
         EnableAllCheckBoxes();
+        UpdateRefreshButtonStateForCurrent();
     }
 }
 
-void igQtMeshCodecDialog::on_radioMantissaTruncation_toggled(bool checked)
+// 旧的文本框事件处理已废弃
+
+// ComboBox量化等级选择事件处理函数
+void igQtMeshCodecDialog::on_comboBox_globalLevel_currentIndexChanged(int index)
 {
-    m_params.errorBoundSetting[GetCurrentDataIndex()].lossyMode = iGame::LossyMode::MantissaTruncation;
+    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
+        setting.globalQuantizeLevel = index + 1;
+    });
 }
 
-void igQtMeshCodecDialog::on_radioLogQuantization_toggled(bool checked)
+void igQtMeshCodecDialog::on_comboBox_criticalLevel_currentIndexChanged(int index)
 {
-    m_params.errorBoundSetting[GetCurrentDataIndex()].lossyMode = iGame::LossyMode::Quantization;
+    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
+        setting.criticalQuantizeLevel = index;
+    });
 }
 
-// 原有输入框事件处理函数，已保留但注释
-/*
-void igQtMeshCodecDialog::on_txtDefaultError_textChanged(const QString& text)
+void igQtMeshCodecDialog::on_comboBox_normalLevel_currentIndexChanged(int index)
 {
-    m_params.errorBoundSetting[GetCurrentDataIndex()].defaultErrorBound = text.toFloat() / 100;
+    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
+        setting.normalQuantizeLevel = index;
+    });
 }
 
-void igQtMeshCodecDialog::on_txtKeyError_textChanged(const QString& text)
+void igQtMeshCodecDialog::on_checkbox_showReport_stateChanged(int state)
 {
-    m_params.errorBoundSetting[GetCurrentDataIndex()].keyAreaErrorBound = text.toFloat() / 100;
-}
-
-void igQtMeshCodecDialog::on_txtNonKeyError_textChanged(const QString& text)
-{
-    m_params.errorBoundSetting[GetCurrentDataIndex()].nonKeyAreaErrorBound = text.toFloat() / 100;
-}
-*/
-
-// 新的滑块控件事件处理函数
-void igQtMeshCodecDialog::on_sliderDefaultLevel_valueChanged(int value)
-{
-    int dataIndex = GetCurrentDataIndex();
-    if (!IsVaildAttrIndex(dataIndex)) {
-        return;
-    }
-    // 将滑块值（1-10）转为百分比（滑块值/10）
-    m_params.errorBoundSetting[dataIndex].defaultErrorBound = static_cast<float>(value) / 10.0f;
-    
-    // 更新数值显示
-    ui->lblPercent1->setText(QString::number(value));
-}
-
-void igQtMeshCodecDialog::on_sliderKeyLevel_valueChanged(int value)
-{
-    int dataIndex = GetCurrentDataIndex();
-    if (!IsVaildAttrIndex(dataIndex)) {
-        return;
-    }
-    // 将滑块值（1-10）转为百分比（滑块值/10）
-    m_params.errorBoundSetting[dataIndex].keyAreaErrorBound = static_cast<float>(value) / 10.0f;
-    
-    // 更新数值显示
-    ui->lblPercent2->setText(QString::number(value));
-}
-
-void igQtMeshCodecDialog::on_sliderNonKeyLevel_valueChanged(int value)
-{
-    int dataIndex = GetCurrentDataIndex();
-    if (!IsVaildAttrIndex(dataIndex)) {
-        return;
-    }
-    // 将滑块值（1-10）转为百分比（滑块值/10）
-    m_params.errorBoundSetting[dataIndex].nonKeyAreaErrorBound = static_cast<float>(value) / 10.0f;
-    
-    // 更新数值显示
-    ui->lblPercent3->setText(QString::number(value));
-}
-
-void igQtMeshCodecDialog::on_cbVisualizeError_stateChanged(int state)
-{
-    m_params.visualError = (state == 2);
-}
-
-void igQtMeshCodecDialog::on_cbShowReport_stateChanged(int state)
-{
-    m_params.showReport = ui->cbShowReport->isChecked();
+    m_params.showReport = ui->checkbox_showReport->isChecked();
 }
 
 void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
@@ -563,6 +663,23 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     std::vector<int> yAxis;
 
     CalFeatureHistogram(xAxis, yAxis);
+
+    // 缓存 x/y 数据供切换复用
+    int idx = GetCurrentDataIndex();
+    if (IsValidAttrIndex(idx)) {
+        m_attrFeatureDatas[idx].xAxis = xAxis;
+        m_attrFeatureDatas[idx].yAxis = yAxis;
+    }
+
+    // 若为空数据，直接清空并返回，避免 front()/back() 越界
+    if (xAxis.empty() || yAxis.empty()) {
+        chart->removeAllSeries();
+        foreach(QAbstractAxis * axis, chart->axes()) {
+            chart->removeAxis(axis);
+        }
+        chart->legend()->setVisible(false);
+        return;
+    }
 
     chart->removeAllSeries();
     foreach(QAbstractAxis * axis, chart->axes()) {
@@ -573,142 +690,191 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     QValueAxis* axisX = new QValueAxis();
     QValueAxis* axisY = new QValueAxis();
 
-    // Setup X axis with scientific notation
-
-    axisX->setRange(xAxis.front(), xAxis.back());
-    axisX->setTickCount(xAxis.size());
+    // 轴范围健壮性：若前后相等，增加微小扩展
+    float minX = xAxis.front();
+    float maxX = xAxis.back();
+    if (minX == maxX) { minX -= 1e-6f; maxX += 1e-6f; }
+    axisX->setRange(minX, maxX);
+    axisX->setTickCount(static_cast<int>(xAxis.size()));
     axisX->setLabelFormat("%.3e");
     axisX->setLabelsAngle(70);
     chart->addAxis(axisX, Qt::AlignBottom);
 
-    // Setup Y axis with integer format
     int maxY = *std::max_element(yAxis.begin(), yAxis.end());
-    axisY->setRange(0, maxY * 1.05); // 5% margin
+    double upperY = (maxY > 0) ? (maxY * 1.05) : 1.0; // 避免 Y 轴上下界相等
+    axisY->setRange(0, upperY);
     axisY->setTickCount(5);
     axisY->setLabelFormat("%d");
     chart->addAxis(axisY, Qt::AlignLeft);
 
-    // Create a series for each bar in the histogram
     for (size_t i = 0; i < yAxis.size(); i++) {
         QLineSeries* lowerLine = new QLineSeries();
         QLineSeries* upperLine = new QLineSeries();
         QAreaSeries* barSeries = new QAreaSeries();
 
-        // Create the bar shape using points
         float x1 = xAxis[i];
         float x2 = xAxis[i + 1];
 
-        // Lower line (at y=0)
         *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
-
-        // Upper line (at y=count)
         *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
 
-        // Create area between lower and upper lines
         barSeries->setLowerSeries(lowerLine);
         barSeries->setUpperSeries(upperLine);
 
-        // Style the bar
-        barSeries->setColor(QColor(0, 114, 189)); // Blue color
+        barSeries->setColor(QColor(0, 114, 189));
         barSeries->setBorderColor(QColor(0, 114, 189));
 
-        // Add to chart
         chart->addSeries(barSeries);
-
-        // Attach axes
         barSeries->attachAxis(axisX);
         barSeries->attachAxis(axisY);
     }
 
-    // Additional styling
     chart->setBackgroundVisible(false);
     chart->setPlotAreaBackgroundVisible(true);
     chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
     chart->setPlotAreaBackgroundPen(Qt::NoPen);
 }
 
-
-void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::vector<int>& yAxis) // bins_num == 10
+void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std::vector<float>& xAxis, const std::vector<int>& yAxis)
 {
-    int featureIndex = GetCurrentFeatureIndex();
+    if (!chart || xAxis.empty() || yAxis.empty()) return;
+
+    chart->removeAllSeries();
+    foreach(QAbstractAxis * axis, chart->axes()) {
+        chart->removeAxis(axis);
+    }
+    chart->legend()->setVisible(false);
+
+    QValueAxis* axisX = new QValueAxis();
+    QValueAxis* axisY = new QValueAxis();
+
+    float minX = xAxis.front();
+    float maxX = xAxis.back();
+    if (minX == maxX) { minX -= 1e-6f; maxX += 1e-6f; }
+    axisX->setRange(minX, maxX);
+    axisX->setTickCount(static_cast<int>(xAxis.size()));
+    axisX->setLabelFormat("%.3e");
+    axisX->setLabelsAngle(70);
+    chart->addAxis(axisX, Qt::AlignBottom);
+
+    int maxY = *std::max_element(yAxis.begin(), yAxis.end());
+    double upperY = (maxY > 0) ? (maxY * 1.05) : 1.0;
+    axisY->setRange(0, upperY);
+    axisY->setTickCount(5);
+    axisY->setLabelFormat("%d");
+    chart->addAxis(axisY, Qt::AlignLeft);
+
+    for (size_t i = 0; i < yAxis.size(); i++) {
+        QLineSeries* lowerLine = new QLineSeries();
+        QLineSeries* upperLine = new QLineSeries();
+        QAreaSeries* barSeries = new QAreaSeries();
+
+        float x1 = xAxis[i];
+        float x2 = xAxis[i + 1];
+
+        *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
+        *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
+
+        barSeries->setLowerSeries(lowerLine);
+        barSeries->setUpperSeries(upperLine);
+
+        barSeries->setColor(QColor(0, 114, 189));
+        barSeries->setBorderColor(QColor(0, 114, 189));
+
+        chart->addSeries(barSeries);
+        barSeries->attachAxis(axisX);
+        barSeries->attachAxis(axisY);
+    }
+
+    chart->setBackgroundVisible(false);
+    chart->setPlotAreaBackgroundVisible(true);
+    chart->setPlotAreaBackgroundBrush(QBrush(Qt::white));
+    chart->setPlotAreaBackgroundPen(Qt::NoPen);
+}
+
+// 旧实现：均匀分箱，无需按 bin 宽度动态伸展
+
+
+void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::vector<int>& yAxis)
+{
     int dataIndex = GetCurrentDataIndex();
 
-    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
+    if (!IsValidAttrIndex(dataIndex))
         return;
 
-    iGame::MeshCodecFeature* featureExtractor = new iGame::MeshCodecFeature(this->m_dataObj, dataIndex);
-    std::vector<float> norms;
-    switch (FeatureName(featureIndex))
-    {
-    //case FeatureName::Vortex:
-    //{
-    //    // 每个元素矢量为[v1, v2, v3]或[v1, v2], 结果均是三维矢量序列, 元素矢量三维时结果矢量维度均有值, 元素矢量二维时结果矢量只有z有值
-    //    std::vector<std::vector<float>> result = featureExtractor->GetDataPointVortex();
-    //    L2Norm(result, norms);
-    //    break;
-    //}
-    case FeatureName::Laplacian:
-    {
-        // 每个元素矢量为[v1, v2, ...], 每个分量有一个算子结果
-        std::vector<std::vector<float>> result = featureExtractor->GetDataPointLaplacian();
-        L2Norm(result, norms);
-        break;
-    }
-    case FeatureName::Gradient:
-    {
-        // 每个元素矢量为[v1, v2, ...], 每个矢量拥有一个雅可比矩阵
-        std::vector<std::vector<std::array<float, 3>>> result = featureExtractor->GetDataPointGradient();
-        FrobeniusNorm(result, norms);
-        break;
-    }
+    // 0号为“全部数据”，不参与特征直方图计算，防御性短路
+    if (dataIndex == 0) {
+        xAxis.clear();
+        yAxis.clear();
+        return;
     }
 
-    for (auto& val : norms) {
-        // 避免对0或负数取对数
-        if (val > 0) {
-            val = std::log10(val);
-        }
-        else {
-            val = std::numeric_limits<float>::lowest();  // 对于0或负值使用一个很小的值
-        }
+    // UI 索引：0=全部数据(不用于特征)，1=几何，2+=属性
+    // MeshCodecFeature 期望：1=几何，其他属性用 (uiIndex-1)
+    int featIndex = (dataIndex <= 1) ? dataIndex : (dataIndex - 1);
+    iGame::MeshCodecFeature* featureExtractor = new iGame::MeshCodecFeature(this->m_dataObj, featIndex);
+    std::vector<float> norms;
+    
+    // 使用梯度 Frobenius 范数并进行对数缩放，参考历史实现
+    std::vector<std::vector<std::array<float, 3>>> result = featureExtractor->GetDataPointGradient();
+    FrobeniusNorm(result, norms);
+    for (auto& v : norms) {
+        if (v > 0.0f) v = std::log10(v);
+        else v = std::numeric_limits<float>::lowest();
+    }
+
+    // 空数据防御：无元素则返回空轴，避免后续 min/max 未定义
+    if (norms.empty()) {
+        xAxis.clear();
+        yAxis.clear();
+        return;
     }
 
     // Find min and max values
     float minVal = *std::min_element(norms.begin(), norms.end());
     float maxVal = *std::max_element(norms.begin(), norms.end());
 
-    // Handle case where all values are the same
+    // Handle case where all values are the same（单柱方案，避免越界）
     if (minVal == maxVal) {
-        xAxis = { minVal, maxVal };
-        yAxis = { (int)norms.size() };
+        // 初始化为 m_binNum 等宽的极小范围，放入第0个 bin
+        const float eps = 1e-6f;
+        xAxis.resize(m_binNum + 1);
+        float start = minVal - (m_binNum / 2.0f) * (eps / std::max(1, m_binNum));
+        for (int i = 0; i <= m_binNum; ++i) {
+            xAxis[i] = start + i * (eps / std::max(1, m_binNum));
+        }
+        yAxis.assign(m_binNum, 0);
+        yAxis[0] = static_cast<int>(norms.size());
+
+        // 分箱索引：全部元素归入第0个 bin，避免勾选越界
+        m_attrFeatureDatas[dataIndex].idInBins.assign(m_binNum, {});
+        for (igIndex id = 0; id < static_cast<igIndex>(norms.size()); ++id) {
+            m_attrFeatureDatas[dataIndex].idInBins[0].push_back(id);
+        }
+        // 根据当前复选状态应用到关键元素掩码
+        ApplyCheckStatusToKeyElements(dataIndex);
     }
     else
     {
-        // Calculate bin width
+        // 均匀分箱
         float binWidth = (maxVal - minVal) / m_binNum;
-
-        // Initialize histogram containers
         xAxis.resize(m_binNum + 1);
-        yAxis.resize(m_binNum, 0.0f);
-
-        // Populate xAxis with bin centers
-        xAxis[0] = minVal;
-        for (int i = 1; i <= m_binNum; ++i) {
+        yAxis.assign(m_binNum, 0);
+        for (int i = 0; i < m_binNum; ++i) {
             xAxis[i] = minVal + i * binWidth;
         }
-        xAxis[m_binNum] = maxVal; // 填平
+        xAxis[m_binNum] = maxVal;
 
-        // Calculate histogram
-        m_attrFeatureDatas[dataIndex][featureIndex].idInBins.resize(m_binNum);
-        for (igIndex id = 0; id < norms.size(); id++)
-        {
+        m_attrFeatureDatas[dataIndex].idInBins.assign(m_binNum, {});
+        for (igIndex id = 0; id < norms.size(); id++) {
             float norm = norms[id];
             if (norm < minVal || norm > maxVal) continue;
-
             int binIndex = std::min(static_cast<int>((norm - minVal) / binWidth), m_binNum - 1);
             yAxis[binIndex]++;
-            m_attrFeatureDatas[dataIndex][featureIndex].idInBins[binIndex].push_back(id);
+            m_attrFeatureDatas[dataIndex].idInBins[binIndex].push_back(id);
         }
+        // 根据当前复选状态应用到关键元素掩码
+        ApplyCheckStatusToKeyElements(dataIndex);
     }
 }
 
@@ -728,6 +894,8 @@ void igQtMeshCodecDialog::FrobeniusNorm(
         result.push_back(std::sqrt(sumSquared));
     }
 }
+
+// 保留谱范数的实现仅在需要时使用
 
 // for laplacian & vortex
 void igQtMeshCodecDialog::L2Norm(
@@ -772,48 +940,10 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
     accept();
 }
 
-void igQtMeshCodecDialog::on_btnCancel_clicked()
+void igQtMeshCodecDialog::on_button_cancel_clicked()
 {
     // 关闭对话框并返回拒绝结果
     reject();
-}
-
-void igQtMeshCodecDialog::on_btnSetGlobalCompressMode_clicked()
-{
-    int featureIndex = GetCurrentFeatureIndex();
-    int dataIndex = GetCurrentDataIndex();
-
-    if (!IsVaildAttrIndex(dataIndex) || !IsVaildFeatureIndex(featureIndex))
-        return;
-
-    // if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea)
-    // {
-    //     QMessageBox::information(this, "提示", "不能将区域压缩等级设置应用于全体数据");
-    //     return;
-    // }
-
-    auto copySetting = m_params.errorBoundSetting[dataIndex];
-
-    for (int i = 0; i < m_DataNum; i++)
-    {
-        auto& curSetting = m_params.errorBoundSetting[i];
-        if (curSetting.errorMode != iGame::ErrorMode::KeyArea)
-        {
-            curSetting.defaultErrorBound = copySetting.defaultErrorBound;
-            curSetting.lossyMode = copySetting.lossyMode;
-            curSetting.errorMode = copySetting.errorMode;
-        }
-    }
-}
-
-void igQtMeshCodecDialog::updateAttributeDisplay()
-{
-    int dataIndex = GetCurrentDataIndex();
-    if (dataIndex < 0 || dataIndex >= m_DataNum)
-        return;
-
-    // 更新标题
-    ui->lblAttributeTitle->setText(tr("属性误差界设置 - %1").arg(QString::fromStdString(m_params.errorBoundSetting[dataIndex].dataName)));
 }
 
 void igQtMeshCodecDialog::ShowReportDialog(const std::vector<std::pair<std::string, std::string>>& report)
@@ -856,4 +986,137 @@ void igQtMeshCodecDialog::ShowReportDialog(const std::vector<std::pair<std::stri
 
     // 对话框关闭后自动删除
     dialog->deleteLater();
+}
+
+void igQtMeshCodecDialog::UpdateKeyAreaVisibility(bool show)
+{
+    if (!ui || !ui->groupbox_dataDistGroup) return;
+
+    // 使用 QStackedWidget 切换空页/真实内容，空页高度为0
+    if (m_keyAreaStack) {
+        if (show) {
+            m_keyAreaStack->setCurrentIndex(1);
+            m_keyAreaStack->setMaximumHeight(QWIDGETSIZE_MAX);
+            m_keyAreaStack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+            ui->groupbox_dataDistGroup->show();
+        } else {
+            m_keyAreaStack->setCurrentIndex(0);
+            // 关键：把堆叠控件本身设为 Fixed 并限制最大高度为0，防止占据剩余空间
+            m_keyAreaStack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+            m_keyAreaStack->setMaximumHeight(0);
+            ui->groupbox_dataDistGroup->hide();
+            HideRefreshButton();
+            HideAllCheckBoxes();
+            ClearCurrentHistogram();
+            // 防御性：仅禁用复选框容器，保留缓存与分箱索引
+            DisableAllCheckBoxes();
+        }
+        m_keyAreaStack->updateGeometry();
+    } else {
+        // 兜底
+        ui->groupbox_dataDistGroup->setVisible(show);
+        ui->groupbox_dataDistGroup->setMaximumHeight(show ? QWIDGETSIZE_MAX : 0);
+        ui->groupbox_dataDistGroup->setMinimumHeight(show ? 0 : 0);
+    }
+
+    RecomputeDialogSize();
+}
+
+void igQtMeshCodecDialog::RecomputeDialogSize()
+{
+    if (auto lay = this->layout()) {
+        lay->setSizeConstraint(QLayout::SetMinAndMaxSize);
+        lay->invalidate();
+        lay->activate();
+    }
+    this->setMinimumHeight(0);
+    QTimer::singleShot(0, this, [this]() {
+        this->adjustSize();
+        this->resize(this->width(), this->sizeHint().height());
+    });
+}
+
+void igQtMeshCodecDialog::SetComboAndLabelEnabled(QComboBox* combo, QLabel* label, bool enabled)
+{
+    if (!combo || !label) return;
+    combo->setEnabled(enabled);
+    label->setEnabled(enabled);
+    label->setStyleSheet(enabled ? "" : "QLabel { color: gray; }");
+}
+
+void igQtMeshCodecDialog::ApplyModeUI(bool lossless, bool global, bool area)
+{
+    // lossless: 全部禁用
+    if (lossless) {
+        SetComboAndLabelEnabled(ui->comboBox_globalLevel, ui->label_global, false);
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
+        return;
+    }
+
+    // global: 只启用全局
+    if (global) {
+        SetComboAndLabelEnabled(ui->comboBox_globalLevel, ui->label_global, true);
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
+        return;
+    }
+
+    // area: 关键/非关键初始时禁用，仅在直方图绘制后启用
+    if (area) {
+        SetComboAndLabelEnabled(ui->comboBox_globalLevel, ui->label_global, false);
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
+    }
+}
+
+void igQtMeshCodecDialog::UpdateRefreshButtonStateForCurrent()
+{
+    int dataIndex = GetCurrentDataIndex();
+    if (dataIndex < 0 || dataIndex >= m_DataNum) { HideRefreshButton(); return; }
+
+    // 仅在分区模式且当前数据未生成直方图时显示按钮
+    if (ui->radio_areaModel->isChecked()) {
+        if (m_attrFeatureDatas[dataIndex].genStatus == FeatureHistoGenStatus::No) {
+            ShowRefreshButton();
+        } else {
+            HideRefreshButton();
+        }
+    } else {
+        HideRefreshButton();
+    }
+}
+
+void igQtMeshCodecDialog::SetRadiosFromErrorMode(iGame::ErrorMode mode)
+{
+    // 阻断信号，避免反复触发 UI 逻辑
+    QSignalBlocker b1(ui->radio_losslessMode);
+    QSignalBlocker b2(ui->radio_globalMode);
+    QSignalBlocker b3(ui->radio_areaModel);
+    ui->radio_losslessMode->setChecked(mode == iGame::ErrorMode::None);
+    ui->radio_globalMode->setChecked(mode == iGame::ErrorMode::Default);
+    ui->radio_areaModel->setChecked(mode == iGame::ErrorMode::KeyArea);
+}
+
+// 将当前属性的分箱勾选状态应用到关键元素掩码
+void igQtMeshCodecDialog::ApplyCheckStatusToKeyElements(int dataIndex)
+{
+    if (!IsValidAttrIndex(dataIndex)) return;
+    if (m_attrFeatureDatas.size() <= dataIndex) return;
+    if (m_params.errorBoundSetting.size() <= dataIndex) return;
+
+    const auto& bins = m_attrFeatureDatas[dataIndex].idInBins;
+    const auto& checks = m_attrFeatureDatas[dataIndex].checkStatus;
+    if (bins.size() != checks.size()) return; // 尚未完成分箱
+
+    auto& keyMask = m_params.errorBoundSetting[dataIndex].isKeyElement;
+    if (keyMask.empty()) return;
+
+    std::fill(keyMask.begin(), keyMask.end(), false);
+    for (int b = 0; b < (int)bins.size(); ++b) {
+        if (!checks[b]) continue;
+        for (auto idx : bins[b]) {
+            if (idx >= 0 && idx < (int)keyMask.size()) keyMask[idx] = true;
+        }
+    }
 }

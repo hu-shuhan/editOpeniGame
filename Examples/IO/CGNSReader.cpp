@@ -14,7 +14,7 @@ void TestCGNSReader(){
     /* 创建场景*/
     auto scene = iGame::Scene::New();
     /* Test CGNS File Reader's output. Add it into Scene*/
-    const std::string fileName = "./Models/bump.cgns";
+    const std::string fileName = "./Models/F6-coarse-vol-v2.cgns";
     iGame::iGameCGNSReader::Pointer reader = iGame::iGameCGNSReader::New();
     auto obj = reader->ReadFile(fileName);
     if (obj == nullptr) {

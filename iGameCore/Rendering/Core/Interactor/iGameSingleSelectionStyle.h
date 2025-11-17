@@ -2,6 +2,7 @@
 #define IGAMEVIS_SINGLE_SELECTION_STYLE_H
 
 #include "iGameSelectionStyle.h"
+#include <array>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,7 @@ private:
     std::pair<Point, Point> GetStartPointAndEndPoint(igm::vec2 pos);
 
 public:
+    //########### NORMAL SELECT ###########
     static std::vector<int>
     GetPointsInCondition(const Point& startPoint, const Point& endPoint,
                          UnstructuredMesh* mesh, double radius = 0.0,
@@ -38,6 +40,40 @@ public:
                         double autoSelectExpdRate = 1.0,
                         bool selectIgnoreUnSeeAbleCells = false,
                         bool onlySelectSeeAbleCells = false);
+    //########### MODE SELECT ###########
+    static std::vector<int> GetPointsInRadiusMode(const Point& startPoint,
+                                                  const Point& endPoint,
+                                                  UnstructuredMesh* mesh,
+                                                  double radius = 0.0);
+
+    static std::vector<int>
+    GetCellsInRadiusMode(const Point& startPoint, const Point& endPoint,
+                         UnstructuredMesh* mesh, double radius = 0.0,
+                         bool selectIgnoreUnSeeAbleCells = false,
+                         bool onlySelectSeeAbleCells = false);
+
+    static std::vector<int>
+    GetPointsInCtMode(const Point& startPoint, const Point& endPoint,
+                      UnstructuredMesh* mesh, double radius = 0.0,
+                      int variableIndex = -1, double autoSelectExpdRate = 1.0);
+
+    static std::vector<int>
+    GetCellsInCtMode(const Point& startPoint, const Point& endPoint,
+                     UnstructuredMesh* mesh, double radius = 0.0,
+                     int variableIndex = -1, double autoSelectExpdRate = 1.0,
+                     bool selectIgnoreUnSeeAbleCells = false,
+                     bool onlySelectSeeAbleCells = false);
+
+    static std::vector<int>
+    GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                   UnstructuredMesh* mesh);
+
+    static std::vector<int>
+    GetCellsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                  UnstructuredMesh* mesh, bool onlySelectSeeAbleCells = false);
+
+
+    //########### OTHER FUNCS ###########
     static std::vector<int>
     GetFiltedPointsOfUsingAutoValueRange(int keyPointId,
                                          const std::vector<int>& pointIds,

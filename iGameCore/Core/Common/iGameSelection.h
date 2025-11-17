@@ -120,6 +120,22 @@ public:
 #define SetClearSelectionCallBackEvent(functor, ...)                                                                   \
     _SetClearSelectionCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
+    template<typename Functor, typename... Args>
+    void _SetBoxSelectInitCallBackEvent(std::string funcKey, Functor&& functor, Args&&... args) {
+        std::function<void(IGenum itemType, const Point& p1, const Point& p2)> func =
+                std::bind(std::forward<Functor>(functor), std::forward<Args>(args)...);
+        m_BoxSelectInitCallBackFunctor[funcKey] = func;
+    }
+
+    void _SetBoxSelectInitCallBackEvent_(
+            const std::string& funcName,
+            const std::function<void(IGenum itemType, const Point& p1, const Point& p2)>& func) {
+        m_BoxSelectInitCallBackFunctor[funcName] = func;
+    }
+
+#define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
+    _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
+
     Points* GetPoints() { return m_Points; }
     CellArray* GetCells() { return m_Cells; }
     Model* GetModel() { return m_Model; }
@@ -127,8 +143,7 @@ public:
     void SetCells(CellArray* c) { m_Cells = c; }
     void SetModel(Model* m) { m_Model = m; }
 
-    void SetSeeAbleFaces(const std::vector<int>& seeAbleFaces);
-    const std::vector<int>& GetSeeAbleFaces();
+    const std::vector<int>& GetSeeAbleCells(UnstructuredMesh* mesh);
 
     void SetSelectItemVisable(bool visable);
     void SetSelectBoxVisable(bool visable);
@@ -136,6 +151,8 @@ public:
 protected:
     Selection() {}
     ~Selection() override = default;
+
+    void SetBoxStyle(const std::pair<Point, Point>& p);
 
     //std::function<void(Event)> m_Functor;
 
@@ -145,17 +162,20 @@ protected:
     std::map<std::string, std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Operate ope)>>
             m_CallBackFunctor;
     std::map<std::string, std::function<void()>> m_ClearSelectionCallBackFunctor;
+    std::map<std::string, std::function<void(IGenum itemType, const Point& p1, const Point& p2)>>
+            m_BoxSelectInitCallBackFunctor;
 
     void AddItem(IGenum itemType, const igIndex& itemId, Operate ope);
     void DrawPoints();
     void DrawCellEdges();
+    void DrawBoundingBox(const std::pair<Point, Point>& p);
     void DrawCellBoundingBoxs();
     UnstructuredMesh* _GetMesh();
 
     std::map<IGenum, std::set<igIndex>> m_SelectedItems;
     CellFaceExtracter m_CellFaceExtracter;
 
-    std::vector<int> m_SeeAbleFaces; //pointIds,CellId
+    std::vector<int> m_SeeAbleCells; //pointIds,CellId
 
     Points* m_Points{nullptr};
     CellArray* m_Cells{nullptr};

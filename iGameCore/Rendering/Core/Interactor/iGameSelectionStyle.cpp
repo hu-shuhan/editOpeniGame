@@ -40,10 +40,10 @@ void SelectionStyle::MousePressEvent(IEvent event) {
     BasicStyle::MousePressEvent(event);
 }
 
-void SelectionStyle::LeftButtonMouseMove() {}
+void SelectionStyle::LeftButtonMouseMove() { BasicStyle::ModelRotation(); }
 
-void SelectionStyle::RightButtonMouseMove() { BasicStyle::ModelRotation(); }
+void SelectionStyle::RightButtonMouseMove() { BasicStyle::ViewTranslation(); }
 
-void SelectionStyle::MiddleButtonMouseMove() { BasicStyle::ViewTranslation(); }
+void SelectionStyle::MiddleButtonMouseMove() {}
 
 IGAME_NAMESPACE_END

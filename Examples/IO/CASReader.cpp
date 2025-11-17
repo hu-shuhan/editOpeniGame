@@ -1,29 +1,49 @@
-#include <iGameScene.h>
+#include <Fluent/iGameCASReader.h>
+#include <cstdlib>
+#include <filesystem>
 #include <iGameFileIO.h>
 #include <iGameRenderWindow.h>
-#include <filesystem>
+#include <iGameScene.h>
 #include <iostream>
-#include <cstdlib>
-
 namespace fs = std::filesystem;
 int main() {
-    std::string exePath = "../../ThirdParty/Python/pyFluentLib/cas_converter.exe";
-    std::string casPath = "./Models/room.cas";
-    std::string outputDir = "./Models";
-    fs::path inputPath(casPath);
-    fs::path outputFile = fs::path(outputDir) / (inputPath.stem().string() + ".vtk");
-
-    std::string arguments = "--input \"" + casPath + "\" --output \"" + outputDir + "\"";
-    std::string fullCommand = "\"" + exePath + "\" " + arguments;
-
-    
-    int returnCode = system(fullCommand.c_str());
-    if (returnCode == 0) {
-        std::cout << "Success to  transfer CAS to VTK" << std::endl;
+    // std::string exePath = "../../ThirdParty/Python/pyFluentLib/cas_converter.exe";
+    // std::string casPath = "./Models/room.cas";
+    // std::string outputDir = "./Models";
+    // fs::path inputPath(casPath);
+    // fs::path outputFile = fs::path(outputDir) / (inputPath.stem().string() + ".vtk");
+    //
+    // std::string arguments = "--input \"" + casPath + "\" --output \"" + outputDir + "\"";
+    // std::string fullCommand = "\"" + exePath + "\" " + arguments;
+    //
+    //
+    // int returnCode = system(fullCommand.c_str());
+    // if (returnCode == 0) {
+    //     std::cout << "Success to  transfer CAS to VTK" << std::endl;
+    // } else {
+    //     std::cerr << "Error to transfer CAS to VTK" << std::endl;
+    // }
+    auto casReader = iGame::CASReader::New();
+    auto scene = iGame::Scene::New();
+    std::string filePath = "./Models/room.cas";
+    casReader->SetFilePath(filePath);
+    casReader->Execute();
+    auto obj = casReader->GetOutput(0);
+    if (obj == nullptr) {
+        std::cout << "Read ERROR!\n";
     } else {
-        std::cerr << "Error to transfer CAS to VTK" << std::endl;
+        scene->AddModel(obj);
     }
 
+    iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
+    window->SetSize(1920, 1080);
+    window->SetScene(scene);
+    auto interactor = iGame::Interactor::New();
+    interactor->Initialize(scene);
+    interactor->CreateDefaultStyle();
+    window->SetInteractor(interactor);
+    window->Show();
+    return 0;
 
     auto scene = iGame::Scene::New();
     auto obj = iGame::FileIO::ReadFile(outputFile.string());
