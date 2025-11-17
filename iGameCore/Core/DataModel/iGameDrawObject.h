@@ -28,10 +28,10 @@ protected:
     ~DrawObject() override = default;
 
 public:
-    bool IsDrawable() override { return true; }       // 标识可以被渲染
-    virtual void ConvertToDrawableData();             //转化为可渲染模式（当前对象及其所有子对象）
+    bool IsDrawable() override { return true; } // 标识可以被渲染
+    virtual void ConvertToDrawableData();       //转化为可渲染模式（当前对象及其所有子对象）
     void ForceReConvertToDrawableData() { m_ReConvertToDrawableData = true; } // 强制触发重新映射
-    virtual bool IsUseSinglePassWireframeRendering(); // 是否使用单通道线框渲染
+    virtual bool IsUseSinglePassWireframeRendering();                         // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;
 
@@ -110,12 +110,13 @@ protected:
     static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
 
-    bool m_AutoUpdateDrawData; // 是否自动更新GPU数据
+    bool m_AutoUpdateDrawData;    // 是否自动更新GPU数据
     bool m_ShellRendering = true; // 是否启用抽壳渲染
 
     // 加速结构
     bool m_AccelerationOption = false;
 
+    bool m_IsMainRenderableObject = true; // 是否为主渲染对象
     struct RenderableMesh {
         DrawObject::Pointer SurfaceMesh = nullptr;    // 表面网格
         DrawObject::Pointer SimplifiedMesh = nullptr; // 简化后的网格

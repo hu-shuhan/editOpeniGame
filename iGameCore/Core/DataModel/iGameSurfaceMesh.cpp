@@ -731,7 +731,7 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 void SurfaceMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime()) {
         // 为统一架构，设置可绘制对象为自身
-        SetRenderableObject(this);
+        if (m_IsMainRenderableObject) { SetRenderableObject(this); }
 
         // 转换为可绘制数据
         GetDrawableArray(m_Positions, m_LineIndices, m_TriangleIndices, m_TriangleEdgeMasks);
