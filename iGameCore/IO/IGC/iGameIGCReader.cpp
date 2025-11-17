@@ -1,4 +1,5 @@
 #include "iGameIGCReader.h"
+#include "Log/iGameLogger.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -47,7 +48,7 @@ EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
 {
     std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << m_FilePath << std::endl;
+        IGAME_CORE_ERROR("Failed to open file: {}", m_FilePath);
         return nullptr;
     }
 
@@ -56,7 +57,7 @@ EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
     
     std::vector<char> buffer(fileSize);
     if (!file.read(buffer.data(), fileSize)) {
-        std::cerr << "Failed to read file: " << m_FilePath << std::endl;
+        IGAME_CORE_ERROR("Failed to read file: {}", m_FilePath);
         return nullptr;
     }
     file.close();

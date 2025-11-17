@@ -143,7 +143,7 @@ bool ConvertToSurfaceMesh::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
     
     // 体网格只支持提取表面网格模式，其他模式输出日志并使用默认模式
     if (m_ConvertMethod != IG_EXTRACT_SURFACE_MESH) {
-        igDebug("体网格不支持 " << m_ConvertMethod << " 模式，自动使用 IG_EXTRACT_SURFACE_MESH 模式");
+        igDebug("体网格不支持 {} 模式，自动使用 IG_EXTRACT_SURFACE_MESH 模式" , (uint32_t)m_ConvertMethod);
     }
     
     // 统一使用提取表面网格模式

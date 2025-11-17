@@ -27,7 +27,7 @@ FileWriter::~FileWriter()
 bool FileWriter::WriteToFile()
 {
 	if (!GenerateBuffers()) {
-		igDebug("Could not generate buffer to load.");
+		IGAME_CORE_ERROR("Could not generate buffer to load.");
 		return false;
 	}
 	return SaveBufferDataToFile();
@@ -127,7 +127,7 @@ bool FileWriter::SaveBufferDataToFileWithWindows()
 	CloseHandle(hFile);
 
 	clock_t time_2 = clock();
-	std::cout << "Write buffer to file cost " << time_2 - time_1 << "ms\n";
+    IGAME_CORE_TRACE("Write buffer to file cost {} ms", time_2 - time_1);
 #endif
 	return true;
 }
@@ -181,7 +181,7 @@ bool FileWriter::SaveBufferDataToFileWithLinux()
 	}
 	close(fd);
 
-	std::cout << "Write buffer to file with mmap (Linux) successful.\n";
+    IGAME_CORE_TRACE("Write buffer to file with mmap (Linux) successful.")
 
 #endif
 	return true;
@@ -233,8 +233,7 @@ bool FileWriter::SaveBufferDataToFileWithMac()
 		perror("munmap failed");
 	}
 	close(fd);
-
-	std::cout << "Write buffer to file with mmap (macOS) successful.\n";
+    IGAME_CORE_TRACE("Write buffer to file with mmap (macOS) successful.")
 #endif
 	return true;
 }

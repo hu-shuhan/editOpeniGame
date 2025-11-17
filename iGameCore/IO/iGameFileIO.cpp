@@ -305,8 +305,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     out.append(", time: ");
     out.append(FormatTime(end - start));
     out.append("]");
-    //igDebug(out);
-    std::cout << out << std::endl;
+    igDebug(out);
 
     if (resObj && resObj->GetAttributeSet()) { resObj->GetAttributeSet()->TransformScalars2VectorArray(); }
     return resObj;
@@ -323,7 +322,7 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
     start = clock();
     switch (fileType) {
         case NONE: {
-            std::cout << "Not support write this type!\n";
+            IGAME_CORE_ERROR("Not support write this type!");
             break;
         }
         case VTK: {
@@ -405,7 +404,7 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
     out.append(FormatTime(end - start));
     out.append("]");
     //igDebug(out);
-    std::cout << out << std::endl;
+    IGAME_CORE_DEBUG("{}", out);
     return result;
 }
 IGAME_NAMESPACE_END

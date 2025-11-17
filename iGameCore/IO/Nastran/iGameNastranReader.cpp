@@ -114,7 +114,7 @@ bool NastranReader::Parsing() {
     int returnCode = system(fullCommand.c_str());
 
     if (returnCode == 0) {
-        IGAME_TRACE("Success to  transfer Nastran to VTK");
+        IGAME_CORE_DEBUG("Success to  transfer Nastran to VTK");
     } else {
         IGAME_ERROR("Error to transfer Nastran to VTK");
     }

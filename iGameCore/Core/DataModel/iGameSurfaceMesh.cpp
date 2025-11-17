@@ -927,8 +927,7 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
             }
         }
     }
-
-    std::cout << "Get draw array cost " << timer->ElapsedMilliseconds() << "ms\n";
+    IGAME_CORE_DEBUG("Get draw array cost {} ms.", timer->ElapsedMilliseconds());
 }
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,

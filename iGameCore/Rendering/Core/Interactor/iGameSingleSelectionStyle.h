@@ -2,6 +2,7 @@
 #define IGAMEVIS_SINGLE_SELECTION_STYLE_H
 
 #include "iGameSelectionStyle.h"
+#include <array>
 #include <utility>
 #include <vector>
 
@@ -63,10 +64,15 @@ public:
                      bool selectIgnoreUnSeeAbleCells = false,
                      bool onlySelectSeeAbleCells = false);
 
+    static std::vector<int>
+    GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                   UnstructuredMesh* mesh);
+
+    static std::vector<int>
+    GetCellsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                  UnstructuredMesh* mesh, bool onlySelectSeeAbleCells = false);
 
 
-
-    
     //########### OTHER FUNCS ###########
     static std::vector<int>
     GetFiltedPointsOfUsingAutoValueRange(int keyPointId,

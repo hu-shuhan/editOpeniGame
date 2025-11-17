@@ -212,8 +212,7 @@ iGameClipper::Pointer DrawObject::GetClipper() { return m_Clipper; }
 
 void DrawObject::SetPointSize(float size) {
     if (size < 0) {
-        igDebug("Point size cannot be negative. Provided size: " << size
-                                                                 << ". Point size has been set to default value: 8.");
+        igDebug("Point size cannot be negative. Provided size: {}. Point size has been set to default value: 8." , size);
         size = 8.0f;
     }
 
@@ -234,8 +233,8 @@ int DrawObject::GetPointSize() { return m_PointSize; }
 
 void DrawObject::SetLineWidth(float size) {
     if (size < 0) {
-        igDebug("Line width cannot be negative. Provided size: " << size
-                                                                 << ". Line width has been set to default value: 1.");
+        igDebug("Line width cannot be negative. Provided size: {}. Line width has been set to default value: 1." , size
+                );
         size = 1.0f;
     }
 

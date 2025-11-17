@@ -154,10 +154,25 @@ void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIn
     // 更新参数中的属性名称
     const auto& errorBoundSetting = m_params.errorBoundSetting[dataIndex];
 
+    // 阻塞信号以避免在加载时触发change事件
+    ui->comboBox_globalLevel->blockSignals(true);
+    ui->comboBox_criticalLevel->blockSignals(true);
+    ui->comboBox_normalLevel->blockSignals(true);
+
     // 设置三个量化等级ComboBox的当前值
-    ui->comboBox_globalLevel->setCurrentIndex(errorBoundSetting.globalQuantizeLevel);
+    // 全局量化等级：ComboBox从索引1开始（跳过"无损"），所以需要-1映射
+    if (errorBoundSetting.globalQuantizeLevel > 0) {
+        ui->comboBox_globalLevel->setCurrentIndex(errorBoundSetting.globalQuantizeLevel - 1);
+    } else {
+        ui->comboBox_globalLevel->setCurrentIndex(0); // 默认FP24
+    }
     ui->comboBox_criticalLevel->setCurrentIndex(errorBoundSetting.criticalQuantizeLevel);
     ui->comboBox_normalLevel->setCurrentIndex(errorBoundSetting.normalQuantizeLevel);
+
+    // 恢复信号
+    ui->comboBox_globalLevel->blockSignals(false);
+    ui->comboBox_criticalLevel->blockSignals(false);
+    ui->comboBox_normalLevel->blockSignals(false);
 
     SetRadiosFromErrorMode(errorBoundSetting.errorMode);
 
@@ -233,11 +248,19 @@ void igQtMeshCodecDialog::LoadAttrFeatureWidget()
         LoadAllCheckBoxes();
         // 同步复选状态到关键元素掩码
         ApplyCheckStatusToKeyElements(dataIndex);
+        
+        // 已有直方图数据，启用关键/非关键区域量化等级
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, true);
     }
     else {
         // 没有数据，清空直方图并隐藏复选框
         ClearCurrentHistogram();
         HideAllCheckBoxes();
+        
+        // 没有直方图数据，禁用关键/非关键区域量化等级
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
         
         // 如果当前是分区量化模式，显示刷新按钮
         if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea) {
@@ -471,6 +494,10 @@ void igQtMeshCodecDialog::GenerateHistogram()
     LoadAllCheckBoxes();
     // 同步复选状态到关键元素掩码
     ApplyCheckStatusToKeyElements(dataIndex);
+    
+    // 直方图绘制完成后，启用关键/非关键区域量化等级
+    SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
+    SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, true);
 }
 
 void igQtMeshCodecDialog::ShowRefreshButton()
@@ -1035,11 +1062,11 @@ void igQtMeshCodecDialog::ApplyModeUI(bool lossless, bool global, bool area)
         return;
     }
 
-    // area: 关键/非关键启用
+    // area: 关键/非关键初始时禁用，仅在直方图绘制后启用
     if (area) {
         SetComboAndLabelEnabled(ui->comboBox_globalLevel, ui->label_global, false);
-        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
-        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, true);
+        SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, false);
+        SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
     }
 }
 

@@ -1,9 +1,11 @@
-#pragma once
+Ôªø#pragma once
 #include <iGameMacro.h>
 #include <iGameObject.h>
 #include <iGamePoints.h>
 #include <iGameSmartPointer.h>
 #include <array>
+#include <vector>
+#include <utility>
 IGAME_NAMESPACE_BEGIN
 class DynamicBox : public Object {
 protected:
@@ -15,8 +17,14 @@ public:
     enum OpeInt : int { UP = 0, BOTTOM = 1, LEFT = 2, RIGHT = 3, FRONT = 4, BACK = 5 };
     I_OBJECT(DynamicBox);
     static Pointer New(const Point& p1, const Point& p2) { return new DynamicBox(p1, p2); }
-    void MoveOpePoint(OpeInt pointIndex, const Point& direction);
-    void RotateBox(OpeInt face, const Point& direction);
+    void MoveOpePoint(OpeInt opePoint, const Point& direction);
+    void RotateBox(const Point& camera, const Point& direction);
+    void MovePosition(const Point& position);
+    const Point& GetMidPoint() const;
+    const std::array<Point, 6>& GetOpePoints() const;
+    std::vector<std::pair<Point, Point>> GetAllEdges() const;
+    std::array<std::array<Point, 4>, 6> GetAllFaces() const;
+    const Point& GetLength() const;
 
 private:
     //############ Ori Msg ############
@@ -32,12 +40,15 @@ private:
     void UpdateBoxFromOpePoint(OpeInt pointIndex, const Point& moveVector);
     Point LocalToWorld(const Point& localVec) const;
     void ApplyRotation(const Point& axis, double angle);
-    // –˝◊™æÿ’Ûº∆À„∫Õ±‰ªªœ‡πÿ∫Ø ˝
+    // ÊóãËΩ¨Áü©ÈòµËÆ°ÁÆóÂíåÂèòÊç¢Áõ∏ÂÖ≥ÂáΩÊï∞
     void GetRotationMatrix(double& r00, double& r01, double& r02, double& r10, double& r11, double& r12, double& r20,
                            double& r21, double& r22) const;
     Point ApplyRotationMatrix(const Point& point, double r00, double r01, double r02, double r10, double r11,
                               double r12, double r20, double r21, double r22) const;
     Point GetFaceLocalNormal(OpeInt face) const;
+    std::array<Point, 4> TransformFaceVertices(const std::array<Point, 4>& localVertices, double r00, double r01,
+                                               double r02, double r10, double r11, double r12, double r20, double r21,
+                                               double r22) const;
 };
 
 

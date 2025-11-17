@@ -176,6 +176,16 @@ void Interactor::SetPainter3D(SmartPointer<Painter3D> p) { m_Painter3D = p; }
 
 SmartPointer<Painter3D> Interactor::GetPainter3D() { return m_Painter3D; }
 
+SmartPointer<InteractorStyle>
+Interactor::GetSpecialInteractor(const std::string& interactorName) {
+    if (m_SpecialInternals.count(interactorName) == 0) return nullptr;
+    return m_SpecialInternals.at(interactorName);
+}
+
+bool Interactor::HaveSpecialInteractor(const std::string& interactorName) {
+    return m_SpecialInternals.count(interactorName) != 0;
+}
+
 bool Interactor::IsBasicStyle() const { return is_Base; }
 
 IGAME_NAMESPACE_END

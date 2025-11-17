@@ -1113,7 +1113,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer in
     delete[] FacePools;
     FacePools = nullptr;
     clock_t endTime = clock();
-    igDebug("Extracted surface cost " << endTime - startTime << "ms.");
+    igDebug("Extracted surface cost {} ms." , endTime - startTime);
     return 1;
 }
 

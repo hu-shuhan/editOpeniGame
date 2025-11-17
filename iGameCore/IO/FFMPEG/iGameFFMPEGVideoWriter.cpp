@@ -9,6 +9,7 @@
 #if defined(FFMPEG_ENABLE)
 
 #include "iGameFFMPEGVideoWriter.h"
+#include "Log/iGameLogger.h"
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -73,21 +74,21 @@ bool FFMPEGVideoWriter::SaveMP4() {
     // 创建输出格式
     avformat_alloc_output_context2(&formatContext, nullptr, "mp4", storagePath);
     if (!formatContext) {
-        std::cout << "Could not create output context";
+        IGAME_CORE_ERROR("Could not create output context");
         return false;
     }
 
     // 选择编码器
     const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_H264);
     if (!codec) {
-        std::cout  << "Codec not found";
+        IGAME_CORE_ERROR("Codec not found");
         return false;
     }
 //    std::cout << " codec ID " <<  (codec->id == formatContext->oformat->video_codec) << '\n';
     // 创建视频流
     videoStream = avformat_new_stream(formatContext, nullptr);
     if (!videoStream) {
-        std::cout  << "Could not create video stream";
+        IGAME_CORE_ERROR("Could not create video stream");
         return false;
     }
     // 设置编码器参数
@@ -108,7 +109,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
     // 打开编码器
     ret = avcodec_open2(codecContext, codec, nullptr);
     if (ret < 0) {
-        std::cout  << "Could not open codec";
+        IGAME_CORE_ERROR("Could not open codec");
         return false;
     }
 
@@ -122,7 +123,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
     if (!(formatContext->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&formatContext->pb, storagePath, AVIO_FLAG_WRITE);
         if (ret < 0) {
-            std::cout  << "Could not open output file";
+            IGAME_CORE_ERROR("Could not open output file");
             return false;
         }
     }
@@ -130,7 +131,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
     // 写入文件头
     ret = avformat_write_header(formatContext, nullptr);
     if (ret < 0) {
-        std::cout  << "Error occurred when writing header";
+        IGAME_CORE_ERROR("Error occurred when writing header");
         return false;
     }
 
@@ -145,7 +146,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
     frame->height = codecContext->height;
     ret = av_frame_get_buffer(frame, 32);
     if (ret < 0) {
-        std::cout  << "Could not allocate frame data";
+        IGAME_CORE_ERROR("Could not allocate frame data");
         return false;
     }
 
@@ -160,7 +161,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
         // 发送帧
         ret = avcodec_send_frame(codecContext, frame);
         if (ret < 0) {
-            std::cout << "Error sending frame: " << ret << std::endl;
+            IGAME_CORE_ERROR("Error sending frame: {}", ret);
             break;
         }
 
@@ -171,10 +172,10 @@ bool FFMPEGVideoWriter::SaveMP4() {
 //                std::cout << "Encoder needs more frames (EAGAIN)." << std::endl;
                 break;
             } else if (ret == AVERROR_EOF) {
-                std::cout << "Encoder has finished (EOF)." << std::endl;
+                IGAME_CORE_DEBUG("Encoder has finished (EOF).");
                 break;
             } else if (ret < 0) {
-                std::cout << "Error encoding frame: " << ret << std::endl;
+                IGAME_CORE_ERROR("Error encoding frame: {}", ret);
                 break;
             }
             // 确保包的时间戳正确
@@ -193,7 +194,7 @@ bool FFMPEGVideoWriter::SaveMP4() {
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                 break;
             if (ret < 0) {
-                std::cout << "Error encoding final frame." << std::endl;
+                IGAME_CORE_ERROR("Error encoding final frame.");
                 break;
             }
             // 确保包的时间戳正确
@@ -244,7 +245,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     int ret;
     const char* storagePath = m_VideoInfo.output_path.c_str();
     
-    std::cout << "Starting GIF encoding..." << std::endl;
+    IGAME_CORE_DEBUG("Starting GIF encoding...");
     
     // 创建SWS上下文：RGBA -> RGB24
     swsContext = sws_getContext(
@@ -253,7 +254,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         SWS_BILINEAR, nullptr, nullptr, nullptr);
     
     if (!swsContext) {
-        std::cout << "Could not create swsContext" << std::endl;
+        IGAME_CORE_ERROR("Could not create swsContext");
         return false;
     }
 
@@ -264,17 +265,17 @@ bool FFMPEGVideoWriter::SaveGIF() {
     rgbFrame->height = m_VideoInfo.height;
     ret = av_frame_get_buffer(rgbFrame, 32);
     if (ret < 0) {
-        std::cout << "Could not allocate RGB frame" << std::endl;
+        IGAME_CORE_ERROR("Could not allocate RGB frame");
         sws_freeContext(swsContext);
         return false;
     }
 
     // ========== 第一遍：生成调色板 ==========
-    std::cout << "Pass 1: Generating palette..." << std::endl;
+    IGAME_CORE_DEBUG("Pass 1: Generating palette...");
     
     palettegen_graph = avfilter_graph_alloc();
     if (!palettegen_graph) {
-        std::cout << "Could not create palettegen graph" << std::endl;
+        IGAME_CORE_ERROR("Could not create palettegen graph");
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
         return false;
@@ -289,7 +290,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_graph_create_filter(&palettegen_src_ctx, buffersrc, "in", args, nullptr, palettegen_graph);
     if (ret < 0) {
-        std::cout << "Cannot create palettegen buffer source" << std::endl;
+        IGAME_CORE_ERROR("Cannot create palettegen buffer source");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -302,7 +303,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     ret = avfilter_graph_create_filter(&palettegen_ctx, palettegen, "palettegen",
                                       "max_colors=256", nullptr, palettegen_graph);
     if (ret < 0) {
-        std::cout << "Cannot create palettegen filter" << std::endl;
+        IGAME_CORE_ERROR("Cannot create palettegen filter");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -313,7 +314,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     const AVFilter* buffersink = avfilter_get_by_name("buffersink");
     ret = avfilter_graph_create_filter(&palettegen_sink_ctx, buffersink, "out", nullptr, nullptr, palettegen_graph);
     if (ret < 0) {
-        std::cout << "Cannot create palettegen buffer sink" << std::endl;
+        IGAME_CORE_ERROR("Cannot create palettegen buffer sink");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -323,7 +324,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 连接滤镜：in -> palettegen -> out
     ret = avfilter_link(palettegen_src_ctx, 0, palettegen_ctx, 0);
     if (ret < 0) {
-        std::cout << "Error linking palettegen source" << std::endl;
+        IGAME_CORE_ERROR("Error linking palettegen source");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -332,7 +333,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_link(palettegen_ctx, 0, palettegen_sink_ctx, 0);
     if (ret < 0) {
-        std::cout << "Error linking palettegen sink" << std::endl;
+        IGAME_CORE_ERROR("Error linking palettegen sink");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -342,7 +343,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 配置palettegen滤镜图
     ret = avfilter_graph_config(palettegen_graph, nullptr);
     if (ret < 0) {
-        std::cout << "Error configuring palettegen graph" << std::endl;
+        IGAME_CORE_ERROR("Error configuring palettegen graph");
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -357,14 +358,14 @@ bool FFMPEGVideoWriter::SaveGIF() {
         ret = sws_scale(swsContext, inData, inLinesize, 0, m_VideoInfo.height,
                        rgbFrame->data, rgbFrame->linesize);
         if (ret < 0) {
-            std::cout << "Error converting RGBA to RGB24" << std::endl;
+            IGAME_CORE_ERROR("Error converting RGBA to RGB24");
             break;
         }
 
         rgbFrame->pts = i;
         ret = av_buffersrc_add_frame_flags(palettegen_src_ctx, rgbFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
         if (ret < 0) {
-            std::cout << "Error feeding frame to palettegen" << std::endl;
+            IGAME_CORE_ERROR("Error feeding frame to palettegen");
             break;
         }
     }
@@ -376,7 +377,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     paletteFrame = av_frame_alloc();
     ret = av_buffersink_get_frame(palettegen_sink_ctx, paletteFrame);
     if (ret < 0) {
-        std::cout << "Error getting palette frame" << std::endl;
+        IGAME_CORE_ERROR("Error getting palette frame");
         av_frame_free(&paletteFrame);
         avfilter_graph_free(&palettegen_graph);
         av_frame_free(&rgbFrame);
@@ -384,17 +385,17 @@ bool FFMPEGVideoWriter::SaveGIF() {
         return false;
     }
 
-    std::cout << "Palette generated successfully" << std::endl;
+    IGAME_CORE_DEBUG("Palette generated successfully");
 
     // 释放palettegen滤镜图
     avfilter_graph_free(&palettegen_graph);
 
     // ========== 第二遍：使用调色板转换帧 ==========
-    std::cout << "Pass 2: Converting frames with palette..." << std::endl;
+    IGAME_CORE_DEBUG("Pass 2: Converting frames with palette...");
     
     paletteuse_graph = avfilter_graph_alloc();
     if (!paletteuse_graph) {
-        std::cout << "Could not create paletteuse graph" << std::endl;
+        IGAME_CORE_ERROR("Could not create paletteuse graph");
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
         sws_freeContext(swsContext);
@@ -409,7 +410,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_graph_create_filter(&paletteuse_src_ctx, buffersrc, "main", video_args, nullptr, paletteuse_graph);
     if (ret < 0) {
-        std::cout << "Cannot create paletteuse video source" << std::endl;
+        IGAME_CORE_ERROR("Cannot create paletteuse video source");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -425,7 +426,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_graph_create_filter(&paletteuse_pal_ctx, buffersrc, "palette", palette_args, nullptr, paletteuse_graph);
     if (ret < 0) {
-        std::cout << "Cannot create paletteuse palette source" << std::endl;
+        IGAME_CORE_ERROR("Cannot create paletteuse palette source");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -439,7 +440,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     ret = avfilter_graph_create_filter(&paletteuse_ctx, paletteuse, "paletteuse",
                                       "dither=bayer:bayer_scale=5", nullptr, paletteuse_graph);
     if (ret < 0) {
-        std::cout << "Cannot create paletteuse filter" << std::endl;
+        IGAME_CORE_ERROR("Cannot create paletteuse filter");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -450,7 +451,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 创建paletteuse的buffer sink
     ret = avfilter_graph_create_filter(&paletteuse_sink_ctx, buffersink, "out", nullptr, nullptr, paletteuse_graph);
     if (ret < 0) {
-        std::cout << "Cannot create paletteuse buffer sink" << std::endl;
+        IGAME_CORE_ERROR("Cannot create paletteuse buffer sink");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -461,7 +462,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 连接滤镜：main -> paletteuse[0], palette -> paletteuse[1], paletteuse -> out
     ret = avfilter_link(paletteuse_src_ctx, 0, paletteuse_ctx, 0);
     if (ret < 0) {
-        std::cout << "Error linking paletteuse main input" << std::endl;
+        IGAME_CORE_ERROR("Error linking paletteuse main input");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -471,7 +472,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_link(paletteuse_pal_ctx, 0, paletteuse_ctx, 1);
     if (ret < 0) {
-        std::cout << "Error linking paletteuse palette input" << std::endl;
+        IGAME_CORE_ERROR("Error linking paletteuse palette input");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -481,7 +482,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     
     ret = avfilter_link(paletteuse_ctx, 0, paletteuse_sink_ctx, 0);
     if (ret < 0) {
-        std::cout << "Error linking paletteuse output" << std::endl;
+        IGAME_CORE_ERROR("Error linking paletteuse output");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -492,7 +493,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 配置paletteuse滤镜图
     ret = avfilter_graph_config(paletteuse_graph, nullptr);
     if (ret < 0) {
-        std::cout << "Error configuring paletteuse graph" << std::endl;
+        IGAME_CORE_ERROR("Error configuring paletteuse graph");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -503,7 +504,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 推送调色板帧
     ret = av_buffersrc_add_frame(paletteuse_pal_ctx, paletteFrame);
     if (ret < 0) {
-        std::cout << "Error feeding palette frame" << std::endl;
+        IGAME_CORE_ERROR("Error feeding palette frame");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -514,7 +515,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     // 关闭调色板输入（发送EOF），表示调色板已完整
     ret = av_buffersrc_add_frame(paletteuse_pal_ctx, nullptr);
     if (ret < 0) {
-        std::cout << "Error closing palette input" << std::endl;
+        IGAME_CORE_ERROR("Error closing palette input");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -522,12 +523,12 @@ bool FFMPEGVideoWriter::SaveGIF() {
         return false;
     }
     
-    std::cout << "Palette frame fed to paletteuse filter" << std::endl;
+    IGAME_CORE_DEBUG("Palette frame fed to paletteuse filter");
 
     // ========== 设置输出 ==========
     avformat_alloc_output_context2(&formatContext, nullptr, "gif", storagePath);
     if (!formatContext) {
-        std::cout << "Could not create output context" << std::endl;
+        IGAME_CORE_ERROR("Could not create output context");
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
         av_frame_free(&rgbFrame);
@@ -537,7 +538,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
 
     const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_GIF);
     if (!codec) {
-        std::cout << "GIF Codec not found" << std::endl;
+        IGAME_CORE_ERROR("GIF Codec not found");
         avformat_free_context(formatContext);
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
@@ -548,7 +549,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
 
     videoStream = avformat_new_stream(formatContext, nullptr);
     if (!videoStream) {
-        std::cout << "Could not create video stream" << std::endl;
+        IGAME_CORE_ERROR("Could not create video stream");
         avformat_free_context(formatContext);
         avfilter_graph_free(&paletteuse_graph);
         av_frame_free(&paletteFrame);
@@ -571,7 +572,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
 
     ret = avcodec_open2(codecContext, codec, nullptr);
     if (ret < 0) {
-        std::cout << "Could not open codec" << std::endl;
+        IGAME_CORE_ERROR("Could not open codec");
         avcodec_free_context(&codecContext);
         avformat_free_context(formatContext);
         avfilter_graph_free(&paletteuse_graph);
@@ -587,7 +588,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
     if (!(formatContext->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&formatContext->pb, storagePath, AVIO_FLAG_WRITE);
         if (ret < 0) {
-            std::cout << "Could not open output file" << std::endl;
+            IGAME_CORE_ERROR("Could not open output file");
             avcodec_free_context(&codecContext);
             avformat_free_context(formatContext);
             avfilter_graph_free(&paletteuse_graph);
@@ -600,7 +601,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
 
     ret = avformat_write_header(formatContext, nullptr);
     if (ret < 0) {
-        std::cout << "Error writing header" << std::endl;
+        IGAME_CORE_ERROR("Error writing header");
         avcodec_free_context(&codecContext);
         if (!(formatContext->oformat->flags & AVFMT_NOFILE))
             avio_closep(&formatContext->pb);
@@ -621,7 +622,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         ret = sws_scale(swsContext, inData, inLinesize, 0, m_VideoInfo.height,
                        rgbFrame->data, rgbFrame->linesize);
         if (ret < 0) {
-            std::cout << "Error converting RGBA to RGB24" << std::endl;
+            IGAME_CORE_ERROR("Error converting RGBA to RGB24");
             break;
         }
 
@@ -630,7 +631,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         // 推送到paletteuse滤镜
         ret = av_buffersrc_add_frame_flags(paletteuse_src_ctx, rgbFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
         if (ret < 0) {
-            std::cout << "Error feeding frame to paletteuse" << std::endl;
+            IGAME_CORE_ERROR("Error feeding frame to paletteuse");
             break;
         }
 
@@ -638,7 +639,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         palFrame = av_frame_alloc();
         ret = av_buffersink_get_frame(paletteuse_sink_ctx, palFrame);
         if (ret < 0) {
-            std::cout << "Error getting PAL8 frame" << std::endl;
+            IGAME_CORE_ERROR("Error getting PAL8 frame");
             av_frame_free(&palFrame);
             break;
         }
@@ -648,7 +649,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         av_frame_free(&palFrame);
         
         if (ret < 0) {
-            std::cout << "Error sending frame to encoder" << std::endl;
+            IGAME_CORE_ERROR("Error sending frame to encoder");
             break;
         }
 
@@ -658,7 +659,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
                 break;
             }
             if (ret < 0) {
-                std::cout << "Error encoding frame" << std::endl;
+                IGAME_CORE_ERROR("Error encoding frame");
                 break;
             }
 
@@ -725,7 +726,7 @@ bool FFMPEGVideoWriter::SaveGIF() {
         avio_closep(&formatContext->pb);
     avformat_free_context(formatContext);
 
-    std::cout << "GIF saved successfully!" << std::endl;
+    IGAME_CORE_DEBUG("GIF saved successfully!");
     return true;
 
 

@@ -7,6 +7,8 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <vector>
+#include <execution>
+#include <numeric>
 
 #if defined(__GNUC__) && defined(__x86_64__)
 #include <mm_malloc.h>
@@ -50,17 +52,84 @@ public:
         // 拓扑信息
         m_IsFixedCell = m_adapter->IsFixedCellSize();
         m_FixedCellSize = m_adapter->GetFixedCellSize();
-        m_CellIds = m_adapter->GetCellIdBuffer()->RawPointer();
-        m_Offset = m_adapter->GetCellIdOffset()->RawPointer();
 
         // 所有类型的网格都构建数据结构
-        // 对于cgns多面体而言 需要建立的也是体 - 点格式 所以无需二级索引拆分
-        if (m_adapter->IsFixedCellSize()) {
+        // 需要判断是否是二级索引多面体网格（CGNS等）
+        if (m_adapter->IsSecondaryIndexPolyhedronMesh()) {
+            // 多面体网格叠加非结构化网格的情况：直接提取 volume->point 关系
+            // 注意：这里不需要保留二级索引结构，因为我们只需要计算邻接关系，不需要编码
+            std::vector<unsigned int> volume2facesIndex;
+            std::vector<unsigned int> volume2facesOffset;
+            std::vector<unsigned int> face2pointsIndex;
+            std::vector<unsigned int> face2pointsOffset;
+            m_adapter->SplitSecondaryIndex(volume2facesIndex, volume2facesOffset, face2pointsIndex, face2pointsOffset);
+
+            // 提取 volume->point：遍历每个 volume 的所有 faces，收集所有 points（去重）
+            size_t numVolumes = volume2facesOffset.size() - 1;
+            
+            // 先并行计算每个volume的点集
+            std::vector<std::vector<unsigned int>> volumePointSets(numVolumes);
+            std::vector<size_t> indices(numVolumes);
+            std::iota(indices.begin(), indices.end(), 0);
+            
+            std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), 
+                [&](size_t volumeId) {
+                    std::unordered_set<unsigned int> volumePoints; // 使用set去重
+                    unsigned int faceStart = volume2facesOffset[volumeId];
+                    unsigned int faceEnd = volume2facesOffset[volumeId + 1];
+
+                    // 遍历该volume的所有faces
+                    for (unsigned int faceIdx = faceStart; faceIdx < faceEnd; ++faceIdx) {
+                        unsigned int faceId = volume2facesIndex[faceIdx];
+                        unsigned int pointStart = face2pointsOffset[faceId];
+                        unsigned int pointEnd = face2pointsOffset[faceId + 1];
+
+                        // 收集该face的所有points
+                        for (unsigned int pointIdx = pointStart; pointIdx < pointEnd; ++pointIdx) {
+                            volumePoints.insert(face2pointsIndex[pointIdx]);
+                        }
+                    }
+
+                    // 将去重后的points存储到临时vector
+                    volumePointSets[volumeId].assign(volumePoints.begin(), volumePoints.end());
+                }
+            );
+            
+            // 串行合并结果
+            m_ExpandedOffset.reserve(numVolumes + 1);
+            m_ExpandedOffset.push_back(0);
+            
+            for (size_t volumeId = 0; volumeId < numVolumes; ++volumeId) {
+                m_ExpandedCellIds.insert(m_ExpandedCellIds.end(), 
+                    volumePointSets[volumeId].begin(), volumePointSets[volumeId].end());
+                m_ExpandedOffset.push_back(m_ExpandedCellIds.size());
+            }
+
+            // 指向提取后的 volume->point 数据
+            m_CellIds = m_ExpandedCellIds.data();
+            m_Offset = m_ExpandedOffset.data();
+            m_IsFixedCell = false; // 提取后的数据是非固定大小的
+
+            // 构建 volume->point 的邻接关系（实际会反向为 point->volume）
+            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
+                    reinterpret_cast<unsigned int*>(m_ExpandedCellIds.data()), m_ExpandedOffset.data(), 
+                    m_ExpandedCellIds.size(), m_ExpandedOffset.size(), m_adapter->GetNumberOfPoints(), 
+                    m_adapter->GetNumberOfCells());
+            this->m_Adj = mca->GetAdjacencyData();
+        } else if (m_adapter->IsFixedCellSize()) {
+            // 固定大小的cell（如结构化网格）
+            m_CellIds = m_adapter->GetCellIdBuffer()->RawPointer();
+            m_Offset = m_adapter->GetCellIdOffset()->RawPointer();
+
             MeshCodecAdjacency* mca = new MeshCodecAdjacency(
                     reinterpret_cast<unsigned int*>(m_adapter->GetCellIdBuffer()->RawPointer()),
                     m_adapter->GetCellIdBufferSize(), m_adapter->GetNumberOfPoints(), m_adapter->GetNumberOfCells());
             this->m_Adj = mca->GetAdjacencyData();
         } else {
+            // 非固定大小的cell（如普通非结构化网格）
+            m_CellIds = m_adapter->GetCellIdBuffer()->RawPointer();
+            m_Offset = m_adapter->GetCellIdOffset()->RawPointer();
+
             MeshCodecAdjacency* mca = new MeshCodecAdjacency(
                     reinterpret_cast<unsigned int*>(m_adapter->GetCellIdBuffer()->RawPointer()),
                     m_adapter->GetCellIdOffset()->RawPointer(), m_adapter->GetCellIdBufferSize(),
@@ -716,6 +785,10 @@ private:
 
     // 当属性底层并非 float 时，转储为 float 缓冲以统一计算路径
     std::vector<float> m_AttrConverted;
+
+    // 对于二级索引多面体网格，存储展开后的 volume->point 数据
+    std::vector<igIndex> m_ExpandedCellIds;
+    std::vector<unsigned int> m_ExpandedOffset;
 
     ProgressObserver* m_Progress{nullptr};
 
