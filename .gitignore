@@ -10,7 +10,7 @@
 /build/
 /.vs/
 /.vscode/
-.*/
+/.*/
 
 /*.rar
 /*.zip
