@@ -22,6 +22,10 @@
 #include <QClipboard>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFileDialog>
+#include <QDir>
+#include <QKeyEvent>
+#include <QCoreApplication>
 #include <IQWidgets/igQtAiChat/igQtChatManager.h>
 
 igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
@@ -39,20 +43,34 @@ igQtAiChatWidget::igQtAiChatWidget(QWidget* parent, igQtMainWindow* mainWindow)
     , messageInput(nullptr)
     , sendButton(nullptr)
     , connectButton(nullptr)
+    , settingsButton(nullptr)
     , statusLabel(nullptr)
+    , mcpPathLabel(nullptr)
     , typingLabel(nullptr)
     , typingTimer(nullptr)
     , chatManager(nullptr)
-    , currentHistoryIndex(-1)
+    , m_lastAiMessageLabel(nullptr)
+    , m_streamingContent("")
 {
     setupUI();
     setupConnections();
-    loadHistoryFromFile();
+    
+    // 初始化 chatManager 用于检测 MCP 文件夹（不启动连接）
+    if (!chatManager) {
+        chatManager = new igQtChatManager(nullptr);
+        
+        // 设置消息接收回调
+        chatManager->setMessageCallback([this](const QString& messageJson) {
+            this->onChatMessageReceived(messageJson);
+        });
+    }
+    
+    // 检测 MCP 文件夹是否正确存在
+    updateMcpPathLabel();
 }
 
 igQtAiChatWidget::~igQtAiChatWidget()
 {
-    saveHistoryToFile();
     if (chatManager) {
         chatManager->stopConnection();
         delete chatManager;
@@ -68,6 +86,9 @@ void igQtAiChatWidget::setupUI()
 {
     setWindowTitle("iGameAiTool - AI聊天助手");
     setMinimumSize(600, 500);
+    
+    // 加载样式表
+    loadStyleSheet();
     
     // Main layout
     mainLayout = new QVBoxLayout(this);
@@ -89,30 +110,16 @@ void igQtAiChatWidget::setupUI()
 void igQtAiChatWidget::setupChatPanel()
 {
     chatGroupBox = new QGroupBox("", this);
-    chatGroupBox->setStyleSheet(
-        "QGroupBox { "
-        "border: 1px solid #ddd; "
-        "border-radius: 5px; "
-        "margin: 2px; "
-        "padding: 5px; "
-        "background-color: #ffffff; "
-        "}"
-    );
+    chatGroupBox->setObjectName("chatGroupBox");
     
     chatLayout = new QVBoxLayout(chatGroupBox);
     
     // Chat scroll area
     chatScrollArea = new QScrollArea(chatGroupBox);
+    chatScrollArea->setObjectName("chatScrollArea");
     chatScrollArea->setWidgetResizable(true);
     chatScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     chatScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    chatScrollArea->setStyleSheet(
-        "QScrollArea { "
-        "border: 1px solid #bdc3c7; "
-        "border-radius: 3px; "
-        "background-color: white; "
-        "}"
-    );
     
     chatContentWidget = new QWidget();
     chatContentWidget->setStyleSheet("background-color: white;");
@@ -126,13 +133,7 @@ void igQtAiChatWidget::setupChatPanel()
     
     // Typing indicator
     typingLabel = new QLabel("", chatGroupBox);
-    typingLabel->setStyleSheet(
-        "QLabel { "
-        "color: #7f8c8d; "
-        "font-style: italic; "
-        "padding: 5px; "
-        "}"
-    );
+    typingLabel->setObjectName("typingLabel");
     typingLabel->hide();
     chatLayout->addWidget(typingLabel);
 }
@@ -146,97 +147,91 @@ void igQtAiChatWidget::setupInputArea()
     
     // Status label
     statusLabel = new QLabel("未连接", this);
-    statusLabel->setStyleSheet(
-        "QLabel { "
-        "color: #e74c3c; "
-        "font-weight: bold; "
-        "padding: 5px 8px; "
-        "font-size: 12px; "
-        "}"
-    );
+    statusLabel->setObjectName("statusLabel");
+    statusLabel->setProperty("status", "disconnected");
     bottomLayout->addWidget(statusLabel);
     
     bottomLayout->addStretch();
     
     // Connect button
     connectButton = new QPushButton("连接服务器", this);
-    connectButton->setStyleSheet(
-        "QPushButton { "
-        "background-color: #3498db; "
-        "color: white; "
-        "border: none; "
-        "padding: 5px 10px; "
-        "border-radius: 3px; "
-        "font-weight: bold; "
-        "font-size: 12px; "
-        "} "
-        "QPushButton:hover { "
-        "background-color: #2980b9; "
-        "} "
-        "QPushButton:pressed { "
-        "background-color: #21618c; "
-        "}"
-    );
+    connectButton->setObjectName("connectButton");
     bottomLayout->addWidget(connectButton);
     
     mainLayout->addLayout(bottomLayout);
     
-    // Input frame
+    // Cursor-style integrated input container (上下两部分)
     inputFrame = new QFrame(this);
-    inputFrame->setStyleSheet(
-        "QFrame { "
-        "background-color: #f8f9fa; "
-        "border: 1px solid #bdc3c7; "
-        "border-radius: 5px; "
-        "padding: 5px; "
-        "}"
-    );
+    inputFrame->setObjectName("inputFrame");
     
-    inputLayout = new QHBoxLayout(inputFrame);
-    inputLayout->setContentsMargins(10, 10, 10, 10);
-    inputLayout->setSpacing(10);
+    // 外层垂直布局：上部分是文本输入框，下部分是配置组件
+    QVBoxLayout* inputContainerLayout = new QVBoxLayout(inputFrame);
+    inputContainerLayout->setContentsMargins(10, 10, 10, 10);
+    inputContainerLayout->setSpacing(8);
     
-    messageInput = new QLineEdit(inputFrame);
-    messageInput->setPlaceholderText("输入您的问题...");
-    messageInput->setStyleSheet(
-        "QLineEdit { "
-        "border: 1px solid #bdc3c7; "
-        "border-radius: 3px; "
-        "padding: 8px; "
-        "font-size: 14px; "
-        "background-color: white; "
-        "} "
-        "QLineEdit:focus { "
-        "border-color: #3498db; "
-        "}"
-    );
+    // ============ 上部分：文本输入框 ============
+    messageInput = new QTextEdit(inputFrame);
+    messageInput->setObjectName("messageInput");
+    messageInput->setPlaceholderText("输入您的问题... (Enter发送，Shift+Enter换行)");
+    messageInput->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    messageInput->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    messageInput->setAcceptRichText(false);
     messageInput->setEnabled(false);
-    inputLayout->addWidget(messageInput);
+    messageInput->setFrameShape(QFrame::NoFrame);
+    messageInput->setPlainText("");
+    messageInput->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     
-    sendButton = new QPushButton("发送", inputFrame);
-    sendButton->setStyleSheet(
-        "QPushButton { "
-        "background-color: #27ae60; "
-        "color: white; "
-        "border: none; "
-        "padding: 8px 16px; "
-        "border-radius: 3px; "
-        "font-weight: bold; "
-        "min-width: 60px; "
-        "} "
-        "QPushButton:hover { "
-        "background-color: #229954; "
-        "} "
-        "QPushButton:pressed { "
-        "background-color: #1e8449; "
-        "} "
-        "QPushButton:disabled { "
-        "background-color: #bdc3c7; "
-        "color: #7f8c8d; "
-        "}"
-    );
+    // 设置初始高度（使用字体度量作为基准，更可靠）
+    QFontMetrics fm(messageInput->font());
+    int padding = 24;  // 上下padding，确保提示词完整显示
+    int lineHeight = fm.lineSpacing();  // 单行文本高度（包含行间距）
+    int singleLineHeight = lineHeight * 2.5 + padding;  // 2.5行高度，确保提示词完全显示
+    int maxLineHeight = lineHeight * 5 + padding;
+    
+    messageInput->setFixedHeight(singleLineHeight);
+    messageInput->setMaximumHeight(maxLineHeight);
+    
+    inputContainerLayout->addWidget(messageInput);
+    
+    // ============ 下部分：配置组件（左右布局） ============
+    QWidget* controlBarWidget = new QWidget(inputFrame);
+    QHBoxLayout* controlBarLayout = new QHBoxLayout(controlBarWidget);
+    controlBarLayout->setContentsMargins(0, 0, 0, 0);
+    controlBarLayout->setSpacing(8);
+    
+    // 左侧：MCP配置区域
+    QWidget* leftConfigWidget = new QWidget(controlBarWidget);
+    QHBoxLayout* leftConfigLayout = new QHBoxLayout(leftConfigWidget);
+    leftConfigLayout->setContentsMargins(0, 0, 0, 0);
+    leftConfigLayout->setSpacing(6);
+    
+    // 配置按钮
+    settingsButton = new QPushButton("⚙", leftConfigWidget);
+    settingsButton->setObjectName("settingsButton");
+    settingsButton->setFixedSize(20, 20);
+    settingsButton->setToolTip("配置MCP路径");
+    leftConfigLayout->addWidget(settingsButton);
+    
+    // MCP标签
+    mcpPathLabel = new QLabel("MCP: 未设置", leftConfigWidget);
+    mcpPathLabel->setObjectName("mcpPathLabel");
+    mcpPathLabel->setProperty("status", "notset");
+    mcpPathLabel->setToolTip("点击设置按钮配置 MCP 文件夹路径");
+    leftConfigLayout->addWidget(mcpPathLabel);
+    
+    controlBarLayout->addWidget(leftConfigWidget);
+    controlBarLayout->addStretch();  // 弹性空间，将发送按钮推到右侧
+    
+    // 右侧：发送按钮
+    sendButton = new QPushButton("发送", controlBarWidget);
+    sendButton->setObjectName("sendButton");
     sendButton->setEnabled(false);
-    inputLayout->addWidget(sendButton);
+    sendButton->setFixedHeight(24);
+    sendButton->setMinimumWidth(60);
+    sendButton->setToolTip("发送消息 (Enter)");
+    controlBarLayout->addWidget(sendButton);
+    
+    inputContainerLayout->addWidget(controlBarWidget);
     
     mainLayout->addWidget(inputFrame);
 }
@@ -251,32 +246,41 @@ void igQtAiChatWidget::setupConnections()
     // Button connections
     connect(sendButton, &QPushButton::clicked, this, &igQtAiChatWidget::onSendMessage);
     connect(connectButton, &QPushButton::clicked, this, &igQtAiChatWidget::onConnectToServer);
+    connect(settingsButton, &QPushButton::clicked, this, &igQtAiChatWidget::onSetMcpPath);
     
     // Input connections
-    connect(messageInput, &QLineEdit::returnPressed, this, &igQtAiChatWidget::onReturnPressed);
-    connect(messageInput, &QLineEdit::textChanged, this, [this](const QString& text) {
-        // 当有文本且 ChatManager 已连接时启用发送按钮
-        bool canSend = chatManager && chatManager->isConnected() && !text.isEmpty();
-        sendButton->setEnabled(canSend);
-    });
+    connect(messageInput, &QTextEdit::textChanged, this, &igQtAiChatWidget::onInputTextChanged);
+    
+    // 安装事件过滤器以处理Enter键
+    messageInput->installEventFilter(this);
+    
+    // 延迟调整输入框高度，确保文档已完全初始化
+    QTimer::singleShot(0, this, &igQtAiChatWidget::adjustInputHeight);
 }
 
 
 void igQtAiChatWidget::onSendMessage()
 {
-    QString message = messageInput->text().trimmed();
+    QString message = messageInput->toPlainText().trimmed();
     if (message.isEmpty() || !chatManager || !chatManager->isConnected()) {
         return;
     }
 
     // Add user message to chat
     addMessageToChat(message, true);
-    addMessageToHistory(message, true);
 
     // Clear input
-    messageInput->clear();
+    messageInput->setPlainText("");  // 使用setPlainText("")代替clear()避免光标警告
+    adjustInputHeight();  // 重置为单行高度
     sendButton->setEnabled(false);
 
+    // 重置流式消息相关变量
+    m_lastAiMessageLabel = nullptr;
+    m_streamingContent.clear();
+    
+    // 创建一个空的AI消息占位符，用于接收流式内容
+    addMessageToChat("", false);  // 添加空的AI消息框
+    
     // Show typing indicator
     showTypingIndicator(true);
 
@@ -309,11 +313,28 @@ void igQtAiChatWidget::onConnectToServer()
             });
         }
         
+        // 检查虚拟环境是否存在
+        QString pythonPath = chatManager->getPythonPath();
+        if (!QFile::exists(pythonPath)) {
+            QString mcpPath = chatManager->getMcpPath();
+            QString errorMsg = QString(
+                "未找到 Python 虚拟环境！\n\n"
+                "MCP 路径: %1\n"
+                "期望的 Python 路径: %2\n\n"
+                "请在 MCP 文件夹中创建虚拟环境！\n"
+            ).arg(mcpPath).arg(pythonPath);
+            
+            QMessageBox::critical(this, "虚拟环境缺失", errorMsg);
+            connectButton->setText("连接服务器");
+            connectButton->setEnabled(true);
+            return;
+        }
+        
         if (!chatManager->startConnection("localhost", CHAT_SERVER_PORT)) {
             qWarning() << "[AiChatWidget] 启动监听端口失败";
             QMessageBox::warning(this, "连接失败", 
                 QString("无法启动监听端口 %1，可能端口已被占用").arg(CHAT_SERVER_PORT));
-            connectButton->setText("连接 AiChat");
+            connectButton->setText("连接服务器");
             connectButton->setEnabled(true);
             return;
         }
@@ -358,16 +379,41 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
     QJsonObject messageObj = doc.object();
     QString type = messageObj.value("type").toString();
     
-    // 隐藏"正在输入"指示器
-    showTypingIndicator(false);
-    
     // 根据消息类型处理
-    if (type == "chat" || type == "message" || type == "response") {
+    if (type == "stream") {
+        // 流式消息片段 - 追加到最后一条AI消息
+        QString content = messageObj.value("content").toString();
+        if (!content.isEmpty()) {
+            // 查找最后一条AI消息并追加内容
+            appendToLastAiMessage(content);
+        }
+    }
+    else if (type == "stream_end") {
+        // 流式消息结束
+        showTypingIndicator(false);
+        
+        // 重置流式消息状态
+        m_lastAiMessageLabel = nullptr;
+        m_streamingContent.clear();
+        
+        // 发送确认响应
+        QJsonObject response;
+        response["type"] = "ack";
+        response["message"] = "消息已收到";
+        response["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        
+        if (chatManager) {
+            chatManager->sendMessage(response);
+        }
+    }
+    else if (type == "chat" || type == "message" || type == "response") {
+        // 隐藏"正在输入"指示器
+        showTypingIndicator(false);
+        
         // 显示聊天消息
         QString content = messageObj.value("content").toString();
         if (!content.isEmpty()) {
             addMessageToChat(content, false);  // false表示不是用户消息
-            addMessageToHistory(content, false);
         }
         
         // 发送确认响应
@@ -385,23 +431,14 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
         bool connected = messageObj.value("connected").toBool();
         if (connected) {
             statusLabel->setText("已连接");
-            statusLabel->setStyleSheet(
-                "QLabel { "
-                "color: #27ae60; "
-                "font-weight: bold; "
-                "padding: 5px; "
-                "}"
-            );
+            statusLabel->setProperty("status", "connected");
         } else {
             statusLabel->setText("等待连接 (监听中)");
-            statusLabel->setStyleSheet(
-                "QLabel { "
-                "color: #f39c12; "
-                "font-weight: bold; "
-                "padding: 5px; "
-                "}"
-            );
+            statusLabel->setProperty("status", "waiting");
         }
+        // 刷新样式
+        statusLabel->style()->unpolish(statusLabel);
+        statusLabel->style()->polish(statusLabel);
     }
     else if (type == "ping") {
         // 响应心跳
@@ -420,14 +457,12 @@ void igQtAiChatWidget::onChatMessageReceived(const QString& messageJson)
             errorMsg = messageObj.value("content").toString();
         }
         addMessageToChat("❌ 错误: " + errorMsg, false);
-        addMessageToHistory("错误: " + errorMsg, false);
     }
     else {
         // 尝试提取内容显示
         QString content = messageObj.value("content").toString();
         if (!content.isEmpty()) {
             addMessageToChat(content, false);
-            addMessageToHistory(content, false);
         }
     }
 }
@@ -436,69 +471,94 @@ void igQtAiChatWidget::onConnectionStatusChanged(bool connected)
 {
     if (connected) {
         statusLabel->setText("等待连接 (监听中)");
-        statusLabel->setStyleSheet(
-            "QLabel { "
-            "color: #f39c12; "
-            "font-weight: bold; "
-            "padding: 5px; "
-            "}"
-        );
+        statusLabel->setProperty("status", "waiting");
         connectButton->setText("停止监听");
-        connectButton->setStyleSheet(
-            "QPushButton { "
-            "background-color: #e74c3c; "
-            "color: white; "
-            "border: none; "
-            "padding: 8px 16px; "
-            "border-radius: 4px; "
-            "font-weight: bold; "
-            "} "
-            "QPushButton:hover { "
-            "background-color: #c0392b; "
-            "} "
-            "QPushButton:pressed { "
-            "background-color: #a93226; "
-            "}"
-        );
+        connectButton->setProperty("status", "disconnect");
         messageInput->setEnabled(true);
     } else {
         statusLabel->setText("未连接");
-        statusLabel->setStyleSheet(
-            "QLabel { "
-            "color: #e74c3c; "
-            "font-weight: bold; "
-            "padding: 5px; "
-            "}"
-        );
+        statusLabel->setProperty("status", "disconnected");
         connectButton->setText("连接服务器");
-        connectButton->setStyleSheet(
-            "QPushButton { "
-            "background-color: #3498db; "
-            "color: white; "
-            "border: none; "
-            "padding: 8px 16px; "
-            "border-radius: 4px; "
-            "font-weight: bold; "
-            "} "
-            "QPushButton:hover { "
-            "background-color: #2980b9; "
-            "} "
-            "QPushButton:pressed { "
-            "background-color: #21618c; "
-            "}"
-        );
+        connectButton->setProperty("status", "");
         messageInput->setEnabled(false);
         sendButton->setEnabled(false);
         showTypingIndicator(false);
     }
+    
+    // 刷新样式
+    statusLabel->style()->unpolish(statusLabel);
+    statusLabel->style()->polish(statusLabel);
+    connectButton->style()->unpolish(connectButton);
+    connectButton->style()->polish(connectButton);
     
     connectButton->setEnabled(true);
 }
 
 void igQtAiChatWidget::onReturnPressed()
 {
+    // 这个函数现在不再通过信号调用，而是通过事件过滤器处理
     if (sendButton->isEnabled()) {
         onSendMessage();
+    }
+}
+
+void igQtAiChatWidget::onInputTextChanged()
+{
+    // 当有文本且 ChatManager 已连接时启用发送按钮
+    QString text = messageInput->toPlainText().trimmed();
+    bool canSend = chatManager && chatManager->isConnected() && !text.isEmpty();
+    sendButton->setEnabled(canSend);
+    
+    // Cursor风格：动态调整输入框高度
+    adjustInputHeight();
+}
+
+void igQtAiChatWidget::adjustInputHeight()
+{
+    if (!messageInput) return;
+    
+    QTextDocument* doc = messageInput->document();
+    if (!doc) return;
+    
+    int padding = 24;  // 上下padding，与初始化保持一致
+    
+    // 使用字体度量计算基准高度（可靠且不会触发信号）
+    QFontMetrics fm(messageInput->font());
+    int lineHeight = fm.lineSpacing();
+    int singleLineHeight = lineHeight * 2.5 + padding;  // 与初始化保持一致，确保提示词显示完整
+    int maxLineHeight = lineHeight * 5 + padding;
+    
+    // 获取当前文本
+    QString currentText = messageInput->toPlainText();
+    
+    // 如果为空，直接设置为初始高度（保证提示词显示完整）
+    if (currentText.isEmpty()) {
+        if (messageInput->height() != singleLineHeight) {
+            messageInput->setFixedHeight(singleLineHeight);
+        }
+        return;
+    }
+    
+    // 设置文档宽度以正确计算换行后的高度
+    doc->setTextWidth(messageInput->viewport()->width());
+    
+    // 使用文档的实际高度
+    int docHeight = static_cast<int>(doc->size().height());
+    
+    // 如果文档高度为0（未渲染），使用字体度量估算
+    if (docHeight <= 0) {
+        int lineCount = currentText.count('\n') + 1;
+        docHeight = lineHeight * lineCount;
+    }
+    
+    int contentHeight = docHeight + padding;
+    
+    // 限制在1行到5行高度之间
+    int newHeight = qMax(singleLineHeight, qMin(contentHeight, maxLineHeight));
+    
+    // 只在高度变化时更新，避免不必要的重绘
+    if (messageInput->height() != newHeight) {
+        messageInput->setFixedHeight(newHeight);
     }
 }
 
@@ -507,93 +567,44 @@ void igQtAiChatWidget::onTypingTimerTimeout()
     showTypingIndicator(false);
 }
 
-void igQtAiChatWidget::addMessageToHistory(const QString& message, bool isUser)
-{
-    QString prefix = isUser ? "您: " : "AI: ";
-    QString historyItem = prefix + message;
-    
-    chatHistory.append(historyItem);
-    
-    // Limit history size
-    if (chatHistory.size() > MAX_HISTORY_ITEMS) {
-        chatHistory.removeFirst();
-    }
-}
-
 void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
 {
-    // Create a horizontal layout for positioning
-    QHBoxLayout* messageRowLayout = new QHBoxLayout();
-    messageRowLayout->setContentsMargins(15, 3, 15, 3);
-    messageRowLayout->setSpacing(0);
-    
-    // Create message frame
+    // Cursor风格：全宽消息块，简洁设计
     QFrame* messageFrame = new QFrame(chatContentWidget);
-    messageFrame->setStyleSheet(
-        isUser ?
-        "QFrame { "
-        "background-color: #3498db; "
-        "border-radius: 12px; "
-        "padding: 6px; "
-        "}" :
-        "QFrame { "
-        "background-color: #ecf0f1; "
-        "border-radius: 12px; "
-        "padding: 6px; "
-        "}"
-    );
-    
-    // 设置消息框的尺寸策略为自适应内容
-    messageFrame->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Minimum);
-
-    // 设置更宽的消息框
-    int availableWidth = chatContentWidget->width() - 40; // 考虑边距
-    int maxWidth = qMin(static_cast<int>(availableWidth * 0.95), 800); // 最大95%宽度或800px
-    int minWidth = 80; // 最小宽度
-    messageFrame->setMaximumWidth(maxWidth);
-    messageFrame->setMinimumWidth(minWidth);
+    messageFrame->setObjectName(isUser ? "userMessageFrame" : "aiMessageFrame");
+    messageFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
     
     QVBoxLayout* messageLayout = new QVBoxLayout(messageFrame);
-    messageLayout->setContentsMargins(8, 6, 8, 6);
-    messageLayout->setSpacing(1);
+    messageLayout->setContentsMargins(0, 0, 0, 0);
+    messageLayout->setSpacing(8);
+
+    // 角色标签
+    QLabel* roleLabel = new QLabel(isUser ? "You" : "Assistant", messageFrame);
+    roleLabel->setObjectName(isUser ? "userRoleLabel" : "aiRoleLabel");
+    messageLayout->addWidget(roleLabel);
 
     // Content label with copy functionality
     QLabel* contentLabel = new QLabel(message, messageFrame);
-    contentLabel->setWordWrap(true);
-    contentLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    contentLabel->setObjectName(isUser ? "userContentLabel" : "aiContentLabel");
+    contentLabel->setWordWrap(true);  // 启用自动换行
+    contentLabel->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextBrowserInteraction);
     contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-
-    // 设置标签的尺寸策略为自适应内容
-    contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
-
-    // 智能计算文本的理想宽度
-    QFontMetrics fm(contentLabel->font());
-
-    // 对于短文本，使用实际文本宽度
-    int singleLineWidth = fm.horizontalAdvance(message);
-
-    // 对于长文本，计算合适的换行宽度
-    if (singleLineWidth > maxWidth - 40) {
-        // 长文本：使用较大的宽度以减少换行
-        contentLabel->setMaximumWidth(maxWidth - 24);
-    } else if (singleLineWidth < 60) {
-        // 很短的文本：使用最小宽度
-        contentLabel->setMinimumWidth(singleLineWidth + 16);
-        messageFrame->setMaximumWidth(singleLineWidth + 40);
-    } else {
-        // 中等长度文本：使用实际宽度加一些边距
-        int idealWidth = singleLineWidth + 24;
-        contentLabel->setMinimumWidth(idealWidth);
-        messageFrame->setMaximumWidth(idealWidth + 16);
+    contentLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);  // 允许扩展以填充可用空间
+    
+    // 计算可用宽度：滚动区域宽度减去padding和边距
+    int availableWidth = chatScrollArea->viewport()->width() - 40;  // 减去左右padding
+    if (availableWidth > 0) {
+        contentLabel->setMaximumWidth(availableWidth);
     }
-    contentLabel->setStyleSheet(
-        QString("QLabel { "
-        "font-size: 14px; "
-        "color: %1; "
-        "line-height: 1.4; "
-        "background: transparent; "
-        "}").arg(isUser ? "white" : "#2c3e50")
-    );
+    
+    // 如果是AI消息，保存标签指针用于流式更新
+    if (!isUser) {
+        m_lastAiMessageLabel = contentLabel;
+        // 如果是空消息，设置一个提示
+        if (message.isEmpty()) {
+            contentLabel->setText("...");
+        }
+    }
     
     // Add context menu for copy
     contentLabel->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -608,88 +619,18 @@ void igQtAiChatWidget::addMessageToChat(const QString& message, bool isUser)
     
     messageLayout->addWidget(contentLabel);
     
-    // Time label in corner
+    // Time label
     QLabel* timeLabel = new QLabel(QDateTime::currentDateTime().toString("hh:mm"), messageFrame);
-    timeLabel->setStyleSheet(
-        QString("QLabel { "
-        "font-size: 8px; "
-        "color: %1; "
-        "margin: 0px; "
-        "padding: 0px; "
-        "}").arg(isUser ? "rgba(255,255,255,0.6)" : "#aaaaaa")
-    );
-    timeLabel->setAlignment(isUser ? Qt::AlignRight : Qt::AlignLeft);
-    timeLabel->setContentsMargins(0, 0, 0, 0);
-    timeLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    timeLabel->setObjectName("messageTimeLabel");
+    timeLabel->setAlignment(Qt::AlignLeft);
     messageLayout->addWidget(timeLabel);
-    
-    // Position message bubble (user on right, AI on left)
-    if (isUser) {
-        messageRowLayout->addStretch();
-        messageRowLayout->addWidget(messageFrame);
-    } else {
-        messageRowLayout->addWidget(messageFrame);
-        messageRowLayout->addStretch();
-    }
-    
-    // Create a container widget for the row
-    QWidget* rowWidget = new QWidget(chatContentWidget);
-    rowWidget->setLayout(messageRowLayout);
     
     // Insert before the stretch
     int insertIndex = chatContentLayout->count() - 1;
-    chatContentLayout->insertWidget(insertIndex, rowWidget);
+    chatContentLayout->insertWidget(insertIndex, messageFrame);
     
     // Scroll to bottom
     QTimer::singleShot(100, this, &igQtAiChatWidget::scrollToBottom);
-}
-
-void igQtAiChatWidget::saveHistoryToFile()
-{
-    QJsonObject historyObj;
-    QJsonArray historyArray;
-    
-    for (const QString& item : chatHistory) {
-        historyArray.append(item);
-    }
-    
-    historyObj["history"] = historyArray;
-    historyObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-    
-    QJsonDocument doc(historyObj);
-    
-    QFile file(HISTORY_FILE_PATH);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(doc.toJson());
-        file.close();
-    }
-}
-
-void igQtAiChatWidget::loadHistoryFromFile()
-{
-    QFile file(HISTORY_FILE_PATH);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) {
-        return;
-    }
-    
-    QJsonObject historyObj = doc.object();
-    QJsonArray historyArray = historyObj["history"].toArray();
-    
-    chatHistory.clear();
-    for (const QJsonValue& value : historyArray) {
-        if (value.isString()) {
-            chatHistory.append(value.toString());
-        }
-    }
-    
 }
 
 void igQtAiChatWidget::scrollToBottom()
@@ -717,34 +658,171 @@ void igQtAiChatWidget::resizeEvent(QResizeEvent* event)
     QTimer::singleShot(10, this, &igQtAiChatWidget::updateMessageBubbleWidths);
 }
 
+bool igQtAiChatWidget::eventFilter(QObject* obj, QEvent* event)
+{
+    if (obj == messageInput && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        
+        // Enter键（不带Shift）发送消息
+        if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            if (!(keyEvent->modifiers() & Qt::ShiftModifier)) {
+                if (sendButton->isEnabled()) {
+                    onSendMessage();
+                }
+                return true;  // 阻止事件继续传播
+            }
+            // Shift+Enter允许换行，返回false让事件继续处理
+        }
+    }
+    
+    return QWidget::eventFilter(obj, event);
+}
+
 void igQtAiChatWidget::updateMessageBubbleWidths()
 {
-    if (!chatContentWidget) return;
+    // 更新所有消息标签的宽度，确保换行功能正常工作
+    if (!chatScrollArea || !chatContentWidget) {
+        return;
+    }
     
-    // Calculate new maximum width for message bubbles
-    int availableWidth = chatContentWidget->width() - 40; // Account for margins
-    int maxWidth = availableWidth * 0.95; // 95% of available space
-
-    // Set reasonable limits
-    if (maxWidth < 100) maxWidth = 100; // Minimum width
-    if (maxWidth > 800) maxWidth = 800; // Maximum width
+    int availableWidth = chatScrollArea->viewport()->width() - 40;  // 减去左右padding
+    if (availableWidth <= 0) {
+        return;
+    }
     
-    // Update all existing message frames
-    for (int i = 0; i < chatContentLayout->count() - 1; ++i) { // -1 to skip stretch
-        QWidget* rowWidget = chatContentLayout->itemAt(i)->widget();
-        if (rowWidget) {
-            QHBoxLayout* rowLayout = qobject_cast<QHBoxLayout*>(rowWidget->layout());
-            if (rowLayout) {
-                for (int j = 0; j < rowLayout->count(); ++j) {
-                    QWidget* item = rowLayout->itemAt(j)->widget();
-                    if (item) {
-                        QFrame* messageFrame = qobject_cast<QFrame*>(item);
-                        if (messageFrame) {
-                            messageFrame->setMaximumWidth(maxWidth);
-                        }
-                    }
+    // 遍历所有消息框，更新内容标签的宽度
+    QLayout* layout = chatContentLayout;
+    for (int i = 0; i < layout->count() - 1; ++i) {  // 排除最后的stretch
+        QLayoutItem* item = layout->itemAt(i);
+        if (item && item->widget()) {
+            QFrame* messageFrame = qobject_cast<QFrame*>(item->widget());
+            if (messageFrame) {
+                // 查找内容标签（userContentLabel 或 aiContentLabel）
+                QLabel* userLabel = messageFrame->findChild<QLabel*>("userContentLabel");
+                QLabel* aiLabel = messageFrame->findChild<QLabel*>("aiContentLabel");
+                QLabel* contentLabel = userLabel ? userLabel : aiLabel;
+                if (contentLabel) {
+                    contentLabel->setMaximumWidth(availableWidth);
                 }
             }
         }
     }
 }
+
+void igQtAiChatWidget::onSetMcpPath()
+{
+    // 直接打开文件夹选择对话框
+    QString currentPath = chatManager ? chatManager->getMcpPath() : "";
+    QString mcpPath = QFileDialog::getExistingDirectory(
+        this,
+        "选择 MCP 文件夹",
+        currentPath,
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+    
+    if (mcpPath.isEmpty()) {
+        return;  // 用户取消
+    }
+    
+    // 检查路径是否有效
+    QString scriptPath = QDir(mcpPath).filePath("iGameVis_Chat.py");
+    if (!QFile::exists(scriptPath)) {
+        QMessageBox::warning(this, "路径无效", 
+            QString("所选路径不包含 iGameVis_Chat.py 文件\n路径: %1").arg(mcpPath));
+        return;
+    }
+    
+    if (!chatManager) {
+        chatManager = new igQtChatManager(nullptr);
+        chatManager->setMessageCallback([this](const QString& messageJson) {
+            this->onChatMessageReceived(messageJson);
+        });
+    }
+    
+    chatManager->setMcpPath(mcpPath);
+    updateMcpPathLabel();
+    
+    // 检查虚拟环境是否存在
+    QString pythonPath = chatManager->getPythonPath();
+    if (!QFile::exists(pythonPath)) {
+        QMessageBox::warning(this, "虚拟环境未找到", 
+            QString("MCP 文件夹路径已设置为:\n%1\n\n但未找到 .venv 虚拟环境:\n%2\n\n请在 MCP 文件夹中创建虚拟环境:\npython -m venv .venv").arg(mcpPath).arg(pythonPath));
+    } else {
+        QMessageBox::information(this, "设置成功", 
+            QString("MCP 文件夹路径已设置为:\n%1\n\n虚拟环境: ✓ 已找到\n\n重新连接后生效").arg(mcpPath));
+    }
+}
+
+void igQtAiChatWidget::onSetPythonPath()
+{
+    // Python 路径自动从 MCP 文件夹下的 venv 获取，不需要手动设置
+}
+
+void igQtAiChatWidget::appendToLastAiMessage(const QString& text)
+{
+    if (!m_lastAiMessageLabel) {
+        qWarning() << "[AiChatWidget] 无法追加流式消息：没有活动的AI消息标签";
+        return;
+    }
+    
+    // 累积流式内容
+    m_streamingContent += text;
+    
+    // 更新标签显示
+    m_lastAiMessageLabel->setText(m_streamingContent);
+    
+    // 自动滚动到底部
+    QTimer::singleShot(10, this, &igQtAiChatWidget::scrollToBottom);
+}
+
+void igQtAiChatWidget::updateMcpPathLabel()
+{
+    if (!mcpPathLabel) {
+        return;
+    }
+    
+    if (chatManager) {
+        QString mcpPath = chatManager->getMcpPath();
+        QString pythonPath = chatManager->getPythonPath();
+        bool venvExists = QFile::exists(pythonPath);
+        
+        // 只显示文件夹名称，不显示完整路径
+        QDir mcpDir(mcpPath);
+        QString folderName = mcpDir.dirName();
+        
+        if (venvExists) {
+            mcpPathLabel->setText(QString("MCP: %1 ✓").arg(folderName));
+            mcpPathLabel->setProperty("status", "found");
+            mcpPathLabel->setToolTip(QString("MCP路径: %1\n虚拟环境: ✓ 已找到").arg(mcpPath));
+        } else {
+            mcpPathLabel->setText(QString("MCP: %1 ✗").arg(folderName));
+            mcpPathLabel->setProperty("status", "missing");
+            mcpPathLabel->setToolTip(QString("MCP路径: %1\n虚拟环境: ✗ 未找到").arg(mcpPath));
+        }
+    } else {
+        mcpPathLabel->setText("MCP: 未设置");
+        mcpPathLabel->setProperty("status", "notset");
+        mcpPathLabel->setToolTip("点击修改按钮设置 MCP 文件夹路径");
+    }
+    
+    // 刷新样式
+    mcpPathLabel->style()->unpolish(mcpPathLabel);
+    mcpPathLabel->style()->polish(mcpPathLabel);
+}
+
+void igQtAiChatWidget::loadStyleSheet()
+{
+    // 获取qss文件路径
+    QString qssPath = QDir(QCoreApplication::applicationDirPath()).filePath("../../../Qt/src/IQWidgets/igQtAiChat/igQtAiChatWidget.qss");
+    qssPath = QDir::cleanPath(qssPath);
+    
+    QFile qssFile(qssPath);
+    if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
+        QString styleSheet = QString::fromUtf8(qssFile.readAll());
+        this->setStyleSheet(styleSheet);
+        qssFile.close();
+    } else {
+        qWarning() << "[AiChatWidget] 无法加载样式表:" << qssPath;
+    }
+}
+

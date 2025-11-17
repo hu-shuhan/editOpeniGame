@@ -40,12 +40,15 @@ public slots:
     void onSendMessage();
     void onConnectToServer();
     void onDisconnectFromServer();
+    void onSetMcpPath();       // 设置 MCP 文件夹路径
+    void onSetPythonPath();    // 设置 Python 解释器路径
 
 private slots:
     void onChatMessageReceived(const QString& messageJson);  // 处理ChatManager的消息
     void onConnectionStatusChanged(bool connected);
     void onReturnPressed();
     void onTypingTimerTimeout();
+    void onInputTextChanged();  // 输入框文本改变
 
 signals:
     void sendMessageToServer(const QString& message);
@@ -54,19 +57,21 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;  // 事件过滤器
 
 private:
     void setupUI();
     void setupConnections();
     void setupChatPanel();
     void setupInputArea();
-    void addMessageToHistory(const QString& message, bool isUser = true);
     void addMessageToChat(const QString& message, bool isUser = true);
-    void saveHistoryToFile();
-    void loadHistoryFromFile();
     void scrollToBottom();
     void showTypingIndicator(bool show);
     void updateMessageBubbleWidths();
+    void appendToLastAiMessage(const QString& text);  // 追加文本到最后一条AI消息
+    void updateMcpPathLabel();  // 更新MCP路径显示
+    void loadStyleSheet();      // 加载样式表
+    void adjustInputHeight();   // 动态调整输入框高度（Cursor风格）
     
     // UI Components
     QVBoxLayout* mainLayout;
@@ -83,24 +88,24 @@ private:
     // Input area
     QFrame* inputFrame;
     QHBoxLayout* inputLayout;
-    QLineEdit* messageInput;
+    QTextEdit* messageInput;  // 改为多行文本框
     QPushButton* sendButton;
     QPushButton* connectButton;
+    QPushButton* settingsButton;  // 设置按钮
     
     // Status
     QLabel* statusLabel;
+    QLabel* mcpPathLabel;      // 显示 MCP 路径
     QLabel* typingLabel;
     QTimer* typingTimer;
     
     // Chat Manager - 聊天消息通信管理器 (端口8080)
     igQtChatManager* chatManager;
     
-    // History
-    QStringList chatHistory;
-    int currentHistoryIndex;
+    // 流式消息相关
+    QLabel* m_lastAiMessageLabel;      // 保存最后一条AI消息的标签指针
+    QString m_streamingContent;         // 流式消息累积内容
     
     // Constants
-    static constexpr int MAX_HISTORY_ITEMS = 100;
-    static constexpr const char* HISTORY_FILE_PATH = "chat_history.json";
     static constexpr int CHAT_SERVER_PORT = 8080;  // ChatManager 监听端口
 }; 
