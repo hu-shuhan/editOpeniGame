@@ -36,9 +36,11 @@ int VTKAbstractReader::ReadHeader() {
         (this->FileMajorVersion == vtkLegacyReaderMajorVersion &&
          this->FileMinorVersion > vtkLegacyReaderMinorVersion)) {
         // newer file than the reader version
-        igDebug("Reading file version: " << this->FileMajorVersion << "." << this->FileMinorVersion
-                                         << " with older reader version " << vtkLegacyReaderMajorVersion << "."
-                                         << vtkLegacyReaderMinorVersion);
+        igDebug("Reading file version: {}.{} with older reader version {}.{}" ,
+                this->FileMajorVersion,
+                this->FileMinorVersion,
+                vtkLegacyReaderMajorVersion,
+                vtkLegacyReaderMinorVersion);
     }
     // Compose FileVersion
     this->FileVersion = 10 * this->FileMajorVersion + this->FileMinorVersion;
@@ -54,7 +56,7 @@ int VTKAbstractReader::ReadHeader() {
     this->Header = new char[strlen(line) + 1];
     strcpy(this->Header, line);
 
-    igDebug("Reading vtk file entitled!" << line);
+    igDebug("Reading vtk file entitled!{}" , line);
     //
     // read type
     //
@@ -110,7 +112,7 @@ int VTKAbstractReader::ReadPointCoordinates(Points::Pointer points, int PointsNu
     } else {
         return 0;
     }
-    igDebug("Read " << points->GetNumberOfPoints() << " points");
+    igDebug("Read {} points" , points->GetNumberOfPoints());
     this->UpdateReadProgress();
     return 1;
 }

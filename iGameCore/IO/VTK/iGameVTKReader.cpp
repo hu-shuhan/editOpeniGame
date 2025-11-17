@@ -51,7 +51,7 @@ bool VTKReader::Parsing() {
 			this->ReadStructuredGrid();
 		}
 		else {
-			igError("Cannot read dataset type: " << line);
+			igError("Cannot read dataset type: " , line);
 			return false;
 		}
 	}
@@ -64,7 +64,7 @@ bool VTKReader::Parsing() {
 		this->ReadPointData(PointsNum);
 	}
 	else {
-		igError("Unrecognized keyword: " << line);
+		igError("Unrecognized keyword: " , line);
 	}
 	if (m_Data.Data) {
 		this->GetOutput()->SetAttributeSet(m_Data.GetData());

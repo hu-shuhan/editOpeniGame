@@ -23,21 +23,21 @@ bool FileReader::Execute() {
 
     clock_t time1 = clock();
     if (!Open()) {
-        std::cerr << "Open failure\n";
+        IGAME_CORE_ERROR("Opening failure");
         return false;
     }
     clock_t time2 = clock();
     //std::cout << "Read file to buffer Cost " << time2 - time1 << "ms\n";
     if (!Parsing()) {
-        std::cerr << "Parsing failure\n";
+        IGAME_CORE_ERROR("Parsing failure");
         return false;
     }
     if (!Close()) {
-        std::cerr << "Close failure\n";
+        IGAME_CORE_ERROR("Close failure");
         return false;
     }
     if (!CreateDataObject()) {
-        std::cerr << "Generate DataObject failure\n";
+        IGAME_CORE_ERROR("Generate DataObject failure");
         return false;
     }
     clock_t time3 = clock();
@@ -49,7 +49,7 @@ bool FileReader::Execute() {
     
     this->SetOutput(0, m_Output);
     end = clock();
-    std::cout << "Read file success! The time cost: " << end - start << "ms" << std::endl;
+    igDebug("Read file success! The time cost: {} ms", end - start);
     return true;
 }
 
@@ -73,7 +73,7 @@ bool FileReader::OpenWithFreadType() {
     // 打开文件，使用二进制模式读取
     file_ = fopen(m_FilePath.c_str(), "rb");
     if (file_ == nullptr) {
-        std::cerr << "fopen failed to open the file.\n";
+        IGAME_CORE_ERROR("fopen failed to open the file.\n");
         return false;
     }
 
@@ -83,7 +83,7 @@ bool FileReader::OpenWithFreadType() {
     fseek(file_, 0, SEEK_SET); // 移回文件开头
 
     if (m_FileSize == 0) {
-        std::cerr << "File size is 0.\n";
+        IGAME_CORE_ERROR("File size is 0.");
         fclose(file_);
         return false;
     }
@@ -91,14 +91,14 @@ bool FileReader::OpenWithFreadType() {
     // 分配内存并读取文件内容
     FILESTART = (char*) malloc(m_FileSize);
     if (FILESTART == nullptr) {
-        std::cerr << "Memory allocation failed.\n";
+        IGAME_CORE_ERROR("Memory allocation failed.");
         fclose(file_);
         return false;
     }
 
     size_t bytesRead = fread(FILESTART, 1, m_FileSize, file_);
     if (bytesRead != m_FileSize) {
-        std::cerr << "fread failed to read the entire file.\n";
+        IGAME_CORE_ERROR("fread failed to read the entire file.");
         free(FILESTART);
         fclose(file_);
         return false;
@@ -613,7 +613,7 @@ ArrayObject::Pointer FileReader::ReadArray(const char* dataType, int numTuples, 
         }
         array = arr;
     } else {
-        igError("Unsupported data type: " << type);
+        igError("Unsupported data type: " , type);
         free(type);
         return nullptr;
     }

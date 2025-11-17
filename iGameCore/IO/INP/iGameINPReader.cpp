@@ -1,4 +1,5 @@
 #include "iGameINPReader.h"
+#include "Log/iGameLogger.h"
 IGAME_NAMESPACE_BEGIN
 
 INPReader::INPReader()
@@ -31,7 +32,7 @@ bool INPReader::Parsing()
 				partName[i - 5] = buffer[i];
 				if (buffer[i] == '\0' || buffer[i] == '\r' || buffer[i] == '\n')break;
 			}
-			std::cout << "Read part with name = " << partName << '\n';
+            IGAME_CORE_DEBUG("Read part with name = {}", partName);
 		}
 		//read nodes
 		else if (!strncmp(buffer, "*node", 5)) {

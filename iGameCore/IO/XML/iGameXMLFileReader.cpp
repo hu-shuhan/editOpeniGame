@@ -35,15 +35,16 @@ bool iGameXMLFileReader::Execute() {
 //	start = clock();
 
 	if (!Open()) {
+        IGAME_CORE_ERROR("Opening failure");
 		return false;
 	}
 	if (!Parsing())
 	{
-		std::cerr << "Parsing failure\n";
+        IGAME_CORE_ERROR("Parsing failure");
 		return false;
 	}
 	if (!CreateDataObject()) {
-		std::cerr << "Not create mesh\n";
+        IGAME_CORE_ERROR("Not create mesh");
 		return false;
 	}
 	m_Output->SetName(m_FileName);

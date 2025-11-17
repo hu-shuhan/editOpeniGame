@@ -1,5 +1,6 @@
 #if defined(CGNS_ENABLE)
 #include "iGameCGNSReader.h"
+#include "Log/iGameLogger.h"
 #include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 iGameCGNSReader::iGameCGNSReader() {
@@ -29,27 +30,27 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
     int file_type;
     result = cgio_check_file(fileName.c_str(), &file_type);
     if (file_type == CG_FILE_NONE) {
-        std::cout << "Not a CGNS file." << std::endl;
+        IGAME_CORE_ERROR("Not a CGNS file.");
         return nullptr;
     } else if (file_type == CG_FILE_ADF) {
-        std::cout << "ADF (Advanced Data Format) file." << std::endl;
+        IGAME_CORE_DEBUG("ADF (Advanced Data Format) file.");
     } else if (file_type == CG_FILE_HDF5) {
-        std::cout << "HDF5 (Hierarchical Data Format) file." << std::endl;
+        IGAME_CORE_DEBUG("HDF5 (Hierarchical Data Format) file.");
     } else {
-        std::cout << "Unknown file type." << std::endl;
+        IGAME_CORE_WARN("Unknown file type.");
         return nullptr;
     }
     int index_file;
     result = cg_open(fileName.data(), CG_MODE_READ, &index_file);
     if (CG_OK != result) {
-        std::cout << "Open Error: " << cg_get_error() << std::endl;
+        IGAME_CORE_ERROR("Open Error: {}", cg_get_error());
     } else {
-        std::cout << "Success to open cgns file!" << std::endl;
+        IGAME_CORE_DEBUG("Success to open cgns file!");
     }
 
     int cgio_num;
     result = cg_get_cgio(index_file, &cgio_num);
-    if (CG_OK != result) { std::cout << "Get cgio num Error: " << cg_get_error() << std::endl; }
+    if (CG_OK != result) { IGAME_CORE_ERROR("Get cgio num Error: {}", cg_get_error()); }
     // Get the root node ID
     double root_id;
     cgio_get_root_id(cgio_num, &root_id);
@@ -81,7 +82,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
     int nbases;
     result = cg_nbases(index_file, &nbases);
     if (CG_OK != result) {
-        std::cout << "Get nbases Error: " << cg_get_error() << std::endl;
+        IGAME_CORE_ERROR("Get nbases Error: {}", cg_get_error());
     } else {
         // std::cout << "Base Num = " << nbases << std::endl;
     }
@@ -91,7 +92,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
         int celldim, physdim;
         result = cg_base_read(index_file, index_base, basename, &celldim, &physdim);
         if (CG_OK != result) {
-            std::cout << "Read Base: " << cg_get_error() << std::endl;
+            IGAME_CORE_ERROR("Read Base: {}", cg_get_error());
         } else {
             // std::cout << "BaseName = " << basename << std::endl;
             // std::cout << "Dimension of the cells = " << celldim << std::endl;
@@ -100,23 +101,23 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
         int nzones;
         result = cg_nzones(index_file, index_base, &nzones);
         if (CG_OK != result) {
-            std::cout << "Get nzones Error: " << cg_get_error() << std::endl;
+            IGAME_CORE_ERROR("Get nzones Error: {}", cg_get_error());
         } else {
-            std::cout << "Zone Num of Base(" << index_base << ") = " << nzones << std::endl;
+            IGAME_CORE_DEBUG("Zone Num of Base({}) = {}", index_base, nzones);
             for (int index_zone = 1; index_zone <= nzones; index_zone++) {
                 DataObject::Pointer DataSet = DataObject::New();
                 ZoneType_t zoneType;
                 result = cg_zone_type(index_file, index_base, index_zone, &zoneType);
-                if (CG_OK != result) { std::cout << "Get Zone Type Error: " << cg_get_error() << std::endl; }
+                if (CG_OK != result) { IGAME_CORE_ERROR("Get Zone Type Error: {}", cg_get_error()); }
                 cgsize_t size[9] = {0};
                 char zonename[100];
                 result = cg_zone_read(index_file, index_base, index_zone, zonename, size);
                 if (CG_OK != result) {
-                    std::cout << "Zone Read Error: " << cg_get_error() << std::endl;
+                    IGAME_CORE_ERROR("Zone Read Error: {}", cg_get_error());
                 } else {
-                    std::cout << "ZoneName = " << zonename << std::endl;
+                    IGAME_CORE_DEBUG("ZoneName = {}", zonename);
                     if (zoneType == Structured) {
-                        std::cout << "ZoneType = Structured" << std::endl;
+                        IGAME_CORE_DEBUG("ZoneType = Structured");
                         if (m_StructuredMesh == nullptr) { m_StructuredMesh = StructuredMesh::New(); }
                         this->m_DataObjectType = IG_STRUCTURED_MESH;
                         // Calculate total points and cells for structured zones
@@ -126,38 +127,38 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
                             if (size[celldim + i] == 0) { break; }
                             totalCells *= size[celldim + i];
                         }
-                        std::cout << "Total Points: " << totalPoints << std::endl;
-                        std::cout << "Total Cells: " << totalCells << std::endl;
+                        IGAME_CORE_DEBUG("Total Points: {}", totalPoints);
+                        IGAME_CORE_DEBUG("Total Cells: {}", totalCells);
                         // Read vertices coordinates
                         this->ReadPointCoordinates(totalPoints, physdim, index_file, index_base, index_zone, size);
                         // Gen cells (connectivity)
                         this->GenStructuredCellConnectivities(celldim, size);
                     } else if (zoneType == Unstructured) {
-                        std::cout << "ZoneType = Unstructured" << std::endl;
-                        std::cout << "Total Points: " << size[0] << std::endl;
-                        std::cout << "Total Cells: " << size[1] << std::endl;
+                        IGAME_CORE_DEBUG("ZoneType = Unstructured");
+                        IGAME_CORE_DEBUG("Total Points: {}", size[0]);
+                        IGAME_CORE_DEBUG("Total Cells: {}", size[1]);
                         // Read vertices coordinates
                         this->ReadPointCoordinates(size[0], physdim, index_file, index_base, index_zone, size);
                         // Read cells (connectivity)
                         this->ReadUnstructuredCellConnectivities(index_file, index_base, index_zone, size[1]);
                     } else {
-                        std::cout << "Unknown ZoneType!" << std::endl;
+                        IGAME_CORE_WARN("Unknown ZoneType!");
                         this->m_DataObjectType = IG_NONE;
                     }
                     /* Flow Solution */
                     int nsols;
                     result = cg_nsols(index_file, index_base, index_zone, &nsols);
                     if (CG_OK != result) {
-                        std::cout << "Get Num Of Solution Error: " << cg_get_error() << std::endl;
+                        IGAME_CORE_ERROR("Get Num Of Solution Error: {}", cg_get_error());
                     } else {
-                        std::cout << "Solution Num = " << nsols << std::endl;
+                        IGAME_CORE_DEBUG("Solution Num = {}", nsols);
                     }
                     for (int index_sol = 1; index_sol <= nsols; index_sol++) {
                         char solname[100];
                         GridLocation_t location;
                         result = cg_sol_info(index_file, index_base, index_zone, index_sol, solname, &location);
                         if (CG_OK != result) {
-                            std::cout << "Read Solution Info Error: " << cg_get_error() << std::endl;
+                            IGAME_CORE_ERROR("Read Solution Info Error: {}", cg_get_error());
                         }
                         //std::cout << "Solution Name = " << solname << std::endl;
                         switch (location) {
@@ -177,7 +178,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
                                 //std::cout << "Solution Location = KFaceCenter" << std::endl;
                                 break;
                             default:
-                                std::cout << "Solution Location is bad data! Unknown!" << std::endl;
+                                IGAME_CORE_WARN("Solution Location is bad data! Unknown!");
                         }
                         this->ReadFields(index_file, index_base, index_zone, index_sol, zoneType, celldim, location,
                                          size);
@@ -216,9 +217,8 @@ void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int in
         CGNS_ENUMT(DataType_t) datatype;
 
         int result = cg_coord_info(index_file, index_base, index_zone, dim + 1, &datatype, coordName);
-        if (CG_OK != result) {
-            std::cout << "Get coordinate info failed for dim " << dim
-                << ": " << cg_get_error() << std::endl;
+    if (CG_OK != result) {
+            IGAME_CORE_ERROR("Get coordinate info failed for dim {}: {}", dim, cg_get_error());
             continue;
         }
 
@@ -232,7 +232,7 @@ void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int in
         result = cg_coord_read(index_file, index_base, index_zone, coordName, RealDouble, range_min,
             range_max, coordData);
         if (CG_OK != result) {
-            std::cout << "Read " << coordName << " Error: " << cg_get_error() << std::endl;
+            IGAME_CORE_ERROR("Read {} Error: {}", coordName, cg_get_error());
             continue;
         }
 
@@ -261,7 +261,7 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
     int nsections;
     int result = cg_nsections(index_file, index_base, index_zone, &nsections);
     if (CG_OK != result) {
-        std::cout << "Get Num Of Sections Error: " << cg_get_error() << std::endl;
+        IGAME_CORE_ERROR("Get Num Of Sections Error: {}", cg_get_error());
         return;
     }
     //paraview只读取了部分的section，应该是非结构化网格只有一个section
@@ -269,7 +269,7 @@ void iGameCGNSReader::ReadUnstructuredCellConnectivities(int index_file, int ind
     //igDebug("the number of sections is " << nsections);
     int cgio_num;
     if (cg_get_cgio(index_file, &cgio_num) != CG_OK) {
-        std::cout << "Get cgio num Error: " << cg_get_error() << std::endl;
+        IGAME_CORE_ERROR("Get cgio num Error: {}", cg_get_error());
     }
     bool hasPolyGon = false;
     bool hasPolyHedron = false;
@@ -480,15 +480,15 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
     int nfileds;
     int result = cg_nfields(index_file, index_base, index_zone, index_sol, &nfileds);
     if (CG_OK != result) {
-        std::cout << "Get Nfields Error: " << cg_get_error() << std::endl;
+        IGAME_CORE_ERROR("Get Nfields Error: {}", cg_get_error());
     } else {
-        std::cout << "nfields = " << nfileds << std::endl;
+        IGAME_CORE_DEBUG("nfields = {}", nfileds);
         for (int index_field = 1; index_field <= nfileds; index_field++) {
             DataType_t dataType;
             char fieldname[100];
             result = cg_field_info(index_file, index_base, index_zone, index_sol, index_field, &dataType, fieldname);
             if (CG_OK != result) {
-                std::cout << "Get Field Info Error: " << cg_get_error() << std::endl;
+                IGAME_CORE_ERROR("Get Field Info Error: {}", cg_get_error());
                 continue;
             } else {
                 //std::cout << "FieldName = " << fieldname << std::endl;
@@ -557,7 +557,7 @@ void iGameCGNSReader::ReadFields(int index_file, int index_base, int index_zone,
                         break;
                 }
                 if (CG_OK != result) {
-                    std::cout << "Get Field Error: " << cg_get_error() << std::endl;
+                    IGAME_CORE_ERROR("Get Field Error: {}", cg_get_error());
                 } else {
                     //存储
                     solutionArray->SetName(fieldname);

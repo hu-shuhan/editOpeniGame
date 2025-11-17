@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <iGameFileIO.h>
 #include <iGameScene.h>
-#include <iostream>
+#include "Log/iGameLogger.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -34,12 +34,12 @@ bool CASReader::Parsing() {
 
     std::string arguments = "--input " + casPath + " --output " + outputDir;
     std::string fullCommand = "\"" + exePath.string() + "\" " + arguments;
-    std::cout << "[CASReader] Running command: " << fullCommand << std::endl;
+    IGAME_CORE_DEBUG("[CASReader] Running command: {}", fullCommand);
 
     // ???????????
     int returnCode = system(fullCommand.c_str());
     if (returnCode != 0) {
-        std::cerr << "[Error] CAS to VTK conversion failed. Return code: " << returnCode << std::endl;
+        IGAME_CORE_ERROR("CAS to VTK conversion failed. Return code: {}", returnCode);
         return false;
     }
 
@@ -56,31 +56,31 @@ bool CASReader::Parsing() {
     // ??????????? VTK ???
     auto obj = iGame::FileIO::ReadFile(outputFile);
     if (!obj) {
-        std::cerr << "[Error] Failed to load generated VTK file: " << outputFile << std::endl;
+        IGAME_CORE_ERROR("Failed to load generated VTK file: {}", outputFile);
         return false;
     }
-    std::cout << obj->GetDataObjectType() << '\n';
+    IGAME_CORE_DEBUG("DataObjectType: {}", obj->GetDataObjectType());
     auto pc = DynamicCast<PointSet>(obj);
-    std::cout << pc->GetNumberOfPoints() << std::endl;
+    IGAME_CORE_DEBUG("Points: {}", pc->GetNumberOfPoints());
     // ??????????
 
     this->SetOutput(obj);
-    std::cout << "[Info] Successfully converted and loaded: " << outputFile << std::endl;
+    IGAME_CORE_DEBUG("Successfully converted and loaded: {}", outputFile);
 
     // ===== ?????????? =====
     try {
         if (fs::exists(outputFilePath)) {
             fs::remove(outputFilePath);
-            std::cout << "[Cleanup] Removed temporary file: " << outputFilePath << std::endl;
+            IGAME_CORE_DEBUG("[Cleanup] Removed temporary file: {}", outputFilePath.string());
         }
 
         // ??? temp ??????????????
         if (fs::exists(tempDir) && fs::is_empty(tempDir)) {
             fs::remove(tempDir);
-            std::cout << "[Cleanup] Removed empty temp directory: " << tempDir << std::endl;
+            IGAME_CORE_DEBUG("[Cleanup] Removed empty temp directory: {}", tempDir.string());
         }
     } catch (const std::exception& e) {
-        std::cerr << "[Warning] Failed to clean temporary files: " << e.what() << std::endl;
+        IGAME_CORE_WARN("Failed to clean temporary files: {}", e.what());
     }
 
 

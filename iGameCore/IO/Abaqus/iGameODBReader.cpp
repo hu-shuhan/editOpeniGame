@@ -8,6 +8,7 @@
  */
 #if defined(AbqSDK_ENABLE)
 #include "iGameODBReader.h"
+#include "Log/iGameLogger.h"
 
 #include <VTK/iGameVTKAbstractReader.h>
 
@@ -55,7 +56,7 @@ public:
             return "Tensors";
         }
 
-        std::cerr << "VTK field data type not understood." << std::endl;
+        IGAME_CORE_WARN("VTK field data type not understood.");
         return "";
     }
 
@@ -198,28 +199,28 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
         odb_initializeAPI();
         try {
             if(!OpenODB()){
-                std::cout << "Fail to Open ODB dataBase \n";
+                IGAME_CORE_ERROR("Fail to Open ODB dataBase");
                 return false;
             }
             UpdateProgress(AddODBProgress(0.05f));
-            std::cout <<"Open end\n";
+            IGAME_CORE_DEBUG("Open end");
             ExtractHeader();
             UpdateProgress(AddODBProgress(0.05f));
-            std::cout <<"ExtractHeader end\n";
+            IGAME_CORE_DEBUG("ExtractHeader end");
             ConstructMap();
             UpdateProgress(AddODBProgress(0.1f));
             m_Attribute_helper = new AttributeParserHelper(m_StepFrameMap.begin()->first, frameIdx);
-            std::cout <<"ConstructMap end\n";
+            IGAME_CORE_DEBUG("ConstructMap end");
             ReadAttributes();
-            std::cout <<"ReadAttributes end\n";
+            IGAME_CORE_DEBUG("ReadAttributes end");
         }
         catch (odb_BaseException& exc) {
             odb_finalizeAPI();
-            std::cout << "Abaqus error message: " << exc.UserReport().CStr() << std::endl;
+            IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
             return false;
         }catch (...) {
             odb_finalizeAPI();
-            std::cout << "Unknown Exception.\n";
+            IGAME_CORE_ERROR("Unknown Exception.");
             return false;
         }
         odb_finalizeAPI();
@@ -232,24 +233,24 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
     odb_initializeAPI();
     try {
         if(!OpenODB()){
-            std::cout << "Fail to Open ODB dataBase \n";
+            IGAME_CORE_ERROR("Fail to Open ODB dataBase");
             return false;
         }
-        std::cout <<"Open end\n";
+        IGAME_CORE_DEBUG("Open end");
         ExtractAllInstance();
-        std::cout <<"ExtractHeader end\n";
+        IGAME_CORE_DEBUG("ExtractHeader end");
         ConstructMap();
-        std::cout <<"ConstructMap end\n";
+        IGAME_CORE_DEBUG("ConstructMap end");
         ReadAttributes();
-        std::cout <<"ReadAttributes end\n";
+        IGAME_CORE_DEBUG("ReadAttributes end");
     }
     catch (odb_BaseException& exc) {
         odb_finalizeAPI();
-        std::cout << "Abaqus error message: " << exc.UserReport().CStr() << std::endl;
+        IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
         return false;
     }catch (...) {
         odb_finalizeAPI();
-        std::cout << "Unknown Exception.\n";
+        IGAME_CORE_ERROR("Unknown Exception.");
         return false;
     }
     odb_finalizeAPI();
@@ -257,29 +258,29 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
 }
 
 bool iGame::ODBReader::Execute() {
-    std::cout << "Init Odb start\n";
+    IGAME_CORE_DEBUG("Init Odb start");
     odb_initializeAPI();
     UpdateProgress(AddODBProgress(0.05f));
-    std::cout << "Init Odb end\n";
+    IGAME_CORE_DEBUG("Init Odb end");
     try {
         if(!OpenODB()){
-            std::cout << "Fail to Open ODB dataBase \n";
+            IGAME_CORE_ERROR("Fail to Open ODB dataBase");
             return false;
         }
         ExtractHeader();
         UpdateProgress(AddODBProgress(0.05f));
-        std::cout <<"ExtractHeader end\n";
+        IGAME_CORE_DEBUG("ExtractHeader end");
         ConstructMap();
         UpdateProgress(AddODBProgress(0.05f));
-        std::cout <<"ConstructMap end\n";
+        IGAME_CORE_DEBUG("ConstructMap end");
         ReadCoordinates();
-        std::cout <<"ReadCoordinates end\n";
+        IGAME_CORE_DEBUG("ReadCoordinates end");
         CreateDataObject();
     }
     catch (odb_BaseException& exc) {
-        std::cout << "Abaqus error message: " << exc.UserReport().CStr() << std::endl;
+        IGAME_CORE_ERROR("Abaqus error message: {}", exc.UserReport().CStr());
     }catch (...) {
-        std::cout << "Unknown Exception.\n";
+        IGAME_CORE_ERROR("Unknown Exception.");
     }
     odb_finalizeAPI();
 
@@ -326,7 +327,7 @@ bool ODBReader::ExtractAllStep() {
     for (stepIter.first(); !stepIter.isDone(); stepIter.next())
     {
         std::string stepName = std::string(stepIter.currentKey().CStr());
-        std::cout << "Step Name : " << stepName.c_str() << '\n';
+        IGAME_CORE_DEBUG("Step Name : {}", stepName.c_str());
         m_StepFrameMap[stepName] = stepIter.currentValue().frames().size();
     }
     return true;
@@ -706,7 +707,7 @@ ODBReader::ODBReader() {
 ODBReader::~ODBReader() {
     if(m_ODB != nullptr)m_ODB->close();
     delete m_Attribute_helper;
-    std::cout << "Close ODB Reader\n";
+    IGAME_CORE_DEBUG("Close ODB Reader");
 }
 
 uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
@@ -799,7 +800,7 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
         return 9;
     }
 
-    std::cerr << abqElementType << " not supported by the converter." << std::endl;
+    IGAME_CORE_ERROR("{} not supported by the converter.", abqElementType);
     return -1;
 }
 
