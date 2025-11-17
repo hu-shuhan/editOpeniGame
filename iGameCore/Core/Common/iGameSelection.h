@@ -152,6 +152,8 @@ protected:
     Selection() {}
     ~Selection() override = default;
 
+    void SetBoxStyle(const std::pair<Point, Point>& p);
+
     //std::function<void(Event)> m_Functor;
 
     //Vector3f m_Position{};

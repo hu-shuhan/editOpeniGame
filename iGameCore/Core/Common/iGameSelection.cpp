@@ -4,6 +4,7 @@
 #include <iGameUnstructuredMesh.h>
 #include <set>
 #include <utility>
+#include <iGameBoxStyle.h>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -376,12 +377,12 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
         case IG_POINT_BOX: {
             auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, _GetMesh());
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
-            DrawBoundingBox(pMinMax);
+            SetBoxStyle(pMinMax);
         } break;
         case IG_CELL_BOX: {
             auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, _GetMesh());
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
-            DrawBoundingBox(pMinMax);
+            SetBoxStyle(pMinMax);
         } break;
         default:
             break;
@@ -403,12 +404,12 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
         case IG_POINT_BOX: {
             auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, _GetMesh());
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
-            DrawBoundingBox(pMinMax);
+            SetBoxStyle(pMinMax);
         } break;
         case IG_CELL_BOX: {
             auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, _GetMesh());
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
-            DrawBoundingBox(pMinMax);
+            SetBoxStyle(pMinMax);
         } break;
         default:
             break;
@@ -449,6 +450,18 @@ void Selection::SetSelectItemVisable(bool visable) {
 void Selection::SetSelectBoxVisable(bool visable) {
     if (m_Model == nullptr) return;
     m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
+}
+
+void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
+    if (m_Model == nullptr) return;
+    auto scene = m_Model->GetScene();
+    if (scene == nullptr) return;
+    auto interactor = scene->GetInteractor();
+    if (interactor == nullptr) return;
+    auto boxStyle = BoxStyle::New();
+    boxStyle->Initialize(interactor);
+    boxStyle->InitBox(p.first, p.second);
+    interactor->_SetSpecialInteractor("SelectBox", boxStyle);
 }
 
 void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {

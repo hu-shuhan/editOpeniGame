@@ -57,6 +57,20 @@ Point DynamicBox::GetFaceLocalNormal(OpeInt face) const {
     return Point(0, 0, 0);
 }
 
+// 辅助函数：将面的局部顶点变换到世界坐标系
+std::array<Point, 4> DynamicBox::TransformFaceVertices(const std::array<Point, 4>& localVertices, double r00,
+                                                       double r01, double r02, double r10, double r11, double r12,
+                                                       double r20, double r21, double r22) const {
+    std::array<Point, 4> worldVertices;
+
+    for (int i = 0; i < 4; ++i) {
+        Point rotatedPoint = ApplyRotationMatrix(localVertices[i], r00, r01, r02, r10, r11, r12, r20, r21, r22);
+        worldVertices[i] = rotatedPoint + m_Position;
+    }
+
+    return worldVertices;
+}
+
 void DynamicBox::InitMsg(const Point& p1, const Point& p2) {
     m_Position = (p1 + p2) / 2.0;
     m_Rotation.setZero();
@@ -96,79 +110,246 @@ DynamicBox::DynamicBox(const Point& p1, const Point& p2) {
 void DynamicBox::MoveOpePoint(OpeInt pointIndex, const Point& direction) {
     if (pointIndex < 0 || pointIndex >= 6) return;
 
+    // 获取旋转矩阵的逆矩阵（世界到局部坐标系的变换）
+    double r00, r01, r02, r10, r11, r12, r20, r21, r22;
+    GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
+
+    // 旋转矩阵的逆矩阵就是转置矩阵
+    Point localDirection = ApplyRotationMatrix(direction, r00, r10, r20, r01, r11, r21, r02, r12, r22);
+
     // 获取操作点对应的局部坐标轴方向
     Point localAxis = GetFaceLocalNormal(pointIndex);
 
+    // 计算输入方向在局部轴方向上的投影（在局部坐标系中）
+    double dotProduct =
+            localDirection[0] * localAxis[0] + localDirection[1] * localAxis[1] + localDirection[2] * localAxis[2];
+    double projectionLength = dotProduct;
+
+    // 在局部坐标系中计算移动向量
+    Point localMoveVector = localAxis * projectionLength;
+
+    // 根据移动的操作点更新盒子的位置和尺寸（在局部坐标系中处理）
+    UpdateBoxFromOpePoint(pointIndex, localMoveVector);
+}
+
+void DynamicBox::UpdateBoxFromOpePoint(OpeInt pointIndex, const Point& localMoveVector) {
     // 获取旋转矩阵
     double r00, r01, r02, r10, r11, r12, r20, r21, r22;
     GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
 
-    // 将局部坐标轴方向旋转到世界坐标系
-    Point worldAxis = ApplyRotationMatrix(localAxis, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    // 在局部坐标系中更新盒子的尺寸
+    Point newLength = m_Length;
+    Point positionOffset(0, 0, 0);
 
-    // 计算输入方向在局部轴方向上的投影
-    double dotProduct = direction[0] * worldAxis[0] + direction[1] * worldAxis[1] + direction[2] * worldAxis[2];
-    double projectionLength = dotProduct;
-
-    // 计算实际移动向量（在世界坐标系中）
-    Point moveVector = worldAxis * projectionLength;
-
-    // 更新操作点位置
-    m_OpePoints[pointIndex] = m_OpePoints[pointIndex] + moveVector;
-
-    // 根据移动的操作点更新盒子的位置和尺寸
-    UpdateBoxFromOpePoint(pointIndex, moveVector);
-}
-
-void DynamicBox::UpdateBoxFromOpePoint(OpeInt pointIndex, const Point& moveVector) {
-    // 根据移动的操作点更新盒子的位置和尺寸
     switch (pointIndex) {
         case UP:
+            newLength[1] += localMoveVector[1] * 1.0;
+            positionOffset[1] = localMoveVector[1] / 2.0;
+            break;
         case BOTTOM:
-            // 更新Y方向的长度和位置
-            m_Length[1] += moveVector[1] * (pointIndex == UP ? 2 : -2);
-            m_Position[1] += moveVector[1] * 0.5;
+            newLength[1] -= localMoveVector[1] * 1.0;
+            positionOffset[1] = localMoveVector[1] / 2.0;
             break;
-
         case LEFT:
-        case RIGHT:
-            // 更新X方向的长度和位置
-            m_Length[0] += moveVector[0] * (pointIndex == RIGHT ? 2 : -2);
-            m_Position[0] += moveVector[0] * 0.5;
+            newLength[0] -= localMoveVector[0] * 1.0;
+            positionOffset[0] = localMoveVector[0] / 2.0;
             break;
-
+        case RIGHT:
+            newLength[0] += localMoveVector[0] * 1.0;
+            positionOffset[0] = localMoveVector[0] / 2.0;
+            break;
         case FRONT:
+            newLength[2] += localMoveVector[2] * 1.0;
+            positionOffset[2] = localMoveVector[2] / 2.0;
+            break;
         case BACK:
-            // 更新Z方向的长度和位置
-            m_Length[2] += moveVector[2] * (pointIndex == FRONT ? 2 : -2);
-            m_Position[2] += moveVector[2] * 0.5;
+            newLength[2] -= localMoveVector[2] * 1.0;
+            positionOffset[2] = localMoveVector[2] / 2.0;
             break;
     }
+
+    // 防止负长度
+    if (newLength[0] < 0) newLength[0] = 0;
+    if (newLength[1] < 0) newLength[1] = 0;
+    if (newLength[2] < 0) newLength[2] = 0;
+
+    // 更新尺寸
+    m_Length = newLength;
+
+    // 将位置偏移转换到世界坐标系并更新位置
+    Point worldPositionOffset = ApplyRotationMatrix(positionOffset, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    m_Position = m_Position + worldPositionOffset;
 
     // 更新所有操作点
     SetOpePoints();
 }
 
-void DynamicBox::RotateBox(OpeInt face, const Point& direction) {
-    // 获取选定面的法线方向（在局部坐标系中）
-    Point localNormal = GetFaceLocalNormal(face);
+void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
+    // 计算从相机指向盒子中心的向量
+    Point cameraToCenter = m_Position - camera;
 
-    // 将局部法线转换到世界坐标系
-    Point worldNormal = LocalToWorld(localNormal);
+    // 计算旋转轴：相机到中心向量与旋转向量的叉积
+    Point rotationAxis = direction.cross(cameraToCenter);
 
-    // 计算旋转轴：法线与方向向量的叉积
-    Point rotationAxis = worldNormal.cross(direction);
-    rotationAxis.normalize();
+    // 归一化旋转轴
+    if (rotationAxis.length() > 0) {
+        rotationAxis.normalize();
 
-    // 计算旋转角度：基于方向向量的长度，可以添加一个缩放因子
-    double rotationAngle = direction.length() * 0.01;
+        // 计算旋转角度（使用旋转向量的长度作为角度大小）
+        double rotationAngle = direction.length();
 
-    // 应用旋转
-    ApplyRotation(rotationAxis, rotationAngle);
+        // 应用旋转
+        ApplyRotation(rotationAxis, rotationAngle);
 
-    // 更新操作点
+        // 更新操作点的位置
+        SetOpePoints();
+    }
+}
+
+void DynamicBox::MovePosition(const Point& position) {
+    m_Position = position;
     SetOpePoints();
 }
+
+const Point& DynamicBox::GetMidPoint() const { return m_Position; }
+
+const std::array<Point, 6>& DynamicBox::GetOpePoints() const { return m_OpePoints; }
+
+std::vector<std::pair<Point, Point>> DynamicBox::GetAllEdges() const {
+    std::vector<std::pair<Point, Point>> edges;
+    edges.reserve(12); // 立方体有12条边
+
+    // 获取半长（从中心到各面的距离）
+    Point halfLength = m_Length / 2.0;
+
+    // 局部坐标系下的8个顶点（未旋转状态）
+    std::array<Point, 8> localVertices = {
+            // 底面四个顶点（从前面左下角开始逆时针）
+            Point(-halfLength[0], -halfLength[1], -halfLength[2]), // 0: 后-左-下
+            Point(halfLength[0], -halfLength[1], -halfLength[2]),  // 1: 后-右-下
+            Point(halfLength[0], halfLength[1], -halfLength[2]),   // 2: 后-右-上
+            Point(-halfLength[0], halfLength[1], -halfLength[2]),  // 3: 后-左-上
+
+            // 顶面四个顶点（从前面左下角开始逆时针）
+            Point(-halfLength[0], -halfLength[1], halfLength[2]), // 4: 前-左-下
+            Point(halfLength[0], -halfLength[1], halfLength[2]),  // 5: 前-右-下
+            Point(halfLength[0], halfLength[1], halfLength[2]),   // 6: 前-右-上
+            Point(-halfLength[0], halfLength[1], halfLength[2])   // 7: 前-左-上
+    };
+
+    // 获取旋转矩阵
+    double r00, r01, r02, r10, r11, r12, r20, r21, r22;
+    GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
+
+    // 将局部顶点转换到世界坐标系
+    std::array<Point, 8> worldVertices;
+    for (int i = 0; i < 8; ++i) {
+        Point rotatedPoint = ApplyRotationMatrix(localVertices[i], r00, r01, r02, r10, r11, r12, r20, r21, r22);
+        worldVertices[i] = rotatedPoint + m_Position;
+    }
+
+    // 定义12条边（每对数字代表两个顶点的索引）
+    // 底面4条边
+    edges.push_back({worldVertices[0], worldVertices[1]}); // 后边下
+    edges.push_back({worldVertices[1], worldVertices[2]}); // 右边下
+    edges.push_back({worldVertices[2], worldVertices[3]}); // 前边下
+    edges.push_back({worldVertices[3], worldVertices[0]}); // 左边下
+
+    // 顶面4条边
+    edges.push_back({worldVertices[4], worldVertices[5]}); // 后边上
+    edges.push_back({worldVertices[5], worldVertices[6]}); // 右边上
+    edges.push_back({worldVertices[6], worldVertices[7]}); // 前边上
+    edges.push_back({worldVertices[7], worldVertices[4]}); // 左边上
+
+    // 侧面4条垂直边
+    edges.push_back({worldVertices[0], worldVertices[4]}); // 左下垂直
+    edges.push_back({worldVertices[1], worldVertices[5]}); // 右下垂直
+    edges.push_back({worldVertices[2], worldVertices[6]}); // 右上垂直
+    edges.push_back({worldVertices[3], worldVertices[7]}); // 左上垂直
+
+    return edges;
+}
+
+std::array<std::array<Point, 4>, 6> DynamicBox::GetAllFaces() const {
+    std::array<std::array<Point, 4>, 6> faces;
+
+    // 获取旋转矩阵
+    double r00, r01, r02, r10, r11, r12, r20, r21, r22;
+    GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
+
+    // 获取半长
+    Point halfLength = m_Length / 2.0;
+
+    // 前面 (FRONT) - Z正方向 - 保持正确
+    {
+        std::array<Point, 4> localVerts = {
+                Point(-halfLength[0], -halfLength[1], halfLength[2]), // 左下
+                Point(halfLength[0], -halfLength[1], halfLength[2]),  // 右下
+                Point(halfLength[0], halfLength[1], halfLength[2]),   // 右上
+                Point(-halfLength[0], halfLength[1], halfLength[2])   // 左上
+        };
+        faces[FRONT] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    // 后面 (BACK) - Z负方向 - 修正为逆时针
+    {
+        std::array<Point, 4> localVerts = {
+                Point(-halfLength[0], -halfLength[1], -halfLength[2]), // 左下
+                Point(-halfLength[0], halfLength[1], -halfLength[2]),  // 左上
+                Point(halfLength[0], halfLength[1], -halfLength[2]),   // 右上
+                Point(halfLength[0], -halfLength[1], -halfLength[2])   // 右下
+        };
+        faces[BACK] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    // 上面 (UP) - Y正方向 - 修正为逆时针
+    {
+        std::array<Point, 4> localVerts = {
+                Point(-halfLength[0], halfLength[1], -halfLength[2]), // 后左
+                Point(-halfLength[0], halfLength[1], halfLength[2]),  // 前左
+                Point(halfLength[0], halfLength[1], halfLength[2]),   // 前右
+                Point(halfLength[0], halfLength[1], -halfLength[2])   // 后右
+        };
+        faces[UP] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    // 下面 (BOTTOM) - Y负方向 - 保持正确
+    {
+        std::array<Point, 4> localVerts = {
+                Point(-halfLength[0], -halfLength[1], -halfLength[2]), // 后左
+                Point(halfLength[0], -halfLength[1], -halfLength[2]),  // 后右
+                Point(halfLength[0], -halfLength[1], halfLength[2]),   // 前右
+                Point(-halfLength[0], -halfLength[1], halfLength[2])   // 前左
+        };
+        faces[BOTTOM] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    // 右面 (RIGHT) - X正方向 - 保持正确
+    {
+        std::array<Point, 4> localVerts = {
+                Point(halfLength[0], -halfLength[1], -halfLength[2]), // 下后
+                Point(halfLength[0], halfLength[1], -halfLength[2]),  // 上后
+                Point(halfLength[0], halfLength[1], halfLength[2]),   // 上前
+                Point(halfLength[0], -halfLength[1], halfLength[2])   // 下前
+        };
+        faces[RIGHT] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    // 左面 (LEFT) - X负方向 - 修正为逆时针
+    {
+        std::array<Point, 4> localVerts = {
+                Point(-halfLength[0], halfLength[1], halfLength[2]),   // 上前
+                Point(-halfLength[0], halfLength[1], -halfLength[2]),  // 上后
+                Point(-halfLength[0], -halfLength[1], -halfLength[2]), // 下后
+                Point(-halfLength[0], -halfLength[1], halfLength[2])   // 下前
+        };
+        faces[LEFT] = TransformFaceVertices(localVerts, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+    }
+
+    return faces;
+}
+
+const Point& DynamicBox::GetLength() const { return m_Length; }
 
 // 将局部坐标转换到世界坐标系
 Point DynamicBox::LocalToWorld(const Point& localVec) const {

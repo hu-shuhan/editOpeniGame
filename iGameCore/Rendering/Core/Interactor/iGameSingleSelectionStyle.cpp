@@ -99,6 +99,45 @@ static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
     }
 }
 
+// 静态方法：计算面的法向量
+static Point ComputeFaceNormal(const std::array<Point, 4>& face) {
+    Point v1 = face[1] - face[0];
+    Point v2 = face[2] - face[1];
+
+    // 叉积计算法向量
+    Point normal = v1.cross(v2).normalized();
+
+    return normal;
+}
+
+// 静态方法：检查点是否在面的同一侧（内部）
+static bool IsPointOnSameSide(const Point& p,
+                              const std::array<Point, 4>& face) {
+    Point normal = ComputeFaceNormal(face);
+
+    // 使用面上第一个点作为参考点
+    const Point& refPoint = face[0];
+
+    // 计算点到面的有向距离
+    double dotProduct = normal[0] * (p[0] - refPoint[0]) +
+                        normal[1] * (p[1] - refPoint[1]) +
+                        normal[2] * (p[2] - refPoint[2]);
+
+    // 对于立方体，所有内部点应该在面的同一侧
+    // 这里假设法向量指向外部，所以内部点的点积应该为负
+
+    return dotProduct <= 0;
+}
+
+static bool IsPointInside(const Point& p,
+                          const std::array<std::array<Point, 4>, 6>& allFaces) {
+
+    for (const auto& face: allFaces) {
+        if (!IsPointOnSameSide(p, face)) { return false; }
+    }
+    return true;
+}
+
 SingleSelectionStyle::SingleSelectionStyle() {}
 SingleSelectionStyle::~SingleSelectionStyle() {}
 
@@ -108,9 +147,15 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     if (_event.button != MiddleButton) return;
     switch (GetSelectedType()) {
         case SelectionStyle::SelectPoint:
+            if (SelectionParameter::Instance().GetInSelection() &&
+                m_Scene->GetInteractor()->HaveSpecialInteractor("SelectBox"))
+                return;
             this->SelectPoint(_event.pos);
             break;
         case SelectionStyle::SelectCell:
+            if (SelectionParameter::Instance().GetInSelection() &&
+                m_Scene->GetInteractor()->HaveSpecialInteractor("SelectBox"))
+                return;
             this->SelectCell(_event.pos);
             break;
         default:
@@ -505,6 +550,58 @@ std::vector<int> SingleSelectionStyle::GetCellsInCtMode(
         }
     }
     re = GetFiltedCellsOfUsingAutoValueRange(id, re, mesh);
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces,
+        UnstructuredMesh* mesh) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
+        auto& point = mesh->GetPoint(pointId);
+        if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+static bool IsCellInsie(Cell* cell,
+                        const std::array<std::array<Point, 4>, 6>& allFaces) {
+    if (cell == nullptr) return false;
+    int pointSize = cell->GetNumberOfPoints();
+    for (int pointI = 0; pointI < pointSize; pointI++) {
+        auto& point = cell->GetPoint(pointI);
+        auto result = IsPointInside(point, allFaces);
+        if (!result) return false;
+    }
+    return true;
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces,
+        UnstructuredMesh* mesh, bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    auto _NormalSelectFunc = [&](int cellIndex) {
+        Cell* cell = mesh->GetCell(cellIndex);
+        if (IsCellInsie(cell,allFaces)) {
+            re.push_back(cellIndex);
+        }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < mesh->GetNumberOfCells();
+             cellIndex++) {
+            _NormalSelectFunc(cellIndex);
+        }
+    }
     return re;
     /*################################# CORE END #################################*/
 }

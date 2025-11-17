@@ -124,6 +124,11 @@ public:
     _SetSpecialInteractor(std::string(__FILE__) + std::to_string(__LINE__),    \
                           interactorStyle)
 
+    SmartPointer<InteractorStyle>
+    GetSpecialInteractor(const std::string& interactorName);
+
+    bool HaveSpecialInteractor(const std::string& interactorName);
+
     bool IsBasicStyle() const;
 
     /**

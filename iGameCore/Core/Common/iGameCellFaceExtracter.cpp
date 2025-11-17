@@ -145,7 +145,8 @@ std::vector<int> CellFaceExtracter::GetSurfaceCellIds(UnstructuredMesh* mesh) {
 }
 
 void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
-    static constexpr int PAR_THREAD_NUM = 64;
+    static constexpr int PAR_THREAD_NUM_BASE = 64;
+    int PAR_THREAD_NUM = std::min<int>(PAR_THREAD_NUM_BASE, (mesh->GetNumberOfCells() / 10000) + 1);
     _AT_;
     if (mesh == nullptr) return;
     if (!m_CellToFace.empty()) return;

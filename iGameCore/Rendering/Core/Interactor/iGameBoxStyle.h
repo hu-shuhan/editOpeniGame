@@ -5,6 +5,7 @@
 #include <map>
 #include <functional>
 #include <string>
+#include <iGameDynamicBox.h>
 IGAME_NAMESPACE_BEGIN
 
 class BoxStyle : public BasicStyle {
@@ -15,11 +16,13 @@ public:
     void MousePressEvent(IEvent event) override;
     void MouseMoveEvent(IEvent event) override;
 
-    
+    void InitBox(const Point& p1, const Point& p2);
+    void DeleteBox();
 
-    void InitBox(const Point& p1, const Point& p2); 
+    void ToDraw();
+    void ClearDraw();
 
-
+    DynamicBox::Pointer GetBox();
 
     void _SetPointMoveCallBack(const std::string& name,
                                std::function<void()> callBack);
@@ -29,9 +32,14 @@ public:
 
 protected:
     BoxStyle() = default;
-    ~BoxStyle() = default;
+    ~BoxStyle();
 
-    
+    int m_SelectedDirection{-1};
+    IGenum m_SelectedItem{IG_NONE};
+    Point m_PrePosition;
+    DynamicBox::Pointer m_DynamicBox{nullptr};
+
+    float m_MaxDis{};
 
     float m_SelectedNDCZ{};
     igm::mat4 m_MVP{};

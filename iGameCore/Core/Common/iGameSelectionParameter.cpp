@@ -49,4 +49,16 @@ bool SelectionParameter::IsCtBoxMode() const { return m_SelectMode == SelectMode
 
 bool SelectionParameter::IsBoxMode() const { return IsRadiusBoxMode() || IsCtBoxMode(); }
 
+iGame::SelectionParameter::SelectionStation SelectionParameter::GetSelectionStation() const {
+    return m_SelectionStation;
+}
+
+void SelectionParameter::SetSelectionStation(iGame::SelectionParameter::SelectionStation ss) {
+    m_SelectionStation = ss;
+}
+
+void SelectionParameter::SetInSelection(bool inSelection) { m_InSelection = inSelection; }
+
+bool SelectionParameter::GetInSelection() { return m_InSelection; }
+
 IGAME_NAMESPACE_END

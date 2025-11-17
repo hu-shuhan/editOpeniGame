@@ -8,6 +8,8 @@ private:
 public:
     enum SelectMode { RADIUS_MODE, CT_MODE, RADIUS_BOX_MODE, CT_BOX_MODE };
 
+    enum SelectionStation { NONE_SELECTION = 0, POINT_SELECTION, CELL_SELECTION };
+
     static SelectionParameter& Instance();
 
     void SetSelectionRadius(double selectionRadius);
@@ -39,7 +41,17 @@ public:
     bool IsCtBoxMode() const;
     bool IsBoxMode() const;
 
+    iGame::SelectionParameter::SelectionStation GetSelectionStation() const;
+    void SetSelectionStation(iGame::SelectionParameter::SelectionStation ss);
+
+    void SetInSelection(bool inSelection);
+    bool GetInSelection();
+
 private:
+    SelectionStation m_SelectionStation{POINT_SELECTION};
+
+    bool m_InSelection{false};
+
     //When selecting points or faces, select the radius at one time.
     double m_SelectRadius{};
     bool m_SelectIgnoreUnSeeAbleCells{false};
