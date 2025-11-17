@@ -385,7 +385,6 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             SetBoxStyle(pMinMax);
         } break;
         case IG_CHANGE: {
-            for (auto& id : ids) { AddItem(itemType, id, ope); }
             for (auto& func : m_CallBackFunctor) { func.second(itemType, ids, ope); }
         } break;
         default:
@@ -414,6 +413,9 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
             auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, _GetMesh());
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+        } break;
+        case IG_CHANGE: {
+            for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
         } break;
         default:
             break;
