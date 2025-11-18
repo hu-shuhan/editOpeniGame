@@ -93,18 +93,22 @@ public:
 			return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
 			};
 
-        // 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
-        // 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
-        // 这里按常用格式近似：FP32→保留23，FP24→保留15（近似24位格式），FP16→保留10（半精度尾数10位），FP8→保留3（E4M3）。
-        auto quantizeLevelToKeptMantissaBits = [=](int level) -> int {
-            switch (level) {
-            case 0: return 23; // FP32：保留全部23位尾数
-            case 1: return 15; // FP24：近似保留15位尾数
-            case 2: return 10; // FP16：保留约10位尾数
-            case 3: return 6;  // FP8 ：保留约3位尾数（E4M3）
-            default: return 23;
-            }
-        };
+		// 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
+		// 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
+		// 这里按常用格式近似：FP32→保留23，FP24→保留15（近似24位格式），FP16→保留10（半精度尾数10位），FP8→保留3（E4M3）。
+		auto quantizeLevelToKeptMantissaBits = [=](int level) -> int {
+			// FP32：保留全部23位尾数
+			// FP24：近似保留15位尾数
+			// FP16：保留约10位尾数
+			// FP12 ：保留约6位尾数（E4M3）
+			switch (level) {
+			case 0: return 23;
+			case 1: return 22;
+			case 2: return 21;
+			case 3: return 20;
+			default: return 23;
+			}
+		};
 
 		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc) -> void
             {
