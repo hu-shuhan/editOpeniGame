@@ -101,7 +101,7 @@ public:
             case 0: return 23; // FP32：保留全部23位尾数
             case 1: return 15; // FP24：近似保留15位尾数
             case 2: return 10; // FP16：保留约10位尾数
-            case 3: return 3;  // FP8 ：保留约3位尾数（E4M3）
+            case 3: return 6;  // FP8 ：保留约3位尾数（E4M3）
             default: return 23;
             }
         };
@@ -264,6 +264,7 @@ public:
 			});
 	}
 
+	/*
 	template<typename T>
 	static void TotalError(const std::vector<T>& source,
 		const std::vector<T>& quantized,
@@ -357,6 +358,42 @@ public:
 			keyRelError = keyElementCount > 0 ? static_cast<float>((keySumRelError / keyElementCount)) : 0.0f;
 			nonKeyRelError = nonKeyElementCount > 0 ? static_cast<float>((nonKeySumRelError / nonKeyElementCount)) : 0.0f;
 		}
+	}
+	*/
+
+	template<typename T>
+	static void TotalError(const std::vector<T>& source,
+		const std::vector<T>& quantized,
+		const FloatParameters& floatParams,
+		const FloatErrorControlParameters& /*errorParams*/,
+		float& keyRelError,
+		float& nonKeyRelError)
+	{
+		// 新逻辑：无论是否 KeyArea，统一计算整体平均相对误差（返回比值 0..1）
+		keyRelError = 0.0f;
+		nonKeyRelError = 0.0f;
+
+		const size_t valueCount = std::min(source.size(), quantized.size());
+		if (valueCount == 0) {
+			return;
+		}
+
+		// 计算全局最大绝对值，作为相对误差的归一化尺度
+		T maxAbsValue = static_cast<T>(0);
+		for (size_t i = 0; i < valueCount; ++i) {
+			maxAbsValue = std::max(maxAbsValue, static_cast<T>(std::abs(source[i])));
+		}
+		maxAbsValue = std::max(maxAbsValue, static_cast<T>(1e-10));
+
+		double sumRelError = 0.0;  // 使用 double 累加提高精度
+		for (size_t i = 0; i < valueCount; ++i) {
+			const T error = static_cast<T>(std::abs(source[i] - quantized[i]));
+			sumRelError += static_cast<double>(error) / static_cast<double>(maxAbsValue);
+		}
+
+		// 返回平均相对误差（0..1），具体是否转为百分比由调用方决定
+		keyRelError = static_cast<float>(sumRelError / static_cast<double>(valueCount));
+		nonKeyRelError = 0.0f;
 	}
 
 // region deprecated

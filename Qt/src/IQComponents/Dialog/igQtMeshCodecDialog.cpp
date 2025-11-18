@@ -292,7 +292,7 @@ void igQtMeshCodecDialog::InitHistogramView()
 
     // 创建悬浮的产生直方图按钮（作为chartView的子控件）
     m_refreshButton = new QPushButton(m_chartView);
-    m_refreshButton->setText("产生梯度范数直方图");
+    m_refreshButton->setText("产生量化影响程度直方图");
     {
         QFontMetrics fm(m_refreshButton->font());
         int calcW = fm.horizontalAdvance(m_refreshButton->text()) + 36;
@@ -694,9 +694,10 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     float minX = xAxis.front();
     float maxX = xAxis.back();
     if (minX == maxX) { minX -= 1e-6f; maxX += 1e-6f; }
-    axisX->setRange(minX, maxX);
+    const float scale = 100.0f;
+    axisX->setRange(minX * scale, maxX * scale);
     axisX->setTickCount(static_cast<int>(xAxis.size()));
-    axisX->setLabelFormat("%.3e");
+    axisX->setLabelFormat("%.0f%%");
     axisX->setLabelsAngle(70);
     chart->addAxis(axisX, Qt::AlignBottom);
 
@@ -712,8 +713,8 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
         QLineSeries* upperLine = new QLineSeries();
         QAreaSeries* barSeries = new QAreaSeries();
 
-        float x1 = xAxis[i];
-        float x2 = xAxis[i + 1];
+        float x1 = xAxis[i] * scale;
+        float x2 = xAxis[i + 1] * scale;
 
         *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
         *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
@@ -751,9 +752,10 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
     float minX = xAxis.front();
     float maxX = xAxis.back();
     if (minX == maxX) { minX -= 1e-6f; maxX += 1e-6f; }
-    axisX->setRange(minX, maxX);
+    const float scale = 100.0f;
+    axisX->setRange(minX * scale, maxX * scale);
     axisX->setTickCount(static_cast<int>(xAxis.size()));
-    axisX->setLabelFormat("%.3e");
+    axisX->setLabelFormat("%.0f%%");
     axisX->setLabelsAngle(70);
     chart->addAxis(axisX, Qt::AlignBottom);
 
@@ -769,8 +771,8 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
         QLineSeries* upperLine = new QLineSeries();
         QAreaSeries* barSeries = new QAreaSeries();
 
-        float x1 = xAxis[i];
-        float x2 = xAxis[i + 1];
+        float x1 = xAxis[i] * scale;
+        float x2 = xAxis[i + 1] * scale;
 
         *lowerLine << QPointF(x1, 0) << QPointF(x2, 0);
         *upperLine << QPointF(x1, yAxis[i]) << QPointF(x2, yAxis[i]);
@@ -812,15 +814,23 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
     // UI 索引：0=全部数据(不用于特征)，1=几何，2+=属性
     // MeshCodecFeature 期望：1=几何，其他属性用 (uiIndex-1)
     int featIndex = (dataIndex <= 1) ? dataIndex : (dataIndex - 1);
-    iGame::MeshCodecFeature* featureExtractor = new iGame::MeshCodecFeature(this->m_dataObj, featIndex);
+    iGame::MeshCodecFeature featureExtractor(this->m_dataObj, featIndex);
     std::vector<float> norms;
-    
-    // 使用梯度 Frobenius 范数并进行对数缩放，参考历史实现
-    std::vector<std::vector<std::array<float, 3>>> result = featureExtractor->GetDataPointGradient();
-    FrobeniusNorm(result, norms);
+
+    // 旧逻辑：使用梯度 Frobenius 范数并进行对数缩放
+    // std::vector<std::vector<std::array<float, 3>>> result = featureExtractor->GetDataPointGradient();
+    // FrobeniusNorm(result, norms);
+    // for (auto& v : norms) {
+    //     if (v > 0.0f) v = std::log10(v);
+    //     else v = std::numeric_limits<float>::lowest();
+    // }
+
+    // 新逻辑：使用 Verificarlo 归一化后的拉普拉斯平均误差（容差）作为特征
+    norms = featureExtractor.GetDataPointTolerance(3);
+    // 防御性截断到 [0,1]
     for (auto& v : norms) {
-        if (v > 0.0f) v = std::log10(v);
-        else v = std::numeric_limits<float>::lowest();
+        if (v < 0.0f) v = 0.0f;
+        if (v > 1.0f) v = 1.0f;
     }
 
     // 空数据防御：无元素则返回空轴，避免后续 min/max 未定义
@@ -833,6 +843,10 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
     // Find min and max values
     float minVal = *std::min_element(norms.begin(), norms.end());
     float maxVal = *std::max_element(norms.begin(), norms.end());
+
+    // 对归一化误差，强制直方图覆盖 [0,1]，使得 bin 对应 0.0~0.1, 0.1~0.2 等区间
+    minVal = 0.0f;
+    maxVal = 1.0f;
 
     // Handle case where all values are the same（单柱方案，避免越界）
     if (minVal == maxVal) {
