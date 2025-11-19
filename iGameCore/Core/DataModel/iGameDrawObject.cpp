@@ -212,7 +212,7 @@ iGameClipper::Pointer DrawObject::GetClipper() { return m_Clipper; }
 
 void DrawObject::SetPointSize(float size) {
     if (size < 0) {
-        igDebug("Point size cannot be negative. Provided size: {}. Point size has been set to default value: 8." , size);
+        igDebug("Point size cannot be negative. Provided size: {}. Point size has been set to default value: 8.", size);
         size = 8.0f;
     }
 
@@ -233,8 +233,7 @@ int DrawObject::GetPointSize() { return m_PointSize; }
 
 void DrawObject::SetLineWidth(float size) {
     if (size < 0) {
-        igDebug("Line width cannot be negative. Provided size: {}. Line width has been set to default value: 1." , size
-                );
+        igDebug("Line width cannot be negative. Provided size: {}. Line width has been set to default value: 1.", size);
         size = 1.0f;
     }
 
@@ -602,14 +601,12 @@ void DrawObject::SyncGpuBuffers() {
     if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
 
     // 当不是表面网格时，需要处理其抽壳后的表面网格
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SyncGpuBuffers();
+    if (GetDataObjectType() != IG_SURFACE_MESH) {
+        if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SyncGpuBuffers(); }
     }
 
-    // 当是表面网格时，仅需处理其简化后的表面网格
-    if (GetDataObjectType() == IG_SURFACE_MESH && m_RenderableMesh.SimplifiedMesh) {
-        m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers();
-    }
+    // 处理简化网格
+    if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers(); }
 
     // 当是表面网格时，还需要构建meshlet
     if (m_AccelerationOption) { m_RenderableMesh.Meshleter->SyncGpuBuffers(); }

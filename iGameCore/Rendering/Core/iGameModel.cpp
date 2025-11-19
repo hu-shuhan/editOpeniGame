@@ -229,7 +229,10 @@ void Model::Draw() {
         if (hasTransparency || hasAcceleration) { return; }
 
         // Render
-        bool useSimplified = m_Scene->m_IsInteracting;
+        bool useSimplified =
+                m_Scene->m_IsInteracting &&
+                drawObject->m_RenderableMesh.SurfaceMesh->m_TriangleIndices
+                                ->GetNumberOfElements() > 100000;
         auto renderableObject = drawObject->GetRenderableObject(useSimplified);
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
