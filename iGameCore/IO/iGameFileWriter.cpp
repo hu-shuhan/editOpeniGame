@@ -181,7 +181,7 @@ bool FileWriter::SaveBufferDataToFileWithLinux()
 	}
 	close(fd);
 
-    IGAME_CORE_TRACE("Write buffer to file with mmap (Linux) successful.")
+    IGAME_CORE_TRACE("Write buffer to file with mmap (Linux) successful.");
 
 #endif
 	return true;

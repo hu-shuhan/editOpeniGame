@@ -53,7 +53,7 @@ bool CASReader::Parsing() {
     // ?????????????
 
     std::string arguments = "--input " + casPath + " --output " + outputDir;
-    std::string fullCommand = "\"" + exePath.string() + "\" " + arguments;
+    std::string fullCommand = "\"" + exePath + "\" " + arguments;
     IGAME_CORE_DEBUG("[CASReader] Running command: {}", fullCommand);
 
     // ???????????

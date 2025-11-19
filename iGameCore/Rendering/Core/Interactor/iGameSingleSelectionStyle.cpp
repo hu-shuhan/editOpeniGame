@@ -523,8 +523,12 @@ std::vector<int> SingleSelectionStyle::GetCellsInCtMode(
             variableMinMaxData.second[variableIndex]);
     double thisCellData = CtxPresObjData_Main::GenerateObjData(
             id, attrs, variableIndexs[variableIndex]);
-    auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+    // auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+    //         thisCellData, autoSelectExpdRate);
+    auto range = hisPicker.CalculateMinMaxValueToPick(
             thisCellData, autoSelectExpdRate);
+    double minRange = range.first;
+    double maxRange = range.second;
 
     auto _AutoSelectFunc = [&](int cellIndex) {
         igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
