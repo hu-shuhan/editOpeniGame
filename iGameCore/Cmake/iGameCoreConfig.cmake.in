@@ -29,7 +29,7 @@ set(IGAMEVIS_CORE_PRIVATE_LIB
 #if(WIN32)
 #    find_path(IGAMEVIS_CORE_PRIVATE_LIB
 #            NAMES
-#            iGameCore_module.lib
+#            igamecore_.lib
 #            PATHS
 #            "../../lib"
 #            "C:/Program Files (x86)/iGameVis/lib"
@@ -40,7 +40,7 @@ set(IGAMEVIS_CORE_PRIVATE_LIB
 #    else()
 #        find_path(IGAMEVIS_CORE_PRIVATE_LIB
 #                NAMES
-#                 iGameCore_module.lib
+#                 igamecore_.lib
 #                            PATHS
 #                "../../lib"
 #                "usr/iGameVis/lib"
@@ -115,7 +115,7 @@ if(@ENABLE_GPSCUDA_MODULE@)
 
         else()
             message(WARNING "iGameCore: CUDAToolkit not found. "
-                            "The project using iGameCore_module MUST run 'find_package(CUDAToolkit REQUIRED)' itself "
+                            "The project using igamecore_ MUST run 'find_package(CUDAToolkit REQUIRED)' itself "
                             "before linking to iGameCore.")
     endif()
 endif()

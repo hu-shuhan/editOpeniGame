@@ -260,7 +260,7 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
     endif ()
 
     # 生成和安装 ${MODULE_NAME}Config.cmake 文件
-    configure_file(Cmake/iGameCoreModuleConfig.cmake.in
+    configure_file(Cmake/iGameCoreConfig.cmake.in
             "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake" @ONLY)
     install(FILES
             "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"

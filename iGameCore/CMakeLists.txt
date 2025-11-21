@@ -210,7 +210,7 @@ endif ()
 #--------------------------------------------------------------------
 # Exec Install iGameVis Core Module's CMake
 #--------------------------------------------------------------------
-include(Cmake/CoreModuleInstall.cmake)
+include(Cmake/iGameCoreInstall.cmake)
 #--------------------------------------------------------------------
 
 #if (ENABLE_LIBTORCH_MODULE)

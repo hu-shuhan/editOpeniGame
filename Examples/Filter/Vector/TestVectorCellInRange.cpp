@@ -12,7 +12,7 @@ int main() {
     auto scene = iGame::Scene::New();
 
     std::cout << 1 << std::endl;
-    const std::string fileName = "D:\\Study\\iGame\\Model\\DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
+    const std::string fileName = "./Models/DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
     std::cout << 1 << std::endl;
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
