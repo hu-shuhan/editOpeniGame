@@ -104,7 +104,7 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
         if (checked) {
             ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrLoop.svg"));
         } else {
-            ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrDisabledLoop.svg"));
+            ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrDisabledLoop.png"));
         }
     });
     connect(ui->btnApplyAnimationOperation, &QPushButton::clicked, this,

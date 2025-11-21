@@ -15,12 +15,13 @@ static void ImportSplineFileWithCpuCompute() {
 
     // Read the file and add it to the scene
     const std::string fileName = "./Models/quarter_circle.xml";
-    // const std::string fileName = "./Models/teapot.xml";
     // const std::string fileName = "./Models/Bridge.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
     iGame::SplineReaderCPU::Pointer reader = iGame::SplineReaderCPU::New();
     reader->SetFilePath(fileName);
+    reader->SetSurfaceRenderForVolume(true); // surface rendering
+    // reader->SetSurfaceRenderForVolume(false); // volume rendering
     reader->Execute();
     iGame::DataObject::Pointer dataObj = reader->GetOutput();
 

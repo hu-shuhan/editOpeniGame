@@ -1,22 +1,19 @@
-#include <iostream>
-#include <iGameVolume.h>
-#include <Core/iGameScene.h>
-#include <iGameRenderWindow.h>
-#include <iGameMultiRenderWindowManager.h>
-#include <iGameInteractor.h>
-#include <iGameFileIO.h>
 #include <Clip/iGameModelClip.h>
+#include <Core/iGameScene.h>
 #include <VectorView/iGameVectorBase.h>
+#include <iGameFileIO.h>
+#include <iGameInteractor.h>
+#include <iGameMultiRenderWindowManager.h>
+#include <iGameRenderWindow.h>
+#include <iGameVolume.h>
+#include <iostream>
 int main() {
-
     auto scene = iGame::Scene::New();
 
-    std::cout << 1 << std::endl;
-    const std::string fileName = "./Models/DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
-    std::cout << 1 << std::endl;
+    const std::string fileName = "./Models/Driver/DrivAer_fastback_base_0.4_remesh_coarse_kw_CPU_test_P_V.cgns";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
-      std::cout<<obj->GetDataObjectType()<<'\n';
+        std::cout << obj->GetDataObjectType() << '\n';
         scene->AddModel(obj);
     } else {
         std::cout << "Read ERROR!\n";

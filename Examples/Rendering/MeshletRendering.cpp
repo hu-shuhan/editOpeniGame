@@ -10,7 +10,7 @@ static void MeshletRendering() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/mazewheel.obj";
+    const std::string fileName = "./Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
 
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
