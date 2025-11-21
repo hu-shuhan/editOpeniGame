@@ -34,8 +34,7 @@ bool ConvertToLagrangeUnstructuredMesh::ExecuteWithUnstructuredMesh(Unstructured
     int cellNum = um->GetNumberOfCells();
     igIndex vhs[IGAME_CELL_MAX_SIZE];
     for (int i = 0; i < cellNum; i++) { 
-        int cellSize = um->GetCell(i)->GetCellSize();
-        cellSize = um->GetCell(i)->GetNumberOfPoints();
+        int cellSize = um->GetCell(i)->GetNumberOfPoints();
         for (int j = 0; j < cellSize; j++) { vhs[j] = um->GetCell(i)->GetPointId(j); }
         IGenum cellType = um->GetCellType(i);
         int order = 0;
@@ -69,6 +68,7 @@ bool ConvertToLagrangeUnstructuredMesh::ExecuteWithUnstructuredMesh(Unstructured
             outputMesh->AddCell(vhs, cellSize, cellType, order);
         }
     }
+    outputMesh->SetAttributeSet(um->GetAttributeSet());
     this->SetOutput(outputMesh);
 }
 

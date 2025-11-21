@@ -49,10 +49,10 @@ double LagrangeBasis1D(double u, int i, const std::vector<double>& node_coords) 
 }
 
 
-Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u, double v) {
+std::vector<float> InterpolateLagrangeQuad(FloatArray::Pointer originData, int order, double u, double v) {
     // 检查控制点数量是否与纯拉格朗日单元的公式匹配
     size_t expected_points = (size_t) (order + 1) * (order + 1);
-    if (cp.size() < expected_points) return {};
+    if (originData->GetNumberOfElements() < expected_points) return {};
 
     auto u_coords = GetLagrangeNodeCoordinates1D(order);
     auto v_coords = GetLagrangeNodeCoordinates1D(order);
@@ -62,55 +62,63 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
         v_basis[i] = LagrangeBasis1D(v, i, v_coords);
     }
 
-    Point interpolated_point{0, 0, 0};
+    std::vector<float> interpolated_data;
+    interpolated_data.assign(originData->GetDimension(), 0);
     int k = 0;
 
     // 1. 处理4个角点
-    if (k < cp.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = u_basis[0] * v_basis[0];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+        for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * originData->GetElementValue(k, dim);
         k++;
     }
-    if (k < cp.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = u_basis[order] * v_basis[0];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+        for (int dim = 0; dim < interpolated_data.size(); ++dim)
+            interpolated_data[dim] += N * originData->GetElementValue(k, dim);
         k++;
     }
-    if (k < cp.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = u_basis[order] * v_basis[order];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+        for (int dim = 0; dim < interpolated_data.size(); ++dim)
+            interpolated_data[dim] += N * originData->GetElementValue(k, dim);
         k++;
     }
-    if (k < cp.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = u_basis[0] * v_basis[order];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+        for (int dim = 0; dim < interpolated_data.size(); ++dim)
+            interpolated_data[dim] += N * originData->GetElementValue(k, dim);
         k++;
     }
 
     // 2. 处理 (order-1)*4 个边节点
     if (order > 1) {
         for (int i = 1; i < order; ++i) {
-            if (k >= cp.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = u_basis[i] * v_basis[0];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+            for (int dim = 0; dim < interpolated_data.size(); ++dim)
+                interpolated_data[dim] += N * originData->GetElementValue(k, dim);
             k++;
         }
         for (int j = 1; j < order; ++j) {
-            if (k >= cp.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = u_basis[order] * v_basis[j];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+            for (int dim = 0; dim < interpolated_data.size(); ++dim)
+                interpolated_data[dim] += N * originData->GetElementValue(k, dim);
             k++;
         }
         for (int i = order - 1; i > 0; --i) {
-            if (k >= cp.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = u_basis[i] * v_basis[order];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+            for (int dim = 0; dim < interpolated_data.size(); ++dim)
+                interpolated_data[dim] += N * originData->GetElementValue(k, dim);
             k++;
         }
         for (int j = order - 1; j > 0; --j) {
-            if (k >= cp.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = u_basis[0] * v_basis[j];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+            for (int dim = 0; dim < interpolated_data.size(); ++dim)
+                interpolated_data[dim] += N * originData->GetElementValue(k, dim);
             k++;
         }
     }
@@ -119,20 +127,20 @@ Point InterpolateLagrangeQuad(const std::vector<Point>& cp, int order, double u,
     if (order > 1) {
         for (int j = 1; j < order; ++j) {
             for (int i = 1; i < order; ++i) {
-                if (k >= cp.size()) break;
+                if (k >= originData->GetNumberOfElements()) break;
                 double N = u_basis[i] * v_basis[j];
-                for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * cp[k][dim];
+                for (int dim = 0; dim < interpolated_data.size(); ++dim)
+                    interpolated_data[dim] += N * originData->GetElementValue(k, dim);
                 k++;
             }
         }
     }
-    return interpolated_point;
+    return interpolated_data;
 }
 
-
-Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int order, double r, double s) {
+std::vector<float> InterpolateLagrangeTriangle(FloatArray::Pointer originData, int order, double r, double s) {
     if (order == 2) {
-        if (controlPoints.size() < 6) return {};
+        if (originData->GetNumberOfElements() < 6) return {};
 
         // 形函数
         double N0 = (1.0 - r - s) * (1.0 - 2.0 * r - 2.0 * s);
@@ -142,16 +150,17 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
         double N4 = 4.0 * r * s;
         double N5 = 4.0 * s * (1.0 - r - s);
 
-        const Point& P0 = controlPoints[0];
-        const Point& P1 = controlPoints[1];
-        const Point& P2 = controlPoints[2];
-        const Point& P3 = controlPoints[3];
-        const Point& P4 = controlPoints[4];
-        const Point& P5 = controlPoints[5];
+        //这里GetElement返回的是常引用(所有Element共用一份)，所以不能用引用来接
+        std::vector<float> P0 = originData->GetElement(0);
+        std::vector<float> P1 = originData->GetElement(1);
+        std::vector<float> P2 = originData->GetElement(2);
+        std::vector<float> P3 = originData->GetElement(3);
+        std::vector<float> P4 = originData->GetElement(4);
+        std::vector<float> P5 = originData->GetElement(5);
 
         // 计算坐标
-        Point result;
-        for (int i = 0; i < 3; ++i) {
+        std::vector<float> result(originData->GetDimension());
+        for (int i = 0; i < result.size(); ++i) {
             result[i] = P0[i] * N0 + P1[i] * N1 + P2[i] * N2 + P3[i] * N3 + P4[i] * N4 + P5[i] * N5;
         }
         return result;
@@ -161,29 +170,30 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     double L2 = r;
     double L3 = s;
 
-    Point interpolated_point{0, 0, 0};
+    std::vector<float> interpolated_data;
+    interpolated_data.assign(originData->GetDimension(), 0);
     int k = 0;
 
     // 1. 处理3个角点
-    if (k < controlPoints.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = CardinalPolynomial(L2, order, 0) * CardinalPolynomial(L3, order, 0) *
                    CardinalPolynomial(L1, order, order);
-        const Point& p = controlPoints[k];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+        const auto& data = originData->GetElement(k);
+        for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
         k++;
     }
-    if (k < controlPoints.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = CardinalPolynomial(L2, order, order) * CardinalPolynomial(L3, order, 0) *
                    CardinalPolynomial(L1, order, 0);
-        const Point& p = controlPoints[k];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+        const auto& data = originData->GetElement(k);
+        for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
         k++;
     }
-    if (k < controlPoints.size()) {
+    if (k < originData->GetNumberOfElements()) {
         double N = CardinalPolynomial(L2, order, 0) * CardinalPolynomial(L3, order, order) *
                    CardinalPolynomial(L1, order, 0);
-        const Point& p = controlPoints[k];
-        for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+        const auto& data = originData->GetElement(k);
+        for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
         k++;
     }
 
@@ -191,29 +201,29 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     if (order > 1) {
         // 边 1-2
         for (int i = 1; i < order; ++i) {
-            if (k >= controlPoints.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = CardinalPolynomial(L2, order, i) * CardinalPolynomial(L3, order, 0) *
                        CardinalPolynomial(L1, order, order - i);
-            const Point& p = controlPoints[k];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+            const auto& data = originData->GetElement(k);
+            for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
             k++;
         }
         // 边 2-3
         for (int i = 1; i < order; ++i) {
-            if (k >= controlPoints.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = CardinalPolynomial(L2, order, order - i) * CardinalPolynomial(L3, order, i) *
                        CardinalPolynomial(L1, order, 0);
-            const Point& p = controlPoints[k];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+            const auto& data = originData->GetElement(k);
+            for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
             k++;
         }
         // 边 3-1
         for (int i = 1; i < order; ++i) {
-            if (k >= controlPoints.size()) break;
+            if (k >= originData->GetNumberOfElements()) break;
             double N = CardinalPolynomial(L2, order, 0) * CardinalPolynomial(L3, order, order - i) *
                        CardinalPolynomial(L1, order, i);
-            const Point& p = controlPoints[k];
-            for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+            const auto& data = originData->GetElement(k);
+            for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
             k++;
         }
     }
@@ -222,32 +232,33 @@ Point InterpolateLagrangeTriangle(const std::vector<Point>& controlPoints, int o
     if (order > 2) {
         for (int j = 1; j < order - 1; ++j) {
             for (int i = 1; i < order - j; ++i) {
-                if (k >= controlPoints.size()) break;
+                if (k >= originData->GetNumberOfElements()) break;
                 int m = order - i - j;
                 double N = CardinalPolynomial(L2, order, i) * CardinalPolynomial(L3, order, j) *
                            CardinalPolynomial(L1, order, m);
-                const Point& p = controlPoints[k];
-                for (int dim = 0; dim < 3; ++dim) interpolated_point[dim] += N * p[dim];
+                const auto& data = originData->GetElement(k);
+                for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * data[dim];
                 k++;
             }
         }
     }
 
-    return interpolated_point;
+    return interpolated_data;
 }
 
 //细分函数
-void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell_type, int order, int divisions,
-                            std::vector<Point>& outPoints, std::vector<igIndex>& outTriangleIndices,
+void TessellateLagrangeFace(FloatArray::Pointer originData, IGenum cell_type, int order, int divisions,
+                            FloatArray::Pointer outData, std::vector<igIndex>& outTriangleIndices,
                             std::vector<unsigned char>& outTriangleEdgeMasks) {
     if (order < 2 || divisions < 1) return;
 
-    outPoints.clear();
+    outData->Clear();
     outTriangleIndices.clear();
     outTriangleEdgeMasks.clear();
 
+    outData->SetDimension(originData->GetDimension());
     if (cell_type == IG_LAGRANGE_QUADRILATERAL || cell_type == IG_QUADRATIC_QUAD) {
-        size_t num_cp = controlPoints.size();
+        size_t num_cp = originData->GetNumberOfElements();
         if (order == 2) {
             if (num_cp < 8) return;
         } else {
@@ -262,9 +273,9 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
             for (int i = 0; i < numVertsAlongEdge; ++i) {
                 double u = -1.0 + 2.0 * static_cast<double>(i) / divisions;
                 double v = -1.0 + 2.0 * static_cast<double>(j) / divisions;
-                Point p = InterpolateLagrangeQuad(controlPoints, order, u, v);
-                outPoints.push_back(p);
-                localGridIndices[j][i] = outPoints.size() - 1;
+                const auto& p = InterpolateLagrangeQuad(originData, order, u, v);
+                for (const auto& val: p) outData->AddValue(val);
+                localGridIndices[j][i] = outData->GetNumberOfElements() - 1;
             }
         }
         // 遍历每个小四边形网格，并为生成的两个小三角形计算精确的边掩码
@@ -292,7 +303,7 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
         }
     } else if (cell_type == IG_LAGRANGE_TRIANGLE || cell_type == IG_QUADRATIC_TRIANGLE) {
         size_t expected_points = (size_t) (order + 1) * (order + 2) / 2;
-        if (controlPoints.size() < expected_points) return;
+        if (originData->GetNumberOfElements() < expected_points) return;
 
         int numVertsAlongEdge = divisions + 1;
         std::vector<std::vector<igIndex>> localGridIndices(numVertsAlongEdge,
@@ -302,9 +313,10 @@ void TessellateLagrangeFace(const std::vector<Point>& controlPoints, IGenum cell
             for (int i = 0; i < numVertsAlongEdge - j; ++i) {
                 double r = static_cast<double>(i) / divisions;
                 double s = static_cast<double>(j) / divisions;
-                Point p = InterpolateLagrangeTriangle(controlPoints, order, r, s);
-                outPoints.push_back(p);
-                localGridIndices[j][i] = outPoints.size() - 1;
+                const auto& p = InterpolateLagrangeTriangle(originData, order, r, s);
+                for (const auto& val : p)
+                    outData->AddValue(val);
+                localGridIndices[j][i] = outData->GetNumberOfElements() - 1;
             }
         }
 
@@ -428,7 +440,6 @@ Cell* LagrangeUnstructuredMesh::GetCell(const IGsize cellId) {
 
 void LagrangeUnstructuredMesh::ConvertToDrawableData() {
     if (m_Points->GetMTime() > m_Positions->GetMTime() || m_ReConvertToDrawableData) {
-        m_ReConvertToDrawableData = false;
         std::vector<std::vector<int>> rawLineIndices;
         auto finalPoints = Points::New();
         // 用于收集高阶单元细分后结果的临时缓冲区
@@ -441,7 +452,6 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         auto triangleEdgeMasks = UnsignedCharArray::New();
         m_TriangleQualities = FloatArray::New();
         std::map<igIndex, igIndex> pointIndexMap;
-        const int tessellation_divisions = 8;
         const igIndex numOriginalPoints = m_Points->GetNumberOfPoints();
         if (numOriginalPoints > 0) {
             // 将所有原始顶点完整地复制到最终顶点缓冲区
@@ -482,17 +492,23 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
             // 对高阶单元的面进行曲面细分
             auto process_face = [&](Cell* face_cell) {
                 if (!face_cell) return;
-                std::vector<Point> controlPoints;
+                FloatArray::Pointer controlPoints = FloatArray::New();
+                controlPoints->SetDimension(3);
                 for (int j = 0; j < face_cell->GetNumberOfPoints(); ++j)
-                    controlPoints.push_back(face_cell->GetPoint(j));
-                std::vector<Point> localPoints;
+                    controlPoints->AddElement(face_cell->GetPoint(j));
+                    
+                FloatArray::Pointer localPoints = FloatArray::New();
                 std::vector<igIndex> localTriangleIndices;
                 std::vector<unsigned char> localTriangleEdgeMasks;
                 TessellateLagrangeFace(controlPoints, face_cell->GetCellType(), order, tessellation_divisions,
                                        localPoints, localTriangleIndices, localTriangleEdgeMasks);
                 igIndex pointOffset = finalPoints->GetNumberOfPoints();
                 // 将新生成的局部顶点追加到全局顶点列表
-                for (const auto& p: localPoints) { finalPoints->AddPoint(p); }
+                for (int i = 0; i < localPoints->GetNumberOfElements(); ++i){
+                    Point tmp;
+                    localPoints->GetElement(i,tmp.pointer());
+                    finalPoints->AddPoint(tmp);
+                }
                 // 将带偏移量的局部索引追加到全局索引列表
                 for (const auto& idx: localTriangleIndices) { triangleIndices->AddValue(idx + pointOffset); }
                 // 追加边掩码
@@ -559,9 +575,9 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         }
         if (!attr.isDeleted) {
             if (attr.attachmentType == IG_POINT) {
-                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
-                    m_ColorWithCell = false;
+                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
+                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                    m_ColorWithCell = true;
                     this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             } else if (attr.attachmentType == IG_CELL) {
@@ -573,6 +589,114 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
             }
         }
     }
+}
+
+void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
+                                                        igIndex dimension){
+    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+        double magnitude_min = attrRange->GetValue(0);
+        double magnitude_max = attrRange->GetValue(1);
+        if (magnitude_min < magnitude_max) {
+            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+        } else if (dimension == -1) {
+            m_ColorMapper->InitRange(attr);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
+    }
+
+    attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
+    attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
+
+    if (attr->GetDimension() != 1) return;
+
+    FloatArray::Pointer attributeScalars = FloatArray::New();
+    attributeScalars->SetDimension(attr->GetDimension());
+
+    for (int i = 0; i < GetNumberOfCells(); ++i)
+    { 
+        int order = GetCellOrder(i);
+        if (order < 2) std::cerr << "error cell type";
+        
+        Cell* cell = GetCell(i);
+        if (cell == nullptr) continue;
+
+        //GetFace返回的指针是一个复制品，指向一个固定的空间，非Face真实的地址
+        auto tesselateEachFace = [&](Cell* f) {
+            FloatArray::Pointer originData = FloatArray::New();
+            originData->SetDimension(attr->GetDimension());
+            for (int pointIndex = 0; pointIndex < f->GetNumberOfPoints(); ++pointIndex) {
+                std::vector<float> singleAttribute(attr->GetDimension());
+                for (int attributeDim = 0; attributeDim < attr->GetDimension(); ++attributeDim)
+                    singleAttribute.at(attributeDim) = attr->GetElementValue(f->GetPointId(pointIndex), attributeDim);
+                for (const auto& val: singleAttribute) originData->AddValue(val);
+            }
+
+            FloatArray::Pointer outData = FloatArray::New();
+            std::vector<int> outTriangleIndices;
+            std::vector<unsigned char> outTriangleEdgeMasks;
+            TessellateLagrangeFace(originData, f->GetCellType(), order, tessellation_divisions, outData,
+                                   outTriangleIndices, outTriangleEdgeMasks);
+
+            for (const auto& index: outTriangleIndices) {
+                std::vector<float> data = outData->GetElement(index);
+                for (const auto& val: data) attributeScalars->AddValue(val);
+            }
+        };
+        if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
+            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j)
+                tesselateEachFace(volume_cell->GetFace(j));
+        else if (auto* face_cell = dynamic_cast<LagrangeFace*>(cell))
+            tesselateEachFace(face_cell);
+    }
+
+    FloatArray::Pointer trianglePointRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
+    if (trianglePointRGBColors == nullptr) { return; }
+
+    FloatArray::Pointer newPositions = FloatArray::New();
+    FloatArray::Pointer newColors = FloatArray::New();
+    UnsignedCharArray::Pointer newEdgeMasks = UnsignedCharArray::New();
+
+    newPositions->SetDimension(3);
+    newColors->SetDimension(3);
+    newEdgeMasks->SetDimension(3);
+
+    IGsize numTriangles = m_TriangleIndices->GetNumberOfElements() / 3;
+    newPositions->Reserve(numTriangles * 3);
+    newColors->Reserve(numTriangles * 3);
+    newEdgeMasks->Reserve(numTriangles);
+
+    float color[3]{};
+    igIndex vertexIds[3]{};
+
+    // 遍历所有细分后的三角形
+    for (IGsize i = 0; i < numTriangles; i++) {
+        
+
+        vertexIds[0] = m_TriangleIndices->GetValue(i * 3 + 0);
+        vertexIds[1] = m_TriangleIndices->GetValue(i * 3 + 1);
+        vertexIds[2] = m_TriangleIndices->GetValue(i * 3 + 2);
+
+        for (int j = 0; j < 3; j++) {
+            trianglePointRGBColors->GetElement(3 * i + j, color);
+            float p[3];
+            m_Positions->GetElement(vertexIds[j], p);
+            newPositions->AddElement3(p[0], p[1], p[2]);
+            newColors->AddElement3(color[0], color[1], color[2]);
+            // TODO: 这里的边掩码需要根据具体需求进行调整
+            // newEdgeMasks.AddValue();
+        }
+    }
+
+    m_CellPositionSize = newPositions->GetNumberOfElements();
+    m_CellPositions = newPositions;
+    m_CellPositions->Modified();
+
+    m_CellColors = newColors;
+    m_CellColors->Modified();
+
+    m_CellTriangleEdgeMasks = newEdgeMasks;
+    m_CellTriangleEdgeMasks->Modified();
 }
 
 void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
@@ -592,12 +716,43 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
     attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
     attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
 
-    FloatArray::Pointer qualityScalars = FloatArray::New();
-    qualityScalars->Resize(m_TriangleQualities->GetNumberOfElements());
-    for (int i = 0; i < m_TriangleQualities->GetNumberOfElements(); ++i) {
-        qualityScalars->SetValue(i, m_TriangleQualities->GetValue(i));
+    if (attr->GetDimension() != 1) return;
+
+    FloatArray::Pointer attributeScalars = FloatArray::New();
+    attributeScalars->SetDimension(attr->GetDimension());
+
+    for (int i = 0; i < GetNumberOfCells(); ++i) {
+        int order = GetCellOrder(i);
+        if (order < 2) std::cerr << "error cell type";
+
+        Cell* cell = GetCell(i);
+        if (cell == nullptr) continue;
+
+        auto tesselateEachFace = [&](Cell* f) {
+            FloatArray::Pointer originData = FloatArray::New();
+            originData->SetDimension(attr->GetDimension());
+            for (int pointIndex = 0; pointIndex < f->GetNumberOfPoints(); ++pointIndex)
+                for(int dim = 0; dim < attr->GetDimension(); ++dim)
+                    originData->AddValue(0);
+
+            FloatArray::Pointer outData = FloatArray::New();
+            std::vector<int> outTriangleIndices;
+            std::vector<unsigned char> outTriangleEdgeMasks;
+            TessellateLagrangeFace(originData, f->GetCellType(), order, tessellation_divisions, outData,
+                                   outTriangleIndices, outTriangleEdgeMasks);
+            std::vector<float> attribute;
+            attr->GetElement(i, attribute);
+            for (int tri = 0; tri < outTriangleIndices.size() / 3; ++tri)
+                for(const auto& val : attribute)
+                    attributeScalars->AddValue(val);
+        };
+        if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
+            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));
+        else if (auto* face_cell = dynamic_cast<LagrangeFace*>(cell))
+            tesselateEachFace(face_cell);
     }
-    FloatArray::Pointer triangleRGBColors = m_ColorMapper->MapScalars(qualityScalars, dimension);
+
+    FloatArray::Pointer triangleRGBColors = m_ColorMapper->MapScalars(attributeScalars, dimension);
     if (triangleRGBColors == nullptr) { return; }
 
     FloatArray::Pointer newPositions = FloatArray::New();

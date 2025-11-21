@@ -41,6 +41,8 @@ public:
     Cell* GetCell(const IGsize cellId);
     void ConvertToDrawableData() override;
 
+    void SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
+                                   igIndex dimension = -1) override;
     void SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                   igIndex dimension = -1) override;
 
@@ -57,6 +59,8 @@ protected:
 
     ArrayObject::Pointer m_CellQualityData{}; // 用于存储原始的单元质量数据
     FloatArray::Pointer m_TriangleQualities{};  // 用于存储每个渲染三角形的质量
+
+    const int tessellation_divisions = 4; // 可视化高阶网格的细分次数
 private:
 
 };
