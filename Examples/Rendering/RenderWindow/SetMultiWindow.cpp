@@ -37,7 +37,7 @@ int main() {
     interactor2->CreateDefaultStyle();
     window_2->SetInteractor(interactor2);
 
-    iGame::DataObject::Pointer obj2 = iGame::FileIO::ReadFile(".\\Models\\StreamTest.vtk");
+    iGame::DataObject::Pointer obj2 = iGame::FileIO::ReadFile("./Models/StreamTest.vtk");
     scene2->AddModel(obj2);
 
     /* Running multiple Windows simultaneously requires registration in the MultiRenderWindowManager  */
