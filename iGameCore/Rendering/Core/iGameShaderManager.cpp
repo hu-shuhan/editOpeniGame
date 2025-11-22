@@ -301,9 +301,9 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
 
             std::string fragPath = "";
     #ifdef GL_SUPPORT_MSAA
-            fragPath = "./Resources/Shaders/TransparencySortMS.frag ";
+            fragPath = "./Resources/Shaders/TransparencySortMS.frag";
     #else
-            fragPath = "./Resources/Shaders/TransparencySort.frag ";
+            fragPath = "./Resources/Shaders/TransparencySort.frag";
     #endif
             SmartPointer<GLShader> transparencySort_frag =
                     GLShader::CreateShader(fragPath, GL_FRAGMENT_SHADER);
@@ -336,9 +336,9 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
 
             std::string fragPath = "";
     #ifdef GL_SUPPORT_MSAA
-            fragPath = "./Resources/Shaders/VolumeRenderingSortMS.frag ";
+            fragPath = "./Resources/Shaders/VolumeRenderingSortMS.frag";
     #else
-            fragPath = "./Resources/Shaders/VolumeRenderingSort.frag ";
+            fragPath = "./Resources/Shaders/VolumeRenderingSort.frag";
     #endif
             SmartPointer<GLShader> volumeRenderingSort_frag =
                     GLShader::CreateShader(fragPath, GL_FRAGMENT_SHADER);
@@ -389,9 +389,9 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
 #ifdef IGAME_OPENGL_VERSION_460
             std::string compPath = "";
     #ifdef GL_SUPPORT_MSAA
-            compPath = "./Resources/Shaders/DepthReduceMS.comp ";
+            compPath = "./Resources/Shaders/DepthReduceMS.comp";
     #else
-            compPath = "./Resources/Shaders/DepthReduce.comp ";
+            compPath = "./Resources/Shaders/DepthReduce.comp";
     #endif
             SmartPointer<GLShader> depthReduce_comp =
                     GLShader::CreateShader(compPath, GL_COMPUTE_SHADER);

@@ -842,7 +842,6 @@ void Scene::DrawFrame() {
         }
 #endif
 
-
         // draw scene painter
         m_Painter2D->Draw();
         m_Painter3D->Draw();
