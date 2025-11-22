@@ -20,6 +20,7 @@ file(COPY ${RENDERING_SHADERS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUT
 # add definition
 if (WIN32)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_460)
+    target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_SUPPORT_MSAA)
 elseif (UNIX)
     target_compile_definitions(${MODULE_NAME} PUBLIC IGAME_OPENGL_VERSION_330)
 else ()

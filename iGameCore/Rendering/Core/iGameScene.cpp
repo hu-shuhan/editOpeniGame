@@ -34,7 +34,7 @@ Scene::Scene() {
 
     m_EmptyVAO = GLVertexArray::New();
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     samples = 8;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
@@ -356,7 +356,7 @@ void Scene::InitOpenGL() {
                              reinterpret_cast<const char*>(version));
     }
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     glEnable(GL_MULTISAMPLE);
 #endif
 
@@ -476,7 +476,7 @@ void Scene::ResizeFrameBuffer() {
     uint32_t width = viewport.x;
     uint32_t height = viewport.y;
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     // resize multisample framebuffer
     {
         //glGetIntegerv(GL_MAX_SAMPLES, &samples);
@@ -658,7 +658,7 @@ void Scene::Draw() {
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     // render to multisample framebuffer
     m_FramebufferMultisampled->Bind();
     DrawFrame();
@@ -822,6 +822,10 @@ void Scene::DrawFrame() {
         glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        #ifdef IGAME_OPENGL_VERSION_330
+        ShadowPass();
+        ForwardPass();
+        #else
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
@@ -829,6 +833,8 @@ void Scene::DrawFrame() {
         } else {
             VolumeRenderingPass();
         }
+        #endif
+
 
         // draw scene painter
         m_Painter2D->Draw();
@@ -845,7 +851,7 @@ void Scene::DrawFrame() {
 }
 
 void Scene::ResolveFrame() {
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     auto viewport = m_Camera->GetScaledViewPort();
     glViewport(0, 0, viewport.x, viewport.y);
     glDisable(GL_DEPTH_TEST);
@@ -873,7 +879,7 @@ void Scene::RenderToQtFrame() {
     //auto shader = GetShader(Scene::FXAA);
     shader->Use();
 
-#ifdef GL_SUPPORTS_MSAA
+#ifdef IGAME_OPENGL_SUPPORT_MSAA
     m_ColorTextureResolved->GenerateMipmap();
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
@@ -1440,7 +1446,7 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
 
     std::vector<unsigned char> colorBuffer;
 
-    #ifdef GL_SUPPORTS_MSAA
+    #ifdef IGAME_OPENGL_SUPPORT_MSAA
     m_FramebufferResolved->Bind();
     #else
     m_Framebuffer->Bind();
@@ -1474,7 +1480,7 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         }
     }
 
-    #ifdef GL_SUPPORTS_MSAA
+    #ifdef IGAME_OPENGL_SUPPORT_MSAA
     m_FramebufferResolved->Release();
     #else
     m_Framebuffer->Release();
