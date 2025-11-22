@@ -8,7 +8,8 @@ layout(binding = 1, rgba32ui) uniform readonly uimageBuffer listBuffer;
 
 uvec4 fragments[MAX_FRAGMENTS];
 
-uniform sampler2D forwardPassColor;
+uniform int numSamples;
+uniform sampler2DMS forwardPassColorMS;
 
 layout(location = 0) in vec2 in_UV;
 
@@ -49,9 +50,15 @@ void SortFragmentList(int fragCount) {
 }
 
 vec3 GetResolveColor() {
-    ivec2 texSize = textureSize(forwardPassColor, 0);
+    ivec2 texSize = textureSize(forwardPassColorMS);
     ivec2 texCoord = ivec2(in_UV * vec2(texSize));
-    return texelFetch(forwardPassColor, texCoord, 0).rgb;
+
+    vec4 color = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < numSamples; ++i) {
+        vec4 sampleColor = texelFetch(forwardPassColorMS, texCoord, i);
+        color += sampleColor;
+    }
+    return color.xyz / float(numSamples);
 }
 
 vec3 blend(vec3 currentColor, vec4 newColor) {

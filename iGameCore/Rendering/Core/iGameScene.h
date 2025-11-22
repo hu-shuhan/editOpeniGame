@@ -413,7 +413,7 @@ protected:
     // used to draw full-screen triangle
     SmartPointer<GLVertexArray> m_EmptyVAO;
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA //MSAA相关
+#ifdef GL_SUPPORT_MSAA //MSAA相关
     GLint samples;
     SmartPointer<GLFramebuffer> m_FramebufferMultisampled;
     SmartPointer<GLTexture2dMultisample> m_ColorTextureMultisampled;

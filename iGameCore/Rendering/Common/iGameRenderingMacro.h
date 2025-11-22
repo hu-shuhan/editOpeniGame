@@ -1,5 +1,7 @@
 #pragma once
 
+// #define GL_SUPPORT_MSAA
+
 // #define ENABLE_CULLING_DEBUGINFO
 // #define GL_SUPPORTS_MESH_SHADER
 

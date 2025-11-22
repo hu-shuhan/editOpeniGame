@@ -34,7 +34,7 @@ Scene::Scene() {
 
     m_EmptyVAO = GLVertexArray::New();
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     samples = 8;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
@@ -356,7 +356,7 @@ void Scene::InitOpenGL() {
                              reinterpret_cast<const char*>(version));
     }
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     glEnable(GL_MULTISAMPLE);
 #endif
 
@@ -476,7 +476,7 @@ void Scene::ResizeFrameBuffer() {
     uint32_t width = viewport.x;
     uint32_t height = viewport.y;
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     // resize multisample framebuffer
     {
         //glGetIntegerv(GL_MAX_SAMPLES, &samples);
@@ -658,7 +658,7 @@ void Scene::Draw() {
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     // render to multisample framebuffer
     m_FramebufferMultisampled->Bind();
     DrawFrame();
@@ -726,9 +726,16 @@ void Scene::RefreshHzb() {
 #ifdef IGAME_OPENGL_VERSION_460
     auto shader = this->GetShader(ShaderType::DEPTHREDUCE);
     shader->Use();
+
+    #ifdef GL_SUPPORT_MSAA
     m_DepthTextureMultisampled->Active(GL_TEXTURE1);
-    m_HzbTexture->Active(GL_TEXTURE2);
     shader->SetUniformi("screenDepthMS", 1);
+    #else
+    m_DepthTexture->Active(GL_TEXTURE1);
+    shader->SetUniformi("screenDepth", 1);
+    #endif
+
+    m_HzbTexture->Active(GL_TEXTURE2);
     shader->SetUniformi("myDepthPyramid", 2);
 
     // generate level 0
@@ -822,10 +829,10 @@ void Scene::DrawFrame() {
         glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        #ifdef IGAME_OPENGL_VERSION_330
+#ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
-        #else
+#else
         if (!m_EnableVolumeRendering) {
             ShadowPass();
             ForwardPass();
@@ -833,7 +840,7 @@ void Scene::DrawFrame() {
         } else {
             VolumeRenderingPass();
         }
-        #endif
+#endif
 
 
         // draw scene painter
@@ -851,7 +858,7 @@ void Scene::DrawFrame() {
 }
 
 void Scene::ResolveFrame() {
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     auto viewport = m_Camera->GetScaledViewPort();
     glViewport(0, 0, viewport.x, viewport.y);
     glDisable(GL_DEPTH_TEST);
@@ -879,7 +886,7 @@ void Scene::RenderToQtFrame() {
     //auto shader = GetShader(Scene::FXAA);
     shader->Use();
 
-#ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     m_ColorTextureResolved->GenerateMipmap();
     m_ColorTextureResolved->Active(GL_TEXTURE1);
     m_DepthTextureResolved->Active(GL_TEXTURE2);
@@ -1057,9 +1064,14 @@ void Scene::TransparentPass() {
         auto shader = this->GetShader(ShaderType::TRANSPARENCYSORT);
         shader->Use();
 
+    #ifdef GL_SUPPORT_MSAA
         shader->SetUniformi("numSamples", samples);
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColorMS", 1);
+    #else
+        m_ColorTexture->Active(GL_TEXTURE1);
+        shader->SetUniformi("forwardPassColor", 1);
+    #endif
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);
@@ -1122,9 +1134,14 @@ void Scene::VolumeRenderingPass() {
         auto shader = this->GetShader(ShaderType::VOLUMERENDERINGSORT);
         shader->Use();
 
+    #ifdef GL_SUPPORT_MSAA
         shader->SetUniformi("numSamples", samples);
         m_ColorTextureMultisampled->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColorMS", 1);
+    #else
+        m_ColorTexture->Active(GL_TEXTURE1);
+        shader->SetUniformi("forwardPassColor", 1);
+    #endif
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);
@@ -1446,11 +1463,11 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
 
     std::vector<unsigned char> colorBuffer;
 
-    #ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     m_FramebufferResolved->Bind();
-    #else
+#else
     m_Framebuffer->Bind();
-    #endif
+#endif
 
     {
         // Read pixels from the OpenGL buffer (bottom-left corner)
@@ -1480,11 +1497,11 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
         }
     }
 
-    #ifdef IGAME_OPENGL_SUPPORT_MSAA
+#ifdef GL_SUPPORT_MSAA
     m_FramebufferResolved->Release();
-    #else
+#else
     m_Framebuffer->Release();
-    #endif
+#endif
 
     if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
