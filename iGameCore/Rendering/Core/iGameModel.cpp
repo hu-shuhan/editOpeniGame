@@ -677,7 +677,7 @@ void Model::DrawPhase1() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -947,7 +947,7 @@ void Model::DrawPhase2() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -1122,7 +1122,7 @@ void Model::TestOcclusionResults() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // compute
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto viewStyle = drawObject->GetViewStyle();
 
         // test
