@@ -33,10 +33,10 @@
         <file>Icons/VcrReverse.svg</file>
         <file>Icons/VolumeRendering.png</file>
         <file>Icons/animation_save_vcr.png</file>
-        <file>Icons/chart.png</file>
+        <file>Icons/Chart.png</file>
         <file>Icons/check.png</file>
         <file>Icons/clear.png</file>
-        <file>Icons/contourline.png</file>
+        <file>Icons/Contourline.png</file>
         <file>Icons/iGameLogo.png</file>
         <file>Icons/orthographic.png</file>
         <file>Icons/youxuanzhuan90du.png</file>
@@ -65,6 +65,6 @@
         <file>UI/ScalarView.ui</file>
         <file>UI/Animation.ui</file>
         <file>UI/igStreamTracer.ui</file>
-        <file>Icons/chart.png</file>
+        <file>Icons/Chart.png</file>
     </qresource>
 </RCC>

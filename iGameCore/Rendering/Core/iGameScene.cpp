@@ -1440,7 +1440,12 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
 
     std::vector<unsigned char> colorBuffer;
 
+    #ifdef GL_SUPPORTS_MSAA
     m_FramebufferResolved->Bind();
+    #else
+    m_Framebuffer->Bind();
+    #endif
+
     {
         // Read pixels from the OpenGL buffer (bottom-left corner)
         //
@@ -1468,7 +1473,12 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                 break;
         }
     }
+
+    #ifdef GL_SUPPORTS_MSAA
     m_FramebufferResolved->Release();
+    #else
+    m_Framebuffer->Release();
+    #endif
 
     if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());
