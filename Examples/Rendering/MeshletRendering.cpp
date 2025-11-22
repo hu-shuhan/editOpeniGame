@@ -15,12 +15,8 @@ static void MeshletRendering() {
 
     auto drawObj = DynamicCast<iGame::DrawObject>(dataObj);
     if (dataObj != nullptr) {
-        if (dataObj->GetDataObjectType() == IG_SURFACE_MESH) {
-            drawObj->SetAccelerationOption(true);
-            scene->AddModel(dataObj);
-        } else {
-            igError(std::format("Input is not surface mesh({})", dataObj->GetDataObjectType()));
-        }
+        drawObj->SetAccelerationOption(true);
+        scene->AddModel(dataObj);
     } else {
         igError("Error reading the file");
     }
