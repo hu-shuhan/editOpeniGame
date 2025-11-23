@@ -113,7 +113,6 @@ if (ENABLE_LIBTORCH_MODULE)
     endif ()
     #        get_target_property(_torch_imps torch IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
     #        message(STATUS "Torch IMPORTED_LINK_INTERFACE (Release): ${_torch_imps}")
-
     if (TARGET torch_cuda)
         message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
     else ()
