@@ -102,7 +102,6 @@ if (ENABLE_LIBTORCH_MODULE)
     )
 endif ()
 
-
 add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
 add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
 add_executable(testConvertToLagrangeUnstructuredMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp")
