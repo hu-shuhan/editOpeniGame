@@ -1,4 +1,4 @@
-set(MODULE_NAME iGameCore_module)
+set(MODULE_NAME iGameCore)
 set(CMAKE_CXX_STANDARD 20)
 #=====添加路径======
 set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
@@ -93,15 +93,12 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-
-    find_package(HDF5)
-    #    target_link_libraries(
-    #            ${MODULE_NAME} PUBLIC
-    #            ${HDF5_LIBRARIES}/../libzlib.lib
-    #            ${HDF5_LIBRARIES}/../libsz.lib
-    #            ${HDF5_LIBRARIES}/../libaec.lib)
-ENDIF ()
+    # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
+    if (WIN32)
+        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        find_package(HDF5) # Optional: additional HDF5 linkage for Windows deployment
+    endif ()
+endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
     list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
@@ -210,7 +207,7 @@ endif ()
 #--------------------------------------------------------------------
 # Exec Install iGameVis Core Module's CMake
 #--------------------------------------------------------------------
-include(Cmake/CoreModuleInstall.cmake)
+include(Cmake/iGameCoreInstall.cmake)
 #--------------------------------------------------------------------
 
 #if (ENABLE_LIBTORCH_MODULE)

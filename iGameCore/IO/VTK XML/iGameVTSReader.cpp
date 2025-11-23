@@ -17,7 +17,42 @@
 #undef max
 #undef min
 
+namespace {
+    // Custom high-performance, thread-safe tokenizer
+    // Behaves like strtok_r/strtok_s but faster
+    inline char* ig_strtok(char* str, const char* delimiters, char** context) {
+        char* tokenStart = (str != nullptr) ? str : *context;
+        
+        if (tokenStart == nullptr) {
+            return nullptr;
+        }
 
+        // Skip leading delimiters
+        while (*tokenStart && strchr(delimiters, *tokenStart)) {
+            tokenStart++;
+        }
+
+        if (*tokenStart == '\0') {
+            *context = nullptr;
+            return nullptr;
+        }
+
+        // Find end of token
+        char* tokenEnd = tokenStart;
+        while (*tokenEnd && !strchr(delimiters, *tokenEnd)) {
+            tokenEnd++;
+        }
+
+        if (*tokenEnd != '\0') {
+            *tokenEnd = '\0';
+            *context = tokenEnd + 1;
+        } else {
+            *context = nullptr;
+        }
+
+        return tokenStart;
+    }
+}
 
 IGAME_NAMESPACE_BEGIN
 bool iGame::iGameVTSReader::Parsing() {
@@ -26,6 +61,7 @@ bool iGame::iGameVTSReader::Parsing() {
     const char* attribute;
     const char* delimiters = " \n";
     char* token;
+    char* context = nullptr;
     attribute = root->Attribute("header_type");
     if (attribute) {
         if (strcmp(attribute, "UInt64") == 0) {
@@ -39,22 +75,22 @@ bool iGame::iGameVTSReader::Parsing() {
     if(elem){
         data = elem->Attribute("WholeExtent");
 //        char* nextToken;
-        token = strtok(const_cast<char*>(data), delimiters);
+        token = ig_strtok(const_cast<char*>(data), delimiters, &context);
         int l, r;
         l = mAtoi(token);
-        token = strtok(nullptr, delimiters);
+        token = ig_strtok(nullptr, delimiters, &context);
         r = mAtoi(token);
-        token = strtok(nullptr, delimiters);
+        token = ig_strtok(nullptr, delimiters, &context);
         x_dimension = r - l + 1;
         m_Data.dimensionSize[0] = r - l + 1;
         l = mAtoi(token);
-        token = strtok(nullptr, delimiters);
+        token = ig_strtok(nullptr, delimiters, &context);
         r = mAtoi(token);
-        token = strtok(nullptr, delimiters);
+        token = ig_strtok(nullptr, delimiters, &context);
         y_dimension = r - l + 1;
         m_Data.dimensionSize[1] = r - l + 1;
         l = mAtoi(token);
-        token = strtok(nullptr, delimiters);
+        token = ig_strtok(nullptr, delimiters, &context);
         r = mAtoi(token);
         z_dimension = r - l + 1;
         m_Data.dimensionSize[2] = r - l + 1;
@@ -90,11 +126,11 @@ bool iGame::iGameVTSReader::Parsing() {
         attribute = elem->Attribute("format");
         if(attribute == nullptr || strcmp(attribute, "ascii") == 0){
             float p[3] = { 0 };
-            token = strtok(data_p, delimiters);
+            token = ig_strtok(data_p, delimiters, &context);
             while (token != nullptr) {
                 for(float & i : p) {
                     i = mAtof(token);
-                    token = strtok(nullptr, delimiters);
+                    token = ig_strtok(nullptr, delimiters, &context);
                 }
                 dataSetPoints->AddPoint(p);
             }
@@ -127,7 +163,6 @@ bool iGame::iGameVTSReader::Parsing() {
 //
 //                vhs[0] = x ,  vhs[1] = x  + 1,  vhs[2] = x  + y_dimension + 1,  vhs[3] = x  + y_dimension;
 //                vhs[4] = xz,  vhs[5] = xz + 1,  vhs[6] = xz + y_dimension + 1,  vhs[7] = xz + y_dimension;
-////                Hexahdrons->AddCell(vhs, 8);
 //                volume->AddCellIds(vhs, 8);
 //            }
 //        }
@@ -153,11 +188,11 @@ bool iGame::iGameVTSReader::Parsing() {
                 FloatArray::Pointer arr = FloatArray::New();
                 arr->SetDimension(scalarComponents);
                 auto* ps = new float[scalarComponents];
-                token = strtok(const_cast<char*>(data), delimiters);
+                token = ig_strtok(const_cast<char*>(data), delimiters, &context);
                 while (token != nullptr) {
                     for (int i = 0; i < scalarComponents; i++) {
                         ps[i] = mAtof(token);
-                        token = strtok(nullptr, delimiters);
+                        token = ig_strtok(nullptr, delimiters, &context);
                     }
                     arr->AddElement(ps);
                 }

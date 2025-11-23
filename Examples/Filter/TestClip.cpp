@@ -1,14 +1,14 @@
-#include <iostream>
-#include <iGameVolume.h>
-#include <Core/iGameScene.h>
-#include <iGameRenderWindow.h>
-#include <iGameMultiRenderWindowManager.h>
-#include <iGameInteractor.h>
-#include <iGameFileIO.h>
 #include <Clip/iGameClipFilter.h>
+#include <Core/iGameScene.h>
 #include <VectorView/iGameVectorBase.h>
+#include <iGameFileIO.h>
+#include <iGameInteractor.h>
+#include <iGameMultiRenderWindowManager.h>
+#include <iGameRenderWindow.h>
+#include <iGameVolume.h>
+#include <iostream>
 
-int main(){
+int main() {
 
     /* 创建场景*/
     auto scene = iGame::Scene::New();
@@ -26,8 +26,8 @@ int main(){
     filter->SetInput(input);
     auto bound = input->GetBoundingBox();
     auto ori = (bound.min + bound.max) / 2;
-    float n[3] = { 0, 1, 0 };
-    float o[3] = { ori[0], ori[1], ori[2] };
+    float n[3] = {0, 1, 0};
+    float o[3] = {(float) ori[0], (float) ori[1], (float) ori[2]};
     //设置切割的平面
     filter->SetPlane(o, n);
     //设置是否翻转
@@ -37,10 +37,8 @@ int main(){
     //返回结果
     auto res = filter->GetOutput();
     (DynamicCast<iGame::DrawObject>(res))->SetViewStyle(IG_SURFACE);
-    (DynamicCast<iGame::DrawObject>(res))->ViewCloudPicture(scene,0);
-    if (res != nullptr) {
-        scene->AddModel(res);
-    }
+    (DynamicCast<iGame::DrawObject>(res))->ViewCloudPicture(scene, 0);
+    if (res != nullptr) { scene->AddModel(res); }
     /* 启动窗口设置*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();
     window->SetSize(1920, 1080);

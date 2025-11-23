@@ -19,7 +19,7 @@
 int main(int argc, char* argv[]) {
     auto scene = iGame::Scene::New();
     /* Change the Path to your Model storage path. */
-    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\pvd\\CAD11\\_frames.pvd";
+    const std::string fileName = "./Models/CAD11/_frames.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
 //    auto obj = reader->ReadOdbFirstFrameMesh(fileName);
     if (obj == nullptr) {

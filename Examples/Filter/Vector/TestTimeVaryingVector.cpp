@@ -6,8 +6,7 @@
 int main() {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
-    //    const std::string fileName = "D:\\Project\\editOpeniGame\\Examples\\Models/StreamTest.vtk";
-    const std::string fileName = "C:\\Users\\m_ky\\Desktop\\Resource\\xml\\pvd\\redsea/1.pvd";
+    const std::string fileName = "./Models/redsea/1.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
         scene->AddModel(obj);

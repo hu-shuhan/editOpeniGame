@@ -1,4 +1,3 @@
-
 #ifndef VortexDetection_h
 #define VortexDetection_h
 
@@ -12,11 +11,30 @@
 #include <omp.h>
 #include <string>
 #if defined(LibTorch_ENABLE)
+// Temporarily save and undef Qt keyword macros that can conflict with external libraries (e.g., LibTorch/TBB)
+#ifdef emit
+#pragma push_macro("emit")
+#undef emit
+#define IGAME_PUSHED_EMIT
+#endif
+#ifdef slots
+#pragma push_macro("slots")
 #undef slots
+#define IGAME_PUSHED_SLOTS
+#endif
+// (signals usually expands to 'public' – leave intact unless needed)
 #include <torch/torch.h>
 #include <torch/script.h>
 #include <ATen/ATen.h>
-#define slots Q_SLOTS
+// Restore previously saved Qt macros
+#ifdef IGAME_PUSHED_SLOTS
+#pragma pop_macro("slots")
+#undef IGAME_PUSHED_SLOTS
+#endif
+#ifdef IGAME_PUSHED_EMIT
+#pragma pop_macro("emit")
+#undef IGAME_PUSHED_EMIT
+#endif
 #endif
 
 #include "StreamView/iGameStreamTracer.h"
@@ -113,3 +131,4 @@ protected:
 
 IGAME_NAMESPACE_END
 #endif
+
