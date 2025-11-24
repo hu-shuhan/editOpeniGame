@@ -12,6 +12,7 @@
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
 #include <filesystem>
+#include <memory>
 #include "iGameThreadPool.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -87,7 +88,7 @@ public:
 private:
     // I/O
     DataObject::Pointer m_DataObj;
-    MeshEncoderAdapter* m_EncoderAdapter;
+    std::unique_ptr<MeshEncoderAdapter> m_EncoderAdapter;
     EncodedMeshData::Pointer m_encodedData;
 
     // params
@@ -108,7 +109,7 @@ private:
         if (!m_DataObj) { return false; }
 
         m_encodedData = EncodedMeshData::New();
-        m_EncoderAdapter = new MeshEncoderAdapter(m_DataObj);
+        m_EncoderAdapter = std::make_unique<MeshEncoderAdapter>(m_DataObj);
 
         InitParams();
 
@@ -256,13 +257,20 @@ private:
             float keyError, nonKeyError;
             FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
 
-            if (floatParams.errorMode == ErrorMode::KeyArea) {
-                m_report.push_back(
-                        std::make_pair(dataName + " 相对误差",
-                                       std::format("▲{:.10f}% ■{:.10f}%", keyError * 100.0, nonKeyError * 100.0)));
-            } else {
-                m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("{:.10f}%", keyError)));
-            }
+			/*
+			if (floatParams.errorMode == ErrorMode::KeyArea) {
+				m_report.push_back(
+						std::make_pair(dataName + " 相对误差",
+									   std::format("▲{:.10f}% ■{:.10f}%", keyError * 100.0, nonKeyError * 100.0)));
+			} else {
+				m_report.push_back(std::make_pair(dataName + " 相对误差", std::format("{:.10f}%", keyError)));
+			}
+			*/
+
+			// 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
+			const float errPercent = keyError * 100.0f;
+			m_report.push_back(
+					std::make_pair(dataName + " 相对误差", std::format("{:.10f}%", errPercent)));
         }
     }
 
@@ -813,22 +821,17 @@ private:
         std::vector<unsigned int> optCellBuffer(indices.size());
         std::vector<unsigned int> optCellOffset(offsets.size());
         cellRemap.resize(cellCount);
-        MeshCodecAdjacency::CellAdjacency adj;
 
         if (fixedCellSize != -1) {
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(indices.data(), indices.size(), childCount, fixedCellSize);
-            adj = mca->GetAdjacencyData();
-
+            auto mca = std::make_unique<MeshCodecAdjacency>(indices.data(), indices.size(), childCount, fixedCellSize);
             this->OptimizeCellVertexCache(optCellBuffer.data(), cellRemap.data(), indices.data(), indices.size(),
-                                          childCount, fixedCellSize, adj);
+                                          childCount, fixedCellSize, mca->GetAdjacencyData());
         } else {
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(indices.data(), offsets.data(), indices.size(),
-                                                             offsets.size(), childCount, cellCount);
-            adj = mca->GetAdjacencyData();
-
+            auto mca = std::make_unique<MeshCodecAdjacency>(indices.data(), offsets.data(), indices.size(),
+                                                            offsets.size(), childCount, cellCount);
             this->OptimizeHybirdCellVertexCache(optCellBuffer.data(), optCellOffset.data(), cellRemap.data(),
                                                 indices.data(), offsets.data(), indices.size(), offsets.size(),
-                                                childCount, cellCount, adj);
+                                                childCount, cellCount, mca->GetAdjacencyData());
         }
 
         std::vector<unsigned char> encodeBuffer;
@@ -939,9 +942,9 @@ private:
             }
         }
 
-        unsigned int* cacheHolder = new unsigned int[2 * (kCacheSizeMax + maxIdPerCell + 1)];
-        unsigned int* cache = cacheHolder;
-        unsigned int* cacheNew = cacheHolder + kCacheSizeMax + maxIdPerCell + 1;
+        std::vector<unsigned int> cacheHolder(2 * (kCacheSizeMax + maxIdPerCell + 1));
+        unsigned int* cache = cacheHolder.data();
+        unsigned int* cacheNew = cacheHolder.data() + kCacheSizeMax + maxIdPerCell + 1;
         size_t cacheCount = 0;
 
         unsigned int currentCell = 0;
@@ -1098,9 +1101,9 @@ private:
             }
         }
 
-        unsigned int* cacheHolder = new unsigned int[2 * (kCacheSizeMax + fixedCellSize + 1)];
-        unsigned int* cache = cacheHolder;
-        unsigned int* cacheNew = cacheHolder + kCacheSizeMax + fixedCellSize + 1;
+        std::vector<unsigned int> cacheHolder(2 * (kCacheSizeMax + fixedCellSize + 1));
+        unsigned int* cache = cacheHolder.data();
+        unsigned int* cacheNew = cacheHolder.data() + kCacheSizeMax + fixedCellSize + 1;
         size_t cacheCount = 0;
 
         unsigned int currentCell = 0;

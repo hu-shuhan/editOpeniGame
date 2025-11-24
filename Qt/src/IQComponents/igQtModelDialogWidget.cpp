@@ -297,7 +297,7 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     scene->RemoveModel(id);
     scene->Update();
 
-    std::cout << "Delete current model: " << currentItem << std::endl;
+//    std::cout << "Delete current model: " << currentItem << std::endl;
 
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }

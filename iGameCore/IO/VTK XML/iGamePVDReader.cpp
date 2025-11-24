@@ -8,6 +8,7 @@
  */
 
 #include "iGamePVDReader.h"
+#include "Log/iGameLogger.h"
 #include "iGameFileReader.h"
 #include "iGameVTSReader.h"
 #include "iGameVTUReader.h"
@@ -74,8 +75,11 @@ bool iGame::iGamePVDReader::Parsing() {
                     DataObject::Pointer newObj;
                     const char* pos = strrchr(fileName.data(), '.');
                     std::string fileSuffix;
-                    const char *fileEnd = fileName.data() + fileName.size();
-                    fileSuffix = std::string(pos + 1, fileEnd);
+                    if (pos) {
+                        const char *fileEnd = fileName.data() + fileName.size();
+                        fileSuffix = std::string(pos + 1, fileEnd);
+                    }
+                    
                     if(fileSuffix == "vts"){
                         iGameVTSReader::Pointer rd = iGameVTSReader::New();
                         rd->SetFilePath(fileName);
@@ -106,7 +110,7 @@ bool iGame::iGamePVDReader::Parsing() {
 
             }
             auto t3 = std::chrono::steady_clock::now();
-            std::cout << "Read subFiles cost : "<< std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << " ms\n";
+            IGAME_CORE_DEBUG("Read subFiles cost : {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count());
             for(auto obj : results){
                 m_data_object->AddSubDataObject(obj);
             }

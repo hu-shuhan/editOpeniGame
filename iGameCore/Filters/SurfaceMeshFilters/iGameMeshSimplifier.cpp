@@ -399,6 +399,7 @@ public:
     void print(Rest&&... rest) const {
         if (debug) {
             std::cout << "[Time Cost: " << std::setw(3) << std::left << GetTime() << "ms] ";
+//            IGAME_CORE_TRACE("[Time Cost: {} ms]", GetTime());
             print_impl(std::forward<Rest>(rest)...);
         }
     }
@@ -409,6 +410,7 @@ private:
     template<typename First, typename... Rest>
     void print_impl(First&& first, Rest&&... rest) const {
         if (debug) {
+//            IGAME_CORE_TRACE("first");
             std::cout << first;
             print_impl(std::forward<Rest>(rest)...);
         }

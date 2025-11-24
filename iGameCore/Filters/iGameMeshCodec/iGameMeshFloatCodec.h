@@ -93,18 +93,22 @@ public:
 			return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
 			};
 
-        // 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
-        // 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
-        // 这里按常用格式近似：FP32→保留23，FP24→保留15（近似24位格式），FP16→保留10（半精度尾数10位），FP8→保留3（E4M3）。
-        auto quantizeLevelToKeptMantissaBits = [=](int level) -> int {
-            switch (level) {
-            case 0: return 23; // FP32：保留全部23位尾数
-            case 1: return 15; // FP24：近似保留15位尾数
-            case 2: return 10; // FP16：保留约10位尾数
-            case 3: return 3;  // FP8 ：保留约3位尾数（E4M3）
-            default: return 23;
-            }
-        };
+		// 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
+		// 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
+		// 这里按常用格式近似：FP32→保留23，FP24→保留15（近似24位格式），FP16→保留10（半精度尾数10位），FP8→保留3（E4M3）。
+		auto quantizeLevelToKeptMantissaBits = [=](int level) -> int {
+			// FP32：保留全部23位尾数
+			// FP24：近似保留15位尾数
+			// FP16：保留约10位尾数
+			// FP12 ：保留约6位尾数（E4M3）
+			switch (level) {
+			case 0: return 23;
+			case 1: return 22;
+			case 2: return 21;
+			case 3: return 20;
+			default: return 23;
+			}
+		};
 
 		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc) -> void
             {
@@ -264,6 +268,7 @@ public:
 			});
 	}
 
+	/*
 	template<typename T>
 	static void TotalError(const std::vector<T>& source,
 		const std::vector<T>& quantized,
@@ -357,6 +362,42 @@ public:
 			keyRelError = keyElementCount > 0 ? static_cast<float>((keySumRelError / keyElementCount)) : 0.0f;
 			nonKeyRelError = nonKeyElementCount > 0 ? static_cast<float>((nonKeySumRelError / nonKeyElementCount)) : 0.0f;
 		}
+	}
+	*/
+
+	template<typename T>
+	static void TotalError(const std::vector<T>& source,
+		const std::vector<T>& quantized,
+		const FloatParameters& floatParams,
+		const FloatErrorControlParameters& /*errorParams*/,
+		float& keyRelError,
+		float& nonKeyRelError)
+	{
+		// 新逻辑：无论是否 KeyArea，统一计算整体平均相对误差（返回比值 0..1）
+		keyRelError = 0.0f;
+		nonKeyRelError = 0.0f;
+
+		const size_t valueCount = std::min(source.size(), quantized.size());
+		if (valueCount == 0) {
+			return;
+		}
+
+		// 计算全局最大绝对值，作为相对误差的归一化尺度
+		T maxAbsValue = static_cast<T>(0);
+		for (size_t i = 0; i < valueCount; ++i) {
+			maxAbsValue = std::max(maxAbsValue, static_cast<T>(std::abs(source[i])));
+		}
+		maxAbsValue = std::max(maxAbsValue, static_cast<T>(1e-10));
+
+		double sumRelError = 0.0;  // 使用 double 累加提高精度
+		for (size_t i = 0; i < valueCount; ++i) {
+			const T error = static_cast<T>(std::abs(source[i] - quantized[i]));
+			sumRelError += static_cast<double>(error) / static_cast<double>(maxAbsValue);
+		}
+
+		// 返回平均相对误差（0..1），具体是否转为百分比由调用方决定
+		keyRelError = static_cast<float>(sumRelError / static_cast<double>(valueCount));
+		nonKeyRelError = 0.0f;
 	}
 
 // region deprecated

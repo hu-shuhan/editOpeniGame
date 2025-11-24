@@ -4,11 +4,11 @@ add_definitions(/D_USE_MATH_DEFINES)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 project("test")
-#set(iGameCore_module_DIR "C:/Program Files (x86)/iGameVis/lib/cmake/iGameCore_module")
+#set(iGameCore_DIR "C:/Program Files (x86)/iGameVis/lib/cmake/iGameCore")
 message(WARNING ${CMAKE_CURRENT_SOURCE_DIR})
-#set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../install/iGameVis/lib/cmake/iGameCore_module")
-set(iGameCore_module_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release-1436/install/lib/cmake/iGameCore_module")
-find_package(iGameCore_module REQUIRED)
+#set(iGameCore_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../install/iGameVis/lib/cmake/iGameCore")
+set(iGameCore_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-build-release-1436/install/lib/cmake/iGameCore")
+find_package(iGameCore REQUIRED)
 if (MSVC)
     add_compile_options(/utf-8)
 endif ()
@@ -86,6 +86,21 @@ add_executable(testCurvatureExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Featu
 add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/GradientExtraction.cpp")
 add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
 add_executable(testVortexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexDetection.cpp")
+
+target_link_libraries(testVortexDetection
+        PRIVATE
+        iGameCore
+)
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(testVortexDetection PRIVATE OpenMP::OpenMP_CXX)
+endif ()
+if (ENABLE_LIBTORCH_MODULE)
+    target_link_libraries(testVortexDetection
+            PRIVATE
+            ${TORCH_LIBRARIES}
+    )
+endif ()
 
 add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
 add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
@@ -177,17 +192,17 @@ target_compile_definitions(testSplineSurfaceReader PUBLIC GPSCUDA_ENABLE)
 target_compile_definitions(testSplineVolumeReader PUBLIC GPSCUDA_ENABLE)
 target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
 
-SET(Torch_DIR "D:/XuJiangjie/editOpeniGame/ThirdParty/libtorch/Release_GPU/share/cmake/Torch")
-find_package(Torch REQUIRED CONFIG)
-set(_torch_list torch c10 torch_cpu)
-if (TARGET torch_cuda)
-    list(APPEND _torch_list torch_cuda c10_cuda)
-endif ()
-if (TARGET caffe2_nvrtc)
-    list(APPEND _torch_list caffe2_nvrtc)
-endif ()
-target_link_libraries(testVortexDetection
-        PUBLIC
-        ${IGAMEVIS_CORE_LIB_TARGETS}
-        ${_torch_list}
-)
+# SET(Torch_DIR "D:/XuJiangjie/editOpeniGame/ThirdParty/libtorch/Release_GPU/share/cmake/Torch")
+# find_package(Torch REQUIRED CONFIG)
+# set(_torch_list torch c10 torch_cpu)
+# if (TARGET torch_cuda)
+#     list(APPEND _torch_list torch_cuda c10_cuda)
+# endif ()
+# if (TARGET caffe2_nvrtc)
+#     list(APPEND _torch_list caffe2_nvrtc)
+# endif ()
+# target_link_libraries(testVortexDetection
+#         PUBLIC
+#         ${IGAMEVIS_CORE_LIB_TARGETS}
+#         ${_torch_list}
+# )

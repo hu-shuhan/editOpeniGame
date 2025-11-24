@@ -206,7 +206,7 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
                     CellTypes->AddValue(IG_HEXAHEDRON);
                     break;
                 default:
-                    igError("Not support this volume with " << vcnt << "'s verts.");
+                    igError("Not support this volume with " , vcnt , "'s verts.");
                     return false;
             }
         }

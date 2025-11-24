@@ -12,7 +12,7 @@ static void LaplacianExtract() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/Driver/driver-1.vtk";
+    const std::string fileName = "./Models/Driver/driver_1.vtk";
     iGame::DataObject::Pointer dataObj = iGame::FileIO::ReadFile(fileName);
     if (dataObj != nullptr) {
         scene->AddModel(dataObj);

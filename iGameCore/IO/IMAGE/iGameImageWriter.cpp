@@ -8,6 +8,7 @@
  */
 
 #include "iGameImageWriter.h"
+#include "Log/iGameLogger.h"
 IGAME_NAMESPACE_BEGIN
 void ImageWriter::SetInputBuffer(std::vector<uint8_t>& buffer_data) {
     m_BufferLength = buffer_data.size();
@@ -28,7 +29,7 @@ void ImageWriter::SetOutputFilePath(const char *filePath) {
 }
 
 bool ImageWriter::Execute() {
-    std::cout << "No specific writer is specified\n";
+    IGAME_CORE_WARN("No specific writer is specified");
     return Filter::Execute();
 }
 

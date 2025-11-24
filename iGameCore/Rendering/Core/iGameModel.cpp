@@ -219,18 +219,22 @@ void Model::SyncGpuBuffers() {
 
 void Model::Draw() {
     if (!this->GetVisibility()) { return; }
-    bool useSimplified = m_Scene->m_IsInteracting;
-    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 66.6;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         if (!drawObject->GetVisibility()) { return; }
 
+        #ifndef IGAME_OPENGL_VERSION_330
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
         if (hasTransparency || hasAcceleration) { return; }
+        #endif
 
         // Render
+        bool useSimplified =
+                m_Scene->m_IsInteracting &&
+                drawObject->m_RenderableMesh.SurfaceMesh->m_TriangleIndices
+                                ->GetNumberOfElements() > 100000;
         auto renderableObject = drawObject->GetRenderableObject(useSimplified);
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
@@ -378,8 +382,6 @@ void Model::Draw() {
 
 void Model::DrawWithTransparency() {
     if (!this->GetVisibility()) { return; }
-    bool useSimplified = m_Scene->m_IsInteracting;
-    useSimplified &= m_Scene->m_SmoothedGpuTimeMs > 66.6;
 
     auto draw = [&](const SmartPointer<DataObject>& dataObject) {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
@@ -389,6 +391,10 @@ void Model::DrawWithTransparency() {
         if (!hasTransparency) { return; }
 
         // Render
+        bool useSimplified =
+                m_Scene->m_IsInteracting &&
+                drawObject->m_RenderableMesh.SurfaceMesh->m_TriangleIndices
+                                ->GetNumberOfElements() > 1000000;
         auto renderableObject = drawObject->GetRenderableObject(useSimplified);
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
@@ -673,7 +679,7 @@ void Model::DrawPhase1() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -943,7 +949,7 @@ void Model::DrawPhase2() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -1118,7 +1124,7 @@ void Model::TestOcclusionResults() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // compute
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto viewStyle = drawObject->GetViewStyle();
 
         // test

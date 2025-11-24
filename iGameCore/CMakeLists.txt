@@ -1,4 +1,4 @@
-set(MODULE_NAME iGameCore_module)
+set(MODULE_NAME iGameCore)
 set(CMAKE_CXX_STANDARD 20)
 #=====添加路径======
 set(Qt5_DIR "D:/Qt/Qt5.14.2/5.14.2/msvc2017_64/lib/cmake/Qt5")
@@ -93,22 +93,19 @@ list(APPEND ThirdParty_lib_dependency
 if (ENABLE_CGNS_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC CGNS_ENABLE)
     target_link_libraries(${MODULE_NAME} PUBLIC cgns_static)
-    set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-
-    find_package(HDF5)
-    #    target_link_libraries(
-    #            ${MODULE_NAME} PUBLIC
-    #            ${HDF5_LIBRARIES}/../libzlib.lib
-    #            ${HDF5_LIBRARIES}/../libsz.lib
-    #            ${HDF5_LIBRARIES}/../libaec.lib)
-ENDIF ()
+    # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
+    if (WIN32)
+        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+        find_package(HDF5) # Optional: additional HDF5 linkage for Windows deployment
+    endif ()
+endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
     list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
+    target_link_libraries(${MODULE_NAME} PRIVATE ${TORCH_LIBRARIES})
     if (TARGET torch_cuda)
         message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
     else ()
@@ -116,7 +113,6 @@ if (ENABLE_LIBTORCH_MODULE)
     endif ()
     #        get_target_property(_torch_imps torch IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
     #        message(STATUS "Torch IMPORTED_LINK_INTERFACE (Release): ${_torch_imps}")
-
     if (TARGET torch_cuda)
         message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
     else ()
@@ -210,7 +206,7 @@ endif ()
 #--------------------------------------------------------------------
 # Exec Install iGameVis Core Module's CMake
 #--------------------------------------------------------------------
-include(Cmake/CoreModuleInstall.cmake)
+include(Cmake/iGameCoreInstall.cmake)
 #--------------------------------------------------------------------
 
 #if (ENABLE_LIBTORCH_MODULE)

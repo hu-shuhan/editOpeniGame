@@ -102,14 +102,15 @@ private:
 
     // 属性列表
     int m_DataNum;
-    int m_binNum = 12;
+    // 直方图分箱数量：固定为 10 个 bin
+    int m_binNum = 10;
 
     QVector<QString> m_quantizeLevel = {
-        "无损",
-        "FP24",
-        "FP16",
-        "FP8"
-    };
+		"无损",
+		"低",
+		"中",
+		"高"
+	};
 
     // 压缩模式标记：无损/全局/分区
     // 无损：黑色实心星(★)；全局：▲；分区：■

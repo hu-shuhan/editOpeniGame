@@ -1,26 +1,30 @@
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_subdirectory(Debug)
-    set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Debug")
+    if(win32)
+        add_subdirectory(Debug)
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Debug")
+    endif ()
 else()
-    add_subdirectory(Release_GPU)
-    set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_GPU")
+    if(win32)
+        add_subdirectory(Release_GPU)
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_GPU")
+    elseif (UNIX AND NOT APPLE)
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_LINUX_GPU")
+        set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch" ${CMAKE_PREFIX_PATH})
+        set(LIBTORCH_DIR "${LIBTORCH_DIR}" PARENT_SCOPE)
+    endif ()
 endif()
 
-#include_directories(
-#        "${LIBTORCH_DIR}/include"
-#        "${LIBTORCH_DIR}/include/torch/csrc/api/include"
-#)
-#
-#if (WIN32)
-#    file(GLOB TORCH_DLLS "${LIBTORCH_DIR}/lib/*.dll")
-#    add_custom_target(libtorchDlls ALL
-#            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#            ${TORCH_DLLS}
-#            ${CMAKE_BINARY_DIR}/$<CONFIG>
-#            DEPENDS ${TORCH_DLLS}
-#            COMMENT "Copying libtorch DLLs to output folder"
-#    )
-#    add_dependencies(${PROJECT_NAME} libtorchDlls)
-#else ()
-#    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
+#if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+#    if (WIN32)
+#        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Debug")
+#    endif()
+#else()
+#    if (WIN32)
+#        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_GPU")
+#    elseif (UNIX AND NOT APPLE)
+#        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Release_LINUX_GPU")
+#    endif()
 #endif()
+#
+#set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch" ${CMAKE_PREFIX_PATH})
+#set(LIBTORCH_DIR "${LIBTORCH_DIR}" PARENT_SCOPE)

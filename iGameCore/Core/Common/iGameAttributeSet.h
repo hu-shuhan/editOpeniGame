@@ -6,6 +6,9 @@
 #include <variant>
 
 IGAME_NAMESPACE_BEGIN
+
+class DataObject;
+
 // Attributes set stores all Attribute array data, like scalar, vector etc
 class AttributeSet : public Object {
 public:

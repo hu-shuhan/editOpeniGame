@@ -8,6 +8,7 @@
  */
 
 #include "iGameBMPWriter.h"
+#include "Log/iGameLogger.h"
 
 #include <fstream>
 #if defined(PLATFORM_WINDOWS)
@@ -15,7 +16,7 @@
 #endif
 bool iGame::BMPWriter::Execute() {
     if(m_IMG_height * m_IMG_width * 3 != m_BufferLength) {
-        std::cout << "IMG size is not fit with Buffer data.\n";
+        IGAME_CORE_ERROR("IMG size is not fit with Buffer data.");
         return false;
     }
 
@@ -41,7 +42,7 @@ bool iGame::BMPWriter::Execute() {
         fclose(pfile);
     }
 #else
-    std::cout << "This platform not support BMPWriter currently\n";
+    IGAME_CORE_WARN("This platform not support BMPWriter currently");
     return false;
 
 #endif

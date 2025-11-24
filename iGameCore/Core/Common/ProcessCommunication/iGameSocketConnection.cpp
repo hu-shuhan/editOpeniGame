@@ -40,7 +40,7 @@ bool iGameSocketConnection::start()
     // 创建服务器socket
     m_serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (m_serverSocket == INVALID_SOCKET) {
-        igDebug("Failed to create server socket, error: " << SOCKET_ERROR_CODE);
+        igDebug("Failed to create server socket, error: {}" , SOCKET_ERROR_CODE);
         return false;
     }
 
@@ -48,7 +48,7 @@ bool iGameSocketConnection::start()
     int opt = 1;
     if (setsockopt(m_serverSocket, SOL_SOCKET, SO_REUSEADDR, 
                    reinterpret_cast<const char*>(&opt), sizeof(opt)) == SOCKET_ERROR) {
-        igDebug("Failed to set socket options, error: " << SOCKET_ERROR_CODE);
+        igDebug("Failed to set socket options, error: {}" , SOCKET_ERROR_CODE);
         SOCKET_CLOSE(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         return false;
@@ -65,7 +65,7 @@ bool iGameSocketConnection::start()
         serverAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     } else {
         if (inet_pton(AF_INET, m_host.c_str(), &serverAddr.sin_addr) <= 0) {
-            igDebug("Invalid host address: " << m_host);
+            igDebug("Invalid host address: {}" , m_host);
             SOCKET_CLOSE(m_serverSocket);
             m_serverSocket = INVALID_SOCKET;
             return false;
@@ -73,7 +73,7 @@ bool iGameSocketConnection::start()
     }
 
     if (bind(m_serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-        igDebug("Failed to bind socket to " << m_host << ":" << m_port << ", error: " << SOCKET_ERROR_CODE);
+        igDebug("Failed to bind socket to {}:{}, error: {}" , m_host, m_port, SOCKET_ERROR_CODE);
         SOCKET_CLOSE(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         return false;
@@ -81,7 +81,7 @@ bool iGameSocketConnection::start()
 
     // 开始监听
     if (listen(m_serverSocket, 5) == SOCKET_ERROR) {
-        igDebug("Failed to listen on socket, error: " << SOCKET_ERROR_CODE);
+        igDebug("Failed to listen on socket, error: {}" , SOCKET_ERROR_CODE);
         SOCKET_CLOSE(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         return false;
@@ -160,7 +160,7 @@ bool iGameSocketConnection::sendResponse(const std::vector<uint8_t>& data)
     while (sentTotal < static_cast<int>(sizeof(messageLength))) {
         int n = send(m_clientSocket, lengthPtr + sentTotal, static_cast<int>(sizeof(messageLength)) - sentTotal, 0);
         if (n == SOCKET_ERROR) {
-            igDebug("Failed to send length, error: " << SOCKET_ERROR_CODE);
+            igDebug("Failed to send length, error: {}" , SOCKET_ERROR_CODE);
             return false;
         }
         sentTotal += n;
@@ -173,7 +173,7 @@ bool iGameSocketConnection::sendResponse(const std::vector<uint8_t>& data)
     while (sentTotal < dataSize) {
         int n = send(m_clientSocket, dataPtr + sentTotal, dataSize - sentTotal, 0);
         if (n == SOCKET_ERROR) {
-            igDebug("Failed to send payload, error: " << SOCKET_ERROR_CODE);
+            igDebug("Failed to send payload, error: {}" , SOCKET_ERROR_CODE);
             return false;
         }
         sentTotal += n;
@@ -216,7 +216,7 @@ void iGameSocketConnection::initializeWinsock()
     WSADATA wsaData;
     int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (result != 0) {
-        igError("WSAStartup failed with error: " << result);
+        igError("WSAStartup failed with error: " , result);
         return;
     }
     m_winsockInitialized = true;
@@ -253,7 +253,7 @@ void iGameSocketConnection::serverThreadFunction()
         if (result == SOCKET_ERROR) {
             // 如果正在停止，忽略错误直接退出
             if (m_shouldStop.load()) { break; }
-            igDebug("Select failed, error: " << SOCKET_ERROR_CODE);
+            igDebug("Select failed, error: {}" , SOCKET_ERROR_CODE);
             break;
         }
         
@@ -279,7 +279,7 @@ void iGameSocketConnection::handleClientConnection()
     
     if (m_clientSocket == INVALID_SOCKET) {
         if (m_shouldStop.load()) { return; }
-        igDebug("Failed to accept client connection, error: " << SOCKET_ERROR_CODE);
+        igDebug("Failed to accept client connection, error: {}" , SOCKET_ERROR_CODE);
         return;
     }
 
@@ -331,7 +331,7 @@ bool iGameSocketConnection::receiveAndProcessCommand()
     if (result == SOCKET_ERROR) {
         // 停止中则视为正常退出
         if (m_shouldStop.load()) { return false; }
-        igDebug("Select failed on client socket, error: " << SOCKET_ERROR_CODE);
+        igDebug("Select failed on client socket, error: {}" , SOCKET_ERROR_CODE);
         return false;
     }
     if (result == 0 || !FD_ISSET(m_clientSocket, &readfds)) {
@@ -348,14 +348,14 @@ bool iGameSocketConnection::receiveAndProcessCommand()
                      static_cast<int>(sizeof(dataLength)) - bytesRead, 0);
         if (n <= 0) {
             if (n == 0) { igDebug("Client disconnected gracefully"); }
-            else { igDebug("Failed to receive data length, error: " << SOCKET_ERROR_CODE); }
+            else { igDebug("Failed to receive data length, error: {}" , SOCKET_ERROR_CODE); }
             return false;
         }
         bytesRead += n;
     }
 
     if (dataLength == 0 || dataLength > 10u * 1024u * 1024u) { 
-        igError("Invalid data length: " << dataLength);
+        igError("Invalid data length: " , dataLength);
         return false;
     }
 
@@ -368,7 +368,7 @@ bool iGameSocketConnection::receiveAndProcessCommand()
                      static_cast<int>(dataLength) - bytesRead, 0);
         if (n <= 0) {
             if (n == 0) { igDebug("Client disconnected during data reception"); }
-            else { igDebug("Failed to receive data, error: " << SOCKET_ERROR_CODE); }
+            else { igDebug("Failed to receive data, error: {}" , SOCKET_ERROR_CODE); }
             return false;
         }
         bytesRead += n;
@@ -381,7 +381,7 @@ bool iGameSocketConnection::receiveAndProcessCommand()
         try {
             m_messageCallback(message);
         } catch (const std::exception& e) {
-            igDebug("Exception in message callback: " << e.what());
+            igDebug("Exception in message callback: {}" , e.what());
         }
     }
     
@@ -394,7 +394,7 @@ void iGameSocketConnection::notifyConnectionChange(bool connected)
         try {
             m_connectionCallback(connected);
         } catch (const std::exception& e) {
-            igDebug("Exception in connection callback: " << e.what());
+            igDebug("Exception in connection callback: {}" , e.what());
         }
     }
 }

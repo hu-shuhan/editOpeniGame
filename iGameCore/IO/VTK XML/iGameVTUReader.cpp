@@ -14,6 +14,42 @@
 
 #include <tinyxml2.h>
 
+namespace {
+    // Custom high-performance, thread-safe tokenizer
+    // Behaves like strtok_r/strtok_s but faster
+    inline char* ig_strtok(char* str, const char* delimiters, char** context) {
+        char* tokenStart = (str != nullptr) ? str : *context;
+        
+        if (tokenStart == nullptr) {
+            return nullptr;
+        }
+
+        // Skip leading delimiters
+        while (*tokenStart && strchr(delimiters, *tokenStart)) {
+            tokenStart++;
+        }
+
+        if (*tokenStart == '\0') {
+            *context = nullptr;
+            return nullptr;
+        }
+
+        // Find end of token
+        char* tokenEnd = tokenStart;
+        while (*tokenEnd && !strchr(delimiters, *tokenEnd)) {
+            tokenEnd++;
+        }
+
+        if (*tokenEnd != '\0') {
+            *tokenEnd = '\0';
+            *context = tokenEnd + 1;
+        } else {
+            *context = nullptr;
+        }
+
+        return tokenStart;
+    }
+}
 
 IGAME_NAMESPACE_BEGIN
 bool iGame::iGameVTUReader::Parsing() {
@@ -93,6 +129,7 @@ bool iGameVTUReader::ReadPointData() {
     const char* attribute;
     const char* delimiters = " \n";
     char* token;
+    char* context = nullptr;
 
     m_CurrentElem = FindTargetItem(m_CurrentElem, "Points")->FirstChildElement("DataArray");
     data = m_CurrentElem->GetText();
@@ -118,12 +155,12 @@ bool iGameVTUReader::ReadPointData() {
         }
         else if (strcmp(attribute, "ascii") == 0) {
             float p[3] = { 0 };
-            token = strtok(data_p, delimiters);
+            token = ig_strtok(data_p, delimiters, &context);
 
             while (token != nullptr) {
                 for (float& i : p) {
                     i = mAtof(token);
-                    token = strtok(nullptr, delimiters);
+                    token = ig_strtok(nullptr, delimiters, &context);
                 }
                 dataSetPoints->AddPoint(p);
             }
@@ -157,6 +194,7 @@ bool iGameVTUReader::ReadPointAttribute() {
     const char* delimiters = " \n";
     char* token;
     char* data_p;
+    char* context = nullptr;
     m_CurrentElem = FindTargetItem(root, "PointData");
     if(m_CurrentElem == nullptr) return false;
     /* Process vector name parse*/
@@ -211,13 +249,13 @@ bool iGameVTUReader::ReadPointAttribute() {
                     FloatArray::Pointer arr = FloatArray::New();
                     arr->SetDimension(scalarComponents);
                     auto* ps = new float[scalarComponents];
-                    token = strtok(data_p, delimiters);
+                    token = ig_strtok(data_p, delimiters, &context);
                     while (token != nullptr) {
                         for (int i = 0; i < scalarComponents; i++) {
 
                             auto& it = ps[i];
                             it = mAtof(token);
-                            token = strtok(nullptr, delimiters);
+                            token = ig_strtok(nullptr, delimiters, &context);
                         }
                         arr->AddElement(ps);
                     }
@@ -270,20 +308,20 @@ bool iGameVTUReader::ReadPointAttribute() {
                     IntArray::Pointer arr = IntArray::New();
                     arr->SetDimension(scalarComponents);
                     int* ps = new int[scalarComponents];
-                    token = strtok(data_p, delimiters);
+                    token = ig_strtok(data_p, delimiters, &context);
                     while (token != nullptr) {
                         for (int i = 0; i < scalarComponents; i++) {
 
                             auto& it = ps[i];
                             it = mAtoi(token);
-                            token = strtok(nullptr, delimiters);
+                            token = ig_strtok(nullptr, delimiters, &context);
                         }
                         arr->AddElement(ps);
                     }
                     array = arr;
                     delete[] ps;
                 }
-                else if(strcmp(attribute, "appended") == 0){
+                else if (strcmp(attribute, "appended") == 0) {
                     long long offsetVal = std::atoll(offset);
                     data_p = data_p + offsetVal;
                     //  Int32
@@ -339,6 +377,7 @@ bool iGameVTUReader::ReadCellData() {
     const char* delimiters = " \n";
     char* token;
     char* data_p;
+    char* context = nullptr;
     m_CurrentElem = FindTargetItem(root, "CellData");
     if(m_CurrentElem == nullptr)return false;
     /* Process vector name parse*/
@@ -393,13 +432,13 @@ bool iGameVTUReader::ReadCellData() {
                     FloatArray::Pointer arr = FloatArray::New();
                     arr->SetDimension(scalarComponents);
                     auto* ps = new float[scalarComponents];
-                    token = strtok(data_p, delimiters);
+                    token = ig_strtok(data_p, delimiters, &context);
                     while (token != nullptr) {
                         for (int i = 0; i < scalarComponents; i++) {
 
                             auto& it = ps[i];
                             it = mAtof(token);
-                            token = strtok(nullptr, delimiters);
+                            token = ig_strtok(nullptr, delimiters, &context);
                         }
                         arr->AddElement(ps);
                     }
@@ -430,7 +469,6 @@ bool iGameVTUReader::ReadCellData() {
                         }
                         array = arr;
                     }
-
                 }
             }
             else if (!strncmp(type, "Int", 3)) {
@@ -453,13 +491,13 @@ bool iGameVTUReader::ReadCellData() {
                     IntArray::Pointer arr = IntArray::New();
                     arr->SetDimension(scalarComponents);
                     int* ps = new int[scalarComponents];
-                    token = strtok(data_p, delimiters);
+                    token = ig_strtok(data_p, delimiters, &context);
                     while (token != nullptr) {
                         for (int i = 0; i < scalarComponents; i++) {
 
                             auto& it = ps[i];
                             it = mAtoi(token);
-                            token = strtok(nullptr, delimiters);
+                            token = ig_strtok(nullptr, delimiters, &context);
                         }
                         arr->AddElement(ps);
                     }
@@ -522,6 +560,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
     const char* delimiters = " \n";
     char* token;
     char* data_p;
+    char* context = nullptr;
     m_CurrentElem = FindTargetItem(root, "Cells");
     ArrayObject::Pointer CellConnects = IntArray::New();
     m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "connectivity");
@@ -536,13 +575,13 @@ ArrayObject::Pointer iGameVTUReader::ReadCellConnectivity() {
         attribute = m_CurrentElem->Attribute("format");
         if (strcmp(attribute, "ascii") == 0) {
             LongLongArray::Pointer arr = LongLongArray::New();
-            token = strtok(data_p, delimiters);
+            token = ig_strtok(data_p, delimiters, &context);
             int conn = -1;
             while (token)
             {
                 conn = mAtoi(token);
                 arr->AddValue(conn);
-                token = strtok(nullptr, delimiters);
+                token = ig_strtok(nullptr, delimiters, &context);
             }
             CellConnects = arr;
         }
@@ -594,6 +633,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
     const char* delimiters = " \n";
     char* token;
     char* data_p;
+    char* context = nullptr;
 
     ArrayObject::Pointer CellOffsets = IntArray::New();
     //  Note that it need to add a zero index.
@@ -612,12 +652,12 @@ ArrayObject::Pointer iGameVTUReader::ReadCellOffsets() {
             LongLongArray::Pointer arr = LongLongArray::New();
             arr->AddValue(0);
             int offset = -1;
-            token = strtok(data_p, delimiters);
+            token = ig_strtok(data_p, delimiters, &context);
             while (token)
             {
                 offset = mAtoi(token);
                 arr->AddValue(offset);
-                token = strtok(nullptr, delimiters);
+                token = ig_strtok(nullptr, delimiters, &context);
             }
             CellOffsets = arr;
         }
@@ -672,6 +712,7 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
     const char* attribute;
     const char* delimiters = " \n";
     char* token;
+    char* context = nullptr;
 
     m_CurrentElem = FindTargetAttributeItem(m_CurrentElem, "DataArray", "Name", "offsets");
 
@@ -689,12 +730,12 @@ ArrayObject::Pointer iGameVTUReader::ReadCellTypes() {
         attribute = m_CurrentElem->Attribute("format");
         if (strcmp(attribute, "ascii") == 0) {
             int type = -1;
-            token = strtok(data_p, delimiters);
+            token = ig_strtok(data_p, delimiters, &context);
             while (token)
             {
                 type = mAtoi(token);
                 CellTypes->AddValue(type);
-                token = strtok(nullptr, delimiters);
+                token = ig_strtok(nullptr, delimiters, &context);
             }
         }
         else if (strcmp(attribute, "binary") == 0) {

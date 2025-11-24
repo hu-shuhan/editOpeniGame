@@ -13,7 +13,7 @@ static void ImportSplineVolume() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/tris_closed.xml";
+    const std::string fileName = "./Models/Bridge.xml";
 
     // Note: Since XML files may have various formats, it is necessary to explicitly specify the Reader type based on the file content.
     iGame::SplineVolumeReader::Pointer reader = iGame::SplineVolumeReader::New();

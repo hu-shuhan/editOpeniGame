@@ -4,11 +4,17 @@
 #include "iGameDataObject.h"
 #include "iGameMacro.h"
 #include "iGameMeshEncoderAdapter.h"
+#include "meshoptimizer.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <vector>
-#include <execution>
+// remove previously added macro guards and <execution> to avoid TBB linkage
 #include <numeric>
+#include <cmath>
+#include <random>
+#include <algorithm>
+#include <memory>
+#include <unordered_set>
 
 #if defined(__GNUC__) && defined(__x86_64__)
 #include <mm_malloc.h>
@@ -18,7 +24,7 @@ IGAME_NAMESPACE_BEGIN
 class MeshCodecFeature {
 public:
     MeshCodecFeature(DataObject::Pointer obj, int dataIndex) : m_obj(obj) {
-        m_adapter = new MeshEncoderAdapter(m_obj);
+        m_adapter = std::make_unique<MeshEncoderAdapter>(m_obj);
 
         // 在dialog中 Index0代表顶点坐标
         // 初始化浮点数数据
@@ -69,32 +75,24 @@ public:
             
             // 先并行计算每个volume的点集
             std::vector<std::vector<unsigned int>> volumePointSets(numVolumes);
-            std::vector<size_t> indices(numVolumes);
-            std::iota(indices.begin(), indices.end(), 0);
-            
-            std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), 
-                [&](size_t volumeId) {
-                    std::unordered_set<unsigned int> volumePoints; // 使用set去重
-                    unsigned int faceStart = volume2facesOffset[volumeId];
-                    unsigned int faceEnd = volume2facesOffset[volumeId + 1];
-
-                    // 遍历该volume的所有faces
-                    for (unsigned int faceIdx = faceStart; faceIdx < faceEnd; ++faceIdx) {
-                        unsigned int faceId = volume2facesIndex[faceIdx];
-                        unsigned int pointStart = face2pointsOffset[faceId];
-                        unsigned int pointEnd = face2pointsOffset[faceId + 1];
-
-                        // 收集该face的所有points
-                        for (unsigned int pointIdx = pointStart; pointIdx < pointEnd; ++pointIdx) {
-                            volumePoints.insert(face2pointsIndex[pointIdx]);
-                        }
+            // 替换 std::for_each(std::execution::par_unseq, ...) 以免引入 TBB 依赖
+#pragma omp parallel for schedule(static)
+            for (long long vid = 0; vid < (long long)numVolumes; ++vid) {
+                size_t volumeId = (size_t)vid;
+                std::unordered_set<unsigned int> volumePoints; // 使用set去重
+                unsigned int faceStart = volume2facesOffset[volumeId];
+                unsigned int faceEnd = volume2facesOffset[volumeId + 1];
+                for (unsigned int faceIdx = faceStart; faceIdx < faceEnd; ++faceIdx) {
+                    unsigned int faceId = volume2facesIndex[faceIdx];
+                    unsigned int pointStart = face2pointsOffset[faceId];
+                    unsigned int pointEnd = face2pointsOffset[faceId + 1];
+                    for (unsigned int pointIdx = pointStart; pointIdx < pointEnd; ++pointIdx) {
+                        volumePoints.insert(face2pointsIndex[pointIdx]);
                     }
-
-                    // 将去重后的points存储到临时vector
-                    volumePointSets[volumeId].assign(volumePoints.begin(), volumePoints.end());
                 }
-            );
-            
+                volumePointSets[volumeId].assign(volumePoints.begin(), volumePoints.end());
+            }
+
             // 串行合并结果
             m_ExpandedOffset.reserve(numVolumes + 1);
             m_ExpandedOffset.push_back(0);
@@ -111,30 +109,30 @@ public:
             m_IsFixedCell = false; // 提取后的数据是非固定大小的
 
             // 构建 volume->point 的邻接关系（实际会反向为 point->volume）
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
-                    reinterpret_cast<unsigned int*>(m_ExpandedCellIds.data()), m_ExpandedOffset.data(), 
-                    m_ExpandedCellIds.size(), m_ExpandedOffset.size(), m_adapter->GetNumberOfPoints(), 
+            m_Adjacency = std::make_unique<MeshCodecAdjacency>(
+                    reinterpret_cast<unsigned int*>(m_ExpandedCellIds.data()), m_ExpandedOffset.data(),
+                    m_ExpandedCellIds.size(), m_ExpandedOffset.size(), m_adapter->GetNumberOfPoints(),
                     m_adapter->GetNumberOfCells());
-            this->m_Adj = mca->GetAdjacencyData();
+            this->m_Adj = m_Adjacency->GetAdjacencyData();
         } else if (m_adapter->IsFixedCellSize()) {
             // 固定大小的cell（如结构化网格）
             m_CellIds = m_adapter->GetCellIdBuffer()->RawPointer();
             m_Offset = m_adapter->GetCellIdOffset()->RawPointer();
 
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
+            m_Adjacency = std::make_unique<MeshCodecAdjacency>(
                     reinterpret_cast<unsigned int*>(m_adapter->GetCellIdBuffer()->RawPointer()),
                     m_adapter->GetCellIdBufferSize(), m_adapter->GetNumberOfPoints(), m_adapter->GetNumberOfCells());
-            this->m_Adj = mca->GetAdjacencyData();
+            this->m_Adj = m_Adjacency->GetAdjacencyData();
         } else {
             // 非固定大小的cell（如普通非结构化网格）
             m_CellIds = m_adapter->GetCellIdBuffer()->RawPointer();
             m_Offset = m_adapter->GetCellIdOffset()->RawPointer();
 
-            MeshCodecAdjacency* mca = new MeshCodecAdjacency(
+            m_Adjacency = std::make_unique<MeshCodecAdjacency>(
                     reinterpret_cast<unsigned int*>(m_adapter->GetCellIdBuffer()->RawPointer()),
                     m_adapter->GetCellIdOffset()->RawPointer(), m_adapter->GetCellIdBufferSize(),
                     m_adapter->GetCellIdOffsetSize(), m_adapter->GetNumberOfPoints(), m_adapter->GetNumberOfCells());
-            this->m_Adj = mca->GetAdjacencyData();
+            this->m_Adj = m_Adjacency->GetAdjacencyData();
         }
     };
 
@@ -361,6 +359,11 @@ public:
 	*/
 
     std::vector<std::vector<std::array<float, 3>>> GetDataPointGradient() {
+        return GetDataPointGradient(m_Data);
+    }
+
+    // 显式传入待计算数据指针的梯度计算版本，便于对扰动后的数据进行评估
+    std::vector<std::vector<std::array<float, 3>>> GetDataPointGradient(const float* data) {
         std::vector<std::vector<std::array<float, 3>>> gradients(
                 m_ElementNum, std::vector<std::array<float, 3>>(m_ElementDim, {0.0f, 0.0f, 0.0f}));
         std::vector<float> sumWeights(m_ElementNum, 0.0f);
@@ -410,7 +413,7 @@ public:
 
 #pragma omp simd
                     for (int n = 0; n < neighCount; n++) {
-                        const float delta = GetDelta(idx, dimIndex, n, neighborVerts);
+                        const float delta = GetDelta(data, idx, dimIndex, n, neighborVerts);
                         const float weighted = weights[n] * delta;
 
                         gradX += dx[n] * weighted;
@@ -489,7 +492,15 @@ public:
 	}
 	*/
 
+
+
     std::vector<std::vector<float>> GetDataPointLaplacian() {
+        return GetDataPointLaplacian(m_Data);
+    }
+
+    // 显式传入待计算数据指针的拉普拉斯计算版本，便于对扰动后的数据进行评估
+    /*
+    std::vector<std::vector<float>> GetDataPointLaplacian(const float* data) {
         // 存储各维度的拉普拉斯值
         std::vector<std::vector<float>> laplacians(m_ElementNum, std::vector<float>(m_ElementDim, 0.0f));
 
@@ -541,7 +552,7 @@ public:
 
 #pragma omp simd reduction(+ : accumValue)
                     for (int n = 0; n < neighCount; n++) {
-                        const float delta = GetDelta(idx, dimIndex, n, neighborVerts);
+                        const float delta = GetDelta(data, idx, dimIndex, n, neighborVerts);
                         accumValue += weights[n] * delta;
                     }
 
@@ -565,16 +576,181 @@ public:
 
         return laplacians;
     }
+    */
+
+    std::vector<std::vector<float>> GetDataPointLaplacian(const float* data) {
+        // 按照 ND_i(u) = |u_i - 1/|N(i)| * \sum_{j\in N(i)} u_j| 的形式计算拉普拉斯
+        std::vector<std::vector<float>> laplacians(m_ElementNum, std::vector<float>(m_ElementDim, 0.0f));
+
+        ThreadPool::parallelFor(0, m_ElementNum, [&](int start, int end) -> void {
+            std::vector<Point> neighPointPos;
+            std::vector<igIndex> neighborVerts;
+            neighPointPos.reserve(128);
+            neighborVerts.reserve(128);
+
+            for (igIndex idx = start; idx < end; ++idx) {
+                neighPointPos.clear();
+                neighborVerts.clear();
+
+                GetNeighbourDataPointPos(idx, neighPointPos, neighborVerts);
+                const int neighCount = static_cast<int>(neighborVerts.size());
+                if (neighCount == 0) { continue; }
+
+                for (int dimIndex = 0; dimIndex < static_cast<int>(m_ElementDim); ++dimIndex) {
+                    float accumDelta = 0.0f;
+
+                    // \frac{1}{|N(i)|} \sum_{j\in N(i)} (u_i - u_j)
+                    for (int n = 0; n < neighCount; ++n) {
+                        accumDelta += GetDelta(data, static_cast<int>(idx), dimIndex, n, neighborVerts);
+                    }
+
+                    const float avgDelta = accumDelta / static_cast<float>(neighCount);
+                    laplacians[idx][dimIndex] = std::fabs(avgDelta);
+                }
+            }
+        });
+
+        return laplacians;
+    }
+
+    // 基于 Verificarlo 思想，对输入数据进行多次随机扰动，计算拉普拉斯算子的平均绝对误差，
+    // 再对每个点的误差张量做 L1 范数，并按 95 分位进行归一化：
+    // \hat{S}_i = min(1, S_i / (S_95 + eps))
+    std::vector<float> GetDataPointTolerance(int sampleCount, float eps = 1e-8f) {
+        if (sampleCount <= 0 || m_ElementNum == 0 || m_ElementDim == 0) {
+            return std::vector<float>(m_ElementNum, 0.0f);
+        }
+
+        // 基线结果：在原始数据上的拉普拉斯（内部已使用线程池并行）
+        const auto baseline = GetDataPointLaplacian(m_Data);
+
+        const size_t pointCount = m_ElementNum;
+        const size_t dim = m_ElementDim;
+
+        // 用于累积每个点、每个分量的平均绝对误差
+        std::vector<std::vector<float>> meanError(pointCount, std::vector<float>(dim, 0.0f));
+
+        const size_t valueCount = pointCount * dim;
+        std::vector<float> perturbedData(valueCount);
+
+        // 方案 A：一次 Monte Carlo 试验内对全体数据使用同一个随机保留位数 N
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<int> distBits(7, 23);
+
+        for (int sample = 0; sample < sampleCount; ++sample) {
+            const int keptBits = distBits(gen);
+
+            // 对原始数据逐标量进行随机量化扰动（按标量并行/向量化）
+#pragma omp parallel for
+            for (long long i = 0; i < static_cast<long long>(valueCount); ++i) {
+                const size_t idx = static_cast<size_t>(i);
+                perturbedData[idx] = MCAPerturb(m_Data[idx], keptBits);
+            }
+
+            // 在扰动数据上计算拉普拉斯（内部使用线程池并行）
+            const auto perturbedLaplacian = GetDataPointLaplacian(perturbedData.data());
+
+            // 累积误差：对每个点、每个分量并行累加
+#pragma omp parallel for
+            for (long long pi = 0; pi < static_cast<long long>(pointCount); ++pi) {
+                const size_t p = static_cast<size_t>(pi);
+                for (size_t d = 0; d < dim; ++d) {
+                    const float diff = std::fabs(perturbedLaplacian[p][d] - baseline[p][d]);
+                    meanError[p][d] += diff;
+                }
+            }
+        }
+
+        // 计算平均绝对误差
+        const float invSample = 1.0f / static_cast<float>(sampleCount);
+#pragma omp parallel for
+        for (long long pi = 0; pi < static_cast<long long>(pointCount); ++pi) {
+            const size_t p = static_cast<size_t>(pi);
+            for (size_t d = 0; d < dim; ++d) {
+                meanError[p][d] *= invSample;
+            }
+        }
+
+        // 对每个点的误差张量计算 elementwise L1 范数 S_i
+        const size_t n = meanError.size();
+        std::vector<float> norms(n, 0.0f);
+
+#pragma omp parallel for
+        for (long long i = 0; i < static_cast<long long>(n); ++i) {
+            const size_t idx = static_cast<size_t>(i);
+            float s = 0.0f;
+            const auto& errVec = meanError[idx];
+            for (float v: errVec) {
+                s += std::fabs(v);
+            }
+            norms[idx] = s;
+        }
+
+        if (n == 0) { return norms; }
+
+        // 计算 95 分位数 S_95
+        std::vector<float> sorted = norms;
+        const size_t idx95 = static_cast<size_t>(0.95f * static_cast<float>(n - 1));
+        std::nth_element(sorted.begin(), sorted.begin() + idx95, sorted.end());
+        const float S95 = sorted[idx95];
+
+        // 归一化：\hat{S}_i = min(1, S_i / (S_95 + eps))
+        std::vector<float> normalized(n, 0.0f);
+        const float denom = S95 + eps;
+        if (denom <= 0.0f) {
+            // 极端情况下退化为全 0
+            return normalized;
+        }
+
+#pragma omp parallel for
+        for (long long i = 0; i < static_cast<long long>(n); ++i) {
+            const size_t idx = static_cast<size_t>(i);
+            float ratio = norms[idx] / denom;
+            if (ratio > 1.0f) ratio = 1.0f;
+            if (ratio < 0.0f) ratio = 0.0f;
+            normalized[idx] = 1.0f - ratio;
+        }
+
+        return normalized;
+    }
 
 private:
-    float GetDelta(int idx, int dimIndex, int neighIndex, std::vector<igIndex>& neighborVerts) {
-        const float* idxData = m_Data + idx * m_ElementDim;
-        const float* neighData = m_Data + neighborVerts[neighIndex] * m_ElementDim;
+    // 在给定的数据缓冲上计算指定点及其邻居之间的分量差值
+    float GetDelta(const float* data, int idx, int dimIndex, int neighIndex,
+                   const std::vector<igIndex>& neighborVerts) const {
+        const float* idxData = data + static_cast<size_t>(idx) * m_ElementDim;
+        const float* neighData = data + static_cast<size_t>(neighborVerts[neighIndex]) * m_ElementDim;
 
         return idxData[dimIndex] - neighData[dimIndex];
 
-        //return m_Data[idx * m_ElementDim + dimIndex] -
-        //	m_Data[neighborVerts[neighIndex] * m_ElementDim + dimIndex];
+        //return data[idx * m_ElementDim + dimIndex] -
+        //    data[neighborVerts[neighIndex] * m_ElementDim + dimIndex];
+    }
+
+    // Verificarlo 风格的随机扰动：在数值尺度下叠加高斯噪声（保留旧实现以便回退）
+    /*
+    static float VerificarloPerturb(float value) {
+        const float magnitude = std::fabs(value);
+        const float base = (magnitude > 0.0f ? magnitude : 1.0f);
+        const float scale = base * 1e-6f; // 固定相对尺度扰动
+
+        if (scale == 0.0f) {
+            return value;
+        }
+
+        thread_local std::mt19937 generator(std::random_device{}());
+        std::normal_distribution<float> distribution(0.0f, scale);
+
+        return value + distribution(generator);
+    }
+    */
+
+    // 使用 meshopt_quantizeFloat 进行量化扰动；N 表示保留的 mantissa 位数（0..23）
+    static float MCAPerturb(float value, int N) {
+        if (N < 0) N = 0;
+        if (N > 23) N = 23;
+        return meshopt_quantizeFloat(value, N);
     }
 
     Point MiddlePos(igIndex cellId) {
@@ -780,10 +956,11 @@ private:
     bool m_pointMode;
     DataObject::Pointer m_obj;
 
-    MeshEncoderAdapter* m_adapter;
+    std::unique_ptr<MeshEncoderAdapter> m_adapter;
+    std::unique_ptr<MeshCodecAdjacency> m_Adjacency;
     MeshCodecAdjacency::CellAdjacency m_Adj;
 
-    // 当属性底层并非 float 时，转储为 float 缓冲以统一计算路径
+    // 当属性底层并非 float 时，转Dump为 float 缓冲以统一计算路径
     std::vector<float> m_AttrConverted;
 
     // 对于二级索引多面体网格，存储展开后的 volume->point 数据
@@ -803,3 +980,4 @@ private:
 
 IGAME_NAMESPACE_END
 #endif
+

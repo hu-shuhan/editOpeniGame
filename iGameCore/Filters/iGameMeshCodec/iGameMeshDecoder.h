@@ -8,6 +8,7 @@
 #include "iGameMeshCodecParamSet.h"
 #include "iGameMeshDecoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
+#include <memory>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -48,13 +49,17 @@ public:
         }
 
         UpdateProgress(1.0);
-        SetOutput(0, m_DecoderAdapter->GetDataObj());
+        if (m_DecoderAdapter) {
+            SetOutput(0, m_DecoderAdapter->GetDataObj());
+        } else {
+            SetOutput(0, nullptr);
+        }
         return true;
     }
 
 private:
     // I/O
-    MeshDecoderAdapter* m_DecoderAdapter;
+    std::unique_ptr<MeshDecoderAdapter> m_DecoderAdapter;
     // for memory mapping
     const char* m_IS = nullptr;
     const char* m_FILESTART = nullptr;
@@ -85,7 +90,7 @@ private:
             case PayloadType::kParameterSet:
             {
                 this->ParamsDecoder(bufDecompressed);
-                this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_codecParams.meshType);
+                this->m_DecoderAdapter = std::make_unique<MeshDecoderAdapter>(this->m_codecParams.meshType);
                 break;
             }
             case PayloadType::kGeometryBrick:

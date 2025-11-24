@@ -11,7 +11,7 @@ int main() {
     /* ��������*/
     auto scene = iGame::Scene::New();
     /* ��ȡ�ļ����Բ�������볡��*/
-    const std::string fileName = ".\\Models\\CAD11\\_frames.pvd";
+    const std::string fileName = "./Models/CAD11/_frames.pvd";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj != nullptr) {
         scene->AddModel(obj);

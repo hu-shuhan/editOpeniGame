@@ -76,8 +76,8 @@ igQtModelListView::igQtModelListView(QWidget* parent) : QTreeView(parent) {
 
     this->contextMenu = new QMenu(this);
     QAction* action_Open = new QAction(QIcon(":/Ticon/Icons/Open.png"), "Open", this->contextMenu);
-    QAction* action_ShwoAll = new QAction(QIcon(":/Ticon/Icons/Eyeball.svg"), "Show All", this->contextMenu);
-    QAction* action_HideAll = new QAction(QIcon(":/Ticon/Icons/EyeballClosed.svg"), "Hide All", this->contextMenu);
+    QAction* action_ShwoAll = new QAction(QIcon(":/Ticon/Icons/Eyeball.png"), "Show All", this->contextMenu);
+    QAction* action_HideAll = new QAction(QIcon(":/Ticon/Icons/EyeballClosed.png"), "Hide All", this->contextMenu);
     QAction* action_Delete = new QAction(QIcon(":/Ticon/Icons/Delete.png"), "Delete", this->contextMenu);
     QAction* action_Rename = new QAction("Rename", this->contextMenu);
     QAction* action_Reload = new QAction("Reload", this->contextMenu);
@@ -104,7 +104,7 @@ igQtModelListView::igQtModelListView(QWidget* parent) : QTreeView(parent) {
 }
 void igQtModelListView::UpdateModelList() {
     //	QStandardItem* rootItem = model->invisibleRootItem();
-    //	QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.svg"), modelName);
+    //	QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.png"), modelName);
     //	rootItem->appendRow(newModel);
     //	this->setCurrentIndex(newModel->index());
     //	auto curObj = m_Manager->GetCurrentScene()->GetCurrentObject();
@@ -131,7 +131,7 @@ void igQtModelListView::ShowAllModel() {
     for (auto it = itemObjectIds.begin(); it != itemObjectIds.end(); ++it) {
         auto item = it.key();
         if (!itemVisibleList[item]) {
-            item->setIcon(QIcon(":/Ticon/Icons/Eyeball.svg"));
+            item->setIcon(QIcon(":/Ticon/Icons/Eyeball.png"));
             itemVisibleList[item] = true;
         }
     }
@@ -140,7 +140,7 @@ void igQtModelListView::HideAllModel() {
     for (auto it = itemObjectIds.begin(); it != itemObjectIds.end(); ++it) {
         auto item = it.key();
         if (itemVisibleList[item]) {
-            item->setIcon(QIcon(":/Ticon/Icons/EyeballClosed.svg"));
+            item->setIcon(QIcon(":/Ticon/Icons/EyeballClosed.png"));
             itemVisibleList[item] = false;
         }
     }
@@ -190,12 +190,12 @@ void igQtModelListView::DeleteCurrentModelItem(QStandardItem* deleteItem) {
 
 void igQtModelListView::AddModel(QString modelName) {
     QStandardItem* rootItem = model->invisibleRootItem();
-    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.svg"), modelName);
+    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.png"), modelName);
     rootItem->appendRow(newModel);
     this->setCurrentIndex(newModel->index());
     //auto curObj = m_Manager->GetCurrentScene()->GetCurrentObject();
     itemVisibleList[newModel] = true;
-    
+
     //itemObjectIds[newModel] = curObj->GetDataObjectId();
     //currentObjectIdx = curObj->GetDataObjectId();
 
@@ -244,7 +244,7 @@ void igQtModelListView::ChangeSelected2LastItem() {
 
 void igQtModelListView::AddChildToItem(QStandardItem* parentItem, const QString& modelName, int objId) {
     int rowIndex = parentItem->rowCount();
-    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.svg"), modelName);
+    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.png"), modelName);
     parentItem->setChild(rowIndex, 0, newModel);
     itemVisibleList[newModel] = true;
     itemObjectIds[newModel] = objId;
@@ -255,7 +255,7 @@ void igQtModelListView::InsertObject(int idx, const QString& modelName) {
     QStandardItem* item = nullptr;
     while (item == nullptr) item = GetObjectItemFromObjectId(idx--);
 
-    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.svg"), modelName);
+    QStandardItem* newModel = new QStandardItem(QIcon(":/Ticon/Icons/Eyeball.png"), modelName);
 
     //    item->appendRow(newModel);
     auto par = item->parent();
@@ -272,9 +272,9 @@ void igQtModelListView::InsertObject(int idx, const QString& modelName) {
 
 void igQtModelListView::ReverseItemVisibility(QStandardItem* item) {
     if (itemVisibleList[item]) {
-        item->setIcon(QIcon(":/Ticon/Icons/EyeballClosed.svg"));
+        item->setIcon(QIcon(":/Ticon/Icons/EyeballClosed.png"));
     } else {
-        item->setIcon(QIcon(":/Ticon/Icons/Eyeball.svg"));
+        item->setIcon(QIcon(":/Ticon/Icons/Eyeball.png"));
     }
     itemVisibleList[item] = !itemVisibleList[item];
 }

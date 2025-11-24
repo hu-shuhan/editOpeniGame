@@ -34,7 +34,8 @@ inline void OutputWindowDisplayWarningText(const char* file, int line, const cha
 
 inline void OutputWindowDisplayDebugText(const char* file, int line, const char* msg) {
    //std::cout << "[Debug  ] In " << file << ", line " << line << ": " << msg << '\n';
-   std::cout << "[Debug  ] " << msg << '\n';
+
+//   std::cout << "[Debug  ] " << msg << '\n';
 }
 
 inline void OutputWindowDisplayInfoText(const char* file, int line, const char* msg) {
