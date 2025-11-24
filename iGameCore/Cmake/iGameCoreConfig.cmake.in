@@ -276,6 +276,7 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
     endif()
 endforeach()
 
+
 if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
     # (CUDAToolkit_FOUND 变量是在文件顶部设置的)
 
