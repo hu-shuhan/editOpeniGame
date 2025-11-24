@@ -4,12 +4,11 @@
 
 #pragma once
 
-#include "Spline XML/iGameSplineReaderCPU.h"
+#include "Spline XML/iGameSplineReaderGPU.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"
-#include "iGameSplineGeometry.h"
 
-static void ImportSplineFileWithCpuCompute() {
+static void ImportSplineFileWithGpuCompute() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -56,6 +55,6 @@ static void ImportSplineFileWithCpuCompute() {
 }
 
 int main() {
-    ImportSplineFileWithCpuCompute();
+    ImportSplineFileWithGpuCompute();
     return 0;
 }

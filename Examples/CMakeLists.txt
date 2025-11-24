@@ -64,6 +64,7 @@ add_executable(testConvertToSurfaceMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Conv
 
 add_executable(testCGNS "${CMAKE_CURRENT_SOURCE_DIR}/IO/CGNSReader.cpp")
 add_executable(testSplineReaderCPU "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineReaderCPU.cpp")
+add_executable(testSplineReaderGPU "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineReaderGPU.cpp")
 add_executable(testODBReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/ODBReader.cpp")
 add_executable(testNastranReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/NastranReader.cpp")
 add_executable(testCASReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/CASReader.cpp")
@@ -102,8 +103,6 @@ if (ENABLE_LIBTORCH_MODULE)
     )
 endif ()
 
-add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
-add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
 add_executable(testConvertToLagrangeUnstructuredMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp")
 
 # Link libraries for each target
@@ -164,6 +163,7 @@ target_link_libraries(testContourLine PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 target_link_libraries(testSaveAnimation PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testSplineReaderCPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
+target_link_libraries(testSplineReaderGPU PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testCGNS PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testODBReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testNastranReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
@@ -180,16 +180,13 @@ target_link_libraries(testGradientExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS}
 target_link_libraries(testLaplacianExtraction PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testVortexDetection PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
-target_link_libraries(testSplineSurfaceReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
-target_link_libraries(testSplineVolumeReader PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 target_link_libraries(testConvertToLagrangeUnstructuredMesh PUBLIC ${IGAMEVIS_CORE_LIB_TARGETS})
 
 #Use this ThirdParty's Module need to Add Compile Definition
 target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
 target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
 target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
-target_compile_definitions(testSplineSurfaceReader PUBLIC GPSCUDA_ENABLE)
-target_compile_definitions(testSplineVolumeReader PUBLIC GPSCUDA_ENABLE)
+target_compile_definitions(testSplineReaderGPU PUBLIC GPSCUDA_ENABLE)
 target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
 
 # SET(Torch_DIR "D:/XuJiangjie/editOpeniGame/ThirdParty/libtorch/Release_GPU/share/cmake/Torch")
