@@ -12,7 +12,7 @@ bool iGameSetPointsSelect::Execute() {
 
 void iGameSetPointsSelect::Run() {
     auto selection = m_Mesh->GetSelection();
-    m_Model->GetSelection()->SelectionCallBackEvent(IG_POINT, m_Ids, m_Operate);
+    m_Mesh->GetSelection()->SelectionCallBackEvent(IG_POINT, m_Ids, m_Operate);
 }
 
 iGameSetPointsSelect::iGameSetPointsSelect(Selection::Operate ope, const std::vector<int>& ids,
