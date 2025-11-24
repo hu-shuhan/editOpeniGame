@@ -200,6 +200,10 @@ endif()
 # Find CGNS Package
 #----------------------------------------------
 if(@ENABLE_CGNS_MODULE@)
+set(IGAMEVIS_CORE_INCLUDE_DIRS
+    ${IGAMEVIS_CORE_INCLUDE_DIRS}
+    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CGNS/src
+)
 list(APPEND IGAMEVIS_CORE_LIB_LIST
     cgns
 
