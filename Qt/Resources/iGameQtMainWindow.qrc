@@ -1,60 +1,58 @@
 <RCC>
     <qresource prefix="/Ticon">
-        <file>Icons/+X.svg</file>
-        <file>Icons/+Y.svg</file>
-        <file>Icons/+Z.svg</file>
-        <file>Icons/-X.svg</file>
-        <file>Icons/-Y.svg</file>
-        <file>Icons/-Z.svg</file>
-        <file>Icons/BackGround.svg</file>
-        <file>Icons/Deformation.svg</file>
+        <file>Icons/+X.png</file>
+        <file>Icons/+Y.png</file>
+        <file>Icons/+Z.png</file>
+        <file>Icons/-X.png</file>
+        <file>Icons/-Y.png</file>
+        <file>Icons/-Z.png</file>
+        <file>Icons/BackGround.png</file>
+        <file>Icons/Deformation.png</file>
         <file>Icons/Delete.png</file>
-        <file>Icons/Eyeball.svg</file>
-        <file>Icons/EyeballClosed.svg</file>
-        <file>Icons/Glyph.svg</file>
-        <file>Icons/IsometricView.svg</file>
-        <file>Icons/LoadFile.png</file>
-        <file>Icons/PickCenter.svg</file>
-        <file>Icons/ResetCenter.svg</file>
-        <file>Icons/ResetScaleRange.svg</file>
-        <file>Icons/ResetView.png</file>
+        <file>Icons/Eyeball.png</file>
+        <file>Icons/EyeballClosed.png</file>
+        <file>Icons/Glyph.png</file>
+        <file>Icons/IsometricView.png</file>
+        <file>Icons/PickCenter.png</file>
+        <file>Icons/ResetCenter.png</file>
+        <file>Icons/ResetScaleRange.png</file>
         <file>Icons/SaveFile.png</file>
-        <file>Icons/ScalarBar.svg</file>
-        <file>Icons/ScreenShot.svg</file>
-        <file>Icons/SetScaleRange.svg</file>
-        <file>Icons/ShowCenterAxes.svg</file>
-        <file>Icons/ShowOrientationAxes.svg</file>
-        <file>Icons/Slice.svg</file>
-        <file>Icons/StreamTracer.svg</file>
+        <file>Icons/ScalarBar.png</file>
+        <file>Icons/ScreenShot.png</file>
+        <file>Icons/SetScaleRange.png</file>
+        <file>Icons/ShowCenterAxes.png</file>
+        <file>Icons/ShowOrientationAxes.png</file>
+        <file>Icons/Slice.png</file>
+        <file>Icons/StreamTracer.png</file>
         <file>Icons/VcrBack.svg</file>
-        <file>Icons/VcrDisabledLoop.svg</file>
+        <file>Icons/VcrDisabledLoop.png</file>
         <file>Icons/VcrFirst.svg</file>
         <file>Icons/VcrForward.svg</file>
         <file>Icons/VcrLast.svg</file>
         <file>Icons/VcrPlay.svg</file>
         <file>Icons/VcrReverse.svg</file>
-        <file>Icons/VolumeRendering.svg</file>
-        <file>Icons/animation_save_vcr.svg</file>
-        <file>Icons/chart.svg</file>
+        <file>Icons/VolumeRendering.png</file>
+        <file>Icons/animation_save_vcr.png</file>
+        <file>Icons/Chart.png</file>
         <file>Icons/check.png</file>
         <file>Icons/clear.png</file>
-        <file>Icons/contourline.svg</file>
+        <file>Icons/Contourline.png</file>
         <file>Icons/iGameLogo.png</file>
-        <file>Icons/orthographic.svg</file>
-        <file>Icons/youxuanzhuan90du.svg</file>
-        <file>Icons/zuoxuanzhuan90du.svg</file>
+        <file>Icons/orthographic.png</file>
+        <file>Icons/youxuanzhuan90du.png</file>
+        <file>Icons/zuoxuanzhuan90du.png</file>
         <file>Icons/select/ContextPreservingAction.png</file>
-        <file>Icons/select/DragPoint.svg</file>
+        <file>Icons/select/DragPoint.png</file>
         <file>Icons/select/selectView.png</file>
         <file>Icons/select/select_face.png</file>
         <file>Icons/select/select_vertex_geodesic.png</file>
-		<file>Icons/select/bbox.png</file>
-		<file>Icons/select/points.png</file>
-		<file>Icons/select/wireframe.png</file>
-		<file>Icons/select/fill.png</file>
-		<file>Icons/select/selected.png</file>
-		<file>Icons/select/eye-open.png</file>
-		<file>Icons/select/eye-close.png</file>
+        <file>Icons/select/bbox.png</file>
+        <file>Icons/select/points.png</file>
+        <file>Icons/select/wireframe.png</file>
+        <file>Icons/select/fill.png</file>
+        <file>Icons/select/selected.png</file>
+        <file>Icons/select/eye-open.png</file>
+        <file>Icons/select/eye-close.png</file>
     </qresource>
     <qresource prefix="/shader">
         <file>Shaders/direct_vector.frag</file>
@@ -67,6 +65,6 @@
         <file>UI/ScalarView.ui</file>
         <file>UI/Animation.ui</file>
         <file>UI/igStreamTracer.ui</file>
-        <file>Icons/chart.svg</file>
+        <file>Icons/Chart.png</file>
     </qresource>
 </RCC>

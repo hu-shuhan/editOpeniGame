@@ -39,7 +39,7 @@ set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
+set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 # 如果检测到 Anaconda 环境，尝试忽略其路径 
 if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
@@ -98,8 +98,22 @@ if (WIN32 AND ENABLE_LIBTORCH_MODULE)
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
             COMMENT "Copying libtorch DLLs to output folder"
     )
+elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release_LINUX_GPU")
+    endif ()
+    include_directories(
+            "${LIBTORCH_DIR}/include"
+            "${LIBTORCH_DIR}/include/torch/csrc/api/include"
+    )
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+            BUILD_RPATH "${LIBTORCH_DIR}/lib"
+            INSTALL_RPATH "${LIBTORCH_DIR}/lib"
+    )
+
 elseif (ENABLE_LIBTORCH_MODULE)
-    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
+#    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
+    message(FATAL_ERROR "Only Windows and Linux platform is supported for this project!")
 endif ()
 
 #--------------------------------------------------------------------
@@ -120,7 +134,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
-
 # 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
 if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

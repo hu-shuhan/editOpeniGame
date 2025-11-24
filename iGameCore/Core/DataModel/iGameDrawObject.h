@@ -97,8 +97,8 @@ public:
      */
     bool GetAccelerationOption() const;
 
-    void SetRenderWithMeshlet(bool val) { m_RenderableMesh.Meshleter->SetRenderWithMeshlet(val); }
-    bool GetRenderWithMeshlet() const { return m_RenderableMesh.Meshleter->GetRenderWithMeshlet(); }
+    void SetRenderWithMeshlet(bool val) { m_RenderableMesh.mMeshleter->SetRenderWithMeshlet(val); }
+    bool GetRenderWithMeshlet() const { return m_RenderableMesh.mMeshleter->GetRenderWithMeshlet(); }
 
 protected:
     // OpenGL资源管理
@@ -120,7 +120,7 @@ protected:
     struct RenderableMesh {
         DrawObject::Pointer SurfaceMesh = nullptr;    // 表面网格
         DrawObject::Pointer SimplifiedMesh = nullptr; // 简化后的网格
-        Meshleter::Pointer Meshleter = nullptr;
+        Meshleter::Pointer mMeshleter = nullptr;
     };
     RenderableMesh m_RenderableMesh;
 

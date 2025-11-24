@@ -224,9 +224,11 @@ void Model::Draw() {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         if (!drawObject->GetVisibility()) { return; }
 
+        #ifndef IGAME_OPENGL_VERSION_330
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
         if (hasTransparency || hasAcceleration) { return; }
+        #endif
 
         // Render
         bool useSimplified =
@@ -677,7 +679,7 @@ void Model::DrawPhase1() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -947,7 +949,7 @@ void Model::DrawPhase2() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // Render
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto surfaceObject = DynamicCast<SurfaceMesh>(meshleter->GetInput());
 
         if (meshleter->GetRenderWithMeshlet()) {
@@ -1122,7 +1124,7 @@ void Model::TestOcclusionResults() {
         if (hasTransparency || !hasAcceleration) { return; }
 
         // compute
-        auto meshleter = drawObject->m_RenderableMesh.Meshleter;
+        auto meshleter = drawObject->m_RenderableMesh.mMeshleter;
         auto viewStyle = drawObject->GetViewStyle();
 
         // test

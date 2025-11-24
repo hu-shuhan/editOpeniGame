@@ -19,7 +19,16 @@
 #include <cstdint>
 
 #if defined(LibTorch_ENABLE)
+#ifdef emit
+#pragma push_macro("emit")
+#undef emit
+#define IGAME_CPP_PUSHED_EMIT
+#endif
+#ifdef slots
+#pragma push_macro("slots")
 #undef slots
+#define IGAME_CPP_PUSHED_SLOTS
+#endif
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/script.h>
 #include <cuda_runtime.h>
@@ -28,18 +37,15 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/DeviceType.h>
 using namespace torch::nn::functional;
-
-#define slots Q_SLOTS
+#ifdef IGAME_CPP_PUSHED_SLOTS
+#pragma pop_macro("slots")
+#undef IGAME_CPP_PUSHED_SLOTS
 #endif
-//
-// #include <ATen/cuda/CUDAContext.h>
-// #include <torch/script.h>
-// #include <cuda_runtime.h>
-// #include <torch/torch.h>
-// #include <ATen/ATen.h>
-// #include <c10/core/ScalarType.h>
-// #include <c10/core/DeviceType.h>
-// using namespace torch::nn::functional;
+#ifdef IGAME_CPP_PUSHED_EMIT
+#pragma pop_macro("emit")
+#undef IGAME_CPP_PUSHED_EMIT
+#endif
+#endif
 IGAME_NAMESPACE_BEGIN
 bool VortexDetection::Execute() {
 #if defined(LibTorch_ENABLE)
@@ -148,7 +154,7 @@ struct KDTree
         nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>,
         PointCloud,
         Dim,
-        Index // 索引类型
+        Index // "{�
     >;
 
     PointCloud                       cloud_;
@@ -254,7 +260,7 @@ struct KDTree
 //         nanoflann::KDTreeSingleIndexAdaptor<
 //             nanoflann::L2_Simple_Adaptor<double, PointCloud>,
 //             PointCloud,
-//             3 // 维度
+//             3 // ��
 //         >;
 //
 //     PointCloud point_cloud;
@@ -784,7 +790,7 @@ std::vector<torch::Tensor> VortexDetection::extractPatches(const torch::Tensor& 
 //    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 //    //torch::Device device(torch::kCPU);
 //
-//    // 构造 3D Tensor
+//    // �  3D Tensor
 //
 //    std::cout << nx << " " << ny << " " << nz << std::endl;
 //    // torch::Tensor tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
@@ -908,13 +914,13 @@ torch::Tensor VortexDetection::gaussian_kernel3d(float sigma, int radius) {
 
 namespace F = torch::nn::functional;
 
-// ---------- 工具：缓存 1D 高斯核 ----------
+// ---------- �wX 1D د8 ----------
 struct GaussKey {
     float sigma = 0.f;
     int   radius = 0;
     at::ScalarType dtype = at::kFloat;
     c10::DeviceType dev_type = c10::DeviceType::CPU;
-    int16_t dev_index = -1; // -1 表示默认
+    int16_t dev_index = -1; // -1 h:ؤ
 
     bool operator==(const GaussKey& o) const {
         return sigma==o.sigma && radius==o.radius && dtype==o.dtype
@@ -982,7 +988,7 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
     if (input.dim() == 3) {
         input = input.unsqueeze(0).unsqueeze(0);
         was_DHW = true;
-    } else if (input.dim() == 4) { // 假定 [D,H,W,C]
+    } else if (input.dim() == 4) { // G� [D,H,W,C]
         input = input.permute({3,0,1,2}).unsqueeze(0);
         was_DHWC = true;
     } else {
@@ -1401,9 +1407,9 @@ torch::Tensor VortexDetection::extract_patches_gpu_batched(
     auto input = padded.permute({3,0,1,2}).unsqueeze(0).contiguous(); // [1,C,D,H,W]
     auto device = input.device();
     auto patches = input
-        .unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride) // D 维
-        .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H 维
-        .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W 维
+        .unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride) // D �
+        .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H �
+        .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W �
         .contiguous();
 
     const int64_t nz = patches.size(2);
@@ -1655,7 +1661,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
-//    // 初始化 KD-Tree
+//    // � KD-Tree
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -1950,7 +1956,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(
 //        }
 //    }
 //
-//    // 计算全局步长
+//    // ��h@e
 //    auto sizes = result_volume_1.sizes();
 //    float depth = static_cast<float>(sizes[0]);
 //    float height = static_cast<float>(sizes[1]);
@@ -2272,7 +2278,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
                                        {currN, 3}, torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
         auto q = prefer_cuda
                  ? q_host.to(device, torch::kFloat32, /*non_blocking*/true, /*copy*/true)
-                 : q_host.clone(); // CPU 直接 clone 为独立张量
+                 : q_host.clone(); // CPU �� clone :�� �
 
         auto gridM3 = (q - min_t) * inv_s;
         gridM3.mul_(scale).add_(-1.0f);
@@ -2372,7 +2378,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
-//     at::InferenceMode guard; // 更省开销的推理模式（无 autograd 追踪）
+//     at::InferenceMode guard; // �  ��!� autograd �*
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -2809,7 +2815,7 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
 //     Eigen::Vector3f block_size = range_vec / split;
 //     //Eigen::Vector3f range_vec = max_pos - min_pos;
 //     //Eigen::Vector3f block_size = range_vec / split;
-//     // 初始化 KD-Tree
+//     // � KD-Tree
 //     Eigen::MatrixXd points(gridPoints.size(), 3);
 //     for (size_t i = 0; i < gridPoints.size(); ++i) {
 //         points(i, 0) = gridPoints[i][0];
@@ -3231,4 +3237,4 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
-IGAME_NAMESPACE_END
+IGAME_NAMESPACE_END 

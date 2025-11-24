@@ -13,7 +13,7 @@ DrawObject::DrawObject() {
     m_AutoUpdateDrawData = true;
     m_RenderableMesh.SurfaceMesh = nullptr;
     m_RenderableMesh.SimplifiedMesh = nullptr;
-    m_RenderableMesh.Meshleter = nullptr;
+    m_RenderableMesh.mMeshleter = nullptr;
 
     m_PointVAO = GLVertexArray::New();
     m_LineVAO = GLVertexArray::New();
@@ -427,8 +427,8 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SimplifiedMesh->m_IsMainRenderableObject = false;
 
     // 设置Meshleter
-    m_RenderableMesh.Meshleter = SurfaceMeshMeshleter::New();
-    m_RenderableMesh.Meshleter->SetInput(dataObject);
+    m_RenderableMesh.mMeshleter = SurfaceMeshMeshleter::New();
+    m_RenderableMesh.mMeshleter->SetInput(dataObject);
 }
 
 DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
@@ -609,7 +609,7 @@ void DrawObject::SyncGpuBuffers() {
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers(); }
 
     // 当是表面网格时，还需要构建meshlet
-    if (m_AccelerationOption) { m_RenderableMesh.Meshleter->SyncGpuBuffers(); }
+    if (m_AccelerationOption) { m_RenderableMesh.mMeshleter->SyncGpuBuffers(); }
 
     this->CreateDrawBuffer();
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {

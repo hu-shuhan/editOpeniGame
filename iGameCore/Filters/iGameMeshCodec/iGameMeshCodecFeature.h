@@ -8,12 +8,13 @@
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <vector>
-#include <execution>
+// remove previously added macro guards and <execution> to avoid TBB linkage
 #include <numeric>
 #include <cmath>
 #include <random>
 #include <algorithm>
 #include <memory>
+#include <unordered_set>
 
 #if defined(__GNUC__) && defined(__x86_64__)
 #include <mm_malloc.h>
@@ -74,32 +75,24 @@ public:
             
             // 先并行计算每个volume的点集
             std::vector<std::vector<unsigned int>> volumePointSets(numVolumes);
-            std::vector<size_t> indices(numVolumes);
-            std::iota(indices.begin(), indices.end(), 0);
-            
-            std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), 
-                [&](size_t volumeId) {
-                    std::unordered_set<unsigned int> volumePoints; // 使用set去重
-                    unsigned int faceStart = volume2facesOffset[volumeId];
-                    unsigned int faceEnd = volume2facesOffset[volumeId + 1];
-
-                    // 遍历该volume的所有faces
-                    for (unsigned int faceIdx = faceStart; faceIdx < faceEnd; ++faceIdx) {
-                        unsigned int faceId = volume2facesIndex[faceIdx];
-                        unsigned int pointStart = face2pointsOffset[faceId];
-                        unsigned int pointEnd = face2pointsOffset[faceId + 1];
-
-                        // 收集该face的所有points
-                        for (unsigned int pointIdx = pointStart; pointIdx < pointEnd; ++pointIdx) {
-                            volumePoints.insert(face2pointsIndex[pointIdx]);
-                        }
+            // 替换 std::for_each(std::execution::par_unseq, ...) 以免引入 TBB 依赖
+#pragma omp parallel for schedule(static)
+            for (long long vid = 0; vid < (long long)numVolumes; ++vid) {
+                size_t volumeId = (size_t)vid;
+                std::unordered_set<unsigned int> volumePoints; // 使用set去重
+                unsigned int faceStart = volume2facesOffset[volumeId];
+                unsigned int faceEnd = volume2facesOffset[volumeId + 1];
+                for (unsigned int faceIdx = faceStart; faceIdx < faceEnd; ++faceIdx) {
+                    unsigned int faceId = volume2facesIndex[faceIdx];
+                    unsigned int pointStart = face2pointsOffset[faceId];
+                    unsigned int pointEnd = face2pointsOffset[faceId + 1];
+                    for (unsigned int pointIdx = pointStart; pointIdx < pointEnd; ++pointIdx) {
+                        volumePoints.insert(face2pointsIndex[pointIdx]);
                     }
-
-                    // 将去重后的points存储到临时vector
-                    volumePointSets[volumeId].assign(volumePoints.begin(), volumePoints.end());
                 }
-            );
-            
+                volumePointSets[volumeId].assign(volumePoints.begin(), volumePoints.end());
+            }
+
             // 串行合并结果
             m_ExpandedOffset.reserve(numVolumes + 1);
             m_ExpandedOffset.push_back(0);
@@ -967,7 +960,7 @@ private:
     std::unique_ptr<MeshCodecAdjacency> m_Adjacency;
     MeshCodecAdjacency::CellAdjacency m_Adj;
 
-    // 当属性底层并非 float 时，转储为 float 缓冲以统一计算路径
+    // 当属性底层并非 float 时，转Dump为 float 缓冲以统一计算路径
     std::vector<float> m_AttrConverted;
 
     // 对于二级索引多面体网格，存储展开后的 volume->point 数据
@@ -987,3 +980,4 @@ private:
 
 IGAME_NAMESPACE_END
 #endif
+

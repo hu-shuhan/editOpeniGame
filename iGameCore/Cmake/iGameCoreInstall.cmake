@@ -13,27 +13,19 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
 
 
     if (ENABLE_CGNS_MODULE)
-        set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        find_package(HDF5)
-        #        install(FILES
-        #                ${HDF5_LIBRARIES}/../libhdf5.lib
-        #                ${HDF5_LIBRARIES}/../libhdf5_hl.lib
-        #                ${HDF5_LIBRARIES}/../libhdf5_tools.lib
-        #                ${HDF5_LIBRARIES}/../libzlib.lib
-        #                ${HDF5_LIBRARIES}/../libsz.lib
-        #                ${HDF5_LIBRARIES}/../libaec.lib
-        #                DESTINATION lib/ThirdParty)
-
-        install(FILES
-                ${HDF5_DIR}/../../lib/libhdf5.lib
-                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
-                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
-                ${HDF5_DIR}/../../lib/libzlib.lib
-                ${HDF5_DIR}/../../lib/libsz.lib
-                ${HDF5_DIR}/../../lib/libaec.lib
-                DESTINATION lib/ThirdParty)
-
-        #        file(GLOB )
+        # Windows-only HDF5 runtime static import libs; on Linux system packages or user install suffice
+        if (WIN32)
+            set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
+            find_package(HDF5)
+            install(FILES
+                    ${HDF5_DIR}/../../lib/libhdf5.lib
+                    ${HDF5_DIR}/../../lib/libhdf5_hl.lib
+                    ${HDF5_DIR}/../../lib/libhdf5_tools.lib
+                    ${HDF5_DIR}/../../lib/libzlib.lib
+                    ${HDF5_DIR}/../../lib/libsz.lib
+                    ${HDF5_DIR}/../../lib/libaec.lib
+                    DESTINATION lib/ThirdParty)
+        endif ()
     endif ()
 
 
@@ -46,12 +38,10 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                 PATTERN "2024/win_b64" EXCLUDE
         )
         file(GLOB DLL_FILES "${AbqSDK_DLL_DIR}/*.dll")
-        #        message(WARNING SDK${AbqSDK_DLL_DIR})
         file(COPY ${DLL_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/AbaqusSDK)
         list(APPEND ThirdParty_lib_dependency ${ABQ_LIB_LIST})
 
         foreach (LIB ${ABQ_LIB_LIST})
-            #            install(FILES ${temp${LIB}} LIBRARY DESTINATION lib/ThirdParty/AbaqusSDK)
             file(COPY ${temp${LIB}} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/AbaqusSDK)
         endforeach ()
     endif ()
@@ -64,9 +54,6 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
         list(APPEND ThirdParty_lib_dependency ${FFMPEG_LIB_LIST})
 
         foreach (LIB ${FFMPEG_LIB_LIST})
-            #            message(WARNING ${temp${LIB}})
-            #            message(WARNING ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/FFMPEG)
-            #                install(FILES ${temp${LIB}} LIBRARY DESTINATION lib)
             file(COPY ${temp${LIB}} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/ThirdParty/FFMPEG)
         endforeach ()
     endif ()

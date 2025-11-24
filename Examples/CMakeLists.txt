@@ -87,6 +87,21 @@ add_executable(testGradientExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Featur
 add_executable(testLaplacianExtraction "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/LaplacianExtraction.cpp")
 add_executable(testVortexDetection "${CMAKE_CURRENT_SOURCE_DIR}/Filter/FeatureExtraction/VortexDetection.cpp")
 
+target_link_libraries(testVortexDetection
+        PRIVATE
+        iGameCore
+)
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(testVortexDetection PRIVATE OpenMP::OpenMP_CXX)
+endif ()
+if (ENABLE_LIBTORCH_MODULE)
+    target_link_libraries(testVortexDetection
+            PRIVATE
+            ${TORCH_LIBRARIES}
+    )
+endif ()
+
 add_executable(testSplineSurfaceReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineSurfaceReader.cpp")
 add_executable(testSplineVolumeReader "${CMAKE_CURRENT_SOURCE_DIR}/IO/SplineVolumeReader.cpp")
 add_executable(testConvertToLagrangeUnstructuredMesh "${CMAKE_CURRENT_SOURCE_DIR}/Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp")

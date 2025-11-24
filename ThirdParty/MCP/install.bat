@@ -74,7 +74,7 @@ if not exist ".venv" (
         echo [INFO] Note: Existing .venv may not be based on current Conda environment
         echo [INFO] To recreate with current Conda environment, delete .venv folder and re-run
     )
-)c'd
+)
 
 echo.
 echo [INFO] Activating virtual environment...

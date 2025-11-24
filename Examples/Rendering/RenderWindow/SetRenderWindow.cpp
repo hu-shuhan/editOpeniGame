@@ -1,16 +1,16 @@
-#include <iostream>
 #include <Core/iGameScene.h>
-#include <iGameRenderWindow.h>
-#include <iGameInteractor.h>
 #include <iGameFileIO.h>
-int main(){
+#include <iGameInteractor.h>
+#include <iGameRenderWindow.h>
+#include <iostream>
+int main() {
     /* init scene*/
     auto scene = iGame::Scene::New();
     /* Read the file Test and put it into the scene */
-    const std::string fileName = ".\\Models\\Tet_Plane.vtk";
+    const std::string fileName = "./Models/Tet_Plane.vtk";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     DynamicCast<iGame::DrawObject>(obj)->AddViewStyle(IG_WIREFRAME);
-    if(obj != nullptr){
+    if (obj != nullptr) {
         scene->AddModel(obj);
     } else {
         std::cout << "Read ERROR!\n";
