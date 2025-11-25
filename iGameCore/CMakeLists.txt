@@ -110,6 +110,12 @@ if (ENABLE_LIBTORCH_MODULE)
 
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CUDA_STANDARD 17)
+
+    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
+    set(CUDA_INCLUDE_DIRS "/usr/local/cuda/include")
+    set(CUDA_CUDART_LIBRARY "/usr/local/cuda/lib64/libcudart.so")
+
+    set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
 
     set(CMAKE_CXX_STANDARD ${OLD_CMAKE_CXX_STANDARD})
