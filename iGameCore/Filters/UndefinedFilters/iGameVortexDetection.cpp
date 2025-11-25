@@ -1617,7 +1617,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
-//    // �? KD-Tree
+//    //  KD-Tree
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -1912,7 +1912,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //        }
 //    }
 //
-//    // ��h@e
+//    // ��h@e
 //    auto sizes = result_volume_1.sizes();
 //    float depth = static_cast<float>(sizes[0]);
 //    float height = static_cast<float>(sizes[1]);
@@ -2321,7 +2321,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
-//     at::InferenceMode guard; // �?  ��!�? autograd �?*
+//     at::InferenceMode guard; // �tograd �*
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -3064,8 +3064,6 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
                                      all_velocities_thread_safe[c][id].end());
         }
     }
-
-    UpdateProgress(40 * 0.01);
     auto compute_mean_std = [](const std::vector<float>& values) -> std::pair<float, float> {
         if (values.empty()) return {0.0f, 1.0f};
         double sum = 0.0;
@@ -3183,4 +3181,4 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
-IGAME_NAMESPACE_END 
+IGAME_NAMESPACE_END

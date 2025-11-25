@@ -1,6 +1,8 @@
 #pragma once
 
-#define GL_SUPPORT_MSAA
+#ifdef IGAME_PLATFORM_WINDOWS
+    #define GL_SUPPORT_MSAA
+#endif
 
 // #define ENABLE_CULLING_DEBUGINFO
 // #define GL_SUPPORTS_MESH_SHADER

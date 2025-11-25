@@ -84,6 +84,7 @@ public:
      * @return Selection 对象的指针。
      */
     SmartPointer<Selection> GetSelection(Model* model = nullptr);
+    void SetSelection(SmartPointer<Selection> selection);
 
 protected:
     SmartPointer<Selection> m_Selection;
