@@ -143,7 +143,7 @@ struct KDTree {
 
     using Adaptor =
             nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim,
-                                                Index // "{ï¿?
+                                                Index // "{ï¿½?
                                                 >;
 
     PointCloud cloud_;
@@ -762,7 +762,7 @@ std::vector<torch::Tensor> VortexDetection::extractPatches(const torch::Tensor& 
 //    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 //    //torch::Device device(torch::kCPU);
 //
-//    // ï¿?  3D Tensor
+//    // ï¿½?  3D Tensor
 //
 //    std::cout << nx << " " << ny << " " << nz << std::endl;
 //    // torch::Tensor tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
@@ -886,10 +886,7 @@ torch::Tensor VortexDetection::gaussian_kernel3d(float sigma, int radius) {
 
 namespace F = torch::nn::functional;
 
-<<<<<<< HEAD
 // -
-=======
->>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 struct GaussKey {
     float sigma = 0.f;
     int radius = 0;
@@ -958,7 +955,7 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
     if (input.dim() == 3) {
         input = input.unsqueeze(0).unsqueeze(0);
         was_DHW = true;
-    } else if (input.dim() == 4) { // Gï¿? [D,H,W,C]
+    } else if (input.dim() == 4) { // Gï¿½? [D,H,W,C]
         input = input.permute({3, 0, 1, 2}).unsqueeze(0);
         was_DHWC = true;
     } else {
@@ -1369,9 +1366,9 @@ torch::Tensor VortexDetection::extract_patches_gpu_batched(const torch::Tensor& 
 
     auto input = padded.permute({3, 0, 1, 2}).unsqueeze(0).contiguous(); // [1,C,D,H,W]
     auto device = input.device();
-    auto patches = input.unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride)    // D ï¿?
-                           .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H ï¿?
-                           .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W ï¿?
+    auto patches = input.unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride)    // D ï¿½?
+                           .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H ï¿½?
+                           .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W ï¿½?
                            .contiguous();
 
     const int64_t nz = patches.size(2);
@@ -1607,11 +1604,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
-<<<<<<< HEAD
 //    //  KD-Tree
-=======
-//    // ï¿? KD-Tree
->>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -2215,7 +2208,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
         auto q_host = torch::from_blob(q_chunk_host_vec.data(), {currN, 3},
                                        torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
         auto q = prefer_cuda ? q_host.to(device, torch::kFloat32, /*non_blocking*/ true, /*copy*/ true)
-                             : q_host.clone(); // CPU ï¿½ï¿½ clone :ï¿½ï¿½ ï¿?
+                             : q_host.clone(); // CPU ï¿½ï¿½ clone :ï¿½ï¿½ ï¿½?
 
         auto gridM3 = (q - min_t) * inv_s;
         gridM3.mul_(scale).add_(-1.0f);
@@ -2313,11 +2306,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
-<<<<<<< HEAD
 //     at::InferenceMode guard; // ï¿½tograd ï¿½*
-=======
-//     at::InferenceMode guard; // ï¿?  ï¿½ï¿½!ï¿? autograd ï¿?*
->>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -2754,11 +2743,7 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
 //     Eigen::Vector3f block_size = range_vec / split;
 //     //Eigen::Vector3f range_vec = max_pos - min_pos;
 //     //Eigen::Vector3f block_size = range_vec / split;
-<<<<<<< HEAD
 //     // KD-Tree
-=======
-//     // ï¿? KD-Tree
->>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //     Eigen::MatrixXd points(gridPoints.size(), 3);
 //     for (size_t i = 0; i < gridPoints.size(); ++i) {
 //         points(i, 0) = gridPoints[i][0];
@@ -3178,8 +3163,4 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
-<<<<<<< HEAD
 IGAME_NAMESPACE_END
-=======
-IGAME_NAMESPACE_END 
->>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
