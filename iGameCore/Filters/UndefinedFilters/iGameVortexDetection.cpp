@@ -886,6 +886,10 @@ torch::Tensor VortexDetection::gaussian_kernel3d(float sigma, int radius) {
 
 namespace F = torch::nn::functional;
 
+<<<<<<< HEAD
+// -
+=======
+>>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 struct GaussKey {
     float sigma = 0.f;
     int radius = 0;
@@ -1603,7 +1607,11 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
+<<<<<<< HEAD
+//    //  KD-Tree
+=======
 //    // ï¿? KD-Tree
+>>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -1898,7 +1906,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //        }
 //    }
 //
-//    // ï¿½ï¿½h@e
+//    // ï¿½ï¿½h@e
 //    auto sizes = result_volume_1.sizes();
 //    float depth = static_cast<float>(sizes[0]);
 //    float height = static_cast<float>(sizes[1]);
@@ -2305,7 +2313,11 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
+<<<<<<< HEAD
+//     at::InferenceMode guard; // ï¿½tograd ï¿½*
+=======
 //     at::InferenceMode guard; // ï¿?  ï¿½ï¿½!ï¿? autograd ï¿?*
+>>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -2742,7 +2754,11 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
 //     Eigen::Vector3f block_size = range_vec / split;
 //     //Eigen::Vector3f range_vec = max_pos - min_pos;
 //     //Eigen::Vector3f block_size = range_vec / split;
+<<<<<<< HEAD
+//     // KD-Tree
+=======
 //     // ï¿? KD-Tree
+>>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4
 //     Eigen::MatrixXd points(gridPoints.size(), 3);
 //     for (size_t i = 0; i < gridPoints.size(); ++i) {
 //         points(i, 0) = gridPoints[i][0];
@@ -3162,4 +3178,8 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
+<<<<<<< HEAD
+IGAME_NAMESPACE_END
+=======
 IGAME_NAMESPACE_END 
+>>>>>>> 084367de73bb82dd33ca5595b55bd119ac177be4

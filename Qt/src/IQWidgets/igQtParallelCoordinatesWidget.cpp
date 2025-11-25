@@ -13,6 +13,7 @@
 #include <thread>
 #include <tuple>
 #include <unordered_set>
+#include <iGameTimer.h>
 
 /**
  * @class   igQtParallelCoordinatesWidget
@@ -307,6 +308,7 @@ void igQtParallelCoordinatesWidget::handleMouseMove(const QPoint& pos) {
 }
 
 void igQtParallelCoordinatesWidget::SetParallelCoordinates(Model::Pointer model) {
+    _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
     SetSelectionCallback();

@@ -82,9 +82,9 @@ protected:
 class AutoTimer {
 public:
     AutoTimer(const std::string& timerName,
-              Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
-    AutoTimer(Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
-    AutoTimer(int name, Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+              Timer::TimeUnit unit = Timer::TimeUnit::Milliseconds);
+    AutoTimer(Timer::TimeUnit unit = Timer::TimeUnit::Milliseconds);
+    AutoTimer(int name, Timer::TimeUnit unit = Timer::TimeUnit::Milliseconds);
     ~AutoTimer();
 
 private:
@@ -96,7 +96,8 @@ private:
 
 class AutoBlockTimer {
 public:
-    AutoBlockTimer(int name, Timer::TimeUnit unit = Timer::TimeUnit::Seconds);
+    AutoBlockTimer(int name,
+                   Timer::TimeUnit unit = Timer::TimeUnit::Milliseconds);
     ~AutoBlockTimer();
     void OneBlock(int name);
 

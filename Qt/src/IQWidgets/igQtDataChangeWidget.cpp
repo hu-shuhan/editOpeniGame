@@ -3,7 +3,7 @@
 #include <QElapsedTimer>
 #include <iGameThreadPool.h>
 #include <utility>
-
+#include <iGameTimer.h>
 using namespace std;
 
 static constexpr int SATURATION = 160;
@@ -111,6 +111,7 @@ void igQtDataChangeWidget::InitRadialStyle(SmartPointer<Interactor> interactor) 
 RadialStyle::Pointer igQtDataChangeWidget::GetRadialStyle() { return m_RadialStyle; }
 
 void igQtDataChangeWidget::SetModel(Model::Pointer model) {
+    _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
     SetRadialPoint();
@@ -764,6 +765,7 @@ void igQtDataChangeWidget::RefreshData() {
 void igQtDataChangeWidget::DataGetToolClicked(bool checked) { ShowRadial(checked); }
 
 void igQtDataChangeWidget::TempSlot_SetRadialData() {
+    _AT_;
     if (m_CurrentModelDataIndex < 0 || m_DataChangeDatas.size() <= m_CurrentModelDataIndex) return;
     auto& Data = m_DataChangeDatas[m_CurrentModelDataIndex];
     _SetRadialData(Data);

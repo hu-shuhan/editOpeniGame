@@ -6,7 +6,7 @@
 #include <QList>
 #include <QCheckBox>
 #include <iGameThreadPool.h>
-
+#include <iGameTimer.h>
 using namespace std;
 
 static constexpr int defaultW = 2000, defaultH = 2000;
@@ -192,6 +192,7 @@ igQtVariableDensityWidget::~igQtVariableDensityWidget()
     delete ui; }
 
 void igQtVariableDensityWidget::SetModel(Model::Pointer model) {
+    _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
     SetSelectionCallback();
