@@ -15,8 +15,6 @@
 #include "iGameScene.h"
 #if defined(GPSCUDA_ENABLE)
 #include "Spline XML/iGameSplineReaderGPU.h"
-#include "Spline XML/iGameSplineSurfaceReader.h"
-#include "Spline XML/iGameSplineVolumeReader.h"
 #endif
 #include "Abaqus/iGameODBReader.h"
 #include "Client.h"
@@ -35,7 +33,6 @@
 #include <qaction.h>
 #include <qdebug.h>
 #include <qsettings.h>
-
 
 igQtFileLoader::igQtFileLoader(QObject* parent) : QObject(parent) {
     InitRecentFilePaths();
