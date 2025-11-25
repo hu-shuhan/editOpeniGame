@@ -914,7 +914,7 @@ torch::Tensor VortexDetection::gaussian_kernel3d(float sigma, int radius) {
 
 namespace F = torch::nn::functional;
 
-// ---------- �wX 1D د8 ----------
+// -
 struct GaussKey {
     float sigma = 0.f;
     int   radius = 0;
@@ -1661,7 +1661,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
-//    // � KD-Tree
+//    //  KD-Tree
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -1956,7 +1956,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(
 //        }
 //    }
 //
-//    // ��h@e
+//    // ��h@e
 //    auto sizes = result_volume_1.sizes();
 //    float depth = static_cast<float>(sizes[0]);
 //    float height = static_cast<float>(sizes[1]);
@@ -2378,7 +2378,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
-//     at::InferenceMode guard; // �  ��!� autograd �*
+//     at::InferenceMode guard; // �tograd �*
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -2815,7 +2815,7 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
 //     Eigen::Vector3f block_size = range_vec / split;
 //     //Eigen::Vector3f range_vec = max_pos - min_pos;
 //     //Eigen::Vector3f block_size = range_vec / split;
-//     // � KD-Tree
+//     // KD-Tree
 //     Eigen::MatrixXd points(gridPoints.size(), 3);
 //     for (size_t i = 0; i < gridPoints.size(); ++i) {
 //         points(i, 0) = gridPoints[i][0];
@@ -3237,4 +3237,4 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
-IGAME_NAMESPACE_END 
+IGAME_NAMESPACE_END

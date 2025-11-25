@@ -147,7 +147,6 @@ std::vector<int> CellFaceExtracter::GetSurfaceCellIds(UnstructuredMesh* mesh) {
 void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
     static constexpr int PAR_THREAD_NUM_BASE = 64;
     int PAR_THREAD_NUM = std::min<int>(PAR_THREAD_NUM_BASE, (mesh->GetNumberOfCells() / 10000) + 1);
-    _AT_;
     if (mesh == nullptr) return;
     if (!m_CellToFace.empty()) return;
     m_CellToFace = std::vector<std::vector<FaceId>>(mesh->GetNumberOfCells());
@@ -155,10 +154,8 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
     {
         //concurrency::concurrent_unordered_map<Face, FaceId, FaceHash> tempFace;
         {
-            _AT_;
             std::vector<std::vector<std::pair<Face, Face>>> cellToPFace(
                     std::vector<std::vector<std::pair<Face, Face>>>(mesh->GetNumberOfCells()));
-            _AT_;
             iGame::ThreadPool::parallelFor(
                     0, mesh->GetNumberOfCells(),
                     [&](int st, int ed) {
@@ -169,11 +166,9 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
                         }
                     },
                     PAR_THREAD_NUM);
-            _AT_;
             //concurrency::concurrent_unordered_set<Face, FaceHash> tempFaceSet;
             std::map<Face, FaceId> tempFaceSet;
             std::vector<Face> oriFaces;
-            _AT_;
             for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
                 for (auto& pFace: cellToPFace[cellId]) {
                     auto& [sFace, oriFace] = pFace;
@@ -193,9 +188,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
             //            }
             //        },
             //        PAR_THREAD_NUM);
-            _AT_;
             m_Faces = std::vector<FaceMsg>(tempFaceSet.size());
-            _AT_;
             for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
                 for (auto& pFace: cellToPFace[cellId]) {
                     auto& [sFace, oriFace] = pFace;
@@ -217,7 +210,6 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
             //            }
             //        },
             //        PAR_THREAD_NUM);
-            _AT_;
             iGame::ThreadPool::parallelFor(
                     0, m_Faces.size(),
                     [&](int st, int ed) {

@@ -2,6 +2,7 @@
 #include "iGameInteractor.h"
 #include "iGameLine.h"
 #include "iGameScene.h"
+#include "iGameSelectionParameter.h"
 IGAME_NAMESPACE_BEGIN
 static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
                                         const Point& a, const Point& b,
