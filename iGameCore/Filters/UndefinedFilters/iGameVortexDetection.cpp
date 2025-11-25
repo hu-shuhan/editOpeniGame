@@ -723,6 +723,7 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
 
 }
 
+
 torch::Tensor VortexDetection::sigmoid(const torch::Tensor& x) { return 1.0 / (1.0 + (-x).exp()); }
 
 torch::Tensor VortexDetection::padTensor(const torch::Tensor& tensor, int pad_z, int pad_y, int pad_x) {
