@@ -1582,7 +1582,7 @@ QToolBar {
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>:newIcons/New_Icons/Contourline.png</normaloff>:newIcons/New_Icons/Contourline.png</iconset>
+     <normaloff>:/Ticon/Icons/Contourline.png</normaloff>:/Ticon/Icons/Contourline.png</iconset>
    </property>
    <property name="text">
     <string>轮廓提取</string>
@@ -1597,7 +1597,7 @@ QToolBar {
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>:newIcons/New_Icons/Chart.png</normaloff>:newIcons/New_Icons/Chart.png</iconset>
+     <normaloff>:/Ticon/Icons/Chart.png</normaloff>:/Ticon/Icons/Chart.png</iconset>
    </property>
    <property name="text">
     <string>生成图表</string>
