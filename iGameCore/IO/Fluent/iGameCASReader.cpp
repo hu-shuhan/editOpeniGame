@@ -25,8 +25,14 @@ bool CASReader::Parsing() {
 
     // cas_converter.exe ??·??
     // 尝试多个可能的 exe 路径位置
-    std::vector<std::string> exePaths = {"Resources\\pyNastranLib\\cas_converter.exe", "cas_converter.exe",
-                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe"};
+    std::vector<std::string> exePaths = {
+                                        "Resources\\pyNastranLib\\cas_converter.exe",
+                                        "Resources\\pyFluentLib\\cas_converter.exe",
+                                         "cas_converter.exe",
+                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe",
+                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe",
+
+    };
 
     std::string exePath;
     bool exeFound = false;

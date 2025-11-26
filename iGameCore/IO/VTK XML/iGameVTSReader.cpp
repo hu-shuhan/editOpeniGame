@@ -18,9 +18,16 @@
 #undef min
 
 namespace {
-    // Custom high-performance, thread-safe tokenizer
-    // Behaves like strtok_r/strtok_s but faster
+    // Platform-specific tokenizer
+    // Windows: Use standard strtok (fast, thread-safe via TLS)
+    // Linux: Use custom thread-safe tokenizer
     inline char* ig_strtok(char* str, const char* delimiters, char** context) {
+#if defined(_WIN32)
+        // On Windows, use standard strtok (thread-safe due to TLS)
+        (void)context; // Suppress unused parameter warning
+        return strtok(str, delimiters);
+#else
+        // On Linux/Unix, use custom thread-safe tokenizer
         char* tokenStart = (str != nullptr) ? str : *context;
         
         if (tokenStart == nullptr) {
@@ -51,6 +58,7 @@ namespace {
         }
 
         return tokenStart;
+#endif
     }
 }
 
