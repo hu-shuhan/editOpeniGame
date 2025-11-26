@@ -7,7 +7,7 @@
 #include <iGameBoxStyle.h>
 IGAME_NAMESPACE_BEGIN
 
-static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
+static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points::Pointer points) {
     Point p;
     p.setZero();
     for (int i = 0; i < cellPointSize; i++) {
@@ -19,7 +19,7 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points
     return p;
 }
 
-static void SumCellPoints(Cell* cell, Point& point, int& pointNum) {
+static void SumCellPoints(Cell::Pointer cell, Point& point, int& pointNum) {
     auto faceNum = cell->GetNumberOfFaces();
     if (faceNum == 0) {
         int pointSize = cell->GetNumberOfPoints();
@@ -35,7 +35,7 @@ static void SumCellPoints(Cell* cell, Point& point, int& pointNum) {
     }
 }
 
-static Point GetCentralOfCell(Cell* cell) {
+static Point GetCentralOfCell(Cell::Pointer cell) {
     Point p{};
     p.setZero();
     int pointNum{};
@@ -71,7 +71,7 @@ static void DrawPoint(Painter3D* painter, const Point& point, std::vector<IGuint
 //    }
 //}
 
-static void DrawCell_OffSet(Painter3D* painter, int cellPointSize, int cellPoints[], Points* points,
+static void DrawCell_OffSet(Painter3D* painter, int cellPointSize, int cellPoints[], Points::Pointer points,
                             std::vector<IGuint>& drawHandles) {
     if (painter == nullptr) return;
     if (cellPointSize <= 0) return;
@@ -112,7 +112,7 @@ static void DrawCell_OffSet(Painter3D* painter, int cellPointSize, int cellPoint
     //}
 }
 
-static void DrawCell(Painter3D* painter, int cellPointSize, int cellPoints[], Points* points,
+static void DrawCell(Painter3D* painter, int cellPointSize, int cellPoints[], Points::Pointer points,
                      std::vector<IGuint>& drawHandles) {
     if (painter == nullptr) return;
     for (int i = 0; i < cellPointSize - 1; i++) {
@@ -125,7 +125,7 @@ static void DrawCell(Painter3D* painter, int cellPointSize, int cellPoints[], Po
     }
 }
 
-static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh,
+static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh::Pointer mesh,
                       std::vector<IGuint>& drawHandles) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
     painter->SetPen(3);
@@ -138,7 +138,7 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     }
 }
 
-static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh) {
+static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh::Pointer mesh) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
     painter->Clear();
     painter->SetPen(3);
@@ -172,7 +172,7 @@ static void DrawOneBoundingBox(Painter3D* painter, const std::pair<Point, Point>
     DrawOneBoundingBox(painter, box.first, box.second);
 }
 
-static void CollectCellLines(Cell* cell, std::vector<std::pair<int, int>>& lines) {
+static void CollectCellLines(Cell::Pointer cell, std::vector<std::pair<int, int>>& lines) {
     if (cell == nullptr) return;
     auto faceNum = cell->GetNumberOfFaces();
     if (faceNum == 0) {
@@ -193,7 +193,8 @@ static void CollectCellLines(Cell* cell, std::vector<std::pair<int, int>>& lines
     }
 }
 
-static void DrawCell(UnstructuredMesh* mesh, Painter3D* painter, Cell* cell, std::vector<IGuint>& drawHandles) {
+static void DrawCell(UnstructuredMesh::Pointer mesh, Painter3D* painter, Cell::Pointer cell,
+                     std::vector<IGuint>& drawHandles) {
     std::vector<std::pair<int, int>> needDrawLines;
     CollectCellLines(cell, needDrawLines);
     std::sort(needDrawLines.begin(), needDrawLines.end());
@@ -442,7 +443,7 @@ void Selection::Reset() {
 
 void Selection::ClearSelections() { Reset(); }
 
-const std::vector<int>& Selection::GetSeeAbleCells(UnstructuredMesh* mesh) {
+const std::vector<int>& Selection::GetSeeAbleCells(UnstructuredMesh::Pointer mesh) {
     if (m_SeeAbleCells.empty()) { m_SeeAbleCells = m_CellFaceExtracter.GetSurfaceCellIds(mesh); }
     return m_SeeAbleCells;
 }
@@ -523,7 +524,7 @@ void Selection::DrawCellBoundingBoxs() {
     DrawBoundingBoxs(painter, boxs);
 }
 
-UnstructuredMesh* Selection::_GetMesh() {
+UnstructuredMesh::Pointer Selection::_GetMesh() {
     if (m_Model == nullptr) return nullptr;
     if (m_Mesh == nullptr) m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
     return m_Mesh;
