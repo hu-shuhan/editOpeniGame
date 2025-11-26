@@ -57,7 +57,7 @@ public:
 
     static UIControlParams GenUiControlParams(DataObject::Pointer dataObj) {
         UIControlParams params;
-        params.showReport = false;
+        params.showReport = true;
         for (int i = 0; i < dataObj->GetAttributeSet()->GetNumberOfAttributes() + 2; i++) {
             iGame::FloatErrorControlParameters p;
 
@@ -206,9 +206,9 @@ private:
             if (sourceSize > 0) {
                 long long compressSize = static_cast<long long>(m_encodedData->m_Buffers.size());
                 double cr = compressSize * 1.0 / sourceSize;
-                std::cout << "compress rate: " << cr << std::endl;
+                std::cout << "compression_rate: " << fmt::v11::format("{:.2f}%", cr * 100.0) << std::endl;
 
-                m_report.push_back(std::make_pair("压缩率", std::format("{:.2f}%", cr * 100.0)));
+                m_report.push_back(std::make_pair("压缩率", fmt::v11::format("{:.2f}%", cr * 100.0)));
             } else {
                 // 源大小不可用时，明确给出不可用提示，避免用户误解
                 m_report.push_back(std::make_pair("压缩率", std::string("N/A")));
@@ -269,8 +269,9 @@ private:
 
 			// 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
 			const float errPercent = keyError * 100.0f;
+			std::cout << dataName << " relative_error: " << fmt::v11::format("{:.8f}%", errPercent) << std::endl;
 			m_report.push_back(
-					std::make_pair(dataName + " 相对误差", std::format("{:.10f}%", errPercent)));
+					std::make_pair(dataName + " 相对误差", fmt::v11::format("{:.8f}%", errPercent)));
         }
     }
 

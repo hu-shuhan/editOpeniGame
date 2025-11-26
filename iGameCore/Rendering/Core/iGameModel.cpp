@@ -224,17 +224,21 @@ void Model::Draw() {
         auto drawObject = DynamicCast<DrawObject>(dataObject);
         if (!drawObject->GetVisibility()) { return; }
 
-        #ifndef IGAME_OPENGL_VERSION_330
+#ifndef IGAME_OPENGL_VERSION_330
         bool hasTransparency = drawObject->GetTransparency() < 1.0f;
         bool hasAcceleration = drawObject->GetAccelerationOption();
         if (hasTransparency || hasAcceleration) { return; }
-        #endif
+#endif
 
         // Render
-        bool useSimplified =
-                m_Scene->m_IsInteracting &&
-                drawObject->m_RenderableMesh.SurfaceMesh->m_TriangleIndices
-                                ->GetNumberOfElements() > 100000;
+        bool useSimplified = false;
+        if (m_Scene->m_IsInteracting) {
+            auto surfaceObject = drawObject->GetRenderableObject(false);
+            useSimplified =
+                    surfaceObject->m_TriangleIndices->GetNumberOfElements() >
+                    1000000;
+        }
+
         auto renderableObject = drawObject->GetRenderableObject(useSimplified);
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);
@@ -391,10 +395,14 @@ void Model::DrawWithTransparency() {
         if (!hasTransparency) { return; }
 
         // Render
-        bool useSimplified =
-                m_Scene->m_IsInteracting &&
-                drawObject->m_RenderableMesh.SurfaceMesh->m_TriangleIndices
-                                ->GetNumberOfElements() > 1000000;
+        bool useSimplified = false;
+        if (m_Scene->m_IsInteracting) {
+            auto surfaceObject = drawObject->GetRenderableObject(false);
+            useSimplified =
+                    surfaceObject->m_TriangleIndices->GetNumberOfElements() >
+                    1000000;
+        }
+
         auto renderableObject = drawObject->GetRenderableObject(useSimplified);
         m_Scene->UpdateObjectDataBlock(renderableObject);
         m_Scene->UpdateUniformBufferObjectBlock(renderableObject);

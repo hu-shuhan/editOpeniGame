@@ -13,6 +13,7 @@
 #include "Convert/iGameConvertToPointCloud.h"
 #include "Convert/iGameConvertToSurfaceMesh.h"
 #include "Convert/iGameConvertToVolumeMesh.h"
+#include "Convert/iGameConvertToLagrangeUnstructuredMesh.h"
 #include "UndefinedFilters/iGameVortexDetection.h"
 
 #include "Interactor/iGameInteractor.h"
@@ -976,6 +977,20 @@ void igQtMainWindow::initAllFilters() {
 
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }
+    });
+
+    QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction("LagrangeUnstructedMesh Visualization");
+    connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        ConvertToLagrangeUnstructuredMesh::Pointer filter = ConvertToLagrangeUnstructuredMesh::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute())
+        {
+            DataObject::Pointer res = filter->GetOutput(0);
+            res->SetName(data->GetName());
+            modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         }
     });
 }

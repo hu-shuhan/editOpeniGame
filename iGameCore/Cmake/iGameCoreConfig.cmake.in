@@ -67,7 +67,7 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core/RenderWindow
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Rendering/OpenGL
 
-     ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/cgns/src
+     #${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CGNS/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/eigen-3.4.0
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/spdlog/include
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/freetype-2.13.3/include
@@ -200,6 +200,10 @@ endif()
 # Find CGNS Package
 #----------------------------------------------
 if(@ENABLE_CGNS_MODULE@)
+set(IGAMEVIS_CORE_INCLUDE_DIRS
+    ${IGAMEVIS_CORE_INCLUDE_DIRS}
+    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/cgns/src
+)
 list(APPEND IGAMEVIS_CORE_LIB_LIST
     cgns
 
@@ -212,6 +216,25 @@ list(APPEND IGAMEVIS_CORE_LIB_LIST
 )
 endif()
 
+if(@ENABLE_LIBTORCH_MODULE@)
+list(APPEND IGAMEVIS_CORE_LIB_LIST
+    ${TORCH_LIBRARIES}
+
+)
+message(warning ${TORCH_LIBRARIES})
+endif()
+
+
+
+if (UNIX AND NOT APPLE)
+    find_package(OpenMP REQUIRED)
+endif ()
+
+if (OpenMP_CXX_FOUND)
+    list(APPEND IGAMEVIS_CORE_LIB_TARGETS
+            OpenMP::OpenMP_CXX
+    )
+endif ()
 
 
 
@@ -256,6 +279,7 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
             endif ()
     endif()
 endforeach()
+
 
 if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
     # (CUDAToolkit_FOUND 变量是在文件顶部设置的)

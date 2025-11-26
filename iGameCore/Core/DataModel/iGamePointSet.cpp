@@ -144,4 +144,7 @@ SmartPointer<Selection> PointSet::GetSelection(Model* model) {
     }
     return m_Selection.get();
 }
+
+void PointSet::SetSelection(SmartPointer<Selection> selection) { m_Selection = selection; }
+
 IGAME_NAMESPACE_END
