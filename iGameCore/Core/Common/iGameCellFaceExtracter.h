@@ -1,5 +1,4 @@
 #pragma once
-#include "iGameUnstructuredMesh.h"
 #include <iGameCell.h>
 #include <iGameMacro.h>
 #include <map>
@@ -8,6 +7,7 @@
 #include <utility>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
+class UnstructuredMesh;
 class CellFaceExtracter {
 public:
     void Clear();
