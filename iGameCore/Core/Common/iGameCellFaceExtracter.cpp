@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
-#include <iGameUnstructuredMesh.h>
 #include <limits>
 #include <queue>
 IGAME_NAMESPACE_BEGIN

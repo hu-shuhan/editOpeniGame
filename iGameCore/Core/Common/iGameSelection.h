@@ -8,6 +8,9 @@
 #include "iGamePoints.h"
 #include <functional>
 #include <iGameCellFaceExtracter.h>
+#include "iGameUnstructuredMesh.h"
+#include "iGameModel.h"
+#include <iGamePainter3D.h>
 #include <map>
 #include <set>
 #include <string>
@@ -30,9 +33,6 @@ IGAME_NAMESPACE_BEGIN
 //	virtual void FilterEvent(SingleSelectionInterface::Event _event) = 0;
 //};
 
-class Model;
-class UnstructuredMesh;
-class Painter3D;
 class Selection : public Object {
 public:
     I_OBJECT(Selection);
@@ -136,14 +136,14 @@ public:
 #define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
     _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
-    Points* GetPoints() { return m_Points; }
-    CellArray* GetCells() { return m_Cells; }
-    Model* GetModel() { return m_Model; }
-    void SetPoints(Points* p) { m_Points = p; }
-    void SetCells(CellArray* c) { m_Cells = c; }
-    void SetModel(Model* m) { m_Model = m; }
+    Points::Pointer GetPoints() { return m_Points; }
+    CellArray::Pointer GetCells() { return m_Cells; }
+    Model::Pointer GetModel() { return m_Model; }
+    void SetPoints(Points::Pointer p) { m_Points = p; }
+    void SetCells(CellArray::Pointer c) { m_Cells = c; }
+    void SetModel(Model::Pointer m) { m_Model = m; }
 
-    const std::vector<int>& GetSeeAbleCells(UnstructuredMesh* mesh);
+    const std::vector<int>& GetSeeAbleCells(UnstructuredMesh::Pointer mesh);
 
     void SetSelectItemVisable(bool visable);
     void SetSelectBoxVisable(bool visable);
@@ -170,17 +170,17 @@ protected:
     void DrawCellEdges();
     void DrawBoundingBox(const std::pair<Point, Point>& p);
     void DrawCellBoundingBoxs();
-    UnstructuredMesh* _GetMesh();
+    UnstructuredMesh::Pointer _GetMesh();
 
     std::map<IGenum, std::set<igIndex>> m_SelectedItems;
     CellFaceExtracter m_CellFaceExtracter;
 
     std::vector<int> m_SeeAbleCells; //pointIds,CellId
 
-    Points* m_Points{nullptr};
-    CellArray* m_Cells{nullptr};
-    Model* m_Model{nullptr};
-    UnstructuredMesh* m_Mesh{nullptr};
+    Points::Pointer m_Points{nullptr};
+    CellArray::Pointer m_Cells{nullptr};
+    Model::Pointer m_Model{nullptr};
+    UnstructuredMesh::Pointer m_Mesh{nullptr};
 
     friend class Model;
 };
