@@ -244,13 +244,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     //startP = streamtracer->GetMesh()->GetBoundingBox().max;
     //endP = streamtracer->GetMesh()->GetBoundingBox().min;
     // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
-    std::vector<Vector3f>seeds;
-    if (control==0) {
-        seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
-    }
-    else {
-        seeds=streamtracer->getModelSelect();
-    }
+
     //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);
     //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
     std::vector<std::vector<float>> streamlineColor;
@@ -277,6 +271,14 @@ void igQtStreamTracerWidget::generateStreamline() {
     //       }
     //   }
     std::cout << vectorName << std::endl;
+    std::vector<Vector3f> seeds;
+    if (control == 0) {
+        seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+    } else if (control == 1) {
+        seeds = streamtracer->getModelSelectMax(vectorName);
+    } else {
+        seeds = streamtracer->getModelSelect();
+    }
     streamline = streamtracer->showStreamLineMix(seeds, vectorName, streamlineColor, lengthOfStreamLine, lengthOfStep,
                                                  terminalSpeed, maxSteps);
     //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {

@@ -80,6 +80,7 @@ public:
     int focusSplitCount         // 重点观察区域分割数量（f×f×f）
 );
     std::vector<Vector3f> getModelSelect();
+    std::vector<Vector3f> getModelSelectMax(std::string VectorName);
     std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
                                                            std::vector<std::vector<float>>& streamColor,
                                                            float lengthOfStreamLine, float lengthOfStep,
