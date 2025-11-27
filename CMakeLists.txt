@@ -26,7 +26,7 @@ endif ()
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
-set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
+set(ENABLE_NASTRAN_MODULE ON CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
 set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
