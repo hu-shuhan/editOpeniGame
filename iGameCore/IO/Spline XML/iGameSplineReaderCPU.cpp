@@ -6,8 +6,6 @@
 
 #include "iGameSplineReaderCPU.h"
 
-#include "../../../Qt/include/IQCore/igQtFileType.h"
-
 #include <cmath>
 #include <iGameFileReader.h>
 #include <regex>
