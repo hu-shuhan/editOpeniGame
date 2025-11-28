@@ -14,10 +14,10 @@
 
 
 IGAME_NAMESPACE_BEGIN
-class VolumeMeshMetrics : public Filter {
+class VolumeMeshMetricsFilter : public Filter {
 public:
-    I_OBJECT(VolumeMeshMetrics);
-    static Pointer New() { return new VolumeMeshMetrics; }
+    I_OBJECT(VolumeMeshMetricsFilter);
+    static Pointer New() { return new VolumeMeshMetricsFilter; }
 
     enum VolumeMetric {
         TET_EDGE_RATIO,         // 边长比
@@ -60,8 +60,8 @@ public:
     bool Execute() override;
 
 protected:
-    VolumeMeshMetrics();
-    ~VolumeMeshMetrics();
+    VolumeMeshMetricsFilter();
+    ~VolumeMeshMetricsFilter();
     VolumeMetric m_Metric = VolumeMetric::TET_EDGE_RATIO; //质量指标类型
 
     //四面体
