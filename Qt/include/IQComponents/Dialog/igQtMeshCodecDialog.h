@@ -3,9 +3,9 @@
  * @brief   网格编解码参数设置窗口
  */
 #pragma once
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecFeature.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshCodecParamSet.h"
-#include "../../iGameCore/Filters/iGameMeshCodec/iGameMeshEncoder.h"
+#include "MeshCodec/iGameMeshCodecFeature.h"
+#include "MeshCodec/iGameMeshCodecParamSet.h"
+#include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "iGameDataObject.h"
 #include "iGamePointSet.h"
 #include "iGameSmartPointer.h"
@@ -19,9 +19,9 @@
 #include <QVector>
 #include <QtCharts/QAreaSeries>
 #include <QtCharts/QBarCategoryAxis>
-#include <QtCharts/QCategoryAxis>
 #include <QtCharts/QBarSeries>
 #include <QtCharts/QBarSet>
+#include <QtCharts/QCategoryAxis>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -34,19 +34,19 @@
 #include <QtWidgets/qlabel.h>
 #include <QtWidgets/qlineedit.h>
 #include <QtWidgets/qpushbutton.h>
+#include <QtWidgets/qstackedwidget.h>
 #include <QtWidgets/qtablewidget.h>
 #include <QtWidgets/qtabwidget.h>
-#include <QtWidgets/qstackedwidget.h>
 
 // forward declarations for pointer parameters
 class QComboBox;
 class QLabel;
+#include "IGC/iGameIGCWriter.h"
 #include <algorithm>
 #include <functional>
 #include <qfiledialog.h>
 #include <qmessagebox.h>
 #include <ui_igMeshCodecDialog.h>
-#include "IGC/iGameIGCWriter.h"
 
 QT_CHARTS_USE_NAMESPACE
 
@@ -62,7 +62,7 @@ signals:
 
 private slots:
     void on_combo_boxFloatSelect_currentIndexChanged(int index);
-    
+
     void on_btnStartCompress_clicked();
     void on_button_cancel_clicked();
 
@@ -90,13 +90,13 @@ private:
     Ui::MeshCodecDialog* ui;
     iGame::DataObject::Pointer m_dataObj;
     iGame::UIControlParams m_params;
-    
+
     // UI选项索引与实际属性索引的偏移量
     // 索引0: "全部数据"
     // 索引1: "顶点坐标"
     // 索引2+: 实际属性数据
     static constexpr int ATTRIBUTE_OFFSET = 2;
-    
+
     std::string m_AllDataName = "全部数据";
     std::string m_GeomName = "顶点坐标";
 
@@ -105,36 +105,27 @@ private:
     // 直方图分箱数量：固定为 10 个 bin
     int m_binNum = 10;
 
-    QVector<QString> m_quantizeLevel = {
-		"无损",
-		"低",
-		"中",
-		"高"
-	};
+    QVector<QString> m_quantizeLevel = {"无损", "低", "中", "高"};
 
     // 压缩模式标记：无损/全局/分区
     // 无损：黑色实心星(★)；全局：▲；分区：■
     QVector<QString> m_modeMark = {
-        "★", // 无损
-        "▲", // 全局
-        "■"  // 分区
+            "★", // 无损
+            "▲", // 全局
+            "■"  // 分区
     };
 
-    enum class FeatureHistoGenStatus {
-        No,
-        Cant,
-        Yes
-    };
+    enum class FeatureHistoGenStatus { No, Cant, Yes };
 
     // 梯度直方图相关（使用每项各自的 QChart* 缓存）
-    QChartView* m_chartView = nullptr;         // 图表视图
-    QVector<QCheckBox*> m_checkBoxes;          // 复选框列表
-    QWidget* m_checkBoxContainer = nullptr;     // 复选框容器
-    QPushButton* m_refreshButton = nullptr;     // 悬浮的刷新按钮
+    QChartView* m_chartView = nullptr;      // 图表视图
+    QVector<QCheckBox*> m_checkBoxes;       // 复选框列表
+    QWidget* m_checkBoxContainer = nullptr; // 复选框容器
+    QPushButton* m_refreshButton = nullptr; // 悬浮的刷新按钮
     // 用堆叠页切换关键区域（空页不占高度）
     QStackedWidget* m_keyAreaStack = nullptr;
     QWidget* m_keyAreaEmptyPage = nullptr;
-    int m_keyAreaLayoutIndex = -1;              // 在父布局中的位置
+    int m_keyAreaLayoutIndex = -1; // 在父布局中的位置
 
     // 统一的尺寸重计算
     void RecomputeDialogSize();
@@ -187,13 +178,13 @@ private:
     void InitHistogramView();
 
     void InitAttrFeatureDatas();
-    
+
     void GenerateHistogram();
-    
+
     void ShowRefreshButton();
-    
+
     void HideRefreshButton();
-    
+
     void PositionRefreshButton();
 
     // 根据模式显示/隐藏“关键区域选择”并自适应窗口高度
@@ -208,7 +199,7 @@ private:
     void SetRadiosFromErrorMode(iGame::ErrorMode mode);
 
     // void SetupErrorInputValidators(); // 原有验证函数，已注释
-    
+
     // 应用设置到全体数据或当前数据的辅助函数
     template<typename Func>
     void ApplySettingToData(Func setter);

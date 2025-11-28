@@ -20,7 +20,7 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter = iGame::iGameSetSelectionCallBackFunc::New("SelectionCallBackFunc_1", SelectionCallBackFunc);
+    auto filter = iGame::SetSelectionCallBackFuncFilter::New("SelectionCallBackFunc_1", SelectionCallBackFunc);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

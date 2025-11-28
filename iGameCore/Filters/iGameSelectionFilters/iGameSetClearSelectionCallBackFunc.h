@@ -6,11 +6,11 @@
 #include <iGameUnstructuredMesh.h>
 #include <string>
 IGAME_NAMESPACE_BEGIN
-class iGameSetClearSelectionCallBackFunc : public Filter {
+class SetClearSelectionCallBackFuncFilter : public Filter {
 public:
-    I_OBJECT(iGameSetClearSelectionCallBackFunc);
+    I_OBJECT(SetClearSelectionCallBackFuncFilter);
     static Pointer New(const std::string& funcName, const std::function<void()>& func) {
-        return new iGameSetClearSelectionCallBackFunc(funcName, func);
+        return new SetClearSelectionCallBackFuncFilter(funcName, func);
     }
     bool Execute() override;
 
@@ -18,8 +18,8 @@ private:
     void Run();
 
 protected:
-    iGameSetClearSelectionCallBackFunc(const std::string& funcName, const std::function<void()>& func);
-    ~iGameSetClearSelectionCallBackFunc() override = default;
+    SetClearSelectionCallBackFuncFilter(const std::string& funcName, const std::function<void()>& func);
+    ~SetClearSelectionCallBackFuncFilter() override = default;
 
 private:
     /* Input */

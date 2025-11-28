@@ -1,6 +1,6 @@
 #include "iGameSetSelectionCallBackFunc.h"
 IGAME_NAMESPACE_BEGIN
-bool iGameSetSelectionCallBackFunc::Execute() {
+bool SetSelectionCallBackFuncFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     Run();
@@ -8,12 +8,12 @@ bool iGameSetSelectionCallBackFunc::Execute() {
     return true;
 }
 
-void iGameSetSelectionCallBackFunc::Run() {
+void SetSelectionCallBackFuncFilter::Run() {
     auto selection = m_Mesh->GetSelection();
     selection->_SetSelectionCallBackEvent_(m_FuncName, m_Func);
 }
 
-iGameSetSelectionCallBackFunc::iGameSetSelectionCallBackFunc(
+SetSelectionCallBackFuncFilter::SetSelectionCallBackFuncFilter(
         const std::string& funcName,
         const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func) {
     m_FuncName = funcName;

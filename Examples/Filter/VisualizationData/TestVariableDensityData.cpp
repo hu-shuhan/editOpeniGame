@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateVariableDensityData::New(IG_POINT, 100);
+    auto filter = iGame::GenerateVariableDensityDataFilter::New(IG_POINT, 100);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

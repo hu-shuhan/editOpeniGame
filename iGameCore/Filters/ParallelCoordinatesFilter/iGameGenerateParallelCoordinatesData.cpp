@@ -1,7 +1,7 @@
 #include "iGameGenerateParallelCoordinatesData.h"
 IGAME_NAMESPACE_BEGIN
 
-bool iGameGenerateParallelCoordinatesData::Execute() {
+bool GenerateParallelCoordinatesDataFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
@@ -10,12 +10,12 @@ bool iGameGenerateParallelCoordinatesData::Execute() {
     return true;
 }
 
-void iGameGenerateParallelCoordinatesData::Run() {
+void GenerateParallelCoordinatesDataFilter::Run() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
     m_Data = ParallelCoordinatesData::New(attrs, m_DataType);
 }
 
-iGameGenerateParallelCoordinatesData::iGameGenerateParallelCoordinatesData(IGenum dataType) {
+GenerateParallelCoordinatesDataFilter::GenerateParallelCoordinatesDataFilter(IGenum dataType) {
     m_DataType = dataType;
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);

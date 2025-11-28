@@ -15,7 +15,7 @@ static constexpr auto BOXNUM = 50;
 static iGame::ParallelCoordinatesData::Pointer GetParallelCoordinatesData(iGame::UnstructuredMesh::Pointer mesh) {
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateParallelCoordinatesData::New(IG_POINT);
+    auto filter = iGame::GenerateParallelCoordinatesDataFilter::New(IG_POINT);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -31,7 +31,7 @@ static iGame::ParallelCoordinatesData::Pointer GetParallelCoordinatesData(iGame:
 static iGame::VariableCorrelationData::Pointer GetVariableCorrelationData(iGame::UnstructuredMesh::Pointer mesh) {
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateVariableCorrelationData::New(IG_POINT);
+    auto filter = iGame::GenerateVariableCorrelationDataFilter::New(IG_POINT);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -47,7 +47,7 @@ static iGame::VariableCorrelationData::Pointer GetVariableCorrelationData(iGame:
 static iGame::VariableDensityData::Pointer GetVariableDensityData(iGame::UnstructuredMesh::Pointer mesh) {
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateVariableDensityData::New(IG_POINT, BOXNUM);
+    auto filter = iGame::GenerateVariableDensityDataFilter::New(IG_POINT, BOXNUM);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -64,7 +64,7 @@ static iGame::PlotLineData::Pointer GetPlotLineData(iGame::UnstructuredMesh::Poi
                                                     const iGame::Point& startPoint, const iGame::Point& endPoint) {
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGeneratePlotLineData::New(IG_POINT, startPoint, endPoint);
+    auto filter = iGame::GeneratePlotLineDataFilter::New(IG_POINT, startPoint, endPoint);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
@@ -155,7 +155,7 @@ static void OutPutKeyMsgs(iGame::ParallelCoordinatesData::Pointer parallelCoordi
 }
 
 static void SelectPoints(iGame::UnstructuredMesh::Pointer mesh, const std::vector<int>& ids) {
-    auto filter = iGame::iGameSetPointsSelect::New(iGame::Selection::Operate::Add, ids);
+    auto filter = iGame::SetPointsSelectFilter::New(iGame::Selection::Operate::Add, ids);
     filter->SetInput(mesh);
     filter->Execute();
 }

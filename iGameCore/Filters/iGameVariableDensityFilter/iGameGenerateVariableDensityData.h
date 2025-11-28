@@ -5,18 +5,18 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVariableDensityData.h>
 IGAME_NAMESPACE_BEGIN
-class iGameGenerateVariableDensityData : public Filter {
+class GenerateVariableDensityDataFilter : public Filter {
 public:
-    I_OBJECT(iGameGenerateVariableDensityData);
-    static Pointer New(IGenum dataType, int boxNum) { return new iGameGenerateVariableDensityData(dataType, boxNum); }
+    I_OBJECT(GenerateVariableDensityDataFilter);
+    static Pointer New(IGenum dataType, int boxNum) { return new GenerateVariableDensityDataFilter(dataType, boxNum); }
     bool Execute() override;
 
 private:
     void Run();
 
 protected:
-    iGameGenerateVariableDensityData(IGenum dataType, int boxNum);
-    ~iGameGenerateVariableDensityData() override = default;
+    GenerateVariableDensityDataFilter(IGenum dataType, int boxNum);
+    ~GenerateVariableDensityDataFilter() override = default;
 
 private:
     /* Input */

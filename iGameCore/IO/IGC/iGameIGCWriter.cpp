@@ -17,13 +17,13 @@ bool IGCWriter::GenerateBuffers()
 
 bool IGCWriter::EncodeData()
 {
-    m_encoder = MeshEncoder::New();
+    m_encoder = MeshEncoderFilter::New();
     m_encoder->SetInput(0, m_DataObject);
 
     if (m_hasUIParams) {
         m_encoder->SetUIControlParams(m_UIParams);
     } else {
-        auto uiParams = MeshEncoder::GenUiControlParams(m_DataObject);
+        auto uiParams = MeshEncoderFilter::GenUiControlParams(m_DataObject);
         m_encoder->SetUIControlParams(uiParams);
     }
 

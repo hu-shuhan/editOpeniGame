@@ -1,6 +1,6 @@
 #include "iGameVolumeMesh.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "iGameFaceTable.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -1006,7 +1006,7 @@ void VolumeMesh::ConvertToDrawableData() {
         m_ReConvertToDrawableData = false;
 
         bool extractShellSuccess = false;
-        iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
+        ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
         // update clip status
         auto box = m_Clipper->m_Box;
         if (box.m_Use) {

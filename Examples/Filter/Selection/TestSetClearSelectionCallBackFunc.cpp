@@ -16,7 +16,7 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter = iGame::iGameSetClearSelectionCallBackFunc::New("ClearCallBackFunc_1", ClearCallBackFunc);
+    auto filter = iGame::SetClearSelectionCallBackFuncFilter::New("ClearCallBackFunc_1", ClearCallBackFunc);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

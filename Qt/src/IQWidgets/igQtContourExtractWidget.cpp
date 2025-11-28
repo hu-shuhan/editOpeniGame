@@ -1,5 +1,5 @@
 #include "IQWidgets/igQtContourExtractWidget.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 #include "iGameSceneManager.h"
 #include "iGameSmartPointer.h"

@@ -8,22 +8,24 @@
 #define ConvertToLagrangeUnstructuredMesh_h
 
 #include "iGameFilter.h"
+#include "iGameLagrangeUnstructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
-#include "iGameLagrangeUnstructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
-class ConvertToLagrangeUnstructuredMesh : public Filter {
+class ConvertToLagrangeUnstructuredMeshFilter : public Filter {
 
 public:
-    I_OBJECT(ConvertToLagrangeUnstructuredMesh);
-    static Pointer New() { return new ConvertToLagrangeUnstructuredMesh; }
-    ~ConvertToLagrangeUnstructuredMesh();
+    I_OBJECT(ConvertToLagrangeUnstructuredMeshFilter);
+    static Pointer New() { return new ConvertToLagrangeUnstructuredMeshFilter; }
+    ~ConvertToLagrangeUnstructuredMeshFilter();
 
     bool Execute() override;
     //返回转换后的输出网格，结果为表面网格
-    LagrangeUnstructuredMesh::Pointer GetLagrangeUnstructuredMesh() { return DynamicCast<LagrangeUnstructuredMesh>(this->GetOutput()); };
+    LagrangeUnstructuredMesh::Pointer GetLagrangeUnstructuredMesh() {
+        return DynamicCast<LagrangeUnstructuredMesh>(this->GetOutput());
+    };
 
     //转换模式
     enum ConvertMethod {
@@ -36,7 +38,7 @@ public:
 
 
 protected:
-    ConvertToLagrangeUnstructuredMesh();
+    ConvertToLagrangeUnstructuredMeshFilter();
 
     ConvertMethod m_ConvertMethod = IG_CONVERT_LAGRANGE_UNSTRUCTURED_MESH;
 

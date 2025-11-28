@@ -24,7 +24,7 @@ int main() {
     }
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateParallelCoordinatesData::New(IG_POINT);
+    auto filter = iGame::GenerateParallelCoordinatesDataFilter::New(IG_POINT);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {
