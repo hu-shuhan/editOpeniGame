@@ -1,6 +1,6 @@
 #include "iGameSurfaceMesh.h"
-#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 #include "iGameThreadPool.h"
 #include "iGameTimer.h"

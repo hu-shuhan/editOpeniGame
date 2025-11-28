@@ -1,5 +1,5 @@
 #include "iGameConvertToVolumeMeshFilter.h"
-#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameCell.h"
 #include "iGameThreadPool.h"
 

@@ -1,7 +1,7 @@
 #if defined(CGNS_ENABLE)
 #include "iGameCGNSReader.h"
 #include "Log/iGameLogger.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 iGameCGNSReader::iGameCGNSReader() {
     this->SetNumberOfOutputs(1);
