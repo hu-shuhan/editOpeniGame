@@ -1,6 +1,6 @@
 #include "iGameDrawObject.h"
 
-#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
+#include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "iGameScene.h"
 #include "iGameSurfaceMesh.h"
 
@@ -407,8 +407,11 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
 
     // simplify mesh
     auto simplifiedMesh = DynamicCast<DrawObject>(dataObject);
-    MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
+    MeshSimplificationFilterPro::Pointer meshSimplifier = MeshSimplificationFilterPro::New();
     meshSimplifier->SetInput(dataObject);
+    meshSimplifier->SetPreserveBoundary(true);
+    meshSimplifier->SetFreeze(false);
+    meshSimplifier->SetTransformToCellData(false);
     meshSimplifier->SetTargetReduction(0.2);
     if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
 

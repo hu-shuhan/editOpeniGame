@@ -1,4 +1,4 @@
-#include "iGameMeshSimplifier.h"
+#include "iGameMeshSimplificationFilterPro.h"
 #include "iGameScene.h"
 #include "iGameSceneManager.h"
 #include "iGameThreadPool.h"
@@ -376,7 +376,7 @@ struct Collapse {
     float error;
 };
 
-static bool debug = true;
+static bool debug = false;
 
 static void print() { std::cout << std::endl; }
 
@@ -422,7 +422,8 @@ class TriMeshInternalSimplifier {
 public:
     TriMeshInternalSimplifier(std::vector<int_t>& Indices, const std::vector<Point3>& VertexPositions,
                               const std::vector<Attribute>& VertexAttributes,
-                              const std::vector<float>& AttributeWeights, size_t TargetCount, float TargetError);
+                              const std::vector<float>& AttributeWeights, size_t TargetCount, float TargetError,
+                              bool PreserveBoundary = true);
 
     size_t DoWork();
 
@@ -493,6 +494,7 @@ private:
     size_t VertexCount;               // 顶点个数
     size_t AttributeCount;            // 属性个数
     MVertexAdjacency VertexAdjacency; // 顶点的邻接面
+    bool PreserveBoundary;
     std::vector<Quadric> VertexQuadrics;
     std::vector<Quadric> AttributeQuadrics;
     std::vector<Gradient> AttributeGradients;
@@ -508,9 +510,11 @@ TriMeshInternalSimplifier::TriMeshInternalSimplifier(std::vector<int_t>& Indices
                                                      const std::vector<Point3>& VertexPositions,
                                                      const std::vector<Attribute>& VertexAttributes,
                                                      const std::vector<float>& AttributeWeights, size_t TargetCount,
-                                                     float TargetError)
+                                                     float TargetError, bool PreserveBoundary)
     : Indices(Indices), VertexPositions(VertexPositions), VertexAttributes(VertexAttributes),
-      AttributeWeights(AttributeWeights), TargetCount(TargetCount), TargetError(TargetError) {
+      AttributeWeights(AttributeWeights), TargetCount(TargetCount), TargetError(TargetError),
+      PreserveBoundary(PreserveBoundary) 
+{
     IndexCount = Indices.size();
     VertexCount = VertexPositions.size();
     AttributeCount = VertexAttributes.size();
@@ -632,7 +636,6 @@ private:
     }
 };
 
-
 size_t TriMeshInternalSimplifier::DoWork() {
     Timer time, time2;
     time2.start();
@@ -715,13 +718,16 @@ size_t TriMeshInternalSimplifier::DoWork() {
             }
         }
 
-        for (int i = 0; i < mp.capacity; i++) {
-            if (mp.data[i]) {
-                auto* p = mp.data[i];
-                while (p) {
-                    VertexBoundary[p->key.first] = 1;
-                    VertexBoundary[p->key.second] = 1;
-                    p = p->next;
+        if (PreserveBoundary)
+        {
+            for (int i = 0; i < mp.capacity; i++) {
+                if (mp.data[i]) {
+                    auto* p = mp.data[i];
+                    while (p) {
+                        VertexBoundary[p->key.first] = 1;
+                        VertexBoundary[p->key.second] = 1;
+                        p = p->next;
+                    }
                 }
             }
         }
@@ -749,47 +755,6 @@ size_t TriMeshInternalSimplifier::DoWork() {
         IndexCount = RemapIndices();
         time.end();
         time.print(Sequence++);
-
-
-        //time.start();
-        //// 建立新的邻接关系
-        //BuildVertexAdjacency();
-        //time.end();
-        //time.print("1.BuildVertexAdjacency");
-
-        //time.start();
-        //// 初始化坍缩边的误差
-        //size_t EdgeCollapseCount = BuildEdgeCollapses(CollapseCapacity);
-        //time.end();
-        //time.print("2.BuildEdgeCollapses");
-
-        //time.start();
-        //// 给所有的坍缩边排序
-        //SortEdgeCollapses(EdgeCollapseCount);
-        //time.end();
-        //time.print("3.SortEdgeCollapses");
-
-        //// 初始化顶点映射
-        //for (size_t i = 0; i < VertexCount; ++i) VertexRemap[i] = i;
-
-        //// 初始化可访问顶点
-        //memset(VertexLocked.data(), 0, VertexCount * sizeof(unsigned char));
-
-        //time.start();
-        //// 执行边坍缩
-        //size_t CollapseCount = ExecuteEdgeCollapses(EdgeCollapseCount);
-        //time.end();
-        //time.print("4.ExecuteEdgeCollapses");
-
-        //time.start();
-        //UpdateQuadrics();
-        //time.end();
-        //time.print("5.UpdateQuadrics");
-
-        //time.start();
-        //IndexCount = RemapIndices();
-        //time.end();
-        //time.print("6.RemapIndices");
     }
 
     time2.end();
@@ -2377,7 +2342,7 @@ private:
 };
 } // namespace mesh_tetra_simplifier
 
-bool MeshSimplifier::Execute() {
+bool MeshSimplificationFilterPro::Execute() {
 
     if (DynamicCast<SurfaceMesh>(GetInput(0))) {
         using namespace meshsmp;
@@ -2385,13 +2350,10 @@ bool MeshSimplifier::Execute() {
 
         int oldIndexCount = Mesh->GetFaces()->GetNumberOfCellIds();
 
-        Triangulation::Pointer triangulation = Triangulation::New();
+        MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
         triangulation->SetInput(Mesh);
-        triangulation->Execute();
+        if (!triangulation->Execute()) return false;
         Mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
-
-        //SetOutput(Mesh);
-        //return true;
 
         std::vector<int_t> Indices;
         std::vector<Point3> VertexPositions;
@@ -2400,9 +2362,15 @@ bool MeshSimplifier::Execute() {
 
         size_t TargetCount;
         float TargetError;
-        std::vector<int> PointDegree(Mesh->GetNumberOfPoints(), 0);
+        std::vector<unsigned char> PointDegree(Mesh->GetNumberOfPoints(), 0);
         std::vector<std::vector<float>> AttrData;
         AttributeSet::Pointer AttrSet = AttributeSet::New();
+
+        if (TargetFaceCount != 0) {
+            TargetCount = TargetFaceCount * 3;
+        } else {
+            TargetCount = oldIndexCount * this->TargetReduction;
+        }
 
         igIndex face[IGAME_CELL_MAX_SIZE]{};
         float cell[IGAME_CELL_MAX_SIZE]{};
@@ -2423,8 +2391,8 @@ bool MeshSimplifier::Execute() {
             if (attr.attachmentType == IG_POINT) {
                 int dim = attr.pointer->GetDimension();
 
-
                 FloatArray::Pointer arr = FloatArray::New();
+                arr->SetName(attr.pointer->GetName());
                 arr->SetDimension(dim);
                 for (int k = 0; k < attr.pointer->GetNumberOfValues(); ++k) {
                     arr->AddValue(static_cast<float>(attr.pointer->GetValue(k)));
@@ -2444,6 +2412,7 @@ bool MeshSimplifier::Execute() {
 
                 FloatArray::Pointer arr = FloatArray::New();
                 arr->SetDimension(dim);
+                arr->SetName(attr.pointer->GetName());
                 arr->Resize(Mesh->GetNumberOfPoints());
 
                 for (int j = 0; j < Mesh->GetNumberOfFaces(); ++j) {
@@ -2471,29 +2440,102 @@ bool MeshSimplifier::Execute() {
                 }
             }
         }
-        if (TargetFaceCount != 0) {
-            TargetCount = TargetFaceCount * 3;
-        } else {
-            TargetCount = oldIndexCount * this->TargetReduction;
-        }
+
         TargetError = 1.f;
 
         TriMeshInternalSimplifier Simplifier(Indices, VertexPositions, VertexAttributes, AttributeWeights, TargetCount,
                                              TargetError);
         size_t IndexCount = Simplifier.DoWork();
+
         SurfaceMesh::Pointer NewMesh = SurfaceMesh::New();
         NewMesh->SetName(Mesh->GetName());
 
-        CellArray::Pointer Faces = CellArray::New();
-        for (int i = 0; i < IndexCount / 3; i++) {
-            Faces->AddCellId3(Indices[i * 3 + 0], Indices[i * 3 + 1], Indices[i * 3 + 2]);
+        CellArray::Pointer NewFaces = CellArray::New();
+        Points::Pointer NewPoints;
+
+        if (Freeze) 
+        { 
+            NewPoints = Points::New();
+            std::vector<unsigned char> IsDeleted(Mesh->GetPoints()->GetNumberOfPoints(), 1);
+            std::vector<int_t> PointMap(Mesh->GetPoints()->GetNumberOfPoints());
+            for (int i = 0; i < IndexCount / 3; i++) 
+            {
+                IsDeleted[Indices[i * 3 + 0]] = 0;
+                IsDeleted[Indices[i * 3 + 1]] = 0;
+                IsDeleted[Indices[i * 3 + 2]] = 0;
+            }
+            int count = 0;
+            for (int i = 0; i < IsDeleted.size(); i++) {
+                if (!IsDeleted[i]) { 
+                    PointMap[i] = count;
+                    count++;
+                    NewPoints->AddPoint(Mesh->GetPoint(i));
+                }
+            }
+
+            for (int i = 0; i < AttrSet->GetNumberOfAttributes(); ++i) { 
+                auto& attr = AttrSet->GetAttribute(i);
+                for (int j = 0; j < IsDeleted.size(); j++) {
+                    if (!IsDeleted[j]) { 
+                        attr.pointer->GetElement(j, cell);
+                        attr.pointer->SetElement(PointMap[j], cell);
+                    }
+                }
+                attr.pointer->Resize(count);
+            }
+
+            for (int i = 0; i < IndexCount / 3; i++) {
+                NewFaces->AddCellId3(PointMap[Indices[i * 3 + 0]], 
+                                     PointMap[Indices[i * 3 + 1]],
+                                     PointMap[Indices[i * 3 + 2]]);
+            }
         }
-        NewMesh->SetFaces(Faces);
-        NewMesh->SetPoints(Mesh->GetPoints());
+        else
+        {
+            NewPoints = Mesh->GetPoints();
+            for (int i = 0; i < IndexCount / 3; i++) {
+                NewFaces->AddCellId3(Indices[i * 3 + 0], Indices[i * 3 + 1], Indices[i * 3 + 2]);
+            }
+        }
+
+        if (Transform)
+        {
+            for (int i = 0; Mesh->GetAttributeSet() && i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
+                const auto& oldAttr = Mesh->GetAttributeSet()->GetAttribute(i);
+                auto& attr = AttrSet->GetAttribute(i);
+                if (oldAttr.attachmentType == IG_CELL) {
+                    int dim = attr.pointer->GetDimension();
+
+                    FloatArray::Pointer arr = FloatArray::New();
+                    arr->SetDimension(dim);
+                    arr->SetName(attr.pointer->GetName());
+                    arr->Resize(NewFaces->GetNumberOfCells());
+
+                    for (int j = 0; j < NewFaces->GetNumberOfCells(); ++j) {
+                        NewFaces->GetCellIds(j, face);
+                        for (int k = 0; k < 3; ++k) {
+                            attr.pointer->GetElement(face[k], cell);
+                            for (int d = 0; d < dim; ++d) {
+                                arr->SetValue(j * dim + d, arr->GetValue(j * dim + d) + cell[d] / 3);
+                            }
+                        }
+                    }
+
+                    attr.pointer = arr;
+                    attr.attachmentType = IG_CELL;
+                }
+            }
+        }
+
+
+        NewMesh->SetFaces(NewFaces);
+        NewMesh->SetPoints(NewPoints);
         NewMesh->SetAttributeSet(AttrSet);
-        std::cout << IndexCount / 3 << std::endl;
+
         SetOutput(NewMesh);
+
     } else if (DynamicCast<UnstructuredMesh>(GetInput(0))) {
+        return false;
         using namespace mesh_tetra_simplifier;
         UnstructuredMesh::Pointer Mesh;
         SurfaceMesh::Pointer SMesh;
@@ -2626,7 +2668,7 @@ bool MeshSimplifier::Execute() {
     return true;
 }
 
-MeshSimplifier::MeshSimplifier() {
+MeshSimplificationFilterPro::MeshSimplificationFilterPro() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
