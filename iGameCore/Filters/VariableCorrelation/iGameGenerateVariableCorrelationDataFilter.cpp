@@ -1,6 +1,8 @@
-#include "iGameGenerateVariableDensityData.h"
+#include "iGameGenerateVariableCorrelationDataFilter.h"
+
 IGAME_NAMESPACE_BEGIN
-bool GenerateVariableDensityDataFilter::Execute() {
+
+bool GenerateVariableCorrelationDataFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_DataType != IG_POINT && m_DataType != IG_CELL) return false;
@@ -9,14 +11,13 @@ bool GenerateVariableDensityDataFilter::Execute() {
     return true;
 }
 
-void GenerateVariableDensityDataFilter::Run() {
+void GenerateVariableCorrelationDataFilter::Run() {
     auto attrs = m_Mesh->GetAttributeSet()->GetAllAttributes();
-    m_Data = VariableDensityData::New(attrs, m_DataType, m_BoxNum);
+    m_Data = VariableCorrelationData::New(attrs, m_DataType);
 }
 
-GenerateVariableDensityDataFilter::GenerateVariableDensityDataFilter(IGenum dataType, int boxNum) {
+GenerateVariableCorrelationDataFilter::GenerateVariableCorrelationDataFilter(IGenum dataType) {
     m_DataType = dataType;
-    m_BoxNum = boxNum;
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }

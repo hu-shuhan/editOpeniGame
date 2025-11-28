@@ -1,4 +1,4 @@
-#include "iGameSetPointsSelect.h"
+#include "iGameSetPointsSelectFilter.h"
 #include <iostream>
 IGAME_NAMESPACE_BEGIN
 bool SetPointsSelectFilter::Execute() {

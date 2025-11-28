@@ -1,4 +1,4 @@
-#include "iGameGeneratePlotLineData.h"
+#include "iGameGeneratePlotLineDataFilter.h"
 static constexpr int MIN_H = 0, MAX_H = 360, MIN_S = 100, MAX_S = 255;
 IGAME_NAMESPACE_BEGIN
 bool GeneratePlotLineDataFilter::Execute() {

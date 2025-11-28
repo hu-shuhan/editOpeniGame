@@ -1,4 +1,4 @@
-#include "iGameGetClosestPointsInLine.h"
+#include "iGameGetClosestPointsInLineFilter.h"
 #include <iGamePointPicker.h>
 #include <iGameSingleSelectionStyle.h>
 IGAME_NAMESPACE_BEGIN

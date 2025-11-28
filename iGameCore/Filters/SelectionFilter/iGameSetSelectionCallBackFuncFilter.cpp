@@ -1,4 +1,4 @@
-#include "iGameSetSelectionCallBackFunc.h"
+#include "iGameSetSelectionCallBackFuncFilter.h"
 IGAME_NAMESPACE_BEGIN
 bool SetSelectionCallBackFuncFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));

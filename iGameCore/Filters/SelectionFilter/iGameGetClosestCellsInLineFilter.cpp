@@ -1,4 +1,4 @@
-#include "iGameGetClosestCellsInLine.h"
+#include "iGameGetClosestCellsInLineFilter.h"
 #include <iGameCell.h>
 #include <iGameSingleSelectionStyle.h>
 IGAME_NAMESPACE_BEGIN
