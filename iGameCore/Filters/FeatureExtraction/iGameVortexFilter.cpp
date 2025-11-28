@@ -102,6 +102,7 @@ std::array<float, 3> VortexFilter::ComputePointGradient(int type, Cell* cell, Ar
                 return ComputePolygonPointGradient(cell, data, dim);
         }
     }
+    return std::array<float, 3>{};
 }
 
 std::array<float, 3> VortexFilter::ComputePointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
@@ -114,6 +115,7 @@ std::array<float, 3> VortexFilter::ComputePointGradient(Cell* cell, ArrayObject:
         case IG_HEXAHEDRON:
         case IG_POLYHEDRON:
             return ComputeHexPointGradient(cell, data, dim);
+        default:break;
     }
 
     return ComputePointGradient(cell, data, dim);
@@ -128,6 +130,7 @@ std::array<float, 3> VortexFilter::ComputeCellGradient(int type, Cell* cell, Arr
         default: // 其他
             return ComputePolyCellGradient(type, cell, data, dim);
     }
+    return std::array<float, 3>{};
 }
 
 bool VortexFilter::ComputeVorticityWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes,

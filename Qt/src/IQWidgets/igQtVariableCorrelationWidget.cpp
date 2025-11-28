@@ -628,7 +628,7 @@ QImage igQtVariableCorrelationWidget::_DrawCorImage() {
     re.fill(Qt::transparent);
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&re);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     _DrawCorImage(drawVariableIndex.first, drawVariableIndex.second, drawFrame, painter);
     return re;
 }
@@ -651,7 +651,7 @@ QImage igQtVariableCorrelationWidget::_DrawChoosedCorImage() {
     re.fill(Qt::transparent);
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&re);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     _DrawChoosedCorImage(drawVariableIndex.first, drawVariableIndex.second, drawFrame, painter);
     return re;
 }

@@ -327,7 +327,7 @@ void igQtMainWindow::initAllComponents() {
         // 显示对话框
         dialog->show();
         // 设置应用按钮的回调函数
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             // 获取用户输入的线程数
             int newThreadCount = dialog->getInt(id1, ok);
@@ -375,7 +375,7 @@ void igQtMainWindow::initAllFilters() {
         int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "Geometric similarity measure ",
                                            "false");
         dialog->show();
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             QString result = "";
 
@@ -490,7 +490,7 @@ void igQtMainWindow::initAllFilters() {
         //                                    "true");
 
         dialog->show();
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             QString result = "";
 
@@ -897,7 +897,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
         dialog->show();
 
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             auto Clamp = [](double x, double l, double r) -> double {
                 if (x < l) return l;
@@ -959,7 +959,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
         dialog->show();
 
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             auto Clamp = [](double x, double l, double r) -> double {
                 if (x < l) return l;
@@ -1193,7 +1193,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
         dialog->show();
 
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             auto Clamp = [](double x, double l, double r) -> double {
                 if (x < l) return l;
@@ -1251,7 +1251,7 @@ void igQtMainWindow::initAllMySignalConnections() {
         int flip_id = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, "flip", "false");
         dialog->show();
 
-        dialog->setApplyFunctor([=]() {
+        dialog->setApplyFunctor([=, this]() {
             bool ok;
             auto Clamp = [](double x, double l, double r) -> double {
                 if (x < l) return l;

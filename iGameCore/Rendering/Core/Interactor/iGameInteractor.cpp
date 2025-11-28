@@ -114,7 +114,7 @@ void Interactor::RequestDragCenterStyle(SmartPointer<Selection> s) {
 void Interactor::LoadSelectionStyleRequired(SmartPointer<Selection> s) {
     if (!m_Internal) { return; }
     SmartPointer<SelectionStyle> act;
-    if ((act = DynamicCast<SelectionStyle>(m_Internal)) = nullptr) { return; }
+    if ((act = DynamicCast<SelectionStyle>(m_Internal)) == nullptr) { return; }
     act->Initialize(this, s);
 }
 

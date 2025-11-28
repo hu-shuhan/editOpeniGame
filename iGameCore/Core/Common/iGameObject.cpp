@@ -321,14 +321,14 @@ public:
 
 	void SetCallable(CallbackBase* callable)
 	{
-		delete this->Callable;
+		//delete this->Callable;
 		this->Callable = callable;
 	}
 
 private:
 	LambdaCommand() {}
 	~LambdaCommand() override {
-		delete this->Callable;
+		//delete this->Callable;
 	}
 
 	CallbackBase* Callable{ nullptr };

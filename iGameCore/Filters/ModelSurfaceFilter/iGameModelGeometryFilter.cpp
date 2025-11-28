@@ -8,10 +8,10 @@ IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
 ModelGeometryFilter::ModelGeometryFilter() {
     this->PointMinimum = 0;
-    this->PointMaximum = LLONG_MAX;
+    this->PointMaximum = INT_MAX;
 
     this->CellMinimum = 0;
-    this->CellMaximum = LLONG_MAX;
+    this->CellMaximum = INT_MAX;
 
     this->Extent[0] = -DBL_MAX;
     this->Extent[1] = DBL_MAX;
