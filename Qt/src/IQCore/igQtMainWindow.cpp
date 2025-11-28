@@ -9,11 +9,11 @@
 #include "SurfaceMeshFilters/Tests/meshsimplifier/meshsimplifier.h"
 #include "SurfaceMeshFilters/Tests/simplifier.h"
 
-#include "Convert/iGameConvertPolyhedralCells.h"
-#include "Convert/iGameConvertToPointCloud.h"
-#include "Convert/iGameConvertToSurfaceMesh.h"
-#include "Convert/iGameConvertToVolumeMesh.h"
-#include "Convert/iGameConvertToLagrangeUnstructuredMesh.h"
+#include "Convert/iGameConvertPolyhedralCellsFilter.h"
+#include "Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h"
+#include "Convert/iGameConvertToPointCloudFilter.h"
+#include "Convert/iGameConvertToSurfaceMeshFilter.h"
+#include "Convert/iGameConvertToVolumeMeshFilter.h"
 #include "UndefinedFilters/iGameVortexDetection.h"
 
 #include "Interactor/iGameInteractor.h"
@@ -49,14 +49,14 @@
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
+#include <iGameBoxStyle.h>
 #include <iGameCtxPresObjData.h>
 #include <iGameDataSource.h>
+#include <iGameDynamicBox.h>
 #include <iGamePointFinder.h>
+#include <iGameSelectionParameter.h>
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
-#include <iGameBoxStyle.h>
-#include <iGameDynamicBox.h>
-#include <iGameSelectionParameter.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
@@ -118,7 +118,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     aiChatWidget = new igQtAiChatWidget(aiChatDockWidget, this);
     aiChatDockWidget->setWidget(aiChatWidget);
     aiChatDockWidget->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetClosable);
+    aiChatDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable |
+                                  QDockWidget::DockWidgetClosable);
     aiChatDockWidget->hide(); // 初始隐藏
     this->addDockWidget(Qt::RightDockWidgetArea, aiChatDockWidget);
 
@@ -639,7 +640,7 @@ void igQtMainWindow::initAllFilters() {
     connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         auto mesh = DynamicCast<PointSet>(obj);
-        
+
         FloatArray::Pointer arr = FloatArray::New();
         arr->Resize(mesh->GetNumberOfPoints());
         arr->SetName("123");
@@ -912,9 +913,7 @@ void igQtMainWindow::initAllFilters() {
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        if (filter->Execute()) { 
-            modelTreeWidget->updateAllAttriubute(data);
-        }
+        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
@@ -983,11 +982,10 @@ void igQtMainWindow::initAllFilters() {
     QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction("LagrangeUnstructedMesh Visualization");
     connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        ConvertToLagrangeUnstructuredMesh::Pointer filter = ConvertToLagrangeUnstructuredMesh::New();
+        ConvertToLagrangeUnstructuredMeshFilter::Pointer filter = ConvertToLagrangeUnstructuredMeshFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
-        if (filter->Execute())
-        {
+        if (filter->Execute()) {
             DataObject::Pointer res = filter->GetOutput(0);
             res->SetName(data->GetName());
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
@@ -1873,8 +1871,6 @@ void igQtMainWindow::initAllInteractor() {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
     });
-
-
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }

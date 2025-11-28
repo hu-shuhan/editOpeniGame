@@ -8,18 +8,18 @@
 #define ConvertToSurfaceMesh_h
 
 #include "iGameFilter.h"
+#include "iGameStructuredMesh.h"
+#include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
-#include "iGameSurfaceMesh.h"
-#include "iGameStructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
-class ConvertToSurfaceMesh : public Filter {
+class ConvertToSurfaceMeshFilter : public Filter {
 
 public:
-    I_OBJECT(ConvertToSurfaceMesh);
-    static Pointer New() { return new ConvertToSurfaceMesh; }
-    
+    I_OBJECT(ConvertToSurfaceMeshFilter);
+    static Pointer New() { return new ConvertToSurfaceMeshFilter; }
+
 
     bool Execute() override;
     //返回转换后的输出网格，结果为表面网格
@@ -28,8 +28,8 @@ public:
     //转换模式
     enum ConvertMethod {
         IG_CONVERT_SURFACE_MESH, //转化为表面，需要原始模型就是表面模型，比如纯表面的非结构化网格
-        IG_EXTRACT_SURFACE_CELL,     //提取表面单元，专门用于非结构化网格，用于获取非结构化网格中的表面单元
-        IG_EXTRACT_SURFACE_MESH,         //提取模型的表面网格，抽壳
+        IG_EXTRACT_SURFACE_CELL, //提取表面单元，专门用于非结构化网格，用于获取非结构化网格中的表面单元
+        IG_EXTRACT_SURFACE_MESH, //提取模型的表面网格，抽壳
     };
     //设置转换模式
     void SetConvertMethod(ConvertMethod CM);
@@ -38,8 +38,8 @@ public:
 
 
 protected:
-    ConvertToSurfaceMesh();
-    ~ConvertToSurfaceMesh();
+    ConvertToSurfaceMeshFilter();
+    ~ConvertToSurfaceMeshFilter();
 
     ConvertMethod m_ConvertMethod = IG_CONVERT_SURFACE_MESH;
 
@@ -47,13 +47,13 @@ protected:
      * 对非结构化网格进行转换
      */
     virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);
-    
+
     /**
      * 对体网格进行转换
      */
     virtual bool ExecuteWithVolumeMesh(VolumeMesh::Pointer vm);
-    
-        
+
+
     /**
      * 对结构化网格进行转换
      */

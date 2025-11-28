@@ -1,9 +1,8 @@
-#include "iGameConvertPolyhedralCells.h"
+#include "iGameConvertPolyhedralCellsFilter.h"
 
 IGAME_NAMESPACE_BEGIN
 
-
-bool ConvertPolyhedralCells::Execute() {
+bool ConvertPolyhedralCellsFilter::Execute() {
     if (DynamicCast<VolumeMesh>(GetInput(0))) {
         VolumeMesh::Pointer OldMesh = DynamicCast<VolumeMesh>(GetInput(0));
         VolumeMesh::Pointer NewMesh = VolumeMesh::New();
@@ -20,7 +19,7 @@ bool ConvertPolyhedralCells::Execute() {
     return false;
 }
 
-bool ConvertPolyhedralCells::ConvertToTetra(VolumeMesh::Pointer OldMesh, VolumeMesh::Pointer NewMesh) {
+bool ConvertPolyhedralCellsFilter::ConvertToTetra(VolumeMesh::Pointer OldMesh, VolumeMesh::Pointer NewMesh) {
     if (OldMesh == nullptr || OldMesh->GetIsPolyhedronType()) return false;
 
     auto OldAttrs = OldMesh->GetAttributeSet();
@@ -71,7 +70,8 @@ bool ConvertPolyhedralCells::ConvertToTetra(VolumeMesh::Pointer OldMesh, VolumeM
     return true;
 }
 
-bool ConvertPolyhedralCells::ConvertToTetra(UnstructuredMesh::Pointer OldMesh, UnstructuredMesh::Pointer NewMesh) {
+bool ConvertPolyhedralCellsFilter::ConvertToTetra(UnstructuredMesh::Pointer OldMesh,
+                                                  UnstructuredMesh::Pointer NewMesh) {
     if (OldMesh == nullptr) return false;
 
     auto OldAttrs = OldMesh->GetAttributeSet();
@@ -126,7 +126,7 @@ bool ConvertPolyhedralCells::ConvertToTetra(UnstructuredMesh::Pointer OldMesh, U
 }
 
 
-ConvertPolyhedralCells::ConvertPolyhedralCells() {
+ConvertPolyhedralCellsFilter::ConvertPolyhedralCellsFilter() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }

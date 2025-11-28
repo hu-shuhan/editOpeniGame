@@ -10,11 +10,11 @@
 IGAME_NAMESPACE_BEGIN
 
 struct ExtractCellBoundaries;
-class iGameModelGeometryFilter : public Filter {
+class ModelGeometryFilter : public Filter {
 public:
-    I_OBJECT(iGameModelGeometryFilter);
-    static iGameModelGeometryFilter::Pointer New() { return new iGameModelGeometryFilter; };
-    ~iGameModelGeometryFilter();
+    I_OBJECT(ModelGeometryFilter);
+    static ModelGeometryFilter::Pointer New() { return new ModelGeometryFilter; };
+    ~ModelGeometryFilter();
     bool Execute() override;
     bool Execute(DataObject::Pointer);
     bool Execute(DataObject::Pointer, SurfaceMesh::Pointer&);
@@ -83,7 +83,7 @@ private:
                             CellArray::Pointer Polygons, AttributeSet::Pointer outAllDataArray);
 
 protected:
-    iGameModelGeometryFilter();
+    ModelGeometryFilter();
     //有时候在文件里会有标注表面信息，如果有则不需要这边运算，
     //只需要把attribute的信息copy一份给表面就可以，暂时没有完善这个功能.
     SurfaceMesh::Pointer excFaces;

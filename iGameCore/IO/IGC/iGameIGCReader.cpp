@@ -3,49 +3,34 @@
 
 IGAME_NAMESPACE_BEGIN
 
-bool IGCReader::Parsing()
-{
-    return ParsingWithMemoryMapping();
-}
+bool IGCReader::Parsing() { return ParsingWithMemoryMapping(); }
 
-bool IGCReader::ParsingWithMemoryMapping()
-{
-    MeshDecoder::Pointer decoder = MeshDecoder::New();
+bool IGCReader::ParsingWithMemoryMapping() {
+    MeshDecoderFilter::Pointer decoder = MeshDecoderFilter::New();
 
-    decoder->SetMemoryMappingData(this->FILESTART, 
-                                  this->IS, 
-                                  this->FILEEND, 
-                                  this->m_FileSize);
-    
-    if (!decoder->Execute()) {
-        return false;
-    }
-    
+    decoder->SetMemoryMappingData(this->FILESTART, this->IS, this->FILEEND, this->m_FileSize);
+
+    if (!decoder->Execute()) { return false; }
+
     m_DecodedOutput = decoder->GetOutput();
     return true;
 }
 
-bool IGCReader::ParsingWithFilePath()
-{
-    MeshDecoder::Pointer decoder = MeshDecoder::New();
+bool IGCReader::ParsingWithFilePath() {
+    MeshDecoderFilter::Pointer decoder = MeshDecoderFilter::New();
 
     EncodedMeshData::Pointer encodedData = CreateEncodedDataFromFile();
-    if (!encodedData) {
-        return false;
-    }
+    if (!encodedData) { return false; }
 
     decoder->SetInput(0, encodedData);
-    
-    if (!decoder->Execute()) {
-        return false;
-    }
-    
+
+    if (!decoder->Execute()) { return false; }
+
     m_DecodedOutput = decoder->GetOutput();
     return true;
 }
 
-EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
-{
+EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile() {
     std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         IGAME_CORE_ERROR("Failed to open file: {}", m_FilePath);
@@ -54,7 +39,7 @@ EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
 
     std::streamsize fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
-    
+
     std::vector<char> buffer(fileSize);
     if (!file.read(buffer.data(), fileSize)) {
         IGAME_CORE_ERROR("Failed to read file: {}", m_FilePath);
@@ -65,12 +50,11 @@ EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile()
     EncodedMeshData::Pointer encodedData = EncodedMeshData::New();
     encodedData->m_Buffers.resize(fileSize);
     std::memcpy(encodedData->m_Buffers.data(), buffer.data(), fileSize);
-    
+
     return encodedData;
 }
 
-bool IGCReader::CreateDataObject()
-{
+bool IGCReader::CreateDataObject() {
     if (m_DecodedOutput) {
         m_Output = m_DecodedOutput;
         return true;
