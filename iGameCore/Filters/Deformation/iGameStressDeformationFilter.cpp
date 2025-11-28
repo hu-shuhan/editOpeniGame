@@ -135,6 +135,7 @@ bool iGame::StressDeformationFilter::Execute() {
 
     }
 //    UpdateProgress(1.0f);
+    this->SetOutput(dataObject);
     return true;
 }
 
@@ -174,3 +175,32 @@ bool iGame::StressDeformationFilter::CalculateIdealDSF() {
     return true;
 }
 
+void iGame::StressDeformationFilter::SetScaleFactorX(float sf_x) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorX(sf_x);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorX(sf_x);
+        }
+    }
+}
+void iGame::StressDeformationFilter::SetScaleFactorY(float sf_y) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorY(sf_y);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorY(sf_y);
+        }
+    }
+
+}
+
+void iGame::StressDeformationFilter::SetScaleFactorZ(float sf_z) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorZ(sf_z);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorZ(sf_z);
+        }
+    }
+}

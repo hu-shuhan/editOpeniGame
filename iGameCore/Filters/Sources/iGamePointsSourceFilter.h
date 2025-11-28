@@ -35,7 +35,7 @@ protected:
         m_OutPut_PointSet->AddCell(cell, 1, IG_VERTEX);
         SetOutput(m_OutPut_PointSet);
     }
-    ~PointSource() override = default;
+    ~PointSourceFilter() override = default;
 
 protected:
     UnstructuredMesh::Pointer m_OutPut_PointSet;

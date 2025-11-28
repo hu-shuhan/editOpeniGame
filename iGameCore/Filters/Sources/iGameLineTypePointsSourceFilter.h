@@ -9,7 +9,7 @@
 #include "iGamePointsSourceFilter.h"
 
 IGAME_NAMESPACE_BEGIN
-class LineTypePointsSourceFilter : public PointSource {
+class LineTypePointsSourceFilter : public PointSourceFilter {
 public:
     I_OBJECT(LineTypePointsSourceFilter)
     static Pointer New() { return new LineTypePointsSourceFilter(); }
