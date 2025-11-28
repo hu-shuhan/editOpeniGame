@@ -20,7 +20,7 @@ public:
     static Pointer New() { return new VolumeMeshMetrics; }
 
     enum VolumeMetric {
-        TET_EDGE_RATIO,         //边长比
+        TET_EDGE_RATIO,         // 边长比
         TET_VOLUME,             // 体积
         TET_ASPECT_RATIO,       // 纵横比
         TET_JACOBIAN,           // 雅可比
@@ -30,28 +30,27 @@ public:
         TET_EQUIANGLE_SKEWNESS, // 等角斜率
         TET_INRADIUS,           // 内切球半径
         TET_CIRCUMRADIUS,       // 外接球半径
-        TET_VOL_ASPECT_RATIO,    // 体长宽比
+        TET_VOL_ASPECT_RATIO,   // 体长宽比
 
         //六面体
-        HEX_VOLUME,               // 体积
-        HEX_TAPER,                // 锥度
-        HEX_JACOBIAN,             // 雅可比
-        HEX_EDGE_RATIO,           // 长宽比
-        HEX_MAX_EDGE_RATIO,       // 最大长宽比
-        HEX_SKEW,                 // 歪斜度
-        HEX_STRETCH,              // 伸展度
-        HEX_DIAGONAL,             // 对角线比值
+        HEX_VOLUME,                // 体积
+        HEX_TAPER,                 // 锥度
+        HEX_JACOBIAN,              // 雅可比
+        HEX_EDGE_RATIO,            // 长宽比
+        HEX_MAX_EDGE_RATIO,        // 最大长宽比
+        HEX_SKEW,                  // 歪斜度
+        HEX_STRETCH,               // 伸展度
+        HEX_DIAGONAL,              // 对角线比值
         HEX_RELATIVE_SIZE_SQUARED, // 相对大小平方
-
 
         // 新增六面体指标
         HEX_MIN_SCALED_JACOBIAN, // 最小标量雅可比
-        HEX_AVG_SCALED_JACOBIAN,         // 平均标量雅可比
+        HEX_AVG_SCALED_JACOBIAN, // 平均标量雅可比
 
         // 新增四面体指标
         TET_ASPECT_RATIO_ALT, // 替代纵横比计算方法
-        TET_VOLUME_ALT,         // 四面体体积（替代方法）
-        HEX_VOLUME_ALT,         // 六面体体积（替代方法）
+        TET_VOLUME_ALT,       // 四面体体积（替代方法）
+        HEX_VOLUME_ALT,       // 六面体体积（替代方法）
 
     };
 
@@ -59,7 +58,6 @@ public:
     VolumeMetric GetVolumeMetric() { return this->m_Metric; }
 
     bool Execute() override;
-
 
 protected:
     VolumeMeshMetrics();
@@ -91,7 +89,6 @@ protected:
     static double GetVolAspectRatioOfCell(const std::vector<iGame::Point>& points);
     static double GetEquiangleSkewnessOfCell(const std::vector<iGame::Point>& points);
 
-
     // 六面体
     static double ComputeHexVolume(const std::vector<iGame::Point>& points);
     static double ComputeHexTaper(const std::vector<iGame::Point>& points);
@@ -103,16 +100,14 @@ protected:
     static double ComputeHexDiagonal(const std::vector<iGame::Point>& points);
     static double ComputeHexRelativeSizeSquared(const std::vector<iGame::Point>& points, float average_volume);
 
-
     static double ComputeHexMinScaledJacobian(const std::vector<iGame::Point>& points);
     static double ComputeHexAvgScaledJacobian(const std::vector<iGame::Point>& points);
     static double ComputeTetAspectRatioAlt(const std::vector<iGame::Point>& points);
     static double ComputeTetVolumeAlt(const std::vector<iGame::Point>& points);
     static double ComputeHexVolumeAlt(const std::vector<iGame::Point>& points);
 
-
-    iGame::CellArray::Pointer m_Cells = nullptr; 
-    iGame::Points::Pointer m_Points = nullptr;   
+    CellArray::Pointer m_Cells = nullptr;
+    Points::Pointer m_Points = nullptr;
     static constexpr double PI = 3.14159265358979323846;
 };
 
