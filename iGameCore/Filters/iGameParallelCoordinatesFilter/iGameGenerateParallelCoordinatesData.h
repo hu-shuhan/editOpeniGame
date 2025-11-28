@@ -5,18 +5,18 @@
 #include <iGameParallelCoordinatesData.h>
 #include <iGameUnstructuredMesh.h>
 IGAME_NAMESPACE_BEGIN
-class iGameGenerateParallelCoordinatesData : public Filter {
+class GenerateParallelCoordinatesDataFilter : public Filter {
 public:
-    I_OBJECT(iGameGenerateParallelCoordinatesData);
-    static Pointer New(IGenum dataType) { return new iGameGenerateParallelCoordinatesData(dataType); }
+    I_OBJECT(GenerateParallelCoordinatesDataFilter);
+    static Pointer New(IGenum dataType) { return new GenerateParallelCoordinatesDataFilter(dataType); }
     bool Execute() override;
 
 private:
     void Run();
 
 protected:
-    iGameGenerateParallelCoordinatesData(IGenum dataType);
-    ~iGameGenerateParallelCoordinatesData() override = default;
+    GenerateParallelCoordinatesDataFilter(IGenum dataType);
+    ~GenerateParallelCoordinatesDataFilter() override = default;
 
 private:
     /* Input */

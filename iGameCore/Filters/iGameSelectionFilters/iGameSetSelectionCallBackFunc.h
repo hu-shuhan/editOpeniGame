@@ -7,12 +7,12 @@
 #include <string>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
-class iGameSetSelectionCallBackFunc : public Filter {
+class SetSelectionCallBackFuncFilter : public Filter {
 public:
-    I_OBJECT(iGameSetSelectionCallBackFunc);
+    I_OBJECT(SetSelectionCallBackFuncFilter);
     static Pointer New(const std::string& funcName,
         const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func) {
-        return new iGameSetSelectionCallBackFunc(funcName, func);
+        return new SetSelectionCallBackFuncFilter(funcName, func);
     }
     bool Execute() override;
 
@@ -20,9 +20,9 @@ private:
     void Run();
 
 protected:
-    iGameSetSelectionCallBackFunc(const std::string& funcName,
+    SetSelectionCallBackFuncFilter(const std::string& funcName,
             const std::function<void(IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope)>& func);
-    ~iGameSetSelectionCallBackFunc() override = default;
+    ~SetSelectionCallBackFuncFilter() override = default;
 
 private:
     /* Input */

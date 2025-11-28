@@ -5,13 +5,13 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGamePoints.h>
 IGAME_NAMESPACE_BEGIN
-class iGameGetPointsInFrustum : public Filter {
+class GetPointsInFrustumFilter : public Filter {
 public:
-    I_OBJECT(iGameGetPointsInFrustum);
+    I_OBJECT(GetPointsInFrustumFilter);
     static Pointer New(const Point& startPoint, const Point& direction, const Point& upDirection,
                        double nearFaceDistance, double farFaceDistance, double nearFaceHalfWidth,
                        double nearFaceHalfHigh, double farFaceHalfWidth, double farFaceHalfHigh) {
-        return new iGameGetPointsInFrustum(startPoint, direction, upDirection, nearFaceDistance, farFaceDistance,
+        return new GetPointsInFrustumFilter(startPoint, direction, upDirection, nearFaceDistance, farFaceDistance,
                                            nearFaceHalfWidth, nearFaceHalfHigh, farFaceHalfWidth, farFaceHalfHigh);
     }
     bool Execute() override;
@@ -21,10 +21,10 @@ private:
     void Run();
 
 protected:
-    iGameGetPointsInFrustum(const Point& startPoint, const Point& direction, const Point& upDirection,
+    GetPointsInFrustumFilter(const Point& startPoint, const Point& direction, const Point& upDirection,
                             double nearFaceDistance, double farFaceDistance, double nearFaceHalfWidth,
                             double nearFaceHalfHigh, double farFaceHalfWidth, double farFaceHalfHigh);
-    ~iGameGetPointsInFrustum() override = default;
+    ~GetPointsInFrustumFilter() override = default;
 
 private:
     /* Input */

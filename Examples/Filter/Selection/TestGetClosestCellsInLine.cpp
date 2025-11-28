@@ -9,7 +9,7 @@ static void ShowFilterFunc(iGame::UnstructuredMesh::Pointer mesh, const iGame::P
                            double radius = 0.0, bool useAutoValueRange = false, int variableIndex = -1,
                            double expdRate = 1.0) {
     /*Set filter*/
-    auto filter = iGame::iGameGetClosestCellsInLine::New(startPoint, endPoint, radius, useAutoValueRange, variableIndex,
+    auto filter = iGame::GetClosestCellsInLineFilter::New(startPoint, endPoint, radius, useAutoValueRange, variableIndex,
                                                          expdRate);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();

@@ -1,6 +1,6 @@
 #include "iGameSetCellsSelect.h"
 IGAME_NAMESPACE_BEGIN
-bool iGameSetCellsSelect::Execute() {
+bool SetCellsSelectFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_Operate != Selection::Operate::Add && m_Operate != Selection::Operate::Remove) return false;
@@ -9,12 +9,12 @@ bool iGameSetCellsSelect::Execute() {
     return true;
 }
 
-void iGameSetCellsSelect::Run() {
+void SetCellsSelectFilter::Run() {
     auto selection = m_Mesh->GetSelection();
     m_Model->GetSelection()->SelectionCallBackEvent(IG_CELL, m_Ids, m_Operate);
 }
 
-iGameSetCellsSelect::iGameSetCellsSelect(Selection::Operate ope, const std::vector<int>& ids,
+SetCellsSelectFilter::SetCellsSelectFilter(Selection::Operate ope, const std::vector<int>& ids,
                                          Painter3D* painter) {
     m_Operate = ope;
     m_Ids = ids;

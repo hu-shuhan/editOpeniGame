@@ -5,18 +5,18 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVariableCorrelationData.h>
 IGAME_NAMESPACE_BEGIN
-class iGameGenerateVariableCorrelationData : public Filter {
+class GenerateVariableCorrelationDataFilter : public Filter {
 public:
-    I_OBJECT(iGameGenerateVariableCorrelationData);
-    static Pointer New(IGenum dataType) { return new iGameGenerateVariableCorrelationData(dataType); }
+    I_OBJECT(GenerateVariableCorrelationDataFilter);
+    static Pointer New(IGenum dataType) { return new GenerateVariableCorrelationDataFilter(dataType); }
     bool Execute() override;
 
 private:
     void Run();
 
 protected:
-    iGameGenerateVariableCorrelationData(IGenum dataType);
-    ~iGameGenerateVariableCorrelationData() override = default;
+    GenerateVariableCorrelationDataFilter(IGenum dataType);
+    ~GenerateVariableCorrelationDataFilter() override = default;
 
 private:
     /* Input */

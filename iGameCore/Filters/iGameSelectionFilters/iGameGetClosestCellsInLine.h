@@ -5,12 +5,12 @@
 #include <iGameUnstructuredMesh.h>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
-class iGameGetClosestCellsInLine : public Filter {
+class GetClosestCellsInLineFilter : public Filter {
 public:
-    I_OBJECT(iGameGetClosestCellsInLine);
+    I_OBJECT(GetClosestCellsInLineFilter);
     static Pointer New(const Point& startPoint, const Point& endPoint, double radius = 0.0,
                        bool useAutoValueRange = false, int variableIndex = -1, double expdRate = 1.0) {
-        return new iGameGetClosestCellsInLine(startPoint, endPoint, radius, useAutoValueRange, variableIndex, expdRate);
+        return new GetClosestCellsInLineFilter(startPoint, endPoint, radius, useAutoValueRange, variableIndex, expdRate);
     }
     bool Execute() override;
     const std::vector<int>& GetResult();
@@ -19,9 +19,9 @@ private:
     void Run();
 
 protected:
-    iGameGetClosestCellsInLine(const Point& startPoint, const Point& endPoint, double radius = 0.0,
+    GetClosestCellsInLineFilter(const Point& startPoint, const Point& endPoint, double radius = 0.0,
                                bool useAutoValueRange = false, int variableIndex = -1, double expdRate = 1.0);
-    ~iGameGetClosestCellsInLine() override = default;
+    ~GetClosestCellsInLineFilter() override = default;
 
 private:
     /* Input */

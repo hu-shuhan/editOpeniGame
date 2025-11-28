@@ -45,7 +45,7 @@ static bool IsPointInFrustum(const Point& point, const Point& startPoint, const 
     return false;
 }
 
-bool iGameGetPointsInFrustum::Execute() {
+bool GetPointsInFrustumFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_NearFaceHalfWidth <= 0 || m_NearFaceHalfHigh <= 0 || m_FarFaceHalfWidth <= 0 || m_FarFaceHalfHigh <= 0) {
@@ -55,9 +55,9 @@ bool iGameGetPointsInFrustum::Execute() {
     return true;
 }
 
-const std::vector<int>& iGameGetPointsInFrustum::GetResult() { return m_Ids; }
+const std::vector<int>& GetPointsInFrustumFilter::GetResult() { return m_Ids; }
 
-void iGameGetPointsInFrustum::Run() {
+void GetPointsInFrustumFilter::Run() {
     int objNum = m_Mesh->GetNumberOfPoints();
     for (int pointId = 0; pointId < objNum; pointId++) {
         auto& point = m_Mesh->GetPoint(pointId);
@@ -68,7 +68,7 @@ void iGameGetPointsInFrustum::Run() {
     }
 }
 
-iGameGetPointsInFrustum::iGameGetPointsInFrustum(const Point& startPoint, const Point& direction,
+GetPointsInFrustumFilter::GetPointsInFrustumFilter(const Point& startPoint, const Point& direction,
                                                  const Point& upDirection, double nearFaceDistance,
                                                  double farFaceDistance, double nearFaceHalfWidth,
                                                  double nearFaceHalfHigh, double farFaceHalfWidth,

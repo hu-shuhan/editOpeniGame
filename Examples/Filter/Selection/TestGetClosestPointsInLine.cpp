@@ -8,7 +8,7 @@ static void ShowFilterFunc(iGame::UnstructuredMesh::Pointer mesh, const iGame::P
                            const iGame::Point& endPoint, double radius = 0.0, bool useAutoValueRange = false,
                            int variableIndex = -1, double expdRate = 1.0) {
     /*Set filter*/
-    auto filter = iGame::iGameGetClosestPointsInLine::New(startPoint, endPoint, radius, useAutoValueRange,
+    auto filter = iGame::GetClosestPointsInLineFilter::New(startPoint, endPoint, radius, useAutoValueRange,
                                                           variableIndex, expdRate);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
