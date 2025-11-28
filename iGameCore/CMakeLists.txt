@@ -102,7 +102,24 @@ endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
     list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.2/bin/nvcc")
+
+    set(CMAKE_C_COMPILER "/usr/bin/gcc-12")
+    set(CMAKE_CXX_COMPILER "/usr/bin/g++-12")
+    set(CMAKE_CUDA_HOST_COMPILER "/usr/bin/g++-12")
+
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD 17)
+
+    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
+    set(CUDA_INCLUDE_DIRS "/usr/local/cuda/include")
+    set(CUDA_CUDART_LIBRARY "/usr/local/cuda/lib64/libcudart.so")
+
+    set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
     find_package(Torch REQUIRED)
+
+    set(CMAKE_CXX_STANDARD ${OLD_CMAKE_CXX_STANDARD})
+
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
     target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
     target_link_libraries(${MODULE_NAME} PRIVATE ${TORCH_LIBRARIES})

@@ -153,6 +153,7 @@ bool UnstructuredMesh::GenerateFromSurfaceMesh(SurfaceMesh::Pointer mesh) {
     this->SetPoints(mesh->GetPoints());
     this->SetCells(inFaces, Types);
     this->SetAttributeSet(mesh->GetAttributeSet());
+    this->SetSelection(mesh->GetSelection());
     return true;
 }
 bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
@@ -188,6 +189,7 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
         this->SetPoints(mesh->GetPoints());
         this->SetCells(realCells, CellTypes);
         this->SetAttributeSet(mesh->GetAttributeSet());
+        this->SetSelection(mesh->GetSelection());
     } else {
         CellTypes->Reserve(volumeNum);
         for (igIndex i = 0; i < volumeNum; i++) {
@@ -213,6 +215,7 @@ bool UnstructuredMesh::GenerateFromVolumeMesh(VolumeMesh::Pointer mesh) {
         this->SetPoints(mesh->GetPoints());
         this->SetCells(mesh->GetCells(), CellTypes);
         this->SetAttributeSet(mesh->GetAttributeSet());
+        this->SetSelection(mesh->GetSelection());
     }
 
     return true;

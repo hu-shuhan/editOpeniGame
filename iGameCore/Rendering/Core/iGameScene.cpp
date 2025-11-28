@@ -27,7 +27,7 @@ Scene::Scene() {
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
-    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
+    m_BackgroundColor = {0.247f, 0.247f, 0.247f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};

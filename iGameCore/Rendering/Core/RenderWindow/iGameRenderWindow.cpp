@@ -33,9 +33,14 @@ iGame::RenderWindow::RenderWindow() {
 #ifdef IGAME_OPENGL_VERSION_330
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-# elif IGAME_OPENGL_VERSION_460
+#elif IGAME_OPENGL_VERSION_460
+    #ifdef IGAME_PLATFORM_WINDOWS
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    #elif IGAME_PLATFORM_LINUX
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    #endif
 #endif
     /* set glfw to core profile */
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

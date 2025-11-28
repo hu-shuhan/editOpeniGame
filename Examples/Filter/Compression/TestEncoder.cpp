@@ -5,7 +5,7 @@
 #include <string>
 
 int main() {
-    const std::string sourceFileName = "./Models/Tet_Plane.vtk";
+    const std::string sourceFileName = "./Models/Quad_Plane_Tensor.vtk";
     const std::string encodedFileName = "./Models/comp.igc";
 
     // encoder test

@@ -143,7 +143,7 @@ struct KDTree {
 
     using Adaptor =
             nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim,
-                                                Index // "{ï¿?
+                                                Index // "{ï¿½?
                                                 >;
 
     PointCloud cloud_;
@@ -449,6 +449,8 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     // }
     //
     // std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+
+    int progress = 0;
     auto approx_cell_volume_by_bounded_edges = [&](const std::vector<Vector3f>& P, Volume* cell) -> double {
         const int n = cell->GetNumberOfPoints();
         if (n < 4) return 0.0;
@@ -542,6 +544,9 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     }
 
     std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+
+    progress+=10;
+    UpdateProgress(progress * 0.01);
 
     // int split = 6;
     // double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60);
@@ -641,6 +646,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     // auto t_01 = std::chrono::high_resolution_clock::now();
     torch::Tensor smooth_vals =
             knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5);
+    UpdateProgress(90 * 0.01);
     // auto t_02 = std::chrono::high_resolution_clock::now();
     // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
     // std::cout << "[VortexDetection:process_blocks:::Execute] knn_smooth_labels = " << elapsed_0 << " s" << std::endl;
@@ -651,6 +657,8 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     vortexs->Reserve(NumPoints);
     vortexs->SetName("vortexPredict");
     attributeSet->AddScalar(IG_POINT, vortexs);
+
+    UpdateProgress(95 * 0.01);
 
     for (int i = 0; i < NumPoints; ++i) {
         float value = smooth_vals[i].item<float>();
@@ -670,6 +678,7 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
             break;
         }
     }
+    UpdateProgress(100 * 0.01);
     return true;
 }
 
@@ -707,7 +716,13 @@ void VortexDetection::EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc,
     std::cout << "Precision     : " << precision << "\n";
     std::cout << "Recall        : " << recall << "\n";
     std::cout << "===================================================\n";
+
+    m_Accuracy  = accuracy;
+    m_Precision = precision;
+    m_Recall    = recall;
+
 }
+
 
 torch::Tensor VortexDetection::sigmoid(const torch::Tensor& x) { return 1.0 / (1.0 + (-x).exp()); }
 
@@ -762,7 +777,7 @@ std::vector<torch::Tensor> VortexDetection::extractPatches(const torch::Tensor& 
 //    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 //    //torch::Device device(torch::kCPU);
 //
-//    // ï¿?  3D Tensor
+//    // ï¿½?  3D Tensor
 //
 //    std::cout << nx << " " << ny << " " << nz << std::endl;
 //    // torch::Tensor tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
@@ -954,7 +969,7 @@ torch::Tensor VortexDetection::gaussian_filter3d(torch::Tensor input, float sigm
     if (input.dim() == 3) {
         input = input.unsqueeze(0).unsqueeze(0);
         was_DHW = true;
-    } else if (input.dim() == 4) { // Gï¿? [D,H,W,C]
+    } else if (input.dim() == 4) { // Gï¿½? [D,H,W,C]
         input = input.permute({3, 0, 1, 2}).unsqueeze(0);
         was_DHWC = true;
     } else {
@@ -1365,9 +1380,9 @@ torch::Tensor VortexDetection::extract_patches_gpu_batched(const torch::Tensor& 
 
     auto input = padded.permute({3, 0, 1, 2}).unsqueeze(0).contiguous(); // [1,C,D,H,W]
     auto device = input.device();
-    auto patches = input.unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride)    // D ï¿?
-                           .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H ï¿?
-                           .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W ï¿?
+    auto patches = input.unfold(/*dim=*/2, /*size=*/patch_size, /*step=*/stride)    // D ï¿½?
+                           .unfold(/*dim=*/3, /*size=*/patch_size, /*step=*/stride) // H ï¿½?
+                           .unfold(/*dim=*/4, /*size=*/patch_size, /*step=*/stride) // W ï¿½?
                            .contiguous();
 
     const int64_t nz = patches.size(2);
@@ -1603,7 +1618,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //    Eigen::Vector3f block_size = range_vec / split;
 //    //Eigen::Vector3f range_vec = max_pos - min_pos;
 //    //Eigen::Vector3f block_size = range_vec / split;
-//    // ï¿? KD-Tree
+//    //  KD-Tree
 //    Eigen::MatrixXd points(gridPoints.size(), 3);
 //    for (size_t i = 0; i < gridPoints.size(); ++i) {
 //        points(i, 0) = gridPoints[i][0];
@@ -1898,7 +1913,7 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //        }
 //    }
 //
-//    // ï¿½ï¿½h@e
+//    // ï¿½ï¿½h@e
 //    auto sizes = result_volume_1.sizes();
 //    float depth = static_cast<float>(sizes[0]);
 //    float height = static_cast<float>(sizes[1]);
@@ -2192,6 +2207,8 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
     torch::nn::functional::GridSampleFuncOptions gs_opts;
     gs_opts = gs_opts.mode(torch::kBilinear).padding_mode(torch::kBorder).align_corners(true);
 
+    UpdateProgress(82 * 0.01);
+
     for (int64_t start = 0; start < M; start += CHUNK) {
         const int64_t end = std::min<int64_t>(M, start + CHUNK);
         const int64_t currN = end - start;
@@ -2207,7 +2224,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
         auto q_host = torch::from_blob(q_chunk_host_vec.data(), {currN, 3},
                                        torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
         auto q = prefer_cuda ? q_host.to(device, torch::kFloat32, /*non_blocking*/ true, /*copy*/ true)
-                             : q_host.clone(); // CPU ï¿½ï¿½ clone :ï¿½ï¿½ ï¿?
+                             : q_host.clone(); // CPU ï¿½ï¿½ clone :ï¿½ï¿½ ï¿½?
 
         auto gridM3 = (q - min_t) * inv_s;
         gridM3.mul_(scale).add_(-1.0f);
@@ -2305,7 +2322,7 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
 //                .padding_mode(torch::kBorder)
 //                .align_corners(true);
 //
-//     at::InferenceMode guard; // ï¿?  ï¿½ï¿½!ï¿? autograd ï¿?*
+//     at::InferenceMode guard; // ï¿½tograd ï¿½*
 //     torch::Tensor sampled = grid_sample(vol, grid, opts); // [1,1,M,1,1]
 //     sampled = sampled.view({M});                          // [M]
 //
@@ -2742,7 +2759,7 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
 //     Eigen::Vector3f block_size = range_vec / split;
 //     //Eigen::Vector3f range_vec = max_pos - min_pos;
 //     //Eigen::Vector3f block_size = range_vec / split;
-//     // ï¿? KD-Tree
+//     // ï¿½? KD-Tree
 //     Eigen::MatrixXd points(gridPoints.size(), 3);
 //     for (size_t i = 0; i < gridPoints.size(); ++i) {
 //         points(i, 0) = gridPoints[i][0];
@@ -3111,6 +3128,8 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     double elapsed_2 = std::chrono::duration<double>(t4 - t3).count();
     std::cout << "[VortexDetection::Execute] predict = " << elapsed_2 << " s" << std::endl;
 
+    UpdateProgress(75 * 0.01);
+
     int nz_sub = all_results_1[0].size(0);
     int ny_sub = all_results_1[0].size(1);
     int nx_sub = all_results_1[0].size(2);
@@ -3154,6 +3173,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
     // double elapsed_4 = std::chrono::duration<double>(t8 - t7).count();
     // std::cout << "[VortexDetection::Execute] predict_after = " << elapsed_4 << " s" << std::endl;
     // return std::make_tuple(result_volume_11, global_step);
+    UpdateProgress(80 * 0.01);
     return std::make_tuple(result_volume_11, global_step, std::move(predict_vals));
 }
 
@@ -3162,4 +3182,4 @@ torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, floa
 }
 
 #endif
-IGAME_NAMESPACE_END 
+IGAME_NAMESPACE_END

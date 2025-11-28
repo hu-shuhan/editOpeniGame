@@ -225,7 +225,12 @@
        </item>
        <item>
         <property name="text">
-         <string>重点区域选取</string>
+         <string>重点区域极值</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>重点区域均匀</string>
         </property>
        </item>
       </widget>

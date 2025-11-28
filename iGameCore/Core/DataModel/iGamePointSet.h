@@ -12,7 +12,7 @@ class PointSet : public DrawObject {
 public:
     I_OBJECT(PointSet);
     static Pointer New() { return new PointSet; }
-    IGenum GetDataObjectType() const { return IG_POINT_SET; }
+    IGenum GetDataObjectType() const override { return IG_POINT_SET; }
     // Set/Get point array
     void SetPoints(Points::Pointer points);
     Points::Pointer GetPoints();
@@ -84,6 +84,7 @@ public:
      * @return Selection 对象的指针。
      */
     SmartPointer<Selection> GetSelection(Model* model = nullptr);
+    void SetSelection(SmartPointer<Selection> selection);
 
 protected:
     SmartPointer<Selection> m_Selection;

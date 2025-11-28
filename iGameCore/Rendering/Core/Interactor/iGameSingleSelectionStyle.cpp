@@ -210,6 +210,7 @@ static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[],
 }
 
 void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
+    _AT_;
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
     auto [point1, point2] = GetStartPointAndEndPoint(pos);
 

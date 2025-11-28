@@ -112,7 +112,7 @@ elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
     )
 
 elseif (ENABLE_LIBTORCH_MODULE)
-#    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
+    #    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
     message(FATAL_ERROR "Only Windows and Linux platform is supported for this project!")
 endif ()
 

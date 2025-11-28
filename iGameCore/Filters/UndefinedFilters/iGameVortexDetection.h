@@ -49,6 +49,10 @@ public:
     I_OBJECT(VortexDetection);
     static Pointer New() { return new VortexDetection; }
 
+    double GetAccuracy()  const { return m_Accuracy;  }
+    double GetPrecision() const { return m_Precision; }
+    double GetRecall()    const { return m_Recall;    }
+
     bool Execute() override;
 #if defined(LibTorch_ENABLE)
     bool DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes, int Index,
@@ -123,6 +127,10 @@ protected:
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet::Pointer attributeSet{};
     iGameStreamTracer::Pointer streamTracer{};
+
+    double m_Accuracy  = -1.0;
+    double m_Precision = -1.0;
+    double m_Recall    = -1.0;
 
     int curIndex{-1};
     int curDim{-1};

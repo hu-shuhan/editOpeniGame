@@ -69,7 +69,7 @@ void igQtSelectionWidget::SelectionStationNone(bool checked) {
         ShowSelectionTypeUi();
     }
     //iGame::SelectionParameter::Instance().SetSelectionStation(iGame::SelectionParameter::SelectionStation::NONE_SELECTION);
-    if (!checked) return;
+    //if (!checked) return;
     if (m_PreventSignalSend) return;
     emit Signal_SetSelectionStationChanged();
 }
