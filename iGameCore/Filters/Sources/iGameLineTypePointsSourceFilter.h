@@ -5,16 +5,14 @@
 
 #pragma once
 
-#include "iGamePointsSource.h"
 #include "iGamePoints.h"
+#include "iGamePointsSourceFilter.h"
 
 IGAME_NAMESPACE_BEGIN
-class LineTypePointsSource : public PointSource{
+class LineTypePointsSourceFilter : public PointSource {
 public:
-    I_OBJECT(LineTypePointsSource)
-    static Pointer New(){
-        return new LineTypePointsSource();
-    }
+    I_OBJECT(LineTypePointsSourceFilter)
+    static Pointer New() { return new LineTypePointsSourceFilter(); }
 
     bool Execute() override;
 
@@ -25,7 +23,7 @@ public:
     void SetResolution(unsigned int Resolution);
 
 protected:
-    LineTypePointsSource(){};
+    LineTypePointsSourceFilter() {};
 
     Point m_Point_0;
     Point m_Point_1;

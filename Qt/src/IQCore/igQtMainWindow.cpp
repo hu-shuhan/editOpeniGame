@@ -45,7 +45,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
-#include <Sources/iGameLineTypePointsSource.h>
+#include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
