@@ -24,12 +24,12 @@ endif ()
 #--------------------------------------------------------------------
 
 #option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
+set(ENABLE_CGNS_MODULE OFF CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
 
 set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
 
 #option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
-set(ENABLE_LIBTORCH_MODULE ON CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
+set(ENABLE_LIBTORCH_MODULE OFF CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
 
 # This module is temporarily only available on Windows Platform.
 set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
@@ -139,6 +139,3 @@ if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
 endif ()
-
-# <pre>ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCyrIGIn+hTiCq6bUM3Y46aOZ4iX5aQ5Nj3HVJauUffu7PJBAnTL6P+QqRgTTkEfIBlysBNrMS5zZIvBA2oxyEyExXu2oP7qL9aiT0GPnU+Ah8vdF4nnC2heGVRPu9BCRPA6H38zzTC6+PAb9t6aSF2GCrHWfLxma3fOO4+Ckx0cZutxVJm+1f6x0SaQCOiF7CYZ7HnHhNwGD0zPCLJT84vtziiqTeP1zF8lXe/sMMg1pzLG4IZcyZgbPLbQ6YbzB/vblHSNsLtkCWhGCaOj6VZQPBhqO8JYgqFwMxVViuJb3SbVEsI68ReH8SPJWpJqAhHnKcZokNDSNjD6uH5Cs8YC07LYtrasWtc28xBMOzkDpwz9od5+nHk6DvqJ+Jo3ST+ZevwXyODzr4hZW949h9mPzkcYhVr5hQzgjVcsF4CBFdlRJwLwfS4aSCCznmhJa/oNePJM+yzy2Nz6VKxMRIeru+cQEQJezWoUX5ec3tWi2DI5UhLr0olbVDkrAKGtzE= xjj@ps
-#</pre>
