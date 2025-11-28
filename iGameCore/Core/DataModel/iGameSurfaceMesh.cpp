@@ -1,5 +1,5 @@
 #include "iGameSurfaceMesh.h"
-#include "ModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
 #include "iGameScene.h"
 #include "iGameThreadPool.h"

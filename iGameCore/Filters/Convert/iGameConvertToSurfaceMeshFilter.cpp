@@ -1,5 +1,5 @@
 #include "iGameConvertToSurfaceMeshFilter.h"
-#include "ModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "iGameCell.h"
 #include "iGameThreadPool.h"
 
@@ -105,7 +105,7 @@ bool ConvertToSurfaceMeshFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::P
             // 复制属性数据
             if (um->GetAttributeSet()) {
                 AttributeSet::Pointer outAttributeSet = AttributeSet::New();
-                iGameModelGeometryFilter::Pointer geometryFilter = iGameModelGeometryFilter::New();
+                ModelGeometryFilter::Pointer geometryFilter = ModelGeometryFilter::New();
                 geometryFilter->CompositeCellAttribute(f2c, um->GetAttributeSet(), outAttributeSet);
                 outputMesh->SetAttributeSet(outAttributeSet);
             }
@@ -113,7 +113,7 @@ bool ConvertToSurfaceMeshFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::P
         }
 
         case IG_EXTRACT_SURFACE_MESH: {
-            auto Extracter = iGame::iGameModelGeometryFilter::New();
+            auto Extracter = iGame::ModelGeometryFilter::New();
             Extracter->SetInput(um);
             Extracter->Execute();
             outputMesh = Extracter->GetExtractMesh();
@@ -143,7 +143,7 @@ bool ConvertToSurfaceMeshFilter::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
     }
 
     // 统一使用提取表面网格模式
-    auto Extracter = iGame::iGameModelGeometryFilter::New();
+    auto Extracter = iGame::ModelGeometryFilter::New();
     Extracter->SetInput(vm);
     Extracter->Execute();
     outputMesh = Extracter->GetExtractMesh();

@@ -1,5 +1,5 @@
 #include "iGameConvertToVolumeMeshFilter.h"
-#include "ModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "iGameCell.h"
 #include "iGameThreadPool.h"
 
@@ -100,7 +100,7 @@ bool ConvertToVolumeMeshFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Po
             // 复制属性数据
             if (um->GetAttributeSet()) {
                 AttributeSet::Pointer outAttributeSet = AttributeSet::New();
-                iGameModelGeometryFilter::Pointer geometryFilter = iGameModelGeometryFilter::New();
+                ModelGeometryFilter::Pointer geometryFilter = ModelGeometryFilter::New();
                 geometryFilter->CompositeCellAttribute(v2c, um->GetAttributeSet(), outAttributeSet);
                 outputMesh->SetAttributeSet(outAttributeSet);
             }

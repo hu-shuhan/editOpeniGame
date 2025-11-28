@@ -6,7 +6,7 @@
 #include <omp.h>
 IGAME_NAMESPACE_BEGIN
 #define ArrayList std::vector<ArrayObject>
-iGameModelGeometryFilter::iGameModelGeometryFilter() {
+ModelGeometryFilter::ModelGeometryFilter() {
     this->PointMinimum = 0;
     this->PointMaximum = LLONG_MAX;
 
@@ -38,18 +38,18 @@ iGameModelGeometryFilter::iGameModelGeometryFilter() {
 
     this->m_PointMap = nullptr;
 }
-iGameModelGeometryFilter::~iGameModelGeometryFilter() {
+ModelGeometryFilter::~ModelGeometryFilter() {
     this->m_PointMap = nullptr;
     this->input = nullptr;
     this->output = nullptr;
     this->excFaces = nullptr;
 }
-void iGameModelGeometryFilter::SetExtent(double xMin, double xMax, double yMin, double yMax, double zMin, double zMax,
-                                         bool flip) {
+void ModelGeometryFilter::SetExtent(double xMin, double xMax, double yMin, double yMax, double zMin, double zMax,
+                                    bool flip) {
     double extent[6] = {xMin, xMax, yMin, yMax, zMin, zMax};
     this->SetExtent(extent, flip);
 }
-void iGameModelGeometryFilter::SetExtent(double extent[6], bool flip) {
+void ModelGeometryFilter::SetExtent(double extent[6], bool flip) {
     int i;
     bool needSet = false;
     for (i = 0; i < 6; i++) { needSet |= extent[i] != this->Extent[i]; }
@@ -64,8 +64,7 @@ void iGameModelGeometryFilter::SetExtent(double extent[6], bool flip) {
     this->ExtentClippingFlip = flip;
     this->SetExtentClipping(true);
 }
-void iGameModelGeometryFilter::SetClipPlane(double ox, double oy, double oz, double nx, double ny, double nz,
-                                            bool flip) {
+void ModelGeometryFilter::SetClipPlane(double ox, double oy, double oz, double nx, double ny, double nz, bool flip) {
     this->PlaneOrigin[0] = ox;
     this->PlaneOrigin[1] = oy;
     this->PlaneOrigin[2] = oz;
@@ -75,54 +74,54 @@ void iGameModelGeometryFilter::SetClipPlane(double ox, double oy, double oz, dou
     this->PlaneClippingFlip = flip;
     this->SetPlaneClipping(true);
 }
-void iGameModelGeometryFilter::SetClipPlane(double orgin[3], double normal[3], bool flip) {
+void ModelGeometryFilter::SetClipPlane(double orgin[3], double normal[3], bool flip) {
     this->SetClipPlane(orgin[0], orgin[1], orgin[2], normal[0], normal[1], normal[2], flip);
 }
-void iGameModelGeometryFilter::SetPointIndexExtent(igIndex _min, igIndex _max) {
+void ModelGeometryFilter::SetPointIndexExtent(igIndex _min, igIndex _max) {
     if (_min > _max) { std::swap(_min, _max); }
     this->PointMinimum = _min;
     this->PointMaximum = _max;
     SetPointClipping(true);
 }
-void iGameModelGeometryFilter::SetPointIndexMinimum(igIndex _min) {
+void ModelGeometryFilter::SetPointIndexMinimum(igIndex _min) {
     this->PointMinimum = _min;
     this->PointMaximum = std::max(_min, this->PointMaximum);
     SetPointClipping(true);
 }
-void iGameModelGeometryFilter::SetPointIndexMaximum(igIndex _max) {
+void ModelGeometryFilter::SetPointIndexMaximum(igIndex _max) {
     this->PointMinimum = std::min(_max, this->PointMinimum);
     this->PointMaximum = _max;
     SetPointClipping(true);
 }
-void iGameModelGeometryFilter::SetCellIndexExtent(igIndex _min, igIndex _max) {
+void ModelGeometryFilter::SetCellIndexExtent(igIndex _min, igIndex _max) {
     if (_min > _max) { std::swap(_min, _max); }
     this->CellMinimum = _min;
     this->CellMaximum = _max;
     SetCellClipping(true);
 }
-void iGameModelGeometryFilter::SetCellIndexMinimum(igIndex _min) {
+void ModelGeometryFilter::SetCellIndexMinimum(igIndex _min) {
     this->CellMinimum = _min;
     this->CellMaximum = std::max(_min, this->PointMaximum);
     SetCellClipping(true);
 }
-void iGameModelGeometryFilter::SetCellIndexMaximum(igIndex _max) {
+void ModelGeometryFilter::SetCellIndexMaximum(igIndex _max) {
     this->CellMinimum = std::min(_max, this->PointMinimum);
     this->CellMaximum = _max;
     SetCellClipping(true);
 }
 
-bool iGameModelGeometryFilter::Execute() {
+bool ModelGeometryFilter::Execute() {
 
     Execute(this->input);
     return true;
 }
-bool iGameModelGeometryFilter::Execute(DataObject::Pointer input) {
+bool ModelGeometryFilter::Execute(DataObject::Pointer input) {
 
     this->output = SurfaceMesh::New();
     return Execute(input, output);
 }
 
-bool iGameModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
+bool ModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
     if (!input) {
         output = nullptr;
         return false;
@@ -497,8 +496,8 @@ struct ExtractCellBoundaries {
     virtual void Initialize() {}
 };
 
-int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
-                                                     SurfaceMesh::Pointer exc) {
+int ModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+                                                SurfaceMesh::Pointer exc) {
     SurfaceMesh::Pointer Grid = DynamicCast<SurfaceMesh>(input);
     //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
     //                     << Grid->GetNumberOfFaces() << " faces.");
@@ -554,7 +553,7 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, 
     return 1;
 }
 
-int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
+int ModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
     return this->ExecuteWithSurfaceMesh(input, output, nullptr);
 }
 
@@ -695,8 +694,8 @@ struct ExtractVM : public ExtractCellBoundaries {
         }
     } // operator()
 };
-int iGameModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
-                                                    SurfaceMesh::Pointer exc) {
+int ModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+                                               SurfaceMesh::Pointer exc) {
     VolumeMesh::Pointer Grid = DynamicCast<VolumeMesh>(input);
     //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
     //                     << Grid->GetNumberOfVolumes() << " volumes.");
@@ -762,7 +761,7 @@ int iGameModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, S
     //igDebug("Extracted surface cost " << time2 - time1 << "ms.");
     return 1;
 }
-int iGameModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
+int ModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
     return ExecuteWithVolumeMesh(input, output, nullptr);
 }
 
@@ -1039,8 +1038,8 @@ struct ExtractUG : public ExtractCellBoundaries {
         }
     }
 };
-int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
-                                                          SurfaceMesh::Pointer exc) {
+int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+                                                     SurfaceMesh::Pointer exc) {
     UnstructuredMesh::Pointer Grid = DynamicCast<UnstructuredMesh>(input);
     //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
     //                     << Grid->GetNumberOfCells() << " cells.");
@@ -1117,7 +1116,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer in
     return 1;
 }
 
-int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
+int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
     return this->ExecuteWithUnstructuredGrid(input, output, nullptr);
 }
 
@@ -1260,8 +1259,8 @@ struct ExtractSG : public ExtractCellBoundaries {
         }
     }
 };
-int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
-                                                        SurfaceMesh::Pointer exc, bool* extracFace) {
+int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+                                                   SurfaceMesh::Pointer exc, bool* extracFace) {
     ;
     StructuredMesh::Pointer Grid = DynamicCast<StructuredMesh>(input);
     Grid->GenStructuredCellConnectivities();
@@ -1316,13 +1315,13 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer inpu
     return 1;
 }
 
-int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
-                                                        bool* extracFace) {
+int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+                                                   bool* extracFace) {
     return this->ExecuteWithStructuredGrid(input, output, nullptr, extracFace);
 }
 
-char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints,
-                                                        CellArray::Pointer Cells, UnsignedIntArray::Pointer Types) {
+char* ModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints,
+                                                   CellArray::Pointer Cells, UnsignedIntArray::Pointer Types) {
     IGsize numCells = Cells ? Cells->GetNumberOfCells() : 0;
     char* CellVisible = nullptr;
     if ((!CellClipping) && (!PointClipping) && (!ExtentClipping) && (!PlaneClipping)) {
@@ -1396,17 +1395,17 @@ char* iGameModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& Cell
     ThreadPool::parallelFor(0, numCells, func);
     return CellVisibleArray->RawPointer();
 }
-void iGameModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract, Points::Pointer inPoints,
-                                                  Points::Pointer& outPoints, CellArray::Pointer Polygons,
-                                                  AttributeSet::Pointer outAllDataArray) {
+void ModelGeometryFilter::ProcessPointMergin(ExtractCellBoundaries* extract, Points::Pointer inPoints,
+                                             Points::Pointer& outPoints, CellArray::Pointer Polygons,
+                                             AttributeSet::Pointer outAllDataArray) {
     outPoints = Points::New();
     extract->UpdatePointMap(Polygons, inPoints, outPoints);
     CompositePointAttribute(extract->GetPointMap()->RawPointer(), inPoints->GetNumberOfPoints(),
                             outPoints->GetNumberOfPoints(), outAllDataArray);
     m_PointMap = extract->GetPointMap();
 }
-void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, AttributeSet::Pointer inAllDataArray,
-                                                      AttributeSet::Pointer& outAllDataArray) {
+void ModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, AttributeSet::Pointer inAllDataArray,
+                                                 AttributeSet::Pointer& outAllDataArray) {
     if (!outAllDataArray) { outAllDataArray = AttributeSet::New(); }
     igIndex i = 0;
     IGsize fcnt = F2C.size();
@@ -1439,8 +1438,8 @@ void iGameModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C,
         }
     }
 }
-void iGameModelGeometryFilter::CompositePointAttribute(igIndex* PointMap, IGsize oldPNum, IGsize newPNum,
-                                                       AttributeSet::Pointer outAllDataArray) {
+void ModelGeometryFilter::CompositePointAttribute(igIndex* PointMap, IGsize oldPNum, IGsize newPNum,
+                                                  AttributeSet::Pointer outAllDataArray) {
     igIndex i = 0;
     auto inDataArrayNum = outAllDataArray->GetAllAttributes()->GetNumberOfElements();
     for (i = 0; i < inDataArrayNum; i++) {

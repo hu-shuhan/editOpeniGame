@@ -1,5 +1,5 @@
 #include "iGameModelClip.h"
-#include "ModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
 #include "iGameThreadPool.h"
 IGAME_NAMESPACE_BEGIN
 
