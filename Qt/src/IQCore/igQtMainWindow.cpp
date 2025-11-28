@@ -14,7 +14,6 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
-#include "UndefinedFilters/iGameVortexDetection.h"
 
 #include "Interactor/iGameInteractor.h"
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
