@@ -13,27 +13,26 @@
 
 IGAME_NAMESPACE_BEGIN
 
-//现在默认取第一个数组
 class LaplacianFilter : public Filter {
-
 public:
     I_OBJECT(LaplacianFilter);
     static Pointer New() { return new LaplacianFilter; }
-    bool Execute() override {
 
+    void SetAttributeByIndex(int index) { curIndex = index; }
+    void SetAttributeByName(const std::string& name) { this->name = name; }
+
+    bool Execute() override {
         auto input = GetInput(0);
         if (input == nullptr) return false;
 
         auto CheckType = [&]() -> bool {
             attributeSet = input->GetAttributeSet();
-            if (!attributeSet) return false;
-            curIndex = input->GetAttributeIndex();
-            curDim = input->GetAttributeDimension();
-            if (curIndex < 0) return false;
+            if (attributeSet == nullptr) return false;
+            if (curIndex == -1 && name == "") return false;
+            if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
+            if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
 
-            int dim = input->GetAttributeSet()
-                              ->GetAttribute(curIndex)
-                              .pointer->GetDimension();
+            int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
             if (dim != 1) { return false; }
             return true;
         };
@@ -130,6 +129,8 @@ public:
         }
         return false;
     }
+    
+private:
     // 表面/体网格：点
     //bool GetPointLaplacian(int type, Points::Pointer Points, int PointNum) {
 
@@ -382,7 +383,7 @@ protected:
     AttributeSet* attributeSet{nullptr};
 
     int curIndex{-1};
-    int curDim{-1};
+    std::string name;
 };
 
 IGAME_NAMESPACE_END

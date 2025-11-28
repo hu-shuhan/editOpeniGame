@@ -38,7 +38,7 @@
 #endif
 
 #include "StreamView/iGameStreamTracer.h"
-#include "UndefinedFilters/iGameVortexFilter.h"
+#include "FeatureExtraction/iGameVortexFilter.h"
 #include <nanoflann.hpp>
 #include <vector>
 
@@ -52,6 +52,9 @@ public:
     double GetAccuracy()  const { return m_Accuracy;  }
     double GetPrecision() const { return m_Precision; }
     double GetRecall()    const { return m_Recall;    }
+
+    void SetAttributeByIndex(int index) { curIndex = index; }
+    void SetAttributeByName(const std::string& name) { this->attName = name; }
 
     bool Execute() override;
 #if defined(LibTorch_ENABLE)
@@ -135,6 +138,7 @@ protected:
     int curIndex{-1};
     int curDim{-1};
     std::string name{};
+    std::string attName;
 };
 
 IGAME_NAMESPACE_END
