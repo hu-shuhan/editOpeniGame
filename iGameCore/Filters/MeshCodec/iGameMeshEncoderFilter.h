@@ -11,18 +11,18 @@
 #include "iGameMeshCodecZSTD.h"
 #include "iGameMeshEncoderAdapter.h"
 #include "iGameMeshFloatCodec.h"
+#include "iGameThreadPool.h"
 #include <filesystem>
 #include <memory>
-#include "iGameThreadPool.h"
 
 IGAME_NAMESPACE_BEGIN
 
-class MeshEncoder : public MeshCodec {
+class MeshEncoderFilter : public MeshCodec {
 public:
-    I_OBJECT(MeshEncoder);
-    static Pointer New() { return new MeshEncoder; }
+    I_OBJECT(MeshEncoderFilter);
+    static Pointer New() { return new MeshEncoderFilter; }
 
-    MeshEncoder() {
+    MeshEncoderFilter() {
         this->SetNumberOfInputs(1);
         this->SetNumberOfOutputs(1);
     }
@@ -199,9 +199,7 @@ private:
             }
 
             // 3) 兜底：用对象的实际内存占用估算（保证报告不空）
-            if (sourceSize <= 0) {
-                sourceSize = static_cast<long long>(this->m_DataObj->GetRealMemorySize());
-            }
+            if (sourceSize <= 0) { sourceSize = static_cast<long long>(this->m_DataObj->GetRealMemorySize()); }
 
             if (sourceSize > 0) {
                 long long compressSize = static_cast<long long>(m_encodedData->m_Buffers.size());
@@ -257,7 +255,7 @@ private:
             float keyError, nonKeyError;
             FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
 
-			/*
+            /*
 			if (floatParams.errorMode == ErrorMode::KeyArea) {
 				m_report.push_back(
 						std::make_pair(dataName + " 相对误差",
@@ -267,11 +265,10 @@ private:
 			}
 			*/
 
-			// 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
-			const float errPercent = keyError * 100.0f;
-			std::cout << dataName << " relative_error: " << fmt::v11::format("{:.8f}%", errPercent) << std::endl;
-			m_report.push_back(
-					std::make_pair(dataName + " 相对误差", fmt::v11::format("{:.8f}%", errPercent)));
+            // 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
+            const float errPercent = keyError * 100.0f;
+            std::cout << dataName << " relative_error: " << fmt::v11::format("{:.8f}%", errPercent) << std::endl;
+            m_report.push_back(std::make_pair(dataName + " 相对误差", fmt::v11::format("{:.8f}%", errPercent)));
         }
     }
 
@@ -1441,8 +1438,7 @@ private:
     }
     */
 
-// endregion
-
+    // endregion
 };
 
 IGAME_NAMESPACE_END
