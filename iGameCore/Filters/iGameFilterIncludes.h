@@ -1,9 +1,9 @@
 
 #include "Clip/iGameClipFilter.h"
 #include "Contour/iGameContourFilter.h"
-#include "Convert/iGameConvertToPointCloud.h"
-#include "Convert/iGameConvertToSurfaceMesh.h"
-#include "Convert/iGameConvertToVolumeMesh.h"
+#include "Convert/iGameConvertToPointCloudFilter.h"
+#include "Convert/iGameConvertToSurfaceMeshFilter.h"
+#include "Convert/iGameConvertToVolumeMeshFilter.h"
 #include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "Slice/iGameSliceFilter.h"

@@ -1,98 +1,87 @@
 #include "iGameSurfaceMeshMetrics.h"
-#include "Convert/iGameConvertToSurfaceMesh.h"
+#include "Convert/iGameConvertToSurfaceMeshFilter.h"
 
 IGAME_NAMESPACE_BEGIN
 
 SurfaceMeshMetrics::SurfaceMeshMetrics() {
-	this->SetNumberOfInputs(1);
-	this->SetNumberOfOutputs(1);
-	m_Faces = nullptr;
-	m_Points = nullptr;
+    this->SetNumberOfInputs(1);
+    this->SetNumberOfOutputs(1);
+    m_Faces = nullptr;
+    m_Points = nullptr;
 }
 
 SurfaceMeshMetrics::~SurfaceMeshMetrics() {
-	m_Faces = nullptr;
-	m_Points = nullptr;
+    m_Faces = nullptr;
+    m_Points = nullptr;
 }
 
 
 bool SurfaceMeshMetrics::Execute() {
-	if (m_Inputs->GetNumberOfElements() == 0) {
-		return false;
-	}
+    if (m_Inputs->GetNumberOfElements() == 0) { return false; }
 
-	auto input = m_Inputs->GetElement(0);
-	if (!input) {
-		return false;
-	}
-	m_Faces = nullptr;
-	switch (input->GetDataObjectType())
-	{
-	case IG_SURFACE_MESH:
-		m_Faces = (DynamicCast<SurfaceMesh>(input))->GetFaces();
-		m_Points = (DynamicCast<SurfaceMesh>(input))->GetPoints();
-		break;
-	case IG_UNSTRUCTURED_MESH:
-	{
-		auto mesh = DynamicCast<UnstructuredMesh>(input);
-		auto converter = ConvertToSurfaceMesh::New();
-		converter->SetInput(mesh);
-		bool result = converter->Execute();
-		if (result) {
-			m_Faces = converter->GetSurfaceMesh()->GetFaces();
-			m_Points = converter->GetSurfaceMesh()->GetPoints();
+    auto input = m_Inputs->GetElement(0);
+    if (!input) { return false; }
+    m_Faces = nullptr;
+    switch (input->GetDataObjectType()) {
+        case IG_SURFACE_MESH:
+            m_Faces = (DynamicCast<SurfaceMesh>(input))->GetFaces();
+            m_Points = (DynamicCast<SurfaceMesh>(input))->GetPoints();
+            break;
+        case IG_UNSTRUCTURED_MESH: {
+            auto mesh = DynamicCast<UnstructuredMesh>(input);
+            auto converter = ConvertToSurfaceMeshFilter::New();
+            converter->SetInput(mesh);
+            bool result = converter->Execute();
+            if (result) {
+                m_Faces = converter->GetSurfaceMesh()->GetFaces();
+                m_Points = converter->GetSurfaceMesh()->GetPoints();
+            }
+            break;
+        }
+        default:
+            igDebug("请输入表面网格进行质量检测");
+            break;
+    }
+    if (!m_Faces) {
+        igDebug("没有表面单元");
+        return false;
+    }
+    igIndex vhs[IGAME_CELL_MAX_SIZE] = {0}; //存储每个面的顶点索引数组
+    igIndex vNum = 0;                       //每个面的顶点数量
 
-		}
-		break;
+    igIndex faceNum = m_Faces->GetNumberOfCells(); //总面数
 
-	}
-	default:
-		igDebug("请输入表面网格进行质量检测");
-		break;
-	}
-	if (!m_Faces) {
-		igDebug("没有表面单元");
-		return false;
-	}
-	igIndex vhs[IGAME_CELL_MAX_SIZE] = { 0 };		//存储每个面的顶点索引数组
-	igIndex vNum = 0;								//每个面的顶点数量
+    iGame::DoubleArray::Pointer metricArray = iGame::DoubleArray::New();
 
-	igIndex faceNum = m_Faces->GetNumberOfCells();	//总面数
+    metricArray->SetDimension(1);
+    metricArray->Reserve(faceNum);
+    iGame::DoubleArray::Pointer dataRange = iGame::DoubleArray::New();
+    dataRange->AddValue(0.0);
+    dataRange->AddValue(1.0);
+    dataRange->AddValue(0.0);
+    dataRange->AddValue(1.0);
+    for (igIndex i = 0; i < faceNum; i++) {
+        vNum = m_Faces->GetCellIds(i, vhs); //获取第i个面的顶点索引
+        double metric = this->ComputeMetric(vNum, vhs);
+        metricArray->AddValue(metric);
+    }
 
-	iGame::DoubleArray::Pointer metricArray = iGame::DoubleArray::New();
+    auto output = input;
 
-	metricArray->SetDimension(1);
-	metricArray->Reserve(faceNum);
-	iGame::DoubleArray::Pointer dataRange = iGame::DoubleArray::New();
-	dataRange->AddValue(0.0);
-	dataRange->AddValue(1.0);
-	dataRange->AddValue(0.0);
-	dataRange->AddValue(1.0);
-	for (igIndex i = 0; i < faceNum; i++) {
-		vNum = m_Faces->GetCellIds(i, vhs);					//获取第i个面的顶点索引
-		double metric = this->ComputeMetric(vNum, vhs);
-		metricArray->AddValue(metric);
-	}
+    output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, metricArray);
+    //output->GetAttributeSet()->AddAttribute(IG_SCALAR,IG_CELL,metricArray,dataRange);
 
-	auto output = input;
+    this->SetOutput(output);
 
-	output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, metricArray);
-	//output->GetAttributeSet()->AddAttribute(IG_SCALAR,IG_CELL,metricArray,dataRange);
-
-	this->SetOutput(output);
-
-	return true;
+    return true;
 }
-
 
 
 double SurfaceMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
 
 
-	std::vector<iGame::Point> points;
-    for (igIndex i = 0; i < vNum; i++) { 
-		points.push_back(m_Points->GetPoint(vhs[i])); 
-	}
+    std::vector<iGame::Point> points;
+    for (igIndex i = 0; i < vNum; i++) { points.push_back(m_Points->GetPoint(vhs[i])); }
     //Point p[100];
     //for (igIndex i = 0; i < vNum; i++) {
     //	p[i]=m_Points->GetPoint(vhs[0]);
@@ -100,7 +89,7 @@ double SurfaceMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
     //double len= (p[1]-p[0]).norm();
     //return ComputeA(vNum, vhs);
 
-	// 根据顶点数量选择计算方法
+    // 根据顶点数量选择计算方法
     if (vNum == 3) {
         // 三角形
         switch (m_Metric) {
@@ -167,19 +156,18 @@ double SurfaceMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
     } else {
     }
 
-	//switch (m_Metric)
-	//{
- //   case TRIANGLE_AREA:
- //       return ComputeTriangleArea(points);
-	//	break;
- //   case MAX_ANGLE:
- //       return ComputeMaxAngle(points);
-	//	break;
-	//default:
-	//	break;
-	//}
-	//return 0.0;
-
+    //switch (m_Metric)
+    //{
+    //   case TRIANGLE_AREA:
+    //       return ComputeTriangleArea(points);
+    //	break;
+    //   case MAX_ANGLE:
+    //       return ComputeMaxAngle(points);
+    //	break;
+    //default:
+    //	break;
+    //}
+    //return 0.0;
 }
 //计算顶点内角
 double SurfaceMeshMetrics::GetInternalAnglesOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2) {
@@ -201,12 +189,12 @@ double SurfaceMeshMetrics::ComputeTriangleArea(const std::vector<iGame::Point>& 
 
 
 double SurfaceMeshMetrics::ComputeTriangleMaxAngle(const std::vector<iGame::Point>& points) {
-    
+
     double angle1 = GetInternalAnglesOfVertex(points[0], points[1], points[2]);
     double angle2 = GetInternalAnglesOfVertex(points[1], points[0], points[2]);
     double angle3 = GetInternalAnglesOfVertex(points[2], points[1], points[0]);
 
-    return std::max({angle1, angle2 ,angle3});
+    return std::max({angle1, angle2, angle3});
 }
 
 double SurfaceMeshMetrics::ComputeTriangleMinAngle(const std::vector<iGame::Point>& points) {
@@ -231,7 +219,8 @@ double SurfaceMeshMetrics::ComputeTriangleJacobian(const std::vector<iGame::Poin
     double jacobian = cross.norm();
 
     double max_edge_length_product;
-    max_edge_length_product = std::max({edge0.norm() * edge1.norm(),edge1.norm() * edge2.norm(), edge0.norm() * edge2.norm()});
+    max_edge_length_product =
+            std::max({edge0.norm() * edge1.norm(), edge1.norm() * edge2.norm(), edge0.norm() * edge2.norm()});
 
 
     jacobian *= (2.0 / sqrt(3.0));
@@ -410,8 +399,6 @@ double SurfaceMeshMetrics::ComputeFaceMinAngleQuality(const std::vector<iGame::P
 }
 
 
-
-
 /*
 * 表面网格体积计算
 * 基于MeshMath.h中的get_volume_surface_mesh
@@ -437,8 +424,6 @@ double SurfaceMeshMetrics::ComputeSurfaceVolume(const std::vector<iGame::Point>&
 
     return std::abs(volume_contribution) / 6.0;
 }
-
-
 
 
 /*

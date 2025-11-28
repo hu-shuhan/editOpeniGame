@@ -1,7 +1,7 @@
 #include "iGameModelGeometryFilter.h"
+#include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Mutex/iGameAtomicMutex.h"
 #include "iGameThreadPool.h"
-#include "Convert/iGameConvertToSurfaceMesh.h"
 #include <mutex>
 #include <omp.h>
 IGAME_NAMESPACE_BEGIN
@@ -534,7 +534,7 @@ int iGameModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, 
         attrbNameArray->AddElement(outAllDataArray->GetAttribute(i).pointer.get()->GetName());
     }
     if (Merging) {
-        auto* extract = new ExtractCellBoundaries(nullptr,nullptr,nullptr);
+        auto* extract = new ExtractCellBoundaries(nullptr, nullptr, nullptr);
         extract->CreatePointMap(numInputPts);
         ProcessPointMergin(extract, inPoints, outPoints, Polygons, outAllDataArray);
         delete extract;
@@ -1113,7 +1113,7 @@ int iGameModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer in
     delete[] FacePools;
     FacePools = nullptr;
     clock_t endTime = clock();
-    igDebug("Extracted surface cost {} ms." , endTime - startTime);
+    igDebug("Extracted surface cost {} ms.", endTime - startTime);
     return 1;
 }
 
@@ -1265,8 +1265,8 @@ int iGameModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer inpu
     ;
     StructuredMesh::Pointer Grid = DynamicCast<StructuredMesh>(input);
     Grid->GenStructuredCellConnectivities();
-    if (Grid->GetDimension() != 3) { 
-       ConvertToSurfaceMesh::Pointer filter = ConvertToSurfaceMesh::New();
+    if (Grid->GetDimension() != 3) {
+        ConvertToSurfaceMeshFilter::Pointer filter = ConvertToSurfaceMeshFilter::New();
         filter->SetInput(Grid);
         filter->Execute();
         bool result = this->ExecuteWithSurfaceMesh(filter->GetSurfaceMesh(), output, exc);

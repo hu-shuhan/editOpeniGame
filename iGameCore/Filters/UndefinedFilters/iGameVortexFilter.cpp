@@ -1,13 +1,13 @@
 ﻿#include "iGameVortexFilter.h"
+#include "Convert/iGameConvertToVolumeMeshFilter.h"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
 #include "iGameFilter.h"
 #include "iGamePointSet.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
-#include <cmath>
 #include <algorithm>
-#include "Convert/iGameConvertToVolumeMesh.h"
+#include <cmath>
 IGAME_NAMESPACE_BEGIN
 bool VortexFilter::Execute()  {
 

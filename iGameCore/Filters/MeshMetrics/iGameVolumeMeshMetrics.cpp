@@ -1,5 +1,5 @@
-#include "Convert/iGameConvertToVolumeMesh.h"
 #include "iGameVolumeMeshMetrics.h"
+#include "Convert/iGameConvertToVolumeMeshFilter.h"
 
 
 IGAME_NAMESPACE_BEGIN
@@ -23,16 +23,14 @@ bool VolumeMeshMetrics::Execute() {
     auto input = m_Inputs->GetElement(0);
     if (!input) { return false; }
     m_Cells = nullptr;
-    switch (input->GetDataObjectType()) 
-    {
+    switch (input->GetDataObjectType()) {
         case IG_VOLUME_MESH:
             m_Cells = (DynamicCast<VolumeMesh>(input))->GetCells();
             m_Points = (DynamicCast<VolumeMesh>(input))->GetPoints();
             break;
-        case IG_UNSTRUCTURED_MESH: 
-        {
+        case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
-            auto converter = ConvertToVolumeMesh::New();
+            auto converter = ConvertToVolumeMeshFilter::New();
             converter->SetInput(mesh);
             bool result = converter->Execute();
             if (result) {
@@ -48,7 +46,6 @@ bool VolumeMeshMetrics::Execute() {
     if (!m_Cells) {
         igDebug("没有体网格单元");
         return false;
-
     }
     igIndex vhs[IGAME_CELL_MAX_SIZE] = {0}; //存储每个面的顶点索引数组
     igIndex vNum = 0;                       //每个面的顶点数量
@@ -82,9 +79,7 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
 
 
     std::vector<iGame::Point> points;
-    for (igIndex i = 0; i < vNum; i++) { 
-        points.push_back(m_Points->GetPoint(vhs[i])); 
-    }
+    for (igIndex i = 0; i < vNum; i++) { points.push_back(m_Points->GetPoint(vhs[i])); }
     //Point p[100];
     //for (igIndex i = 0; i < vNum; i++) {
     //	p[i]=m_Points->GetPoint(vhs[0]);
@@ -166,7 +161,6 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
                 break;
         }
     }
-
 }
 
 
@@ -223,7 +217,7 @@ double VolumeMeshMetrics::GetAreaOfFace(iGame::Point v1, iGame::Point v2, iGame:
 * 计算某一个四面体单元的面积 该点对应面的面积 
 */
 std::vector<double> VolumeMeshMetrics::GetAreaOfCell(const std::vector<iGame::Point>& points) {
-   
+
     std::vector<double> areas;
 
     double area = GetAreaOfFace(points[1], points[2], points[3]);
@@ -252,13 +246,13 @@ double VolumeMeshMetrics::GetInradiusOfCell(const std::vector<iGame::Point>& poi
     return 3.0 * volume / sumArea;
 }
 
-	/*
+/*
 	* 计算某一个四面体单元的外接球的球心
 	*/
 iGame::Point VolumeMeshMetrics::GetOuterCircle(const std::vector<iGame::Point>& points) {
 
     Eigen::Matrix3f m3;
-    
+
 
     iGame::Point p1 = (points[1] - points[0]) * 2.0;
     iGame::Point p2 = (points[2] - points[1]) * 2.0;
@@ -268,7 +262,6 @@ iGame::Point VolumeMeshMetrics::GetOuterCircle(const std::vector<iGame::Point>& 
     double d3 = points[3] * points[3] - points[2] * points[2];
     m3 << p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2];
 
-    
 
     Eigen::Vector3f vc3(d1, d2, d3);
     Eigen::Matrix3f m3IN = m3.inverse();
@@ -276,7 +269,6 @@ iGame::Point VolumeMeshMetrics::GetOuterCircle(const std::vector<iGame::Point>& 
     vc3 = m3IN * vc3;
     //return iGame::Point(center.x(), center.y(), center.z());
     return iGame::Point(vc3(0), vc3(1), vc3(2));
-
 }
 
 /*
@@ -288,7 +280,7 @@ double VolumeMeshMetrics::GetCircumradiusOfCell(const std::vector<iGame::Point>&
     return (points[0] - outcircle).norm();
 }
 
-	/*
+/*
 	* 计算某个四面体的纵横比   最长边/( 2*sqrt(6)*内切半径)   
 	* 接受范围：[1,3]
 	* 最好：1
@@ -314,8 +306,7 @@ double VolumeMeshMetrics::GetJacobianOfCell(const std::vector<iGame::Point>& poi
 /*
 	* 计算某个四面体的某点的塌陷率
 	*/
-double VolumeMeshMetrics::GetCollapseRatioOfVertex(iGame::Point v1, iGame::Point v2, iGame::Point v3,
-                                                          double volume) {
+double VolumeMeshMetrics::GetCollapseRatioOfVertex(iGame::Point v1, iGame::Point v2, iGame::Point v3, double volume) {
     double area = ((v2 - v1).cross(v3 - v1)).norm();
     double high = volume / area * 6;
 
@@ -347,7 +338,7 @@ double VolumeMeshMetrics::GetCollapseRatioOfCell(const std::vector<iGame::Point>
 	* 接受范围：[0,1]
 	* 最好：0
 	*/
-double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<iGame::Point>& points){
+double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<iGame::Point>& points) {
     double circumRadius = GetCircumradiusOfCell(points);
     double a = circumRadius * 4.0 / sqrt(6.0);
     double volume = ComputeTetVolume(points);
@@ -413,12 +404,10 @@ std::vector<std::vector<double>> VolumeMeshMetrics::GetInternalAnglesOfCell(cons
     std::vector<std::vector<double>> angles;
 
     // 四面体的四个面
-    std::vector<std::vector<iGame::Point>> faces = {
-            {points[1], points[2], points[3]}, // 排除points[0]的面
-            {points[0], points[2], points[3]}, // 排除points[1]的面
-            {points[0], points[1], points[3]}, // ...
-            {points[0], points[1], points[2]}  
-    };
+    std::vector<std::vector<iGame::Point>> faces = {{points[1], points[2], points[3]}, // 排除points[0]的面
+                                                    {points[0], points[2], points[3]}, // 排除points[1]的面
+                                                    {points[0], points[1], points[3]}, // ...
+                                                    {points[0], points[1], points[2]}};
 
     for (const auto& face: faces) { angles.push_back(GetInternalAnglesOfFace(face)); }
 
@@ -444,7 +433,7 @@ double VolumeMeshMetrics::GetMinInternalAnglesOfCell(const std::vector<iGame::Po
     return min_angle;
 }
 
-	/*
+/*
 	* 计算某个四面体v0所在的高的长度
 	*/
 double VolumeMeshMetrics::GetHighOfVertex(iGame::Point v0, iGame::Point v1, iGame::Point v2, iGame::Point v3) {
@@ -466,7 +455,7 @@ double VolumeMeshMetrics::GetVolAspectRatioOfCell(const std::vector<iGame::Point
     return maxLength / minHigh;
 }
 
-	/*
+/*
 	* 计算所有四面体的等角斜率  max( (Qmax-Qe)/(180-Qe)，(Qe-Qmin)/Qe ) Qmax 最大角 Qmin最小 Qe 60（三角形）或90（四边形） acos(1/3.0)四面体
 	* 计算出二面角 求其等角斜率大小
 	* 再求所有面中的最大角 和最小角  算出等角斜率
@@ -571,8 +560,6 @@ double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<iGame::Po
 }
 
 
-
-
 //六面体
 
 
@@ -613,11 +600,11 @@ double VolumeMeshMetrics::ComputeHexTaper(const std::vector<iGame::Point>& point
     auto X_13 = (P_5 - P_1) - (P_4 - P_0) + (P_6 - P_2) - (P_7 - P_3);
     auto X_23 = (P_7 - P_4) - (P_3 - P_0) + (P_6 - P_5) - (P_2 - P_1);
 
-    auto T_12 = X_12.norm() / ((std::min)(X_1.norm(), X_2.norm()));
-    auto T_13 = X_13.norm() / ((std::min)(X_1.norm(), X_3.norm()));
-    auto T_23 = X_23.norm() / ((std::min)(X_2.norm(), X_3.norm()));
+    auto T_12 = X_12.norm() / ((std::min) (X_1.norm(), X_2.norm()));
+    auto T_13 = X_13.norm() / ((std::min) (X_1.norm(), X_3.norm()));
+    auto T_23 = X_23.norm() / ((std::min) (X_2.norm(), X_3.norm()));
 
-    return (std::max)({T_12, T_13, T_23});
+    return (std::max) ({T_12, T_13, T_23});
 }
 
 // 雅可比, range : [0, MAX], acceptable range [0, MAX], unit cube : 1
@@ -747,14 +734,14 @@ double VolumeMeshMetrics::ComputeHexMaxEdgeRatio(const std::vector<iGame::Point>
     auto L_2 = X_2.norm();
     auto L_3 = X_3.norm();
 
-    auto A_12 = (std::max)(L_1 / L_2, L_2 / L_1);
-    auto A_13 = (std::max)(L_1 / L_3, L_3 / L_1);
-    auto A_23 = (std::max)(L_2 / L_3, L_3 / L_2);
+    auto A_12 = (std::max) (L_1 / L_2, L_2 / L_1);
+    auto A_13 = (std::max) (L_1 / L_3, L_3 / L_1);
+    auto A_23 = (std::max) (L_2 / L_3, L_3 / L_2);
 
-    return (std::max)({A_12, A_13, A_23});
+    return (std::max) ({A_12, A_13, A_23});
 }
 
-    // 体积歪斜度/歪斜度 , range : [0, 1], acceptable range [0, 0.5], unit cube : 0
+// 体积歪斜度/歪斜度 , range : [0, 1], acceptable range [0, 0.5], unit cube : 0
 double VolumeMeshMetrics::ComputeHexSkew(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -777,10 +764,10 @@ double VolumeMeshMetrics::ComputeHexSkew(const std::vector<iGame::Point>& points
     auto skew_13 = std::abs(X_1_hat.dot(X_3_hat));
     auto skew_23 = std::abs(X_2_hat.dot(X_3_hat));
 
-    return (std::max)({skew_12, skew_13, skew_23});
+    return (std::max) ({skew_12, skew_13, skew_23});
 }
 
-    // 伸展度 , range : [0, 1], acceptable range [0.25, 1], unit cube : 1
+// 伸展度 , range : [0, 1], acceptable range [0.25, 1], unit cube : 1
 double VolumeMeshMetrics::ComputeHexStretch(const std::vector<iGame::Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
@@ -845,7 +832,7 @@ double VolumeMeshMetrics::ComputeHexDiagonal(const std::vector<iGame::Point>& po
 // 相对大小平方, range : [0, 1], acceptable range [0, 1], unit cube : 依赖于平均体积
 double VolumeMeshMetrics::ComputeHexRelativeSizeSquared(const std::vector<iGame::Point>& points, float average_volume) {
     auto D = ComputeHexVolume(points) / average_volume;
-    auto sqr_q = (std::min)(D, 1.0f / D);
+    auto sqr_q = (std::min) (D, 1.0f / D);
 
     return sqr_q * sqr_q;
 }
@@ -994,8 +981,7 @@ double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<iGame::Poin
             if (j != i) { face_points.push_back(points[j]); }
         }
 
-        Vector3f normal =(face_points[2] - face_points[0])
-                                         .cross(face_points[1] - face_points[0]);
+        Vector3f normal = (face_points[2] - face_points[0]).cross(face_points[1] - face_points[0]);
 
         double d = -normal.dot(face_points[0]);
         double numerator = std::abs(normal.dot(v) + d);
@@ -1009,7 +995,6 @@ double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<iGame::Poin
 
     return aspect_ratio;
 }
-
 
 
 //四面体体积计算 - 基于MeshMath.h中的get_volume_tetahedral_mesh
@@ -1032,7 +1017,7 @@ double VolumeMeshMetrics::ComputeTetVolumeAlt(const std::vector<iGame::Point>& p
     return std::abs(volume_mesh) / 6.0;
 }
 
-//六面体体积计算 - 基于MeshMath.h中的get_volume_hexahedral_mesh  
+//六面体体积计算 - 基于MeshMath.h中的get_volume_hexahedral_mesh
 double VolumeMeshMetrics::ComputeHexVolumeAlt(const std::vector<iGame::Point>& points) {
     if (points.size() != 8) { return 0.0; }
 

@@ -1,19 +1,19 @@
-﻿#include "iGameConvertToLagrangeUnstructuredMesh.h"
+﻿#include "iGameConvertToLagrangeUnstructuredMeshFilter.h"
 
 IGAME_NAMESPACE_BEGIN
-ConvertToLagrangeUnstructuredMesh::ConvertToLagrangeUnstructuredMesh() {
+ConvertToLagrangeUnstructuredMeshFilter::ConvertToLagrangeUnstructuredMeshFilter() {
     this->SetNumberOfInputs(1);
     this->SetNumberOfOutputs(1);
 }
 
-ConvertToLagrangeUnstructuredMesh::~ConvertToLagrangeUnstructuredMesh() {}
+ConvertToLagrangeUnstructuredMeshFilter::~ConvertToLagrangeUnstructuredMeshFilter() {}
 
-bool ConvertToLagrangeUnstructuredMesh::Execute() {
+bool ConvertToLagrangeUnstructuredMeshFilter::Execute() {
     if (m_Inputs->GetNumberOfElements() == 0) { return false; }
 
     auto input = m_Inputs->GetElement(0);
     if (!input) { return false; }
-    
+
     switch (input->GetDataObjectType()) {
         case IG_NONE:
             return true;
@@ -25,7 +25,7 @@ bool ConvertToLagrangeUnstructuredMesh::Execute() {
     return true;
 }
 
-bool ConvertToLagrangeUnstructuredMesh::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
+bool ConvertToLagrangeUnstructuredMeshFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
     if (um == nullptr) return false;
 
     LagrangeUnstructuredMesh::Pointer outputMesh = LagrangeUnstructuredMesh::New();
@@ -33,7 +33,7 @@ bool ConvertToLagrangeUnstructuredMesh::ExecuteWithUnstructuredMesh(Unstructured
 
     int cellNum = um->GetNumberOfCells();
     igIndex vhs[IGAME_CELL_MAX_SIZE];
-    for (int i = 0; i < cellNum; i++) { 
+    for (int i = 0; i < cellNum; i++) {
         int cellSize = um->GetCell(i)->GetNumberOfPoints();
         for (int j = 0; j < cellSize; j++) { vhs[j] = um->GetCell(i)->GetPointId(j); }
         IGenum cellType = um->GetCellType(i);
@@ -64,25 +64,23 @@ bool ConvertToLagrangeUnstructuredMesh::ExecuteWithUnstructuredMesh(Unstructured
             default:
                 break;
         }
-        if (order > 0) { 
-            outputMesh->AddCell(vhs, cellSize, cellType, order);
-        }
+        if (order > 0) { outputMesh->AddCell(vhs, cellSize, cellType, order); }
     }
     outputMesh->SetAttributeSet(um->GetAttributeSet());
     this->SetOutput(outputMesh);
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Quad(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Quad(int num_nodes) {
     double p = std::sqrt(static_cast<double>(num_nodes)) - 1.0;
     return static_cast<int>(std::round(p));
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Hex(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Hex(int num_nodes) {
     double p = std::cbrt(static_cast<double>(num_nodes)) - 1.0;
     return static_cast<int>(std::round(p));
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Prism(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Prism(int num_nodes) {
     // 使用迭代法来反算阶数 p
     // 公式: N = (p+1)^2 * (p+2) / 2
     // 这是p阶2D三角形节点数 ((p+1)(p+2)/2) 与 p阶1D线段节点数 (p+1) 的乘积。
@@ -98,7 +96,7 @@ int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Prism(int num_nodes) {
     return 0; // 返回0表示错误或无法确定
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Pyramid(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Pyramid(int num_nodes) {
     // 使用迭代法来反算阶数 p
     // 公式: N = (p+1)(p+2)(2p+3)/6
     // 我们从 p=1 开始循环，直到计算出的 N 与输入的 num_nodes 匹配
@@ -113,13 +111,13 @@ int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Pyramid(int num_nodes) 
     return 0; // 返回0表示错误或无法确定
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Tri(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Tri(int num_nodes) {
     // N = (p+1)(p+2)/2  =>  p^2 + 3p + (2-2N) = 0
     double p = (-3.0 + std::sqrt(9.0 - 4.0 * (2.0 - 2.0 * num_nodes))) / 2.0;
     return static_cast<int>(std::round(p));
 }
 
-int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Tetra(int num_nodes) {
+int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Tetra(int num_nodes) {
     // 使用迭代法来反算阶数 p
     // 公式: N = (p+1)(p+2)(p+3)/6
     for (int p = 1; p < 10; ++p) { // 循环到9阶通常已足够
@@ -133,8 +131,6 @@ int ConvertToLagrangeUnstructuredMesh::GetOrderFromNodes_Tetra(int num_nodes) {
     return 0; // 返回0表示错误或无法确定
 }
 
-void ConvertToLagrangeUnstructuredMesh::SetConvertMethod(ConvertMethod CM) { 
-    this->m_ConvertMethod = CM; 
-}
+void ConvertToLagrangeUnstructuredMeshFilter::SetConvertMethod(ConvertMethod CM) { this->m_ConvertMethod = CM; }
 
 IGAME_NAMESPACE_END
