@@ -1,5 +1,5 @@
 #include "IQWidgets/igQtModelClipWidget.h"
-#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameSceneManager.h"
 #include "iGameThreadPool.h"
 #include <QRegularExpression>
