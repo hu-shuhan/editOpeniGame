@@ -1,6 +1,6 @@
 #include "iGameConvertToVolumeMeshFilter.h"
+#include "ModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameCell.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
 #include "iGameThreadPool.h"
 
 IGAME_NAMESPACE_BEGIN
