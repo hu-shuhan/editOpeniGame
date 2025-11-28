@@ -5,13 +5,13 @@
 #include <iGameUnstructuredMesh.h>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
-class iGameGetCellsInFrustum : public Filter {
+class GetCellsInFrustumFilter : public Filter {
 public:
-    I_OBJECT(iGameGetCellsInFrustum);
+    I_OBJECT(GetCellsInFrustumFilter);
     static Pointer New(const Point& startPoint, const Point& direction, const Point& upDirection,
                        double nearFaceDistance, double farFaceDistance, double nearFaceHalfWidth,
                        double nearFaceHalfHigh, double farFaceHalfWidth, double farFaceHalfHigh) {
-        return new iGameGetCellsInFrustum(startPoint, direction, upDirection, nearFaceDistance, farFaceDistance,
+        return new GetCellsInFrustumFilter(startPoint, direction, upDirection, nearFaceDistance, farFaceDistance,
                                            nearFaceHalfWidth, nearFaceHalfHigh, farFaceHalfWidth, farFaceHalfHigh);
     }
     bool Execute() override;
@@ -21,10 +21,10 @@ private:
     void Run();
 
 protected:
-    iGameGetCellsInFrustum(const Point& startPoint, const Point& direction, const Point& upDirection,
+    GetCellsInFrustumFilter(const Point& startPoint, const Point& direction, const Point& upDirection,
                             double nearFaceDistance, double farFaceDistance, double nearFaceHalfWidth,
                             double nearFaceHalfHigh, double farFaceHalfWidth, double farFaceHalfHigh);
-    ~iGameGetCellsInFrustum() override = default;
+    ~GetCellsInFrustumFilter() override = default;
 
 private:
     /* Input */

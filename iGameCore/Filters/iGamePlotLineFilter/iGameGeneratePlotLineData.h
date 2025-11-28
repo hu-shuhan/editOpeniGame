@@ -6,11 +6,11 @@
 #include <iGamePoints.h>
 #include <iGameUnstructuredMesh.h>
 IGAME_NAMESPACE_BEGIN
-class iGameGeneratePlotLineData : public Filter {
+class GeneratePlotLineDataFilter : public Filter {
 public:
-    I_OBJECT(iGameGeneratePlotLineData);
+    I_OBJECT(GeneratePlotLineDataFilter);
     static Pointer New(IGenum dataType, const Point& startPoint, const Point& endPoint) {
-        return new iGameGeneratePlotLineData(dataType, startPoint, endPoint);
+        return new GeneratePlotLineDataFilter(dataType, startPoint, endPoint);
     }
     bool Execute() override;
 
@@ -18,8 +18,8 @@ private:
     void Run();
 
 protected:
-    iGameGeneratePlotLineData(IGenum dataType, const Point& startPoint, const Point& endPoint);
-    ~iGameGeneratePlotLineData() override = default;
+    GeneratePlotLineDataFilter(IGenum dataType, const Point& startPoint, const Point& endPoint);
+    ~GeneratePlotLineDataFilter() override = default;
 
 private:
     /* Input */

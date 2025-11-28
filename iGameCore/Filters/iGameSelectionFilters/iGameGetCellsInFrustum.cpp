@@ -71,7 +71,7 @@ static bool IsCellInFrustum(Cell* cell, const Point& startPoint, const Point& di
     return true;
 }
 
-bool iGameGetCellsInFrustum::Execute() {
+bool GetCellsInFrustumFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_NearFaceHalfWidth <= 0 || m_NearFaceHalfHigh <= 0 || m_FarFaceHalfWidth <= 0 || m_FarFaceHalfHigh <= 0) {
@@ -81,9 +81,9 @@ bool iGameGetCellsInFrustum::Execute() {
     return true;
 }
 
-const std::vector<int>& iGameGetCellsInFrustum::GetResult() { return m_Ids; }
+const std::vector<int>& GetCellsInFrustumFilter::GetResult() { return m_Ids; }
 
-void iGameGetCellsInFrustum::Run() {
+void GetCellsInFrustumFilter::Run() {
     int objNum = m_Mesh->GetNumberOfCells();
     for (int cellId = 0; cellId < objNum; cellId++) {
         auto cell = m_Mesh->GetCell(cellId);
@@ -94,7 +94,7 @@ void iGameGetCellsInFrustum::Run() {
     }
 }
 
-iGameGetCellsInFrustum::iGameGetCellsInFrustum(const Point& startPoint, const Point& direction,
+GetCellsInFrustumFilter::GetCellsInFrustumFilter(const Point& startPoint, const Point& direction,
                                                const Point& upDirection, double nearFaceDistance,
                                                double farFaceDistance, double nearFaceHalfWidth,
                                                double nearFaceHalfHigh, double farFaceHalfWidth,

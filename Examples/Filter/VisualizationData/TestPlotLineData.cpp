@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGeneratePlotLineData::New(IG_POINT, iGame::Point(-1.0f, -1.0f, -1.0f),
+    auto filter = iGame::GeneratePlotLineDataFilter::New(IG_POINT, iGame::Point(-1.0f, -1.0f, -1.0f),
                                                         iGame::Point(1.0f, 1.0f, 1.0f));
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();

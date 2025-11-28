@@ -1,7 +1,7 @@
 #include "iGameSetPointsSelect.h"
 #include <iostream>
 IGAME_NAMESPACE_BEGIN
-bool iGameSetPointsSelect::Execute() {
+bool SetPointsSelectFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_Operate != Selection::Operate::Add && m_Operate != Selection::Operate::Remove) return false;
@@ -10,12 +10,12 @@ bool iGameSetPointsSelect::Execute() {
     return true;
 }
 
-void iGameSetPointsSelect::Run() {
+void SetPointsSelectFilter::Run() {
     auto selection = m_Mesh->GetSelection();
     m_Mesh->GetSelection()->SelectionCallBackEvent(IG_POINT, m_Ids, m_Operate);
 }
 
-iGameSetPointsSelect::iGameSetPointsSelect(Selection::Operate ope, const std::vector<int>& ids,
+SetPointsSelectFilter::SetPointsSelectFilter(Selection::Operate ope, const std::vector<int>& ids,
                                            Painter3D* painter) {
     m_Operate = ope;
     m_Ids = ids;

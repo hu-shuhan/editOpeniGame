@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     auto filter =
-            iGame::iGameSetPointsSelect::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3, 4}));
+            iGame::SetPointsSelectFilter::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3, 4}));
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

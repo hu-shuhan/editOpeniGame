@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     auto filter =
-            iGame::iGameGetPointsInFrustum::New(iGame::Point(-1.0f, 0.0f, 0.0f), iGame::Point(1.0f, 0.0f, 0.0f),
+            iGame::GetPointsInFrustumFilter::New(iGame::Point(-1.0f, 0.0f, 0.0f), iGame::Point(1.0f, 0.0f, 0.0f),
                                                 iGame::Point(0.0f, 0.0f, 1.0f), 1.0, 1.05, 0.05, 0.05, 0.05, 0.05);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();

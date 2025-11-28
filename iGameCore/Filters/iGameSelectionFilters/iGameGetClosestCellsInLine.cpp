@@ -2,7 +2,7 @@
 #include <iGameCell.h>
 #include <iGameSingleSelectionStyle.h>
 IGAME_NAMESPACE_BEGIN
-bool iGameGetClosestCellsInLine::Execute() {
+bool GetClosestCellsInLineFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));
     if (m_Mesh.IsNull()) return false;
     if (m_Radius < 0) return false;
@@ -10,13 +10,13 @@ bool iGameGetClosestCellsInLine::Execute() {
     return true;
 }
 
-const std::vector<int>& iGameGetClosestCellsInLine::GetResult() { return m_Ids; }
+const std::vector<int>& GetClosestCellsInLineFilter::GetResult() { return m_Ids; }
 
-void iGameGetClosestCellsInLine::Run() {
+void GetClosestCellsInLineFilter::Run() {
     m_Ids = SingleSelectionStyle::GetCellsInCondition(m_StartPoint, m_EndPoint, m_Mesh, m_Radius, m_UseAutoValueRange,
                                                       m_VariableIndex, m_ExpdRate);
 }
-iGameGetClosestCellsInLine::iGameGetClosestCellsInLine(const Point& startPoint, const Point& endPoint, double radius,
+GetClosestCellsInLineFilter::GetClosestCellsInLineFilter(const Point& startPoint, const Point& endPoint, double radius,
                                                        bool useAutoValueRange, int variableIndex, double expdRate) {
     m_StartPoint = startPoint;
     m_EndPoint = endPoint;

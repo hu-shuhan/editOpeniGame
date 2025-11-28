@@ -5,11 +5,11 @@
 #include <iGameUnstructuredMesh.h>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
-class iGameSetPointsSelect : public Filter {
+class SetPointsSelectFilter : public Filter {
 public:
-    I_OBJECT(iGameSetPointsSelect);
+    I_OBJECT(SetPointsSelectFilter);
     static Pointer New(Selection::Operate ope, const std::vector<int>& ids, Painter3D* painter = nullptr) {
-        return new iGameSetPointsSelect(ope, ids, painter);
+        return new SetPointsSelectFilter(ope, ids, painter);
     }
     bool Execute() override;
 
@@ -17,8 +17,8 @@ private:
     void Run();
 
 protected:
-    iGameSetPointsSelect(Selection::Operate ope, const std::vector<int>& ids, Painter3D* painter = nullptr);
-    ~iGameSetPointsSelect() override = default;
+    SetPointsSelectFilter(Selection::Operate ope, const std::vector<int>& ids, Painter3D* painter = nullptr);
+    ~SetPointsSelectFilter() override = default;
 
 private:
     /* Input */
