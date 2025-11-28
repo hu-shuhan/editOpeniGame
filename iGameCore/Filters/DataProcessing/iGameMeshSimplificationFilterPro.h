@@ -22,10 +22,10 @@ public:
 
     void SetPreserveBoundary(bool flag = true) { this->PreserveBoundary = flag; }
 
-    // true: Ê¹ÓÃÔ­À´µÄ¶¥µãÊý¾Ý
+    // true: ä½¿ç”¨åŽŸæ¥çš„é¡¶ç‚¹æ•°æ®
     void SetFreeze(bool flag = false) { this->Freeze = flag; }
 
-    // true: Ê¹ÓÃÔ­À´µÄ¶¥µãÊý¾Ý
+    // true: ä½¿ç”¨åŽŸæ¥çš„é¡¶ç‚¹æ•°æ®
     void SetTransformToCellData(bool flag = false) { this->Transform = flag; }
 
 protected:

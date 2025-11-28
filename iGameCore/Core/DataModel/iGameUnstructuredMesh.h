@@ -54,7 +54,7 @@ public:
     Cell* GetCell(const IGsize cellId);
     bool GetCell(const IGsize cellId, Cell::Pointer& cell);
     //Get DataObject Type
-    IGenum GetDataObjectType() const { return IG_UNSTRUCTURED_MESH; }
+    IGenum GetDataObjectType() const override { return IG_UNSTRUCTURED_MESH; }
 
     //Transfer to other mesh, if could not transfer , it will return nullptr;
     SurfaceMesh::Pointer TransferToSurfaceMesh();

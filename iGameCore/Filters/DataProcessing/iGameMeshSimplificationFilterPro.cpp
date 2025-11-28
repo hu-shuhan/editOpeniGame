@@ -2314,7 +2314,7 @@ public:
         float minEdge = *std::min_element(edgeLengths.begin(), edgeLengths.end());
         float edgeRatio = maxEdge / minEdge;
 
-        return {1.23 / minAngle, edgeRatio};
+        return std::make_pair(1.23 / minAngle, edgeRatio);
     }
 
 private:
