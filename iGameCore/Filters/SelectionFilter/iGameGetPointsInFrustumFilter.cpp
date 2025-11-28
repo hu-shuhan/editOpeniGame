@@ -1,4 +1,4 @@
-#include "iGameGetPointsInFrustum.h"
+#include "iGameGetPointsInFrustumFilter.h"
 IGAME_NAMESPACE_BEGIN
 static bool IsPointInFrustum(const Point& point, const Point& startPoint, const Point& direction,
                              const Point& upDirection, double nearFaceDistance, double farFaceDistance,

@@ -13,21 +13,17 @@
 
 
 IGAME_NAMESPACE_BEGIN
-class PointSource : public Filter{
-    I_OBJECT(PointSource)
+class PointSourceFilter : public Filter {
+    I_OBJECT(PointSourceFilter)
 
 public:
-    static Pointer New(){return new PointSource;}
+    static Pointer New() { return new PointSourceFilter; }
 
-    bool Execute() override {
-        return Filter::Execute();
-    }
-
+    bool Execute() override { return Filter::Execute(); }
 
 
 protected:
-    PointSource()
-    {
+    PointSourceFilter() {
         SetNumberOfInputs(1);
         SetNumberOfOutputs(1);
         m_OutPut_PointSet = UnstructuredMesh::New();
@@ -39,7 +35,7 @@ protected:
         m_OutPut_PointSet->AddCell(cell, 1, IG_VERTEX);
         SetOutput(m_OutPut_PointSet);
     }
-    ~PointSource() override = default;
+    ~PointSourceFilter() override = default;
 
 protected:
     UnstructuredMesh::Pointer m_OutPut_PointSet;

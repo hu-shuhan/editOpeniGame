@@ -1,4 +1,4 @@
-#include "iGameSetClearSelectionCallBackFunc.h"
+#include "iGameSetClearSelectionCallBackFuncFilter.h"
 IGAME_NAMESPACE_BEGIN
 bool SetClearSelectionCallBackFuncFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));

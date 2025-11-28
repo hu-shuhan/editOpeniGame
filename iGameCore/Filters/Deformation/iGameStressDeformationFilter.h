@@ -15,6 +15,10 @@ I_OBJECT(StressDeformationFilter)
         return new StressDeformationFilter;
     };
 
+    void SetScaleFactorX(float sf_x);
+    void SetScaleFactorY(float sf_y);
+    void SetScaleFactorZ(float sf_z);
+
     bool Execute() override;
 
 /*

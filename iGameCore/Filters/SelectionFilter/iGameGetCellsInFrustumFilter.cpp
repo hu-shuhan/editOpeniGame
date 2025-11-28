@@ -1,4 +1,4 @@
-#include "iGameGetCellsInFrustum.h"
+#include "iGameGetCellsInFrustumFilter.h"
 #include <iGameCell.h>
 IGAME_NAMESPACE_BEGIN
 static bool IsPointInFrustum(const Point& point, const Point& startPoint, const Point& direction,

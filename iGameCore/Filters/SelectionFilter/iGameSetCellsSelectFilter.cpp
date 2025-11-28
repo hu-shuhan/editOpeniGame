@@ -1,4 +1,4 @@
-#include "iGameSetCellsSelect.h"
+#include "iGameSetCellsSelectFilter.h"
 IGAME_NAMESPACE_BEGIN
 bool SetCellsSelectFilter::Execute() {
     m_Mesh = DynamicCast<UnstructuredMesh>(GetInput(0));

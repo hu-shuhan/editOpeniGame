@@ -4,20 +4,20 @@
 
 IGAME_NAMESPACE_BEGIN
 
-VolumeMeshMetrics::VolumeMeshMetrics() {
+VolumeMeshMetricsFilter::VolumeMeshMetricsFilter() {
     this->SetNumberOfInputs(1);
     this->SetNumberOfOutputs(1);
     m_Cells = nullptr;
     m_Points = nullptr;
 }
 
-VolumeMeshMetrics::~VolumeMeshMetrics() {
+VolumeMeshMetricsFilter::~VolumeMeshMetricsFilter() {
     m_Cells = nullptr;
     m_Points = nullptr;
 }
 
 
-bool VolumeMeshMetrics::Execute() {
+bool VolumeMeshMetricsFilter::Execute() {
     if (m_Inputs->GetNumberOfElements() == 0) { return false; }
 
     auto input = m_Inputs->GetElement(0);
@@ -75,7 +75,7 @@ bool VolumeMeshMetrics::Execute() {
 }
 
 
-double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
+double VolumeMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
 
 
     std::vector<Point> points;
@@ -167,7 +167,7 @@ double VolumeMeshMetrics::ComputeMetric(igIndex vNum, igIndex* vhs) {
 /*
 	* 计算某一个四面体单元的最小/最大长度
 */
-std::vector<double> VolumeMeshMetrics::GetMinAndMaxLenOfCell(const std::vector<Point>& points) {
+std::vector<double> VolumeMeshMetricsFilter::GetMinAndMaxLenOfCell(const std::vector<Point>& points) {
     double minLength = DBL_MAX, maxLength = 0.0;
 
     for (int i = 0; i < 4; i++) {
@@ -188,7 +188,7 @@ std::vector<double> VolumeMeshMetrics::GetMinAndMaxLenOfCell(const std::vector<P
 	* 计算某一个四面体单元的边长比 最长边/最短边
 	* 正四面体：1
 	*/
-double VolumeMeshMetrics::ComputeTetEdgeRatio(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeTetEdgeRatio(const std::vector<Point>& points) {
     std::vector<double> result = GetMinAndMaxLenOfCell(points);
     return result[1] / result[0];
 }
@@ -196,7 +196,7 @@ double VolumeMeshMetrics::ComputeTetEdgeRatio(const std::vector<Point>& points) 
 /*
 * 计算某一个四面体单元的体积
 */
-double VolumeMeshMetrics::ComputeTetVolume(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeTetVolume(const std::vector<Point>& points) {
     std::vector<Point> L(3);
     L[0] = points[1] - points[0];
     L[1] = points[2] - points[0];
@@ -209,14 +209,14 @@ double VolumeMeshMetrics::ComputeTetVolume(const std::vector<Point>& points) {
 /*
 * 计算某一个面的面积 
 */
-double VolumeMeshMetrics::GetAreaOfFace(Point v1, Point v2, Point v3) {
+double VolumeMeshMetricsFilter::GetAreaOfFace(Point v1, Point v2, Point v3) {
     return ((v2 - v1).cross(v3 - v1)).norm() / 2.0;
 }
 
 /*
 * 计算某一个四面体单元的面积 该点对应面的面积 
 */
-std::vector<double> VolumeMeshMetrics::GetAreaOfCell(const std::vector<Point>& points) {
+std::vector<double> VolumeMeshMetricsFilter::GetAreaOfCell(const std::vector<Point>& points) {
 
     std::vector<double> areas;
 
@@ -238,7 +238,7 @@ std::vector<double> VolumeMeshMetrics::GetAreaOfCell(const std::vector<Point>& p
 /*
 * 计算某一个四面体单元的内切球的半径  3*volume/sum(area)
 */
-double VolumeMeshMetrics::GetInradiusOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetInradiusOfCell(const std::vector<Point>& points) {
     std::vector<double> areas = GetAreaOfCell(points);
     double volume = ComputeTetVolume(points);
     double sumArea = 0;
@@ -249,7 +249,7 @@ double VolumeMeshMetrics::GetInradiusOfCell(const std::vector<Point>& points) {
 /*
 	* 计算某一个四面体单元的外接球的球心
 	*/
-Point VolumeMeshMetrics::GetOuterCircle(const std::vector<Point>& points) {
+Point VolumeMeshMetricsFilter::GetOuterCircle(const std::vector<Point>& points) {
 
     Eigen::Matrix3f m3;
 
@@ -274,7 +274,7 @@ Point VolumeMeshMetrics::GetOuterCircle(const std::vector<Point>& points) {
 /*
 	* 计算某一个四面体单元的外接球的半径
 	*/
-double VolumeMeshMetrics::GetCircumradiusOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetCircumradiusOfCell(const std::vector<Point>& points) {
     Point outcircle = GetOuterCircle(points);
 
     return (points[0] - outcircle).norm();
@@ -285,7 +285,7 @@ double VolumeMeshMetrics::GetCircumradiusOfCell(const std::vector<Point>& points
 	* 接受范围：[1,3]
 	* 最好：1
 	*/
-double VolumeMeshMetrics::GetAspectRatioOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetAspectRatioOfCell(const std::vector<Point>& points) {
     double r = GetInradiusOfCell(points);
     double maxLength = GetMinAndMaxLenOfCell(points)[1];
 
@@ -299,12 +299,12 @@ double VolumeMeshMetrics::GetAspectRatioOfCell(const std::vector<Point>& points)
 	* 接受范围：[0,DBL MAX]
 	* 单位长度正四面体：sqrt(2)/2
     */
-double VolumeMeshMetrics::GetJacobianOfCell(const std::vector<Point>& points) { return ComputeTetVolume(points) * 6.0; }
+double VolumeMeshMetricsFilter::GetJacobianOfCell(const std::vector<Point>& points) { return ComputeTetVolume(points) * 6.0; }
 
 /*
 	* 计算某个四面体的某点的塌陷率
 	*/
-double VolumeMeshMetrics::GetCollapseRatioOfVertex(Point v1, Point v2, Point v3, double volume) {
+double VolumeMeshMetricsFilter::GetCollapseRatioOfVertex(Point v1, Point v2, Point v3, double volume) {
     double area = ((v2 - v1).cross(v3 - v1)).norm();
     double high = volume / area * 6;
 
@@ -320,7 +320,7 @@ double VolumeMeshMetrics::GetCollapseRatioOfVertex(Point v1, Point v2, Point v3,
 	* 接受范围：[0.1,DBL MAX]
 	* 最好：sqrt(6)/3
 	*/
-double VolumeMeshMetrics::GetCollapseRatioOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetCollapseRatioOfCell(const std::vector<Point>& points) {
     double volume = ComputeTetVolume(points);
 
     double CollapseRatio = GetCollapseRatioOfVertex(points[1], points[2], points[3], volume);
@@ -336,7 +336,7 @@ double VolumeMeshMetrics::GetCollapseRatioOfCell(const std::vector<Point>& point
 	* 接受范围：[0,1]
 	* 最好：0
 	*/
-double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetVolSkewOfCell(const std::vector<Point>& points) {
     double circumRadius = GetCircumradiusOfCell(points);
     double a = circumRadius * 4.0 / sqrt(6.0);
     double volume = ComputeTetVolume(points);
@@ -348,7 +348,7 @@ double VolumeMeshMetrics::GetVolSkewOfCell(const std::vector<Point>& points) {
 /*
 	*得到某个四面体的某一点歪斜度   某个节点到对边中点的线段 与 另外两条边中点连接的线段之间 的较小的角
 	*/
-double VolumeMeshMetrics::GetSkewnessOfVertex(Point v0, Point v1, Point v2) {
+double VolumeMeshMetricsFilter::GetSkewnessOfVertex(Point v0, Point v1, Point v2) {
 
     Point m12 = (v1 + v2) / 2;
     Point m01 = (v0 + v1) / 2;
@@ -363,7 +363,7 @@ double VolumeMeshMetrics::GetSkewnessOfVertex(Point v0, Point v1, Point v2) {
 	* 接受范围:(0,90]
 	* 最好：90
 	*/
-double VolumeMeshMetrics::GetSkewnessOfFace(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetSkewnessOfFace(const std::vector<Point>& points) {
     double skewOfFace = 0;
 
     skewOfFace = std::max(GetSkewnessOfVertex(points[0], points[1], points[2]), skewOfFace);
@@ -375,7 +375,7 @@ double VolumeMeshMetrics::GetSkewnessOfFace(const std::vector<Point>& points) {
 /*
 	*得到某个四面体的某个面的的v0的内角
 	*/
-double VolumeMeshMetrics::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {
+double VolumeMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {
 
     double cosa = (v1 - v0).normalized() * (v2 - v0).normalized();
     double angle = acos(cosa) * 180.0 / PI;
@@ -386,7 +386,7 @@ double VolumeMeshMetrics::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2
 /*
 	*得到某个四面体的某个面的三个内角 
 	*/
-std::vector<double> VolumeMeshMetrics::GetInternalAnglesOfFace(const std::vector<Point>& points) {
+std::vector<double> VolumeMeshMetricsFilter::GetInternalAnglesOfFace(const std::vector<Point>& points) {
     std::vector<double> angles;
     angles.push_back(GetInternalAnglesOfVertex(points[0], points[1], points[2]));
     angles.push_back(GetInternalAnglesOfVertex(points[1], points[0], points[2]));
@@ -398,7 +398,7 @@ std::vector<double> VolumeMeshMetrics::GetInternalAnglesOfFace(const std::vector
 /*
 * 得到某个四面体的所有面的内角  
 */
-std::vector<std::vector<double>> VolumeMeshMetrics::GetInternalAnglesOfCell(const std::vector<Point>& points) {
+std::vector<std::vector<double>> VolumeMeshMetricsFilter::GetInternalAnglesOfCell(const std::vector<Point>& points) {
     std::vector<std::vector<double>> angles;
 
     // 四面体的四个面
@@ -414,7 +414,7 @@ std::vector<std::vector<double>> VolumeMeshMetrics::GetInternalAnglesOfCell(cons
 /*
     *得到某个四面体的最小内角，角度制
     */
-double VolumeMeshMetrics::GetMinInternalAnglesOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetMinInternalAnglesOfCell(const std::vector<Point>& points) {
     double min_angle = DBL_MAX;
 
     // 计算四个面的最小内角
@@ -434,7 +434,7 @@ double VolumeMeshMetrics::GetMinInternalAnglesOfCell(const std::vector<Point>& p
 /*
 	* 计算某个四面体v0所在的高的长度
 	*/
-double VolumeMeshMetrics::GetHighOfVertex(Point v0, Point v1, Point v2, Point v3) {
+double VolumeMeshMetricsFilter::GetHighOfVertex(Point v0, Point v1, Point v2, Point v3) {
     Point normOfFace = ((v2 - v1).cross(v3 - v1)).normalized();
     return std::abs(normOfFace * (v0 - v1));
 }
@@ -443,7 +443,7 @@ double VolumeMeshMetrics::GetHighOfVertex(Point v0, Point v1, Point v2, Point v3
 	* 计算某个四面体的体长宽比   最长边/最短高
 	* 单位正四面体：sqrt(3)/2
 	*/
-double VolumeMeshMetrics::GetVolAspectRatioOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetVolAspectRatioOfCell(const std::vector<Point>& points) {
     double maxLength = GetMinAndMaxLenOfCell(points)[1];
 
     double minHigh = GetHighOfVertex(points[0], points[1], points[2], points[3]);
@@ -462,7 +462,7 @@ double VolumeMeshMetrics::GetVolAspectRatioOfCell(const std::vector<Point>& poin
 	* 最好：0
 	*
 	*/
-double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::GetEquiangleSkewnessOfCell(const std::vector<Point>& points) {
 
     Vector3f ab = (points[1] - points[0]).normalized();
     Vector3f ac = (points[2] - points[0]).normalized();
@@ -562,7 +562,7 @@ double VolumeMeshMetrics::GetEquiangleSkewnessOfCell(const std::vector<Point>& p
 
 
 // 体积
-double VolumeMeshMetrics::ComputeHexVolume(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexVolume(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -580,7 +580,7 @@ double VolumeMeshMetrics::ComputeHexVolume(const std::vector<Point>& points) {
 }
 
 // 锥度, range : [0, MAX], acceptable range [0, 0.5], unit cube : 0
-double VolumeMeshMetrics::ComputeHexTaper(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexTaper(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -606,7 +606,7 @@ double VolumeMeshMetrics::ComputeHexTaper(const std::vector<Point>& points) {
 }
 
 // 雅可比, range : [0, MAX], acceptable range [0, MAX], unit cube : 1
-double VolumeMeshMetrics::ComputeHexJacobian(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexJacobian(const std::vector<Point>& points) {
     //be caution about order
 
     auto P_0 = points[0];
@@ -683,7 +683,7 @@ double VolumeMeshMetrics::ComputeHexJacobian(const std::vector<Point>& points) {
 }
 
 // 长宽比 , range : [1, MAX], acceptable range [1, MAX], unit cube : 1
-double VolumeMeshMetrics::ComputeHexEdgeRatio(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexEdgeRatio(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -714,7 +714,7 @@ double VolumeMeshMetrics::ComputeHexEdgeRatio(const std::vector<Point>& points) 
 }
 
 // 最大长宽比 , range : [1, MAX], acceptable range [1, 1.3], unit cube : 1
-double VolumeMeshMetrics::ComputeHexMaxEdgeRatio(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexMaxEdgeRatio(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -740,7 +740,7 @@ double VolumeMeshMetrics::ComputeHexMaxEdgeRatio(const std::vector<Point>& point
 }
 
 // 体积歪斜度/歪斜度 , range : [0, 1], acceptable range [0, 0.5], unit cube : 0
-double VolumeMeshMetrics::ComputeHexSkew(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexSkew(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -766,7 +766,7 @@ double VolumeMeshMetrics::ComputeHexSkew(const std::vector<Point>& points) {
 }
 
 // 伸展度 , range : [0, 1], acceptable range [0.25, 1], unit cube : 1
-double VolumeMeshMetrics::ComputeHexStretch(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexStretch(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -804,7 +804,7 @@ double VolumeMeshMetrics::ComputeHexStretch(const std::vector<Point>& points) {
 }
 
 // 对角线长度比值, range : [0, 1], acceptable range [0.65, 1], unit cube : 1
-double VolumeMeshMetrics::ComputeHexDiagonal(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexDiagonal(const std::vector<Point>& points) {
     auto P_0 = points[0];
     auto P_1 = points[1];
     auto P_2 = points[2];
@@ -828,7 +828,7 @@ double VolumeMeshMetrics::ComputeHexDiagonal(const std::vector<Point>& points) {
 }
 
 // 相对大小平方, range : [0, 1], acceptable range [0, 1], unit cube : 依赖于平均体积
-double VolumeMeshMetrics::ComputeHexRelativeSizeSquared(const std::vector<Point>& points, float average_volume) {
+double VolumeMeshMetricsFilter::ComputeHexRelativeSizeSquared(const std::vector<Point>& points, float average_volume) {
     auto D = ComputeHexVolume(points) / average_volume;
     auto sqr_q = (std::min) (D, 1.0f / D);
 
@@ -836,7 +836,7 @@ double VolumeMeshMetrics::ComputeHexRelativeSizeSquared(const std::vector<Point>
 }
 
 // 六面体最小标量雅可比
-double VolumeMeshMetrics::ComputeHexMinScaledJacobian(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexMinScaledJacobian(const std::vector<Point>& points) {
     double min_det = 2.f; // the value of Scaled Jacobian is the	determinant of the matrix Jacobian
     std::unordered_map<int, std::vector<int>> neighbor;
     std::vector<std::pair<int, int>> edges = {
@@ -891,7 +891,7 @@ double VolumeMeshMetrics::ComputeHexMinScaledJacobian(const std::vector<Point>& 
 }
 
 // 六面体平均标量雅可比
-double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexAvgScaledJacobian(const std::vector<Point>& points) {
     double sum_det = 0.0;
 
     // 构建邻接关系
@@ -954,7 +954,7 @@ double VolumeMeshMetrics::ComputeHexAvgScaledJacobian(const std::vector<Point>& 
 }
 
 // 四面体替代纵横比计算方法
-double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeTetAspectRatioAlt(const std::vector<Point>& points) {
     if (points.size() != 4) {
         igDebug("Error: It is not a tet mesh!");
         return 0.0;
@@ -996,7 +996,7 @@ double VolumeMeshMetrics::ComputeTetAspectRatioAlt(const std::vector<Point>& poi
 
 
 //四面体体积计算 - 基于MeshMath.h中的get_volume_tetahedral_mesh
-double VolumeMeshMetrics::ComputeTetVolumeAlt(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeTetVolumeAlt(const std::vector<Point>& points) {
     if (points.size() != 4) { return 0.0; }
 
     double volume_mesh = 0;
@@ -1016,7 +1016,7 @@ double VolumeMeshMetrics::ComputeTetVolumeAlt(const std::vector<Point>& points) 
 }
 
 //六面体体积计算 - 基于MeshMath.h中的get_volume_hexahedral_mesh
-double VolumeMeshMetrics::ComputeHexVolumeAlt(const std::vector<Point>& points) {
+double VolumeMeshMetricsFilter::ComputeHexVolumeAlt(const std::vector<Point>& points) {
     if (points.size() != 8) { return 0.0; }
 
     double volume_mesh = 0;
