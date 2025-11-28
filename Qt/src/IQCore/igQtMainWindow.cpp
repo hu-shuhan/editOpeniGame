@@ -14,7 +14,6 @@
 #include "Convert/iGameConvertToSurfaceMesh.h"
 #include "Convert/iGameConvertToVolumeMesh.h"
 #include "Convert/iGameConvertToLagrangeUnstructuredMesh.h"
-#include "UndefinedFilters/iGameVortexDetection.h"
 
 #include "Interactor/iGameInteractor.h"
 #include "SurfaceMeshFilters/iGameMeshSimplifier.h"
@@ -22,10 +21,7 @@
 #include "SurfaceMeshFilters/iGameSimplification.h"
 #include "SurfaceMeshFilters/iGameTriangulation.h"
 #include "Tests/iGameARAPTest.h"
-#include "UndefinedFilters/iGameCurvatureFilter.h"
-#include "UndefinedFilters/iGameGradientFilter.h"
-#include "UndefinedFilters/iGameLaplacianFilter.h"
-#include "UndefinedFilters/iGameVortexFilter.h"
+
 #include "iGameAttribute.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
@@ -912,6 +908,7 @@ void igQtMainWindow::initAllFilters() {
         GradientFilter::Pointer filter = GradientFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { 
             modelTreeWidget->updateAllAttriubute(data);
         }
@@ -923,6 +920,7 @@ void igQtMainWindow::initAllFilters() {
         LaplacianFilter::Pointer filter = LaplacianFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
@@ -932,6 +930,7 @@ void igQtMainWindow::initAllFilters() {
         CurvatureFilter::Pointer filter = CurvatureFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
@@ -940,26 +939,10 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         VortexFilter::Pointer filter = VortexFilter::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-
-        //auto mesh = data->GetDisplayObject();
-        //if (mesh) {
-        //    filter->SetInput(mesh);
-        //    filter->Execute();
-        //    modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
-        //
-
-        //} else {
-        //    filter->SetInput(data);
-        //    filter->Execute();
-        //    modelTreeWidget->updateAllAttriubute(data);
-        //}
-
-        //data = DynamicCast<DrawObject>(data)->GetDisplayObject();
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
 
         filter->SetInput(data);
         if (filter->Execute()) {
-            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
 
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
@@ -972,6 +955,7 @@ void igQtMainWindow::initAllFilters() {
         VortexDetection::Pointer filter = VortexDetection::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
 

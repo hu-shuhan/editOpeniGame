@@ -26,8 +26,12 @@ public:
         Gradient x, y, z;
     };
 
+    void SetAttributeByIndex(int index) { curIndex = index; }
+    void SetAttributeByName(const std::string& name) { this->name = name; }
+
     bool Execute() override;
 
+private:
     float ComputeCellVolume(Cell* cell);
 
     // 三角形和四边形和多边形
@@ -213,7 +217,7 @@ protected:
     AttributeSet::Pointer attributeSet{};
 
     int curIndex{-1};
-    int curDim{-1};
+    std::string name;
 };
 
 IGAME_NAMESPACE_END

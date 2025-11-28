@@ -55,10 +55,10 @@ bool VortexDetection::Execute() {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (!attributeSet) return false;
-        curIndex = input->GetAttributeIndex();
-        curDim = input->GetAttributeDimension();
-        if (curIndex < 0) return false;
+        if (attributeSet == nullptr) return false;
+        if (curIndex == -1 && attName == "") return false;
+        if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(attName);
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
 
         int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
         if (dim != 3) { return false; }
