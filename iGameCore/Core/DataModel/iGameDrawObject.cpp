@@ -410,6 +410,8 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     MeshSimplifier::Pointer meshSimplifier = MeshSimplifier::New();
     meshSimplifier->SetInput(dataObject);
     meshSimplifier->SetTargetReduction(0.01);
+
+
     if (meshSimplifier->Execute()) { simplifiedMesh = DynamicCast<DrawObject>(meshSimplifier->GetOutput()); }
 
     m_RenderableMesh.SimplifiedMesh = simplifiedMesh;
