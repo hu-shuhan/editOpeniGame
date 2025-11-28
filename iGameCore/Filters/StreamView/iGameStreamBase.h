@@ -23,7 +23,7 @@ public:
         isUpdate = true;
         //ConvertToDrawableData();
     }
-    IGsize GetRealMemorySize() {
+    IGsize GetRealMemorySize() override {
         IGsize res = this->DrawObject::GetRealMemorySize();
         if (m_Points) res += m_Points->GetRealMemorySize();
         if (m_PositionColors) res += m_PositionColors->GetRealMemorySize();

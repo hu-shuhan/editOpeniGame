@@ -130,7 +130,7 @@ public:
 	            return DynamicCast<VolumeMesh>(this->m_DataObj)->GetIsPolyhedronType();
 	        }
 	        case IG_UNSTRUCTURED_MESH: {
-	            return this->GetCellTypes()->GetValue(0) == IG_POLYHEDRON;
+	            return static_cast<int>(this->GetCellTypes()->GetValue(0)) == IG_POLYHEDRON;
 	        }
 	        default:
 	            return false;

@@ -257,6 +257,8 @@ protected:
 
 class CallbackBase {
 public:
+    CallbackBase(){}
+    ~CallbackBase(){}
 	virtual bool operator()(Object*, unsigned long, void*) = 0;
 };
 
@@ -310,7 +312,7 @@ public:
 	I_OBJECT(LambdaCommand);
 	static Pointer New() { return new LambdaCommand; }
 
-	virtual void Execute(Object* caller, unsigned long eventId, void* callData) {
+	virtual void Execute(Object* caller, unsigned long eventId, void* callData) override {
 		if (this->Callable)
 		{
 			(*this->Callable)(caller, eventId, callData);
