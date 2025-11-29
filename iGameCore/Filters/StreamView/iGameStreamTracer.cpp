@@ -234,6 +234,115 @@ std::vector<Vector3f> iGameStreamTracer::getModelSelect() {
                                  4,
                                  4);
 }
+bool iGameStreamTracer::Execute() {
+    // 检查参数是否已设置
+    if (m_SeedPoints.empty()) {
+        igError("Seed points not set. Please call setinput() first.");
+        m_ResultMesh = nullptr;
+        return false;
+    }
+
+    if (m_VectorName.empty()) {
+        igError("Vector name not set. Please call setinput() first.");
+        m_ResultMesh = nullptr;
+        return false;
+    }
+
+    // 使用内部存储的参数调用原始计算逻辑
+    std::vector<std::vector<float>> streamColor;
+    auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor,
+                                        m_LengthOfStreamLine, m_LengthOfStep,
+                                        m_TerminalSpeed, m_MaxSteps);
+
+    // 检查数据有效性
+    if (streamlines.empty() || streamColor.empty()) {
+        igError("Streamline calculation failed or returned empty data");
+        m_ResultMesh = nullptr;
+        return false;
+    }
+
+    // 创建 UnstructuredMesh 对象
+    UnstructuredMesh::Pointer streamMesh = UnstructuredMesh::New();
+    Points::Pointer points = Points::New();
+    CellArray::Pointer cells = CellArray::New();
+    UnsignedIntArray::Pointer types = UnsignedIntArray::New();
+    AttributeSet::Pointer attrSet = AttributeSet::New();
+
+    igIndex globalPointIndex = 0;
+
+    // 处理每条流线
+    for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
+        auto& streamline = streamlines[streamlineIdx];
+
+        if (streamline.size() <= 6) continue; // 至少需要两个点（6个float值）
+
+        igIndex lineStartIndex = globalPointIndex;
+        int numPoints = streamline.size() / 3;
+
+        // 添加流线的所有点
+        for (int i = 0; i < numPoints; i++) {
+            Point p(streamline[i * 3], streamline[i * 3 + 1], streamline[i * 3 + 2]);
+            points->AddPoint(p);
+            globalPointIndex++;
+        }
+
+        // 按VTK流线格式：每条流线作为一个POLYLINE单元
+        std::vector<igIndex> polylineIds;
+        polylineIds.reserve(numPoints);
+        for (int i = 0; i < numPoints; i++) {
+            polylineIds.push_back(lineStartIndex + i);
+        }
+
+        // 添加POLYLINE单元（包含整条流线的所有点）
+        cells->AddCellIds(polylineIds.data(), numPoints);
+        types->AddValue(IG_POLY_LINE);  // 使用POLYLINE类型而不是LINE
+    }
+
+    // 设置点数据和单元数据
+    streamMesh->SetPoints(points);
+    streamMesh->SetCells(cells, types);
+
+    // 创建速度属性数组
+    FloatArray::Pointer velocityArray = FloatArray::New();
+    velocityArray->SetDimension(3);
+    velocityArray->SetName("Velocity");
+
+    // 添加速度数据到属性数组
+    for (const auto& velocityData : streamColor) {
+        for (int i = 0; i < velocityData.size(); i += 3) {
+            if (i + 2 < velocityData.size()) {
+                velocityArray->AddElement3(velocityData[i], velocityData[i + 1], velocityData[i + 2]);
+            }
+        }
+    }
+
+    // 添加速度属性
+    attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
+
+    // 创建流线索引属性数组（标记每个点属于哪条流线）
+    IntArray::Pointer streamlineIndexArray = IntArray::New();
+    streamlineIndexArray->SetDimension(1);
+    streamlineIndexArray->SetName("StreamlineIndex");
+
+    for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
+        int numPoints = streamlines[streamlineIdx].size() / 3;
+        for (int i = 0; i < numPoints; i++) {
+            streamlineIndexArray->AddValue(streamlineIdx);
+        }
+    }
+
+    attrSet->AddAttribute(IG_SCALAR, IG_POINT, streamlineIndexArray);
+
+    // 设置属性集到网格
+    streamMesh->SetAttributeSet(attrSet);
+
+    // 设置网格名称
+    streamMesh->SetName("StreamlinesUnstructuredMesh");
+
+    // 将结果赋值给成员变量
+    m_ResultMesh = streamMesh;
+    return true;
+}
 std::vector<Vector3f> iGameStreamTracer::getModelSelectMax(std::string VectorName) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
