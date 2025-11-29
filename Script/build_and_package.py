@@ -30,7 +30,7 @@ def build_and_package(build_config, args):
     build_dir = os.path.join(project_root, build_dir_name)
     install_dir = os.path.join(build_dir, "install")
     package_source_dir = os.path.join(build_dir, "iGameCore")
-    archive_name = os.path.join(project_root, f"{build_dir_name}.tar.gz")
+    archive_name = os.path.join(project_root, f"{build_dir_name}", "iGameCore.tar.gz")
 
     print(f"--- Starting build for configuration: {build_dir_name} ---")
     print(f"Project root: {project_root}")
@@ -125,14 +125,14 @@ def main():
     if sys.platform.startswith("linux"):
         print("--- Detected Linux platform. Configuring GCC builds. ---")
         build_configs.append({
-            "name": "cmake-autobuild-gcc11",
+            "name": "cmake-autobuild-release-gcc11",
             "cmake_opts": [
                 "-DCMAKE_C_COMPILER=/usr/bin/gcc-11",
                 "-DCMAKE_CXX_COMPILER=/usr/bin/g++-11"
             ]
         })
         build_configs.append({
-            "name": "cmake-autobuild-gcc13",
+            "name": "cmake-autobuild-release-gcc13",
             "cmake_opts": [
                 "-DCMAKE_C_COMPILER=/usr/bin/gcc-13",
                 "-DCMAKE_CXX_COMPILER=/usr/bin/g++-13"

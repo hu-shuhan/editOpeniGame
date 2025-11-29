@@ -61,48 +61,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-add_executable(${PROJECT_NAME} main.cpp)
-
 set(IGAMEVIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
-### ---- 运行时 DLL 拷贝（Windows）----------------------------------------
-if (WIN32 AND ENABLE_LIBTORCH_MODULE)
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Debug")
-    else ()
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Release_GPU")
-    endif ()
-
-    include_directories(
-            "${LIBTORCH_DIR}/include"
-            "${LIBTORCH_DIR}/include/torch/csrc/api/include"
-    )
-    file(GLOB TORCH_DLLS
-            "${LIBTORCH_DIR}/lib/*.dll"
-            "${LIBTORCH_DIR}/bin/*.dll")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${TORCH_DLLS}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-            COMMENT "Copying libtorch DLLs to output folder"
-    )
-elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
-    if (CMAKE_BUILD_TYPE STREQUAL "Release")
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Linux/Release_GPU")
-    endif ()
-    include_directories(
-            "${LIBTORCH_DIR}/include"
-            "${LIBTORCH_DIR}/include/torch/csrc/api/include"
-    )
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-            BUILD_RPATH "${LIBTORCH_DIR}/lib"
-            INSTALL_RPATH "${LIBTORCH_DIR}/lib"
-    )
-
-elseif (ENABLE_LIBTORCH_MODULE)
-    message(FATAL_ERROR "Only Windows and Linux platform is supported for this project!")
-endif ()
 
 #--------------------------------------------------------------------
 # Add subdirectories
@@ -115,21 +74,61 @@ add_subdirectory(ThirdParty)
 
 # 导入核心库
 add_subdirectory(iGameCore)
-target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore)
 
 # 导入Qt模块
 if (ENABLE_QT_MODULE)
     add_subdirectory(Qt)
-    target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
+
+    add_executable(${PROJECT_NAME} main.cpp)
+    target_link_libraries(${PROJECT_NAME} PUBLIC
+            iGameCore
+            Qt_module
+    )
+
+    # 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
+    if (WIN32)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+        if (ENABLE_LIBTORCH_MODULE)
+            if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+                set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Debug")
+            else ()
+                set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Release_GPU")
+            endif ()
+
+            include_directories(
+                    "${LIBTORCH_DIR}/include"
+                    "${LIBTORCH_DIR}/include/torch/csrc/api/include"
+            )
+            file(GLOB TORCH_DLLS
+                    "${LIBTORCH_DIR}/lib/*.dll"
+                    "${LIBTORCH_DIR}/bin/*.dll")
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${TORCH_DLLS}
+                    $<TARGET_FILE_DIR:${PROJECT_NAME}>
+                    COMMENT "Copying libtorch DLLs to output folder"
+            )
+        elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
+            if (CMAKE_BUILD_TYPE STREQUAL "Release")
+                set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Linux/Release_GPU")
+            endif ()
+            include_directories(
+                    "${LIBTORCH_DIR}/include"
+                    "${LIBTORCH_DIR}/include/torch/csrc/api/include"
+            )
+            set_target_properties(${PROJECT_NAME} PROPERTIES
+                    BUILD_RPATH "${LIBTORCH_DIR}/lib"
+                    INSTALL_RPATH "${LIBTORCH_DIR}/lib"
+            )
+
+        elseif (ENABLE_LIBTORCH_MODULE)
+            message(FATAL_ERROR "Only Windows and Linux platform is supported for this project!")
+        endif ()
+    endif ()
 endif ()
 
 # 导入example
 if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT BUILD_CORE_ONLY)
     add_subdirectory(Examples)
-endif ()
-
-# 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-if (WIN32 AND NOT BUILD_CORE_ONLY)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
 endif ()
