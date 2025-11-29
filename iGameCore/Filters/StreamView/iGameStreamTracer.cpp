@@ -707,6 +707,12 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
             auto Vector = PointData->GetVector(vectorName);
+            for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
+                float v[4] = {0.0f};
+                Vector.pointer->GetElement(i, v);
+                maxF=std::max(maxF, sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]));
+                minF=std::min(minF, sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]));
+            }
             int component = Vector.pointer->GetDimension();
             isChange = false;
         }
@@ -735,7 +741,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
-            k[1] = lengthOfStep * temV;
+            k[1] = lengthOfStep * temV.normalized();
             streamColor[i].emplace_back(temV[0]);
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
@@ -744,21 +750,23 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                 inside = false;
             }
             k[2] = lengthOfStep *
-                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed);
+                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized();
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
             k[3] = lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
-                                                      vectorName, terminalSpeed);
+                                                      vectorName, terminalSpeed)
+                                          .normalized();
             if (inside) {
                 flag = true;
                 inside = false;
             }
 
             k[4] = lengthOfStep * interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
-                                                      flag1, vectorName, terminalSpeed);
+                                                      flag1, vectorName, terminalSpeed)
+                                          .normalized();
             if (inside) {
                 flag = true;
                 inside = false;
@@ -766,7 +774,8 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
 
             k[5] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] + k[4] * B[3][3],
-                                       inside, flag1, vectorName, terminalSpeed);
+                                       inside, flag1, vectorName, terminalSpeed)
+                           .normalized();
             if (inside) {
                 flag = true;
                 inside = false;
@@ -774,7 +783,8 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
 
             k[6] = lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                               k[4] * B[4][3] + k[5] * B[4][4],
-                                                      inside, flag1, vectorName, terminalSpeed);
+                                                      inside, flag1, vectorName, terminalSpeed)
+                                          .normalized();
             if (inside) {
                 flag = true;
                 inside = false;
@@ -1429,21 +1439,18 @@ Vector3f iGameStreamTracer::interpolationVector(const Vector3f& coord, bool& ins
             if (Vector.type == IG_CELL) {
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(VolumeId, v);
-                finnal = Vector3f(v[0], v[1], v[2]).normalized() * longest;
+                finnal = Vector3f(v[0], v[1], v[2]) ;
             } else {
                 finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed)
-                                 .normalized() *
-                         longest;
+                                ;
             }
         } else if (size == 4) {
-            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed).normalized() * longest;
+            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed) ;
         } else if (size == 8) {
-            finnal =
-                    interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed).normalized() *
-                    longest;
+            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed);
         } else {
-            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed).normalized() *
-                     longest;
+            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed) 
+                     ;
         }
     } else {
         std::vector<igIndex> tem;

@@ -85,6 +85,8 @@ public:
                                                            std::vector<std::vector<float>>& streamColor,
                                                            float lengthOfStreamLine, float lengthOfStep,
                                                            float terminalSpeed, int maxSteps);
+    float maxF = FLT_MIN;
+    float minF = FLT_MAX;
     bool CellData2PointData(std::string vectorName);
     void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
