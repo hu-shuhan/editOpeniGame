@@ -165,7 +165,7 @@ double SurfaceMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
     //default:
     //	break;
     //}
-    //return 0.0;
+    return 0.0;
 }
 //计算顶点内角
 double SurfaceMeshMetricsFilter::GetInternalAnglesOfVertex(Point v0, Point v1, Point v2) {

@@ -28,7 +28,7 @@ public:
 
 	virtual void SetNumberOfChildren(unsigned int num) {}
 	virtual unsigned int GetNumberOfChildren() { return 0; }
-	IGsize GetRealMemorySize() { return 0; }
+	IGsize GetRealMemorySize() override { return 0; }
 protected:
 	CompositeDataObject();
 	~CompositeDataObject() override;

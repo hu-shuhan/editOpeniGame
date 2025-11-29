@@ -16,8 +16,8 @@ public:
 
 public:
 
-	void paintEvent(QPaintEvent*);
-	void resizeEvent(QResizeEvent*);
+	void paintEvent(QPaintEvent*) override;
+	void resizeEvent(QResizeEvent*) override;
 	void paint(QPainter& painter, QRect rect) const;
 	void slotSvChanged(QColor);
 public slots:

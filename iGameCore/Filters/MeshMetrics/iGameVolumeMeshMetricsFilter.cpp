@@ -161,6 +161,7 @@ double VolumeMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
                 break;
         }
     }
+    return 0.0;
 }
 
 

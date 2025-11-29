@@ -59,6 +59,7 @@ def build_and_package(build_config, args):
     cmake_command += [
         "-S", project_root,
         "-B", build_dir,
+        f"-DCMAKE_BUILD_TYPE=Release",
         f"-DENABLE_CGNS_MODULE={'ON' if args.enable_cgns else 'OFF'}",
         f"-DENABLE_NASTRAN_MODULE={'ON' if args.enable_nastran else 'OFF'}",
         f"-DENABLE_LIBTORCH_MODULE={'ON' if args.enable_libtorch else 'OFF'}",

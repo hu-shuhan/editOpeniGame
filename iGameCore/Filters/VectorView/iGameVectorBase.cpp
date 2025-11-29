@@ -17,7 +17,7 @@ iGameVectorBase::iGameVectorBase() {
 }
 iGameVectorBase::~iGameVectorBase() {}
 void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
-    if (_hR <= 0 || _hL <= 0 || _tR <= 0, _tL <= 0) {
+    if (_hR <= 0 || _hL <= 0 || _tR <= 0 || _tL <= 0) {
         std::cout << "Parameter is negative" << std::endl;
         return;
     }
@@ -25,7 +25,6 @@ void iGameVectorBase::SetArrow(float _hR, float _hL, float _tR, float _tL) {
     hL = _hL;
     tR = _tR;
     tL = _tL;
-    return;
 }
 std::vector<float> iGameVectorBase::GetArrow() {
     std::vector<float> result;
@@ -325,6 +324,7 @@ bool iGameVectorBase::DrawVector(std::string VecName, iGame::DataObject* _obj) {
 
     // auto bound = DynamicCast<PointSet>(obj)->GetBoundingBox();
     // maxLength = (bound.max - bound.min).length();
+    return true;
 }
 void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector3f RGB) {
     Vector3f L;
@@ -431,7 +431,7 @@ void iGameVectorBase::convertPoint2Arrow(Vector3f coord, Vector3f normal, Vector
         index->AddElement3(count, count + 1, count + 2);
         count += 3;
     }
-    return;
+
 }
 
 void iGameVectorBase::ConvertToDrawableData() {
