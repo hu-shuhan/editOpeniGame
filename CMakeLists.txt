@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.19)
 # CMAKE Global Settings.
 #--------------------------------------------------------------------
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
 
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
