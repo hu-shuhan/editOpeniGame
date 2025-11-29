@@ -129,6 +129,6 @@ if (ENABLE_QT_MODULE)
 endif ()
 
 # 导入example
-if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT BUILD_CORE_ONLY)
+if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_subdirectory(Examples)
 endif ()
