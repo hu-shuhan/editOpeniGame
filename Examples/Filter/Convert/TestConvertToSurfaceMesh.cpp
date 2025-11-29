@@ -1,11 +1,10 @@
-#include <iGameInteractor.h>
+#include <Convert/iGameConvertToSurfaceMeshFilter.h>
 #include <iGameFileIO.h>
-#include <iGameScene.h>
+#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
-#include <Convert/iGameConvertToSurfaceMesh.h>
+#include <iGameScene.h>
 
-
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -18,12 +17,10 @@ int main(){
         return 0;
     }
 
-    auto filter = iGame::ConvertToSurfaceMesh::New();
+    auto filter = iGame::ConvertToSurfaceMeshFilter::New();
     filter->SetInput(obj);
 
-    if (filter->Execute()) { 
-        obj = filter->GetOutput();
-    }
+    if (filter->Execute()) { obj = filter->GetOutput(); }
 
     scene->AddModel(obj);
 

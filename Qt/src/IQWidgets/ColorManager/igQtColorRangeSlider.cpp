@@ -94,7 +94,7 @@ void igQtColorRangeSlider::paintEvent(QPaintEvent* aEvent)
         }
         else {
             pen.setColor(Qt::darkGray);
-            pen.setWidth(0.5);
+            pen.setWidth(static_cast<int>(0.5));
             painter.setPen(pen);
         }
         QRectF HandleRect = getHandleRectWithFloatValue(colorRanges->GetValue(i));

@@ -108,6 +108,7 @@ public:
     // Get a attribute by name
     Attribute& GetAttribute(const std::string& name);
     const Attribute& GetAttribute(const std::string& name) const;
+    int GetAttributeIndex(const std::string& name) const;
 
     // Get a attribute by name and type
     Attribute& GetAttribute(const std::string& name, IGenum type);

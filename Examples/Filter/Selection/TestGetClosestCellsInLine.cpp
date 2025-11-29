@@ -1,16 +1,15 @@
+#include <Selection/iGameGetClosestCellsInLineFilter.h>
 #include <algorithm>
 #include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameGetClosestCellsInLine.h>
 #include <iostream>
 
 static void ShowFilterFunc(iGame::UnstructuredMesh::Pointer mesh, const iGame::Point& startPoint,
-                           const iGame::Point& endPoint,
-                           double radius = 0.0, bool useAutoValueRange = false, int variableIndex = -1,
-                           double expdRate = 1.0) {
+                           const iGame::Point& endPoint, double radius = 0.0, bool useAutoValueRange = false,
+                           int variableIndex = -1, double expdRate = 1.0) {
     /*Set filter*/
-    auto filter = iGame::iGameGetClosestCellsInLine::New(startPoint, endPoint, radius, useAutoValueRange, variableIndex,
-                                                         expdRate);
+    auto filter = iGame::GetClosestCellsInLineFilter::New(startPoint, endPoint, radius, useAutoValueRange,
+                                                          variableIndex, expdRate);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

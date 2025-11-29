@@ -76,6 +76,7 @@ igm::vec3 ColorUtils::Map(Color color) {
         default:
             igError("Color not mapped!");
     }
+    return igm::vec3{0.0f, 0.0f, 0.0f};
 }
 
 igm::vec3 ColorUtils::Map(int R, int G, int B) {

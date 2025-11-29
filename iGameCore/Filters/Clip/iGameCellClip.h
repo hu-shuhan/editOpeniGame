@@ -6,8 +6,7 @@
  * 后续会统一优化为点合并版本，并且使用edge插值点进行去重判断
  * 除了四面体和三角形采用打表切割，其余的体和面都会进行一个转化，转化为四面体和三角形进行切割
  */
-#ifndef iGameCellClip_h
-#define iGameCellClip_h
+#pragma once
 
 
 #include "Quadratic/iGameQuadraticHexahedron.h"
@@ -841,4 +840,3 @@ static void Clip(QuadraticQuad::Pointer cell, double* cellValues, PointFinder::P
 
 
 IGAME_NAMESPACE_END
-#endif iGameCellClip_h

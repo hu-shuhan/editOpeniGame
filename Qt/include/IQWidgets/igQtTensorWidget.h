@@ -4,9 +4,9 @@
  */
 
 #pragma once
-#include <ui_TensorView.h>
-#include "TensorViewFilter/iGameTensorBase.h"
+#include "TensorView/iGameTensorBase.h"
 #include <IQCore/igQtExportModule.h>
+#include <ui_TensorView.h>
 
 using namespace iGame;
 class IG_QT_MODULE_EXPORT igQtTensorWidget : public QWidget {

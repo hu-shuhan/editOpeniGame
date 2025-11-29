@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <Selection/iGameSetSelectionCallBackFuncFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameSetSelectionCallBackFunc.h>
+#include <iostream>
 
 static void SelectionCallBackFunc(IGenum itemType, const std::vector<igIndex>& ids, iGame::Selection::Operate ope) {
     std::cout << "Type:" << itemType << ' ' << "Operate:" << ope << ' ' << "Id:" << std::endl;
@@ -20,7 +20,7 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter = iGame::iGameSetSelectionCallBackFunc::New("SelectionCallBackFunc_1", SelectionCallBackFunc);
+    auto filter = iGame::SetSelectionCallBackFuncFilter::New("SelectionCallBackFunc_1", SelectionCallBackFunc);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

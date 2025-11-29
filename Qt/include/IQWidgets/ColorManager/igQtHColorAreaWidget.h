@@ -15,9 +15,9 @@ public:
 
 public:
 	void setHue(int h);
-	void paintEvent(QPaintEvent*);
-	void mousePressEvent(QMouseEvent* ev);
-	void mouseMoveEvent(QMouseEvent* ev);
+	void paintEvent(QPaintEvent*) override;
+	void mousePressEvent(QMouseEvent* ev) override;
+	void mouseMoveEvent(QMouseEvent* ev) override;
 	void createHuePixmap();
 
 signals:

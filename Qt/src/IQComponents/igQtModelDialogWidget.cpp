@@ -1,4 +1,4 @@
-#include "Sources/iGameLineTypePointsSource.h"
+#include "Sources/iGameLineTypePointsSourceFilter.h"
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <Plugin/qtpropertybrowser/qtpropertymanager.h>
 #include <QQueue>

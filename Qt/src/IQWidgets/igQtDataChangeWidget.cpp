@@ -114,6 +114,11 @@ void igQtDataChangeWidget::SetModel(Model::Pointer model) {
     _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    if (m_Mesh == nullptr) {
+        this->setEnabled(false);
+        return;
+    }
+    this->setEnabled(true);
     SetRadialPoint();
     /*ShowRadial(true);*/
     SetRadialPointMoveCallBack();
@@ -557,7 +562,7 @@ QImage igQtDataChangeWidget::_DrawVariableImage(double minValue, double maxValue
     re.fill(Qt::transparent);
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&re);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     auto pen = QPen(QColor(GetQColorFromTuple(color, alpha)), POINT_SIZE);
     pen.setCapStyle(Qt::RoundCap);
     painter->setPen(pen);
@@ -588,7 +593,7 @@ QImage igQtDataChangeWidget::_DrawChoosedVariableImage(
     re.fill(Qt::transparent);
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&re);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     auto pen = QPen(QColor(GetQColorFromTuple(color, alpha)), POINT_SIZE);
     pen.setCapStyle(Qt::RoundCap);
     painter->setPen(pen);

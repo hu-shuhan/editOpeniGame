@@ -290,7 +290,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             call = false;
         } else if (currentItem() != item) { // Check operation
             iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
-            setItemSelected(item, true);
+            //setItemSelected(item, true);
+            item->setSelected(true);
             item->getModel()->ViewCloudPicture(-1);
             emit ChangeCurrentModel(item->getModel());
             Q_EMIT ViewCloudPicture();

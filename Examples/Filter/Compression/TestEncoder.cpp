@@ -10,9 +10,9 @@ int main() {
 
     // encoder test
     iGame::DataObject::Pointer sourceDataObj = iGame::FileIO::ReadFile(sourceFileName);
-    
+
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(iGame::MeshEncoder::GenUiControlParams(sourceDataObj));
+    writer->SetUIControlParams(iGame::MeshEncoderFilter::GenUiControlParams(sourceDataObj));
 
     writer->WriteToFile(sourceDataObj, encodedFileName);
 

@@ -1,11 +1,11 @@
-#include <iGameInteractor.h>
+#include <DataProcessing/iGameMeshSimplificationFilter.h>
+#include <DataProcessing/iGameMeshTriangulationFilter.h>
 #include <iGameFileIO.h>
-#include <iGameScene.h>
+#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
-#include <SurfaceMeshFilters/iGameSimplification.h>
-#include <SurfaceMeshFilters/iGameTriangulation.h>
+#include <iGameScene.h>
 
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 

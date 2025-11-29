@@ -36,7 +36,6 @@ public:
     }
 
     // 子类必须实现这些纯虚函数
-    virtual int GetNumberOfEdges() = 0;
     virtual int GetEdgePointIds(const int edgeId, const igIndex*& ptIds) = 0;
 
 protected:

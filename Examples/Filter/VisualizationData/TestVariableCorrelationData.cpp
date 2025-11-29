@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameVariableCorrelationFilter/iGameGenerateVariableCorrelationData.h>
+#include <iostream>
 
 int main() {
     /*Read data*/
@@ -15,7 +15,7 @@ int main() {
     }
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateVariableCorrelationData::New(IG_POINT);
+    auto filter = iGame::GenerateVariableCorrelationDataFilter::New(IG_POINT);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

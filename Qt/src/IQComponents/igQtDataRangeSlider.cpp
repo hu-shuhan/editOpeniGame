@@ -48,7 +48,7 @@ void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 
 	for (int i = 0; i < 2; i++) {
 		pen.setColor(Qt::darkGray);
-		pen.setWidth(0.5);
+		pen.setWidth(static_cast<int>(0.5));
 		painter.setPen(pen);
 		QRectF HandleRect = getHandleRectWithFloatValue(range[i]);
 		painter.drawRoundedRect(HandleRect, 5, 5);

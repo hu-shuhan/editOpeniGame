@@ -19,9 +19,9 @@ public:
 	void setBrightness(int v);
 	void setHsv(int h, int s, int v);
 	void setColor(const QColor& c);
-	void paintEvent(QPaintEvent*);
-	void mousePressEvent(QMouseEvent* ev);
-	void mouseMoveEvent(QMouseEvent* ev);
+	void paintEvent(QPaintEvent*) override;
+	void mousePressEvent(QMouseEvent* ev) override;
+	void mouseMoveEvent(QMouseEvent* ev) override;
 	void createVPixmap();
 	void createSVPixmap();
 	void updateSVPixmap();

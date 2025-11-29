@@ -8,10 +8,9 @@
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
 #include "IGC/iGameIGCWriter.h"
+#include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "Spline XML/iGameSplineReaderCPU.h"
 #include "iGameFileIO.h"
-#include "iGameMeshCodec/iGameMeshDecoder.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
 #ifndef OPENCMD_H
 #define OPENCMD_H
 #include <string>
@@ -57,7 +56,7 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(iGame::MeshEncoder::GenUiControlParams(tem));
+    writer->SetUIControlParams(iGame::MeshEncoderFilter::GenUiControlParams(tem));
 
     if (!writer->WriteToFile(tem, "./CScomp.igc")) {
         igDebug("Compress File Error\n");
@@ -153,7 +152,7 @@ void serverThread() {
         return;
     }
     closesocket(serverSocket);
-     WSACleanup();
- }
+    WSACleanup();
+}
 
 #endif

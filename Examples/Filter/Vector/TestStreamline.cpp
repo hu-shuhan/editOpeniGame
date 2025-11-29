@@ -59,17 +59,17 @@ int main() {
     Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max;//包围盒区域
     Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
     Vector3f centerMax=(boundMax-boundMin)/5+boundMin;//模拟被选中重点区域
-    auto seeds=streamtracer->getAllSubBlockCenters(boundMax,boundMin,centerMax,boundMin,4,6);//4，6为划分子块的数量
+    auto seeds=streamtracer->getAllSubBlockCenters(boundMax,boundMin,centerMax,boundMin,2,4);//4，6为划分子块的数量
    // auto seeds=streamtracer->seedPCoordGenerate(boundMax,boundMin,1000);//均匀生成1000个种子点
-    std::vector<std::vector<float>> streamlineColor;
-    std::vector<std::vector<float>> streamline;
     float lengthOfStreamLine=5;
     float lengthOfStep=0.3;
     float maxSteps=1000;
     float terminalSpeed=0.005;
-    streamline = streamtracer->showStreamLineMix(seeds, VectorName[0], streamlineColor, lengthOfStreamLine, lengthOfStep,
+    streamtracer->SetInput(seeds, VectorName[0], lengthOfStreamLine, lengthOfStep,
                                                  terminalSpeed, maxSteps);
-    m_StreamBase->SetStreamLine(streamline, streamlineColor);
+    streamtracer->Execute();
+    m_StreamBase->SetUpdate(true);
+    auto output= streamtracer->GetOutput();//这就是输出的流线数据
     scene->AddModel(m_StreamBase);
     DynamicCast<iGame::DrawObject>(m_StreamBase)->AddViewStyle(IG_WIREFRAME);
     //Set the original model to be invisible

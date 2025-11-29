@@ -1,8 +1,8 @@
 #ifndef iGameIGCWriter_h
 #define iGameIGCWriter_h
 
+#include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "iGameFileWriter.h"
-#include "iGameMeshCodec/iGameMeshEncoder.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -19,22 +19,20 @@ public:
     }
 
     std::vector<std::pair<std::string, std::string>> GetReport() const {
-        if (m_encoder) {
-            return m_encoder->GetReport();
-        }
+        if (m_encoder) { return m_encoder->GetReport(); }
         return {};
     }
 
 protected:
     IGCWriter() = default;
     ~IGCWriter() override = default;
-    
+
 private:
     bool m_hasUIParams = false;
     UIControlParams m_UIParams;
 
-    MeshEncoder::Pointer m_encoder;
-    
+    MeshEncoderFilter::Pointer m_encoder;
+
     // helper methods
     bool EncodeData();
     bool GenerateOutput();

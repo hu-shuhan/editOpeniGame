@@ -1,5 +1,5 @@
 #include "iGameUnstructuredMesh.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 void UnstructuredMesh::SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type) {
     m_Cells = cell;
@@ -453,7 +453,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
         bool extractShellSuccess = false;
         if (m_ShellRendering) {
-            iGameModelGeometryFilter::Pointer extract = iGameModelGeometryFilter::New();
+            ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
             // update clip status
             auto box = m_Clipper->m_Box;
             if (box.m_Use) {

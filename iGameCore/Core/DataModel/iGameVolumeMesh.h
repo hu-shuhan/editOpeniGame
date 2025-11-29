@@ -16,7 +16,7 @@ public:
     static Pointer New() { return new VolumeMesh; }
     using ReturnContainer = FlexArray<igIndex, 128>;
 
-    IGenum GetDataObjectType() const { return IG_VOLUME_MESH; }
+    IGenum GetDataObjectType() const override { return IG_VOLUME_MESH; }
     // Get the number of all volumes
     IGsize GetNumberOfVolumes() const noexcept;
 

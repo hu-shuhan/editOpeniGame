@@ -7,8 +7,7 @@
  * 普通cell的轮廓提取采用的是打表，包括三角形、四边形、四面体、六面体、金字塔、三棱柱
  * 其余网格会进行转化为三角形或者四面体进行轮廓提取
  */
-#ifndef iGameCellContour_h
-#define iGameCellContour_h
+#pragma once
 
 #include "Quadratic/iGameQuadraticHexahedron.h"
 #include "Quadratic/iGameQuadraticPrism.h"
@@ -1306,4 +1305,3 @@ static void Contour(QuadraticQuad::Pointer cell, double* cellValues, PointFinder
 
 
 IGAME_NAMESPACE_END
-#endif iGameCellContour_h

@@ -1,14 +1,14 @@
 #include "iGameSurfaceMesh.h"
-#include "SurfaceMeshFilters/iGameMeshSimplifier.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "DataProcessing/iGameMeshSimplificationFilterPro.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameScene.h"
 #include "iGameThreadPool.h"
 #include "iGameTimer.h"
 
 IGAME_NAMESPACE_BEGIN
 
-IGsize SurfaceMesh::GetNumberOfEdges() const noexcept { return m_Edges ? m_Edges->GetNumberOfCells() : 0; }
-IGsize SurfaceMesh::GetNumberOfFaces() const noexcept { return m_Faces ? m_Faces->GetNumberOfCells() : 0; }
+IGsize SurfaceMesh::GetNumberOfEdges() const { return m_Edges ? m_Edges->GetNumberOfCells() : 0; }
+IGsize SurfaceMesh::GetNumberOfFaces() const { return m_Faces ? m_Faces->GetNumberOfCells() : 0; }
 
 bool SurfaceMesh::ShallowCopy(DataObject::Pointer o) { return false; }
 

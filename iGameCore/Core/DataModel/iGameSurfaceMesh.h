@@ -19,11 +19,11 @@ public:
 	static Pointer New() { return new SurfaceMesh; }
 	using ReturnContainer = FlexArray<igIndex, 128>;
 
-	IGenum GetDataObjectType() const { return IG_SURFACE_MESH; }
+	IGenum GetDataObjectType() const override { return IG_SURFACE_MESH; }
 	// Get the number of all edges
-	IGsize GetNumberOfEdges() const noexcept;
+	IGsize GetNumberOfEdges() const;
 	// Get the number of all faces
-	IGsize GetNumberOfFaces() const noexcept;
+	IGsize GetNumberOfFaces() const;
 
 	bool ShallowCopy(DataObject::Pointer o) override;
 	bool DeepCopy(DataObject::Pointer o) override;

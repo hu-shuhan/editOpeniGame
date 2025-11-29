@@ -1,8 +1,8 @@
-#include <iGameFileIO.h>
-#include <iGameParallelCoordinatesFilter/iGameGenerateParallelCoordinatesData.h>
-#include <iostream>
-#include <cmath>
+#include <ParallelCoordinates/iGameGenerateParallelCoordinatesData.h>
 #include <algorithm>
+#include <cmath>
+#include <iGameFileIO.h>
+#include <iostream>
 #include <vector>
 
 static void ShowVariableSort(const std::vector<int>& vs) {
@@ -24,7 +24,7 @@ int main() {
     }
     /*Set filter*/
     //Read point data (cell data uses IG_CELL)
-    auto filter = iGame::iGameGenerateParallelCoordinatesData::New(IG_POINT);
+    auto filter = iGame::GenerateParallelCoordinatesDataFilter::New(IG_POINT);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

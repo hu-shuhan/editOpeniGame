@@ -1,5 +1,6 @@
 ﻿#include <IQCore/igQtMainWindow.h>
 #include <QApplication>
+
 #if __linux__
 #include <qtextcodec.h>
 #else
@@ -28,13 +29,11 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(format);
     // Init Log System
     Log::Init();
-    // IGAME_CORE_INFO("Start Core Log");
-    // IGAME_RENDERING_INFO("Start Rendering Log");
 
     a.processEvents();
     igQtMainWindow w;
     QTextCodec* codec = QTextCodec::codecForName("GBK");
-    w.setWindowTitle(codec->toUnicode("iGameVis 1.0"));
+    w.setWindowTitle(codec->toUnicode("iGameVis 2.0"));
     w.show();
     w.showMaximized();
     w.initArgs(a.arguments());

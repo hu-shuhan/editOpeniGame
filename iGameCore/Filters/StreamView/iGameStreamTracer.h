@@ -93,6 +93,36 @@ public:
     void ClearPtFinder() { this->ptFinder.clear(); }
     bool PtFinderEmpty() { return this->ptFinder.empty(); }
     float AccuracyCul(std::vector<std::vector<float>> streamline, float threshold, int Nth);
+    /**
+     * @brief 设置流线计算的所有参数
+     * @param seeds 种子点数组
+     * @param vectorName 向量场名称
+     * @param lengthOfStreamLine 流线最大长度
+     * @param lengthOfStep 积分步长
+     * @param terminalSpeed 终止速度
+     * @param maxSteps 最大步数
+     */
+    void SetInput(std::vector<Vector3f> seeds, std::string vectorName,
+                  float lengthOfStreamLine, float lengthOfStep,
+                  float terminalSpeed, int maxSteps) {
+        m_SeedPoints = seeds;
+        m_VectorName = vectorName;
+        m_LengthOfStreamLine = lengthOfStreamLine;
+        m_LengthOfStep = lengthOfStep;
+        m_TerminalSpeed = terminalSpeed;
+        m_MaxSteps = maxSteps;
+    }
+
+    /**
+     * @brief 执行流线计算，结果存储在内部成员变量中
+     */
+    bool Execute();
+
+    /**
+     * @brief 获取计算结果
+     * @return UnstructuredMesh::Pointer 包含流线的非结构化网格
+     */
+    UnstructuredMesh::Pointer GetOutput() const { return m_ResultMesh; }
     std::vector<std::vector<float>> showStreamLineMix(std::vector<Vector3f> seed, std::string vectorName,
                                                       std::vector<std::vector<float>>& streamColor,
                                                       float lengthOfStreamLine, float lengthOfStep, float terminalSpeed,
@@ -211,14 +241,14 @@ private:
     };
     adjacent vetex_link;
     adjacent cell_link;
-    
+
     // Performance optimization functions
     inline double fastSin(double x);
     inline double fastTan(double x);
     inline double fastAsin(double x);
     inline double fastSqrt(double x);
     void precomputeTrigValues();
-    
+
     std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
@@ -233,7 +263,18 @@ private:
     int processCount;
     int totalProcess;
     std::shared_mutex ProMutex;
-    
+
+    // 存储流线计算参数
+    std::vector<Vector3f> m_SeedPoints;
+    std::string m_VectorName = "";
+    float m_LengthOfStreamLine = 1000.0f;
+    float m_LengthOfStep = 0.01f;
+    float m_TerminalSpeed = 0.001f;
+    int m_MaxSteps = 10000;
+
+    // 存储计算结果
+    UnstructuredMesh::Pointer m_ResultMesh;
+
     // Performance optimization members
     struct TrigCache {
         std::unordered_map<int, double> sinCache;
@@ -241,7 +282,7 @@ private:
         std::unordered_map<int, double> asinCache;
     };
     static thread_local TrigCache trigCache;
-    
+
     // Memory pool for weights
     static thread_local std::vector<float> reusableWeights;
     static thread_local std::vector<Vector3f> reusableVectors;

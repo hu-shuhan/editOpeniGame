@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UndefinedFilters/iGameVortexFilter.h"
+#include "FeatureExtraction/iGameVortexFilter.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"

@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <Selection/iGameSetPointsSelectFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameSetPointsSelect.h>
+#include <iostream>
 
 int main() {
     /*Read data*/
@@ -14,8 +14,7 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter =
-            iGame::iGameSetPointsSelect::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3, 4}));
+    auto filter = iGame::SetPointsSelectFilter::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3, 4}));
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

@@ -1,7 +1,7 @@
+#include <Selection/iGameGetCellsInFrustumFilter.h>
 #include <algorithm>
 #include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameGetCellsInFrustum.h>
 #include <iostream>
 
 int main() {
@@ -14,7 +14,8 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter = iGame::iGameGetCellsInFrustum::New(iGame::Point(-1.0f, 0.0f, 0.0f), iGame::Point(1.0f, 0.0f, 0.0f),
+    auto filter =
+            iGame::GetCellsInFrustumFilter::New(iGame::Point(-1.0f, 0.0f, 0.0f), iGame::Point(1.0f, 0.0f, 0.0f),
                                                 iGame::Point(0.0f, 0.0f, 1.0f), 1.0, 1.05, 0.05, 0.05, 0.05, 0.05);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();

@@ -311,6 +311,11 @@ void igQtParallelCoordinatesWidget::SetParallelCoordinates(Model::Pointer model)
     _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    if (m_Mesh == nullptr) {
+        this->setEnabled(false);
+        return;
+    }
+    this->setEnabled(true);
     SetSelectionCallback();
     SetClearSelectionCallback();
     UpdateData();
@@ -710,7 +715,7 @@ void igQtParallelCoordinatesWidget::UpdatingLinkImage() {
     if (!drawAble) return;
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&image);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     GenerateDrawLinksImage(linkTopPoints, linkBottomPoints, painter);
     {
         std::lock_guard lg(m_LinkImageMutex);
@@ -733,7 +738,7 @@ void igQtParallelCoordinatesWidget::UpdatingChoosedLinkImage() {
     if (!drawAble) return;
     std::shared_ptr<QPainter> painter = make_shared<QPainter>(&m_ChoosedLinkImage);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
+    //painter->setRenderHint(QPainter::HighQualityAntialiasing, true);
     GenerateChoosedDrawLinksImage(linkTopPoints, linkBottomPoints, painter);
 }
 

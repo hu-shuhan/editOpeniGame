@@ -1,4 +1,5 @@
 #include "iGameAttributeSet.h"
+#include "iGameAttributeSet.h"
 #include "iGameDrawObject.h"
 #include <utility>
 
@@ -129,6 +130,14 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& nam
         if (!attrb.IsNone() && attrb.pointer->GetName() == name) { return attrb; }
     }
     return NONE;
+}
+
+int AttributeSet::GetAttributeIndex(const std::string& name) const { 
+    for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
+        auto& attrb = m_Buffer->GetElement(i);
+        if (!attrb.IsNone() && attrb.pointer->GetName() == name) return i;
+    }
+    return -1; 
 }
 
 

@@ -71,11 +71,11 @@ private slots:
     void RangeChooseButtonClicked(bool checked);
 
 protected:
-    void mousePressEvent(QMouseEvent* event);
-    void mouseReleaseEvent(QMouseEvent* event);
-    void paintEvent(QPaintEvent* QPE);
-    void mouseMoveEvent(QMouseEvent* event);
-    bool eventFilter(QObject* watched, QEvent* event);
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void paintEvent(QPaintEvent* QPE) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
     void handleMouseMove(const QPoint& pos);//TODO
 
     void ClearPosLabel();

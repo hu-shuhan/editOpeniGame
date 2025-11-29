@@ -1,5 +1,5 @@
 #include "IQWidgets/igQtModelClipWidget.h"
-#include "iGameModelSurfaceFilters/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 #include "iGameSceneManager.h"
 #include "iGameThreadPool.h"
 #include <QRegularExpression>
@@ -200,7 +200,7 @@ void igQtModelClipWidget::ClipModel() {
             // recover attribute
             m_ResultMesh->ViewCloudPicture(scene, -1, -1);
             m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
-            auto Extracter = iGame::iGameModelGeometryFilter::New();
+            auto Extracter = iGame::ModelGeometryFilter::New();
             Extracter->SetClipPlane(m_Origin, m_Normal);
             if (m_OriginDataObject->HasSubDataObject()) {
                 for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();

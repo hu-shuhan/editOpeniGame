@@ -17,7 +17,7 @@ public:
     static StructuredMesh* New() { return new StructuredMesh; }
 
     // Return the type of data object as IG_STRUCTURED_MESH.
-    IGenum GetDataObjectType() const { return IG_STRUCTURED_MESH; }
+    IGenum GetDataObjectType() const override { return IG_STRUCTURED_MESH; }
 
     // Get the number of cells in the structured mesh.
     IGsize GetNumberOfCells();
