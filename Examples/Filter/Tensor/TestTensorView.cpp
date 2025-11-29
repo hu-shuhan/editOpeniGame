@@ -6,7 +6,8 @@
  * @brief   TestTensor's brief
  */
 
-#include <TensorViewFilter/iGameTensorBase.h>
+#include <TensorView/iGameTensorBase.h>
+#include <TensorView/iGameTensorFilter.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>

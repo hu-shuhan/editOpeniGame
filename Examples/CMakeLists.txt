@@ -19,6 +19,7 @@ endif ()
 
 file(COPY "${CMAKE_BINARY_DIR}/Resources" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "Models" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+
 add_executable(testSetRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetRenderWindow.cpp")
 add_executable(testSetMultiRenderWindow "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/RenderWindow/SetMultiWindow.cpp")
 add_executable(testMeshletRendering "${CMAKE_CURRENT_SOURCE_DIR}/Rendering/MeshletRendering.cpp")
@@ -185,18 +186,3 @@ target_compile_definitions(testODBReader PUBLIC AbqSDK_ENABLE)
 target_compile_definitions(testSaveAnimation PUBLIC FFMPEG_ENABLE)
 target_compile_definitions(testSplineReaderGPU PUBLIC GPSCUDA_ENABLE)
 target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
-
-# SET(Torch_DIR "D:/XuJiangjie/editOpeniGame/ThirdParty/libtorch/Release_GPU/share/cmake/Torch")
-# find_package(Torch REQUIRED CONFIG)
-# set(_torch_list torch c10 torch_cpu)
-# if (TARGET torch_cuda)
-#     list(APPEND _torch_list torch_cuda c10_cuda)
-# endif ()
-# if (TARGET caffe2_nvrtc)
-#     list(APPEND _torch_list caffe2_nvrtc)
-# endif ()
-# target_link_libraries(testVortexDetection
-#         PUBLIC
-#         ${IGAMEVIS_CORE_LIB_TARGETS}
-#         ${_torch_list}
-# )

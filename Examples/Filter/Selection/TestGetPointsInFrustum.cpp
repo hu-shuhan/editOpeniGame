@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <Selection/iGameGetPointsInFrustumFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameGetPointsInFrustum.h>
+#include <iostream>
 
 int main() {
     /*Read data*/
@@ -16,7 +16,7 @@ int main() {
     /*Set filter*/
     auto filter =
             iGame::GetPointsInFrustumFilter::New(iGame::Point(-1.0f, 0.0f, 0.0f), iGame::Point(1.0f, 0.0f, 0.0f),
-                                                iGame::Point(0.0f, 0.0f, 1.0f), 1.0, 1.05, 0.05, 0.05, 0.05, 0.05);
+                                                 iGame::Point(0.0f, 0.0f, 1.0f), 1.0, 1.05, 0.05, 0.05, 0.05, 0.05);
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

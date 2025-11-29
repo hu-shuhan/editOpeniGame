@@ -27,9 +27,10 @@ option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not.")
-set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation.")
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix")
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
+
 # 如果检测到 Anaconda 环境，尝试忽略其路径
 if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
     list(APPEND CMAKE_IGNORE_PATH "$ENV{CONDA_PREFIX}/bin") # 忽略 Anaconda 安装的库和配置文件的路径
@@ -41,8 +42,6 @@ if (NOT ENABLE_GPSCUDA_MODULE)
     project(iGameVis LANGUAGES C CXX)
     if (WIN32)
         add_definitions(-D_WINDOWS_SOURCE)
-        # Or for a specific target:
-        # target_compile_definitions(MyExecutable PRIVATE -D_WINDOWS_SOURCE)
     endif ()
 else ()
     project(iGameVis LANGUAGES C CXX CUDA)

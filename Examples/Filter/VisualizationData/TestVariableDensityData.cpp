@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <VariableDensity/iGameGenerateVariableDensityDataFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameVariableDensityFilter/iGameGenerateVariableDensityData.h>
+#include <iostream>
 
 int main() {
     /*Read data*/
