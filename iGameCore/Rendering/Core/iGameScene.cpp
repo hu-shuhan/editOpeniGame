@@ -8,7 +8,6 @@
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
-    std::cout << "Constructing Scene" << std::endl;
     m_ModelPool = HandlePool<SmartPointer<Model>>::New();
     m_CurrentModelID = 0;
 
@@ -34,7 +33,6 @@ Scene::Scene() {
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
 
     m_EmptyVAO = GLVertexArray::New();
-    std::cout << "Constructing Scene" << std::endl;
 
 #ifdef GL_SUPPORT_MSAA
     samples = 8;
@@ -56,7 +54,6 @@ Scene::Scene() {
     m_OITAtomicCounterBuffer = GLBuffer::New();
     m_OITLinkedListBuffer = GLBuffer::New();
     m_OITLinkedListTexture = GLTextureBuffer::New();
-    std::cout << "Constructing Scene" << std::endl;
 
     //m_DrawCullData = GLBuffer::New();
     m_HzbWidth = 0;
@@ -67,13 +64,11 @@ Scene::Scene() {
     m_Painter2D->SetScene(this);
     m_Painter3D = Painter3D::New();
     m_Painter3D->SetScene(this);
-    std::cout << "Constructing Scene" << std::endl;
 
     m_FinishInit = false;
     m_EnableVolumeRendering = false;
 
     m_CenterAxesModel = CenterAxesModel::New();
-    std::cout << "Constructing Scene" << std::endl;
 }
 
 Scene::~Scene() {
