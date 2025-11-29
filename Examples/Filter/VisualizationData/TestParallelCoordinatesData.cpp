@@ -1,5 +1,5 @@
 #include <iGameFileIO.h>
-#include <iGameParallelCoordinatesFilter/iGameGenerateParallelCoordinatesData.h>
+#include <ParallelCoordinates/iGameGenerateParallelCoordinatesData.h>
 #include <iostream>
 #include <cmath>
 #include <algorithm>

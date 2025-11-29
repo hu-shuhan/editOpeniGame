@@ -28,7 +28,7 @@ option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
 set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not.")
-set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation.")
+set(EXAMPLE_COMPILE ON CACHE BOOL "Enable OpeniGame Core Module's Example Compilation.")
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix")
 # 如果检测到 Anaconda 环境，尝试忽略其路径
 if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
