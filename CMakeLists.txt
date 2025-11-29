@@ -10,38 +10,27 @@ set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "-fPIC")
 endif ()
+
 #--------------------------------------------------------------------
 # Set Cmake Option to On/OFF
 #--------------------------------------------------------------------
 
-# Add an option that the user can set with the -D parameter
-
-#--------------------------------------------------------------------
-# if need to Enable remote ThirdParty module. Follow this step:
-# 1. use git command1(git submodule init) and command2(git submodule update)
-# to clone remote Submodule which are defined in .gitmodules file.
-# 2. Switch OFF to On.
-#--------------------------------------------------------------------
-
-#option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-set(ENABLE_CGNS_MODULE ON CACHE BOOL "Enable CGNS ThirdParty Module" FORCE)
-
-set(ENABLE_NASTRAN_MODULE OFF CACHE BOOL "Enable Nastran Lib ThirdParty Module" FORCE)
-
-#option(ENABLE_CGNS_MODULE "Enable Libtorch ThirdParty Module" ON)
-set(ENABLE_LIBTORCH_MODULE ON CACHE BOOL "Enable Libtorch ThirdParty Module" FORCE)
-
-# This module is temporarily only available on Windows Platform.
-set(ENABLE_GPSCUDA_MODULE OFF CACHE BOOL "Enable GPS CUDA Module. " FORCE)
+# Add options that the user can set with the -D parameter
+# These options must NOT be forced so that command-line -D values work.
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
+option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
+option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
+option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
+option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
-set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
-# 如果检测到 Anaconda 环境，尝试忽略其路径 
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not.")
+set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation.")
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix")
+# 如果检测到 Anaconda 环境，尝试忽略其路径
 if (DEFINED ENV{CONDA_PREFIX}) # 忽略 Anaconda bin 目录，防止其编译器或工具的干扰
     list(APPEND CMAKE_IGNORE_PATH "$ENV{CONDA_PREFIX}/bin") # 忽略 Anaconda 安装的库和配置文件的路径
     list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
@@ -112,33 +101,35 @@ elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
     )
 
 elseif (ENABLE_LIBTORCH_MODULE)
-    #    message(FATAL_ERROR "Only Windows platform is supported for this project! LibTorch DLL copy is defined for Windows only.")
     message(FATAL_ERROR "Only Windows and Linux platform is supported for this project!")
 endif ()
 
 #--------------------------------------------------------------------
 # Add subdirectories
 #--------------------------------------------------------------------
-#导入第三方组件
+# 导入第三方组件
 if (ENABLE_GPSCUDA_MODULE)
     add_subdirectory(CMakeGPS)
 endif ()
 add_subdirectory(ThirdParty)
-#导入iGame核心后处理组件
+
+# 导入核心库
 add_subdirectory(iGameCore)
 target_link_libraries(${PROJECT_NAME} PUBLIC iGameCore)
-#导入Qt模块
-add_subdirectory(Qt)
-target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
 
-if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release")
+# 导入Qt模块
+if (ENABLE_QT_MODULE)
+    add_subdirectory(Qt)
+    target_link_libraries(${PROJECT_NAME} PUBLIC Qt_module)
+endif ()
+
+# 导入example
+if (EXAMPLE_COMPILE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT BUILD_CORE_ONLY)
     add_subdirectory(Examples)
 endif ()
+
 # 由于Windows不会搜索其他目录下的dll文件因此要使用cmake指令将dll移至exe目录
-if (WIN32)
+if (WIN32 AND NOT BUILD_CORE_ONLY)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
 endif ()
-
-# <pre>ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCyrIGIn+hTiCq6bUM3Y46aOZ4iX5aQ5Nj3HVJauUffu7PJBAnTL6P+QqRgTTkEfIBlysBNrMS5zZIvBA2oxyEyExXu2oP7qL9aiT0GPnU+Ah8vdF4nnC2heGVRPu9BCRPA6H38zzTC6+PAb9t6aSF2GCrHWfLxma3fOO4+Ckx0cZutxVJm+1f6x0SaQCOiF7CYZ7HnHhNwGD0zPCLJT84vtziiqTeP1zF8lXe/sMMg1pzLG4IZcyZgbPLbQ6YbzB/vblHSNsLtkCWhGCaOj6VZQPBhqO8JYgqFwMxVViuJb3SbVEsI68ReH8SPJWpJqAhHnKcZokNDSNjD6uH5Cs8YC07LYtrasWtc28xBMOzkDpwz9od5+nHk6DvqJ+Jo3ST+ZevwXyODzr4hZW949h9mPzkcYhVr5hQzgjVcsF4CBFdlRJwLwfS4aSCCznmhJa/oNePJM+yzy2Nz6VKxMRIeru+cQEQJezWoUX5ec3tWi2DI5UhLr0olbVDkrAKGtzE= xjj@ps
-#</pre>
