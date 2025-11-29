@@ -196,6 +196,11 @@ void igQtVariableDensityWidget::SetModel(Model::Pointer model) {
     _AT_;
     m_Model = model;
     m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    if (m_Mesh == nullptr) {
+        this->setEnabled(false);
+        return;
+    }
+    this->setEnabled(true);
     SetSelectionCallback();
     SetClearSelectionCallback();
     GenerateVariableDensityDatas();
