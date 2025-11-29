@@ -383,7 +383,7 @@ void igQtFileLoader::AddCurrentFileToRecentFilePath(QString filePath) {
     recentFileAction->setText(filePath);
     recentFileAction->setData(filePath);
     recentFileAction->setVisible(true);
-    connect(recentFileAction, &QAction::triggered, this, [=]() { this->OpenFile(filePath.toStdString()); });
+    connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(filePath.toStdString()); });
     this->recentFileActionList.append(recentFileAction);
     UpdateRecentActionList();
 }
@@ -427,7 +427,7 @@ void igQtFileLoader::InitRecentFileActions(std::vector<QString> FilePaths) {
         recentFileAction->setText(FilePaths[i]);
         recentFileAction->setData(FilePaths[i]);
         recentFileAction->setVisible(false);
-        connect(recentFileAction, &QAction::triggered, this, [=]() { this->OpenFile(FilePaths[i].toStdString()); });
+        connect(recentFileAction, &QAction::triggered, this, [=, this]() { this->OpenFile(FilePaths[i].toStdString()); });
         this->recentFileActionList.append(recentFileAction);
     }
     UpdateRecentActionList();

@@ -971,6 +971,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
                     nOutputs = vtkTableBasedClipperClipTables::NumClipShapesVtx[caseIndex];
                     edgeVtxs = nullptr;
                     break;
+                default:break;
             }
             int intrpIds[4] = {-1, -1, -1, -1};
             for (j = 0; j < nOutputs; j++) {
@@ -1089,6 +1090,7 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
                     case ST_PNT:
                         intrpIds[intrpIdx] = VFV->AddCenterPoint(nCellPts, cellIds);
                         break;
+                    default:break;
                 }
             }
             edgeVtxs = nullptr;

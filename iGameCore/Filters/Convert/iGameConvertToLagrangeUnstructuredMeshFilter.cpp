@@ -68,6 +68,7 @@ bool ConvertToLagrangeUnstructuredMeshFilter::ExecuteWithUnstructuredMesh(Unstru
     }
     outputMesh->SetAttributeSet(um->GetAttributeSet());
     this->SetOutput(outputMesh);
+    return true;
 }
 
 int ConvertToLagrangeUnstructuredMeshFilter::GetOrderFromNodes_Quad(int num_nodes) {

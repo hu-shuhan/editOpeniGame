@@ -83,6 +83,7 @@ std::array<float, 3> GradientFilter::ComputePointGradient(int type, Cell* cell, 
                 return ComputePolygonPointGradient(cell, data, dim);
         }
     }
+    return std::array<float, 3>{};
 }
 
 std::array<float, 3> GradientFilter::ComputePointGradient(Cell* cell, ArrayObject::Pointer data, int dim) {
@@ -95,6 +96,7 @@ std::array<float, 3> GradientFilter::ComputePointGradient(Cell* cell, ArrayObjec
         case IG_HEXAHEDRON:
         case IG_POLYHEDRON:
             return ComputeHexPointGradient(cell, data, dim);
+        default:break;
     }
 
     return ComputePointGradient(cell, data, dim);
@@ -109,6 +111,7 @@ std::array<float, 3> GradientFilter::ComputeCellGradient(int type, Cell* cell, A
         default: // 其他
             return ComputePolyCellGradient(type, cell, data, dim);
     }
+    return std::array<float, 3>{};
 }
 
 bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
@@ -378,7 +381,7 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
     //     gradient->AddElement3(omega_x, omega_y, omega_z);
     // }
     //
-    // return true;
+    return true;
 }
 
 bool GradientFilter::ComputeGradientWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes,

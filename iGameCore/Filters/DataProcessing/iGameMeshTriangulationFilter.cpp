@@ -1,4 +1,4 @@
-#include "iGameTriangulation.h"
+#include "iGameMeshTriangulationFilter.h"
 
 #include <queue>
 
@@ -398,7 +398,7 @@ int PolyVertexList::CanRemoveVertex(LocalPolyVertex* currentVtx) {
 
 int PolyVertexList::CanRemoveVertex(int id) { return this->CanRemoveVertex(this->Array + id); }
 
-bool Triangulation::Execute() {
+bool MeshTriangulationFilter::Execute() {
 
     auto input = GetInput(0);
     switch (input->GetDataObjectType()) {
@@ -450,10 +450,6 @@ bool Triangulation::Execute() {
         else
         {
             Tris->Reset();
-            //if (k != 1918) { //1978
-            //    int a = 1;
-            //    continue;
-            //}
             PolyVertexList poly(face->m_PointIds, face->m_Points, 1e-15, EarCutMeasureTypes::BEST_QUALITY);
             LocalPolyVertex* vtx;
             int i, j;
@@ -477,10 +473,6 @@ bool Triangulation::Execute() {
                 }
             } 
             
-            //if (Tris->GetNumberOfIds() / 3 != 4) { 
-            //    std::cout << k << std::endl;
-            //    //continue;
-            //}
             for (i = 0; i < Tris->GetNumberOfIds() / 3; i++) {
                 Faces->AddCellId3(face->m_PointIds->GetId(Tris->GetId(3 * i + 0)),
                                   face->m_PointIds->GetId(Tris->GetId(3 * i + 1)),
@@ -529,12 +521,12 @@ bool Triangulation::Execute() {
     return true;
 }
 
-Triangulation::Triangulation() {
+MeshTriangulationFilter::MeshTriangulationFilter() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
 
-double Triangulation::GetArea(Vector3d a, Vector3d b, Vector3d c) { return CrossProduct(a - b, a - c).length() / 2; }
+double MeshTriangulationFilter::GetArea(Vector3d a, Vector3d b, Vector3d c) { return CrossProduct(a - b, a - c).length() / 2; }
 IGAME_NAMESPACE_END
 
 

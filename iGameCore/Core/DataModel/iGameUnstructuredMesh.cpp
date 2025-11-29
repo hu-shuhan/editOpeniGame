@@ -1,5 +1,5 @@
 #include "iGameUnstructuredMesh.h"
-#include "ModelSurfaceFilter/iGameModelGeometryFilter.h"
+#include "ModelSurface/iGameModelGeometryFilter.h"
 IGAME_NAMESPACE_BEGIN
 void UnstructuredMesh::SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type) {
     m_Cells = cell;

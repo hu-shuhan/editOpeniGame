@@ -42,7 +42,7 @@ public:
 	}
 
 
-	virtual void Reset() {
+	virtual void Reset() override {
 		this->Cell::Reset();
 		this->m_FaceOffset->Reset();
 	}

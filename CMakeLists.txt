@@ -80,9 +80,9 @@ set(IGAMEVIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 ### ---- 运行时 DLL 拷贝（Windows）----------------------------------------
 if (WIN32 AND ENABLE_LIBTORCH_MODULE)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Debug")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Debug")
     else ()
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release_GPU")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Release_GPU")
     endif ()
 
     include_directories(
@@ -100,7 +100,7 @@ if (WIN32 AND ENABLE_LIBTORCH_MODULE)
     )
 elseif (UNIX AND NOT APPLE AND ENABLE_LIBTORCH_MODULE)
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
-        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Release_LINUX_GPU")
+        set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Linux/Release_GPU")
     endif ()
     include_directories(
             "${LIBTORCH_DIR}/include"

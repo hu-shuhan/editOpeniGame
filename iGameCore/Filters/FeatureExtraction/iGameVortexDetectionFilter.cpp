@@ -1,4 +1,3 @@
-#include "iGameVortexDetection.h"
 #include "Eigen/Dense"
 #include "Eigen/Eigenvalues"
 #include "StreamView/iGameStreamTracer.h"
@@ -7,6 +6,7 @@
 #include "iGameSurfaceMesh.h"
 #include "iGameThreadPool.h"
 #include "iGameUnstructuredMesh.h"
+#include "iGameVortexDetectionFilter.h"
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>

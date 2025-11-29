@@ -1,8 +1,8 @@
-#include "iGameSimplification.h"
+#include "iGameMeshSimplificationFilter.h"
 #include "iGamePointFinder.h"
 IGAME_NAMESPACE_BEGIN
 
-bool Simplification::Execute() {
+bool MeshSimplificationFilter::Execute() {
 
     mesh = DynamicCast<SurfaceMesh>(GetInput(0));
     if (mesh == nullptr) {
@@ -261,12 +261,12 @@ bool Simplification::Execute() {
     return true;
 }
 
-Simplification::Simplification() {
+MeshSimplificationFilter::MeshSimplificationFilter() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
 
-void Simplification::Initialize() {
+void MeshSimplificationFilter::Initialize() {
 
     mesh->RequestEditStatus();
     npts = mesh->GetNumberOfPoints();
@@ -308,14 +308,14 @@ void Simplification::Initialize() {
     if (this->TargetReduction != 0) { this->TargetFaceNum = nfaces * (1 - this->TargetReduction); }
 }
 
-void Simplification::InitMemory() {
+void MeshSimplificationFilter::InitMemory() {
     heap = PriorityQueue::New();
     optimalPos.resize(nedges);
     optimalScalar.resize(nedges);
     origValue = DoubleArray::New();
 }
 
-void Simplification::InitAttributes() {
+void MeshSimplificationFilter::InitAttributes() {
 
     attrbs = mesh->GetAttributeSet();
     if (attrbs == nullptr) {
@@ -421,7 +421,7 @@ void Simplification::InitAttributes() {
     origValue->Resize(256);
 }
 
-void Simplification::InitQuadric() {
+void MeshSimplificationFilter::InitQuadric() {
     quadrics.resize(npts);
     for (int i = 0; i < npts; i++) { quadrics[i].setZero(); }
 
@@ -447,7 +447,7 @@ void Simplification::InitQuadric() {
     }
 }
 
-int Simplification::EvaluateEdge(igIndex edgeId) {
+int MeshSimplificationFilter::EvaluateEdge(igIndex edgeId) {
     int type;
     igIndex e[2];
     mesh->GetEdgePointIds(edgeId, e);
@@ -463,7 +463,7 @@ int Simplification::EvaluateEdge(igIndex edgeId) {
     return type;
 }
 
-void Simplification::InsertEdgeToHeap(igIndex edgeId) {
+void MeshSimplificationFilter::InsertEdgeToHeap(igIndex edgeId) {
     //if (!isCollapsable[edgeId]) return;
 
     int type = EvaluateEdge(edgeId);
@@ -476,7 +476,7 @@ void Simplification::InsertEdgeToHeap(igIndex edgeId) {
     if (priority != std::numeric_limits<double>::max()) { heap->push(priority, edgeId, 1, geo_priority); }
 }
 
-double Simplification::ComputePriority(igIndex edgeId, double& geo_priority) {
+double MeshSimplificationFilter::ComputePriority(igIndex edgeId, double& geo_priority) {
     igIndex e[2]{};
     mesh->GetEdgePointIds(edgeId, e);
     Point v0 = mesh->GetPoint(e[0]);
@@ -749,7 +749,7 @@ double Simplification::ComputePriority(igIndex edgeId, double& geo_priority) {
     return priority;
 }
 
-Vector3f Simplification::ComputePosition(igIndex edgeId) {
+Vector3f MeshSimplificationFilter::ComputePosition(igIndex edgeId) {
     igIndex e[2]{};
     mesh->GetEdgePointIds(edgeId, e);
     Vector3f newPos = (mesh->GetPoint(e[0]) + mesh->GetPoint(e[1])) / 2.0;
@@ -761,7 +761,7 @@ Vector3f Simplification::ComputePosition(igIndex edgeId) {
     return newPos;
 }
 
-Vector3f Simplification::Normal(igIndex faceId) {
+Vector3f MeshSimplificationFilter::Normal(igIndex faceId) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point v0 = mesh->GetPoint(f[0]);
@@ -774,7 +774,7 @@ Vector3f Simplification::Normal(igIndex faceId) {
     return CrossProduct(d10, d20);
 }
 
-Quadric<double> Simplification::QuadricFace(igIndex faceId) {
+Quadric<double> MeshSimplificationFilter::QuadricFace(igIndex faceId) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point v0 = mesh->GetPoint(f[0]);
@@ -791,7 +791,7 @@ Quadric<double> Simplification::QuadricFace(igIndex faceId) {
     return q;
 }
 
-double Simplification::QualityFace(igIndex faceId) {
+double MeshSimplificationFilter::QualityFace(igIndex faceId) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point v0 = mesh->GetPoint(f[0]);
@@ -811,7 +811,7 @@ double Simplification::QualityFace(igIndex faceId) {
     return a / b;
 }
 
-igIndex Simplification::GetOppEdge(igIndex ptId, igIndex faceId) {
+igIndex MeshSimplificationFilter::GetOppEdge(igIndex ptId, igIndex faceId) {
     igIndex f[3]{}, fe[3]{};
     mesh->GetFacePointIds(faceId, f);
     mesh->GetFaceEdgeIds(faceId, fe);
@@ -820,7 +820,7 @@ igIndex Simplification::GetOppEdge(igIndex ptId, igIndex faceId) {
     return fe[(i + 1) % 3];
 }
 
-void Simplification::GetEdgeToOneRingPoints(igIndex edgeId, SurfaceMesh::ReturnContainer& ptIds) {
+void MeshSimplificationFilter::GetEdgeToOneRingPoints(igIndex edgeId, SurfaceMesh::ReturnContainer& ptIds) {
 
     igIndex e[2]{};
     mesh->GetEdgePointIds(edgeId, e);
@@ -835,7 +835,7 @@ void Simplification::GetEdgeToOneRingPoints(igIndex edgeId, SurfaceMesh::ReturnC
     for (auto id: st) { ptIds.push_back(id); }
 }
 
-bool Simplification::IsInTriangle(const Point& p, const Point& a, const Point& b, const Point& c) {
+bool MeshSimplificationFilter::IsInTriangle(const Point& p, const Point& a, const Point& b, const Point& c) {
 
     Vector3d ab = b - a;
     Vector3d bc = c - b;
@@ -856,7 +856,7 @@ bool Simplification::IsInTriangle(const Point& p, const Point& a, const Point& b
     return sameSign1 && sameSign2 && sameSign3;
 }
 
-bool Simplification::Projection(const Point& p, igIndex faceId, double& d, Vector3d& proj) {
+bool MeshSimplificationFilter::Projection(const Point& p, igIndex faceId, double& d, Vector3d& proj) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point v0 = mesh->GetPoint(f[0]);
@@ -875,7 +875,7 @@ bool Simplification::Projection(const Point& p, igIndex faceId, double& d, Vecto
     return IsInTriangle(proj, v0, v1, v2);
 }
 
-Vector3d Simplification::GetCentroidParam(const Point& p, igIndex faceId) {
+Vector3d MeshSimplificationFilter::GetCentroidParam(const Point& p, igIndex faceId) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point a = mesh->GetPoint(f[0]);
@@ -903,7 +903,7 @@ Vector3d Simplification::GetCentroidParam(const Point& p, igIndex faceId) {
     return Vector3d(lambda1, lambda2, lambda3);
 }
 
-bool Simplification::GetNormalAndArea(igIndex faceId, double& area, Vector3d& n) {
+bool MeshSimplificationFilter::GetNormalAndArea(igIndex faceId, double& area, Vector3d& n) {
     igIndex f[3]{};
     mesh->GetFacePointIds(faceId, f);
     Point v0 = mesh->GetPoint(f[0]);
@@ -920,7 +920,7 @@ bool Simplification::GetNormalAndArea(igIndex faceId, double& area, Vector3d& n)
     return true;
 }
 
-double Simplification::GetCosTheta(Vector3d n1, Vector3d n2) {
+double MeshSimplificationFilter::GetCosTheta(Vector3d n1, Vector3d n2) {
     double dotProduct = n1.dot(n2);
     double lengths = n1.length() * n2.length();
     if (lengths == 0) return 0.0;

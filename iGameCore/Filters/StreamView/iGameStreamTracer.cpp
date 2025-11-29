@@ -413,6 +413,7 @@ std::vector<Vector3f> iGameStreamTracer::seedDataGenerate(int control, float pro
         case PointId: {
             seedPidGenerate(numOfseed, pId1, pId2);
         }
+        default:break;
     }
     return seeds;
 }

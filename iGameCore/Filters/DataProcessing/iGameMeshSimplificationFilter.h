@@ -1,5 +1,5 @@
-#ifndef Simplification_h
-#define Simplification_h
+#ifndef MeshSimplificationFilter_h
+#define MeshSimplificationFilter_h
 
 #include "iGameFilter.h"
 #include "iGameSurfaceMesh.h"
@@ -9,10 +9,10 @@
 #include <iGameUnstructuredMesh.h>
 
 IGAME_NAMESPACE_BEGIN
-class Simplification : public Filter {
+class MeshSimplificationFilter : public Filter {
 public:
-    I_OBJECT(Simplification);
-    static Pointer New() { return new Simplification; }
+    I_OBJECT(MeshSimplificationFilter);
+    static Pointer New() { return new MeshSimplificationFilter; }
 
     static constexpr int QEM_FASTEST = 0;
     static constexpr int QEM_NICEST = 1;
@@ -66,8 +66,8 @@ private:
     std::vector<int> activedAttribIndices;
 
 protected:
-    Simplification();
-    ~Simplification() override = default;
+    MeshSimplificationFilter();
+    ~MeshSimplificationFilter() override = default;
 
     void Initialize();
 

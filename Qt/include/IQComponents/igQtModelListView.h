@@ -42,7 +42,7 @@ public:
 			int lineX1 = parentRect.left();
 			int lineY1 = parentRect.bottom();
 			for (int i = 0; i < treeView->model()->rowCount(parentIndex); ++i) {
-				QModelIndex childIndex = parentIndex.child(i, 0);
+				QModelIndex childIndex = parentIndex.model()->index(i, 0, parentIndex);
 				QRect currentRect = treeView->visualRect(childIndex);
 				int lineX2 = currentRect.left();
 				int lineY2 = currentRect.center().y();

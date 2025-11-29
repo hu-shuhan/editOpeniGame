@@ -145,6 +145,7 @@ static double CalculateValueByPos(igQtVariableDensityWidget::ImageShowDirection 
     } else if (showDirection == igQtVariableDensityWidget::ImageShowDirection::Horizontal) {
         return CalculateValueByPos(x, frame.left(), frame.right(), minValue, maxValue);
     }
+    return 0.0f;
 }
 
 igQtVariableDensityWidget_VariableChooseButton::igQtVariableDensityWidget_VariableChooseButton(QWidget* parent)

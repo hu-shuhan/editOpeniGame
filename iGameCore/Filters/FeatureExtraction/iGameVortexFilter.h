@@ -218,6 +218,8 @@ protected:
 
     int curIndex{-1};
     std::string name;
+
+    friend class VortexDetection;
 };
 
 IGAME_NAMESPACE_END
