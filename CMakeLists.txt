@@ -17,12 +17,11 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
-
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
