@@ -102,16 +102,8 @@ public:
      * @param terminalSpeed 终止速度
      * @param maxSteps 最大步数
      */
-    void SetInput(std::vector<Vector3f> seeds, std::string vectorName,
-                  float lengthOfStreamLine, float lengthOfStep,
-                  float terminalSpeed, int maxSteps) {
-        m_SeedPoints = seeds;
-        m_VectorName = vectorName;
-        m_LengthOfStreamLine = lengthOfStreamLine;
-        m_LengthOfStep = lengthOfStep;
-        m_TerminalSpeed = terminalSpeed;
-        m_MaxSteps = maxSteps;
-    }
+    void SetInput(std::vector<Vector3f>& seeds, std::string& vectorName, float lengthOfStreamLine, float lengthOfStep,
+                  float terminalSpeed, int maxSteps);
 
     /**
      * @brief 执行流线计算，结果存储在内部成员变量中

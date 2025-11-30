@@ -1,4 +1,5 @@
-﻿// ﻿
+﻿#include "iGameStreamTracer.h"
+// ﻿
 #include "iGameStreamTracer.h"
 #include <iGameThreadPool.h>
 #include <shared_mutex>
@@ -613,6 +614,16 @@ float iGameStreamTracer::AccuracyCul(std::vector<std::vector<float>> streamline,
     float ans = ((float) TrueOfP) / NumOfP;
     return ans;
     ;
+}
+
+void iGameStreamTracer::SetInput(std::vector<Vector3f>& seeds, std::string& vectorName, float lengthOfStreamLine,
+                                 float lengthOfStep, float terminalSpeed, int maxSteps) {
+    m_SeedPoints = seeds;
+    m_VectorName = vectorName;
+    m_LengthOfStreamLine = lengthOfStreamLine;
+    m_LengthOfStep = lengthOfStep;
+    m_TerminalSpeed = terminalSpeed;
+    m_MaxSteps = maxSteps;
 }
 
 std::vector<Vector3f> iGameStreamTracer::streamSeedGenerate(int control, float proportion,
