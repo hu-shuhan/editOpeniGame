@@ -35,6 +35,7 @@ public:
 
     void SetCells(CellArray::Pointer cell, UnsignedIntArray::Pointer type);
     CellArray::Pointer GetCells();
+    virtual CellArray::Pointer GetCellArray() override { return GetCells(); }
     void AddCell(igIndex* cell, int size, IGenum type);
 
     IGsize GetNumberOfCells() const noexcept;

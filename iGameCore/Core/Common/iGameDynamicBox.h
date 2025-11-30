@@ -25,6 +25,7 @@ public:
     std::vector<std::pair<Point, Point>> GetAllEdges() const;
     std::array<std::array<Point, 4>, 6> GetAllFaces() const;
     const Point& GetLength() const;
+    std::pair<Point, Point> GetExtremePoint() const;
 
 private:
     //############ Ori Msg ############

@@ -23,6 +23,7 @@ public:
     // Get/Set volume array
     CellArray* GetVolumes();
     void SetVolumes(CellArray::Pointer volumes);
+    virtual CellArray::Pointer GetCellArray() override { return m_Volumes; }
 
     // Get edge cell by index volumeId. Thread-Unsafe, please use GetVolumePointIds and GetVolumeEdgeIds and GetVolumeFaceIds
     Volume* GetVolume(const IGsize volumeId);

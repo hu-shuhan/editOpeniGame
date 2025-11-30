@@ -11,7 +11,6 @@
 #include "Contour/iGameContourFilter.h"
 IGAME_NAMESPACE_BEGIN
 class SliceFilter : public Filter {
-
 public:
     I_OBJECT(SliceFilter);
     static Pointer New() { return new SliceFilter; }

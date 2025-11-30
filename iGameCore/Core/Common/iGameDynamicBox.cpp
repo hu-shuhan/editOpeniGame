@@ -4,6 +4,28 @@
 
 IGAME_NAMESPACE_BEGIN
 
+static inline std::pair<Point, Point> MinMaxPoint() {
+    return {Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                  std::numeric_limits<float>::max()),
+            Point(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(),
+                  std::numeric_limits<float>::lowest())};
+}
+
+static inline void MinMaxPoint(Point& pMin, Point& pMax, const Point& p) {
+    for (int i = 0; i < 3; i++) {
+        pMin[i] = std::min<float>(pMin[i], p[i]);
+        pMax[i] = std::max<float>(pMax[i], p[i]);
+    }
+}
+
+static inline void MinPoint(Point& pMin, const Point& p) {
+    for (int i = 0; i < 3; i++) { pMin[i] = std::min<float>(pMin[i], p[i]); }
+}
+
+static inline void MaxPoint(Point& pMax, const Point& p) {
+    for (int i = 0; i < 3; i++) { pMax[i] = std::max<float>(pMax[i], p[i]); }
+}
+
 // 计算旋转矩阵的辅助函数
 void DynamicBox::GetRotationMatrix(double& r00, double& r01, double& r02, double& r10, double& r11, double& r12,
                                    double& r20, double& r21, double& r22) const {
@@ -356,6 +378,41 @@ Point DynamicBox::LocalToWorld(const Point& localVec) const {
     double r00, r01, r02, r10, r11, r12, r20, r21, r22;
     GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
     return ApplyRotationMatrix(localVec, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+}
+
+std::pair<Point, Point> DynamicBox::GetExtremePoint() const {
+    // 获取半长（从中心到各面的距离）
+    Point halfLength = m_Length / 2.0;
+
+    // 局部坐标系下的8个顶点（未旋转状态）
+    std::array<Point, 8> localVertices = {
+            // 底面四个顶点（从前面左下角开始逆时针）
+            Point(-halfLength[0], -halfLength[1], -halfLength[2]), // 0: 后-左-下
+            Point(halfLength[0], -halfLength[1], -halfLength[2]),  // 1: 后-右-下
+            Point(halfLength[0], halfLength[1], -halfLength[2]),   // 2: 后-右-上
+            Point(-halfLength[0], halfLength[1], -halfLength[2]),  // 3: 后-左-上
+
+            // 顶面四个顶点（从前面左下角开始逆时针）
+            Point(-halfLength[0], -halfLength[1], halfLength[2]), // 4: 前-左-下
+            Point(halfLength[0], -halfLength[1], halfLength[2]),  // 5: 前-右-下
+            Point(halfLength[0], halfLength[1], halfLength[2]),   // 6: 前-右-上
+            Point(-halfLength[0], halfLength[1], halfLength[2])   // 7: 前-左-上
+    };
+
+    // 获取旋转矩阵
+    double r00, r01, r02, r10, r11, r12, r20, r21, r22;
+    GetRotationMatrix(r00, r01, r02, r10, r11, r12, r20, r21, r22);
+
+    // 将局部顶点转换到世界坐标系
+    std::array<Point, 8> worldVertices;
+    for (int i = 0; i < 8; ++i) {
+        Point rotatedPoint = ApplyRotationMatrix(localVertices[i], r00, r01, r02, r10, r11, r12, r20, r21, r22);
+        worldVertices[i] = rotatedPoint + m_Position;
+    }
+    auto MinMaxP = MinMaxPoint();
+    auto& [minP, maxP] = MinMaxP;
+    for (int i = 0; i < 8; ++i) { MinMaxPoint(minP, maxP, worldVertices[i]); }
+    return MinMaxP;
 }
 
 // 应用旋转（使用四元数避免万向锁问题）
