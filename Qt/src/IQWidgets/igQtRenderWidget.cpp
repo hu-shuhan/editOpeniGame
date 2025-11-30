@@ -225,8 +225,6 @@ void igQtRenderWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void igQtRenderWidget::mouseMoveEvent(QMouseEvent* event) {
-
-
     iGame::IEvent _event;
     _event.type = iGame::IEvent::MouseMove;
     _event.pos.x = event->pos().x();

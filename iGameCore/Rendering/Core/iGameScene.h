@@ -371,10 +371,7 @@ protected:
 
     void DrawFrame(); //主渲染流程(执行所有渲染通道)
     void RenderToSpecificFrame(GLint frameBuffer);
-#ifdef GL_SUPPORT_MSAA
     void ResolveFrameBuffer();
-#endif
-
 
     //渲染通道相关
     void ShadowPass();

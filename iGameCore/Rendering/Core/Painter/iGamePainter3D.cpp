@@ -15,7 +15,6 @@ void Painter3D::Draw() {
     if (m_TotallyHide) return;
     igm::mat4 model = m_Scene->m_ModelMatrix;
 
-    m_Scene->UpdateCameraDataBlock();
     m_Scene->m_ShaderManager->UpdateObjectBlock(
             {1.0f, model, model.invert().transpose(), igm::vec4{}});
     m_Scene->m_ShaderManager->UpdateUBOBlock({1, 0});

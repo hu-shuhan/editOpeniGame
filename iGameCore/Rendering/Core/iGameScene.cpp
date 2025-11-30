@@ -674,6 +674,9 @@ void Scene::RefreshHzb() {
     m_DepthR32FTexture->Active(GL_TEXTURE1);
     shader->SetUniformi("screenDepth", 1);
 
+    m_HzbTexture->Active(GL_TEXTURE2);
+    shader->SetUniformi("myDepthPyramid", 2);
+
     // generate level 0
     {
         unsigned int level = 0;
@@ -830,7 +833,6 @@ void Scene::RenderToSpecificFrame(GLint frameBuffer) {
     m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-#ifdef GL_SUPPORT_MSAA
 void Scene::ResolveFrameBuffer() {
     m_Framebuffer->Bind();
     {
@@ -841,16 +843,23 @@ void Scene::ResolveFrameBuffer() {
         auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
         shader->Use();
 
+        shader->SetUniformi("numSamples", 1);
+        m_ColorTexture->Active(GL_TEXTURE1);
+        shader->SetUniformi("colorTexture", 1);
+        m_DepthTexture->Active(GL_TEXTURE2);
+        shader->SetUniformi("depthTexture", 2);
+
+#ifdef GL_SUPPORT_MSAA
         shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("colorTextureMS", 1);
-        m_DepthTextureMultisampled->Active(GL_TEXTURE2);
-        shader->SetUniformi("depthTextureMS", 2);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE3);
+        shader->SetUniformi("colorTextureMS", 3);
+        m_DepthTextureMultisampled->Active(GL_TEXTURE4);
+        shader->SetUniformi("depthTextureMS", 4);
+#endif
 
         m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
     }
 }
-#endif
 
 void Scene::ShadowPass() {
     // use reversed-z buffer
@@ -871,7 +880,6 @@ void Scene::ForwardPass() {
 #endif
 
     // Use reversed-z buffer
-    glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
@@ -882,22 +890,23 @@ void Scene::ForwardPass() {
     }
 #elif IGAME_OPENGL_VERSION_460
     // normal mesh
+    glEnable(GL_DEPTH_TEST);
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
+
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) {
-            //model->GetPainter3D()->Draw();
             auto& painter3Ds = model->GetAllPainter3Ds();
-            for (auto& painter3D_: painter3Ds) { painter3D_.second->Draw(); }
+            for (auto& painter: painter3Ds) { painter.second->Draw(); }
         }
     }
 
     // 第二次遍历：专门渲染AlwaysOnTop模型（最后绘制）
-    glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
+    glDisable(GL_DEPTH_TEST);
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
@@ -905,7 +914,6 @@ void Scene::ForwardPass() {
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         if (drawObject->IsAlwaysOnTop()) { model->Draw(); }
     }
-    glEnable(GL_DEPTH_TEST); // 恢复深度测试
 
     // meshleter mesh
     #ifdef GL_SUPPORTS_MESH_SHADER
@@ -931,6 +939,7 @@ void Scene::ForwardPass() {
         RefreshHzb();
     }
     #else
+    glEnable(GL_DEPTH_TEST);
     {
         // draw prepass: use last frame data to test occlusion results
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
