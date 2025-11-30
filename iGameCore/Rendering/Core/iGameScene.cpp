@@ -4,7 +4,6 @@
 #include "iGameRenderingLogger.h"
 #include <algorithm>
 #include <chrono>
-#include <thread>
 
 IGAME_NAMESPACE_BEGIN
 Scene::Scene() {
@@ -27,7 +26,8 @@ Scene::Scene() {
 
     m_ModelRotate = igm::mat4{1.0f};
     m_ModelMatrix = igm::mat4{1.0f};
-    m_BackgroundColor = {0.247f, 0.247f, 0.247f};
+    // m_BackgroundColor = {0.247f, 0.247f, 0.247f};
+    m_BackgroundColor = {0.5f, 0.5f, 0.5f};
 
     m_VisibleModelsCount = 0;
     m_ModelsBoundingSphere = igm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
@@ -35,19 +35,15 @@ Scene::Scene() {
     m_EmptyVAO = GLVertexArray::New();
 
 #ifdef GL_SUPPORT_MSAA
-    samples = 8;
+    samples = 4;
     m_FramebufferMultisampled = GLFramebuffer::New();
     m_ColorTextureMultisampled = GLTexture2dMultisample::New();
     m_DepthTextureMultisampled = GLTexture2dMultisample::New();
+#endif
 
-    m_FramebufferResolved = GLFramebuffer::New();
-    m_ColorTextureResolved = GLTexture2d::New();
-    m_DepthTextureResolved = GLTexture2d::New();
-#else
     m_Framebuffer = GLFramebuffer::New();
     m_ColorTexture = GLTexture2d::New();
     m_DepthTexture = GLTexture2d::New();
-#endif
 
     m_OITHeadPointerTexture = GLTexture2d::New();
     m_OITHeadPointerInitializer = GLBuffer::New();
@@ -55,7 +51,6 @@ Scene::Scene() {
     m_OITLinkedListBuffer = GLBuffer::New();
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
-    //m_DrawCullData = GLBuffer::New();
     m_HzbWidth = 0;
     m_HzbHeight = 0;
     m_HzbLevels = 0;
@@ -257,7 +252,7 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     if (visibility) {
         m_VisibleModelsCount++;
         if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
-            ResetCameraView();
+            ResetCameraView(model->GetDataObject());
             UpdateAxisSize();
         } // CenterAxesModel is visible
     } else {
@@ -287,33 +282,37 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
-    UpdateModelsBoundingSphere();
+void Scene::ResetCameraView(const BoundingBox& bbox) {
+    double* center = bbox.center().pointer();
+    float x = static_cast<float>(center[0]);
+    float y = static_cast<float>(center[1]);
+    float z = static_cast<float>(center[2]);
 
-    igm::vec3 center = m_ModelsBoundingSphere.xyz();
-    float radius = m_ModelsBoundingSphere.w;
-    if (dataObject != nullptr) {
-        auto& box = dataObject->GetBoundingBox();
-        double* c = box.center().pointer();
-        float x = static_cast<float>(c[0]);
-        float y = static_cast<float>(c[1]);
-        float z = static_cast<float>(c[2]);
+    double diameter = bbox.diag();
+    float r = static_cast<float>(diameter / 2.0);
 
-        double diameter = box.diag();
-        float r = static_cast<float>(diameter / 2.0);
-
-        SetRotationCenter(igm::vec3{x, y, z});
-        center = igm::vec3{x, y, z};
-        radius = r;
-    } else {
-        m_UseCustomRotationCenter = false;
-    }
-
+    SetRotationCenter(igm::vec3{x, y, z});
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
-    m_Camera->SetFocal(center);
+    m_Camera->SetPosition(x, y, z + 3.0f * r);
+    m_Camera->SetFocal(igm::vec3{x, y, z});
     this->UpdateCameraClippingRange();
+}
+
+void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
+    if (dataObject == nullptr) {
+        UpdateModelsBoundingSphere();
+        m_ModelMatrix = igm::mat4{1.0f};
+        m_ModelRotate = igm::mat4{1.0f};
+        m_Camera->SetPosition(
+                m_ModelsBoundingSphere.x, m_ModelsBoundingSphere.y,
+                m_ModelsBoundingSphere.z + 3.0f * m_ModelsBoundingSphere.w);
+        m_Camera->SetFocal(m_ModelsBoundingSphere.xyz());
+        this->UpdateCameraClippingRange();
+    } else {
+        m_UseCustomRotationCenter = false;
+        ResetCameraView(dataObject->GetBoundingBox());
+    }
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
@@ -510,14 +509,10 @@ void Scene::ResizeFrameBuffer() {
                                   this->GetName());
         }
     }
+#endif
 
-    // resize resolve framebuffer(form multisamples to single sample)
+    //resize single sample framebuffer
     {
-        auto width = m_Camera->GetScaledViewPort().x;
-        auto height = m_Camera->GetScaledViewPort().y;
-        //int mipLevels =
-        //        static_cast<int>(std::ceil(std::log2(std::max(width, height))));
-
         auto fbo = GLFramebuffer::New();
         fbo->Create();
         fbo->Target(GL_FRAMEBUFFER);
@@ -533,47 +528,18 @@ void Scene::ResizeFrameBuffer() {
         colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
 
-        auto depthTexture = GLTexture2d::New();
-        depthTexture->Create();
-        depthTexture->Bind();
-        depthTexture->Storage(1, GL_R32F, width, height);
-        depthTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        depthTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        depthTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        depthTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        fbo->Texture(GL_COLOR_ATTACHMENT1, depthTexture, 0);
+        auto depthR32FTexture = GLTexture2d::New();
+        depthR32FTexture->Create();
+        depthR32FTexture->Bind();
+        depthR32FTexture->Storage(1, GL_R32F, width, height);
+        depthR32FTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        depthR32FTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        depthR32FTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        depthR32FTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        fbo->Texture(GL_COLOR_ATTACHMENT1, depthR32FTexture, 0);
 
         GLenum buffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
         fbo->DrawBuffers(2, buffers);
-
-        fbo->Release();
-
-        m_ColorTextureResolved = colorTexture;
-        m_DepthTextureResolved = depthTexture;
-        m_FramebufferResolved = fbo;
-
-        if (m_FramebufferResolved->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
-            IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
-                                  this->GetName());
-        }
-    }
-#else
-    //resize resolve framebuffer(form multisamples to single sample)
-    {
-        auto fbo = GLFramebuffer::New();
-        fbo->Create();
-        fbo->Target(GL_FRAMEBUFFER);
-        fbo->Bind();
-
-        auto colorTexture = GLTexture2d::New();
-        colorTexture->Create();
-        colorTexture->Bind();
-        colorTexture->Storage(1, GL_RGBA8, width, height);
-        colorTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        colorTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
 
         auto depthTexture = GLTexture2d::New();
         depthTexture->Create();
@@ -584,6 +550,7 @@ void Scene::ResizeFrameBuffer() {
         fbo->Release();
 
         m_ColorTexture = colorTexture;
+        m_DepthR32FTexture = depthR32FTexture;
         m_DepthTexture = depthTexture;
         m_Framebuffer = fbo;
 
@@ -592,7 +559,6 @@ void Scene::ResizeFrameBuffer() {
                                   this->GetName());
         }
     }
-#endif
 
     ResizeHzb();
 }
@@ -643,9 +609,7 @@ void Scene::Draw() {
     if (m_FramePacingEnabled && m_LastRenderEndValid) {
         if (!ShouldRenderThisCall()) {
             // Still copy the result of the previous frame to Qt's default frame buffer to avoid flickering
-            glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
-            RenderToQtFrame();
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            RenderToSpecificFrame(defaultFramebuffer);
             return;
         }
     }
@@ -657,32 +621,9 @@ void Scene::Draw() {
     int curIdx = m_TimeQueryIndex;
     glBeginQuery(GL_TIME_ELAPSED, m_TimeQueries[curIdx]);
 
-#ifdef GL_SUPPORT_MSAA
-    // render to multisample framebuffer
-    m_FramebufferMultisampled->Bind();
+    // render
     DrawFrame();
-    m_FramebufferMultisampled->Release();
-
-    // resolve to single sample framebuffer
-    m_FramebufferResolved->Bind();
-    ResolveFrame();
-    m_FramebufferResolved->Release();
-
-    // render to qt framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
-    RenderToQtFrame();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#else
-    // render to my framebuffer
-    m_Framebuffer->Bind();
-    DrawFrame();
-    m_Framebuffer->Release();
-
-    // render to qt framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
-    RenderToQtFrame();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
+    RenderToSpecificFrame(defaultFramebuffer);
 
     // End counting the rendering time consumption
     glEndQuery(GL_TIME_ELAPSED);
@@ -727,15 +668,11 @@ void Scene::RefreshHzb() {
     shader->Use();
 
     #ifdef GL_SUPPORT_MSAA
-    m_DepthTextureMultisampled->Active(GL_TEXTURE1);
-    shader->SetUniformi("screenDepthMS", 1);
-    #else
-    m_DepthTexture->Active(GL_TEXTURE1);
-    shader->SetUniformi("screenDepth", 1);
+    ResolveFrameBuffer();
     #endif
 
-    m_HzbTexture->Active(GL_TEXTURE2);
-    shader->SetUniformi("myDepthPyramid", 2);
+    m_DepthR32FTexture->Active(GL_TEXTURE1);
+    shader->SetUniformi("screenDepth", 1);
 
     // generate level 0
     {
@@ -747,7 +684,8 @@ void Scene::RefreshHzb() {
         shader->SetUniform2ui("outDepthPyramidSize", igm::uvec2{width, height});
         m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
     }
 
     // generate other level
@@ -769,7 +707,8 @@ void Scene::RefreshHzb() {
         shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
         m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
     }
 #endif
 }
@@ -809,25 +748,34 @@ void Scene::Resize(int width, int height, int pixelRatio) {
 void Scene::DrawFrame() {
     auto viewport = m_Camera->GetScaledViewPort();
 
-    // convert to drawable data
+    // Convert to drawable data
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->SyncGpuBuffers();
     }
 
-    // update camera data block in GPU
+    // Update camera data block in GPU
     UpdateCameraDataBlock();
 
-    // draw models, render to multisample framebuffer
+    glViewport(0, 0, viewport.x, viewport.y);
     {
-        glViewport(0, 0, viewport.x, viewport.y);
+        auto ClearFramebuffer = [&](float depth = 0.0f) {
+            glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
+                         m_BackgroundColor.b, 1.0f);
+            glClearDepth(depth); // reversed-z: near=1.0, far=0.0
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        };
 
-        // reversed-z buffer, depth range: 1.0(near plane) -> 0.0(far plane)
-        glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
-                     m_BackgroundColor.b, 1.0f);
-        glClearDepth(0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Clear default framebuffer before rendering
+        m_Framebuffer->Bind();
+        ClearFramebuffer();
 
+#ifdef GL_SUPPORT_MSAA
+        m_FramebufferMultisampled->Bind();
+        ClearFramebuffer();
+#endif
+
+        // Render to framebuffer
 #ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
@@ -851,32 +799,13 @@ void Scene::DrawFrame() {
         // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
         glClear(GL_DEPTH_BUFFER_BIT);
         m_Axes->Draw();
-        /*if (m_CenterAxes && m_CenterAxes->IsVisible()) { m_CenterAxes->Draw(); }*/
     }
 }
 
-void Scene::ResolveFrame() {
-#ifdef GL_SUPPORT_MSAA
+void Scene::RenderToSpecificFrame(GLint frameBuffer) {
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+
     auto viewport = m_Camera->GetScaledViewPort();
-    glViewport(0, 0, viewport.x, viewport.y);
-    glDisable(GL_DEPTH_TEST);
-
-    auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
-    shader->Use();
-
-    shader->SetUniformi("numSamples", samples);
-    m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-    shader->SetUniformi("colorTextureMS", 1);
-    m_DepthTextureMultisampled->Active(GL_TEXTURE2);
-    shader->SetUniformi("depthTextureMS", 2);
-
-    m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
-#endif
-}
-
-void Scene::RenderToQtFrame() {
-    auto viewport = m_Camera->GetScaledViewPort();
-
     glViewport(0, 0, viewport.x, viewport.y);
     glDisable(GL_DEPTH_TEST);
 
@@ -884,11 +813,10 @@ void Scene::RenderToQtFrame() {
     //auto shader = GetShader(Scene::FXAA);
     shader->Use();
 
-#ifdef GL_SUPPORT_MSAA
-    m_ColorTextureResolved->GenerateMipmap();
-    m_ColorTextureResolved->Active(GL_TEXTURE1);
-    m_DepthTextureResolved->Active(GL_TEXTURE2);
+    m_ColorTexture->Active(GL_TEXTURE1);
+    m_DepthTexture->Active(GL_TEXTURE2);
     m_HzbTexture->Active(GL_TEXTURE3);
+    shader->SetUniformi("screenColorSampler", 1);
 
     // Note:
     // 1. To enable depth rendering, ensure the screen.frag file is updated to handle the depth texture input.
@@ -898,15 +826,31 @@ void Scene::RenderToQtFrame() {
     shader->SetUniformi("screenColorSampler", 1);
     //shader->SetUniformf("near", m_Camera->GetClippingRange().x);
     //shader->SetUniformf("far", m_Camera->GetClippingRange().y);
-#else
-    m_ColorTexture->Active(GL_TEXTURE1);
-    m_DepthTexture->Active(GL_TEXTURE2);
-    m_HzbTexture->Active(GL_TEXTURE3);
-    shader->SetUniformi("screenColorSampler", 1);
-#endif
 
     m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
+
+#ifdef GL_SUPPORT_MSAA
+void Scene::ResolveFrameBuffer() {
+    m_Framebuffer->Bind();
+    {
+        auto viewport = m_Camera->GetScaledViewPort();
+        glViewport(0, 0, viewport.x, viewport.y);
+        glDisable(GL_DEPTH_TEST);
+
+        auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
+        shader->Use();
+
+        shader->SetUniformi("numSamples", samples);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
+        shader->SetUniformi("colorTextureMS", 1);
+        m_DepthTextureMultisampled->Active(GL_TEXTURE2);
+        shader->SetUniformi("depthTextureMS", 2);
+
+        m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
+    }
+}
+#endif
 
 void Scene::ShadowPass() {
     // use reversed-z buffer
@@ -919,7 +863,14 @@ void Scene::ShadowPass() {
 }
 
 void Scene::ForwardPass() {
-    // use reversed-z buffer
+    // Bind framebuffer
+#ifdef GL_SUPPORT_MSAA
+    m_FramebufferMultisampled->Bind();
+#else
+    m_Framebuffer->Bind();
+#endif
+
+    // Use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
@@ -968,9 +919,9 @@ void Scene::ForwardPass() {
 
         // refresh phase 1: generate loacl hierarchical z-buffer & cull data
         RefreshHzb();
-        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
+        RefreshDrawCullDataBuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawPhase2();
@@ -981,6 +932,7 @@ void Scene::ForwardPass() {
     }
     #else
     {
+        // draw prepass: use last frame data to test occlusion results
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->TestOcclusionResults();
@@ -994,9 +946,9 @@ void Scene::ForwardPass() {
 
         // refresh phase1: generate loacl hierarchical z-buffer
         RefreshHzb();
-        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
+        RefreshDrawCullDataBuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawPhase2();
@@ -1007,12 +959,21 @@ void Scene::ForwardPass() {
     }
     #endif
 #endif
+
+#ifdef GL_SUPPORT_MSAA
+    ResolveFrameBuffer();
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+#endif
+
     glDisable(GL_DEPTH_TEST);
     GLCheckError();
 }
 
 void Scene::TransparentPass() {
 #ifdef IGAME_OPENGL_VERSION_460
+    // Bind framebuffer
+    m_Framebuffer->Bind();
+
     // Enable blending to use the alpha channel for transparency.
     // Without blending, the alpha value in the color will be ignored.
     // glEnable(GL_BLEND);
@@ -1062,14 +1023,8 @@ void Scene::TransparentPass() {
         auto shader = this->GetShader(ShaderType::TRANSPARENCYSORT);
         shader->Use();
 
-    #ifdef GL_SUPPORT_MSAA
-        shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("forwardPassColorMS", 1);
-    #else
         m_ColorTexture->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColor", 1);
-    #endif
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);
@@ -1088,6 +1043,8 @@ void Scene::TransparentPass() {
 
 void Scene::VolumeRenderingPass() {
 #ifdef IGAME_OPENGL_VERSION_460
+    m_Framebuffer->Bind();
+
     // use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
@@ -1132,14 +1089,8 @@ void Scene::VolumeRenderingPass() {
         auto shader = this->GetShader(ShaderType::VOLUMERENDERINGSORT);
         shader->Use();
 
-    #ifdef GL_SUPPORT_MSAA
-        shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("forwardPassColorMS", 1);
-    #else
         m_ColorTexture->Active(GL_TEXTURE1);
         shader->SetUniformi("forwardPassColor", 1);
-    #endif
 
         m_OITHeadPointerTexture->BindImage(0, 0, GL_FALSE, 0, GL_READ_ONLY,
                                            GL_R32UI);
@@ -1461,12 +1412,7 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
 
     std::vector<unsigned char> colorBuffer;
 
-#ifdef GL_SUPPORT_MSAA
-    m_FramebufferResolved->Bind();
-#else
     m_Framebuffer->Bind();
-#endif
-
     {
         // Read pixels from the OpenGL buffer (bottom-left corner)
         //
@@ -1494,12 +1440,6 @@ std::vector<unsigned char> Scene::CaptureScreen(int x, int y, int width,
                 break;
         }
     }
-
-#ifdef GL_SUPPORT_MSAA
-    m_FramebufferResolved->Release();
-#else
-    m_Framebuffer->Release();
-#endif
 
     if (mirrored) {
         std::vector<unsigned char> tmp_flip(colorBuffer.size());

@@ -153,6 +153,7 @@ public:
     /**
      * @brief 重置相机视角到默认视图。
      */
+    void ResetCameraView(const BoundingBox& bbox);
     void ResetCameraView(SmartPointer<DataObject> dataObject = nullptr);
 
     /**
@@ -369,8 +370,11 @@ protected:
     void RefreshDrawCullDataBuffer();
 
     void DrawFrame(); //主渲染流程(执行所有渲染通道)
-    void ResolveFrame();
-    void RenderToQtFrame(); //将最终渲染结果输出到Qt的帧缓冲
+    void RenderToSpecificFrame(GLint frameBuffer);
+#ifdef GL_SUPPORT_MSAA
+    void ResolveFrameBuffer();
+#endif
+
 
     //渲染通道相关
     void ShadowPass();
@@ -413,20 +417,18 @@ protected:
     // used to draw full-screen triangle
     SmartPointer<GLVertexArray> m_EmptyVAO;
 
-#ifdef GL_SUPPORT_MSAA //MSAA相关
+    SmartPointer<GLFramebuffer> m_Framebuffer;
+    SmartPointer<GLTexture2d> m_ColorTexture;
+    SmartPointer<GLTexture2d> m_DepthR32FTexture;
+    SmartPointer<GLTexture2d> m_DepthTexture;
+
+#ifdef GL_SUPPORT_MSAA
     GLint samples;
     SmartPointer<GLFramebuffer> m_FramebufferMultisampled;
     SmartPointer<GLTexture2dMultisample> m_ColorTextureMultisampled;
     SmartPointer<GLTexture2dMultisample> m_DepthTextureMultisampled;
-
-    SmartPointer<GLFramebuffer> m_FramebufferResolved;
-    SmartPointer<GLTexture2d> m_ColorTextureResolved;
-    SmartPointer<GLTexture2d> m_DepthTextureResolved;
-#else
-    SmartPointer<GLFramebuffer> m_Framebuffer;
-    SmartPointer<GLTexture2d> m_ColorTexture;
-    SmartPointer<GLTexture2d> m_DepthTexture;
 #endif
+
     //OIT(顺序无关透明度)相关
     SmartPointer<GLTexture2d> m_OITHeadPointerTexture;
     SmartPointer<GLBuffer> m_OITHeadPointerInitializer;

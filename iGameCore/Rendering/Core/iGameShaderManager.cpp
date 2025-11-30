@@ -298,15 +298,10 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
                             std::string("./Resources/Shaders/"
                                         "FullScreenTriangle.vert"),
                             GL_VERTEX_SHADER);
-
-            std::string fragPath = "";
-    #ifdef GL_SUPPORT_MSAA
-            fragPath = "./Resources/Shaders/TransparencySortMS.frag";
-    #else
-            fragPath = "./Resources/Shaders/TransparencySort.frag";
-    #endif
             SmartPointer<GLShader> transparencySort_frag =
-                    GLShader::CreateShader(fragPath, GL_FRAGMENT_SHADER);
+                    GLShader::CreateShader(std::string("./Resources/Shaders/"
+                                                       "TransparencySort.frag"),
+                                           GL_FRAGMENT_SHADER);
 
             sp->SetName("TRANSPARENCYSORT");
             sp->AddShaders(fullScreenTriangle_vert, transparencySort_frag);
@@ -333,15 +328,11 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
                             std::string("./Resources/Shaders/"
                                         "FullScreenTriangle.vert"),
                             GL_VERTEX_SHADER);
-
-            std::string fragPath = "";
-    #ifdef GL_SUPPORT_MSAA
-            fragPath = "./Resources/Shaders/VolumeRenderingSortMS.frag";
-    #else
-            fragPath = "./Resources/Shaders/VolumeRenderingSort.frag";
-    #endif
             SmartPointer<GLShader> volumeRenderingSort_frag =
-                    GLShader::CreateShader(fragPath, GL_FRAGMENT_SHADER);
+                    GLShader::CreateShader(
+                            std::string("./Resources/Shaders/"
+                                        "VolumeRenderingSort.frag"),
+                            GL_FRAGMENT_SHADER);
 
             sp->SetName("VOLUMERENDERINGSORT");
             sp->AddShaders(fullScreenTriangle_vert, volumeRenderingSort_frag);
@@ -387,14 +378,9 @@ SmartPointer<GLShaderProgram> ShaderManager::GenShader(ShaderType type) {
         } break;
         case ShaderType::DEPTHREDUCE: {
 #ifdef IGAME_OPENGL_VERSION_460
-            std::string compPath = "";
-    #ifdef GL_SUPPORT_MSAA
-            compPath = "./Resources/Shaders/DepthReduceMS.comp";
-    #else
-            compPath = "./Resources/Shaders/DepthReduce.comp";
-    #endif
-            SmartPointer<GLShader> depthReduce_comp =
-                    GLShader::CreateShader(compPath, GL_COMPUTE_SHADER);
+            SmartPointer<GLShader> depthReduce_comp = GLShader::CreateShader(
+                    std::string("./Resources/Shaders/DepthReduce.comp"),
+                    GL_COMPUTE_SHADER);
 
             sp->SetName("DEPTHREDUCE");
             sp->AddShaders(depthReduce_comp);

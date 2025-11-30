@@ -175,6 +175,7 @@
     <addaction name="separator"/>
     <addaction name="action_ClearInfomation"/>
     <addaction name="action_ResetView"/>
+    <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="action_ResetBackground"/>
     <addaction name="separator"/>
     <addaction name="action_Settings"/>
@@ -746,6 +747,17 @@
    </property>
    <property name="toolTip">
     <string>action_ResetView</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::TextHeuristicRole</enum>
+   </property>
+  </action>
+  <action name="action_ResetViewByBoundingBox">
+   <property name="text">
+    <string>包围框视角</string>
+   </property>
+   <property name="toolTip">
+    <string>action_ResetViewByBoundingBox</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::TextHeuristicRole</enum>
