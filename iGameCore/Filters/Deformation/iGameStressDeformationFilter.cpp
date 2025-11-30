@@ -9,11 +9,12 @@
 
 #include "iGameStressDeformationFilter.h"
 #include "iGamePointSet.h"
+#include "iGameUnstructuredMesh.h"
 #include <iGameSceneManager.h>
 
 iGame::StressDeformationFilter::StressDeformationFilter() {
     SetNumberOfInputs(1);
-    SetNumberOfOutputs(1);
+    SetNumberOfOutputs(2);
 }
 
 bool iGame::StressDeformationFilter::Execute() {
@@ -87,6 +88,16 @@ bool iGame::StressDeformationFilter::Execute() {
             render_pos_set->Modified();
         }
     }
+    auto newMesh = UnstructuredMesh::New();
+    auto newPoints = Points::New();
+    if (dataObject->GetDataObjectType() == IG_UNSTRUCTURED_MESH) { 
+        auto temp = DynamicCast<UnstructuredMesh>(dataObject);
+        newMesh->SetCells(temp->GetCells(), temp->GetCellTypes());
+        newMesh->SetAttributeSet(temp->GetAttributeSet());
+        newMesh->SetName(temp->GetName());
+        newMesh->SetPoints(newPoints);
+        newPoints->SetNumberOfPoints(temp->GetNumberOfPoints());
+    }
     /* Process DataObject itself 's Deformation. */
     {
         auto pointset = DynamicCast<iGame::PointSet>(dataObject);
@@ -114,6 +125,9 @@ bool iGame::StressDeformationFilter::Execute() {
                     render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                     render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
                     render_pos_set->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                    newPoints->SetPoint(j / 3, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0),
+                                        pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1),
+                                        pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
                 }
             }
             /* Process the Model Geometry Surface Filter, means that the points renderer are not raw points
@@ -128,6 +142,9 @@ bool iGame::StressDeformationFilter::Execute() {
                     render_pos_set->SetValue(k + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
                     render_pos_set->SetValue(k + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
                     render_pos_set->SetValue(k + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                    newPoints->SetPoint(k / 3, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0),
+                                        pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1),
+                                        pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
                 }
             }
             render_pos_set->Modified();
@@ -135,7 +152,8 @@ bool iGame::StressDeformationFilter::Execute() {
 
     }
 //    UpdateProgress(1.0f);
-    this->SetOutput(dataObject);
+    this->SetOutput(0, dataObject);
+    this->SetOutput(1, newMesh);
     return true;
 }
 

@@ -1,4 +1,6 @@
 #include "iGameDataObject.h"
+#include "iGameDataObject.h"
+#include "iGameDataObject.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
@@ -76,6 +78,17 @@ DataObject::SubIterator DataObject::SubDataObjectIteratorEnd() { return m_SubDat
 DataObject* DataObject::FindParent() {
     if (m_Parent != nullptr) { return m_Parent->FindParent(); }
     return this;
+}
+
+IGsize DataObject::GetRealMemorySize() {
+    IGsize res = 0;
+    if (m_Attributes) res += m_Attributes->GetRealMemorySize();
+    if (this->HasSubDataObject()) {
+        for (auto it = m_SubDataObjectsHelper->Begin(); it != m_SubDataObjectsHelper->End(); ++it) {
+            res += it->second->GetRealMemorySize();
+        }
+    }
+    return res;
 }
 
 DataObject::SubConstIterator DataObject::SubDataObjectIteratorEnd() const { return m_SubDataObjectsHelper->End(); }
@@ -193,6 +206,15 @@ void DataObject::SetAttributeSet(AttributeSet::Pointer p) {
         m_Attributes->m_DataObject = this;
         m_AttributeHelper->Modified();
     }
+}
+
+const BoundingBox& DataObject::GetBoundingBox() {
+    ComputeBoundingBox();
+    if (this->HasSubDataObject()) {
+        for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it)
+            m_Bounding.add(it->second->GetBoundingBox());
+    }
+    return m_Bounding;
 }
 
 void DataObject::UpdateAnimation(int keyframe_idx) {

@@ -17,6 +17,8 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
+#include "Convert/iGameConvertToPointDataFilter.h"
+#include "Convert/iGameConvertToCellDataFilter.h"
 
 #include "Interactor/iGameInteractor.h"
 
@@ -240,6 +242,20 @@ void igQtMainWindow::initAllComponents() {
     });
     connect(ui->action_setViewToIsometric, &QAction::triggered, this, [&](bool checked) {
         rendererWidget->GetScene()->ResetCameraViewToIsometric();
+        rendererWidget->update();
+    });
+    connect(ui->action_ResetViewByBoundingBox, &QAction::triggered, this, [&](bool checked) {
+        auto scene = rendererWidget->GetScene();
+        if (scene == nullptr) return;
+        auto interactor = scene->GetInteractor();
+        if (interactor == nullptr) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        auto box = boxStyle->GetBox();
+        auto minMaxP = box->GetExtremePoint();
+        auto boundingBox = BoundingBox(minMaxP.first, minMaxP.second);
+        scene->ResetCameraView(boundingBox);
         rendererWidget->update();
     });
     connect(ui->action_rotateNinetyClockwise, &QAction::triggered, this, [&](bool checked) {
@@ -553,6 +569,54 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
+
+    connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        auto m_StreamBase = iGame::iGameStreamBase::New();
+        auto streamtracer = m_StreamBase->streamFilter;
+        streamtracer->initStreamTracer(obj);
+        //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+        Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
+        Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+        Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
+        auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
+                                                         4); //4，6为划分子块的数量
+        float lengthOfStreamLine = 5;
+        float lengthOfStep = 0.3;
+        float maxSteps = 1000;
+        float terminalSpeed = 0.005;
+        streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+        streamtracer->Execute();
+        std::cout << seeds.size() << std::endl;
+        auto output = streamtracer->GetOutput();
+
+        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+        rendererWidget->update();
+    });
+
+    QMenu* convert = ui->menu_filters->addMenu("Convert");
+    connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+    connect(convert->addAction("Convert To CellData"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+            
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 

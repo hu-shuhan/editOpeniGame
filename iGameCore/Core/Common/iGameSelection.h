@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <iGameDataObject.h>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {
@@ -180,7 +181,7 @@ protected:
     Points* m_Points{nullptr};
     CellArray* m_Cells{nullptr};
     Model* m_Model{nullptr};
-    UnstructuredMesh* m_Mesh{nullptr};
+    DataObject::Pointer m_DataObjectPointerMesh{nullptr};
 
     friend class Model;
 };

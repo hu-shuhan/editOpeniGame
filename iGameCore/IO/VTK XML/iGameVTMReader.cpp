@@ -11,6 +11,7 @@
 #include "VTK/iGameVTKReader.h"
 #include "iGameVTSReader.h"
 #include "iGameVTUReader.h"
+#include "CGNS/iGameCGNSReader.h"
 #include <tinyxml2.h>
 
 
@@ -66,7 +67,14 @@ bool iGameVTMReader::Parsing() {
                         rd->SetFilePath(fileDir + std::string(existAttribute));
                         rd->Execute();
                         newObj = rd->GetOutput();
-                    } else {
+                    }
+                    #if defined(CGNS_ENABLE)
+                    else if (fileSuffix == "cgns") {
+                        iGameCGNSReader::Pointer reader = iGameCGNSReader::New();
+                        newObj = reader->ReadFile(fileDir + std::string(existAttribute));
+                    }
+                    #endif
+                    else {
                         newObj = nullptr;
                     }
 
@@ -117,7 +125,14 @@ bool iGameVTMReader::Parsing() {
                     rd->SetFilePath(fileDir + std::string(existAttribute));
                     rd->Execute();
                     newObj = rd->GetOutput();
-                } else {
+                }
+#if defined(CGNS_ENABLE)
+                else if (fileSuffix == "cgns") {
+                    iGameCGNSReader::Pointer reader = iGameCGNSReader::New();
+                    newObj = reader->ReadFile(fileDir + std::string(existAttribute));
+                }
+#endif
+                else {
                     newObj = nullptr;
                 }
 

@@ -142,14 +142,16 @@ void Axes::Draw() {
             igm::ivec4{vp[0], vp[1], vp[0] + scale, vp[1] + scale};
     glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
 
-
     // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
     static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
                                           igm::vec3{0.0f, 1.0f, 0.0f});
-    static igm::mat4 proj = igm::perspectiveRH_OZ(45.0f, 1.0f, 0.01f); //固定投影矩阵，fov45°，宽高比1.0，近裁剪面0.01单位
+    static igm::mat4 proj = igm::perspectiveRH_OZ(
+            45.0f, 1.0f,
+            0.01f); //固定投影矩阵，fov45°，宽高比1.0，近裁剪面0.01单位
 
-    igm::mat4 model = m_Scene->m_ModelRotate;//使用场景的旋转矩阵，坐标轴与场景同步旋转
+    igm::mat4 model =
+            m_Scene->m_ModelRotate; //使用场景的旋转矩阵，坐标轴与场景同步旋转
     igm::mat4 mvp = proj * view * model;
     //着色和字体管理器
     auto shaderManager = m_Scene->m_ShaderManager;

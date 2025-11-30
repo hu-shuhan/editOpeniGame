@@ -53,11 +53,8 @@
         <file>Icons/select/selected.png</file>
         <file>Icons/select/eye-open.png</file>
         <file>Icons/select/eye-close.png</file>
-    </qresource>
-    <qresource prefix="/shader">
-        <file>Shaders/direct_vector.frag</file>
-        <file>Shaders/direct_vector.geom</file>
-        <file>Shaders/direct_vector.vert</file>
+        <file>Icons/select/hex.png</file>
+        <file>Icons/select/point.png</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>

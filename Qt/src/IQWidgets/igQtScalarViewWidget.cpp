@@ -77,7 +77,7 @@ void igQtScalarViewWidget::initScalarRange() {
 		ui->widget_DataRangeSlider->hide();
 		return;
 	}
-	// ¸üĞÂ ColorMapper µÄ·¶Î§µ½ĞÂµÄÊı¾İ·¶Î§
+	// æ›´æ–° ColorMapper çš„èŒƒå›´åˆ°æ–°çš„æ•°æ®èŒƒå›´
 	if (m_ColorMapper) {
 		m_ColorMapper->SetRange(scalarMin, scalarMax);
 	}
@@ -98,7 +98,7 @@ void igQtScalarViewWidget::showScalarView() {
 	loadScalarData();
 	initScalarRange();
 	initScalarInfo();
-	// È·±£ ColorMapper ¸üĞÂºóË¢ĞÂÊÓÍ¼
+	// ç¡®ä¿ ColorMapper æ›´æ–°ååˆ·æ–°è§†å›¾
 	if (m_ColorMapper) {
 		updateDrawStyle();
 	}

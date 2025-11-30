@@ -8,6 +8,7 @@
 #include "iGameScalarsToColors.h"
 #include "iGameStreamingData.h"
 #include "iGameDeformationData.h"
+#include "iGameCellArray.h"
 
 IGAME_NAMESPACE_BEGIN
 class DataObject : public Object {
@@ -23,8 +24,10 @@ public:
     virtual IGenum GetDataObjectType() const { return IG_DATA_OBJECT; }
 
     virtual bool ShallowCopy(Pointer o) { return true; }
-
     virtual bool DeepCopy(Pointer o) { return true; }
+
+    virtual Points::Pointer GetPoints() { return nullptr; }
+    virtual CellArray::Pointer GetCellArray() { return nullptr; }
 
     StreamingData::Pointer GetTimeFrames();
     DeformationData::Pointer GetDeformationData();
@@ -41,15 +44,7 @@ public:
     int GetCurrentAttributeDimension(){return m_AttributeDimension;}
     Metadata* GetMetadata() { return m_Metadata.get(); }
     PropertyTree* GetPropertys() { return m_Propertys.get(); }
-    const BoundingBox& GetBoundingBox() {
-        ComputeBoundingBox();
-        if (this->HasSubDataObject()) {
-            for (auto it = SubDataObjectIteratorBegin();
-                 it != SubDataObjectIteratorEnd(); ++it)
-                m_Bounding.add(it->second->GetBoundingBox());
-        }
-        return m_Bounding;
-    }
+    const BoundingBox& GetBoundingBox();
 
     class SubDataObjectsHelper : public Object {
     public:
@@ -139,17 +134,7 @@ public:
 
     DataObject* FindParent();
     //Get real size of DataObject, Only the memory of a large batch of arrays is taken into account 
-    virtual IGsize GetRealMemorySize() { 
-        IGsize res=0;
-        if (m_Attributes) res += m_Attributes->GetRealMemorySize();
-        if (this->HasSubDataObject()) {
-            for (auto it = m_SubDataObjectsHelper->Begin();
-                it != m_SubDataObjectsHelper->End(); ++it) {
-                res+=it->second->GetRealMemorySize();
-            }
-        }
-        return res;
-    };
+    virtual IGsize GetRealMemorySize();
 
 protected:
     ~DataObject() override{/*std::cout << "Destructed\n";*/};
@@ -162,21 +147,6 @@ protected:
         m_UniqueId = GetIncrementDataObjectId();
         m_BoundingHelper = Object::New();
         m_Propertys = PropertyTree::New();
-
-        // Test...
-        auto prop1 = m_Propertys->AddProperty(Variant::Int, "Size");
-        prop1->SetValue(0);
-        prop1->SetEnabled(true);
-        auto prop2 = prop1->AddSubProperty(Variant::Int, "x");
-        prop2->SetValue(1);
-        prop2->SetEnabled(true);
-        auto prop3 = prop1->AddSubProperty(Variant::Int, "y");
-        prop3->SetValue(1);
-        prop3->SetEnabled(true);
-
-        m_Propertys->AddProperty(Variant::Int, "Width");
-        m_Propertys->AddProperty(Variant::Int, "Height");
-        m_Propertys->AddProperty(Variant::Int, "Length");
 
         m_AttributeHelper = Object::New();
     }
