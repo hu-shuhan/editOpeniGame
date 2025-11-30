@@ -85,6 +85,7 @@ public:
                                                            std::vector<std::vector<float>>& streamColor,
                                                            float lengthOfStreamLine, float lengthOfStep,
                                                            float terminalSpeed, int maxSteps);
+    void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
     bool CellData2PointData(std::string vectorName);
     void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
@@ -102,7 +103,7 @@ public:
      * @param terminalSpeed 终止速度
      * @param maxSteps 最大步数
      */
-    void SetInput(std::vector<Vector3f>& seeds, std::string& vectorName, float lengthOfStreamLine, float lengthOfStep,
+    void SetInput(std::vector<Vector3f> seeds, std::string vectorName, float lengthOfStreamLine, float lengthOfStep,
                   float terminalSpeed, int maxSteps);
 
     /**
@@ -263,6 +264,8 @@ private:
     float m_LengthOfStep = 0.01f;
     float m_TerminalSpeed = 0.001f;
     int m_MaxSteps = 10000;
+
+    bool m_IsSingleThread = true;
 
     // 存储计算结果
     UnstructuredMesh::Pointer m_ResultMesh;

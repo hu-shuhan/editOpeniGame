@@ -76,6 +76,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->SetShouldBuildVolumeEageLinks(false);
           //  mesh->InitPolyhedronVertices();
         }
+
     } else {
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
@@ -615,7 +616,7 @@ float iGameStreamTracer::AccuracyCul(std::vector<std::vector<float>> streamline,
     ;
 }
 
-void iGameStreamTracer::SetInput(std::vector<Vector3f>& seeds, std::string& vectorName, float lengthOfStreamLine,
+void iGameStreamTracer::SetInput(std::vector<Vector3f> seeds, std::string vectorName, float lengthOfStreamLine,
                                  float lengthOfStep, float terminalSpeed, int maxSteps) {
     m_SeedPoints = seeds;
     m_VectorName = vectorName;
@@ -725,10 +726,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
         if (isChange) { isChange = false; }
     }
     std::cout << "333333333333333" << std::endl;
-    ThreadPool::Pointer tp = ThreadPool::Instance();
 
-    std::vector<std::future<void>> result(seed.size());
-    std::cout << "44444444444444444" << std::endl;
     auto func = [&](int i) -> void {
         // std::cout << i << " start\n";
         // auto time1 = clock();
@@ -814,13 +812,29 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
     };
     processCount = 0;
     totalProcess = seed.size();
-    for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
+
     std::cout << "555555555555555" << std::endl;
-    for (int i = 0; i < seed.size(); i++) {
-        result[i].wait();
-        processCount++;
-        this->UpdateProgress((double) processCount / seed.size());
+    if (m_IsSingleThread)
+    {
+        for (int i = 0; i < seed.size(); i++) {
+            func(i);
+            processCount++;
+            this->UpdateProgress((double) processCount / seed.size());
+        }
     }
+    else
+    {
+        ThreadPool::Pointer tp = ThreadPool::Instance();
+        std::vector<std::future<void>> result(seed.size());
+        for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
+
+        for (int i = 0; i < seed.size(); i++) {
+            result[i].wait();
+            processCount++;
+            this->UpdateProgress((double) processCount / seed.size());
+        }
+    }
+
     std::cout << "6666666666666666" << std::endl;
     return tem;
 

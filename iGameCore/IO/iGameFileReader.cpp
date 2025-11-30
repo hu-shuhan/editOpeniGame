@@ -14,8 +14,10 @@ FileReader::FileReader() {
 }
 DataObject::Pointer FileReader::ReadFile(const std::string& filePath) {
     SetFilePath(filePath);
-    Execute();
-    return this->GetOutput();
+    if (Execute()) {
+        return this->GetOutput();
+    }
+    return nullptr;
 }
 bool FileReader::Execute() {
     clock_t start, end;
