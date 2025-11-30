@@ -242,6 +242,20 @@ void igQtMainWindow::initAllComponents() {
         rendererWidget->GetScene()->ResetCameraViewToIsometric();
         rendererWidget->update();
     });
+    connect(ui->action_ResetViewByBoundingBox, &QAction::triggered, this, [&](bool checked) {
+        auto scene = rendererWidget->GetScene();
+        if (scene == nullptr) return;
+        auto interactor = scene->GetInteractor();
+        if (interactor == nullptr) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        auto box = boxStyle->GetBox();
+        auto minMaxP = box->GetExtremePoint();
+        auto boundingBox = BoundingBox(minMaxP.first, minMaxP.second);
+        scene->ResetCameraView(boundingBox);
+        rendererWidget->update();
+    });
     connect(ui->action_rotateNinetyClockwise, &QAction::triggered, this, [&](bool checked) {
         rendererWidget->GetScene()->RotateNinetyClockwise();
         rendererWidget->update();
