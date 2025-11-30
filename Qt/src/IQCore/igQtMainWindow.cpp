@@ -17,6 +17,8 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
+#include "Convert/iGameConvertToPointDataFilter.h"
+#include "Convert/iGameConvertToCellDataFilter.h"
 
 #include "Interactor/iGameInteractor.h"
 
@@ -553,6 +555,29 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
+
+    QMenu* convert = ui->menu_filters->addMenu("Convert");
+    connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+    connect(convert->addAction("Convert To CellData"), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+            
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 

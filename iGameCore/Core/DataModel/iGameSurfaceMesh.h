@@ -34,6 +34,7 @@ public:
 	CellArray* GetEdges();
 	// Get face array
 	CellArray* GetFaces();
+    virtual CellArray::Pointer GetCellArray() override { return m_Faces; }
 
 	// Set face array
 	void SetFaces(CellArray::Pointer faces);
