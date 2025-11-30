@@ -102,7 +102,7 @@ public:
      * @param terminalSpeed 终止速度
      * @param maxSteps 最大步数
      */
-    void SetInput(std::vector<Vector3f> seeds, std::string vectorName,
+    void SetInput(std::vector<Vector3f>& seeds, std::string& vectorName,
                   float lengthOfStreamLine, float lengthOfStep,
                   float terminalSpeed, int maxSteps) {
         m_SeedPoints = seeds;
