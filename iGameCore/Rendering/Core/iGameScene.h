@@ -153,6 +153,7 @@ public:
     /**
      * @brief 重置相机视角到默认视图。
      */
+    void ResetCameraView(const BoundingBox& bbox);
     void ResetCameraView(SmartPointer<DataObject> dataObject = nullptr);
 
     /**

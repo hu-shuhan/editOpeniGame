@@ -51,7 +51,6 @@ Scene::Scene() {
     m_OITLinkedListBuffer = GLBuffer::New();
     m_OITLinkedListTexture = GLTextureBuffer::New();
 
-    //m_DrawCullData = GLBuffer::New();
     m_HzbWidth = 0;
     m_HzbHeight = 0;
     m_HzbLevels = 0;
@@ -283,33 +282,37 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
-void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
-    UpdateModelsBoundingSphere();
+void Scene::ResetCameraView(const BoundingBox& bbox) {
+    double* center = bbox.center().pointer();
+    float x = static_cast<float>(center[0]);
+    float y = static_cast<float>(center[1]);
+    float z = static_cast<float>(center[2]);
 
-    igm::vec3 center = m_ModelsBoundingSphere.xyz();
-    float radius = m_ModelsBoundingSphere.w;
-    if (dataObject != nullptr) {
-        auto& box = dataObject->GetBoundingBox();
-        double* c = box.center().pointer();
-        float x = static_cast<float>(c[0]);
-        float y = static_cast<float>(c[1]);
-        float z = static_cast<float>(c[2]);
+    double diameter = bbox.diag();
+    float r = static_cast<float>(diameter / 2.0);
 
-        double diameter = box.diag();
-        float r = static_cast<float>(diameter / 2.0);
-
-        SetRotationCenter(igm::vec3{x, y, z});
-        center = igm::vec3{x, y, z};
-        radius = r;
-    } else {
-        m_UseCustomRotationCenter = false;
-    }
-
+    SetRotationCenter(igm::vec3{x, y, z});
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
-    m_Camera->SetPosition(center.x, center.y, center.z + 3.0f * radius);
-    m_Camera->SetFocal(center);
+    m_Camera->SetPosition(x, y, z + 3.0f * r);
+    m_Camera->SetFocal(igm::vec3{x, y, z});
     this->UpdateCameraClippingRange();
+}
+
+void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
+    if (dataObject == nullptr) {
+        UpdateModelsBoundingSphere();
+        m_ModelMatrix = igm::mat4{1.0f};
+        m_ModelRotate = igm::mat4{1.0f};
+        m_Camera->SetPosition(
+                m_ModelsBoundingSphere.x, m_ModelsBoundingSphere.y,
+                m_ModelsBoundingSphere.z + 3.0f * m_ModelsBoundingSphere.w);
+        m_Camera->SetFocal(m_ModelsBoundingSphere.xyz());
+        this->UpdateCameraClippingRange();
+    } else {
+        m_UseCustomRotationCenter = false;
+        ResetCameraView(dataObject->GetBoundingBox());
+    }
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
@@ -681,7 +684,8 @@ void Scene::RefreshHzb() {
         shader->SetUniform2ui("outDepthPyramidSize", igm::uvec2{width, height});
         m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((width + 31) / 32, (height + 31) / 32, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
     }
 
     // generate other level
@@ -703,7 +707,8 @@ void Scene::RefreshHzb() {
         shader->SetUniform2ui("inDepthPyramidSize", igm::uvec2{width, height});
         m_HzbTexture->BindImage(0, level, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
         glDispatchCompute((levelWidth + 31) / 32, (levelHeight + 31) / 32, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                        GL_TEXTURE_FETCH_BARRIER_BIT);
     }
 #endif
 }
@@ -914,9 +919,9 @@ void Scene::ForwardPass() {
 
         // refresh phase 1: generate loacl hierarchical z-buffer & cull data
         RefreshHzb();
-        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
+        RefreshDrawCullDataBuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawPhase2();
@@ -927,6 +932,7 @@ void Scene::ForwardPass() {
     }
     #else
     {
+        // draw prepass: use last frame data to test occlusion results
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->TestOcclusionResults();
@@ -940,9 +946,9 @@ void Scene::ForwardPass() {
 
         // refresh phase1: generate loacl hierarchical z-buffer
         RefreshHzb();
-        RefreshDrawCullDataBuffer();
 
         // draw phase2: draw invisible meshlet
+        RefreshDrawCullDataBuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawPhase2();
@@ -956,6 +962,7 @@ void Scene::ForwardPass() {
 
 #ifdef GL_SUPPORT_MSAA
     ResolveFrameBuffer();
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
 #endif
 
     glDisable(GL_DEPTH_TEST);
