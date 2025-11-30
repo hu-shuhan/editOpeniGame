@@ -76,6 +76,7 @@ void iGameStreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->SetShouldBuildVolumeEageLinks(false);
           //  mesh->InitPolyhedronVertices();
         }
+
     } else {
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
@@ -615,7 +616,7 @@ float iGameStreamTracer::AccuracyCul(std::vector<std::vector<float>> streamline,
     ;
 }
 
-void iGameStreamTracer::SetInput(std::vector<Vector3f>& seeds, std::string& vectorName, float lengthOfStreamLine,
+void iGameStreamTracer::SetInput(std::vector<Vector3f> seeds, std::string vectorName, float lengthOfStreamLine,
                                  float lengthOfStep, float terminalSpeed, int maxSteps) {
     m_SeedPoints = seeds;
     m_VectorName = vectorName;
