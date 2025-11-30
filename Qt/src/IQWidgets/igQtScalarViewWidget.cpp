@@ -77,6 +77,10 @@ void igQtScalarViewWidget::initScalarRange() {
 		ui->widget_DataRangeSlider->hide();
 		return;
 	}
+	// 更新 ColorMapper 的范围到新的数据范围
+	if (m_ColorMapper) {
+		m_ColorMapper->SetRange(scalarMin, scalarMax);
+	}
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
 	ui->widget_DataRangeSlider->show();
 }
@@ -94,6 +98,10 @@ void igQtScalarViewWidget::showScalarView() {
 	loadScalarData();
 	initScalarRange();
 	initScalarInfo();
+	// 确保 ColorMapper 更新后刷新视图
+	if (m_ColorMapper) {
+		updateDrawStyle();
+	}
 }
 void igQtScalarViewWidget::updateDrawStyle() {
 	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper;

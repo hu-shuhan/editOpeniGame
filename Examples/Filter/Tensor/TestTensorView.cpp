@@ -6,14 +6,15 @@
  * @brief   TestTensor's brief
  */
 
-#include <TensorViewFilter/iGameTensorBase.h>
+#include <TensorViewFilter/iGameTensorFilter.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
 #include <iGameScene.h>
 #include <iostream>
 #include <string>
-//#include<vld.h>
+
+
 int main() {
     /* 创建场景*/
     auto scene = iGame::Scene::New();
@@ -36,20 +37,30 @@ int main() {
         std::cout << "No Tensor Data\n";
         return 0;
     }
-    auto m_TensorObject = iGame::iGameTensorBase::New();
-    //设置顶点数据
-    m_TensorObject->SetPoints(mesh->GetPoints());
+    auto m_TensorFilter = iGame::iGameTensorFilter::New();
+    //设置输入
+    m_TensorFilter->SetInput(mesh);
+    //设置张量场数据，是3*3张量场,如果没有输入则会默认找网格的第一个张量场
+    m_TensorFilter->SetTensorAttributes(tensorData);
     //设置显示图元类型，目前支持ELLIPSOID和CUBOID两种
-    m_TensorObject->SetGlyphType(iGame::iGameTensorRepresentation::CUBOID);
-    //设置张量场数据，是3*3张量场
-    m_TensorObject->SetTensorAttributes(tensorData);
-    //设置图元颜色，如果是SetPositionsScalarArray，则是按照标量数据影射
-    m_TensorObject->SetPositionsScalarArray(tensorData, 0);
-    /*//设置图元颜色，如果是SetPositionColors，则需要直接给入颜色数据
-    m_TensorObject->SetPositionColors(colors);*/
-    //显示张量场
-    m_TensorObject->ShowTensorField();
-    scene->AddModel(m_TensorObject);
+    m_TensorFilter->SetGlyphType(iGame::iGameTensorRepresentation::CUBOID);
+    //设置绘制精度
+    m_TensorFilter->SetSliceNum(5);
+    //设置图元缩放比例
+    m_TensorFilter->SetGlyphScale(0.02);
+
+    if (m_TensorFilter->Execute()) {
+        auto res = DynamicCast<DrawObject>(m_TensorFilter->GetOutput());
+        scene->AddModel(res);
+        int num = res->GetAttributeSet()->GetNumberOfAttributes();
+        if (num > 0) {
+            res->ViewCloudPicture(scene, 0);
+        }
+    }
+    else {
+        std::cout << "Generate Tensor Filed\n";
+        return 0;
+    }
 
     /* 启动窗口设置*/
     iGame::RenderWindow::Pointer window = iGame::RenderWindow::New();

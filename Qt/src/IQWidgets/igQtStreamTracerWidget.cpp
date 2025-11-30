@@ -73,12 +73,14 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
                     if (itemType == IG_CHANGE) {
                             startP = Selection->Start;
                             endP = Selection->End;
-                            ui->startX->setText(QString::number(startP[0]));
-                            ui->startY->setText(QString::number(startP[1]));
-                            ui->startZ->setText(QString::number(startP[2]));
-                            ui->endX->setText(QString::number(endP[0]));
-                            ui->endY->setText(QString::number(endP[1]));
-                            ui->endZ->setText(QString::number(endP[2]));}
+                            auto temStart = startP;
+                            auto temEnd = endP;
+                            ui->startX->setText(QString::number(temStart[0]));
+                            ui->startY->setText(QString::number(temStart[1]));
+                            ui->startZ->setText(QString::number(temStart[2]));
+                            ui->endX->setText(QString::number(temEnd[0]));
+                            ui->endY->setText(QString::number(temEnd[1]));
+                            ui->endZ->setText(QString::number(temEnd[2]));}
                 },
                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
@@ -191,12 +193,14 @@ void igQtStreamTracerWidget::updateVectorNameList() {
     if (!obj) return;
     startP= obj->GetBoundingBox().min;
     endP= obj->GetBoundingBox().max;
-    ui->startX->setText(QString::number(startP[0]));
-    ui->startY->setText(QString::number(startP[1]));
-    ui->startZ->setText(QString::number(startP[2]));
-    ui->endX->setText(QString::number(endP[0]));
-    ui->endY->setText(QString::number(endP[1]));
-    ui->endZ->setText(QString::number(endP[2]));
+    auto temStart = startP;
+    auto temEnd = endP;
+    ui->startX->setText(QString::number(temStart[0]));
+    ui->startY->setText(QString::number(temStart[1]));
+    ui->startZ->setText(QString::number(temStart[2]));
+    ui->endX->setText(QString::number(temEnd[0]));
+    ui->endY->setText(QString::number(temEnd[1]));
+    ui->endZ->setText(QString::number(temEnd[2]));
     iGame::AttributeSet* _AttributeSet;
     if (obj->HasSubDataObject()) {
         auto it = obj->SubDataObjectIteratorBegin();
@@ -279,15 +283,15 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         seeds = streamtracer->getModelSelect();
     }
-    streamline = streamtracer->showStreamLineMix(seeds, vectorName, streamlineColor, lengthOfStreamLine, lengthOfStep,
-                                                 terminalSpeed, maxSteps);
+     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+    streamtracer->Execute();
+     m_StreamBase->SetUpdate(true);
     //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
     //	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     //}
     //else {
     //	 streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     //}
-    m_StreamBase->SetStreamLine(streamline, streamlineColor);
     scene->ChangeModelVisibility(model, false);
     //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
     //   std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
@@ -313,25 +317,15 @@ void igQtStreamTracerWidget::generateStreamline() {
                     if (itemType == IG_CHANGE) {
                         startP = Selection->Start;
                         endP = Selection->End;
-                        ui->startX->setText(QString::number(startP[0]));
-                        ui->startY->setText(QString::number(startP[1]));
-                        ui->startZ->setText(QString::number(startP[2]));
-                        ui->endX->setText(QString::number(endP[0]));
-                        ui->endY->setText(QString::number(endP[1]));
-                        ui->endZ->setText(QString::number(endP[2]));
+                        auto temStart = startP;
+                        auto temEnd = endP;
+                        ui->startX->setText(QString::number(temStart[0]));
+                        ui->startY->setText(QString::number(temStart[1]));
+                        ui->startZ->setText(QString::number(temStart[2]));
+                        ui->endX->setText(QString::number(temEnd[0]));
+                        ui->endY->setText(QString::number(temEnd[1]));
+                        ui->endZ->setText(QString::number(temEnd[2]));
                     }
-                    //for (auto& event: events) {
-                    //    if (event.type == iGame::Selection::Event::Change) {
-                    //        startP = Selection->Start;
-                    //        endP= Selection->End;
-                    //        ui->startX->setText(QString::number(startP[0]));
-                    //        ui->startY->setText(QString::number(startP[1]));
-                    //        ui->startZ->setText(QString::number(startP[2]));
-                    //        ui->endX->setText(QString::number(endP[0]));
-                    //        ui->endY->setText(QString::number(endP[1]));
-                    //        ui->endZ->setText(QString::number(endP[2]));
-                    //    }
-                    //}
                 },
                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 

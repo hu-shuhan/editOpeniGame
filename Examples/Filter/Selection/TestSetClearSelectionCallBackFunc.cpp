@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <Selection/iGameSetClearSelectionCallBackFuncFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameSetClearSelectionCallBackFunc.h>
+#include <iostream>
 
 static void ClearCallBackFunc() { std::cout << "Cleared" << std::endl; }
 

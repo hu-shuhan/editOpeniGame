@@ -1,7 +1,7 @@
 #pragma once
 
-#include "UndefinedFilters/iGameCurvatureFilter.h"
-#include "UndefinedFilters/iGameGradientFilter.h"
+#include "FeatureExtraction/iGameCurvatureFilter.h"
+#include "FeatureExtraction/iGameGradientFilter.h"
 #include "iGameColorMap.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"

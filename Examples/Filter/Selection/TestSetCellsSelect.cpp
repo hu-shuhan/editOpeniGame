@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <Selection/iGameSetCellsSelectFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameSelectionFilters/iGameSetCellsSelect.h>
+#include <iostream>
 
 int main() {
     /*Read data*/
@@ -14,8 +14,7 @@ int main() {
         return 0;
     }
     /*Set filter*/
-    auto filter =
-            iGame::SetCellsSelectFilter::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3}));
+    auto filter = iGame::SetCellsSelectFilter::New(iGame::Selection::Operate::Add, std::vector<int>({0, 1, 2, 3}));
     filter->SetInput(0, mesh);
     auto resultStation = filter->Execute();
     if (!resultStation) {

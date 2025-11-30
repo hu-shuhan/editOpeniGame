@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UndefinedFilters/iGameLaplacianFilter.h"
+#include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"

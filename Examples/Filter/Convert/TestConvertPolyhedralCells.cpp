@@ -1,11 +1,11 @@
-#include <iGameInteractor.h>
+#include <Convert/iGameConvertPolyhedralCellsFilter.h>
 #include <iGameFileIO.h>
-#include <iGameScene.h>
+#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
-#include <Convert/iGameConvertPolyhedralCells.h>
+#include <iGameScene.h>
 
 
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -18,12 +18,10 @@ int main(){
         return 0;
     }
 
-    auto filter = iGame::ConvertPolyhedralCells::New();
+    auto filter = iGame::ConvertPolyhedralCellsFilter::New();
     filter->SetInput(obj);
 
-    if (filter->Execute()) { 
-        obj = filter->GetOutput();
-    }
+    if (filter->Execute()) { obj = filter->GetOutput(); }
 
     scene->AddModel(obj);
 

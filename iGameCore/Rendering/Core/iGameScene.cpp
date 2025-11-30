@@ -17,11 +17,11 @@ Scene::Scene() {
 
     m_Camera = Camera::New();
     //m_Light = Light::New();
+
     m_Axes = Axes::New();
     m_Axes->SetScene(this);
 
     m_Interactor = Interactor::New();
-
     m_FontManager = FontManager::New();
     m_ShaderManager = ShaderManager::New();
 
@@ -60,7 +60,6 @@ Scene::Scene() {
     m_HzbHeight = 0;
     m_HzbLevels = 0;
     m_HzbTexture = GLTexture2d::New();
-
     m_Painter2D = Painter2D::New();
     m_Painter2D->SetScene(this);
     m_Painter3D = Painter3D::New();

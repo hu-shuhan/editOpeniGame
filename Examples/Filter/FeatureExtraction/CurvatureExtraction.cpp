@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UndefinedFilters/iGameCurvatureFilter.h"
+#include "FeatureExtraction/iGameCurvatureFilter.h"
 #include "iGameFileIO.h"
 #include "iGameInteractor.h"
 #include "iGameRenderWindow.h"

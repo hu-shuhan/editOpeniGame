@@ -95,6 +95,7 @@ public:
     }
 
 private:
+    static auto constexpr PI = 3.14159265358979323846;
     bool ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh,
                                       AttributeSet::Pointer Attributes,
                                       int Index)
@@ -196,14 +197,14 @@ private:
                                              const Eigen::Vector3d& Pi,
                                              const Eigen::Vector3d& Pj,
                                              const Eigen::Vector3d& Pk) {
-                    bool obtuse = (a0 > M_PI/2) || (a1 > M_PI/2) || (a2 > M_PI/2);
+                    bool obtuse = (a0 > PI/2) || (a1 > PI/2) || (a2 > PI/2);
                     if (!obtuse) {
                         double lij = (Pj - Pi).squaredNorm();
                         double lik = (Pk - Pi).squaredNorm();
                         double v = (cot(opp1) * lij + cot(opp2) * lik) * 0.125;
                         mixArea[ivtx] += v;
                     } else {
-                        int obtId = (a0 > M_PI/2) ? i0 : ((a1 > M_PI/2) ? i1 : i2);
+                        int obtId = (a0 > PI/2) ? i0 : ((a1 > PI/2) ? i1 : i2);
                         if (ivtx == obtId) mixArea[ivtx] += 0.5 * A;
                         else               mixArea[ivtx] += 0.25 * A;
                     }
@@ -252,8 +253,8 @@ private:
         }
 
         std::vector<double> H_values(nV), K_values(nV);
-        const double twoPi = 2.0 * M_PI;
-        const double onePi = M_PI;
+        const double twoPi = 2.0 * PI;
+        const double onePi = PI;
 
         for (int i=0;i<nV;++i) {
             double H = Hn[i].norm() / (2.0 * mixArea[i]);
