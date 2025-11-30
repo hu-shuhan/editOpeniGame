@@ -88,27 +88,40 @@ public:
         std::vector<char>& dest,
         std::vector<char>& source)
     {
-        if (source.empty()) {
+        if (source.empty() || source.size() < 8) {
             dest.resize(0);
             return false;
         }
 
-        size_t headerSize = sizeof(size_t);
+        // 自动检测头部大小
+        // 优先尝试8字节头部（64位系统）
+        size_t headerSize = 8;
+        unsigned long long frameSize = ZSTD_getFrameContentSize(
+            source.data() + headerSize,
+            source.size() - headerSize
+        );
 
-        // 检查数据完整性
-        if (source.size() < headerSize) {
+        // 如果8字节偏移无效，尝试4字节头部（32位系统）
+        if (frameSize == ZSTD_CONTENTSIZE_ERROR || frameSize == ZSTD_CONTENTSIZE_UNKNOWN) {
+            headerSize = 4;
+            if (source.size() < headerSize) {
+                dest.resize(0);
+                return false;
+            }
+            frameSize = ZSTD_getFrameContentSize(
+                source.data() + headerSize,
+                source.size() - headerSize
+            );
+        }
+
+        if (frameSize == ZSTD_CONTENTSIZE_ERROR || frameSize == ZSTD_CONTENTSIZE_UNKNOWN) {
             dest.resize(0);
             return false;
         }
 
-        // 读取原始大小
-        size_t decompressedSize;
-        std::memcpy(&decompressedSize, source.data(), headerSize);
-
-        // 分配解压缓冲区
+        size_t decompressedSize = static_cast<size_t>(frameSize);
         dest.resize(decompressedSize);
 
-        // 执行解压
         size_t actualSize = ZSTD_decompress(
             dest.data(),
             decompressedSize,
@@ -121,7 +134,6 @@ public:
             return false;
         }
 
-        // 验证解压大小
         if (actualSize != decompressedSize) {
             dest.resize(0);
             return false;
