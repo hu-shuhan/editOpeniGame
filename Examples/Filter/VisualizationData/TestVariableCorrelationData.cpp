@@ -1,8 +1,8 @@
-#include <iostream>
-#include <cmath>
+#include <VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h>
 #include <algorithm>
+#include <cmath>
 #include <iGameFileIO.h>
-#include <iGameVariableCorrelationFilter/iGameGenerateVariableCorrelationData.h>
+#include <iostream>
 
 int main() {
     /*Read data*/

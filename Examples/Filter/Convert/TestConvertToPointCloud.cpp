@@ -1,11 +1,10 @@
-#include <iGameInteractor.h>
+#include <Convert/iGameConvertToPointCloudFilter.h>
 #include <iGameFileIO.h>
-#include <iGameScene.h>
+#include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
-#include <Convert/iGameConvertToPointCloud.h>
+#include <iGameScene.h>
 
-
-int main(){
+int main() {
     // Create a new scene
     auto scene = iGame::Scene::New();
 
@@ -18,12 +17,10 @@ int main(){
         return 0;
     }
 
-    auto filter = iGame::ConvertToPointCloud::New();
+    auto filter = iGame::ConvertToPointCloudFilter::New();
     filter->SetInput(obj);
 
-    if (filter->Execute()) { 
-        obj = filter->GetOutput();
-    }
+    if (filter->Execute()) { obj = filter->GetOutput(); }
 
     scene->AddModel(obj);
 

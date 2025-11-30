@@ -10,15 +10,12 @@ add_subdirectory(zlib)
 add_subdirectory(Python)
 add_subdirectory(nanoflann)
 add_subdirectory(zstd/build/cmake)
-# CGNS
-# Configure the compilation definition according to the value of MODULE_FLAG
 
 if (ENABLE_LIBTORCH_MODULE)
     add_subdirectory(libtorch)
 endif ()
 
 if (ENABLE_CGNS_MODULE)
-
     # if you want to set cgns static build , please configure in CGNS directory's CMakeLists.txt
     # On Linux prefer static build to simplify deployment (avoid missing shared artifacts)
     if (UNIX AND NOT APPLE)

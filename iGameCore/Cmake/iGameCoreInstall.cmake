@@ -16,16 +16,16 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
         # Windows-only HDF5 runtime static import libs; on Linux system packages or user install suffice
         if (WIN32)
             set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-            find_package(HDF5)
-            install(FILES
-                    ${HDF5_DIR}/../../lib/libhdf5.lib
-                    ${HDF5_DIR}/../../lib/libhdf5_hl.lib
-                    ${HDF5_DIR}/../../lib/libhdf5_tools.lib
-                    ${HDF5_DIR}/../../lib/libzlib.lib
-                    ${HDF5_DIR}/../../lib/libsz.lib
-                    ${HDF5_DIR}/../../lib/libaec.lib
-                    DESTINATION lib/ThirdParty)
         endif ()
+        find_package(HDF5 REQUIRED)
+        install(FILES
+                ${HDF5_DIR}/../../lib/libhdf5.lib
+                ${HDF5_DIR}/../../lib/libhdf5_hl.lib
+                ${HDF5_DIR}/../../lib/libhdf5_tools.lib
+                ${HDF5_DIR}/../../lib/libzlib.lib
+                ${HDF5_DIR}/../../lib/libsz.lib
+                ${HDF5_DIR}/../../lib/libaec.lib
+                DESTINATION lib/ThirdParty)
     endif ()
 
 

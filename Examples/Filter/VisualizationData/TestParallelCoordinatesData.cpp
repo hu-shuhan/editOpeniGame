@@ -1,8 +1,8 @@
-#include <iGameFileIO.h>
-#include <iGameParallelCoordinatesFilter/iGameGenerateParallelCoordinatesData.h>
-#include <iostream>
-#include <cmath>
+#include <ParallelCoordinates/iGameGenerateParallelCoordinatesData.h>
 #include <algorithm>
+#include <cmath>
+#include <iGameFileIO.h>
+#include <iostream>
 #include <vector>
 
 static void ShowVariableSort(const std::vector<int>& vs) {

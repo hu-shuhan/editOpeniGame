@@ -1,5 +1,6 @@
 ﻿#include "iGameScene.h"
 #include "iGameTensorFilter.h"
+#include "iGameThreadPool.h"
 IGAME_NAMESPACE_BEGIN
 iGameTensorFilter::iGameTensorFilter() {
     this->Modified();
@@ -8,8 +9,7 @@ iGameTensorFilter::iGameTensorFilter() {
     this->m_TensorManager->SetSliceNum(5);
     this->m_DrawGlyphPoints = Points::New();
     this->m_DrawGlyphPointOrders = IdArray::New();
-    this->m_DrawGlyphColors = FloatArray::New();
-    this->m_DrawGlyphColors->SetDimension(3);
+    this->m_DrawGlyphAttributeSet = AttributeSet::New();
     this->SetNumberOfInputs(1);
     this->SetNumberOfOutputs(1);
 }
@@ -29,7 +29,7 @@ bool iGameTensorFilter::Execute() {
             auto allAttributes = mesh->GetAttributeSet()->GetAllAttributes();
             if (!allAttributes) {
                 std::cout << "No Tensor Data\n";
-                return 0;
+                return false;
             }
             iGame::ArrayObject::Pointer tensorData = nullptr;
             for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
@@ -40,14 +40,13 @@ bool iGameTensorFilter::Execute() {
             }
             m_TensorAttributes = tensorData;
         }
-
     }
 
     if (this->m_Points == nullptr) return false;
     if (this->m_TensorAttributes == nullptr) return false;
     UpdateGlyphDrawPositionData();
     UpdateGlyphDrawIndexData();
-    UpdateGlyphDrawColor();
+    UpdateGlyphDrawAttributeSet();
     UpdateTensorObject();
     return true;
 }
@@ -59,7 +58,8 @@ void iGameTensorFilter::UpdateGlyphDrawPositionData() {
         return;
     }
     int GlyphPointNum = m_TensorManager->GetNumberOfDrawPoints();
-    m_DrawGlyphPoints->Resize(PointNum * GlyphPointNum);
+    this->m_DrawGlyphPoints = Points::New();
+    this->m_DrawGlyphPoints->Resize(PointNum * GlyphPointNum);
     auto GlyphPoints = m_DrawGlyphPoints->RawPointer();
     double t[9];
     for (int i = 0; i < PointNum; i++) {
@@ -80,64 +80,70 @@ void iGameTensorFilter::UpdateGlyphDrawIndexData() {
     }
     auto GlyphPointIndexOrders = m_TensorManager->GetDrawPointIndexOrders();
     int GlyphPointNum = m_TensorManager->GetNumberOfDrawPoints();
-    m_DrawGlyphPointOrders->Resize(PointNum * GlyphPointIndexOrders->GetNumberOfValues());
-    double t[9];
-    for (int i = 0; i < PointNum; i++) {
-        IGsize st = i * GlyphPointIndexOrders->GetNumberOfValues();
-        IGsize offset = i * GlyphPointNum;
-        for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
-            //这里不太好用copy，不能保证两个类型相同
-            //m_DrawGlyphPointOrders->SetValue(st + j, offset + GlyphPointIndexOrders->GetValue(j));
-            m_DrawGlyphPointOrders->SetId(st + j, offset + GlyphPointIndexOrders->GetValue(j));
-            //m_DrawGlyphPointOrders->AddValue(st + GlyphPointIndexOrders->GetValue(j));
+    this->m_DrawGlyphPointOrders = IdArray::New();
+    this->m_DrawGlyphPointOrders->Resize(PointNum * GlyphPointIndexOrders->GetNumberOfValues());
+    
+    auto func = [&](igIndex start, igIndex end) -> void {
+        IGsize st = start * GlyphPointIndexOrders->GetNumberOfValues();
+        for (int i = start; i < end; i++) {
+            IGsize offset = i * GlyphPointNum;
+            for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
+                m_DrawGlyphPointOrders->SetId(st + j, offset + GlyphPointIndexOrders->GetValue(j));
+            }
+            st += GlyphPointIndexOrders->GetNumberOfValues();
         }
-    }
+    };
+    ThreadPool::parallelFor(0, PointNum, func);
+
+    //for (int i = 0; i < PointNum; i++) {
+    //    IGsize st = i * GlyphPointIndexOrders->GetNumberOfValues();
+    //    IGsize offset = i * GlyphPointNum;
+    //    for (int j = 0; j < GlyphPointIndexOrders->GetNumberOfValues(); j++) {
+    //        //这里不太好用copy，不能保证两个类型相同
+    //        //m_DrawGlyphPointOrders->SetValue(st + j, offset + GlyphPointIndexOrders->GetValue(j));
+    //        m_DrawGlyphPointOrders->SetId(st + j, offset + GlyphPointIndexOrders->GetValue(j));
+    //        //m_DrawGlyphPointOrders->AddValue(st + GlyphPointIndexOrders->GetValue(j));
+    //    }
+    //}
 }
-void iGameTensorFilter::UpdateGlyphDrawColor() {
+void iGameTensorFilter::UpdateGlyphDrawAttributeSet() {
     int PointNum = this->m_Points ? this->m_Points->GetNumberOfPoints() : 0;
-    if (PointNum == 0 || this->m_PositionColors == nullptr ||
-        this->m_PositionColors->GetNumberOfElements() != PointNum) {
+    Point p;
+    if (PointNum == 0 || !this->m_TensorAttributes || this->m_TensorAttributes->GetNumberOfValues() != (9 * PointNum)) {
         return;
     }
     int GlyphPointNum = m_TensorManager->GetNumberOfDrawPoints();
-    float rgb[16] = {.0};
-    m_DrawGlyphColors = FloatArray::New();
-    m_DrawGlyphColors->SetDimension(3);
-    m_DrawGlyphColors->Resize(PointNum * GlyphPointNum);
-    auto GlyphColors = m_DrawGlyphColors->RawPointer();
-    IGsize offset = 0;
-    for (int i = 0; i < PointNum; i++) {
-        m_PositionColors->GetElement(i, rgb);
-        //std::cout << rgb[0] << ' ' << rgb[1] << ' ' << rgb[2] << '\n';
-        for (int j = 0; j < GlyphPointNum; j++) {
-            std::copy(rgb, rgb + 3, GlyphColors + offset);
-            offset += 3;
-            //m_DrawGlyphColors->AddValue(rgb[0]);
-            //m_DrawGlyphColors->AddValue(rgb[1]);
-            //m_DrawGlyphColors->AddValue(rgb[2]);
-        }
+    igIndex newPNum = PointNum * GlyphPointNum;
+    auto inAttributeSet = m_Inputs->GetElement(0)? m_Inputs->GetElement(0)->GetAttributeSet():nullptr;
+    if (inAttributeSet == nullptr) {
+        return ;
+    }
+    auto inPointsAttributes= inAttributeSet->GetAllPointAttributes();
+    this->m_DrawGlyphAttributeSet = AttributeSet::New();
+    for (int i = 0; i < inPointsAttributes->GetNumberOfElements(); i++) {
+        auto inAttr = inPointsAttributes->GetElement(i);
+        auto inData = inAttr.GetPointer();
+        auto newData = DoubleArray::New();
+        newData->SetDimension(inData->GetDimension());
+        newData->Resize(newPNum);
+        newData->SetName(inData->GetName());
+        auto func = [&](igIndex start, igIndex end) -> void {
+            double tmp[64];
+            igIndex st = start* GlyphPointNum;
+            for (igIndex i = start; i < end; i++) {
+                    inData->GetElement(i, tmp);
+                    for (int j = 0; j < GlyphPointNum; j++) {
+                        newData->SetElement(st+j, tmp);
+                    }
+                    st+= GlyphPointNum;
+            }
+        };
+        ThreadPool::parallelFor(0, PointNum, func);
+        this->m_DrawGlyphAttributeSet->AddAttribute(inAttr.GetType(), IG_POINT,newData,inAttr.GetDataRange() );
     }
 }
-void iGameTensorFilter::UpdateGlyphScale(double s) {
+void iGameTensorFilter::SetGlyphScale(double s) {
     this->m_TensorManager->SetScale(s);
-    UpdateGlyphDrawPositionData();
-
-    this->UpdateTensorObject();
-}
-
-void iGameTensorFilter::SetPositionColors(FloatArray::Pointer colors) {
-    this->m_PositionColors = colors;
-    UpdateGlyphDrawColor();
-
-    this->UpdateTensorObject();
-
-}
-void iGameTensorFilter::SetPositionsScalarArray(ArrayObject::Pointer array, int dimension) {
-
-    auto mapper = ScalarsToColors::New();
-    mapper->InitRange(array, dimension);
-    auto colors = mapper->MapScalars(array, dimension);
-    this->SetPositionColors(colors);
 }
 
 DoubleArray::Pointer iGameTensorFilter::GenerateVectorField() {
@@ -164,11 +170,13 @@ void iGameTensorFilter::UpdateTensorObject() {
     if (m_TensorObject == nullptr) {
         m_TensorObject = iGame::SurfaceMesh::New();
     }
-    m_TensorObject->SetPoints(m_DrawGlyphPoints);
+
     iGame::CellArray::Pointer Faces = iGame::CellArray::New();
     Faces->SetData(m_DrawGlyphPointOrders, 3);
 
+    m_TensorObject->SetPoints(m_DrawGlyphPoints);
     m_TensorObject->SetFaces(Faces);
+    m_TensorObject->SetAttributeSet(m_DrawGlyphAttributeSet);
     this->SetOutput(m_TensorObject);
 
 }

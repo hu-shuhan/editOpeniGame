@@ -1,4 +1,4 @@
-#include<Convert/iGameConvertToLagrangeUnstructuredMesh.h>
+#include <Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h>
 #include <Core/iGameScene.h>
 #include <VectorView/iGameVectorBase.h>
 #include <iGameFileIO.h>
@@ -21,7 +21,7 @@ int main() {
     }
     auto input = obj;
     //新建转换为lagrange网格的filter
-    auto filter = iGame::ConvertToLagrangeUnstructuredMesh::New();
+    auto filter = iGame::ConvertToLagrangeUnstructuredMeshFilter::New();
     //设置输入
     filter->SetInput(input);
     //执行

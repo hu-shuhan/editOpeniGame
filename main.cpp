@@ -1,10 +1,12 @@
 ﻿#include <IQCore/igQtMainWindow.h>
 #include <QApplication>
+
 #if __linux__
 #include <qtextcodec.h>
 #else
 #include <QtCore/Qtextcodec.h>
 #endif
+
 int main(int argc, char* argv[]) {
     Q_INIT_RESOURCE(iGameQtMainWindow);
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // 窗口高分辨率支持
@@ -27,13 +29,11 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(format);
     // Init Log System
     Log::Init();
-    // IGAME_CORE_INFO("Start Core Log");
-    // IGAME_RENDERING_INFO("Start Rendering Log");
 
     a.processEvents();
     igQtMainWindow w;
     QTextCodec* codec = QTextCodec::codecForName("GBK");
-    w.setWindowTitle(codec->toUnicode("iGameVis 1.0"));
+    w.setWindowTitle(codec->toUnicode("iGameVis 2.0"));
     w.show();
     w.showMaximized();
     w.initArgs(a.arguments());
