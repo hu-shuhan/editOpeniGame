@@ -15,7 +15,7 @@ public:
     IGenum GetDataObjectType() const override { return IG_POINT_SET; }
     // Set/Get point array
     void SetPoints(Points::Pointer points);
-    Points::Pointer GetPoints();
+    virtual Points::Pointer GetPoints() override;
 
     // Get the number of points
     IGsize GetNumberOfPoints();
