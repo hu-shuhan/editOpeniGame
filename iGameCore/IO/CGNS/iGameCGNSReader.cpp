@@ -24,21 +24,27 @@ void CollectNodeIDs(double parent_id, double node_id, int depth, std::vector<dou
         for (int i = 0; i < numChildren; ++i) { CollectNodeIDs(parent_id, child_ids[i], depth + 1, node_ids); }
     }
 }
-DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
+bool iGameCGNSReader::Parsing() 
+{
+    //CGNS不通过字节流Parsing
+    return true;
+}
 
+bool iGameCGNSReader::Execute() {
+    auto fileName = this->m_FilePath;
     int result;
     int file_type;
     result = cgio_check_file(fileName.c_str(), &file_type);
     if (file_type == CG_FILE_NONE) {
         IGAME_CORE_ERROR("Not a CGNS file.");
-        return nullptr;
+        return false;
     } else if (file_type == CG_FILE_ADF) {
         IGAME_CORE_DEBUG("ADF (Advanced Data Format) file.");
     } else if (file_type == CG_FILE_HDF5) {
         IGAME_CORE_DEBUG("HDF5 (Hierarchical Data Format) file.");
     } else {
         IGAME_CORE_WARN("Unknown file type.");
-        return nullptr;
+        return false;
     }
     int index_file;
     result = cg_open(fileName.data(), CG_MODE_READ, &index_file);
@@ -203,7 +209,7 @@ DataObject::Pointer iGameCGNSReader::ReadFile(std::string fileName) {
         this->SetOutput(m_ParentObject);
     }
     cg_close(index_file);
-    return GetOutput();
+    return true;
 }
 void iGameCGNSReader::ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base,
     int index_zone, cgsize_t* size) {

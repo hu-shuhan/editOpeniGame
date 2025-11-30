@@ -11,16 +11,18 @@
 #include <iGameVolumeMesh.h>
 #include <string>
 #include <unordered_set>
+#include <iGameFileReader.h>
 IGAME_NAMESPACE_BEGIN
-class iGameCGNSReader : public Filter {
+class iGameCGNSReader : public FileReader {
 
 public:
     I_OBJECT(iGameCGNSReader);
     static iGameCGNSReader* New() { return new iGameCGNSReader; }
 
-    ~iGameCGNSReader();
-    DataObject::Pointer ReadFile(std::string name);
+    bool Parsing() override;
+    bool Execute() override;
 
+    ~iGameCGNSReader();
     void GenStructuredCellConnectivities(cgsize_t cellDim, cgsize_t* size);
     void ReadPointCoordinates(int pointNum, int positionDim, int index_file, int index_base, int index_zone,
                               cgsize_t* size);
