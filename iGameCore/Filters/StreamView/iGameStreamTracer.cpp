@@ -248,20 +248,20 @@ bool iGameStreamTracer::Execute() {
         m_ResultMesh = nullptr;
         return false;
     }
-
+    std::cout << "1111111111111" << std::endl;
     // 使用内部存储的参数调用原始计算逻辑
     std::vector<std::vector<float>> streamColor;
     auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor,
                                         m_LengthOfStreamLine, m_LengthOfStep,
                                         m_TerminalSpeed, m_MaxSteps);
-
+    std::cout << "7777777777777" << std::endl;
     // 检查数据有效性
     if (streamlines.empty() || streamColor.empty()) {
         igError("Streamline calculation failed or returned empty data");
         m_ResultMesh = nullptr;
         return false;
     }
-
+    std::cout << "88888888888888888" << std::endl;
     // 创建 UnstructuredMesh 对象
     UnstructuredMesh::Pointer streamMesh = UnstructuredMesh::New();
     Points::Pointer points = Points::New();
@@ -270,7 +270,7 @@ bool iGameStreamTracer::Execute() {
     AttributeSet::Pointer attrSet = AttributeSet::New();
 
     igIndex globalPointIndex = 0;
-
+    std::cout << "99999999999999999" << std::endl;
     // 处理每条流线
     for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
         auto& streamline = streamlines[streamlineIdx];
@@ -298,7 +298,7 @@ bool iGameStreamTracer::Execute() {
         cells->AddCellIds(polylineIds.data(), numPoints);
         types->AddValue(IG_POLY_LINE);  // 使用POLYLINE类型而不是LINE
     }
-
+    std::cout << "1111111111111111111" << std::endl;
     // 设置点数据和单元数据
     streamMesh->SetPoints(points);
     streamMesh->SetCells(cells, types);
@@ -316,7 +316,7 @@ bool iGameStreamTracer::Execute() {
             }
         }
     }
-
+    std::cout << "22222222222222222222" << std::endl;
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
 
@@ -331,7 +331,7 @@ bool iGameStreamTracer::Execute() {
             streamlineIndexArray->AddValue(streamlineIdx);
         }
     }
-
+    std::cout << "33333333333333333333" << std::endl;
     attrSet->AddAttribute(IG_SCALAR, IG_POINT, streamlineIndexArray);
 
     // 设置属性集到网格
@@ -339,7 +339,6 @@ bool iGameStreamTracer::Execute() {
 
     // 设置网格名称
     streamMesh->SetName("StreamlinesUnstructuredMesh");
-
     // 将结果赋值给成员变量
     m_ResultMesh = streamMesh;
     return true;
@@ -707,6 +706,7 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
                                                                      std::vector<std::vector<float>>& streamColor,
                                                                      float lengOfStreamLine, float lengthOfStep,
                                                                      float terminalSpeed, int maxSteps) {
+    std::cout << "2222222222222" << std::endl;
     streamColor.clear();
     streamColor.resize(seed.size());
     std::vector<std::vector<float>> tem(seed.size());
@@ -724,10 +724,11 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
     } else {
         if (isChange) { isChange = false; }
     }
+    std::cout << "333333333333333" << std::endl;
     ThreadPool::Pointer tp = ThreadPool::Instance();
 
     std::vector<std::future<void>> result(seed.size());
-
+    std::cout << "44444444444444444" << std::endl;
     auto func = [&](int i) -> void {
         // std::cout << i << " start\n";
         // auto time1 = clock();
@@ -814,11 +815,13 @@ std::vector<std::vector<float>> iGameStreamTracer::showStreamLineMix(std::vector
     processCount = 0;
     totalProcess = seed.size();
     for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
+    std::cout << "555555555555555" << std::endl;
     for (int i = 0; i < seed.size(); i++) {
         result[i].wait();
         processCount++;
         this->UpdateProgress((double) processCount / seed.size());
     }
+    std::cout << "6666666666666666" << std::endl;
     return tem;
 
 
