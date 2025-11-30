@@ -22,6 +22,8 @@ public:
     // Get the number of cells in the structured mesh.
     IGsize GetNumberOfCells();
 
+    virtual CellArray::Pointer GetCellArray() override { return nullptr; }
+
     // Set the dimensions of the mesh.
     void SetDimensionSize(igIndex s[3]);
 

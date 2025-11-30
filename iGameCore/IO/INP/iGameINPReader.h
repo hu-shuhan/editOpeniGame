@@ -1,3 +1,4 @@
+//还没有完全实现
 #ifndef iGameINPReader_h
 #define iGameINPReader_h
 
