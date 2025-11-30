@@ -252,7 +252,7 @@ void Scene::ChangeModelVisibility(SmartPointer<Model> model, bool visibility) {
     if (visibility) {
         m_VisibleModelsCount++;
         if (m_VisibleModelsCount == 2 || m_VisibleModelsCount == 1) {
-            ResetCameraView();
+            ResetCameraView(model->GetDataObject());
             UpdateAxisSize();
         } // CenterAxesModel is visible
     } else {
