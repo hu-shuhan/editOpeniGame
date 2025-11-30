@@ -29,22 +29,19 @@ public:
     I_OBJECT(FileReader);
     // static Pointer New() { return new FileReader; }
 
-    bool Open();
-    bool OpenWithWindowsSystem();
-    bool OpenWithLinuxOrMacSystem();
-    bool OpenWithFreadType();
-    bool Close();
+
 
     bool Execute() override;
 
     void SetFilePath(const std::string& filePath);
     std::string GetFilePath() const { return m_FilePath; }
-
+    //封装了SetFilePath和Execute以及GetOutput
     DataObject::Pointer ReadFile(const std::string& filePath);
+
     /**
-	 * Internal function to read in a value.  Returns zero if there was an
-	 * error.
-	 */
+     * Internal function to read in a value.  Returns zero if there was an
+     * error.
+     */
     int Read(char*);
     int Read(unsigned char*);
     int Read(short*);
@@ -75,6 +72,11 @@ protected:
     FileReader();
     ~FileReader() override = default;
 
+    bool Open();
+    bool OpenWithWindowsSystem();
+    bool OpenWithLinuxOrMacSystem();
+    bool OpenWithFreadType();
+    bool Close();
     virtual bool Parsing() = 0;
     virtual bool CreateDataObject();
 
