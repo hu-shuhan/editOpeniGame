@@ -71,16 +71,17 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
         Selection->SetSelectionCallBackEvent(
                 [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
                     if (itemType == IG_CHANGE) {
-                            startP = Selection->Start;
-                            endP = Selection->End;
-                            auto temStart = startP;
-                            auto temEnd = endP;
-                            ui->startX->setText(QString::number(temStart[0]));
-                            ui->startY->setText(QString::number(temStart[1]));
-                            ui->startZ->setText(QString::number(temStart[2]));
-                            ui->endX->setText(QString::number(temEnd[0]));
-                            ui->endY->setText(QString::number(temEnd[1]));
-                            ui->endZ->setText(QString::number(temEnd[2]));}
+                        startP = Selection->Start;
+                        endP = Selection->End;
+                        auto temStart = startP;
+                        auto temEnd = endP;
+                        ui->startX->setText(QString::number(temStart[0]));
+                        ui->startY->setText(QString::number(temStart[1]));
+                        ui->startZ->setText(QString::number(temStart[2]));
+                        ui->endX->setText(QString::number(temEnd[0]));
+                        ui->endY->setText(QString::number(temEnd[1]));
+                        ui->endZ->setText(QString::number(temEnd[2]));
+                    }
                 },
                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
@@ -96,7 +97,7 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
     std::cout << first << std::endl;
     if (first) {
         std::cout << "do link" << std::endl;
-        m_StreamBase = iGameStreamBase::New();
+        m_StreamBase = iGame::StreamBase::New();
         m_StreamBase->DrawObject::AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
             haveDraw = false;
             first = true;
@@ -191,8 +192,8 @@ void igQtStreamTracerWidget::updateVectorNameList() {
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
     if (!obj) return;
-    startP= obj->GetBoundingBox().min;
-    endP= obj->GetBoundingBox().max;
+    startP = obj->GetBoundingBox().min;
+    endP = obj->GetBoundingBox().max;
     auto temStart = startP;
     auto temEnd = endP;
     ui->startX->setText(QString::number(temStart[0]));
@@ -229,7 +230,7 @@ void igQtStreamTracerWidget::generateStreamline() {
 
     auto scene = SceneManager::Instance()->GetCurrentScene();
 
-    iGameStreamTracer* streamtracer = m_StreamBase->streamFilter;
+    iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
     Model::Pointer model = scene->GetCurrentModel();
     VolumeMesh::Pointer mesh;
     std::cout << model->GetDataObject()->GetName() << std::endl;
@@ -283,9 +284,9 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         seeds = streamtracer->getModelSelect();
     }
-     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+    streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
-     m_StreamBase->SetUpdate(true);
+    m_StreamBase->SetUpdate(true);
     //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
     //	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     //}
