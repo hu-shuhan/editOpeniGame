@@ -102,9 +102,42 @@ struct UIControlParams {
 	// 顶点/属性误差设置
 	std::vector<FloatErrorControlParameters> errorBoundSetting;
 
-	bool visualError;
+	// bool visualError;
 	bool showReport;
+
+	int compressLevel = 3;
 };
+
+// --------------------------------------------------------------------------------------
+// UI下拉菜单索引与数据索引的映射工具
+// 下拉菜单布局:
+//   索引 0: "全体数据" (特殊项，用于批量设置)
+//   索引 1: "顶点坐标" (几何数据)
+//   索引 2+: 实际属性数据
+namespace UIControlParamsIndex {
+	constexpr int kAllDataIndex = 0;      // 全体数据
+	constexpr int kGeomIndex = 1;         // 顶点坐标
+	constexpr int kAttrStartIndex = 2;    // 属性数据起始索引
+	constexpr int kOffset = 2;            // 偏移量
+
+	// 判断是否为全体数据索引
+	inline bool IsAllData(int uiIndex) { return uiIndex == kAllDataIndex; }
+
+	// 判断是否为顶点坐标索引
+	inline bool IsGeom(int uiIndex) { return uiIndex == kGeomIndex; }
+
+	// 判断是否为属性数据索引
+	inline bool IsAttr(int uiIndex) { return uiIndex >= kAttrStartIndex; }
+
+	// UI索引 -> 属性索引 (仅当 IsAttr(uiIndex) 为 true 时有效)
+	inline int ToAttrIndex(int uiIndex) { return uiIndex - kOffset; }
+
+	// 属性索引 -> UI索引
+	inline int FromAttrIndex(int attrIndex) { return attrIndex + kOffset; }
+
+	// 计算总的UI项数 (全体数据 + 顶点坐标 + 属性数量)
+	inline int GetTotalCount(int attrCount) { return attrCount + kOffset; }
+}
 
 IGAME_NAMESPACE_END
 #endif

@@ -7,19 +7,19 @@
 IGAME_NAMESPACE_BEGIN
 
 // modified from meshoptimizer
-// license of meshoptimizer in thirdparty\meshoptimizer-0.22
+// license of meshoptimizer in ThirdParty\meshoptimizer-0.22
 class MeshCodecAdjacency
 {
 public:
     struct CellAdjacency {
-        unsigned int* counts;  // ????i -> ???live face????
-        unsigned int* offsets; // data??offset
+        unsigned int* counts;  // vertex i -> live face count
+        unsigned int* offsets; // offset in data array
         unsigned int* data;
         //       vertex0            vertex1             ...
         // |cell1, cell3, ...| cell2, cell9, ... |...
     };
 
-    // ???????
+    // variable cell size constructor
     MeshCodecAdjacency(const unsigned int* sourceCellBuffer, const unsigned int* sourceCellOffset, 
         size_t bufferSize, size_t offsetCount, size_t pointCount, size_t cellCount) :
         m_sourceCellBuffer(sourceCellBuffer),
@@ -32,7 +32,7 @@ public:
         BuildHybirdCellAdjacency();
     }
 
-    // ?????????
+    // fixed cell size constructor
     MeshCodecAdjacency(const unsigned int* sourceCellBuffer, 
         size_t bufferSize, size_t pointCount, size_t fixedCellSize):
         m_sourceCellBuffer(sourceCellBuffer),
@@ -45,7 +45,6 @@ public:
 
     CellAdjacency GetAdjacencyData()
     {
-        // ????????????????adj
         return m_adj;
     }
 
@@ -58,15 +57,14 @@ private:
     size_t m_bufferSize;
     size_t m_pointCount;
 
-    // ??????field
+    // for variable cell
     const unsigned int* m_sourceCellOffset;
     size_t m_cellCount;
     size_t m_offsetCount;
 
-    // ????field
+    // for fixed cell
     size_t m_fixedCellSize;
-    
-    // ??????offset
+
     void BuildHybirdCellAdjacency() {
         m_adj.counts = m_optAllocator.allocate<unsigned int>(m_pointCount);
         m_adj.offsets = m_optAllocator.allocate<unsigned int>(m_pointCount);
@@ -75,12 +73,12 @@ private:
         // fill cell counts
         memset(m_adj.counts, 0, m_pointCount * sizeof(unsigned int));
 
-        // ??????id?????? ?????mesh?????????cell????????
+        // iterate through all point ids, count cells referencing each point
         for (size_t i = 0; i < m_bufferSize; ++i) {
             assert(m_sourceCellBuffer[i] < m_pointCount);
             m_adj.counts[m_sourceCellBuffer[i]]++;
         }
-        // ????????????data??offset
+        // calculate offset in data array for each vertex
         unsigned int offset = 0;
         for (size_t i = 0; i < m_pointCount; ++i) {
             m_adj.offsets[i] = offset;
@@ -88,7 +86,7 @@ private:
         }
         assert(offset == m_bufferSize);
 
-        // ???data
+        // fill data array
         for (size_t i = 0; i < m_cellCount; i++) {
             for (size_t j = m_sourceCellOffset[i]; j < m_sourceCellOffset[i + 1]; j++) {
                 m_adj.data[m_adj.offsets[m_sourceCellBuffer[j]]++] = unsigned(i);
@@ -102,7 +100,7 @@ private:
         }
     }
 
-    // ???offset 
+    // fixed offset version
     void BuildCellAdjacency()
     {
         size_t face_count = m_bufferSize / m_fixedCellSize;
