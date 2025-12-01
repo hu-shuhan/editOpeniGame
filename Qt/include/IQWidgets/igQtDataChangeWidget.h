@@ -13,6 +13,7 @@
 #include <QPainter>
 #include <mutex>
 #include <memory>
+#include <iGameScene.h>
 using namespace iGame;
 namespace Ui {
 class igQtDataChangeWidget;
@@ -55,6 +56,13 @@ public:
     void SetInteractorName(const std::string& name);
     const std::string& GetInteractorName();
 
+public:
+    void SetScene(iGame::Scene* scene);
+
+private:
+    void TrySetRadialByScene();
+    iGame::Scene* m_Scene{nullptr};
+
 private:
     /* data choose */
     void RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids, IGenum& type);
@@ -90,6 +98,7 @@ signals:
 private:
     /* main */
     void SetRadialPoint();
+    void SetRadialPoint(const iGame::BoundingBox& box);
     void ShowRadial(bool show);
     void DrawRadial();
     void GenerateBackgroundColor();
