@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.19)
 #--------------------------------------------------------------------
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(IGAME_BUILD_SHARED ON CACHE BOOL "Build a shared version of the library")
+set(IGAME_BUILD_SHARED OFF CACHE BOOL "Build a shared version of the library")
 
 if (IGAME_BUILD_SHARED AND UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "-fPIC")
@@ -21,7 +21,7 @@ option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
-option(ENABLE_QT_MODULE "Build GUI/Qt Module." OFF)
+option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 
 #--------------------------------------------------------------------
 # If external application want to use Core Module lib.
