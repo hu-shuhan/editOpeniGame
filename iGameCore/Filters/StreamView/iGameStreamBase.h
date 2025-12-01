@@ -1,19 +1,19 @@
-#ifndef iGameStreamBase_h
-#define iGameStreamBase_h
+#ifndef StreamBase_h
+#define StreamBase_h
 #include "iGameDrawObject.h"
-#include "iGameSurfaceMesh.h"
-#include "iGameUnstructuredMesh.h"
 #include "iGameFilter.h"
 #include "iGameStreamTracer.h"
+#include "iGameSurfaceMesh.h"
+#include "iGameUnstructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 class Scene;
-class iGameStreamBase :    virtual public DrawObject {
+class StreamBase : virtual public DrawObject {
 public:
-    I_OBJECT(iGameStreamBase);
-    static iGameStreamBase* New() { return new iGameStreamBase; }
-    ~iGameStreamBase();
-    iGameStreamTracer* streamFilter;
+    I_OBJECT(StreamBase);
+    static StreamBase* New() { return new StreamBase; }
+    ~StreamBase();
+    StreamTracer* streamFilter;
 
     void SetUpdate(bool flag) {
         isUpdate = flag;
@@ -26,12 +26,12 @@ public:
         if (m_PositionColors) res += m_PositionColors->GetRealMemorySize();
         if (streamFilter && streamFilter->GetOutput()) res += streamFilter->GetOutput()->GetRealMemorySize();
 
-        return 2*res ;
+        return 2 * res;
     }
 
 
 protected:
-    iGameStreamBase();
+    StreamBase();
 
 private:
     // Point array
