@@ -395,11 +395,11 @@ void Scene::InitOpenGL() {
         m_Painter2D->SetPen(5);
         m_Painter2D->SetBrush(Color::Green);
 
-        //m_Painter2D->DrawPoint({300, 300});
-        //m_Painter2D->DrawLine({100, 100}, {200, 200});
-        //m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
-        //m_Painter2D->DrawRect({100, 100}, {200, 200});
-        //m_Painter2D->DrawCircle({100, 100}, 100, 100);
+        // m_Painter2D->DrawPoint({300, 300});
+        // m_Painter2D->DrawLine({100, 100}, {200, 200});
+        // m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
+        // m_Painter2D->DrawRect({100, 100}, {200, 200});
+        // m_Painter2D->DrawCircle({100, 100}, 100, 100);
     }
 
     // painter3d test
@@ -408,25 +408,25 @@ void Scene::InitOpenGL() {
         m_Painter3D->SetPen(5);
         m_Painter3D->SetBrush(Color::Green);
 
-        //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
-        // m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
-        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
-        //                          {1.0f, -1.0f, 0.0f});
-        //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
-        //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
-        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
-        //                        100);
-        //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
-        //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
-        //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
-        //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
-        //                          1.0f, 16);
-        //m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
-        //                      16);
-        //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
-        //                         1.0f, 8, 8);
-        //m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
-        //                         1.0f, 0.5f, 8);
+        // m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
+        //  m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        // m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
+        //                           {1.0f, -1.0f, 0.0f});
+        // m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
+        // m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
+        // m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
+        //                         100);
+        // m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
+        // m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
+        // m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
+        // m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                           1.0f, 16);
+        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //                       16);
+        // m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                          1.0f, 8, 8);
+        // m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
+        //                          1.0f, 0.5f, 8);
     }
 
     GLCheckError();
@@ -808,8 +808,6 @@ void Scene::DrawFrame() {
 
     // Update camera data block in GPU
     UpdateCameraDataBlock();
-
-    glViewport(0, 0, viewport.x, viewport.y);
     {
         auto ClearFramebuffer = [&](float depth = 0.0f) {
             glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
@@ -827,7 +825,18 @@ void Scene::DrawFrame() {
         ClearFramebuffer();
 #endif
 
+        // Draw scene painter
+        glViewport(0, 0, viewport.x, viewport.y);
+        m_Painter2D->Draw();
+        m_Painter3D->Draw();
+
+        // Draw axes in bottom left
+        int mx = std::max(viewport.x, viewport.y);
+        glViewport(0, 0, mx / 10, mx / 10);
+        m_Axes->Draw();
+
         // Render to framebuffer
+        glViewport(0, 0, viewport.x, viewport.y);
 #ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
@@ -840,16 +849,7 @@ void Scene::DrawFrame() {
             VolumeRenderingPass();
         }
 #endif
-
-        // draw scene painter
-        m_Framebuffer->Bind();
-        m_Painter2D->Draw();
-        m_Painter3D->Draw();
     }
-
-    // draw axes in bottom left
-    m_Framebuffer->Bind();
-    m_Axes->Draw();
 }
 
 void Scene::RenderToSpecificFrame(GLint frameBuffer) {
