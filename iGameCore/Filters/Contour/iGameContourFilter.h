@@ -29,16 +29,26 @@ public:
     // the dimension means extract the dimension of datas, dimension = 0 means the first dimension
     void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension = 0);
 
+    //------------------------------------------
+    // Adapt multi values
+    void SetMultiIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& value, int dimension = 0);
+    //------------------------------------------
+    
     //used to show slice
     bool SetPlane(double o[3], double n[3]);
 
 protected:
     ContourFilter();
 
+    //------------------------------------------
+    // Adapt multi values
+    bool m_IsMultiArray{false};
+    std::vector<double> m_ContourValueArray;
+    //------------------------------------------
+
     DoubleArray::Pointer m_PointValues{nullptr};
     ArrayObject::Pointer m_SelectedScalar{nullptr};
     double m_SeletectDimension{0.0};
-
     double m_ContourValue{0.0};
 
     //对非结构化网格进行轮廓提取

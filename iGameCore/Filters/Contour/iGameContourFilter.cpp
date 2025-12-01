@@ -55,7 +55,12 @@ void ContourFilter::SetIsoScalarData(ArrayObject::Pointer array, double value, i
     this->m_SeletectDimension = dimension;
     this->m_ContourValue = value;
 }
-
+
+void ContourFilter::SetMultiIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& value, int dimension) {
+    this->m_SelectedScalar = array;
+    this->m_SeletectDimension = dimension;
+    this->m_ContourValueArray = value;
+}
 bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input) {
     if (!input) return false;
     AttributeSet::Pointer inData = input->GetAttributeSet();
@@ -73,80 +78,88 @@ bool ContourFilter::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer input)
     auto inTypes = input->GetCellTypes();
     igIndex inCellNum = input->GetNumberOfCells();
 
+    if (!m_IsMultiArray) {
+        DoubleArray::Pointer PointContourArray = DoubleArray::New();
+        CharArray::Pointer CellVisible = CharArray::New();
+        ComputePointValueAndCellVisible(inPoints, inCells, PointContourArray, CellVisible);
+        auto PointContourValue = PointContourArray->RawPointer();
+        auto cellVisible = CellVisible->RawPointer();
+        igIndex vcnt = 0;
+        igIndex* vhs = nullptr;
+        igIndex CellId = 0;
+        igIndex i = 0;
+        Cell::Pointer cell = nullptr;
+        double CellContourValue[IGAME_CELL_MAX_SIZE] = {0};
+        auto cellTypes = input->GetCellTypes()->RawPointer();
+        for (CellId = 0; CellId < inCellNum; CellId++) {
+            if (cellVisible[CellId]) { continue; }
+            cell = input->GetCell(CellId);
+            vhs = cell->m_PointIds->RawPointer();
+            vcnt = cell->GetNumberOfPoints();
+            for (i = 0; i < vcnt; i++) { CellContourValue[i] = PointContourValue[vhs[i]]; }
+            switch (cellTypes[i]) {
+                case IG_TRIANGLE:
+                    CellContour::Contour(DynamicCast<Triangle>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_QUAD:
+                    CellContour::Contour(DynamicCast<Quad>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_POLYGON:
+                    CellContour::Contour(DynamicCast<Polygon>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_TETRA:
+                    CellContour::Contour(DynamicCast<Tetra>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_PRISM:
+                    CellContour::Contour(DynamicCast<Prism>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_PYRAMID:
+                    CellContour::Contour(DynamicCast<Pyramid>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_HEXAHEDRON:
+                    CellContour::Contour(DynamicCast<Hexahedron>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_QUADRATIC_TETRA:
+                    CellContour::Contour(DynamicCast<QuadraticTetra>(cell), CellContourValue, OutPoints, OutConn,
+                                         OutType, nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                case IG_POLYHEDRON:
+                    CellContour::Contour(DynamicCast<Polyhedron>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                         nullptr, nullptr, CellId, OriginEdge, OriginCell);
+                    break;
+                default:
+                    if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
+                        CellContour::Contour(DynamicCast<Volume>(cell), CellContourValue, OutPoints, OutConn, OutType,
+                                             nullptr, nullptr, CellId, OriginEdge, OriginCell, PointContourValue);
+                    }
+                    break;
+            }
+        }
+        this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData,
+                                   OriginEdge, OriginCell);
+
+        OutMesh->SetCells(OutConn, OutType);
+        OutMesh->SetPoints(OutPoints);
+        OutMesh->SetAttributeSet(outData);
+        this->SetOutput(0, OutMesh);
+        std::vector<igIndex>().swap(OriginCell);
+        std::vector<CellContour::InterpolateEdge>().swap(OriginEdge);
+
+        return true;
+    }        
+
+    //-----------------------------------------------
     DoubleArray::Pointer PointContourArray = DoubleArray::New();
     CharArray::Pointer CellVisible = CharArray::New();
-    ComputePointValueAndCellVisible(inPoints, inCells, PointContourArray, CellVisible);
-    auto PointContourValue = PointContourArray->RawPointer();
-    auto cellVisible = CellVisible->RawPointer();
-    igIndex vcnt = 0;
-    igIndex* vhs = nullptr;
-    igIndex CellId = 0;
-    igIndex i = 0;
-    Cell::Pointer cell = nullptr;
-    double CellContourValue[IGAME_CELL_MAX_SIZE] = {0};
-    auto cellTypes = input->GetCellTypes()->RawPointer();
-    for (CellId = 0; CellId < inCellNum; CellId++) {
-        if (cellVisible[CellId]) { continue; }
-        cell = input->GetCell(CellId);
-        vhs = cell->m_PointIds->RawPointer();
-        vcnt = cell->GetNumberOfPoints();
-        for (i = 0; i < vcnt; i++) { CellContourValue[i] = PointContourValue[vhs[i]]; }
-        switch (cellTypes[i]) {
-            case IG_TRIANGLE:
-                CellContour::Contour(DynamicCast<Triangle>(cell), CellContourValue, OutPoints, OutConn, OutType,
-                                     nullptr, nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_QUAD:
-                CellContour::Contour(DynamicCast<Quad>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr,
-                                     nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_POLYGON:
-                CellContour::Contour(DynamicCast<Polygon>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr,
-                                     nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_TETRA:
-                CellContour::Contour(DynamicCast<Tetra>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr,
-                                     nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_PRISM:
-                CellContour::Contour(DynamicCast<Prism>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr,
-                                     nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_PYRAMID:
-                CellContour::Contour(DynamicCast<Pyramid>(cell), CellContourValue, OutPoints, OutConn, OutType, nullptr,
-                                     nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_HEXAHEDRON:
-                CellContour::Contour(DynamicCast<Hexahedron>(cell), CellContourValue, OutPoints, OutConn, OutType,
-                                     nullptr, nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_QUADRATIC_TETRA:
-                CellContour::Contour(DynamicCast<QuadraticTetra>(cell), CellContourValue, OutPoints, OutConn, OutType,
-                                     nullptr, nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            case IG_POLYHEDRON:
-                CellContour::Contour(DynamicCast<Polyhedron>(cell), CellContourValue, OutPoints, OutConn, OutType,
-                                     nullptr, nullptr, CellId, OriginEdge, OriginCell);
-                break;
-            default:
-                if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-                    CellContour::Contour(DynamicCast<Volume>(cell), CellContourValue, OutPoints, OutConn, OutType,
-                                         nullptr, nullptr, CellId, OriginEdge, OriginCell, PointContourValue);
-                }
-                break;
-        }
-    }
-    this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge,
-                               OriginCell);
 
-    OutMesh->SetCells(OutConn, OutType);
-    OutMesh->SetPoints(OutPoints);
-    OutMesh->SetAttributeSet(outData);
-    this->SetOutput(0, OutMesh);
-    std::vector<igIndex>().swap(OriginCell);
-    std::vector<CellContour::InterpolateEdge>().swap(OriginEdge);
-
-    return true;
+    //-----------------------------------------------
 }
 bool ContourFilter::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
     if (!vm) return false;

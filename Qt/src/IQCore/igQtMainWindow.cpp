@@ -3,6 +3,8 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
+
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
 #include "DataProcessing/Tests/iGameSurfaceSimplification.h"
@@ -594,6 +596,18 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
         rendererWidget->update();
     });
+
+    connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        VolumeMeshMetricsFilter::Pointer filter = VolumeMeshMetricsFilter::New();
+        filter->SetVolumeMetric(VolumeMeshMetricsFilter::TET_EDGE_RATIO);
+        filter->SetInput(obj);
+        filter->Execute();
+
+        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+        rendererWidget->update();
+        });
 
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
