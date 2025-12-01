@@ -134,13 +134,11 @@ void Axes::Draw() {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
-    // update range将坐标轴渲染到主视口左下角的1/10区域
-    int vp[4];
-    glGetIntegerv(GL_VIEWPORT, vp);
-    int scale = std::max(vp[2] - vp[0], vp[3] - vp[1]) / 10;
-    igm::ivec4 viewport =
-            igm::ivec4{vp[0], vp[1], vp[0] + scale, vp[1] + scale};
-    glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
+    // For reversed-Z (GL_GREATER) we must clear depth to 0.0 for this small
+    // viewport region so the axes' fragments can pass the depth test.
+    // Only clear the depth for the axes viewport so the main scene is not affected.
+    glClearDepth(0.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
     // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
@@ -179,10 +177,12 @@ void Axes::Draw() {
 
     // draw axes font
     {
-        axesShader->SetUniformi("isDrawFont", 1);
-        this->Update(mvp, viewport);
+        int vp[4];
+        glGetIntegerv(GL_VIEWPORT, vp);
+        this->Update(mvp, igm::ivec4{vp[0], vp[1], vp[2], vp[3]});
 
         // draw xyz
+        axesShader->SetUniformi("isDrawFont", 1);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};

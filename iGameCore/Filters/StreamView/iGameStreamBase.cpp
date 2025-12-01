@@ -1,18 +1,18 @@
 #include "iGameStreamBase.h"
 #include "iGameScene.h"
 IGAME_NAMESPACE_BEGIN
-iGameStreamBase::iGameStreamBase() {
+StreamBase::StreamBase() {
     this->m_Points = Points::New();
     this->m_PositionColors = FloatArray::New();
     this->m_PositionColors->SetDimension(3);
     this->index = UnsignedIntArray::New();
     this->index->SetDimension(2);
     DynamicCast<iGame::DrawObject>(this)->AddViewStyle(IG_WIREFRAME);
-    streamFilter = new iGameStreamTracer;
+    streamFilter = new StreamTracer;
 }
-iGameStreamBase::~iGameStreamBase() {}
+StreamBase::~StreamBase() {}
 
-void iGameStreamBase::ComputeBoundingBox() {
+void StreamBase::ComputeBoundingBox() {
     if (m_Bounding.isNull() || m_BoundingHelper->GetMTime() < m_Points->GetMTime()) {
         m_Bounding.reset();
         for (int i = 0; i < m_Points->GetNumberOfPoints(); i++) { m_Bounding.add(m_Points->GetPoint(i)); }
@@ -20,7 +20,7 @@ void iGameStreamBase::ComputeBoundingBox() {
     }
 }
 
-void iGameStreamBase::ConvertToDrawableData() {
+void StreamBase::ConvertToDrawableData() {
     if (!isUpdate) { return; }
 
     m_Points->Reset();
@@ -45,9 +45,7 @@ void iGameStreamBase::ConvertToDrawableData() {
     }
 
     // 复制所有点数据
-    for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
-        m_Points->AddPoint(meshPoints->GetPoint(i));
-    }
+    for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) { m_Points->AddPoint(meshPoints->GetPoint(i)); }
 
     // 处理单元连接数据，转换为线条索引
     for (int cellId = 0; cellId < meshCells->GetNumberOfCells(); cellId++) {
@@ -62,17 +60,13 @@ void iGameStreamBase::ConvertToDrawableData() {
             if (numPoints <= 0) continue;
 
             // 连接相邻的点
-            for (int i = 0; i < numPoints - 1; i++) {
-                index->AddElement2(pointIds[i], pointIds[i + 1]);
-            }
+            for (int i = 0; i < numPoints - 1; i++) { index->AddElement2(pointIds[i], pointIds[i + 1]); }
         } else if (cellType == IG_LINE) {
             // 处理LINE单元：直接使用连接关系
             const igIndex* pointIds = nullptr;
             int numPoints = meshCells->GetCellIds(cellId, pointIds);
 
-            if (numPoints == 2) {
-                index->AddElement2(pointIds[0], pointIds[1]);
-            }
+            if (numPoints == 2) { index->AddElement2(pointIds[0], pointIds[1]); }
         }
     }
 
@@ -89,13 +83,13 @@ void iGameStreamBase::ConvertToDrawableData() {
         } else {
             // 如果没有速度属性，使用默认颜色
             for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
-                m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f);  // 白色
+                m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f); // 白色
             }
         }
     } else {
         // 如果没有属性集，使用默认颜色
         for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
-            m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f);  // 白色
+            m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f); // 白色
         }
     }
 
@@ -112,13 +106,11 @@ void iGameStreamBase::ConvertToDrawableData() {
     m_Colors = colors;
     m_Colors->Modified();
 
-    if (m_Colors != nullptr) {
-        m_UseColor = true;
-    }
+    if (m_Colors != nullptr) { m_UseColor = true; }
 
     isUpdate = false;
 }
 
-bool iGameStreamBase::IsUseSinglePassWireframeRendering() { return false; }
+bool StreamBase::IsUseSinglePassWireframeRendering() { return false; }
 
 IGAME_NAMESPACE_END

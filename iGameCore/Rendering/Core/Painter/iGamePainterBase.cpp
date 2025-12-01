@@ -197,7 +197,7 @@ void PainterBase::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
 SmartPointer<Scene> PainterBase::GetScene() const { return m_Scene; }
 
 void PainterBase::Draw() {
-    if (m_TotallyHide) return;
+    if (m_TotallyHide) { return; }
     this->PackDrawableData();
 
     for (const auto& pair: m_VAOs) {
@@ -239,8 +239,7 @@ void PainterBase::PackDrawableData() {
     //std::map<float, FloatArray>> packNormals;
     std::map<float, SmartPointer<UnsignedIntArray>> packPointIndices;
     std::map<float, SmartPointer<UnsignedIntArray>> packLineIndices;
-    std::map<float, SmartPointer<UnsignedIntArray>>
-            packTriangleIndices;
+    std::map<float, SmartPointer<UnsignedIntArray>> packTriangleIndices;
 
     // create buffer array
     for (auto it = m_PrimitivesPool->Begin(); it != m_PrimitivesPool->End();

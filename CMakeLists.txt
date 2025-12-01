@@ -17,8 +17,8 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
-option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" ON)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
+option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
@@ -39,7 +39,19 @@ endif ()
 
 # If the cuda module is disable. Enable the compile option to suppress C4819 Warning.
 if (NOT ENABLE_GPSCUDA_MODULE)
-    project(iGameVis LANGUAGES C CXX)
+    project(iGameVis LANGUAGES C CXX)# 在Release构建中保留调试信息
+    #if(MSVC)
+    #    # Release配置下也生成调试符号
+    #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
+    #    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+    #    
+    #    # 如果是CUDA项目，也为CUDA添加调试信息
+    #    if(ENABLE_GPSCUDA_MODULE)
+    #        set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -Xcompiler=/Zi")
+    #    endif()
+    #    add_compile_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
+    #    add_link_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
+    #endif()
     if (WIN32)
         add_definitions(-D_WINDOWS_SOURCE)
     endif ()

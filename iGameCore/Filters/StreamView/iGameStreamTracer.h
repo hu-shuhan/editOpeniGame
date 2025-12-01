@@ -1,11 +1,12 @@
 /**
-* @file        iGameStreamTracer.h
+* @file        StreamTracer.h
 * @brief       Flow field data calculation component
 * @author      RYA
 * @date        2024/07/09
 * @version     1.0
 */
 #pragma once
+#include <cmath>
 #include <iGamePointFinder.h>
 #include <iGameScene.h>
 #include <iGameStructuredMesh.h>
@@ -13,26 +14,25 @@
 #include <iGameVector.h>
 #include <set>
 #include <shared_mutex>
-#include <unordered_map>
-#include <cmath>
 #include <thread>
-using namespace iGame;
+#include <unordered_map>
 
 /**
- * @class   iGameStreamTracer
- * @brief   iGameStreamTracer's brief
+ * @class   StreamTracer
+ * @brief   StreamTracer's brief
  */
-class iGameStreamTracer : public Filter {
+IGAME_NAMESPACE_BEGIN
+class StreamTracer : public Filter {
 public:
     /**
-	* @brief Constructor for iGameStreamTracer.
+	* @brief Constructor for StreamTracer.
 	*/
-    iGameStreamTracer() {};
+    StreamTracer() {};
     std::vector<Vector3f> subdataSeedGenerate(int numOfseed);
     std::vector<Vector3f> seedLineGenerate(int numOfseed);
 
-    Vector3f SampleVector(const Vector3f& coord, bool& inside, igIndex& VolumeId,
-                          const std::string& vectorName, float terminalSpeed);
+    Vector3f SampleVector(const Vector3f& coord, bool& inside, igIndex& VolumeId, const std::string& vectorName,
+                          float terminalSpeed);
     /**
 	* @brief Generate point seed with admin's parameter.
 	* @param[in] model  Input model data
@@ -67,18 +67,14 @@ public:
     void initStreamTracer(Model::Pointer _model);
     void initStreamTracer(DataObject::Pointer obj);
     void initSubmodelLinks();
-    std::vector<Vector3f> computeSubBlockCenters(const Vector3f& minCorner,
-    const Vector3f& maxCorner,
-    int splitCount
-);
-    std::vector<Vector3f> getAllSubBlockCenters(
-    const Vector3f& boxMax,      // 包围盒最大值
-    const Vector3f& boxMin,      // 包围盒最小值
-    const Vector3f& focusMax,    // 重点观察区域最大值
-    const Vector3f& focusMin,    // 重点观察区域最小值
-    int boxSplitCount,          // 包围盒分割数量（e×e×e）
-    int focusSplitCount         // 重点观察区域分割数量（f×f×f）
-);
+    std::vector<Vector3f> computeSubBlockCenters(const Vector3f& minCorner, const Vector3f& maxCorner, int splitCount);
+    std::vector<Vector3f> getAllSubBlockCenters(const Vector3f& boxMax,   // 包围盒最大值
+                                                const Vector3f& boxMin,   // 包围盒最小值
+                                                const Vector3f& focusMax, // 重点观察区域最大值
+                                                const Vector3f& focusMin, // 重点观察区域最小值
+                                                int boxSplitCount,        // 包围盒分割数量（e×e×e）
+                                                int focusSplitCount       // 重点观察区域分割数量（f×f×f）
+    );
     std::vector<Vector3f> getModelSelect();
     std::vector<Vector3f> getModelSelectMax(std::string VectorName);
     std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
@@ -179,8 +175,8 @@ private:
 	* @param[in] v3  Input a vertex that makes up the tetrahedron
 	* @param[out] dis Output the weight calculated based on the distance from the point to the surface
 	*/
-    void ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord, igIndex* FaceIds,
-                                       int MaxPolygonSize, int psize, int fsize, float* weights);
+    void ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3f& coord, igIndex* FaceIds, int MaxPolygonSize,
+                                      int psize, int fsize, float* weights);
     bool isInside(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3, std::vector<float>& dis);
     /**
 * @brief Computes the values of 8 interpolation functions at given local coordinates.
@@ -226,7 +222,7 @@ private:
 * @param[in] v2  Input a vertex that makes up the face
 */
     bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
-    
+
 private:
     struct adjacent {
         std::vector<long long> offset;
@@ -283,3 +279,4 @@ private:
     static thread_local std::vector<Vector3f> reusableVectors;
     static thread_local std::vector<double> reusableDoubles;
 };
+IGAME_NAMESPACE_END
