@@ -2,13 +2,13 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
-#include <iGameParallelCoordinatesFilter/iGameGenerateParallelCoordinatesData.h>
-#include <iGameVariableCorrelationFilter/iGameGenerateVariableCorrelationData.h>
-#include <iGameVariableDensityFilter/iGameGenerateVariableDensityData.h>
-#include <iGamePlotLineFilter/iGameGeneratePlotLineData.h>
-#include <iGameSelectionFilters/iGameSetSelectionCallBackFunc.h>
-#include <iGameSelectionFilters/iGameSetClearSelectionCallBackFunc.h>
-#include <iGameSelectionFilters/iGameSetPointsSelect.h>
+#include <ParallelCoordinates/iGameGenerateParallelCoordinatesData.h>
+#include <VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h>
+#include <VariableDensity/iGameGenerateVariableDensityDataFilter.h>
+#include <PlotLine/iGameGeneratePlotLineDataFilter.h>
+#include <Selection/iGameSetSelectionCallBackFuncFilter.h>
+#include <Selection/iGameSetClearSelectionCallBackFuncFilter.h>
+#include <Selection/iGameSetPointsSelectFilter.h>
 
 static constexpr auto BOXNUM = 50;
 
