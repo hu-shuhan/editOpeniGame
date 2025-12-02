@@ -61,6 +61,7 @@ void igQtSelectionWidget::PreventSignalSend(bool prevent) { m_PreventSignalSend 
 
 void igQtSelectionWidget::SetDefaultSelectionButton() {
     ui->NONE_SELECTION->setChecked(false);
+    iGame::SelectionParameter::Instance().SetInSelection(false);
     SetVariableNames({});
 }
 

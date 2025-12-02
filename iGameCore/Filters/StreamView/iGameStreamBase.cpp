@@ -72,7 +72,7 @@ void StreamBase::ConvertToDrawableData() {
 
     // 提取速度属性作为颜色数据
     if (attrSet) {
-        auto velocityAttr = attrSet->GetVector("Velocity");
+        auto velocityAttr = attrSet->GetVector("V");
         float step1=0.0f;
         float step2=FLT_MAX;
         int count1 = 0;
@@ -88,7 +88,6 @@ void StreamBase::ConvertToDrawableData() {
                 count1++;
                 step1=std::max(step1,temV1);
                 step2=std::min(step2,temV1);
-                m_PositionColors->AddElement3(velocity[0], velocity[1], velocity[2]);
             }
         } else {
             // 如果没有速度属性，使用默认颜色
@@ -96,6 +95,7 @@ void StreamBase::ConvertToDrawableData() {
                 m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f); // 白色
             }
         }
+    
         std::cout << "Velocity Magnitude Range: [" << step2 << "," << step1 << "]" << std::endl;
         std::cout << (float)count2/(float)count1 << std::endl;
 
@@ -108,8 +108,8 @@ void StreamBase::ConvertToDrawableData() {
 
     // 应用颜色映射和设置渲染数据
     this->m_ColorMapper->InitRange(m_PositionColors, -1);
-    auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
     this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
+    auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
 
@@ -120,7 +120,24 @@ void StreamBase::ConvertToDrawableData() {
     m_Colors->Modified();
 
     if (m_Colors != nullptr) { m_UseColor = true; }
+    auto m_Manager=iGame::SceneManager::Instance();
+    auto painter = m_Manager->GetCurrentScene()->GetPainter3D();
+    m_Painter->Clear();
 
+    // 创建画笔
+    Pen::Pointer pen = Pen::New();
+    // 设置画笔粗细
+    pen->SetWidth(10);
+    // 设置画笔颜色
+    pen->SetColor(Color::Green);
+    // 创建画刷
+    Brush::Pointer brush = Brush::New();
+    // 设置画刷颜色
+    brush->SetColor(Color::Red);
+    // Painter设置
+    m_Painter->SetPen(pen);
+    m_Painter->SetBrush(brush);
+    for (int i = 0; i < seeds.size(); ++i) { m_Painter->DrawSphere(seeds[i],1.0f,6,6); }
     isUpdate = false;
 }
 

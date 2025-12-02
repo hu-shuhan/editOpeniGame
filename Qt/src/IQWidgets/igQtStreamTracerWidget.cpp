@@ -51,7 +51,7 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     maxSteps = 1000;
     ui->maxSteps->setText("1000");
     lengthOfStep = 0.3;
-    ui->lengthOfStep->setText("0.3");
+    ui->lengthOfStep->setText("0.03");
     terminalSpeed = 0.005;
     ui->terminalSpeed->setText("0.005");
     haveDraw = false;
@@ -286,7 +286,9 @@ void igQtStreamTracerWidget::generateStreamline() {
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
+    m_StreamBase->SetSeeds(seeds);
     m_StreamBase->SetUpdate(true);
+    
     //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
     //	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     //}
