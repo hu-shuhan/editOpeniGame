@@ -145,6 +145,7 @@ void SingleSelectionStyle::MousePressEvent(IEvent _event) {
     SelectionStyle::MousePressEvent(_event);
 
     if (_event.button != MiddleButton) return;
+    if (!SelectionParameter::Instance().GetInSelection()) return;
     switch (GetSelectedType()) {
         case SelectionStyle::SelectPoint:
             if (SelectionParameter::Instance().GetInSelection() &&
@@ -538,7 +539,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
         }
     }
     if (id == -1) return re;
-    if (radius <= 0) {
+    if (radius <= 0 || !onlySelectSeeAbleCells) {
         re.push_back(id);
         return re;
     }
@@ -604,7 +605,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
         }
     }
     if (id == -1) return re;
-    if (radius <= 0) {
+    if (radius <= 0 || !onlySelectSeeAbleCells) {
         re.push_back(id);
         return re;
     }
@@ -670,7 +671,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
         }
     }
     if (id == -1) return re;
-    if (radius <= 0) {
+    if (radius <= 0 || !onlySelectSeeAbleCells) {
         re.push_back(id);
         return re;
     }
@@ -1466,6 +1467,30 @@ SingleSelectionStyle::GetPointsOfCells(const std::vector<int>& cellIds,
     std::set<int> reSet;
     for (auto& cellId: cellIds) {
         auto cell = mesh->GetCell(cellId);
+        GetPointsOfOneCell(cell, reSet);
+    }
+    return std::vector<int>(reSet.begin(), reSet.end());
+}
+
+std::vector<int>
+SingleSelectionStyle::GetPointsOfCells(const std::vector<int>& cellIds,
+                                       VolumeMesh* mesh) {
+    if (cellIds.empty() || mesh == nullptr) return {};
+    std::set<int> reSet;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetVolume(cellId);
+        GetPointsOfOneCell(cell, reSet);
+    }
+    return std::vector<int>(reSet.begin(), reSet.end());
+}
+
+std::vector<int>
+SingleSelectionStyle::GetPointsOfCells(const std::vector<int>& cellIds,
+                                       SurfaceMesh* mesh) {
+    if (cellIds.empty() || mesh == nullptr) return {};
+    std::set<int> reSet;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetFace(cellId);
         GetPointsOfOneCell(cell, reSet);
     }
     return std::vector<int>(reSet.begin(), reSet.end());

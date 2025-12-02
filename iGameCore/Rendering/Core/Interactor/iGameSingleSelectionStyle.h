@@ -72,6 +72,22 @@ public:
                                                   PointSet* mesh,
                                                   double radius = 0.0);
 
+    //static std::vector<int>
+    //GetPointsInRadiusMode(const Point& startPoint, const Point& endPoint,
+    //                     UnstructuredMesh* mesh, double radius = 0.0,
+    //                     bool selectIgnoreUnSeeAbleCells = false,
+    //                     bool onlySelectSeeAbleCells = false);
+    //static std::vector<int>
+    //GetPointsInRadiusMode(const Point& startPoint, const Point& endPoint,
+    //                     VolumeMesh* mesh, double radius = 0.0,
+    //                     bool selectIgnoreUnSeeAbleCells = false,
+    //                     bool onlySelectSeeAbleCells = false); //NEED UPDATE
+    //static std::vector<int>
+    //GetPointsInRadiusMode(const Point& startPoint, const Point& endPoint,
+    //                     SurfaceMesh* mesh, double radius = 0.0,
+    //                     bool selectIgnoreUnSeeAbleCells = false,
+    //                     bool onlySelectSeeAbleCells = false); //NEED UPDATE
+
     static std::vector<int>
     GetCellsInRadiusMode(const Point& startPoint, const Point& endPoint,
                          UnstructuredMesh* mesh, double radius = 0.0,
@@ -161,6 +177,10 @@ public:
 
     static std::vector<int> GetPointsOfCells(const std::vector<int>& cellIds,
                                              UnstructuredMesh* mesh);
+    static std::vector<int> GetPointsOfCells(const std::vector<int>& cellIds,
+                                             VolumeMesh* mesh);
+    static std::vector<int> GetPointsOfCells(const std::vector<int>& cellIds,
+                                             SurfaceMesh* mesh);
 };
 IGAME_NAMESPACE_END
 #endif

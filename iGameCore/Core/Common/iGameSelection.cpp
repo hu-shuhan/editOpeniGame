@@ -7,6 +7,7 @@
 #include <set>
 #include <utility>
 #include <iGameBoxStyle.h>
+#include <iGameSelectionParameter.h>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -407,16 +408,55 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             switch (dataObj->GetDataObjectType()) {
                 case IG_SURFACE_MESH: {
                     auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                         !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells()&&ids.size()==1) {
+                        auto cell = mesh->GetFace(ids.front());
+                        auto center = GetCentralOfCell(cell);
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first[0] = center[0]- r / 2;
+                        pMinMax.first[1] = center[1]- r / 2;
+                        pMinMax.first[2] = center[2] - r / 2;
+                        pMinMax.second[0] = center[0] + r / 2;
+                        pMinMax.second[1] = center[1] + r / 2;
+                        pMinMax.second[2] = center[2] + r / 2;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    }
                 } break;
                 case IG_VOLUME_MESH:
                 case IG_STRUCTURED_MESH: {
                     auto mesh = DynamicCast<VolumeMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                        !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
+                        auto cell = mesh->GetVolume(ids.front());
+                        auto center = GetCentralOfCell(cell);
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first[0] = center[0] - r / 2;
+                        pMinMax.first[1] = center[1] - r / 2;
+                        pMinMax.first[2] = center[2] - r / 2;
+                        pMinMax.second[0] = center[0] + r / 2;
+                        pMinMax.second[1] = center[1] + r / 2;
+                        pMinMax.second[2] = center[2] + r / 2;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    }
                 } break;
                 case IG_UNSTRUCTURED_MESH: {
                     auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                        !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
+                        auto cell = mesh->GetCell(ids.front());
+                        auto center = GetCentralOfCell(cell);
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first[0] = center[0] - r / 2;
+                        pMinMax.first[1] = center[1] - r / 2;
+                        pMinMax.first[2] = center[2] - r / 2;
+                        pMinMax.second[0] = center[0] + r / 2;
+                        pMinMax.second[1] = center[1] + r / 2;
+                        pMinMax.second[2] = center[2] + r / 2;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                    }
                 } break;
                 default:
                     return;
