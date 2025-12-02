@@ -4,6 +4,7 @@
 //
 
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
+#include "Deformation/iGameStressDeformationFilterCode.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
@@ -600,11 +601,13 @@ void igQtMainWindow::initAllFilters() {
     connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        VolumeMeshMetricsFilter::Pointer filter = VolumeMeshMetricsFilter::New();
-        filter->SetVolumeMetric(VolumeMeshMetricsFilter::TET_EDGE_RATIO);
+        auto filter = iGame::StressDeformationCodeFilter::New();
+        obj->GetDeformationData()->SetAttributeName("UVW");
         filter->SetInput(obj);
+        filter->CalculateIdealDSF();
         filter->Execute();
 
+        auto res = filter->GetOutput(0);
         modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
         rendererWidget->update();
         });
