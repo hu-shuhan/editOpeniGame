@@ -89,15 +89,6 @@ if (ENABLE_LIBTORCH_MODULE)
         else ()
             set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Release_GPU")
         endif ()
-        file(GLOB TORCH_DLLS
-                "${LIBTORCH_DIR}/lib/*.dll"
-                "${LIBTORCH_DIR}/bin/*.dll")
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ${TORCH_DLLS}
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>
-                COMMENT "Copying libtorch DLLs to output folder"
-        )
     elseif (UNIX)
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Linux/Debug")
@@ -125,6 +116,18 @@ if (ENABLE_QT_MODULE)
             iGameCore
             Qt_module
     )
+
+    if (ENABLE_LIBTORCH_MODULE AND WIN32)
+        file(GLOB TORCH_DLLS
+                "${LIBTORCH_DIR}/lib/*.dll"
+                "${LIBTORCH_DIR}/bin/*.dll")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${TORCH_DLLS}
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+                COMMENT "Copying libtorch DLLs to output folder"
+        )
+    endif ()
 endif ()
 
 # 导入example
