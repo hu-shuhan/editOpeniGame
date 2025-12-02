@@ -134,12 +134,6 @@ void Axes::Draw() {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
 
-    // For reversed-Z (GL_GREATER) we must clear depth to 0.0 for this small
-    // viewport region so the axes' fragments can pass the depth test.
-    // Only clear the depth for the axes viewport so the main scene is not affected.
-    glClearDepth(0.0f);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
     // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
     static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
