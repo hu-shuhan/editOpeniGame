@@ -293,6 +293,11 @@ void CellFaceExtracter::_BuildFaceEdgeMsgs(FaceId id, std::vector<Face>& oriFace
     }
 }
 
+void CellFaceExtracter::PreVisit(UnstructuredMesh* mesh) {
+    if (mesh == nullptr) return;
+    VisitMesh(mesh);
+}
+
 void CellFaceExtracter::Clear() {
     m_CellToFace.clear();
     m_Faces.clear();

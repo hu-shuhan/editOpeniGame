@@ -10,6 +10,7 @@ IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh;
 class CellFaceExtracter {
 public:
+    void PreVisit(UnstructuredMesh* mesh);
     void Clear();
     std::set<std::pair<int, int>> GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds,
                                                          UnstructuredMesh* mesh);
