@@ -94,7 +94,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     }
     for (auto& edgeId: edgeIds) {
         auto edge = mesh->GetEdge(edgeId);
-        re.insert(edge->GetPoint(0), edge->GetPoint(1));
+        re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
     }
     return re;
 }
@@ -114,7 +114,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     }
     for (auto& edgeId: edgeIds) {
         auto edge = mesh->GetEdge(edgeId);
-        re.insert(edge->GetPoint(0), edge->GetPoint(1));
+        re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
     }
     return re;
 }
