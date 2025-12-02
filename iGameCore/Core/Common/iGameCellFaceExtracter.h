@@ -8,6 +8,8 @@
 #include <vector>
 IGAME_NAMESPACE_BEGIN
 class UnstructuredMesh;
+class VolumeMesh;
+class SurfaceMesh;
 class CellFaceExtracter {
 public:
     void PreVisit(UnstructuredMesh* mesh);
@@ -19,6 +21,8 @@ public:
     std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, UnstructuredMesh* mesh);
     std::pair<Point, Point> GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds, UnstructuredMesh* mesh);
     std::vector<int> GetSurfaceCellIds(UnstructuredMesh* mesh);
+    std::vector<int> GetSurfaceCellIds(VolumeMesh* mesh);
+    std::vector<int> GetSurfaceCellIds(SurfaceMesh* mesh);
 
 private:
     using PointId = int;

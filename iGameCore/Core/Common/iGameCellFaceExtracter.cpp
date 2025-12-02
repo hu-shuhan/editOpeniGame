@@ -3,6 +3,8 @@
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
 #include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
+#include <iGameSurfaceMesh.h>
 #include <limits>
 #include <queue>
 IGAME_NAMESPACE_BEGIN
@@ -107,7 +109,7 @@ std::vector<std::pair<Point, Point>> CellFaceExtracter::GetExtractBoundingBoxs(c
 std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds,
                                                              UnstructuredMesh* mesh) {
     if (choosedCellIds.empty() || mesh == nullptr) return {};
-    VisitMesh(mesh);
+    //VisitMesh(mesh);
     auto pMinMax = MinMaxPoint();
     auto& [pMin, pMax] = pMinMax;
     for (auto& cellId: choosedCellIds) {
@@ -122,7 +124,7 @@ std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector
 std::pair<Point, Point> CellFaceExtracter::GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds,
                                                                 UnstructuredMesh* mesh) {
     if (choosedPointIds.empty() || mesh == nullptr) return {};
-    VisitMesh(mesh);
+    //VisitMesh(mesh);
     auto pMinMax = MinMaxPoint();
     auto& [pMin, pMax] = pMinMax;
     for (auto& pointId: choosedPointIds) {
@@ -142,6 +144,23 @@ std::vector<int> CellFaceExtracter::GetSurfaceCellIds(UnstructuredMesh* mesh) {
         reSet.insert(*faceMsg.Cells.begin());
     }
     return std::vector<int>(reSet.begin(), reSet.end());
+}
+
+std::vector<int> CellFaceExtracter::GetSurfaceCellIds(VolumeMesh* mesh) {
+    if (mesh == nullptr) return {};
+    std::vector<int> re;
+    for (int cellId = 0; cellId < mesh->GetNumberOfVolumes(); cellId++) {
+        if (!mesh->IsBoundaryVolume(cellId)) continue;
+        re.push_back(cellId);
+    }
+    return re;
+}
+
+std::vector<int> CellFaceExtracter::GetSurfaceCellIds(SurfaceMesh* mesh) {
+    if (mesh == nullptr) return {};
+    std::vector<int> re(mesh->GetNumberOfFaces(), 0);
+    for (int cellId = 0; cellId < re.size(); cellId++) re[cellId] = cellId;
+    return re;
 }
 
 void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
