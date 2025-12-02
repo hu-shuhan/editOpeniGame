@@ -1,8 +1,8 @@
 #ifndef MeshDecoderAdapterToDataObject_h
 #define MeshDecoderAdapterToDataObject_h
 
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
 #include "MeshCodec/DecodeAdapter/iGameIMeshDecodeAdapter.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "iGamePointSet.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"

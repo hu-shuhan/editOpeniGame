@@ -3,17 +3,17 @@
 
 #include "MeshCodec/EncodeAdapter/iGameMeshEncodeAdapterFromDataObject.h"
 #include "MeshCodec/EncodeOutput/iGameEncodeOutputBinaryArray.h"
+#include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
+#include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
 #include "MeshCodec/Utils/iGameCodecPayload.h"
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecAdjacency.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
+#include "MeshCodec/iGameMeshCodec.h"
 #include "iGameFilter.h"
 #include "iGameFlatArray.h"
 #include "iGameMacro.h"
-#include "MeshCodec/iGameMeshCodec.h"
-#include "MeshCodec/Utils/iGameMeshCodecAdjacency.h"
-#include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
-#include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include <filesystem>
 #include <memory>
 
@@ -33,6 +33,7 @@ struct CodecPayloadSet {
     }
 };
 
+template<typename EncodeOutputType>
 class MeshEncoderFilter final : public MeshCodec {
 public:
     I_OBJECT(MeshEncoderFilter);
@@ -43,9 +44,9 @@ public:
         this->SetNumberOfOutputs(1);
     }
 
-    void SetUIControlParams(const UIControlParams& params) {
-        m_UIControlParams = params;
-        m_hasUIControlParams = true;
+    void SetCodecControlParams(const CodecControlParams& params) {
+        m_CodecControlParams = params;
+        m_hasCodecControlParams = true;
     }
 
     void SetAdapter(std::unique_ptr<IMeshEncodeAdapter> adapter) {
@@ -83,47 +84,30 @@ public:
 
     std::vector<std::pair<std::string, std::string>> GetReport() { return m_report; }
 
-    static UIControlParams GenerateUIControlParams(const DataObject::Pointer& dataObj) {
-        UIControlParams params;
-        params.showReport = true;
-        params.compressLevel = 3;
+    static CodecControlParams GenerateDefaultCodecParams(const DataObject::Pointer& dataObj) {
+        CodecControlParams params;  // 使用结构体默认值
 
-        using namespace UIControlParamsIndex;
-        const int attrCount = dataObj->GetAttributeSet()->GetNumberOfAttributes();
-        const int totalCount = GetTotalCount(attrCount);
-
-        for (int i = 0; i < totalCount; i++) {
-            FloatErrorControlParameters p;
-
-            if (IsAllData(i)) {
-                p.dataName = "全体数据";
-                p.isKeyElement = std::vector<bool>();
-            } else if (IsGeom(i)) {
-                p.dataName = "顶点坐标";
-                p.isKeyElement =
-                    std::vector(
-                        DynamicCast<PointSet>(dataObj)->GetNumberOfPoints(),
-                        false
-                    );
-
-            } else {
-                auto attr =
-                    dataObj->GetAttributeSet()->GetAttribute(ToAttrIndex(i));
-                p.dataName = attr.pointer->GetName();
-                p.isKeyElement = std::vector(
-                    attr.pointer->GetNumberOfElements(),
-                    false
-                );
-            }
-
-            p.lossyMode = LossyMode::MantissaTruncation;
-            p.errorMode = ErrorMode::None;
+        auto makeDefaultControlParams = [](IGsize elementCount) -> FloatControlParams {
+            FloatControlParams p;
             p.globalQuantizeLevel = 0;
             p.criticalQuantizeLevel = 0;
             p.normalQuantizeLevel = 0;
-            params.errorBoundSetting.push_back(p);
-            // params.visualError = false;
+            p.isKeyElement = std::vector<bool>(elementCount, false);
+            return p;
+        };
+
+        // Geom
+        params.geomControl = makeDefaultControlParams(
+            DynamicCast<PointSet>(dataObj)->GetNumberOfPoints());
+
+        // Attributes
+        const int attrCount = dataObj->GetAttributeSet()->GetNumberOfAttributes();
+        for (int i = 0; i < attrCount; i++) {
+            auto attr = dataObj->GetAttributeSet()->GetAttribute(i);
+            params.attrControl.push_back(makeDefaultControlParams(
+                attr.pointer->GetNumberOfElements()));
         }
+
         return params;
     }
 
@@ -131,19 +115,19 @@ private:
     // I/O
     DataObject::Pointer m_DataObj;
     std::unique_ptr<IMeshEncodeAdapter> m_EncoderAdapter;
-    IEncodeOutput::Pointer m_EncoderOutput;
+    EncodeOutputType::Pointer m_EncoderOutput;
     bool m_hasCustomAdapter = false;
 
     // params
-    FloatErrorControlParameters m_geomErrorControl;
-    std::vector<FloatErrorControlParameters> m_attrErrorControl;
-    UIControlParams m_UIControlParams;
-    bool m_hasUIControlParams = false;
+    FloatControlParams m_geomControlParams;
+    std::vector<FloatControlParams> m_attrControlParams;
+    CodecControlParams m_CodecControlParams;
+    bool m_hasCodecControlParams = false;
 
     // reports
     bool m_visualError{};
     bool m_showReport{};
-    int m_compressLevel = 3;
+    int m_compressLevel{};
     std::vector<std::pair<std::string, std::string>> m_report;
 
 
@@ -152,14 +136,14 @@ private:
         m_DataObj = GetInput(0);
         if (!m_DataObj) { return false; }
 
-        m_EncoderOutput = EncodeOutputBinaryArray::New();
+        m_EncoderOutput = EncodeOutputType::New();
         if (!m_hasCustomAdapter) {
             m_EncoderAdapter = std::make_unique<MeshEncodeAdapterFromDataObject>(m_DataObj);
         }
 
-        // InitEncoderParams 必须在 LoadUIControlParams 之前执行
+        // InitEncoderParams 必须在 LoadCodecControlParams 之前执行
         InitEncoderParams();
-        if (m_hasUIControlParams) { LoadUIControlParams(m_UIControlParams); }
+        if (m_hasCodecControlParams) { LoadCodecControlParams(m_CodecControlParams); }
 
         InitAdjacencyScore();
         return true;
@@ -262,14 +246,14 @@ private:
 
     template<typename T>
     void AddErrorReport(const std::vector<T>& source, const std::vector<T>& quantized,
-                        const FloatParameters& floatParams, const FloatErrorControlParameters& errorParams,
+                        const FloatStorageParams& storageParams, const FloatControlParams& controlParams,
                         std::string dataName) {
         if (m_showReport) {
             float keyError, nonKeyError;
-            FloatCodecError::TotalError(source, quantized, floatParams, errorParams, keyError, nonKeyError);
+            FloatCodecError::TotalError(source, quantized, storageParams, controlParams, keyError, nonKeyError);
 
             /*
-			if (floatParams.errorMode == ErrorMode::KeyArea) {
+			if (floatParams.errorMode == QuantizeMode::KeyArea) {
 				m_report.push_back(
 						std::make_pair(dataName + " 相对误差",
 									   std::format("▲{:.10f}% ■{:.10f}%", keyError * 100.0, nonKeyError * 100.0)));
@@ -288,36 +272,15 @@ private:
     // endregion
 
     // region params control
-    void LoadUIControlParams(const UIControlParams& uiConParams) {
-        using namespace UIControlParamsIndex;
+    void LoadCodecControlParams(const CodecControlParams& codecParams) {
+        m_showReport = codecParams.showReport;
+        m_compressLevel = codecParams.compressLevel;
         
-        m_showReport = uiConParams.showReport;
-        m_compressLevel = uiConParams.compressLevel;
-        
-        // 加载顶点坐标参数
-        const auto& geomSetting = uiConParams.errorBoundSetting[kGeomIndex];
-        m_codecParams.geomParams.lossyMode = geomSetting.lossyMode;
-        m_codecParams.geomParams.errorMode = geomSetting.errorMode;
-        m_codecParams.geomParams.globalQuantizeLevel = geomSetting.globalQuantizeLevel;
-        m_codecParams.geomParams.criticalQuantizeLevel = geomSetting.criticalQuantizeLevel;
-        m_codecParams.geomParams.normalQuantizeLevel = geomSetting.normalQuantizeLevel;
-        m_geomErrorControl = geomSetting;
+        // 加载顶点坐标控制参数
+        m_geomControlParams = codecParams.geomControl;
 
-        // 加载属性参数
-        m_attrErrorControl.resize(m_codecParams.attrCount);
-        for (int i = kAttrStartIndex; i < uiConParams.errorBoundSetting.size(); i++) {
-            const int attrIdx = ToAttrIndex(i);
-            auto& attrParam = m_codecParams.attrParams[attrIdx];
-            const auto& attrSetting = uiConParams.errorBoundSetting[i];
-            
-            attrParam.lossyMode = attrSetting.lossyMode;
-            attrParam.errorMode = attrSetting.errorMode;
-            attrParam.globalQuantizeLevel = attrSetting.globalQuantizeLevel;
-            attrParam.criticalQuantizeLevel = attrSetting.criticalQuantizeLevel;
-            attrParam.normalQuantizeLevel = attrSetting.normalQuantizeLevel;
-
-            m_attrErrorControl[attrIdx] = attrSetting;
-        }
+        // 加载属性控制参数
+        m_attrControlParams = codecParams.attrControl;
     }
 
     void InitEncoderParams() {
@@ -351,7 +314,7 @@ private:
         const auto allAttrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         for (int dataIndex = 0; dataIndex < allAttrs->GetNumberOfElements(); dataIndex++) {
             AttributeSet::Attribute attr = allAttrs->GetElement(dataIndex);
-            AttrParameters attrParams;
+            AttrStorageParams attrParams;
 
             std::memset(attrParams.name, '\0', sizeof(attrParams.name));
             attr.pointer->GetName().copy(attrParams.name, sizeof(attrParams.name) - 1); // 保留一位给\0
@@ -371,9 +334,9 @@ private:
 
     // region main encoders
     void ParamsEncoder(PayloadBuffer& payload) {
-        const auto paramsWoAttr = static_cast<ParametersWoAttr>(this->m_codecParams);
-        constexpr IGsize staticSize = sizeof(ParametersWoAttr);
-        const IGsize dynamicSize = this->m_codecParams.attrParams.size() * sizeof(AttrParameters);
+        const auto paramsWoAttr = static_cast<StorageParamsWoAttr>(this->m_codecParams);
+        constexpr IGsize staticSize = sizeof(StorageParamsWoAttr);
+        const IGsize dynamicSize = this->m_codecParams.attrParams.size() * sizeof(AttrStorageParams);
 
         payload.resize(staticSize + dynamicSize);
 
@@ -417,28 +380,28 @@ private:
         }
 
         // key重映射 (仅非结构化网格需要)
-        if (!m_geomErrorControl.isKeyElement.empty() && !pointIdRemap.empty()) {
+        if (!m_geomControlParams.isKeyElement.empty() && !pointIdRemap.empty()) {
             std::vector<bool> remappedIsKey(pointCount, false);
 
             // 将原始关键元素标记转移到重映射后的位置
             CodecThreadPool::parallelFor(0, pointCount, [&](int start, int end) -> void {
                 for (int j = start; j < end; j++) {
                     // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                    if (m_geomErrorControl.isKeyElement[j]) { remappedIsKey[pointIdRemap[j]] = true; }
+                    if (m_geomControlParams.isKeyElement[j]) { remappedIsKey[pointIdRemap[j]] = true; }
                 }
             });
 
             // 用重映射后的isKey替换原始的isKey
-            m_geomErrorControl.isKeyElement = std::move(remappedIsKey);
+            m_geomControlParams.isKeyElement = std::move(remappedIsKey);
         }
 
         std::vector<unsigned char> encodedFloat;
 
         std::vector<float> preserve = remappedPointBuffer;
         MeshFloatCodec::FloatEncoder(encodedFloat, remappedPointBuffer, m_codecParams.geomParams,
-                                        m_geomErrorControl);
+                                        m_geomControlParams);
 
-        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomErrorControl, "顶点坐标");
+        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomControlParams, "顶点坐标");
 
         UpdateProgress(0.2);
 
@@ -451,7 +414,7 @@ private:
         ElementArray<AttributeSet::Attribute>::Pointer attrs = this->m_DataObj->GetAttributeSet()->GetAllAttributes();
         std::vector<std::vector<unsigned char>> outFloats(this->m_codecParams.attrParams.size());
 
-        auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrParameters& params, int attrIndex) {
+        auto remapAttributeValues = [&](auto attrArray, auto& remappedBuffer, AttrStorageParams& params, int attrIndex) {
             if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
                 // 结构化网格：不需要重映射，直接复制原始数据
                 size_t valueCount = params.dimension * params.elementCount;
@@ -479,7 +442,7 @@ private:
                         igIndex remapIndex = remapArray[j];
 
                         // 如果原始元素是关键元素，则标记 remap 后的对应元素也为关键元素
-                        if (m_attrErrorControl[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
+                        if (m_attrControlParams[attrIndex].isKeyElement[j]) { remappedIskey[remapIndex] = true; }
 
                         for (int k = 0; k < params.dimension; k++) {
                             remappedBuffer[remapIndex * params.dimension + k] =
@@ -489,7 +452,7 @@ private:
                 });
 
                 // 用 remap 后的 iskey 替换原始的 iskey
-                m_attrErrorControl[attrIndex].isKeyElement = std::move(remappedIskey);
+                m_attrControlParams[attrIndex].isKeyElement = std::move(remappedIskey);
             }
         };
 
@@ -501,7 +464,7 @@ private:
             for (int i = start; i < end; i++) {
                 AttributeSet::Attribute& attr = attrs->GetElement(i);
                 auto& attrParams = this->m_codecParams.attrParams[i];
-                auto& errorParams = this->m_attrErrorControl[i];
+                auto& controlParams = this->m_attrControlParams[i];
 
                 // 部署remap
                 std::vector<float> remappedFloatAttrBuffer;
@@ -520,20 +483,20 @@ private:
 
                 if (attrParams.valueSize == sizeof(float)) {
                     std::vector<float> preserve = remappedFloatAttrBuffer;
-                    MeshFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, errorParams);
+                    MeshFloatCodec::FloatEncoder(encoded, remappedFloatAttrBuffer, attrParams, controlParams);
 
                     {
                         std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, errorParams,
+                        AddErrorReport(preserve, remappedFloatAttrBuffer, attrParams, controlParams,
                                        attr.pointer->GetName());
                     }
                 } else if (attrParams.valueSize == sizeof(double)) {
                     std::vector<double> preserve = remappedDoubleAttrBuffer;
-                    MeshFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, errorParams);
+                    MeshFloatCodec::FloatEncoder(encoded, remappedDoubleAttrBuffer, attrParams, controlParams);
 
                     {
                         std::lock_guard<std::mutex> lock(reportMutex);
-                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, errorParams,
+                        AddErrorReport(preserve, remappedDoubleAttrBuffer, attrParams, controlParams,
                                        attr.pointer->GetName());
                     }
                 }
