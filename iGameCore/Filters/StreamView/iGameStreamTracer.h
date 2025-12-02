@@ -82,6 +82,8 @@ public:
                                                            float lengthOfStreamLine, float lengthOfStep,
                                                            float terminalSpeed, int maxSteps);
     void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
+    float maxF = FLT_MIN;
+    float minF = FLT_MAX;
     bool CellData2PointData(std::string vectorName);
     void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
