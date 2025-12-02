@@ -19,7 +19,7 @@ endif ()
 # These options must NOT be forced so that command-line -D values work.
 option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
-option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" ON)
+option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
 option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 
@@ -90,13 +90,13 @@ if (ENABLE_LIBTORCH_MODULE)
             set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/libtorch/Windows/Release_GPU")
         endif ()
         file(GLOB TORCH_DLLS
-            "${LIBTORCH_DIR}/lib/*.dll"
-            "${LIBTORCH_DIR}/bin/*.dll")
+                "${LIBTORCH_DIR}/lib/*.dll"
+                "${LIBTORCH_DIR}/bin/*.dll")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${TORCH_DLLS}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-            COMMENT "Copying libtorch DLLs to output folder"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${TORCH_DLLS}
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+                COMMENT "Copying libtorch DLLs to output folder"
         )
     elseif (UNIX)
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
