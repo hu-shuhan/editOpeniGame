@@ -37,6 +37,9 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->ctMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtMode);
     connect(ui->radiusBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusBoxMode);
     connect(ui->ctBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtBoxMode);
+    //############ Pre Load ############
+    connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
+    ui->preLoadModelMsg->hide();
 }
 
 igQtSelectionWidget::~igQtSelectionWidget() { delete ui; }
@@ -193,6 +196,11 @@ void igQtSelectionWidget::ClearBox() {
 void igQtSelectionWidget::UseBox() {
     if (m_PreventSignalSend) return;
     emit SetUseBox();
+}
+
+void igQtSelectionWidget::PreLoadModelMsg() {
+    if (m_PreventSignalSend) return;
+    emit SetPreLoadModelMsg();
 }
 
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {
