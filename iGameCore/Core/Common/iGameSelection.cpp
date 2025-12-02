@@ -458,6 +458,8 @@ void Selection::SetSelectBoxVisable(bool visable) {
     m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
 }
 
+Selection::Selection() {}
+
 void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
     if (m_Model == nullptr) return;
     auto scene = m_Model->GetScene();
