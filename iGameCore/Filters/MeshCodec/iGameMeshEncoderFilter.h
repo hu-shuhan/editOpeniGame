@@ -221,10 +221,10 @@ private:
             if (const auto fileSizeProperty =
                 this->m_DataObj->GetPropertys()->GetProperty("FileSize"))
             {
-                sourceSize = fileSizeProperty->Get<int64_t>();
+                sourceSize = fileSizeProperty->Get<long long>();
             }
 
-            // 2) 若缺失或无效，尝试通过 FilePath 读取磁盘文件大小（适配 CGNS 等路径）
+            // 2) 若缺失或无效，尝试通过 FilePath 读取磁盘文件大小
             if (sourceSize <= 0) {
                 if (const auto filePathProperty =
                         this->m_DataObj->GetPropertys()->GetProperty("FilePath"))
