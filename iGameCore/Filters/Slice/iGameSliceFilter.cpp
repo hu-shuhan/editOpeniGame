@@ -1,6 +1,8 @@
 ﻿#include "iGameSliceFilter.h"
 
 #include "iGameThreadPool.h"
+#include "iGamePointSet.h"
+#include "iGameFlatArray.h"
 IGAME_NAMESPACE_BEGIN
 SliceFilter::SliceFilter() {
 
@@ -34,7 +36,25 @@ bool SliceFilter::Execute() {
     if (!input) { return false; }
 
     m_Contourer->SetInput(input);
-    m_Contourer->SetPlane(m_PlaneOrigin, m_PlaneNormal);
+    
+    // Compute point-to-plane signed distances and set as scalar data
+    // All mesh types (UnstructuredMesh, SurfaceMesh, VolumeMesh, etc.) inherit from PointSet
+    auto PointSet = DynamicCast<iGame::PointSet>(input);
+    if (PointSet == nullptr) return false;
+    auto Points = PointSet->GetPoints();
+    auto PointNum = PointSet->GetNumberOfPoints();
+    if (PointNum == 0) return false;
+    DoubleArray::Pointer ScalarData = DoubleArray::New();
+    ScalarData->Resize(PointNum);
+    double* scalarData = ScalarData->RawPointer();
+    Point p{0, 0, 0};
+    for (int i = 0; i < PointNum; i++) {
+        p = Points->GetPoint(i);
+        scalarData[i] = m_PlaneNormal[0] * (p[0] - m_PlaneOrigin[0]) + 
+                        m_PlaneNormal[1] * (p[1] - m_PlaneOrigin[1]) + 
+                        m_PlaneNormal[2] * (p[2] - m_PlaneOrigin[2]);
+    }
+    m_Contourer->SetIsoScalarData(ScalarData, 0.0, 0);
 
     bool result = m_Contourer->Execute();
     this->SetOutput(m_Contourer->GetOutput());
