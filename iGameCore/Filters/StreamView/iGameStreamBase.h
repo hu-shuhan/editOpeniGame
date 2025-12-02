@@ -5,7 +5,7 @@
 #include "iGameStreamTracer.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
-
+#include "iGameSceneManager.h"
 IGAME_NAMESPACE_BEGIN
 class Scene;
 class StreamBase : virtual public DrawObject {
@@ -14,12 +14,15 @@ public:
     static StreamBase* New() { return new StreamBase; }
     ~StreamBase();
     StreamTracer* streamFilter;
-
+    Painter3D::Pointer m_Painter=Painter3D::New();
+    std::vector<Vector3f> seeds;
+    void SetSeeds(std::vector<Vector3f> _seeds) {
+        seeds = _seeds;
+    }
     void SetUpdate(bool flag) {
         isUpdate = flag;
         ConvertToDrawableData();
     }
-
     IGsize GetRealMemorySize() {
         IGsize res = this->DrawObject::GetRealMemorySize();
         if (m_Points) res += m_Points->GetRealMemorySize();
