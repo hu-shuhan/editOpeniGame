@@ -73,11 +73,21 @@ void StreamBase::ConvertToDrawableData() {
     // 提取速度属性作为颜色数据
     if (attrSet) {
         auto velocityAttr = attrSet->GetVector("Velocity");
+        float step1=0.0f;
+        float step2=FLT_MAX;
+        int count1 = 0;
+        int count2= 0;
         if (!velocityAttr.IsNone() && velocityAttr.pointer) {
             // 使用速度数据作为颜色数据
             for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
                 float velocity[3] = {0.0f, 0.0f, 0.0f};
                 velocityAttr.pointer->GetElement(i, velocity);
+                auto temV1= sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1] + velocity[2] * velocity[2]);
+                if (temV1 > 40) { count2++;
+                }
+                count1++;
+                step1=std::max(step1,temV1);
+                step2=std::min(step2,temV1);
                 m_PositionColors->AddElement3(velocity[0], velocity[1], velocity[2]);
             }
         } else {
@@ -86,6 +96,9 @@ void StreamBase::ConvertToDrawableData() {
                 m_PositionColors->AddElement3(1.0f, 1.0f, 1.0f); // 白色
             }
         }
+        std::cout << "Velocity Magnitude Range: [" << step2 << "," << step1 << "]" << std::endl;
+        std::cout << (float)count2/(float)count1 << std::endl;
+
     } else {
         // 如果没有属性集，使用默认颜色
         for (int i = 0; i < meshPoints->GetNumberOfPoints(); i++) {
@@ -96,7 +109,7 @@ void StreamBase::ConvertToDrawableData() {
     // 应用颜色映射和设置渲染数据
     this->m_ColorMapper->InitRange(m_PositionColors, -1);
     auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
-
+    this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
 

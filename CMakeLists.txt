@@ -117,6 +117,11 @@ if (ENABLE_QT_MODULE)
             Qt_module
     )
 
+    if (WIN32)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${DEPLOYQT_EXECUTABLE} "$<TARGET_FILE:${PROJECT_NAME}>")
+    endif ()
+
     if (ENABLE_LIBTORCH_MODULE AND WIN32)
         file(GLOB TORCH_DLLS
                 "${LIBTORCH_DIR}/lib/*.dll"
