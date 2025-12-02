@@ -33,6 +33,8 @@ IGAME_NAMESPACE_BEGIN
 
 class Model;
 class UnstructuredMesh;
+class VolumeMesh;
+class SurfaceMesh;
 class Painter3D;
 class Selection : public Object {
 public:
@@ -145,9 +147,13 @@ public:
     void SetModel(Model* m) { m_Model = m; }
 
     const std::vector<int>& GetSeeAbleCells(UnstructuredMesh* mesh);
+    const std::vector<int>& GetSeeAbleCells(VolumeMesh* mesh);
+    const std::vector<int>& GetSeeAbleCells(SurfaceMesh* mesh);
 
     void SetSelectItemVisable(bool visable);
     void SetSelectBoxVisable(bool visable);
+
+    CellFaceExtracter& GetCellFaceExtracter();
 
 protected:
     Selection();
@@ -171,7 +177,7 @@ protected:
     void DrawCellEdges();
     void DrawBoundingBox(const std::pair<Point, Point>& p);
     void DrawCellBoundingBoxs();
-    UnstructuredMesh* _GetMesh();
+    //UnstructuredMesh* _GetMesh();
 
     std::map<IGenum, std::set<igIndex>> m_SelectedItems;
     CellFaceExtracter m_CellFaceExtracter;
@@ -181,7 +187,7 @@ protected:
     Points* m_Points{nullptr};
     CellArray* m_Cells{nullptr};
     Model* m_Model{nullptr};
-    DataObject::Pointer m_DataObjectPointerMesh{nullptr};
+    //DataObject::Pointer m_DataObjectPointerMesh{nullptr};
 
     friend class Model;
 };

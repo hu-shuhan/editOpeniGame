@@ -2,6 +2,8 @@
 #include <iGameModel.h>
 #include <iGameSelection.h>
 #include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
+#include <iGameSurfaceMesh.h>
 #include <set>
 #include <utility>
 #include <iGameBoxStyle.h>
@@ -138,7 +140,7 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     }
 }
 
-static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh) {
+static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, PointSet* mesh) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
     painter->Clear();
     painter->SetPen(3);
@@ -375,12 +377,50 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             DrawCellEdges();
         } break;
         case IG_POINT_BOX: {
-            auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, _GetMesh());
+            std::pair<Point, Point> pMinMax;
+            if (m_Model == nullptr) return;
+            auto dataObj = m_Model->GetDataObject();
+            switch (dataObj->GetDataObjectType()) {
+                case IG_SURFACE_MESH: {
+                    auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                } break;
+                case IG_VOLUME_MESH:
+                case IG_STRUCTURED_MESH: {
+                    auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                } break;
+                default:
+                    return;
+            }
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
         case IG_CELL_BOX: {
-            auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, _GetMesh());
+            std::pair<Point, Point> pMinMax;
+            if (m_Model == nullptr) return;
+            auto dataObj = m_Model->GetDataObject();
+            switch (dataObj->GetDataObjectType()) {
+                case IG_SURFACE_MESH: {
+                    auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                } break;
+                case IG_VOLUME_MESH:
+                case IG_STRUCTURED_MESH: {
+                    auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
+                } break;
+                default:
+                    return;
+            }
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
@@ -405,12 +445,50 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
             DrawCellEdges();
         } break;
         case IG_POINT_BOX: {
-            auto pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, _GetMesh());
+            std::pair<Point, Point> pMinMax;
+            if (m_Model == nullptr) return;
+            auto dataObj = m_Model->GetDataObject();
+            switch (dataObj->GetDataObjectType()) {
+                case IG_SURFACE_MESH: {
+                    auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, mesh);
+                } break;
+                case IG_VOLUME_MESH:
+                case IG_STRUCTURED_MESH: {
+                    auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, mesh);
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox({id}, mesh);
+                } break;
+                default:
+                    return;
+            }
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
         case IG_CELL_BOX: {
-            auto pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, _GetMesh());
+            std::pair<Point, Point> pMinMax;
+            if (m_Model == nullptr) return;
+            auto dataObj = m_Model->GetDataObject();
+            switch (dataObj->GetDataObjectType()) {
+                case IG_SURFACE_MESH: {
+                    auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, mesh);
+                } break;
+                case IG_VOLUME_MESH:
+                case IG_STRUCTURED_MESH: {
+                    auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, mesh);
+                } break;
+                case IG_UNSTRUCTURED_MESH: {
+                    auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    pMinMax = m_CellFaceExtracter.GetCellsBoundingBox({id}, mesh);
+                } break;
+                default:
+                    return;
+            }
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
@@ -447,6 +525,16 @@ const std::vector<int>& Selection::GetSeeAbleCells(UnstructuredMesh* mesh) {
     return m_SeeAbleCells;
 }
 
+const std::vector<int>& Selection::GetSeeAbleCells(VolumeMesh* mesh) {
+    if (m_SeeAbleCells.empty()) { m_SeeAbleCells = m_CellFaceExtracter.GetSurfaceCellIds(mesh); }
+    return m_SeeAbleCells;
+}
+
+const std::vector<int>& Selection::GetSeeAbleCells(SurfaceMesh* mesh) {
+    if (m_SeeAbleCells.empty()) { m_SeeAbleCells = m_CellFaceExtracter.GetSurfaceCellIds(mesh); }
+    return m_SeeAbleCells;
+}
+
 void Selection::SetSelectItemVisable(bool visable) {
     if (m_Model == nullptr) return;
     m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint)->SetTotallyHide(!visable);
@@ -457,6 +545,8 @@ void Selection::SetSelectBoxVisable(bool visable) {
     if (m_Model == nullptr) return;
     m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
 }
+
+CellFaceExtracter& Selection::GetCellFaceExtracter() { return m_CellFaceExtracter; }
 
 Selection::Selection() {}
 
@@ -482,7 +572,7 @@ void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
 
 void Selection::DrawPoints() {
     if (m_Model == nullptr) return;
-    auto mesh = _GetMesh();
+    auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
@@ -498,42 +588,61 @@ void Selection::DrawPoints() {
 
 void Selection::DrawCellEdges() {
     if (m_Model == nullptr) return;
-    auto mesh = _GetMesh();
-    if (mesh == nullptr) return;
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
     if (painter == nullptr) return;
-    auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
-    DrawEdges(painter, edges, mesh);
+
+    std::set<std::pair<int, int>> edges;
+    auto dataObj = m_Model->GetDataObject();
+    switch (dataObj->GetDataObjectType()) {
+        case IG_SURFACE_MESH: {
+            auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
+            DrawEdges(painter, edges, mesh);
+        } break;
+        case IG_VOLUME_MESH:
+        case IG_STRUCTURED_MESH: {
+            auto mesh = DynamicCast<VolumeMesh>(dataObj);
+            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
+            DrawEdges(painter, edges, mesh);
+        } break;
+        case IG_UNSTRUCTURED_MESH: {
+            auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+            auto edges = m_CellFaceExtracter.GetExtractPointIdPairs(m_SelectedItems[IG_CELL], mesh);
+            DrawEdges(painter, edges, mesh);
+        } break;
+        default:
+            return;
+    }
 }
 
 void Selection::DrawBoundingBox(const std::pair<Point, Point>& p) {
     if (m_Model == nullptr) return;
-    auto mesh = _GetMesh();
-    if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
-    if (painter == nullptr) return;
-    DrawOneBoundingBox(painter, p);
+    //auto mesh = _GetMesh();
+    //if (mesh == nullptr) return;
+    //auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
+    //if (painter == nullptr) return;
+    //DrawOneBoundingBox(painter, p);
 }
 
 void Selection::DrawCellBoundingBoxs() {
     if (m_Model == nullptr) return;
-    auto mesh = _GetMesh();
-    if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
-    if (painter == nullptr) return;
-    auto boxs = m_CellFaceExtracter.GetExtractBoundingBoxs(m_SelectedItems[IG_CELL], mesh);
-    DrawBoundingBoxs(painter, boxs);
+    //auto mesh = _GetMesh();
+    //if (mesh == nullptr) return;
+    //auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectionBox);
+    //if (painter == nullptr) return;
+    //auto boxs = m_CellFaceExtracter.GetExtractBoundingBoxs(m_SelectedItems[IG_CELL], mesh);
+    //DrawBoundingBoxs(painter, boxs);
 }
 
-UnstructuredMesh* Selection::_GetMesh() {
-    if (m_Model == nullptr) return nullptr;
-    if (m_Model->GetDataObject()->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
-        return DynamicCast<UnstructuredMesh>(m_Model->GetDataObject());
-    }
-    if (m_DataObjectPointerMesh == nullptr) {
-        m_DataObjectPointerMesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
-    }
-    return DynamicCast<UnstructuredMesh>(m_DataObjectPointerMesh);
-}
+//UnstructuredMesh* Selection::_GetMesh() {
+//    if (m_Model == nullptr) return nullptr;
+//    if (m_Model->GetDataObject()->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+//        return DynamicCast<UnstructuredMesh>(m_Model->GetDataObject());
+//    }
+//    if (m_DataObjectPointerMesh == nullptr) {
+//        m_DataObjectPointerMesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+//    }
+//    return DynamicCast<UnstructuredMesh>(m_DataObjectPointerMesh);
+//}
 
 IGAME_NAMESPACE_END

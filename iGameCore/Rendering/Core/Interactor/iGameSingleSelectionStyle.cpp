@@ -168,16 +168,55 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
 
     auto [point1, point2] = GetStartPointAndEndPoint(pos);
 
-    auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
-            m_Model->GetDataObject());
+    std::vector<int> ids;
+    
+    auto dataObj = m_Model->GetDataObject();
+    auto meshType = dataObj->GetDataObjectType();
+    switch (meshType) {
+        case IG_SURFACE_MESH: {
+            auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+            ids = GetPointsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate());
+        } break;
+        case IG_VOLUME_MESH: {
+            auto mesh = DynamicCast<VolumeMesh>(dataObj);
+            ids = GetPointsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate());
+        } break;
+        case IG_UNSTRUCTURED_MESH: {
+            auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+            ids = GetPointsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate());
+        } break;
+        default:
+            return;
+    }
 
-    auto ids = GetPointsInCondition(
-            point1, point2, mesh,
-            SelectionParameter::Instance().GetSelectionRadius(),
-            SelectionParameter::Instance().IsCtMode() ||
-                    SelectionParameter::Instance().IsCtBoxMode(),
-            SelectionParameter::Instance().GetSelectVariableIndex(),
-            SelectionParameter::Instance().GetAutoSelectExpdRate());
+    //auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+    //        m_Model->GetDataObject());
+
+    //auto ids = GetPointsInCondition(
+    //        point1, point2, mesh,
+    //        SelectionParameter::Instance().GetSelectionRadius(),
+    //        SelectionParameter::Instance().IsCtMode() ||
+    //                SelectionParameter::Instance().IsCtBoxMode(),
+    //        SelectionParameter::Instance().GetSelectVariableIndex(),
+    //        SelectionParameter::Instance().GetAutoSelectExpdRate());
 
     if (ids.empty()) return;
 
@@ -214,18 +253,72 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
     if (m_Points == nullptr || m_Cells == nullptr) { return; }
     auto [point1, point2] = GetStartPointAndEndPoint(pos);
 
-    auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
-            m_Model->GetDataObject());
+    std::vector<int> ids;
 
-    auto ids = GetCellsInCondition(
-            point1, point2, mesh,
-            SelectionParameter::Instance().GetSelectionRadius(),
-            SelectionParameter::Instance().IsCtMode() ||
-                    SelectionParameter::Instance().IsCtBoxMode(),
-            SelectionParameter::Instance().GetSelectVariableIndex(),
-            SelectionParameter::Instance().GetAutoSelectExpdRate(),
-            SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells(),
-            SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+    auto dataObj = m_Model->GetDataObject();
+    auto meshType = dataObj->GetDataObjectType();
+    switch (meshType) {
+        case IG_SURFACE_MESH: {
+            auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+            mesh->RequestEditStatus();
+            ids = GetCellsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate(),
+                    SelectionParameter::Instance()
+                            .GetSelectIgnoreUnSeeAbleCells(),
+                    SelectionParameter::Instance()
+                            .GetSelectOnlySelectSeeAbleCells());
+        } break;
+        case IG_VOLUME_MESH: {
+            auto mesh = DynamicCast<VolumeMesh>(dataObj);
+            mesh->RequestEditStatus();
+            ids = GetCellsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate(),
+                    SelectionParameter::Instance()
+                            .GetSelectIgnoreUnSeeAbleCells(),
+                    SelectionParameter::Instance()
+                            .GetSelectOnlySelectSeeAbleCells());
+        } break;
+        case IG_UNSTRUCTURED_MESH: {
+            auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+            ids = GetCellsInCondition(
+                    point1, point2, mesh,
+                    SelectionParameter::Instance().GetSelectionRadius(),
+                    SelectionParameter::Instance().IsCtMode() ||
+                            SelectionParameter::Instance().IsCtBoxMode(),
+                    SelectionParameter::Instance().GetSelectVariableIndex(),
+                    SelectionParameter::Instance().GetAutoSelectExpdRate(),
+                    SelectionParameter::Instance()
+                            .GetSelectIgnoreUnSeeAbleCells(),
+                    SelectionParameter::Instance()
+                            .GetSelectOnlySelectSeeAbleCells());
+        } break;
+        default:
+            return;
+    }
+
+    //auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(
+    //        m_Model->GetDataObject());
+
+    //auto ids = GetCellsInCondition(
+    //        point1, point2, mesh,
+    //        SelectionParameter::Instance().GetSelectionRadius(),
+    //        SelectionParameter::Instance().IsCtMode() ||
+    //                SelectionParameter::Instance().IsCtBoxMode(),
+    //        SelectionParameter::Instance().GetSelectVariableIndex(),
+    //        SelectionParameter::Instance().GetAutoSelectExpdRate(),
+    //        SelectionParameter::Instance().GetSelectIgnoreUnSeeAbleCells(),
+    //        SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+
     if (ids.empty()) return;
 
     if (SelectionParameter::Instance().IsBoxMode()) {
@@ -259,6 +352,30 @@ SingleSelectionStyle::GetStartPointAndEndPoint(igm::vec2 pos) {
 
 std::vector<int> SingleSelectionStyle::GetPointsInCondition(
         const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
+        double radius, bool useAutoSelect, int variableIndex,
+        double autoSelectExpdRate) {
+    if (!useAutoSelect) {
+        return GetPointsInRadiusMode(startPoint, endPoint, mesh, radius);
+    } else {
+        return GetPointsInCtMode(startPoint, endPoint, mesh, radius,
+                                 variableIndex, autoSelectExpdRate);
+    }
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInCondition(
+        const Point& startPoint, const Point& endPoint, VolumeMesh* mesh,
+        double radius, bool useAutoSelect, int variableIndex,
+        double autoSelectExpdRate) {
+    if (!useAutoSelect) {
+        return GetPointsInRadiusMode(startPoint, endPoint, mesh, radius);
+    } else {
+        return GetPointsInCtMode(startPoint, endPoint, mesh, radius,
+                                 variableIndex, autoSelectExpdRate);
+    }
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInCondition(
+        const Point& startPoint, const Point& endPoint, SurfaceMesh* mesh,
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate) {
     if (!useAutoSelect) {
@@ -329,8 +446,43 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
     }
 }
 
-std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
-        const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
+std::vector<int> SingleSelectionStyle::GetCellsInCondition(
+        const Point& startPoint, const Point& endPoint, VolumeMesh* mesh,
+        double radius, bool useAutoSelect, int variableIndex,
+        double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
+        bool onlySelectSeeAbleCells) {
+    if (!useAutoSelect) {
+        return GetCellsInRadiusMode(startPoint, endPoint, mesh, radius,
+                                    selectIgnoreUnSeeAbleCells,
+                                    onlySelectSeeAbleCells);
+    } else {
+        return GetCellsInCtMode(startPoint, endPoint, mesh, radius,
+                                variableIndex, autoSelectExpdRate,
+                                selectIgnoreUnSeeAbleCells,
+                                onlySelectSeeAbleCells);
+    }
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInCondition(
+        const Point& startPoint, const Point& endPoint, SurfaceMesh* mesh,
+        double radius, bool useAutoSelect, int variableIndex,
+        double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
+        bool onlySelectSeeAbleCells) {
+    if (!useAutoSelect) {
+        return GetCellsInRadiusMode(startPoint, endPoint, mesh, radius,
+                                    selectIgnoreUnSeeAbleCells,
+                                    onlySelectSeeAbleCells);
+    } else {
+        return GetCellsInCtMode(startPoint, endPoint, mesh, radius,
+                                variableIndex, autoSelectExpdRate,
+                                selectIgnoreUnSeeAbleCells,
+                                onlySelectSeeAbleCells);
+    }
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(const Point& startPoint,
+                                            const Point& endPoint,
+                                            PointSet* mesh,
         double radius) {
     std::vector<int> re;
     if (mesh == nullptr) return re;
@@ -421,8 +573,234 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     /*################################# CORE END #################################*/
 }
 
+std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
+        const Point& startPoint, const Point& endPoint, VolumeMesh* mesh,
+        double radius, bool selectIgnoreUnSeeAbleCells,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    double minDis = -1;
+    int id = -1;
+    if (selectIgnoreUnSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellId: seeAbleFaces) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    } else {
+        for (int cellId = 0; cellId < mesh->GetNumberOfVolumes(); cellId++) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    }
+    if (id == -1) return re;
+    if (radius <= 0) {
+        re.push_back(id);
+        return re;
+    }
+
+    auto cells = mesh->GetCells();
+    auto points = mesh->GetPoints();
+    igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
+    int thisCellSize = cells->GetCellIds(id, thisCell);
+    iGame::Point thisCellCentralPoint =
+            GetCentralOfCell(thisCellSize, thisCell, points);
+    /*################################# CORE START #################################*/
+    auto _NormalSelectFunc = [&](int cellIndex) {
+        igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+        int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+        Point thatCellCentralPoint =
+                GetCentralOfCell(thatCellSize, thatCell, points);
+        if ((thisCellCentralPoint - thatCellCentralPoint).length() <= radius) {
+            re.push_back(cellIndex);
+        }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            _NormalSelectFunc(cellIndex);
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
+        const Point& startPoint, const Point& endPoint, SurfaceMesh* mesh,
+        double radius, bool selectIgnoreUnSeeAbleCells,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    double minDis = -1;
+    int id = -1;
+    if (selectIgnoreUnSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellId: seeAbleFaces) {
+            Cell* cell = mesh->GetFace(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    } else {
+        for (int cellId = 0; cellId < mesh->GetNumberOfFaces(); cellId++) {
+            Cell* cell = mesh->GetFace(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    }
+    if (id == -1) return re;
+    if (radius <= 0) {
+        re.push_back(id);
+        return re;
+    }
+
+    auto cells = mesh->GetFaces();
+    auto points = mesh->GetPoints();
+    igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
+    int thisCellSize = cells->GetCellIds(id, thisCell);
+    iGame::Point thisCellCentralPoint =
+            GetCentralOfCell(thisCellSize, thisCell, points);
+    /*################################# CORE START #################################*/
+    auto _NormalSelectFunc = [&](int cellIndex) {
+        igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+        int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+        Point thatCellCentralPoint =
+                GetCentralOfCell(thatCellSize, thatCell, points);
+        if ((thisCellCentralPoint - thatCellCentralPoint).length() <= radius) {
+            re.push_back(cellIndex);
+        }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            _NormalSelectFunc(cellIndex);
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
 std::vector<int> SingleSelectionStyle::GetPointsInCtMode(
         const Point& startPoint, const Point& endPoint, UnstructuredMesh* mesh,
+        double radius, int variableIndex, double autoSelectExpdRate) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    SmartPointer<PointPicker> picker = PointPicker::New();
+    picker->SetDataObject(mesh);
+    Point p;
+    auto id = picker->PickClosetPointOnLine(startPoint, (endPoint - startPoint),
+                                            p);
+    if (id == -1) return re;
+    if (radius <= 0 || variableIndex < 0 || autoSelectExpdRate <= 0.0) {
+        re.push_back(id);
+        return re;
+    }
+    auto points = mesh->GetPoints();
+    auto& thisPoint = points->GetPoint(id);
+    /*################################# CORE START #################################*/
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_POINT);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_POINT);
+
+    auto hisPicker = HistogramPicker(
+            attrs, variableIndexs[variableIndex], points->GetNumberOfPoints(),
+            BoxNum, RandomPickNum, variableMinMaxData.first[variableIndex],
+            variableMinMaxData.second[variableIndex]);
+    double thisPointData = CtxPresObjData_Main::GenerateObjData(
+            id, attrs, variableIndexs[variableIndex]);
+    auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+            thisPointData, autoSelectExpdRate);
+    for (int pointId = 0; pointId < points->GetNumberOfPoints(); pointId++) {
+        auto& point = points->GetPoint(pointId);
+        double pointData = CtxPresObjData_Main::GenerateObjData(
+                pointId, attrs, variableIndexs[variableIndex]);
+        if (((thisPoint - point).length() <= radius) &&
+            (minRange <= pointData && pointData <= maxRange)) {
+            re.push_back(pointId);
+        }
+    }
+    re = GetFiltedPointsOfUsingAutoValueRange(id, re, mesh);
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInCtMode(
+        const Point& startPoint, const Point& endPoint, VolumeMesh* mesh,
+        double radius, int variableIndex, double autoSelectExpdRate) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    SmartPointer<PointPicker> picker = PointPicker::New();
+    picker->SetDataObject(mesh);
+    Point p;
+    auto id = picker->PickClosetPointOnLine(startPoint, (endPoint - startPoint),
+                                            p);
+    if (id == -1) return re;
+    if (radius <= 0 || variableIndex < 0 || autoSelectExpdRate <= 0.0) {
+        re.push_back(id);
+        return re;
+    }
+    auto points = mesh->GetPoints();
+    auto& thisPoint = points->GetPoint(id);
+    /*################################# CORE START #################################*/
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_POINT);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_POINT);
+
+    auto hisPicker = HistogramPicker(
+            attrs, variableIndexs[variableIndex], points->GetNumberOfPoints(),
+            BoxNum, RandomPickNum, variableMinMaxData.first[variableIndex],
+            variableMinMaxData.second[variableIndex]);
+    double thisPointData = CtxPresObjData_Main::GenerateObjData(
+            id, attrs, variableIndexs[variableIndex]);
+    auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+            thisPointData, autoSelectExpdRate);
+    for (int pointId = 0; pointId < points->GetNumberOfPoints(); pointId++) {
+        auto& point = points->GetPoint(pointId);
+        double pointData = CtxPresObjData_Main::GenerateObjData(
+                pointId, attrs, variableIndexs[variableIndex]);
+        if (((thisPoint - point).length() <= radius) &&
+            (minRange <= pointData && pointData <= maxRange)) {
+            re.push_back(pointId);
+        }
+    }
+    re = GetFiltedPointsOfUsingAutoValueRange(id, re, mesh);
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInCtMode(
+        const Point& startPoint, const Point& endPoint, SurfaceMesh* mesh,
         double radius, int variableIndex, double autoSelectExpdRate) {
     std::vector<int> re;
     if (mesh == nullptr) return re;
@@ -559,9 +937,191 @@ std::vector<int> SingleSelectionStyle::GetCellsInCtMode(
     /*################################# CORE END #################################*/
 }
 
+std::vector<int> SingleSelectionStyle::GetCellsInCtMode(
+        const Point& startPoint, const Point& endPoint, VolumeMesh* mesh,
+        double radius, int variableIndex, double autoSelectExpdRate,
+        bool selectIgnoreUnSeeAbleCells, bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    double minDis = -1;
+    int id = -1;
+    if (selectIgnoreUnSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellId: seeAbleFaces) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    } else {
+        for (int cellId = 0; cellId < mesh->GetNumberOfVolumes(); cellId++) {
+            Cell* cell = mesh->GetCell(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    }
+    if (id == -1) return re;
+    if (radius <= 0 || variableIndex < 0 || autoSelectExpdRate <= 0.0) {
+        re.push_back(id);
+        return re;
+    }
+
+    auto cells = mesh->GetCells();
+    auto points = mesh->GetPoints();
+    igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
+    int thisCellSize = cells->GetCellIds(id, thisCell);
+    iGame::Point thisCellCentralPoint =
+            GetCentralOfCell(thisCellSize, thisCell, points);
+    /*################################# CORE START #################################*/
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_CELL);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_CELL);
+
+    auto hisPicker = HistogramPicker(
+            attrs, variableIndexs[variableIndex], cells->GetNumberOfCells(),
+            BoxNum, RandomPickNum, variableMinMaxData.first[variableIndex],
+            variableMinMaxData.second[variableIndex]);
+    double thisCellData = CtxPresObjData_Main::GenerateObjData(
+            id, attrs, variableIndexs[variableIndex]);
+    // auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+    //         thisCellData, autoSelectExpdRate);
+    auto range = hisPicker.CalculateMinMaxValueToPick(thisCellData,
+                                                      autoSelectExpdRate);
+    double minRange = range.first;
+    double maxRange = range.second;
+
+    auto _AutoSelectFunc = [&](int cellIndex) {
+        igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+        int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+        Point thatCellCentralPoint =
+                GetCentralOfCell(thatCellSize, thatCell, points);
+        double cellData = CtxPresObjData_Main::GenerateObjData(
+                cellIndex, attrs, variableIndexs[variableIndex]);
+        if (((thisCellCentralPoint - thatCellCentralPoint).length() <=
+             radius) &&
+            (minRange <= cellData && cellData <= maxRange)) {
+            re.push_back(cellIndex);
+        }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _AutoSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            _AutoSelectFunc(cellIndex);
+        }
+    }
+    re = GetFiltedCellsOfUsingAutoValueRange(id, re, mesh);
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInCtMode(
+        const Point& startPoint, const Point& endPoint, SurfaceMesh* mesh,
+        double radius, int variableIndex, double autoSelectExpdRate,
+        bool selectIgnoreUnSeeAbleCells, bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    double minDis = -1;
+    int id = -1;
+    if (selectIgnoreUnSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellId: seeAbleFaces) {
+            Cell* cell = mesh->GetFace(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    } else {
+        for (int cellId = 0; cellId < mesh->GetNumberOfFaces(); cellId++) {
+            Cell* cell = mesh->GetFace(cellId);
+            auto dis = IsLineCrossCell(startPoint, endPoint, cell);
+            if (dis < 0) continue;
+            if (minDis == -1 || dis < minDis) {
+                minDis = dis;
+                id = cellId;
+            }
+        }
+    }
+    if (id == -1) return re;
+    if (radius <= 0 || variableIndex < 0 || autoSelectExpdRate <= 0.0) {
+        re.push_back(id);
+        return re;
+    }
+
+    auto cells = mesh->GetFaces();
+    auto points = mesh->GetPoints();
+    igIndex thisCell[IGAME_CELL_MAX_SIZE]{};
+    int thisCellSize = cells->GetCellIds(id, thisCell);
+    iGame::Point thisCellCentralPoint =
+            GetCentralOfCell(thisCellSize, thisCell, points);
+    /*################################# CORE START #################################*/
+    auto attrs = mesh->GetAttributeSet()->GetAllAttributes();
+    std::vector<std::pair<int, int>> variableIndexs =
+            CtxPresObjData_Main::GenerateVariableIndex(attrs, IG_CELL);
+    if (variableIndex >= variableIndexs.size()) return re;
+    std::pair<std::vector<double>, std::vector<double>> variableMinMaxData =
+            CtxPresObjData_Main::GenerateMinMaxData(attrs, IG_CELL);
+
+    auto hisPicker = HistogramPicker(
+            attrs, variableIndexs[variableIndex], cells->GetNumberOfCells(),
+            BoxNum, RandomPickNum, variableMinMaxData.first[variableIndex],
+            variableMinMaxData.second[variableIndex]);
+    double thisCellData = CtxPresObjData_Main::GenerateObjData(
+            id, attrs, variableIndexs[variableIndex]);
+    // auto [minRange, maxRange] = hisPicker.CalculateMinMaxValueToPick(
+    //         thisCellData, autoSelectExpdRate);
+    auto range = hisPicker.CalculateMinMaxValueToPick(thisCellData,
+                                                      autoSelectExpdRate);
+    double minRange = range.first;
+    double maxRange = range.second;
+
+    auto _AutoSelectFunc = [&](int cellIndex) {
+        igIndex thatCell[IGAME_CELL_MAX_SIZE]{};
+        int thatCellSize = cells->GetCellIds(cellIndex, thatCell);
+        Point thatCellCentralPoint =
+                GetCentralOfCell(thatCellSize, thatCell, points);
+        double cellData = CtxPresObjData_Main::GenerateObjData(
+                cellIndex, attrs, variableIndexs[variableIndex]);
+        if (((thisCellCentralPoint - thatCellCentralPoint).length() <=
+             radius) &&
+            (minRange <= cellData && cellData <= maxRange)) {
+            re.push_back(cellIndex);
+        }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _AutoSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < cells->GetNumberOfCells();
+             cellIndex++) {
+            _AutoSelectFunc(cellIndex);
+        }
+    }
+    re = GetFiltedCellsOfUsingAutoValueRange(id, re, mesh);
+    return re;
+    /*################################# CORE END #################################*/
+}
+
 std::vector<int> SingleSelectionStyle::GetPointsInBox(
         const std::array<std::array<Point, 4>, 6>& allFaces,
-        UnstructuredMesh* mesh) {
+        PointSet* mesh) {
     std::vector<int> re;
     if (mesh == nullptr) return re;
     /*################################# CORE START #################################*/
@@ -603,6 +1163,54 @@ std::vector<int> SingleSelectionStyle::GetCellsInBox(
         for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
     } else {
         for (int cellIndex = 0; cellIndex < mesh->GetNumberOfCells();
+             cellIndex++) {
+            _NormalSelectFunc(cellIndex);
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces, VolumeMesh* mesh,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    auto _NormalSelectFunc = [&](int cellIndex) {
+        Cell* cell = mesh->GetCell(cellIndex);
+        if (IsCellInsie(cell, allFaces)) { re.push_back(cellIndex); }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < mesh->GetNumberOfVolumes();
+             cellIndex++) {
+            _NormalSelectFunc(cellIndex);
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetCellsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces, SurfaceMesh* mesh,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    auto _NormalSelectFunc = [&](int cellIndex) {
+        Cell* cell = mesh->GetFace(cellIndex);
+        if (IsCellInsie(cell, allFaces)) { re.push_back(cellIndex); }
+    };
+
+    if (onlySelectSeeAbleCells) {
+        auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
+        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+    } else {
+        for (int cellIndex = 0; cellIndex < mesh->GetNumberOfFaces();
              cellIndex++) {
             _NormalSelectFunc(cellIndex);
         }
@@ -682,6 +1290,60 @@ std::vector<int> SingleSelectionStyle::GetFiltedPointsOfUsingAutoValueRange(
     return std::vector<int>(pointIdInCells.begin(), pointIdInCells.end());
 }
 
+std::vector<int> SingleSelectionStyle::GetFiltedPointsOfUsingAutoValueRange(
+        int keyPointId, const std::vector<int>& pointIds, VolumeMesh* mesh) {
+    std::set<int> pointIds_Set(pointIds.begin(), pointIds.end());
+    std::vector<int> cellIds;
+    int cellNum = mesh->GetNumberOfVolumes();
+    int keyCellId = -1;
+    for (int cellId = 0; cellId < cellNum; cellId++) {
+        auto cell = mesh->GetVolume(cellId);
+        if (!IfCellHavePoint(cell, pointIds_Set)) continue;
+        if (keyCellId == -1 && IfCellHavePoint(cell, keyPointId))
+            keyCellId = cellId;
+        cellIds.push_back(cellId);
+    }
+    cellIds = GetFiltedCellsOfUsingAutoValueRange(keyCellId, cellIds, mesh);
+    std::set<int> pointIdInCells;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetVolume(cellId);
+        int pointNum = cell->GetNumberOfPoints();
+        for (int i = 0; i < pointNum; i++) {
+            auto pointId = cell->GetPointId(i);
+            if (pointIds_Set.count(pointId) == 0) continue;
+            pointIdInCells.insert(pointId);
+        }
+    }
+    return std::vector<int>(pointIdInCells.begin(), pointIdInCells.end());
+}
+
+std::vector<int> SingleSelectionStyle::GetFiltedPointsOfUsingAutoValueRange(
+        int keyPointId, const std::vector<int>& pointIds, SurfaceMesh* mesh) {
+    std::set<int> pointIds_Set(pointIds.begin(), pointIds.end());
+    std::vector<int> cellIds;
+    int cellNum = mesh->GetNumberOfFaces();
+    int keyCellId = -1;
+    for (int cellId = 0; cellId < cellNum; cellId++) {
+        auto cell = mesh->GetFace(cellId);
+        if (!IfCellHavePoint(cell, pointIds_Set)) continue;
+        if (keyCellId == -1 && IfCellHavePoint(cell, keyPointId))
+            keyCellId = cellId;
+        cellIds.push_back(cellId);
+    }
+    cellIds = GetFiltedCellsOfUsingAutoValueRange(keyCellId, cellIds, mesh);
+    std::set<int> pointIdInCells;
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetFace(cellId);
+        int pointNum = cell->GetNumberOfPoints();
+        for (int i = 0; i < pointNum; i++) {
+            auto pointId = cell->GetPointId(i);
+            if (pointIds_Set.count(pointId) == 0) continue;
+            pointIdInCells.insert(pointId);
+        }
+    }
+    return std::vector<int>(pointIdInCells.begin(), pointIdInCells.end());
+}
+
 std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(
         int keyCellId, const std::vector<int>& cellIds,
         UnstructuredMesh* mesh) {
@@ -691,6 +1353,76 @@ std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(
     //gather data
     for (auto& cellId: cellIds) {
         auto cell = mesh->GetCell(cellId);
+        FindEdgesOfCell(cell, map_Cell_Edges[cellId]);
+        for (auto& edge: map_Cell_Edges[cellId]) {
+            map_Edge_Cells[edge].insert(cellId);
+        }
+    }
+    //find results
+    std::set<CellId> set_ChoosedCellIds;
+    std::queue<CellId> queue_CurrentCellIds;
+    set_ChoosedCellIds.insert(keyCellId);
+    queue_CurrentCellIds.push(keyCellId);
+    while (!queue_CurrentCellIds.empty()) {
+        auto currentCellId = queue_CurrentCellIds.front();
+        queue_CurrentCellIds.pop();
+        auto& edges = map_Cell_Edges[currentCellId];
+        for (auto& edge: edges) {
+            auto& cellIdsOfEdge = map_Edge_Cells[edge];
+            for (auto& cellId: cellIdsOfEdge) {
+                if (set_ChoosedCellIds.count(cellId) != 0) continue;
+                set_ChoosedCellIds.insert(cellId);
+                queue_CurrentCellIds.push(cellId);
+            }
+        }
+    }
+    return std::vector<int>(set_ChoosedCellIds.begin(),
+                            set_ChoosedCellIds.end());
+}
+
+std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(
+        int keyCellId, const std::vector<int>& cellIds, VolumeMesh* mesh) {
+    if (mesh == nullptr || cellIds.empty()) return {};
+    std::map<std::pair<PointId, PointId>, std::set<CellId>> map_Edge_Cells;
+    std::map<CellId, std::set<std::pair<PointId, PointId>>> map_Cell_Edges;
+    //gather data
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetCell(cellId);
+        FindEdgesOfCell(cell, map_Cell_Edges[cellId]);
+        for (auto& edge: map_Cell_Edges[cellId]) {
+            map_Edge_Cells[edge].insert(cellId);
+        }
+    }
+    //find results
+    std::set<CellId> set_ChoosedCellIds;
+    std::queue<CellId> queue_CurrentCellIds;
+    set_ChoosedCellIds.insert(keyCellId);
+    queue_CurrentCellIds.push(keyCellId);
+    while (!queue_CurrentCellIds.empty()) {
+        auto currentCellId = queue_CurrentCellIds.front();
+        queue_CurrentCellIds.pop();
+        auto& edges = map_Cell_Edges[currentCellId];
+        for (auto& edge: edges) {
+            auto& cellIdsOfEdge = map_Edge_Cells[edge];
+            for (auto& cellId: cellIdsOfEdge) {
+                if (set_ChoosedCellIds.count(cellId) != 0) continue;
+                set_ChoosedCellIds.insert(cellId);
+                queue_CurrentCellIds.push(cellId);
+            }
+        }
+    }
+    return std::vector<int>(set_ChoosedCellIds.begin(),
+                            set_ChoosedCellIds.end());
+}
+
+std::vector<int> SingleSelectionStyle::GetFiltedCellsOfUsingAutoValueRange(
+        int keyCellId, const std::vector<int>& cellIds, SurfaceMesh* mesh) {
+    if (mesh == nullptr || cellIds.empty()) return {};
+    std::map<std::pair<PointId, PointId>, std::set<CellId>> map_Edge_Cells;
+    std::map<CellId, std::set<std::pair<PointId, PointId>>> map_Cell_Edges;
+    //gather data
+    for (auto& cellId: cellIds) {
+        auto cell = mesh->GetFace(cellId);
         FindEdgesOfCell(cell, map_Cell_Edges[cellId]);
         for (auto& edge: map_Cell_Edges[cellId]) {
             map_Edge_Cells[edge].insert(cellId);
