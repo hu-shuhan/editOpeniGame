@@ -154,6 +154,7 @@ void Scene::RemoveModel(IGuint modelID) {
         auto& m = it->second;
 
         if (id == modelID) {
+            if (auto visibility = m->GetVisibility()) { m_VisibleModelsCount--; }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -178,6 +179,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
         auto m = it->second;
 
         if (m == model) {
+            if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -197,7 +199,7 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
 
 void Scene::RemoveCurrentModel() {
     auto model = m_ModelPool->GetObjectByHandle(m_CurrentModelID);
-    if (auto visibility = model->GetVisibility()) { m_VisibleModelsCount--; }
+    if (auto visibility = model->GetVisibility()) {m_VisibleModelsCount--;}
     RemoveModel(m_CurrentModelID);
 }
 
