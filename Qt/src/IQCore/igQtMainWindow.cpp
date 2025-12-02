@@ -4,6 +4,7 @@
 //
 
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
+#include "Deformation/iGameStressDeformationFilterCode.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
@@ -600,11 +601,13 @@ void igQtMainWindow::initAllFilters() {
     connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        VolumeMeshMetricsFilter::Pointer filter = VolumeMeshMetricsFilter::New();
-        filter->SetVolumeMetric(VolumeMeshMetricsFilter::TET_EDGE_RATIO);
+        auto filter = iGame::StressDeformationCodeFilter::New();
+        obj->GetDeformationData()->SetAttributeName("UVW");
         filter->SetInput(obj);
+        filter->CalculateIdealDSF();
         filter->Execute();
 
+        auto res = filter->GetOutput(0);
         modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
         rendererWidget->update();
         });
@@ -1495,12 +1498,11 @@ void igQtMainWindow::initAllInteractor() {
         if (model == nullptr) return;
         auto dataObj = model->GetDataObject();
         if (dataObj == nullptr) return;
-        auto mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(dataObj);
-        if (mesh == nullptr) return;
         auto selection = model->GetSelection();
         if (selection == nullptr) return;
         auto scene = rendererWidget->GetScene();
         auto interactor = scene->GetInteractor();
+        if (!interactor->HaveSpecialInteractor("SelectBox")) return;
         auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
         if (basicStyle == nullptr) return;
         auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
@@ -1508,20 +1510,67 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-        if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
-            iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
-            auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
-                    faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-            selection->SelectionCallBackEvent(IG_CELL, cellIds,
-                                              SelectionParameter::Instance().GetSelectOrUnSelect()
-                                                      ? Selection::Operate::Add
-                                                      : Selection::Operate::Remove);
-        } else {
-            auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
-            selection->SelectionCallBackEvent(IG_POINT, pointIds,
-                                              SelectionParameter::Instance().GetSelectOrUnSelect()
-                                                      ? Selection::Operate::Add
-                                                      : Selection::Operate::Remove);
+
+        auto meshType = dataObj->GetDataObjectType();
+        switch (meshType) {
+            case IG_SURFACE_MESH: {
+                auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                mesh->RequestEditStatus();
+                if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                    iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                    auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_CELL, cellIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                } else {
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                }
+            } break;
+            case IG_VOLUME_MESH: {
+                auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                mesh->RequestEditStatus();
+                if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                    iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                    auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_CELL, cellIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                } else {
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                }
+            } break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                if (iGame::SelectionParameter::Instance().GetSelectionStation() ==
+                    iGame::SelectionParameter::SelectionStation::CELL_SELECTION) {
+                    auto cellIds = iGame::SingleSelectionStyle::GetCellsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_CELL, cellIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                } else {
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds,
+                                                      SelectionParameter::Instance().GetSelectOrUnSelect()
+                                                              ? Selection::Operate::Add
+                                                              : Selection::Operate::Remove);
+                }
+            } break;
+            default:
+                return;
         }
     });
 
