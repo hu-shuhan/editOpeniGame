@@ -1,15 +1,14 @@
 #ifndef MeshCodecFloatCodec_h
 #define MeshCodecFloatCodec_h
 
+#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
 #include "iGameMacro.h"
-#include "iGameThreadPool.h"
-#include "iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include <functional>
 
 IGAME_NAMESPACE_BEGIN
 
-// 经过测试zfp的压缩率远不如meshopt
-class MeshOptFloatCodec {
+class MeshFloatCodec {
 public:
 	template<typename T>
 	static void FloatEncoder(
@@ -19,79 +18,73 @@ public:
 		const FloatErrorControlParameters& errorParams
 		)
 	{
-		IGsize elementCount = floatParams.elementCount;
-		int dimension = floatParams.dimension;
+		const IGsize elementCount = floatParams.elementCount;
+		const int dimension = floatParams.dimension;
 		IGsize valueCount = elementCount * dimension;
 
 		// void* -> vector<float> / vector<double>
 		// 定点数化
-		int encodeVertexSize = floatParams.valueSize * dimension;
-		int encodeElementCount = elementCount;
+        const IGsize encodeVertexSize = floatParams.valueSize * dimension;
+        const IGsize encodeElementCount = elementCount;
 
+		// region deprecated lambdas
+		// float max_val = source[0];
+		// float min_val = source[0];
 
-		float max_val = source[0];
-		float min_val = source[0];
+        // auto Quantize = [&](float value, int bits) -> float {
+		// 	if (value == 0.0f) {
+		// 		return 0.0f;
+		// 	}
+        //     // 防御：bits 非法或过大直接绕过
+        //     if (bits <= 0 || bits >= 32) return value;
+        //     uint32_t max_quantized_value = (1u << bits) - 1u;
+		// 	float clipped_value = std::max(min_val, std::min(value, max_val));
+		// 	float normalized_value = (clipped_value - min_val) / (max_val - min_val);
+		// 	uint32_t quantized_value = static_cast<uint32_t>(
+		// 		std::round(normalized_value * max_quantized_value)
+		// 		);
+		// 	float normalized_dequantized = static_cast<float>(quantized_value) / max_quantized_value;
+		// 	float dequantized_value = normalized_dequantized * (max_val - min_val) + min_val;
+		// 	return dequantized_value;
+		// 	};
 
+		// auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
+		// 	strength = std::min(std::max(strength, 0.0f), 1.0f);
+		// 	const int levels = maxBits - minBits + 1;
+		// 	const int index = (strength == 0.0f) ? 0 : static_cast<int>(strength * levels);
+		// 	const int cappedIndex = std::min(index, levels - 1);
+		// 	return maxBits - cappedIndex;
+		// 	};
 
-        auto Quantize = [&](float value, int bits) -> float {
-			if (value == 0.0f) {
-				return 0.0f;
-			}
+		// auto QuantizeStrengthToBits = [=](float strength) -> int {
+		// 	// 损坏最高 损坏最低
+		// 		return StrengthToBits(strength, 8, 32);
+		// 	};
 
-            // 防御：bits 非法或过大直接绕过
-            if (bits <= 0 || bits >= 32) return value;
-            uint32_t max_quantized_value = (1u << bits) - 1u;
-			float clipped_value = std::max(min_val, std::min(value, max_val));
-			float normalized_value = (clipped_value - min_val) / (max_val - min_val);
-			uint32_t quantized_value = static_cast<uint32_t>(
-				std::round(normalized_value * max_quantized_value)
-				);
-			float normalized_dequantized = static_cast<float>(quantized_value) / max_quantized_value;
-			float dequantized_value = normalized_dequantized * (max_val - min_val) + min_val;
-			return dequantized_value;
-			};
+		// auto MantissaStrengthToBits = [=](float strength) -> int {
+		// 	return StrengthToBits(strength, 4, 23);
+		// 	};
 
-		auto StrengthToBits = [=](float strength, int minBits, int maxBits) -> int {
-			strength = std::min(std::max(strength, 0.0f), 1.0f);
-			const int levels = maxBits - minBits + 1;
-			const int index = (strength == 0.0f) ? 0 : static_cast<int>(strength * levels);
-			const int cappedIndex = std::min(index, levels - 1);
-			return maxBits - cappedIndex;
-			};
+		// auto QuantizeErrorToBits = [&](double epsilon) -> int {
+		// 	float minValue = *std::min_element(source.begin(), source.end());
+		// 	float maxValue = *std::max_element(source.begin(), source.end());
+		// 	// 处理无效参数
+		// 	if (minValue <= 0 || maxValue <= 0 || epsilon <= 0 || maxValue < minValue) {
+		// 		return -1; // 返回错误值
+		// 	}
+		// 	// 计算所需位数N
+		// 	double logRange = log(maxValue / minValue);
+		// 	double requiredBits = log2(logRange / epsilon + 1);
+		// 	// 向上取整，确保满足误差要求
+		// 	return static_cast<int>(ceil(requiredBits));
+		// 	};
 
-		auto QuantizeStrengthToBits = [=](float strength) -> int {
-			// 损坏最高 损坏最低
-				return StrengthToBits(strength, 8, 32);
-			};
-
-		auto MantissaStrengthToBits = [=](float strength) -> int {
-
-			return StrengthToBits(strength, 4, 23);
-			};
-
-		auto QuantizeErrorToBits = [&](double epsilon) -> int {
-			float minValue = *std::min_element(source.begin(), source.end());
-			float maxValue = *std::max_element(source.begin(), source.end());
-
-			// 处理无效参数
-			if (minValue <= 0 || maxValue <= 0 || epsilon <= 0 || maxValue < minValue) {
-				return -1; // 返回错误值
-			}
-
-			// 计算所需位数N
-			double logRange = log(maxValue / minValue);
-			double requiredBits = log2(logRange / epsilon + 1);
-
-			// 向上取整，确保满足误差要求
-			return static_cast<int>(ceil(requiredBits));
-			};
-
-		auto MantissaErrorToBits = [&](double epsilon) -> int {
-			if (epsilon <= 0 || epsilon >= 1)
-				return -1; // 无效的误差值
-
-			return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
-			};
+		// auto MantissaErrorToBits = [&](double epsilon) -> int {
+		// 	if (epsilon <= 0 || epsilon >= 1)
+		// 		return -1; // 无效的误差值
+		// 	return static_cast<int>(ceil(log2(1.0 / epsilon) - 1));
+		// 	};
+		// endregion
 
 		// 将 UI 等级映射为 meshopt_quantizeFloat 的 N（保留的 mantissa 位数）
 		// 说明：meshopt_quantizeFloat(value, N) 的 N 是“保留”的位数（0..23）。
@@ -112,7 +105,7 @@ public:
 
 		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc) -> void
             {
-                const int valueBits = static_cast<int>(floatParams.valueSize * 8);
+                // const int valueBits = static_cast<int>(floatParams.valueSize * 8);
                 switch (floatParams.errorMode)
                 {
 				case ErrorMode::Default:
@@ -120,7 +113,7 @@ public:
                     int keepBits = quantizeLevelToKeptMantissaBits(floatParams.globalQuantizeLevel);
                     // 仅当保留位数小于满精度(23)时执行量化
                     if (keepBits < 23) {
-                        ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                        CodecThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
                             for (int i = start; i < end; i++) {
                                 source[i] = quantFunc(source[i], keepBits);
                             }
@@ -137,10 +130,9 @@ public:
                     const bool applyCritical = (criticalKeep < 23);
                     const bool applyNormal   = (normalKeep < 23);
 
-                    ThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
+                    CodecThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
                         for (int i = start; i < end; i++) {
-                            const bool isKey = errorParams.isKeyElement[i / dimension];
-                            if (isKey) {
+                            if (errorParams.isKeyElement[i / dimension]) {
                                 if (applyCritical) source[i] = quantFunc(source[i], criticalKeep);
                             } else {
                                 if (applyNormal) source[i] = quantFunc(source[i], normalKeep);
@@ -157,17 +149,21 @@ public:
 
 		if (floatParams.errorMode != ErrorMode::None)
 		{
-		    for (const auto& val : source) {
-		        if (val > max_val) {
-		            max_val = val;
-		        }
-		        if (val < min_val) {
-		            min_val = val;
-		        }
-		    }
-
 		    doQuantize(meshopt_quantizeFloat);
 
+            // region deprecated: only used by Quantize lambda
+
+		    // for (const auto& val : source) {
+		    //     if (val > max_val) {
+		    //         max_val = val;
+		    //     }
+		    //     if (val < min_val) {
+		    //         min_val = val;
+		    //     }
+		    // }
+		    //
+		    // doQuantize(meshopt_quantizeFloat);
+		    //
 			// switch (floatParams.lossyMode)
 			// {
 			// case LossyMode::Quantization:
@@ -192,14 +188,16 @@ public:
 			// default:
 			// 	break;
 			// }
+
+            // endregion
+
 		}
 
 		// 编码
+	    // 经过测试zfp的压缩率远不如mesh optimizer
 		dest.resize(meshopt_encodeVertexBufferBound(encodeElementCount, encodeVertexSize));
 		dest.resize(meshopt_encodeVertexBuffer(dest.data(), dest.size(), source.data(),
 			encodeElementCount, encodeVertexSize));
-
-		return;
 	}
 
 	// dest需要在外部先开辟好空间
@@ -208,10 +206,10 @@ public:
 		const std::vector<unsigned char>& source,
 		const FloatParameters& floatParams)
 	{
-		IGsize valueCount = floatParams.elementCount * floatParams.dimension;
+		const IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 		dest.resize(valueCount);
 
-		IGsize vertexSize = floatParams.valueSize * floatParams.dimension;
+        const IGsize vertexSize = floatParams.valueSize * floatParams.dimension;
 		meshopt_decodeVertexBuffer(
 			dest.data(),
 			floatParams.elementCount,
@@ -219,8 +217,6 @@ public:
 			source.data(),
 			source.size()
 		);
-
-		return;
 	}
 };
 
@@ -238,19 +234,19 @@ public:
 		absError.resize(floatParams.elementCount);
 
 		// 使用多线程计算误差
-		ThreadPool::parallelFor(0, floatParams.elementCount, [&](int start, int end) -> void {
+		CodecThreadPool::parallelFor(0, static_cast<int>(floatParams.elementCount), [&](int start, int end) -> void {
 			for (int elemIdx = start; elemIdx < end; ++elemIdx) {
 				float sumAbsErr = 0.0f;
 				float sumRelErr = 0.0f;
 
 				// 计算单个元素内所有维度的误差
 				for (int dim = 0; dim < floatParams.dimension; ++dim) {
-					int idx = elemIdx * floatParams.dimension + dim;
+                    const int idx = elemIdx * floatParams.dimension + dim;
 
 					// 确保索引在有效范围内
 					if (idx < source.size() && idx < quantized.size()) {
 						// 计算当前维度的绝对误差
-						float dimAbsErr = std::abs(source[idx] - quantized[idx]);
+                        const float dimAbsErr = std::abs(source[idx] - quantized[idx]);
 						sumAbsErr += dimAbsErr * dimAbsErr;  // 平方和
 
 						// 计算当前维度的相对误差（避免除零）
@@ -262,8 +258,8 @@ public:
 				}
 
 				// 计算元素整体的均方根误差
-				absError[elemIdx] = std::sqrt(sumAbsErr / floatParams.dimension);
-				relError[elemIdx] = std::sqrt(sumRelErr / floatParams.dimension) * 100.0f; // 转换为百分比
+				absError[elemIdx] = std::sqrt(sumAbsErr / static_cast<float>(floatParams.dimension));
+				relError[elemIdx] = std::sqrt(sumRelErr / static_cast<float>(floatParams.dimension)) * 100.0f; // 转换为百分比
 			}
 			});
 	}

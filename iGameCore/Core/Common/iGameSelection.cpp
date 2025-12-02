@@ -458,6 +458,8 @@ void Selection::SetSelectBoxVisable(bool visable) {
     m_Model->GetPainter3D(Painter3D::Usage::SelectionBox)->SetTotallyHide(!visable);
 }
 
+Selection::Selection() {}
+
 void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
     if (m_Model == nullptr) return;
     auto scene = m_Model->GetScene();
@@ -525,8 +527,13 @@ void Selection::DrawCellBoundingBoxs() {
 
 UnstructuredMesh* Selection::_GetMesh() {
     if (m_Model == nullptr) return nullptr;
-    if (m_Mesh == nullptr) m_Mesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
-    return m_Mesh;
+    if (m_Model->GetDataObject()->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+        return DynamicCast<UnstructuredMesh>(m_Model->GetDataObject());
+    }
+    if (m_DataObjectPointerMesh == nullptr) {
+        m_DataObjectPointerMesh = UnstructuredMesh::TransDataObjToUnstructuredMesh(m_Model->GetDataObject());
+    }
+    return DynamicCast<UnstructuredMesh>(m_DataObjectPointerMesh);
 }
 
 IGAME_NAMESPACE_END

@@ -1,10 +1,6 @@
 #include "IQComponents/Dialog/igQtMeshCodecDialog.h"
 #include <QTimer>
 #include <QScreen>
-#include <QGuiApplication>
-#include <QRadioButton>
-#include <QComboBox>
-#include <QFontMetrics>
 #include <limits>
 #include <cmath>
 
@@ -60,6 +56,9 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     // 初始隐藏关键区域选择板块并压缩高度
     ui->groupbox_dataDistGroup->setEnabled(false);
     UpdateKeyAreaVisibility(false);
+
+    // 初始化压缩等级选择，默认选择等级3（index=3）
+    ui->comboBox_compressLevel->setCurrentIndex(m_params.compressLevel);
 }
 
 bool igQtMeshCodecDialog::IsValidAttrIndex(int dataIndex)
@@ -79,12 +78,16 @@ void igQtMeshCodecDialog::InitIntro()
 
 void igQtMeshCodecDialog::InitUIControlParams()
 {
-    // +2: 一个"全部数据"选项 + 一个"顶点坐标"选项
-    for (int i = 0; i < m_dataObj->GetAttributeSet()->GetNumberOfAttributes() + ATTRIBUTE_OFFSET; i++)
+    using namespace iGame::UIControlParamsIndex;
+    
+    const int attrCount = m_dataObj->GetAttributeSet()->GetNumberOfAttributes();
+    const int totalCount = GetTotalCount(attrCount);
+    
+    for (int i = 0; i < totalCount; i++)
     {
         iGame::FloatErrorControlParameters p;
        
-        if (i == 0)
+        if (IsAllData(i))
         {
             // 第一项：全部数据（特殊选项，用于全局设置）
             p.dataName = m_AllDataName;
@@ -92,7 +95,7 @@ void igQtMeshCodecDialog::InitUIControlParams()
             p.elementCount = 0;
             p.isKeyElement = std::vector<bool>();
         }
-        else if (i == 1)
+        else if (IsGeom(i))
         {
             // 第二项：顶点坐标
             p.dataName = m_GeomName;
@@ -103,7 +106,7 @@ void igQtMeshCodecDialog::InitUIControlParams()
         else
         {
             // 第三项开始：实际属性数据
-            auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i - ATTRIBUTE_OFFSET);
+            auto attr = m_dataObj->GetAttributeSet()->GetAttribute(ToAttrIndex(i));
             p.dataName = attr.pointer->GetName();
             p.dimension = attr.pointer->GetDimension();
             p.elementCount = attr.pointer->GetNumberOfElements();
@@ -176,8 +179,8 @@ void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIn
 
     SetRadiosFromErrorMode(errorBoundSetting.errorMode);
 
-    // 当选择"全部数据"（索引0）时，禁用分区量化选项
-    if (dataIndex == 0) {
+    // 当选择"全部数据"时，禁用分区量化选项
+    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
         ui->radio_areaModel->setEnabled(false);
         // 如果当前选中的是分区量化，切换到全局量化模式
         if (ui->radio_areaModel->isChecked()) {
@@ -551,8 +554,8 @@ void igQtMeshCodecDialog::ApplySettingToData(Func setter)
         return;
     }
     
-    // 如果当前选择的是"全体数据"（索引0），则应用到所有数据项
-    if (dataIndex == 0) {
+    // 如果当前选择的是"全体数据"，则应用到所有数据项
+    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
         for (int i = 0; i < m_DataNum; i++) {
             setter(m_params.errorBoundSetting[i]);
         }
@@ -577,7 +580,7 @@ void igQtMeshCodecDialog::on_radio_losslessMode_toggled(bool checked)
         });
         // 更新Combo前缀
         int idx = GetCurrentDataIndex();
-        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
         RecomputeDialogSize();
     }
 }
@@ -597,7 +600,7 @@ void igQtMeshCodecDialog::on_radio_globalMode_toggled(bool checked)
         });
         // 更新Combo前缀
         int idx = GetCurrentDataIndex();
-        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
         RecomputeDialogSize();
     }
 }
@@ -614,7 +617,7 @@ void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
         });
         // 更新Combo前缀
         int idx = GetCurrentDataIndex();
-        if (idx == 0) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
 
         // 启用并显示关键区域选择板块
         ui->groupbox_dataDistGroup->setEnabled(true);
@@ -655,6 +658,11 @@ void igQtMeshCodecDialog::on_comboBox_normalLevel_currentIndexChanged(int index)
 void igQtMeshCodecDialog::on_checkbox_showReport_stateChanged(int state)
 {
     m_params.showReport = ui->checkbox_showReport->isChecked();
+}
+
+void igQtMeshCodecDialog::on_comboBox_compressLevel_currentIndexChanged(int index)
+{
+    m_params.compressLevel = index;
 }
 
 void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
@@ -804,16 +812,19 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
     if (!IsValidAttrIndex(dataIndex))
         return;
 
-    // 0号为“全部数据”，不参与特征直方图计算，防御性短路
-    if (dataIndex == 0) {
+    // "全部数据"不参与特征直方图计算，防御性短路
+    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
         xAxis.clear();
         yAxis.clear();
         return;
     }
 
-    // UI 索引：0=全部数据(不用于特征)，1=几何，2+=属性
-    // MeshCodecFeature 期望：1=几何，其他属性用 (uiIndex-1)
-    int featIndex = (dataIndex <= 1) ? dataIndex : (dataIndex - 1);
+    // MeshCodecFeature 期望的索引：1=几何，2+=属性（属性使用 attrIndex+1）
+    // UI索引：0=全部数据，1=几何，2+=属性
+    // 转换：几何直接用1，属性用 ToAttrIndex(dataIndex)+1
+    int featIndex = iGame::UIControlParamsIndex::IsGeom(dataIndex)
+                    ? dataIndex
+                    : (iGame::UIControlParamsIndex::ToAttrIndex(dataIndex) + 1);
     iGame::MeshCodecFeature featureExtractor(this->m_dataObj, featIndex);
     std::vector<float> norms;
 

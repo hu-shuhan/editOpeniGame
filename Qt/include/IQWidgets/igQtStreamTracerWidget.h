@@ -1,12 +1,12 @@
 #pragma once
 #include <ui_igStreamTracer.h>
 //#include <iGameManager.h>
+#include <QHideEvent>
 #include <StreamView/iGameStreamBase.h>
 #include <iGamePointFinder.h>
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
-#include <QHideEvent>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT
@@ -38,17 +38,17 @@ public slots:
     //void changeOffsetP1();
     //void changeOffsetP2();
 signals:
-    void AddStreamObject(DataObject::Pointer);
-    void UpdateStreamObject(DataObject::Pointer);
+    void AddStreamObject(iGame::DataObject::Pointer);
+    void UpdateStreamObject(iGame::DataObject::Pointer);
 
 private:
     Ui::SteamLineTracer* ui;
-    SmartPointer<StreamLineSelection> Selection;
-    SmartPointer<Painter3D> Painter;
+    iGame::SmartPointer<iGame::StreamLineSelection> Selection;
+    iGame::SmartPointer<iGame::Painter3D> Painter;
     bool isExisted = false;
     int numOfSeeds;
-    Vector3f startP;
-    Vector3f endP;
+    iGame::Vector3f startP;
+    iGame::Vector3f endP;
     int control;
     float proportion;
     float lengthOfStreamLine;
@@ -59,19 +59,19 @@ private:
     bool haveClicked;
     std::string masterName;
     std::string vectorName;
-    UnstructuredMesh::Pointer streamlineResult{};
-    std::vector<PointFinder::Pointer> ptFinder;
-    iGameStreamBase* m_StreamBase{nullptr};
-    DataObject::Pointer m_DataObject;
-    Vector3f offsetP1{0,0,0};
-    Vector3f offsetP2{0,0,0};
-    std::vector<Vector3f> seedPoints{
+    iGame::UnstructuredMesh::Pointer streamlineResult{};
+    std::vector<iGame::PointFinder::Pointer> ptFinder;
+    iGame::StreamBase* m_StreamBase{nullptr};
+    iGame::DataObject::Pointer m_DataObject;
+    iGame::Vector3f offsetP1{0, 0, 0};
+    iGame::Vector3f offsetP2{0, 0, 0};
+    std::vector<iGame::Vector3f> seedPoints{
             {-0.440697, -0.291987, -0.1272},
             {-0.38931, 0.339697, 0.223517},
-            {-0.603765,-0.340187,-0.1272},
-            {-0.516121,0.312594,0.223517},
-            {-0.320113,-0.348173,-0.1272},
-            {-0.360381,0.273479,0.223517},
+            {-0.603765, -0.340187, -0.1272},
+            {-0.516121, 0.312594, 0.223517},
+            {-0.320113, -0.348173, -0.1272},
+            {-0.360381, 0.273479, 0.223517},
             {},
             {},
     };

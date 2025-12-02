@@ -45,6 +45,9 @@ Scene::Scene() {
     m_ColorTexture = GLTexture2d::New();
     m_DepthTexture = GLTexture2d::New();
 
+    m_FramebufferBackup = GLFramebuffer::New();
+    m_ColorTextureBackup = GLTexture2d::New();
+
     m_OITHeadPointerTexture = GLTexture2d::New();
     m_OITHeadPointerInitializer = GLBuffer::New();
     m_OITAtomicCounterBuffer = GLBuffer::New();
@@ -68,6 +71,14 @@ Scene::Scene() {
 
 Scene::~Scene() {
     if (m_FinishInit) { glDeleteQueries(2, m_TimeQueries); }
+}
+
+void Scene::BindFramebuffer() const {
+#ifdef GL_SUPPORT_MSAA
+    m_FramebufferMultisampled->Bind();
+#else
+    m_Framebuffer->Bind();
+#endif
 }
 
 bool Scene::ShouldRenderThisCall() const {
@@ -143,6 +154,9 @@ void Scene::RemoveModel(IGuint modelID) {
         auto& m = it->second;
 
         if (id == modelID) {
+            if (auto visibility = m->GetVisibility()) {
+                m_VisibleModelsCount--;
+            }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -167,6 +181,9 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
         auto m = it->second;
 
         if (m == model) {
+            if (auto visibility = model->GetVisibility()) {
+                m_VisibleModelsCount--;
+            }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -384,11 +401,11 @@ void Scene::InitOpenGL() {
         m_Painter2D->SetPen(5);
         m_Painter2D->SetBrush(Color::Green);
 
-        //m_Painter2D->DrawPoint({300, 300});
-        //m_Painter2D->DrawLine({100, 100}, {200, 200});
-        //m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
-        //m_Painter2D->DrawRect({100, 100}, {200, 200});
-        //m_Painter2D->DrawCircle({100, 100}, 100, 100);
+        // m_Painter2D->DrawPoint({300, 300});
+        // m_Painter2D->DrawLine({100, 100}, {200, 200});
+        // m_Painter2D->DrawTriangle({100, 100}, {200, 100}, {100, 200});
+        // m_Painter2D->DrawRect({100, 100}, {200, 200});
+        // m_Painter2D->DrawCircle({100, 100}, 100, 100);
     }
 
     // painter3d test
@@ -397,25 +414,25 @@ void Scene::InitOpenGL() {
         m_Painter3D->SetPen(5);
         m_Painter3D->SetBrush(Color::Green);
 
-        //m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
+        // m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
         // m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
-        //m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
-        //                          {1.0f, -1.0f, 0.0f});
-        //m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
-        //m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
-        //m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
-        //                        100);
-        //m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
-        //m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
-        //m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
-        //m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
-        //                          1.0f, 16);
-        //m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
-        //                      16);
-        //m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
-        //                         1.0f, 8, 8);
-        //m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
-        //                         1.0f, 0.5f, 8);
+        // m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
+        //                           {1.0f, -1.0f, 0.0f});
+        // m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
+        // m_Painter3D->DrawCube({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, -1.0f});
+        // m_Painter3D->DrawCircle({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, 1,
+        //                         100);
+        // m_Painter3D->DrawSphere({0.0f, 0.0f, 0.0f}, 1.0f, 100, 100);
+        // m_Painter3D->DrawIcoSphere({0.0f, 0.0f, 0.0f}, 1.0f, 5);
+        // m_Painter3D->DrawCubeSphere({0.0f, 0.0f, 0.0f}, 1.0f, 8);
+        // m_Painter3D->DrawCylinder({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                           1.0f, 16);
+        // m_Painter3D->DrawCone({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1, 1.0f,
+        //                       16);
+        // m_Painter3D->DrawPyramid({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1,
+        //                          1.0f, 8, 8);
+        // m_Painter3D->DrawFrustum({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 1.0f,
+        //                          1.0f, 0.5f, 8);
     }
 
     GLCheckError();
@@ -502,7 +519,6 @@ void Scene::ResizeFrameBuffer() {
         m_ColorTextureMultisampled = colorTexture;
         m_DepthTextureMultisampled = depthTexture;
         m_FramebufferMultisampled = fbo;
-
         if (m_FramebufferMultisampled->CheckStatus() !=
             GL_FRAMEBUFFER_COMPLETE) {
             IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
@@ -527,6 +543,15 @@ void Scene::ResizeFrameBuffer() {
         colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+
+        auto colorTextureBackup = GLTexture2d::New();
+        colorTextureBackup->Create();
+        colorTextureBackup->Bind();
+        colorTextureBackup->Storage(1, GL_RGBA8, width, height);
+        colorTextureBackup->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        colorTextureBackup->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        colorTextureBackup->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        colorTextureBackup->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         auto depthR32FTexture = GLTexture2d::New();
         depthR32FTexture->Create();
@@ -553,8 +578,40 @@ void Scene::ResizeFrameBuffer() {
         m_DepthR32FTexture = depthR32FTexture;
         m_DepthTexture = depthTexture;
         m_Framebuffer = fbo;
-
         if (m_Framebuffer->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
+            IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
+                                  this->GetName());
+        }
+    }
+
+    //resize backup framebuffer
+    {
+        auto fbo = GLFramebuffer::New();
+        fbo->Create();
+        fbo->Target(GL_FRAMEBUFFER);
+        fbo->Bind();
+
+        auto colorTexture = GLTexture2d::New();
+        colorTexture->Create();
+        colorTexture->Bind();
+        colorTexture->Storage(1, GL_RGBA8, width, height);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        colorTexture->Parameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        colorTexture->Parameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        fbo->Texture(GL_COLOR_ATTACHMENT0, colorTexture, 0);
+
+        auto depthTexture = GLTexture2d::New();
+        depthTexture->Create();
+        depthTexture->Bind();
+        depthTexture->Storage(1, GL_DEPTH_COMPONENT24, width, height);
+        fbo->Texture(GL_DEPTH_ATTACHMENT, depthTexture, 0);
+
+        fbo->Release();
+
+        m_ColorTextureBackup = colorTexture;
+        m_FramebufferBackup = fbo;
+        if (m_FramebufferBackup->CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
             IGAME_RENDERING_ERROR("{}, framebuffer is not complete!",
                                   this->GetName());
         }
@@ -667,12 +724,13 @@ void Scene::RefreshHzb() {
     auto shader = this->GetShader(ShaderType::DEPTHREDUCE);
     shader->Use();
 
-    #ifdef GL_SUPPORT_MSAA
     ResolveFrameBuffer();
-    #endif
 
     m_DepthR32FTexture->Active(GL_TEXTURE1);
     shader->SetUniformi("screenDepth", 1);
+
+    m_HzbTexture->Active(GL_TEXTURE2);
+    shader->SetUniformi("myDepthPyramid", 2);
 
     // generate level 0
     {
@@ -756,8 +814,6 @@ void Scene::DrawFrame() {
 
     // Update camera data block in GPU
     UpdateCameraDataBlock();
-
-    glViewport(0, 0, viewport.x, viewport.y);
     {
         auto ClearFramebuffer = [&](float depth = 0.0f) {
             glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
@@ -775,7 +831,18 @@ void Scene::DrawFrame() {
         ClearFramebuffer();
 #endif
 
+        // Draw scene painter
+        glViewport(0, 0, viewport.x, viewport.y);
+        m_Painter2D->Draw();
+        m_Painter3D->Draw();
+
+        // Draw axes in bottom left
+        int mx = std::max(viewport.x, viewport.y);
+        glViewport(0, 0, mx / 10, mx / 10);
+        m_Axes->Draw();
+
         // Render to framebuffer
+        glViewport(0, 0, viewport.x, viewport.y);
 #ifdef IGAME_OPENGL_VERSION_330
         ShadowPass();
         ForwardPass();
@@ -788,17 +855,6 @@ void Scene::DrawFrame() {
             VolumeRenderingPass();
         }
 #endif
-
-        // draw scene painter
-        m_Painter2D->Draw();
-        m_Painter3D->Draw();
-    }
-
-    // draw axes in bottom left
-    {
-        // Note: If depth rendering is enabled, please comment out this line to preserve depth information.
-        glClear(GL_DEPTH_BUFFER_BIT);
-        m_Axes->Draw();
     }
 }
 
@@ -830,27 +886,40 @@ void Scene::RenderToSpecificFrame(GLint frameBuffer) {
     m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-#ifdef GL_SUPPORT_MSAA
 void Scene::ResolveFrameBuffer() {
     m_Framebuffer->Bind();
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     {
         auto viewport = m_Camera->GetScaledViewPort();
         glViewport(0, 0, viewport.x, viewport.y);
-        glDisable(GL_DEPTH_TEST);
 
         auto shader = this->GetShader(ShaderType::ATTACHMENTRESOLVE);
         shader->Use();
 
+        GLFramebuffer::Blit(m_Framebuffer, m_FramebufferBackup, 0, 0,
+                            viewport.x, viewport.y, 0, 0, viewport.x,
+                            viewport.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        shader->SetUniformi("numSamples", 1);
+        m_ColorTextureBackup->Active(GL_TEXTURE1);
+        shader->SetUniformi("colorTexture", 1);
+        m_DepthTexture->Active(GL_TEXTURE2);
+        shader->SetUniformi("depthTexture", 2);
+
+#ifdef GL_SUPPORT_MSAA
         shader->SetUniformi("numSamples", samples);
-        m_ColorTextureMultisampled->Active(GL_TEXTURE1);
-        shader->SetUniformi("colorTextureMS", 1);
-        m_DepthTextureMultisampled->Active(GL_TEXTURE2);
-        shader->SetUniformi("depthTextureMS", 2);
+        m_ColorTextureMultisampled->Active(GL_TEXTURE3);
+        shader->SetUniformi("colorTextureMS", 3);
+        m_DepthTextureMultisampled->Active(GL_TEXTURE4);
+        shader->SetUniformi("depthTextureMS", 4);
+#endif
 
         m_EmptyVAO->DrawArrays(GL_TRIANGLES, 0, 3);
     }
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
 }
-#endif
 
 void Scene::ShadowPass() {
     // use reversed-z buffer
@@ -863,18 +932,12 @@ void Scene::ShadowPass() {
 }
 
 void Scene::ForwardPass() {
-    // Bind framebuffer
-#ifdef GL_SUPPORT_MSAA
-    m_FramebufferMultisampled->Bind();
-#else
-    m_Framebuffer->Bind();
-#endif
-
     // Use reversed-z buffer
-    glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
+    glEnable(GL_DEPTH_TEST);
 
 #ifdef IGAME_OPENGL_VERSION_330
+    BindFramebuffer();
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
         model->Draw();
@@ -882,22 +945,23 @@ void Scene::ForwardPass() {
     }
 #elif IGAME_OPENGL_VERSION_460
     // normal mesh
+    BindFramebuffer();
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
         // draw mesh
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         if (!drawObject->IsAlwaysOnTop()) { model->Draw(); }
+
         // draw painter(since painter does not support transparency)
         if (drawObject->GetVisibility()) {
-            //model->GetPainter3D()->Draw();
             auto& painter3Ds = model->GetAllPainter3Ds();
-            for (auto& painter3D_: painter3Ds) { painter3D_.second->Draw(); }
+            for (auto& painter: painter3Ds) { painter.second->Draw(); }
         }
     }
 
     // 第二次遍历：专门渲染AlwaysOnTop模型（最后绘制）
-    glDisable(GL_DEPTH_TEST); // 全局禁用深度测试
+    glDisable(GL_DEPTH_TEST);
     for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
         auto model = it->second;
 
@@ -905,7 +969,7 @@ void Scene::ForwardPass() {
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
         if (drawObject->IsAlwaysOnTop()) { model->Draw(); }
     }
-    glEnable(GL_DEPTH_TEST); // 恢复深度测试
+    glEnable(GL_DEPTH_TEST);
 
     // meshleter mesh
     #ifdef GL_SUPPORTS_MESH_SHADER
@@ -932,13 +996,14 @@ void Scene::ForwardPass() {
     }
     #else
     {
-        // draw prepass: use last frame data to test occlusion results
+        // pre pass: test occlusion results for phase 1
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->TestOcclusionResults();
         }
 
         // draw phase1: draw visible meshlet
+        BindFramebuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
             model->DrawPhase1();
@@ -946,8 +1011,8 @@ void Scene::ForwardPass() {
 
         // refresh phase1: generate loacl hierarchical z-buffer
         RefreshHzb();
-
         // draw phase2: draw invisible meshlet
+        BindFramebuffer();
         RefreshDrawCullDataBuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
             auto model = it->second;
@@ -960,12 +1025,8 @@ void Scene::ForwardPass() {
     #endif
 #endif
 
-#ifdef GL_SUPPORT_MSAA
     ResolveFrameBuffer();
     glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
-#endif
-
-    glDisable(GL_DEPTH_TEST);
     GLCheckError();
 }
 

@@ -23,7 +23,7 @@ bool IGCWriter::EncodeData()
     if (m_hasUIParams) {
         m_encoder->SetUIControlParams(m_UIParams);
     } else {
-        auto uiParams = MeshEncoderFilter::GenUiControlParams(m_DataObject);
+        auto uiParams = MeshEncoderFilter::GenerateUIControlParams(m_DataObject);
         m_encoder->SetUIControlParams(uiParams);
     }
 
@@ -32,22 +32,20 @@ bool IGCWriter::EncodeData()
 
 bool IGCWriter::GenerateOutput()
 {
-    const auto& encodedData = DynamicCast<EncodedMeshData>(m_encoder->GetOutput(0));
-    if (!encodedData || encodedData->m_Buffers.empty()) {
+    const auto& encoderOutput =
+        DynamicCast<EncodeOutputBinaryArray>(m_encoder->GetOutput(0));
+    if (!encoderOutput || encoderOutput->GetSize() == 0) {
         return false;
     }
 
-    IGsize totalSize = encodedData->m_Buffers.size();
-    if (totalSize == 0) {
-        return false;
-    }
+    IGsize totalSize = encoderOutput->GetSize();
 
     m_Buffers.resize(1, nullptr);
     m_Buffers[0] = CharArray::New();
     m_Buffers[0]->Resize(totalSize);
 
     char* dest = m_Buffers[0]->RawPointer();
-    std::memcpy(dest, encodedData->m_Buffers.data(), totalSize);
+    std::memcpy(dest, encoderOutput->GetData(), totalSize);
     
     return true;
 }

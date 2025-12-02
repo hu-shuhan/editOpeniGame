@@ -4,6 +4,7 @@
 #include <iGameThreadPool.h>
 #include <utility>
 #include <iGameTimer.h>
+#include <iGameBoxStyle.h>
 using namespace std;
 
 static constexpr int SATURATION = 160;
@@ -137,6 +138,21 @@ void igQtDataChangeWidget::SetModel(Model::Pointer model) {
 void igQtDataChangeWidget::SetInteractorName(const std::string& name) { m_RadialIntName = name; }
 
 const std::string& igQtDataChangeWidget::GetInteractorName() { return m_RadialIntName; }
+
+void igQtDataChangeWidget::SetScene(iGame::Scene* scene) { m_Scene = scene; }
+
+void igQtDataChangeWidget::TrySetRadialByScene() {
+    if (m_Scene == nullptr) return;
+    auto interactor = m_Scene->GetInteractor();
+    if (interactor == nullptr) return;
+    auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+    if (basicStyle == nullptr) return;
+    auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+    auto box = boxStyle->GetBox();
+    auto minMaxP = box->GetExtremePoint();
+    auto boundingBox = BoundingBox(minMaxP.first, minMaxP.second);
+    SetRadialPoint(boundingBox);
+}
 
 void igQtDataChangeWidget::RangeChooseObj(const QRect& chooseRange, const QRect& frameRange, std::vector<igIndex>& ids,
                                           IGenum& type) {
@@ -283,6 +299,10 @@ void igQtDataChangeWidget::hideEvent(QHideEvent* event) {
 
 void igQtDataChangeWidget::SetRadialPoint() {
     auto& box = m_Mesh->GetBoundingBox();
+    SetRadialPoint(box);
+}
+
+void igQtDataChangeWidget::SetRadialPoint(const iGame::BoundingBox& box) {
     auto dir = (box.max - box.min) * 0.1;
     m_RadialStyle->SetPoint(box.min - dir, box.max + dir);
 }
@@ -767,7 +787,10 @@ void igQtDataChangeWidget::RefreshData() {
     //GenerateBackgroundColor();
 }
 
-void igQtDataChangeWidget::DataGetToolClicked(bool checked) { ShowRadial(checked); }
+void igQtDataChangeWidget::DataGetToolClicked(bool checked) {
+    if (checked) { TrySetRadialByScene(); }
+    ShowRadial(checked);
+}
 
 void igQtDataChangeWidget::TempSlot_SetRadialData() {
     _AT_;

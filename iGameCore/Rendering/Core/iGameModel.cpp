@@ -670,7 +670,7 @@ void Model::DrawPhase1() {
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
-                                  "meshlet count:{}]",
+                                  "all meshlet count:{}]",
                                   meshleter->GetName(),
                                   meshletCount - invisibleMeshletCount,
                                   meshletCount);
@@ -786,7 +786,7 @@ void Model::DrawPhase1() {
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 1 [visiable count:{}, "
-                                  "meshlet count:{}]",
+                                  "all meshlet count:{}]",
                                   meshleter->GetName(), visibleMeshletCount,
                                   meshleter->m_MeshletCount);
         #endif
@@ -940,7 +940,7 @@ void Model::DrawPhase2() {
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
-                                  "meshlet count:{}]",
+                                  "reserve meshlet count:{}]",
                                   meshleter->GetName(),
                                   invisibleMeshletCount - c,
                                   invisibleMeshletCount);
@@ -1059,14 +1059,14 @@ void Model::DrawPhase2() {
 
                 auto cullDataBuffer =
                         m_Scene->m_ShaderManager->GetCullDataBuffer();
-                cullDataBuffer->Target(GL_UNIFORM_BUFFER);
                 cullDataBuffer->BindBase(7);
 
                 m_Scene->m_HzbTexture->Active(GL_TEXTURE1);
                 shader->SetUniformi("hzbSampler", 1);
 
-                auto count = meshleter->m_MeshletCount;
-                glDispatchCompute(((count + 255) / 256), 1, 1);
+                size_t count = meshleter->m_MeshletCount;
+                glDispatchCompute(static_cast<GLuint>((count + 255) / 256), 1,
+                                  1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
 
@@ -1095,7 +1095,7 @@ void Model::DrawPhase2() {
 
         #ifdef ENABLE_CULLING_DEBUGINFO
             IGAME_RENDERING_DEBUG("{}, draw phase 2 [visiable count:{}, "
-                                  "meshlet count:{}]",
+                                  "reserve meshlet count:{}]",
                                   meshleter->GetName(), count,
                                   meshleter->m_MeshletCount -
                                           lastVisibleMeshletCount);

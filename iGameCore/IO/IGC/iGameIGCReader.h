@@ -1,7 +1,7 @@
 #ifndef iGameIGCReader_h
 #define iGameIGCReader_h
 
-#include "MeshCodec/iGameEncodedMeshData.h"
+#include "../../Filters/MeshCodec/DecodeInput/iGameDecodeInputBinaryArray.h"
 #include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "iGameFileReader.h"
 #include <fstream>
@@ -23,11 +23,12 @@ protected:
 
 private:
     DataObject::Pointer m_DecodedOutput;
+    std::vector<unsigned char> m_FileBuffer;
 
     // 分离的解析方法
     bool ParsingWithMemoryMapping();
     bool ParsingWithFilePath();
-    EncodedMeshData::Pointer CreateEncodedDataFromFile();
+    DecodeInputBinaryArray::Pointer CreateDecoderInputFromFile();
 };
 
 IGAME_NAMESPACE_END

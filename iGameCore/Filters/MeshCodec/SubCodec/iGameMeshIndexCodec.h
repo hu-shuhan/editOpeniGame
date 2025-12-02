@@ -9,14 +9,14 @@
 #ifndef MeshOptModifiedIndexBufferCodec_h
 #define MeshOptModifiedIndexBufferCodec_h
 
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
 #include <vector>
 #include "iGameMacro.h"
 #include "meshoptimizer.h"
 
 IGAME_NAMESPACE_BEGIN
-class MeshOptModifiedIndexBufferCodec
+class MeshIndexCodec
 {
 public:
 	template <typename T>

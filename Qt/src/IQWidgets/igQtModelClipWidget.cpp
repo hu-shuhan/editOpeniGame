@@ -22,7 +22,7 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(
 
     connect(ui->previewBox, &QRadioButton::toggled, this, [&](bool isChecked) { GetSelection()->Preview = isChecked; });
     ui->radioButton_Slice->setChecked(true);
-
+    ui->previewBox->setChecked(false);
     QRegularExpression rx("-?\\d*\\.?\\d+");
     ui->lineEdit_origin_x->setValidator(new QRegularExpressionValidator(rx, this));
     ui->lineEdit_origin_y->setValidator(new QRegularExpressionValidator(rx, this));
@@ -142,12 +142,12 @@ void igQtModelClipWidget::ClipModel() {
                 }
             }
             clock_t time_clip = clock();
-            std::cout << "clip cost " << time_clip - time_1 << '\n';
+            //std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
             m_ResultMesh->ConvertToDrawableData();
             m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
-            std::cout << "all time  " << time_view - time_1 << "\n";
+            //std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
         } break;
         case igQtModelClipWidget::IG_SLICE_MODE: {
@@ -183,12 +183,12 @@ void igQtModelClipWidget::ClipModel() {
                 }
             }
             clock_t time_clip = clock();
-            std::cout << "clip cost " << time_clip - time_1 << '\n';
+            //std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
             m_ResultMesh->ConvertToDrawableData();
             m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
-            std::cout << "all time  " << time_view - time_1 << "\n";
+            //std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
         } break;
         case igQtModelClipWidget::IG_MESH_MODE: {
@@ -219,12 +219,12 @@ void igQtModelClipWidget::ClipModel() {
                 if (out) { m_ResultMesh->GenerateFromSurfaceMesh(out); }
             }
             clock_t time_clip = clock();
-            std::cout << "clip cost " << time_clip - time_1 << '\n';
+            //std::cout << "clip cost " << time_clip - time_1 << '\n';
             m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
             m_ResultMesh->ConvertToDrawableData();
             m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
             auto time_view = clock();
-            std::cout << "all time  " << time_view - time_1 << "\n";
+            //std::cout << "all time  " << time_view - time_1 << "\n";
             UpdateClipModel(m_ResultMesh);
         } break;
         default:

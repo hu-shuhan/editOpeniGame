@@ -369,24 +369,23 @@ protected:
     void RefreshHzb();
     void RefreshDrawCullDataBuffer();
 
-    void DrawFrame(); //主渲染流程(执行所有渲染通道)
+    void DrawFrame();
     void RenderToSpecificFrame(GLint frameBuffer);
-#ifdef GL_SUPPORT_MSAA
     void ResolveFrameBuffer();
-#endif
-
 
     //渲染通道相关
     void ShadowPass();
     void ForwardPass();
     void TransparentPass();
     void VolumeRenderingPass();
+
     //更新各种UBO（用来存储着色语言中Uniform类型变量的缓冲区对象）
     void UpdateCameraDataBlock();
     void UpdateObjectDataBlock(SmartPointer<DataObject> obj);
     void UpdateUniformBufferObjectBlock(SmartPointer<DataObject> obj);
     void UpdateCameraClippingRange();
 
+    void BindFramebuffer() const;
     bool ShouldRenderThisCall() const;
 
     SmartPointer<HandlePool<SmartPointer<Model>>> m_ModelPool; //模型池
@@ -421,6 +420,9 @@ protected:
     SmartPointer<GLTexture2d> m_ColorTexture;
     SmartPointer<GLTexture2d> m_DepthR32FTexture;
     SmartPointer<GLTexture2d> m_DepthTexture;
+
+    SmartPointer<GLFramebuffer> m_FramebufferBackup;
+    SmartPointer<GLTexture2d> m_ColorTextureBackup;
 
 #ifdef GL_SUPPORT_MSAA
     GLint samples;

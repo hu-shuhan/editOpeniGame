@@ -134,6 +134,7 @@ bool iGame::StressDeformationFilter::Execute() {
              * So we need to use pointMap.*/
             else if(pointMap != nullptr && render_pos_set->GetNumberOfValues() != attribute_set->GetNumberOfValues()){
                 int displayPointSize = pointMap->GetNumberOfValues();
+                render_pos_set->Resize(displayPointSize);
                 for(int i = 0, j = 0; i < displayPointSize; i ++, j += 3){
 //                    if(i % 100 == 0) UpdateProgress((double) i / displayPointSize);
                     int new_idx = pointMap->GetValue(i);

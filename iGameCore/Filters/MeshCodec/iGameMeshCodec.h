@@ -1,75 +1,23 @@
 #ifndef MeshCodec_h
 #define MeshCodec_h
-#include<iGameThreadPool.h>
-#include "iGameMacro.h"
-#include "iGameMeshCodecParamSet.h"
-#include "iGameMeshOptModifiedIndexBufferCodec.h"
+
+#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
 #include "iGameFilter.h"
-#include <atomic>
-#include <future>
-#include <queue>
-#include <vector>
+#include "iGameMacro.h"
 
 IGAME_NAMESPACE_BEGIN
+
+// 在 Utils/iGameMeshCodecThread.h 中启用 IGAME_CODEC_SINGLE_THREAD 以启用单线程模式
 class MeshCodec : public Filter {
 public:
     I_OBJECT(MeshCodec);
-
     bool Execute() override { return true; }
 
 protected:
     MeshCodec() = default;
-
-    using IndexBufferCodec = MeshOptModifiedIndexBufferCodec;
     CodecParameters m_codecParams;
+    bool m_enableMultiThread = true;
 
-    template<typename Func>
-    void ProgressParallelFor(int start, int end, float startProgress, float endProgress, Func&& process, int numThreads = ThreadPool::GetDefaultThreadCount()) {
-        int range = end - start;
-        int chunkSize = range / numThreads;
-        if (range < numThreads) {
-            numThreads = range;
-            chunkSize = 1;
-        }
-        // std::cout << "The number of threads uesd  is " << numThreads << '\n';
-        std::vector<std::future<void>> futures;
-        for (int i = 0; i < numThreads; ++i) {
-            int chunkStart = start + i * chunkSize;
-            int chunkEnd = (i == numThreads - 1) ? end : chunkStart + chunkSize;
-            if (chunkStart == chunkEnd) continue;
-            // 使用线程池提交任务
-            //std::cout << chunkStart << " " << chunkEnd << " " << i << std::endl;
-            futures.emplace_back(ThreadPool::Instance()->Commit([=]() { process(chunkStart, chunkEnd); }));
-        }
-        // 等待所有任务完成
-        for (size_t i = 0; i < futures.size(); ++i) {
-            futures[i].get();
-            float progress = startProgress +
-                (static_cast<float>(i + 1) / futures.size()) * (endProgress - startProgress);
-            UpdateProgress(progress);
-        }
-    }
-
-    // 写入相关 代码改造自 tmc
-    enum class PayloadType
-    {
-        kParameterSet = 0,
-        kGeometryBrick = 1,
-        kAttributeBrick = 2,
-        kTopologyBrick = 3,
-        kCompressedBrick = 4,
-    };
-
-    struct PayloadBuffer : public std::vector<char> {
-        PayloadType type;
-
-        PayloadBuffer() = default;
-
-        PayloadBuffer(PayloadType payload_type) : type(payload_type)
-        {
-            reserve(4096);
-        }
-    };
 };
 IGAME_NAMESPACE_END
 #endif

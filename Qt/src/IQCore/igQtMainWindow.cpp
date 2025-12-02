@@ -3,22 +3,25 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
+#include "Deformation/iGameStressDeformationFilterCode.h"
+
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
 #include "DataProcessing/Tests/iGameSurfaceSimplification.h"
 #include "DataProcessing/Tests/meshsimplifier/meshsimplifier.h"
 #include "DataProcessing/Tests/simplifier.h"
-#include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshSimplificationFilter.h"
+#include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
+#include "Convert/iGameConvertToCellDataFilter.h"
 #include "Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h"
 #include "Convert/iGameConvertToPointCloudFilter.h"
+#include "Convert/iGameConvertToPointDataFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
-#include "Convert/iGameConvertToPointDataFilter.h"
-#include "Convert/iGameConvertToCellDataFilter.h"
 
 #include "Interactor/iGameInteractor.h"
 
@@ -400,7 +403,7 @@ void igQtMainWindow::initAllFilters() {
             triangulation->SetInput(obj);
             ok = triangulation->Execute();
 
-            if (!ok) { 
+            if (!ok) {
                 QMessageBox::information(this, "非表面网格", result);
                 dialog->close();
                 return;
@@ -413,7 +416,7 @@ void igQtMainWindow::initAllFilters() {
             filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
             filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
             filter->SetInput(obj);
-            
+
             ok = filter->Execute();
 
             if (!ok) {
@@ -428,7 +431,7 @@ void igQtMainWindow::initAllFilters() {
             auto oldPoints = oldMesh->GetPoints();
             auto newPoints = newMesh->GetPoints();
 
-            
+
             if (dialog->getChecked(checkId, ok)) {
                 PointFinder::Pointer newPicker = PointFinder::New();
                 newPicker->SetPoints(newPoints);
@@ -497,7 +500,8 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Reduction (0..1)", "0.5");
+        int reductionId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Reduction (0..1)", "0.5");
         int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
 
         int preserveId =
@@ -531,7 +535,6 @@ void igQtMainWindow::initAllFilters() {
             // QMessageBox::information(this, "执行成功", result);
             dialog->close();
         });
-        
     });
 
     connect(mesh_processing->addAction("Surface Triangulation"), &QAction::triggered, this, [&](bool checked) {
@@ -570,6 +573,45 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        auto m_StreamBase = iGame::StreamBase::New();
+        auto streamtracer = m_StreamBase->streamFilter;
+        streamtracer->initStreamTracer(obj);
+        //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+        Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
+        Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+        Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
+        auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
+                                                         4); //4，6为划分子块的数量
+        float lengthOfStreamLine = 5;
+        float lengthOfStep = 0.3;
+        float maxSteps = 1000;
+        float terminalSpeed = 0.005;
+        streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+        streamtracer->Execute();
+        std::cout << seeds.size() << std::endl;
+        auto output = streamtracer->GetOutput();
+
+        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+        rendererWidget->update();
+    });
+
+    connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        auto filter = iGame::StressDeformationCodeFilter::New();
+        obj->GetDeformationData()->SetAttributeName("UVW");
+        filter->SetInput(obj);
+        filter->CalculateIdealDSF();
+        filter->Execute();
+
+        auto res = filter->GetOutput(0);
+        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+        rendererWidget->update();
+        });
+
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -591,7 +633,7 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
-            
+
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
@@ -602,9 +644,7 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
-        if (filter->Execute()) { 
-            modelTreeWidget->updateAllAttriubute(data);
-        }
+        if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
@@ -1490,6 +1530,12 @@ void igQtMainWindow::initAllInteractor() {
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
             [&]() { ui->action_SelectView->setChecked(false); });
+
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
+            [&]() { 
+            //TODO
+        });
+
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();

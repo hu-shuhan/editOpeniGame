@@ -1,14 +1,11 @@
-#include <Clip/iGameModelClip.h>
-#include <Core/iGameScene.h>
-#include <VectorView/iGameVectorBase.h>
-#include <iGameFileIO.h>
-#include <iGameInteractor.h>
-#include <iGameMultiRenderWindowManager.h>
-#include <iGameRenderWindow.h>
-#include <iGameVolume.h>
+#include "Core/Interactor/iGameInteractor.h"
+#include "Core/RenderWindow/iGameMultiRenderWindowManager.h"
+#include "Core/RenderWindow/iGameRenderWindow.h"
+#include "Core/iGameScene.h"
+#include "iGameFileIO.h"
 #include <iostream>
 
-#include <Deformation/iGameStressDeformationFilter.h>
+#include "Deformation/iGameStressDeformationFilter.h"
 int main() {
     iGame::StressDeformationFilter::Pointer filter = iGame::StressDeformationFilter::New();
     const std::string fileName = "./Models/sukong_Step-1_2.vtu";
