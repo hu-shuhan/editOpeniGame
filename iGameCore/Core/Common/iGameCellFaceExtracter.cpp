@@ -3,6 +3,9 @@
 #include <iGameThreadPool.h>
 #include <iGameTimer.h>
 #include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
+#include <iGameSurfaceMesh.h>
+#include <iGamePointSet.h>
 #include <limits>
 #include <queue>
 IGAME_NAMESPACE_BEGIN
@@ -66,6 +69,56 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     return re;
 }
 
+std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds,
+                                                                        VolumeMesh* mesh) {
+    if (choosedCellIds.empty() || mesh == nullptr) return {};
+    std::set<std::pair<int, int>> re;
+    std::map<igIndex, int> faceNums;
+    for (auto& cellId: choosedCellIds) {
+        igIndex faceSet[IGAME_CELL_MAX_SIZE]{};
+        auto faceSize = mesh->GetVolumeFaceIds(cellId, faceSet);
+        for (int faceIndex = 0; faceIndex < faceSize; faceIndex++) {
+            auto& faceId = faceSet[faceIndex];
+            faceNums[faceId]++;
+        }
+    }
+    std::set<igIndex> edgeIds;
+    for (auto& faceNum_: faceNums) {
+        if (faceNum_.second != 1) continue;
+        igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
+        auto edgeSize = mesh->GetFaceEdgeIds(faceNum_.first, edgeSet);
+        for (int edgeIndex = 0; edgeIndex < edgeSize; edgeIndex++) {
+            auto& edgeId = edgeSet[edgeIndex];
+            edgeIds.insert(edgeId);
+        }
+    }
+    for (auto& edgeId: edgeIds) {
+        auto edge = mesh->GetEdge(edgeId);
+        re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
+    }
+    return re;
+}
+
+std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds,
+                                                                        SurfaceMesh* mesh) {
+    if (choosedCellIds.empty() || mesh == nullptr) return {};
+    std::set<std::pair<int, int>> re;
+    std::set<igIndex> edgeIds;
+    for (auto& cellId: choosedCellIds) {
+        igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
+        auto edgeSize = mesh->GetFaceEdgeIds(cellId, edgeSet);
+        for (int edgeIndex = 0; edgeIndex < edgeSize; edgeIndex++) {
+            auto& edgeId = edgeSet[edgeIndex];
+            edgeIds.insert(edgeId);
+        }
+    }
+    for (auto& edgeId: edgeIds) {
+        auto edge = mesh->GetEdge(edgeId);
+        re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
+    }
+    return re;
+}
+
 std::vector<std::pair<Point, Point>> CellFaceExtracter::GetExtractBoundingBoxs(const std::set<igIndex>& choosedCellIds,
                                                                                UnstructuredMesh* mesh) {
     if (choosedCellIds.empty() || mesh == nullptr) return {};
@@ -107,7 +160,7 @@ std::vector<std::pair<Point, Point>> CellFaceExtracter::GetExtractBoundingBoxs(c
 std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds,
                                                              UnstructuredMesh* mesh) {
     if (choosedCellIds.empty() || mesh == nullptr) return {};
-    VisitMesh(mesh);
+    //VisitMesh(mesh);
     auto pMinMax = MinMaxPoint();
     auto& [pMin, pMax] = pMinMax;
     for (auto& cellId: choosedCellIds) {
@@ -119,10 +172,44 @@ std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector
     return pMinMax;
 }
 
+std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds,
+                                                               VolumeMesh* mesh) {
+    if (choosedCellIds.empty() || mesh == nullptr) return {};
+    auto pMinMax = MinMaxPoint();
+    auto& [pMin, pMax] = pMinMax;
+    for (auto& cellId: choosedCellIds) {
+        igIndex pointSet[IGAME_CELL_MAX_SIZE]{};
+        auto pointSize = mesh->GetVolumePointIds(cellId, pointSet);
+        for (int pointIndex = 0; pointIndex < pointSize; pointIndex++) {
+            auto& pointId = pointSet[pointIndex];
+            auto& point = mesh->GetPoint(pointId);
+            MinMaxPoint(pMin, pMax, point);
+        }
+    }
+    return pMinMax;
+}
+
+std::pair<Point, Point> CellFaceExtracter::GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds,
+                                                               SurfaceMesh* mesh) {
+    if (choosedCellIds.empty() || mesh == nullptr) return {};
+    auto pMinMax = MinMaxPoint();
+    auto& [pMin, pMax] = pMinMax;
+    for (auto& cellId: choosedCellIds) {
+        igIndex pointSet[IGAME_CELL_MAX_SIZE]{};
+        auto pointSize = mesh->GetFacePointIds(cellId, pointSet);
+        for (int pointIndex = 0; pointIndex < pointSize; pointIndex++) {
+            auto& pointId = pointSet[pointIndex];
+            auto& point = mesh->GetPoint(pointId);
+            MinMaxPoint(pMin, pMax, point);
+        }
+    }
+    return pMinMax;
+}
+
 std::pair<Point, Point> CellFaceExtracter::GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds,
-                                                                UnstructuredMesh* mesh) {
+                                                                PointSet* mesh) {
     if (choosedPointIds.empty() || mesh == nullptr) return {};
-    VisitMesh(mesh);
+    //VisitMesh(mesh);
     auto pMinMax = MinMaxPoint();
     auto& [pMin, pMax] = pMinMax;
     for (auto& pointId: choosedPointIds) {
@@ -142,6 +229,23 @@ std::vector<int> CellFaceExtracter::GetSurfaceCellIds(UnstructuredMesh* mesh) {
         reSet.insert(*faceMsg.Cells.begin());
     }
     return std::vector<int>(reSet.begin(), reSet.end());
+}
+
+std::vector<int> CellFaceExtracter::GetSurfaceCellIds(VolumeMesh* mesh) {
+    if (mesh == nullptr) return {};
+    std::vector<int> re;
+    for (int cellId = 0; cellId < mesh->GetNumberOfVolumes(); cellId++) {
+        if (!mesh->IsBoundaryVolume(cellId)) continue;
+        re.push_back(cellId);
+    }
+    return re;
+}
+
+std::vector<int> CellFaceExtracter::GetSurfaceCellIds(SurfaceMesh* mesh) {
+    if (mesh == nullptr) return {};
+    std::vector<int> re(mesh->GetNumberOfFaces(), 0);
+    for (int cellId = 0; cellId < re.size(); cellId++) re[cellId] = cellId;
+    return re;
 }
 
 void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
@@ -291,6 +395,11 @@ void CellFaceExtracter::_BuildFaceEdgeMsgs(FaceId id, std::vector<Face>& oriFace
         auto pointIdB = face[pointIB];
         m_Faces[id].Edges.push_back(std::minmax(pointIdA, pointIdB));
     }
+}
+
+void CellFaceExtracter::PreVisit(UnstructuredMesh* mesh) {
+    if (mesh == nullptr) return;
+    VisitMesh(mesh);
 }
 
 void CellFaceExtracter::Clear() {

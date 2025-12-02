@@ -11,6 +11,7 @@
 #include "iGameCellContour.h"
 #include "iGameFilter.h"
 #include "iGameUnstructuredMesh.h"
+#include <vector>
 IGAME_NAMESPACE_BEGIN
 
 class ContourFilter : public Filter {
@@ -28,28 +29,19 @@ public:
     // To set equivalent data, you need to enter the corresponding equivalent data and data objects
     // the dimension means extract the dimension of datas, dimension = 0 means the first dimension
     void SetIsoScalarData(ArrayObject::Pointer array, double value, int dimension = 0);
-
-    //------------------------------------------
-    // Adapt multi values
-    void SetMultiIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& value, int dimension = 0);
-    //------------------------------------------
-    
-    //used to show slice
-    bool SetPlane(double o[3], double n[3]);
+    // Overloaded version to support multiple contour values
+    void SetIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& values, int dimension = 0);
 
 protected:
     ContourFilter();
 
-    //------------------------------------------
-    // Adapt multi values
-    bool m_IsMultiArray{false};
-    std::vector<double> m_ContourValueArray;
-    //------------------------------------------
+
 
     DoubleArray::Pointer m_PointValues{nullptr};
     ArrayObject::Pointer m_SelectedScalar{nullptr};
     double m_SeletectDimension{0.0};
     double m_ContourValue{0.0};
+    std::vector<double> m_ContourValues;  // Store multiple contour values
 
     //对非结构化网格进行轮廓提取
     virtual bool ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um);

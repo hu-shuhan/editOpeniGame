@@ -150,7 +150,7 @@ public:
     void SetSelectBoxVisable(bool visable);
 
 protected:
-    Selection() {}
+    Selection();
     ~Selection() override = default;
 
     void SetBoxStyle(const std::pair<Point, Point>& p);

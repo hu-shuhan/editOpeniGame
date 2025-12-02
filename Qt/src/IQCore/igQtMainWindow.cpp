@@ -1530,6 +1530,12 @@ void igQtMainWindow::initAllInteractor() {
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
             [&]() { ui->action_SelectView->setChecked(false); });
+
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
+            [&]() { 
+            //TODO
+        });
+
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();

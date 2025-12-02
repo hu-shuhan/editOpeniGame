@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>294</width>
-    <height>248</height>
+    <height>266</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -111,6 +111,13 @@
          <widget class="QCheckBox" name="onlySelectSeeAbleCells">
           <property name="text">
            <string>只选可见面/体</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="preLoadModelMsg">
+          <property name="text">
+           <string>预加载模型信息</string>
           </property>
          </widget>
         </item>

@@ -822,7 +822,7 @@ void igQtAiChatWidget::loadStyleSheet()
         this->setStyleSheet(styleSheet);
         qssFile.close();
     } else {
-        qWarning() << "[AiChatWidget] 无法加载样式表:" << qssPath;
+        //qWarning() << "[AiChatWidget] 无法加载样式表:" << qssPath;
     }
 }
 

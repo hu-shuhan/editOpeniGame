@@ -32,6 +32,7 @@ signals:
     void Hided();
     void SetClearBox();
     void SetUseBox();
+    void SetPreLoadModelMsg();
 
 private slots:
     void SelectionStationNone(bool checked);
@@ -61,6 +62,8 @@ private slots:
 
     void ClearBox();
     void UseBox();
+
+    void PreLoadModelMsg();
 
 protected:
     void hideEvent(QHideEvent* event) override;
