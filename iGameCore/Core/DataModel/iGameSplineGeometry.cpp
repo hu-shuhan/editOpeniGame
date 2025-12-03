@@ -60,7 +60,7 @@ void SplineGeometry::ConvertToDrawableData() {
             if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
                 m_ColorWithCell = false;
                 // this->SetAttributeWithPointData(attr.pointer, attr.dataRange, m_AttributeDimension);
-                if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+                if (m_ColorMapper->GetMTime() > this->GetMTime()) {
                     double minimal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 0);
                     double maximal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 1);
                     if (minimal_val < maximal_val) {
