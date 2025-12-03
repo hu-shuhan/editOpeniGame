@@ -95,7 +95,7 @@ if (ENABLE_CGNS_MODULE)
     # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
     if (WIN32)
         set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        find_package(HDF5) # Optional: additional HDF5 linkage for Windows deployment
+        find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
     endif ()
 endif ()
 

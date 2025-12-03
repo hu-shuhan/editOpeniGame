@@ -25,13 +25,29 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                     ${HDF5_DIR}/../../lib/libaec.lib
                     DESTINATION lib/ThirdParty)
         else ()
-            set(HDF5_LIB_DIR "/usr/local/hdf5/lib")
             find_package(HDF5 REQUIRED)
-            install(FILES
-                    ${HDF5_LIB_DIR}/libhdf5.a
-                    ${HDF5_LIB_DIR}/libhdf5_hl.a
-                    DESTINATION lib/ThirdParty)
-            install(DIRECTORY /usr/local/hdf5/include/ DESTINATION include/ThirdParty)
+            if(HDF5_LIBRARIES)
+                list(GET HDF5_LIBRARIES 0 first_lib)
+                get_filename_component(HDF5_LIB_DIR ${first_lib} DIRECTORY)
+                message(STATUS "HDF5 library directory: ${HDF5_LIB_DIR}")
+            endif()
+
+            file(GLOB hdf5_static_libs
+                    "${HDF5_LIB_DIR}/libhdf5*.a"
+                    "${HDF5_LIB_DIR}/libhdf5_hl*.a"
+            )
+            foreach(lib ${hdf5_static_libs})
+                if(EXISTS ${lib})
+                    message(STATUS "Installing static library: ${lib}")
+                    install(FILES ${lib} DESTINATION lib/ThirdParty)
+                endif()
+            endforeach()
+
+            install(DIRECTORY ${HDF5_INCLUDE_DIRS}/
+                    DESTINATION include/ThirdParty/hdf5
+                    FILES_MATCHING PATTERN "*.h"
+                    PATTERN "*.hpp"
+                    PATTERN "*.hxx")
         endif ()
     endif ()
 
