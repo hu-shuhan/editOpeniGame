@@ -26,8 +26,9 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
 
     connect(ui->onlySelectSeeAbleCells, &QCheckBox::clicked, this,
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
-    ui->onlySelectSeeAbleCells->setChecked(true);
-    iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(true);
+    //ui->onlySelectSeeAbleCells->setChecked(true);
+    //iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(true);
+    ui->onlySelectSeeAbleCells->hide();
 
     connect(ui->expdRate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionExpdRate);
@@ -45,13 +46,18 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     //ui->settingBox->hide();
     connect(ui->useBox, &QPushButton::clicked, this, &igQtSelectionWidget::UseBox);
     //############ SELECT MODE ############
+    //############ HIDE R MODE ############
     connect(ui->radiusMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusMode);
-    HideSelectionTypeUi();
-    HideAllSelectModeUi();
-    ShowRadiusUi();
     connect(ui->ctMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtMode);
     connect(ui->radiusBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusBoxMode);
     connect(ui->ctBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtBoxMode);
+    HideSelectionTypeUi();
+    HideAllSelectModeUi();
+    ShowCtUi();
+    ui->radiusMode->hide();
+    ui->radiusBoxMode->hide();
+    ui->ctMode->setChecked(true);
+    iGame::SelectionParameter::Instance().SetSelectMode(iGame::SelectionParameter::SelectMode::CT_MODE);
     //############ Pre Load ############
     connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
     ui->preLoadModelMsg->hide();
@@ -59,6 +65,8 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     auto radius = 0.5;
     ui->RadiusSpinBox->setText(QString::number(radius));
     iGame::SelectionParameter::Instance().SetSelectionRadius(radius);
+    //############ ATTENTION ############
+    SetNoAttention();
 }
 
 igQtSelectionWidget::~igQtSelectionWidget() { delete ui; }
@@ -279,7 +287,7 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
     ui->clearBox->hide();
     ui->settingBox->hide();
     ui->useBox->hide();
-    ui->attention->hide();
+    //ui->attention->hide();
 }
 
 void igQtSelectionWidget::HideSelectionTypeUi() {
