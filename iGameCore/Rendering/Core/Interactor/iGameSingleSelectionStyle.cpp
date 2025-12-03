@@ -189,6 +189,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
+        //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
             mesh->RequestEditStatus();
@@ -288,6 +289,7 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
+        //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
             mesh->RequestEditStatus();
@@ -546,7 +548,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -570,7 +573,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -594,7 +598,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -618,7 +623,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -662,7 +668,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -706,7 +713,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -1191,6 +1199,44 @@ static double pointToLineDistance(const Point& lineP1, const Point& lineP2,
     return area / lineLength;
 }
 
+static void _GetClosestPointOnNearestCell(const Point& startPoint,
+                                          const Point& endPoint, Cell* cell,
+                                          double& faceDis, double& pointDis,
+                                          igIndex& pointId) {
+    auto faceNum = cell->GetNumberOfFaces();
+    if (faceNum == 0) {
+        auto iFaceDis = IsLineCrossCell(startPoint, endPoint, cell);
+        if (iFaceDis < 0 || faceDis < iFaceDis) return;
+        int pointNum = cell->GetNumberOfPoints();
+        for (int pointIndex = 0; pointIndex < pointNum; pointIndex++) {
+            auto& p = cell->GetPoint(pointIndex);
+            auto iPointDis = pointToLineDistance(startPoint, endPoint, p);
+            if (iPointDis < pointDis || iFaceDis < faceDis) {
+                faceDis = iFaceDis;
+                pointDis = iPointDis;
+                pointId = cell->GetPointId(pointIndex);
+            }
+        }
+    } else {
+        for (int faceIndex = 0; faceIndex < faceNum; faceIndex++) {
+            auto face = cell->GetFace(faceIndex);
+            _GetClosestPointOnNearestCell(startPoint, endPoint, face, faceDis,
+                                          pointDis, pointId);
+        }
+    }
+}
+
+//return point id
+static igIndex GetClosestPointOnNearestCell(const Point& startPoint,
+                                            const Point& endPoint, Cell* cell) {
+    igIndex reId{-1};
+    double faceDis = std::numeric_limits<double>::max();
+    double pointDis = std::numeric_limits<double>::max();
+    _GetClosestPointOnNearestCell(startPoint, endPoint, cell, faceDis, pointDis,
+                                  reId);
+    return reId;
+}
+
 int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
                                         const Point& endPoint,
                                         UnstructuredMesh* mesh,
@@ -1202,19 +1248,8 @@ int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
     if (cellId == -1) return -1;
     auto cell = mesh->GetCell(cellId);
     int cellPointNum = cell->GetNumberOfPoints();
-    double minDis = -1;
-    int id = -1;
 
-    for (int cellPointIndex = 0; cellPointIndex < cellPointNum;
-         cellPointIndex++) {
-        auto& p = cell->GetPoint(cellPointIndex);
-        auto dis = pointToLineDistance(startPoint, endPoint, p);
-        if (minDis < 0 || dis < minDis) {
-            id = cell->GetPointId(cellPointIndex);
-        }
-    }
-
-    return id;
+    return GetClosestPointOnNearestCell(startPoint, endPoint, cell);
 }
 
 int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
@@ -1226,20 +1261,8 @@ int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
                          onlySelectSeeAbleCells);
     if (cellId == -1) return -1;
     auto cell = mesh->GetVolume(cellId);
-    int cellPointNum = cell->GetNumberOfPoints();
-    double minDis = -1;
-    int id = -1;
 
-    for (int cellPointIndex = 0; cellPointIndex < cellPointNum;
-         cellPointIndex++) {
-        auto& p = cell->GetPoint(cellPointIndex);
-        auto dis = pointToLineDistance(startPoint, endPoint, p);
-        if (minDis < 0 || dis < minDis) {
-            id = cell->GetPointId(cellPointIndex);
-        }
-    }
-
-    return id;
+    return GetClosestPointOnNearestCell(startPoint, endPoint, cell);
 }
 
 int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
@@ -1252,20 +1275,8 @@ int SingleSelectionStyle::GetFirstPoint(const Point& startPoint,
                          onlySelectSeeAbleCells);
     if (cellId == -1) return -1;
     auto cell = mesh->GetFace(cellId);
-    int cellPointNum = cell->GetNumberOfPoints();
-    double minDis = -1;
-    int id = -1;
 
-    for (int cellPointIndex = 0; cellPointIndex < cellPointNum;
-         cellPointIndex++) {
-        auto& p = cell->GetPoint(cellPointIndex);
-        auto dis = pointToLineDistance(startPoint, endPoint, p);
-        if (minDis < 0 || dis < minDis) {
-            id = cell->GetPointId(cellPointIndex);
-        }
-    }
-
-    return id;
+    return GetClosestPointOnNearestCell(startPoint, endPoint, cell);
 }
 
 int SingleSelectionStyle::GetFirstCell(const Point& startPoint,

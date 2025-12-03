@@ -27,6 +27,7 @@ public:
 
     //转换模式
     enum ConvertMethod {
+        INVALID = -1,
         IG_CONVERT_SURFACE_MESH, //转化为表面，需要原始模型就是表面模型，比如纯表面的非结构化网格
         IG_EXTRACT_SURFACE_CELL, //提取表面单元，专门用于非结构化网格，用于获取非结构化网格中的表面单元
         IG_EXTRACT_SURFACE_MESH, //提取模型的表面网格，抽壳

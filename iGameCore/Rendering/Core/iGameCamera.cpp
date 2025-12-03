@@ -39,11 +39,6 @@ unsigned int Viewport::GetDevicePixelRatio() const {
     return m_DevicePixelRatio;
 }
 
-template<typename FloatT>
-FloatT Viewport::aspect() const {
-    return FloatT(m_Size.x) / FloatT(m_Size.y);
-}
-
 Viewer::Viewer() {
     m_ClippingRange.x = 0.01f;
     m_ClippingRange.y = 100.01f;

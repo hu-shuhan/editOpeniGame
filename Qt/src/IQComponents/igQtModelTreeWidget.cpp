@@ -2,6 +2,8 @@
 #include <QAction>
 #include <QMenu>
 
+#include "iGameSceneManager.h"
+
 ModelTreeWidgetItem::ModelTreeWidgetItem(QTreeWidget* parent) : QTreeWidgetItem(parent), visibility(true) {
     QWidget* buttonWidget = new QWidget(parent);
     QHBoxLayout* layout = new QHBoxLayout(buttonWidget);
@@ -288,12 +290,15 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 }
             }
             call = false;
-        } else if (currentItem() != item) { // Check operation
-            iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
-            //setItemSelected(item, true);
+        } 
+        else if (currentItem() != item) { // Check operation
+            if (item->getModel() != iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
+                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
+                emit ChangeCurrentModel(item->getModel());
+            }
+            
             item->setSelected(true);
             item->getModel()->ViewCloudPicture(-1);
-            emit ChangeCurrentModel(item->getModel());
             Q_EMIT ViewCloudPicture();
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
             if (current) { current->hide(); }
@@ -303,7 +308,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
         }
 
 
-    } else if ((child = getChild(event->pos())) && child) {
+    } 
+    else if ((child = getChild(event->pos())) && child) {
         // Sub-data object item
         if (auto* sub = dynamic_cast<SubObjectTreeWidgetItem*>(child)) {
             // Right-click: set rotation center to sub-block bbox center
@@ -344,7 +350,8 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                     Q_EMIT ViewCloudPicture();
                 }
             }
-        } else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
+        } 
+        else if (auto* sa = dynamic_cast<SubAttribTreeWidgetItem*>(child)) {
             // Handle sub-attribute selection display and apply
             auto* parent = dynamic_cast<SubObjectTreeWidgetItem*>(sa->parent());
             if (parent) {
@@ -360,15 +367,16 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 sa->viewAttribute(dim - 1);
                 call = false;
             }
-        } else {
+        } 
+        else {
             // Top-level attribute item under model
             int index = child->data(0, Qt::UserRole).toInt();
             ModelTreeWidgetItem* parent = dynamic_cast<ModelTreeWidgetItem*>(child->parent());
             if (parent) {
-                auto currentModelItem = currentItem();
-                if (currentModelItem != parent) {
-                    //this->setCurrentModelItem(parent);
+                if (parent->getModel() != 
+                    iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
                     iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(parent->getModelId());
+
                     emit ChangeCurrentModel(parent->getModel());
                 }
                 AttribTreeWidgetItem* current{nullptr};

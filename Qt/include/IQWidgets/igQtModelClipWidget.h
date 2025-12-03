@@ -22,7 +22,6 @@ public:
     enum ViewMode {
         IG_CLIP_MODE,
         IG_SLICE_MODE,
-        IG_MESH_MODE,
         IG_VIEW_MODE_NUM
     };
     void SetViewMode(ViewMode);
@@ -68,4 +67,6 @@ private:
 	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
     iGame::UnstructuredMesh::Pointer m_ResultMesh{nullptr};
     ViewMode m_ViewMode{IG_CLIP_MODE};
+    bool m_Invert = true;
+    bool m_Crinkle = false;
 };

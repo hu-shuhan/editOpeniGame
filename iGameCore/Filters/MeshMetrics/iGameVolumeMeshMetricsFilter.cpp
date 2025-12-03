@@ -67,7 +67,6 @@ bool VolumeMeshMetricsFilter::Execute() {
         metricArray->AddValue(metric);                  // 存储结果
     }
 
-
     auto output = input;
     output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, metricArray);
     this->SetOutput(output);
@@ -166,7 +165,7 @@ double VolumeMeshMetricsFilter::ComputeMetric(igIndex vNum, igIndex* vhs) {
 
 
 /*
-	* 计算某一个四面体单元的最小/最大长度
+* 计算某一个四面体单元的最小/最大长度
 */
 std::vector<double> VolumeMeshMetricsFilter::GetMinAndMaxLenOfCell(const std::vector<Point>& points) {
     double minLength = DBL_MAX, maxLength = 0.0;
