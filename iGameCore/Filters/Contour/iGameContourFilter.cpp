@@ -36,7 +36,8 @@ void ContourFilter::SetIsoScalarData(ArrayObject::Pointer array, double value, i
     this->m_ContourValues.clear();
     this->m_ContourValues.push_back(value);
 }
-void ContourFilter::SetIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& values, int dimension) {
+
+void ContourFilter::SetIsoScalarData(ArrayObject::Pointer array, const std::vector<double>& values, int dimension) {
     this->m_SelectedScalar = array;
     this->m_SeletectDimension = dimension;
     this->m_ContourValues = values;

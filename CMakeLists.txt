@@ -17,7 +17,7 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
@@ -27,7 +27,7 @@ option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 
