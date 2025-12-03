@@ -12,17 +12,27 @@ igQtModelClipWidget::igQtModelClipWidget(QWidget* parent) : QWidget(parent), ui(
     });
     connect(ui->radioButton_Slice, &QRadioButton::toggled, this, [&](bool isChecked) {
         if (isChecked) { this->SetViewMode(IG_SLICE_MODE); }
+        ui->checkBox_Invert->hide();
     });
     connect(ui->radioButton_Clip, &QRadioButton::toggled, this, [&](bool isChecked) {
         if (isChecked) { this->SetViewMode(IG_CLIP_MODE); }
-    });
-    connect(ui->radioButton_Mesh, &QRadioButton::toggled, this, [&](bool isChecked) {
-        if (isChecked) { this->SetViewMode(IG_MESH_MODE); }
+        ui->checkBox_Invert->show();
     });
 
-    connect(ui->previewBox, &QRadioButton::toggled, this, [&](bool isChecked) { GetSelection()->Preview = isChecked; });
+    connect(ui->checkBox_Invert, &QCheckBox::toggled, this, [&](bool isChecked) { 
+        this->m_Invert = isChecked;
+        this->ClipModel();
+        });
+    connect(ui->checkBox_Crinkle, &QCheckBox::toggled, this, [&](bool isChecked) { 
+        this->m_Crinkle = isChecked; 
+        this->ClipModel();
+        });
+
+    connect(ui->checkBox_Preview, &QCheckBox::toggled, this, [&](bool isChecked) { GetSelection()->Preview = isChecked; });
     ui->radioButton_Slice->setChecked(true);
-    ui->previewBox->setChecked(false);
+    ui->checkBox_Preview->setChecked(false);
+    ui->checkBox_Invert->setChecked(true);
+    ui->checkBox_Crinkle->setChecked(false);
     QRegularExpression rx("-?\\d*\\.?\\d+");
     ui->lineEdit_origin_x->setValidator(new QRegularExpressionValidator(rx, this));
     ui->lineEdit_origin_y->setValidator(new QRegularExpressionValidator(rx, this));
@@ -127,12 +137,16 @@ void igQtModelClipWidget::ClipModel() {
                     auto childObject = it->second;
                     if (childObject == nullptr) { continue; }
                     Clipper->SetInput(childObject);
+                    Clipper->SetCrinkle(m_Crinkle);
+                    Clipper->SetInvert(m_Invert);
                     Clipper->Execute();
                     auto out = Clipper->GetClipMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
                 }
             } else {
                 Clipper->SetInput(m_OriginDataObject);
+                Clipper->SetCrinkle(m_Crinkle);
+                Clipper->SetInvert(m_Invert);
                 Clipper->Execute();
                 auto out = Clipper->GetClipMesh();
                 if (out) {
@@ -167,6 +181,7 @@ void igQtModelClipWidget::ClipModel() {
                     if (childObject == nullptr) { continue; }
                     Slicer->SetInput(childObject);
                     Slicer->SetPlane(m_Origin, m_Normal);
+                    Slicer->SetCrinkle(m_Crinkle);
                     Slicer->Execute();
                     auto out = Slicer->GetSliceMesh();
                     if (out) { m_ResultMesh->AddSubDataObject(out); }
@@ -174,6 +189,7 @@ void igQtModelClipWidget::ClipModel() {
             } else {
                 Slicer->SetInput(m_OriginDataObject);
                 Slicer->SetPlane(m_Origin, m_Normal);
+                Slicer->SetCrinkle(m_Crinkle);
                 Slicer->Execute();
                 auto out = Slicer->GetSliceMesh();
                 if (out) {
@@ -181,42 +197,6 @@ void igQtModelClipWidget::ClipModel() {
                     m_ResultMesh->SetCells(out->GetCells(), out->GetCellTypes());
                     m_ResultMesh->SetAttributeSet(out->GetAttributeSet());
                 }
-            }
-            clock_t time_clip = clock();
-            //std::cout << "clip cost " << time_clip - time_1 << '\n';
-            m_ResultMesh->SetViewStyle(m_ResultMesh->GetViewStyle());
-            m_ResultMesh->ConvertToDrawableData();
-            m_ResultMesh->ViewCloudPicture(scene, oldAttributeIndex, oldAttributeDimension);
-            auto time_view = clock();
-            //std::cout << "all time  " << time_view - time_1 << "\n";
-            UpdateClipModel(m_ResultMesh);
-        } break;
-        case igQtModelClipWidget::IG_MESH_MODE: {
-            clock_t time_1 = clock();
-            auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-            auto oldAttributeIndex = m_ResultMesh->GetAttributeIndex();
-            auto oldAttributeDimension = m_ResultMesh->GetAttributeDimension();
-            m_ResultMesh->ClearSubDataObject();
-            // recover attribute
-            m_ResultMesh->ViewCloudPicture(scene, -1, -1);
-            m_ResultMesh->SetColorMapper(m_OriginDataObject->GetColorMapper());
-            auto Extracter = iGame::ModelGeometryFilter::New();
-            Extracter->SetClipPlane(m_Origin, m_Normal);
-            if (m_OriginDataObject->HasSubDataObject()) {
-                for (auto it = m_OriginDataObject->SubDataObjectIteratorBegin();
-                     it != m_OriginDataObject->SubDataObjectIteratorEnd(); it++) {
-                    auto childObject = it->second;
-                    if (childObject == nullptr) { continue; }
-                    Extracter->SetInput(childObject);
-                    Extracter->Execute();
-                    auto out = Extracter->GetExtractMesh();
-                    if (out) { m_ResultMesh->AddSubDataObject(out); }
-                }
-            } else {
-                Extracter->SetInput(m_OriginDataObject);
-                Extracter->Execute();
-                auto out = Extracter->GetExtractMesh();
-                if (out) { m_ResultMesh->GenerateFromSurfaceMesh(out); }
             }
             clock_t time_clip = clock();
             //std::cout << "clip cost " << time_clip - time_1 << '\n';

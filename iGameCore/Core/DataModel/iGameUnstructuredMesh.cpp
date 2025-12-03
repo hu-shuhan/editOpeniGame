@@ -230,7 +230,7 @@ bool UnstructuredMesh::TransferVolumeMeshToUnstructuredMesh(VolumeMesh::Pointer 
 
 UnstructuredMesh::Pointer UnstructuredMesh::TransDataObjToUnstructuredMesh(DataObject::Pointer dataObj) {
     auto meshType = dataObj->GetDataObjectType();
-    UnstructuredMesh::Pointer re;
+    UnstructuredMesh::Pointer re = nullptr;
     switch (meshType) {
         case IG_DATA_OBJECT:
             return re;
