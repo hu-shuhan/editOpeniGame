@@ -355,7 +355,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>半径</string>
+           <string>最大半径</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>
