@@ -8,6 +8,9 @@
 layout(std140, binding = 0) uniform CameraDataBlock {
     vec3 viewPos;
     int isOrtho;
+    vec4 orthoBounds;
+    float zNear;
+    float zFar;
     mat4 view;
     mat4 proj;
     mat4 proj_view;// proj * view
