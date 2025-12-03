@@ -298,4 +298,3 @@ LaplacianFilter::LaplacianFilter()
 
 
 IGAME_NAMESPACE_END
-#endif
