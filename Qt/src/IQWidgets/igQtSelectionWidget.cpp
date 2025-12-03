@@ -82,6 +82,26 @@ void igQtSelectionWidget::SetDefaultSelectionButton() {
     SetVariableNames({});
 }
 
+void igQtSelectionWidget::SetNoAttention() {
+    ui->attention->setText("");
+    ui->attention->hide();
+}
+
+void igQtSelectionWidget::SetPointAttention() {
+    ui->attention->setText(QString("●当前模型无点数据"));
+    ui->attention->show();
+}
+
+void igQtSelectionWidget::SetCellAttention() {
+    ui->attention->setText(QString("●当前模型无面/体数据"));
+    ui->attention->show();
+}
+
+void igQtSelectionWidget::SetAllAttention() {
+    ui->attention->setText(QString("●当前模型无点、面/体数据"));
+    ui->attention->show();
+}
+
 void igQtSelectionWidget::SelectionStationNone(bool checked) {
     iGame::SelectionParameter::Instance().SetInSelection(checked);
     if (!checked) {
@@ -244,6 +264,7 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
     ui->clearBox->hide();
     ui->settingBox->hide();
     ui->useBox->hide();
+    ui->attention->hide();
 }
 
 void igQtSelectionWidget::HideSelectionTypeUi() {

@@ -25,6 +25,13 @@ public:
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
+public:
+    //ATTENTION
+    void SetNoAttention();
+    void SetPointAttention();
+    void SetCellAttention();
+    void SetAllAttention();
+
 signals:
     void Signal_SetSelectionStationChanged();
     void SetSelectItemShow(bool show);

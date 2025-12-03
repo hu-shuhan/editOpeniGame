@@ -1596,6 +1596,24 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();
         ui->widget_SelectionField->PreventSignalSend(false);
+        //####### ATTENTION ST #######
+        ui->widget_SelectionField->SetNoAttention();
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto attributeSet = dataObj->GetAttributeSet();
+        if (attributeSet == nullptr) return;
+        bool haveNoPointAttr = (attributeSet->GetAllPointAttributes()->GetNumberOfElements() == 0);
+        bool haveNoCellAttr = (attributeSet->GetAllCellAttributes()->GetNumberOfElements() == 0);
+        if (haveNoPointAttr && haveNoCellAttr) {
+            ui->widget_SelectionField->SetAllAttention();
+        } else if (haveNoPointAttr) {
+            ui->widget_SelectionField->SetPointAttention();
+        } else if (haveNoCellAttr) {
+            ui->widget_SelectionField->SetCellAttention();
+        }
+        //####### ATTENTION ED #######
         return;
         //auto radius = ui->widget_SelectionField->GetSelectionRadius();
         //auto selectionStation = ui->widget_SelectionField->GetSelectionStation();
