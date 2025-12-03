@@ -286,8 +286,18 @@ void igQtStreamTracerWidget::generateStreamline() {
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
-    m_StreamBase->SetSeeds(seeds);
-    m_StreamBase->SetUpdate(true);
+    if (!m_ResultObject) {
+        m_ResultObject = iGame::UnstructuredMesh::New();
+    }
+    auto resObj = streamtracer->GetOutput();
+    if (resObj) {
+        m_ResultObject->SetPoints(resObj->GetPoints());
+        m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
+        m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
+
+    }
+    //m_StreamBase->SetSeeds(seeds);
+    //m_StreamBase->SetUpdate(true);
     
     //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
     //	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
@@ -302,11 +312,12 @@ void igQtStreamTracerWidget::generateStreamline() {
     //   MessageBox(NULL, ch, "��ʾ", MB_OK);
 
     if (!haveDraw) {
-        m_StreamBase->DataObject::SetName(masterName + "_StreamLine");
-        Q_EMIT AddStreamObject(m_StreamBase);
+        //m_StreamBase->DataObject::SetName(masterName + "_StreamLine");
+        m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
+        Q_EMIT AddStreamObject(m_ResultObject);
         haveDraw = true;
     } else {
-        Q_EMIT UpdateStreamObject(m_StreamBase);
+        Q_EMIT UpdateStreamObject(m_ResultObject);
     }
 
     if (isExisted == false) {
