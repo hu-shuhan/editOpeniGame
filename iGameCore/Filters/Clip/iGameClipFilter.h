@@ -30,6 +30,7 @@ public:
     void GetPlane(double o[3], double n[3]) { this->m_Clipper->GetPlane(o, n); };
     ///@}
     void SetInvert(bool _in) { this->m_Clipper->SetInvert(_in); };
+    void SetCrinkle(bool _cr) { this->m_Clipper->SetCrinkle(_cr); };
 
     //设置clipper，如果用户有自定义的切割算法， 可以使用这个设置
     void SetClipper(ModelClip::Pointer CM) { this->m_Clipper = CM; };

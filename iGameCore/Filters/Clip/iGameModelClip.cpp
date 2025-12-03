@@ -66,19 +66,17 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
     auto cellVisible = CellVisible->RawPointer();
     igIndex vcnt = 0;
     {
-        auto Result_ExtractPart = iGame::UnstructuredMesh::New();
-        auto ExtractCells = CellArray::New();
-        auto ExtractTypes = UnsignedIntArray::New();
-        ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
-        ExtractTypes->Reserve(inCellNum * 2 / 3);
+        OutConn->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+        OutType->Reserve(inCellNum * 2 / 3);
         OriginCell.reserve(inCellNum * 2 / 3);
         igIndex cellId = 0;
         igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
         for (cellId = 0; cellId < inCellNum; cellId++) {
-            if (cellVisible[cellId] == 1) {
+            // crinkle模式下保留与平面相交的cell（==0）和完全在内部的cell（==1）
+            if (m_Crinkle ? (cellVisible[cellId] != 2) : (cellVisible[cellId] == 1)) {
                 vcnt = inCells->GetCellIds(cellId, vhs);
-                ExtractCells->AddCellIds(vhs, vcnt);
-                ExtractTypes->AddValue(inTypes->GetValue(cellId));
+                OutConn->AddCellIds(vhs, vcnt);
+                OutType->AddValue(inTypes->GetValue(cellId));
                 OriginCell.emplace_back(cellId);
             }
         }
@@ -88,10 +86,18 @@ bool ModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
         for (int pointId = 0; pointId < inPointNum; pointId++) {
             OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
         }
-        Result_ExtractPart->SetPoints(OutPoints);
-        Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
-        OutConn = ExtractCells;
-        OutType = ExtractTypes;
+    }
+    // 如果启用锯齿模式，直接返回提取的部分，不进行切割和补全平面
+    if (m_Crinkle) {
+        this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge,
+                                   OriginCell);
+        OutMesh->SetCells(OutConn, OutType);
+        OutMesh->SetPoints(OutPoints);
+        OutMesh->SetAttributeSet(outData);
+        this->SetOutput(0, OutMesh);
+        std::vector<igIndex>().swap(OriginCell);
+        std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+        return true;
     }
     igIndex* vhs = nullptr;
     igIndex CellId = 0;
@@ -176,11 +182,8 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm) 
     igIndex vcnt = 0;
     igIndex i = 0, j = 0;
     {
-        auto Result_ExtractPart = iGame::UnstructuredMesh::New();
-        auto ExtractCells = CellArray::New();
-        auto ExtractTypes = UnsignedIntArray::New();
-        ExtractCells->Reserve(inFaces->GetNumberOfCellIds());
-        ExtractTypes->Reserve(inVolumeNum * 2 / 3);
+        OutConn->Reserve(inFaces->GetNumberOfCellIds());
+        OutType->Reserve(inVolumeNum * 2 / 3);
         OriginCell.reserve(inVolumeNum * 2 / 3);
         igIndex cellId = 0;
         igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
@@ -190,7 +193,8 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm) 
         igIndex realVcnt = 0;
 
         for (cellId = 0; cellId < inVolumeNum; cellId++) {
-            if (cellVisible[cellId] == 1) {
+            // crinkle模式下保留与平面相交的cell（==0）和完全在内部的cell（==1）
+            if (m_Crinkle ? (cellVisible[cellId] != 2) : (cellVisible[cellId] == 1)) {
                 realVcnt = 0;
                 fcnt = m_VolumeMesh->GetVolumeFaceIds(cellId, fhs);
                 realVhs[realVcnt++] = fcnt;
@@ -199,8 +203,8 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm) 
                     realVhs[realVcnt++] = vcnt;
                     for (j = 0; j < vcnt; j++) { realVhs[realVcnt++] = vhs[j]; }
                 }
-                ExtractCells->AddCellIds(realVhs, realVcnt);
-                ExtractTypes->AddValue(IG_POLYHEDRON);
+                OutConn->AddCellIds(realVhs, realVcnt);
+                OutType->AddValue(IG_POLYHEDRON);
                 OriginCell.emplace_back(cellId);
             }
         }
@@ -210,10 +214,18 @@ bool ModelClip::ExecuteWithVolumeMeshWithPolyhedronType(VolumeMesh::Pointer vm) 
         for (int pointId = 0; pointId < inPointNum; pointId++) {
             OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
         }
-        Result_ExtractPart->SetPoints(OutPoints);
-        Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
-        OutConn = ExtractCells;
-        OutType = ExtractTypes;
+    }
+    // 如果启用锯齿模式，直接返回提取的部分，不进行切割和补全平面
+    if (m_Crinkle) {
+        this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge,
+                                   OriginCell);
+        OutMesh->SetCells(OutConn, OutType);
+        OutMesh->SetPoints(OutPoints);
+        OutMesh->SetAttributeSet(outData);
+        this->SetOutput(0, OutMesh);
+        std::vector<igIndex>().swap(OriginCell);
+        std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+        return true;
     }
     igIndex* vhs = nullptr;
     igIndex CellId = 0;
@@ -268,19 +280,17 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
     auto cellVisible = CellVisible->RawPointer();
     igIndex vcnt = 0;
     {
-        auto Result_ExtractPart = iGame::UnstructuredMesh::New();
-        auto ExtractCells = CellArray::New();
-        auto ExtractTypes = UnsignedIntArray::New();
-        ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
-        ExtractTypes->Reserve(inCellNum * 2 / 3);
+        OutConn->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+        OutType->Reserve(inCellNum * 2 / 3);
         OriginCell.reserve(inCellNum * 2 / 3);
         igIndex cellId = 0;
         igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
         for (cellId = 0; cellId < inCellNum; cellId++) {
-            if (cellVisible[cellId] == 1) {
+            // crinkle模式下保留与平面相交的cell（==0）和完全在内部的cell（==1）
+            if (m_Crinkle ? (cellVisible[cellId] != 2) : (cellVisible[cellId] == 1)) {
                 vcnt = inCells->GetCellIds(cellId, vhs);
-                ExtractCells->AddCellIds(vhs, vcnt);
-                ExtractTypes->AddValue(VolumeMesh::GetVolumeTypeWithPointNum(vcnt));
+                OutConn->AddCellIds(vhs, vcnt);
+                OutType->AddValue(VolumeMesh::GetVolumeTypeWithPointNum(vcnt));
                 OriginCell.emplace_back(cellId);
             }
         }
@@ -290,10 +300,18 @@ bool ModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer vm) {
         for (int pointId = 0; pointId < inPointNum; pointId++) {
             OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
         }
-        Result_ExtractPart->SetPoints(OutPoints);
-        Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
-        OutConn = ExtractCells;
-        OutType = ExtractTypes;
+    }
+    // 如果启用锯齿模式，直接返回提取的部分，不进行切割和补全平面
+    if (m_Crinkle) {
+        this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge,
+                                   OriginCell);
+        OutMesh->SetCells(OutConn, OutType);
+        OutMesh->SetPoints(OutPoints);
+        OutMesh->SetAttributeSet(outData);
+        this->SetOutput(0, OutMesh);
+        std::vector<igIndex>().swap(OriginCell);
+        std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+        return true;
     }
     igIndex* vhs = nullptr;
     igIndex CellId = 0;
@@ -356,19 +374,17 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm) {
     auto cellVisible = CellVisible->RawPointer();
     igIndex vcnt = 0;
     {
-        auto Result_ExtractPart = iGame::UnstructuredMesh::New();
-        auto ExtractCells = CellArray::New();
-        auto ExtractTypes = UnsignedIntArray::New();
-        ExtractCells->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
-        ExtractTypes->Reserve(inCellNum * 2 / 3);
+        OutConn->Reserve(inCells->GetNumberOfCellIds() * 2 / 3);
+        OutType->Reserve(inCellNum * 2 / 3);
         OriginCell.reserve(inCellNum * 2 / 3);
         igIndex cellId = 0;
         igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
         for (cellId = 0; cellId < inCellNum; cellId++) {
-            if (cellVisible[cellId] == 1) {
+            // crinkle模式下保留与平面相交的cell（==0）和完全在内部的cell（==1）
+            if (m_Crinkle ? (cellVisible[cellId] != 2) : (cellVisible[cellId] == 1)) {
                 vcnt = inCells->GetCellIds(cellId, vhs);
-                ExtractCells->AddCellIds(vhs, vcnt);
-                ExtractTypes->AddValue(SurfaceMesh::GetFaceTypeWithPointNum(vcnt));
+                OutConn->AddCellIds(vhs, vcnt);
+                OutType->AddValue(SurfaceMesh::GetFaceTypeWithPointNum(vcnt));
                 OriginCell.emplace_back(cellId);
             }
         }
@@ -378,12 +394,19 @@ bool ModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer sm) {
         for (int pointId = 0; pointId < inPointNum; pointId++) {
             OriginEdge.emplace_back(CellClip::InterpolateEdge(pointId));
         }
-        Result_ExtractPart->SetPoints(OutPoints);
-        Result_ExtractPart->SetCells(ExtractCells, ExtractTypes);
-        OutConn = ExtractCells;
-        OutType = ExtractTypes;
     }
-
+    // 如果启用锯齿模式，直接返回提取的部分，不进行切割和补全平面
+    if (m_Crinkle) {
+        this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData, OriginEdge,
+                                   OriginCell);
+        OutMesh->SetCells(OutConn, OutType);
+        OutMesh->SetPoints(OutPoints);
+        OutMesh->SetAttributeSet(outData);
+        this->SetOutput(0, OutMesh);
+        std::vector<igIndex>().swap(OriginCell);
+        std::vector<CellClip::InterpolateEdge>().swap(OriginEdge);
+        return true;
+    }
 
     igIndex* vhs = nullptr;
     igIndex CellId = 0;
@@ -539,7 +562,7 @@ double ModelClip::GetPointValue(igIndex pId, Points::Pointer points) {
         default:
             break;
     }
-    if (m_invert) return value;
+    if (m_Invert) return value;
     else return -value;
     return -1;
 }
@@ -583,6 +606,9 @@ void ModelClip::GetPlane(double o[3], double n[3]) {
     o[2] = m_Origin[2];
 }
 void ModelClip::SetInvert(bool _in) { 
-    this->m_invert = _in;
+    this->m_Invert = _in;
+}
+void ModelClip::SetCrinkle(bool crinkle) {
+    this->m_Crinkle = crinkle;
 }
 IGAME_NAMESPACE_END

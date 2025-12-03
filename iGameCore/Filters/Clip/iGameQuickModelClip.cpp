@@ -848,6 +848,10 @@ QuickModelClip::QuickModelClip() {}
 QuickModelClip::~QuickModelClip() {}
 
 bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
+    // 如果启用锯齿模式，直接调用基类方法
+    if (m_Crinkle) {
+        return ModelClip::ExecuteWithUnstructuredMesh(um);
+    }
     auto m_UnstructuredMesh = um;
     if (!m_UnstructuredMesh) return false;
 
@@ -1118,6 +1122,10 @@ bool QuickModelClip::ExecuteWithUnstructuredMesh(UnstructuredMesh::Pointer um) {
     return true;
 }
 bool QuickModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer m_VolumeMesh) {
+    // 如果启用锯齿模式，直接调用基类方法
+    if (m_Crinkle) {
+        return ModelClip::ExecuteWithVolumeMesh(m_VolumeMesh);
+    }
     if (!m_VolumeMesh) return false;
     if (m_VolumeMesh->GetIsPolyhedronType()) { return this->ExecuteWithVolumeMeshWithPolyhedronType(m_VolumeMesh); }
     UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
@@ -1146,6 +1154,10 @@ bool QuickModelClip::ExecuteWithVolumeMesh(VolumeMesh::Pointer m_VolumeMesh) {
     return ExecuteWithUnstructuredMesh(um);
 }
 bool QuickModelClip::ExecuteWithSurfaceMesh(SurfaceMesh::Pointer m_SurfaceMesh) {
+    // 如果启用锯齿模式，直接调用基类方法
+    if (m_Crinkle) {
+        return ModelClip::ExecuteWithSurfaceMesh(m_SurfaceMesh);
+    }
     if (!m_SurfaceMesh) return false;
     UnsignedIntArray::Pointer Types = UnsignedIntArray::New();
     auto inFaces = m_SurfaceMesh->GetFaces();

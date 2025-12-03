@@ -37,7 +37,16 @@ public:
     void GetPlane(double o[3], double n[3]);
     ///@}
 
+    ///@{ 设置或获取是否启用翻转模式
     void SetInvert(bool _in);
+    bool GetInvert() const { return m_Invert; }
+    ///@}
+
+
+    ///@{ 设置或获取是否启用锯齿模式（保留原始网格切割，不补全平面）
+    void SetCrinkle(bool crinkle);
+    bool GetCrinkle() const { return m_Crinkle; }
+    ///@}
 
 protected:
     ModelClip();
@@ -48,7 +57,8 @@ protected:
     double m_Origin[3];
 
 
-    bool m_invert = true;
+    bool m_Invert = true;
+    bool m_Crinkle = false;  // 是否启用锯齿模式（保留原始网格切割，不补全平面）
 
     /**
      * 计算顶点的value值和cell的状态，顶点的values值为点到切割面的带符号距离，

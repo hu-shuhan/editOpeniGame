@@ -22,7 +22,8 @@ void Painter2D::Draw() {
     igm::mat4 proj = igm::orthoRH_OZ(0.0f, width, 0.0f, height, -1.0f, 1.0f);
 
     m_Scene->m_ShaderManager->UpdateCameraBlock(
-            {igm::vec3{0.0f}, 1, view, proj, proj * view});
+            {igm::vec3{0.0f}, 1, igm::vec4{0.0f, width, 0.0f, height}, -1.0f,
+             1.0f, view, proj, proj * view});
     m_Scene->m_ShaderManager->UpdateObjectBlock(
             {1.0f, model, model.invert().transpose(), igm::vec4{}});
     m_Scene->m_ShaderManager->UpdateUBOBlock({1, 0});

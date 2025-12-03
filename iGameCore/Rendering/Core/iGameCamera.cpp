@@ -93,7 +93,6 @@ void Viewer::SetFov(float fov) {
 
 float Viewer::GetFov() const { return m_Fov; }
 
-
 /** Depth Map Visualization(farz is infinite):
     *          -far           -near              near            far
     *           |--------------|------->eye------->|--------------|

@@ -32,6 +32,8 @@ int main() {
     filter->SetPlane(o, n);
     //设置是否翻转
     filter->SetInvert(true);
+    //设置是否锯齿
+    filter->SetCrinkle(true);
     //执行切割
     filter->Execute();
     //返回结果

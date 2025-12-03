@@ -40,6 +40,10 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     //############ Pre Load ############
     connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
     ui->preLoadModelMsg->hide();
+    //############ R ############
+    auto radius = 0.5;
+    ui->RadiusSpinBox->setValue(radius);
+    iGame::SelectionParameter::Instance().SetSelectionRadius(radius);
 }
 
 igQtSelectionWidget::~igQtSelectionWidget() { delete ui; }
@@ -61,6 +65,7 @@ void igQtSelectionWidget::PreventSignalSend(bool prevent) { m_PreventSignalSend 
 
 void igQtSelectionWidget::SetDefaultSelectionButton() {
     ui->NONE_SELECTION->setChecked(false);
+    iGame::SelectionParameter::Instance().SetInSelection(false);
     SetVariableNames({});
 }
 
