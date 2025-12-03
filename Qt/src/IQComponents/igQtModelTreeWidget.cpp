@@ -292,11 +292,13 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
             call = false;
         } 
         else if (currentItem() != item) { // Check operation
-            iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
-            //setItemSelected(item, true);
+            if (item->getModel() != iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()) {
+                iGame::SceneManager::Instance()->GetCurrentScene()->SetCurrentModel(item->getModel());
+                emit ChangeCurrentModel(item->getModel());
+            }
+            
             item->setSelected(true);
             item->getModel()->ViewCloudPicture(-1);
-            emit ChangeCurrentModel(item->getModel());
             Q_EMIT ViewCloudPicture();
             auto* current = dynamic_cast<AttribTreeWidgetItem*>(item->getCurrentChild());
             if (current) { current->hide(); }
