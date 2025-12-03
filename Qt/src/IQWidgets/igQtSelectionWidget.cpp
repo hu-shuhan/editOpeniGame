@@ -1,6 +1,7 @@
 ﻿#include <IQWidgets/igQtSelectionWidget.h>
 #include <iGameSelectionParameter.h>
 #include <QRegularExpression>
+#include <QRegularExpressionValidator>
 igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SelectionView) {
     ui->setupUi(this);
     connect(ui->NONE_SELECTION, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStationNone);
