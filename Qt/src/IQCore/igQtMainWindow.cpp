@@ -781,6 +781,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
                 mainWindow->ui->widget_DataChangeField->GetRadialStyle());
         mainWindow->ui->widget_DataChangeField->SetInteractorName(name);
         mainWindow->ui->widget_DataChangeField->SetModel(model);
+        mainWindow->ui->widget_DataChangeField->SetScene(mainWindow->rendererWidget->GetScene());
     };
     connect(ui->action_DataChange, &QAction::triggered, this, [&](bool checked) { DataChangeFunc(this); });
     connect(ui->widget_DataChangeField, &igQtDataChangeWidget::SIGNAL_RefreshDataClicked, this,
