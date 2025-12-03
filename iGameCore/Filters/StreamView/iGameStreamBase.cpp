@@ -86,8 +86,8 @@ void StreamBase::ConvertToDrawableData() {
                 if (temV1 > 40) { count2++;
                 }
                 count1++;
-                step1=std::max(step1,temV1);
-                step2=std::min(step2,temV1);
+                step1=std::max(static_cast<double>(step1), temV1);
+                step2=std::min(static_cast<double>(step2), temV1);
             }
         } else {
             // 如果没有速度属性，使用默认颜色
