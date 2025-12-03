@@ -1527,7 +1527,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1546,7 +1547,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1564,7 +1566,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1577,8 +1580,12 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
 
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
-            [&]() { ui->action_SelectView->setChecked(false); });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [&]() {
+        ui->action_SelectView->setChecked(false);
+        auto scene = rendererWidget->GetScene();
+        scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+        rendererWidget->update();
+    });
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
             [&]() { 
