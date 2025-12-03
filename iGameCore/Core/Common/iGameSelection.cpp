@@ -131,7 +131,7 @@ static void DrawCell(Painter3D* painter, int cellPointSize, int cellPoints[], Po
 static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh,
                       std::vector<IGuint>& drawHandles) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
-    painter->SetPen(3);
+    painter->SetPen(1);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
         auto& p1 = mesh->GetPoint(edge.first);
@@ -145,7 +145,7 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     if (painter == nullptr) return;
     painter->Clear();
     if (edges.empty() || mesh == nullptr) return;
-    painter->SetPen(3);
+    painter->SetPen(1);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
         auto& p1 = mesh->GetPoint(edge.first);
@@ -644,7 +644,7 @@ void Selection::DrawPoints() {
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
     painter->Clear();
-    painter->SetPen(10);
+    painter->SetPen(2);
     painter->SetPen(Color::Red);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {

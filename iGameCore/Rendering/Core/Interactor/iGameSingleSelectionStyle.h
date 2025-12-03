@@ -151,6 +151,15 @@ public:
     static std::vector<int>
     GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
                    PointSet* mesh);
+    static std::vector<int>
+    GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                   UnstructuredMesh* mesh, bool onlySelectSeeAbleCells = false);
+    static std::vector<int>
+    GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                   VolumeMesh* mesh, bool onlySelectSeeAbleCells = false);
+    static std::vector<int>
+    GetPointsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,
+                   SurfaceMesh* mesh, bool onlySelectSeeAbleCells = false);
 
     static std::vector<int>
     GetCellsInBox(const std::array<std::array<Point, 4>, 6>& allFaces,

@@ -1104,6 +1104,51 @@ std::vector<int> SingleSelectionStyle::GetPointsInBox(
     /*################################# CORE END #################################*/
 }
 
+std::vector<int> SingleSelectionStyle::GetPointsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces,
+        UnstructuredMesh* mesh, bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
+        auto& point = mesh->GetPoint(pointId);
+        if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces, VolumeMesh* mesh,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
+        auto& point = mesh->GetPoint(pointId);
+        if (!IsPointInside(point, allFaces)) continue;
+        if (!onlySelectSeeAbleCells || mesh->IsBoundaryPoint(pointId)) {
+            re.push_back(pointId);
+        }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
+std::vector<int> SingleSelectionStyle::GetPointsInBox(
+        const std::array<std::array<Point, 4>, 6>& allFaces, SurfaceMesh* mesh,
+        bool onlySelectSeeAbleCells) {
+    std::vector<int> re;
+    if (mesh == nullptr) return re;
+    /*################################# CORE START #################################*/
+    for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
+        auto& point = mesh->GetPoint(pointId);
+        if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+    }
+    return re;
+    /*################################# CORE END #################################*/
+}
+
 static bool IsCellInsie(Cell* cell,
                         const std::array<std::array<Point, 4>, 6>& allFaces) {
     if (cell == nullptr) return false;

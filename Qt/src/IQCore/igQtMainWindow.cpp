@@ -1527,7 +1527,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1546,7 +1547,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1564,7 +1566,8 @@ void igQtMainWindow::initAllInteractor() {
                                                               ? Selection::Operate::Add
                                                               : Selection::Operate::Remove);
                 } else {
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
                     selection->SelectionCallBackEvent(IG_POINT, pointIds,
                                                       SelectionParameter::Instance().GetSelectOrUnSelect()
                                                               ? Selection::Operate::Add
@@ -1577,8 +1580,12 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
 
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,
-            [&]() { ui->action_SelectView->setChecked(false); });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [&]() {
+        ui->action_SelectView->setChecked(false);
+        auto scene = rendererWidget->GetScene();
+        scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+        rendererWidget->update();
+    });
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
             [&]() { 
@@ -1589,6 +1596,24 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();
         ui->widget_SelectionField->PreventSignalSend(false);
+        //####### ATTENTION ST #######
+        ui->widget_SelectionField->SetNoAttention();
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto attributeSet = dataObj->GetAttributeSet();
+        if (attributeSet == nullptr) return;
+        bool haveNoPointAttr = (attributeSet->GetAllPointAttributes()->GetNumberOfElements() == 0);
+        bool haveNoCellAttr = (attributeSet->GetAllCellAttributes()->GetNumberOfElements() == 0);
+        if (haveNoPointAttr && haveNoCellAttr) {
+            ui->widget_SelectionField->SetAllAttention();
+        } else if (haveNoPointAttr) {
+            ui->widget_SelectionField->SetPointAttention();
+        } else if (haveNoCellAttr) {
+            ui->widget_SelectionField->SetCellAttention();
+        }
+        //####### ATTENTION ED #######
         return;
         //auto radius = ui->widget_SelectionField->GetSelectionRadius();
         //auto selectionStation = ui->widget_SelectionField->GetSelectionStation();

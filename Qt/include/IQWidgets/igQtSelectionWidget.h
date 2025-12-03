@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <iGameSelectionParameter.h>
+#include <QString>
 
 namespace Ui {
 class SelectionView;
@@ -23,6 +24,13 @@ public:
     void SetVariableNames(const std::vector<std::string>& variableNames = {});
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
+
+public:
+    //ATTENTION
+    void SetNoAttention();
+    void SetPointAttention();
+    void SetCellAttention();
+    void SetAllAttention();
 
 signals:
     void Signal_SetSelectionStationChanged();
@@ -47,7 +55,7 @@ private slots:
     void SelectionRadiusBoxMode(bool checked);
     void SelectionCtBoxMode(bool checked);
 
-    void SelectionRadiusSpinBox(double radius);
+    void SelectionRadiusSpinBox(const QString& radius);
     void SelectionVariableIndex(int index);
     void SelectionVariableAutoCheck(bool checked);
     void SelectionExpdRate(double rate);

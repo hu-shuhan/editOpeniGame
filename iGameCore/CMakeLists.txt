@@ -101,11 +101,6 @@ endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
-    # target_include_directories(${MODULE_NAME}
-    #         PUBLIC
-    #         $<BUILD_INTERFACE:SYSTEM:${TORCH_INCLUDE_DIRS}>
-    #         $<INSTALL_INTERFACE:include>
-    # )
     target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
 endif ()
 
@@ -125,7 +120,6 @@ endif ()
 
 if (${ENABLE_NASTRAN_MODULE})
     target_compile_definitions(${MODULE_NAME} PUBLIC NASTRAN_ENABLE)
-
 endif ()
 
 #if(Python3_FOUND)
@@ -197,16 +191,9 @@ endif ()
 include(Cmake/iGameCoreInstall.cmake)
 #--------------------------------------------------------------------
 
-#if (ENABLE_LIBTORCH_MODULE)
-#    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
-#    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
-#    file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
-#    file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
-#endif ()
-
 if (ENABLE_LIBTORCH_MODULE)
-    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
-    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
+    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources/AI)
+    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources/AI)
     file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
     file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
     install(

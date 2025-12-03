@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>285</width>
-    <height>266</height>
+    <height>278</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -289,17 +289,41 @@
         <property name="verticalSpacing">
          <number>0</number>
         </property>
-        <item row="2" column="0">
-         <widget class="QLabel" name="vcLabel">
-          <property name="text">
-           <string>所选变量</string>
+        <item row="0" column="0">
+         <widget class="QLabel" name="opeTypeLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
+          <property name="text">
+           <string>类型</string>
           </property>
          </widget>
         </item>
-        <item row="4" column="0">
+        <item row="0" column="1" colspan="2">
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QRadioButton" name="POINT_SELECTION">
+            <property name="text">
+             <string>点选择</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="CELL_SELECTION">
+            <property name="text">
+             <string>面/体选择</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="5" column="0">
          <widget class="QLabel" name="boxLabel">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -312,7 +336,74 @@
           </property>
          </widget>
         </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="erLabel">
+          <property name="text">
+           <string>严格程度</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="radiusLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>半径</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
         <item row="2" column="1" colspan="2">
+         <widget class="QLineEdit" name="RadiusSpinBox"/>
+        </item>
+        <item row="4" column="2">
+         <widget class="QLabel" name="expdRateSlidTxt">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>30</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>30</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>100%</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QSlider" name="expdRateSlid">
+          <property name="maximum">
+           <number>500</number>
+          </property>
+          <property name="value">
+           <number>100</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1" colspan="2">
          <widget class="QComboBox" name="variableChoose">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -322,7 +413,7 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="1" colspan="2">
+        <item row="5" column="1" colspan="2">
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <item>
            <widget class="QPushButton" name="clearBox">
@@ -364,7 +455,7 @@
              </size>
             </property>
             <property name="text">
-             <string>设置</string>
+             <string>修改</string>
             </property>
            </widget>
           </item>
@@ -395,91 +486,18 @@
           </item>
          </layout>
         </item>
-        <item row="3" column="2">
-         <widget class="QLabel" name="expdRateSlidTxt">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>30</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>30</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>100%</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QSlider" name="expdRateSlid">
-          <property name="maximum">
-           <number>500</number>
-          </property>
-          <property name="value">
-           <number>100</number>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Orientation::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1" colspan="2">
-         <widget class="QDoubleSpinBox" name="RadiusSpinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="decimals">
-           <number>5</number>
-          </property>
-          <property name="maximum">
-           <double>255.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.010000000000000</double>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="radiusLabel">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>半径</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
         <item row="3" column="0">
-         <widget class="QLabel" name="erLabel">
+         <widget class="QLabel" name="vcLabel">
           <property name="text">
-           <string>严格程度</string>
+           <string>所选变量</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>
           </property>
          </widget>
         </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="opeTypeLabel">
+        <item row="1" column="0" colspan="3">
+         <widget class="QLabel" name="attention">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -487,30 +505,9 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>类型</string>
+           <string>ATTENTION</string>
           </property>
          </widget>
-        </item>
-        <item row="0" column="1" colspan="2">
-         <layout class="QHBoxLayout" name="horizontalLayout_4">
-          <item>
-           <widget class="QRadioButton" name="POINT_SELECTION">
-            <property name="text">
-             <string>点选择</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="CELL_SELECTION">
-            <property name="text">
-             <string>面/体选择</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
         </item>
        </layout>
       </widget>
