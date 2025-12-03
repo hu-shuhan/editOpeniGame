@@ -28,6 +28,7 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     ui->drawBoundBox->hide();
     //############ BOX ############
     connect(ui->clearBox, &QPushButton::clicked, this, &igQtSelectionWidget::ClearBox);
+    ui->settingBox->hide();
     connect(ui->useBox, &QPushButton::clicked, this, &igQtSelectionWidget::UseBox);
     //############ SELECT MODE ############
     connect(ui->radiusMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusMode);
@@ -229,6 +230,7 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
     ui->expdRateSlidTxt->hide();
     ui->boxLabel->hide();
     ui->clearBox->hide();
+    ui->settingBox->hide();
     ui->useBox->hide();
 }
 
@@ -262,5 +264,6 @@ void igQtSelectionWidget::ShowCtUi() {
 void igQtSelectionWidget::ShowBoxUi() {
     ui->boxLabel->show();
     ui->clearBox->show();
+    //ui->settingBox->show();
     ui->useBox->show();
 }
