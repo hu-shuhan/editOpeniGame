@@ -1572,6 +1572,7 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 return;
         }
+        rendererWidget->update();
     });
 
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this,

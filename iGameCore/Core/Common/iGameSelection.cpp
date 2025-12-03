@@ -142,8 +142,9 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
 }
 
 static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, PointSet* mesh) {
-    if (painter == nullptr || edges.empty() || mesh == nullptr) return;
+    if (painter == nullptr) return;
     painter->Clear();
+    if (edges.empty() || mesh == nullptr) return;
     painter->SetPen(3);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
@@ -154,8 +155,9 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
 }
 
 static void DrawBoundingBoxs(Painter3D* painter, const std::vector<std::pair<Point, Point>>& boxs) {
-    if (painter == nullptr || boxs.empty()) return;
+    if (painter == nullptr) return;
     painter->Clear();
+    if (boxs.empty()) return;
     painter->SetPen(5);
     painter->SetPen(0.9f, 0.9f, 0.9f);
     painter->SetBrush(iGame::Brush::Style::NoBrush);
@@ -365,6 +367,15 @@ static void DrawCell(UnstructuredMesh* mesh, Painter3D* painter, Cell* cell, std
 //    for (auto& callBackFunc: m_CallBackFunctor_old) { callBackFunc.second({event}); }
 //}
 
+static void ExpandMinMax(std::pair<Point, Point>& pMinMax) {
+    const auto expdRate = 0.001;
+    Point dir = pMinMax.second - pMinMax.first;
+    auto len = dir.length();
+    auto expdLen = len * expdRate;
+    pMinMax.first -= expdLen;
+    pMinMax.second += expdLen;
+}
+
 void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igIndex>& ids, Operate ope) {
     switch (itemType) {
         case IG_POINT: {
@@ -384,20 +395,45 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             switch (dataObj->GetDataObjectType()) {
                 case IG_SURFACE_MESH: {
                     auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                        !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
+                        auto& center = mesh->GetPoint(ids.front());
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    }
                 } break;
                 case IG_VOLUME_MESH:
                 case IG_STRUCTURED_MESH: {
                     auto mesh = DynamicCast<VolumeMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                        !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
+                        auto& center = mesh->GetPoint(ids.front());
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    }
                 } break;
                 case IG_UNSTRUCTURED_MESH: {
                     auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
-                    pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    if (!SelectionParameter::Instance().GetAutoSelect() &&
+                        !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
+                        auto& center = mesh->GetPoint(ids.front());
+                        auto r = SelectionParameter::Instance().GetSelectionRadius();
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
+                    } else {
+                        pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
+                    }
                 } break;
                 default:
                     return;
             }
+            ExpandMinMax(pMinMax);
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
@@ -413,12 +449,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetFace(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first[0] = center[0]- r / 2;
-                        pMinMax.first[1] = center[1]- r / 2;
-                        pMinMax.first[2] = center[2] - r / 2;
-                        pMinMax.second[0] = center[0] + r / 2;
-                        pMinMax.second[1] = center[1] + r / 2;
-                        pMinMax.second[2] = center[2] + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -431,12 +463,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetVolume(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first[0] = center[0] - r / 2;
-                        pMinMax.first[1] = center[1] - r / 2;
-                        pMinMax.first[2] = center[2] - r / 2;
-                        pMinMax.second[0] = center[0] + r / 2;
-                        pMinMax.second[1] = center[1] + r / 2;
-                        pMinMax.second[2] = center[2] + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -448,12 +476,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetCell(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first[0] = center[0] - r / 2;
-                        pMinMax.first[1] = center[1] - r / 2;
-                        pMinMax.first[2] = center[2] - r / 2;
-                        pMinMax.second[0] = center[0] + r / 2;
-                        pMinMax.second[1] = center[1] + r / 2;
-                        pMinMax.second[2] = center[2] + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -461,6 +485,7 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                 default:
                     return;
             }
+            ExpandMinMax(pMinMax);
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
@@ -505,6 +530,7 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                 default:
                     return;
             }
+            ExpandMinMax(pMinMax);
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;
@@ -529,6 +555,7 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                 default:
                     return;
             }
+            ExpandMinMax(pMinMax);
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
         } break;

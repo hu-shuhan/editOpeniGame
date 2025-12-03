@@ -27,9 +27,9 @@ IGAME_NAMESPACE_BEGIN
  * 单通道线框渲染、透明排序、体积渲染等。
  */
 enum class ShaderType {
-    BLINNPHONG = 0, ///< Blinn-Phong光照模型
-    PBR,     ///< 基于物理渲染（Physically-Based Rendering），未完善
-    NOLIGHT, ///< 无光照Shader
+    BLINNPHONG = 0,      ///< Blinn-Phong光照模型
+    PBR,                 ///< 基于物理渲染（Physically-Based Rendering），未完善
+    NOLIGHT,             ///< 无光照Shader
     PURECOLOR,           ///< 单一颜色Shader
     SINGLEPASSWIREFRAME, ///< 单通道线框Shader
     TRANSPARENCYLINK,    ///< 透明渲染（链表法）
@@ -60,9 +60,12 @@ public:
     struct CameraDataBuffer {
         alignas(16) igm::vec3 camera_position; ///< 相机位置
         alignas(4) int isOrtho;                ///< 是否为正交投影
+        alignas(16) igm::vec4 orthoBounds;     ///< 正交投影参数（左右下上）
+        alignas(4) float zNear;                ///< 近裁剪面距离
+        alignas(4) float zFar;                 ///< 远裁剪面距离
         alignas(16) igm::mat4 view;            ///< 视图矩阵
         alignas(16) igm::mat4 proj;            ///< 投影矩阵
-        alignas(16) igm::mat4 proj_view; ///< 投影-视图矩阵（proj * view）
+        alignas(16) igm::mat4 proj_view;       ///< 投影-视图矩阵（proj * view）
     };
 
     /**
@@ -90,9 +93,9 @@ public:
      * @brief    用于存储裁剪相关的Uniform缓冲数据。
      */
     struct CullDataBuffer {
-        alignas(16) igm::mat4 view_model;       ///< 视图-模型矩阵
-        alignas(4) float P00, P11, zNear, zFar; ///< 相关投影参数
-        alignas(16) igm::vec4 frustum;          ///< 裁剪平面数据
+        alignas(16) igm::mat4 view_model;            ///< 视图-模型矩阵
+        alignas(4) float P00, P11, zNear, zFar;      ///< 相关投影参数
+        alignas(16) igm::vec4 frustum;               ///< 裁剪平面数据
         alignas(4) unsigned int HzbWidth, HzbHeight; ///< 深度金字塔大小（像素）
     };
 
