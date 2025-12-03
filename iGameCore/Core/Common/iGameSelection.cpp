@@ -399,8 +399,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
                         auto& center = mesh->GetPoint(ids.front());
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
                     }
@@ -412,8 +412,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
                         auto& center = mesh->GetPoint(ids.front());
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
                     }
@@ -424,8 +424,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         !SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells() && ids.size() == 1) {
                         auto& center = mesh->GetPoint(ids.front());
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetPointsBoundingBox(ids, mesh);
                     }
@@ -449,8 +449,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetFace(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -463,8 +463,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetVolume(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -476,8 +476,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto cell = mesh->GetCell(ids.front());
                         auto center = GetCentralOfCell(cell);
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
-                        pMinMax.first = center - r / 2;
-                        pMinMax.second = center + r / 2;
+                        pMinMax.first = center - r;
+                        pMinMax.second = center + r;
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }

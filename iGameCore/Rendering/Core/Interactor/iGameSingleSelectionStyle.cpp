@@ -189,6 +189,7 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
+        //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
             mesh->RequestEditStatus();
@@ -288,6 +289,7 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
                     SelectionParameter::Instance()
                             .GetSelectOnlySelectSeeAbleCells());
         } break;
+        //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
             mesh->RequestEditStatus();
@@ -546,7 +548,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -570,7 +573,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -594,7 +598,8 @@ std::vector<int> SingleSelectionStyle::GetPointsInRadiusMode(
     auto id = GetFirstPoint(startPoint, endPoint, mesh,
                             selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -618,7 +623,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -662,7 +668,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
@@ -706,7 +713,8 @@ std::vector<int> SingleSelectionStyle::GetCellsInRadiusMode(
     auto id = GetFirstCell(startPoint, endPoint, mesh,
                            selectIgnoreUnSeeAbleCells, onlySelectSeeAbleCells);
     if (id == -1) return re;
-    if (radius <= 0 || !onlySelectSeeAbleCells) {
+    if (radius <= 0 || (!onlySelectSeeAbleCells &&
+                        SelectionParameter::Instance().IsBoxMode())) {
         re.push_back(id);
         return re;
     }
