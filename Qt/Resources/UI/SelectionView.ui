@@ -350,6 +350,25 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="settingBox">
+            <property name="minimumSize">
+             <size>
+              <width>30</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>设置</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="useBox">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -359,13 +378,13 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>50</width>
+              <width>30</width>
               <height>0</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
-              <width>30</width>
+              <width>50</width>
               <height>16777215</height>
              </size>
             </property>
