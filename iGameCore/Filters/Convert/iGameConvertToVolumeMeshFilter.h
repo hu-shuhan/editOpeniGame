@@ -26,6 +26,7 @@ public:
 
     //转换模式
     enum ConvertMethod {
+        INVALID = -1,
         IG_CONVERT_VOLUME_MESH, //转化为体网格，需要原始模型就是体网格模型，比如纯体的非结构化网格
         IG_EXTRACT_VOLUME_CELL, //提取体单元，专门用于非结构化网格，用于获取非结构化网格中的体单元
     };

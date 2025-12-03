@@ -694,8 +694,10 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
-                maxF=std::max(maxF, sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]));
-                minF=std::min(minF, sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]));
+                maxF = std::max(static_cast<float>(maxF),
+                                static_cast<float>(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])));
+                minF = std::min(static_cast<float>(minF),
+                                static_cast<float>(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])));
             }
             int component = Vector.pointer->GetDimension();
             isChange = false;
