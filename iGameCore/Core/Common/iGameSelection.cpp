@@ -142,8 +142,9 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
 }
 
 static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, PointSet* mesh) {
-    if (painter == nullptr || edges.empty() || mesh == nullptr) return;
+    if (painter == nullptr) return;
     painter->Clear();
+    if (edges.empty() || mesh == nullptr) return;
     painter->SetPen(3);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
@@ -154,8 +155,9 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
 }
 
 static void DrawBoundingBoxs(Painter3D* painter, const std::vector<std::pair<Point, Point>>& boxs) {
-    if (painter == nullptr || boxs.empty()) return;
+    if (painter == nullptr) return;
     painter->Clear();
+    if (boxs.empty()) return;
     painter->SetPen(5);
     painter->SetPen(0.9f, 0.9f, 0.9f);
     painter->SetBrush(iGame::Brush::Style::NoBrush);
