@@ -7,6 +7,8 @@
 #include <string>
 #include <iGameSelectionParameter.h>
 #include <QString>
+#include <iGameScene.h>
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 
 namespace Ui {
 class SelectionView;
@@ -25,6 +27,8 @@ public:
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
+    void SetInitBoxSettingDialog(QWidget* renderWidget);
+
 public:
     //ATTENTION
     void SetNoAttention();
@@ -40,6 +44,7 @@ signals:
     void Hided();
     void SetClearBox();
     void SetUseBox();
+    void SetBoxSettingDialog();
     void SetPreLoadModelMsg();
 
 private slots:
@@ -71,6 +76,8 @@ private slots:
     void ClearBox();
     void UseBox();
 
+    void BoxSettingDialog();
+
     void PreLoadModelMsg();
 
 protected:
@@ -78,6 +85,7 @@ protected:
     
 private:
     Ui::SelectionView* ui;
+    igQtBoxSettingDialog* m_BoxSettingDialog{};
     bool m_SelectItemShow{true};
     bool m_SelectBoxShow{true};
     bool m_PreventSignalSend{};

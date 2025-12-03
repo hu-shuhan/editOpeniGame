@@ -45,6 +45,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -1493,6 +1494,18 @@ void igQtMainWindow::initAllInteractor() {
         auto scene = rendererWidget->GetScene();
         scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
         rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetBoxSettingDialog, this, [&]() {
+        auto scene = rendererWidget->GetScene();
+        auto interactor = scene->GetInteractor();
+        if (!interactor->HaveSpecialInteractor("SelectBox")) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        if (boxStyle == nullptr) return;
+        auto dynamicBox = boxStyle->GetBox();
+        if (dynamicBox == nullptr) return;
+        ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
         if (!SelectionParameter::Instance().GetInSelection()) return;
