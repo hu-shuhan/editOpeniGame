@@ -27,7 +27,7 @@ option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable OpeniGame Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable OpeniGame Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 
@@ -41,16 +41,16 @@ endif ()
 if (NOT ENABLE_GPSCUDA_MODULE)
     project(iGameVis LANGUAGES C CXX)# 在Release构建中保留调试信息
     #if(MSVC)
-    #    # Release配置下也生成调试符号
-    #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
-    #    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
-    #    
-    #    # 如果是CUDA项目，也为CUDA添加调试信息
-    #    if(ENABLE_GPSCUDA_MODULE)
-    #        set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -Xcompiler=/Zi")
-    #    endif()
-    #    add_compile_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
-    #    add_link_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
+    #    #    # Release配置下也生成调试符号
+    #    #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
+    #    #    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+    #    #
+    #    #    # 如果是CUDA项目，也为CUDA添加调试信息
+    #    #    if(ENABLE_GPSCUDA_MODULE)
+    #    #        set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -Xcompiler=/Zi")
+    #    #    endif()
+    #    #    add_compile_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
+    #    #    add_link_options("$<$<CONFIG:Debug,RelWithDebInfo>:/fsanitize=address>")
     #endif()
     if (WIN32)
         add_definitions(-D_WINDOWS_SOURCE)

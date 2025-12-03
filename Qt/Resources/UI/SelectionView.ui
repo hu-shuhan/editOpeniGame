@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>294</width>
+    <width>285</width>
     <height>266</height>
    </rect>
   </property>
@@ -22,7 +22,7 @@
      <item row="0" column="0">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
-        <string>选择</string>
+        <string>鼠标中键选取</string>
        </property>
        <property name="checkable">
         <bool>false</bool>
@@ -40,7 +40,7 @@
         <item>
          <widget class="QCheckBox" name="NONE_SELECTION">
           <property name="text">
-           <string>选择</string>
+           <string>开启</string>
           </property>
          </widget>
         </item>
@@ -332,8 +332,39 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="minimumSize">
+             <size>
+              <width>30</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
              <string>取消</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="settingBox">
+            <property name="minimumSize">
+             <size>
+              <width>30</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>设置</string>
             </property>
            </widget>
           </item>
@@ -344,6 +375,18 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>30</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
             </property>
             <property name="text">
              <string>应用</string>
