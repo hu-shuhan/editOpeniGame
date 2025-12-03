@@ -191,6 +191,8 @@ const void VTKWriter::WriteCellsTypeToBuffer() {
             case IG_POLYHEDRON:
                 vtkType = VTKAbstractReader::POLYHEDRON;
                 break;
+
+
             default:
                 vtkType = VTKAbstractReader::T0;
                 break;
@@ -279,7 +281,7 @@ const void VTKWriter::WriteArrayToBuffer(ArrayObject::Pointer array) {
         }
         auto func = [&](igIndex start, igIndex end, int id) -> void {
             auto& buffer = tmpBuffers[id];
-            double values[16];
+            double values[IGAME_CELL_MAX_SIZE];
             for (int i = start; i < end; i++) {
                 array->GetElement(i, values);
                 for (int j = 0; j < Component; j++) {
