@@ -23,9 +23,13 @@ int main() {
     filter->SetInput(input);
     auto bound = input->GetBoundingBox();
     auto ori = (bound.min + bound.max) / 2;
-    float n[3] = {0, 1, 0};
-    float o[3] = {ori[0], ori[1], ori[2]};
+    double n[3] = { 1, 0, 0 };
+    double o[3] = { ori[0], ori[1], ori[2] };
+    //设置切片的平面
     filter->SetPlane(o, n);
+    //设置是否锯齿
+    filter->SetCrinkle(false);
+    //执行Slice
     filter->Execute();
     auto res = filter->GetOutput();
     (DynamicCast<iGame::DrawObject>(res))->SetViewStyle(IG_SURFACE);
@@ -39,4 +43,5 @@ int main() {
     interactor->CreateDefaultStyle();
     window->SetInteractor(interactor);
     window->Show();
+    return 0;
 }

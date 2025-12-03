@@ -121,10 +121,10 @@
      <property name="title">
       <string>数据分析</string>
      </property>
-     <addaction name="action_DataChange"/>
-     <addaction name="action_VariableDensity"/>
      <addaction name="action_VariableCorrelation"/>
+     <addaction name="action_VariableDensity"/>
      <addaction name="action_ParallelCoordinates"/>
+     <addaction name="action_DataChange"/>
     </widget>
     <addaction name="action_Scalar"/>
     <addaction name="action_Vector"/>
