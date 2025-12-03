@@ -99,7 +99,7 @@ public:
     std::tuple<torch::Tensor, Eigen::Vector3f, std::vector<float>>
     process_blocks(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
                    const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path, int split, int nx,
-                   int ny, int nz, VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex);
+                   int ny, int nz, VolumeMesh::Pointer volume_Mesh, AttributeSet* attributeSet, int curIndex,bool uniform);
 
     ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray, size_t PointNum);
 
@@ -110,6 +110,9 @@ public:
                                     const std::vector<Eigen::Vector3f>& query_points, int k = 8);
 
     void EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict);
+
+    bool IsAxisAlignedUniformGrid(const std::vector<Vector3f>& points,Eigen::Vector3i& dims, Eigen::Vector3f& origin, Eigen::Vector3f& spacing, float tol);
+    void GetGridXYZCounts(const std::vector<Vector3f>& points, int& nx, int& ny, int& nz);
 
 
 #endif
@@ -127,6 +130,9 @@ protected:
     double m_Precision = -1.0;
     double m_Recall = -1.0;
 
+    Eigen::Vector3i dims = Eigen::Vector3i::Zero();
+    Eigen::Vector3f origin = Eigen::Vector3f::Zero();
+    Eigen::Vector3f spacing = Eigen::Vector3f::Zero();
     int curIndex{-1};
     int curDim{-1};
     std::string name{};
