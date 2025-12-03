@@ -1495,6 +1495,7 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
+        if (!SelectionParameter::Instance().GetInSelection()) return;
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
         auto dataObj = model->GetDataObject();
