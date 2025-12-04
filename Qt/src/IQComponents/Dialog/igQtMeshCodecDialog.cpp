@@ -3,6 +3,8 @@
 #include <QScreen>
 #include <limits>
 #include <cmath>
+#include <iostream>
+#include <algorithm>
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
@@ -17,7 +19,7 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     // 让对话框可根据内容自由收缩/展开
     if (this->layout()) this->layout()->setSizeConstraint(QLayout::SetMinAndMaxSize);
 
-    InitUIControlParams();
+    InitDataItems();
     InitIntro();
     // 初始化radio的前缀标记
     auto startsWithAny = [&](const QString& s) -> bool {
@@ -57,13 +59,13 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     ui->groupbox_dataDistGroup->setEnabled(false);
     UpdateKeyAreaVisibility(false);
 
-    // 初始化压缩等级选择，默认选择等级3（index=3）
-    ui->comboBox_compressLevel->setCurrentIndex(m_params.compressLevel);
-}
-
-bool igQtMeshCodecDialog::IsValidAttrIndex(int dataIndex)
-{
-    return (dataIndex >= 0 && dataIndex < m_DataNum);
+    // 初始化压缩等级选择（zstd支持1-22），默认选择等级12
+    ui->comboBox_compressLevel->blockSignals(true);
+    for (int i = 1; i <= 22; ++i) {
+        ui->comboBox_compressLevel->addItem(QString::number(i));
+    }
+    ui->comboBox_compressLevel->setCurrentIndex(m_compressLevel);
+    ui->comboBox_compressLevel->blockSignals(false);
 }
 
 void igQtMeshCodecDialog::InitIntro()
@@ -76,53 +78,45 @@ void igQtMeshCodecDialog::InitIntro()
     );
 }
 
-void igQtMeshCodecDialog::InitUIControlParams()
+void igQtMeshCodecDialog::InitDataItems()
 {
-    using namespace iGame::UIControlParamsIndex;
-    
-    const int attrCount = m_dataObj->GetAttributeSet()->GetNumberOfAttributes();
-    const int totalCount = GetTotalCount(attrCount);
-    
-    for (int i = 0; i < totalCount; i++)
+    m_uiDataItems.clear();
+
+    // AllData（虚拟项，用于批量设置）
     {
-        iGame::FloatErrorControlParameters p;
-       
-        if (IsAllData(i))
-        {
-            // 第一项：全部数据（特殊选项，用于全局设置）
-            p.dataName = m_AllDataName;
-            p.dimension = 0;  // 特殊标记，表示这是全局设置
-            p.elementCount = 0;
-            p.isKeyElement = std::vector<bool>();
-        }
-        else if (IsGeom(i))
-        {
-            // 第二项：顶点坐标
-            p.dataName = m_GeomName;
-            p.dimension = 3;
-            p.elementCount = iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints();
-            p.isKeyElement = std::vector<bool>(p.elementCount, false);
-        }
-        else
-        {
-            // 第三项开始：实际属性数据
-            auto attr = m_dataObj->GetAttributeSet()->GetAttribute(ToAttrIndex(i));
-            p.dataName = attr.pointer->GetName();
-            p.dimension = attr.pointer->GetDimension();
-            p.elementCount = attr.pointer->GetNumberOfElements();
-            p.isKeyElement = std::vector<bool>(p.elementCount, false);
-        }
-        
-        p.lossyMode = iGame::LossyMode::MantissaTruncation;
-        p.errorMode = iGame::ErrorMode::None;
-        p.globalQuantizeLevel = 0;
-        p.criticalQuantizeLevel = 0;
-        p.normalQuantizeLevel = 0;
-        m_params.errorBoundSetting.push_back(p);
+        UIDataItem item;
+        item.category = UIDataCategory::AllData;
+        item.displayName = QString::fromUtf8("全部数据");
+        item.dimension = 0;
+        item.elementCount = 0;
+        m_uiDataItems.append(item);
     }
 
-    m_DataNum = m_params.errorBoundSetting.size();
-    m_params.showReport = false;
+    // Geom（几何数据）
+    {
+        UIDataItem item;
+        item.category = UIDataCategory::Geom;
+        item.displayName = QString::fromUtf8("顶点坐标");
+        item.dimension = 3;
+        item.elementCount = iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints();
+        item.isKeyElement = std::vector<bool>(item.elementCount, false);
+        m_uiDataItems.append(item);
+    }
+
+    // Attributes（属性数据）
+    const int attrCount = m_dataObj->GetAttributeSet()->GetNumberOfAttributes();
+    for (int i = 0; i < attrCount; i++)
+    {
+        auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i);
+        UIDataItem item;
+        item.category = UIDataCategory::Attr;
+        item.attrIndex = i;
+        item.displayName = QString::fromStdString(attr.pointer->GetName());
+        item.dimension = attr.pointer->GetDimension();
+        item.elementCount = attr.pointer->GetNumberOfElements();
+        item.isKeyElement = std::vector<bool>(item.elementCount, false);
+        m_uiDataItems.append(item);
+    }
 }
 
 void igQtMeshCodecDialog::InitAttributeList()
@@ -130,32 +124,45 @@ void igQtMeshCodecDialog::InitAttributeList()
     // 清除属性列表
     ui->combo_boxFloatSelect->clear();
 
-    for (int i = 0; i < m_params.errorBoundSetting.size(); ++i)
+    for (int i = 0; i < m_uiDataItems.size(); ++i)
     {
-        auto& info = m_params.errorBoundSetting[i];
+        UIDataItem& item = m_uiDataItems[i];
         // 初始按参数的 errorMode 加前缀；默认均为无损
-        QString mark = m_modeMark[0];
-        if (info.errorMode == iGame::ErrorMode::Default) mark = m_modeMark[1];
-        else if (info.errorMode == iGame::ErrorMode::KeyArea) mark = m_modeMark[2];
-        ui->combo_boxFloatSelect->addItem(mark + " " + QString::fromStdString(info.dataName));
+        QString mark = GetModeMark(item.errorMode);
+        QString displayText = mark + " " + item.displayName;
+
+        // 将 UIDataItem 指针绑定到 ComboBox 项
+        ui->combo_boxFloatSelect->addItem(displayText, QVariant::fromValue(&item));
     }
-    if (!m_params.errorBoundSetting.empty()) {
+
+    if (!m_uiDataItems.empty()) {
         ui->combo_boxFloatSelect->setCurrentIndex(0);
     }
 }
 
-int igQtMeshCodecDialog::GetCurrentDataIndex() const
+UIDataItem* igQtMeshCodecDialog::GetCurrentDataItem()
 {
-    return ui->combo_boxFloatSelect->currentIndex();
+    QVariant data = ui->combo_boxFloatSelect->currentData();
+    if (data.isValid() && data.canConvert<UIDataItem*>()) {
+        return data.value<UIDataItem*>();
+    }
+    return nullptr;
 }
 
-void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIndex)
+const UIDataItem* igQtMeshCodecDialog::GetCurrentDataItem() const
 {
-    if (!IsValidAttrIndex(dataIndex))
-        return;
+    QVariant data = ui->combo_boxFloatSelect->currentData();
+    if (data.isValid() && data.canConvert<UIDataItem*>()) {
+        return data.value<UIDataItem*>();
+    }
+    return nullptr;
+}
 
-    // 更新参数中的属性名称
-    const auto& errorBoundSetting = m_params.errorBoundSetting[dataIndex];
+void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int)
+{
+    UIDataItem* item = GetCurrentDataItem();
+    if (!item)
+        return;
 
     // 阻塞信号以避免在加载时触发change事件
     ui->comboBox_globalLevel->blockSignals(true);
@@ -164,23 +171,23 @@ void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIn
 
     // 设置三个量化等级ComboBox的当前值
     // 全局量化等级：ComboBox从索引1开始（跳过"无损"），所以需要-1映射
-    if (errorBoundSetting.globalQuantizeLevel > 0) {
-        ui->comboBox_globalLevel->setCurrentIndex(errorBoundSetting.globalQuantizeLevel - 1);
+    if (item->globalQuantizeLevel > 0) {
+        ui->comboBox_globalLevel->setCurrentIndex(item->globalQuantizeLevel - 1);
     } else {
         ui->comboBox_globalLevel->setCurrentIndex(0); // 默认FP24
     }
-    ui->comboBox_criticalLevel->setCurrentIndex(errorBoundSetting.criticalQuantizeLevel);
-    ui->comboBox_normalLevel->setCurrentIndex(errorBoundSetting.normalQuantizeLevel);
+    ui->comboBox_criticalLevel->setCurrentIndex(item->criticalQuantizeLevel);
+    ui->comboBox_normalLevel->setCurrentIndex(item->normalQuantizeLevel);
 
     // 恢复信号
     ui->comboBox_globalLevel->blockSignals(false);
     ui->comboBox_criticalLevel->blockSignals(false);
     ui->comboBox_normalLevel->blockSignals(false);
 
-    SetRadiosFromErrorMode(errorBoundSetting.errorMode);
+    SetRadiosFromErrorMode(item->errorMode);
 
     // 当选择"全部数据"时，禁用分区量化选项
-    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
+    if (item->isAllData()) {
         ui->radio_areaModel->setEnabled(false);
         // 如果当前选中的是分区量化，切换到全局量化模式
         if (ui->radio_areaModel->isChecked()) {
@@ -199,48 +206,48 @@ void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int dataIn
     UpdateRefreshButtonStateForCurrent();
 }
 
-QString igQtMeshCodecDialog::GetModeMark(iGame::ErrorMode mode) const
+QString igQtMeshCodecDialog::GetModeMark(iGame::QuantizeMode mode) const
 {
     switch (mode) {
-    case iGame::ErrorMode::None:    return m_modeMark[0];
-    case iGame::ErrorMode::Default: return m_modeMark[1];
-    case iGame::ErrorMode::KeyArea: return m_modeMark[2];
+    case iGame::QuantizeMode::None:    return m_modeMark[0];
+    case iGame::QuantizeMode::Default: return m_modeMark[1];
+    case iGame::QuantizeMode::KeyArea: return m_modeMark[2];
     default:                        return m_modeMark[0];
     }
 }
 
 void igQtMeshCodecDialog::RefreshComboItemMark(int dataIndex)
 {
-    if (!IsValidAttrIndex(dataIndex)) return;
+    if (dataIndex < 0 || dataIndex >= m_uiDataItems.size()) return;
     if (!ui->combo_boxFloatSelect) return;
-    auto mode = m_params.errorBoundSetting[dataIndex].errorMode;
-    QString mark = GetModeMark(mode);
-    QString name = QString::fromStdString(m_params.errorBoundSetting[dataIndex].dataName);
-    ui->combo_boxFloatSelect->setItemText(dataIndex, mark + " " + name);
+    const UIDataItem& item = m_uiDataItems[dataIndex];
+    QString mark = GetModeMark(item.errorMode);
+    ui->combo_boxFloatSelect->setItemText(dataIndex, mark + " " + item.displayName);
 }
 
 void igQtMeshCodecDialog::RefreshAllComboItemMarks()
 {
     if (!ui->combo_boxFloatSelect) return;
-    for (int i = 0; i < m_params.errorBoundSetting.size(); ++i) {
+    for (int i = 0; i < m_uiDataItems.size(); ++i) {
         RefreshComboItemMark(i);
     }
 }
 
 void igQtMeshCodecDialog::LoadAttrFeatureWidget()
 {
-    int dataIndex = GetCurrentDataIndex();
-
-    if (!IsValidAttrIndex(dataIndex))
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
 
+    UIDataItem& item = m_uiDataItems[idx];
+
     // 检查是否有直方图数据
-    if (m_attrFeatureDatas[dataIndex].genStatus == FeatureHistoGenStatus::Yes) {
+    if (m_attrFeatureDatas[idx].genStatus == FeatureHistoGenStatus::Yes) {
         HideRefreshButton();
         // 使用缓存的 x/y 数据重绘
         ClearCurrentHistogram();
-        const auto& x = m_attrFeatureDatas[dataIndex].xAxis;
-        const auto& y = m_attrFeatureDatas[dataIndex].yAxis;
+        const auto& x = m_attrFeatureDatas[idx].xAxis;
+        const auto& y = m_attrFeatureDatas[idx].yAxis;
         if (!x.empty() && !y.empty()) {
             QChart* chart = new QChart();
             DrawFeatureHistogramFromData(chart, x, y);
@@ -250,7 +257,7 @@ void igQtMeshCodecDialog::LoadAttrFeatureWidget()
         }
         LoadAllCheckBoxes();
         // 同步复选状态到关键元素掩码
-        ApplyCheckStatusToKeyElements(dataIndex);
+        ApplyCheckStatusToKeyElements(idx);
         
         // 已有直方图数据，启用关键/非关键区域量化等级
         SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
@@ -266,7 +273,7 @@ void igQtMeshCodecDialog::LoadAttrFeatureWidget()
         SetComboAndLabelEnabled(ui->comboBox_normalLevel, ui->label_normal, false);
         
         // 如果当前是分区量化模式，显示刷新按钮
-        if (m_params.errorBoundSetting[dataIndex].errorMode == iGame::ErrorMode::KeyArea) {
+        if (item.errorMode == iGame::QuantizeMode::KeyArea) {
             ShowRefreshButton();
         } else {
             HideRefreshButton();
@@ -372,7 +379,7 @@ void igQtMeshCodecDialog::InitHistogramView()
 void igQtMeshCodecDialog::InitAttrFeatureDatas()
 {
     // 为每个属性数据初始化梯度特征数据
-    for (int i = 0; i < m_DataNum; i++)
+    for (int i = 0; i < m_uiDataItems.size(); i++)
     {
         AttrFeatureData data;
         data.checkStatus = std::vector<bool>(m_binNum, false);
@@ -384,32 +391,31 @@ void igQtMeshCodecDialog::InitAttrFeatureDatas()
 
 void igQtMeshCodecDialog::onCheckBoxStateChanged(int binIndex, int state)
 {
-    int dataIndex = GetCurrentDataIndex();
+    int idx = ui->combo_boxFloatSelect->currentIndex();
     
-    if (!IsValidAttrIndex(dataIndex))
-    {
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
-    }
 
     // 防御：若分箱尚未准备好或索引超界，直接返回
-    if (binIndex < 0 || binIndex >= m_binNum) {
+    if (binIndex < 0 || binIndex >= m_binNum)
         return;
-    }
-    if (m_attrFeatureDatas.size() <= dataIndex) {
+    if (m_attrFeatureDatas.size() <= idx)
         return;
-    }
-    if (m_attrFeatureDatas[dataIndex].idInBins.size() < static_cast<size_t>(m_binNum)) {
+    if (m_attrFeatureDatas[idx].idInBins.size() < static_cast<size_t>(m_binNum))
         return;
-    }
 
     bool check = m_checkBoxes[binIndex]->isChecked();
-    m_attrFeatureDatas[dataIndex].checkStatus[binIndex] = check;
+    m_attrFeatureDatas[idx].checkStatus[binIndex] = check;
 
     // 更新关键元素标记
-    const auto &binVec = m_attrFeatureDatas[dataIndex].idInBins[binIndex];
-    for (auto idx : binVec)
+    const auto &binVec = m_attrFeatureDatas[idx].idInBins[binIndex];
+    auto& keyMask = m_uiDataItems[idx].isKeyElement;
+    
+    for (auto i : binVec)
     {
-        m_params.errorBoundSetting[dataIndex].isKeyElement[idx] = check;
+        if (i >= 0 && i < static_cast<igIndex>(keyMask.size())) {
+            keyMask[i] = check;
+        }
     }
 }
 
@@ -441,12 +447,11 @@ void igQtMeshCodecDialog::EnableAllCheckBoxes()
 }
 
 void igQtMeshCodecDialog::LoadAllCheckBoxes() {
-    int dataIndex = GetCurrentDataIndex();
-
-    if (!IsValidAttrIndex(dataIndex))
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
 
-    AttrFeatureData& data = m_attrFeatureDatas[dataIndex];
+    AttrFeatureData& data = m_attrFeatureDatas[idx];
     if (m_checkBoxContainer) {
         m_checkBoxContainer->setVisible(true);
     }
@@ -469,34 +474,31 @@ void igQtMeshCodecDialog::LoadAllCheckBoxes() {
 
 void igQtMeshCodecDialog::GenerateHistogram()
 {
-    int dataIndex = GetCurrentDataIndex();
-
-    if (dataIndex < 0 || dataIndex >= m_DataNum)
-    {
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
-    }
 
     // 隐藏刷新按钮
     HideRefreshButton();
 
     // 若未生成过则计算并缓存 x/y，之后按需重绘
-    if (m_attrFeatureDatas[dataIndex].genStatus != FeatureHistoGenStatus::Yes) {
+    if (m_attrFeatureDatas[idx].genStatus != FeatureHistoGenStatus::Yes) {
         QChart* chart = new QChart();
         // 生成并绘制；在 DrawFeatureHistogram 内部会通过 CalFeatureHistogram 计算 x/y
         DrawFeatureHistogram(chart);
         if (m_chartView) m_chartView->setChart(chart);
-        m_attrFeatureDatas[dataIndex].genStatus = FeatureHistoGenStatus::Yes;
+        m_attrFeatureDatas[idx].genStatus = FeatureHistoGenStatus::Yes;
     } else {
         // 已经有缓存 x/y，直接重绘
-        const auto& x = m_attrFeatureDatas[dataIndex].xAxis;
-        const auto& y = m_attrFeatureDatas[dataIndex].yAxis;
+        const auto& x = m_attrFeatureDatas[idx].xAxis;
+        const auto& y = m_attrFeatureDatas[idx].yAxis;
         QChart* chart = new QChart();
         DrawFeatureHistogramFromData(chart, x, y);
         if (m_chartView) m_chartView->setChart(chart);
     }
     LoadAllCheckBoxes();
     // 同步复选状态到关键元素掩码
-    ApplyCheckStatusToKeyElements(dataIndex);
+    ApplyCheckStatusToKeyElements(idx);
     
     // 直方图绘制完成后，启用关键/非关键区域量化等级
     SetComboAndLabelEnabled(ui->comboBox_criticalLevel, ui->label_critical, true);
@@ -549,19 +551,20 @@ void igQtMeshCodecDialog::showEvent(QShowEvent* event)
 template<typename Func>
 void igQtMeshCodecDialog::ApplySettingToData(Func setter)
 {
-    int dataIndex = GetCurrentDataIndex();
-    if (!IsValidAttrIndex(dataIndex)) {
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
-    }
+    
+    UIDataItem* currentItem = &m_uiDataItems[idx];
     
     // 如果当前选择的是"全体数据"，则应用到所有数据项
-    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
-        for (int i = 0; i < m_DataNum; i++) {
-            setter(m_params.errorBoundSetting[i]);
+    if (currentItem->isAllData()) {
+        for (int i = 0; i < m_uiDataItems.size(); i++) {
+            setter(m_uiDataItems[i]);
         }
     } else {
         // 否则只修改当前数据项
-        setter(m_params.errorBoundSetting[dataIndex]);
+        setter(*currentItem);
     }
 }
 
@@ -575,12 +578,12 @@ void igQtMeshCodecDialog::on_radio_losslessMode_toggled(bool checked)
         ui->groupbox_dataDistGroup->setEnabled(false);
         UpdateKeyAreaVisibility(false);
 
-        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
-            setting.errorMode = iGame::ErrorMode::None;
+        ApplySettingToData([&](UIDataItem& item) {
+            item.errorMode = iGame::QuantizeMode::None;
         });
         // 更新Combo前缀
-        int idx = GetCurrentDataIndex();
-        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        UIDataItem* item = GetCurrentDataItem();
+        if (item && item->isAllData()) RefreshAllComboItemMarks(); else RefreshComboItemMark(ui->combo_boxFloatSelect->currentIndex());
         RecomputeDialogSize();
     }
 }
@@ -595,12 +598,12 @@ void igQtMeshCodecDialog::on_radio_globalMode_toggled(bool checked)
         ui->groupbox_dataDistGroup->setEnabled(false);
         UpdateKeyAreaVisibility(false);
 
-        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
-            setting.errorMode = iGame::ErrorMode::Default;
+        ApplySettingToData([&](UIDataItem& item) {
+            item.errorMode = iGame::QuantizeMode::Default;
         });
         // 更新Combo前缀
-        int idx = GetCurrentDataIndex();
-        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        UIDataItem* item = GetCurrentDataItem();
+        if (item && item->isAllData()) RefreshAllComboItemMarks(); else RefreshComboItemMark(ui->combo_boxFloatSelect->currentIndex());
         RecomputeDialogSize();
     }
 }
@@ -612,12 +615,12 @@ void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
         ApplyModeUI(false, false, true);
 
         // 先写入模式参数，再显示区域并恢复直方图
-        ApplySettingToData([&](iGame::FloatErrorControlParameters& setting) {
-            setting.errorMode = iGame::ErrorMode::KeyArea;
+        ApplySettingToData([&](UIDataItem& item) {
+            item.errorMode = iGame::QuantizeMode::KeyArea;
         });
         // 更新Combo前缀
-        int idx = GetCurrentDataIndex();
-        if (iGame::UIControlParamsIndex::IsAllData(idx)) RefreshAllComboItemMarks(); else RefreshComboItemMark(idx);
+        UIDataItem* item = GetCurrentDataItem();
+        if (item && item->isAllData()) RefreshAllComboItemMarks(); else RefreshComboItemMark(ui->combo_boxFloatSelect->currentIndex());
 
         // 启用并显示关键区域选择板块
         ui->groupbox_dataDistGroup->setEnabled(true);
@@ -636,33 +639,33 @@ void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
 // ComboBox量化等级选择事件处理函数
 void igQtMeshCodecDialog::on_comboBox_globalLevel_currentIndexChanged(int index)
 {
-    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
-        setting.globalQuantizeLevel = index + 1;
+    ApplySettingToData([index](UIDataItem& item) {
+        item.globalQuantizeLevel = index + 1;
     });
 }
 
 void igQtMeshCodecDialog::on_comboBox_criticalLevel_currentIndexChanged(int index)
 {
-    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
-        setting.criticalQuantizeLevel = index;
+    ApplySettingToData([index](UIDataItem& item) {
+        item.criticalQuantizeLevel = index;
     });
 }
 
 void igQtMeshCodecDialog::on_comboBox_normalLevel_currentIndexChanged(int index)
 {
-    ApplySettingToData([index](iGame::FloatErrorControlParameters& setting) {
-        setting.normalQuantizeLevel = index;
+    ApplySettingToData([index](UIDataItem& item) {
+        item.normalQuantizeLevel = index;
     });
 }
 
 void igQtMeshCodecDialog::on_checkbox_showReport_stateChanged(int state)
 {
-    m_params.showReport = ui->checkbox_showReport->isChecked();
+    m_showReport = ui->checkbox_showReport->isChecked();
 }
 
 void igQtMeshCodecDialog::on_comboBox_compressLevel_currentIndexChanged(int index)
 {
-    m_params.compressLevel = index;
+    m_compressLevel = index;
 }
 
 void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
@@ -673,8 +676,8 @@ void igQtMeshCodecDialog::DrawFeatureHistogram(QChart* chart)
     CalFeatureHistogram(xAxis, yAxis);
 
     // 缓存 x/y 数据供切换复用
-    int idx = GetCurrentDataIndex();
-    if (IsValidAttrIndex(idx)) {
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx >= 0 && idx < m_uiDataItems.size()) {
         m_attrFeatureDatas[idx].xAxis = xAxis;
         m_attrFeatureDatas[idx].yAxis = yAxis;
     }
@@ -807,25 +810,23 @@ void igQtMeshCodecDialog::DrawFeatureHistogramFromData(QChart* chart, const std:
 
 void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::vector<int>& yAxis)
 {
-    int dataIndex = GetCurrentDataIndex();
+    int idx = ui->combo_boxFloatSelect->currentIndex();
 
-    if (!IsValidAttrIndex(dataIndex))
+    if (idx < 0 || idx >= m_uiDataItems.size())
         return;
 
+    const UIDataItem& item = m_uiDataItems[idx];
+
     // "全部数据"不参与特征直方图计算，防御性短路
-    if (iGame::UIControlParamsIndex::IsAllData(dataIndex)) {
+    if (item.isAllData()) {
         xAxis.clear();
         yAxis.clear();
         return;
     }
 
-    // MeshCodecFeature 期望的索引：1=几何，2+=属性（属性使用 attrIndex+1）
+    // MeshCodecFeature 索引与 UI 索引一致：1=几何，2+=属性
     // UI索引：0=全部数据，1=几何，2+=属性
-    // 转换：几何直接用1，属性用 ToAttrIndex(dataIndex)+1
-    int featIndex = iGame::UIControlParamsIndex::IsGeom(dataIndex)
-                    ? dataIndex
-                    : (iGame::UIControlParamsIndex::ToAttrIndex(dataIndex) + 1);
-    iGame::MeshCodecFeature featureExtractor(this->m_dataObj, featIndex);
+    iGame::MeshCodecFeature featureExtractor(this->m_dataObj, idx);
     std::vector<float> norms;
 
     // 旧逻辑：使用梯度 Frobenius 范数并进行对数缩放
@@ -872,12 +873,12 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
         yAxis[0] = static_cast<int>(norms.size());
 
         // 分箱索引：全部元素归入第0个 bin，避免勾选越界
-        m_attrFeatureDatas[dataIndex].idInBins.assign(m_binNum, {});
+        m_attrFeatureDatas[idx].idInBins.assign(m_binNum, {});
         for (igIndex id = 0; id < static_cast<igIndex>(norms.size()); ++id) {
-            m_attrFeatureDatas[dataIndex].idInBins[0].push_back(id);
+            m_attrFeatureDatas[idx].idInBins[0].push_back(id);
         }
         // 根据当前复选状态应用到关键元素掩码
-        ApplyCheckStatusToKeyElements(dataIndex);
+        ApplyCheckStatusToKeyElements(idx);
     }
     else
     {
@@ -890,16 +891,16 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
         }
         xAxis[m_binNum] = maxVal;
 
-        m_attrFeatureDatas[dataIndex].idInBins.assign(m_binNum, {});
+        m_attrFeatureDatas[idx].idInBins.assign(m_binNum, {});
         for (igIndex id = 0; id < norms.size(); id++) {
             float norm = norms[id];
             if (norm < minVal || norm > maxVal) continue;
             int binIndex = std::min(static_cast<int>((norm - minVal) / binWidth), m_binNum - 1);
             yAxis[binIndex]++;
-            m_attrFeatureDatas[dataIndex].idInBins[binIndex].push_back(id);
+            m_attrFeatureDatas[idx].idInBins[binIndex].push_back(id);
         }
         // 根据当前复选状态应用到关键元素掩码
-        ApplyCheckStatusToKeyElements(dataIndex);
+        ApplyCheckStatusToKeyElements(idx);
     }
 }
 
@@ -947,8 +948,11 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
         return;
     }
 
+    // 使用桥接器将 UI 模型转换为编码器参数
+    iGame::CodecControlParams codecParams = BuildCodecParams();
+
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(m_params);
+    writer->SetCodecControlParams(codecParams);
 
     bool result = writer->WriteToFile(m_dataObj, saveFilePath);
     
@@ -957,7 +961,7 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
         return;
     }
 
-    if (m_params.showReport)
+    if (m_showReport)
     {
         ShowReportDialog(writer->GetReport());
     }
@@ -1097,12 +1101,12 @@ void igQtMeshCodecDialog::ApplyModeUI(bool lossless, bool global, bool area)
 
 void igQtMeshCodecDialog::UpdateRefreshButtonStateForCurrent()
 {
-    int dataIndex = GetCurrentDataIndex();
-    if (dataIndex < 0 || dataIndex >= m_DataNum) { HideRefreshButton(); return; }
+    int idx = ui->combo_boxFloatSelect->currentIndex();
+    if (idx < 0 || idx >= m_uiDataItems.size()) { HideRefreshButton(); return; }
 
     // 仅在分区模式且当前数据未生成直方图时显示按钮
     if (ui->radio_areaModel->isChecked()) {
-        if (m_attrFeatureDatas[dataIndex].genStatus == FeatureHistoGenStatus::No) {
+        if (m_attrFeatureDatas[idx].genStatus == FeatureHistoGenStatus::No) {
             ShowRefreshButton();
         } else {
             HideRefreshButton();
@@ -1112,29 +1116,28 @@ void igQtMeshCodecDialog::UpdateRefreshButtonStateForCurrent()
     }
 }
 
-void igQtMeshCodecDialog::SetRadiosFromErrorMode(iGame::ErrorMode mode)
+void igQtMeshCodecDialog::SetRadiosFromErrorMode(iGame::QuantizeMode mode)
 {
     // 阻断信号，避免反复触发 UI 逻辑
     QSignalBlocker b1(ui->radio_losslessMode);
     QSignalBlocker b2(ui->radio_globalMode);
     QSignalBlocker b3(ui->radio_areaModel);
-    ui->radio_losslessMode->setChecked(mode == iGame::ErrorMode::None);
-    ui->radio_globalMode->setChecked(mode == iGame::ErrorMode::Default);
-    ui->radio_areaModel->setChecked(mode == iGame::ErrorMode::KeyArea);
+    ui->radio_losslessMode->setChecked(mode == iGame::QuantizeMode::None);
+    ui->radio_globalMode->setChecked(mode == iGame::QuantizeMode::Default);
+    ui->radio_areaModel->setChecked(mode == iGame::QuantizeMode::KeyArea);
 }
 
 // 将当前属性的分箱勾选状态应用到关键元素掩码
 void igQtMeshCodecDialog::ApplyCheckStatusToKeyElements(int dataIndex)
 {
-    if (!IsValidAttrIndex(dataIndex)) return;
+    if (dataIndex < 0 || dataIndex >= m_uiDataItems.size()) return;
     if (m_attrFeatureDatas.size() <= dataIndex) return;
-    if (m_params.errorBoundSetting.size() <= dataIndex) return;
 
     const auto& bins = m_attrFeatureDatas[dataIndex].idInBins;
     const auto& checks = m_attrFeatureDatas[dataIndex].checkStatus;
     if (bins.size() != checks.size()) return; // 尚未完成分箱
 
-    auto& keyMask = m_params.errorBoundSetting[dataIndex].isKeyElement;
+    auto& keyMask = m_uiDataItems[dataIndex].isKeyElement;
     if (keyMask.empty()) return;
 
     std::fill(keyMask.begin(), keyMask.end(), false);
@@ -1144,4 +1147,42 @@ void igQtMeshCodecDialog::ApplyCheckStatusToKeyElements(int dataIndex)
             if (idx >= 0 && idx < (int)keyMask.size()) keyMask[idx] = true;
         }
     }
+}
+
+// 桥接器：将 UI 数据模型转换为编码器参数
+iGame::CodecControlParams igQtMeshCodecDialog::BuildCodecParams() const
+{
+    iGame::CodecControlParams params;
+    params.showReport = m_showReport;
+    params.compressLevel = m_compressLevel + 1;
+
+    // 辅助函数：从 UIDataItem 构建 FloatControlParams
+    auto buildControlParams = [](const UIDataItem& item) -> iGame::FloatControlParams {
+        iGame::FloatControlParams p;
+        p.globalQuantizeLevel = item.globalQuantizeLevel;
+        p.criticalQuantizeLevel = item.criticalQuantizeLevel;
+        p.normalQuantizeLevel = item.normalQuantizeLevel;
+        p.isKeyElement = item.isKeyElement;
+        return p;
+    };
+
+    // 遍历 UI 数据项，跳过 AllData（虚拟项）
+    for (int i = 0; i < m_uiDataItems.size(); ++i)
+    {
+        const UIDataItem& item = m_uiDataItems[i];
+        
+        switch (item.category) {
+        case UIDataCategory::AllData:
+            // 虚拟项，跳过
+            break;
+        case UIDataCategory::Geom:
+            params.geomControl = buildControlParams(item);
+            break;
+        case UIDataCategory::Attr:
+            params.attrControl.push_back(buildControlParams(item));
+            break;
+        }
+    }
+
+    return params;
 }

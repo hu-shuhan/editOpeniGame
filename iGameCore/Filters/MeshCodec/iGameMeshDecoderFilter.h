@@ -5,34 +5,22 @@
 #include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
 #include "MeshCodec/DecodeInput/iGameIDecodeInput.h"
 #include "MeshCodec/DecodeOutput/iGameIDecodeOutput.h"
-#include "MeshCodec/DecodeOutput/iGameDecodeOutputDataObject.h"
+#include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
 #include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
 #include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
-#include "iGameMacro.h"
 #include "MeshCodec/iGameMeshCodec.h"
-#include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
+#include "iGameMacro.h"
 
 #include <algorithm>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
 
-// 类型特征：OutputType -> DecodeOutputClass 映射
-// 调用方可以提供自己的特化
-template<typename OutputType>
-struct DecodeOutputTraits;
-
-// DataObject::Pointer 的特化
-template<>
-struct DecodeOutputTraits<DataObject::Pointer> {
-    using OutputClass = DecodeOutputDataObject;
-};
-
-template<typename OutputType>
+template<typename DecodeOutputType>
 class MeshDecoderFilter final : public MeshCodec {
-    using DecodeOutputClass = typename DecodeOutputTraits<OutputType>::OutputClass;
+    using OutputType = DecodeOutputType::ValueType;
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
@@ -40,7 +28,7 @@ public:
     MeshDecoderFilter() {
         this->SetNumberOfInputs(1);
         this->SetNumberOfOutputs(1);
-        m_DecoderOutput = DecodeOutputClass::New();
+        m_DecoderOutput = DecodeOutputType::New();
     }
 
     bool Execute() override {
@@ -65,18 +53,10 @@ public:
         m_DecoderAdapter = std::move(adapter);
     }
 
-    IMeshDecodeAdapter<OutputType>* GetAdapter() const {
-        return m_DecoderAdapter.get();
-    }
-
-    typename DecodeOutputClass::Pointer GetDecodeOutput() const {
-        return m_DecoderOutput;
-    }
-
 private:
     // I/O
     std::unique_ptr<IMeshDecodeAdapter<OutputType>> m_DecoderAdapter;
-    typename DecodeOutputClass::Pointer m_DecoderOutput;
+    typename DecodeOutputType::Pointer m_DecoderOutput;
     IDecodeInput::Pointer m_DecoderInput;
 
     // progress record
@@ -117,10 +97,10 @@ private:
 
     // region main decoders
     void ParamsDecoder(PayloadBuffer& buf) {
-        IGsize staticSize = sizeof(ParametersWoAttr);
+        IGsize staticSize = sizeof(StorageParamsWoAttr);
 
         // 读取静态数据
-        ParametersWoAttr paramsWoAttr{};
+        StorageParamsWoAttr paramsWoAttr{};
         std::memcpy(&paramsWoAttr, buf.data(), staticSize);
 
         this->m_codecParams.meshType = paramsWoAttr.meshType;
@@ -133,7 +113,7 @@ private:
 
         // 读取动态数据
         this->m_codecParams.attrParams.resize(paramsWoAttr.attrCount);
-        IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(AttrParameters);
+        IGsize dynamicSize = paramsWoAttr.attrCount * sizeof(AttrStorageParams);
 
         m_DecompressProgress += 0.1;
         UpdateProgress(m_DecompressProgress);

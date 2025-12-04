@@ -56,7 +56,7 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(iGame::MeshEncoderFilter::GenerateUIControlParams(tem));
+    writer->SetCodecControlParams(iGame::MeshEncoderFilter<iGame::EncodeOutputBinaryArray>::GenerateDefaultCodecParams(tem));
 
     if (!writer->WriteToFile(tem, "./CScomp.igc")) {
         igDebug("Compress File Error\n");

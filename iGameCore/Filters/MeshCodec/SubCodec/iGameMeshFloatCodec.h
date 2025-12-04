@@ -1,9 +1,9 @@
 #ifndef MeshCodecFloatCodec_h
 #define MeshCodecFloatCodec_h
 
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
-#include "iGameMacro.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "MeshCodec/Utils/iGameMeshCodecThread.h"
+#include "iGameMacro.h"
 #include <functional>
 
 IGAME_NAMESPACE_BEGIN
@@ -14,17 +14,17 @@ public:
 	static void FloatEncoder(
 		std::vector<unsigned char>& dest,
 		std::vector<T>& source, // float* double*
-		const FloatParameters& floatParams,
-		const FloatErrorControlParameters& errorParams
+		const FloatStorageParams& storageParams,
+		const FloatControlParams& controlParams
 		)
 	{
-		const IGsize elementCount = floatParams.elementCount;
-		const int dimension = floatParams.dimension;
+		const IGsize elementCount = storageParams.elementCount;
+		const int dimension = storageParams.dimension;
 		IGsize valueCount = elementCount * dimension;
 
 		// void* -> vector<float> / vector<double>
 		// 定点数化
-        const IGsize encodeVertexSize = floatParams.valueSize * dimension;
+        const IGsize encodeVertexSize = storageParams.valueSize * dimension;
         const IGsize encodeElementCount = elementCount;
 
 		// region deprecated lambdas
@@ -105,12 +105,12 @@ public:
 
 		auto doQuantize = [&](std::function<float(float value, int bits)> quantFunc) -> void
             {
-                // const int valueBits = static_cast<int>(floatParams.valueSize * 8);
-                switch (floatParams.errorMode)
+                // const int valueBits = static_cast<int>(storageParams.valueSize * 8);
+                switch (storageParams.errorMode)
                 {
-				case ErrorMode::Default:
+				case QuantizeMode::Default:
 				{
-                    int keepBits = quantizeLevelToKeptMantissaBits(floatParams.globalQuantizeLevel);
+                    int keepBits = quantizeLevelToKeptMantissaBits(controlParams.globalQuantizeLevel);
                     // 仅当保留位数小于满精度(23)时执行量化
                     if (keepBits < 23) {
                         CodecThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
@@ -122,17 +122,17 @@ public:
 
 					break;
 				}
-				case ErrorMode::KeyArea:
+				case QuantizeMode::KeyArea:
 				{
-                    int criticalKeep = quantizeLevelToKeptMantissaBits(floatParams.criticalQuantizeLevel);
-                    int normalKeep   = quantizeLevelToKeptMantissaBits(floatParams.normalQuantizeLevel);
+                    int criticalKeep = quantizeLevelToKeptMantissaBits(controlParams.criticalQuantizeLevel);
+                    int normalKeep   = quantizeLevelToKeptMantissaBits(controlParams.normalQuantizeLevel);
 
                     const bool applyCritical = (criticalKeep < 23);
                     const bool applyNormal   = (normalKeep < 23);
 
                     CodecThreadPool::parallelFor(0, valueCount, [&](int start, int end) -> void {
                         for (int i = start; i < end; i++) {
-                            if (errorParams.isKeyElement[i / dimension]) {
+                            if (controlParams.isKeyElement[i / dimension]) {
                                 if (applyCritical) source[i] = quantFunc(source[i], criticalKeep);
                             } else {
                                 if (applyNormal) source[i] = quantFunc(source[i], normalKeep);
@@ -147,7 +147,7 @@ public:
 				}
 			};
 
-		if (floatParams.errorMode != ErrorMode::None)
+		if (storageParams.errorMode != QuantizeMode::None)
 		{
 		    doQuantize(meshopt_quantizeFloat);
 
@@ -204,7 +204,7 @@ public:
 	template<typename T>
 	static void FloatDecoder(std::vector<T>& dest,
 		const std::vector<unsigned char>& source,
-		const FloatParameters& floatParams)
+		const FloatStorageParams& floatParams)
 	{
 		const IGsize valueCount = floatParams.elementCount * floatParams.dimension;
 		dest.resize(valueCount);
@@ -225,7 +225,7 @@ public:
 	static void EachElementError(
 		const std::vector<float>& source,
 		const std::vector<float>& quantized,
-		const FloatParameters& floatParams,
+		const FloatStorageParams& floatParams,
 		std::vector<float>& relError,
 		std::vector<float>& absError)
 	{
@@ -269,7 +269,7 @@ public:
 	static void TotalError(const std::vector<T>& source,
 		const std::vector<T>& quantized,
 		const FloatParameters& floatParams,
-		const FloatErrorControlParameters& errorParams,
+		const FloatQuantizeParameters& errorParams,
 		float& keyRelError,
 		float& nonKeyRelError)
 	{
@@ -290,7 +290,7 @@ public:
 		maxAbsValue = std::max(maxAbsValue, static_cast<T>(1e-10));
 
 		// 如果不是KeyArea模式，则所有元素一起计算
-		if (floatParams.errorMode != ErrorMode::KeyArea) {
+		if (floatParams.errorMode != QuantizeMode::KeyArea) {
 			double sumRelError = 0.0;  // 使用double累加提高精度
 			size_t validValueCount = 0;
 
@@ -364,8 +364,8 @@ public:
 	template<typename T>
 	static void TotalError(const std::vector<T>& source,
 		const std::vector<T>& quantized,
-		const FloatParameters& floatParams,
-		const FloatErrorControlParameters& /*errorParams*/,
+		const FloatStorageParams& storageParams,
+		const FloatControlParams& /*controlParams*/,
 		float& keyRelError,
 		float& nonKeyRelError)
 	{

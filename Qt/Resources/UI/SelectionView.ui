@@ -50,7 +50,7 @@
      <item row="0" column="1">
       <widget class="QGroupBox" name="groupBox_4">
        <property name="title">
-        <string>选择/取消选择</string>
+        <string>选择动作</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
@@ -68,7 +68,7 @@
         <item>
          <widget class="QRadioButton" name="Select">
           <property name="text">
-           <string>选择</string>
+           <string>添加到选择</string>
           </property>
           <property name="checked">
            <bool>true</bool>
@@ -78,7 +78,7 @@
         <item>
          <widget class="QRadioButton" name="UnSelect">
           <property name="text">
-           <string>取消选择</string>
+           <string>从选择中移除</string>
           </property>
          </widget>
         </item>
@@ -355,7 +355,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>半径</string>
+           <string>最大半径</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>

@@ -30,6 +30,11 @@ public:
     _SetPointMoveCallBack(std::string(__FILE__) + std::to_string(__LINE__),    \
                           callBack)
 
+    void RemovePointMoveCallBack(const std::string& name);
+
+private:
+    void PointMoveCallBack();
+
 protected:
     BoxStyle() = default;
     ~BoxStyle();

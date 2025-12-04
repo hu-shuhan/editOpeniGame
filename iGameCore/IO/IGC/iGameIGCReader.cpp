@@ -2,9 +2,11 @@
 #include "Log/iGameLogger.h"
 #include "MeshCodec/DecodeInput/iGameDecodeInputBinaryArray.h"
 #include "MeshCodec/DecodeInput/iGameDecodeInputMappedMemory.h"
-#include "MeshCodec/DecodeOutput/iGameDecodeOutputDataObject.h"
+#include "MeshCodec/DecodeOutput/iGameGenericDecodeOutput.h"
 
 IGAME_NAMESPACE_BEGIN
+
+using DecoderOutputType = GenericDecodeOutput<DataObject::Pointer>;
 
 bool IGCReader::Parsing() { return ParsingWithMemoryMapping(); }
 
@@ -18,13 +20,13 @@ bool IGCReader::ParsingWithMemoryMapping() {
 
     auto adapter = std::make_unique<MeshDecodeAdapterToDataObject>();
 
-    auto decoder = MeshDecoderFilter<DataObject::Pointer>::New();
+    auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
 
-    m_DecodedOutput = decoder->GetDecodeOutput()->GetOutput();
+    m_DecodedOutput = DynamicCast<DecoderOutputType>(decoder->GetOutput())->GetOutput();
     return true;
 }
 
@@ -34,13 +36,13 @@ bool IGCReader::ParsingWithFilePath() {
 
     auto adapter = std::make_unique<MeshDecodeAdapterToDataObject>();
 
-    auto decoder = MeshDecoderFilter<DataObject::Pointer>::New();
+    auto decoder = MeshDecoderFilter<DecoderOutputType>::New();
     decoder->SetAdapter(std::move(adapter));
     decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
 
-    m_DecodedOutput = decoder->GetDecodeOutput()->GetOutput();
+    m_DecodedOutput = DynamicCast<DecoderOutputType>(decoder->GetOutput())->GetOutput();
     return true;
 }
 

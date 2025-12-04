@@ -19,6 +19,7 @@ public:
     static Pointer New(const Point& p1, const Point& p2) { return new DynamicBox(p1, p2); }
     void MoveOpePoint(OpeInt opePoint, const Point& direction);
     void RotateBox(const Point& camera, const Point& direction);
+    void MovePosition(double x, double y, double z);
     void MovePosition(const Point& position);
     const Point& GetMidPoint() const;
     void SetRotation(double xAngle, double yAngle, double zAngle);
