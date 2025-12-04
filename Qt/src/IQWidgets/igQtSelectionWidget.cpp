@@ -78,7 +78,7 @@ bool igQtSelectionWidget::GetSelectBoxShow() const { return m_SelectBoxShow; }
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
     ui->variableChoose->clear();
-    ui->variableChoose->addItem("Null");
+    ui->variableChoose->addItem("⨀无所选变量");
     for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
     iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
     PreventSignalSend(false);
@@ -107,17 +107,18 @@ void igQtSelectionWidget::SetNoAttention() {
 }
 
 void igQtSelectionWidget::SetPointAttention() {
-    ui->attention->setText(QString("●当前模型无点数据"));
+    ui->attention->setText(QString("●当前模型无 <font color='red'><b>点</b></font> 数据"));
     ui->attention->show();
 }
 
 void igQtSelectionWidget::SetCellAttention() {
-    ui->attention->setText(QString("●当前模型无面/体数据"));
+    ui->attention->setText(QString("●当前模型无 <font color='red'><b>面/体</b></font> 数据"));
     ui->attention->show();
 }
 
 void igQtSelectionWidget::SetAllAttention() {
-    ui->attention->setText(QString("●当前模型无点、面/体数据"));
+    ui->attention->setText(
+            QString("●当前模型无 <font color='red'><b>点</b></font> 、 <font color='red'><b>面/体</b></font> 数据"));
     ui->attention->show();
 }
 
@@ -310,11 +311,11 @@ void igQtSelectionWidget::ShowRadiusUi() {
 void igQtSelectionWidget::ShowCtUi() {
     ui->radiusLabel->show();
     ui->vcLabel->show();
-    ui->erLabel->show();
+    //ui->erLabel->show();
     ui->RadiusSpinBox->show();
     ui->variableChoose->show();
-    ui->expdRateSlid->show();
-    ui->expdRateSlidTxt->show();
+    //ui->expdRateSlid->show();
+    //ui->expdRateSlidTxt->show();
 }
 
 void igQtSelectionWidget::ShowBoxUi() {
