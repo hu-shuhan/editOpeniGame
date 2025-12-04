@@ -435,8 +435,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CELL_BOX: {
             std::pair<Point, Point> pMinMax;
@@ -487,8 +487,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CHANGE: {
             for (auto& func : m_CallBackFunctor) { func.second(itemType, ids, ope); }
@@ -532,8 +532,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CELL_BOX: {
             std::pair<Point, Point> pMinMax;
@@ -557,8 +557,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CHANGE: {
             for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
@@ -627,6 +627,7 @@ void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
     auto boxStyle = BoxStyle::New();
     boxStyle->Initialize(interactor);
     boxStyle->InitBox(p.first, p.second);
+    SelectionParameter::Instance().SetHaveBox(true);
     interactor->_SetSpecialInteractor("SelectBox", boxStyle);
 }
 
@@ -639,6 +640,9 @@ void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
 }
 
 void Selection::DrawPoints() {
+    //############ RETURN ############
+    //return;
+    //############ RETURN ############
     if (m_Model == nullptr) return;
     auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
@@ -657,6 +661,9 @@ void Selection::DrawPoints() {
 }
 
 void Selection::DrawCellEdges() {
+    //############ RETURN ############
+    //return;
+    //############ RETURN ############
     if (m_Model == nullptr) return;
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
     if (painter == nullptr) return;
