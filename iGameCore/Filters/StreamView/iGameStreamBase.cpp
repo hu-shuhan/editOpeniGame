@@ -108,7 +108,7 @@ void StreamBase::ConvertToDrawableData() {
 
     // 应用颜色映射和设置渲染数据
     this->m_ColorMapper->InitRange(m_PositionColors, -1);
-    this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
+    //this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
     auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();

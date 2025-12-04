@@ -16,7 +16,6 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     ui->startX->setText("0");
     ui->startY->setText("0");
     ui->startZ->setText("0");
-
     connect(ui->endX, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
     connect(ui->endY, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
     connect(ui->endZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
@@ -25,21 +24,12 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     ui->endZ->setText("0");
 
     connect(ui->terminalSpeed, SIGNAL(textChanged(const QString&)), this, SLOT(changeterminalSpeed()));
-    //connect(ui->lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-    //connect(ui->lineEdit_2, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-    //connect(ui->lineEdit_3, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP1()));
-    //connect(ui->lineEdit_4, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
-    //connect(ui->lineEdit_5, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
-    //connect(ui->lineEdit_6, SIGNAL(textChanged(const QString&)), this, SLOT(changeOffsetP2()));
 
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
-    //	connect(ui->proportion_Slider, SIGNAL(valueChanged(int)), this, SLOT(changeProportion()));
-    //	connect(ui->proportion_Slider, SIGNAL(sliderPressed()), this, SLOT(Pressed()));
-    //	connect(ui->proportion_Slider, SIGNAL(sliderReleased()), this, SLOT(Released()));
+
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
-    //connect(ui->pushButton, &QPushButton::clicked, this, &igQtStreamTracerWidget::increaseProportion);
-    //	connect(ui->pushButton_2, &QPushButton::clicked, this, &igQtStreamTracerWidget::reduceProportion);
+
     numOfSeeds = 200;
     ui->numOfSeedLineEdit->setText("200");
     control = 0;
@@ -238,20 +228,12 @@ void igQtStreamTracerWidget::generateStreamline() {
     m_DataObject = tem;
 
     streamtracer->initStreamTracer(model);
-    //streamtracer->seedLineGenerate(numOfSeeds);
     masterName = model->GetDataObject()->GetName();
-    //auto seeds = streamtracer->streamSeedGenerate(control, proportion, numOfSeeds);
-    //  auto seeds = streamtracer->streamBoundSeedGenerate(numOfSeeds);
     std::vector<std::vector<int>> seedPids = {{1797284, 3468659},
                                               {536542, 2738820},
                                               {536542, 2658742},
                                               {5485895, 536542}};
-    //startP = streamtracer->GetMesh()->GetBoundingBox().max;
-    //endP = streamtracer->GetMesh()->GetBoundingBox().min;
-    // auto seeds = streamtracer->seedPidGenerate(numOfSeeds, seedPids[control][0], seedPids[control][1]);
 
-    //auto seeds = streamtracer->seedPidGenerate(numOfSeeds, p1, p2);
-    //  auto seeds = streamtracer->subdataSeedGenerate(numOfSeeds);
     std::vector<std::vector<float>> streamlineColor;
     std::vector<std::vector<float>> streamline;
     iGame::AttributeSet* _AttributeSet;
@@ -265,16 +247,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!_AttributeSet) return;
     auto allAttributes = _AttributeSet->GetAllAttributes();
     if (!allAttributes) return;
-    //   for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
-    //       auto attribute = allAttributes->GetElement(i);
-    //       // if (attribute.type == IG_VECTOR&&attribute.attachmentType == IG_POINT) {
-    //       if (attribute.type == IG_VECTOR) {
-    //           if (attribute.pointer) {
-    //               vectorName = attribute.pointer->GetName();
-    //               break;
-    //           }
-    //       }
-    //   }
+
     std::cout << vectorName << std::endl;
     std::vector<Vector3f> seeds;
     if (control == 0) {
@@ -296,23 +269,11 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
 
     }
-    //m_StreamBase->SetSeeds(seeds);
-    //m_StreamBase->SetUpdate(true);
-    
-    //   if (streamtracer->GetMesh()->GetIsPolyhedronType()) {
-    //	 streamline = streamtracer->showStreamLineCellData(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-    //}
-    //else {
-    //	 streamline = streamtracer->showStreamLineMix(seeds, "V", streamlineColor, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-    //}
+
     scene->ChangeModelVisibility(model, false);
-    //   auto MaxLen = streamtracer->GetMesh()->GetBoundingBox().diagVector().length();
-    //   std::string msg = "当前精度为:" + std::to_string(streamtracer->AccuracyCul(streamline, MaxLen / 60, 5) * 100) + "%";
-    //   ATL::CString ch(msg.c_str());
-    //   MessageBox(NULL, ch, "��ʾ", MB_OK);
+
 
     if (!haveDraw) {
-        //m_StreamBase->DataObject::SetName(masterName + "_StreamLine");
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
         Q_EMIT AddStreamObject(m_ResultObject);
         haveDraw = true;
@@ -346,9 +307,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);
 
-        //if (rendererWidget->GetScene()->GetInteractor()) {
-        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        //}
+
 
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
