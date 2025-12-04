@@ -8,11 +8,11 @@
 #include "iGamePoints.h"
 #include <functional>
 #include <iGameCellFaceExtracter.h>
+#include <iGameDataObject.h>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-#include <iGameDataObject.h>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {
@@ -136,8 +136,8 @@ public:
         m_BoxSelectInitCallBackFunctor[funcName] = func;
     }
 
-//#define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
-//    _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
+#define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
+    _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
     Points* GetPoints() { return m_Points; }
     CellArray* GetCells() { return m_Cells; }
