@@ -113,7 +113,9 @@ void igQtSelectionWidget::SetInitBoxSettingDialog(QWidget* renderWidget) {
 
 void igQtSelectionWidget::SetBoxInitCallBackFunc(iGame::Selection* selection) {
     if (selection == nullptr) return;
-    selection->SetBoxSelectInitCallBackEvent(std::bind(&igQtSelectionWidget::BoxInitCallBackFunc, this));
+    //selection->SetBoxSelectInitCallBackEvent(std::bind(&igQtSelectionWidget::BoxInitCallBackFunc, this));
+    selection->_SetBoxSelectInitCallBackEvent("igQtSelectionWidget::SetBoxInitCallBackFunc",
+                                              std::bind(&igQtSelectionWidget::BoxInitCallBackFunc, this));
 }
 
 void igQtSelectionWidget::BoxInitCallBackFunc() { emit SetBoxSettingDialog(); }

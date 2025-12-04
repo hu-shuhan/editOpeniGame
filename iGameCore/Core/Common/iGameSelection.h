@@ -136,8 +136,8 @@ public:
         m_BoxSelectInitCallBackFunctor[funcName] = func;
     }
 
-#define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
-    _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
+//#define SetBoxSelectInitCallBackEvent(functor, ...)                                                                    \
+//    _SetBoxSelectInitCallBackEvent(std::string(__FILE__) + std::to_string(__LINE__), functor, __VA_ARGS__)
 
     Points* GetPoints() { return m_Points; }
     CellArray* GetCells() { return m_Cells; }
