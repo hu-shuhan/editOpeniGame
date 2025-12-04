@@ -443,8 +443,6 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split, nx, ny, nz, Mesh,
                            Attributes, Index,uniform);
 
-    // torch::Tensor result_volume_11 = std::get<0>(result);
-    // Eigen::Vector3f global_step = std::get<1>(result);
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
 
     std::vector<Eigen::Vector3f> eigenPoints;
@@ -460,22 +458,10 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     // std::cout << "[VortexDetection:process_blocks:::Execute] knn_smooth_labels = " << elapsed_0 << " s" << std::endl;
     std::vector<float> Predict(NumPoints, 0.0f);
 
-    // FloatArray::Pointer vortexs = FloatArray::New();
-    // vortexs->SetDimension(1);
-    // vortexs->Reserve(NumPoints);
-    // vortexs->SetName("vortexPredict");
-    // attributeSet->AddScalar(IG_POINT, vortexs);
-    //
-    // UpdateProgress(95 * 0.01);
-    //
-    // for (int i = 0; i < NumPoints; ++i) {
-    //     float value = smooth_vals[i].item<float>();
-    //     vortexs->AddValue(value);
-    //     Predict[i] = value;
-    // }
-    auto t1 = std::chrono::high_resolution_clock::now();
-    double elapsed = std::chrono::duration<double>(t1 - t0).count();
-    std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
+    for (IGsize i = 0; i < NumPoints; ++i) {
+        float value = smooth_vals[i].item<float>();
+        Predict[i] = value;
+    }
 
     int dim = volume_Mesh->GetAttributeSet()->GetNumberOfAttributes();
     for (int i = 0; i < dim; i++) {
@@ -488,44 +474,34 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     }
     UpdateProgress(95 * 0.01);
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t1 - t0).count();
+    std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
 
-    auto srcMesh = Mesh;
     FloatArray::Pointer vortexs = FloatArray::New();
     vortexs->SetDimension(1);
     vortexs->Reserve(NumPoints);
     vortexs->SetName("vortexPredict");
-
     for (IGsize i = 0; i < NumPoints; ++i) {
-        float value = smooth_vals[i].item<float>();
-        vortexs->SetValue(i, value);
-        Predict[i] = value;
+        // float value = smooth_vals[i].item<float>();
+        vortexs->AddValue(Predict[i]);
     }
 
-    AttributeSet::Pointer srcAttrSet = srcMesh->GetAttributeSet();
-    AttributeSet::Pointer newAttrSet = AttributeSet::New();
+    auto outMesh = VolumeMesh::New();
+    auto newPoints = Points::New();
+    auto newVolumes = CellArray::New();
+    auto newAttrs = AttributeSet::New();
 
-    int nAttr = srcAttrSet->GetNumberOfAttributes();
-    for (int i = 0; i < nAttr; ++i) {
-        auto info= srcAttrSet->GetAttribute(i);
-        auto arr= info.pointer;
-        if (!arr) continue;
-        // newAttrSet->AddScalar(info.location, arr);
-    }
+    newPoints = Mesh->GetPoints();
+    newVolumes = Mesh->GetVolumes();
+    newAttrs = Mesh->GetAttributeSet();
 
-    newAttrSet->AddScalar(IG_POINT, vortexs);
-    auto outMesh = StructuredMesh::New();
-    outMesh->SetName(srcMesh->GetName());
-    outMesh->SetPoints(srcMesh->GetPoints());
-    outMesh->SetAttributeSet(newAttrSet);
+    newAttrs->AddScalar(IG_POINT, vortexs);
 
-    if (auto srcSm = DynamicCast<StructuredMesh>(srcMesh)) {
-        igIndex* sz = srcSm->GetDimensionSize();
-        igIndex* ex = srcSm->GetExtent();
-        outMesh->SetDimensionSize(sz);
-        outMesh->SetExtent(ex);
-        outMesh->GenStructuredCellConnectivities();
-    }
-
+    outMesh->SetVolumes(newVolumes);
+    outMesh->SetAttributeSet(newAttrs);
+    outMesh->SetName(Mesh->GetName());
+    outMesh->SetPoints(newPoints);
     SetOutput(outMesh);
 
     UpdateProgress(100 * 0.01);
