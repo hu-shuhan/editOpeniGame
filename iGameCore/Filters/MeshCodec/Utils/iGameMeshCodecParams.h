@@ -89,6 +89,7 @@ struct CodecStorageParams : StorageParamsWoAttr {
 
 // 浮点数据控制参数
 struct FloatControlParams {
+	QuantizeMode errorMode = QuantizeMode::None;  // 量化模式
 	int globalQuantizeLevel = 0;       // 全局量化等级
 	int criticalQuantizeLevel = 0;     // 关键区域量化等级
 	int normalQuantizeLevel = 0;       // 非关键区域量化等级
