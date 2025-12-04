@@ -2,7 +2,7 @@
 #define iGameMeshCodecThread_h
 
 // 定义此宏启用单线程模式
-#define IGAME_CODEC_SINGLE_THREAD
+// #define IGAME_CODEC_SINGLE_THREAD
 
 #include "iGameThreadPool.h"
 #include <future>

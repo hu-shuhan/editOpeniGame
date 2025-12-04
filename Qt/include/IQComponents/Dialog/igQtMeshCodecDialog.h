@@ -4,7 +4,6 @@
  */
 #pragma once
 #include "MeshCodec/Utils/iGameMeshCodecFeature.h"
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "iGameDataObject.h"
 #include "iGamePointSet.h"
@@ -48,13 +47,47 @@ class QLabel;
 #include <qmessagebox.h>
 #include <ui_igMeshCodecDialog.h>
 
+// --------------------------------------------------------------------------------------
+// UI 数据类别枚举（仅用于 UI 层）
+enum class UIDataCategory {
+    AllData,    // 全部数据（虚拟项，用于批量设置）
+    Geom,       // 顶点坐标
+    Attr        // 属性数据
+};
+
+// UI 数据项模型（纯 UI 层数据结构）
+struct UIDataItem {
+    // 基本信息
+    UIDataCategory category = UIDataCategory::AllData;
+    QString displayName;
+    int attrIndex = -1;         // 仅当 category == Attr 时有效
+
+    // 量化参数（UI 状态）
+    iGame::QuantizeMode errorMode = iGame::QuantizeMode::None;
+    int globalQuantizeLevel = 0;
+    int criticalQuantizeLevel = 0;
+    int normalQuantizeLevel = 0;
+
+    // 元素信息（用于直方图计算）
+    IGsize elementCount = 0;
+    int dimension = 0;
+
+    // 关键元素标记
+    std::vector<bool> isKeyElement;
+
+    bool isAllData() const { return category == UIDataCategory::AllData; }
+    bool isGeom() const { return category == UIDataCategory::Geom; }
+    bool isAttr() const { return category == UIDataCategory::Attr; }
+};
+
+Q_DECLARE_METATYPE(UIDataItem*)
+
 QT_CHARTS_USE_NAMESPACE
 
 class igQtMeshCodecDialog : public QDialog {
     Q_OBJECT
 public:
     igQtMeshCodecDialog(QWidget* parent = Q_NULLPTR, iGame::DataObject::Pointer obj = nullptr);
-    static void GenUiControlParams(iGame::UIControlParams& params);
 
 signals:
     // 刷新直方图请求信号
@@ -90,15 +123,12 @@ protected:
 private:
     Ui::MeshCodecDialog* ui;
     iGame::DataObject::Pointer m_dataObj;
-    iGame::UIControlParams m_params;
 
-    // UI选项索引与实际属性索引的映射使用 iGame::UIControlParamsIndex 命名空间中的函数
+    // UI 数据模型
+    QVector<UIDataItem> m_uiDataItems;      // UI 数据项列表
+    bool m_showReport = false;
+    int m_compressLevel = 11;
 
-    std::string m_AllDataName = "全部数据";
-    std::string m_GeomName = "顶点坐标";
-
-    // 属性列表
-    int m_DataNum;
     // 直方图分箱数量：固定为 10 个 bin
     int m_binNum = 10;
 
@@ -143,22 +173,25 @@ private:
 private:
     void onCheckBoxStateChanged(int index, int state);
 
-    bool IsValidAttrIndex(int);
-
     void InitIntro();
 
-    void InitUIControlParams();
+    void InitDataItems();
 
     void InitAttributeList();
 
     // 计算不同模式对应的mark
-    QString GetModeMark(iGame::ErrorMode mode) const;
+    QString GetModeMark(iGame::QuantizeMode mode) const;
     // 刷新某一项Combo的前缀mark
     void RefreshComboItemMark(int dataIndex);
     // 刷新全部Combo项的前缀mark
     void RefreshAllComboItemMarks();
 
-    int GetCurrentDataIndex() const;
+    // 获取当前选中项的 UIDataItem 指针
+    UIDataItem* GetCurrentDataItem();
+    const UIDataItem* GetCurrentDataItem() const;
+
+    // 桥接器：将 UI 数据模型转换为编码器参数
+    iGame::CodecControlParams BuildCodecParams() const;
 
     void ClearCurrentHistogram();
 
@@ -193,7 +226,7 @@ private:
     // 根据当前数据索引与模式，统一更新“产生直方图”按钮显示/隐藏
     void UpdateRefreshButtonStateForCurrent();
     // 根据参数的 errorMode 同步三种单选按钮（防止触发多余信号）
-    void SetRadiosFromErrorMode(iGame::ErrorMode mode);
+    void SetRadiosFromErrorMode(iGame::QuantizeMode mode);
 
     // void SetupErrorInputValidators(); // 原有验证函数，已注释
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>285</width>
-    <height>278</height>
+    <width>235</width>
+    <height>354</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,6 +19,115 @@
    </property>
    <item>
     <layout class="QGridLayout" name="gridLayout">
+     <item row="0" column="1">
+      <widget class="QGroupBox" name="groupBox_4">
+       <property name="title">
+        <string>选择动作</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QRadioButton" name="Select">
+          <property name="text">
+           <string>添加到选择</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="UnSelect">
+          <property name="text">
+           <string>从选择中移除</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="chooseStationGroupBox">
+          <property name="title">
+           <string>选择状态</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QCheckBox" name="skipUnSeeAbleCell">
+             <property name="text">
+              <string>越过不可见面/体</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="onlySelectSeeAbleCells">
+             <property name="text">
+              <string>只选可见面/体</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="preLoadModelMsg">
+             <property name="text">
+              <string>预加载模型信息</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QDoubleSpinBox" name="expdRate">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="toolTip">
+              <string>取值比例</string>
+             </property>
+             <property name="decimals">
+              <number>5</number>
+             </property>
+             <property name="maximum">
+              <double>5.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.100000000000000</double>
+             </property>
+             <property name="value">
+              <double>1.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="autoRange">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>自动范围</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
      <item row="0" column="0">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
@@ -44,120 +153,42 @@
           </property>
          </widget>
         </item>
-       </layout>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QGroupBox" name="groupBox_4">
-       <property name="title">
-        <string>选择/取消选择</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_4">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
         <item>
-         <widget class="QRadioButton" name="Select">
+         <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">
-           <string>选择</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
+           <string>隐藏选择对象</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QRadioButton" name="UnSelect">
-          <property name="text">
-           <string>取消选择</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QGroupBox" name="groupBox_2">
-       <property name="title">
-        <string>选择状态</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_6">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QCheckBox" name="skipUnSeeAbleCell">
-          <property name="text">
-           <string>越过不可见面/体</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="onlySelectSeeAbleCells">
-          <property name="text">
-           <string>只选可见面/体</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="preLoadModelMsg">
-          <property name="text">
-           <string>预加载模型信息</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="expdRate">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="toolTip">
-           <string>取值比例</string>
-          </property>
-          <property name="decimals">
-           <number>5</number>
-          </property>
-          <property name="maximum">
-           <double>5.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.100000000000000</double>
-          </property>
-          <property name="value">
-           <double>1.000000000000000</double>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="autoRange">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>自动范围</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="drawBoundBox">
+            <property name="maximumSize">
+             <size>
+              <width>10</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>绘制包围框</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="clearSelectionState">
+            <property name="text">
+             <string>取消所有选择</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QGroupBox" name="groupBox_3">
+      <widget class="QGroupBox" name="chooseItemGroupBox">
        <property name="title">
         <string>选择对象</string>
        </property>
@@ -172,46 +203,17 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QCheckBox" name="noneSelectionState">
-          <property name="text">
-           <string>隐藏选择对象</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QCheckBox" name="noneSelectBox">
           <property name="text">
            <string>隐藏包围框</string>
           </property>
          </widget>
         </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
-          <item>
-           <widget class="QPushButton" name="drawBoundBox">
-            <property name="text">
-             <string>绘制包围框</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="clearSelectionState">
-            <property name="text">
-             <string>清空</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
        </layout>
       </widget>
      </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QGroupBox" name="groupBox_6">
+     <item row="1" column="0">
+      <widget class="QGroupBox" name="chooseModeGroupBox">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -265,6 +267,10 @@
        </layout>
       </widget>
      </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout_7">
      <item>
       <widget class="QGroupBox" name="groupBox_5">
        <property name="sizePolicy">
@@ -298,7 +304,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>类型</string>
+           <string>对象类型</string>
           </property>
          </widget>
         </item>
@@ -307,7 +313,7 @@
           <item>
            <widget class="QRadioButton" name="POINT_SELECTION">
             <property name="text">
-             <string>点选择</string>
+             <string>点</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -317,7 +323,7 @@
           <item>
            <widget class="QRadioButton" name="CELL_SELECTION">
             <property name="text">
-             <string>面/体选择</string>
+             <string>面/体</string>
             </property>
            </widget>
           </item>
@@ -355,7 +361,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>半径</string>
+           <string>最大半径</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -411,6 +417,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="toolTip">
+           <string>依据哪个变量值进行筛选</string>
+          </property>
          </widget>
         </item>
         <item row="5" column="1" colspan="2">
@@ -431,12 +440,12 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>50</width>
+              <width>100</width>
               <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>取消</string>
+             <string>取消选框</string>
             </property>
            </widget>
           </item>
@@ -450,37 +459,25 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>50</width>
+              <width>100</width>
               <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>修改</string>
+             <string>编辑选框</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QPushButton" name="useBox">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>30</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>50</width>
-              <height>16777215</height>
-             </size>
-            </property>
             <property name="text">
-             <string>应用</string>
+             <string>确认选择</string>
             </property>
            </widget>
           </item>
@@ -488,8 +485,11 @@
         </item>
         <item row="3" column="0">
          <widget class="QLabel" name="vcLabel">
+          <property name="toolTip">
+           <string>依据哪个变量值进行筛选</string>
+          </property>
           <property name="text">
-           <string>所选变量</string>
+           <string>依据变量</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -505,7 +505,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>ATTENTION</string>
+           <string/>
           </property>
          </widget>
         </item>

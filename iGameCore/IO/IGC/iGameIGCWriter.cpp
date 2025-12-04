@@ -2,6 +2,8 @@
 
 IGAME_NAMESPACE_BEGIN
 
+using EncoderType = MeshEncoderFilter<EncodeOutputBinaryArray>;
+
 bool IGCWriter::GenerateBuffers()
 {
     if (!m_DataObject) {
@@ -17,14 +19,14 @@ bool IGCWriter::GenerateBuffers()
 
 bool IGCWriter::EncodeData()
 {
-    m_encoder = MeshEncoderFilter::New();
+    m_encoder = EncoderType::New();
     m_encoder->SetInput(0, m_DataObject);
 
-    if (m_hasUIParams) {
-        m_encoder->SetUIControlParams(m_UIParams);
+    if (m_hasCodecParams) {
+        m_encoder->SetCodecControlParams(m_CodecParams);
     } else {
-        auto uiParams = MeshEncoderFilter::GenerateUIControlParams(m_DataObject);
-        m_encoder->SetUIControlParams(uiParams);
+        auto codecParams = EncoderType::GenerateDefaultCodecParams(m_DataObject);
+        m_encoder->SetCodecControlParams(codecParams);
     }
 
     return m_encoder->Execute();

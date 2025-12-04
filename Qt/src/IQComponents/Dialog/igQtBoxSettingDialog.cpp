@@ -9,6 +9,16 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <QWidget>
 #include <functional>
+#include <iGameSelectionParameter.h>
+
+static iGame::Interactor::Pointer GetInteractor(igQtModelDrawWidget* rendererWidget) {
+    if (rendererWidget == nullptr) return nullptr;
+    auto scene = rendererWidget->GetScene();
+    if (scene == nullptr) return nullptr;
+    auto interactor = scene->GetInteractor();
+    if (interactor == nullptr) return nullptr;
+    return interactor;
+}
 
 static iGame::BoxStyle::Pointer GetBoxStyle(igQtModelDrawWidget* rendererWidget) {
     if (rendererWidget == nullptr) return nullptr;
@@ -20,6 +30,7 @@ static iGame::BoxStyle::Pointer GetBoxStyle(igQtModelDrawWidget* rendererWidget)
     auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
     if (basicStyle == nullptr) return nullptr;
     auto boxStyle = iGame::DynamicCast<iGame::BoxStyle>(basicStyle);
+    if (boxStyle == nullptr) return nullptr;
     return boxStyle;
 }
 
@@ -35,13 +46,14 @@ static iGame::DynamicBox::Pointer GetDynamicBox(igQtModelDrawWidget* rendererWid
     auto boxStyle = iGame::DynamicCast<iGame::BoxStyle>(basicStyle);
     if (boxStyle == nullptr) return nullptr;
     auto dynamicBox = boxStyle->GetBox();
+    if (dynamicBox == nullptr) return nullptr;
     return dynamicBox;
 }
 
-igQtBoxSettingDialog::igQtBoxSettingDialog(QWidget* parent)
-    : QDialog(parent), ui(new Ui::igQtBoxSettingDialog) {
+igQtBoxSettingDialog::igQtBoxSettingDialog(QWidget* renderWidget, QWidget* parent)
+    : QWidget(parent), ui(new Ui::igQtBoxSettingDialog) {
     ui->setupUi(this);
-
+    m_RenderWidget = renderWidget;
     //############ Set ViewAble ############
     ui->comfirm->hide();
     ui->cancel->hide();
@@ -64,6 +76,7 @@ igQtBoxSettingDialog::igQtBoxSettingDialog(QWidget* parent)
 
     //############ Set BoxChangeCallBackFunc ############
     SetBoxChangeCallBackFunc();
+    SetBoxUpdateWidgetFunc();
 
     //############ Set connect ############
     connect(ui->px, &QLineEdit::textChanged, this, &igQtBoxSettingDialog::PChanged);
@@ -80,9 +93,11 @@ igQtBoxSettingDialog::igQtBoxSettingDialog(QWidget* parent)
 }
 
 igQtBoxSettingDialog::~igQtBoxSettingDialog() {
-    auto boxStyle = GetBoxStyle(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
-    if (boxStyle == nullptr) return;
-    boxStyle->RemovePointMoveCallBack("igQtBoxSettingDialog");
+    auto boxStyle = GetBoxStyle(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
+    if (boxStyle != nullptr) {
+        boxStyle->RemovePointMoveCallBack("igQtBoxSettingDialog");
+        boxStyle->RemoveUpdateWidgetFunc();
+    }
     delete ui;
 }
 
@@ -90,11 +105,12 @@ void igQtBoxSettingDialog::ReloadBoxMsg() {
     SetPreventBoxChangeFunc(true);
     SetBoxNumsToLineEdit();
     SetBoxChangeCallBackFunc();
+    SetBoxUpdateWidgetFunc();
     SetPreventBoxChangeFunc(false);
 }
 
 void igQtBoxSettingDialog::SetBoxChangeCallBackFunc() {
-    auto boxStyle = GetBoxStyle(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto boxStyle = GetBoxStyle(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (boxStyle == nullptr) return;
     boxStyle->_SetPointMoveCallBack("igQtBoxSettingDialog",
                                     std::bind(&igQtBoxSettingDialog::BoxChangeCallBackFunc, this));
@@ -104,6 +120,17 @@ void igQtBoxSettingDialog::BoxChangeCallBackFunc() {
     SetPreventBoxChangeFunc(true);
     SetBoxNumsToLineEdit();
     SetPreventBoxChangeFunc(false);
+}
+
+void igQtBoxSettingDialog::SetBoxUpdateWidgetFunc() {
+    auto boxStyle = GetBoxStyle(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
+    if (boxStyle == nullptr) return;
+    boxStyle->SetUpdateWidgetFunc(std::bind(&igQtBoxSettingDialog::BoxUpdateWidgetFunc, this));
+}
+
+void igQtBoxSettingDialog::BoxUpdateWidgetFunc() {
+    if (m_RenderWidget) m_RenderWidget->update();
+    this->hide();
 }
 
 void igQtBoxSettingDialog::SetPreventBoxChangeFunc(bool prevent) { m_PreventBoxChangeFunc = prevent; }
@@ -127,7 +154,7 @@ void igQtBoxSettingDialog::LChanged() {
 }
 
 void igQtBoxSettingDialog::SetBoxNumsToLineEdit() {
-    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (dynamicBox == nullptr) return;
     auto& center = dynamicBox->GetMidPoint();
     ui->px->setText(QString::number(center[0]));
@@ -144,7 +171,7 @@ void igQtBoxSettingDialog::SetBoxNumsToLineEdit() {
 }
 
 void igQtBoxSettingDialog::SetLineEditToBoxNums() {
-    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (dynamicBox == nullptr) return;
     dynamicBox->MovePosition(ui->px->text().toDouble(), ui->py->text().toDouble(), ui->pz->text().toDouble());
     dynamicBox->SetRotation(ui->rx->text().toDouble(), ui->ry->text().toDouble(), ui->rz->text().toDouble());
@@ -152,25 +179,25 @@ void igQtBoxSettingDialog::SetLineEditToBoxNums() {
 }
 
 void igQtBoxSettingDialog::SetBoxCenter() {
-    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (dynamicBox == nullptr) return;
     dynamicBox->MovePosition(ui->px->text().toDouble(), ui->py->text().toDouble(), ui->pz->text().toDouble());
 }
 
 void igQtBoxSettingDialog::SetBoxRotation() {
-    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (dynamicBox == nullptr) return;
     dynamicBox->SetRotation(ui->rx->text().toDouble(), ui->ry->text().toDouble(), ui->rz->text().toDouble());
 }
 
 void igQtBoxSettingDialog::SetBoxLength() {
-    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(this->parent()));
+    auto dynamicBox = GetDynamicBox(dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget));
     if (dynamicBox == nullptr) return;
     dynamicBox->SetLength(ui->lx->text().toDouble(), ui->ly->text().toDouble(), ui->lz->text().toDouble());
 }
 
 void igQtBoxSettingDialog::UpdateBoxView() {
-    auto rendererWidget = dynamic_cast<igQtModelDrawWidget*>(this->parent());
+    auto rendererWidget = dynamic_cast<igQtModelDrawWidget*>(m_RenderWidget);
     auto boxStyle = GetBoxStyle(rendererWidget);
     if (boxStyle == nullptr) return;
     boxStyle->ClearDraw();

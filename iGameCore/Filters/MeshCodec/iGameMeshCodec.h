@@ -1,7 +1,7 @@
 #ifndef MeshCodec_h
 #define MeshCodec_h
 
-#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecParams.h"
 #include "iGameFilter.h"
 #include "iGameMacro.h"
 
@@ -15,7 +15,7 @@ public:
 
 protected:
     MeshCodec() = default;
-    CodecParameters m_codecParams;
+    CodecStorageParams m_codecParams;
     bool m_enableMultiThread = true;
 
 };

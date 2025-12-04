@@ -47,10 +47,15 @@ public:
     void SetInSelection(bool inSelection);
     bool GetInSelection();
 
+    void SetHaveBox(bool haveBox);
+    bool GetHaveBox();
+
 private:
     SelectionStation m_SelectionStation{POINT_SELECTION};
 
     bool m_InSelection{false};
+
+    bool m_HaveBox{false};
 
     //When selecting points or faces, select the radius at one time.
     double m_SelectRadius{};
