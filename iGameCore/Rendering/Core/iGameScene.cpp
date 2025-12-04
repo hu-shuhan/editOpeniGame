@@ -154,6 +154,9 @@ void Scene::RemoveModel(IGuint modelID) {
         auto& m = it->second;
 
         if (id == modelID) {
+            if (auto visibility = m->GetVisibility()) {
+                m_VisibleModelsCount--;
+            }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -178,6 +181,9 @@ void Scene::RemoveModel(SmartPointer<Model> model) {
         auto m = it->second;
 
         if (m == model) {
+            if (auto visibility = model->GetVisibility()) {
+                m_VisibleModelsCount--;
+            }
             m->GetDataObject()->InvokeEvent(Command::DeleteEvent);
             m_ModelPool->ReleaseHandle(id);
             if (id == m_CurrentModelID) {
@@ -409,7 +415,7 @@ void Scene::InitOpenGL() {
         m_Painter3D->SetBrush(Color::Green);
 
         // m_Painter3D->DrawPoint({-1.0f, -1.0f, 0.0f});
-        //  m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
+        // m_Painter3D->DrawLine({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
         // m_Painter3D->DrawTriangle({-1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f},
         //                           {1.0f, -1.0f, 0.0f});
         // m_Painter3D->DrawRect({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f});
@@ -990,6 +996,12 @@ void Scene::ForwardPass() {
     }
     #else
     {
+        // pre pass: test occlusion results for phase 1
+        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
+            auto model = it->second;
+            model->TestOcclusionResults();
+        }
+
         // draw phase1: draw visible meshlet
         BindFramebuffer();
         for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
@@ -1009,12 +1021,6 @@ void Scene::ForwardPass() {
 
         // refresh phase2: generate global hierarchical z-buffer
         RefreshHzb();
-
-        // end pass: test occlusion results for next frame
-        for (auto it = m_ModelPool->Begin(); it != m_ModelPool->End(); ++it) {
-            auto model = it->second;
-            model->TestOcclusionResults();
-        }
     }
     #endif
 #endif

@@ -95,47 +95,14 @@ if (ENABLE_CGNS_MODULE)
     # On Windows we still allow user to specify HDF5_DIR; on Linux CGNS already set up HDF5
     if (WIN32)
         set(HDF5_DIR "C:/Program Files/HDF_Group/HDF5/1.13.0/share/cmake")
-        find_package(HDF5) # Optional: additional HDF5 linkage for Windows deployment
+        find_package(HDF5 REQUIRED) # Optional: additional HDF5 linkage for Windows deployment
     endif ()
 endif ()
 
 if (ENABLE_LIBTORCH_MODULE)
-    list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
-    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.2/bin/nvcc")
-
-    set(CMAKE_C_COMPILER "/usr/bin/gcc-12")
-    set(CMAKE_CXX_COMPILER "/usr/bin/g++-12")
-    set(CMAKE_CUDA_HOST_COMPILER "/usr/bin/g++-12")
-
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CUDA_STANDARD 17)
-
-    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
-    set(CUDA_INCLUDE_DIRS "/usr/local/cuda/include")
-    set(CUDA_CUDART_LIBRARY "/usr/local/cuda/lib64/libcudart.so")
-
-    set(CMAKE_PREFIX_PATH "${LIBTORCH_DIR}/share/cmake/Torch")
-    find_package(Torch REQUIRED)
-
-    set(CMAKE_CXX_STANDARD ${OLD_CMAKE_CXX_STANDARD})
-
     target_compile_definitions(${MODULE_NAME} PUBLIC LibTorch_ENABLE)
-    target_include_directories(${MODULE_NAME} PRIVATE ${TORCH_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PRIVATE ${TORCH_LIBRARIES})
-    if (TARGET torch_cuda)
-        message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
-    else ()
-        message(WARNING "This LibTorch package looks CPU-only (no torch_cuda target).")
-    endif ()
-    #        get_target_property(_torch_imps torch IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)
-    #        message(STATUS "Torch IMPORTED_LINK_INTERFACE (Release): ${_torch_imps}")
-    if (TARGET torch_cuda)
-        message(STATUS "Found torch_cuda target (CUDA-enabled LibTorch).")
-    else ()
-        message(WARNING "This LibTorch package looks CPU-only (no torch_cuda target).")
-    endif ()
+    target_link_libraries(${MODULE_NAME} PUBLIC ${TORCH_LIBRARIES})
 endif ()
-
 
 find_package(AbqSDK)
 if (${AbqSDK_FOUND})
@@ -153,7 +120,6 @@ endif ()
 
 if (${ENABLE_NASTRAN_MODULE})
     target_compile_definitions(${MODULE_NAME} PUBLIC NASTRAN_ENABLE)
-
 endif ()
 
 #if(Python3_FOUND)
@@ -225,16 +191,9 @@ endif ()
 include(Cmake/iGameCoreInstall.cmake)
 #--------------------------------------------------------------------
 
-#if (ENABLE_LIBTORCH_MODULE)
-#    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
-#    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
-#    file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
-#    file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
-#endif ()
-
 if (ENABLE_LIBTORCH_MODULE)
-    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
-    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources)
+    set(RESOURCES_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources/AI)
+    set(RESOURCES_OUTPUT_DIR ${CMAKE_BINARY_DIR}/Resources/AI)
     file(MAKE_DIRECTORY ${RESOURCES_OUTPUT_DIR})
     file(COPY ${RESOURCES_SOURCE_DIR}/ DESTINATION ${RESOURCES_OUTPUT_DIR})
     install(

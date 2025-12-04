@@ -55,13 +55,14 @@ private:
     float lengthOfStep;
     float maxSteps;
     float terminalSpeed;
-    bool haveDraw;
-    bool haveClicked;
+    bool haveDraw = false;
+    bool haveClicked = false ;
     std::string masterName;
     std::string vectorName;
     iGame::UnstructuredMesh::Pointer streamlineResult{};
     std::vector<iGame::PointFinder::Pointer> ptFinder;
     iGame::StreamBase* m_StreamBase{nullptr};
+    iGame::UnstructuredMesh::Pointer m_ResultObject {nullptr};
     iGame::DataObject::Pointer m_DataObject;
     iGame::Vector3f offsetP1{0, 0, 0};
     iGame::Vector3f offsetP2{0, 0, 0};

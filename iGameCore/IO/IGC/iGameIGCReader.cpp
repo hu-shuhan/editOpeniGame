@@ -1,36 +1,50 @@
 #include "iGameIGCReader.h"
 #include "Log/iGameLogger.h"
+#include "MeshCodec/DecodeInput/iGameDecodeInputBinaryArray.h"
+#include "MeshCodec/DecodeInput/iGameDecodeInputMappedMemory.h"
+#include "MeshCodec/DecodeOutput/iGameDecodeOutputDataObject.h"
 
 IGAME_NAMESPACE_BEGIN
 
 bool IGCReader::Parsing() { return ParsingWithMemoryMapping(); }
 
 bool IGCReader::ParsingWithMemoryMapping() {
-    MeshDecoderFilter::Pointer decoder = MeshDecoderFilter::New();
+    auto decoderInput =
+        DecodeInputMappedMemory::New(
+            this->FILESTART,
+            this->IS,
+            this->FILEEND,
+            this->m_FileSize);
 
-    decoder->SetMemoryMappingData(this->FILESTART, this->IS, this->FILEEND, this->m_FileSize);
+    auto adapter = std::make_unique<MeshDecodeAdapterToDataObject>();
+
+    auto decoder = MeshDecoderFilter<DataObject::Pointer>::New();
+    decoder->SetAdapter(std::move(adapter));
+    decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
 
-    m_DecodedOutput = decoder->GetOutput();
+    m_DecodedOutput = decoder->GetDecodeOutput()->GetOutput();
     return true;
 }
 
 bool IGCReader::ParsingWithFilePath() {
-    MeshDecoderFilter::Pointer decoder = MeshDecoderFilter::New();
+    auto decoderInput = CreateDecoderInputFromFile();
+    if (!decoderInput) { return false; }
 
-    EncodedMeshData::Pointer encodedData = CreateEncodedDataFromFile();
-    if (!encodedData) { return false; }
+    auto adapter = std::make_unique<MeshDecodeAdapterToDataObject>();
 
-    decoder->SetInput(0, encodedData);
+    auto decoder = MeshDecoderFilter<DataObject::Pointer>::New();
+    decoder->SetAdapter(std::move(adapter));
+    decoder->SetInput(0, decoderInput);
 
     if (!decoder->Execute()) { return false; }
 
-    m_DecodedOutput = decoder->GetOutput();
+    m_DecodedOutput = decoder->GetDecodeOutput()->GetOutput();
     return true;
 }
 
-EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile() {
+DecodeInputBinaryArray::Pointer IGCReader::CreateDecoderInputFromFile() {
     std::ifstream file(m_FilePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         IGAME_CORE_ERROR("Failed to open file: {}", m_FilePath);
@@ -40,18 +54,14 @@ EncodedMeshData::Pointer IGCReader::CreateEncodedDataFromFile() {
     std::streamsize fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<char> buffer(fileSize);
-    if (!file.read(buffer.data(), fileSize)) {
+    m_FileBuffer.resize(fileSize);
+    if (!file.read(reinterpret_cast<char*>(m_FileBuffer.data()), fileSize)) {
         IGAME_CORE_ERROR("Failed to read file: {}", m_FilePath);
         return nullptr;
     }
     file.close();
 
-    EncodedMeshData::Pointer encodedData = EncodedMeshData::New();
-    encodedData->m_Buffers.resize(fileSize);
-    std::memcpy(encodedData->m_Buffers.data(), buffer.data(), fileSize);
-
-    return encodedData;
+    return DecodeInputBinaryArray::New(m_FileBuffer.data(), m_FileBuffer.size());
 }
 
 bool IGCReader::CreateDataObject() {

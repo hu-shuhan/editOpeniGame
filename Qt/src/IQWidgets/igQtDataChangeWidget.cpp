@@ -294,6 +294,8 @@ void igQtDataChangeWidget::SetPosLabel(int x, int y) {
 
 void igQtDataChangeWidget::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
+    ui->dataGetTool->setChecked(false);
+    DataGetToolClicked(false);
     emit Hided();
 }
 
@@ -303,11 +305,14 @@ void igQtDataChangeWidget::SetRadialPoint() {
 }
 
 void igQtDataChangeWidget::SetRadialPoint(const iGame::BoundingBox& box) {
-    auto dir = (box.max - box.min) * 0.1;
+    auto dir = (box.max - box.min) * 0.03;
     m_RadialStyle->SetPoint(box.min - dir, box.max + dir);
 }
 
-void igQtDataChangeWidget::ShowRadial(bool show) { m_RadialStyle->SetShow(show); }
+void igQtDataChangeWidget::ShowRadial(bool show) {
+    m_RadialStyle->SetShow(show);
+    if (m_Scene != nullptr) m_Scene->Update();
+}
 
 void igQtDataChangeWidget::DrawRadial() {
     m_RadialStyle->ClearDrawRadial();

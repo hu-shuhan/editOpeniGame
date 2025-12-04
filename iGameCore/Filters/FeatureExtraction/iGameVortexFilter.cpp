@@ -839,6 +839,26 @@ VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByTetra(Cell* cell, Arra
     return Grad;
 }
 
+void VortexFilter::InterpolationDerivs(float derivs[12]) {
+    // r-derivatives
+    derivs[0] = -1.0;
+    derivs[1] = 1.0;
+    derivs[2] = 0.0;
+    derivs[3] = 0.0;
+
+    // s-derivatives
+    derivs[4] = -1.0;
+    derivs[5] = 0.0;
+    derivs[6] = 1.0;
+    derivs[7] = 0.0;
+
+    // t-derivatives
+    derivs[8] = -1.0;
+    derivs[9] = 0.0;
+    derivs[10] = 0.0;
+    derivs[11] = 1.0;
+}
+
 VortexFilter::VectorGrad VortexFilter::ComputeVectorGradByHex(Cell* cell, ArrayObject* data) {
 
     Vector3f center(0, 0, 0);

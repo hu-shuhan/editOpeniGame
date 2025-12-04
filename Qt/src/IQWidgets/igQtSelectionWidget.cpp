@@ -1,5 +1,7 @@
 ﻿#include <IQWidgets/igQtSelectionWidget.h>
 #include <iGameSelectionParameter.h>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SelectionView) {
     ui->setupUi(this);
     connect(ui->NONE_SELECTION, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionStationNone);
@@ -7,15 +9,26 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->CELL_SELECTION, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionStationCell);
     connect(ui->Select, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionSelect);
     connect(ui->UnSelect, &QRadioButton::clicked, this, &igQtSelectionWidget::SelectionUnSelect);
-    connect(ui->RadiusSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-            &igQtSelectionWidget::SelectionRadiusSpinBox);
+    //############ RadiusSpinBox ############
+    QRegularExpression rx("\\d*\\.?\\d+");
+    ui->RadiusSpinBox->setValidator(new QRegularExpressionValidator(rx, this));
+    connect(ui->RadiusSpinBox, &QLineEdit::textChanged, this, &igQtSelectionWidget::SelectionRadiusSpinBox);
+
     connect(ui->variableChoose, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &igQtSelectionWidget::SelectionVariableIndex);
     connect(ui->autoRange, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionVariableAutoCheck);
     ui->autoRange->hide();
+
+    //############ skipUnSeeAbleCell ############
     connect(ui->skipUnSeeAbleCell, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionSkipUnSeeAbleCell);
+    ui->skipUnSeeAbleCell->setChecked(true);
+    iGame::SelectionParameter::Instance().SetSelectIgnoreUnSeeAbleCells(true);
+
     connect(ui->onlySelectSeeAbleCells, &QCheckBox::clicked, this,
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
+    ui->onlySelectSeeAbleCells->setChecked(true);
+    iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(true);
+
     connect(ui->expdRate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             &igQtSelectionWidget::SelectionExpdRate);
     ui->expdRate->hide();
@@ -28,6 +41,8 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     ui->drawBoundBox->hide();
     //############ BOX ############
     connect(ui->clearBox, &QPushButton::clicked, this, &igQtSelectionWidget::ClearBox);
+    connect(ui->settingBox, &QPushButton::clicked, this, &igQtSelectionWidget::BoxSettingDialog);
+    //ui->settingBox->hide();
     connect(ui->useBox, &QPushButton::clicked, this, &igQtSelectionWidget::UseBox);
     //############ SELECT MODE ############
     connect(ui->radiusMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusMode);
@@ -37,6 +52,13 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->ctMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtMode);
     connect(ui->radiusBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionRadiusBoxMode);
     connect(ui->ctBoxMode, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionCtBoxMode);
+    //############ Pre Load ############
+    connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
+    ui->preLoadModelMsg->hide();
+    //############ R ############
+    auto radius = 0.5;
+    ui->RadiusSpinBox->setText(QString::number(radius));
+    iGame::SelectionParameter::Instance().SetSelectionRadius(radius);
 }
 
 igQtSelectionWidget::~igQtSelectionWidget() { delete ui; }
@@ -58,7 +80,37 @@ void igQtSelectionWidget::PreventSignalSend(bool prevent) { m_PreventSignalSend 
 
 void igQtSelectionWidget::SetDefaultSelectionButton() {
     ui->NONE_SELECTION->setChecked(false);
+    iGame::SelectionParameter::Instance().SetInSelection(false);
     SetVariableNames({});
+}
+
+void igQtSelectionWidget::SetInitBoxSettingDialog(QWidget* renderWidget) {
+    if (m_BoxSettingDialog == nullptr) {
+        m_BoxSettingDialog = new igQtBoxSettingDialog(renderWidget);
+    } else {
+        m_BoxSettingDialog->ReloadBoxMsg();
+    }
+    m_BoxSettingDialog->show();
+}
+
+void igQtSelectionWidget::SetNoAttention() {
+    ui->attention->setText("");
+    ui->attention->hide();
+}
+
+void igQtSelectionWidget::SetPointAttention() {
+    ui->attention->setText(QString("●当前模型无点数据"));
+    ui->attention->show();
+}
+
+void igQtSelectionWidget::SetCellAttention() {
+    ui->attention->setText(QString("●当前模型无面/体数据"));
+    ui->attention->show();
+}
+
+void igQtSelectionWidget::SetAllAttention() {
+    ui->attention->setText(QString("●当前模型无点、面/体数据"));
+    ui->attention->show();
 }
 
 void igQtSelectionWidget::SelectionStationNone(bool checked) {
@@ -134,8 +186,8 @@ void igQtSelectionWidget::SelectionCtBoxMode(bool checked) {
     ShowBoxUi();
 }
 
-void igQtSelectionWidget::SelectionRadiusSpinBox(double radius) {
-    iGame::SelectionParameter::Instance().SetSelectionRadius(radius);
+void igQtSelectionWidget::SelectionRadiusSpinBox(const QString& radius) {
+    iGame::SelectionParameter::Instance().SetSelectionRadius(radius.toDouble());
 }
 
 void igQtSelectionWidget::SelectionVariableIndex(int index) {
@@ -187,6 +239,7 @@ void igQtSelectionWidget::SelectBoxShow(bool unShow) {
 
 void igQtSelectionWidget::ClearBox() {
     if (m_PreventSignalSend) return;
+    if (m_BoxSettingDialog) m_BoxSettingDialog->hide();
     emit SetClearBox();
 }
 
@@ -195,9 +248,17 @@ void igQtSelectionWidget::UseBox() {
     emit SetUseBox();
 }
 
+void igQtSelectionWidget::BoxSettingDialog() { emit SetBoxSettingDialog(); }
+
+void igQtSelectionWidget::PreLoadModelMsg() {
+    if (m_PreventSignalSend) return;
+    emit SetPreLoadModelMsg();
+}
+
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
     if (m_PreventSignalSend) return;
+    if (m_BoxSettingDialog) m_BoxSettingDialog->hide();
     emit Hided();
 }
 
@@ -216,7 +277,9 @@ void igQtSelectionWidget::HideAllSelectModeUi() {
     ui->expdRateSlidTxt->hide();
     ui->boxLabel->hide();
     ui->clearBox->hide();
+    ui->settingBox->hide();
     ui->useBox->hide();
+    ui->attention->hide();
 }
 
 void igQtSelectionWidget::HideSelectionTypeUi() {
@@ -249,5 +312,6 @@ void igQtSelectionWidget::ShowCtUi() {
 void igQtSelectionWidget::ShowBoxUi() {
     ui->boxLabel->show();
     ui->clearBox->show();
+    ui->settingBox->show();
     ui->useBox->show();
 }

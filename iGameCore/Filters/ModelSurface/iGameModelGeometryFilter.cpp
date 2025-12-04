@@ -998,7 +998,7 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
                     }
                 }
             } else {
-                igDebug("Unknown cell type.");
+                igDebug("Unknown cell type : {}", cellType);
             }
     }
 }
@@ -1043,14 +1043,15 @@ int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, 
     UnstructuredMesh::Pointer Grid = DynamicCast<UnstructuredMesh>(input);
     //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
     //                     << Grid->GetNumberOfCells() << " cells.");
-    bool is3D = false;
+    bool isNot3D = false;
     for (int i = 0; i < Grid->GetNumberOfCells(); i++) {
         if (Cell::GetCellDimension(Grid->GetCellType(i)) >= 3) {
-            is3D = true;
-            break;
+            continue;
         }
+        isNot3D = true;
+        break;
     }
-    if (is3D == false) {
+    if (isNot3D) {
         auto surfaceMesh = Grid->TransferToSurfaceMesh();
         if (surfaceMesh == nullptr) { return 0; }
         if (!ExecuteWithSurfaceMesh(Grid->TransferToSurfaceMesh(), output)) { output = surfaceMesh; }

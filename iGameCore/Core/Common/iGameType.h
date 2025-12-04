@@ -38,6 +38,9 @@ enum {
     IG_MULTIBLOCK_MESH,
     IG_SPLINE_GEOMETRY,
     IG_MESH_ENCODED_DATA,
+    IG_DECODER_INPUT,
+    IG_DECODER_OUTPUT,
+    IG_ENCODER_OUTPUT,
     IG_DATA_OBJECT_COUNT,
     IG_LAGRANGE_UNSTRUCTURED_MESH,
 };
@@ -99,7 +102,7 @@ enum {
 };
 
 // Streaming Data's String Type
-enum StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
+enum class StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
 
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };

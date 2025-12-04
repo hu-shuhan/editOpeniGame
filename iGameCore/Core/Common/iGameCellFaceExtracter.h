@@ -7,17 +7,30 @@
 #include <utility>
 #include <vector>
 IGAME_NAMESPACE_BEGIN
+class PointSet;
 class UnstructuredMesh;
+class VolumeMesh;
+class SurfaceMesh;
 class CellFaceExtracter {
 public:
+    void PreVisit(UnstructuredMesh* mesh);
     void Clear();
     std::set<std::pair<int, int>> GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds,
                                                          UnstructuredMesh* mesh);
+    std::set<std::pair<int, int>> GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds, VolumeMesh* mesh);
+    std::set<std::pair<int, int>> GetExtractPointIdPairs(const std::set<igIndex>& choosedCellIds, SurfaceMesh* mesh);
+
     std::vector<std::pair<Point, Point>> GetExtractBoundingBoxs(const std::set<igIndex>& choosedCellIds,
                                                                 UnstructuredMesh* mesh);
+
     std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, UnstructuredMesh* mesh);
-    std::pair<Point, Point> GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds, UnstructuredMesh* mesh);
+    std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, VolumeMesh* mesh);
+    std::pair<Point, Point> GetCellsBoundingBox(const std::vector<igIndex>& choosedCellIds, SurfaceMesh* mesh);
+    std::pair<Point, Point> GetPointsBoundingBox(const std::vector<igIndex>& choosedPointIds, PointSet* mesh);
+
     std::vector<int> GetSurfaceCellIds(UnstructuredMesh* mesh);
+    std::vector<int> GetSurfaceCellIds(VolumeMesh* mesh);
+    std::vector<int> GetSurfaceCellIds(SurfaceMesh* mesh);
 
 private:
     using PointId = int;

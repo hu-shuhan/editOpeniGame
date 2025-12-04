@@ -6,6 +6,9 @@
 #include <vector>
 #include <string>
 #include <iGameSelectionParameter.h>
+#include <QString>
+#include <iGameScene.h>
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 
 namespace Ui {
 class SelectionView;
@@ -24,6 +27,15 @@ public:
     void PreventSignalSend(bool prevent);
     void SetDefaultSelectionButton();
 
+    void SetInitBoxSettingDialog(QWidget* renderWidget);
+
+public:
+    //ATTENTION
+    void SetNoAttention();
+    void SetPointAttention();
+    void SetCellAttention();
+    void SetAllAttention();
+
 signals:
     void Signal_SetSelectionStationChanged();
     void SetSelectItemShow(bool show);
@@ -32,6 +44,8 @@ signals:
     void Hided();
     void SetClearBox();
     void SetUseBox();
+    void SetBoxSettingDialog();
+    void SetPreLoadModelMsg();
 
 private slots:
     void SelectionStationNone(bool checked);
@@ -46,7 +60,7 @@ private slots:
     void SelectionRadiusBoxMode(bool checked);
     void SelectionCtBoxMode(bool checked);
 
-    void SelectionRadiusSpinBox(double radius);
+    void SelectionRadiusSpinBox(const QString& radius);
     void SelectionVariableIndex(int index);
     void SelectionVariableAutoCheck(bool checked);
     void SelectionExpdRate(double rate);
@@ -62,11 +76,16 @@ private slots:
     void ClearBox();
     void UseBox();
 
+    void BoxSettingDialog();
+
+    void PreLoadModelMsg();
+
 protected:
     void hideEvent(QHideEvent* event) override;
     
 private:
     Ui::SelectionView* ui;
+    igQtBoxSettingDialog* m_BoxSettingDialog{};
     bool m_SelectItemShow{true};
     bool m_SelectBoxShow{true};
     bool m_PreventSignalSend{};

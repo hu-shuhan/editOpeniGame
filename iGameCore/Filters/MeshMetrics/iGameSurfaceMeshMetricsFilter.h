@@ -18,6 +18,7 @@ public:
     static Pointer New() { return new SurfaceMeshMetricsFilter; }
 
     enum SurfaceMetric {
+        INVALID = -1,
         //通用指标
         FACE_AREA,    // 三角形面积
         MAX_ANGLE,    // 最大内角

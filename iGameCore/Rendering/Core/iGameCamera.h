@@ -71,7 +71,7 @@ public:
      * @return 返回视口的宽高比。
      */
     template<typename FloatT>
-    FloatT aspect() const;
+    FloatT aspect() const { return FloatT(m_Size.x) / FloatT(m_Size.y); }
 
 protected:
     Viewport();

@@ -20,6 +20,7 @@ public:
     static Pointer New() { return new VolumeMeshMetricsFilter; }
 
     enum VolumeMetric {
+        INVALID = -1,
         TET_EDGE_RATIO,         // 边长比
         TET_VOLUME,             // 体积
         TET_ASPECT_RATIO,       // 纵横比

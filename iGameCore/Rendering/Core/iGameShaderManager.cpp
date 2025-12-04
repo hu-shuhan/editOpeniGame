@@ -34,9 +34,19 @@ bool ShaderManager::HasShader(ShaderType type) {
 void ShaderManager::UseShader(ShaderType type) { this->GetShader(type)->Use(); }
 
 void ShaderManager::UpdateCameraBlock(SmartPointer<Camera> camera) {
+    bool isOrtho = camera->GetType() == Camera::Type::ORTHOGRAPHIC;
+
     CameraDataBuffer buffer;
     buffer.camera_position = camera->GetPosition();
-    buffer.isOrtho = camera->GetType() == Camera::Type::ORTHOGRAPHIC;
+    buffer.isOrtho = isOrtho;
+    float orthoHeight = camera->GetLengthToFocal() / 3.0f;
+    float orthoWidth = orthoHeight * camera->aspect<float>();
+    buffer.orthoBounds = isOrtho ? igm::vec4{-orthoWidth, orthoWidth,
+                                             -orthoHeight, orthoHeight}
+                                 : igm::vec4{0.0f, 0.0f, 0.0f, 0.0f};
+    buffer.zNear = isOrtho ? -camera->GetClippingRange().y
+                           : camera->GetClippingRange().x;
+    buffer.zFar = camera->GetClippingRange().y;
     buffer.view = camera->GetViewMatrix();
     buffer.proj = camera->GetProjectionMatrix();
     buffer.proj_view = camera->GetProjectionMatrix() * camera->GetViewMatrix();
@@ -101,7 +111,9 @@ void ShaderManager::UpdateCullDataBuffer(SmartPointer<Camera> camera,
     buffer.P00 = projection[0][0];
     buffer.P11 = projection[1][1];
     //cullData.zNear = projection[3][2];
-    buffer.zNear = camera->GetClippingRange().x;
+    buffer.zNear = camera->GetType() == Camera::Type::ORTHOGRAPHIC
+                           ? -camera->GetClippingRange().y
+                           : camera->GetClippingRange().x;
     buffer.zFar = camera->GetClippingRange().y;
     buffer.frustum[0] = frustumX.x;
     buffer.frustum[1] = frustumX.z;

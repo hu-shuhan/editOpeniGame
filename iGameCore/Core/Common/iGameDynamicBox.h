@@ -19,12 +19,17 @@ public:
     static Pointer New(const Point& p1, const Point& p2) { return new DynamicBox(p1, p2); }
     void MoveOpePoint(OpeInt opePoint, const Point& direction);
     void RotateBox(const Point& camera, const Point& direction);
+    void MovePosition(double x, double y, double z);
     void MovePosition(const Point& position);
     const Point& GetMidPoint() const;
+    void SetRotation(double xAngle, double yAngle, double zAngle);
+    const Point& GetRotation() const;
     const std::array<Point, 6>& GetOpePoints() const;
     std::vector<std::pair<Point, Point>> GetAllEdges() const;
     std::array<std::array<Point, 4>, 6> GetAllFaces() const;
     const Point& GetLength() const;
+    void SetLength(const Point& newLength);
+    void SetLength(double lengthX, double lengthY, double lengthZ);
     std::pair<Point, Point> GetExtremePoint() const;
 
 private:

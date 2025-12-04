@@ -228,12 +228,26 @@ void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
     }
 }
 
+void DynamicBox::MovePosition(double x, double y, double z) { MovePosition(Point(x, y, z)); }
+
 void DynamicBox::MovePosition(const Point& position) {
     m_Position = position;
     SetOpePoints();
 }
 
 const Point& DynamicBox::GetMidPoint() const { return m_Position; }
+
+void DynamicBox::SetRotation(double xAngle, double yAngle, double zAngle) {
+    // 简单直接地设置三个旋转角度
+    m_Rotation[0] = xAngle; // 设置绕X轴旋转的角度
+    m_Rotation[1] = yAngle; // 设置绕Y轴旋转的角度
+    m_Rotation[2] = zAngle; // 设置绕Z轴旋转的角度
+
+    // 重要：更新所有操作点的位置，因为旋转改变了盒子的方向
+    SetOpePoints();
+}
+
+const Point& DynamicBox::GetRotation() const { return m_Rotation; }
 
 const std::array<Point, 6>& DynamicBox::GetOpePoints() const { return m_OpePoints; }
 
@@ -372,6 +386,30 @@ std::array<std::array<Point, 4>, 6> DynamicBox::GetAllFaces() const {
 }
 
 const Point& DynamicBox::GetLength() const { return m_Length; }
+
+// 版本1：使用Point参数
+void DynamicBox::SetLength(const Point& newLength) {
+    // 首先检查新的尺寸是否合法（不能是负数）
+    Point finalLength = newLength;
+
+    // 确保每个维度都是正数
+    if (finalLength[0] < 0.0) finalLength[0] = 0.0;
+    if (finalLength[1] < 0.0) finalLength[1] = 0.0;
+    if (finalLength[2] < 0.0) finalLength[2] = 0.0;
+
+    // 设置新的尺寸
+    m_Length = finalLength;
+
+    // 重要：更新所有操作点的位置
+    // 因为中心点m_Position不变，只是尺寸变了
+    SetOpePoints();
+}
+
+// 版本2：使用三个double参数
+void DynamicBox::SetLength(double lengthX, double lengthY, double lengthZ) {
+    // 创建Point对象并调用第一个版本
+    SetLength(Point(lengthX, lengthY, lengthZ));
+}
 
 // 将局部坐标转换到世界坐标系
 Point DynamicBox::LocalToWorld(const Point& localVec) const {

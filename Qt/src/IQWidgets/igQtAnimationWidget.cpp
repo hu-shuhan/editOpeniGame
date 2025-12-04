@@ -235,6 +235,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     if(currentDrawObject->GetDeformationData()->GetEnableStatus()){
         StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
         deformFilter->SetInput(currentDrawObject);
+        IGAME_CORE_DEBUG("Deformation Executing");
         if(!deformFilter->Execute()) std::cout << " error \n";
     }
 

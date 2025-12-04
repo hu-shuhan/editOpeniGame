@@ -1,18 +1,38 @@
 #ifndef MeshDecoder_h
 #define MeshDecoder_h
 
-#include "iGameEncodedMeshData.h"
+
+#include "MeshCodec/DecodeAdapter/iGameMeshDecodeAdapterToDataObject.h"
+#include "MeshCodec/DecodeInput/iGameIDecodeInput.h"
+#include "MeshCodec/DecodeOutput/iGameIDecodeOutput.h"
+#include "MeshCodec/DecodeOutput/iGameDecodeOutputDataObject.h"
+#include "MeshCodec/SubCodec/iGameMeshFloatCodec.h"
+#include "MeshCodec/SubCodec/iGameMeshIndexCodec.h"
+#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecThread.h"
 #include "iGameMacro.h"
-#include "iGameMeshCodec.h"
-#include "iGameMeshCodecParamSet.h"
-#include "iGameMeshCodecZSTD.h"
-#include "iGameMeshDecoderAdapter.h"
-#include "iGameMeshFloatCodec.h"
+#include "MeshCodec/iGameMeshCodec.h"
+#include "MeshCodec/SubCodec/iGameMeshCodecZSTD.h"
+
+#include <algorithm>
 #include <memory>
 
 IGAME_NAMESPACE_BEGIN
 
-class MeshDecoderFilter : public MeshCodec {
+// 类型特征：OutputType -> DecodeOutputClass 映射
+// 调用方可以提供自己的特化
+template<typename OutputType>
+struct DecodeOutputTraits;
+
+// DataObject::Pointer 的特化
+template<>
+struct DecodeOutputTraits<DataObject::Pointer> {
+    using OutputClass = DecodeOutputDataObject;
+};
+
+template<typename OutputType>
+class MeshDecoderFilter final : public MeshCodec {
+    using DecodeOutputClass = typename DecodeOutputTraits<OutputType>::OutputClass;
 public:
     I_OBJECT(MeshDecoderFilter);
     static Pointer New() { return new MeshDecoderFilter; }
@@ -20,15 +40,7 @@ public:
     MeshDecoderFilter() {
         this->SetNumberOfInputs(1);
         this->SetNumberOfOutputs(1);
-    }
-
-    void SetMemoryMappingData(char*& fileStart, const char*& currentPos, char*& fileEnd, const size_t& fileSize) {
-        m_FILESTART = fileStart;
-        m_IS = currentPos;
-        m_FILEEND = fileEnd;
-        m_FileSize = fileSize;
-        m_UseMemoryMapping = true; // 设置为内存映射模式
-        this->SetNumberOfInputs(0);
+        m_DecoderOutput = DecodeOutputClass::New();
     }
 
     bool Execute() override {
@@ -37,30 +49,35 @@ public:
         m_DecompressProgress = 0.0f;
 
         PayloadBuffer buf;
-        while (ReadBuf(&buf)) { ProcessPayload(buf); }
+        while (m_DecoderInput->ReadPayload(&buf)) { ProcessPayload(buf); }
 
-        UpdateProgress(1.0);
+        // 将 adapter 的输出设置到 DecodeOutput
         if (m_DecoderAdapter) {
-            SetOutput(0, m_DecoderAdapter->GetDataObj());
-        } else {
-            SetOutput(0, nullptr);
+            m_DecoderOutput->SetOutput(m_DecoderAdapter->GetOutput());
         }
+
+        SetOutput(0, m_DecoderOutput);
+        UpdateProgress(1.0);
         return true;
+    }
+
+    void SetAdapter(std::unique_ptr<IMeshDecodeAdapter<OutputType>> adapter) {
+        m_DecoderAdapter = std::move(adapter);
+    }
+
+    IMeshDecodeAdapter<OutputType>* GetAdapter() const {
+        return m_DecoderAdapter.get();
+    }
+
+    typename DecodeOutputClass::Pointer GetDecodeOutput() const {
+        return m_DecoderOutput;
     }
 
 private:
     // I/O
-    std::unique_ptr<MeshDecoderAdapter> m_DecoderAdapter;
-    // for memory mapping
-    const char* m_IS = nullptr;
-    const char* m_FILESTART = nullptr;
-    const char* m_FILEEND = nullptr;
-    size_t m_FileSize = 0;
-
-    // for MeshEncodedData
-    EncodedMeshData::Pointer m_encodedData;
-    IGsize m_BufferOffset = 0;
-    bool m_UseMemoryMapping = false;
+    std::unique_ptr<IMeshDecodeAdapter<OutputType>> m_DecoderAdapter;
+    typename DecodeOutputClass::Pointer m_DecoderOutput;
+    IDecodeInput::Pointer m_DecoderInput;
 
     // progress record
     float m_DecompressProgress = 0.0f;
@@ -70,16 +87,14 @@ private:
         PayloadType type = buf.type;
 
         PayloadBuffer bufDecompressed;
-        // LZMA decompression (old implementation)
-        // MeshCodecLZMA::Decompress(bufDecompressed, buf);
-
-        // ZSTD decompression (new implementation)
-        MeshCodecZSTD::Decompress(bufDecompressed, buf);
+        MeshCodecZSTD().Decompress(bufDecompressed, buf);
 
         switch (type) {
             case PayloadType::kParameterSet: {
                 this->ParamsDecoder(bufDecompressed);
-                this->m_DecoderAdapter = std::make_unique<MeshDecoderAdapter>(this->m_codecParams.meshType);
+                if (m_DecoderAdapter) {
+                    m_DecoderAdapter->SetMeshType(this->m_codecParams.meshType);
+                }
                 break;
             }
             case PayloadType::kGeometryBrick: {
@@ -105,7 +120,7 @@ private:
         IGsize staticSize = sizeof(ParametersWoAttr);
 
         // 读取静态数据
-        ParametersWoAttr paramsWoAttr;
+        ParametersWoAttr paramsWoAttr{};
         std::memcpy(&paramsWoAttr, buf.data(), staticSize);
 
         this->m_codecParams.meshType = paramsWoAttr.meshType;
@@ -139,7 +154,7 @@ private:
         IGsize bufferSize = this->m_codecParams.geomParams.elementCount * this->m_codecParams.geomParams.dimension;
         std::vector<float> decodedFloat(bufferSize);
 
-        MeshOptFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
+        MeshFloatCodec::FloatDecoder(decodedFloat, uCharBuffer, this->m_codecParams.geomParams);
 
         m_DecompressProgress += 0.15;
         UpdateProgress(m_DecompressProgress);
@@ -152,64 +167,79 @@ private:
         std::memcpy(uCharBuffer.data(), buf.data(), buf.size());
 
         // Pre-calculate all binary cursor positions
-        std::vector<int> binaryCursorOffsets(this->m_codecParams.attrParams.size() + 1);
+        std::vector<IGsize> binaryCursorOffsets(this->m_codecParams.attrParams.size() + 1);
         binaryCursorOffsets[0] = 0;
-        for (int i = 0; i < this->m_codecParams.attrParams.size(); i++) {
+        for (size_t i = 0; i < this->m_codecParams.attrParams.size(); i++) {
             binaryCursorOffsets[i + 1] = binaryCursorOffsets[i] + this->m_codecParams.attrParams[i].binaryCount;
         }
 
         // 用于暂存所有线程产生的属性数据
-        struct AttributeInfo {
-            IGenum type;
-            IGenum attachmentType;
-            ArrayObject::Pointer arrayPtr;
-        };
-        std::vector<AttributeInfo> attrInfos(this->m_codecParams.attrParams.size());
+        std::vector<AttributeBuffer> attrBuffers(this->m_codecParams.attrParams.size());
 
         // 进度控制
-        ProgressParallelFor(0, this->m_codecParams.attrParams.size(), m_DecompressProgress, m_DecompressProgress + 0.2,
+        CodecProgressParallelFor(this, 0,
+                            static_cast<int>(this->m_codecParams.attrParams.size()),
+                            m_DecompressProgress, m_DecompressProgress + 0.2f,
                             [&](int start, int end) -> void {
-                                for (int i = start; i < end; i++) {
-                                    auto& params = this->m_codecParams.attrParams[i];
-                                    int valueCount = params.elementCount * params.dimension;
+            for (int i = start; i < end; i++) {
+                auto& params = this->m_codecParams.attrParams[i];
 
-                                    // 使用预先计算的位置获取当前属性的二进制数据
-                                    std::vector<unsigned char> inputBuffer(uCharBuffer.begin() + binaryCursorOffsets[i],
-                                                                           uCharBuffer.begin() +
-                                                                                   binaryCursorOffsets[i + 1]);
+                // 参数有效性检查
+                if (params.dimension <= 0 || params.elementCount <= 0) {
+                    continue;
+                }
 
-                                    auto processType = [&](auto& container, auto valueType) {
-                                        using ValueType = decltype(valueType);
-                                        using ArrayType = FlatArray<ValueType>;
-                                        auto decoded = ArrayType::New();
-                                        decoded->Resize(valueCount);
-                                        MeshOptFloatCodec::FloatDecoder(container, inputBuffer, params);
-                                        memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
-                                        decoded->SetDimension(params.dimension);
-                                        decoded->SetName(params.name);
-                                        // 保存解码结果而不是立即添加
-                                        attrInfos[i] = AttributeInfo{params.type, params.attachmentType, decoded};
-                                    };
+                // 使用预先计算的位置获取当前属性的二进制数据
+                std::vector<unsigned char> inputBuffer(
+                    uCharBuffer.begin() + binaryCursorOffsets[i],
+                    uCharBuffer.begin() + binaryCursorOffsets[i + 1]
+                );
 
-                                    if (params.valueSize == sizeof(float)) {
-                                        std::vector<float> floats;
-                                        processType(floats, float{});
-                                    } else if (params.valueSize == sizeof(double)) {
-                                        std::vector<double> doubles;
-                                        processType(doubles, double{});
-                                    }
-                                }
-                            });
+                // 提取属性名
+                const char* nameStart = params.name;
+                const char* nameEnd = std::find(nameStart, nameStart + sizeof(params.name), '\0');
+                const std::string attributeName(nameStart, nameEnd);
+
+                const IGsize valueCount = params.elementCount * params.dimension;
+
+                // 构建 AttributeBuffer
+                AttributeBuffer attr;
+                attr.name = attributeName;
+                attr.type = params.type;
+                attr.attachmentType = params.attachmentType;
+                attr.dimension = params.dimension;
+                attr.valueSize = params.valueSize;
+
+                if (params.valueSize == sizeof(float)) {
+                    std::vector<float> floats;
+                    MeshFloatCodec::FloatDecoder(floats, inputBuffer, params);
+                    // 解码结果大小验证
+                    if (floats.size() != valueCount) {
+                        continue;
+                    }
+                    attr.floatData = std::move(floats);
+                } else if (params.valueSize == sizeof(double)) {
+                    std::vector<double> doubles;
+                    MeshFloatCodec::FloatDecoder(doubles, inputBuffer, params);
+                    // 解码结果大小验证
+                    if (doubles.size() != valueCount) {
+                        continue;
+                    }
+                    attr.doubleData = std::move(doubles);
+                }
+
+                // 保存解码结果
+                attrBuffers[i] = std::move(attr);
+            }
+        });
 
         // 更新最终进度
         m_DecompressProgress += 0.2;
         UpdateProgress(m_DecompressProgress);
 
         // 所有线程完成后，按顺序添加属性
-        for (const auto& attrInfo: attrInfos) {
-            if (attrInfo.arrayPtr) { // 确保指针有效
-                this->m_DecoderAdapter->AddAttribute(attrInfo.type, attrInfo.attachmentType, attrInfo.arrayPtr);
-            }
+        for (const auto& attr : attrBuffers) {
+            this->m_DecoderAdapter->AddAttribute(attr);
         }
     }
 
@@ -223,9 +253,7 @@ private:
 
         // 结构化网格：不需要解码cell连接关系，通过axisSize自动生成
         if (this->m_codecParams.meshType == IG_STRUCTURED_MESH) {
-            StructuredMesh::Pointer mesh = DynamicCast<StructuredMesh>(this->m_DecoderAdapter->GetDataObj());
-            mesh->SetDimensionSize(this->m_codecParams.structuredMeshParams.axisSize);
-            mesh->GenStructuredCellConnectivities();
+            this->m_DecoderAdapter->SetStructuredMeshDimension(this->m_codecParams.structuredMeshParams.axisSize);
 
             m_DecompressProgress += 0.2;
             UpdateProgress(m_DecompressProgress);
@@ -247,18 +275,25 @@ private:
             IndexNOffsetDecoder(inputTopo, inputCursor, face2pointsIndex,
                                 this->m_codecParams.topoParams.bottomCellBufferBinaryCount,
                                 this->m_codecParams.topoParams.bottomCellBufferSize,
-                                this->m_codecParams.topoParams.bottomCellBufferPadding, -1,
-                                this->m_codecParams.topoParams.bottomCellSizeBinaryCount, face2pointsSize);
+                                this->m_codecParams.topoParams.bottomCellBufferPadding,
+                                -1,
+                                this->m_codecParams.topoParams.bottomCellSizeBinaryCount,
+                                face2pointsSize);
 
             // 解码 体 -> 面
             IndexNOffsetDecoder(inputTopo, inputCursor, volume2facesIndex,
                                 this->m_codecParams.topoParams.topCellBufferBinaryCount,
                                 this->m_codecParams.topoParams.topCellBufferSize,
-                                this->m_codecParams.topoParams.topCellBufferPadding, -1,
-                                this->m_codecParams.topoParams.topCellSizeBinaryCount, volume2facesSize);
+                                this->m_codecParams.topoParams.topCellBufferPadding,
+                                -1,
+                                this->m_codecParams.topoParams.topCellSizeBinaryCount,
+                                volume2facesSize);
 
-            this->m_DecoderAdapter->AddSecondaryIndexCells(volume2facesIndex, volume2facesSize, face2pointsIndex,
-                                                           face2pointsSize);
+            this->m_DecoderAdapter->AddSecondaryIndexCells(
+                volume2facesIndex,
+                volume2facesSize,
+                face2pointsIndex,
+                face2pointsSize);
         } else {
             std::vector<unsigned int> volume2pointsIndex;
             std::vector<unsigned int> volume2pointsSize;
@@ -270,21 +305,27 @@ private:
                 IndexNOffsetDecoder(inputTopo, inputCursor, volume2pointsIndex,
                                     this->m_codecParams.topoParams.topCellBufferBinaryCount,
                                     this->m_codecParams.topoParams.topCellBufferSize,
-                                    this->m_codecParams.topoParams.topCellBufferPadding, fixedCellSize,
-                                    this->m_codecParams.topoParams.topCellSizeBinaryCount, // 后两个参数无实际作用
+                                    this->m_codecParams.topoParams.topCellBufferPadding,
+                                    fixedCellSize,
+                                    // 后两个参数无实际作用
+                                    this->m_codecParams.topoParams.topCellSizeBinaryCount,
                                     volume2pointsSize);
             } else {
                 IndexNOffsetDecoder(inputTopo, inputCursor, volume2pointsIndex,
                                     this->m_codecParams.topoParams.topCellBufferBinaryCount,
                                     this->m_codecParams.topoParams.topCellBufferSize,
-                                    this->m_codecParams.topoParams.topCellBufferPadding, -1,
-                                    this->m_codecParams.topoParams.topCellSizeBinaryCount, volume2pointsSize);
+                                    this->m_codecParams.topoParams.topCellBufferPadding,
+                                    -1,
+                                    this->m_codecParams.topoParams.topCellSizeBinaryCount,
+                                    volume2pointsSize);
             }
 
             // 如果是非结构化网格 还要考虑types
             if (this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH) {
-                this->CellTypeDecoder(outCellTypes, inputTopo.data() + inputCursor,
-                                      this->m_codecParams.topoParams.cellTypeBinaryCount);
+                this->CellTypeDecoder(
+                    outCellTypes,
+                    inputTopo.data() + inputCursor,
+                    this->m_codecParams.topoParams.cellTypeBinaryCount);
                 inputCursor += this->m_codecParams.topoParams.cellTypeBinaryCount;
             }
 
@@ -294,17 +335,24 @@ private:
             // 非结构化网格
             if (unstructuredFlag) {
                 if (isFixedCellSize) {
-                    this->m_DecoderAdapter->AddUnstructuredFixedCells(volume2pointsIndex, fixedCellSize, outCellTypes);
+                    this->m_DecoderAdapter->AddUnstructuredFixedCells(
+                        volume2pointsIndex,
+                        fixedCellSize,
+                        outCellTypes);
                 } else {
-                    this->m_DecoderAdapter->AddUnstructuredPolyCells(volume2pointsIndex, volume2pointsSize,
-                                                                     outCellTypes);
+                    this->m_DecoderAdapter->AddUnstructuredPolyCells(
+                        volume2pointsIndex,
+                        volume2pointsSize,
+                         outCellTypes);
                 }
             } else {
                 // SurfaceMesh或VolumeMesh（非结构化）
                 if (isFixedCellSize) {
-                    this->m_DecoderAdapter->AddSameTypeFixedCells(volume2pointsIndex, fixedCellSize);
+                    this->m_DecoderAdapter->AddSameTypeFixedCells(
+                        volume2pointsIndex, fixedCellSize);
                 } else {
-                    this->m_DecoderAdapter->AddSameTypePolyCells(volume2pointsIndex, volume2pointsSize);
+                    this->m_DecoderAdapter->AddSameTypePolyCells(
+                        volume2pointsIndex, volume2pointsSize);
                 }
             }
         }
@@ -316,98 +364,9 @@ private:
 
     // region I/O
     bool InitializeInputs() {
-        if (m_UseMemoryMapping) {
-            return InitializeMemoryMappedInput();
-        } else {
-            return InitializeEncodedDataInput();
-        }
-    }
-
-    bool InitializeMemoryMappedInput() {
-        if (!m_FILESTART) { return false; }
-        if (!m_FILEEND) { return false; }
-        if (m_IS >= m_FILEEND) { return false; }
-        if (m_FileSize == 0) { return false; }
-        return true;
-    }
-
-    bool InitializeEncodedDataInput() {
-        if (!m_encodedData) {
-            m_encodedData = DynamicCast<EncodedMeshData>(GetInput(0));
-            if (!m_encodedData) { return false; }
-        }
-
-        if (m_encodedData->m_Buffers.empty()) { return false; }
-
-        m_BufferOffset = 0;
-        return true;
-    }
-
-    bool ReadBuf(PayloadBuffer* buf) {
-        if (m_UseMemoryMapping) {
-            return ReadBufFromMemory(buf);
-        } else {
-            if (!m_encodedData) {
-                m_encodedData = DynamicCast<EncodedMeshData>(GetInput(0));
-                if (!m_encodedData) { return false; }
-            }
-            return ReadBufFromVector(buf);
-        }
-    }
-
-    bool ReadBufFromVector(PayloadBuffer* buf) {
-        buf->resize(0);
-
-        // 检查是否有足够的数据读取头部（1字节类型 + 4字节长度）
-        if (m_BufferOffset + 5 > m_encodedData->m_Buffers.size()) { return false; }
-
-        unsigned char* data = m_encodedData->m_Buffers.data();
-
-        // 读取payload类型
-        buf->type = static_cast<PayloadType>(data[m_BufferOffset++]);
-
-        // 读取长度（大端序）
-        uint32_t length = 0;
-        length = (length << 8) | data[m_BufferOffset++];
-        length = (length << 8) | data[m_BufferOffset++];
-        length = (length << 8) | data[m_BufferOffset++];
-        length = (length << 8) | data[m_BufferOffset++];
-
-        // 检查是否有足够的payload数据
-        if (m_BufferOffset + length > m_encodedData->m_Buffers.size()) { return false; }
-
-        // 读取payload数据
-        buf->resize(length);
-        if (length > 0) {
-            std::memcpy(buf->data(), data + m_BufferOffset, length);
-            m_BufferOffset += length;
-        }
-
-        return true;
-    }
-
-    bool ReadBufFromMemory(PayloadBuffer* buf) {
-        buf->resize(0);
-
-        // 存储当前m_IS位置的8个字节内容到变量
-        unsigned char debug_bytes[8];
-        for (int i = 0; i < 8 && m_IS + i < m_FILEEND; i++) { debug_bytes[i] = (unsigned char) m_IS[i]; }
-
-        buf->type = static_cast<PayloadType>(*m_IS++);
-
-        uint32_t length = 0;
-        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
-        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
-        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
-        length = (length << 8) | static_cast<unsigned char>(*m_IS++);
-
-        if (m_IS + length > m_FILEEND) { return false; }
-
-        buf->resize(length);
-        std::memcpy(buf->data(), m_IS, length);
-        m_IS += length;
-
-        return true;
+        m_DecoderInput = DynamicCast<IDecodeInput>(GetInput(0));
+        if (!m_DecoderInput) { return false; }
+        return m_DecoderInput->Initialize();
     }
     // endregion
 
@@ -457,8 +416,7 @@ private:
 
     void CellBufferDecoder(std::vector<uint32_t>& dest, const unsigned char* source, int sourceCount,
                            int bufferPadding) {
-        int resib = IndexBufferCodec::decodeIndexBuffer(dest.data(), dest.size(), source, sourceCount);
-        assert(resib == 0);
+        MeshIndexCodec::decodeIndexBuffer(dest.data(), dest.size(), source, sourceCount);
         dest.resize(dest.size() - bufferPadding);
     }
 
@@ -514,7 +472,7 @@ private:
     //             this->ParamsDecoder(bufDecompressed);
     //
     //             // 初始adapter
-    //             this->m_DecoderAdapter = new MeshDecoderAdapter(this->m_codecParams.meshType);
+    //             this->m_DecoderAdapter = new MeshDecodeAdapterToDataObject(this->m_codecParams.meshType);
     //             break;
     //         }
     //         case PayloadType::kGeometryBrick:
@@ -574,7 +532,7 @@ private:
     //
     //     closeStream();
     //
-    //     return this->m_DecoderAdapter->GetDataObj();
+    //     return this->m_DecoderAdapter->GetOutput();
     // }
     //
     // bool ReadBufFromMemory(PayloadBuffer* buf) {
@@ -635,7 +593,7 @@ private:
     //            auto decoded = ArrayType::New();
     //            decoded->Resize(valueCount);
     //
-    //            MeshOptFloatCodec::FloatDecoder(container, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            MeshFloatCodec::FloatDecoder(container, inputBuffer, this->m_codecParams.attrParams[i]);
     //            memcpy(decoded->RawPointer(), container.data(), valueCount * sizeof(ValueType));
     //
     //            decoded->SetDimension(params.dimension);
@@ -660,7 +618,7 @@ private:
     //            decodedFloat = FlatArray<float>::New();
     //            decodedFloat->Resize(valueCount);
     //
-    //            MeshOptFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            MeshFloatCodec::FloatDecoder(floats, inputBuffer, this->m_codecParams.attrParams[i]);
     //            memcpy(decodedFloat->RawPointer(), floats.data(), valueCount * sizeof(float));
     //            decodedFloat->SetDimension(params.dimension);
     //            decodedFloat->SetName(params.name);
@@ -673,7 +631,7 @@ private:
     //            decodedDouble = FlatArray<double>::New();
     //            decodedDouble->Resize(valueCount);
     //
-    //            MeshOptFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
+    //            MeshFloatCodec::FloatDecoder(doubles, inputBuffer, this->m_codecParams.attrParams[i]);
     //            memcpy(decodedDouble->RawPointer(), doubles.data(), valueCount * sizeof(double));
     //            decodedDouble->SetDimension(params.dimension);
     //            decodedDouble->SetName(params.name);
@@ -687,5 +645,6 @@ private:
     //}
     //endregion
 };
+
 IGAME_NAMESPACE_END
 #endif

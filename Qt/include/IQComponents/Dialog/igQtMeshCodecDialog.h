@@ -3,8 +3,8 @@
  * @brief   网格编解码参数设置窗口
  */
 #pragma once
-#include "MeshCodec/iGameMeshCodecFeature.h"
-#include "MeshCodec/iGameMeshCodecParamSet.h"
+#include "MeshCodec/Utils/iGameMeshCodecFeature.h"
+#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "iGameDataObject.h"
 #include "iGamePointSet.h"
@@ -81,6 +81,7 @@ private slots:
     void on_comboBox_normalLevel_currentIndexChanged(int index);
 
     void on_checkbox_showReport_stateChanged(int state);
+    void on_comboBox_compressLevel_currentIndexChanged(int index);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -91,11 +92,7 @@ private:
     iGame::DataObject::Pointer m_dataObj;
     iGame::UIControlParams m_params;
 
-    // UI选项索引与实际属性索引的偏移量
-    // 索引0: "全部数据"
-    // 索引1: "顶点坐标"
-    // 索引2+: 实际属性数据
-    static constexpr int ATTRIBUTE_OFFSET = 2;
+    // UI选项索引与实际属性索引的映射使用 iGame::UIControlParamsIndex 命名空间中的函数
 
     std::string m_AllDataName = "全部数据";
     std::string m_GeomName = "顶点坐标";

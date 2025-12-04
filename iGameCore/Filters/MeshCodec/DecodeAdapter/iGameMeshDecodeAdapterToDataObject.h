@@ -1,59 +1,51 @@
-#ifndef MeshDecoderAdapter_h
-#define MeshDecoderAdapter_h
+#ifndef MeshDecoderAdapterToDataObject_h
+#define MeshDecoderAdapterToDataObject_h
 
-#include "iGameMacro.h"
-#include "iGameDataObject.h"
+#include "MeshCodec/Utils/iGameMeshCodecParamSet.h"
+#include "MeshCodec/DecodeAdapter/iGameIMeshDecodeAdapter.h"
 #include "iGamePointSet.h"
-#include "iGameSurfaceMesh.h"
-#include "iGameVolumeMesh.h"
-#include "iGameUnstructuredMesh.h"
 #include "iGameStructuredMesh.h"
+#include "iGameSurfaceMesh.h"
+#include "iGameUnstructuredMesh.h"
+#include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN
-class MeshDecoderAdapter
+
+class MeshDecodeAdapterToDataObject final : public IMeshDecodeAdapter<DataObject::Pointer>
 {
 public:
-    MeshDecoderAdapter(IGenum meshType) :
-         m_MeshType(meshType)
-    {
-        switch (this->m_MeshType)
+    MeshDecodeAdapterToDataObject() = default;
+
+    void SetMeshType(IGenum meshType) override {
+        m_MeshType = meshType;
+        switch (m_MeshType)
         {
         case IG_SURFACE_MESH:
-        {
-            this->m_DataObj = SurfaceMesh::New();
+            m_DataObj = SurfaceMesh::New();
             break;
-        }
         case IG_VOLUME_MESH:
-        {
-            this->m_DataObj = VolumeMesh::New();
+            m_DataObj = VolumeMesh::New();
             break;
-        }
         case IG_UNSTRUCTURED_MESH:
-        {
-            this->m_DataObj = UnstructuredMesh::New();
+            m_DataObj = UnstructuredMesh::New();
             break;
-        }
         case IG_STRUCTURED_MESH:
-        {
-            this->m_DataObj = StructuredMesh::New();
+            m_DataObj = StructuredMesh::New();
             break;
-        }
         case IG_POINT_SET:
-        {
-            this->m_DataObj = PointSet::New();
+            m_DataObj = PointSet::New();
             break;
-        }
         default:
             break;
         }
-    };
+    }
 
-    DataObject::Pointer GetDataObj()
+    DataObject::Pointer GetOutput() override
     {
         return this->m_DataObj;
     }
 
-    void SetPointBuffer(const std::vector<float>& input)
+    void SetPointBuffer(const std::vector<float>& input) override
     {
         PointSet::Pointer mesh = DynamicCast<PointSet>(this->m_DataObj);
         Points::Pointer ps = Points::New();
@@ -68,12 +60,28 @@ public:
         //}
     }
 
-    void AddAttribute(const IGenum type, const  IGenum attachmentType, const ArrayObject::Pointer attr)
+    void AddAttribute(const AttributeBuffer& attr) override
     {
-        this->m_DataObj->GetAttributeSet()->AddAttribute(type, attachmentType, attr);
+        if (attr.isFloat()) {
+            if (attr.floatData.empty()) return;
+            FloatArray::Pointer arr = FloatArray::New();
+            arr->SetDimension(attr.dimension);
+            arr->SetName(attr.name);
+            arr->Resize(static_cast<int>(attr.floatData.size() / attr.dimension));
+            std::memcpy(arr->RawPointer(), attr.floatData.data(), attr.floatData.size() * sizeof(float));
+            this->m_DataObj->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, arr);
+        } else {
+            if (attr.doubleData.empty()) return;
+            DoubleArray::Pointer arr = DoubleArray::New();
+            arr->SetDimension(attr.dimension);
+            arr->SetName(attr.name);
+            arr->Resize(static_cast<int>(attr.doubleData.size() / attr.dimension));
+            std::memcpy(arr->RawPointer(), attr.doubleData.data(), attr.doubleData.size() * sizeof(double));
+            this->m_DataObj->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, arr);
+        }
     }
 
-    void AddSameTypePolyCells(std::vector<uint32_t>& ids, const std::vector<uint32_t>& cellSizes)
+    void AddSameTypePolyCells(std::vector<uint32_t>& ids, const std::vector<uint32_t>& cellSizes) override
     {
         CellArray::Pointer ca = CellArray::New();
         int ret = 0;
@@ -90,7 +98,7 @@ public:
         this->SetCellArray(ca);
     }
 
-    void AddSameTypeFixedCells(std::vector<uint32_t>& ids, const int cellSize)
+    void AddSameTypeFixedCells(std::vector<uint32_t>& ids, int cellSize) override
     {
         CellArray::Pointer ca = CellArray::New();
         for (int i = 0; i < ids.size() / cellSize; i++)
@@ -103,7 +111,7 @@ public:
         this->SetCellArray(ca);
     }
 
-    void AddUnstructuredFixedCells(std::vector<uint32_t>& ids, const int cellSize, std::vector<uint32_t>& types)
+    void AddUnstructuredFixedCells(std::vector<uint32_t>& ids, int cellSize, std::vector<uint32_t>& types) override
     {
         CellArray::Pointer ca = CellArray::New();
         int ret = 0;
@@ -125,7 +133,7 @@ public:
     void AddUnstructuredPolyCells(
         std::vector<uint32_t>& ids,
         const std::vector<uint32_t>& cellSizes,
-        std::vector<uint32_t>& types)
+        std::vector<uint32_t>& types) override
     {
         CellArray::Pointer ca = CellArray::New();
         int ret = 0;
@@ -149,7 +157,7 @@ public:
 
     void AddStructureCells(
         std::vector<uint32_t>& ids,
-        int axisSize[3])
+        int axisSize[3]) override
     {
         int dimension = axisSize[2] <= 1 ? 2 : 3;
 
@@ -166,14 +174,20 @@ public:
         DynamicCast<StructuredMesh>(this->m_DataObj)->SetDimensionSize(axisSize);
         this->SetStructuredCellArray(ca, dimension);
     }
+
+    void SetStructuredMeshDimension(int axisSize[3]) override
+    {
+        StructuredMesh::Pointer mesh = DynamicCast<StructuredMesh>(this->m_DataObj);
+        mesh->SetDimensionSize(axisSize);
+        mesh->GenStructuredCellConnectivities();
+    }
     
-    // 以下仅用于二阶索引（多面体网格）
     void AddSecondaryIndexCells(
         std::vector<unsigned int> volume2facesIndex,
         std::vector<unsigned int> volume2facesSize,
         std::vector<unsigned int> face2pointsIndex,
-        std::vector<unsigned int> face2pointsSize
-    ) {
+        std::vector<unsigned int> face2pointsSize) override
+    {
         // 构建 Faces (face->points)
         CellArray::Pointer Faces = CellArray::New();
         {

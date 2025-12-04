@@ -18,8 +18,7 @@ iGame::StressDeformationFilter::StressDeformationFilter() {
 }
 
 bool iGame::StressDeformationFilter::Execute() {
-    auto dataObject = this->GetInput(0);
-    std::cout << "Processing=========\n";
+    auto dataObject = this->GetInput(0);std::cout << "Processing=========\n";
     if(nullptr == dataObject) {
         return false;
     }

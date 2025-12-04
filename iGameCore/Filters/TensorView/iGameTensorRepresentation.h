@@ -213,6 +213,7 @@ public:
 	void UpdateDrawPointIndexOrders();
 
 	enum DrawType {
+		INVALID = -1,
 		ELLIPSOID,
 		CUBOID,
 	};

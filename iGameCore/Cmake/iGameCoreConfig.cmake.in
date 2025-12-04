@@ -7,51 +7,8 @@ set(IGAMEVIS_CORE_PRIVATE_LIB
     "${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty"
     "${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty/CMakeGPS" # <-- 为 GPSpline 和 TBB 添加路径
 )
-#find_path(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR
-#        NAMES
-#        Filters
-#        PATHS
-#        /usr/local/include/x86_64-linux-gnu
-#        /usr/local/include
-#        /usr/include
-#
-#        "${CMAKE_CURRENT_LIST_DIR}/../../../include"
-#        "C:/Program Files (x86)/iGameVis/include"
-#)
-#find_path(IGAMEVIS_INSTALL_DIR
-#    NAMES
-#    iGameVis
-#    HINTS
-#    "${CMAKE_CURRENT_LIST_DIR}/../../.."
-#     NO_DEFAULT_PATH
-#)
-
-#if(WIN32)
-#    find_path(IGAMEVIS_CORE_PRIVATE_LIB
-#            NAMES
-#            igamecore_.lib
-#            PATHS
-#            "../../lib"
-#            "C:/Program Files (x86)/iGameVis/lib"
-#    )
-#elseif(UNIX)
-#    if(APPLE)
-#        message(WARNING "iGameVisCore Cmake is not support in this framework currently.")
-#    else()
-#        find_path(IGAMEVIS_CORE_PRIVATE_LIB
-#                NAMES
-#                 igamecore_.lib
-#                            PATHS
-#                "../../lib"
-#                "usr/iGameVis/lib"
-#                "usr/lib/iGameVis/lib"
-#        )
-#    endif()
-#endif ()
 
 set(IGAMEVIS_CORE_INCLUDE_DIRS
- # @IGAMEVIS_INTERFACE_INCLUDE_DIRS@
-
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Core/CellModel
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Core/Common
@@ -67,7 +24,6 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Rendering/Core/RenderWindow
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/Rendering/OpenGL
 
-     #${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CGNS/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/eigen-3.4.0
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/spdlog/include
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/freetype-2.13.3/include
@@ -75,20 +31,20 @@ set(IGAMEVIS_CORE_INCLUDE_DIRS
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/meshoptimizer-0.22/src
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/tinyXML2
      ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/vtkkwiml
- #    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/lzma
-
 )
+
 if(@AbqSDK_FOUND@)
     list(APPEND IGAMEVIS_CORE_INCLUDE_DIRS
-    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
-    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/2024
-)
+        ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/include
+        ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/AbaqusSDK/2024
+    )
     list(APPEND IGAMEVIS_CORE_PRIVATE_LIB ${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty/AbaqusSDK)
 endif()
+
 if(@FFMPEG_FOUND@)
     list(APPEND IGAMEVIS_CORE_INCLUDE_DIRS
-    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
-)
+        ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/FFMPEG/include
+    )
     list(APPEND IGAMEVIS_CORE_PRIVATE_LIB ${IGAMEVIS_INSTALL_DIR}/lib/ThirdParty/FFMPEG)
 endif()
 
@@ -99,8 +55,6 @@ if(@ENABLE_GPSCUDA_MODULE@)
     list(APPEND IGAMEVIS_CORE_INCLUDE_DIRS
         "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern"
         "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/wmma_extension/include"
-#        "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/cutlass/include"
- #       "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/cutlass/tools/util/include"
         "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/oneTBB-2021.10.0/include"
         "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/extern/glm"
         "${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/CMakeGPS/GPSpline"
@@ -120,6 +74,7 @@ if(@ENABLE_GPSCUDA_MODULE@)
     endif()
 endif()
 
+# Note: Previous code copied only *.dll; keep as-is for Windows.
 file(GLOB_RECURSE IGAMEVIS_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${IGAMEVIS_INSTALL_DIR}/bin/*.dll)
 file(GLOB_RECURSE IGAMEVIS_CORE_3RD_DLL_FILES CONFIGURE_DEPENDS ${IGAMEVIS_INSTALL_DIR}/lib/*.dll)
 file(COPY ${IGAMEVIS_CORE_3RD_DLL_FILES} DESTINATION ${CMAKE_BINARY_DIR})
@@ -140,7 +95,6 @@ if(@ENABLE_NASTRAN_MODULE@)
     get_filename_component(IGAMEVIS_INSTALL_DIR_ABS "${IGAMEVIS_INSTALL_DIR}" ABSOLUTE)
     set(NASTRAN_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/NastranConverter/nastran_to_vtk_cli.exe")
 
-
     if(EXISTS "${NASTRAN_CONVERTER_SOURCE}")
         file(COPY "${NASTRAN_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
     else()
@@ -151,18 +105,10 @@ endif()
 # Copy Fluent converter executable to build directory
 set(FLUENT_CONVERTER_SOURCE "${IGAMEVIS_INSTALL_DIR_ABS}/bin/FluentConverter/cas_converter.exe")
 if(EXISTS "${FLUENT_CONVERTER_SOURCE}")
-        file(COPY "${FLUENT_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-    else()
-        message(WARNING "could not Find FluentConverter: ${FLUENT_CONVERTER_SOURCE}")
-    endif()
-
-# # Copy Python scripts for NastranReader if they exist
-# set(PYTHON_SCRIPTS_SOURCE_DIR ${IGAMEVIS_INSTALL_DIR}/Resources/Python)
-# if(EXISTS ${PYTHON_SCRIPTS_SOURCE_DIR})
-#     file(COPY ${PYTHON_SCRIPTS_SOURCE_DIR}/ DESTINATION ${RENDERING_RESOURCES_OUTPUT_DIR}/Python)
-#     message(STATUS "已复制Python脚本到: ${RENDERING_RESOURCES_OUTPUT_DIR}/Python")
-# endif()
-
+    file(COPY "${FLUENT_CONVERTER_SOURCE}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+else()
+    message(WARNING "could not Find FluentConverter: ${FLUENT_CONVERTER_SOURCE}")
+endif()
 
 mark_as_advanced(IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR)
 mark_as_advanced(IGAMEVIS_CORE_INCLUDE_DIRS)
@@ -172,11 +118,9 @@ set(IGAMEVIS_CORE_LIB_LIST
         @MODULE_NAME@
         @ThirdParty_lib_dependency@
         glfw3
-
 )
 set(FOUND_IGAMEVIS_CORE_LIB_FULL_PATH)
 set(IGAMEVIS_CORE_LIB_TARGETS)
-
 
 #----------------------------------------------
 # Find CUDA Package
@@ -195,36 +139,35 @@ if(@ENABLE_GPSCUDA_MODULE@)
     )
 endif()
 
-
 #----------------------------------------------
 # Find CGNS Package
 #----------------------------------------------
 if(@ENABLE_CGNS_MODULE@)
-set(IGAMEVIS_CORE_INCLUDE_DIRS
-    ${IGAMEVIS_CORE_INCLUDE_DIRS}
-    ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/cgns/src
-)
-list(APPEND IGAMEVIS_CORE_LIB_LIST
-    cgns
-
-    libhdf5
-    libaec
-    libhdf5_hl
-    libhdf5_tools
-    libzlib
-    libsz
-)
+    set(IGAMEVIS_CORE_INCLUDE_DIRS
+        ${IGAMEVIS_CORE_INCLUDE_DIRS}
+        ${IGAMEVIS_CORE_PRIVATE_INCLUDE_DIR}/ThirdParty/cgns/src
+    )
+    list(APPEND IGAMEVIS_CORE_LIB_LIST
+        cgns
+        libhdf5
+        libaec
+        libhdf5_hl
+        libhdf5_tools
+        libzlib
+        libsz
+    )
 endif()
 
+#----------------------------------------------
+# Find LibTorch libs (runtime-shippped .so/.dll already installed under lib)
+#----------------------------------------------
 if(@ENABLE_LIBTORCH_MODULE@)
-list(APPEND IGAMEVIS_CORE_LIB_LIST
-    ${TORCH_LIBRARIES}
-
-)
-message(warning ${TORCH_LIBRARIES})
+    # Always try common CPU LibTorch components
+    set(_IGV_TORCH_LIBS torch torch_cpu c10)
+    # CUDA-enabled builds add these; they are optional
+    list(APPEND _IGV_TORCH_LIBS torch_cuda torch_cuda_cu torch_cuda_cpp)
+    list(APPEND IGAMEVIS_CORE_LIB_LIST ${_IGV_TORCH_LIBS})
 endif()
-
-
 
 if (UNIX AND NOT APPLE)
     find_package(OpenMP REQUIRED)
@@ -236,8 +179,6 @@ if (OpenMP_CXX_FOUND)
     )
 endif ()
 
-
-
 #----------------------------------------------
 # Find ThirdParty lib and Core Components Lib
 #----------------------------------------------
@@ -246,44 +187,37 @@ foreach(LIB ${IGAMEVIS_CORE_LIB_LIST})
 
     if(WIN32)
         find_library(temp${LIB}
-                NAMES
-                "${LIB}.lib"
-     #           PATHS
-                HINTS
-                ${IGAMEVIS_CORE_PRIVATE_LIB}
-     #           NO_CMAKE_FIND_ROOT_PATH
+            NAMES
+            "${LIB}.lib"
+            HINTS
+            ${IGAMEVIS_CORE_PRIVATE_LIB}
         )
-
     else()
+        # On UNIX, try names with and without 'lib' prefix, any extension (.so/.a)
         find_library(temp${LIB}
-                    NAMES
-                    "lib${LIB}.a"
-         #           PATHS
-                    HINTS
-                    ${IGAMEVIS_CORE_PRIVATE_LIB}
-         #           NO_CMAKE_FIND_ROOT_PATH
-                )
+            NAMES
+            ${LIB}
+            "lib${LIB}"
+            HINTS
+            ${IGAMEVIS_CORE_PRIVATE_LIB}
+        )
     endif()
     if(temp${LIB})
-#        message(WARNING ${temp${LIB}})
         mark_as_advanced(temp${LIB})
-            list(APPEND FOUND_IGAMEVIS_CORE_LIB_FULL_PATH ${temp${LIB}})
+        list(APPEND FOUND_IGAMEVIS_CORE_LIB_FULL_PATH ${temp${LIB}})
 
-            if (NOT TARGET @MODULE_NAME@::${LIB})
-                add_library(@MODULE_NAME@::${LIB} UNKNOWN IMPORTED)
-                set_target_properties(@MODULE_NAME@::${LIB}
-                        PROPERTIES
-                        IMPORTED_LOCATION ${temp${LIB}}
-                        INTERFACE_INCLUDE_DIRECTORIES "${IGAMEVIS_CORE_INCLUDE_DIRS}")
-                list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::${LIB})
-            endif ()
+        if (NOT TARGET @MODULE_NAME@::${LIB})
+            add_library(@MODULE_NAME@::${LIB} UNKNOWN IMPORTED)
+            set_target_properties(@MODULE_NAME@::${LIB}
+                    PROPERTIES
+                    IMPORTED_LOCATION ${temp${LIB}}
+                    INTERFACE_INCLUDE_DIRECTORIES "${IGAMEVIS_CORE_INCLUDE_DIRS}")
+            list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::${LIB})
+        endif ()
     endif()
 endforeach()
 
-
 if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
-    # (CUDAToolkit_FOUND 变量是在文件顶部设置的)
-
     find_library(CUDA_cudart_lib NAMES cudart
         HINTS ${CUDAToolkit_LIBRARY_DIR}
         PATH_SUFFIXES lib/x64 lib64
@@ -313,7 +247,6 @@ if(@ENABLE_GPSCUDA_MODULE@ AND CUDAToolkit_FOUND)
             set_target_properties(@MODULE_NAME@::cudadevrt PROPERTIES IMPORTED_LOCATION ${CUDA_cudadevrt_lib})
             list(APPEND IGAMEVIS_CORE_LIB_TARGETS @MODULE_NAME@::cudadevrt)
         endif()
-
     else()
         message(WARNING "iGameCore: Could not find cudart.lib or cudadevrt.lib in ${CUDAToolkit_LIBRARY_DIR}. "
                         "Linking C++-only projects may fail with LNK2019 errors.")
@@ -322,6 +255,7 @@ endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(@MODULE_NAME@
-        REQUIRED_VARS
-        FOUND_IGAMEVIS_CORE_LIB_FULL_PATH
-        IGAMEVIS_CORE_INCLUDE_DIRS)
+    REQUIRED_VARS
+    FOUND_IGAMEVIS_CORE_LIB_FULL_PATH
+    IGAMEVIS_CORE_INCLUDE_DIRS
+)
