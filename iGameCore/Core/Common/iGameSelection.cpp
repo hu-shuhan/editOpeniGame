@@ -8,6 +8,7 @@
 #include <utility>
 #include <iGameBoxStyle.h>
 #include <iGameSelectionParameter.h>
+#include <cmath>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -644,7 +645,9 @@ void Selection::DrawPoints() {
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
     painter->Clear();
-    painter->SetPen(4);
+    auto pNum = mesh->GetNumberOfPoints();
+    auto penSize = std::max<float>(0.001, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
+    painter->SetPen(penSize);
     painter->SetPen(Color::Red);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {
