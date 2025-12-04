@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>254</width>
+    <width>235</width>
     <height>355</height>
    </rect>
   </property>
@@ -189,6 +189,12 @@
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QPushButton" name="drawBoundBox">
+            <property name="maximumSize">
+             <size>
+              <width>10</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="text">
              <string>绘制包围框</string>
             </property>
@@ -197,7 +203,7 @@
           <item>
            <widget class="QPushButton" name="clearSelectionState">
             <property name="text">
-             <string>清空</string>
+             <string>取消所有选择</string>
             </property>
            </widget>
           </item>
@@ -411,6 +417,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="toolTip">
+           <string>依据哪个变量值进行筛选</string>
+          </property>
          </widget>
         </item>
         <item row="5" column="1" colspan="2">
@@ -488,8 +497,11 @@
         </item>
         <item row="3" column="0">
          <widget class="QLabel" name="vcLabel">
+          <property name="toolTip">
+           <string>依据哪个变量值进行筛选</string>
+          </property>
           <property name="text">
-           <string>所选变量</string>
+           <string>依据变量</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>

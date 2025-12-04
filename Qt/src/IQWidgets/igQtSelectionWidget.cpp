@@ -81,7 +81,7 @@ bool igQtSelectionWidget::GetSelectBoxShow() const { return m_SelectBoxShow; }
 void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& variableNames) {
     PreventSignalSend(true);
     ui->variableChoose->clear();
-    ui->variableChoose->addItem("⨀无所选变量");
+    ui->variableChoose->addItem("⨀无");
 
     for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
     iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
