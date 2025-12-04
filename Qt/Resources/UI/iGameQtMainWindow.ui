@@ -86,8 +86,8 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
-    <addaction name="action_CS"/>
-    <addaction name="action_C"/>
+    <!-- <addaction name="action_CS"/> -->
+    <!-- <addaction name="action_C"/> -->
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -1409,21 +1409,21 @@
     <string>启用体绘制</string>
    </property>
   </action>
-  <action name="action_CS">
+  <!-- <action name="action_CS">
    <property name="text">
     <string>传输测试(S)</string>
    </property>
-  </action>
+  </action> -->
   <action name="action_SetThreadNum">
    <property name="text">
     <string>线程数设置</string>
    </property>
   </action>
-  <action name="action_C">
+  <!-- <action name="action_C">
    <property name="text">
     <string>传输测试(C)</string>
    </property>
-  </action>
+  </action> -->
   <action name="action_SelectView">
    <property name="checkable">
     <bool>true</bool>
