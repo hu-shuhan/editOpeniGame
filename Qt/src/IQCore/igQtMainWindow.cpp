@@ -45,6 +45,7 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -190,6 +191,14 @@ void igQtMainWindow::initAllComponents() {
     // init ProgressBar
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
+
+    // vortexMetricsLabel
+    vortexMetricsLabel = new QLabel(rendererWidget);
+    vortexMetricsLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    vortexMetricsLabel->setStyleSheet(
+        "QLabel { color: rgb(230,230,230); font-size: 20px; "
+        "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
+    vortexMetricsLabel->hide();
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
@@ -378,6 +387,20 @@ void igQtMainWindow::initAllComponents() {
 
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
+}
+
+void igQtMainWindow::updateVortexMetricsLabelPos()
+{
+    if (!vortexMetricsLabel || !vortexMetricsLabel->isVisible()) return;
+
+    vortexMetricsLabel->adjustSize();
+
+    const int margin = 20;
+    int x = rendererWidget->width()  - vortexMetricsLabel->width()  - margin;
+    int y = rendererWidget->height() - vortexMetricsLabel->height() - margin;
+
+    vortexMetricsLabel->move(x, y);
+    vortexMetricsLabel->raise();
 }
 
 void igQtMainWindow::initAllFilters() {
@@ -692,8 +715,33 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
 
-            modelTreeWidget->updateAllAttriubute(data);
-            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+            // modelTreeWidget->updateAllAttriubute(data);
+            // DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+
+            auto outData = filter->GetOutput(0);
+            auto scene = rendererWidget->GetScene();
+            auto model = scene->GetCurrentModel();
+            model->SetDataObject(outData);
+            modelTreeWidget->updateAllAttriubute(outData);
+            DynamicCast<DrawObject>(outData)->ConvertToDrawableData();
+            rendererWidget->update();
+
+            // vortexMetricsLabel
+            // double acc  = filter->GetAccuracy();
+            // double prec = filter->GetPrecision();
+            // double rec  = filter->GetRecall();
+            // if (acc > 0.0 && prec > 0.0 && rec > 0.0) {
+            //     QString txt = QString("Acc: %1  Prec: %2  Rec: %3")
+            //                       .arg(acc,  0, 'f', 3)
+            //                       .arg(prec, 0, 'f', 3)
+            //                       .arg(rec,  0, 'f', 3);
+            //     vortexMetricsLabel->setText(txt);
+            //     vortexMetricsLabel->show();
+            //     updateVortexMetricsLabelPos();
+            // } else {
+            //     vortexMetricsLabel->clear();
+            //     vortexMetricsLabel->hide();
+            // }
         }
     });
 
@@ -1120,6 +1168,12 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(fileLoader, &igQtFileLoader::FinishReading, this, &igQtMainWindow::updateRecentFilePaths);
     connect(ui->action_DeleteMesh, &QAction::triggered, modelTreeWidget, &igQtModelDialogWidget::deleteCurrentModel);
 
+    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool){
+        if (vortexMetricsLabel) {
+            vortexMetricsLabel->clear();
+            vortexMetricsLabel->hide();
+        }
+    });
 
     // connect(fileLoader, &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
@@ -1493,6 +1547,18 @@ void igQtMainWindow::initAllInteractor() {
         auto scene = rendererWidget->GetScene();
         scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
         rendererWidget->update();
+    });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetBoxSettingDialog, this, [&]() {
+        auto scene = rendererWidget->GetScene();
+        auto interactor = scene->GetInteractor();
+        if (!interactor->HaveSpecialInteractor("SelectBox")) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        if (boxStyle == nullptr) return;
+        auto dynamicBox = boxStyle->GetBox();
+        if (dynamicBox == nullptr) return;
+        ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
         if (!SelectionParameter::Instance().GetInSelection()) return;

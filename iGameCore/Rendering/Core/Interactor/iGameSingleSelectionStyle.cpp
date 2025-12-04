@@ -372,7 +372,7 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetPointsInRadiusMode(startPoint, endPoint, mesh, radius,
                                      selectIgnoreUnSeeAbleCells,
                                      onlySelectSeeAbleCells);
@@ -389,7 +389,7 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetPointsInRadiusMode(startPoint, endPoint, mesh, radius,
                                      selectIgnoreUnSeeAbleCells,
                                      onlySelectSeeAbleCells);
@@ -406,7 +406,7 @@ std::vector<int> SingleSelectionStyle::GetPointsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetPointsInRadiusMode(startPoint, endPoint, mesh, radius,
                                      selectIgnoreUnSeeAbleCells,
                                      onlySelectSeeAbleCells);
@@ -466,7 +466,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetCellsInRadiusMode(startPoint, endPoint, mesh, radius,
                                     selectIgnoreUnSeeAbleCells,
                                     onlySelectSeeAbleCells);
@@ -483,7 +483,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetCellsInRadiusMode(startPoint, endPoint, mesh, radius,
                                     selectIgnoreUnSeeAbleCells,
                                     onlySelectSeeAbleCells);
@@ -500,7 +500,7 @@ std::vector<int> SingleSelectionStyle::GetCellsInCondition(
         double radius, bool useAutoSelect, int variableIndex,
         double autoSelectExpdRate, bool selectIgnoreUnSeeAbleCells,
         bool onlySelectSeeAbleCells) {
-    if (!useAutoSelect) {
+    if (!useAutoSelect || variableIndex < 0) {
         return GetCellsInRadiusMode(startPoint, endPoint, mesh, radius,
                                     selectIgnoreUnSeeAbleCells,
                                     onlySelectSeeAbleCells);

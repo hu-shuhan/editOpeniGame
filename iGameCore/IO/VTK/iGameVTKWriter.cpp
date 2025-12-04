@@ -161,44 +161,116 @@ const void VTKWriter::WriteCellsTypeToBuffer() {
     auto CellsType = m_UnstructuredMesh->GetCellTypes();
     int CellNum = CellsType ? CellsType->GetNumberOfValues() : 0;
     if (!CellNum) return;
+
     auto buffer = CharArray::New();
     std::string data = "CELL_TYPES " + std::to_string(CellNum) + '\n';
     AddStringToBuffer(data, buffer);
+
     igIndex vtkType;
     for (int i = 0; i < CellNum; i++) {
-        switch ((int) CellsType->GetValue(i)) {
-            case IG_TRIANGLE:
-                vtkType = VTKAbstractReader::TRIANGLE;
-                break;
-            case IG_QUAD:
-                vtkType = VTKAbstractReader::QUAD;
-                break;
-            case IG_POLYGON:
-                vtkType = VTKAbstractReader::POLYGON;
-                break;
-            case IG_TETRA:
-                vtkType = VTKAbstractReader::TETRA;
-                break;
-            case IG_HEXAHEDRON:
-                vtkType = VTKAbstractReader::HEXAHEDRON;
-                break;
-            case IG_PRISM:
-                vtkType = VTKAbstractReader::WEDGE;
-                break;
-            case IG_PYRAMID:
-                vtkType = VTKAbstractReader::PYRAMID;
-                break;
-            case IG_POLYHEDRON:
-                vtkType = VTKAbstractReader::POLYHEDRON;
-                break;
-            default:
-                vtkType = VTKAbstractReader::T0;
-                break;
+        switch ((int)CellsType->GetValue(i)) {
+            // 基本类型
+        case IG_VERTEX:
+            vtkType = VTKAbstractReader::VERTEX;
+            break;
+        case IG_LINE:
+            vtkType = VTKAbstractReader::LINE;
+            break;
+        case IG_POLY_LINE:
+            vtkType = VTKAbstractReader::POLYLINE;
+            break;
+        case IG_TRIANGLE:
+            vtkType = VTKAbstractReader::TRIANGLE;
+            break;
+        case IG_QUAD:
+            vtkType = VTKAbstractReader::QUAD;
+            break;
+        case IG_POLYGON:
+            vtkType = VTKAbstractReader::POLYGON;
+            break;
+        case IG_TETRA:
+            vtkType = VTKAbstractReader::TETRA;
+            break;
+        case IG_HEXAHEDRON:
+            vtkType = VTKAbstractReader::HEXAHEDRON;
+            break;
+        case IG_PRISM:
+            vtkType = VTKAbstractReader::WEDGE;
+            break;
+        case IG_PYRAMID:
+            vtkType = VTKAbstractReader::PYRAMID;
+            break;
+        case IG_POLYHEDRON:
+            vtkType = VTKAbstractReader::POLYHEDRON;
+            break;
+
+            // 二次单元（Quadratic）
+        case IG_QUADRATIC_EDGE:
+            vtkType = VTKAbstractReader::QUADRATIC_EDGE;
+            break;
+        case IG_QUADRATIC_TRIANGLE:
+            vtkType = VTKAbstractReader::QUADRATIC_TRIANGLE;
+            break;
+        case IG_QUADRATIC_QUAD:
+            vtkType = VTKAbstractReader::QUADRATIC_QUAD;
+            break;
+        case IG_QUADRATIC_TETRA:
+            vtkType = VTKAbstractReader::QUADRATIC_TETRA;
+            break;
+        case IG_QUADRATIC_HEXAHEDRON:
+            vtkType = VTKAbstractReader::QUADRATIC_HEXAHEDRON;
+            break;
+        case IG_QUADRATIC_PRISM:
+            vtkType = VTKAbstractReader::QUADRATIC_WEDGE;
+            break;
+        case IG_QUADRATIC_PYRAMID:
+            vtkType = VTKAbstractReader::QUADRATIC_PYRAMID;
+            break;
+
+            // 拉格朗日单元（Lagrange）
+        case IG_LAGRANGE_TETRAHEDRON:
+            vtkType = VTKAbstractReader::LAGRANGE_TETRAHEDRON;
+            break;
+        case IG_LAGRANGE_HEXAHEDRON:
+            vtkType = VTKAbstractReader::LAGRANGE_HEXAHEDRON;
+            break;
+        case IG_LAGRANGE_PRISM:
+            vtkType = VTKAbstractReader::LAGRANGE_PRISM;
+            break;
+        case IG_LAGRANGE_PYRAMID:
+            vtkType = VTKAbstractReader::LAGRANGE_PYRAMID;
+            break;
+        case IG_LAGRANGE_QUADRILATERAL:
+            vtkType = VTKAbstractReader::LAGRANGE_QUADRILATERAL;
+            break;
+        case IG_LAGRANGE_TRIANGLE:
+            vtkType = VTKAbstractReader::LAGRANGE_TRIANGLE;
+            break;
+
+             // 其他二次单元（如果需要）
+        case IG_BIQUADRATIC_QUAD:
+            vtkType = VTKAbstractReader::BIQUADRATIC_QUAD;
+            break;
+        case IG_TRIQUADRATIC_HEXAHEDRON:
+            vtkType = VTKAbstractReader::TRIQUADRATIC_HEXAHEDRON;
+            break;
+        case IG_QUADRATIC_POLYGON:
+            vtkType = VTKAbstractReader::QUADRATIC_POLYGON;
+            break;
+
+        default:
+            // 如果遇到未知类型，使用默认值并记录警告
+            vtkType = VTKAbstractReader::T0;
+            break;
         }
+
         if (m_FileType == IGAME_ASCII) {
             AddStringToBuffer(std::to_string(vtkType), buffer);
             buffer->AddValue('\n');
-        } else {
+        }
+        else {
+            // 二进制写入逻辑（如果需要实现）
+          
         }
     }
     m_TemporaryBuffers.emplace_back(buffer);
@@ -279,7 +351,7 @@ const void VTKWriter::WriteArrayToBuffer(ArrayObject::Pointer array) {
         }
         auto func = [&](igIndex start, igIndex end, int id) -> void {
             auto& buffer = tmpBuffers[id];
-            double values[16];
+            double values[IGAME_CELL_MAX_SIZE];
             for (int i = start; i < end; i++) {
                 array->GetElement(i, values);
                 for (int j = 0; j < Component; j++) {

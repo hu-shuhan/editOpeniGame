@@ -228,6 +228,8 @@ void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
     }
 }
 
+void DynamicBox::MovePosition(double x, double y, double z) { MovePosition(Point(x, y, z)); }
+
 void DynamicBox::MovePosition(const Point& position) {
     m_Position = position;
     SetOpePoints();

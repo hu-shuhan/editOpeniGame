@@ -178,6 +178,7 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
         Point cp(cameraPos.x, cameraPos.y, cameraPos.z);
         m_DynamicBox->RotateBox(cp, dir);
     }
+    PointMoveCallBack();
     ClearDraw();
     ToDraw();
 }
@@ -250,6 +251,14 @@ DynamicBox::Pointer BoxStyle::GetBox() { return m_DynamicBox; }
 void BoxStyle::_SetPointMoveCallBack(const std::string& name,
                                      std::function<void()> callBack) {
     m_PointMoveCallBacks[name] = callBack;
+}
+
+void BoxStyle::RemovePointMoveCallBack(const std::string& name) {
+    m_PointMoveCallBacks.erase(name);
+}
+
+void BoxStyle::PointMoveCallBack() {
+    for (auto& pmcb: m_PointMoveCallBacks) { pmcb.second(); }
 }
 
 BoxStyle::~BoxStyle() { ClearDraw(); }
