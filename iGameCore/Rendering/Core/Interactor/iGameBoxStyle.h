@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <iGameDynamicBox.h>
+#include <memory>
 IGAME_NAMESPACE_BEGIN
 
 class BoxStyle : public BasicStyle {
@@ -18,6 +19,8 @@ public:
 
     void InitBox(const Point& p1, const Point& p2);
     void DeleteBox();
+
+    void SetChooedStation(bool choosedStation);
 
     void ToDraw();
     void ClearDraw();
@@ -32,8 +35,15 @@ public:
 
     void RemovePointMoveCallBack(const std::string& name);
 
+    void SetUpdateWidgetFunc(std::function<void()> func);
+
+    void RemoveUpdateWidgetFunc();
+
 private:
     void PointMoveCallBack();
+
+private:
+    void SetNeedReSet();
 
 protected:
     BoxStyle() = default;
@@ -44,6 +54,8 @@ protected:
     Point m_PrePosition;
     DynamicBox::Pointer m_DynamicBox{nullptr};
 
+    bool m_ChoosedStation{};
+
     float m_MaxDis{};
 
     float m_SelectedNDCZ{};
@@ -52,6 +64,9 @@ protected:
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;
+    std::shared_ptr<std::function<void()>> m_CancelBoxStyleCallBack;
+
+    std::shared_ptr<std::function<void()>> m_UpdateWidgetFunc;
 };
 
 IGAME_NAMESPACE_END

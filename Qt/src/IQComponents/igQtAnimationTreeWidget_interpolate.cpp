@@ -29,12 +29,38 @@ void igQtAnimationTreeWidget_interpolate::updateInterpolateSequence(int num) {
     for(int i = 0; i < keyframe_sum; i ++)
     {
         float t = startTime + frameStep * (float)i;
-        while(t > *it)
+
+        // 查找 t 所在的区间 [it-1, it]
+        while(it != timeSequence.end() && t > *it)
         {
             it ++;
             start_keyframe_idx ++;
         }
-        interpolate_sequence.emplace_back(start_keyframe_idx, (t - *(it - 1)) / (*it - *(it - 1)));
+
+        // ================== 【修复重点】 ==================
+        // 如果迭代器跑到了 end()，说明 t 可能因为浮点误差稍微超过了 endTime
+        // 或者 t 本身就比序列中最大的时间还要大。
+        // 我们强制回退一格，使用最后一段区间进行计算。
+        if (it == timeSequence.end()) {
+            it--;
+            start_keyframe_idx--;
+        }
+        // =================================================
+
+        // 现在 it 绝对不是 end()，可以安全解引用
+        float time_prev = *(it - 1);
+        float time_curr = *it;
+
+        // 防止分母为 0 (虽然在这个逻辑下不太可能，但为了健壮性)
+        float ratio = 0.0f;
+        if (time_curr - time_prev > 1e-6) {
+            ratio = (t - time_prev) / (time_curr - time_prev);
+        } else {
+            // 如果两个关键帧时间重合，比例设为1或0均可，防止除0崩溃
+            ratio = 1.0f;
+        }
+
+        interpolate_sequence.emplace_back(start_keyframe_idx, ratio);
         interpolate_timeSequence.push_back(t);
     }
     this->topLevelItem(2)->setText(1, QString("%1").arg(keyframe_sum));

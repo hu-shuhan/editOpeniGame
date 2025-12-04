@@ -227,12 +227,18 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
             auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
             if (subDataObj) { this->AddSubDataObject(subDataObj); }
         }
+        auto attributeSet = DynamicCast<iGame::DataObject>(timeFrameData[0])->GetAttributeSet()->GetAllAttributes();
+        if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
     } else if (timeFrameType == StreamingType::SingleFieldAttributes) {
         auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
         if (attributeSet) {
             this->SetAttributeSet(attributeSet);
             DynamicCast<iGame::PointSet>(this)->GetPoints()->Modified();
-            if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
+            this->Modified();
+            if (this->IsDrawable()) {
+                DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
+//                DynamicCast<iGame::DrawObject>(this)->
+            }
         }
     }
     this->ReCollectSubDataObjectDataRange();

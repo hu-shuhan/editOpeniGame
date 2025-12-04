@@ -102,7 +102,7 @@ enum {
 };
 
 // Streaming Data's String Type
-enum StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
+enum class StreamingType { NONE, MultiSubFiles, SingleFieldAttributes };
 
 //FileType
 enum { IGAME_NONE = 0, IGAME_ASCII = 1, IGAME_BINARY = 2 };

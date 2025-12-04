@@ -1159,6 +1159,7 @@ iGame::CodecControlParams igQtMeshCodecDialog::BuildCodecParams() const
     // 辅助函数：从 UIDataItem 构建 FloatControlParams
     auto buildControlParams = [](const UIDataItem& item) -> iGame::FloatControlParams {
         iGame::FloatControlParams p;
+        p.errorMode = item.errorMode;
         p.globalQuantizeLevel = item.globalQuantizeLevel;
         p.criticalQuantizeLevel = item.criticalQuantizeLevel;
         p.normalQuantizeLevel = item.normalQuantizeLevel;

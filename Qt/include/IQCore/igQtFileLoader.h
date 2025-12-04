@@ -24,6 +24,7 @@ public:
     void LoadOnlineS();
     void LoadOnlineC();
 	void OpenFile(const std::string& fileName);
+    void OpenFiles(const QStringList& fileNames);
     void OpenSplineFile(const std::string& fileName);
     void OpenODBFile(const std::string& fileName);
     void OpenNastranFile(const QStringList& fileNames);

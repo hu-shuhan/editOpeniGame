@@ -223,6 +223,7 @@ bool ODBReader::ExecuteWithFieldData(int frameIdx) {
             IGAME_CORE_ERROR("Unknown Exception.");
             return false;
         }
+        UpdateProgress(1.f);
         odb_finalizeAPI();
         return true;
 }
@@ -243,6 +244,7 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
         IGAME_CORE_DEBUG("ConstructMap end");
         ReadAttributes();
         IGAME_CORE_DEBUG("ReadAttributes end");
+
     }
     catch (odb_BaseException& exc) {
         odb_finalizeAPI();
@@ -253,6 +255,7 @@ bool ODBReader::ExecuteWithFieldData(const std::string& stepName, int frameIdx) 
         IGAME_CORE_ERROR("Unknown Exception.");
         return false;
     }
+    UpdateProgress(1.f);
     odb_finalizeAPI();
     return true;
 }
@@ -282,6 +285,7 @@ bool iGame::ODBReader::Execute() {
     }catch (...) {
         IGAME_CORE_ERROR("Unknown Exception.");
     }
+    UpdateProgress(1.f);
     odb_finalizeAPI();
 
 //    int size = m_Output->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
@@ -782,6 +786,12 @@ uint8_t ODBReader::ABAQUS_VTK_CELL_MAP(const char *abqElementType) {
     else if (strcmp(abqElementType, "B31") == 0)
     {
         return 3;
+    }
+    /* Mass elements are 0D point elements defined by a single node.
+       VTK_VERTEX = 1 */
+    else if (strncmp(abqElementType, "MASS", 4) == 0)
+    {
+        return 1;
     }
     /*brick_sph_indenter_new.odb*/
     else if (strcmp(abqElementType, "COH3D8") == 0)

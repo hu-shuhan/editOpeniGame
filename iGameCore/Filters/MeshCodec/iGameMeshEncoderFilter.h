@@ -143,7 +143,12 @@ private:
 
         // InitEncoderParams 必须在 LoadCodecControlParams 之前执行
         InitEncoderParams();
-        if (m_hasCodecControlParams) { LoadCodecControlParams(m_CodecControlParams); }
+        if (m_hasCodecControlParams) {
+            LoadCodecControlParams(m_CodecControlParams);
+        } else {
+            // 未设置控制参数时，使用默认参数以确保 m_geomControlParams 和 m_attrControlParams 被正确初始化
+            LoadCodecControlParams(GenerateDefaultCodecParams(m_DataObj));
+        }
 
         InitAdjacencyScore();
         return true;
@@ -278,9 +283,15 @@ private:
         
         // 加载顶点坐标控制参数
         m_geomControlParams = codecParams.geomControl;
+        // 将 errorMode 同步到存储参数（供编码器使用）
+        m_codecParams.geomParams.errorMode = codecParams.geomControl.errorMode;
 
         // 加载属性控制参数
         m_attrControlParams = codecParams.attrControl;
+        // 将各属性的 errorMode 同步到存储参数
+        for (size_t i = 0; i < codecParams.attrControl.size() && i < m_codecParams.attrParams.size(); ++i) {
+            m_codecParams.attrParams[i].errorMode = codecParams.attrControl[i].errorMode;
+        }
     }
 
     void InitEncoderParams() {
