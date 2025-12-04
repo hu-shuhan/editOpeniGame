@@ -32,7 +32,8 @@ public:
             m_ElementNum = pointSet->GetNumberOfPoints();
             m_ElementDim = 3;
         } else {
-            const auto& attr = m_obj->GetAttributeSet()->GetAttribute(dataIndex - 1);
+            // dataIndex >= 2 表示属性，属性索引 = dataIndex - 2（跳过几何和索引偏移）
+            const auto& attr = m_obj->GetAttributeSet()->GetAttribute(dataIndex - 2);
             m_ElementNum = attr.pointer->GetNumberOfElements();
             m_ElementDim = attr.pointer->GetDimension();
             m_dataType = attr.attachmentType == IG_CELL ? DataType::AttachCell : DataType::AttachPoint;
