@@ -126,7 +126,10 @@ void BoxStyle::MousePressEvent(IEvent event) {
         }
     }
 
-    if (m_SelectedDirection == -1) return;
+    if (m_SelectedDirection == -1) {
+        SetNeedReSet();
+        return;
+    }
 
     igm::vec4 p;
     if (m_SelectedItem == IG_MID_POINT) {
@@ -179,6 +182,7 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
         m_DynamicBox->RotateBox(cp, dir);
     }
     PointMoveCallBack();
+    SetChooedStation(false);
     ClearDraw();
     ToDraw();
 }
@@ -190,12 +194,20 @@ void BoxStyle::InitBox(const Point& p1, const Point& p2) {
 
 void BoxStyle::DeleteBox() { m_DynamicBox = nullptr; }
 
+void BoxStyle::SetChooedStation(bool choosedStation) {
+    m_ChoosedStation = choosedStation;
+}
+
 void BoxStyle::ToDraw() {
     if (m_DynamicBox == nullptr) return;
     auto painter = m_Scene->GetPainter3D();
 
     painter->SetPen(3);
-    painter->SetPen(Color::White);
+    //if (m_ChoosedStation) {
+        painter->SetPen(Color::White);
+    //} else {
+    //    painter->SetPen(Color::Red);
+    //}
     for (int i = 0; i < 6; i++) {
         int opeLineHandle = painter->DrawLine(m_DynamicBox->GetMidPoint(),
                                               m_DynamicBox->GetOpePoints()[i]);
@@ -257,8 +269,20 @@ void BoxStyle::RemovePointMoveCallBack(const std::string& name) {
     m_PointMoveCallBacks.erase(name);
 }
 
+void BoxStyle::SetUpdateWidgetFunc(std::function<void()> func) {
+    m_UpdateWidgetFunc = std::make_shared<std::function<void()>>(func);
+}
+
+void BoxStyle::RemoveUpdateWidgetFunc() { m_UpdateWidgetFunc = nullptr; }
+
 void BoxStyle::PointMoveCallBack() {
     for (auto& pmcb: m_PointMoveCallBacks) { pmcb.second(); }
+}
+
+void BoxStyle::SetNeedReSet() {
+    SelectionParameter::Instance().SetHaveBox(false);
+    ClearDraw();
+    if (m_UpdateWidgetFunc) (*m_UpdateWidgetFunc)();
 }
 
 BoxStyle::~BoxStyle() { ClearDraw(); }

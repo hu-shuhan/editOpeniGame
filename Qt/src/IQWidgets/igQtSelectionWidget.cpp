@@ -42,11 +42,12 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
     ui->drawBoundBox->hide();
     //############ HIDE GROUP ############
-    ui->groupBox_2->hide();
+    ui->chooseStationGroupBox->hide();
+    ui->chooseItemGroupBox->hide();
+    ui->chooseModeGroupBox->hide();
     //############ BOX ############
     connect(ui->clearBox, &QPushButton::clicked, this, &igQtSelectionWidget::ClearBox);
     connect(ui->settingBox, &QPushButton::clicked, this, &igQtSelectionWidget::BoxSettingDialog);
-    //ui->settingBox->hide();
     connect(ui->useBox, &QPushButton::clicked, this, &igQtSelectionWidget::UseBox);
     //############ SELECT MODE ############
     //############ HIDE R MODE ############
@@ -57,10 +58,13 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     HideSelectionTypeUi();
     HideAllSelectModeUi();
     ShowCtUi();
+    ShowBoxUi();
     ui->radiusMode->hide();
     ui->radiusBoxMode->hide();
-    ui->ctMode->setChecked(true);
-    iGame::SelectionParameter::Instance().SetSelectMode(iGame::SelectionParameter::SelectMode::CT_MODE);
+    ui->ctMode->hide();
+    ui->ctBoxMode->hide();
+    ui->ctBoxMode->setChecked(true);
+    iGame::SelectionParameter::Instance().SetSelectMode(iGame::SelectionParameter::SelectMode::CT_BOX_MODE);
     //############ Pre Load ############
     connect(ui->preLoadModelMsg, &QPushButton::clicked, this, &igQtSelectionWidget::PreLoadModelMsg);
     ui->preLoadModelMsg->hide();
@@ -98,12 +102,21 @@ void igQtSelectionWidget::SetDefaultSelectionButton() {
 
 void igQtSelectionWidget::SetInitBoxSettingDialog(QWidget* renderWidget) {
     if (m_BoxSettingDialog == nullptr) {
-        m_BoxSettingDialog = new igQtBoxSettingDialog(renderWidget);
+        m_BoxSettingDialog = new igQtBoxSettingDialog(renderWidget, this);
+        ui->verticalLayout_7->addWidget(m_BoxSettingDialog);
     } else {
         m_BoxSettingDialog->ReloadBoxMsg();
     }
     m_BoxSettingDialog->show();
+    //m_BoxSettingDialog->show();
 }
+
+void igQtSelectionWidget::SetBoxInitCallBackFunc(iGame::Selection* selection) {
+    if (selection == nullptr) return;
+    selection->SetBoxSelectInitCallBackEvent(std::bind(&igQtSelectionWidget::BoxInitCallBackFunc, this));
+}
+
+void igQtSelectionWidget::BoxInitCallBackFunc() { emit SetBoxSettingDialog(); }
 
 void igQtSelectionWidget::SetNoAttention() {
     ui->attention->setText("");
@@ -324,7 +337,7 @@ void igQtSelectionWidget::ShowCtUi() {
 
 void igQtSelectionWidget::ShowBoxUi() {
     ui->boxLabel->show();
-    ui->clearBox->show();
-    ui->settingBox->show();
+    //ui->clearBox->show();
+    //ui->settingBox->show();
     ui->useBox->show();
 }

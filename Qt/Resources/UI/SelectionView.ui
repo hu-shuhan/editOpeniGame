@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>235</width>
-    <height>355</height>
+    <height>354</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,34 +19,6 @@
    </property>
    <item>
     <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="0">
-      <widget class="QGroupBox" name="groupBox">
-       <property name="title">
-        <string>鼠标中键选取</string>
-       </property>
-       <property name="checkable">
-        <bool>false</bool>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QCheckBox" name="NONE_SELECTION">
-          <property name="text">
-           <string>开启</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
      <item row="0" column="1">
       <widget class="QGroupBox" name="groupBox_4">
        <property name="title">
@@ -83,7 +55,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
+         <widget class="QGroupBox" name="chooseStationGroupBox">
           <property name="title">
            <string>选择状态</string>
           </property>
@@ -156,12 +128,15 @@
        </layout>
       </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QGroupBox" name="groupBox_3">
+     <item row="0" column="0">
+      <widget class="QGroupBox" name="groupBox">
        <property name="title">
-        <string>选择对象</string>
+        <string>鼠标中键选取</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
+       <property name="checkable">
+        <bool>false</bool>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
         <property name="spacing">
          <number>0</number>
         </property>
@@ -172,16 +147,16 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QCheckBox" name="noneSelectionState">
+         <widget class="QCheckBox" name="NONE_SELECTION">
           <property name="text">
-           <string>隐藏选择对象</string>
+           <string>开启</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="noneSelectBox">
+         <widget class="QCheckBox" name="noneSelectionState">
           <property name="text">
-           <string>隐藏包围框</string>
+           <string>隐藏选择对象</string>
           </property>
          </widget>
         </item>
@@ -212,8 +187,33 @@
        </layout>
       </widget>
      </item>
+     <item row="1" column="1">
+      <widget class="QGroupBox" name="chooseItemGroupBox">
+       <property name="title">
+        <string>选择对象</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QCheckBox" name="noneSelectBox">
+          <property name="text">
+           <string>隐藏包围框</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
      <item row="1" column="0">
-      <widget class="QGroupBox" name="groupBox_6">
+      <widget class="QGroupBox" name="chooseModeGroupBox">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -270,7 +270,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QVBoxLayout" name="verticalLayout_7">
      <item>
       <widget class="QGroupBox" name="groupBox_5">
        <property name="sizePolicy">
@@ -471,22 +471,10 @@
           <item>
            <widget class="QPushButton" name="useBox">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>30</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>100</width>
-              <height>16777215</height>
-             </size>
             </property>
             <property name="text">
              <string>确认选择</string>
