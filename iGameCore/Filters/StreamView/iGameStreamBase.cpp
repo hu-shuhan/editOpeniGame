@@ -112,7 +112,7 @@ void StreamBase::ConvertToDrawableData() {
     auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
-
+    this->AddViewStyle(IG_WIREFRAME);
     m_LineIndices = index;
     m_LineIndices->Modified();
 

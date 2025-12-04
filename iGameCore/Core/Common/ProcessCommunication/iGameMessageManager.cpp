@@ -14,7 +14,7 @@ iGameMessageManager::~iGameMessageManager()
     stop();
 }
 
-bool iGameMessageManager::start(const std::string& host, int port)
+    bool iGameMessageManager::start(const std::string& host, int port)
 {
     if (m_connection) { return true; }
     m_connection = new iGameSocketConnection(host, port);

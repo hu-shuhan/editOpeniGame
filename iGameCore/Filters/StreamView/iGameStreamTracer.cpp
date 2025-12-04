@@ -151,8 +151,8 @@ std::vector<Vector3f> StreamTracer::getAllSubBlockCenters(const Vector3f& boxMax
     std::vector<Vector3f> allCenters;
 
     // 计算包围盒的所有子块中心
-    auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
-    allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
+   // auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
+   // allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
 
     // 计算重点观察区域的所有子块中心
     auto focusCenters = computeSubBlockCenters(focusMin, focusMax, focusSplitCount);
@@ -233,6 +233,10 @@ bool StreamTracer::Execute() {
         return false;
     }
     std::cout << "1111111111111" << std::endl;
+
+
+
+
     // 使用内部存储的参数调用原始计算逻辑
     std::vector<std::vector<float>> streamColor;
     auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor, m_LengthOfStreamLine, m_LengthOfStep,
@@ -310,11 +314,12 @@ bool StreamTracer::Execute() {
     m_ResultMesh = streamMesh;
     return true;
 }
-std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
+
+std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int numOfSeeds) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
     std::vector<Vector3f> localMaxPoints;
-
+    std::map<float, Vector3f, std::greater<>> seedsMap;
     // 收集所有选中的点ID
     std::unordered_set<igIndex> allSelectedPoints;
 
@@ -385,32 +390,39 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
 
         // 如果是局部最大值，添加该点的坐标到结果
         if (isLocalMax && !neighborPoints.empty()) {
+            float V[4] = {0.0};
+            Vector.pointer->GetElement(pointId, V);
             Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0], p[1], p[2]));
         }
-        bool isLocalMin = true;
-        for (igIndex neighborId: neighborPoints) {
-            double neighborValue[4] = {0.0};
-            Vector.pointer->GetElement(neighborId, neighborValue);
-            double neighborMagnitude =
-                    std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
-                              neighborValue[2] * neighborValue[2]);
+        //bool isLocalMin = true;
+        //for (igIndex neighborId: neighborPoints) {
+        //    double neighborValue[4] = {0.0};
+        //    Vector.pointer->GetElement(neighborId, neighborValue);
+        //    double neighborMagnitude =
+        //            std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
+        //                      neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude < currentMagnitude) {
-                isLocalMin = false;
-                break;
-            } else if (neighborMagnitude == currentMagnitude) {
-                std::cout << "equal" << std::endl;
-            }
-        }
+        //    if (neighborMagnitude < currentMagnitude) {
+        //        isLocalMin = false;
+        //        break;
+        //    } else if (neighborMagnitude == currentMagnitude) {
+        //        std::cout << "equal" << std::endl;
+        //    }
+        //}
 
-        // 如果是局部最小值，添加该点的坐标到结果
-        if (isLocalMin && !neighborPoints.empty()) {
-            Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
-        }
+        //// 如果是局部最小值，添加该点的坐标到结果
+        //if (isLocalMin && !neighborPoints.empty()) {
+        //    Point p = mesh->GetPoint(pointId);
+        //    localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
+        //}
     }
-
+    int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);
+    auto it = seedsMap.begin();
+    for (int i = 0; i < numOfPoints; ++i) { 
+        localMaxPoints.emplace_back(it->second);
+        it;
+    }
     std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
     return localMaxPoints;
 }

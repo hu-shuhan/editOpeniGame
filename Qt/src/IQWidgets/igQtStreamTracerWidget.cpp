@@ -38,15 +38,15 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     // ui->proportion_Slider->setValue(35);
     lengthOfStreamLine = 5;
     ui->lengthOfStreamLine->setText("5");
-    maxSteps = 1000;
-    ui->maxSteps->setText("1000");
-    lengthOfStep = 0.3;
+    maxSteps = 200;
+    ui->maxSteps->setText("200");
+    lengthOfStep = 0.03;
     ui->lengthOfStep->setText("0.03");
     terminalSpeed = 0.005;
     ui->terminalSpeed->setText("0.005");
     haveDraw = false;
     haveClicked = true;
-    ui->control_comboBox->setCurrentIndex(0);
+    ui->control_comboBox->setCurrentIndex(1);
     streamlineResult = UnstructuredMesh::New();
 }
 void igQtStreamTracerWidget::hideEvent(QHideEvent* event) {
@@ -182,8 +182,12 @@ void igQtStreamTracerWidget::updateVectorNameList() {
     if (!currentModel) return;
     auto obj = currentModel->GetDataObject();
     if (!obj) return;
-    startP = obj->GetBoundingBox().min;
-    endP = obj->GetBoundingBox().max;
+    //startP = obj->GetBoundingBox().min;
+    //endP = obj->GetBoundingBox().max;
+
+    startP = Vector3f(-0.3, -4.4, 0.13);
+    endP = Vector3f(-0.3, 4.4, 0.13);
+
     auto temStart = startP;
     auto temEnd = endP;
     ui->startX->setText(QString::number(temStart[0]));
@@ -253,12 +257,19 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
-        seeds = streamtracer->getModelSelectMax(vectorName);
+        //seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
+        seeds = streamtracer->getModelSelect();
     } else {
         seeds = streamtracer->getModelSelect();
+      auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+      //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        for (auto seed: temSeeds) { 
+            seeds.emplace_back(seed);
+        }
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
+
     if (!m_ResultObject) {
         m_ResultObject = iGame::UnstructuredMesh::New();
     }
@@ -270,9 +281,7 @@ void igQtStreamTracerWidget::generateStreamline() {
 
     }
 
-    scene->ChangeModelVisibility(model, false);
-
-
+    //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
         Q_EMIT AddStreamObject(m_ResultObject);
@@ -280,7 +289,9 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         Q_EMIT UpdateStreamObject(m_ResultObject);
     }
-
+    if (!haveDraw)
+    scene->GetCurrentModel()->SetViewPointsSwitch(true);
+   // scene->SetCurrentModel(1);
     if (isExisted == false) {
         isExisted = true;
         Selection = StreamLineSelection::New();
@@ -306,9 +317,7 @@ void igQtStreamTracerWidget::generateStreamline() {
 
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);
-
-
-
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
+
 }
