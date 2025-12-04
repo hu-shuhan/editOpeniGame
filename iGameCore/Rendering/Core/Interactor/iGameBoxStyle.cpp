@@ -52,7 +52,7 @@ static double SegmentIntersectsTriangle(const Point& start, const Point& dir,
 
 void BoxStyle::MousePressEvent(IEvent event) {
     BasicStyle::MousePressEvent(event);
-
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
     m_SelectedDirection = -1;
     m_SelectedItem = -1;
 
@@ -149,6 +149,7 @@ void BoxStyle::MousePressEvent(IEvent event) {
 }
 
 void BoxStyle::MouseMoveEvent(IEvent event) {
+    if (!SelectionParameter::Instance().GetHaveBox()) return;
     if (m_SelectedDirection == -1) return;
     if (m_DynamicBox == nullptr) return;
     if (m_SelectedItem != IG_POINT && m_SelectedItem != IG_CELL &&
