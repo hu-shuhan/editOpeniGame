@@ -61,4 +61,8 @@ void SelectionParameter::SetInSelection(bool inSelection) { m_InSelection = inSe
 
 bool SelectionParameter::GetInSelection() { return m_InSelection; }
 
+void SelectionParameter::SetHaveBox(bool haveBox) { m_HaveBox = haveBox; }
+
+bool SelectionParameter::GetHaveBox() { return m_HaveBox; }
+
 IGAME_NAMESPACE_END
