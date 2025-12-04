@@ -77,10 +77,7 @@ public:
     );
     std::vector<Vector3f> getModelSelect();
     std::vector<Vector3f> getModelSelectMax(std::string VectorName);
-    std::vector<std::vector<float>> showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
-                                                           std::vector<std::vector<float>>& streamColor,
-                                                           float lengthOfStreamLine, float lengthOfStep,
-                                                           float terminalSpeed, int maxSteps);
+    
     void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
     float maxF = FLT_MIN;
     float minF = FLT_MAX;
