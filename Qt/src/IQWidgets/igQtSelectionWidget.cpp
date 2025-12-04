@@ -23,11 +23,12 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     connect(ui->skipUnSeeAbleCell, &QCheckBox::clicked, this, &igQtSelectionWidget::SelectionSkipUnSeeAbleCell);
     ui->skipUnSeeAbleCell->setChecked(true);
     iGame::SelectionParameter::Instance().SetSelectIgnoreUnSeeAbleCells(true);
+    ui->skipUnSeeAbleCell->hide();
 
     connect(ui->onlySelectSeeAbleCells, &QCheckBox::clicked, this,
             &igQtSelectionWidget::SelectionOnlySelectSeeAbleCells);
-    //ui->onlySelectSeeAbleCells->setChecked(true);
-    //iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(true);
+    ui->onlySelectSeeAbleCells->setChecked(false);
+    iGame::SelectionParameter::Instance().SetSelectOnlySelectSeeAbleCells(false);
     ui->onlySelectSeeAbleCells->hide();
 
     connect(ui->expdRate, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
@@ -40,6 +41,8 @@ igQtSelectionWidget::igQtSelectionWidget(QWidget* parent) : QWidget(parent), ui(
     ui->noneSelectBox->hide();
     connect(ui->clearSelectionState, &QPushButton::clicked, this, &igQtSelectionWidget::ClearSelectionState);
     ui->drawBoundBox->hide();
+    //############ HIDE GROUP ############
+    ui->groupBox_2->hide();
     //############ BOX ############
     connect(ui->clearBox, &QPushButton::clicked, this, &igQtSelectionWidget::ClearBox);
     connect(ui->settingBox, &QPushButton::clicked, this, &igQtSelectionWidget::BoxSettingDialog);
@@ -79,6 +82,7 @@ void igQtSelectionWidget::SetVariableNames(const std::vector<std::string>& varia
     PreventSignalSend(true);
     ui->variableChoose->clear();
     ui->variableChoose->addItem("⨀无所选变量");
+
     for (auto& name: variableNames) { ui->variableChoose->addItem(name.c_str()); }
     iGame::SelectionParameter::Instance().SetSelectVariableIndex(-1);
     PreventSignalSend(false);

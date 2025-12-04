@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>285</width>
-    <height>278</height>
+    <width>254</width>
+    <height>355</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -82,75 +82,75 @@
           </property>
          </widget>
         </item>
-       </layout>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QGroupBox" name="groupBox_2">
-       <property name="title">
-        <string>选择状态</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_6">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
         <item>
-         <widget class="QCheckBox" name="skipUnSeeAbleCell">
-          <property name="text">
-           <string>越过不可见面/体</string>
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="title">
+           <string>选择状态</string>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="onlySelectSeeAbleCells">
-          <property name="text">
-           <string>只选可见面/体</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="preLoadModelMsg">
-          <property name="text">
-           <string>预加载模型信息</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="expdRate">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="toolTip">
-           <string>取值比例</string>
-          </property>
-          <property name="decimals">
-           <number>5</number>
-          </property>
-          <property name="maximum">
-           <double>5.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.100000000000000</double>
-          </property>
-          <property name="value">
-           <double>1.000000000000000</double>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="autoRange">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>自动范围</string>
-          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QCheckBox" name="skipUnSeeAbleCell">
+             <property name="text">
+              <string>越过不可见面/体</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="onlySelectSeeAbleCells">
+             <property name="text">
+              <string>只选可见面/体</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="preLoadModelMsg">
+             <property name="text">
+              <string>预加载模型信息</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QDoubleSpinBox" name="expdRate">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="toolTip">
+              <string>取值比例</string>
+             </property>
+             <property name="decimals">
+              <number>5</number>
+             </property>
+             <property name="maximum">
+              <double>5.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.100000000000000</double>
+             </property>
+             <property name="value">
+              <double>1.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="autoRange">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>自动范围</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>
@@ -206,11 +206,7 @@
        </layout>
       </widget>
      </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
+     <item row="1" column="0">
       <widget class="QGroupBox" name="groupBox_6">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -265,6 +261,10 @@
        </layout>
       </widget>
      </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QGroupBox" name="groupBox_5">
        <property name="sizePolicy">
@@ -298,7 +298,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>类型</string>
+           <string>对象类型</string>
           </property>
          </widget>
         </item>
@@ -307,7 +307,7 @@
           <item>
            <widget class="QRadioButton" name="POINT_SELECTION">
             <property name="text">
-             <string>点选择</string>
+             <string>点</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -317,7 +317,7 @@
           <item>
            <widget class="QRadioButton" name="CELL_SELECTION">
             <property name="text">
-             <string>面/体选择</string>
+             <string>面/体</string>
             </property>
            </widget>
           </item>
@@ -431,12 +431,12 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>50</width>
+              <width>100</width>
               <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>取消</string>
+             <string>取消选框</string>
             </property>
            </widget>
           </item>
@@ -450,12 +450,12 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>50</width>
+              <width>100</width>
               <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>修改</string>
+             <string>编辑选框</string>
             </property>
            </widget>
           </item>
@@ -475,12 +475,12 @@
             </property>
             <property name="maximumSize">
              <size>
-              <width>50</width>
+              <width>100</width>
               <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>应用</string>
+             <string>确认选择</string>
             </property>
            </widget>
           </item>
@@ -505,7 +505,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>ATTENTION</string>
+           <string/>
           </property>
          </widget>
         </item>
