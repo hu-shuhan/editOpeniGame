@@ -43,7 +43,7 @@ public:
     int GetCurrentAttributeIndex() { return m_AttributeIndex; }
     int GetCurrentAttributeDimension(){return m_AttributeDimension;}
     Metadata* GetMetadata() { return m_Metadata.get(); }
-    PropertyTree* GetPropertys() { return m_Propertys.get(); }
+    PropertyTree* GetProperties() { return m_Properties.get(); }
     const BoundingBox& GetBoundingBox();
 
     class SubDataObjectsHelper : public Object {
@@ -143,10 +143,9 @@ protected:
         m_Attributes->m_DataObject = this;
 
         m_Metadata = Metadata::New();
-        //        m_TimeFrames = StreamingData::New();
         m_UniqueId = GetIncrementDataObjectId();
         m_BoundingHelper = Object::New();
-        m_Propertys = PropertyTree::New();
+        m_Properties = PropertyTree::New();
 
         m_AttributeHelper = Object::New();
     }
@@ -158,7 +157,7 @@ protected:
     DeformationData::Pointer m_DeformationData{};
     AttributeSet::Pointer m_Attributes{};
     Metadata::Pointer m_Metadata{};
-    PropertyTree::Pointer m_Propertys{};
+    PropertyTree::Pointer m_Properties{};
 
     BoundingBox m_Bounding{};
     Object::Pointer m_BoundingHelper{};
