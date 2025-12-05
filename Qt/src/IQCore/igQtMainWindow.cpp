@@ -192,6 +192,14 @@ void igQtMainWindow::initAllComponents() {
     progressBarWidget = new igQtProgressBarWidget(this);
     this->statusBar()->addPermanentWidget(progressBarWidget);
 
+    // vortexMetricsLabel
+    vortexMetricsLabel = new QLabel(rendererWidget);
+    vortexMetricsLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    vortexMetricsLabel->setStyleSheet(
+        "QLabel { color: rgb(230,230,230); font-size: 20px; "
+        "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
+    vortexMetricsLabel->hide();
+
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -204,8 +212,8 @@ void igQtMainWindow::initAllComponents() {
     });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
-    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
-    connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
+    // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
+    // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
@@ -379,6 +387,20 @@ void igQtMainWindow::initAllComponents() {
 
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
+}
+
+void igQtMainWindow::updateVortexMetricsLabelPos()
+{
+    if (!vortexMetricsLabel || !vortexMetricsLabel->isVisible()) return;
+
+    vortexMetricsLabel->adjustSize();
+
+    const int margin = 20;
+    int x = rendererWidget->width()  - vortexMetricsLabel->width()  - margin;
+    int y = rendererWidget->height() - vortexMetricsLabel->height() - margin;
+
+    vortexMetricsLabel->move(x, y);
+    vortexMetricsLabel->raise();
 }
 
 void igQtMainWindow::initAllFilters() {
@@ -693,8 +715,33 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) {
             //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
 
-            modelTreeWidget->updateAllAttriubute(data);
-            DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+            // modelTreeWidget->updateAllAttriubute(data);
+            // DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+
+            auto outData = filter->GetOutput(0);
+            auto scene = rendererWidget->GetScene();
+            auto model = scene->GetCurrentModel();
+            model->SetDataObject(outData);
+            modelTreeWidget->updateAllAttriubute(outData);
+            DynamicCast<DrawObject>(outData)->ConvertToDrawableData();
+            rendererWidget->update();
+
+            // vortexMetricsLabel
+            // double acc  = filter->GetAccuracy();
+            // double prec = filter->GetPrecision();
+            // double rec  = filter->GetRecall();
+            // if (acc > 0.0 && prec > 0.0 && rec > 0.0) {
+            //     QString txt = QString("Acc: %1  Prec: %2  Rec: %3")
+            //                       .arg(acc,  0, 'f', 3)
+            //                       .arg(prec, 0, 'f', 3)
+            //                       .arg(rec,  0, 'f', 3);
+            //     vortexMetricsLabel->setText(txt);
+            //     vortexMetricsLabel->show();
+            //     updateVortexMetricsLabelPos();
+            // } else {
+            //     vortexMetricsLabel->clear();
+            //     vortexMetricsLabel->hide();
+            // }
         }
     });
 
@@ -740,6 +787,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_ParallelCoordinatesField->show();
         ui->widget_ParallelCoordinatesField->SetParallelCoordinates(model);
     });
+
+    //############# HIDE SOMETHING ST #############
+    ui->action_ParallelCoordinates->setVisible(false);
+    //############# HIDE SOMETHING ED #############
 
     connect(ui->widget_ParallelCoordinatesField, &igQtParallelCoordinatesWidget::SIGNAL_RefreshDataClicked, this,
             [&]() {
@@ -1121,6 +1172,12 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(fileLoader, &igQtFileLoader::FinishReading, this, &igQtMainWindow::updateRecentFilePaths);
     connect(ui->action_DeleteMesh, &QAction::triggered, modelTreeWidget, &igQtModelDialogWidget::deleteCurrentModel);
 
+    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool){
+        if (vortexMetricsLabel) {
+            vortexMetricsLabel->clear();
+            vortexMetricsLabel->hide();
+        }
+    });
 
     // connect(fileLoader, &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
@@ -1492,13 +1549,14 @@ void igQtMainWindow::initAllInteractor() {
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetClearBox, this, [&]() {
         auto scene = rendererWidget->GetScene();
+        SelectionParameter::Instance().SetHaveBox(false);
         scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
         rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetBoxSettingDialog, this, [&]() {
         auto scene = rendererWidget->GetScene();
         auto interactor = scene->GetInteractor();
-        if (!interactor->HaveSpecialInteractor("SelectBox")) return;
+        if (!SelectionParameter::Instance().GetHaveBox()) return;
         auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
         if (basicStyle == nullptr) return;
         auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
@@ -1517,7 +1575,7 @@ void igQtMainWindow::initAllInteractor() {
         if (selection == nullptr) return;
         auto scene = rendererWidget->GetScene();
         auto interactor = scene->GetInteractor();
-        if (!interactor->HaveSpecialInteractor("SelectBox")) return;
+        if (!SelectionParameter::Instance().GetHaveBox()) return;
         auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
         if (basicStyle == nullptr) return;
         auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
@@ -1525,7 +1583,7 @@ void igQtMainWindow::initAllInteractor() {
         auto dynamicBox = boxStyle->GetBox();
         if (dynamicBox == nullptr) return;
         auto faces = dynamicBox->GetAllFaces();
-
+        boxStyle->SetChooedStation(true);
         auto meshType = dataObj->GetDataObjectType();
         switch (meshType) {
             case IG_SURFACE_MESH: {
@@ -1596,7 +1654,11 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Hided, this, [&]() {
         ui->action_SelectView->setChecked(false);
         auto scene = rendererWidget->GetScene();
+        SelectionParameter::Instance().SetHaveBox(false);
         scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+        ui->widget_SelectionField->PreventSignalSend(true);
+        ui->widget_SelectionField->SetDefaultSelectionButton();
+        ui->widget_SelectionField->PreventSignalSend(false);
         rendererWidget->update();
     });
 
@@ -1609,24 +1671,35 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->PreventSignalSend(true);
         ui->widget_SelectionField->SetDefaultSelectionButton();
         ui->widget_SelectionField->PreventSignalSend(false);
-        //####### ATTENTION ST #######
-        ui->widget_SelectionField->SetNoAttention();
-        auto model = rendererWidget->GetScene()->GetCurrentModel();
-        if (model == nullptr) return;
-        auto dataObj = model->GetDataObject();
-        if (dataObj == nullptr) return;
-        auto attributeSet = dataObj->GetAttributeSet();
-        if (attributeSet == nullptr) return;
-        bool haveNoPointAttr = (attributeSet->GetAllPointAttributes()->GetNumberOfElements() == 0);
-        bool haveNoCellAttr = (attributeSet->GetAllCellAttributes()->GetNumberOfElements() == 0);
-        if (haveNoPointAttr && haveNoCellAttr) {
-            ui->widget_SelectionField->SetAllAttention();
-        } else if (haveNoPointAttr) {
-            ui->widget_SelectionField->SetPointAttention();
-        } else if (haveNoCellAttr) {
-            ui->widget_SelectionField->SetCellAttention();
-        }
-        //####### ATTENTION ED #######
+        //####### ATTENTION #######
+        auto attenetionFunc = [&]() {
+            ui->widget_SelectionField->SetNoAttention();
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            auto dataObj = model->GetDataObject();
+            if (dataObj == nullptr) return;
+            auto attributeSet = dataObj->GetAttributeSet();
+            if (attributeSet == nullptr) return;
+            bool haveNoPointAttr = (attributeSet->GetAllPointAttributes()->GetNumberOfElements() == 0);
+            bool haveNoCellAttr = (attributeSet->GetAllCellAttributes()->GetNumberOfElements() == 0);
+            if (haveNoPointAttr && haveNoCellAttr) {
+                ui->widget_SelectionField->SetAllAttention();
+            } else if (haveNoPointAttr) {
+                ui->widget_SelectionField->SetPointAttention();
+            } else if (haveNoCellAttr) {
+                ui->widget_SelectionField->SetCellAttention();
+            }
+        };
+        attenetionFunc();
+        //####### SelectFunc #######
+        auto selectFunc = [&]() {
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            auto selection = model->GetSelection();
+            if (selection == nullptr) return;
+            ui->widget_SelectionField->SetBoxInitCallBackFunc(selection);
+        };
+        selectFunc();
         return;
         //auto radius = ui->widget_SelectionField->GetSelectionRadius();
         //auto selectionStation = ui->widget_SelectionField->GetSelectionStation();

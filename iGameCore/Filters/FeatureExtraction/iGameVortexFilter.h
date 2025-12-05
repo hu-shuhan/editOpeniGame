@@ -7,6 +7,7 @@
 #include "iGamePointSet.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
+#include "iGameStructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <cmath>
 

@@ -23,7 +23,7 @@ public:
     // 序列化函数
     std::string serialize() const {
         // 将 selected_idx 和 filePath 序列化为一个字符串
-        return std::to_string(selected_idx) + "|" + filePath;
+        return std::to_string(selected_idx) + "|" + filePath;3
     }
 
     // 反序列化函数
@@ -56,7 +56,7 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
 bool LoadAndCompress(std::string filePath) {
     auto tem = OpenFile(filePath);
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(iGame::MeshEncoderFilter::GenerateUIControlParams(tem));
+    writer->SetCodecControlParams(iGame::MeshEncoderFilter<iGame::EncodeOutputBinaryArray>::GenerateDefaultCodecParams(tem));
 
     if (!writer->WriteToFile(tem, "./CScomp.igc")) {
         igDebug("Compress File Error\n");

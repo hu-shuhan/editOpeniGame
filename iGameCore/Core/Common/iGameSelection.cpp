@@ -8,6 +8,7 @@
 #include <utility>
 #include <iGameBoxStyle.h>
 #include <iGameSelectionParameter.h>
+#include <cmath>
 IGAME_NAMESPACE_BEGIN
 
 static iGame::Point GetCentralOfCell(int cellPointSize, int cellPoints[], Points* points) {
@@ -131,7 +132,7 @@ static void DrawCell(Painter3D* painter, int cellPointSize, int cellPoints[], Po
 static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& edges, UnstructuredMesh* mesh,
                       std::vector<IGuint>& drawHandles) {
     if (painter == nullptr || edges.empty() || mesh == nullptr) return;
-    painter->SetPen(1);
+    painter->SetPen(2);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
         auto& p1 = mesh->GetPoint(edge.first);
@@ -145,7 +146,7 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     if (painter == nullptr) return;
     painter->Clear();
     if (edges.empty() || mesh == nullptr) return;
-    painter->SetPen(1);
+    painter->SetPen(2);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
         auto& p1 = mesh->GetPoint(edge.first);
@@ -434,8 +435,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CELL_BOX: {
             std::pair<Point, Point> pMinMax;
@@ -486,8 +487,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CHANGE: {
             for (auto& func : m_CallBackFunctor) { func.second(itemType, ids, ope); }
@@ -531,8 +532,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CELL_BOX: {
             std::pair<Point, Point> pMinMax;
@@ -556,8 +557,8 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const igIndex& id, Opera
                     return;
             }
             ExpandMinMax(pMinMax);
-            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
             SetBoxStyle(pMinMax);
+            for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CHANGE: {
             for (auto& func: m_CallBackFunctor) { func.second(itemType, {id}, ope); }
@@ -626,6 +627,7 @@ void Selection::SetBoxStyle(const std::pair<Point, Point>& p) {
     auto boxStyle = BoxStyle::New();
     boxStyle->Initialize(interactor);
     boxStyle->InitBox(p.first, p.second);
+    SelectionParameter::Instance().SetHaveBox(true);
     interactor->_SetSpecialInteractor("SelectBox", boxStyle);
 }
 
@@ -638,13 +640,18 @@ void Selection::AddItem(IGenum itemType, const igIndex& itemId, Operate ope) {
 }
 
 void Selection::DrawPoints() {
+    //############ RETURN ############
+    //return;
+    //############ RETURN ############
     if (m_Model == nullptr) return;
     auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
     painter->Clear();
-    painter->SetPen(2);
+    auto pNum = mesh->GetNumberOfPoints();
+    auto penSize = std::max<float>(0.001, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
+    painter->SetPen(penSize);
     painter->SetPen(Color::Red);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {
@@ -654,6 +661,9 @@ void Selection::DrawPoints() {
 }
 
 void Selection::DrawCellEdges() {
+    //############ RETURN ############
+    //return;
+    //############ RETURN ############
     if (m_Model == nullptr) return;
     auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
     if (painter == nullptr) return;

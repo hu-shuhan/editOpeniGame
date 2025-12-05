@@ -48,6 +48,7 @@ public:
     void initAllInteractor();
 
     void initArgs(const QStringList& args);
+    void updateVortexMetricsLabelPos();
 
 public:
     igQtModelDrawWidget* rendererWidget;
@@ -93,6 +94,7 @@ private slots:
 
 private:
     Ui::MainWindow* ui;
+    QLabel* vortexMetricsLabel = nullptr;
 };
 
 

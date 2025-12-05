@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>331</width>
-    <height>284</height>
+    <height>314</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -220,17 +220,17 @@
        </property>
        <item>
         <property name="text">
-         <string>起点终点均匀</string>
+         <string>种子线模式</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>重点区域极值</string>
+         <string>重点区域极值模式</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>重点区域均匀</string>
+         <string>多尺度混合模式</string>
         </property>
        </item>
       </widget>

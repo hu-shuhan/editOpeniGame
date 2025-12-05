@@ -32,7 +32,10 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
             HideNonUniform();
             ui->lineEdit_Uniform_val->setEnabled(false);
         }else {
-            if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
+            if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr){
+                IGAME_WARN("Deformation Widget : Current Model is Empty");
+                return ;
+            }
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
             dataObject->GetDeformationData()->SetAutoCompute(false);
         }
@@ -57,7 +60,10 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     });
 
     connect(ui->checkBox_enableOffset, &QCheckBox::toggled, this, [&](bool checked){
-        if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr) return;
+        if(iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel() == nullptr){
+            IGAME_WARN("Deformation Widget : Current Model is Empty");
+            return ;
+        }
         auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
         dataObject->GetDeformationData()->SetEnableDeformation(checked);
         if(checked){
@@ -82,7 +88,10 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
     connect(ui->lineEdit_Uniform_val, &QLineEdit::editingFinished, this, [&]{
         if(ui->checkBox_enableOffset->isChecked()){
             auto dataObject = iGame::SceneManager::Instance()->GetCurrentScene()->GetCurrentModel()->GetDataObject();
-            if(dataObject == nullptr) return;
+            if(dataObject == nullptr){
+                IGAME_WARN("Deformation Widget : Current Model is Empty");
+                return ;
+            }
             dataObject->GetDeformationData()->SetScaleFactors(ui->lineEdit_Uniform_val->text().toFloat());
         }
     });

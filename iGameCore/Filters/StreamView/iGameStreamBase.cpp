@@ -72,7 +72,7 @@ void StreamBase::ConvertToDrawableData() {
 
     // 提取速度属性作为颜色数据
     if (attrSet) {
-        auto velocityAttr = attrSet->GetVector("V");
+        auto velocityAttr = attrSet->GetVector("velocityArray");
         float step1=0.0f;
         float step2=FLT_MAX;
         int count1 = 0;
@@ -108,11 +108,11 @@ void StreamBase::ConvertToDrawableData() {
 
     // 应用颜色映射和设置渲染数据
     this->m_ColorMapper->InitRange(m_PositionColors, -1);
-    this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
+    //this->m_ColorMapper->SetRange(streamFilter->minF, streamFilter->maxF);
     auto colors = this->m_ColorMapper->MapScalars(m_PositionColors, -1);
     m_Positions = m_Points->ConvertToArray();
     m_Positions->Modified();
-
+    this->AddViewStyle(IG_WIREFRAME);
     m_LineIndices = index;
     m_LineIndices->Modified();
 

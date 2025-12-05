@@ -151,8 +151,8 @@ std::vector<Vector3f> StreamTracer::getAllSubBlockCenters(const Vector3f& boxMax
     std::vector<Vector3f> allCenters;
 
     // 计算包围盒的所有子块中心
-    auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
-    allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
+   // auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
+   // allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
 
     // 计算重点观察区域的所有子块中心
     auto focusCenters = computeSubBlockCenters(focusMin, focusMax, focusSplitCount);
@@ -233,6 +233,10 @@ bool StreamTracer::Execute() {
         return false;
     }
     std::cout << "1111111111111" << std::endl;
+
+
+
+
     // 使用内部存储的参数调用原始计算逻辑
     std::vector<std::vector<float>> streamColor;
     auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor, m_LengthOfStreamLine, m_LengthOfStep,
@@ -251,33 +255,34 @@ bool StreamTracer::Execute() {
     CellArray::Pointer cells = CellArray::New();
     UnsignedIntArray::Pointer types = UnsignedIntArray::New();
     AttributeSet::Pointer attrSet = AttributeSet::New();
-
+    FloatArray::Pointer velocityArray = FloatArray::New();
+    velocityArray->SetDimension(3);
+    velocityArray->SetName("Velocity");
     igIndex globalPointIndex = 0;
     std::cout << "99999999999999999" << std::endl;
     // 处理每条流线
     for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
         auto& streamline = streamlines[streamlineIdx];
-
+        auto& streamlinecolor = streamColor[streamlineIdx];
         if (streamline.size() <= 6) continue; // 至少需要两个点（6个float值）
 
         igIndex lineStartIndex = globalPointIndex;
-        int numPoints = streamline.size() / 3;
+        int numPoints = streamline.size() / 6;
 
         // 添加流线的所有点
         for (int i = 0; i < numPoints; i++) {
-            Point p(streamline[i * 3], streamline[i * 3 + 1], streamline[i * 3 + 2]);
-            points->AddPoint(p);
-            globalPointIndex++;
+            Point p1(streamline[i * 6], streamline[i * 6 + 1], streamline[i * 6 + 2]);
+            Point p2(streamline[i * 6 + 3], streamline[i * 6 + 4], streamline[i * 6 + 5]);
+            points->AddPoint(p1);
+            points->AddPoint(p2);
+            velocityArray->AddElement3(streamline[i * 6], streamline[i * 6 + 1], streamline[i * 6 + 2]);
+            velocityArray->AddElement3(streamline[i * 6+3], streamline[i * 6 + 4], streamline[i * 6 + 5]);
+            int tem[2]{globalPointIndex, globalPointIndex + 1};
+            cells->AddCellIds(tem, 2);
+            types->AddValue(IG_LINE);
+            globalPointIndex+= 2;
         }
 
-        // 按VTK流线格式：每条流线作为一个POLYLINE单元
-        std::vector<igIndex> polylineIds;
-        polylineIds.reserve(numPoints);
-        for (int i = 0; i < numPoints; i++) { polylineIds.push_back(lineStartIndex + i); }
-
-        // 添加POLYLINE单元（包含整条流线的所有点）
-        cells->AddCellIds(polylineIds.data(), numPoints);
-        types->AddValue(IG_POLY_LINE); // 使用POLYLINE类型而不是LINE
     }
     std::cout << "1111111111111111111" << std::endl;
     // 设置点数据和单元数据
@@ -285,33 +290,20 @@ bool StreamTracer::Execute() {
     streamMesh->SetCells(cells, types);
 
     // 创建速度属性数组
-    FloatArray::Pointer velocityArray = FloatArray::New();
-    velocityArray->SetDimension(3);
-    velocityArray->SetName("Velocity");
 
-    // 添加速度数据到属性数组
-    for (const auto& velocityData: streamColor) {
-        for (int i = 0; i < velocityData.size(); i += 3) {
-            if (i + 2 < velocityData.size()) {
-                velocityArray->AddElement3(velocityData[i], velocityData[i + 1], velocityData[i + 2]);
-            }
-        }
-    }
+
+    //// 添加速度数据到属性数组
+    //for (const auto& velocityData: streamColor) {
+    //    for (int i = 0; i < velocityData.size(); i += 3) {
+    //        if (i + 2 < velocityData.size()) {
+    //            velocityArray->AddElement3(velocityData[i], velocityData[i + 1], velocityData[i + 2]);
+    //        }
+    //    }
+    //}
     std::cout << "22222222222222222222" << std::endl;
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
-
-    // 创建流线索引属性数组（标记每个点属于哪条流线）
-    IntArray::Pointer streamlineIndexArray = IntArray::New();
-    streamlineIndexArray->SetDimension(1);
-    streamlineIndexArray->SetName("StreamlineIndex");
-
-    for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
-        int numPoints = streamlines[streamlineIdx].size() / 3;
-        for (int i = 0; i < numPoints; i++) { streamlineIndexArray->AddValue(streamlineIdx); }
-    }
     std::cout << "33333333333333333333" << std::endl;
-    attrSet->AddAttribute(IG_SCALAR, IG_POINT, streamlineIndexArray);
 
     // 设置属性集到网格
     streamMesh->SetAttributeSet(attrSet);
@@ -322,11 +314,12 @@ bool StreamTracer::Execute() {
     m_ResultMesh = streamMesh;
     return true;
 }
-std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
+
+std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int numOfSeeds) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
     std::vector<Vector3f> localMaxPoints;
-
+    std::map<float, Vector3f, std::greater<>> seedsMap;
     // 收集所有选中的点ID
     std::unordered_set<igIndex> allSelectedPoints;
 
@@ -397,32 +390,39 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
 
         // 如果是局部最大值，添加该点的坐标到结果
         if (isLocalMax && !neighborPoints.empty()) {
+            float V[4] = {0.0};
+            Vector.pointer->GetElement(pointId, V);
             Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0]+0.001f, p[1]+0.001f, p[2]+0.001f));
         }
-        bool isLocalMin = true;
-        for (igIndex neighborId: neighborPoints) {
-            double neighborValue[4] = {0.0};
-            Vector.pointer->GetElement(neighborId, neighborValue);
-            double neighborMagnitude =
-                    std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
-                              neighborValue[2] * neighborValue[2]);
+        //bool isLocalMin = true;
+        //for (igIndex neighborId: neighborPoints) {
+        //    double neighborValue[4] = {0.0};
+        //    Vector.pointer->GetElement(neighborId, neighborValue);
+        //    double neighborMagnitude =
+        //            std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
+        //                      neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude < currentMagnitude) {
-                isLocalMin = false;
-                break;
-            } else if (neighborMagnitude == currentMagnitude) {
-                std::cout << "equal" << std::endl;
-            }
-        }
+        //    if (neighborMagnitude < currentMagnitude) {
+        //        isLocalMin = false;
+        //        break;
+        //    } else if (neighborMagnitude == currentMagnitude) {
+        //        std::cout << "equal" << std::endl;
+        //    }
+        //}
 
-        // 如果是局部最小值，添加该点的坐标到结果
-        if (isLocalMin && !neighborPoints.empty()) {
-            Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
-        }
+        //// 如果是局部最小值，添加该点的坐标到结果
+        //if (isLocalMin && !neighborPoints.empty()) {
+        //    Point p = mesh->GetPoint(pointId);
+        //    localMaxPoints.emplace_back(Vector3f(p[0]-0.01f, p[1]-0.001f, p[2]-0.001f));
+        //}
     }
-
+    int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);
+    auto it = seedsMap.begin();
+    for (int i = 0; i < numOfPoints; ++i) { 
+        localMaxPoints.emplace_back(it->second);
+        it;
+    }
     std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
     return localMaxPoints;
 }
@@ -948,158 +948,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineHex(std::vector<Vect
     //	std::cout << "time: " << clock() - time1 << std::endl;
     return tem;
 }
-std::vector<std::vector<float>> StreamTracer::showStreamLineCellData(std::vector<Vector3f> seed, std::string vectorName,
-                                                                     std::vector<std::vector<float>>& streamColor,
-                                                                     float lengOfStreamLine, float lengthOfStep,
-                                                                     float terminalSpeed, int maxSteps) {
-    CellData2PointData(vectorName);
-    this->mesh = DynamicCast<VolumeMesh>(this->mesh);
-    auto allPolyhedrons = mesh->GetVolumes();
-    auto allPoints = mesh->GetPoints();
-    auto allFaces = mesh->GetFaces();
-    auto numOfFaces = mesh->GetNumberOfFaces();
-    auto numOfPoints = mesh->GetNumberOfPoints();
-    streamColor.clear();
-    streamColor.resize(seed.size());
-    std::cout << "Vector is" << vectorName << std::endl;
-    std::vector<std::vector<float>> tem(seed.size());
-    if (mesh == nullptr) return tem;
-    std::vector<Vector3f> _vector;
-    auto Vec = mesh->GetAttributeSet();
-    auto vec = Vec->GetVector(0);
-    int numOfCells = mesh->GetNumberOfVolumes();
-    for (int i = 0; i < numOfPoints; i++) {
-        float VV[3] = {0.0f};
-        vec.pointer->GetElement(i, VV);
-        _vector.emplace_back(VV[0], VV[1], VV[2]);
-    }
-    std::vector<std::vector<int>> f2c(numOfFaces);
-    std::vector<std::vector<int>> c2c(numOfCells);
-    igIndex vhs[256];
-    igIndex fhs[256];
-    igIndex vcnt, fcnt = 0;
-    for (int i = 0; i < numOfCells; i++) {
-        int size = mesh->GetVolumeFaceIds(i, fhs);
-        for (int j = 0; j < size; j++) {
-            int temIndex = fhs[j];
-            f2c[temIndex].emplace_back(i);
-        }
-    }
-    for (int i = 0; i < numOfCells; i++) {
-        int size = mesh->GetVolumeFaceIds(i, fhs);
-        for (int j = 0; j < size; j++) {
-            auto chs = f2c[fhs[j]];
-            for (int k = 0; k < chs.size(); k++) {
-                if (chs[k] != i) { c2c[i].emplace_back(chs[k]); }
-            }
-        }
-    }
 
-    clock_t time1 = clock();
-    float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
-    // std::cout << clock() - time1 << std::endl;
-    // clock_t time1 = clock();
-    ThreadPool* tp = ThreadPool::Instance();
-
-    std::vector<std::future<void>> result(seed.size());
-
-    auto func = [&](int i) -> void {
-        // std::cout << i << " start\n";
-        // auto time1 = clock();
-        int steps = maxSteps;
-        auto& _coord = seed[i];
-        tem[i].emplace_back(_coord[0]);
-        tem[i].emplace_back(_coord[1]);
-        tem[i].emplace_back(_coord[2]);
-        bool inside = true;
-        bool flag = true;
-        igIndex flag1 = -1;
-        float length = 0;
-        while (flag && length < lengOfStreamLine && steps-- > 0) {
-            inside = false;
-            flag = false;
-            bool check = false;
-            Vector3f k[7];
-            auto temV = interpolationVectorMixWithMeanV(_coord, inside, flag1, vectorName, terminalSpeed);
-            k[1] = lengthOfStep * temV;
-            streamColor[i].emplace_back(temV[0]);
-            streamColor[i].emplace_back(temV[1]);
-            streamColor[i].emplace_back(temV[2]);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-            k[2] = lengthOfStep *
-                   interpolationVectorMixWithMeanV(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-
-            k[3] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside,
-                                                                  flag1, vectorName, terminalSpeed);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-
-            k[4] = lengthOfStep *
-                   interpolationVectorMixWithMeanV(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
-                                                   flag1, vectorName, terminalSpeed);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-
-            k[5] = lengthOfStep * interpolationVectorMixWithMeanV(_coord + k[1] * B[3][0] + k[2] * B[3][1] +
-                                                                          k[3] * B[3][2] + k[4] * B[3][3],
-                                                                  inside, flag1, vectorName, terminalSpeed);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-
-            k[6] = lengthOfStep *
-                   interpolationVectorMixWithMeanV(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
-                                                           k[4] * B[4][3] + k[5] * B[4][4],
-                                                   inside, flag1, vectorName, terminalSpeed);
-            if (inside) {
-                flag = true;
-                inside = false;
-            }
-
-            if (flag) {
-                Vector3f temC(0, 0, 0);
-                for (int i = 0; i < 6; i++) { temC += k[i + 1] * C[i]; }
-                length += temC.length();
-                _coord += temC;
-            }
-            tem[i].emplace_back(_coord[0]);
-            tem[i].emplace_back(_coord[1]);
-            tem[i].emplace_back(_coord[2]);
-            temV = interpolationVectorMixWithMeanV(_coord, inside, flag1, vectorName, terminalSpeed);
-            streamColor[i].emplace_back(temV[0]);
-            streamColor[i].emplace_back(temV[1]);
-            streamColor[i].emplace_back(temV[2]);
-            if (flag && length < lengOfStreamLine && steps != 0) {
-                tem[i].emplace_back(_coord[0]);
-                tem[i].emplace_back(_coord[1]);
-                tem[i].emplace_back(_coord[2]);
-            }
-        }
-        // std::cout << "1" << std::endl;
-        // std::cout << i << "end" <<clock()-time1<< std::endl;
-    };
-
-    for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
-    for (int i = 0; i < seed.size(); i++) { result[i].wait(); }
-
-    // result[41] = tp->Commit(func, 41);
-    // result[41].wait();
-
-    //	std::cout << "time: " << clock() - time1 << std::endl;
-    return tem;
-}
 std::vector<std::vector<std::vector<float>>>
 StreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
                              std::vector<std::vector<std::vector<float>>>& streamColor, float lengOfStreamLine,

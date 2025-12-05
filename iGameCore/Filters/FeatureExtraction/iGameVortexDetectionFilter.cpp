@@ -14,9 +14,31 @@
 #include <filesystem>
 #include <memory>
 #include <omp.h>
-#include <semaphore>
+// #include <semaphore>
 #include <string>
 #include <vector>
+
+#include <mutex>
+#include <condition_variable>
+
+class SimpleSemaphore {
+public:
+    explicit SimpleSemaphore(int count) : count_(count) {}
+    void acquire() {
+        std::unique_lock<std::mutex> lock(m_);
+        cv_.wait(lock, [&]{ return count_ > 0; });
+        --count_;
+    }
+    void release() {
+        std::lock_guard<std::mutex> lock(m_);
+        ++count_;
+        cv_.notify_one();
+    }
+private:
+    std::mutex m_;
+    std::condition_variable cv_;
+    int count_;
+};
 
 #if defined(LibTorch_ENABLE)
 #ifdef emit
@@ -66,7 +88,7 @@ bool VortexDetection::Execute() {
         return true;
     };
 
-    SetOutput(input);
+    // SetOutput(input);
 
     switch (input->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
@@ -76,6 +98,11 @@ bool VortexDetection::Execute() {
         } break;
         case IG_VOLUME_MESH: {
             volume_Mesh = DynamicCast<VolumeMesh>(input);
+            if (!CheckType()) return false;
+            return DetectionVortexWithVolumeMesh(volume_Mesh, attributeSet, curIndex, name);
+        } break;
+        case IG_STRUCTURED_MESH: {
+            volume_Mesh = DynamicCast<StructuredMesh>(input);
             if (!CheckType()) return false;
             return DetectionVortexWithVolumeMesh(volume_Mesh, attributeSet, curIndex, name);
         } break;
@@ -142,9 +169,7 @@ struct KDTree {
     };
 
     using Adaptor =
-            nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim,
-                                                Index // "{�?
-                                                >;
+            nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim, Index>;
 
     PointCloud cloud_;
     std::unique_ptr<Adaptor> index_;
@@ -173,8 +198,7 @@ struct KDTree {
 
     void build(size_t leaf_max_size = 32) {
         leaf_max_size_ = leaf_max_size;
-        index_ = std::make_unique<Adaptor>(Dim, cloud_,
-                                           nanoflann::KDTreeSingleIndexAdaptorParams(static_cast<int>(leaf_max_size_)));
+        index_ = std::make_unique<Adaptor>(Dim, cloud_, nanoflann::KDTreeSingleIndexAdaptorParams(static_cast<int>(leaf_max_size_)));
         index_->buildIndex();
     }
 
@@ -225,62 +249,6 @@ struct KDTree {
         index_->findNeighbors(rs, qp, sp);
     }
 };
-// struct KDTree {
-//     struct PointCloud {
-//         std::vector<std::vector<double>> pts;
-//
-//         inline size_t kdtree_get_point_count() const { return pts.size(); }
-//         inline double kdtree_get_pt(size_t idx, size_t dim) const { return pts[idx][dim]; }
-//         template <class BBOX> bool kdtree_get_bbox(BBOX&) const { return false; }
-//     };
-//
-//     using NanoFLANNIndex =
-//         nanoflann::KDTreeSingleIndexAdaptor<
-//             nanoflann::L2_Simple_Adaptor<double, PointCloud>,
-//             PointCloud,
-//             3 // ��
-//         >;
-//
-//     PointCloud point_cloud;
-//     std::unique_ptr<NanoFLANNIndex> index;
-//
-//     explicit KDTree(const Eigen::MatrixXd& points) {
-//         const size_t rows = static_cast<size_t>(points.rows());
-//         point_cloud.pts.assign(rows, std::vector<double>(3));
-//         for (size_t i = 0; i < rows; ++i) {
-//             point_cloud.pts[i][0] = points(static_cast<Eigen::Index>(i), 0);
-//             point_cloud.pts[i][1] = points(static_cast<Eigen::Index>(i), 1);
-//             point_cloud.pts[i][2] = points(static_cast<Eigen::Index>(i), 2);
-//         }
-//         index = std::make_unique<NanoFLANNIndex>(
-//             3, point_cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-//         index->buildIndex();
-//     }
-//
-//     void query(const Eigen::VectorXd& q, int k,
-//                std::vector<int>& result, std::vector<double>& distances) const {
-//         if (point_cloud.pts.empty() || k <= 0) {
-//             result.clear(); distances.clear(); return;
-//         }
-//
-//         double query_pt[3] = { q[0], q[1], q[2] };
-//
-//         using IdxT = nanoflann::KNNResultSet<double>::IndexType;
-//         std::vector<IdxT> idx_tmp(static_cast<size_t>(k));
-//         distances.resize(static_cast<size_t>(k));
-//
-//         nanoflann::KNNResultSet<double> rs(static_cast<size_t>(k));
-//         rs.init(idx_tmp.data(), distances.data());
-//         index->findNeighbors(rs, &query_pt[0], nanoflann::SearchParameters());
-//
-//         const size_t n = rs.size();
-//         idx_tmp.resize(n);
-//         distances.resize(n);
-//
-//         result.resize(n);
-//         for (size_t i = 0; i < n; ++i) result[i] = static_cast<int>(idx_tmp[i]);
-//     }
-// };
 
 struct BlockInfo {
     Vector3f minP, maxP;
@@ -334,309 +302,147 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     Vector3f minPosition(boundBox.min);
 
     Vector3f range = maxPosition - minPosition;
-    // float maxLen = std::max({range[0], range[1], range[2]});
-    // int split = 6;
-    // double min_effective_edge = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 20) * 2;
-    // std::cout<<"min_effective_edge = "<<min_effective_edge<<std::endl;
-    // int targetPoints = int(maxLen / (min_effective_edge + 1e-8)) + 1;
-    // targetPoints = targetPoints / split;
-    // std::cout<<"targetPoints = "<<targetPoints<<std::endl;
 
+    bool uniform = IsAxisAlignedUniformGrid(gridPoints,dims,origin,spacing,1e-10f);
+    std::cout << "Is uniform grid: " << uniform << std::endl;
     int split = 6;
-    const double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60.0);
-    const double Lv = std::cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75.0));
-    const double L = std::max(Lp, 0.5 * Lv);
-    const double bbox_diag = double(range.norm());
-    const double alpha = 1.3;
-    const double h_raw = alpha * L;
-    const double h_floor = bbox_diag * 1e-3;
-    const double h_ceil = bbox_diag * 0.08;
-    double h = std::min(std::max(h_raw, h_floor), h_ceil);
+    int nx,ny,nz;
 
-    auto vol_tet4 = [](const Vector3f& a, const Vector3f& b, const Vector3f& c, const Vector3f& d) -> double {
-        const double bax = double(b[0]) - double(a[0]);
-        const double bay = double(b[1]) - double(a[1]);
-        const double baz = double(b[2]) - double(a[2]);
-        const double cax = double(c[0]) - double(a[0]);
-        const double cay = double(c[1]) - double(a[1]);
-        const double caz = double(c[2]) - double(a[2]);
-        const double dax = double(d[0]) - double(a[0]);
-        const double day = double(d[1]) - double(a[1]);
-        const double daz = double(d[2]) - double(a[2]);
-        const double det =
-                bax * (cay * daz - caz * day) - bay * (cax * daz - caz * dax) + baz * (cax * day - cay * dax);
-        return std::abs(det) * (1.0 / 6.0);
-    };
+    if (!uniform) {
+        const double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60.0);
+        const double Lv = std::cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75.0));
+        const double L = std::max(Lp, 0.5 * Lv);
+        const double bbox_diag = double(range.norm());
+        const double alpha = 1.3;
+        const double h_raw = alpha * L;
+        const double h_floor = bbox_diag * 1e-3;
+        const double h_ceil = bbox_diag * 0.08;
+        double h = std::min(std::max(h_raw, h_floor), h_ceil);
 
-    // auto sum_cell_volume_parallel = [&](const std::vector<Vector3f>& P,
-    //                                     const std::vector<Volume*>&  C) -> double
-    // {
-    //     double sumV = 0.0;
-    //     #pragma omp parallel
-    //     {
-    //         std::vector<double> el;
-    //         el.reserve(64);
-    //         double local_sum = 0.0;
-    //         #pragma omp for schedule(guided)
-    //         for (int i = 0; i < (int)C.size(); ++i) {
-    //             Volume* cell = C[i];
-    //             const int n = cell->GetNumberOfPoints();
-    //             if (n < 4) continue;
-    //             if (n == 4) {
-    //                 const int id0 = cell->GetPointId(0);
-    //                 const int id1 = cell->GetPointId(1);
-    //                 const int id2 = cell->GetPointId(2);
-    //                 const int id3 = cell->GetPointId(3);
-    //                 local_sum += vol_tet4(P[id0], P[id1], P[id2], P[id3]);
-    //             } else {
-    //                 el.clear();
-    //                 el.reserve((size_t)n * (n - 1) / 2);
-    //                 for (int j = 0; j < n; ++j) {
-    //                     const int vj = cell->GetPointId(j);
-    //                     const auto& pj = P[vj];
-    //                     for (int k = j + 1; k < n; ++k) {
-    //                         const int vk = cell->GetPointId(k);
-    //                         const auto& pk = P[vk];
-    //                         const double dx = double(pj[0]) - double(pk[0]);
-    //                         const double dy = double(pj[1]) - double(pk[1]);
-    //                         const double dz = double(pj[2]) - double(pk[2]);
-    //                         const double len = std::sqrt(dx*dx + dy*dy + dz*dz);
-    //                         if (len > 1e-12 && std::isfinite(len)) el.push_back(len);
-    //                     }
-    //                 }
-    //                 if (!el.empty()) {
-    //                     const size_t mid = el.size() / 2;
-    //                     std::nth_element(el.begin(), el.begin() + mid, el.end());
-    //                     const double Lm = el[mid];
-    //                     local_sum += Lm * Lm * Lm;
-    //                 }
-    //             }
-    //         }
-    //         #pragma omp atomic
-    //         sumV += local_sum;
-    //     }
-    //     return sumV;
-    // };
-    // const double V_occ  = sum_cell_volume_parallel(gridPoints, gridCells);
-    // const double V_bbox = std::max(1e-18,
-    //                         double(range[0]) * double(range[1]) * double(range[2]));
-    // const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
-    // const double sub_len_x = double(range[0]) / double(split);
-    // const double sub_len_y = double(range[1]) / double(split);
-    // const double sub_len_z = double(range[2]) / double(split);
-    // const double V_sub     = sub_len_x * sub_len_y * sub_len_z;
-    // const long long V_TARGET = 96LL * 96LL * 96LL;
-    // const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
-    // const double c_occ = 1.5;
-    // h = std::min(h, c_occ * h_occ);
-    //
-    // auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
-    // int nx = compute_n(sub_len_x);
-    // int ny = compute_n(sub_len_y);
-    // int nz = compute_n(sub_len_z);
-    // const int N_MIN = 12, N_MAX = 200;
-    // nx = std::max(N_MIN, std::min(nx, N_MAX));
-    // ny = std::max(N_MIN, std::min(ny, N_MAX));
-    // nz = std::max(N_MIN, std::min(nz, N_MAX));
-    //
-    // const long long VOX_CAP = 96LL * 96LL * 96LL;
-    // long long vox = 1LL * nx * ny * nz;
-    // if (vox > VOX_CAP) {
-    //     const double s = std::cbrt(double(VOX_CAP) / double(vox));
-    //     nx = std::max(N_MIN, int(nx * s));
-    //     ny = std::max(N_MIN, int(ny * s));
-    //     nz = std::max(N_MIN, int(nz * s));
-    // }
-    //
-    // std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+        auto vol_tet4 = [](const Vector3f& a, const Vector3f& b, const Vector3f& c, const Vector3f& d) -> double {
+            const double bax = double(b[0]) - double(a[0]);
+            const double bay = double(b[1]) - double(a[1]);
+            const double baz = double(b[2]) - double(a[2]);
+            const double cax = double(c[0]) - double(a[0]);
+            const double cay = double(c[1]) - double(a[1]);
+            const double caz = double(c[2]) - double(a[2]);
+            const double dax = double(d[0]) - double(a[0]);
+            const double day = double(d[1]) - double(a[1]);
+            const double daz = double(d[2]) - double(a[2]);
+            const double det =
+                    bax * (cay * daz - caz * day) - bay * (cax * daz - caz * dax) + baz * (cax * day - cay * dax);
+            return std::abs(det) * (1.0 / 6.0);
+        };
 
-    int progress = 0;
-    auto approx_cell_volume_by_bounded_edges = [&](const std::vector<Vector3f>& P, Volume* cell) -> double {
-        const int n = cell->GetNumberOfPoints();
-        if (n < 4) return 0.0;
-        if (n == 4) {
-            const int id0 = cell->GetPointId(0);
-            const int id1 = cell->GetPointId(1);
-            const int id2 = cell->GetPointId(2);
-            const int id3 = cell->GetPointId(3);
-            return vol_tet4(P[id0], P[id1], P[id2], P[id3]);
-        }
+        auto approx_cell_volume_by_bounded_edges = [&](const std::vector<Vector3f>& P, Volume* cell) -> double {
+            const int n = cell->GetNumberOfPoints();
+            if (n < 4) return 0.0;
+            if (n == 4) {
+                const int id0 = cell->GetPointId(0);
+                const int id1 = cell->GetPointId(1);
+                const int id2 = cell->GetPointId(2);
+                const int id3 = cell->GetPointId(3);
+                return vol_tet4(P[id0], P[id1], P[id2], P[id3]);
+            }
 
-        constexpr int KMAX = 64;
-        constexpr int VMAX = 16;
-        double buf[KMAX];
-        int m = 0;
-        const int stride = std::max(1, n / VMAX);
-        int vids[VMAX];
-        int vc = 0;
-        for (int j = 0; j < n && vc < VMAX; j += stride) { vids[vc++] = cell->GetPointId(j); }
-        if (vc < 4) {
-            vc = std::min(n, 4);
-            for (int j = 0; j < vc; ++j) vids[j] = cell->GetPointId(j);
-        }
+            constexpr int KMAX = 64;
+            constexpr int VMAX = 16;
+            double buf[KMAX];
+            int m = 0;
+            const int stride = std::max(1, n / VMAX);
+            int vids[VMAX];
+            int vc = 0;
+            for (int j = 0; j < n && vc < VMAX; j += stride) { vids[vc++] = cell->GetPointId(j); }
+            if (vc < 4) {
+                vc = std::min(n, 4);
+                for (int j = 0; j < vc; ++j) vids[j] = cell->GetPointId(j);
+            }
 
-        for (int a = 0; a < vc && m < KMAX; ++a) {
-            const Vector3f& pa = P[vids[a]];
-            const int b1 = (a + 1);
-            const int b2 = (a + stride) < vc ? (a + stride) : -1;
+            for (int a = 0; a < vc && m < KMAX; ++a) {
+                const Vector3f& pa = P[vids[a]];
+                const int b1 = (a + 1);
+                const int b2 = (a + stride) < vc ? (a + stride) : -1;
 
-            auto push_len = [&](int b) {
-                if (b < 0 || b >= vc || m >= KMAX) return;
-                const Vector3f& pb = P[vids[b]];
-                const double dx = double(pa[0]) - double(pb[0]);
-                const double dy = double(pa[1]) - double(pb[1]);
-                const double dz = double(pa[2]) - double(pb[2]);
-                const double len = std::sqrt(dx * dx + dy * dy + dz * dz);
-                if (len > 1e-12 && std::isfinite(len)) buf[m++] = len;
-            };
+                auto push_len = [&](int b) {
+                    if (b < 0 || b >= vc || m >= KMAX) return;
+                    const Vector3f& pb = P[vids[b]];
+                    const double dx = double(pa[0]) - double(pb[0]);
+                    const double dy = double(pa[1]) - double(pb[1]);
+                    const double dz = double(pa[2]) - double(pb[2]);
+                    const double len = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    if (len > 1e-12 && std::isfinite(len)) buf[m++] = len;
+                };
 
-            push_len(b1);
-            push_len(b2);
-        }
+                push_len(b1);
+                push_len(b2);
+            }
 
-        if (m == 0) return 0.0;
-        const int mid = m / 2;
-        std::nth_element(buf, buf + mid, buf + m);
-        const double Lm = buf[mid];
-        return Lm * Lm * Lm;
-    };
-    auto sum_cell_volume_parallel_fast = [&](const std::vector<Vector3f>& P, const std::vector<Volume*>& C) -> double {
-        double sumV = 0.0;
+            if (m == 0) return 0.0;
+            const int mid = m / 2;
+            std::nth_element(buf, buf + mid, buf + m);
+            const double Lm = buf[mid];
+            return Lm * Lm * Lm;
+        };
+        auto sum_cell_volume_parallel_fast = [&](const std::vector<Vector3f>& P, const std::vector<Volume*>& C) -> double {
+            double sumV = 0.0;
 #pragma omp parallel for schedule(dynamic, 1) reduction(+ : sumV)
-        for (int i = 0; i < (int) C.size(); ++i) {
-            Volume* cell = C[i];
-            if (!cell) continue;
-            sumV += approx_cell_volume_by_bounded_edges(P, cell);
+            for (int i = 0; i < (int) C.size(); ++i) {
+                Volume* cell = C[i];
+                if (!cell) continue;
+                sumV += approx_cell_volume_by_bounded_edges(P, cell);
+            }
+            return sumV;
+        };
+        const double V_occ = sum_cell_volume_parallel_fast(gridPoints, gridCells);
+        const double V_bbox = std::max(1e-18, double(range[0]) * double(range[1]) * double(range[2]));
+        const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
+
+        const double sub_len_x = double(range[0]) / double(split);
+        const double sub_len_y = double(range[1]) / double(split);
+        const double sub_len_z = double(range[2]) / double(split);
+        const double V_sub = sub_len_x * sub_len_y * sub_len_z;
+
+        constexpr long long V_TARGET = 96LL * 96LL * 96LL;
+        const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
+        const double c_occ = 1.5;
+        h = std::min(h, c_occ * h_occ);
+
+        auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
+        nx = compute_n(sub_len_x);
+        ny = compute_n(sub_len_y);
+        nz = compute_n(sub_len_z);
+
+        constexpr int N_MIN = 12, N_MAX = 200;
+        nx = std::max(N_MIN, std::min(nx, N_MAX));
+        ny = std::max(N_MIN, std::min(ny, N_MAX));
+        nz = std::max(N_MIN, std::min(nz, N_MAX));
+
+        constexpr long long VOX_CAP = 96LL * 96LL * 96LL;
+        long long vox = 1LL * nx * ny * nz;
+        if (vox > VOX_CAP) {
+            const double s = std::cbrt(double(VOX_CAP) / double(vox));
+            nx = std::max(N_MIN, int(nx * s));
+            ny = std::max(N_MIN, int(ny * s));
+            nz = std::max(N_MIN, int(nz * s));
         }
-        return sumV;
-    };
-    const double V_occ = sum_cell_volume_parallel_fast(gridPoints, gridCells);
-    const double V_bbox = std::max(1e-18, double(range[0]) * double(range[1]) * double(range[2]));
-    const double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
 
-    const double sub_len_x = double(range[0]) / double(split);
-    const double sub_len_y = double(range[1]) / double(split);
-    const double sub_len_z = double(range[2]) / double(split);
-    const double V_sub = sub_len_x * sub_len_y * sub_len_z;
-
-    constexpr long long V_TARGET = 96LL * 96LL * 96LL;
-    const double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
-    const double c_occ = 1.5;
-    h = std::min(h, c_occ * h_occ);
-
-    auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
-    int nx = compute_n(sub_len_x);
-    int ny = compute_n(sub_len_y);
-    int nz = compute_n(sub_len_z);
-
-    constexpr int N_MIN = 12, N_MAX = 200;
-    nx = std::max(N_MIN, std::min(nx, N_MAX));
-    ny = std::max(N_MIN, std::min(ny, N_MAX));
-    nz = std::max(N_MIN, std::min(nz, N_MAX));
-
-    constexpr long long VOX_CAP = 96LL * 96LL * 96LL;
-    long long vox = 1LL * nx * ny * nz;
-    if (vox > VOX_CAP) {
-        const double s = std::cbrt(double(VOX_CAP) / double(vox));
-        nx = std::max(N_MIN, int(nx * s));
-        ny = std::max(N_MIN, int(ny * s));
-        nz = std::max(N_MIN, int(nz * s));
+        std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
+    }
+    else {
+        split = 1;
+        GetGridXYZCounts(gridPoints, nx, ny, nz);
+        std::cout << "all-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
     }
 
-    std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
-
-    progress+=10;
+    int progress=10;
     UpdateProgress(progress * 0.01);
-
-    // int split = 6;
-    // double Lp = compute_percentile_edge_length_from_cells(gridPoints, gridCells, 60);
-    // double Lv = cbrt(compute_percentile_cell_volume(gridPoints, gridCells, 75));
-    // double L = std::max(Lp, 0.5 * Lv);
-    // double bbox_diag = range.norm();
-    //
-    // double alpha = 1.3;
-    // double h_raw = alpha * L;
-    // double h_floor = bbox_diag * 1e-3;
-    // double h_ceil = bbox_diag * 0.08;
-    // double h = std::min(std::max(h_raw, h_floor), h_ceil);
-    //
-    // auto sum_cell_volume = [&](const std::vector<Vector3f>& P,
-    //                        const std::vector<Volume*>& C)->double {
-    //     double sumV = 0.0;
-    //     for (auto cell : C) {
-    //         int n = cell->GetNumberOfPoints();
-    //         if (n < 4) continue;
-    //         std::vector<int> vids(n);
-    //         for (int j = 0; j < n; ++j) vids[j] = cell->GetPointId(j);
-    //         if (n == 4) {
-    //             auto vol_tet = [&](const Vector3f& a,const Vector3f& b,
-    //                                const Vector3f& c,const Vector3f& d)->double{
-    //                 double bax=b[0]-a[0], bay=b[1]-a[1], baz=b[2]-a[2];
-    //                 double cax=c[0]-a[0], cay=c[1]-a[1], caz=c[2]-a[2];
-    //                 double dax=d[0]-a[0], day=d[1]-a[1], daz=d[2]-a[2];
-    //                 double det = bax*(cay*daz - caz*day)
-    //                            - bay*(cax*daz - caz*dax)
-    //                            + baz*(cax*day - cay*dax);
-    //                 return std::abs(det)/6.0;
-    //             };
-    //             sumV += vol_tet(P[vids[0]], P[vids[1]], P[vids[2]], P[vids[3]]);
-    //         } else {
-    //             std::vector<double> el; el.reserve(n*(n-1)/2);
-    //             for (int j=0;j<n;++j) for (int k=j+1;k<n;++k){
-    //                 double len = (P[vids[j]] - P[vids[k]]).norm();
-    //                 if (len>1e-12 && std::isfinite(len)) el.push_back(len);
-    //             }
-    //             if (!el.empty()){
-    //                 size_t mid = el.size()/2;
-    //                 std::nth_element(el.begin(), el.begin()+mid, el.end());
-    //                 double Lm = el[mid];
-    //                 sumV += Lm*Lm*Lm;
-    //             }
-    //         }
-    //     }
-    //     return sumV;
-    // };
-    //
-    // double V_occ  = sum_cell_volume(gridPoints, gridCells);
-    // double V_bbox = std::max(1e-18, double(range[0])*double(range[1])*double(range[2]));
-    // double f = std::clamp(V_occ / V_bbox, 1e-6, 1.0);
-    //
-    // double sub_len_x = range[0] / split;
-    // double sub_len_y = range[1] / split;
-    // double sub_len_z = range[2] / split;
-    // double V_sub = sub_len_x * sub_len_y * sub_len_z;
-    // const long long V_TARGET = 96LL*96LL*96LL;
-    // double h_occ = std::cbrt(std::max(1e-18, (V_sub * f) / double(V_TARGET)));
-    //
-    // double c_occ = 1.5;
-    // h = std::min(h, c_occ * h_occ);
-    //
-    // auto compute_n = [&](double len) { return int(std::ceil(len / h)) + 1; };
-    // int nx = compute_n(sub_len_x);
-    // int ny = compute_n(sub_len_y);
-    // int nz = compute_n(sub_len_z);
-    // int N_MIN = 12, N_MAX = 200;
-    // long long VOX_CAP = 96LL*96LL*96LL;
-    // nx = std::max(N_MIN, std::min(nx, N_MAX));
-    // ny = std::max(N_MIN, std::min(ny, N_MAX));
-    // nz = std::max(N_MIN, std::min(nz, N_MAX));
-    // long long vox = 1LL * nx * ny * nz;
-    // if (vox > VOX_CAP) {
-    //     double s = std::cbrt(double(VOX_CAP)/double(vox));
-    //     nx = std::max(N_MIN, int(nx*s));
-    //     ny = std::max(N_MIN, int(ny*s));
-    //     nz = std::max(N_MIN, int(nz*s));
-    // }
-    // std::cout << "per-block resolution: " << nx << " x " << ny << " x " << nz << std::endl;
 
     std::string model_path = "./Resources/AI/model_1x64x64x64_1108_cuda.pt";
 
     auto [result_volume_11, global_step, predict_vals] =
             process_blocks(gridPoints, gridVelocities, minPosition, maxPosition, model_path, split, nx, ny, nz, Mesh,
-                           Attributes, Index);
+                           Attributes, Index,uniform);
 
-    // torch::Tensor result_volume_11 = std::get<0>(result);
-    // Eigen::Vector3f global_step = std::get<1>(result);
     Eigen::Vector3f eigen_min(minPosition[0], minPosition[1], minPosition[2]);
 
     std::vector<Eigen::Vector3f> eigenPoints;
@@ -652,22 +458,10 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     // std::cout << "[VortexDetection:process_blocks:::Execute] knn_smooth_labels = " << elapsed_0 << " s" << std::endl;
     std::vector<float> Predict(NumPoints, 0.0f);
 
-    FloatArray::Pointer vortexs = FloatArray::New();
-    vortexs->SetDimension(1);
-    vortexs->Reserve(NumPoints);
-    vortexs->SetName("vortexPredict");
-    attributeSet->AddScalar(IG_POINT, vortexs);
-
-    UpdateProgress(95 * 0.01);
-
-    for (int i = 0; i < NumPoints; ++i) {
+    for (IGsize i = 0; i < NumPoints; ++i) {
         float value = smooth_vals[i].item<float>();
-        vortexs->AddValue(value);
         Predict[i] = value;
     }
-    auto t1 = std::chrono::high_resolution_clock::now();
-    double elapsed = std::chrono::duration<double>(t1 - t0).count();
-    std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
 
     int dim = volume_Mesh->GetAttributeSet()->GetNumberOfAttributes();
     for (int i = 0; i < dim; i++) {
@@ -678,6 +472,38 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
             break;
         }
     }
+    UpdateProgress(95 * 0.01);
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t1 - t0).count();
+    std::cout << "[VortexDetection::Execute] Total time = " << elapsed << " s" << std::endl;
+
+    FloatArray::Pointer vortexs = FloatArray::New();
+    vortexs->SetDimension(1);
+    vortexs->Reserve(NumPoints);
+    vortexs->SetName("vortexPredict");
+    for (IGsize i = 0; i < NumPoints; ++i) {
+        // float value = smooth_vals[i].item<float>();
+        vortexs->AddValue(Predict[i]);
+    }
+
+    auto outMesh = VolumeMesh::New();
+    auto newPoints = Points::New();
+    auto newVolumes = CellArray::New();
+    auto newAttrs = AttributeSet::New();
+
+    newPoints = Mesh->GetPoints();
+    newVolumes = Mesh->GetVolumes();
+    newAttrs = Mesh->GetAttributeSet();
+
+    newAttrs->AddScalar(IG_POINT, vortexs);
+
+    outMesh->SetVolumes(newVolumes);
+    outMesh->SetAttributeSet(newAttrs);
+    outMesh->SetName(Mesh->GetName());
+    outMesh->SetPoints(newPoints);
+    SetOutput(outMesh);
+
     UpdateProgress(100 * 0.01);
     return true;
 }
@@ -1521,7 +1347,6 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
     return prob_cropped; // [D,H,W]
 }
 
-
 // torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid_tensor, const std::string& model_path,
 //                                                        const torch::jit::script::Module& model) {
 //     int patch_size = 64;
@@ -1600,331 +1425,6 @@ torch::Tensor VortexDetection::run_prediction_on_block(const torch::Tensor& grid
 //     return prob_cropped;
 // }
 
-//std::tuple<torch::Tensor, Eigen::Vector3f>
-//VortexDetection::process_blocks_pre(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
-//                                const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path,
-//                                int target_points, int split) {
-//
-//    torch::jit::script::Module model;
-//
-//    try {
-//        model = torch::jit::load(model_path);
-//        std::cout << "Model loaded successfully." << std::endl;
-//    } catch (const c10::Error& e) { std::cerr << "Error loading the model." << e.what() << std::endl; }
-//    Eigen::Vector3f min_pos_eigen(min_pos[0], min_pos[1], min_pos[2]);
-//    Eigen::Vector3f max_pos_eigen(max_pos[0], max_pos[1], max_pos[2]);
-//
-//    Eigen::Vector3f range_vec = max_pos_eigen - min_pos_eigen;
-//    Eigen::Vector3f block_size = range_vec / split;
-//    //Eigen::Vector3f range_vec = max_pos - min_pos;
-//    //Eigen::Vector3f block_size = range_vec / split;
-//    //  KD-Tree
-//    Eigen::MatrixXd points(gridPoints.size(), 3);
-//    for (size_t i = 0; i < gridPoints.size(); ++i) {
-//        points(i, 0) = gridPoints[i][0];
-//        points(i, 1) = gridPoints[i][1];
-//        points(i, 2) = gridPoints[i][2];
-//    }
-//
-//    KDTree tree(points);
-//
-//    Eigen::MatrixXd velocities(gridVelocities.size(), 3);
-//    for (size_t i = 0; i < gridVelocities.size(); ++i) {
-//        velocities(i, 0) = gridVelocities[i][0];
-//        velocities(i, 1) = gridVelocities[i][1];
-//        velocities(i, 2) = gridVelocities[i][2];
-//    }
-//
-//    Vector3f mean = {-1.572247e-04, -4.576315e-04, -2.9615819e-10};
-//    Vector3f std = {2.6299512e-02, 2.8212167e-02, 1.9456959e-08};
-//    //std::vector<torch::Tensor> all_results_1;
-//
-//    //for (int bz = 0; bz < split; ++bz) {
-//    //    for (int by = 0; by < split; ++by) {
-//    //        for (int bx = 0; bx < split; ++bx) {
-//    //            Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-//    //            sub_min = sub_min + min_pos_eigen;
-//    //            Eigen::Vector3f sub_max = sub_min + block_size;
-//    //            Eigen::Vector3f sub_range = sub_max - sub_min;
-//    //            float max_len = sub_range.maxCoeff();
-//    //            float uniform_step = max_len / (target_points - 1);
-//    //            int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
-//    //            int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
-//    //            int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
-//    //            Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-//    //            //std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
-//    //            Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-//    //            torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-//    //            int K = 16; // Number of nearest neighbors
-//    //            double eps = 1e-6;
-//    //            std::vector<double> weights(K, 0.0);
-//    //            std::vector<int> idxs(K, 0);
-//    //            std::vector<double> dists(K, 0.0);
-//    //            for (int i = 0; i < nx; ++i) {
-//    //                //std::cout << "i" << i << std::endl;
-//    //                for (int j = 0; j < ny; ++j) {
-//    //                    for (int k = 0; k < nz; ++k) {
-//    //                        Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-//    //                        Eigen::VectorXd pos_vec(3);
-//    //                        pos_vec << pos[0], pos[1], pos[2];
-//    //                        tree.query(pos_vec, K, idxs, dists);
-//    //                        torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-//    //                        if (K == 1) {
-//    //                            weighted_sum = torch::tensor(
-//    //                                    {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
-//    //                                    torch::kFloat32);
-//    //                        } else {
-//    //                            double dist_sum = 0.0;
-//    //                            for (int l = 0; l < K; ++l) {
-//    //                                double dist = dists[l];
-//    //                                weights[l] = 1.0 / (dist * dist + eps);
-//    //                                dist_sum += weights[l];
-//    //                            }
-//    //                            for (int l = 0; l < K; ++l) { weights[l] /= dist_sum; }
-//    //                            for (int l = 0; l < K; ++l) {
-//    //                                if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
-//    //                                    weighted_sum += weights[l] *
-//    //                                                    torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-//    //                                                                   velocities(idxs[l], 2)},
-//    //                                                                  torch::kFloat32);
-//    //                                } else {
-//    //                                    std::cerr << "Index out of bounds: " << idxs[l] << std::endl;
-//    //                                }
-//    //                            }
-//    //                        }
-//    //                        grid_tensor[k][j][i] = weighted_sum;
-//    //                    }
-//    //                }
-//    //            }
-//    //            torch::Tensor arr = grid_tensor.clone();
-//    //            for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-//    //            arr = sigmoid(arr);
-//    //            std::cout << "model_prediction " << std::endl;
-//    //            torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path);
-//    //        }
-//    //    }
-//    //}
-//
-//    const int total_blocks = split * split * split;
-//    std::vector<torch::Tensor> all_results_1(total_blocks);
-//
-//
-//
-//    /*int max_threads = (int) std::thread::hardware_concurrency();
-//    int workers = std::min(total_blocks, max_threads);
-//    static std::counting_semaphore<> infer_slots(workers);
-//    at::set_num_threads(1);
-//    at::set_num_interop_threads(1);
-//    omp_set_num_threads(1);
-//    std::atomic<int> next_block{0};*/
-//    //auto worker_task = [&]() {
-//    //    //static thread_local bool printed = false;
-//    //    //if (!printed) {
-//    //    //    printed = true;
-//    //    //    std::cout << "[Thread Start] ID = " << std::this_thread::get_id() << std::endl;
-//    //    //}
-//    //    while (true) {
-//    //        int id = next_block.fetch_add(1, std::memory_order_relaxed);
-//    //        if (id >= total_blocks) break;
-//    //        int bz = id / (split * split);
-//    //        int by = (id / split) % split;
-//    //        int bx = id % split;
-//    //        Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-//    //        sub_min = sub_min + min_pos_eigen;
-//    //        Eigen::Vector3f sub_max = sub_min + block_size;
-//    //        Eigen::Vector3f sub_range = sub_max - sub_min;
-//    //        float max_len = sub_range.maxCoeff();
-//    //        float uniform_step = max_len / (target_points - 1);
-//    //        int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
-//    //        int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
-//    //        int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
-//    //        Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-//    //        Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-//    //        torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-//    //        const int K = 16;
-//    //        const double eps = 1e-6;
-//    //        std::vector<double> weights(K, 0.0);
-//    //        std::vector<int> idxs(K, 0);
-//    //        std::vector<double> dists(K, 0.0);
-//    //        std::cout << "nx: " << nx << " ny: " << ny << " nz: " << nz << std::endl;
-//    //        for (int i = 0; i < nx; ++i) {
-//    //            for (int j = 0; j < ny; ++j) {
-//    //                for (int k = 0; k < nz; ++k) {
-//    //                    Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-//    //                    Eigen::VectorXd pos_vec(3);
-//    //                    pos_vec << pos[0], pos[1], pos[2];
-//    //                    tree.query(pos_vec, K, idxs, dists);
-//    //                    torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-//    //                    if (K == 1) {
-//    //                        weighted_sum = torch::tensor(
-//    //                                {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
-//    //                                torch::kFloat32);
-//    //                    } else {
-//    //                        double dist_sum = 0.0;
-//    //                        for (int l = 0; l < K; ++l) {
-//    //                            double dist = dists[l];
-//    //                            weights[l] = 1.0 / (dist * dist + eps);
-//    //                            dist_sum += weights[l];
-//    //                        }
-//    //                        for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-//    //                        for (int l = 0; l < K; ++l) {
-//    //                            weighted_sum +=
-//    //                                    weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-//    //                                                                velocities(idxs[l], 2)},
-//    //                                                               torch::kFloat32);
-//    //                        }
-//    //                    }
-//    //                    grid_tensor[k][j][i] = weighted_sum;
-//    //                }
-//    //            }
-//    //        }
-//    //        torch::Tensor arr = grid_tensor.clone();
-//    //        for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-//    //        arr = sigmoid(arr);
-//    //        infer_slots.acquire();
-//    //        torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
-//    //        infer_slots.release();
-//    //        all_results_1[id] = std::move(pred_block_1);
-//    //        std::cout << "end.  idx = " << id<< std::endl;
-//    //    }
-//    //};
-//    //std::vector<std::thread> threads;
-//    //threads.reserve(workers);
-//    //for (int t = 0; t < workers; ++t) threads.emplace_back(worker_task);
-//    //for (auto& t: threads) t.join();
-//    //std::cout << "[All worker threads finished!]" << std::endl;
-//
-//
-//    const double eps = 1e-6;
-//    int max_threads = (int) std::thread::hardware_concurrency();
-//    int workers = std::min(total_blocks, max_threads);
-//    static std::counting_semaphore<> infer_slots(workers);
-//
-//    int progress = 0;
-//    std::mutex progress_mutex;
-//
-//    auto process_blocks_range = [&](int begin, int end) {
-//        static thread_local bool printed = false;
-//        for (int id = begin; id < end; ++id) {
-//            int bz = id / (split * split);
-//            int by = (id / split) % split;
-//            int bx = id % split;
-//            Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-//            sub_min = sub_min + min_pos_eigen;
-//            Eigen::Vector3f sub_max = sub_min + block_size;
-//            Eigen::Vector3f sub_range = sub_max - sub_min;
-//            float max_len = sub_range.maxCoeff();
-//            float uniform_step = max_len / (target_points - 1);
-//            int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
-//            int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
-//            int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
-//            Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-//            Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-//            torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-//            /*const int K = 16;*/
-//            const int K = 32;
-//            std::vector<double> weights(K, 0.0);
-//            std::vector<int> idxs(K, 0);
-//            std::vector<double> dists(K, 0.0);
-//            static std::atomic<int> test_counter{0};
-//            for (int i = 0; i < nx; ++i) {
-//                for (int j = 0; j < ny; ++j) {
-//                    for (int k = 0; k < nz; ++k) {
-//                        Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-//
-//                        Eigen::VectorXd pos_vec(3);
-//                        pos_vec << pos[0], pos[1], pos[2];
-//                        tree.query(pos_vec, K, idxs, dists);
-//                        torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-//                        if (K == 1) {
-//                            weighted_sum = torch::tensor(
-//                                    {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
-//                                    torch::kFloat32);
-//                        } else {
-//                            double dist_sum = 0.0;
-//                            for (int l = 0; l < K; ++l) {
-//                                double dist = dists[l];
-//                                weights[l] = 1.0 / (dist * dist + eps);
-//                                dist_sum += weights[l];
-//                            }
-//                            for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-//                            for (int l = 0; l < K; ++l) {
-//                                if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
-//                                    weighted_sum +=
-//                                            weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-//                                                                        velocities(idxs[l], 2)},
-//                                                                       torch::kFloat32);
-//                                }
-//                            }
-//                        }
-//                        grid_tensor[k][j][i] = weighted_sum;
-//                    }
-//                }
-//            }
-//            torch::Tensor arr = grid_tensor.clone();
-//            for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-//            arr = sigmoid(arr);
-//            infer_slots.acquire();
-//            torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
-//            infer_slots.release();
-//            all_results_1[id] = std::move(pred_block_1);
-//
-//        }
-//    };
-//
-//    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, workers);
-//    //ThreadPool::parallelFor(0, total_blocks, process_blocks_range);
-//
-//    /*int max_threads = (int) std::thread::hardware_concurrency();
-//    int workers = std::min(total_blocks, max_threads);
-//    static std::counting_semaphore<> infer_slots(workers);*/
-//
-//
-//    int nz_sub = all_results_1[0].size(0);
-//    int ny_sub = all_results_1[0].size(1);
-//    int nx_sub = all_results_1[0].size(2);
-//
-//    torch::Tensor result_volume_1 = torch::zeros({split * nz_sub, split * ny_sub, split * nx_sub}, torch::kFloat32);
-//
-//    int idx = 0;
-//    for (int bz = 0; bz < split; ++bz) {
-//        for (int by = 0; by < split; ++by) {
-//            for (int bx = 0; bx < split; ++bx) {
-//
-//                torch::Tensor cur = all_results_1[idx];
-//                auto sz = cur.sizes();
-//                if (sz[0] != nz_sub || sz[1] != ny_sub || sz[2] != nx_sub) {
-//                    cur = torch::nn::functional::pad(cur, torch::nn::functional::PadFuncOptions({
-//                                                                  0, nx_sub - sz[2], // W
-//                                                                  0, ny_sub - sz[1], // H
-//                                                                  0, nz_sub - sz[0]  // D
-//                                                          }));
-//                }
-//
-//                int z_start = bz * nz_sub;
-//                int y_start = by * ny_sub;
-//                int x_start = bx * nx_sub;
-//                result_volume_1.slice(0, z_start, z_start + nz_sub)
-//                        .slice(1, y_start, y_start + ny_sub)
-//                        .slice(2, x_start, x_start + nx_sub)
-//                        .copy_(all_results_1[idx]);
-//                ++idx;
-//            }
-//        }
-//    }
-//
-//    // ��h@e
-//    auto sizes = result_volume_1.sizes();
-//    float depth = static_cast<float>(sizes[0]);
-//    float height = static_cast<float>(sizes[1]);
-//    float width = static_cast<float>(sizes[2]);
-//
-//    Eigen::Vector3f volume_size(width, height, depth);
-//    Eigen::Vector3f global_step = range_vec.cwiseQuotient(volume_size);
-//
-//    torch::Tensor result_volume_11 = gaussian_filter3d(result_volume_1, 3, -1);
-//    return std::make_tuple(result_volume_11, global_step);
-//}
 
 // torch::Tensor VortexDetection::knn_smooth_labels(  before
 //     std::vector<float> data_val,
@@ -2006,142 +1506,6 @@ static inline uint64_t expandBits(uint32_t v) {
 static inline uint64_t morton3D(uint32_t x, uint32_t y, uint32_t z) {
     return (expandBits(x) << 0) | (expandBits(y) << 1) | (expandBits(z) << 2);
 }
-
-// torch::Tensor VortexDetection::knn_smooth_labels(
-//     std::vector<float> data_val,
-//     const torch::Tensor& prob_vol_1,
-//     const Eigen::Vector3f& min_pos,
-//     const Eigen::Vector3f& global_step,
-//     const std::vector<Eigen::Vector3f>& query_points,
-//     int /*k*/)
-// {
-//     auto vol = prob_vol_1.contiguous()
-//                .unsqueeze(0).unsqueeze(0);
-//
-//     const int64_t D = vol.size(2);  // nz
-//     const int64_t H = vol.size(3);  // ny
-//     const int64_t W = vol.size(4);  // nx
-//     const int64_t M = static_cast<int64_t>(query_points.size());
-//     torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
-//     auto* gptr = grid.data_ptr<float>();
-//     const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
-//     const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
-//     const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
-//     std::vector<float> tmp = data_val;
-//     size_t n = tmp.size();
-//     size_t idx = static_cast<size_t>(0.9f * (n - 1));
-//     std::nth_element(tmp.begin(), tmp.begin() + idx, tmp.end());
-//     const int64_t threshold = tmp[idx];
-//     const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
-//     const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
-//     const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
-//     auto worker = [&](int begin, int end) {
-//         for (int64_t i = begin; i < end; ++i) {
-//             const auto& qp = query_points[i];
-//             const float rx = (qp[0] - min_pos[0]) * inv_sx;
-//             const float ry = (qp[1] - min_pos[1]) * inv_sy;
-//             const float rz = (qp[2] - min_pos[2]) * inv_sz;
-//             float x_norm = Wx * rx - 1.0f;
-//             float y_norm = Hy * ry - 1.0f;
-//             float z_norm = Dz * rz - 1.0f;
-//             float* dst = gptr + i * 3;
-//             dst[0] = x_norm;
-//             dst[1] = y_norm;
-//             dst[2] = z_norm;
-//         }
-//     };
-//     ThreadPool::parallelFor(0, (int)M, worker,M);
-//     using namespace torch::nn::functional;
-//     auto opts = GridSampleFuncOptions()
-//     .mode(torch::kBilinear)
-//     .padding_mode(torch::kBorder)
-//     .align_corners(true);
-//     torch::Tensor sampled = grid_sample(vol, grid, opts);
-//     sampled = sampled.view({M});
-//
-//     torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
-//
-//     auto cond =
-//         ((dv.ge(0.2f) & sampled.ge(0.01f)) |
-//          (sampled.ge(0.2f) & dv.ge(0.15f)) |
-//          dv.ge(threshold) |
-//          sampled.ge(0.3f));
-//
-//     torch::Tensor out = sampled.to(torch::kFloat32);
-//     return out;
-// }
-
-// // current
-// torch::Tensor VortexDetection::knn_smooth_labels(
-//     std::vector<float> data_val,
-//     const torch::Tensor& prob_vol_1,
-//     const Eigen::Vector3f& min_pos,
-//     const Eigen::Vector3f& global_step,
-//     const std::vector<Eigen::Vector3f>& query_points,
-//     int /*k*/)
-// {
-//     auto vol = prob_vol_1.contiguous()
-//                .unsqueeze(0).unsqueeze(0);
-//     const int64_t D = vol.size(2);  // nz
-//     const int64_t H = vol.size(3);  // ny
-//     const int64_t W = vol.size(4);  // nx
-//     const int64_t M = static_cast<int64_t>(query_points.size());
-//     torch::Tensor grid = torch::empty({1, M, 1, 1, 3}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU));
-//     auto* gptr = grid.data_ptr<float>();
-//     const float inv_sx = (global_step[0] != 0.f) ? (1.0f / global_step[0]) : 0.f;
-//     const float inv_sy = (global_step[1] != 0.f) ? (1.0f / global_step[1]) : 0.f;
-//     const float inv_sz = (global_step[2] != 0.f) ? (1.0f / global_step[2]) : 0.f;
-//     std::vector<float> tmp;
-//     tmp.reserve(data_val.size());
-//     for (float v : data_val)
-//         if (v >= 0.1f) tmp.push_back(v);
-//     size_t n = tmp.size();
-//     size_t idx_93 = static_cast<size_t>(0.93 * (n - 1));
-//     size_t idx_40 = static_cast<size_t>(0.40 * (n - 1));
-//     size_t idx_20 = static_cast<size_t>(0.20 * (n - 1));
-//     std::nth_element(tmp.begin(), tmp.begin() + idx_93, tmp.end());
-//     float threshold_93 = tmp[idx_93];
-//     float threshold_40 = tmp[idx_40];
-//     float threshold_20 = tmp[idx_20];
-//     // std::cout << threshold << std::endl;
-//     const float Wx = (W > 1) ? (2.0f / float(W - 1)) : 0.f;
-//     const float Hy = (H > 1) ? (2.0f / float(H - 1)) : 0.f;
-//     const float Dz = (D > 1) ? (2.0f / float(D - 1)) : 0.f;
-//     auto worker = [&](int begin, int end) {
-//         for (int64_t i = begin; i < end; ++i) {
-//             const auto& qp = query_points[i];
-//             const float rx = (qp[0] - min_pos[0]) * inv_sx;
-//             const float ry = (qp[1] - min_pos[1]) * inv_sy;
-//             const float rz = (qp[2] - min_pos[2]) * inv_sz;
-//             float x_norm = Wx * rx - 1.0f;
-//             float y_norm = Hy * ry - 1.0f;
-//             float z_norm = Dz * rz - 1.0f;
-//             float* dst = gptr + i * 3;
-//             dst[0] = x_norm;
-//             dst[1] = y_norm;
-//             dst[2] = z_norm;
-//         }
-//     };
-//     ThreadPool::parallelFor(0, (int)M, worker,M);
-//     auto opts = GridSampleFuncOptions()
-//     .mode(torch::kBilinear)
-//     .padding_mode(torch::kBorder)
-//     .align_corners(true);
-//     torch::Tensor sampled = grid_sample(vol, grid, opts);
-//     sampled = sampled.view({M});
-//
-//     torch::Tensor dv = torch::from_blob((void*)data_val.data(), {M}, torch::TensorOptions().dtype(torch::kFloat32)).clone();
-//     auto cond =
-//         ((dv.ge(threshold_40) & sampled.ge(0.001f)) |
-//          (sampled.ge(0.1f) & dv.ge(threshold_20)) |
-//          dv.ge(threshold_93) |
-//          sampled.ge(0.3f));
-//
-//     // torch::Tensor out = sampled.to(torch::kFloat32);
-//     torch::Tensor out = cond.to(torch::kFloat32);
-//     return out;
-// }
-
 
 namespace
 {
@@ -2741,213 +2105,11 @@ ArrayObject::Pointer VortexDetection::AttributeCell2Point(CellArray::Pointer Cel
     return NewArray;
 }
 
-// std::tuple<torch::Tensor, Eigen::Vector3f>
-// VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
-//                                 const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path,
-//                                 int target_points, int split) {
-//
-//     torch::jit::script::Module model;
-//
-//     try {
-//         model = torch::jit::load(model_path);
-//         std::cout << "Model loaded successfully." << std::endl;
-//     } catch (const c10::Error& e) { std::cerr << "Error loading the model. " << e.what() << std::endl; }
-//     Eigen::Vector3f min_pos_eigen(min_pos[0], min_pos[1], min_pos[2]);
-//     Eigen::Vector3f max_pos_eigen(max_pos[0], max_pos[1], max_pos[2]);
-//
-//     Eigen::Vector3f range_vec = max_pos_eigen - min_pos_eigen;
-//     Eigen::Vector3f block_size = range_vec / split;
-//     //Eigen::Vector3f range_vec = max_pos - min_pos;
-//     //Eigen::Vector3f block_size = range_vec / split;
-//     // �? KD-Tree
-//     Eigen::MatrixXd points(gridPoints.size(), 3);
-//     for (size_t i = 0; i < gridPoints.size(); ++i) {
-//         points(i, 0) = gridPoints[i][0];
-//         points(i, 1) = gridPoints[i][1];
-//         points(i, 2) = gridPoints[i][2];
-//     }
-//
-//     KDTree tree(points);
-//
-//     Eigen::MatrixXd velocities(gridVelocities.size(), 3);
-//     for (size_t i = 0; i < gridVelocities.size(); ++i) {
-//         velocities(i, 0) = gridVelocities[i][0];
-//         velocities(i, 1) = gridVelocities[i][1];
-//         velocities(i, 2) = gridVelocities[i][2];
-//     }
-//
-//     iGameStreamTracer tracer;
-//     tracer.initStreamTracer(volume_Mesh);
-//     std::string vectorName = name;
-//     float terminalSpeed = 0.0f;
-//
-//     Vector3f mean = {-1.572247e-04, -4.576315e-04, -2.9615819e-10};
-//     Vector3f std = {2.6299512e-02, 2.8212167e-02, 1.9456959e-08};
-//
-//     const int total_blocks = split * split * split;
-//     std::vector<torch::Tensor> all_results_1(total_blocks);
-//     const double eps = 1e-6;
-//     static std::counting_semaphore<> infer_slots(10);
-//     // int progress = 0;
-//     std::mutex progress_mutex;
-//     auto process_blocks_range = [&](int begin, int end) {
-//         //std::cout << "pool_.size():" << pool.size() << std::endl;
-//         for (int id = begin; id < end; ++id) {
-//             int bz = id / (split * split);
-//             int by = (id / split) % split;
-//             int bx = id % split;
-//             Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-//             sub_min = sub_min + min_pos_eigen;
-//             Eigen::Vector3f sub_max = sub_min + block_size;
-//             Eigen::Vector3f sub_range = sub_max - sub_min;
-//             float max_len = sub_range.maxCoeff();
-//             float uniform_step = max_len / (target_points - 1);
-//             int nx = std::max(1, int(sub_range[0] / uniform_step) + 1);
-//             int ny = std::max(1, int(sub_range[1] / uniform_step) + 1);
-//             int nz = std::max(1, int(sub_range[2] / uniform_step) + 1);
-//             Eigen::Vector3f now = Eigen::Vector3f(nx - 1, ny - 1, nz - 1);
-//             Eigen::Vector3f step = sub_range.cwiseQuotient(now);
-//             torch::Tensor grid_tensor = torch::zeros({nz, ny, nx, 3}, torch::kFloat32);
-//
-//             igIndex cachedVolumeId = -1;
-//             const int K = 2;
-//             std::vector<double> weights(K, 0.0);
-//             std::vector<int> idxs(K, 0);
-//             std::vector<double> dists(K, 0.0);
-//             static std::atomic<int> test_counter{0};
-//             for (int i = 0; i < nx; ++i) {
-//                 for (int j = 0; j < ny; ++j) {
-//                     for (int k = 0; k < nz; ++k) {
-//                         Eigen::Vector3f pos = sub_min + Eigen::Vector3f(i * step[0], j * step[1], k * step[2]);
-//                         Eigen::VectorXd pos_vec(3);
-//                         pos_vec << pos[0], pos[1], pos[2];
-//                         Vector3f pos_ (pos[0], pos[1], pos[2]);
-//
-//                         bool inside = false;
-//                         Vector3f v = tracer.SampleVector(pos_, inside, cachedVolumeId, vectorName, terminalSpeed);
-//                         if (inside) {
-//                             torch::Tensor v_t = torch::tensor({v[0], v[1], v[2]}, torch::kFloat32);
-//                             grid_tensor[k][j][i] = v_t;
-//                         }
-//                         else {
-//                             // grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
-//                             tree.query(pos_vec, K, idxs, dists);
-//                             if (dists.size() == 0  || dists[0]>step[0] * 4) {
-//                                 grid_tensor[k][j][i] = torch::zeros({3}, torch::kFloat32);
-//                             }else{
-//                                 torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-//                                 double dist_sum = 0.0;
-//                                 for (int l = 0; l < K; ++l) {
-//                                     double dist = dists[l];
-//                                     weights[l] = 1.0 / (dist * dist + eps);
-//                                     dist_sum += weights[l];
-//                                 }
-//                                 for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-//                                 for (int l = 0; l < K; ++l) {
-//                                     if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
-//                                         weighted_sum +=
-//                                                 weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-//                                                                             velocities(idxs[l], 2)},
-//                                                                            torch::kFloat32);
-//                                     }
-//                                 }
-//                                 grid_tensor[k][j][i] = weighted_sum;
-//                             }
-//                         }
-//
-//                         // tree.query(pos_vec, K, idxs, dists);
-//                         // torch::Tensor weighted_sum = torch::zeros({3}, torch::kFloat32);
-//                         // if (K == 1) {
-//                         //     weighted_sum = torch::tensor(
-//                         //             {velocities(idxs[0], 0), velocities(idxs[0], 1), velocities(idxs[0], 2)},
-//                         //             torch::kFloat32);
-//                         // } else {
-//                         //     double dist_sum = 0.0;
-//                         //     for (int l = 0; l < K; ++l) {
-//                         //         double dist = dists[l];
-//                         //         weights[l] = 1.0 / (dist * dist + eps);
-//                         //         dist_sum += weights[l];
-//                         //     }
-//                         //     for (int l = 0; l < K; ++l) weights[l] /= dist_sum;
-//                         //     for (int l = 0; l < K; ++l) {
-//                         //         if (idxs[l] >= 0 && idxs[l] < velocities.rows()) {
-//                         //             weighted_sum +=
-//                         //                     weights[l] * torch::tensor({velocities(idxs[l], 0), velocities(idxs[l], 1),
-//                         //                                                 velocities(idxs[l], 2)},
-//                         //                                                torch::kFloat32);
-//                         //         }
-//                         //     }
-//                         // }
-//                         // grid_tensor[k][j][i] = weighted_sum;
-//                     }
-//                 }
-//             }
-//             torch::Tensor arr = grid_tensor.clone();
-//             for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-//             arr = sigmoid(arr);
-//             infer_slots.acquire();
-//             torch::Tensor pred_block_1 = run_prediction_on_block(arr, model_path, model);
-//             infer_slots.release();
-//             all_results_1[id] = std::move(pred_block_1);
-//         }
-//     };
-//
-//     // ThreadPool::parallelFor(0, total_blocks, process_blocks_range);
-//     ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks * 2);
-//
-//     /*int max_threads = (int) std::thread::hardware_concurrency();
-//     int workers = std::min(total_blocks, max_threads);
-//     static std::counting_semaphore<> infer_slots(workers);*/
-//
-//     int nz_sub = all_results_1[0].size(0);
-//     int ny_sub = all_results_1[0].size(1);
-//     int nx_sub = all_results_1[0].size(2);
-//
-//     torch::Tensor result_volume_1 = torch::zeros({split * nz_sub, split * ny_sub, split * nx_sub}, torch::kFloat32);
-//
-//     int idx = 0;
-//     for (int bz = 0; bz < split; ++bz) {
-//         for (int by = 0; by < split; ++by) {
-//             for (int bx = 0; bx < split; ++bx) {
-//
-//                 torch::Tensor cur = all_results_1[idx];
-//                 auto sz = cur.sizes();
-//                 if (sz[0] != nz_sub || sz[1] != ny_sub || sz[2] != nx_sub) {
-//                     cur = torch::nn::functional::pad(cur, torch::nn::functional::PadFuncOptions({
-//                                                                   0, nx_sub - sz[2], // W
-//                                                                   0, ny_sub - sz[1], // H
-//                                                                   0, nz_sub - sz[0]  // D
-//                                                           }));
-//                 }
-//                 int z_start = bz * nz_sub;
-//                 int y_start = by * ny_sub;
-//                 int x_start = bx * nx_sub;
-//                 result_volume_1.slice(0, z_start, z_start + nz_sub)
-//                         .slice(1, y_start, y_start + ny_sub)
-//                         .slice(2, x_start, x_start + nx_sub)
-//                         .copy_(all_results_1[idx]);
-//                 ++idx;
-//             }
-//         }
-//     }
-//
-//     auto sizes = result_volume_1.sizes();
-//     float depth = static_cast<float>(sizes[0]);
-//     float height = static_cast<float>(sizes[1]);
-//     float width = static_cast<float>(sizes[2]);
-//
-//     Eigen::Vector3f volume_size(width, height, depth);
-//     Eigen::Vector3f global_step = range_vec.cwiseQuotient(volume_size);
-//
-//     torch::Tensor result_volume_11 = gaussian_filter3d(result_volume_1, 3, -1);
-//     return std::make_tuple(result_volume_11, global_step);
-// }
-
 std::tuple<torch::Tensor, Eigen::Vector3f, std::vector<float>>
 VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const std::vector<Vector3f>& gridVelocities,
                                 const Vector3f& min_pos, const Vector3f& max_pos, const std::string& model_path,
                                 int split, int nx, int ny, int nz, VolumeMesh::Pointer mesh, AttributeSet* Attributes,
-                                int Index) {
+                                int Index, bool uniform) {
     torch::jit::script::Module model;
     try {
         model = torch::jit::load(model_path);
@@ -2969,94 +2131,175 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
         points(i, 1) = gridPoints[i][1];
         points(i, 2) = gridPoints[i][2];
     }
-    KDTree tree(points);
+
+    const int total_blocks = split * split * split;
+    std::vector<torch::Tensor> all_grid_tensors(total_blocks);
+    std::vector<torch::Tensor> all_results_1(total_blocks);
+    std::vector<std::vector<float>> all_velocities_thread_safe[3];
+    for (int i = 0; i < 3; ++i) { all_velocities_thread_safe[i].resize(total_blocks); }
     Eigen::MatrixXd velocities(gridVelocities.size(), 3);
     for (size_t i = 0; i < gridVelocities.size(); ++i) {
         velocities(i, 0) = gridVelocities[i][0];
         velocities(i, 1) = gridVelocities[i][1];
         velocities(i, 2) = gridVelocities[i][2];
     }
-    const int total_blocks = split * split * split;
-    std::vector<torch::Tensor> all_grid_tensors(total_blocks);
-    std::vector<torch::Tensor> all_results_1(total_blocks);
-    std::vector<std::vector<float>> all_velocities_thread_safe[3];
-    for (int i = 0; i < 3; ++i) { all_velocities_thread_safe[i].resize(total_blocks); }
-    auto process_blocks_range = [&](int begin, int end) {
-        for (int id = begin; id < end; ++id) {
-            const int bz = id / (split * split);
-            const int by = (id / split) % split;
-            const int bx = id % split;
 
-            Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
-            sub_min += min_pos_eigen;
-            const Eigen::Vector3f sub_max = sub_min + block_size;
-            const Eigen::Vector3f sub_range = sub_max - sub_min;
-            const Eigen::Vector3f now(std::max(1, nx - 1), std::max(1, ny - 1), std::max(1, nz - 1));
-            const Eigen::Vector3f step = sub_range.cwiseQuotient(now);
+    if (!uniform) {
+        KDTree tree(points);
+        // Eigen::MatrixXd velocities(gridVelocities.size(), 3);
+        // for (size_t i = 0; i < gridVelocities.size(); ++i) {
+        //     velocities(i, 0) = gridVelocities[i][0];
+        //     velocities(i, 1) = gridVelocities[i][1];
+        //     velocities(i, 2) = gridVelocities[i][2];
+        // }
+        auto process_blocks_range = [&](int begin, int end) {
+            for (int id = begin; id < end; ++id) {
+                const int bz = id / (split * split);
+                const int by = (id / split) % split;
+                const int bx = id % split;
 
-            torch::Tensor grid_tensor = torch::empty({nz, ny, nx, 3}, torch::kFloat32);
-            float* __restrict base = grid_tensor.data_ptr<float>();
-            const int stride_i = 3;
-            const int stride_j = nx * stride_i;
-            const int stride_k = ny * stride_j;
+                Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
+                sub_min += min_pos_eigen;
+                const Eigen::Vector3f sub_max = sub_min + block_size;
+                const Eigen::Vector3f sub_range = sub_max - sub_min;
+                const Eigen::Vector3f now(std::max(1, nx - 1), std::max(1, ny - 1), std::max(1, nz - 1));
+                const Eigen::Vector3f step = sub_range.cwiseQuotient(now);
 
-            constexpr int K = 8;
-            std::array<int32_t, K> nn_idx;
-            std::array<float, K> nn_d2;
-            std::array<float, K> w;
-            const float sigma = 2.0f * step.maxCoeff();
-            const float inv_sigma2 = (sigma > 0.f) ? 1.0f / (sigma * sigma) : 1e6f;
-            const float dist2_gate = (16.0f * step[0]) * (16.0f * step[0]);
-            all_velocities_thread_safe[0][id].reserve(size_t(nx) * ny * nz);
-            all_velocities_thread_safe[1][id].reserve(size_t(nx) * ny * nz);
-            all_velocities_thread_safe[2][id].reserve(size_t(nx) * ny * nz);
+                torch::Tensor grid_tensor = torch::empty({nz, ny, nx, 3}, torch::kFloat32);
+                float* __restrict base = grid_tensor.data_ptr<float>();
+                const int stride_i = 3;
+                const int stride_j = nx * stride_i;
+                const int stride_k = ny * stride_j;
+                constexpr int K = 8;
+                std::array<int32_t, K> nn_idx;
+                std::array<float, K> nn_d2;
+                std::array<float, K> w;
+                const float sigma = 2.0f * step.maxCoeff();
+                const float inv_sigma2 = (sigma > 0.f) ? 1.0f / (sigma * sigma) : 1e6f;
+                const float dist2_gate = (16.0f * step[0]) * (16.0f * step[0]);
+                all_velocities_thread_safe[0][id].reserve(size_t(nx) * ny * nz);
+                all_velocities_thread_safe[1][id].reserve(size_t(nx) * ny * nz);
+                all_velocities_thread_safe[2][id].reserve(size_t(nx) * ny * nz);
 
-            Eigen::Vector3f q;
-            for (int k = 0; k < nz; ++k) {
-                for (int j = 0; j < ny; ++j) {
-                    float* __restrict row_ptr = base + k * stride_k + j * stride_j;
-                    for (int i = 0; i < nx; ++i) {
-                        q[0] = sub_min[0] + i * step[0];
-                        q[1] = sub_min[1] + j * step[1];
-                        q[2] = sub_min[2] + k * step[2];
-                        tree.queryFixedK<K>(q, nn_idx, nn_d2, /*sorted=*/false);
-                        float* __restrict p = row_ptr + i * stride_i;
-                        if (nn_d2[0] > dist2_gate) {
-                            p[0] = p[1] = p[2] = 0.f;
-                            continue;
-                        }
-                        float wsum = 0.f;
-#pragma unroll
-                        for (int l = 0; l < K; ++l) {
-                            const float wl = std::exp(-0.5f * nn_d2[l] * inv_sigma2);
-                            w[l] = wl;
-                            wsum += wl;
-                        }
-                        const float inv_wsum = (wsum > 0.f) ? (1.f / wsum) : 0.f;
-                        float vx = 0.f, vy = 0.f, vz = 0.f;
-#pragma unroll
-                        for (int l = 0; l < K; ++l) {
-                            const int idx = nn_idx[l];
-                            if (idx >= 0 && idx < velocities.rows()) {
-                                const float wl = w[l] * inv_wsum;
-                                vx += wl * velocities(idx, 0);
-                                vy += wl * velocities(idx, 1);
-                                vz += wl * velocities(idx, 2);
+                Eigen::Vector3f q;
+                for (int k = 0; k < nz; ++k) {
+                    for (int j = 0; j < ny; ++j) {
+                        float* __restrict row_ptr = base + k * stride_k + j * stride_j;
+                        for (int i = 0; i < nx; ++i) {
+                            q[0] = sub_min[0] + i * step[0];
+                            q[1] = sub_min[1] + j * step[1];
+                            q[2] = sub_min[2] + k * step[2];
+                            tree.queryFixedK<K>(q, nn_idx, nn_d2, /*sorted=*/false);
+                            float* __restrict p = row_ptr + i * stride_i;
+                            if (nn_d2[0] > dist2_gate) {
+                                p[0] = p[1] = p[2] = 0.f;
+                                continue;
                             }
+                            float wsum = 0.f;
+                            #pragma unroll
+                            for (int l = 0; l < K; ++l) {
+                                const float wl = std::exp(-0.5f * nn_d2[l] * inv_sigma2);
+                                w[l] = wl;
+                                wsum += wl;
+                            }
+                            const float inv_wsum = (wsum > 0.f) ? (1.f / wsum) : 0.f;
+                            float vx = 0.f, vy = 0.f, vz = 0.f;
+                            #pragma unroll
+                            for (int l = 0; l < K; ++l) {
+                                const int idx = nn_idx[l];
+                                if (idx >= 0 && idx < velocities.rows()) {
+                                    const float wl = w[l] * inv_wsum;
+                                    vx += wl * velocities(idx, 0);
+                                    vy += wl * velocities(idx, 1);
+                                    vz += wl * velocities(idx, 2);
+                                }
+                            }
+                            p[0] = vx;
+                            p[1] = vy;
+                            p[2] = vz;
+                            all_velocities_thread_safe[0][id].push_back(vx);
+                            all_velocities_thread_safe[1][id].push_back(vy);
+                            all_velocities_thread_safe[2][id].push_back(vz);
                         }
-                        p[0] = vx;
-                        p[1] = vy;
-                        p[2] = vz;
-                        all_velocities_thread_safe[0][id].push_back(vx);
-                        all_velocities_thread_safe[1][id].push_back(vy);
-                        all_velocities_thread_safe[2][id].push_back(vz);
                     }
                 }
+                all_grid_tensors[id] = grid_tensor.contiguous();
             }
-            all_grid_tensors[id] = grid_tensor.contiguous();
-        }
-    };
-    ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
+        };
+        ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
+    }else {
+        const int globalNx = dims[0];
+        const int globalNy = dims[1];
+        const int globalNz = dims[2];
+
+        auto process_blocks_range = [&](int begin, int end) {
+            for (int id = begin; id < end; ++id) {
+                const int bz = id / (split * split);
+                const int by = (id / split) % split;
+                const int bx = id % split;
+
+                Eigen::Vector3f sub_min = Eigen::Vector3f(bx, by, bz).array() * block_size.array();
+                sub_min += min_pos_eigen;
+                const Eigen::Vector3f sub_max   = sub_min + block_size;
+                const Eigen::Vector3f sub_range = sub_max - sub_min;
+                const Eigen::Vector3f now(std::max(1, nx - 1), std::max(1, ny - 1), std::max(1, nz - 1));
+                const Eigen::Vector3f step = sub_range.cwiseQuotient(now);
+
+                torch::Tensor grid_tensor = torch::empty({nz, ny, nx, 3}, torch::kFloat32);
+                float* __restrict base = grid_tensor.data_ptr<float>();
+                const int stride_i = 3;
+                const int stride_j = nx * stride_i;
+                const int stride_k = ny * stride_j;
+
+                all_velocities_thread_safe[0][id].reserve(size_t(nx) * ny * nz);
+                all_velocities_thread_safe[1][id].reserve(size_t(nx) * ny * nz);
+                all_velocities_thread_safe[2][id].reserve(size_t(nx) * ny * nz);
+
+                Eigen::Vector3f q;
+                for (int k = 0; k < nz; ++k) {
+                    for (int j = 0; j < ny; ++j) {
+                        float* __restrict row_ptr = base + k * stride_k + j * stride_j;
+                        for (int i = 0; i < nx; ++i) {
+
+                            q[0] = sub_min[0] + i * step[0];
+                            q[1] = sub_min[1] + j * step[1];
+                            q[2] = sub_min[2] + k * step[2];
+
+                            float fx = (q[0] - origin[0]) / spacing[0];
+                            float fy = (q[1] - origin[1]) / spacing[1];
+                            float fz = (q[2] - origin[2]) / spacing[2];
+
+                            int ix = static_cast<int>(std::round(fx));
+                            int iy = static_cast<int>(std::round(fy));
+                            int iz = static_cast<int>(std::round(fz));
+
+                            ix = std::max(0, std::min(ix, globalNx - 1));
+                            iy = std::max(0, std::min(iy, globalNy - 1));
+                            iz = std::max(0, std::min(iz, globalNz - 1));
+
+                            const int gidx = iz * (globalNy * globalNx) + iy * globalNx + ix;
+
+                            float vx = static_cast<float>(velocities(gidx, 0));
+                            float vy = static_cast<float>(velocities(gidx, 1));
+                            float vz = static_cast<float>(velocities(gidx, 2));
+
+                            float* __restrict p = row_ptr + i * stride_i;
+                            p[0] = vx;
+                            p[1] = vy;
+                            p[2] = vz;
+
+                            all_velocities_thread_safe[0][id].push_back(vx);
+                            all_velocities_thread_safe[1][id].push_back(vy);
+                            all_velocities_thread_safe[2][id].push_back(vz);
+                        }
+                    }
+                }
+
+                all_grid_tensors[id] = grid_tensor.contiguous();
+            }
+        };
+        ThreadPool::parallelFor(0, total_blocks, process_blocks_range, total_blocks);
+    }
     std::vector<float> predict_vals = ComputePointQ(mesh, Attributes, Index);
     std::vector<float> all_velocities[3];
     for (int c = 0; c < 3; ++c) {
@@ -3094,25 +2337,20 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
     torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
     for (auto& t: all_grid_tensors) {
-        if (device.is_cuda() && t.device().is_cpu()) { t = t.to(device, /*non_blocking=*/true); }
+        if (device.is_cuda() && t.device().is_cpu()) { t = t.to(device, true); }
     }
     torch::Tensor mean_t =
             torch::tensor({mean[0], mean[1], mean[2]}, torch::dtype(torch::kFloat32).device(device)).view({1, 1, 1, 3});
     torch::Tensor std_t =
             torch::tensor({std[0], std[1], std[2]}, torch::dtype(torch::kFloat32).device(device)).view({1, 1, 1, 3});
 
-    static std::counting_semaphore<> infer_slots(25);
+    // static std::counting_semaphore<> infer_slots(25);
+    static SimpleSemaphore infer_slots(25);
     std::mutex progress_mutex;
     auto t3 = std::chrono::high_resolution_clock::now();
     std::cout << "[RUNTIME] processing using device: " << (device.type() == torch::kCUDA ? "CUDA" : "CPU") << std::endl;
     auto processing = [&](int begin, int end) {
         for (int id = begin; id < end; ++id) {
-            // const torch::Tensor& grid_tensor = all_grid_tensors[id];
-            // torch::Tensor arr = grid_tensor.clone();
-            // if (device.type() == torch::kCUDA)
-            //     arr = arr.to(torch::kCUDA);
-            // for (int c = 0; c < 3; ++c) { arr.select(3, c) = (arr.select(3, c) - mean[c]) / std[c]; }
-            // arr = sigmoid(arr);
             torch::Tensor arr = all_grid_tensors[id];
             arr = (arr - mean_t) / std_t;
             arr = torch::sigmoid(arr);
@@ -3179,6 +2417,110 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
 
 torch::Tensor VortexDetection::gaussian_weights(const torch::Tensor& dists, float sigma) {
     return torch::exp(-0.5 * torch::pow(dists / sigma, 2));
+}
+bool VortexDetection::IsAxisAlignedUniformGrid(
+    const std::vector<Vector3f>& points,
+    Eigen::Vector3i& dims,
+    Eigen::Vector3f& origin,
+    Eigen::Vector3f& spacing,
+    float tol=1e-10f)
+{
+    const int NumPoints = static_cast<int>(points.size());
+    if (NumPoints == 0) return false;
+
+    std::vector<float> xs, ys, zs;
+    xs.reserve(NumPoints);
+    ys.reserve(NumPoints);
+    zs.reserve(NumPoints);
+
+    for (const auto& p : points) {
+        xs.push_back(p[0]);
+        ys.push_back(p[1]);
+        zs.push_back(p[2]);
+    }
+
+    auto uniq_with_tol = [tol](std::vector<float>& v) {
+        if (tol > 0.0f) {
+            for (auto& val : v) {
+                val = std::round(val / tol) * tol;
+            }
+        }
+        std::sort(v.begin(), v.end());
+        auto new_end = std::unique(v.begin(), v.end(),
+                                   [tol](float a, float b) {
+                                       return std::fabs(a - b) <= tol;
+                                   });
+        v.erase(new_end, v.end());
+    };
+
+    uniq_with_tol(xs);
+    uniq_with_tol(ys);
+    uniq_with_tol(zs);
+
+    const int nx = static_cast<int>(xs.size());
+    const int ny = static_cast<int>(ys.size());
+    const int nz = static_cast<int>(zs.size());
+
+    if (1LL * nx * ny * nz != NumPoints) {
+        return false;
+    }
+
+    auto is_uniform_axis = [tol](const std::vector<float>& v, float& d) -> bool {
+        const int n = static_cast<int>(v.size());
+        if (n <= 1) {
+            d = 0.f;
+            return true;
+        }
+        d = v[1] - v[0];
+        if (std::fabs(d) < tol) {
+            for (int i = 1; i < n; ++i) {
+                if (std::fabs(v[i] - v[0]) > tol) return false;
+            }
+            return true;
+        }
+
+        const float rtol = 1e-5f;
+        const float base = std::max(std::fabs(d), 1.0f);
+        for (int i = 1; i < n - 1; ++i) {
+            const float di = v[i + 1] - v[i];
+            const float abs_diff = std::fabs(di - d);
+            const float allowed = std::max(tol, rtol * base);
+            if (abs_diff > allowed) return false;
+        }
+        return true;
+    };
+
+    float dx = 0.f, dy = 0.f, dz = 0.f;
+    if (!is_uniform_axis(xs, dx) ||
+        !is_uniform_axis(ys, dy) ||
+        !is_uniform_axis(zs, dz)) {
+        return false;
+    }
+
+    dims    = Eigen::Vector3i(nx, ny, nz);
+    origin  = Eigen::Vector3f(xs.front(), ys.front(), zs.front());
+    spacing = Eigen::Vector3f(dx, dy, dz);
+
+    return true;
+}
+
+void VortexDetection::GetGridXYZCounts(const std::vector<Vector3f>& points,
+                      int& nx, int& ny, int& nz)
+{
+    std::vector<float> xs, ys, zs;
+    xs.reserve(points.size());
+    ys.reserve(points.size());
+    zs.reserve(points.size());
+
+    for (const auto& p : points) {
+        xs.push_back(p[0]);
+        ys.push_back(p[1]);
+        zs.push_back(p[2]);
+    }
+    auto uniq = [](std::vector<float>& v) { std::sort(v.begin(), v.end()); v.erase(std::unique(v.begin(), v.end()), v.end()); };
+    uniq(xs); uniq(ys); uniq(zs);
+
+    nx = xs.size(); ny = ys.size(); nz = zs.size();
 }
 
 #endif

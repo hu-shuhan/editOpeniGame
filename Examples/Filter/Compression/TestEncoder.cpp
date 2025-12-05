@@ -12,7 +12,7 @@ int main() {
     iGame::DataObject::Pointer sourceDataObj = iGame::FileIO::ReadFile(sourceFileName);
 
     auto writer = iGame::IGCWriter::New();
-    writer->SetUIControlParams(iGame::MeshEncoderFilter::GenerateUIControlParams(sourceDataObj));
+    writer->SetCodecControlParams(iGame::MeshEncoderFilter<iGame::EncodeOutputBinaryArray>::GenerateDefaultCodecParams(sourceDataObj));
 
     writer->WriteToFile(sourceDataObj, encodedFileName);
 

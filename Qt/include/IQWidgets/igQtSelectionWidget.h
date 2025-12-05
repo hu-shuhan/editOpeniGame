@@ -9,6 +9,7 @@
 #include <QString>
 #include <iGameScene.h>
 #include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <iGameSelection.h>
 
 namespace Ui {
 class SelectionView;
@@ -28,6 +29,12 @@ public:
     void SetDefaultSelectionButton();
 
     void SetInitBoxSettingDialog(QWidget* renderWidget);
+
+public:
+    void SetBoxInitCallBackFunc(iGame::Selection* selection);
+
+private:
+    void BoxInitCallBackFunc();
 
 public:
     //ATTENTION

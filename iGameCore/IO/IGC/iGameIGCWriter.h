@@ -13,9 +13,9 @@ public:
 
     bool GenerateBuffers() override;
 
-    void SetUIControlParams(const UIControlParams& params) {
-        m_hasUIParams = true;
-        m_UIParams = params;
+    void SetCodecControlParams(const CodecControlParams& params) {
+        m_hasCodecParams = true;
+        m_CodecParams = params;
     }
 
     std::vector<std::pair<std::string, std::string>> GetReport() const {
@@ -28,10 +28,10 @@ protected:
     ~IGCWriter() override = default;
 
 private:
-    bool m_hasUIParams = false;
-    UIControlParams m_UIParams;
+    bool m_hasCodecParams = false;
+    CodecControlParams m_CodecParams;
 
-    MeshEncoderFilter::Pointer m_encoder;
+    MeshEncoderFilter<EncodeOutputBinaryArray>::Pointer m_encoder;
 
     // helper methods
     bool EncodeData();

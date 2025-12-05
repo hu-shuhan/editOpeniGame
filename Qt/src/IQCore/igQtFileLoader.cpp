@@ -26,6 +26,7 @@
 #include <IQComponents/Dialog/igQtSplineOptionDialog.h>
 #include <IQCore/igQtFileLoader.h>
 #include <IQCore/igQtFileType.h>
+#include <iGameType.h>
 
 #include <QCoreApplication>
 #include <QMessageBox>
@@ -103,7 +104,7 @@ void igQtFileLoader::LoadFile() {
             break;
 #endif
         default:
-            this->OpenFile(filePath[0].toStdString());
+            this->OpenFiles(filePath);
             break;
     }
 }
@@ -125,6 +126,95 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
+
+
+    //return;
+    emit NewModel(obj, ItemSource::File);
+    emit FinishReading();
+}
+
+void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
+    using namespace iGame;
+    if (filePaths.empty()) return;
+    const std::string& first_file_path = filePaths[0].toStdString();
+    if(strrchr(first_file_path.data(), '.') == nullptr) return ;
+
+
+    auto obj = iGame::FileIO::ReadFile(first_file_path);
+    //_obj = obj;
+    if (obj == nullptr) {
+        igDebug("This file read error.");
+        return;
+    }
+
+    //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
+
+    this->SaveCurrentFileToRecentFile(QString::fromStdString(first_file_path));
+
+    /* Add left FilePaths to be as SubDataObject. */
+    if(filePaths.size() > 1)
+    {
+        iGame::DataObject::Pointer outerObj = iGame::DrawObject::New();
+
+
+        double dataRange_max[64], dataRange_min[64];
+        for(int k = 0; k < obj->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements(); k ++){
+            auto& attr = obj->GetAttributeSet()->GetAttribute(k);
+            int dim = attr.pointer->GetDimension();
+
+            DoubleArray::Pointer array = DoubleArray::New();
+            array->SetName(attr.pointer->GetName());
+            array->SetDimension(dim);
+            attr.UpdateAllDataRange();
+            const auto& ScalarDataRange = attr.GetDataRange();
+
+            std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
+            std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
+            for(int j = 0; j < dim + 1; j ++){
+                dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
+                dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
+            }
+
+            DoubleArray::Pointer parent_dataRange = DoubleArray::New();
+            parent_dataRange->SetDimension(2);
+            parent_dataRange->Resize(dim + 1);
+            for(int j = 0; j < dim + 1; j ++){
+                parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
+            }
+            switch (attr.type) {
+                case IG_SCALAR:
+                    outerObj->GetAttributeSet()->AddScalar(attr.attachmentType, array, parent_dataRange);
+                    break;
+                case IG_VECTOR:
+                    outerObj->GetAttributeSet()->AddVector(attr.attachmentType, array, parent_dataRange);
+                    break;
+                default:
+                    break;
+            }
+        }
+        outerObj->AddSubDataObject(obj);
+        outerObj->UpdateSubDataObjectDataRange();
+
+        auto filename = first_file_path.substr(first_file_path.find_last_of('/') + 1);
+        outerObj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+        outerObj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
+
+        auto timeFrame = outerObj->GetTimeFrames();
+        for(int i = 0; i < filePaths.size(); i ++){
+            iGame::StringArray::Pointer subFileNameArray = iGame::StringArray::New();
+            subFileNameArray->AddElement(filePaths[i].toStdString());
+            timeFrame->AddTimeStep((float) (i + 1) / filePaths.size(), subFileNameArray, StreamingType::MultiSubFiles);
+        }
+        //return;
+        emit NewModel(outerObj, ItemSource::File);
+        emit FinishReading();
+        return ;
+    }
+
+    auto filename = first_file_path.substr(first_file_path.find_last_of('/') + 1);
+    obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
+    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
+    //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
 
     //return;

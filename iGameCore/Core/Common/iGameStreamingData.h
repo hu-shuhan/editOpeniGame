@@ -24,7 +24,7 @@ public:
         protected:
             float m_TimeValue{-1};
             StringArray::Pointer m_metaData{nullptr};
-            StreamingType m_type {NONE};
+            StreamingType m_type {StreamingType::NONE};
             bool m_IsCached {false};
 
 //        ElementArray<Object> m_CachedData{};
@@ -35,7 +35,7 @@ public:
             TimeFrame()= default;
             TimeFrame(float _t,  StringArray::Pointer f_names, StreamingType _type)
                     : m_TimeValue(_t), m_metaData(std::move(f_names)), m_type(_type){}
-            TimeFrame(float _t,  StringArray::Pointer f_names) : m_TimeValue(_t), m_metaData(std::move(f_names)), m_type(NONE){}
+            TimeFrame(float _t,  StringArray::Pointer f_names) : m_TimeValue(_t), m_metaData(std::move(f_names)), m_type(StreamingType::NONE){}
 
             float GetTimeValue(){return m_TimeValue;}
             StringArray::Pointer GetMetaData(){return m_metaData;}

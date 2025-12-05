@@ -41,6 +41,11 @@ bool VortexFilter::Execute()  {
             return ComputeVorticityWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
 
         } break;
+        case IG_STRUCTURED_MESH: {
+            volume_Mesh = DynamicCast<StructuredMesh>(input);
+            if (!CheckType()) return false;
+            return ComputeVorticityWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
+        } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
 
