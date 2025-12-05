@@ -410,21 +410,26 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     auto& data = this->pointer;
     for (size_t i = 0; i < this->pointer->GetNumberOfValues(); i += dim) {
         /* Calc magnitude dimension.*/
-        double magnitude_val = 0.f;
-        for (int j = 0; j < dim; j++) {
-            double val = data->GetValue(i + j);
-            magnitude_val += val * val;
+        if (dim > 1) {
+            double magnitude_val = 0.f;
+            for (int j = 0; j < dim; j++) {
+                double val = data->GetValue(i + j);
+                magnitude_val += val * val;
+            }
+            magnitude_val = std::sqrt(magnitude_val);
+            dimensionRanges[0] = std::min(magnitude_val, dimensionRanges[0]);
+            dimensionRanges[1] = std::max(magnitude_val, dimensionRanges[1]);
         }
-        magnitude_val = std::sqrt(magnitude_val);
-        dimensionRanges[0] = std::min(magnitude_val, dimensionRanges[0]);
-        dimensionRanges[1] = std::max(magnitude_val, dimensionRanges[1]);
-
         /* Calc every dimension attribute. */
         for (int j = 0; j < dim; j++) {
             double val = data->GetValue(i + j);
             dimensionRanges[2 + 2 * j + 0] = std::min(dimensionRanges[2 + 2 * j + 0], val);
             dimensionRanges[2 + 2 * j + 1] = std::max(dimensionRanges[2 + 2 * j + 1], val);
         }
+    }
+    if (dim == 1) {
+        dimensionRanges[0] = dimensionRanges[2];
+        dimensionRanges[1] = dimensionRanges[3];
     }
     for (int i = 0; i < dim + 1; i++) {
         dataRange->SetElement(i, {dimensionRanges[2 * i], dimensionRanges[2 * i + 1]});
