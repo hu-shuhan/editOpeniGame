@@ -8,11 +8,11 @@
 #include "iGamePoints.h"
 #include <functional>
 #include <iGameCellFaceExtracter.h>
+#include <iGameDataObject.h>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-#include <iGameDataObject.h>
 
 IGAME_NAMESPACE_BEGIN
 //class SingleSelectionInterface {

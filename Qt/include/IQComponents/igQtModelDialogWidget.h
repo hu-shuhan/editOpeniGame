@@ -43,9 +43,6 @@ signals:
     void ModelDeleted(const std::string& modelName);  // Emitted when model is deleted
     void Update();
 
-protected:
-    void UpdateCurrentModel(iGame::Model::Pointer model);
-
 private:
     //iGame::Model* currentModel;
 

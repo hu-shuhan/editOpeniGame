@@ -997,16 +997,18 @@ void VolumeMesh::RequestVolumeStatus() {
 }
 
 void VolumeMesh::ConvertToDrawableData() {
+    bool needReConvert = m_ReConvertToDrawableData;
+    needReConvert |= m_Points->GetMTime() > m_Positions->GetMTime();
+    needReConvert |= m_Clipper->GetMTime() > m_Positions->GetMTime();
+
     // extract surface mesh
     if (m_ShellRendering) {
-        if (m_Points->GetMTime() < m_Positions->GetMTime() && m_Clipper->GetMTime() < m_Positions->GetMTime() &&
-            !m_ReConvertToDrawableData) {
-            return;
-        }
-        m_ReConvertToDrawableData = false;
+        if (!needReConvert) { return; }
 
+        m_ReConvertToDrawableData = false;
         bool extractShellSuccess = false;
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
+
         // update clip status
         auto box = m_Clipper->m_Box;
         if (box.m_Use) {
@@ -1014,10 +1016,10 @@ void VolumeMesh::ConvertToDrawableData() {
             const auto& b = box.m_Bmax;
             extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
         }
-
         auto plane = m_Clipper->m_Plane;
         if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
         // shell algorithm
+
         SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
         if (extract->Execute(this, surfaceMesh)) {
             extractShellSuccess = true;
@@ -1031,8 +1033,7 @@ void VolumeMesh::ConvertToDrawableData() {
     }
 
     // convert original data
-    if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime() ||
-        m_ReConvertToDrawableData) {
+    if (needReConvert) {
         m_ReConvertToDrawableData = false;
         UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
         edgeIndices->SetDimension(2);
@@ -1126,13 +1127,6 @@ void VolumeMesh::ConvertToDrawableData() {
     } else {
         m_UseColor = true;
         auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-        /* Update scalar data Range. */
-        //        {
-        //            if(attr.dataRange->GetMTime() > attr.pointer->GetMTime()){
-        //
-        //            }
-        //        }
-        //
 
         if (attr.type == IG_RGB) {
             this->m_ColorMapper->SetVectorModeToRGBColors();

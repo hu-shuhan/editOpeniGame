@@ -31,7 +31,7 @@ public:
 	virtual bool GenerateBuffers() = 0;
 
 	// Write the current data object to a file at the path specified by m_FilePath.
-	bool WriteToFile();
+	bool Execute();
 
 	// Write the specified data object to a file at the given file path.
 	bool WriteToFile(DataObject::Pointer dataobject, const std::string filePath);

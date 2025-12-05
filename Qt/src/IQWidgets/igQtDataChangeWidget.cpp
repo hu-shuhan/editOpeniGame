@@ -623,9 +623,12 @@ QImage igQtDataChangeWidget::_DrawChoosedVariableImage(
     pen.setCapStyle(Qt::RoundCap);
     painter->setPen(pen);
     //Draw
+    auto selection = m_Mesh->GetSelection();
+    if (selection == nullptr) return re;
     for (auto& objId: objDrawSort) {
-        if (choosedObjIds.count(objId) == 0) continue;
+        //if (choosedObjIds.count(objId) == 0) continue;
         auto objIndex = objIndexs.at(objId);
+        if (!selection->IsSelectedItem(Data->GetDataType(), objId)) continue;
         _DrawPoint(minValue, maxValue, minDistance, maxDistance, theData->GetObjectData(objId, variableIndex),
                    objDistance[objIndex], painter, drawFrame);
     }
