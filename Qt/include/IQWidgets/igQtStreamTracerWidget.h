@@ -40,12 +40,14 @@ public slots:
 signals:
     void AddStreamObject(iGame::DataObject::Pointer);
     void UpdateStreamObject(iGame::DataObject::Pointer);
+    void SetUseBox();
 
 private:
     Ui::SteamLineTracer* ui;
     iGame::SmartPointer<iGame::StreamLineSelection> Selection;
     iGame::SmartPointer<iGame::Painter3D> Painter;
     bool isExisted = false;
+    bool modelBound = false;
     int numOfSeeds;
     iGame::Vector3f startP;
     iGame::Vector3f endP;

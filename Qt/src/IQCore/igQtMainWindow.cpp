@@ -126,6 +126,23 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
+
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VectorField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_FlowField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_TensorField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ParallelCoordinatesField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableCorrelationField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableDensityField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_DataChangeField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SelectionField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_QualityDetection);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_EditMode);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_Animation);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ModelList);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContourExtract);
     ui->dockWidget_ScalarField->hide();
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
@@ -143,9 +160,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
     // Setup default GUI layout.
-    this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+    //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
-    this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
+    //this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
     // Set up the dock window corners to give the vertical docks more room.
     this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
@@ -1202,6 +1219,9 @@ void igQtMainWindow::initAllMySignalConnections() {
 
 
     connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
+    // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 
 
     //connect(ui->widget_QualityDetection,
@@ -1211,6 +1231,9 @@ void igQtMainWindow::initAllMySignalConnections() {
             &igQtMainWindow::updateColorBarShow);
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
+    // Clear auto-rescaling states when model is deleted
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();
@@ -1565,6 +1588,50 @@ void igQtMainWindow::initAllInteractor() {
         if (dynamicBox == nullptr) return;
         ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetUseBox, this, [&]() {
+        if (!SelectionParameter::Instance().GetInSelection()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        auto scene = rendererWidget->GetScene();
+        auto interactor = scene->GetInteractor();
+        if (!SelectionParameter::Instance().GetHaveBox()) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        if (boxStyle == nullptr) return;
+        auto dynamicBox = boxStyle->GetBox();
+        if (dynamicBox == nullptr) return;
+        auto faces = dynamicBox->GetAllFaces();
+        boxStyle->SetChooedStation(true);
+        auto meshType = dataObj->GetDataObjectType();
+        switch (meshType) {
+            case IG_SURFACE_MESH: {
+                auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                mesh->RequestEditStatus();
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,  Selection::Operate::Add);
+            } break;
+            case IG_VOLUME_MESH: {
+                auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                mesh->RequestEditStatus();
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,Selection::Operate::Add);
+            } break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add );
+            } break;
+            default:
+                return;
+        }
+        rendererWidget->update();
+    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
         if (!SelectionParameter::Instance().GetInSelection()) return;
         auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -1748,6 +1815,7 @@ void igQtMainWindow::initAllInteractor() {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
     });
+
     connect(ui->action_drag_point, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_drag_point->isChecked()) {
             rendererWidget->ChangeInteractorStyle(Interactor::DragPointStyle);

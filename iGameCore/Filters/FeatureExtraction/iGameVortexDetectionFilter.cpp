@@ -266,7 +266,6 @@ bool VortexDetection::DetectionVortexWithSurfaceMesh(SurfaceMesh::Pointer Mesh, 
 bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, AttributeSet::Pointer Attributes,
                                                     int Index, std::string name) {
 
-
     std::cout << "[RUNTIME] torch::cuda::is_available=" << torch::cuda::is_available() << std::endl;
     auto t0 = std::chrono::high_resolution_clock::now();
     int NumPoints = Mesh->GetNumberOfPoints();
@@ -486,23 +485,24 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         // float value = smooth_vals[i].item<float>();
         vortexs->AddValue(Predict[i]);
     }
+    // attributeSet->AddScalar(IG_POINT, vortexs);
 
-    auto outMesh = VolumeMesh::New();
-    auto newPoints = Points::New();
-    auto newVolumes = CellArray::New();
-    auto newAttrs = AttributeSet::New();
+    //auto outMesh = VolumeMesh::New();
+    //auto newPoints = Points::New();
+    //auto newVolumes = CellArray::New();
+    //auto newAttrs = AttributeSet::New();
 
-    newPoints = Mesh->GetPoints();
-    newVolumes = Mesh->GetVolumes();
-    newAttrs = Mesh->GetAttributeSet();
+    //newPoints = Mesh->GetPoints();
+    //newVolumes = Mesh->GetVolumes();
+    auto newAttrs = Mesh->GetAttributeSet();
 
     newAttrs->AddScalar(IG_POINT, vortexs);
-
-    outMesh->SetVolumes(newVolumes);
-    outMesh->SetAttributeSet(newAttrs);
-    outMesh->SetName(Mesh->GetName());
-    outMesh->SetPoints(newPoints);
-    SetOutput(outMesh);
+    newAttrs->ForceReConvertToDrawableData();
+    //outMesh->SetVolumes(newVolumes);
+    //outMesh->SetAttributeSet(newAttrs);
+    //outMesh->SetName(Mesh->GetName());
+    //outMesh->SetPoints(newPoints);
+    SetOutput(Mesh);
 
     UpdateProgress(100 * 0.01);
     return true;

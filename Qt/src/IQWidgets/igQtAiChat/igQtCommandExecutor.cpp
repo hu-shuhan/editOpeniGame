@@ -171,7 +171,7 @@ QString igQtCommandExecutor::generateModelInfoDescription() const {
 
     // ========== 1. 文件信息 ==========
     std::string filePath;
-    if (auto p = obj->GetPropertys()->GetProperty("FilePath")) { filePath = p->Get<std::string>(); }
+    if (auto p = obj->GetProperties()->GetProperty("FilePath")) { filePath = p->Get<std::string>(); }
 
     QString fileName, directory;
     if (filePath.empty()) {

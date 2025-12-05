@@ -48,17 +48,27 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
 
 igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(parent), ui(new Ui::LayerDialog) {
     ui->setupUi(this);
-    this->setMinimumWidth(parent->width() / 4);
+    this->setMinimumWidth(parent->width() / 6);
 
+    tabWidget = ui->tabWidget;
+    modelTreeWidget = ui->modelTreeWidget;
+    propertyWidget = ui->propertyWidget;
     QSplitter* splitter = new QSplitter(Qt::Vertical, this);
     this->setWidget(splitter);
     splitter->addWidget(ui->modelTreeWidget);
-    splitter->addWidget(ui->ModelInformationWidget);
-    splitter->addWidget(ui->propertyWidget);
+    splitter->addWidget(tabWidget);
+    //splitter->addWidget(ui->propertyWidget);
     splitter->setChildrenCollapsible(false);
+    
+    tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
+    tabWidget->addTab(ui->propertyWidget, "Model Properties");
 
-    modelTreeWidget = ui->modelTreeWidget;
-    propertyWidget = ui->propertyWidget;
+    int totalWidth = parent->width() / 6;
+
+    // 根据总宽度调整列宽
+    int col1Width = totalWidth * 0.4;
+    int col2Width = totalWidth * 0.6;
+
 
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();
@@ -74,7 +84,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
 
     propertyWidget->removeProperty(objectGroup);
     objectGroup =
-            propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
+            propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object properties"));
     propertyWidget->addProperty(objectGroup);
 
 
@@ -112,47 +122,6 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
             &igQtModelDialogWidget::updateCurrentModelInfo);
     //connect(modelTreeWidget, &igQtModelTreeWidget::ChangeCurrentModel, this, &igQtModelDialogWidget::updateCloudPicture);
     connect(modelTreeWidget, &igQtModelTreeWidget::ViewCloudPicture, this, &igQtModelDialogWidget::updateCloudPicture);
-}
-
-void igQtModelDialogWidget::UpdateCurrentModel(iGame::Model::Pointer model) {
-    //    propertyTreeWidget->clear();
-    //    currentModel = model.get();
-    ////        model->GetDataObject()->
-    ////        model->GetDataObject()->GetMetadata();
-    //    QtVariantPropertyManager* varManager = new QtVariantPropertyManager(propertyTreeWidget);
-    //    QtVariantEditorFactory* editFactory = new QtVariantEditorFactory(propertyTreeWidget);
-    //    propertyTreeWidget->setFactoryForManager(varManager, editFactory);
-    //    QtProperty* properties_groupItem = varManager->addProperty(QtVariantPropertyManager::groupTypeId(), QString("propertys"));
-    //    auto metadata = model->GetDataObject()->GetMetadata();
-    //    for(auto& [propName, propValue] : metadata->entries()){
-    //        QtVariantProperty* item = nullptr;
-    //        std::visit([&](auto && arg){
-    //            using T = std::decay_t<decltype(arg)>;
-    //            if constexpr (std::is_same_v<T, int>) {
-    //
-    //                item = varManager->addProperty(QVariant::Int, QString(propName.c_str()));
-    //                item->setValue(std::get<int32_t>(propValue));
-    //            } else if constexpr (std::is_same_v<T, uint32_t>){
-    //                item = varManager->addProperty(QVariant::UInt, QString(propName.c_str()));
-    //                item->setValue(std::get<uint32_t>(propValue));
-    //            }
-    //
-    //        }, propValue);
-    //
-    //        if(item != nullptr){
-    //            properties_groupItem->addSubProperty(item);
-    //        }
-    //    }
-    //    connect(varManager, &QtVariantPropertyManager::valueChanged, this, [&](QtProperty * _t1, const QVariant & _t2){
-    //        auto f = currentModel->GetModelFilter();
-    //        auto filter = reinterpret_cast<LineTypePointsSource*>(f);
-    //        filter->SetResolution(_t2.toInt());
-    //        filter->Execute();
-    //    });
-    //    propertyTreeWidget->addProperty(properties_groupItem);
-    //
-    //    objectGroup = propertyManager->addProperty(QtVariantPropertyManager::groupTypeId(), QStringLiteral("Object propertys"));
-    //    propertyTreeWidget->addProperty(objectGroup);
 }
 
 ModelTreeWidgetItem* igQtModelDialogWidget::getItemFromObject(iGame::DataObject::Pointer obj) {
@@ -294,6 +263,15 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     if (currentItem == nullptr) return;
 
     int id = currentItem->getModelId();
+    
+    // Clear auto-rescaling states for this model before deletion
+    auto model = scene->GetModelById(id);
+    if (model && model->GetDataObject()) {
+        std::string modelName = model->GetDataObject()->GetName();
+        // Need to emit signal to ScalarViewWidget to clear states
+        Q_EMIT ModelDeleted(modelName);
+    }
+    
     scene->RemoveModel(id);
     scene->Update();
 

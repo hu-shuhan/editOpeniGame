@@ -47,11 +47,11 @@ public:
     virtual int ExecuteWithSurfaceMesh(DataObject::Pointer, SurfaceMesh::Pointer&);
     int ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
     virtual int ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output);
-    int ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
-    virtual int ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output);
-    int ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc,
+    int ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
+    virtual int ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output);
+    int ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc,
                                   bool* extractFace = nullptr);
-    virtual int ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+    virtual int ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                           bool* extractFace = nullptr);
 
 
@@ -71,7 +71,7 @@ public:
     void SetCellClipping(bool _b) { this->CellClipping = _b; }
     void SetExtentClipping(bool _b) { this->ExtentClipping = _b; }
     void SetPlaneClipping(bool _b) { this->PlaneClipping = _b; }
-    void SetPointMergin(bool _b) { this->Merging = _b; }
+    void SetPointMerging(bool _b) { this->Merging = _b; }
     void SetMaxThreadSize(int _b) { this->MaxThreadSize = _b; }
 
     FlatArray<igIndex>::Pointer GetPointMap() { return m_PointMap; }

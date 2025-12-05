@@ -151,8 +151,8 @@ std::vector<Vector3f> StreamTracer::getAllSubBlockCenters(const Vector3f& boxMax
     std::vector<Vector3f> allCenters;
 
     // 计算包围盒的所有子块中心
-    auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
-    allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
+   // auto boxCenters = computeSubBlockCenters(boxMin, boxMax, boxSplitCount);
+   // allCenters.insert(allCenters.end(), boxCenters.begin(), boxCenters.end());
 
     // 计算重点观察区域的所有子块中心
     auto focusCenters = computeSubBlockCenters(focusMin, focusMax, focusSplitCount);
@@ -233,6 +233,10 @@ bool StreamTracer::Execute() {
         return false;
     }
     std::cout << "1111111111111" << std::endl;
+
+
+
+
     // 使用内部存储的参数调用原始计算逻辑
     std::vector<std::vector<float>> streamColor;
     auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor, m_LengthOfStreamLine, m_LengthOfStep,
@@ -247,6 +251,7 @@ bool StreamTracer::Execute() {
     std::cout << "88888888888888888" << std::endl;
     // 创建 UnstructuredMesh 对象
     UnstructuredMesh::Pointer streamMesh = UnstructuredMesh::New();
+    streamMesh->SetShellRenderingOption(false);
     Points::Pointer points = Points::New();
     CellArray::Pointer cells = CellArray::New();
     UnsignedIntArray::Pointer types = UnsignedIntArray::New();
@@ -310,11 +315,12 @@ bool StreamTracer::Execute() {
     m_ResultMesh = streamMesh;
     return true;
 }
-std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
+
+std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int numOfSeeds) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
     std::vector<Vector3f> localMaxPoints;
-
+    std::map<float, Vector3f, std::greater<>> seedsMap;
     // 收集所有选中的点ID
     std::unordered_set<igIndex> allSelectedPoints;
 
@@ -335,7 +341,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
 
     // 获取向量数据
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(VectorName);
+    auto Vector = VectorData->GetAttribute(VectorName);
     if (Vector.pointer == nullptr) {
         std::cout << "Vector " << VectorName << " not found!" << std::endl;
         return localMaxPoints;
@@ -385,32 +391,39 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName) {
 
         // 如果是局部最大值，添加该点的坐标到结果
         if (isLocalMax && !neighborPoints.empty()) {
+            float V[4] = {0.0};
+            Vector.pointer->GetElement(pointId, V);
             Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0]+0.001f, p[1]+0.001f, p[2]+0.001f));
         }
-        bool isLocalMin = true;
-        for (igIndex neighborId: neighborPoints) {
-            double neighborValue[4] = {0.0};
-            Vector.pointer->GetElement(neighborId, neighborValue);
-            double neighborMagnitude =
-                    std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
-                              neighborValue[2] * neighborValue[2]);
+        //bool isLocalMin = true;
+        //for (igIndex neighborId: neighborPoints) {
+        //    double neighborValue[4] = {0.0};
+        //    Vector.pointer->GetElement(neighborId, neighborValue);
+        //    double neighborMagnitude =
+        //            std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
+        //                      neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude < currentMagnitude) {
-                isLocalMin = false;
-                break;
-            } else if (neighborMagnitude == currentMagnitude) {
-                std::cout << "equal" << std::endl;
-            }
-        }
+        //    if (neighborMagnitude < currentMagnitude) {
+        //        isLocalMin = false;
+        //        break;
+        //    } else if (neighborMagnitude == currentMagnitude) {
+        //        std::cout << "equal" << std::endl;
+        //    }
+        //}
 
-        // 如果是局部最小值，添加该点的坐标到结果
-        if (isLocalMin && !neighborPoints.empty()) {
-            Point p = mesh->GetPoint(pointId);
-            localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
-        }
+        //// 如果是局部最小值，添加该点的坐标到结果
+        //if (isLocalMin && !neighborPoints.empty()) {
+        //    Point p = mesh->GetPoint(pointId);
+        //    localMaxPoints.emplace_back(Vector3f(p[0]-0.01f, p[1]-0.001f, p[2]-0.001f));
+        //}
     }
-
+    int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);
+    auto it = seedsMap.begin();
+    for (int i = 0; i < numOfPoints; ++i) { 
+        localMaxPoints.emplace_back(it->second);
+        it;
+    }
     std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
     return localMaxPoints;
 }
@@ -678,7 +691,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             int numOfPoints = mesh->GetNumberOfPoints();
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
-            auto Vector = PointData->GetVector(vectorName);
+            auto Vector = PointData->GetAttribute(vectorName);
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
@@ -824,7 +837,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineHex(std::vector<Vect
     clock_t time1 = clock();
     auto PointData = mesh->GetAttributeSet();
     auto Points = mesh->GetPoints();
-    auto Vector = PointData->GetVector(vectorName);
+    auto Vector = PointData->GetAttribute(vectorName);
     int component = Vector.pointer->GetDimension();
     float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
 
@@ -951,7 +964,7 @@ StreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
     int numOfPoints = mesh->GetNumberOfPoints();
     clock_t time1 = clock();
     auto PointData = mesh->GetAttributeSet();
-    auto Vector = PointData->GetVector(vectorName);
+    auto Vector = PointData->GetAttribute(vectorName);
     int component = Vector.pointer->GetDimension();
     float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
     int initial = 0;
@@ -1150,7 +1163,7 @@ bool StreamTracer::CellData2PointData(std::string vectorName) {
         auto scalarDataArray = Scalars->GetElement(i);
         if (scalarDataArray.type == IG_VECTOR) std::cout << "type is a" << scalarDataArray.attachmentType << std::endl;
     }
-    auto vec = Vec->GetVector(vectorName);
+    auto vec = Vec->GetAttribute(vectorName);
     // how much D
     if (vec.attachmentType != IG_CELL) {
         std::cout << "error! type is:" << vec.attachmentType << std::endl;
@@ -1270,7 +1283,7 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
 
         if (mesh->GetIsPolyhedronType()) {
             auto CellData = mesh->GetAttributeSet();
-            auto Vector = CellData->GetVector(vectorName);
+            auto Vector = CellData->GetAttribute(vectorName);
             if (Vector.type == IG_CELL) {
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(VolumeId, v);
@@ -1404,7 +1417,7 @@ Vector3f StreamTracer::interpolationVectorTri(const Vector3f& coord, bool& insid
     weights[3] = Determinant3x3(pt[0], pt[1], d_rhs) / def;
     weights[0] = 1 - weights[1] - weights[2] - weights[3];
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 4; ++i) {
         double _v[4] = {1.0f};
         Vector.pointer->GetElement(volume[i], _v);
@@ -1489,7 +1502,7 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
     }
     InterpolationFunctions(pcoords, weights);
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 8; ++i) {
         double _v[4] = {0.0f};
         Vector.pointer->GetElement(volume[i], _v);
@@ -1541,7 +1554,7 @@ Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bo
     }
     ComputeWeightsForPolygonMesh(volume, coord, face, MaxPolygonSize, size, fsize, weights);
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < size; ++i) {
         double _v[4] = {0.0f};
         Vector.pointer->GetElement(volume[i], _v);

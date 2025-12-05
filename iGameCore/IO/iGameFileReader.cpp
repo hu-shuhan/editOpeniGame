@@ -43,10 +43,9 @@ bool FileReader::Execute() {
         return false;
     }
     clock_t time3 = clock();
-    //std::cout << "Generate DataObject Cost " << time3 - time2 << "ms\n";
-    
+
     if (m_Output) {
-        m_Output->GetPropertys()->AddProperty(Variant::LongLong, "FileSize")->SetValue(static_cast<long long>(m_FileSize));
+        m_Output->GetProperties()->AddProperty(Variant::LongLong, "FileSize")->SetValue(static_cast<long long>(m_FileSize));
     }
     
     this->SetOutput(0, m_Output);

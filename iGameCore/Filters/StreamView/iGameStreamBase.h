@@ -16,9 +16,12 @@ public:
     StreamTracer* streamFilter;
     Painter3D::Pointer m_Painter=Painter3D::New();
     std::vector<Vector3f> seeds;
+    //std::string vecName;
     void SetSeeds(std::vector<Vector3f> _seeds) {
         seeds = _seeds;
     }
+    //void SetVecName(std::string vecN) { vecName = vecN;
+    //}
     void SetUpdate(bool flag) {
         isUpdate = flag;
         ConvertToDrawableData();
