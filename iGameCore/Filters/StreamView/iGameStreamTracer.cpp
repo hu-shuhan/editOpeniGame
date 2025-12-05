@@ -276,8 +276,9 @@ bool StreamTracer::Execute() {
             Point p2(streamline[i * 6 + 3], streamline[i * 6 + 4], streamline[i * 6 + 5]);
             points->AddPoint(p1);
             points->AddPoint(p2);
-            velocityArray->AddElement3(streamline[i * 6], streamline[i * 6 + 1], streamline[i * 6 + 2]);
-            velocityArray->AddElement3(streamline[i * 6+3], streamline[i * 6 + 4], streamline[i * 6 + 5]);
+            velocityArray->AddElement3(streamlinecolor[i * 6], streamlinecolor[i * 6 + 1], streamlinecolor[i * 6 + 2]);
+            velocityArray->AddElement3(streamlinecolor[i * 6 + 3], streamlinecolor[i * 6 + 4],
+                                       streamlinecolor[i * 6 + 5]);
             int tem[2]{globalPointIndex, globalPointIndex + 1};
             cells->AddCellIds(tem, 2);
             types->AddValue(IG_LINE);
@@ -1430,87 +1431,170 @@ Vector3f StreamTracer::interpolationVectorTri(const Vector3f& coord, bool& insid
 Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, bool& inside, igIndex& VolumeId,
                                                          std::string vectorName,
                                                          float terminalSpeed) { // Interpolation
-    Vector3f finnal(0, 0, 0);
-    std::vector<Point> v(8);
-    igIndex volume[32]{};
-    int size = mesh->GetVolumePointIds(VolumeId, volume);
+    Vector3f finnal(0.0f, 0.0f, 0.0f);
+    inside = false;
 
-    // Verify hexahedron has exactly 8 vertices
-    if (size != 8) {
-        std::cout << "Error: Expected 8 vertices for hexahedron, got " << size << std::endl;
-        inside = false;
+    if (!mesh) { return finnal; }
+
+    igIndex volume[32]{};
+    int numPts = mesh->GetVolumePointIds(VolumeId, volume);
+    if (numPts != 8) {
+        std::cout << "Error: Expected 8 vertices for hexahedron, got " << numPts << std::endl;
         return finnal;
     }
 
-    for (int i = 0; i < 8; i++) { v[i] = mesh->GetPoint(volume[i]); }
-    double params[3] = {0.5, 0.5, 0.5};
-    double derivs[24];
-    double pcoords[3];
-    int diagonals[4][2] = {{0, 6}, {1, 7}, {2, 4}, {3, 5}};
-    double longestDiagonal = 0;
-    double weights[8];
-    for (int i = 0; i < 4; i++) {
+    Point v[8];
+    for (int i = 0; i < 8; ++i) { v[i] = mesh->GetPoint(volume[i]); }
 
+    double pcoords[3] = {0.5, 0.5, 0.5};
+    double lastPCoords[3] = {0.5, 0.5, 0.5};
+    double derivs[24];
+    double weights[8];
+
+    int diagonals[4][2] = {{0, 6}, {1, 7}, {2, 4}, {3, 5}};
+    double longestDiagonal = 0.0;
+    for (int i = 0; i < 4; ++i) {
         double d2 = (v[diagonals[i][0]] - v[diagonals[i][1]]).length();
         if (longestDiagonal < d2) { longestDiagonal = d2; }
     }
     double volumeBound = longestDiagonal * std::sqrt(longestDiagonal);
-    double determinantTolerance = 1e-20 < .00001 * volumeBound ? 1e-20 : .00001 * volumeBound;
-    pcoords[0] = pcoords[1] = pcoords[2] = 0.5;
-    int iteration, converged = 0;
-    for (iteration = 0; !converged && (iteration < 10); iteration++) {
+    double determinantTolerance = std::max(1e-20, 1e-5 * volumeBound);
+
+    const int maxIter = 10;
+    const double tol = 1e-5;
+
+    bool converged = false;
+    for (int iteration = 0; iteration < maxIter && !converged; ++iteration) {
         InterpolationFunctions(pcoords, weights);
         InterpolationDerivs(pcoords, derivs);
 
-        double fcol[3] = {0, 0, 0}, rcol[3] = {0, 0, 0}, scol[3] = {0, 0, 0}, tcol[3] = {0, 0, 0};
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 3; j++) {
+        double fcol[3] = {0.0, 0.0, 0.0};
+        double rcol[3] = {0.0, 0.0, 0.0}; // d x / d r
+        double scol[3] = {0.0, 0.0, 0.0}; // d x / d s
+        double tcol[3] = {0.0, 0.0, 0.0}; // d x / d t
 
-                fcol[j] += v[i][j] * weights[i];
-                rcol[j] += v[i][j] * derivs[i];
-                scol[j] += v[i][j] * derivs[i + 8];
-                tcol[j] += v[i][j] * derivs[i + 16];
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                double xv = v[i][j];
+                fcol[j] += xv * weights[i];
+                rcol[j] += xv * derivs[i];      // dN_i/dr
+                scol[j] += xv * derivs[i + 8];  // dN_i/ds
+                tcol[j] += xv * derivs[i + 16]; // dN_i/dt
             }
         }
-        for (int i = 0; i < 3; i++) { fcol[i] -= coord[i]; }
-        double d = Determinant3x3(rcol, scol, tcol);
-        if (fabs(d) < determinantTolerance) {
-            inside = false;
-            return finnal;
-        }
-        pcoords[0] = params[0] - Determinant3x3(fcol, scol, tcol) / d;
-        pcoords[1] = params[1] - Determinant3x3(rcol, fcol, tcol) / d;
-        pcoords[2] = params[2] - Determinant3x3(rcol, scol, fcol) / d;
-        if (((fabs(pcoords[0] - params[0])) < 1.e-05) && ((fabs(pcoords[1] - params[1])) < 1.e-05) &&
-            ((fabs(pcoords[2] - params[2])) < 1.e-05)) {
-            converged = 1;
-        } else if ((fabs(pcoords[0]) > 10000) || (fabs(pcoords[1]) > 10000) || (fabs(pcoords[2]) > 10000)) {
+
+        fcol[0] -= coord[0];
+        fcol[1] -= coord[1];
+        fcol[2] -= coord[2];
+
+        double detJ = Determinant3x3(rcol, scol, tcol);
+        if (std::fabs(detJ) < determinantTolerance) {
             inside = false;
             return finnal;
         }
 
-        //  if not converged, repeat
-        else {
-            params[0] = pcoords[0];
-            params[1] = pcoords[1];
-            params[2] = pcoords[2];
+        double rhs[3] = {-fcol[0], -fcol[1], -fcol[2]};
+
+        double c1[3], c2[3], c3[3];
+
+        c1[0] = rhs[0];
+        c1[1] = rhs[1];
+        c1[2] = rhs[2];
+        c2[0] = scol[0];
+        c2[1] = scol[1];
+        c2[2] = scol[2];
+        c3[0] = tcol[0];
+        c3[1] = tcol[1];
+        c3[2] = tcol[2];
+        double dp0 = Determinant3x3(c1, c2, c3) / detJ;
+
+        c1[0] = rcol[0];
+        c1[1] = rcol[1];
+        c1[2] = rcol[2];
+        c2[0] = rhs[0];
+        c2[1] = rhs[1];
+        c2[2] = rhs[2];
+        c3[0] = tcol[0];
+        c3[1] = tcol[1];
+        c3[2] = tcol[2];
+        double dp1 = Determinant3x3(c1, c2, c3) / detJ;
+
+        c1[0] = rcol[0];
+        c1[1] = rcol[1];
+        c1[2] = rcol[2];
+        c2[0] = scol[0];
+        c2[1] = scol[1];
+        c2[2] = scol[2];
+        c3[0] = rhs[0];
+        c3[1] = rhs[1];
+        c3[2] = rhs[2];
+        double dp2 = Determinant3x3(c1, c2, c3) / detJ;
+
+        double newPCoords[3];
+        newPCoords[0] = pcoords[0] + dp0;
+        newPCoords[1] = pcoords[1] + dp1;
+        newPCoords[2] = pcoords[2] + dp2;
+
+        for (int k = 0; k < 3; ++k) {
+            if (newPCoords[k] < -0.01) newPCoords[k] = -0.01;
+            if (newPCoords[k] > 1.01) newPCoords[k] = 1.01;
+        }
+
+        double diff0 = std::fabs(newPCoords[0] - pcoords[0]);
+        double diff1 = std::fabs(newPCoords[1] - pcoords[1]);
+        double diff2 = std::fabs(newPCoords[2] - pcoords[2]);
+        if (diff0 < tol && diff1 < tol && diff2 < tol) {
+            pcoords[0] = newPCoords[0];
+            pcoords[1] = newPCoords[1];
+            pcoords[2] = newPCoords[2];
+            converged = true;
+            break;
+        }
+
+        lastPCoords[0] = pcoords[0];
+        lastPCoords[1] = pcoords[1];
+        lastPCoords[2] = pcoords[2];
+        pcoords[0] = newPCoords[0];
+        pcoords[1] = newPCoords[1];
+        pcoords[2] = newPCoords[2];
+
+        if (std::fabs(pcoords[0]) > 1e4 || std::fabs(pcoords[1]) > 1e4 || std::fabs(pcoords[2]) > 1e4) {
+            inside = false;
+            return finnal;
         }
     }
+
     if (!converged) {
         inside = false;
         return finnal;
     }
+
+    const double eps = 1e-4;
+    if (pcoords[0] < -eps || pcoords[0] > 1.0 + eps || pcoords[1] < -eps || pcoords[1] > 1.0 + eps ||
+        pcoords[2] < -eps || pcoords[2] > 1.0 + eps) {
+        inside = false;
+        return finnal;
+    }
+
+    inside = true;
+
     InterpolationFunctions(pcoords, weights);
     auto VectorData = mesh->GetAttributeSet();
     auto Vector = VectorData->GetVector(vectorName);
-    for (int i = 0; i < 8; ++i) {
-        double _v[4] = {0.0f};
-        Vector.pointer->GetElement(volume[i], _v);
-        Vector3f V(_v[0], _v[1], _v[2]);
-        finnal += V * weights[i];
+    if (!Vector.pointer) {
+        inside = false;
+        return finnal;
     }
+
+    for (int i = 0; i < 8; ++i) {
+        double _v[4] = {0.0};
+        Vector.pointer->GetElement(volume[i], _v);
+        Vector3f V(static_cast<float>(_v[0]), static_cast<float>(_v[1]), static_cast<float>(_v[2]));
+        finnal += V * static_cast<float>(weights[i]);
+    }
+
     if (finnal.length() < terminalSpeed) { inside = false; }
-    // return finnal * longestDiagonal;
+
     return finnal;
 }
 Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bool& inside, igIndex& VolumeId,
@@ -1891,22 +1975,52 @@ double StreamTracer::pointToFaceDis(Vector3d coord, Vector3d v0, Vector3d v1, Ve
     Vector3f pa = coord - a;
     return abs((pa.dot(normal)));
 }
-bool StreamTracer::checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2) {
-    Vector3f p0(v0[0], v0[1], v0[2]);
-    Vector3f p1(v1[0], v1[1], v1[2]);
-    Vector3f p2(v2[0], v2[1], v2[2]);
-    Vector3f d(1, 1, 1);
-    Vector3f e1 = p1 - p0;
-    Vector3f e2 = p2 - p0;
-    Vector3f s = coord - p0;
-    Vector3f s1 = d.cross(e2);
-    Vector3f s2 = s.cross(e1);
-    float t = s2.dot(e2) / (s1.dot(e1));
-    float b1 = s1.dot(s) / (s1.dot(e1));
-    float b2 = s2.dot(d) / (s1.dot(e1));
-    if (t > 0 && b1 > 0 && b2 > 0 && (1 - b1 - b2) > 0) return true;
-    return false;
+bool StreamTracer::checkContact(const Vector3f& coord, const Vector3f& v0, const Vector3f& v1, const Vector3f& v2) {
+    Vector3f d(1.0f, 1.0f, 1.0f);
+    d += Vector3f(1e-6f, -2e-6f, 3e-6f); // 防止平行
+
+    const float EPSILON = 1e-7f;
+
+    Vector3f e1 = v1 - v0;
+    Vector3f e2 = v2 - v0;
+
+    Vector3f pvec = d.cross(e2);
+    float det = e1.dot(pvec);
+
+    if (fabs(det) < EPSILON) return false;
+
+    float invDet = 1.0f / det;
+
+    Vector3f tvec = coord - v0;
+    float u = tvec.dot(pvec) * invDet;
+
+    if (u < -EPSILON || u > 1.0f + EPSILON) return false;
+
+    Vector3f qvec = tvec.cross(e1);
+    float v = d.dot(qvec) * invDet;
+
+    if (v < -EPSILON || u + v > 1.0f + EPSILON) return false;
+
+    float t = e2.dot(qvec) * invDet;
+
+    return (t > EPSILON);
 }
+//bool StreamTracer::checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2) {
+//    Vector3f p0(v0[0], v0[1], v0[2]);
+//    Vector3f p1(v1[0], v1[1], v1[2]);
+//    Vector3f p2(v2[0], v2[1], v2[2]);
+//    Vector3f d(1, 1, 1);
+//    Vector3f e1 = p1 - p0;
+//    Vector3f e2 = p2 - p0;
+//    Vector3f s = coord - p0;
+//    Vector3f s1 = d.cross(e2);
+//    Vector3f s2 = s.cross(e1);
+//    float t = s2.dot(e2) / (s1.dot(e1));
+//    float b1 = s1.dot(s) / (s1.dot(e1));
+//    float b2 = s2.dot(d) / (s1.dot(e1));
+//    if (t > 0 && b1 > 0 && b2 > 0 && (1 - b1 - b2) > 0) return true;
+//    return false;
+//}
 
 // Performance optimization implementations
 inline double StreamTracer::fastSin(double x) {
