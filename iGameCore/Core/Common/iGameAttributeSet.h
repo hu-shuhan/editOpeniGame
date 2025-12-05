@@ -129,7 +129,6 @@ public:
     // Get all cell attributes, not thread safe
     ElementArray<Attribute>::Pointer GetAllCellAttributes();
     ElementArray<Attribute>::Pointer GetAllScarleAttributes();
-    void TransformScalars2VectorArray();
 
     size_t GetNumberOfAttributes() const;
 

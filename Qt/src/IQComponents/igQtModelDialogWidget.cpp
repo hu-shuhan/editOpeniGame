@@ -48,17 +48,27 @@ static void BuildSubObjectTree(QTreeWidget* tree, QTreeWidgetItem* parentItem, i
 
 igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(parent), ui(new Ui::LayerDialog) {
     ui->setupUi(this);
-    this->setMinimumWidth(parent->width() / 4);
+    this->setMinimumWidth(parent->width() / 6);
 
+    tabWidget = ui->tabWidget;
+    modelTreeWidget = ui->modelTreeWidget;
+    propertyWidget = ui->propertyWidget;
     QSplitter* splitter = new QSplitter(Qt::Vertical, this);
     this->setWidget(splitter);
     splitter->addWidget(ui->modelTreeWidget);
-    splitter->addWidget(ui->ModelInformationWidget);
-    splitter->addWidget(ui->propertyWidget);
+    splitter->addWidget(tabWidget);
+    //splitter->addWidget(ui->propertyWidget);
     splitter->setChildrenCollapsible(false);
+    
+    tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
+    tabWidget->addTab(ui->propertyWidget, "Model Properties");
 
-    modelTreeWidget = ui->modelTreeWidget;
-    propertyWidget = ui->propertyWidget;
+    int totalWidth = parent->width() / 6;
+
+    // 根据总宽度调整列宽
+    int col1Width = totalWidth * 0.4;
+    int col2Width = totalWidth * 0.6;
+
 
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();

@@ -48,6 +48,7 @@ private:
 
     igQtModelTreeWidget* modelTreeWidget;
     QtTreePropertyBrowser* propertyWidget;
+    QTabWidget* tabWidget;
 
     QtVariantPropertyManager* propertyManager;
     QtVariantEditorFactory* editFactory;

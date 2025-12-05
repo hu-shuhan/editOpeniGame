@@ -126,6 +126,23 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
+
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VectorField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_FlowField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_TensorField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ParallelCoordinatesField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableCorrelationField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VariableDensityField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_DataChangeField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SelectionField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContextPreservingShowField);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_QualityDetection);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_EditMode);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_Animation);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ModelList);
+    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContourExtract);
     ui->dockWidget_ScalarField->hide();
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
@@ -143,9 +160,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
     // Setup default GUI layout.
-    this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+    //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
-    this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
+    //this->setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
     // Set up the dock window corners to give the vertical docks more room.
     this->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
     this->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);

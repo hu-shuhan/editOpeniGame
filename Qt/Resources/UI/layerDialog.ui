@@ -12,8 +12,8 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>0</width>
-    <height>0</height>
+    <width>88</width>
+    <height>107</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -32,7 +32,7 @@
          <x>0</x>
          <y>0</y>
          <width>400</width>
-         <height>682</height>
+         <height>700</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -57,10 +57,21 @@
          </widget>
         </item>
         <item>
-         <widget class="QtTreePropertyBrowser" name="propertyWidget" native="true"/>
-        </item>
-        <item>
-         <widget class="igQtModelInformationWidget" name="ModelInformationWidget" native="true"/>
+         <widget class="QTabWidget" name="tabWidget">
+          <property name="currentIndex">
+           <number>0</number>
+          </property>
+          <widget class="igQtModelInformationWidget" name="ModelInformationWidget">
+           <attribute name="title">
+            <string>Tab 1</string>
+           </attribute>
+          </widget>
+          <widget class="QtTreePropertyBrowser" name="propertyWidget">
+           <attribute name="title">
+            <string>Tab 2</string>
+           </attribute>
+          </widget>
+         </widget>
         </item>
        </layout>
       </widget>
