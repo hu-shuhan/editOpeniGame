@@ -173,8 +173,15 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index, QTreeWidget* treeview, Mod
 void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
 
+    // For Dimension=1, show only the single dimension value, not magnitude
+    if (length == 1) {
+        comboBox->addItem(QString::fromStdString("x"));
+        comboBox->setCurrentIndex(0);
+        return;
+    }
+    
+    // For Dimension>=2, show magnitude first, then individual dimensions
     comboBox->addItem("magnitude");
-    if (length < 2) return;
     if (length < 4) {
         if (length > 0) comboBox->addItem(QString::fromStdString("x"));
         if (length > 1) comboBox->addItem(QString::fromStdString("y"));

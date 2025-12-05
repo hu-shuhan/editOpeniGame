@@ -342,7 +342,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
 
     // 获取向量数据
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(VectorName);
+    auto Vector = VectorData->GetAttribute(VectorName);
     if (Vector.pointer == nullptr) {
         std::cout << "Vector " << VectorName << " not found!" << std::endl;
         return localMaxPoints;
@@ -692,7 +692,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             int numOfPoints = mesh->GetNumberOfPoints();
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
-            auto Vector = PointData->GetVector(vectorName);
+            auto Vector = PointData->GetAttribute(vectorName);
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
@@ -838,7 +838,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineHex(std::vector<Vect
     clock_t time1 = clock();
     auto PointData = mesh->GetAttributeSet();
     auto Points = mesh->GetPoints();
-    auto Vector = PointData->GetVector(vectorName);
+    auto Vector = PointData->GetAttribute(vectorName);
     int component = Vector.pointer->GetDimension();
     float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
 
@@ -965,7 +965,7 @@ StreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
     int numOfPoints = mesh->GetNumberOfPoints();
     clock_t time1 = clock();
     auto PointData = mesh->GetAttributeSet();
-    auto Vector = PointData->GetVector(vectorName);
+    auto Vector = PointData->GetAttribute(vectorName);
     int component = Vector.pointer->GetDimension();
     float MAX_STEP = 0.001, MIN_STEP = 0.0001, ERR = 0.000001;
     int initial = 0;
@@ -1164,7 +1164,7 @@ bool StreamTracer::CellData2PointData(std::string vectorName) {
         auto scalarDataArray = Scalars->GetElement(i);
         if (scalarDataArray.type == IG_VECTOR) std::cout << "type is a" << scalarDataArray.attachmentType << std::endl;
     }
-    auto vec = Vec->GetVector(vectorName);
+    auto vec = Vec->GetAttribute(vectorName);
     // how much D
     if (vec.attachmentType != IG_CELL) {
         std::cout << "error! type is:" << vec.attachmentType << std::endl;
@@ -1284,7 +1284,7 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
 
         if (mesh->GetIsPolyhedronType()) {
             auto CellData = mesh->GetAttributeSet();
-            auto Vector = CellData->GetVector(vectorName);
+            auto Vector = CellData->GetAttribute(vectorName);
             if (Vector.type == IG_CELL) {
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(VolumeId, v);
@@ -1418,7 +1418,7 @@ Vector3f StreamTracer::interpolationVectorTri(const Vector3f& coord, bool& insid
     weights[3] = Determinant3x3(pt[0], pt[1], d_rhs) / def;
     weights[0] = 1 - weights[1] - weights[2] - weights[3];
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 4; ++i) {
         double _v[4] = {1.0f};
         Vector.pointer->GetElement(volume[i], _v);
@@ -1580,12 +1580,7 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
 
     InterpolationFunctions(pcoords, weights);
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
-    if (!Vector.pointer) {
-        inside = false;
-        return finnal;
-    }
-
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 8; ++i) {
         double _v[4] = {0.0};
         Vector.pointer->GetElement(volume[i], _v);
@@ -1638,7 +1633,7 @@ Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bo
     }
     ComputeWeightsForPolygonMesh(volume, coord, face, MaxPolygonSize, size, fsize, weights);
     auto VectorData = mesh->GetAttributeSet();
-    auto Vector = VectorData->GetVector(vectorName);
+    auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < size; ++i) {
         double _v[4] = {0.0f};
         Vector.pointer->GetElement(volume[i], _v);

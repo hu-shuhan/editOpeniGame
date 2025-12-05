@@ -1,4 +1,7 @@
 #include "IQComponents/igQtDataRangeSlider.h"
+#include <sstream>
+#include <iomanip>
+
 namespace
 {
 	const int SliderBarHeight = 10;
@@ -54,14 +57,19 @@ void igQtDataRangeSlider::paintEvent(QPaintEvent* aEvent)
 		painter.drawRoundedRect(HandleRect, 5, 5);
 	}
 
-	std::string str;
 	float minRange = range[0] * (max - min) + min;
 	float maxRange = range[1] * (max - min) + min;
+	
+	// Use stringstream with scientific notation for proper display of very small values
+	std::ostringstream oss;
+	oss << std::scientific << std::setprecision(6);
+	oss << "Range:(" << minRange << ", " << maxRange << ")\n";
+	std::string str = oss.str();
+	
 	QFont font = *(new QFont);
 	font.setFamily("Microsoft YaHei");
 	font.setPointSize(12);
 	QFontMetrics fm(font);
-	str = "Range:(" + std::to_string(minRange) + ", " + std::to_string(maxRange) + ")\n";
 	QRect rect = fm.boundingRect(QString::fromStdString(str));
 	int textWidth = rect.width();
 	int textHeight = rect.height();

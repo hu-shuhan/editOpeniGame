@@ -1202,6 +1202,9 @@ void igQtMainWindow::initAllMySignalConnections() {
 
 
     connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
+    // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 
 
     //connect(ui->widget_QualityDetection,
@@ -1211,6 +1214,9 @@ void igQtMainWindow::initAllMySignalConnections() {
             &igQtMainWindow::updateColorBarShow);
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
+    // Clear auto-rescaling states when model is deleted
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();

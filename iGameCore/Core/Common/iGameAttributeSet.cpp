@@ -74,7 +74,8 @@ const AttributeSet::Attribute& AttributeSet::GetVector(const std::string& name) 
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr) {
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false});
-
+    //auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    //if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
     return m_Buffer->GetNumberOfElements() - 1;
 }
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr,
@@ -82,7 +83,8 @@ IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const Arra
 
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false, dataRange});
-
+    //auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    //if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
     return m_Buffer->GetNumberOfElements() - 1;
 }
 
@@ -132,12 +134,12 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& nam
     return NONE;
 }
 
-int AttributeSet::GetAttributeIndex(const std::string& name) const { 
+int AttributeSet::GetAttributeIndex(const std::string& name) const {
     for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
         auto& attrb = m_Buffer->GetElement(i);
         if (!attrb.IsNone() && attrb.pointer->GetName() == name) return i;
     }
-    return -1; 
+    return -1;
 }
 
 
@@ -328,10 +330,6 @@ IGsize AttributeSet::GetRealMemorySize() {
     }
     return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
 }
-void AttributeSet::ForceReConvertToDrawableData() {
-    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
-}
 
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
 
@@ -405,8 +403,10 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     int dim = this->pointer->GetDimension();
     double dimensionRanges[128];
     for (int i = 0; i < 2 * (dim + 1); i += 2) {
-        dimensionRanges[i + 0] = dataRange->GetValue(i + 0) == 0 ? DBL_MAX : dataRange->GetValue(i + 0);
-        dimensionRanges[i + 1] = dataRange->GetValue(i + 1) == 0 ? DBL_MIN : dataRange->GetValue(i + 1);
+        dimensionRanges[i + 0] = DBL_MAX;
+        dimensionRanges[i + 1] = DBL_MIN;
+//        dimensionRanges[i + 0] = dataRange->GetValue(i + 0) == 0 ? DBL_MAX : dataRange->GetValue(i + 0);
+//        dimensionRanges[i + 1] = dataRange->GetValue(i + 1) == 0 ? DBL_MIN : dataRange->GetValue(i + 1);
     }
 
     auto& data = this->pointer;

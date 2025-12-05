@@ -51,7 +51,7 @@ void ScalarsToColors::InitRange(ArrayObject::Pointer input, int component) {
     InitRange(input, component, 1);
 }
 
-void ScalarsToColors::SetRange(float minval, float maxval) {
+void ScalarsToColors::SetRange(double minval, double maxval) {
     if (this->InputRange[0] != minval || this->InputRange[1] != maxval) {
         this->InputRange[0] = minval;
         this->InputRange[1] = maxval;
@@ -59,12 +59,12 @@ void ScalarsToColors::SetRange(float minval, float maxval) {
     }
 }
 
-float* ScalarsToColors::GetRange() { return this->InputRange; }
+double* ScalarsToColors::GetRange() { return this->InputRange; }
 
 void ScalarsToColors::ComputeShiftScale(float& shift, float& scale) {
     constexpr float minscale = -1e17;
     constexpr float maxscale = 1e17;
-    const float* range = this->GetRange();
+    const double* range = this->GetRange();
     shift = -range[0];
     scale = range[1] - range[0];
     if (scale * scale > 1e-30) {
