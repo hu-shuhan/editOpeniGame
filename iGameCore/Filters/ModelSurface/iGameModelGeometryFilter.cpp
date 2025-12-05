@@ -135,9 +135,9 @@ bool ModelGeometryFilter::Execute(DataObject::Pointer input, SurfaceMesh::Pointe
         case IG_SURFACE_MESH:
             return this->ExecuteWithSurfaceMesh(input, output, excFaces);
         case IG_UNSTRUCTURED_MESH:
-            return this->ExecuteWithUnstructuredGrid(input, output, excFaces);
+            return this->ExecuteWithUnstructuredMesh(input, output, excFaces);
         case IG_STRUCTURED_MESH:
-            return this->ExecuteWithStructuredGrid(input, output, excFaces);
+            return this->ExecuteWithStructuredMesh(input, output, excFaces);
         default:
             break;
     }
@@ -468,7 +468,7 @@ struct ExtractCellBoundaries {
 
     void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints, Points::Pointer newPoints) {
         auto ids = Polygons->GetCellIdArray()->RawPointer();
-        IGsize num = Polygons->GetCellIdArray()->GetNumberOfIds();
+        IGsize num = Polygons->GetNumberOfCellIds();  // 使用实际填充的数据量，而不是 buffer 的大小
         igIndex id = 0;
         igIndex oldId = 0;
         igIndex newId = 0;
@@ -498,27 +498,26 @@ struct ExtractCellBoundaries {
 
 int ModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                 SurfaceMesh::Pointer exc) {
-    SurfaceMesh::Pointer Grid = DynamicCast<SurfaceMesh>(input);
-    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-    //                     << Grid->GetNumberOfFaces() << " faces.");
+    SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(input);
+    //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
+    //                     << Mesh->GetNumberOfFaces() << " faces.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
-    igIndex64 numCells = Grid->GetNumberOfFaces();
-    igIndex64 numInputPts = Grid->GetNumberOfPoints();
+    igIndex64 numCells = Mesh->GetNumberOfFaces();
+    igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
+    auto inPoints = Mesh->GetPoints();
     auto outPoints = Points::New();
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
-    StringArray::Pointer attrbNameArray = StringArray::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
-    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetFaces());
+    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetFaces());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
     if ((!CellVisible) && (Merging == false)) { return 0; }
     std::vector<igIndex> f2c;
-    auto Faces = Grid->GetFaces();
+    auto Faces = Mesh->GetFaces();
     igIndex vcnt;
     igIndex vhs[IGAME_CELL_MAX_SIZE];
     for (i = 0; i < numCells; i++) {
@@ -529,9 +528,7 @@ int ModelGeometryFilter::ExecuteWithSurfaceMesh(DataObject::Pointer input, Surfa
         }
     }
     CompositeCellAttribute(f2c, inAllDataArray, outAllDataArray);
-    for (i = 0; i < outAllDataArray->GetAllAttributes().GetPointer()->Size(); i++) {
-        attrbNameArray->AddElement(outAllDataArray->GetAttribute(i).pointer.get()->GetName());
-    }
+
     if (Merging) {
         auto* extract = new ExtractCellBoundaries(nullptr, nullptr, nullptr);
         extract->CreatePointMap(numInputPts);
@@ -660,17 +657,17 @@ void ExtractCellGeometry(VolumeMesh::Pointer input, igIndex cellId, igIndex npts
     }
 }
 struct ExtractVM : public ExtractCellBoundaries {
-    // Process volumemesh grid
-    VolumeMesh::Pointer Grid;
+    // Process volumemesh mesh
+    VolumeMesh::Pointer Mesh;
     std::shared_ptr<FaceHashMap> FaceMap;
     bool RemoveGhostInterFaces;
 
-    ExtractVM(VolumeMesh::Pointer grid, const char* cellVis, const unsigned char* cellGhost,
+    ExtractVM(VolumeMesh::Pointer mesh, const char* cellVis, const unsigned char* cellGhost,
               const unsigned char* pointGhost, bool merging, bool removeGhostInterFaces)
-        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Grid(grid),
+        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Mesh(mesh),
           RemoveGhostInterFaces(removeGhostInterFaces) {
-        if (merging) { this->CreatePointMap(grid->GetNumberOfPoints()); }
-        this->FaceMap = std::make_shared<FaceHashMap>(static_cast<size_t>(grid->GetNumberOfPoints()));
+        if (merging) { this->CreatePointMap(mesh->GetNumberOfPoints()); }
+        this->FaceMap = std::make_shared<FaceHashMap>(static_cast<size_t>(mesh->GetNumberOfPoints()));
         this->Initialize();
     }
 
@@ -682,13 +679,13 @@ struct ExtractVM : public ExtractCellBoundaries {
         igIndex pts[IGAME_CELL_MAX_SIZE];
         igIndex npts = 0;
         auto FaceMap = this->FaceMap.get();
-        if (this->Grid) {
+        if (this->Mesh) {
             for (cellId = beginCellId; cellId < endCellId; cellId++) {
                 if (isGhost) { continue; }
                 // If the cell is visible process it
                 if (!this->CellVis || this->CellVis[cellId]) {
-                    npts = this->Grid->GetVolumePointIds(cellId, pts);
-                    ExtractCellGeometry(this->Grid, cellId, npts, pts, FacePool, FaceMap, isGhost);
+                    npts = this->Mesh->GetVolumePointIds(cellId, pts);
+                    ExtractCellGeometry(this->Mesh, cellId, npts, pts, FacePool, FaceMap, isGhost);
                 }
             }
         }
@@ -696,34 +693,33 @@ struct ExtractVM : public ExtractCellBoundaries {
 };
 int ModelGeometryFilter::ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                SurfaceMesh::Pointer exc) {
-    VolumeMesh::Pointer Grid = DynamicCast<VolumeMesh>(input);
-    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-    //                     << Grid->GetNumberOfVolumes() << " volumes.");
+    VolumeMesh::Pointer Mesh = DynamicCast<VolumeMesh>(input);
+    //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
+    //                     << Mesh->GetNumberOfVolumes() << " volumes.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
-    igIndex64 numCells = Grid->GetNumberOfVolumes();
-    igIndex64 numInputPts = Grid->GetNumberOfPoints();
+    igIndex64 numCells = Mesh->GetNumberOfVolumes();
+    igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
+    auto inPoints = Mesh->GetPoints();
     auto outPoints = inPoints;
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
-    StringArray::Pointer attrbNameArray = StringArray::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
-    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetCells());
+    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
 
 
     auto* extract =
-            new ExtractVM(Grid, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
+            new ExtractVM(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
     FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
     std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
 
     auto func = [&](igIndex start, igIndex end, int i) -> void {
         FacePools[i] = new FaceMemoryPool;
-        FacePools[i]->Initialize(Grid->GetNumberOfPoints());
+        FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
         extract->Execute(start, end, FacePools[i]);
     };
     ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
@@ -1003,16 +999,16 @@ void ExtractCellGeometry(UnstructuredMesh::Pointer input, igIndex cellId, int ce
     }
 }
 struct ExtractUG : public ExtractCellBoundaries {
-    UnstructuredMesh::Pointer Grid;
+    UnstructuredMesh::Pointer Mesh;
     std::shared_ptr<FaceHashMap> FaceMap;
     bool RemoveGhostInterFaces;
 
-    ExtractUG(UnstructuredMesh* grid, const char* cellVis, const unsigned char* cellGhost,
+    ExtractUG(UnstructuredMesh* mesh, const char* cellVis, const unsigned char* cellGhost,
               const unsigned char* pointGhost, bool merging, bool removeGhostInterFaces)
-        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Grid(grid),
+        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Mesh(mesh),
           RemoveGhostInterFaces(removeGhostInterFaces) {
-        if (merging) { this->CreatePointMap(grid->GetNumberOfPoints()); }
-        this->FaceMap = std::make_shared<FaceHashMap>(static_cast<size_t>(grid->GetNumberOfPoints()));
+        if (merging) { this->CreatePointMap(mesh->GetNumberOfPoints()); }
+        this->FaceMap = std::make_shared<FaceHashMap>(static_cast<size_t>(mesh->GetNumberOfPoints()));
         this->Initialize();
     }
 
@@ -1024,63 +1020,63 @@ struct ExtractUG : public ExtractCellBoundaries {
         igIndex pts[IGAME_CELL_MAX_SIZE];
         igIndex npts = 0;
         auto FaceMap = this->FaceMap.get();
-        if (this->Grid) {
-            auto cellTypes = Grid->GetCellTypes()->RawPointer();
+        if (this->Mesh) {
+            auto cellTypes = Mesh->GetCellTypes()->RawPointer();
             for (cellId = beginCellId; cellId < endCellId; cellId++) {
                 igIndex cellType = cellTypes[cellId];
                 //如果是虚拟Cell
                 if (isGhost && (Cell::GetCellDimension(cellType) < 3 || !this->RemoveGhostInterFaces)) { continue; }
                 if (!this->CellVis || this->CellVis[cellId]) {
-                    Grid->GetCellPointIds(cellId, pts);
-                    ExtractCellGeometry(this->Grid, cellId, cellType, npts, pts, FacePool, FaceMap, isGhost);
+                    Mesh->GetCellPointIds(cellId, pts);
+                    ExtractCellGeometry(this->Mesh, cellId, cellType, npts, pts, FacePool, FaceMap, isGhost);
                 }
             }
         }
     }
 };
-int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                      SurfaceMesh::Pointer exc) {
-    UnstructuredMesh::Pointer Grid = DynamicCast<UnstructuredMesh>(input);
-    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-    //                     << Grid->GetNumberOfCells() << " cells.");
+    UnstructuredMesh::Pointer Mesh = DynamicCast<UnstructuredMesh>(input);
+    //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
+    //                     << Mesh->GetNumberOfCells() << " cells.");
     bool isNot3D = false;
-    for (int i = 0; i < Grid->GetNumberOfCells(); i++) {
-        if (Cell::GetCellDimension(Grid->GetCellType(i)) >= 3) {
+    for (int i = 0; i < Mesh->GetNumberOfCells(); i++) {
+        if (Cell::GetCellDimension(Mesh->GetCellType(i)) >= 3) {
             continue;
         }
         isNot3D = true;
         break;
     }
     if (isNot3D) {
-        auto surfaceMesh = Grid->TransferToSurfaceMesh();
+        auto surfaceMesh = Mesh->TransferToSurfaceMesh();
         if (surfaceMesh == nullptr) { return 0; }
-        if (!ExecuteWithSurfaceMesh(Grid->TransferToSurfaceMesh(), output)) { output = surfaceMesh; }
+        if (!ExecuteWithSurfaceMesh(Mesh->TransferToSurfaceMesh(), output)) { output = surfaceMesh; }
         return 1;
     }
     clock_t startTime = clock();
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
-    igIndex64 numCells = Grid->GetNumberOfCells();
-    igIndex64 numInputPts = Grid->GetNumberOfPoints();
+    igIndex64 numCells = Mesh->GetNumberOfCells();
+    igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
+    auto inPoints = Mesh->GetPoints();
     auto outPoints = inPoints;
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
-    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetCells(), Grid->GetCellTypes());
+    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells(), Mesh->GetCellTypes());
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
 
     auto* extract =
-            new ExtractUG(Grid, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
+            new ExtractUG(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
 
     FaceMemoryPool** FacePools = new FaceMemoryPool*[this->MaxThreadSize];
     std::fill(FacePools, FacePools + MaxThreadSize, nullptr);
     auto func = [&](igIndex start, igIndex end, int i) -> void {
         FacePools[i] = new FaceMemoryPool;
-        FacePools[i]->Initialize(Grid->GetNumberOfPoints());
+        FacePools[i]->Initialize(Mesh->GetNumberOfPoints());
         extract->Execute(start, end, FacePools[i]);
     };
     ThreadPool::parallelFor(0, numCells, MaxThreadSize, func);
@@ -1117,23 +1113,23 @@ int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, 
     return 1;
 }
 
-int ModelGeometryFilter::ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
-    return this->ExecuteWithUnstructuredGrid(input, output, nullptr);
+int ModelGeometryFilter::ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output) {
+    return this->ExecuteWithUnstructuredMesh(input, output, nullptr);
 }
 
 
 struct ExtractSG : public ExtractCellBoundaries {
-    StructuredMesh::Pointer Grid;
+    StructuredMesh::Pointer Mesh;
     bool RemoveGhostInterFaces;
     CellArray::Pointer Quads;
     std::vector<igIndex> f2c;
-    ExtractSG(StructuredMesh::Pointer grid, const char* cellVis, const unsigned char* cellGhost,
+    ExtractSG(StructuredMesh::Pointer mesh, const char* cellVis, const unsigned char* cellGhost,
               const unsigned char* pointGhost, bool merging, bool removeGhostInterFaces)
-        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Grid(grid),
+        : ExtractCellBoundaries(cellVis, cellGhost, pointGhost), Mesh(mesh),
           RemoveGhostInterFaces(removeGhostInterFaces) {
-        if (merging) { this->CreatePointMap(grid->GetNumberOfPoints()); }
+        if (merging) { this->CreatePointMap(mesh->GetNumberOfPoints()); }
         Quads = CellArray::New();
-        auto size = grid->GetDimensionSize();
+        auto size = mesh->GetDimensionSize();
         IGsize initSize = (size[0] - 1) * (size[1] - 1) * (size[2] - 1);
         if (!cellVis) { initSize *= 2; }
         Quads->Reserve(initSize);
@@ -1147,7 +1143,7 @@ struct ExtractSG : public ExtractCellBoundaries {
     void Initialize() override { this->ExtractCellBoundaries::Initialize(); }
 
     void Execute() {
-        auto size = Grid->GetDimensionSize();
+        auto size = Mesh->GetDimensionSize();
         igIndex i = 0, j = 0, k = 0;
         igIndex vhs[4] = {0};
         igIndex st = 0;
@@ -1260,14 +1256,14 @@ struct ExtractSG : public ExtractCellBoundaries {
         }
     }
 };
-int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+int ModelGeometryFilter::ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                    SurfaceMesh::Pointer exc, bool* extracFace) {
     ;
-    StructuredMesh::Pointer Grid = DynamicCast<StructuredMesh>(input);
-    Grid->GenStructuredCellConnectivities();
-    if (Grid->GetDimension() != 3) {
+    StructuredMesh::Pointer Mesh = DynamicCast<StructuredMesh>(input);
+    Mesh->GenStructuredCellConnectivities();
+    if (Mesh->GetDimension() != 3) {
         ConvertToSurfaceMeshFilter::Pointer filter = ConvertToSurfaceMeshFilter::New();
-        filter->SetInput(Grid);
+        filter->SetInput(Mesh);
         filter->Execute();
         bool result = this->ExecuteWithSurfaceMesh(filter->GetSurfaceMesh(), output, exc);
         if (result == 0) {
@@ -1275,26 +1271,26 @@ int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, Su
             return 1;
         }
     }
-    //igDebug("Input has " << Grid->GetNumberOfPoints() << " points and "
-    //                     << Grid->GetNumberOfCells() << " cells.");
+    //igDebug("Input has " << Mesh->GetNumberOfPoints() << " points and "
+    //                     << Mesh->GetNumberOfCells() << " cells.");
     igIndex i = 0, j = 0, k = 0;
     igIndex64 cellId = 0, pointId = 0;
-    igIndex64 numCells = Grid->GetNumberOfCells();
-    igIndex64 numInputPts = Grid->GetNumberOfPoints();
+    igIndex64 numCells = Mesh->GetNumberOfCells();
+    igIndex64 numInputPts = Mesh->GetNumberOfPoints();
     igIndex64 numOutputPts = 0;
-    auto inPoints = Grid->GetPoints();
+    auto inPoints = Mesh->GetPoints();
     auto outPoints = inPoints;
     auto inAllDataArray = input->GetAttributeSet();
     auto outAllDataArray = AttributeSet::New();
     CellArray::Pointer Polygons = CellArray::New();
     CharArray::Pointer CellVisibleArray = CharArray::New();
-    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Grid->GetCells());
+    char* CellVisible = ComputeCellVisibleArray(CellVisibleArray, inPoints, Mesh->GetCells());
     if (CellVisible) { return this->ExecuteWithVolumeMesh(input, output); }
     unsigned char* cellGhosts = nullptr;
     unsigned char* pointGhosts = nullptr;
 
     auto* extract =
-            new ExtractSG(Grid, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
+            new ExtractSG(Mesh, CellVisible, cellGhosts, pointGhosts, this->Merging, this->RemoveGhostInterfaces);
     extract->Execute();
     Polygons = extract->Quads;
 
@@ -1316,9 +1312,9 @@ int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, Su
     return 1;
 }
 
-int ModelGeometryFilter::ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+int ModelGeometryFilter::ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                                    bool* extracFace) {
-    return this->ExecuteWithStructuredGrid(input, output, nullptr, extracFace);
+    return this->ExecuteWithStructuredMesh(input, output, nullptr, extracFace);
 }
 
 char* ModelGeometryFilter::ComputeCellVisibleArray(CharArray::Pointer& CellVisibleArray, Points::Pointer inPoints,
@@ -1421,7 +1417,7 @@ void ModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, Attr
             newData->Resize(fcnt);
             newData->SetName(inData->GetName());
             auto func = [&](igIndex start, igIndex end) -> void {
-                double tmp[64];
+                double tmp[IGAME_CELL_MAX_SIZE];
                 for (igIndex i = start; i < end; i++) {
                     inData->GetElement(f2c[i], tmp);
                     newData->SetElement(i, tmp);
@@ -1431,11 +1427,11 @@ void ModelGeometryFilter::CompositeCellAttribute(std::vector<igIndex>& F2C, Attr
             outData = newData;
             outAllDataArray->AddAttribute(inAllDataArray->GetAttribute(i).type,
                                           inAllDataArray->GetAttribute(i).attachmentType, newData,
-                                          inAllDataArray->GetAttribute(i).dataRange);
+                                          inAllDataArray->GetAttribute(i).GetDataRange());
         } else {
             outAllDataArray->AddAttribute(
                     inAllDataArray->GetAttribute(i).type, inAllDataArray->GetAttribute(i).attachmentType,
-                    inAllDataArray->GetAttribute(i).pointer, inAllDataArray->GetAttribute(i).dataRange);
+                    inAllDataArray->GetAttribute(i).pointer, inAllDataArray->GetAttribute(i).GetDataRange());
         }
     }
 }
@@ -1452,7 +1448,7 @@ void ModelGeometryFilter::CompositePointAttribute(igIndex* PointMap, IGsize oldP
             newData->Resize(newPNum);
             newData->SetName(inData->GetName());
             auto func = [&](igIndex start, igIndex end) -> void {
-                double tmp[64];
+                double tmp[IGAME_CELL_MAX_SIZE];
                 for (igIndex i = start; i < end; i++) {
                     if (PointMap[i] != -1) {
                         inData->GetElement(i, tmp);

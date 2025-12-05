@@ -46,6 +46,7 @@ private:
     iGame::SmartPointer<iGame::StreamLineSelection> Selection;
     iGame::SmartPointer<iGame::Painter3D> Painter;
     bool isExisted = false;
+    bool modelBound = false;
     int numOfSeeds;
     iGame::Vector3f startP;
     iGame::Vector3f endP;

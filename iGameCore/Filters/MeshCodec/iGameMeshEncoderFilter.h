@@ -208,7 +208,7 @@ private:
 
             // 1) 优先使用读取阶段写入的 FileSize 属性
             if (const auto fileSizeProperty =
-                this->m_DataObj->GetPropertys()->GetProperty("FileSize"))
+                this->m_DataObj->GetProperties()->GetProperty("FileSize"))
             {
                 sourceSize = fileSizeProperty->Get<long long>();
             }
@@ -216,7 +216,7 @@ private:
             // 2) 若缺失或无效，尝试通过 FilePath 读取磁盘文件大小
             if (sourceSize <= 0) {
                 if (const auto filePathProperty =
-                        this->m_DataObj->GetPropertys()->GetProperty("FilePath"))
+                        this->m_DataObj->GetProperties()->GetProperty("FilePath"))
                 {
                     const auto filePath = filePathProperty->Get<std::string>();
                     std::error_code ec;

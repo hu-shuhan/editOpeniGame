@@ -41,16 +41,14 @@ iGame::DataObject::Pointer OpenFile(const std::string& filePath) {
     if (filePath.empty() || strrchr(filePath.data(), '.') == nullptr) return nullptr;
 
     auto obj = iGame::FileIO::ReadFile(filePath);
-    //_obj = obj;
     if (obj == nullptr) {
         igDebug("This file read error.");
         return nullptr;
     }
+
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
-    //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
-    //return;
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     return obj;
 }
 bool LoadAndCompress(std::string filePath) {

@@ -63,7 +63,7 @@ void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement*
                 auto writer = VTSWriter::New();
                 writer->SetInput(DynamicCast<StructuredMesh>(child));
                 writer->SetFilePath(fileDir + fileName);
-                writer->WriteToFile();
+                writer->Execute();
 
                 auto* dsElem = doc.NewElement("DataSet");
                 dsElem->SetAttribute("index", blockIndex);
@@ -77,7 +77,7 @@ void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement*
                 auto writer = VTUWriter::New();
                 writer->SetInput(DynamicCast<UnstructuredMesh>(child));
                 writer->SetFilePath(fileDir + fileName);
-                writer->WriteToFile();
+                writer->Execute();
 
                 auto* dsElem = doc.NewElement("DataSet");
                 dsElem->SetAttribute("index", blockIndex);
@@ -93,7 +93,7 @@ void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement*
             auto writer = VTSWriter::New();
             writer->SetInput(DynamicCast<StructuredMesh>(obj));
             writer->SetFilePath(fileDir + fileName);
-            writer->WriteToFile();
+            writer->Execute();
             auto* dsElem = doc.NewElement("DataSet");
             dsElem->SetAttribute("index", blockIndex);
             dsElem->SetAttribute("name", ("dom-" + std::to_string(blockIndex)).c_str());
@@ -105,7 +105,7 @@ void VTMWriter::WriteSubBlocks(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement*
             auto writer = VTUWriter::New();
             writer->SetInput(DynamicCast<UnstructuredMesh>(obj));
             writer->SetFilePath(fileDir + fileName);
-            writer->WriteToFile();
+            writer->Execute();
             auto* dsElem = doc.NewElement("DataSet");
             dsElem->SetAttribute("index", blockIndex);
             dsElem->SetAttribute("name", ("dom-" + std::to_string(blockIndex)).c_str());

@@ -17,6 +17,8 @@ IGAME_NAMESPACE_BEGIN
 FileWriter::FileWriter()
 {
 	this->m_FileSize=0;
+	this->SetNumberOfInputs(1);
+	this->SetNumberOfOutputs(0);
 }
 FileWriter::~FileWriter()
 {
@@ -24,8 +26,13 @@ FileWriter::~FileWriter()
 	m_Buffers.swap(temp);
 	m_TemporaryBuffers.swap(temp);
 }
-bool FileWriter::WriteToFile()
+bool FileWriter::Execute()
 {
+	this->m_DataObject = this->m_Inputs->GetElement(0);
+	if(!m_DataObject){
+		igDebug("could not write nullptr object!");
+		return false;
+	}
 	if (!GenerateBuffers()) {
 		IGAME_CORE_ERROR("Could not generate buffer to load.");
 		return false;
@@ -37,7 +44,7 @@ bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string fi
 {
 	this->m_DataObject = dataObject;
 	this->m_FilePath = filePath;
-	return WriteToFile();
+	return Execute();
 }
 
 bool FileWriter::SaveBufferDataToFile()

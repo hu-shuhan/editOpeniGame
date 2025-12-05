@@ -226,13 +226,17 @@ void igQtStreamTracerWidget::generateStreamline() {
 
     iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
     Model::Pointer model = scene->GetCurrentModel();
-    VolumeMesh::Pointer mesh;
-    std::cout << model->GetDataObject()->GetName() << std::endl;
-    auto tem = model->GetDataObject();
-    m_DataObject = tem;
+    if (!modelBound) {
+        std::cout << "[StreamTracer] First model binding\n";
 
-    streamtracer->initStreamTracer(model);
-    masterName = model->GetDataObject()->GetName();
+        streamtracer->initStreamTracer(model);
+        masterName = model->GetDataObject()->GetName();
+
+        auto tem = model->GetDataObject();
+        m_DataObject = tem; 
+
+        modelBound = true;
+    }
     std::vector<std::vector<int>> seedPids = {{1797284, 3468659},
                                               {536542, 2738820},
                                               {536542, 2658742},
@@ -241,6 +245,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::vector<std::vector<float>> streamlineColor;
     std::vector<std::vector<float>> streamline;
     iGame::AttributeSet* _AttributeSet;
+    auto tem = m_DataObject;
     if (tem->HasSubDataObject()) {
         auto it = tem->SubDataObjectIteratorBegin();
         // it++;
@@ -279,7 +284,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-
+        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
     }
 
     //scene->ChangeModelVisibility(model, false);
