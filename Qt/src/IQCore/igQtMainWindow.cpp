@@ -1565,6 +1565,50 @@ void igQtMainWindow::initAllInteractor() {
         if (dynamicBox == nullptr) return;
         ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetUseBox, this, [&]() {
+        if (!SelectionParameter::Instance().GetInSelection()) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto dataObj = model->GetDataObject();
+        if (dataObj == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        auto scene = rendererWidget->GetScene();
+        auto interactor = scene->GetInteractor();
+        if (!SelectionParameter::Instance().GetHaveBox()) return;
+        auto basicStyle = interactor->GetSpecialInteractor("SelectBox");
+        if (basicStyle == nullptr) return;
+        auto boxStyle = DynamicCast<iGame::BoxStyle>(basicStyle);
+        if (boxStyle == nullptr) return;
+        auto dynamicBox = boxStyle->GetBox();
+        if (dynamicBox == nullptr) return;
+        auto faces = dynamicBox->GetAllFaces();
+        boxStyle->SetChooedStation(true);
+        auto meshType = dataObj->GetDataObjectType();
+        switch (meshType) {
+            case IG_SURFACE_MESH: {
+                auto mesh = DynamicCast<SurfaceMesh>(dataObj);
+                mesh->RequestEditStatus();
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,  Selection::Operate::Add);
+            } break;
+            case IG_VOLUME_MESH: {
+                auto mesh = DynamicCast<VolumeMesh>(dataObj);
+                mesh->RequestEditStatus();
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,Selection::Operate::Add);
+            } break;
+            case IG_UNSTRUCTURED_MESH: {
+                auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add );
+            } break;
+            default:
+                return;
+        }
+        rendererWidget->update();
+    });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetUseBox, this, [&]() {
         if (!SelectionParameter::Instance().GetInSelection()) return;
         auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -1748,6 +1792,7 @@ void igQtMainWindow::initAllInteractor() {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
         }
     });
+
     connect(ui->action_drag_point, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_drag_point->isChecked()) {
             rendererWidget->ChangeInteractorStyle(Interactor::DragPointStyle);

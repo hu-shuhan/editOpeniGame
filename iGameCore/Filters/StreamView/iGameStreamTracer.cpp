@@ -251,6 +251,7 @@ bool StreamTracer::Execute() {
     std::cout << "88888888888888888" << std::endl;
     // 创建 UnstructuredMesh 对象
     UnstructuredMesh::Pointer streamMesh = UnstructuredMesh::New();
+    streamMesh->SetShellRenderingOption(false);
     Points::Pointer points = Points::New();
     CellArray::Pointer cells = CellArray::New();
     UnsignedIntArray::Pointer types = UnsignedIntArray::New();
