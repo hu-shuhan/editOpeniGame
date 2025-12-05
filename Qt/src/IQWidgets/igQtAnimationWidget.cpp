@@ -240,9 +240,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     }
 
 
-//    /* process Object's scalar range*/
-//    currentDrawObject->ReCollectSubDataObjectDataRange();
-//    currentDrawObject->UpdateSubDataObjectDataRange();
+    /* process Object's scalar range*/
+    currentDrawObject->ReCollectSubDataObjectDataRange();
+    currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -254,6 +254,7 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     currentScene->DoneCurrent();
 
     Q_EMIT UpdateScene();
+    Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 }
 
 void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
@@ -371,6 +372,7 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     currentScene->DoneCurrent();
 
     Q_EMIT UpdateScene();
+    Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 
     Q_EMIT PlayAnimation_interpolate(keyframe_0, t);
 }

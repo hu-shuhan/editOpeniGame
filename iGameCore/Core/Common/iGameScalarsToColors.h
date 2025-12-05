@@ -12,7 +12,7 @@ public:
     static Pointer New() { return new ScalarsToColors; }
 
     /*Get the range of scaled data*/
-    float* GetRange();
+    double* GetRange();
     /*Init the range of scaled data with magnitude mode,
 	if current mode is RGB , this will do nothing*/
     void InitRange(ArrayObject::Pointer input);
@@ -25,8 +25,8 @@ public:
     void InitRange(ArrayObject::Pointer input, int component, int size);
 
     /*Set the range of scaled data*/
-    void SetRange(float min, float max);
-    void SetRange(const float rng[2]) { this->SetRange(rng[0], rng[1]); }
+    void SetRange(double min, double max);
+    void SetRange(const double rng[2]) { this->SetRange(rng[0], rng[1]); }
     /*Map the value to rgb,return the unsignend char array,means the rgb data with range 0-255
 	  note the value is not scaled,so you need give the shift and scale to scale the value*/
     const unsigned char* MapValue(float v, float& shift, float& scale);
@@ -119,7 +119,7 @@ protected:
 
 private:
     float RGB[3];
-    float InputRange[2];
+    double InputRange[2];
 };
 
 template<>

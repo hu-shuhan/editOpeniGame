@@ -1026,6 +1026,9 @@ void VolumeMesh::ConvertToDrawableData() {
             SetRenderableObject(surfaceMesh);
             m_PointMap = extract->GetPointMap();
         } else {
+            m_ShellRendering = false;
+            this->m_RenderableMesh.SurfaceMesh = nullptr;
+            this->m_RenderableMesh.SimplifiedMesh = nullptr;
             igDebug("Failed to execute the shell algorithm.");
         }
 

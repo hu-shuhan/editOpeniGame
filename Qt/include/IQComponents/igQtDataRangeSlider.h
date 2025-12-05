@@ -33,7 +33,7 @@ protected:
 	QRectF getHandleRectWithFloatValue(float handle)const;
 
 signals:
-	void DataRangeChanged(float, float);
+	void DataRangeChanged(double, double);
 public slots:
 	void updateMinAndMax(float, float);
 

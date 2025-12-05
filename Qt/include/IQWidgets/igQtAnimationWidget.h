@@ -30,6 +30,7 @@ private slots:
 
 signals:
     void UpdateScene();
+    void AnimationFrameChanged();  // Signal when animation frame changes, triggers scalar UI update
 
     void PlayAnimation_snap(int keyframe_idx);
 
