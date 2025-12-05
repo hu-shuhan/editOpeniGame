@@ -1240,6 +1240,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Clear auto-rescaling states when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
+    // Update animation controls when model changes
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();
@@ -1508,6 +1511,13 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         if (!iGame::SelectionParameter::Instance().GetInSelection()) {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+            auto removeBoxFunc = [&]() {
+                auto scene = rendererWidget->GetScene();
+                SelectionParameter::Instance().SetHaveBox(false);
+                scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+                rendererWidget->update();
+            };
+            removeBoxFunc();
             return;
         }
         auto selectionStation = iGame::SelectionParameter::Instance().GetSelectionStation();

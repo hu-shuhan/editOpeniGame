@@ -37,9 +37,11 @@ void Interactor::FilterEvent(IEvent event) {
         std::cout << "FilterEvent: Creating default style" << std::endl;
         CreateDefaultStyle();
     }
-    m_Internal->FilterEvent(event);
+    //先考虑特殊交互器，再考虑普通交互器
+    //请勿改变这个顺序，否则会导致Selection的Box出错
     for (auto& specialInternal: m_SpecialInternals)
         specialInternal.second->FilterEvent(event);
+    m_Internal->FilterEvent(event);
 }
 
 void Interactor::RequestBasicStyle() {
