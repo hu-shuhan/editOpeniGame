@@ -1,7 +1,7 @@
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameSceneManager.h>
-
+#include<iGameBoxStyle.h>
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
     ui->setupUi(this);
@@ -262,10 +262,12 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
+        Q_EMIT SetUseBox();
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         //seeds = streamtracer->getModelSelect();
     } else {
        // seeds = streamtracer->getModelSelect();
+        Q_EMIT SetUseBox();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);

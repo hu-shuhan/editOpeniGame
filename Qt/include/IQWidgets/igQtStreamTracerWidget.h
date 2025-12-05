@@ -40,6 +40,7 @@ public slots:
 signals:
     void AddStreamObject(iGame::DataObject::Pointer);
     void UpdateStreamObject(iGame::DataObject::Pointer);
+    void SetUseBox();
 
 private:
     Ui::SteamLineTracer* ui;
