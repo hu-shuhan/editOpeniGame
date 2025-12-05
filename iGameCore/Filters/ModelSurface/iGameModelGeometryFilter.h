@@ -47,11 +47,11 @@ public:
     virtual int ExecuteWithSurfaceMesh(DataObject::Pointer, SurfaceMesh::Pointer&);
     int ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
     virtual int ExecuteWithVolumeMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output);
-    int ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
-    virtual int ExecuteWithUnstructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output);
-    int ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc,
+    int ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc);
+    virtual int ExecuteWithUnstructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output);
+    int ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output, SurfaceMesh::Pointer exc,
                                   bool* extractFace = nullptr);
-    virtual int ExecuteWithStructuredGrid(DataObject::Pointer input, SurfaceMesh::Pointer& output,
+    virtual int ExecuteWithStructuredMesh(DataObject::Pointer input, SurfaceMesh::Pointer& output,
                                           bool* extractFace = nullptr);
 
 

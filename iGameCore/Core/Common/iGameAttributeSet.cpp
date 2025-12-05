@@ -74,8 +74,7 @@ const AttributeSet::Attribute& AttributeSet::GetVector(const std::string& name) 
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr) {
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false});
-    //auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    //if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
+
     return m_Buffer->GetNumberOfElements() - 1;
 }
 IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const ArrayObject::Pointer& attr,
@@ -83,8 +82,7 @@ IGsize AttributeSet::AddAttribute(IGenum type, IGenum attachmentType, const Arra
 
     if (!attr) { return -1; }
     m_Buffer->AddElement(Attribute{attr, type, attachmentType, false, dataRange});
-    //auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-    //if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
+
     return m_Buffer->GetNumberOfElements() - 1;
 }
 
@@ -329,6 +327,10 @@ IGsize AttributeSet::GetRealMemorySize() {
         res += array ? array->GetArrayTypedSize() * array->GetNumberOfValues() : 0;
     }
     return res + sizeof(Attribute) * m_Buffer->GetNumberOfElements();
+}
+void AttributeSet::ForceReConvertToDrawableData() {
+    auto drawObject = DynamicCast<DrawObject>(m_DataObject);
+    if (drawObject != nullptr) { drawObject->ForceReConvertToDrawableData(); }
 }
 
 AttributeSet::AttributeSet() { m_Buffer = ElementArray<Attribute>::New(); }
