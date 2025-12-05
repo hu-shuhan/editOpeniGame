@@ -393,7 +393,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
             float V[4] = {0.0};
             Vector.pointer->GetElement(pointId, V);
             Point p = mesh->GetPoint(pointId);
-            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0], p[1], p[2]));
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0]+0.001f, p[1]+0.001f, p[2]+0.001f));
         }
         //bool isLocalMin = true;
         //for (igIndex neighborId: neighborPoints) {
@@ -414,7 +414,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
         //// 如果是局部最小值，添加该点的坐标到结果
         //if (isLocalMin && !neighborPoints.empty()) {
         //    Point p = mesh->GetPoint(pointId);
-        //    localMaxPoints.emplace_back(Vector3f(p[0], p[1], p[2]));
+        //    localMaxPoints.emplace_back(Vector3f(p[0]-0.01f, p[1]-0.001f, p[2]-0.001f));
         //}
     }
     int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);

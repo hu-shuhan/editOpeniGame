@@ -257,10 +257,11 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
-        //seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
-        seeds = streamtracer->getModelSelect();
+        seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
+        //seeds = streamtracer->getModelSelect();
     } else {
-        seeds = streamtracer->getModelSelect();
+       // seeds = streamtracer->getModelSelect();
+        seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         for (auto seed: temSeeds) { 
@@ -269,7 +270,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
-
+    //m_StreamBase->SetUpdate(true);
     if (!m_ResultObject) {
         m_ResultObject = iGame::UnstructuredMesh::New();
     }

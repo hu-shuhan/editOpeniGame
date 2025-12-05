@@ -72,7 +72,7 @@ void StreamBase::ConvertToDrawableData() {
 
     // 提取速度属性作为颜色数据
     if (attrSet) {
-        auto velocityAttr = attrSet->GetVector("V");
+        auto velocityAttr = attrSet->GetVector("velocityArray");
         float step1=0.0f;
         float step2=FLT_MAX;
         int count1 = 0;
