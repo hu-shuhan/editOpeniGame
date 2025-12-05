@@ -468,7 +468,7 @@ struct ExtractCellBoundaries {
 
     void UpdatePointMap(CellArray::Pointer& Polygons, Points::Pointer oldPoints, Points::Pointer newPoints) {
         auto ids = Polygons->GetCellIdArray()->RawPointer();
-        IGsize num = Polygons->GetCellIdArray()->GetNumberOfIds();
+        IGsize num = Polygons->GetNumberOfCellIds();  // 使用实际填充的数据量，而不是 buffer 的大小
         igIndex id = 0;
         igIndex oldId = 0;
         igIndex newId = 0;

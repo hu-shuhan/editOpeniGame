@@ -71,7 +71,7 @@ public:
     void SetCellClipping(bool _b) { this->CellClipping = _b; }
     void SetExtentClipping(bool _b) { this->ExtentClipping = _b; }
     void SetPlaneClipping(bool _b) { this->PlaneClipping = _b; }
-    void SetPointMergin(bool _b) { this->Merging = _b; }
+    void SetPointMerging(bool _b) { this->Merging = _b; }
     void SetMaxThreadSize(int _b) { this->MaxThreadSize = _b; }
 
     FlatArray<igIndex>::Pointer GetPointMap() { return m_PointMap; }
