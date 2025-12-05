@@ -188,10 +188,19 @@ public:
         hide();
     }
 
+
     void setDimension(int length) {
         m_Combo->clear();
+        
+        // For Dimension=1, show only the single dimension value, not magnitude
+        if (length == 1) {
+            m_Combo->addItem(QString::fromStdString("x"));
+            m_Combo->setCurrentIndex(0);
+            return;
+        }
+        
+        // For Dimension>=2, show magnitude first, then individual dimensions
         m_Combo->addItem("magnitude");
-        if (length < 2) return;
         if (length < 4) {
             if (length > 0) m_Combo->addItem(QString::fromStdString("x"));
             if (length > 1) m_Combo->addItem(QString::fromStdString("y"));
@@ -201,6 +210,7 @@ public:
         }
         m_Combo->setCurrentIndex(0);
     }
+
 
     int currentIndex() const { return m_Combo->currentIndex(); }
     void show() { m_Combo->show(); }

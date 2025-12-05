@@ -40,6 +40,7 @@ public slots:
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
+    void ModelDeleted(const std::string& modelName);  // Emitted when model is deleted
     void Update();
 
 protected:

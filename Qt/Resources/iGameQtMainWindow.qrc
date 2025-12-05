@@ -31,6 +31,8 @@
         <file>Icons/VcrLast.svg</file>
         <file>Icons/VcrPlay.svg</file>
         <file>Icons/VcrReverse.svg</file>
+        <file>Icons/VcrPause.svg</file>
+        <file>Icons/VcrLoop.svg</file>
         <file>Icons/VolumeRendering.png</file>
         <file>Icons/animation_save_vcr.png</file>
         <file>Icons/Chart.png</file>

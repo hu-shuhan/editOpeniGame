@@ -403,8 +403,10 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     int dim = this->pointer->GetDimension();
     double dimensionRanges[128];
     for (int i = 0; i < 2 * (dim + 1); i += 2) {
-        dimensionRanges[i + 0] = dataRange->GetValue(i + 0) == 0 ? DBL_MAX : dataRange->GetValue(i + 0);
-        dimensionRanges[i + 1] = dataRange->GetValue(i + 1) == 0 ? DBL_MIN : dataRange->GetValue(i + 1);
+        dimensionRanges[i + 0] = DBL_MAX;
+        dimensionRanges[i + 1] = DBL_MIN;
+//        dimensionRanges[i + 0] = dataRange->GetValue(i + 0) == 0 ? DBL_MAX : dataRange->GetValue(i + 0);
+//        dimensionRanges[i + 1] = dataRange->GetValue(i + 1) == 0 ? DBL_MIN : dataRange->GetValue(i + 1);
     }
 
     auto& data = this->pointer;
