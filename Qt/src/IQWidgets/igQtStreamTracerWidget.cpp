@@ -284,7 +284,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-
+        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
     }
 
     //scene->ChangeModelVisibility(model, false);

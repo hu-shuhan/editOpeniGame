@@ -445,7 +445,7 @@ DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
 
 bool DrawObject::IsAlwaysOnTop() const { return m_AlwaysOnTop; }
-
+bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
 void DrawObject::SetShellRenderingOption(bool option) {
     if (m_ShellRendering != option) {
         m_ShellRendering = option;

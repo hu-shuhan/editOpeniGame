@@ -84,6 +84,7 @@ public:
     bool IsAlwaysOnTop() const;
 
     void SetShellRenderingOption(bool option);
+    bool GetShellRenderingOption();
 
     /**
      * @brief 设置是否启用加速渲染模式。
