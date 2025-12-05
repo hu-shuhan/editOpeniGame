@@ -443,9 +443,6 @@ void igQtAnimationWidget::initAnimationComponents() {
     ui->SliderAnimationTrack->setMinimum(0);
     ui->SliderAnimationTrack->setValue(0);
 
-    // Connect comboBox to VCR controller - must be before early returns
-//    connect(ui->comboBoxCurrentAnimation, QOverload<int>::of(&QComboBox::currentIndexChanged),
-//            VcrController, &igQtAnimationVcrController::updateCurrentKeyframe);
 
     // Populate comboBoxCurrentAnimation with frame numbers (1-based display)
     ui->comboBoxCurrentAnimation->clear();
