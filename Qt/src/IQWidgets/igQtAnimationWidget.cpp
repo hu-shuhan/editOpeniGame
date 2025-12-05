@@ -253,6 +253,11 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     }
     currentScene->DoneCurrent();
 
+    // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
+    ui->comboBoxCurrentAnimation->blockSignals(false);
+
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 }
@@ -371,6 +376,11 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     }
     currentScene->DoneCurrent();
 
+    // Update comboBoxCurrentAnimation for interpolation (block signals to avoid recursion)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_0);
+    ui->comboBoxCurrentAnimation->blockSignals(false);
+
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 
@@ -432,6 +442,17 @@ void igQtAnimationWidget::initAnimationComponents() {
                                          1);
     ui->SliderAnimationTrack->setMinimum(0);
     ui->SliderAnimationTrack->setValue(0);
+
+    // Connect comboBox to VCR controller - must be before early returns
+//    connect(ui->comboBoxCurrentAnimation, QOverload<int>::of(&QComboBox::currentIndexChanged),
+//            VcrController, &igQtAnimationVcrController::updateCurrentKeyframe);
+
+    // Populate comboBoxCurrentAnimation with frame numbers (1-based display)
+    ui->comboBoxCurrentAnimation->clear();
+    for (int i = 0; i < timeValues.size(); i++) {
+        ui->comboBoxCurrentAnimation->addItem(QString::number(i + 1));  // Display 1, 2, 3...
+    }
+    ui->comboBoxCurrentAnimation->setCurrentIndex(0);  // Start at frame 1
 
     ui->lineEditKeyframeNum->setText(
             QString("%1").arg(static_cast<int>(timeValues.size())));
