@@ -1502,6 +1502,13 @@ void igQtMainWindow::initAllInteractor() {
     connect(ui->widget_SelectionField, &igQtSelectionWidget::Signal_SetSelectionStationChanged, this, [&]() {
         if (!iGame::SelectionParameter::Instance().GetInSelection()) {
             rendererWidget->ChangeInteractorStyle(Interactor::BasicStyle);
+            auto removeBoxFunc = [&]() {
+                auto scene = rendererWidget->GetScene();
+                SelectionParameter::Instance().SetHaveBox(false);
+                scene->GetInteractor()->RemoveSepcialInteractor("SelectBox");
+                rendererWidget->update();
+            };
+            removeBoxFunc();
             return;
         }
         auto selectionStation = iGame::SelectionParameter::Instance().GetSelectionStation();
