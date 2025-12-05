@@ -79,7 +79,7 @@ void igQtModelInformationWidget::updateInformationFrame() {
     // 处理文件属性
     iGame::Property::Pointer p;
     std::string filePath("");
-    if ((p = obj->GetPropertys()->GetProperty("FilePath")) != nullptr) { filePath = p->Get<std::string>(); }
+    if ((p = obj->GetProperties()->GetProperty("FilePath")) != nullptr) { filePath = p->Get<std::string>(); }
 
     size_t lastSlashPos = filePath.find_last_of("/\\");
     QString directory, fileName;

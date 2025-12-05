@@ -122,7 +122,7 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
@@ -197,7 +197,7 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
 
         auto filename = first_file_path.substr(first_file_path.find_last_of('/') + 1);
         outerObj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-        outerObj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
+        outerObj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
 
         auto timeFrame = outerObj->GetTimeFrames();
         for(int i = 0; i < filePaths.size(); i ++){
@@ -213,7 +213,7 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
 
     auto filename = first_file_path.substr(first_file_path.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(first_file_path);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
 
@@ -238,7 +238,7 @@ void igQtFileLoader::OpenODBFile(const std::string& filePath) {
             auto reader = iGame::ODBReader::New();
             DataObject::Pointer obj = reader->ReadOdbFirstFrameMesh(filePath, stepNames[stepIdx]);
             obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-            obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+            obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
             //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
             this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
@@ -307,7 +307,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
     //Q_EMIT AddFileToModelList(QString(filePath.substr(filePath.find_last_of('/') + 1).c_str()));
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
@@ -329,7 +329,7 @@ void igQtFileLoader::OpenSplineFile(const std::string& filePath) {
     }
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
     emit NewModel(obj, ItemSource::File);
@@ -415,7 +415,7 @@ void igQtFileLoader::OpenNastranFile(const QStringList& fileNames) {
     auto filePath = bdfPath.toStdString();
     auto filename = filePath.substr(filePath.find_last_of('/') + 1);
     obj->SetName(filename.substr(0, filename.find_last_of('.')).c_str());
-    obj->GetPropertys()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
+    obj->GetProperties()->AddProperty(Variant::String, "FilePath")->SetValue(filePath);
 
     this->SaveCurrentFileToRecentFile(QString::fromStdString(filePath));
     emit NewModel(obj, ItemSource::File);

@@ -42,9 +42,6 @@ signals:
     void CloudPictureChanged();
     void Update();
 
-protected:
-    void UpdateCurrentModel(iGame::Model::Pointer model);
-
 private:
     //iGame::Model* currentModel;
 
