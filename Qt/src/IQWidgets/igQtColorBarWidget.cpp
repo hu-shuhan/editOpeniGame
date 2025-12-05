@@ -18,7 +18,7 @@ igQtColorBarWidget::igQtColorBarWidget(QWidget* parent) : QWidget(parent)
 	this->limitY1 = 0;
 	this->limitX2 = 10000;
 	this->limitY2 = 10000;
-	this->limitHeight = 200;
+	this->limitHeight = 250;
 	this->setMaximumHeight(limitHeight);
 	this->resize(this->width(), limitHeight);
 	this->move(0, this->limitY2 - 400);
@@ -27,11 +27,21 @@ igQtColorBarWidget::igQtColorBarWidget(QWidget* parent) : QWidget(parent)
 void igQtColorBarWidget::updateColorBarDrawInfo() {
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
     m_ColorMapper = nullptr;
+	m_AttributeName = "";  // Reset attribute name
 	if (scene) {
         auto model = scene->GetCurrentModel();
         if (model&&model->GetDataObject()&&model->GetDataObject()->GetAttributeIndex()!=-1
             ) {
 			m_ColorMapper =model->GetDataObject()->GetColorMapper();
+			// Get current attribute name
+			int attrIdx = model->GetDataObject()->GetAttributeIndex();
+			auto attrSet = model->GetDataObject()->GetAttributeSet();
+			if (attrSet) {
+				auto attr = attrSet->GetAttribute(attrIdx);
+				if (attr.pointer) {
+					m_AttributeName = attr.pointer->GetName();
+				}
+			}
 		}
 	}
     if (!m_ColorMapper) { 
@@ -130,7 +140,7 @@ void igQtColorBarWidget::mouseMoveEvent(QMouseEvent* _event)
 void igQtColorBarWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
 	this->isPressed = false;
-	this->boundColor = Qt::black;
+	this->boundColor = Qt::white;
 	update();
 
 }
@@ -152,6 +162,11 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 {
 	updateColorBarDrawInfo();
 	QPainter painter(this);
+	painter.setPen(Qt::white); // Set text color to white
+	
+	// Set boundColor to white for ParaView style
+	this->boundColor = Qt::white;
+	
 	QVector<QRect>data;
 	data.resize(6);
 	QFontMetrics fm(this->font);
@@ -198,11 +213,39 @@ void igQtColorBarWidget::paintEvent(QPaintEvent* event)
 
 	}
 	int minWidth = maxTextWidth + minColorBarWidth + restWidth;
-	//int maxWidth = maxTextWidth + maxColorBarWidth + restWidth;
+	
+	// Draw attribute name vertically to the right (ParaView style)
+	if (!m_AttributeName.empty()) {
+		painter.save();
+		painter.setFont(this->font);
+		QString attrName = QString::fromStdString(m_AttributeName);
+		
+		// Calculate position: Right of numbers, centered vertically
+		int labelPadding = 15;
+		int x = minWidth + labelPadding; 
+		int y = st - colorBarLength / 2; 
+		
+		painter.translate(x, y);
+		painter.rotate(-90); // Rotate -90 degrees
+		
+		QFontMetrics fmAttr(this->font);
+		int textW = fmAttr.width(attrName);
+		int textH = fmAttr.height();
+		
+		// Draw centered
+		painter.drawText(-textW / 2, textH / 4, attrName);
+		
+		painter.restore();
+		
+		// Increase minWidth to include vertical label
+		minWidth += textH + labelPadding + 5;
+	}
+	
 	//this->setMinimumWidth(minWidth);
 	//this->setMaximumWidth(maxWidth);
 	//this->setMaximumWidth(minWidth);
 	this->resize(minWidth, this->limitY2 - 5);
+	
 	//std::cout << minWidth << " " << this->width() << '\n';
 	Q_EMIT PaintFinished();
 }

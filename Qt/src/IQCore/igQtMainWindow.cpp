@@ -66,6 +66,7 @@
 
 #include <QDebug>
 #include <QMessageBox>
+#include <QSplitter>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -127,6 +128,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 设置DockWidget的默认大小
     aiChatDockWidget->resize(400, 600);
 
+
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ScalarField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_VectorField);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_FlowField);
@@ -140,9 +142,13 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_SearchInfo);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_QualityDetection);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_EditMode);
-    this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_Animation);
+    this->addDockWidget(Qt::BottomDockWidgetArea, ui->dockWidget_Animation);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ModelList);
     this->addDockWidget(Qt::RightDockWidgetArea, ui->dockWidget_ContourExtract);
+
+    QDockWidget* dockWidget_null = new QDockWidget("", this);
+    this->addDockWidget(Qt::RightDockWidgetArea, dockWidget_null);
+    dockWidget_null->hide();
     ui->dockWidget_ScalarField->hide();
     ui->dockWidget_VectorField->hide();
     ui->dockWidget_FlowField->hide();
@@ -1234,6 +1240,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Clear auto-rescaling states when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
+    // Update animation controls when model changes
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();

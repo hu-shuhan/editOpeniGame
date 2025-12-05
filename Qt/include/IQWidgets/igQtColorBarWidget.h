@@ -34,7 +34,8 @@ private:
 	int colorBarLength = 0;
 	int colorBarWidth = 0;
 	int fontHeight = 0;
-	QColor boundColor = Qt::black;
+	QColor boundColor = Qt::white;
     iGame::ScalarsToColors::Pointer m_ColorMapper;
+	std::string m_AttributeName;  // Current attribute/physical field name
 };
 
