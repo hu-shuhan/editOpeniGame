@@ -220,7 +220,7 @@ private:
 * @param[in] v1  Input a vertex that makes up the face
 * @param[in] v2  Input a vertex that makes up the face
 */
-    bool checkContact(Vector3f coord, Vector3f v0, Vector3f v1, Vector3f v2);
+    bool checkContact(const Vector3f& coord, const Vector3f& v0,const Vector3f& v1,const Vector3f& v2);
 
 private:
     struct adjacent {
