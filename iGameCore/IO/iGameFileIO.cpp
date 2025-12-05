@@ -121,6 +121,99 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
     }
 }
 
+static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
+    AttributeSet::Pointer newAttrs = AttributeSet::New();
+    int size = Attrs->GetNumberOfAttributes();
+    for (int i = 0; i < size; i++) {
+        auto& attr = Attrs->GetAttribute(i);
+        auto name = attr.pointer->GetName();
+        if (attr.type != IG_SCALAR) {
+            newAttrs->AddAttribute(attr.GetType(), attr.attachmentType, attr.pointer);
+            continue;
+        }
+        if (attr.pointer->GetDimension() == 3) {
+            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, attr.pointer);
+            continue;
+        }
+        // std::cout << "attachmentType:" << attachmentType << std::endl;
+        bool isvector = false;
+        if (name[name.length() - 1] == 'X') {
+            isvector = true;
+            int j = 1;
+            for (j = 1; j < 3; j++) {
+                if (i + j >= size) {
+                    isvector = false;
+                    break;
+                }
+                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
+                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                    Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
+                    Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
+                    isvector = false;
+                }
+            }
+        } else if (name[name.length() - 1] == '0') {
+            isvector = true;
+            int j = 1;
+            for (j = 1; j < 3; j++) {
+                if (i + j >= size) {
+                    isvector = false;
+                    break;
+                }
+                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
+                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                    Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
+                    Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
+                    isvector = false;
+                }
+            }
+        } else if (name[name.length() - 1] == '1') {
+            isvector = true;
+            int j = 1;
+            for (j = 1; j < 3; j++) {
+                if (i + j >= size) {
+                    isvector = false;
+                    break;
+                }
+                auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
+                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                    Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
+                    Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
+                    isvector = false;
+                }
+            }
+        }
+
+        if (!isvector) {
+            newAttrs->AddAttribute(attr.type, attr.attachmentType, attr.pointer);
+        } else {
+            FloatArray::Pointer Vector = FloatArray::New();
+            if (name[name.length() - 2] == '_') {
+                Vector->SetName(name.substr(0, name.length() - 2));
+            } else
+                Vector->SetName(name.substr(0, name.length() - 1));
+            Vector->SetName(name.substr(0, name.length() - 1));
+            Vector->SetDimension(3);
+            Vector->Resize(attr.pointer->GetNumberOfElements());
+            float* vector = Vector->RawPointer();
+            igIndex index = 0;
+            int j = 0;
+            for (j = 0; j < 3; j++) {
+                auto scalarData = Attrs->GetAttribute(i + j).pointer;
+                index = j;
+                int k = 0;
+                for (k = 0; k < attr.pointer->GetNumberOfElements(); k++) {
+                    vector[index] = scalarData->GetValue(k);
+                    index += 3;
+                }
+            }
+            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, Vector);
+            i += 2;
+        }
+    }
+    return newAttrs;
+}
+
 DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     IGenum fileType = GetFileType(file_name);
     std::string out;
@@ -307,7 +400,8 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     out.append("]");
     igDebug(out);
 
-    //if (resObj && resObj->GetAttributeSet()) { resObj->GetAttributeSet()->TransformScalars2VectorArray(); }
+
+    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
     return resObj;
 }
 
