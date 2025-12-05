@@ -143,6 +143,7 @@ void igQtSelectionWidget::SelectionStationNone(bool checked) {
     iGame::SelectionParameter::Instance().SetInSelection(checked);
     if (!checked) {
         HideSelectionTypeUi();
+        if (m_BoxSettingDialog) m_BoxSettingDialog->hide();
     } else {
         ShowSelectionTypeUi();
     }
