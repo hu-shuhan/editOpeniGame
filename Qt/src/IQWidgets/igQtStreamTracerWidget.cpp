@@ -266,8 +266,8 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         //seeds = streamtracer->getModelSelect();
     } else {
-       // seeds = streamtracer->getModelSelect();
         Q_EMIT SetUseBox();
+        //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
