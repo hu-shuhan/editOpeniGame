@@ -59,30 +59,20 @@ void Meshleter::SyncGpuBuffers() {
 #else
     if (!m_DataObject) { return; }
 
-    auto oldTime = this->GetMTime();
     auto drawObject = DynamicCast<DrawObject>(m_DataObject);
-
     auto positions = drawObject->m_Positions;
-    if (positions->GetMTime() > m_PositionVBO->GetMTime()) { Build(); }
-
     auto colors = drawObject->m_Colors;
-    if (colors->GetMTime() > m_ColorVBO->GetMTime()) {
-        m_ColorVBO->Create();
-        m_ColorVBO->Target(GL_ARRAY_BUFFER);
-        GLAllocateGLBuffer(m_ColorVBO,
-                           colors->GetNumberOfValues() * sizeof(float),
-                           colors->RawPointer());
-        m_ColorVBO->Modified();
+    auto cellColors = drawObject->m_CellColors;
 
-        m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
-                                    3 * sizeof(float));
-        GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
-                          GL_FLOAT, GL_FALSE, 0);
-    }
+    bool needReConvertGeometry = drawObject->m_ReConvertToDrawableData;
+    needReConvertGeometry |= positions->GetMTime() > m_PositionVBO->GetMTime();
 
+    // Rebuild if geometry is changed
+    if (needReConvertGeometry) { Build(); }
+
+    // Reconvert if scalar is changed
     if (m_RenderWithMeshlet) {
         if (m_RenderWithMeshletChanged) {
-            m_RenderWithMeshletChanged = false;
             const float meshletColors[][3] = {
                     {1.0f, 0.0f, 0.0f}, // Red
                     {0.0f, 1.0f, 0.0f}, // Green
@@ -132,9 +122,26 @@ void Meshleter::SyncGpuBuffers() {
                               GL_VBO_IDX_1, 3, GL_FLOAT, GL_FALSE, 0);
         }
     } else {
-        auto cellColors = drawObject->m_CellColors;
-        if (cellColors->GetMTime() > m_CellColorVBO->GetMTime()) {
-            if (drawObject->m_AttributeIndex != -1) {
+        if (drawObject->m_AttributeIndex == -1) {
+            drawObject->m_UseColor = false;
+        } else {
+            if (colors->GetMTime() > m_ColorVBO->GetMTime() ||
+                m_RenderWithMeshletChanged) {
+                m_ColorVBO->Create();
+                m_ColorVBO->Target(GL_ARRAY_BUFFER);
+                GLAllocateGLBuffer(m_ColorVBO,
+                                   colors->GetNumberOfValues() * sizeof(float),
+                                   colors->RawPointer());
+                m_ColorVBO->Modified();
+
+                m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0,
+                                            3 * sizeof(float));
+                GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1,
+                                  GL_VBO_IDX_1, 3, GL_FLOAT, GL_FALSE, 0);
+            }
+
+            if (cellColors->GetMTime() > m_CellColorVBO->GetMTime() ||
+                m_RenderWithMeshletChanged) {
                 auto& attr = drawObject->GetAttributeSet()->GetAttribute(
                         drawObject->m_AttributeIndex);
                 if (!attr.isDeleted && attr.attachmentType == IG_CELL) {
@@ -169,6 +176,7 @@ void Meshleter::SyncGpuBuffers() {
             }
         }
     }
+    m_RenderWithMeshletChanged = false;
 #endif
 }
 

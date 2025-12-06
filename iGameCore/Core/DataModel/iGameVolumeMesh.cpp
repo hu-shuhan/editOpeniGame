@@ -997,47 +997,47 @@ void VolumeMesh::RequestVolumeStatus() {
 }
 
 void VolumeMesh::ConvertToDrawableData() {
-    bool needReConvert = m_ReConvertToDrawableData;
-    needReConvert |= m_Points->GetMTime() > m_Positions->GetMTime();
-    needReConvert |= m_Clipper->GetMTime() > m_Positions->GetMTime();
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
 
     // extract surface mesh
     if (m_ShellRendering) {
-        if (!needReConvert) { return; }
+        if (!needReConvertGeometry && !needReConvertScalar) { return; }
 
-        m_ReConvertToDrawableData = false;
-        bool extractShellSuccess = false;
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
+        {
+            // update clip status
+            auto box = m_Clipper->m_Box;
+            if (box.m_Use) {
+                const auto& a = box.m_Bmin;
+                const auto& b = box.m_Bmax;
+                extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+            }
+            auto plane = m_Clipper->m_Plane;
+            if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
 
-        // update clip status
-        auto box = m_Clipper->m_Box;
-        if (box.m_Use) {
-            const auto& a = box.m_Bmin;
-            const auto& b = box.m_Bmax;
-            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+            // shell algorithm
+            SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+            if (extract->Execute(this, surfaceMesh)) {
+                SetRenderableObject(surfaceMesh);
+                m_PointMap = extract->GetPointMap();
+                m_ReConvertToDrawableData = false;
+                m_ReConvertHelper->Modified();
+            } else {
+                m_ShellRendering = false;
+                this->m_RenderableMesh.SurfaceMesh = nullptr;
+                this->m_RenderableMesh.SimplifiedMesh = nullptr;
+                igDebug("Failed to execute the shell algorithm.");
+            }
         }
-        auto plane = m_Clipper->m_Plane;
-        if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
-        // shell algorithm
-
-        SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-        if (extract->Execute(this, surfaceMesh)) {
-            extractShellSuccess = true;
-            SetRenderableObject(surfaceMesh);
-            m_PointMap = extract->GetPointMap();
-        } else {
-            m_ShellRendering = false;
-            this->m_RenderableMesh.SurfaceMesh = nullptr;
-            this->m_RenderableMesh.SimplifiedMesh = nullptr;
-            igDebug("Failed to execute the shell algorithm.");
-        }
-
-        if (extractShellSuccess) { return; }
     }
 
     // convert original data
-    if (needReConvert) {
-        m_ReConvertToDrawableData = false;
+    if (needReConvertGeometry) {
         UnsignedIntArray::Pointer edgeIndices = UnsignedIntArray::New();
         edgeIndices->SetDimension(2);
         UnsignedIntArray::Pointer triangleIndices = UnsignedIntArray::New();
@@ -1124,96 +1124,43 @@ void VolumeMesh::ConvertToDrawableData() {
     }
 
     // convert scalar data
-    if (m_AttributeIndex == -1) {
-        m_UseColor = false;
-        m_ColorWithCell = false;
-    } else {
-        m_UseColor = true;
-        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
+        if (m_AttributeIndex != -1) {
+            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (attr.type == IG_RGB) {
+                this->m_ColorMapper->SetVectorModeToRGBColors();
+            } else {
+                this->m_ColorMapper->SetVectorModeToComponent();
+            }
 
-        if (attr.type == IG_RGB) {
-            this->m_ColorMapper->SetVectorModeToRGBColors();
-        } else {
-            this->m_ColorMapper->SetVectorModeToComponent();
-        }
-        if (!attr.isDeleted) {
-            if (attr.attachmentType == IG_POINT) {
-                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+            if (!attr.isDeleted) {
+                if (attr.attachmentType == IG_POINT) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
-                }
-            } else if (attr.attachmentType == IG_CELL) {
-                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                } else if (attr.attachmentType == IG_CELL) {
                     m_ColorWithCell = true;
                     this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             }
         }
     }
+
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
 }
-
-//void VolumeMesh::ViewCloudPicture(Scene* scene, int index, int demension) {
-//    if (index == -1) {
-//        m_UseColor = false;
-//        m_ViewAttribute = nullptr;
-//        m_ViewDemension = -1;
-//        m_ColorWithCell = false;
-//        scene->Update();
-//        return;
-//    }
-//
-//    auto& attr = this->GetAttributeSet()->GetAttribute(index);
-//    if (!attr.isDeleted) {
-//        if (attr.attachmentType == IG_POINT)
-//            this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
-//                                            demension);
-//        else if (attr.attachmentType == IG_CELL)
-//            this->SetAttributeWithCellData(attr.pointer, demension);
-//    }
-//
-//    scene->Update();
-//}
-
-//void VolumeMesh::SetAttributeWithPointData(ArrayObject::Pointer attr,
-//                                           std::pair<float, float>& range,
-//                                           igIndex dimension) {
-//    if (m_ViewAttribute != attr || m_ViewDemension != dimension ||
-//        m_ColorMapper->GetMTime() > this->GetMTime()) {
-//        m_ViewAttribute = attr;
-//        m_ViewDemension = dimension;
-//        m_UseColor = true;
-//        m_ColorWithCell = false;
-//
-//        if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-//            if (range.first != range.second) {
-//                m_ColorMapper->SetRange(range.first, range.second);
-//            } else if (dimension == -1) {
-//                m_ColorMapper->InitRange(attr);
-//            } else {
-//                m_ColorMapper->InitRange(attr, dimension);
-//            }
-//        }
-//        range.first = m_ColorMapper->GetRange()[0];
-//        range.second = m_ColorMapper->GetRange()[1];
-//        m_Colors = m_ColorMapper->MapScalars(attr, dimension);
-//        m_Colors->Modified();
-//        if (m_Colors == nullptr) { return; }
-//    }
-//}
 
 void VolumeMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                           igIndex dimension) {
-    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
-        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
-        if (minimal_val < maximal_val) {
-            m_ColorMapper->SetRange(minimal_val, maximal_val);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
-        }
+    double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+    double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+    if (minimal_val < maximal_val) {
+        m_ColorMapper->SetRange(minimal_val, maximal_val);
+    } else {
+        m_ColorMapper->InitRange(attr, dimension);
     }
+
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
     if (colors == nullptr) { return; }
 
