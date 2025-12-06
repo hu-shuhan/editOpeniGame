@@ -121,6 +121,9 @@ const AttributeSet::Attribute& AttributeSet::GetAttribute(const IGsize index, IG
 AttributeSet::Attribute& AttributeSet::GetAttribute(const std::string& name) {
     for (int i = 0; i < m_Buffer->GetNumberOfElements(); i++) {
         auto& attrb = m_Buffer->GetElement(i);
+        //std::cout << attrb.IsNone() << " " << attrb.type << " " << attrb.attachmentType << " " << attrb.pointer
+        //          << " "
+        //          << attrb.pointer->GetName() << std::endl;
         if (!attrb.IsNone() && attrb.pointer->GetName() == name) { return attrb; }
     }
     return NONE;

@@ -30,6 +30,7 @@ public:
     StreamTracer() {};
     std::vector<Vector3f> subdataSeedGenerate(int numOfseed);
     std::vector<Vector3f> seedLineGenerate(int numOfseed);
+    std::vector<Vector3f> GetUnifiedVectorField(std::string vectorName);
 
     Vector3f SampleVector(const Vector3f& coord, bool& inside, igIndex& VolumeId, const std::string& vectorName,
                           float terminalSpeed);
@@ -77,7 +78,7 @@ public:
     );
     std::vector<Vector3f> getModelSelect();
     std::vector<Vector3f> getModelSelectMax(std::string VectorName,int numOfSeeds);
-    
+    std::vector<Vector3f> currentV;
     void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
     float maxF = FLT_MIN;
     float minF = FLT_MAX;
