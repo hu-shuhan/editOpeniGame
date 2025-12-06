@@ -75,12 +75,12 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
                 dataObject->GetDeformationData()->SetScaleFactorZ(ui->lineEdit_Nonuniform_z->text().toFloat());
             }
 
-        } else {
+        } /*else {
             dataObject->GetDeformationData()->SetScaleFactors(0.f);
             iGame::StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
             deformFilter->SetInput(dataObject);
             if(!deformFilter->Execute()) std::cout << " error \n";
-        }
+        }*/
 
     });
 
@@ -146,12 +146,13 @@ void igQtDeformationWidget::updateInfo() {
     ui->checkBox_enableOffset->setChecked(false);
     ui->comboBox_Deformation_vector->clear();
 
-
+    ui->comboBox_Deformation_vector->blockSignals(true);
     for (int i = 0; i < m_Scalar_num; i++) {
         auto& data = dataObject->GetAttributeSet()->GetAttribute(i);
         if(data.pointer->GetDimension() < 2) continue;
         ui->comboBox_Deformation_vector->addItem(QString(data.pointer->GetName().c_str()));
     }
+    ui->comboBox_Deformation_vector->blockSignals(false);
 
 }
 
@@ -167,6 +168,7 @@ void igQtDeformationWidget::CalculateCurrentDSF() {
         p->CalculateIdealDSF();
     }
     QString val = QString::number(dataObject->GetDeformationData()->GetScaleFactorX(), 'f', 5);
+    std::string a = val.toStdString();
     ui->lineEdit_Uniform_val->setText(val);
     ui->lineEdit_Nonuniform_x->setText(val);
     ui->lineEdit_Nonuniform_y->setText(val);

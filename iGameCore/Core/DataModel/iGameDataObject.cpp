@@ -171,7 +171,7 @@ bool DataObject::UpdateSubDataObjectDataRange() {
 }
 
 bool DataObject::ReCollectSubDataObjectDataRange() {
-    /* Update SubDataObject's DataRange to Global DataRange and ReConvert Drawable data. */
+    /* Collect SubDataObject's DataRange to Update Father's DataObject's DataRange. */
     if (m_SubDataObjectsHelper == nullptr) return false;
     auto attributes = this->GetAttributeSet()->GetAllAttributes();
     for (IGsize k = 0; k < attributes->GetNumberOfElements(); k++) {
@@ -181,7 +181,6 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
         for (auto it = SubDataObjectIteratorBegin(); it != SubDataObjectIteratorEnd(); ++it) {
             if (!it->second->IsDrawable()) continue;
             const auto& obj = DynamicCast<DrawObject>(it->second);
-            const auto& display_obj = obj->GetRenderableObject();
             auto subAttribute = obj->GetAttributeSet()->GetAttribute(k);
             subAttribute.UpdateAllDataRange();
             const auto& ScalarDataRange = subAttribute.GetDataRange();
@@ -227,18 +226,16 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
             auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
             if (subDataObj) { this->AddSubDataObject(subDataObj); }
         }
-        auto attributeSet = DynamicCast<iGame::DataObject>(timeFrameData[0])->GetAttributeSet()->GetAllAttributes();
         if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
     } else if (timeFrameType == StreamingType::SingleFieldAttributes) {
         auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
         if (attributeSet) {
             this->SetAttributeSet(attributeSet);
-            DynamicCast<iGame::PointSet>(this)->GetPoints()->Modified();
+//            this->GetAttributeSet()->GetAllAttributes()
             this->Modified();
-            if (this->IsDrawable()) {
-                DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
-//                DynamicCast<iGame::DrawObject>(this)->
-            }
+//            if (this->IsDrawable()) {
+//                DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
+//            }
         }
     }
     this->ReCollectSubDataObjectDataRange();

@@ -81,7 +81,7 @@ void igQtScalarViewWidget::loadScalarData() {
 	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
 	if (dataRange) {
 		// For Dimension=1 (scalarDimension=0), use element 1 (first dimension), not element 0 (magnitude)
-		if (scalarDimension == -1 && obj->GetAttributeSet()->GetAttribute(currentSelectedScalarIdx).GetDataRange()->GetNumberOfElements() == 2) {
+		if (scalarDimension == -1 && dataRange->GetNumberOfElements() == 2) {
 			this->scalarMin = dataRange->GetValue(2);  // Element 1, index 0 (min)
 			this->scalarMax = dataRange->GetValue(3);  // Element 1, index 1 (max)
 		} else {

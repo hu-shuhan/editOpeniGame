@@ -22,6 +22,10 @@ bool iGame::StressDeformationFilter::Execute() {
     if(nullptr == dataObject) {
         return false;
     }
+    if(!dataObject->GetDeformationData()->GetEnableStatus()) {
+        IGAME_CORE_WARN("Deformation Filter : Disabled.");
+        return false;
+    }
     if(dataObject->GetDeformationData()->GetAutoComputeStatus()) {
         CalculateIdealDSF();
     }
