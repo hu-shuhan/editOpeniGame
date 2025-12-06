@@ -163,71 +163,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         return;
     currentDrawObject->GetTimeFrames()->EnableCache();
     currentDrawObject->UpdateAnimation(keyframe_idx);
-//    auto timeFrameType = currentDrawObject->GetTimeFrames()->GetTargetFrameType(keyframe_idx);
-//    auto timeFrameData = currentDrawObject->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
-//    if(timeFrameType == StreamingType::MultiSubFiles){
-//        currentDrawObject->ClearSubDataObject();
-//        for(auto& subObj : timeFrameData){
-//            auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
-//            if(subDataObj){
-//                currentDrawObject->AddSubDataObject(subDataObj);
-//            }
-//        }
-//    } else if(timeFrameType == StreamingType::SingleFieldAttributes){
-//        auto attributeSet = DynamicCast<iGame::AttributeSet>(timeFrameData[0]);
-//        if(attributeSet){
-//            currentDrawObject->SetAttributeSet(attributeSet);
-//            DynamicCast<iGame::PointSet>(currentDrawObject)->GetPoints()->Modified();
-//            currentDrawObject->ConvertToDrawableData();
-//        }
-//    }
-//    auto& currentFrame = currentDrawObject->GetTimeFrames()->GetTargetTimeFrame(keyframe_idx);
-//    auto frameData = currentFrame.GetMetaData();
-
-//    /* If the timeframe data store MultiSubFile's Path, the job is to Parse the sub File. */
-//    if(currentFrame.GetFrameType() == StreamingType::MultiSubFiles)
-//    {
-//        std::vector<std::future<iGame::DataObject::Pointer>> tasks;
-//        std::vector<iGame::DataObject::Pointer> results(frameData->GetNumberOfElements());
-//        for (int i = 0; i < frameData->GetNumberOfElements(); i++) {
-//            tasks.emplace_back(iGame::ThreadPool::Instance()->Commit(
-//                    [i, &results](const std::string& fileName) {
-//                        auto res = FileIO::ReadFile(fileName);
-//                        results[i] = res;
-//                        return res;
-//                    },
-//                    frameData->GetElement(i)));
-//        }
-////        for(int i = 0; i < frameData->GetNumberOfElements(); i ++){
-////            results[i] = FileIO::ReadFile(frameData->GetElement(i));
-////        }
-//        currentDrawObject->ClearSubDataObject();
-//        for (auto& task: tasks) {
-//            task.get();
-//        }
-//        for(auto& subObj : results){
-//            currentDrawObject->AddSubDataObject(subObj);
-//        }
-//        results.clear();
-//    } /* If the timeframe data store SingleField Attributes' Path,
-//    *   the job is to Parse the target File's Field Attribute replace of the original one. */
-//    else if(currentFrame.GetFrameType() == StreamingType::SingleFieldAttributes)
-//    {
-//        const auto& filePath = currentFrame.GetMetaData()->GetElement(0);
-//        auto fileType = FileIO::GetFileType(filePath);
-//        if(fileType == FileIO::FileType::ODB){
-//            #if defined(AbqSDK_ENABLE)
-//            ODBReader::Pointer reader = ODBReader::New();
-//            auto attributeSet = reader->ReadOdbFieldData(filePath, keyframe_idx);
-//            currentDrawObject->SetAttributeSet(attributeSet);
-//            DynamicCast<iGame::PointSet>(currentDrawObject)->GetPoints()->Modified();
-//            currentDrawObject->ConvertToDrawableData();
-//            #endif
-//        }
-//    }
-
-
-
 
     /* If obj has the deformation var and is enabled.
      * Make sure every timeStep have the deformation scale factor. */
@@ -239,10 +174,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         if(!deformFilter->Execute()) std::cout << " error \n";
     }
 
-
-//    /* process Object's scalar range*/
-//    currentDrawObject->ReCollectSubDataObjectDataRange();
-//    currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -467,6 +398,36 @@ void igQtAnimationWidget::initAnimationComponents() {
             VcrController, &igQtAnimationVcrController::updateCurrentKeyframe, Qt::UniqueConnection);
 }
 
+void igQtAnimationWidget::ClearAnimationVCRInfo() {
+    VcrController->initController(1, 1);
+    std::vector<float> tmpTimeSteps(1, 0.f);
+    ui->treeWidget_snap->initAnimationTreeWidget(tmpTimeSteps);
+    ui->treeWidget_interpolate->initAnimationTreeWidget(tmpTimeSteps);
+    ui->SliderAnimationTrack->setMaximum(static_cast<int>(tmpTimeSteps.size()) -
+                                         1);
+    ui->SliderAnimationTrack->setMinimum(0);
+    ui->SliderAnimationTrack->setValue(0);
+
+
+    // Populate comboBoxCurrentAnimation with frame numbers (1-based display)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+
+    if(ui->comboBoxCurrentAnimation->count() != 0){
+        ui->comboBoxCurrentAnimation->clear();
+    }
+    for (int i = 0; i < tmpTimeSteps.size(); i++) {
+        ui->comboBoxCurrentAnimation->addItem(QString::number(i + 1));  // Display 1, 2, 3...
+    }
+    ui->comboBoxCurrentAnimation->setCurrentIndex(0);  // Start at frame 1
+    ui->comboBoxCurrentAnimation->blockSignals(false);
+    ui->lineEditKeyframeNum->setText(
+            QString("%1").arg(static_cast<int>(tmpTimeSteps.size())));
+    ui->lineEditStartTime->setText(
+            QString::asprintf("%.f", *tmpTimeSteps.begin()));
+    ui->lineEditEndTime->setText(
+            QString::asprintf("%.20f", *(tmpTimeSteps.end() - 1)));
+}
+
 //#include <fstream>
 //#include <windows.h>
 
@@ -620,3 +581,4 @@ bool igQtAnimationWidget::saveAnimation() {
 
     return true;
 }
+

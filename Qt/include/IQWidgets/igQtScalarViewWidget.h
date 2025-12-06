@@ -47,7 +47,7 @@ private:
 	int scalarDimension{ -1 };
     int currentSelectedScalarIdx{ -1 };
 	std::string scalarName = {"" };
-	double scalarMin = 0.0, scalarMax = 1.0;
+	float scalarMin = 0.0, scalarMax = 1.0;
 	
 	// Auto-rescaling state: true=auto-update (default), false=fixed range
 	std::map<std::string, bool> m_AutoRescalingStates;

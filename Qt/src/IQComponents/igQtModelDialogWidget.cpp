@@ -266,15 +266,15 @@ void igQtModelDialogWidget::deleteCurrentModel() {
     
     // Clear auto-rescaling states for this model before deletion
     auto model = scene->GetModelById(id);
+
+    scene->RemoveModel(id);
+    scene->Update();
+
     if (model && model->GetDataObject()) {
         std::string modelName = model->GetDataObject()->GetName();
         // Need to emit signal to ScalarViewWidget to clear states
         Q_EMIT ModelDeleted(modelName);
     }
-    
-    scene->RemoveModel(id);
-    scene->Update();
-
 //    std::cout << "Delete current model: " << currentItem << std::endl;
 
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);

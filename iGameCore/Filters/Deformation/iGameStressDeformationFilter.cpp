@@ -22,10 +22,10 @@ bool iGame::StressDeformationFilter::Execute() {
     if(nullptr == dataObject) {
         return false;
     }
-    if(!dataObject->GetDeformationData()->GetEnableStatus()) {
-        IGAME_CORE_WARN("Deformation Filter : Disabled.");
-        return false;
-    }
+//    if(!dataObject->GetDeformationData()->GetEnableStatus()) {
+//        IGAME_CORE_WARN("Deformation Filter : Disabled.");
+//        return false;
+//    }
     if(dataObject->GetDeformationData()->GetAutoComputeStatus()) {
         CalculateIdealDSF();
     }
@@ -33,7 +33,7 @@ bool iGame::StressDeformationFilter::Execute() {
     float deform_x = dataObject->GetDeformationData()->GetScaleFactorX();
     float deform_y = dataObject->GetDeformationData()->GetScaleFactorY();
     float deform_z = dataObject->GetDeformationData()->GetScaleFactorZ();
-        std::cout << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
+    std::cout << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
 
     /* Process SubDataObject's Deformation. */
     if(dataObject->HasSubDataObject()){
