@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>252</width>
+    <width>259</width>
     <height>99</height>
    </rect>
   </property>
@@ -22,9 +22,15 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
+     <property name="minimumSize">
+      <size>
+       <width>25</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="maximumSize">
       <size>
-       <width>20</width>
+       <width>25</width>
        <height>16777215</height>
       </size>
      </property>
@@ -44,9 +50,15 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
+     <property name="minimumSize">
+      <size>
+       <width>25</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="maximumSize">
       <size>
-       <width>20</width>
+       <width>25</width>
        <height>16777215</height>
       </size>
      </property>
@@ -191,9 +203,15 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
+     <property name="minimumSize">
+      <size>
+       <width>25</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="maximumSize">
       <size>
-       <width>20</width>
+       <width>25</width>
        <height>16777215</height>
       </size>
      </property>

@@ -658,6 +658,9 @@ void UnstructuredMesh::ConvertToDrawableData() {
         }
         if (!attr.isDeleted) {
             if (attr.attachmentType == IG_POINT) {
+                /* m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
+                 * m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
+                 * */
                 if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
                     m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
                     m_ColorWithCell = false;

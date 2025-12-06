@@ -111,6 +111,7 @@ void igQtAnimationVcrController::onNextFrame() {
 }
 
 void igQtAnimationVcrController::updateCurrentKeyframe(int idx) {
+    if(idx < 0) return ;
     current_keyframe_index = idx;
     Q_EMIT this->updateAnimationComponentsTimeStap(current_keyframe_index);
     if(isInterpolateMode) Q_EMIT this->timeStepChanged_interpolate(interpolate_sequence[current_keyframe_index].first, interpolate_sequence[current_keyframe_index].second);

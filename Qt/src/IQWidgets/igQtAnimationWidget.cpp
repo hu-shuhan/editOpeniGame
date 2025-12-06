@@ -240,9 +240,9 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     }
 
 
-    /* process Object's scalar range*/
-    currentDrawObject->ReCollectSubDataObjectDataRange();
-    currentDrawObject->UpdateSubDataObjectDataRange();
+//    /* process Object's scalar range*/
+//    currentDrawObject->ReCollectSubDataObjectDataRange();
+//    currentDrawObject->UpdateSubDataObjectDataRange();
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
@@ -252,6 +252,11 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
                 currentScene, currentDrawObject->GetAttributeIndex());
     }
     currentScene->DoneCurrent();
+
+    // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
+    ui->comboBoxCurrentAnimation->blockSignals(false);
 
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
@@ -371,6 +376,11 @@ void igQtAnimationWidget::playAnimation_interpolate(int keyframe_0, float t) {
     }
     currentScene->DoneCurrent();
 
+    // Update comboBoxCurrentAnimation for interpolation (block signals to avoid recursion)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_0);
+    ui->comboBoxCurrentAnimation->blockSignals(false);
+
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 
@@ -433,6 +443,18 @@ void igQtAnimationWidget::initAnimationComponents() {
     ui->SliderAnimationTrack->setMinimum(0);
     ui->SliderAnimationTrack->setValue(0);
 
+
+    // Populate comboBoxCurrentAnimation with frame numbers (1-based display)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+
+    if(ui->comboBoxCurrentAnimation->count() != 0){
+        ui->comboBoxCurrentAnimation->clear();
+    }
+    for (int i = 0; i < timeValues.size(); i++) {
+        ui->comboBoxCurrentAnimation->addItem(QString::number(i + 1));  // Display 1, 2, 3...
+    }
+    ui->comboBoxCurrentAnimation->setCurrentIndex(0);  // Start at frame 1
+    ui->comboBoxCurrentAnimation->blockSignals(false);
     ui->lineEditKeyframeNum->setText(
             QString("%1").arg(static_cast<int>(timeValues.size())));
     ui->lineEditStartTime->setText(
@@ -441,6 +463,8 @@ void igQtAnimationWidget::initAnimationComponents() {
             QString::asprintf("%.20f", *(timeValues.end() - 1)));
     connect(ui->SliderAnimationTrack, &QSlider::sliderMoved, VcrController,
             &igQtAnimationVcrController::updateCurrentKeyframe);
+    connect(ui->comboBoxCurrentAnimation, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            VcrController, &igQtAnimationVcrController::updateCurrentKeyframe, Qt::UniqueConnection);
 }
 
 //#include <fstream>

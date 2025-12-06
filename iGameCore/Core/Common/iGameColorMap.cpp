@@ -128,8 +128,8 @@ IGAME_NAMESPACE_BEGIN
             ret->AddValue(m_ColorRange->GetValue(i));
         }
         ret->AddValue(x);
-        int ColorBarSize = this->GetColorBarSize();
-        for (int i = index; i <= ColorBarSize; i++) {
+        int rangeSize = m_ColorRange->GetNumberOfElements();
+        for (int i = index; i < rangeSize; i++) {
             ret->AddValue(m_ColorRange->GetValue(i));
         }
         m_ColorRange = ret;
