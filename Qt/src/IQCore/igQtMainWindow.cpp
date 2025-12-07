@@ -1220,6 +1220,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             [&](iGame::DataObject::Pointer res) {
                 res->Modified();
                 rendererWidget->update();
+                modelTreeWidget->updateAllAttriubute(res);
             });
 
 
