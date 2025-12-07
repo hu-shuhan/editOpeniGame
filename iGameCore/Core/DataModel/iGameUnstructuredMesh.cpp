@@ -471,6 +471,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
             extractShellSuccess = true;
             SetRenderableObject(surfaceMesh);
             m_PointMap = extract->GetPointMap();
+            surfaceMesh->ConvertToDrawableData();
         } else {
             m_ShellRendering = false;
             this->m_RenderableMesh.SurfaceMesh = nullptr;

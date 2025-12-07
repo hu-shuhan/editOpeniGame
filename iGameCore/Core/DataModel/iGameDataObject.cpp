@@ -224,7 +224,7 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
         for (auto& subObj: timeFrameData) {
             auto subDataObj = DynamicCast<iGame::DrawObject>(subObj);
             if (subDataObj) {
-                subDataObj->SetShellRenderingOption(false);
+//                subDataObj->SetShellRenderingOption(false);
                 this->AddSubDataObject(subDataObj);
             }
         }

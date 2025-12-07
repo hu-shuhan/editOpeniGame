@@ -77,11 +77,12 @@ igQtDeformationWidget::igQtDeformationWidget(QWidget *par)
 
         } else {
             dataObject->GetDeformationData()->SetScaleFactors(0.f);
+            iGame::StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+            deformFilter->SetInput(dataObject);
+            if(!deformFilter->Execute()) std::cout << " error \n";
+            iGame::SceneManager::Instance()->GetCurrentScene()->Update();
         }
-        iGame::StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
-        deformFilter->SetInput(dataObject);
-        if(!deformFilter->Execute()) std::cout << " error \n";
-        iGame::SceneManager::Instance()->GetCurrentScene()->Update();
+
     });
 
     /* if lineEdit update. update the corresponding dsf. */
