@@ -306,6 +306,10 @@ void igQtStreamTracerWidget::generateStreamline() {
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
+        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+            modelBound = false;
+            haveDraw= false;
+        });
         Q_EMIT AddStreamObject(m_ResultObject);
         haveDraw = true;
     } else {

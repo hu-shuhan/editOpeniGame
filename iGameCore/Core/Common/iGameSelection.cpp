@@ -148,7 +148,9 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     if (edges.empty() || mesh == nullptr) return;
     painter->SetPen(2);
     painter->SetPen(0.9f, 0.145f, 0.863f);
+    auto pNum = mesh->GetNumberOfPoints();
     for (auto& edge: edges) {
+        if (pNum <= edge.first || pNum <= edge.second) continue;
         auto& p1 = mesh->GetPoint(edge.first);
         auto& p2 = mesh->GetPoint(edge.second);
         auto handle = painter->DrawLine(p1, p2);
@@ -655,6 +657,7 @@ void Selection::DrawPoints() {
     painter->SetPen(0.9f, 0.145f, 0.863f);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {
+        if (pNum <= pId) continue;
         auto& point = mesh->GetPoint(pId);
         painter->DrawPoint(point);
     }
