@@ -2348,6 +2348,10 @@ bool MeshSimplificationFilterPro::Execute() {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
 
+        if (Mesh->GetAttributeSet()->GetNumberOfAttributes() > 16) { 
+            return false;
+        }
+
         int oldIndexCount = Mesh->GetFaces()->GetNumberOfCellIds();
 
         MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();

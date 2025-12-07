@@ -657,7 +657,19 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
         rendererWidget->update();
         });
+    connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+        { 
+            CellArray::Pointer cellArray = CellArray::New();
+            clock_t start = clock();
+            igIndex cell[3]{};
+            cellArray->AddCellIds(cell, 2);
+            for (int i = 0; i < 10000000; i++) { 
+                cellArray->AddCellIds(cell, 3);
+            }
+            clock_t end = clock();
+            std::cout << end - start << std::endl;
 
+        });
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
