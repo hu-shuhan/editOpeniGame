@@ -33,6 +33,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::isShowColorLegend);
 	connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
 		this, [&](double _min, double _max) {
+            std::cout << m_ColorMapper  << std::endl;
 			m_ColorMapper->SetRange(_min, _max);
 			updateDrawStyle();
 		});
@@ -157,8 +158,7 @@ void igQtScalarViewWidget::showScalarView() {
 	}
 }
 void igQtScalarViewWidget::updateDrawStyle() {
-	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper;
-	}
+	if (!m_ColorMapper) { m_ColorMapper = m_TmpColorMapper;}
 	m_ColorMapper->Modified();
 	auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
 	if (scene) {
