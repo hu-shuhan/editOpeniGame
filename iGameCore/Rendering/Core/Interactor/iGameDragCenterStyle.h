@@ -28,6 +28,10 @@ public:
     void MouseReleaseEvent(IEvent event) override;
     void WheelEvent(IEvent event) override {} // 不需要处理滚轮事件，但必须实现
 
+    float CalculateAdaptiveSpeed();
+
+    bool IsMouseOverAxes(const igm::vec2& mousePos);
+
 protected:
     DragCenterStyle();
     ~DragCenterStyle() override;
@@ -40,6 +44,8 @@ private:
     bool m_IsDragging = false;
     igm::vec2 m_LastMousePos;
     float m_CameraMoveSpeed = 0.005f; // 与BasicStyle保持一致
+    bool m_IsMouseOverAxes = false;
+    float m_PickTolerance = 80.0f;
 };
 
 IGAME_NAMESPACE_END
