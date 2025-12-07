@@ -117,9 +117,7 @@ bool DrawObject::IsUseNormalSmooth() {
 
 void DrawObject::SetVisibility(bool f) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetVisibility(f);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetVisibility(f); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetVisibility(f); }
 
     // process this object
@@ -135,9 +133,7 @@ void DrawObject::SetViewStyle(IGenum mode) {
      * */
 
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetViewStyle(mode);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetViewStyle(mode); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetViewStyle(mode); }
 
     // process this object
@@ -147,9 +143,7 @@ void DrawObject::SetViewStyle(IGenum mode) {
 
 void DrawObject::AddViewStyle(IGenum mode) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->AddViewStyle(mode);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->AddViewStyle(mode); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->AddViewStyle(mode); }
 
     // process this object
@@ -159,9 +153,7 @@ void DrawObject::AddViewStyle(IGenum mode) {
 
 void DrawObject::RemoveViewStyle(IGenum mode) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->RemoveViewStyle(mode);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->RemoveViewStyle(mode); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->RemoveViewStyle(mode); }
 
     // process this object
@@ -173,9 +165,7 @@ unsigned int DrawObject::GetViewStyle() { return m_ViewStyle; }
 
 void DrawObject::AddViewStyleOfModel(IGenum mode) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->AddViewStyleOfModel(mode);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->AddViewStyleOfModel(mode); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->AddViewStyleOfModel(mode); }
 
     // process this object
@@ -207,9 +197,7 @@ void DrawObject::SetPointSize(float size) {
     }
 
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetPointSize(size);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetPointSize(size); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetPointSize(size); }
 
     // process this object
@@ -226,9 +214,7 @@ void DrawObject::SetLineWidth(float size) {
     }
 
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetLineWidth(size);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetLineWidth(size); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetLineWidth(size); }
 
     // process this object
@@ -240,9 +226,7 @@ int DrawObject::GetLineWidth() { return m_LineWidth; }
 
 void DrawObject::SetTransparency(float transparency) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SetTransparency(transparency);
-    }
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SetTransparency(transparency); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SetTransparency(transparency); }
 
     // process this object
@@ -255,35 +239,35 @@ void DrawObject::SetTransparency(float transparency) {
 float DrawObject::GetTransparency() { return m_Transparency; }
 
 void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
-    // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->ViewCloudPicture(scene, index, dimension);
+    if (index == m_AttributeIndex && dimension == m_AttributeDimension) {
+        return; // no change
     }
+
+    // process renderable object
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->ViewCloudPicture(scene, index, dimension); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->ViewCloudPicture(scene, index, dimension); }
 
     // process this object
     if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ViewCloudPicture, scene, index, dimension); }
 
-    //记录当前激活的属性索引和维度到m_AttributeIndex/m_AttributeDimension
-    // 标记m_AttributeHelper和对象自身为已修改（触发重新渲染）
+    // 记录当前激活的属性索引和维度到 m_AttributeIndex / m_AttributeDimension
     if (index == -1) {
         m_AttributeIndex = -1;
         m_AttributeDimension = -1;
+        m_UseColor = false;
     } else {
         m_AttributeIndex = index;
         m_AttributeDimension = dimension;
+        m_UseColor = true;
     }
-    m_AttributeHelper->Modified();
-
-
-    this->Modified();
+    m_AttributeChanged = true;
 
     scene->Update();
 }
 
 void DrawObject::ViewCloudPictureOfModel(Scene* scene, int index, int dimension) {
     // process renderable object
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+    if (m_RenderableMesh.SurfaceMesh) {
         m_RenderableMesh.SurfaceMesh->ViewCloudPictureOfModel(scene, index, dimension);
     }
     if (m_RenderableMesh.SimplifiedMesh) {
@@ -310,7 +294,7 @@ void DrawObject::SetRenderPoints(FloatArray::Pointer points) { m_Positions = std
 
 // void DrawObject::SetPolygonOffsetParameters(float factor, float units) {
 //     // process renderable object
-//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//     if (m_RenderableMesh.SurfaceMesh) {
 //         m_RenderableMesh.SurfaceMesh->SetPolygonOffsetParameters(factor, units);
 //     }
 //     if (m_RenderableMesh.SimplifiedMesh) {
@@ -330,7 +314,7 @@ void DrawObject::SetRenderPoints(FloatArray::Pointer points) { m_Positions = std
 //
 // void DrawObject::SetLineOffsetParameters(float factor, float units) {
 //     // process renderable object
-//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//     if (m_RenderableMesh.SurfaceMesh) {
 //         m_RenderableMesh.SurfaceMesh->SetLineOffsetParameters(factor, units);
 //     }
 //     if (m_RenderableMesh.SimplifiedMesh) {
@@ -350,7 +334,7 @@ void DrawObject::SetRenderPoints(FloatArray::Pointer points) { m_Positions = std
 //
 // void DrawObject::SetPointOffsetParameters(float units) {
 //     // process renderable object
-//     if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
+//     if (m_RenderableMesh.SurfaceMesh) {
 //         m_RenderableMesh.SurfaceMesh->SetPointOffsetParameters(units);
 //     }
 //     if (m_RenderableMesh.SimplifiedMesh) {
@@ -370,22 +354,25 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
         return;
     }
 
-    m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
-    // Copy object status
-    m_RenderableMesh.SurfaceMesh->m_ViewStyle = this->m_ViewStyle;
-    m_RenderableMesh.SurfaceMesh->m_Visibility = this->m_Visibility;
-    m_RenderableMesh.SurfaceMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
-    m_RenderableMesh.SurfaceMesh->m_ColorWithCell = this->m_ColorWithCell;
-    m_RenderableMesh.SurfaceMesh->m_PointSize = this->m_PointSize;
-    m_RenderableMesh.SurfaceMesh->m_LineWidth = this->m_LineWidth;
-    m_RenderableMesh.SurfaceMesh->m_Transparency = this->m_Transparency;
-    m_RenderableMesh.SurfaceMesh->m_AttributeIndex = this->m_AttributeIndex;
-    m_RenderableMesh.SurfaceMesh->m_AttributeDimension = this->m_AttributeDimension;
-    m_RenderableMesh.SurfaceMesh->m_UseColor = this->m_UseColor;
-    // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
-    m_Positions->Modified();
-    m_RenderableMesh.SurfaceMesh->m_ColorMapper = this->m_ColorMapper;
-    m_RenderableMesh.SurfaceMesh->m_IsMainRenderableObject = false;
+    if (this->GetDataObjectType() == IG_SURFACE_MESH) {
+        m_RenderableMesh.SurfaceMesh = nullptr;
+    } else {
+        m_RenderableMesh.SurfaceMesh = DynamicCast<DrawObject>(dataObject);
+        m_RenderableMesh.SurfaceMesh->m_ViewStyle = this->m_ViewStyle;
+        m_RenderableMesh.SurfaceMesh->m_Visibility = this->m_Visibility;
+        m_RenderableMesh.SurfaceMesh->m_UseNormalSmooth = this->m_UseNormalSmooth;
+        m_RenderableMesh.SurfaceMesh->m_ColorWithCell = this->m_ColorWithCell;
+        m_RenderableMesh.SurfaceMesh->m_PointSize = this->m_PointSize;
+        m_RenderableMesh.SurfaceMesh->m_LineWidth = this->m_LineWidth;
+        m_RenderableMesh.SurfaceMesh->m_Transparency = this->m_Transparency;
+        m_RenderableMesh.SurfaceMesh->m_AttributeIndex = this->m_AttributeIndex;
+        m_RenderableMesh.SurfaceMesh->m_AttributeDimension = this->m_AttributeDimension;
+        m_RenderableMesh.SurfaceMesh->m_UseColor = this->m_UseColor;
+        // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
+        m_Positions->Modified();
+        m_RenderableMesh.SurfaceMesh->m_ColorMapper->DeepCopy(this->m_ColorMapper);
+        m_RenderableMesh.SurfaceMesh->m_IsMainRenderableObject = false;
+    }
 
     // simplify mesh
     auto simplifiedMesh = DynamicCast<DrawObject>(dataObject);
@@ -408,7 +395,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
     m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
     m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
-    m_RenderableMesh.SimplifiedMesh->m_ColorMapper = this->m_ColorMapper;
+    m_RenderableMesh.SimplifiedMesh->m_ColorMapper->DeepCopy(this->m_ColorMapper);
     m_RenderableMesh.SimplifiedMesh->m_IsMainRenderableObject = false;
 
     // 设置Meshleter
@@ -427,13 +414,15 @@ DrawObject::Pointer DrawObject::GetRenderableObject(bool useSimplified) {
 void DrawObject::SetAlwaysOnTop(bool enable) { m_AlwaysOnTop = enable; }
 
 bool DrawObject::IsAlwaysOnTop() const { return m_AlwaysOnTop; }
-bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
+
 void DrawObject::SetShellRenderingOption(bool option) {
     if (m_ShellRendering != option) {
         m_ShellRendering = option;
         m_ReConvertToDrawableData = true;
     }
 }
+
+bool DrawObject::GetShellRenderingOption() { return m_ShellRendering; }
 
 void DrawObject::SetAccelerationOption(bool enabled) {
 #ifdef IGAME_OPENGL_VERSION_330
@@ -447,6 +436,13 @@ void DrawObject::SetAccelerationOption(bool enabled) {
 }
 
 bool DrawObject::GetAccelerationOption() const { return m_AccelerationOption; }
+
+void DrawObject::SetRenderWithMeshlet(bool val) {
+    m_RenderableMesh.mMeshleter->SetRenderWithMeshlet(val);
+    if (val) { m_ColorWithCell = true; }
+}
+
+bool DrawObject::GetRenderWithMeshlet() const { return m_RenderableMesh.mMeshleter->GetRenderWithMeshlet(); }
 
 void DrawObject::CreateDrawBuffer() {
     if (!m_Flag) {
@@ -536,7 +532,7 @@ void DrawObject::CreateDrawBuffer() {
         //    m_LineVAO.elementBuffer(m_LineEBO);
         //}
         //
-        //// set triangle drawing format
+        //}
         //{
         //    m_TriangleVAO.vertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
         //                               3 * sizeof(float));
@@ -585,12 +581,8 @@ void DrawObject::SyncGpuBuffers() {
 
     if (m_AutoUpdateDrawData) { ConvertToDrawableData(); }
 
-    // 当不是表面网格时，需要处理其抽壳后的表面网格
-    if (GetDataObjectType() != IG_SURFACE_MESH && m_RenderableMesh.SurfaceMesh) {
-        m_RenderableMesh.SurfaceMesh->SyncGpuBuffers();
-    }
-
-    // 处理简化网格
+    // 处理其抽壳后的表面网格
+    if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->SyncGpuBuffers(); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->SyncGpuBuffers(); }
 
     // 当是表面网格时，还需要构建meshlet

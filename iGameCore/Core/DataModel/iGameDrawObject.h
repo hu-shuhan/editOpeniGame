@@ -98,8 +98,8 @@ public:
      */
     bool GetAccelerationOption() const;
 
-    void SetRenderWithMeshlet(bool val) { m_RenderableMesh.mMeshleter->SetRenderWithMeshlet(val); }
-    bool GetRenderWithMeshlet() const { return m_RenderableMesh.mMeshleter->GetRenderWithMeshlet(); }
+    void SetRenderWithMeshlet(bool val);
+    bool GetRenderWithMeshlet() const;
 
 protected:
     // OpenGL资源管理
@@ -110,6 +110,10 @@ protected:
     static void SetColorBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetNormalBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
     static void SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Pointer VBO);
+
+    Object::Pointer m_ReConvertHelper = Object::New();
+    bool m_AttributeChanged = false;
+    bool m_ReConvertToDrawableData; // 是否需要重新转换数据
 
     bool m_AutoUpdateDrawData;    // 是否自动更新GPU数据
     bool m_ShellRendering = true; // 是否启用抽壳渲染
@@ -177,9 +181,7 @@ protected:
     //float m_LineOffset{-4.0f};
     //float m_PointOffset{-8.0f};
 
-    float m_Transparency;           // 透明度
-    bool m_ReConvertToDrawableData; // 是否需要重新转换数据
-
+    float m_Transparency;            // 透明度
     iGameClipper::Pointer m_Clipper; // 裁剪器对象
 
     friend class Model;

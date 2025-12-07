@@ -79,8 +79,10 @@ public:
     void ReleaseGpuBuffers();
 
     void SetRenderWithMeshlet(bool val) {
-        m_RenderWithMeshlet = val;
-        m_RenderWithMeshletChanged = true;
+        if (val != m_RenderWithMeshlet) {
+            m_RenderWithMeshlet = val;
+            m_RenderWithMeshletChanged = true;
+        }
     }
     bool GetRenderWithMeshlet() const { return m_RenderWithMeshlet; }
 

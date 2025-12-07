@@ -182,13 +182,13 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         currentDrawObject->ViewCloudPicture(
                 currentScene, currentDrawObject->GetAttributeIndex());
     }
+    currentDrawObject;
     currentScene->DoneCurrent();
 
     // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
     ui->comboBoxCurrentAnimation->blockSignals(true);
     ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
     ui->comboBoxCurrentAnimation->blockSignals(false);
-
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
 }
