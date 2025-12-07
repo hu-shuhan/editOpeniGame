@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1899</height>
+    <height>1906</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -57,7 +57,7 @@
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>26</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -86,8 +86,6 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
-    <!-- <addaction name="action_CS"/> -->
-    <!-- <addaction name="action_C"/> -->
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -631,7 +629,7 @@
    <attribute name="toolBarBreak">
     <bool>true</bool>
    </attribute>
-   <addaction name="action_StreamLine"/>
+   <addaction name="action_FlowField_2"/>
    <addaction name="action_Glyph"/>
    <addaction name="action_deformation"/>
    <addaction name="action_slice"/>
@@ -1166,7 +1164,7 @@
     <string>背景重置</string>
    </property>
   </action>
-  <action name="action_StreamLine">
+  <action name="action_FlowField_2">
    <property name="checkable">
     <bool>false</bool>
    </property>
@@ -1409,21 +1407,11 @@
     <string>启用体绘制</string>
    </property>
   </action>
-  <!-- <action name="action_CS">
-   <property name="text">
-    <string>传输测试(S)</string>
-   </property>
-  </action> -->
   <action name="action_SetThreadNum">
    <property name="text">
     <string>线程数设置</string>
    </property>
   </action>
-  <!-- <action name="action_C">
-   <property name="text">
-    <string>传输测试(C)</string>
-   </property>
-  </action> -->
   <action name="action_SelectView">
    <property name="checkable">
     <bool>true</bool>
