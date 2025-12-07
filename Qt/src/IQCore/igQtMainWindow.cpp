@@ -1220,31 +1220,51 @@ void igQtMainWindow::initAllMySignalConnections() {
             [&](iGame::DataObject::Pointer res) {
                 res->Modified();
                 rendererWidget->update();
+                modelTreeWidget->updateAllAttriubute(res);
             });
 
 
     connect(fileLoader, &igQtFileLoader::AddFileToModelList, ui->modelTreeView, &igQtModelListView::AddModel);
 
 
-    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
+    /* Animation signal connect BEGIN.*/
+    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene,
+            this, &igQtMainWindow::UpdateRenderingWidget);
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
-
+//    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+//            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
     //&igQtModelDrawWidget::UpdateCurrentModel);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow, this,
             &igQtMainWindow::updateColorBarShow);
+    /* Animation signal connect END.*/
+
+
+    /* Model Tree signal connect BEGIN.*/
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
     // Clear auto-rescaling states when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
+    // Update Deformation Info when model is deleted
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            ui->widget_Animation, &igQtAnimationWidget::ClearAnimationVCRInfo);
+
     // Update animation controls when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
             ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
+    // Update Deformation Info when model changes
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
+
+    /* Model Tree signal connect END.*/
+
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();

@@ -319,8 +319,10 @@ bool ODBReader::ExtractAllInstance() {
     m_Instance_names.clear();
     for (instIter.first(); !instIter.isDone(); instIter.next())
     {
+//        igDebug("Instance Name : {}", instIter.currentKey().CStr());
         m_Instance_names.push_back(instIter.currentKey().CStr());
     }
+    igDebug("Instance Num : {}", m_Instance_names.size());
     return true;
 }
 

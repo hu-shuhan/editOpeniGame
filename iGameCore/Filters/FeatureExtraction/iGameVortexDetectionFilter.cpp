@@ -124,10 +124,11 @@ bool VortexDetection::Execute() {
         default:
             return false;
     }
+    return true;
 #else
     std::cout << "LibTorch is not enabled." << std::endl;
+    return false;
 #endif
-    return true;
 }
 VortexDetection::VortexDetection() {
     SetNumberOfInputs(1);

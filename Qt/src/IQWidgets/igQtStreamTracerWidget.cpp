@@ -287,6 +287,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
         m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->ViewCloudPicture(scene,0);
     }
 
     //scene->ChangeModelVisibility(model, false);
@@ -300,6 +301,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!haveDraw)
     scene->GetCurrentModel()->SetViewPointsSwitch(true);
    // scene->SetCurrentModel(1);
+    
     if (isExisted == false) {
         isExisted = true;
         Selection = StreamLineSelection::New();

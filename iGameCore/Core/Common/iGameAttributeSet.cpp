@@ -338,5 +338,5 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     return true;
 }
 
-void AttributeSet::Attribute::SetDataRange(DoubleArray::Pointer range) { dataRange = std::move(range); }
+void AttributeSet::Attribute::SetDataRange(DoubleArray::Pointer range) { dataRange = range; }
 IGAME_NAMESPACE_END
