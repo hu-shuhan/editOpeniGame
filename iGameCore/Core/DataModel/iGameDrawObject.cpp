@@ -700,5 +700,9 @@ void DrawObject::SetTextureBufferToVAO(GLVertexArray::Pointer VAO, GLBuffer::Poi
     VAO->VertexBuffer(GL_VBO_IDX_3, VBO, 0, 2 * sizeof(float));
     GLSetVertexAttrib(VAO, GL_LOCATION_IDX_3, GL_VBO_IDX_3, 2, GL_FLOAT, GL_FALSE, 0);
 }
+void DrawObject::ForceReConvertToDrawableData() {
+    m_ReConvertToDrawableData = true;
+    if (this->HasSubDataObject()) { ProcessSubDataObjects(&DrawObject::ForceReConvertToDrawableData); }
+}
 
 IGAME_NAMESPACE_END
