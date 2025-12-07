@@ -68,6 +68,8 @@ protected:
     bool m_InEditStatus{false};
     FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
+    friend class Meshleter;
+
 public:
     void ConvertToDrawableData() override;
 

@@ -266,8 +266,8 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         //seeds = streamtracer->getModelSelect();
     } else {
-       // seeds = streamtracer->getModelSelect();
         Q_EMIT SetUseBox();
+        //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
@@ -287,6 +287,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
         m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->ViewCloudPicture(scene,0);
     }
 
     //scene->ChangeModelVisibility(model, false);
@@ -300,6 +301,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!haveDraw)
     scene->GetCurrentModel()->SetViewPointsSwitch(true);
    // scene->SetCurrentModel(1);
+    
     if (isExisted == false) {
         isExisted = true;
         Selection = StreamLineSelection::New();

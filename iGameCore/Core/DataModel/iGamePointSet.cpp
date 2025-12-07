@@ -82,42 +82,41 @@ void PointSet::ComputeBoundingBox() {
 }
 
 void PointSet::ConvertToDrawableData() {
-    if (m_Points->GetMTime() > m_Positions->GetMTime()) {
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    // convert point data
+    if (needReConvertGeometry) {
         m_Positions = m_Points->ConvertToArray();
         m_Positions->Modified();
     }
 
     // convert scalar data
-    if (m_AttributeIndex == -1) {
-        m_UseColor = false;
-        m_ColorWithCell = false;
-    } else {
-        m_UseColor = true;
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
+        if (m_AttributeIndex != -1) {
+            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (attr.type == IG_RGB) {
+                this->m_ColorMapper->SetVectorModeToRGBColors();
+            } else {
+                this->m_ColorMapper->SetVectorModeToComponent();
+            }
 
-        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-        if (attr.type == IG_RGB) {
-            this->m_ColorMapper->SetVectorModeToRGBColors();
-        } else {
-            this->m_ColorMapper->SetVectorModeToComponent();
-        }
-        if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
-            if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+            if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
                 m_ColorWithCell = false;
                 this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
             }
         }
     }
-}
 
-//void PointSet::ViewCloudPicture(Scene* scene, int index, int demension) {
-//    auto& attr = this->GetAttributeSet()->GetAttribute(index);
-//    if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
-//        this->SetAttributeWithPointData(attr.pointer, attr.dataRange,
-//                                        demension);
-//    }
-//    scene->Update();
-//}
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
+}
 
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange, igIndex dimension) {
     if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
@@ -135,6 +134,7 @@ void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray:
 }
 
 FlatArray<igIndex>::Pointer PointSet::GetPointMap() { return m_PointMap; }
+
 void PointSet::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange, igIndex dimension) {}
 
 SmartPointer<Selection> PointSet::GetSelection(Model* model) {

@@ -90,7 +90,7 @@ void BasicStyle::WheelEvent(IEvent event) {
 
     if (m_CenterAxesModel && m_Camera) {
         // 获取相机到旋转中心的距离
-        igm::vec3 rotationCenter = m_Scene->GetRotationCenter();
+        igm::vec3 rotationCenter = m_Scene->GetRotationBoundingSphere().xyz();
         igm::vec3 cameraPos = m_Camera->GetPosition();
         float cameraDistance = (cameraPos - rotationCenter).length();
 
@@ -138,7 +138,8 @@ void BasicStyle::ModelRotation() {
     double angle = phi * 180.0 / IGM_PI; // 转为角度制
 
     // (4) 计算旋转中心（场景包围球中心）
-    igm::vec4 center = igm::vec4{m_Scene->GetRotationCenter(), 1.0f};
+    igm::vec4 center =
+            igm::vec4{m_Scene->GetRotationBoundingSphere().xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_Scene->m_ModelMatrix * center).xyz();
 
     //(5) 构建旋转矩阵（绕中心点旋转）
@@ -154,9 +155,10 @@ void BasicStyle::ModelRotation() {
     // updated the rotation matrix of the origin
     m_Scene->m_ModelRotate = rotate * m_Scene->m_ModelRotate;
 }
+
 void BasicStyle::ViewTranslation() {
     if (m_Camera) {
-        UpdateCameraMoveSpeed(m_Scene->m_ModelsBoundingSphere);
+        UpdateCameraMoveSpeed(m_Scene->GetRotationBoundingSphere());
 
         auto offset = m_NewPoint2D - m_OldPoint2D;
         auto moveOffset = igm::vec3{-offset.x * m_CameraMoveSpeed,
@@ -190,8 +192,9 @@ void BasicStyle::ViewTranslation() {
     //     m_Scene->m_ModelMatrix = translationMatrix * m_Scene->m_ModelMatrix;
     // }
 }
+
 void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
-    auto center = igm::vec3{m_Scene->GetRotationCenter()};
+    auto center = igm::vec3{m_Scene->GetRotationBoundingSphere()};
 
     igm::mat4 model = m_Scene->m_ModelMatrix;
     igm::mat4 view = m_Camera->GetViewMatrix();
@@ -239,7 +242,8 @@ void BasicStyle::MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D) {
         new_v3D[2] = 0.5 * rsqr / sqrt(new_x2y2);
     }
 }
-void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
+
+void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& boundingSphere) {
     auto viewport = m_Camera->GetViewPort();
     auto viewportF = igm::vec2{static_cast<float>(viewport.x),
                                static_cast<float>(viewport.y)};
@@ -258,9 +262,8 @@ void BasicStyle::UpdateCameraMoveSpeed(const igm::vec4& center) {
         igm::mat4 proj = m_Camera->GetProjectionMatrix();
         auto mvp = proj * view * model;
 
-        auto focal =
-                m_Camera->GetFocal() +
-                m_Camera->GetFront() * m_Scene->m_ModelsBoundingSphere.w / 2;
+        auto focal = m_Camera->GetFocal() +
+                     m_Camera->GetFront() * boundingSphere.w / 2;
         auto focalMvp = mvp * igm::vec4{focal, 1.0f};
         focalMvp /= focalMvp.w;
 
