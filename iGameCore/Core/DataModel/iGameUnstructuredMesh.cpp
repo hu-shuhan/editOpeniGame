@@ -656,11 +656,13 @@ void UnstructuredMesh::ConvertToDrawableData() {
             } else {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
-            if(updateColorMapper){
-                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
-                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
-                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
-            }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
+
             // m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
             // m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
             if (!attr.isDeleted) {
