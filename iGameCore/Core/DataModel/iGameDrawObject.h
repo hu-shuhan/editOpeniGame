@@ -30,7 +30,7 @@ protected:
 public:
     bool IsDrawable() override { return true; } // 标识可以被渲染
     virtual void ConvertToDrawableData();       //转化为可渲染模式（当前对象及其所有子对象）
-    void ForceReConvertToDrawableData() { m_ReConvertToDrawableData = true; } // 强制触发重新映射
+    void ForceReConvertToDrawableData();  // 强制触发重新映射
     virtual bool IsUseSinglePassWireframeRendering();                         // 是否使用单通道线框渲染
     IGenum GetDataObjectType() const override;
     IGsize GetRealMemorySize() override;

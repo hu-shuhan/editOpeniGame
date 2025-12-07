@@ -177,12 +177,13 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
 
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
-
     if (currentDrawObject->GetAttributeIndex() != -1) {
         currentDrawObject->ViewCloudPicture(
-                currentScene, currentDrawObject->GetAttributeIndex());
+                currentScene, currentDrawObject->GetAttributeIndex() - 1);
+        currentDrawObject->ViewCloudPicture(
+                currentScene, currentDrawObject->GetAttributeIndex() + 1);
     }
-    currentDrawObject;
+    currentDrawObject->ForceReConvertToDrawableData();
     currentScene->DoneCurrent();
 
     // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
@@ -355,7 +356,7 @@ void igQtAnimationWidget::initAnimationComponents() {
                         ->GetDataObject()
                         ->GetTimeFrames() == nullptr)
         return;
-
+    IGAME_CORE_ERROR("Init Animation");
     auto& timeArrays = iGame::SceneManager::Instance()
                               ->GetCurrentScene()
                               ->GetCurrentModel()
