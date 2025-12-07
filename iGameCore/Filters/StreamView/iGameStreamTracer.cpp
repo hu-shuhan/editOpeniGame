@@ -67,11 +67,11 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            mesh->SetShouldBuildEageLinks(false);
-            mesh->SetShouldBuildFaceLinks(false);
-            mesh->SetShouldBuildFaceEageLinks(false);
-            mesh->SetShouldBuildVolumeFaceLinks(false);
-            mesh->SetShouldBuildVolumeEageLinks(false);
+            //mesh->SetShouldBuildEageLinks(false);
+            //mesh->SetShouldBuildFaceLinks(false);
+            //mesh->SetShouldBuildFaceEageLinks(false);
+            //mesh->SetShouldBuildVolumeFaceLinks(false);
+            //mesh->SetShouldBuildVolumeEageLinks(false);
             //  mesh->InitPolyhedronVertices();
         }
 
