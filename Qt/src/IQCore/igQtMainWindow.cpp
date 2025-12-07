@@ -899,6 +899,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
+    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_FlowField->show();
+        ui->widget_FlowField->updateVectorNameList();
+    });
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
