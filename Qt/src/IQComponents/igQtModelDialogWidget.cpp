@@ -162,6 +162,7 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
         // std::cout << i << " " << attr.pointer->GetName() << std::endl;
     }
     item->viewAttribute(-1);
+    iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
 }
 
 int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
