@@ -19,7 +19,7 @@ void DragCenterStyle::Initialize(SmartPointer<Interactor> interactor) {
 }
 
 void DragCenterStyle::MousePressEvent(IEvent event) {
-    if (event.button != LeftButton  || !m_Camera || !m_AxesModel) return;
+    if (event.button != LeftButton || !m_Camera || !m_AxesModel) return;
 
     m_IsDragging = true;
     m_LastMousePos = event.pos;
@@ -48,7 +48,9 @@ void DragCenterStyle::MouseMoveEvent(IEvent event) {
 
     // 3. 更新坐标轴模型位置
     m_AxesModel->HandleDrag(worldOffset);
-    m_Scene->SetRotationCenter(m_AxesModel->GetRotationCenter());
+    m_Scene->SetRotationBoundingSphere(
+            igm::vec4{m_AxesModel->GetRotationCenter(),
+                      m_Scene->GetRotationBoundingSphere().w});
 
     m_LastMousePos = event.pos;
 }

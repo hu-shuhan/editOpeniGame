@@ -887,6 +887,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
+    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_FlowField->show();
+        ui->widget_FlowField->updateVectorNameList();
+    });
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
@@ -1220,6 +1224,7 @@ void igQtMainWindow::initAllMySignalConnections() {
             [&](iGame::DataObject::Pointer res) {
                 res->Modified();
                 rendererWidget->update();
+                modelTreeWidget->updateAllAttriubute(res);
             });
 
 
