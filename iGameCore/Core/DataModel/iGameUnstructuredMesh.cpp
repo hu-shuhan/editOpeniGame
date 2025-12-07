@@ -646,6 +646,7 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
     // convert scalar data
     bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+//    std::cout << "Update Color Mapper : " << updateColorMapper << ' ' << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1] << std::endl;
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
@@ -655,6 +656,12 @@ void UnstructuredMesh::ConvertToDrawableData() {
             } else {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
 
             // m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
             // m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
@@ -667,6 +674,8 @@ void UnstructuredMesh::ConvertToDrawableData() {
                     this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             }
+
+
         }
     }
 
@@ -676,15 +685,16 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
-    // Configure color mapper range using provided attrRange if available; otherwise initialize from data
-    double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
-    double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
-    if (attrRange && minimal_val < maximal_val) {
-        m_ColorMapper->SetRange(minimal_val, maximal_val);
-    } else {
-        m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+        // Configure color mapper range using provided attrRange if available; otherwise initialize from data
+        double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
+        double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
+        if (attrRange && minimal_val < maximal_val) {
+            m_ColorMapper->SetRange(minimal_val, maximal_val);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
     }
-
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
     if (colors == nullptr) { return; }
 

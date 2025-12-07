@@ -124,18 +124,22 @@ void igQtSelectionWidget::SetNoAttention() {
 }
 
 void igQtSelectionWidget::SetPointAttention() {
-    ui->attention->setText(QString("●当前模型无 <font color='red'><b>点</b></font> 数据"));
+    ui->attention->setText(QString("●当前模型无点数据"));
+    //ui->attention->setText(QString("●当前模型无 <font color='red'><b>点</b></font> 数据"));
     ui->attention->show();
 }
 
 void igQtSelectionWidget::SetCellAttention() {
-    ui->attention->setText(QString("●当前模型无 <font color='red'><b>面/体</b></font> 数据"));
+    ui->attention->setText(QString("●当前模型无面/体数据"));
+    //ui->attention->setText(QString("●当前模型无 <font color='red'><b>面/体</b></font> 数据"));
     ui->attention->show();
 }
 
 void igQtSelectionWidget::SetAllAttention() {
     ui->attention->setText(
-            QString("●当前模型无 <font color='red'><b>点</b></font> 、 <font color='red'><b>面/体</b></font> 数据"));
+            QString("●当前模型无数据"));
+    //ui->attention->setText(
+    //        QString("●当前模型无 <font color='red'><b>点</b></font> 、 <font color='red'><b>面/体</b></font> 数据"));
     ui->attention->show();
 }
 
