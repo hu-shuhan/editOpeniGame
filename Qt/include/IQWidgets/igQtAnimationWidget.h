@@ -20,6 +20,7 @@ public slots:
 
     bool saveAnimation();
 
+    void ClearAnimationVCRInfo();
 private slots:
     void playAnimation_snap(unsigned int keyframe_idx);
     void playAnimation_interpolate(int keyframe_0, float t);

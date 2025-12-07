@@ -2347,11 +2347,10 @@ bool MeshSimplificationFilterPro::Execute() {
     if (DynamicCast<SurfaceMesh>(GetInput(0))) {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
-
-        if (Mesh->GetAttributeSet()->GetNumberOfAttributes() > 16) { 
+        if(Mesh->GetAttributeSet()->GetNumberOfAttributes() > 200) {
+            IGAME_CORE_ERROR("Too many Attribute . Aborting MeshSimplification.");
             return false;
         }
-
         int oldIndexCount = Mesh->GetFaces()->GetNumberOfCellIds();
 
         MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();

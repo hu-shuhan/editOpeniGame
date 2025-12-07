@@ -219,6 +219,48 @@ std::vector<Vector3f> StreamTracer::getModelSelect() {
     return getAllSubBlockCenters(mesh->GetBoundingBox().max, mesh->GetBoundingBox().min, Vector3f(maxX, maxY, maxZ),
                                  Vector3f(minX, minY, minZ), 4, 4);
 }
+std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName) {
+    std::vector<Vector3f> result;
+
+    if (!mesh) return result;
+
+    auto attr = mesh->GetAttributeSet();
+    if (!attr) return result;
+
+    iGame::AttributeSet::Attribute& vec = attr->GetAttribute(vectorName);
+    if (!vec.pointer) return result;
+
+    int numPoints = mesh->GetNumberOfPoints();
+    int numVolumes = mesh->GetNumberOfVolumes();
+
+    result.resize(numPoints, Vector3f(0, 0, 0));
+
+    if (vec.type == IG_CELL) {
+
+        for (int cellId = 0; cellId < numVolumes; cellId++) {
+            igIndex pts[32]{};
+            int n = mesh->GetVolumePointIds(cellId, pts);
+
+            double cv[4] = {0};
+            vec.pointer->GetElement(cellId, cv);
+            Vector3f V(cv[0], cv[1], cv[2]);
+
+            for (int i = 0; i < n; i++) {
+                igIndex pid = pts[i];
+                result[pid] = V;
+            }
+        }
+    } else {
+
+        for (int i = 0; i < numPoints; i++) {
+            double pv[4] = {0};
+            vec.pointer->GetElement(i, pv);
+            result[i] = Vector3f(pv[0], pv[1], pv[2]);
+        }
+    }
+
+    return result;
+}
 bool StreamTracer::Execute() {
     // 检查参数是否已设置
     if (m_SeedPoints.empty()) {
@@ -322,6 +364,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
     std::vector<Vector3f> localMaxPoints;
     std::map<float, Vector3f, std::greater<>> seedsMap;
+    currentV = std::move(GetUnifiedVectorField(VectorName));
     // 收集所有选中的点ID
     std::unordered_set<igIndex> allSelectedPoints;
 
@@ -351,8 +394,13 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
     // 对每个选中的点，检查是否为局部最大值
     for (igIndex pointId: allSelectedPoints) {
         // 获取该点的向量值并计算其模长
-        double currentValue[4] = {0.0};
-        Vector.pointer->GetElement(pointId, currentValue);
+        //double currentValue[4] = {0.0};
+        //Vector.pointer->GetElement(pointId, currentValue);
+        if (pointId < 0 || pointId >= currentV.size()) {
+            std::cout << "over index:"<< pointId << std::endl;
+            continue;
+        } 
+       const Vector3f& currentValue = currentV[pointId];
         double currentMagnitude = std::sqrt(currentValue[0] * currentValue[0] + currentValue[1] * currentValue[1] +
                                             currentValue[2] * currentValue[2]);
 
@@ -376,13 +424,14 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
         // 检查是否为局部最大值
         bool isLocalMax = true;
         for (igIndex neighborId: neighborPoints) {
-            double neighborValue[4] = {0.0};
-            Vector.pointer->GetElement(neighborId, neighborValue);
+            //double neighborValue[4] = {0.0};
+            //Vector.pointer->GetElement(neighborId, neighborValue);
+            Vector3f neighborValue = currentV[neighborId];
             double neighborMagnitude =
                     std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
                               neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude > currentMagnitude) {
+            if (neighborMagnitude >= currentMagnitude) {
                 isLocalMax = false;
                 break;
             } else if (neighborMagnitude == currentMagnitude) {
@@ -392,10 +441,14 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
 
         // 如果是局部最大值，添加该点的坐标到结果
         if (isLocalMax && !neighborPoints.empty()) {
-            float V[4] = {0.0};
-            Vector.pointer->GetElement(pointId, V);
+            //float V[4] = {0.0};
+            //Vector.pointer->GetElement(pointId, V);
+            Vector3f V = currentV[pointId];
             Point p = mesh->GetPoint(pointId);
-            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0]+0.001f, p[1]+0.001f, p[2]+0.001f));
+           // std::cout << pointId << ":" << mesh->IsBoundaryPoint(pointId) << std::endl;
+            //seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0] + 0.001f, p[1] + 0.001f, p[2] + 0.001f));
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], p+V*0.00001);
+           // std::cout << p + V * 0.001 << std::endl;
         }
         //bool isLocalMin = true;
         //for (igIndex neighborId: neighborPoints) {
@@ -423,7 +476,7 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
     auto it = seedsMap.begin();
     for (int i = 0; i < numOfPoints; ++i) { 
         localMaxPoints.emplace_back(it->second);
-        it;
+        it++;
     }
     std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
     return localMaxPoints;
