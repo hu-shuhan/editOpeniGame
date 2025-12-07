@@ -356,7 +356,7 @@ void igQtAnimationWidget::initAnimationComponents() {
                         ->GetDataObject()
                         ->GetTimeFrames() == nullptr)
         return;
-    IGAME_CORE_ERROR("Init Animation");
+//    IGAME_CORE_ERROR("Init Animation");
     auto& timeArrays = iGame::SceneManager::Instance()
                               ->GetCurrentScene()
                               ->GetCurrentModel()
