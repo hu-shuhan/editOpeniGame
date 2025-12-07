@@ -215,6 +215,19 @@ void igQtStreamTracerWidget::updateVectorNameList() {
             if (attribute.pointer) { ui->comboBox->addItem(QString::fromStdString(attribute.pointer->GetName())); }
         }
     }
+
+    iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
+    if (!modelBound) {
+        std::cout << "[StreamTracer] First model binding\n";
+
+        streamtracer->initStreamTracer(currentModel);
+        masterName = currentModel->GetDataObject()->GetName();
+
+        auto tem = currentModel->GetDataObject();
+        m_DataObject = tem;
+
+        modelBound = true;
+    }
 }
 void igQtStreamTracerWidget::changeVecName() {
     vectorName = ui->comboBox->currentText().toStdString();

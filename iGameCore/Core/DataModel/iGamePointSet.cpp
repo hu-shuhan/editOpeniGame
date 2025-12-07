@@ -119,14 +119,15 @@ void PointSet::ConvertToDrawableData() {
 }
 
 void PointSet::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange, igIndex dimension) {
-    double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
-    double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
-    if (minimal_val < maximal_val) {
-        m_ColorMapper->SetRange(minimal_val, maximal_val);
-    } else {
-        m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+        double minimal_val = attrRange->GetValue(2 + dimension * 2 + 0);
+        double maximal_val = attrRange->GetValue(2 + dimension * 2 + 1);
+        if (minimal_val < maximal_val) {
+            m_ColorMapper->SetRange(minimal_val, maximal_val);
+        } else {
+            m_ColorMapper->InitRange(attr, dimension);
+        }
     }
-
     m_Colors = m_ColorMapper->MapScalars(attr, dimension);
     m_Colors->Modified();
     if (m_Colors == nullptr) { return; }
