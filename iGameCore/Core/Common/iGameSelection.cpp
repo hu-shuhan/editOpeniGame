@@ -54,6 +54,39 @@ static void DrawPoint(Painter3D* painter, const Point& point, std::vector<IGuint
     drawHandles.push_back(drawHandle);
 }
 
+static inline std::pair<Point, Point> MinMaxPoint() {
+    return {Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                  std::numeric_limits<float>::max()),
+            Point(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(),
+                  std::numeric_limits<float>::lowest())};
+}
+
+static inline void MinMaxPoint(Point& pMin, Point& pMax, const Point& p) {
+    for (int i = 0; i < 3; i++) {
+        pMin[i] = std::min<float>(pMin[i], p[i]);
+        pMax[i] = std::max<float>(pMax[i], p[i]);
+    }
+}
+
+static inline void MinPoint(Point& pMin, const Point& p) {
+    for (int i = 0; i < 3; i++) { pMin[i] = std::min<float>(pMin[i], p[i]); }
+}
+
+static inline void MaxPoint(Point& pMax, const Point& p) {
+    for (int i = 0; i < 3; i++) { pMax[i] = std::max<float>(pMax[i], p[i]); }
+}
+
+static inline std::pair<Point, Point> CellMinMaxPoint(Cell* cell) {
+    auto pMinMax = MinMaxPoint();
+    auto& [pMin, pMax] = pMinMax;
+    int pNum = cell->GetNumberOfPoints();
+    for (int i = 0; i < pNum; i++) {
+        auto& p = cell->GetPoint(i);
+        MinMaxPoint(pMin, pMax, p);
+    }
+    return pMinMax;
+}
+
 //static void DrawCell(Painter3D::Pointer painter, Cell* cell, std::vector<IGuint>& drawHandles) {
 //    if (cell == nullptr) return;
 //    auto faceNum = cell->GetNumberOfFaces();
@@ -454,6 +487,9 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
                         pMinMax.first = center - r;
                         pMinMax.second = center + r;
+                        auto cellPMinMax = CellMinMaxPoint(cell);
+                        MinPoint(pMinMax.first, cellPMinMax.first);
+                        MaxPoint(pMinMax.second, cellPMinMax.second);
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -468,6 +504,9 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
                         pMinMax.first = center - r;
                         pMinMax.second = center + r;
+                        auto cellPMinMax = CellMinMaxPoint(cell);
+                        MinPoint(pMinMax.first, cellPMinMax.first);
+                        MaxPoint(pMinMax.second, cellPMinMax.second);
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
@@ -481,6 +520,9 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
                         auto r = SelectionParameter::Instance().GetSelectionRadius();
                         pMinMax.first = center - r;
                         pMinMax.second = center + r;
+                        auto cellPMinMax = CellMinMaxPoint(cell);
+                        MinPoint(pMinMax.first, cellPMinMax.first);
+                        MaxPoint(pMinMax.second, cellPMinMax.second);
                     } else {
                         pMinMax = m_CellFaceExtracter.GetCellsBoundingBox(ids, mesh);
                     }
