@@ -16,13 +16,25 @@ bool VortexFilter::Execute()  {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-        if (curIndex == -1 && name == "") return false;
+        if (attributeSet == nullptr) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
+        if (curIndex == -1 && name == "") {
+            m_Message = "please choose a attribute";
+            return false;
+        }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
-        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()){
+            m_Message = "please choose a attribute";
+            return false;
+        }
 
         int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
-        if (dim != 3) { return false; }
+        if (dim != 3) {
+            m_Message = "please choose a vector";
+            return false;
+        }
         return true;
     };
 
@@ -30,10 +42,11 @@ bool VortexFilter::Execute()  {
 
     switch (input->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
-            surface_Mesh = DynamicCast<SurfaceMesh>(input);
-            if (!CheckType()) return false;
-
-            return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
+            return false;
+            // surface_Mesh = DynamicCast<SurfaceMesh>(input);
+            // if (!CheckType()) return false;
+            //
+            // return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
         } break;
         case IG_VOLUME_MESH: {
             volume_Mesh = DynamicCast<VolumeMesh>(input);
@@ -50,10 +63,10 @@ bool VortexFilter::Execute()  {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
 
             surface_Mesh = mesh->TransferToSurfaceMesh();
-
             if (surface_Mesh) {
-                if (!CheckType()) return false;
-                return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
+                return false;
+                // if (!CheckType()) return false;
+                // return ComputeVorticityWithSurfaceMesh2(surface_Mesh, attributeSet, curIndex);
             }
 
             if (mesh) {

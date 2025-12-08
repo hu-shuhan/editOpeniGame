@@ -20,6 +20,7 @@ public:
 
     void SetAttributeByIndex(int index);
     void SetAttributeByName(const std::string& name);
+    std::string GetMessage() const { return m_Message; }
 
     bool Execute() override;
     
@@ -30,7 +31,10 @@ private:
     std::array<float, 3> GetPosition_volume(Volume* v, int num);
     std::array<float, 3> GetPosition_face(Face* f, int num);
 
+
     bool GetOtherLaplacian(int type, int Num);
+    ArrayObject::Pointer AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+                                                         size_t PointNum);
 
 protected:
     LaplacianFilter();
@@ -42,6 +46,11 @@ protected:
 
     int curIndex{-1};
     std::string name;
+    int dim{-1};
+
+    int m_currentAttributeDimension{-1};
+
+    std::string m_Message{"Not Surface Mesh !"};
 };
 
 IGAME_NAMESPACE_END

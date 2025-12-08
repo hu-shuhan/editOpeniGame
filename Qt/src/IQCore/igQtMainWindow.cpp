@@ -703,6 +703,11 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+
+        }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
@@ -713,6 +718,10 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+        }
     });
 
     QAction* curvature = view->addAction("ComputeCurvature");
@@ -723,6 +732,10 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+        }
     });
 
     QAction* vortex = view->addAction("ComputeVorticity");
@@ -734,9 +747,11 @@ void igQtMainWindow::initAllFilters() {
 
         filter->SetInput(data);
         if (filter->Execute()) {
-
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
         }
     });
 
@@ -748,17 +763,7 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) {
-            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
-
-            // modelTreeWidget->updateAllAttriubute(data);
-            // DynamicCast<DrawObject>(data)->ConvertToDrawableData();
-
-            auto outData = filter->GetOutput(0);
-            auto scene = rendererWidget->GetScene();
-            auto model = scene->GetCurrentModel();
-            model->SetDataObject(outData);
-            modelTreeWidget->updateAllAttriubute(outData);
-            DynamicCast<DrawObject>(outData)->ConvertToDrawableData();
+            modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
 
             // vortexMetricsLabel
@@ -777,6 +782,9 @@ void igQtMainWindow::initAllFilters() {
             //     vortexMetricsLabel->clear();
             //     vortexMetricsLabel->hide();
             // }
+        }else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
         }
     });
 
