@@ -99,23 +99,57 @@ static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
     }
 }
 
-// 静态方法：计算面的法向量
+// 静态方法：计算面的法向量，处理退化情况
 static Point ComputeFaceNormal(const std::array<Point, 4>& face) {
+    // 检查面是否退化（所有点相同）
+    bool allPointsSame = true;
+    for (size_t i = 1; i < face.size(); ++i) {
+        if (!(face[0] == face[i])) {
+            allPointsSame = false;
+            break;
+        }
+    }
+
+    if (allPointsSame) {
+        // 退化面，返回零向量（会被后续处理识别）
+        return Point(0, 0, 0);
+    }
+
+    // 尝试不同的边组合来确保非零法向量
     Point v1 = face[1] - face[0];
     Point v2 = face[2] - face[1];
+    Point normal = v1.cross(v2);
 
-    // 叉积计算法向量
-    Point normal = v1.cross(v2).normalized();
+    // 如果叉积接近零，尝试其他边的组合
+    if (normal.squaredLength() < 1e-12) {
+        v1 = face[2] - face[0];
+        v2 = face[3] - face[0];
+        normal = v1.cross(v2);
+    }
 
-    return normal;
+    // 再次检查，如果仍然接近零，则面可能退化
+    if (normal.squaredLength() < 1e-12) { return Point(0, 0, 0); }
+
+    return normal.normalized();
 }
 
-// 静态方法：检查点是否在面的同一侧（内部）
-static bool IsPointOnSameSide(const Point& p,
-                              const std::array<Point, 4>& face) {
+// 静态方法：检查点是否在面的同一侧（内部），处理退化情况
+static bool IsPointOnSameSide(const Point& p, const std::array<Point, 4>& face,
+                              bool& faceDegenerate) {
     Point normal = ComputeFaceNormal(face);
 
-    // 使用面上第一个点作为参考点
+    // 检查法向量是否为零（退化面）
+    if (normal.squaredLength() < 1e-12) {
+        faceDegenerate = true;
+        // 对于退化面，检查点是否与面上的点相同
+        // 实际上，如果是包围盒的一个面退化，那么这个面无法提供有效的约束
+        // 返回true让其他非退化面来决定
+        return true;
+    }
+
+    faceDegenerate = false;
+
+    // 找到面上第一个非退化的参考点
     const Point& refPoint = face[0];
 
     // 计算点到面的有向距离
@@ -124,17 +158,60 @@ static bool IsPointOnSameSide(const Point& p,
                         normal[2] * (p[2] - refPoint[2]);
 
     // 对于立方体，所有内部点应该在面的同一侧
-    // 这里假设法向量指向外部，所以内部点的点积应该为负
-
-    return dotProduct <= 0;
+    // 这里假设法向量指向外部，所以内部点的点积应该为负或零（在面上）
+    return dotProduct <= 1e-12; // 使用容差
 }
 
+// 静态方法：检查点是否在包围盒内，处理全部退化的情况
 static bool IsPointInside(const Point& p,
                           const std::array<std::array<Point, 4>, 6>& allFaces) {
 
+    // 首先检查包围盒是否完全退化（所有顶点相同）
+    bool allFacesDegenerate = true;
+    bool hasValidFace = false;
+
+    // 收集所有顶点（去重）
+    std::vector<Point> uniqueVertices;
     for (const auto& face: allFaces) {
-        if (!IsPointOnSameSide(p, face)) { return false; }
+        for (const auto& vertex: face) {
+            bool found = false;
+            for (const auto& uniqueVert: uniqueVertices) {
+                if (vertex == uniqueVert) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) { uniqueVertices.push_back(vertex); }
+        }
     }
+
+    // 如果所有顶点相同（只有一个唯一顶点）
+    if (uniqueVertices.size() == 1) {
+        // 包围盒退化到一点，只有该点在其内部
+        return (p == uniqueVertices[0]);
+    }
+
+    // 正常情况：检查所有面
+    int degenerateFaceCount = 0;
+
+    for (const auto& face: allFaces) {
+        bool faceDegenerate = false;
+        if (!IsPointOnSameSide(p, face, faceDegenerate)) { return false; }
+        if (faceDegenerate) { degenerateFaceCount++; }
+    }
+
+    // 如果所有面都退化（理论上不应该发生，因为上面已经检查过顶点）
+    if (degenerateFaceCount == 6) {
+        // 这应该已经被上面的顶点检查捕获，但作为额外保护
+        // 检查点是否与任何顶点相同
+        for (const auto& face: allFaces) {
+            for (const auto& vertex: face) {
+                if (p == vertex) { return true; }
+            }
+        }
+        return false;
+    }
+
     return true;
 }
 
