@@ -655,11 +655,13 @@ void Selection::DrawPoints() {
     auto penSize = std::max<float>(0.001, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
     painter->SetPen(penSize);
     painter->SetPen(0.9f, 0.145f, 0.863f);
+    //painter->SetBrush(0.9f, 0.145f, 0.863f);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {
         if (pNum <= pId) continue;
         auto& point = mesh->GetPoint(pId);
         painter->DrawPoint(point);
+        //painter->DrawSphere(point, 0.001, 5, 5);
     }
 }
 
