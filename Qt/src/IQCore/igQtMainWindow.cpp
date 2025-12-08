@@ -201,7 +201,7 @@ void igQtMainWindow::initToolbarComponent() {}
 void igQtMainWindow::initAllComponents() {
     connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
         iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
-        iGame::SceneManager::Instance()->GetCurrentScene()->Update();
+        iGame::SceneManager::Instance()->GetCurrentScene()->Update();on
    });
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
