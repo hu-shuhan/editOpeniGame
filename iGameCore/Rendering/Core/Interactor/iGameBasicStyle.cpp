@@ -90,16 +90,14 @@ void BasicStyle::WheelEvent(IEvent event) {
 
     if (m_CenterAxesModel && m_Camera) {
         // 获取相机到旋转中心的距离
-        igm::vec3 rotationCenter = m_Scene->GetRotationBoundingSphere().xyz();
+        igm::vec3 rotationCenter = m_CenterAxesModel->GetRotationCenter();
         igm::vec3 cameraPos = m_Camera->GetPosition();
         float cameraDistance = (cameraPos - rotationCenter).length();
 
         // 获取视口尺寸
         auto viewport = m_Camera->GetViewPort();
-        int viewportHeight = viewport.y;
-
-        // 假设相机的FOV为45度（根据实际调整）
-        float fov = IGM_PI / 4.0f; // 45度弧度值
+        float viewportHeight = viewport.y;
+        float fov = m_Camera->GetFov(); 
 
         // 调用坐标轴模型的更新方法
         m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
