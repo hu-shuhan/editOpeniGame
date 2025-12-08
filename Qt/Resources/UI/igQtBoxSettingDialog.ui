@@ -24,13 +24,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>16777215</height>
       </size>
      </property>
@@ -52,13 +52,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>16777215</height>
       </size>
      </property>
@@ -84,6 +84,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="1" column="2">
@@ -98,6 +104,12 @@
       <size>
        <width>70</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
       </size>
      </property>
     </widget>
@@ -116,6 +128,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="2" column="2">
@@ -132,6 +150,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="3" column="2">
@@ -140,6 +164,12 @@
       <size>
        <width>70</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
       </size>
      </property>
      <property name="text">
@@ -161,6 +191,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="0" column="2">
@@ -175,6 +211,12 @@
       <size>
        <width>70</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
       </size>
      </property>
     </widget>
@@ -193,6 +235,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="0" column="0">
@@ -205,13 +253,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>25</width>
+       <width>30</width>
        <height>16777215</height>
       </size>
      </property>
@@ -229,6 +277,12 @@
       <size>
        <width>70</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
       </size>
      </property>
      <property name="text">
@@ -250,6 +304,12 @@
        <height>0</height>
       </size>
      </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
     </widget>
    </item>
    <item row="2" column="1">
@@ -264,6 +324,12 @@
       <size>
        <width>70</width>
        <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
       </size>
      </property>
     </widget>
