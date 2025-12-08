@@ -698,6 +698,7 @@ void Selection::DrawPoints() {
     auto penSize = std::max<float>(0.7, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
     painter->SetPen(penSize);
     painter->SetPen(0.9f, 0.145f, 0.863f);
+    //painter->SetPen(Color::Red);
     //painter->SetBrush(0.9f, 0.145f, 0.863f);
     auto& pointIds = GetSelectedPoints();
     for (auto& pId: pointIds) {
