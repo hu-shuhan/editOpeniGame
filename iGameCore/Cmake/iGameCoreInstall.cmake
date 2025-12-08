@@ -26,22 +26,22 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
                     DESTINATION lib/ThirdParty)
         else ()
             find_package(HDF5 REQUIRED)
-            if(HDF5_LIBRARIES)
+            if (HDF5_LIBRARIES)
                 list(GET HDF5_LIBRARIES 0 first_lib)
                 get_filename_component(HDF5_LIB_DIR ${first_lib} DIRECTORY)
                 message(STATUS "HDF5 library directory: ${HDF5_LIB_DIR}")
-            endif()
+            endif ()
 
             file(GLOB hdf5_static_libs
                     "${HDF5_LIB_DIR}/libhdf5*.a"
                     "${HDF5_LIB_DIR}/libhdf5_hl*.a"
             )
-            foreach(lib ${hdf5_static_libs})
-                if(EXISTS ${lib})
+            foreach (lib ${hdf5_static_libs})
+                if (EXISTS ${lib})
                     message(STATUS "Installing static library: ${lib}")
                     install(FILES ${lib} DESTINATION lib/ThirdParty)
-                endif()
-            endforeach()
+                endif ()
+            endforeach ()
 
             install(DIRECTORY ${HDF5_INCLUDE_DIRS}/
                     DESTINATION include/ThirdParty/hdf5
@@ -58,7 +58,9 @@ if (CORE_MODULE_INSTALL AND CMAKE_BUILD_TYPE STREQUAL "Release")
             install(FILES ${TORCH_DLLS} DESTINATION bin)
         else ()
             file(GLOB TORCH_SOS
+                    "${LIBTORCH_DIR}/lib/*.a*"
                     "${LIBTORCH_DIR}/lib/*.so*"
+                    "${LIBTORCH_DIR}/libtorch/lib/*.a*"
                     "${LIBTORCH_DIR}/libtorch/lib/*.so*")
             if (TORCH_SOS)
                 install(FILES ${TORCH_SOS} DESTINATION lib)
