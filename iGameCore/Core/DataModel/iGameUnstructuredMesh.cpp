@@ -443,47 +443,48 @@ void UnstructuredMesh::GetTypedCell(const IGsize cellId, Cell::Pointer& cell) co
 }
 
 void UnstructuredMesh::ConvertToDrawableData() {
-    bool needReConvert = m_ReConvertToDrawableData;
-    needReConvert |= m_Points->GetMTime() > m_Positions->GetMTime();
-    needReConvert |= m_Clipper->GetMTime() > m_Positions->GetMTime();
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
 
     // extract surface mesh
     if (m_ShellRendering) {
-        if (!needReConvert) { return; }
+        if (!needReConvertGeometry && !needReConvertScalar) { return; }
 
-        m_ReConvertToDrawableData = false;
-        bool extractShellSuccess = false;
         ModelGeometryFilter::Pointer extract = ModelGeometryFilter::New();
+        {
+            // update clip status
+            auto box = m_Clipper->m_Box;
+            if (box.m_Use) {
+                const auto& a = box.m_Bmin;
+                const auto& b = box.m_Bmax;
+                extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+            }
+            auto plane = m_Clipper->m_Plane;
+            if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
 
-        // update clip status
-        auto box = m_Clipper->m_Box;
-        if (box.m_Use) {
-            const auto& a = box.m_Bmin;
-            const auto& b = box.m_Bmax;
-            extract->SetExtent(a[0], b[0], a[1], b[1], a[2], b[2], box.m_Flip);
+            // shell algorithm
+            SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
+            if (extract->Execute(this, surfaceMesh)) {
+                SetRenderableObject(surfaceMesh);
+                m_PointMap = extract->GetPointMap();
+                m_ReConvertToDrawableData = false;
+                m_ReConvertHelper->Modified();
+                return;
+            } else {
+                m_ShellRendering = false;
+                this->m_RenderableMesh.SurfaceMesh = nullptr;
+                this->m_RenderableMesh.SimplifiedMesh = nullptr;
+                igDebug("Failed to execute the shell algorithm.");
+            }
         }
-        auto plane = m_Clipper->m_Plane;
-        if (plane.m_Use) { extract->SetClipPlane(plane.m_Origin, plane.m_Normal, plane.m_Flip); }
-
-        // shell algorithm
-        SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
-        if (extract->Execute(this, surfaceMesh)) {
-            extractShellSuccess = true;
-            SetRenderableObject(surfaceMesh);
-            m_PointMap = extract->GetPointMap();
-        } else {
-            m_ShellRendering = false;
-            this->m_RenderableMesh.SurfaceMesh = nullptr;
-            this->m_RenderableMesh.SimplifiedMesh = nullptr;
-            igDebug("Failed to execute the shell algorithm.");
-        }
-        if (extractShellSuccess) { return; }
     }
 
     // convert original data
-    if (needReConvert) {
-        m_ReConvertToDrawableData = false;
-
+    if (needReConvertGeometry) {
         auto pointIndices = UnsignedIntArray::New();
         pointIndices->SetDimension(1);
         auto edgeIndices = UnsignedIntArray::New();
@@ -644,44 +645,58 @@ void UnstructuredMesh::ConvertToDrawableData() {
     }
 
     // convert scalar data
-    if (m_AttributeIndex == -1) {
-        m_UseColor = false;
-        m_ColorWithCell = false;
-    } else {
-        m_UseColor = true;
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
 
-        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-        if (attr.type == IG_RGB) {
-            this->m_ColorMapper->SetVectorModeToRGBColors();
-        } else {
-            this->m_ColorMapper->SetVectorModeToComponent();
-        }
-        if (!attr.isDeleted) {
-            if (attr.attachmentType == IG_POINT) {
-                /* m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
-                 * m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
-                 * */
-                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+
+    // Debug info
+//    if(m_AttributeIndex != -1){
+//        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+//
+//        std::cout << "Unstructured Mesh : " << this << " color Mapper : " << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//    }
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
+        if (m_AttributeIndex != -1) {
+            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (attr.type == IG_RGB) {
+                this->m_ColorMapper->SetVectorModeToRGBColors();
+            } else {
+                this->m_ColorMapper->SetVectorModeToComponent();
+            }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
+
+            // m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
+            // m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
+            if (!attr.isDeleted) {
+                if (attr.attachmentType == IG_POINT) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
-                }
-
-            } else if (attr.attachmentType == IG_CELL) {
-                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                } else if (attr.attachmentType == IG_CELL) {
                     m_ColorWithCell = true;
                     this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             }
+
+
         }
     }
+
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
 }
 
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
-    // Configure color mapper range using provided attrRange if available; otherwise initialize from data
-    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+    /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
+    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+        // Configure color mapper range using provided attrRange if available; otherwise initialize from data
         double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
         double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;
         if (attrRange && minimal_val < maximal_val) {
@@ -690,7 +705,6 @@ void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, Doubl
             m_ColorMapper->InitRange(attr, dimension);
         }
     }
-
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
     if (colors == nullptr) { return; }
 

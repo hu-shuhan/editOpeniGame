@@ -76,6 +76,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     std::map<igIndex, int> faceNums;
     for (auto& cellId: choosedCellIds) {
         igIndex faceSet[IGAME_CELL_MAX_SIZE]{};
+        if (mesh->GetNumberOfVolumes() <= cellId) continue;
         auto faceSize = mesh->GetVolumeFaceIds(cellId, faceSet);
         for (int faceIndex = 0; faceIndex < faceSize; faceIndex++) {
             auto& faceId = faceSet[faceIndex];
@@ -86,6 +87,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     for (auto& faceNum_: faceNums) {
         if (faceNum_.second != 1) continue;
         igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
+        if (mesh->GetNumberOfFaces() <= faceNum_.first) continue;
         auto edgeSize = mesh->GetFaceEdgeIds(faceNum_.first, edgeSet);
         for (int edgeIndex = 0; edgeIndex < edgeSize; edgeIndex++) {
             auto& edgeId = edgeSet[edgeIndex];
@@ -93,6 +95,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
         }
     }
     for (auto& edgeId: edgeIds) {
+        if (mesh->GetNumberOfEdges() <= edgeId) continue;
         auto edge = mesh->GetEdge(edgeId);
         re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
     }
@@ -106,6 +109,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     std::set<igIndex> edgeIds;
     for (auto& cellId: choosedCellIds) {
         igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
+        if (mesh->GetNumberOfFaces() <= cellId) continue;
         auto edgeSize = mesh->GetFaceEdgeIds(cellId, edgeSet);
         for (int edgeIndex = 0; edgeIndex < edgeSize; edgeIndex++) {
             auto& edgeId = edgeSet[edgeIndex];
@@ -113,6 +117,7 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
         }
     }
     for (auto& edgeId: edgeIds) {
+        if (mesh->GetNumberOfEdges() <= edgeId) continue;
         auto edge = mesh->GetEdge(edgeId);
         re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
     }
@@ -365,6 +370,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
 void CellFaceExtracter::_VisitCell(int cellId, Cell* cell,
                                    std::vector<std::vector<std::pair<Face, Face>>>& cellToPFace) {
     auto faceNum = cell->GetNumberOfFaces();
+    if (cell->GetCellType() == IG_QUADRATIC_TETRA) return;
     if (faceNum == 0) {
         int pointSize = cell->GetNumberOfPoints();
         if (pointSize <= 1) return;

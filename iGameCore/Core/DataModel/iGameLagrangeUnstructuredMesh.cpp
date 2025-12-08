@@ -69,7 +69,8 @@ std::vector<float> InterpolateLagrangeQuad(FloatArray::Pointer originData, int o
     // 1. 处理4个角点
     if (k < originData->GetNumberOfElements()) {
         double N = u_basis[0] * v_basis[0];
-        for (int dim = 0; dim < interpolated_data.size(); ++dim) interpolated_data[dim] += N * originData->GetElementValue(k, dim);
+        for (int dim = 0; dim < interpolated_data.size(); ++dim)
+            interpolated_data[dim] += N * originData->GetElementValue(k, dim);
         k++;
     }
     if (k < originData->GetNumberOfElements()) {
@@ -314,8 +315,7 @@ void TessellateLagrangeFace(FloatArray::Pointer originData, IGenum cell_type, in
                 double r = static_cast<double>(i) / divisions;
                 double s = static_cast<double>(j) / divisions;
                 const auto& p = InterpolateLagrangeTriangle(originData, order, r, s);
-                for (const auto& val : p)
-                    outData->AddValue(val);
+                for (const auto& val: p) outData->AddValue(val);
                 localGridIndices[j][i] = outData->GetNumberOfElements() - 1;
             }
         }
@@ -439,7 +439,15 @@ Cell* LagrangeUnstructuredMesh::GetCell(const IGsize cellId) {
 }
 
 void LagrangeUnstructuredMesh::ConvertToDrawableData() {
-    if (m_Points->GetMTime() > m_Positions->GetMTime() || m_ReConvertToDrawableData) {
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    // convert geometry data
+    if (needReConvertGeometry) {
         std::vector<std::vector<int>> rawLineIndices;
         auto finalPoints = Points::New();
         // 用于收集高阶单元细分后结果的临时缓冲区
@@ -496,7 +504,7 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
                 controlPoints->SetDimension(3);
                 for (int j = 0; j < face_cell->GetNumberOfPoints(); ++j)
                     controlPoints->AddElement(face_cell->GetPoint(j));
-                    
+
                 FloatArray::Pointer localPoints = FloatArray::New();
                 std::vector<igIndex> localTriangleIndices;
                 std::vector<unsigned char> localTriangleEdgeMasks;
@@ -504,9 +512,9 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
                                        localPoints, localTriangleIndices, localTriangleEdgeMasks);
                 igIndex pointOffset = finalPoints->GetNumberOfPoints();
                 // 将新生成的局部顶点追加到全局顶点列表
-                for (int i = 0; i < localPoints->GetNumberOfElements(); ++i){
+                for (int i = 0; i < localPoints->GetNumberOfElements(); ++i) {
                     Point tmp;
-                    localPoints->GetElement(i,tmp.pointer());
+                    localPoints->GetElement(i, tmp.pointer());
                     finalPoints->AddPoint(tmp);
                 }
                 // 将带偏移量的局部索引追加到全局索引列表
@@ -560,39 +568,36 @@ void LagrangeUnstructuredMesh::ConvertToDrawableData() {
         m_TriangleQualities->Modified();
     }
 
+    // convert scalar data
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
+        if (m_AttributeIndex != -1) {
+            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (attr.type == IG_RGB) {
+                this->m_ColorMapper->SetVectorModeToRGBColors();
+            } else {
+                this->m_ColorMapper->SetVectorModeToComponent();
+            }
 
-    if (m_AttributeIndex == -1) {
-        m_UseColor = false;
-        m_ColorWithCell = false;
-    } else {
-        m_UseColor = true;
-
-        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-        if (attr.type == IG_RGB) {
-            this->m_ColorMapper->SetVectorModeToRGBColors();
-        } else {
-            this->m_ColorMapper->SetVectorModeToComponent();
-        }
-        if (!attr.isDeleted) {
-            if (attr.attachmentType == IG_POINT) {
-                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+            if (!attr.isDeleted) {
+                if (attr.attachmentType == IG_POINT) {
                     m_ColorWithCell = true;
                     this->SetAttributeWithPointData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
-                }
-            } else if (attr.attachmentType == IG_CELL) {
-                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                } else if (attr.attachmentType == IG_CELL) {
                     m_ColorWithCell = true;
                     this->SetAttributeWithCellData(attr.pointer, attr.GetDataRange(), m_AttributeDimension);
                 }
             }
         }
+
+        m_ReConvertToDrawableData = false;
+        m_ReConvertHelper->Modified();
     }
 }
 
 void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
-                                                        igIndex dimension){
+                                                         igIndex dimension) {
     if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
         double magnitude_min = attrRange->GetValue(0);
         double magnitude_max = attrRange->GetValue(1);
@@ -613,11 +618,10 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
     FloatArray::Pointer attributeScalars = FloatArray::New();
     attributeScalars->SetDimension(attr->GetDimension());
 
-    for (int i = 0; i < GetNumberOfCells(); ++i)
-    { 
+    for (int i = 0; i < GetNumberOfCells(); ++i) {
         int order = GetCellOrder(i);
         if (order < 2) std::cerr << "error cell type";
-        
+
         Cell* cell = GetCell(i);
         if (cell == nullptr) continue;
 
@@ -644,8 +648,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
             }
         };
         if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
-            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j)
-                tesselateEachFace(volume_cell->GetFace(j));
+            for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));
         else if (auto* face_cell = dynamic_cast<LagrangeFace*>(cell))
             tesselateEachFace(face_cell);
     }
@@ -671,7 +674,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
 
     // 遍历所有细分后的三角形
     for (IGsize i = 0; i < numTriangles; i++) {
-        
+
 
         vertexIds[0] = m_TriangleIndices->GetValue(i * 3 + 0);
         vertexIds[1] = m_TriangleIndices->GetValue(i * 3 + 1);
@@ -701,16 +704,14 @@ void LagrangeUnstructuredMesh::SetAttributeWithPointData(ArrayObject::Pointer at
 
 void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                         igIndex dimension) {
-    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
-        }
+    double magnitude_min = attrRange->GetValue(0);
+    double magnitude_max = attrRange->GetValue(1);
+    if (magnitude_min < magnitude_max) {
+        m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+    } else if (dimension == -1) {
+        m_ColorMapper->InitRange(attr);
+    } else {
+        m_ColorMapper->InitRange(attr, dimension);
     }
 
     attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
@@ -732,8 +733,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             FloatArray::Pointer originData = FloatArray::New();
             originData->SetDimension(attr->GetDimension());
             for (int pointIndex = 0; pointIndex < f->GetNumberOfPoints(); ++pointIndex)
-                for(int dim = 0; dim < attr->GetDimension(); ++dim)
-                    originData->AddValue(0);
+                for (int dim = 0; dim < attr->GetDimension(); ++dim) originData->AddValue(0);
 
             FloatArray::Pointer outData = FloatArray::New();
             std::vector<int> outTriangleIndices;
@@ -743,8 +743,7 @@ void LagrangeUnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer att
             std::vector<float> attribute;
             attr->GetElement(i, attribute);
             for (int tri = 0; tri < outTriangleIndices.size() / 3; ++tri)
-                for(const auto& val : attribute)
-                    attributeScalars->AddValue(val);
+                for (const auto& val: attribute) attributeScalars->AddValue(val);
         };
         if (auto* volume_cell = dynamic_cast<LagrangeVolume*>(cell))
             for (int j = 0; j < volume_cell->GetNumberOfFaces(); ++j) tesselateEachFace(volume_cell->GetFace(j));

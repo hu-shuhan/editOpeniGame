@@ -128,11 +128,11 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         auto& attr = Attrs->GetAttribute(i);
         auto name = attr.pointer->GetName();
         if (attr.type != IG_SCALAR) {
-            newAttrs->AddAttribute(attr.GetType(), attr.attachmentType, attr.pointer);
+            newAttrs->AddAttribute(attr.GetType(), attr.attachmentType, attr.pointer, attr.dataRange);
             continue;
         }
         if (attr.pointer->GetDimension() == 3) {
-            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, attr.pointer);
+            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, attr.pointer, attr.dataRange);
             continue;
         }
         // std::cout << "attachmentType:" << attachmentType << std::endl;
@@ -185,7 +185,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
         }
 
         if (!isvector) {
-            newAttrs->AddAttribute(attr.type, attr.attachmentType, attr.pointer);
+            newAttrs->AddAttribute(attr.type, attr.attachmentType, attr.pointer, attr.dataRange);
         } else {
             FloatArray::Pointer Vector = FloatArray::New();
             if (name[name.length() - 2] == '_') {
@@ -207,7 +207,25 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     index += 3;
                 }
             }
-            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, Vector);
+            DoubleArray::Pointer newDataRange = DoubleArray::New();
+            newDataRange->SetDimension(2);
+            newDataRange->Resize(6 + 2);
+            /* 将输入的x、y、z的维度标量范围直接更新成Vector的x、y、z维度的范围 */
+            for(int j = 0; j < 3; j ++){
+                auto scalarData = Attrs->GetAttribute(i + j).dataRange;
+                newDataRange->SetElement(j + 1, scalarData->RawPointer());
+            }
+            /* 计算Vector 维度的Magnitude*/
+            double maxMagnitude = DBL_MIN, minMagnitude = DBL_MAX;
+            for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
+                double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1]  + vector[k + 2] * vector[k + 2]);
+               maxMagnitude = std::max(maxMagnitude, curMagnitude);
+               minMagnitude = std::min(minMagnitude, curMagnitude);
+            }
+            newDataRange->SetValue(0, minMagnitude);
+            newDataRange->SetValue(1, maxMagnitude);
+
+            newAttrs->AddAttribute(IG_VECTOR, attr.attachmentType, Vector, newDataRange);
             i += 2;
         }
     }
@@ -401,7 +419,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     igDebug(out);
 
 
-    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
+//    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
     return resObj;
 }
 

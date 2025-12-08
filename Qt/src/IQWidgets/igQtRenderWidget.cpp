@@ -165,9 +165,7 @@ void igQtRenderWidget::ChangeInteractorStyle(IGenum style) {
         //} break;
         case iGame::Interactor::DragCenterStyle: {
             this->setProperty("isDragingCenter", true);
-            setCursor(Qt::SizeAllCursor); // 设置拖拽光标
 
-            // 直接激活拖拽交互器，无需Selection对象
             m_Interactor->RequestDragCenterStyle(nullptr);
         } break;
         default:

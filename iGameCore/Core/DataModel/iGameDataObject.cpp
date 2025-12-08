@@ -36,13 +36,15 @@ DataObjectId DataObject::AddSubDataObject(DataObject::Pointer obj) {
     obj->SetParent(this);
     obj->SetColorMapper(this->GetColorMapper());
 
-
     if (obj->IsDrawable()) {
         auto drawObject = DynamicCast<DrawObject>(obj);
         drawObject->ConvertToDrawableData();
     }
 
-    return m_SubDataObjectsHelper->AddSubDataObject(obj);
+    DataObjectId id = m_SubDataObjectsHelper->AddSubDataObject(obj);
+    this->ReCollectSubDataObjectDataRange();
+    this->UpdateSubDataObjectDataRange();
+    return id;
 }
 
 void DataObject::RemoveSubDataObject(DataObjectId id) {
@@ -189,11 +191,10 @@ bool DataObject::ReCollectSubDataObjectDataRange() {
                 dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
             }
         }
-        DoubleArray::Pointer parent_dataRange = DoubleArray::New();
+        auto  parent_dataRange = par_attr.GetDataRange();
         parent_dataRange->SetDimension(2);
         parent_dataRange->Resize(dim + 1);
         for (int j = 0; j < dim + 1; j++) { parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]}); }
-        par_attr.SetDataRange(parent_dataRange);
     }
 
     return true;
@@ -223,8 +224,11 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
     if (timeFrameType == StreamingType::MultiSubFiles) {
         this->ClearSubDataObject();
         for (auto& subObj: timeFrameData) {
-            auto subDataObj = DynamicCast<iGame::DataObject>(subObj);
-            if (subDataObj) { this->AddSubDataObject(subDataObj); }
+            auto subDataObj = DynamicCast<iGame::DrawObject>(subObj);
+            if (subDataObj) {
+//                subDataObj->SetShellRenderingOption(false);
+                this->AddSubDataObject(subDataObj);
+            }
         }
         if (this->IsDrawable()) DynamicCast<iGame::DrawObject>(this)->ConvertToDrawableData();
     } else if (timeFrameType == StreamingType::SingleFieldAttributes) {

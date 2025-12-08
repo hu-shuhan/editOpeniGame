@@ -458,7 +458,7 @@ void igQtMainWindow::initAllFilters() {
             obj = triangulation->GetOutput();
 
             MeshSimplificationFilter::Pointer filter = MeshSimplificationFilter::New();
-            filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
+            filter->SetTargetReduction(1 - dialog->getDouble(reductionId, ok));
             filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
             filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
             filter->SetInput(obj);
@@ -536,7 +536,7 @@ void igQtMainWindow::initAllFilters() {
             modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
             rendererWidget->update();
 
-            QMessageBox::information(this, "简化成功", result);
+            // QMessageBox::information(this, "简化成功", result);
             dialog->close();
         });
     });
@@ -619,45 +619,57 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        auto m_StreamBase = iGame::StreamBase::New();
-        auto streamtracer = m_StreamBase->streamFilter;
-        streamtracer->initStreamTracer(obj);
-        //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
-        Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
-        Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
-        Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
-        auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
-                                                         4); //4，6为划分子块的数量
-        float lengthOfStreamLine = 5;
-        float lengthOfStep = 0.3;
-        float maxSteps = 1000;
-        float terminalSpeed = 0.005;
-        streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-        streamtracer->Execute();
-        std::cout << seeds.size() << std::endl;
-        auto output = streamtracer->GetOutput();
+    //    auto m_StreamBase = iGame::StreamBase::New();
+    //    auto streamtracer = m_StreamBase->streamFilter;
+    //    streamtracer->initStreamTracer(obj);
+    //    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+    //    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
+    //    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+    //    Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
+    //    auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
+    //                                                     4); //4，6为划分子块的数量
+    //    float lengthOfStreamLine = 5;
+    //    float lengthOfStep = 0.3;
+    //    float maxSteps = 1000;
+    //    float terminalSpeed = 0.005;
+    //    streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+    //    streamtracer->Execute();
+    //    std::cout << seeds.size() << std::endl;
+    //    auto output = streamtracer->GetOutput();
 
-        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
-        rendererWidget->update();
-    });
+    //    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+    //    rendererWidget->update();
+    //});
 
-    connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-        auto filter = iGame::StressDeformationCodeFilter::New();
-        obj->GetDeformationData()->SetAttributeName("UVW");
-        filter->SetInput(obj);
-        filter->CalculateIdealDSF();
-        filter->Execute();
+    //    auto filter = iGame::StressDeformationCodeFilter::New();
+    //    obj->GetDeformationData()->SetAttributeName("UVW");
+    //    filter->SetInput(obj);
+    //    filter->CalculateIdealDSF();
+    //    filter->Execute();
 
-        auto res = filter->GetOutput(0);
-        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-        rendererWidget->update();
-        });
+    //    auto res = filter->GetOutput(0);
+    //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+    //    rendererWidget->update();
+    //    });
+    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+    //    { 
+    //        CellArray::Pointer cellArray = CellArray::New();
+    //        clock_t start = clock();
+    //        igIndex cell[3]{};
+    //        cellArray->AddCellIds(cell, 2);
+    //        for (int i = 0; i < 10000000; i++) { 
+    //            cellArray->AddCellIds(cell, 3);
+    //        }
+    //        clock_t end = clock();
+    //        std::cout << end - start << std::endl;
 
+    //    });
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -884,6 +896,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->widget_ContextPreservingShowField, &igQtContextPreservingShowWidget::DrawUpdated, this,
             [&]() { rendererWidget->update(); });
     connect(ui->action_FlowField, &QAction::triggered, this, [&](bool checked) {
+        ui->dockWidget_FlowField->show();
+        ui->widget_FlowField->updateVectorNameList();
+    });
+    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
@@ -1220,31 +1236,51 @@ void igQtMainWindow::initAllMySignalConnections() {
             [&](iGame::DataObject::Pointer res) {
                 res->Modified();
                 rendererWidget->update();
+                modelTreeWidget->updateAllAttriubute(res);
             });
 
 
     connect(fileLoader, &igQtFileLoader::AddFileToModelList, ui->modelTreeView, &igQtModelListView::AddModel);
 
 
-    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
+    /* Animation signal connect BEGIN.*/
+    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene,
+            this, &igQtMainWindow::UpdateRenderingWidget);
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
-
+//    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+//            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
     //&igQtModelDrawWidget::UpdateCurrentModel);
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::changeColorBarShow, this,
             &igQtMainWindow::updateColorBarShow);
+    /* Animation signal connect END.*/
+
+
+    /* Model Tree signal connect BEGIN.*/
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
     // Clear auto-rescaling states when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
+    // Update Deformation Info when model is deleted
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            ui->widget_Animation, &igQtAnimationWidget::ClearAnimationVCRInfo);
+
     // Update animation controls when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
             ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
+    // Update Deformation Info when model changes
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
+
+    /* Model Tree signal connect END.*/
+
     connect(ui->widget_ScalarField, &igQtScalarViewWidget::ChangeShowColorManager, this, [&]() {
         if (this->ColorManagerWidget->isHidden()) {
             this->ColorManagerWidget->resetColorRange();

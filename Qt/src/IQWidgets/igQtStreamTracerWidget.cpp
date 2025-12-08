@@ -215,6 +215,19 @@ void igQtStreamTracerWidget::updateVectorNameList() {
             if (attribute.pointer) { ui->comboBox->addItem(QString::fromStdString(attribute.pointer->GetName())); }
         }
     }
+
+    iGame::StreamTracer* streamtracer = m_StreamBase->streamFilter;
+    if (!modelBound) {
+        std::cout << "[StreamTracer] First model binding\n";
+
+        streamtracer->initStreamTracer(currentModel);
+        masterName = currentModel->GetDataObject()->GetName();
+
+        auto tem = currentModel->GetDataObject();
+        m_DataObject = tem;
+
+        modelBound = true;
+    }
 }
 void igQtStreamTracerWidget::changeVecName() {
     vectorName = ui->comboBox->currentText().toStdString();
@@ -287,11 +300,16 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
         m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->ViewCloudPicture(scene,0);
     }
 
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
+        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+            modelBound = false;
+            haveDraw= false;
+        });
         Q_EMIT AddStreamObject(m_ResultObject);
         haveDraw = true;
     } else {
@@ -300,6 +318,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!haveDraw)
     scene->GetCurrentModel()->SetViewPointsSwitch(true);
    // scene->SetCurrentModel(1);
+    
     if (isExisted == false) {
         isExisted = true;
         Selection = StreamLineSelection::New();

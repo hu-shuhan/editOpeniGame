@@ -105,6 +105,8 @@ public:
     void SetRangeStable(bool stable) { m_stable = stable; }
     bool GetStable() { return m_stable; }
 
+    bool DeepCopy(const ScalarsToColors::Pointer other);
+
 protected:
     ScalarsToColors();
     ~ScalarsToColors() override;

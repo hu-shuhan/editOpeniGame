@@ -134,7 +134,7 @@ public:
 
     IGsize GetRealMemorySize();
 
-//    void ForceReConvertToDrawableData();
+    void ForceReConvertToDrawableData();
 protected:
     AttributeSet();
     ~AttributeSet() override = default;

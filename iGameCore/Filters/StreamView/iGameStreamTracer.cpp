@@ -67,11 +67,11 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            mesh->SetShouldBuildEageLinks(false);
-            mesh->SetShouldBuildFaceLinks(false);
-            mesh->SetShouldBuildFaceEageLinks(false);
-            mesh->SetShouldBuildVolumeFaceLinks(false);
-            mesh->SetShouldBuildVolumeEageLinks(false);
+            //mesh->SetShouldBuildEageLinks(false);
+            //mesh->SetShouldBuildFaceLinks(false);
+            //mesh->SetShouldBuildFaceEageLinks(false);
+            //mesh->SetShouldBuildVolumeFaceLinks(false);
+            //mesh->SetShouldBuildVolumeEageLinks(false);
             //  mesh->InitPolyhedronVertices();
         }
 
@@ -445,11 +445,10 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
             //Vector.pointer->GetElement(pointId, V);
             Vector3f V = currentV[pointId];
             Point p = mesh->GetPoint(pointId);
-            std::cout << pointId << ":"
-                << mesh->IsBoundaryPoint(pointId) << std::endl;
+           // std::cout << pointId << ":" << mesh->IsBoundaryPoint(pointId) << std::endl;
             //seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], Vector3f(p[0] + 0.001f, p[1] + 0.001f, p[2] + 0.001f));
             seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], p+V*0.00001);
-            std::cout << p + V * 0.001 << std::endl;
+           // std::cout << p + V * 0.001 << std::endl;
         }
         //bool isLocalMin = true;
         //for (igIndex neighborId: neighborPoints) {

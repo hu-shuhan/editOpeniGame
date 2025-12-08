@@ -729,7 +729,14 @@ IGsize SurfaceMesh::GetRealMemorySize() {
 }
 
 void SurfaceMesh::ConvertToDrawableData() {
-    if (m_Points->GetMTime() > m_Positions->GetMTime() || m_Clipper->GetMTime() > m_Positions->GetMTime()) {
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Points->GetMTime() > m_ReConvertHelper->GetMTime();
+    needReConvertGeometry |= m_Clipper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    if (needReConvertGeometry) {
         // 为统一架构，设置可绘制对象为自身
         if (m_IsMainRenderableObject) { SetRenderableObject(this); }
 
@@ -740,37 +747,48 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_TriangleIndices->Modified();
         m_TriangleEdgeMasks->Modified();
     }
-
     // convert scalar data
-    if (m_AttributeIndex == -1) {
-        m_UseColor = false;
-        m_ColorWithCell = false;
-    } else {
-        m_UseColor = true;
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    // Debug info
+//    if(m_AttributeIndex != -1){
+//        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+//
+//        std::cout << "Surface Mesh : " << this << ' '  << updateColorMapper << ' ' << needReConvertScalar << ' ' << " color Mapper : " <<' ' << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//    }
 
-        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-        if (attr.type == IG_RGB) {
-            this->m_ColorMapper->SetVectorModeToRGBColors();
-        } else {
-            this->m_ColorMapper->SetVectorModeToComponent();
-        }
-        if (!attr.isDeleted) {
-            auto dataRange = attr.GetDataRange();
-            if (attr.attachmentType == IG_POINT) {
-                if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_Colors->GetMTime()) {
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
+        if (m_AttributeIndex != -1) {
+            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+            if (attr.type == IG_RGB) {
+                this->m_ColorMapper->SetVectorModeToRGBColors();
+            } else {
+                this->m_ColorMapper->SetVectorModeToComponent();
+            }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
+
+            if (!attr.isDeleted) {
+                auto dataRange = attr.GetDataRange();
+                if (attr.attachmentType == IG_POINT) {
                     m_ColorWithCell = false;
                     this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
-                }
-            } else if (attr.attachmentType == IG_CELL) {
-                if (m_AttributeHelper->GetMTime() > m_CellColors->GetMTime() ||
-                    m_ColorMapper->GetMTime() > m_CellColors->GetMTime()) {
+                } else if (attr.attachmentType == IG_CELL) {
                     m_ColorWithCell = true;
                     this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
                 }
             }
         }
     }
+
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
 }
 
 void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntArray::Pointer& lineIndices,
@@ -932,18 +950,20 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension) {
-    if (!m_ColorMapper->GetStable() && m_ColorMapper->GetMTime() <= this->GetMTime()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+
+        if (!m_ColorMapper->GetStable()) {
+            double magnitude_min = attrRange->GetValue(0);
+            double magnitude_max = attrRange->GetValue(1);
+            if (magnitude_min < magnitude_max) {
+                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
-
     attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
     attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
     //    range.first = m_ColorMapper->GetRange()[0];

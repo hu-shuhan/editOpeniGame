@@ -115,11 +115,11 @@ bool Scene::Initialize() {
         return false;
     }
 
-    InitOpenGL();
-    InitOIT();
-    InitAxes();
+    this->InitOpenGL();
+    this->InitOIT();
+    this->InitAxes();
 
-    ResetCameraView();
+    this->ResetCameraView();
 
     // 添加中心坐标轴到模型池
     m_CenterAxesModel->AddViewStyle(
@@ -127,7 +127,7 @@ bool Scene::Initialize() {
     m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
     m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
     m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
-    AddModel(m_CenterAxesModel);                // 加入模型池
+    this->AddModel(m_CenterAxesModel);          // 加入模型池
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
     // 添加中心坐标轴到模型池
 
@@ -299,6 +299,19 @@ void Scene::SetInteractor(SmartPointer<Interactor> interactor) {
 
 SmartPointer<Interactor> Scene::GetInteractor() { return m_Interactor; }
 
+void Scene::ResetCameraView() {
+    UpdateModelsBoundingSphere();
+    igm::vec4 boundingSphere = GetRotationBoundingSphere();
+
+    m_ModelMatrix = igm::mat4{1.0f};
+    m_ModelRotate = igm::mat4{1.0f};
+    m_Camera->SetPosition(boundingSphere.x, boundingSphere.y,
+                          boundingSphere.z + 3.0f * boundingSphere.w);
+    m_Camera->SetFocal(boundingSphere.xyz());
+    this->UpdateCameraClippingRange();
+    UpdateAxisSize();
+}
+
 void Scene::ResetCameraView(const BoundingBox& bbox) {
     double* center = bbox.center().pointer();
     float x = static_cast<float>(center[0]);
@@ -308,34 +321,24 @@ void Scene::ResetCameraView(const BoundingBox& bbox) {
     double diameter = bbox.diag();
     float r = static_cast<float>(diameter / 2.0);
 
-    SetRotationCenter(igm::vec3{x, y, z});
+    this->SetRotationBoundingSphere(igm::vec4{x, y, z, r});
     m_ModelMatrix = igm::mat4{1.0f};
     m_ModelRotate = igm::mat4{1.0f};
     m_Camera->SetPosition(x, y, z + 3.0f * r);
     m_Camera->SetFocal(igm::vec3{x, y, z});
     this->UpdateCameraClippingRange();
+    UpdateAxisSize();
 }
 
 void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
-    if (dataObject == nullptr) {
-        UpdateModelsBoundingSphere();
-        m_ModelMatrix = igm::mat4{1.0f};
-        m_ModelRotate = igm::mat4{1.0f};
-        m_Camera->SetPosition(
-                m_ModelsBoundingSphere.x, m_ModelsBoundingSphere.y,
-                m_ModelsBoundingSphere.z + 3.0f * m_ModelsBoundingSphere.w);
-        m_Camera->SetFocal(m_ModelsBoundingSphere.xyz());
-        this->UpdateCameraClippingRange();
-    } else {
-        m_UseCustomRotationCenter = false;
-        ResetCameraView(dataObject->GetBoundingBox());
-    }
+    ResetCameraView(dataObject->GetBoundingBox());
+    UpdateAxisSize();
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
 
 void Scene::ChangeCameraType(Camera::Type type) {
-    ResetCameraView();
+    this->ResetCameraView();
     switch (type) {
         case Camera::Type::PERSPECTIVE: {
             m_Camera->SetType(Camera::Type::PERSPECTIVE);
@@ -1212,7 +1215,7 @@ void Scene::RefreshDrawCullDataBuffer() {
 void Scene::ResetCameraViewToPositiveX() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1229,7 +1232,7 @@ void Scene::ResetCameraViewToPositiveX() {
 void Scene::ResetCameraViewToNegativeX() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1246,7 +1249,7 @@ void Scene::ResetCameraViewToNegativeX() {
 void Scene::ResetCameraViewToPositiveY() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1262,7 +1265,7 @@ void Scene::ResetCameraViewToPositiveY() {
 void Scene::ResetCameraViewToNegativeY() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1279,7 +1282,7 @@ void Scene::ResetCameraViewToNegativeY() {
 void Scene::ResetCameraViewToPositiveZ() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1295,7 +1298,7 @@ void Scene::ResetCameraViewToPositiveZ() {
 void Scene::ResetCameraViewToNegativeZ() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1309,7 +1312,7 @@ void Scene::ResetCameraViewToNegativeZ() {
 void Scene::ResetCameraViewToIsometric() {
     ResetCameraView();
 
-    igm::vec3 center = this->GetRotationCenter();
+    igm::vec3 center = this->GetRotationBoundingSphere().xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -center);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, center);
 
@@ -1330,7 +1333,7 @@ void Scene::RotateNinetyCounterClockwise() {
 }
 
 void Scene::RotateClockwise(float angle) {
-    igm::vec4 center = igm::vec4{GetRotationCenter(), 1.0f};
+    igm::vec4 center = igm::vec4{GetRotationBoundingSphere().xyz(), 1.0f};
     igm::vec3 centerInWorld = (m_ModelMatrix * center).xyz();
     igm::mat4 translateToOrigin = igm::translate(igm::mat4{}, -centerInWorld);
     igm::mat4 translateBack = igm::translate(igm::mat4{}, centerInWorld);
@@ -1350,21 +1353,29 @@ void Scene::ToggleCenterAxes() {
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
 }
 
-igm::vec3 Scene::GetRotationCenter() const {
-    return m_UseCustomRotationCenter ? m_CustomRotationCenter
-                                     : m_ModelsBoundingSphere.xyz();
+SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
+    return m_CenterAxesModel;
 }
 
-void Scene::SetRotationCenter(const igm::vec3 center) {
-    m_UseCustomRotationCenter = true;
-    m_CustomRotationCenter = center;
-    m_CenterAxesModel->SetRotationCenter(center);
+igm::vec4 Scene::GetRotationBoundingSphere() const {
+    return m_UseCustomRotationBoundingSphere ? m_CustomRotationBoundingSphere
+                                             : m_ModelsBoundingSphere;
+}
+
+void Scene::SetRotationBoundingSphere(const igm::vec4 boundingSphere) {
+    m_UseCustomRotationBoundingSphere = true;
+    m_CustomRotationBoundingSphere = boundingSphere;
+    m_CenterAxesModel->SetRotationCenter(boundingSphere.xyz());
+    this->Modified();
+}
+
+void Scene::ResetRotationBoundingSphere() {
+    m_UseCustomRotationBoundingSphere = false;
     this->Modified();
 }
 
 float Scene::GetRotationCenterDepth() const {
-    igm::vec3 center = GetRotationCenter();
-
+    igm::vec3 center = GetRotationBoundingSphere().xyz();
     igm::vec4 viewPos = m_Camera->GetViewMatrix() * igm::vec4(center, 1.0f);
     return -viewPos.z; // OpenGL相机看向-z方向
 }
@@ -1372,19 +1383,16 @@ float Scene::GetRotationCenterDepth() const {
 
 void Scene::UpdateAxisSize() {
     if (m_CenterAxesModel && m_Camera) {
-        // 获取相机到旋转中心的距离
-        igm::vec3 rotationCenter = GetRotationCenter();
+        igm::vec3 rotationCenter = m_CenterAxesModel->GetRotationCenter();
         igm::vec3 cameraPos = m_Camera->GetPosition();
         float cameraDistance = (cameraPos - rotationCenter).length();
 
-        // 获取视口尺寸
         auto viewport = m_Camera->GetViewPort();
-        int viewportHeight = viewport.y;
+        float viewportHeight = viewport.y;
 
-        // 假设相机的FOV为45度（根据实际调整）
-        float fov = IGM_PI / 4.0f; // 45度弧度值
+        // 使用相机的实际FOV
+        float fov = m_Camera->GetFov(); // 弧度值
 
-        // 调用坐标轴模型的更新方法
         m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
     }
 }

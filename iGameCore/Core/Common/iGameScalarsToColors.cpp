@@ -252,4 +252,33 @@ void ScalarsToColors::MapVectorsToColors(ArrayObject::Pointer input, FloatArray:
     //std::cout << "map cost " << time2 - time1 << "ms\n";
 }
 
+bool ScalarsToColors::DeepCopy(ScalarsToColors::Pointer other) {
+    if (!ColorMap::DeepCopy(other)) { return false; }
+    if (other == nullptr) { return false; }
+
+    // Copy simple scalar fields
+    this->Alpha = other->Alpha;
+    this->VectorMode = other->VectorMode;
+    this->VectorComponent = other->VectorComponent;
+    this->VectorSize = other->VectorSize;
+    this->m_stable = other->m_stable;
+
+    // Copy range and last RGB/RGBA buffers
+    this->InputRange[0] = other->InputRange[0];
+    this->InputRange[1] = other->InputRange[1];
+    this->RGB[0] = other->RGB[0];
+    this->RGB[1] = other->RGB[1];
+    this->RGB[2] = other->RGB[2];
+    this->RGBABytes[0] = other->RGBABytes[0];
+    this->RGBABytes[1] = other->RGBABytes[1];
+    this->RGBABytes[2] = other->RGBABytes[2];
+    this->RGBABytes[3] = other->RGBABytes[3];
+
+    // Copy name if needed (Object base class holds m_Name)
+    this->SetName(other->GetName());
+
+    this->Modified();
+    return true;
+}
+
 IGAME_NAMESPACE_END

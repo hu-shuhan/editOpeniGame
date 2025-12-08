@@ -153,8 +153,9 @@ public:
     /**
      * @brief 重置相机视角到默认视图。
      */
+    void ResetCameraView();
     void ResetCameraView(const BoundingBox& bbox);
-    void ResetCameraView(SmartPointer<DataObject> dataObject = nullptr);
+    void ResetCameraView(SmartPointer<DataObject> dataObject);
 
     /**
      * @brief 获取相机。
@@ -239,29 +240,24 @@ public:
      * @brief 获取中心坐标轴模型
      * @return 中心坐标轴模型指针
      */
-    SmartPointer<CenterAxesModel> GetCenterAxesModel() const {
-        return m_CenterAxesModel;
-    }
+    SmartPointer<CenterAxesModel> GetCenterAxesModel() const;
 
     /**
-     * @brief 获取当前旋转中心（世界坐标）
+     * @brief 获取当前旋转包围球信息
      */
-    igm::vec3 GetRotationCenter() const;
+    igm::vec4 GetRotationBoundingSphere() const;
 
     void UpdateAxisSize();
 
     /**
      * @brief 设置自定义旋转中心（世界坐标）
      */
-    void SetRotationCenter(const igm::vec3 center);
+    void SetRotationBoundingSphere(const igm::vec4 boundingSphere);
 
     /**
      * @brief 重置旋转中心到包围球中心
      */
-    void ResetRotationCenter() {
-        m_UseCustomRotationCenter = false;
-        this->Modified();
-    }
+    void ResetRotationBoundingSphere();
 
     /**
      * @brief 获取旋转中心在相机空间的深度
@@ -413,6 +409,12 @@ protected:
     uint32_t m_VisibleModelsCount;    //可见模型数量
     igm::vec4 m_ModelsBoundingSphere; //场景包围球（中心坐标+半径）
 
+    bool m_UseCustomRotationBoundingSphere = false;
+    igm::vec4 m_CustomRotationBoundingSphere;
+
+    bool m_CenterAxesVisible = false;
+    SmartPointer<CenterAxesModel> m_CenterAxesModel;
+
     // used to draw full-screen triangle
     SmartPointer<GLVertexArray> m_EmptyVAO;
 
@@ -446,13 +448,6 @@ protected:
 
     bool m_FinishInit;            // 是否完成初始化
     bool m_EnableVolumeRendering; // 是否启用体绘制
-
-    // 新增成员变量
-    SmartPointer<CenterAxesModel> m_CenterAxesModel;
-    bool m_CenterAxesVisible = false; // 控制显示开关
-
-    bool m_UseCustomRotationCenter = false;
-    igm::vec3 m_CustomRotationCenter;
 
     // 帧率/使用率节流控制
     bool m_FramePacingEnabled = false; // 全局开关
