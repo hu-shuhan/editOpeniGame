@@ -203,11 +203,13 @@ void igQtMainWindow::initAllComponents() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
         int R = 0, G = 0, B = 0;
+
         if (dialog.exec() == QDialog::Accepted) {
             auto input = dialog.getInput();
             R = input[0], G = input[1], B = input[2];
+            iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
         }
-        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+        
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
@@ -235,8 +237,8 @@ void igQtMainWindow::initAllComponents() {
     });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
-    // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
-    // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
+    connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
+    connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
@@ -668,7 +670,6 @@ void igQtMainWindow::initAllFilters() {
     //        }
     //        clock_t end = clock();
     //        std::cout << end - start << std::endl;
-
     //    });
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
@@ -899,10 +900,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
-    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_FlowField->show();
-        ui->widget_FlowField->updateVectorNameList();
-    });
+    
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
