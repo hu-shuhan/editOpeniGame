@@ -99,57 +99,54 @@ static double IsLineCrossCell(const Point& startPoint, const Point& endPoint,
     }
 }
 
-// 静态方法：计算面的法向量，处理退化情况
+// 静态方法：计算面的法向量
 static Point ComputeFaceNormal(const std::array<Point, 4>& face) {
-    // 检查面是否退化（所有点相同）
-    bool allPointsSame = true;
-    for (size_t i = 1; i < face.size(); ++i) {
-        if (!(face[0] == face[i])) {
-            allPointsSame = false;
-            break;
-        }
-    }
-
-    if (allPointsSame) {
-        // 退化面，返回零向量（会被后续处理识别）
-        return Point(0, 0, 0);
-    }
-
-    // 尝试不同的边组合来确保非零法向量
     Point v1 = face[1] - face[0];
     Point v2 = face[2] - face[1];
+
+    // 叉积计算法向量
     Point normal = v1.cross(v2);
 
-    // 如果叉积接近零，尝试其他边的组合
-    if (normal.squaredLength() < 1e-12) {
+    // 检查法向量是否过小
+    double normalLengthSq = normal[0] * normal[0] + normal[1] * normal[1] +
+                            normal[2] * normal[2];
+
+    // 如果法向量太小，尝试其他边组合
+    if (normalLengthSq < 1e-24) { // 1e-12的平方
         v1 = face[2] - face[0];
         v2 = face[3] - face[0];
         normal = v1.cross(v2);
+        normalLengthSq = normal[0] * normal[0] + normal[1] * normal[1] +
+                         normal[2] * normal[2];
     }
 
-    // 再次检查，如果仍然接近零，则面可能退化
-    if (normal.squaredLength() < 1e-12) { return Point(0, 0, 0); }
+    // 如果仍然太小，面可能退化，返回零向量
+    if (normalLengthSq < 1e-24) { return Point(0, 0, 0); }
 
     return normal.normalized();
 }
 
-// 静态方法：检查点是否在面的同一侧（内部），处理退化情况
+// 静态方法：检查点是否在面的同一侧（内部）
 static bool IsPointOnSameSide(const Point& p, const std::array<Point, 4>& face,
-                              bool& faceDegenerate) {
+                              double epsilon = 1e-12) {
     Point normal = ComputeFaceNormal(face);
 
     // 检查法向量是否为零（退化面）
-    if (normal.squaredLength() < 1e-12) {
-        faceDegenerate = true;
-        // 对于退化面，检查点是否与面上的点相同
-        // 实际上，如果是包围盒的一个面退化，那么这个面无法提供有效的约束
-        // 返回true让其他非退化面来决定
+    double normalLengthSq = normal[0] * normal[0] + normal[1] * normal[1] +
+                            normal[2] * normal[2];
+    if (normalLengthSq < 1e-24) {
+        // 对于退化面，检查点是否与面上的点足够接近
+        for (const auto& vertex: face) {
+            double dx = p[0] - vertex[0];
+            double dy = p[1] - vertex[1];
+            double dz = p[2] - vertex[2];
+            if (dx * dx + dy * dy + dz * dz < epsilon * 100) { return true; }
+        }
+        // 退化面不提供有效的约束
         return true;
     }
 
-    faceDegenerate = false;
-
-    // 找到面上第一个非退化的参考点
+    // 使用面上第一个点作为参考点
     const Point& refPoint = face[0];
 
     // 计算点到面的有向距离
@@ -158,58 +155,110 @@ static bool IsPointOnSameSide(const Point& p, const std::array<Point, 4>& face,
                         normal[2] * (p[2] - refPoint[2]);
 
     // 对于立方体，所有内部点应该在面的同一侧
-    // 这里假设法向量指向外部，所以内部点的点积应该为负或零（在面上）
-    return dotProduct <= 1e-12; // 使用容差
+    // 这里假设法向量指向外部，所以内部点的点积应该为负
+
+    // 使用传入的epsilon作为容差
+    return dotProduct <= epsilon;
 }
 
-// 静态方法：检查点是否在包围盒内，处理全部退化的情况
 static bool IsPointInside(const Point& p,
                           const std::array<std::array<Point, 4>, 6>& allFaces) {
 
-    // 首先检查包围盒是否完全退化（所有顶点相同）
-    bool allFacesDegenerate = true;
-    bool hasValidFace = false;
+    // 首先计算整个包围盒的AABB和尺寸
+    double minX = allFaces[0][0][0], maxX = allFaces[0][0][0];
+    double minY = allFaces[0][0][1], maxY = allFaces[0][0][1];
+    double minZ = allFaces[0][0][2], maxZ = allFaces[0][0][2];
 
-    // 收集所有顶点（去重）
-    std::vector<Point> uniqueVertices;
     for (const auto& face: allFaces) {
         for (const auto& vertex: face) {
-            bool found = false;
-            for (const auto& uniqueVert: uniqueVertices) {
-                if (vertex == uniqueVert) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) { uniqueVertices.push_back(vertex); }
+            if (vertex[0] < minX) minX = vertex[0];
+            if (vertex[0] > maxX) maxX = vertex[0];
+            if (vertex[1] < minY) minY = vertex[1];
+            if (vertex[1] > maxY) maxY = vertex[1];
+            if (vertex[2] < minZ) minZ = vertex[2];
+            if (vertex[2] > maxZ) maxZ = vertex[2];
         }
     }
 
-    // 如果所有顶点相同（只有一个唯一顶点）
-    if (uniqueVertices.size() == 1) {
-        // 包围盒退化到一点，只有该点在其内部
-        return (p == uniqueVertices[0]);
+    // 计算包围盒尺寸
+    double dx = maxX - minX;
+    double dy = maxY - minY;
+    double dz = maxZ - minZ;
+    double maxDim = std::max(std::max(dx, dy), dz);
+
+    // 计算自适应容差：基于包围盒尺寸
+    // 对于小尺寸包围盒，使用更大的相对容差
+    double epsilon;
+    if (maxDim < 1e-12) {
+        // 如果包围盒坍缩为一点，只检查点是否与该点相同
+        Point singlePoint(allFaces[0][0][0], allFaces[0][0][1],
+                          allFaces[0][0][2]);
+        Point diff = p - singlePoint;
+        double distSq =
+                diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2];
+        return distSq < 1e-24;  // 容差为1e-12
+    } else if (maxDim < 1e-9) { // < 0.001纳米级别
+        epsilon = 1e-9;
+    } else if (maxDim < 1e-6) {                    // < 1微米级别
+        epsilon = std::max(1e-8, maxDim * 0.01);   // 1%的相对容差，至少1e-8
+    } else if (maxDim < 1e-3) {                    // < 1毫米级别，包含0.001
+        epsilon = std::max(1e-7, maxDim * 0.001);  // 0.1%的相对容差，至少1e-7
+    } else if (maxDim < 1.0) {                     // < 1米级别
+        epsilon = std::max(1e-6, maxDim * 0.0001); // 0.01%的相对容差，至少1e-6
+    } else {                                       // 更大尺寸
+        epsilon =
+                std::max(1e-5, maxDim * 0.00001); // 0.001%的相对容差，至少1e-5
     }
 
-    // 正常情况：检查所有面
-    int degenerateFaceCount = 0;
+    // 添加一个额外缓冲：对于小尺寸，允许点略微超出
+    double buffer = std::min(epsilon * 2, maxDim * 0.1);
+
+    // 检查点是否在AABB内（带缓冲）
+    if (p[0] < minX - buffer || p[0] > maxX + buffer || p[1] < minY - buffer ||
+        p[1] > maxY + buffer || p[2] < minZ - buffer || p[2] > maxZ + buffer) {
+        return false;
+    }
+
+    // 对于非常小的包围盒，使用简化检查
+    if (maxDim < epsilon * 10) {
+        // 检查点是否接近包围盒中心
+        Point center((minX + maxX) * 0.5, (minY + maxY) * 0.5,
+                     (minZ + maxZ) * 0.5);
+        Point diff = p - center;
+        double distSq =
+                diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2];
+        double maxDistSq = maxDim * maxDim * 0.25 + buffer * buffer;
+
+        if (distSq <= maxDistSq) { return true; }
+    }
+
+    // 正常检查每个面
+    int validFaces = 0;
 
     for (const auto& face: allFaces) {
-        bool faceDegenerate = false;
-        if (!IsPointOnSameSide(p, face, faceDegenerate)) { return false; }
-        if (faceDegenerate) { degenerateFaceCount++; }
+        // 计算面的面积（简单估算）
+        Point v1 = face[1] - face[0];
+        Point v2 = face[2] - face[0];
+        double area = v1.cross(v2).length();
+
+        // 如果面积极小，可能退化，跳过检查
+        if (area < epsilon * epsilon) { continue; }
+
+        validFaces++;
+
+        if (!IsPointOnSameSide(p, face, epsilon)) {
+            // 再检查一次，使用更大的容差作为缓冲
+            if (!IsPointOnSameSide(p, face, buffer)) { return false; }
+        }
     }
 
-    // 如果所有面都退化（理论上不应该发生，因为上面已经检查过顶点）
-    if (degenerateFaceCount == 6) {
-        // 这应该已经被上面的顶点检查捕获，但作为额外保护
-        // 检查点是否与任何顶点相同
-        for (const auto& face: allFaces) {
-            for (const auto& vertex: face) {
-                if (p == vertex) { return true; }
-            }
-        }
-        return false;
+    // 如果没有有效的面，使用AABB检查
+    if (validFaces == 0) {
+        // 检查点是否在AABB内（带小缓冲）
+        double smallBuffer = epsilon;
+        return (p[0] >= minX - smallBuffer && p[0] <= maxX + smallBuffer &&
+                p[1] >= minY - smallBuffer && p[1] <= maxY + smallBuffer &&
+                p[2] >= minZ - smallBuffer && p[2] <= maxZ + smallBuffer);
     }
 
     return true;
