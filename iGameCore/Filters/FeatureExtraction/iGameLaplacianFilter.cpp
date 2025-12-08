@@ -1,6 +1,6 @@
 #include "iGameLaplacianFilter.h"
 
-#include "torch/csrc/jit/ir/constants.h"
+//#include "torch/csrc/jit/ir/constants.h"
 
 IGAME_NAMESPACE_BEGIN
 
