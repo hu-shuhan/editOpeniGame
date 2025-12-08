@@ -52,6 +52,7 @@ public:
     double GetAccuracy() const { return m_Accuracy; }
     double GetPrecision() const { return m_Precision; }
     double GetRecall() const { return m_Recall; }
+    std::string GetMessage() const { return m_Message; }
 
     void SetAttributeByIndex(int index) { curIndex = index; }
     void SetAttributeByName(const std::string& name) { this->attName = name; }
@@ -137,6 +138,11 @@ protected:
     int curDim{-1};
     std::string name{};
     std::string attName;
+
+    int dim{-1};
+    int m_currentAttributeDimension{-1};
+
+    std::string m_Message{"Not Volume Mesh !"};
 };
 
 IGAME_NAMESPACE_END

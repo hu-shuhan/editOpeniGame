@@ -7,23 +7,54 @@ bool CurvatureFilter::Execute() {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-        if (curIndex == -1 && name == "") return false;
+        if (attributeSet == nullptr) {
+            m_Message = "please choose a  attribute";
+            return false;
+        }
+        if (curIndex == -1 && name == "") {
+            m_Message = "please choose a attribute";
+            return false;
+        }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
-        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
 
-        int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
-        if (dim != 1) { return false; }
+        dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
+        m_currentAttributeDimension = input->GetCurrentAttributeDimension();
+        if (dim != 1  && m_currentAttributeDimension == -1) {
+            m_Message = "please choose a component";
+            return false;
+        }
+        if (dim == 1)
+            m_currentAttributeDimension=0;
         return true;
     };
 
-    SetOutput(input);
+    // SetOutput(input);
 
     switch (input->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
             surface_Mesh = DynamicCast<SurfaceMesh>(input);
-
             if (!CheckType()) return false;
+            return ComputeSurfaceCurvatureCotangent(surface_Mesh, attributeSet, curIndex);
+            // attributeSet = surface_Mesh->GetAttributeSet();
+            // if (attributeSet == nullptr) return false;
+            //
+            // auto attachmentType = attributeSet->GetAttribute(curIndex).attachmentType;
+            //
+            // int FaceNum = surface_Mesh->GetNumberOfFaces();
+            // int PointNum = surface_Mesh->GetNumberOfPoints();
+            // Points::Pointer Points = surface_Mesh->GetPoints();
+            // surface_Mesh->RequestEditStatus();
+            // if (PointNum != 0 && attachmentType == 0) {
+            //     surface_Mesh = TriangulateSurfaceMesh(surface_Mesh);
+            //     return ComputeSurfaceCurvatureCotangent(surface_Mesh, attributeSet, curIndex);
+            // }
+            // // 附着在cell
+            // else if (FaceNum != 0 && attachmentType == 1)
+            //     return GetOtherCurvature(0, FaceNum);
         } break;
         case IG_VOLUME_MESH: {
             return false;
@@ -35,57 +66,29 @@ bool CurvatureFilter::Execute() {
 
             if (surface_Mesh) {
                 if (!CheckType()) return false;
+                return ComputeSurfaceCurvatureCotangent(surface_Mesh, attributeSet, curIndex);
             }
-
             if (volume_Mesh) { return false; }
         } break;
         default:
             return false;
     }
-
-    if (surface_Mesh) {
-        attributeSet = surface_Mesh->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-
-        auto attachmentType = attributeSet->GetAttribute(curIndex).attachmentType;
-
-        int FaceNum = surface_Mesh->GetNumberOfFaces();
-        int PointNum = surface_Mesh->GetNumberOfPoints();
-        Points::Pointer Points = surface_Mesh->GetPoints();
-        surface_Mesh->RequestEditStatus();
-        // 附着在point
-        if (PointNum != 0 && attachmentType == 0) {
-            // return GetPointCurvature(0, Points, PointNum);
-            surface_Mesh = TriangulateSurfaceMesh(surface_Mesh);
-            return ComputeSurfaceCurvatureCotangent(surface_Mesh, attributeSet, curIndex);
-        }
-        // 附着在cell
-        else if (FaceNum != 0 && attachmentType == 1)
-            return GetOtherCurvature(0, FaceNum);
-    }
-
     return false;
 }
 
 bool CurvatureFilter::ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surface_Mesh,
                                                        AttributeSet::Pointer Attributes, int Index) {
+
     const int nV = surface_Mesh->GetNumberOfPoints();
     const int nF = surface_Mesh->GetNumberOfFaces();
+    // ArrayObject::Pointer Data = Attributes->GetAttribute(Index).pointer;
+    //
+    // if (Attributes->GetAttribute(Index).attachmentType == IG_CELL) {
+    //     Data = AttributeCell2Point(surface_Mesh->GetFaces(), Data, nV);
+    // }
+    surface_Mesh = TriangulateSurfaceMesh(surface_Mesh);
+
     if (nV <= 0 || nF <= 0) return false;
-
-    auto attrSet = surface_Mesh->GetAttributeSet();
-
-    FloatArray::Pointer curv_mean = FloatArray::New();
-    curv_mean->SetDimension(1);
-    curv_mean->Resize(nV);
-    curv_mean->SetName("cur_mean");
-    attrSet->AddScalar(IG_POINT, curv_mean);
-
-    FloatArray::Pointer curv_gaussian = FloatArray::New();
-    curv_gaussian->SetDimension(1);
-    curv_gaussian->Resize(nV);
-    curv_gaussian->SetName("cur_gaussian");
-    attrSet->AddScalar(IG_POINT, curv_gaussian);
 
     auto toEigen = [](const Vector<float, 3>& p) -> Eigen::Vector3d {
         return {double(p[0]), double(p[1]), double(p[2])};
@@ -100,7 +103,7 @@ bool CurvatureFilter::ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surf
         return std::acos(cosv);
     };
     auto cot = [](double ang) -> double {
-        const double eps = 1e-8; // 稳定些
+        const double eps = 1e-8;
         double s = std::sin(ang);
         double c = std::cos(ang);
         if (std::abs(s) < eps) return (c >= 0 ? 1.0 / eps : -1.0 / eps);
@@ -248,13 +251,68 @@ bool CurvatureFilter::ComputeSurfaceCurvatureCotangent(SurfaceMesh::Pointer surf
     clamp_by_quantile(H_values, 0.02, 0.98);
     clamp_by_quantile(K_values, 0.02, 0.98);
 
+    FloatArray::Pointer curv_mean = FloatArray::New();
+    curv_mean->SetDimension(1);
+    curv_mean->Resize(nV);
+    curv_mean->SetName("cur_mean");
+    // Attributes->AddScalar(IG_POINT, curv_mean);
+
+    FloatArray::Pointer curv_gaussian = FloatArray::New();
+    curv_gaussian->SetDimension(1);
+    curv_gaussian->Resize(nV);
+    curv_gaussian->SetName("cur_gaussian");
+    // Attributes->AddScalar(IG_POINT, curv_gaussian);
+
     for (int i = 0; i < nV; ++i) {
         curv_mean->SetValue(i, H_values[i]);
         curv_gaussian->SetValue(i, K_values[i]);
     }
 
+    auto newAttrs = surface_Mesh->GetAttributeSet();
+    newAttrs->AddScalar(IG_POINT, curv_mean);
+    newAttrs->AddScalar(IG_POINT, curv_gaussian);
+    newAttrs->ForceReConvertToDrawableData();
+
+    SetOutput(surface_Mesh);
+
     UpdateProgress(1.0);
     return true;
+}
+
+ArrayObject::Pointer CurvatureFilter::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+                                                         size_t PointNum) {
+    int dim = OriArray->GetDimension();
+
+    auto NewArray = FloatArray::New();
+    NewArray->SetName(OriArray->GetName());
+    NewArray->SetDimension(dim);
+    NewArray->Reserve(PointNum);
+
+    float scalar[16]{0}, temp[16]{0};
+    for (int i = 0; i < PointNum; ++i) { NewArray->AddElement(scalar); }
+
+    std::vector<int> PointAdjNum(PointNum, 0);
+
+    igIndex cell[IGAME_CELL_MAX_SIZE];
+
+    for (int i = 0; i < Cell->GetNumberOfCells(); ++i) {
+        int size = Cell->GetCellIds(i, cell);
+        OriArray->GetElement(i, scalar);
+        for (int j = 0; j < size; ++j) {
+            PointAdjNum[cell[j]]++;
+            NewArray->GetElement(cell[j], temp);
+            for (int d = 0; d < dim; ++d) temp[d] += scalar[d];
+            NewArray->SetElement(cell[j], temp);
+        }
+    }
+
+    for (int i = 0; i < PointNum; ++i) {
+        NewArray->GetElement(i, temp);
+        for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
+        NewArray->SetElement(i, temp);
+    }
+
+    return NewArray;
 }
 
 double CurvatureFilter::GetArea(Vector3d a, Vector3d b, Vector3d c) { return CrossProduct(a - b, a - c).length() / 2; }

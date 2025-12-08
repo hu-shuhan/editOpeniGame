@@ -419,7 +419,7 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
     igDebug(out);
 
 
-//    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
+    if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
     return resObj;
 }
 

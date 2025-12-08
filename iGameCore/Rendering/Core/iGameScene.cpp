@@ -840,9 +840,12 @@ void Scene::DrawFrame() {
         m_Painter3D->Draw();
 
         // Draw axes in bottom left
-        int mx = std::max(viewport.x, viewport.y);
-        glViewport(0, 0, mx / 10, mx / 10);
-        m_Axes->Draw();
+        if(m_AxesVisible){
+            int mx = std::max(viewport.x, viewport.y);
+            glViewport(0, 0, mx / 10, mx / 10);
+            m_Axes->Draw();
+        }
+
 
         // Render to framebuffer
         glViewport(0, 0, viewport.x, viewport.y);
@@ -1351,6 +1354,9 @@ void Scene::RotateClockwise(float angle) {
 void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
+}
+void Scene::ToggleAxes() {
+    m_AxesVisible = !m_AxesVisible;
 }
 
 SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
