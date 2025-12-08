@@ -33,7 +33,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::isShowColorLegend);
 	connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
 		this, [&](double _min, double _max) {
-            std::cout << m_ColorMapper  << std::endl;
+//            std::cout << m_ColorMapper  << std::endl;
 			m_ColorMapper->SetRange(_min, _max);
 			updateDrawStyle();
 		});

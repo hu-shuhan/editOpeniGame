@@ -759,6 +759,11 @@ void SurfaceMesh::ConvertToDrawableData() {
             } else {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
 
             if (!attr.isDeleted) {
                 auto dataRange = attr.GetDataRange();

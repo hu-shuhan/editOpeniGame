@@ -110,6 +110,7 @@ bool iGame::iGameVTUReader::Parsing() {
     VTKAbstractReader::TransferVtkCellToiGameCell(m_Output, CellOffsets, CellConnects, CellTypes);
     if(!m_IndependentUpdate) UpdateProgress(1.0);
     m_Output->GetBoundingBox();
+//    DynamicCast<DrawObject>(m_Output)->SetShellRenderingOption(false);
 	return true;
 }
 bool iGameVTUReader::CreateDataObject()

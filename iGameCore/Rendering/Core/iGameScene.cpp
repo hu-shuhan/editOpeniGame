@@ -309,6 +309,7 @@ void Scene::ResetCameraView() {
                           boundingSphere.z + 3.0f * boundingSphere.w);
     m_Camera->SetFocal(boundingSphere.xyz());
     this->UpdateCameraClippingRange();
+    UpdateAxisSize();
 }
 
 void Scene::ResetCameraView(const BoundingBox& bbox) {
@@ -326,10 +327,12 @@ void Scene::ResetCameraView(const BoundingBox& bbox) {
     m_Camera->SetPosition(x, y, z + 3.0f * r);
     m_Camera->SetFocal(igm::vec3{x, y, z});
     this->UpdateCameraClippingRange();
+    UpdateAxisSize();
 }
 
 void Scene::ResetCameraView(SmartPointer<DataObject> dataObject) {
     ResetCameraView(dataObject->GetBoundingBox());
+    UpdateAxisSize();
 }
 
 SmartPointer<Camera> Scene::GetCamera() { return m_Camera; }
@@ -1380,19 +1383,16 @@ float Scene::GetRotationCenterDepth() const {
 
 void Scene::UpdateAxisSize() {
     if (m_CenterAxesModel && m_Camera) {
-        // 获取相机到旋转中心的距离
-        igm::vec3 rotationCenter = GetRotationBoundingSphere().xyz();
+        igm::vec3 rotationCenter = m_CenterAxesModel->GetRotationCenter();
         igm::vec3 cameraPos = m_Camera->GetPosition();
         float cameraDistance = (cameraPos - rotationCenter).length();
 
-        // 获取视口尺寸
         auto viewport = m_Camera->GetViewPort();
-        int viewportHeight = viewport.y;
+        float viewportHeight = viewport.y;
 
-        // 假设相机的FOV为45度（根据实际调整）
-        float fov = IGM_PI / 4.0f; // 45度弧度值
+        // 使用相机的实际FOV
+        float fov = m_Camera->GetFov(); // 弧度值
 
-        // 调用坐标轴模型的更新方法
         m_CenterAxesModel->UpdateAxisScale(cameraDistance, fov, viewportHeight);
     }
 }
