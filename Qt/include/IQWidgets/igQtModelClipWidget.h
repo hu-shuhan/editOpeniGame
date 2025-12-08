@@ -37,6 +37,7 @@ public slots:
 
     void SetOriginDataObject(iGame::DataObject::Pointer m_d);
 
+    void UpdateOriginDataObject(iGame::DataObject::Pointer _origin_ptr);
     //void FilterSignal(iGame::InteractorStyle::Signal signal, void* callData) {
     //    switch (signal) {
     //        case iGame::InteractorStyle::Signal::Slicing: {
@@ -56,6 +57,7 @@ public slots:
 signals:
     void DrawClipModel(iGame::DrawObject::Pointer);
     void UpdateClipModel(iGame::DrawObject::Pointer);
+//    void UpdateClipModel();
     void ResetInteractor();
 protected:
 private:

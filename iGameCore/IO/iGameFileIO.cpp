@@ -209,7 +209,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
             }
             DoubleArray::Pointer newDataRange = DoubleArray::New();
             newDataRange->SetDimension(2);
-            newDataRange->Resize(6 + 2);
+            newDataRange->Resize(3 + 1);
             /* 将输入的x、y、z的维度标量范围直接更新成Vector的x、y、z维度的范围 */
             for(int j = 0; j < 3; j ++){
                 auto scalarData = Attrs->GetAttribute(i + j).dataRange;
