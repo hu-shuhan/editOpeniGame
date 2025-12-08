@@ -68,10 +68,10 @@ bool iGame::iGamePVDReader::Parsing() {
     m_data_object->SetTimeFrames(m_Data.GetTimeData());
     auto attributeSet = AttributeSet::New();
     m_data_object->SetAttributeSet(attributeSet);
+    std::vector<DataObject::Pointer> results(firstFrame.GetMetaData()->Size());
     {
         std::string fileName, fileSuffix;
         auto t2 = std::chrono::steady_clock::now();
-        std::vector<DataObject::Pointer> results(firstFrame.GetMetaData()->Size());
         std::vector<std::future<DataObject::Pointer>> readTaskList;
         for(int i = 0; i < firstFrame.GetMetaData()->Size(); i ++){
             readTaskList.emplace_back(ThreadPool::Instance()->Commit([i, &results](const std::string& fileName){
@@ -124,39 +124,26 @@ bool iGame::iGamePVDReader::Parsing() {
 
     /* DataObject itself have */
     bool scalar_exist = (m_data_object->HasSubDataObject() && m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet());
+
+
+
     /* Model's scalar num is determined by the dataObject and its subDataObject 's scalar num. */
     if(scalar_exist){
+        auto sub_first_attributeSet = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet();
 
-        IGsize scalarNum = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
-        double dataRange_max[64], dataRange_min[64];
-        for(IGsize k = 0; k < scalarNum; k ++)
-        {
-            /*If false, means the scalar is point scalar, otherwise, the scalar is cell scalar.*/
-            auto attribute = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute(k);
+        for(int k = 0; k < sub_first_attributeSet->GetAllAttributes()->GetNumberOfElements(); k ++) {
+            auto attribute = sub_first_attributeSet->GetAttribute(k);
             int dim = attribute.pointer->GetDimension();
             int scalar_type = attribute.attachmentType;
             DoubleArray::Pointer array = DoubleArray::New();
             array->SetName(attribute.pointer->GetName());
             array->SetDimension(dim);
 
-            /* Get ALL SubBlock's dataRange to Calc Parent dataObject's dataRange, then update the subDataObject's Range. */
-            std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
-            std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
-            for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
-                auto& attr = it->second->GetAttributeSet()->GetAttribute(k);
-                attr.UpdateAllDataRange();
-                const auto& ScalarDataRange = attr.GetDataRange();
-                for(int j = 0; j < dim + 1; j ++){
-                    dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
-                    dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
-                }
-            }
-            /* Init DataRange Flat Array. */
             DoubleArray::Pointer parent_dataRange = DoubleArray::New();
             parent_dataRange->SetDimension(2);
             parent_dataRange->Resize(dim + 1);
             for(int j = 0; j < dim + 1; j ++){
-                parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
+                parent_dataRange->SetElement(j, {DBL_MIN, DBL_MAX});
             }
             switch (attribute.type) {
                 case IG_SCALAR:
@@ -168,10 +155,54 @@ bool iGame::iGamePVDReader::Parsing() {
                 default:
                     break;
             }
-
-            /* Update All SubData's DataRange. */
-            m_data_object->UpdateSubDataObjectDataRange();
         }
+        m_data_object->ReCollectSubDataObjectDataRange();
+        m_data_object->UpdateSubDataObjectDataRange();
+//        IGsize scalarNum = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAllAttributes()->GetNumberOfElements();
+//        double dataRange_max[64], dataRange_min[64];
+//        for(IGsize k = 0; k < scalarNum; k ++)
+//        {
+//            /*If false, means the scalar is point scalar, otherwise, the scalar is cell scalar.*/
+//            auto attribute = m_data_object->SubDataObjectIteratorBegin()->second->GetAttributeSet()->GetAttribute(k);
+//            int dim = attribute.pointer->GetDimension();
+//            int scalar_type = attribute.attachmentType;
+//            DoubleArray::Pointer array = DoubleArray::New();
+//            array->SetName(attribute.pointer->GetName());
+//            array->SetDimension(dim);
+//
+//            /* Get ALL SubBlock's dataRange to Calc Parent dataObject's dataRange, then update the subDataObject's Range. */
+//            std::fill(dataRange_min, dataRange_min + 64, DBL_MAX);
+//            std::fill(dataRange_max, dataRange_max + 64, DBL_MIN);
+//            for(auto it = m_data_object->SubDataObjectIteratorBegin(); it != m_data_object->SubDataObjectIteratorEnd(); ++ it){
+//                auto& attr = it->second->GetAttributeSet()->GetAttribute(k);
+//                attr.UpdateAllDataRange();
+//                const auto& ScalarDataRange = attr.GetDataRange();
+//                for(int j = 0; j < dim + 1; j ++){
+//                    dataRange_min[j] = std::min(dataRange_min[j], ScalarDataRange->GetValue(2 * j + 0));
+//                    dataRange_max[j] = std::max(dataRange_max[j], ScalarDataRange->GetValue(2 * j + 1));
+//                }
+//            }
+//            /* Init DataRange Flat Array. */
+//            DoubleArray::Pointer parent_dataRange = DoubleArray::New();
+//            parent_dataRange->SetDimension(2);
+//            parent_dataRange->Resize(dim + 1);
+//            for(int j = 0; j < dim + 1; j ++){
+//                parent_dataRange->SetElement(j, {dataRange_min[j], dataRange_max[j]});
+//            }
+//            switch (attribute.type) {
+//                case IG_SCALAR:
+//                    m_data_object->GetAttributeSet()->AddScalar(scalar_type, array, parent_dataRange);
+//                    break;
+//                case IG_VECTOR:
+//                    m_data_object->GetAttributeSet()->AddVector(scalar_type, array, parent_dataRange);
+//                    break;
+//                default:
+//                    break;
+//            }
+//
+//            /* Update All SubData's DataRange. */
+//            m_data_object->UpdateSubDataObjectDataRange();
+//        }
     }
 
 

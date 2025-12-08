@@ -130,8 +130,8 @@ void igQtScalarViewWidget::initScalarInfo()
 void igQtScalarViewWidget::showScalarView() {
 	// Check auto-rescaling state for current model+attribute
 	std::string key = m_CurrentModelName + "::" + scalarName;
-	bool autoRescaling = m_AutoRescalingStates.count(key) 
-		? m_AutoRescalingStates[key] 
+	bool autoRescaling = m_AutoRescalingStates.count(key)
+		? m_AutoRescalingStates[key]
 		: true;  // Default: true (auto-update enabled)
 	
 	if (autoRescaling) {
