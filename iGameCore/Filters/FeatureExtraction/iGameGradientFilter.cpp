@@ -15,17 +15,32 @@ bool GradientFilter::Execute() {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-        if (curIndex == -1 && name == "") return false;
+        if (attributeSet == nullptr) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
+        if (curIndex == -1 && name == "") {
+            m_Message = "please choose a attribute";
+            return false;
+        }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
-        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
 
-        int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
-        if (dim != 1) { return false; }
+        dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
+        m_currentAttributeDimension = input->GetCurrentAttributeDimension();
+        if (dim != 1  && m_currentAttributeDimension == -1) {
+            m_Message = "please choose a component";
+            return false;
+        }
+        if (dim == 1)
+            m_currentAttributeDimension=0;
         return true;
     };
 
-    SetOutput(input);
+    // SetOutput(input);
 
     switch (input->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
@@ -34,6 +49,13 @@ bool GradientFilter::Execute() {
             return ComputeGradientWithSurfaceMesh(surface_Mesh, attributeSet, curIndex);
         } break;
         case IG_VOLUME_MESH: {
+            return false;
+            // volume_Mesh = DynamicCast<VolumeMesh>(input);
+            // if (!CheckType()) return false;
+            // return ComputeGradientWithVolumeMesh(volume_Mesh, attributeSet, curIndex);
+
+        } break;
+        case IG_STRUCTURED_MESH: {
             return false;
             // volume_Mesh = DynamicCast<VolumeMesh>(input);
             // if (!CheckType()) return false;
@@ -128,7 +150,7 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
     gradient->SetDimension(3);
     gradient->Reserve(NumCells);
     gradient->SetName("gradient");
-    attributeSet->AddScalar(IG_CELL, gradient);
+    // attributeSet->AddScalar(IG_CELL, gradient);
     std::vector<std::array<double, 3>> gradient_values(NumCells);
 
     int progress = 0;
@@ -168,9 +190,9 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
                 float gz1 = (d11 * v0[2] - d01 * v1[2]) * denomr;
                 float gz2 = (d00 * v1[2] - d01 * v0[2]) * denomr;
 
-                float a0 = Data->GetValue(pid0);
-                float a1 = Data->GetValue(pid1);
-                float a2 = Data->GetValue(pid2);
+                float a0 = Data->GetValue(dim * pid0+ m_currentAttributeDimension);
+                float a1 = Data->GetValue(dim * pid1+ m_currentAttributeDimension);
+                float a2 = Data->GetValue(dim * pid2+ m_currentAttributeDimension);
 
                 float gx = gx1 * (a1 - a0) + gx2 * (a2 - a0);
                 float gy = gy1 * (a1 - a0) + gy2 * (a2 - a0);
@@ -208,9 +230,9 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
                 float gz1_1 = (d11_1 * v0_1[2] - d01_1 * v1_1[2]) * denomr_1;
                 float gz2_1 = (d00_1 * v1_1[2] - d01_1 * v0_1[2]) * denomr_1;
 
-                float a0_1 = Data->GetValue(pid0);
-                float a1_1 = Data->GetValue(pid1);
-                float a2_1 = Data->GetValue(pid2);
+                float a0_1 = Data->GetValue(dim * pid0+ m_currentAttributeDimension);
+                float a1_1 = Data->GetValue(dim * pid1+ m_currentAttributeDimension);
+                float a2_1 = Data->GetValue(dim * pid2+ m_currentAttributeDimension);
 
                 float gx_1 = gx1_1 * (a1_1 - a0_1) + gx2_1 * (a2_1 - a0_1);
                 float gy_1 = gy1_1 * (a1_1 - a0_1) + gy2_1 * (a2_1 - a0_1);
@@ -232,9 +254,9 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
                 float gz1_2 = (d11_2 * v0_2[2] - d01_2 * v1_2[2]) * denomr_2;
                 float gz2_2 = (d00_2 * v1_2[2] - d01_2 * v0_2[2]) * denomr_2;
 
-                float a0_2 = Data->GetValue(pid0);
-                float a2_2 = Data->GetValue(pid2);
-                float a3_2 = Data->GetValue(pid3);
+                float a0_2 = Data->GetValue(dim * pid0+ m_currentAttributeDimension);
+                float a2_2 = Data->GetValue(dim * pid2+ m_currentAttributeDimension);
+                float a3_2 = Data->GetValue(dim * pid3+ m_currentAttributeDimension);
 
                 float gx_2 = gx1_2 * (a2_2 - a0_2) + gx2_2 * (a3_2 - a0_2);
                 float gy_2 = gy1_2 * (a2_2 - a0_2) + gy2_2 * (a3_2 - a0_2);
@@ -256,7 +278,7 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
                     center[0] += p[0];
                     center[1] += p[1];
                     center[2] += p[2];
-                    centerValue += Data->GetValue(cell->GetPointId(i));
+                    centerValue += Data->GetValue(dim * cell->GetPointId(i) + m_currentAttributeDimension);
                 }
 
                 center[0] /= numPoints;
@@ -268,7 +290,7 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
                 for (int i = 0; i < numPoints; ++i) {
                     auto p = cell->GetPoint(i);
                     std::array<float, 3> diff = {p[0] - center[0], p[1] - center[1], p[2] - center[2]};
-                    float valDiff = Data->GetValue(cell->GetPointId(i)) - centerValue;
+                    float valDiff = Data->GetValue(dim * cell->GetPointId(i) + m_currentAttributeDimension) - centerValue;
 
                     for (int d = 0; d < 3; d++) {
                         gradientApprox[d] += diff[d] * valDiff;
@@ -293,17 +315,6 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
         gradient_values[cellId][1] = grad.x.gy;
         gradient_values[cellId][2] = grad.x.gz;
     }
-        // auto grad = ComputeVectorGradByPlane(cell, Data);
-
-        //
-        // double omega_x = grad.x.gx;
-        // double omega_y = grad.x.gy;
-        // double omega_z = grad.x.gz;
-        // gradient_values[cellId][0] = omega_x;
-        // gradient_values[cellId][1] = omega_y;
-        // gradient_values[cellId][2] = omega_z;
-
-        // gradient->AddElement3(omega_x, omega_y, omega_z);
     auto clamp_by_quantile = [](std::vector<double>& v, double qlo, double qhi) {
         if (v.empty()) return;
         std::vector<double> tmp = v;
@@ -335,52 +346,12 @@ bool GradientFilter::ComputeGradientWithSurfaceMesh(SurfaceMesh::Pointer Mesh, A
         gradient->AddElement3(xs[i], ys[i], zs[i]);
     }
 
+    auto newAttrs = Mesh->GetAttributeSet();
+    newAttrs->AddScalar(IG_CELL, gradient);
+    newAttrs->ForceReConvertToDrawableData();
+
     UpdateProgress(1.0);
-    return true;
-    // double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
-    // for (int i = 0; i < NumCells; ++i) {
-    //     mean_x += gradient_values[i][0];
-    //     mean_y += gradient_values[i][1];
-    //     mean_z += gradient_values[i][2];
-    // }
-    // mean_x /= NumCells;
-    // mean_y /= NumCells;
-    // mean_z /= NumCells;
-    //
-    // double std_x = 0.0, std_y = 0.0, std_z = 0.0;
-    // for (int i = 0; i < NumCells; ++i) {
-    //     std_x += (gradient_values[i][0] - mean_x) * (gradient_values[i][0] - mean_x);
-    //     std_y += (gradient_values[i][1] - mean_y) * (gradient_values[i][1] - mean_y);
-    //     std_z += (gradient_values[i][2] - mean_z) * (gradient_values[i][2] - mean_z);
-    // }
-    // std_x = std::sqrt(std_x / NumCells);
-    // std_y = std::sqrt(std_y / NumCells);
-    // std_z = std::sqrt(std_z / NumCells);
-    //
-    // double threshold_x = 5.0 * std_x;
-    // double threshold_y = 5.0 * std_y;
-    // double threshold_z = 5.0 * std_z;
-    //
-    // for (int i = 0; i < NumCells; ++i) {
-    //     double omega_x = gradient_values[i][0];
-    //     double omega_y = gradient_values[i][1];
-    //     double omega_z = gradient_values[i][2];
-    //
-    //     if (std::abs(omega_x - mean_x) > threshold_x) {
-    //         omega_x = mean_x + (omega_x - mean_x) / std::abs(omega_x - mean_x) * threshold_x;
-    //     }
-    //
-    //     if (std::abs(omega_y - mean_y) > threshold_y) {
-    //         omega_y = mean_y + (omega_y - mean_y) / std::abs(omega_y - mean_y) * threshold_y;
-    //     }
-    //
-    //     if (std::abs(omega_z - mean_z) > threshold_z) {
-    //         omega_z = mean_z + (omega_z - mean_z) / std::abs(omega_z - mean_z) * threshold_z;
-    //     }
-    //
-    //     gradient->AddElement3(omega_x, omega_y, omega_z);
-    // }
-    //
+    SetOutput(Mesh);
     return true;
 }
 

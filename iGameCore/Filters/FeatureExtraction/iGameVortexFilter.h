@@ -18,7 +18,6 @@ public:
     I_OBJECT(VortexFilter);
     static Pointer New() { return new VortexFilter; }
 
-
     struct Gradient {
         float gx, gy, gz;
     };
@@ -29,6 +28,8 @@ public:
 
     void SetAttributeByIndex(int index) { curIndex = index; }
     void SetAttributeByName(const std::string& name) { this->name = name; }
+
+    std::string GetMessage() const { return m_Message; }
 
     bool Execute() override;
 
@@ -117,6 +118,10 @@ protected:
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet::Pointer attributeSet{};
+
+    int dim{-1};
+    int m_currentAttributeDimension{-1};
+    std::string m_Message{"Not Volume Mesh !"};
 
     int curIndex{-1};
     std::string name;

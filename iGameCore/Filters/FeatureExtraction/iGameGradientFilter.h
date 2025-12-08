@@ -18,6 +18,7 @@ public:
     I_OBJECT(GradientFilter);
     static Pointer New() { return new GradientFilter; }
 
+    std::string GetMessage() const { return m_Message; }
 
     struct Gradient {
         float gx, gy, gz;
@@ -110,9 +111,13 @@ protected:
     VolumeMesh::Pointer volume_Mesh{};
     SurfaceMesh::Pointer surface_Mesh{};
     AttributeSet::Pointer attributeSet{};
+    int dim{-1};
 
     int curIndex{-1};
+    int m_currentAttributeDimension{-1};
     std::string name;
+
+    std::string m_Message{"Not Surface Mesh !"};
 };
 
 IGAME_NAMESPACE_END

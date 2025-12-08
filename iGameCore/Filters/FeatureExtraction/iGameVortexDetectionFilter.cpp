@@ -77,13 +77,25 @@ bool VortexDetection::Execute() {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-        if (curIndex == -1 && attName == "") return false;
+        if (attributeSet == nullptr) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
+        if (curIndex == -1 && attName == "") {
+            m_Message = "please choose a attribute";
+            return false;
+        }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(attName);
-        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
 
         int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
-        if (dim != 3) { return false; }
+        if (dim != 3) {
+            m_Message = "please choose a vector";
+            return false;
+        }
         name = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetName();
         return true;
     };
@@ -486,25 +498,10 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
         // float value = smooth_vals[i].item<float>();
         vortexs->AddValue(Predict[i]);
     }
-    // attributeSet->AddScalar(IG_POINT, vortexs);
-
-    //auto outMesh = VolumeMesh::New();
-    //auto newPoints = Points::New();
-    //auto newVolumes = CellArray::New();
-    //auto newAttrs = AttributeSet::New();
-
-    //newPoints = Mesh->GetPoints();
-    //newVolumes = Mesh->GetVolumes();
     auto newAttrs = Mesh->GetAttributeSet();
-
     newAttrs->AddScalar(IG_POINT, vortexs);
     newAttrs->ForceReConvertToDrawableData();
-    //outMesh->SetVolumes(newVolumes);
-    //outMesh->SetAttributeSet(newAttrs);
-    //outMesh->SetName(Mesh->GetName());
-    //outMesh->SetPoints(newPoints);
     SetOutput(Mesh);
-
     UpdateProgress(100 * 0.01);
     return true;
 }

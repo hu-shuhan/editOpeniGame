@@ -747,9 +747,17 @@ void SurfaceMesh::ConvertToDrawableData() {
         m_TriangleIndices->Modified();
         m_TriangleEdgeMasks->Modified();
     }
-
     // convert scalar data
     bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    // Debug info
+//    if(m_AttributeIndex != -1){
+//        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+//
+//        std::cout << "Surface Mesh : " << this << ' '  << updateColorMapper << ' ' << needReConvertScalar << ' ' << " color Mapper : " <<' ' << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//    }
+
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
@@ -759,6 +767,12 @@ void SurfaceMesh::ConvertToDrawableData() {
             } else {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
 
             if (!attr.isDeleted) {
                 auto dataRange = attr.GetDataRange();
@@ -936,18 +950,20 @@ void SurfaceMesh::GetDrawableArray(FloatArray::Pointer& positions, UnsignedIntAr
 
 void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                            igIndex dimension) {
-    if (!m_ColorMapper->GetStable()) {
-        double magnitude_min = attrRange->GetValue(0);
-        double magnitude_max = attrRange->GetValue(1);
-        if (magnitude_min < magnitude_max) {
-            m_ColorMapper->SetRange(magnitude_min, magnitude_max);
-        } else if (dimension == -1) {
-            m_ColorMapper->InitRange(attr);
-        } else {
-            m_ColorMapper->InitRange(attr, dimension);
+    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
+
+        if (!m_ColorMapper->GetStable()) {
+            double magnitude_min = attrRange->GetValue(0);
+            double magnitude_max = attrRange->GetValue(1);
+            if (magnitude_min < magnitude_max) {
+                m_ColorMapper->SetRange(magnitude_min, magnitude_max);
+            } else if (dimension == -1) {
+                m_ColorMapper->InitRange(attr);
+            } else {
+                m_ColorMapper->InitRange(attr, dimension);
+            }
         }
     }
-
     attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
     attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
     //    range.first = m_ColorMapper->GetRange()[0];

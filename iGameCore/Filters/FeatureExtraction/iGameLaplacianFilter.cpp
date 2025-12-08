@@ -1,5 +1,7 @@
 #include "iGameLaplacianFilter.h"
 
+//#include "torch/csrc/jit/ir/constants.h"
+
 IGAME_NAMESPACE_BEGIN
 
 
@@ -12,38 +14,54 @@ bool LaplacianFilter::Execute() {
 
     auto CheckType = [&]() -> bool {
         attributeSet = input->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-        if (curIndex == -1 && name == "") return false;
+        if (attributeSet == nullptr) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
+        if (curIndex == -1 && name == "") {
+            m_Message = "please choose a attribute";
+            return false;
+        }
         if (curIndex == -1) curIndex = attributeSet->GetAttributeIndex(name);
-        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) return false;
+        if (curIndex < 0 || curIndex >= attributeSet->GetNumberOfAttributes()) {
+            m_Message = "please choose a attribute";
+            return false;
+        }
 
-        int dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
-        if (dim != 1) { return false; }
+        dim = input->GetAttributeSet()->GetAttribute(curIndex).pointer->GetDimension();
+        m_currentAttributeDimension = input->GetCurrentAttributeDimension();
+        if (dim != 1  && m_currentAttributeDimension == -1) {
+            m_Message = "please choose a component";
+            return false;
+        }
+        if (dim == 1)
+            m_currentAttributeDimension=0;
         return true;
     };
 
-    SetOutput(input);
+    // SetOutput(input);
 
     switch (input->GetDataObjectType()) {
         case IG_SURFACE_MESH: {
             surface_Mesh = DynamicCast<SurfaceMesh>(input);
             if (!CheckType()) return false;
+
+            // auto attachmentType =
+            //         attributeSet->GetAttribute(curIndex).attachmentType;
+            //
+            // int FaceNum = surface_Mesh->GetNumberOfFaces();
+            int PointNum = surface_Mesh->GetNumberOfPoints();
+            Points::Pointer Points = surface_Mesh->GetPoints();
+            surface_Mesh->RequestEditStatus();
+            // // 附着在point
+            // if (PointNum != 0 && attachmentType == 0)
+            return GetPointLaplacian(0, Points, PointNum,surface_Mesh);
+            // // 附着在cell
+            // else if (FaceNum != 0 && attachmentType == 1)
+            //     return GetOtherLaplacian(0, FaceNum);
         } break;
         case IG_VOLUME_MESH: {
             return false;
-            //volume_Mesh = DynamicCast<VolumeMesh>(input);
-            //if (volume_Mesh) {
-            //    surface_Mesh = DynamicCast<SurfaceMesh>(
-            //            volume_Mesh->GetDisplayObject());
-            //    if (!surface_Mesh) return false;
-
-            //    if (!CheckType()) return false;
-
-            //    FloatArray::Pointer Laplacians = FloatArray::New();
-            //    Laplacians->SetDimension(1);
-            //    Laplacians->SetName("laplacians");
-            //    input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
-            //}
         } break;
         case IG_UNSTRUCTURED_MESH: {
             auto mesh = DynamicCast<UnstructuredMesh>(input);
@@ -52,67 +70,57 @@ bool LaplacianFilter::Execute() {
 
             if (surface_Mesh) {
                 if (!CheckType()) return false;
+                int PointNum = surface_Mesh->GetNumberOfPoints();
+                Points::Pointer Points = surface_Mesh->GetPoints();
+                surface_Mesh->RequestEditStatus();
+                return GetPointLaplacian(0, Points, PointNum,surface_Mesh);
             }
 
             if (volume_Mesh) {
                 return false;
-                //surface_Mesh =
-                //        DynamicCast<SurfaceMesh>(mesh->GetDisplayObject());
-                //if (!surface_Mesh) return false;
 
-                //if (!CheckType()) return false;
-
-                //FloatArray::Pointer Laplacians = FloatArray::New();
-                //Laplacians->SetDimension(1);
-                //Laplacians->SetName("laplacians");
-                //input->GetAttributeSet()->AddScalar(IG_POINT, Laplacians);
             }
         } break;
         default:
             return false;
     }
-
-
-
-    if (volume_Mesh) {
-        //attributeSet = volume_Mesh->GetAttributeSet();
-        //if (attributeSet == nullptr) return false;
-
-        //auto attachmentType =
-        //        attributeSet->GetAttribute(curIndex).attachmentType;
-
-        //int VolumeNum = volume_Mesh->GetNumberOfVolumes();
-        //int PointNum = volume_Mesh->GetNumberOfPoints();
-        //Points::Pointer Points = volume_Mesh->GetPoints();
-        //volume_Mesh->RequestEditStatus();
-        //// 附着在point
-        //if (PointNum != 0 && attachmentType == 0)
-        //    return GetPointLaplacian(1, Points, PointNum);
-        //// 附着在cell
-        //else if (VolumeNum != 0 && attachmentType == 1)
-        //    return GetOtherLaplacian(1, VolumeNum);
-
-    }
-
-    if (surface_Mesh) {
-        attributeSet = surface_Mesh->GetAttributeSet();
-        if (attributeSet == nullptr) return false;
-
-        auto attachmentType =
-                attributeSet->GetAttribute(curIndex).attachmentType;
-
-        int FaceNum = surface_Mesh->GetNumberOfFaces();
-        int PointNum = surface_Mesh->GetNumberOfPoints();
-        Points::Pointer Points = surface_Mesh->GetPoints();
-        surface_Mesh->RequestEditStatus();
-        // 附着在point
-        if (PointNum != 0 && attachmentType == 0)
-            return GetPointLaplacian(0, Points, PointNum,surface_Mesh);
-        // 附着在cell
-        else if (FaceNum != 0 && attachmentType == 1)
-            return GetOtherLaplacian(0, FaceNum);
-    }
     return false;
+}
+
+ArrayObject::Pointer LaplacianFilter::AttributeCell2Point(CellArray::Pointer Cell, ArrayObject::Pointer OriArray,
+                                                         size_t PointNum) {
+    int dim = OriArray->GetDimension();
+
+    auto NewArray = FloatArray::New();
+    NewArray->SetName(OriArray->GetName());
+    NewArray->SetDimension(dim);
+    NewArray->Reserve(PointNum);
+
+    float scalar[16]{0}, temp[16]{0};
+    for (int i = 0; i < PointNum; ++i) { NewArray->AddElement(scalar); }
+
+    std::vector<int> PointAdjNum(PointNum, 0);
+
+    igIndex cell[IGAME_CELL_MAX_SIZE];
+
+    for (int i = 0; i < Cell->GetNumberOfCells(); ++i) {
+        int size = Cell->GetCellIds(i, cell);
+        OriArray->GetElement(i, scalar);
+        for (int j = 0; j < size; ++j) {
+            PointAdjNum[cell[j]]++;
+            NewArray->GetElement(cell[j], temp);
+            for (int d = 0; d < dim; ++d) temp[d] += scalar[d];
+            NewArray->SetElement(cell[j], temp);
+        }
+    }
+
+    for (int i = 0; i < PointNum; ++i) {
+        NewArray->GetElement(i, temp);
+        for (int d = 0; d < dim; ++d) temp[d] /= PointAdjNum[i];
+        NewArray->SetElement(i, temp);
+    }
+
+    return NewArray;
 }
     
 
@@ -120,16 +128,19 @@ bool LaplacianFilter::GetPointLaplacian(int type, Points::Pointer points, int po
                                         SurfaceMesh::Pointer surface_Mesh) {
 
     AttributeSet* attrSet = surface_Mesh->GetAttributeSet();
-    if (!attrSet) return false;
+    int NumPoints = surface_Mesh->GetNumberOfPoints();
+    // int NumCells = surface_Mesh->GetNumberOfFaces();
+    ArrayObject::Pointer Data = attrSet->GetAttribute(curIndex).pointer;
 
-    auto data = attrSet->GetAttribute(curIndex).pointer;
-    const int dim = data->GetDimension();
+    if (attrSet->GetAttribute(curIndex).attachmentType == IG_CELL) {
+        Data = AttributeCell2Point(surface_Mesh->GetFaces(), Data, NumPoints);
+    }
 
     FloatArray::Pointer Laplacians = FloatArray::New();
     Laplacians->SetDimension(1);
     Laplacians->Reserve(pointNum);
     Laplacians->SetName("laplacians");
-    attrSet->AddScalar(IG_POINT, Laplacians);
+    // attrSet->AddScalar(IG_POINT, Laplacians);
 
     igIndex neighborBuf[256];
     constexpr double kEps = 1e-12;
@@ -148,7 +159,7 @@ bool LaplacianFilter::GetPointLaplacian(int type, Points::Pointer points, int po
         }
 
         const auto pi = points->GetPoint(i);
-        const double fi = data->GetValue(dim * i);
+        const double fi = Data->GetValue(dim * i+ m_currentAttributeDimension);
 
         double num = 0.0;
         double wsum = 0.0;
@@ -162,7 +173,7 @@ bool LaplacianFilter::GetPointLaplacian(int type, Points::Pointer points, int po
             const double dz = pi[2] - pj[2];
 
             const double w = 1.0 / std::sqrt(dx * dx + dy * dy + dz * dz + kEps);
-            const double fj = data->GetValue(dim * j);
+            const double fj = Data->GetValue(dim * j + m_currentAttributeDimension);
             num += w * fj;
             wsum += w;
         }
@@ -170,6 +181,11 @@ bool LaplacianFilter::GetPointLaplacian(int type, Points::Pointer points, int po
         const double lap = (wsum > 0.0) ? (num / wsum - fi) : 0.0;
         Laplacians->AddValue(static_cast<float>(lap));
     }
+
+    auto newAttrs = surface_Mesh->GetAttributeSet();
+    newAttrs->AddScalar(IG_POINT, Laplacians);
+    newAttrs->ForceReConvertToDrawableData();
+    SetOutput(surface_Mesh);
 
     UpdateProgress(1.0);
     return true;
