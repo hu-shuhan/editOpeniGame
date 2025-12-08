@@ -29,7 +29,7 @@ SphereSource::RequestSphere(const Point& center, float radius,
     for (int i = 0; i <= stackCount; ++i) {
         stackAngle = IGM_PI / 2 - i * stackStep; // starting from pi/2 to -pi/2
         xy = radius * std::cos(stackAngle);      // r * cos(u)
-        z = radius * std::sin(stackAngle);       // r * sin(u)
+        z = center[2] + radius * std::sin(stackAngle); // r * sin(u)
 
         // add (sectorCount+1) vertices per stack
         // first and last vertices have same position and normal, but different tex coords
@@ -37,8 +37,8 @@ SphereSource::RequestSphere(const Point& center, float radius,
             sectorAngle = j * sectorStep; // starting from 0 to 2pi
 
             // vertex position (x, y, z)
-            x = xy * cosf(sectorAngle); // r * cos(u) * cos(v)
-            y = xy * sinf(sectorAngle); // r * cos(u) * sin(v)
+            x = center[0] + xy * cosf(sectorAngle); // r * cos(u) * cos(v)
+            y = center[1] + xy * sinf(sectorAngle); // r * cos(u) * sin(v)
             points.push_back(Point{x, y, z});
         }
     }
@@ -199,7 +199,7 @@ SphereSource::RequestIcoSphere(const Point& center, float radius,
 
     if (subdivision <= 1) {
         IGAME_RENDERING_INFO("Subdivision is less than or equal to 1. Skipping "
-                        "further processing.");
+                             "further processing.");
     } else {
         unsigned int subVertexCount = (subdivision + 1) * (subdivision + 2) / 2;
         Points newVs(subVertexCount);
