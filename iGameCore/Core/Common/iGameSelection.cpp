@@ -179,9 +179,10 @@ static void DrawEdges(Painter3D* painter, const std::set<std::pair<int, int>>& e
     if (painter == nullptr) return;
     painter->Clear();
     if (edges.empty() || mesh == nullptr) return;
-    painter->SetPen(2);
-    painter->SetPen(0.9f, 0.145f, 0.863f);
     auto pNum = mesh->GetNumberOfPoints();
+    auto penSize = std::max<float>(0.7, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
+    painter->SetPen(penSize);
+    painter->SetPen(0.9f, 0.145f, 0.863f);
     for (auto& edge: edges) {
         if (pNum <= edge.first || pNum <= edge.second) continue;
         auto& p1 = mesh->GetPoint(edge.first);
@@ -690,11 +691,11 @@ void Selection::DrawPoints() {
     if (m_Model == nullptr) return;
     auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
     if (painter == nullptr) return;
     painter->Clear();
     auto pNum = mesh->GetNumberOfPoints();
-    auto penSize = std::max<float>(0.001, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
+    auto penSize = std::max<float>(0.7, std::min<float>(7, 7 - (std::floor(std::log10(std::abs((int) pNum))) + 1)));
     painter->SetPen(penSize);
     painter->SetPen(0.9f, 0.145f, 0.863f);
     //painter->SetBrush(0.9f, 0.145f, 0.863f);
