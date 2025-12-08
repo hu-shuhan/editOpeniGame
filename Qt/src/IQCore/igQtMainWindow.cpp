@@ -199,6 +199,10 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 void igQtMainWindow::initToolbarComponent() {}
 
 void igQtMainWindow::initAllComponents() {
+    connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
+        iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
+        iGame::SceneManager::Instance()->GetCurrentScene()->Update();
+   });
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
