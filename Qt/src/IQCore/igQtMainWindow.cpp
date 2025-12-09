@@ -660,13 +660,11 @@ void igQtMainWindow::initAllFilters() {
     //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-    //    auto filter = iGame::StressDeformationCodeFilter::New();
-    //    obj->GetDeformationData()->SetAttributeName("UVW");
+    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
+    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
     //    filter->SetInput(obj);
-    //    filter->CalculateIdealDSF();
     //    filter->Execute();
 
-    //    auto res = filter->GetOutput(0);
     //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
     //    rendererWidget->update();
     //    });
@@ -1626,6 +1624,14 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
+    });
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetSelectItemShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectItemVisable(visiable);
+        rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
