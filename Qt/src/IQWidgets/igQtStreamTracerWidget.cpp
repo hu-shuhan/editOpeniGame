@@ -30,8 +30,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
 
-    numOfSeeds = 200;
-    ui->numOfSeedLineEdit->setText("200");
+    numOfSeeds = 150;
+    ui->numOfSeedLineEdit->setText("150");
     control = 0;
     haveClicked = false;
     //	 proportion = 0.35;
