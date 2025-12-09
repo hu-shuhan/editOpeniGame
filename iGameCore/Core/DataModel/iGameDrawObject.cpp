@@ -370,7 +370,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
         m_RenderableMesh.SurfaceMesh->m_UseColor = this->m_UseColor;
         // After the first extraction, if the "m_Positions" is not updated, the shell will be extracted repeatedly
         m_Positions->Modified();
-        m_RenderableMesh.SurfaceMesh->m_ColorMapper->DeepCopy(this->m_ColorMapper);
+        m_RenderableMesh.SurfaceMesh->m_ColorMapper = m_ColorMapper;
         m_RenderableMesh.SurfaceMesh->m_IsMainRenderableObject = false;
     }
 
@@ -395,7 +395,7 @@ void DrawObject::SetRenderableObject(DataObject::Pointer dataObject) {
     m_RenderableMesh.SimplifiedMesh->m_AttributeIndex = this->m_AttributeIndex;
     m_RenderableMesh.SimplifiedMesh->m_AttributeDimension = this->m_AttributeDimension;
     m_RenderableMesh.SimplifiedMesh->m_UseColor = this->m_UseColor;
-    m_RenderableMesh.SimplifiedMesh->m_ColorMapper->DeepCopy(this->m_ColorMapper);
+    m_RenderableMesh.SimplifiedMesh->m_ColorMapper = m_ColorMapper;
     m_RenderableMesh.SimplifiedMesh->m_IsMainRenderableObject = false;
 
     // 设置Meshleter

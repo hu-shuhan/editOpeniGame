@@ -35,6 +35,8 @@ public:
 
     void HandleDrag(igm::vec3 worldOffset);
 
+    void SetHighlight(bool highlight);
+
     // ????????
     void SetScreenSize(float pixelSize) { m_BaseScreenSize = pixelSize; }
     void UpdateAxisScale(float cameraDistance, float fov, int viewportHeight);

@@ -57,7 +57,7 @@
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -788,7 +788,7 @@
   </action>
   <action name="action_About">
    <property name="text">
-    <string>关于iGameMeshView</string>
+    <string>关于iGameVis</string>
    </property>
   </action>
   <action name="action_rotateNinetyCounterClockwise">
@@ -945,6 +945,12 @@
    </property>
   </action>
   <action name="action_ShowOrientationAxes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/ShowOrientationAxes.png</normaloff>:/Ticon/Icons/ShowOrientationAxes.png</iconset>

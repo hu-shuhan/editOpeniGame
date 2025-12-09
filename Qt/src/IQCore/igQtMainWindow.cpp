@@ -199,6 +199,10 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 void igQtMainWindow::initToolbarComponent() {}
 
 void igQtMainWindow::initAllComponents() {
+    connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
+        iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
+        iGame::SceneManager::Instance()->GetCurrentScene()->Update();
+   });
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
@@ -703,6 +707,11 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+
+        }
     });
 
     QAction* laplacian = view->addAction("ComputeLaplacian");
@@ -713,6 +722,10 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+        }
     });
 
     QAction* curvature = view->addAction("ComputeCurvature");
@@ -723,6 +736,10 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) { modelTreeWidget->updateAllAttriubute(data); }
+        else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
+        }
     });
 
     QAction* vortex = view->addAction("ComputeVorticity");
@@ -734,9 +751,11 @@ void igQtMainWindow::initAllFilters() {
 
         filter->SetInput(data);
         if (filter->Execute()) {
-
             modelTreeWidget->updateAllAttriubute(data);
             DynamicCast<DrawObject>(data)->ConvertToDrawableData();
+        }else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
         }
     });
 
@@ -748,17 +767,7 @@ void igQtMainWindow::initAllFilters() {
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         if (filter->Execute()) {
-            //modelTreeWidget->addDataObjectToModelTree(data, Algorithm);
-
-            // modelTreeWidget->updateAllAttriubute(data);
-            // DynamicCast<DrawObject>(data)->ConvertToDrawableData();
-
-            auto outData = filter->GetOutput(0);
-            auto scene = rendererWidget->GetScene();
-            auto model = scene->GetCurrentModel();
-            model->SetDataObject(outData);
-            modelTreeWidget->updateAllAttriubute(outData);
-            DynamicCast<DrawObject>(outData)->ConvertToDrawableData();
+            modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
 
             // vortexMetricsLabel
@@ -777,6 +786,9 @@ void igQtMainWindow::initAllFilters() {
             //     vortexMetricsLabel->clear();
             //     vortexMetricsLabel->hide();
             // }
+        }else {
+            std::string message = filter->GetMessage();
+            QMessageBox::warning(this, "Warning", QString::fromStdString(message));
         }
     });
 
@@ -1187,7 +1199,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
+    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&]() {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
     });
@@ -1222,8 +1234,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
-    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
-            &igQtAnimationWidget::initAnimationComponents);
+    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
+        ui->widget_Animation->initAnimationComponents();
+    });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
@@ -1249,6 +1262,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
+        SliceWidget->ClipModel();
+//        SliceWidget->UpdateOriginDataObject()
+    });
 //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
 //            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
@@ -1599,6 +1617,14 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
+    });
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetSelectItemShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectItemVisable(visiable);
+        rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();

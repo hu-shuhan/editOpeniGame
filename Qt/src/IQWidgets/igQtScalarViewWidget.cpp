@@ -33,7 +33,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::isShowColorLegend);
 	connect(ui->widget_DataRangeSlider, &igQtDataRangeSlider::DataRangeChanged,
 		this, [&](double _min, double _max) {
-            std::cout << m_ColorMapper  << std::endl;
+//            std::cout << m_ColorMapper  << std::endl;
 			m_ColorMapper->SetRange(_min, _max);
 			updateDrawStyle();
 		});
@@ -130,8 +130,8 @@ void igQtScalarViewWidget::initScalarInfo()
 void igQtScalarViewWidget::showScalarView() {
 	// Check auto-rescaling state for current model+attribute
 	std::string key = m_CurrentModelName + "::" + scalarName;
-	bool autoRescaling = m_AutoRescalingStates.count(key) 
-		? m_AutoRescalingStates[key] 
+	bool autoRescaling = m_AutoRescalingStates.count(key)
+		? m_AutoRescalingStates[key]
 		: true;  // Default: true (auto-update enabled)
 	
 	if (autoRescaling) {

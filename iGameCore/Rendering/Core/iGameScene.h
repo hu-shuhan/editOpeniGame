@@ -237,6 +237,11 @@ public:
     void ToggleCenterAxes();
 
     /**
+     * @brief 切换XYZ坐标轴的显示状态
+     */
+    void ToggleAxes();
+
+    /**
      * @brief 获取中心坐标轴模型
      * @return 中心坐标轴模型指针
      */
@@ -394,6 +399,7 @@ protected:
 
     SmartPointer<Camera> m_Camera;
     //Light> m_Light;
+    bool m_AxesVisible {true};
     SmartPointer<Axes> m_Axes;
 
     SmartPointer<Interactor> m_Interactor;

@@ -646,7 +646,16 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
     // convert scalar data
     bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
-//    std::cout << "Update Color Mapper : " << updateColorMapper << ' ' << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1] << std::endl;
+
+
+    // Debug info
+//    if(m_AttributeIndex != -1){
+//        auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+//
+//        std::cout << "Unstructured Mesh : " << this << " color Mapper : " << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                  << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                  << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//    }
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
@@ -656,11 +665,13 @@ void UnstructuredMesh::ConvertToDrawableData() {
             } else {
                 this->m_ColorMapper->SetVectorModeToComponent();
             }
-            if(updateColorMapper){
-                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
-                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
-                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
-            }
+
+//            if(updateColorMapper){
+//                std::cout << m_ColorMapper << " dimension " << m_AttributeDimension << ' '
+//                          << " Color Map Range : " << m_ColorMapper->GetRange()[0] << ' ' << m_ColorMapper->GetRange()[1]
+//                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
+//            }
+
             // m_AttributeHelper : 调用DrawObject::ViewCloudPicture时更新(Modified)
             // m_ColorMapper     : 外部ScalarView更新时(igQtScalarViewWidget::showScalarView)更新
             if (!attr.isDeleted) {
@@ -683,7 +694,8 @@ void UnstructuredMesh::ConvertToDrawableData() {
 
 void UnstructuredMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArray::Pointer attrRange,
                                                 igIndex dimension) {
-    if (m_ColorMapper->GetMTime() <= this->GetMTime()) {
+    /* 当pointMapper 外部更新（调整颜色映射的 Range）， 则不用调整ColorMap的范围*/
+    if (m_ColorMapper->GetMTime() <= attrRange->GetMTime()) {
         // Configure color mapper range using provided attrRange if available; otherwise initialize from data
         double minimal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 0) : 0.0;
         double maximal_val = attrRange ? attrRange->GetValue(2 + dimension * 2 + 1) : 0.0;

@@ -41,6 +41,8 @@ signals:
     void AddStreamObject(iGame::DataObject::Pointer);
     void UpdateStreamObject(iGame::DataObject::Pointer);
     void SetUseBox();
+    void SetSelectItemShow(bool show);
+
 
 private:
     Ui::SteamLineTracer* ui;
