@@ -66,4 +66,7 @@
         <file>UI/igStreamTracer.ui</file>
         <file>Icons/Chart.png</file>
     </qresource>
+    <qresource prefix="/Styles">
+        <file>Styles/SourceHanSansCN-Normal.otf</file>
+    </qresource>
 </RCC>

@@ -3,8 +3,8 @@
 // Created by m_ky on 2024/4/10.
 //
 
-#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
+#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
@@ -29,6 +29,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
@@ -45,7 +46,6 @@
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
-#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -64,9 +64,12 @@
 #include <meshoptimizer.h>
 #include <stdio.h>
 
+#include <QApplication>
 #include <QDebug>
+#include <QFontDatabase>
 #include <QMessageBox>
 #include <QSplitter>
+
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -77,6 +80,7 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
+    LoadExternalFonts();
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
@@ -209,7 +213,6 @@ void igQtMainWindow::initAllComponents() {
             R = input[0], G = input[1], B = input[2];
             iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
         }
-        
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
@@ -220,9 +223,8 @@ void igQtMainWindow::initAllComponents() {
     // vortexMetricsLabel
     vortexMetricsLabel = new QLabel(rendererWidget);
     vortexMetricsLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    vortexMetricsLabel->setStyleSheet(
-        "QLabel { color: rgb(230,230,230); font-size: 20px; "
-        "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
+    vortexMetricsLabel->setStyleSheet("QLabel { color: rgb(230,230,230); font-size: 20px; "
+                                      "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
     vortexMetricsLabel->hide();
 
     connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
@@ -414,14 +416,13 @@ void igQtMainWindow::initAllComponents() {
     initAllMySignalConnections();
 }
 
-void igQtMainWindow::updateVortexMetricsLabelPos()
-{
+void igQtMainWindow::updateVortexMetricsLabelPos() {
     if (!vortexMetricsLabel || !vortexMetricsLabel->isVisible()) return;
 
     vortexMetricsLabel->adjustSize();
 
     const int margin = 20;
-    int x = rendererWidget->width()  - vortexMetricsLabel->width()  - margin;
+    int x = rendererWidget->width() - vortexMetricsLabel->width() - margin;
     int y = rendererWidget->height() - vortexMetricsLabel->height() - margin;
 
     vortexMetricsLabel->move(x, y);
@@ -646,7 +647,7 @@ void igQtMainWindow::initAllFilters() {
     //    rendererWidget->update();
     //});
 
-    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
     //    auto filter = iGame::StressDeformationCodeFilter::New();
@@ -659,13 +660,13 @@ void igQtMainWindow::initAllFilters() {
     //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
     //    rendererWidget->update();
     //    });
-    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
-    //    { 
+    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked)
+    //    {
     //        CellArray::Pointer cellArray = CellArray::New();
     //        clock_t start = clock();
     //        igIndex cell[3]{};
     //        cellArray->AddCellIds(cell, 2);
-    //        for (int i = 0; i < 10000000; i++) { 
+    //        for (int i = 0; i < 10000000; i++) {
     //            cellArray->AddCellIds(cell, 3);
     //        }
     //        clock_t end = clock();
@@ -900,7 +901,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
-    
+
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
@@ -1209,7 +1210,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(fileLoader, &igQtFileLoader::FinishReading, this, &igQtMainWindow::updateRecentFilePaths);
     connect(ui->action_DeleteMesh, &QAction::triggered, modelTreeWidget, &igQtModelDialogWidget::deleteCurrentModel);
 
-    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool){
+    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool) {
         if (vortexMetricsLabel) {
             vortexMetricsLabel->clear();
             vortexMetricsLabel->hide();
@@ -1242,13 +1243,12 @@ void igQtMainWindow::initAllMySignalConnections() {
 
 
     /* Animation signal connect BEGIN.*/
-    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene,
-            this, &igQtMainWindow::UpdateRenderingWidget);
+    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
-    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
-            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
-//    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
-//            DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, ui->widget_ScalarField,
+            &igQtScalarViewWidget::showScalarView);
+    //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+    //            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
@@ -1262,20 +1262,20 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
     // Clear auto-rescaling states when model is deleted
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted, ui->widget_ScalarField,
+            &igQtScalarViewWidget::clearModelStates);
     // Update Deformation Info when model is deleted
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            DeformationWidget, &igQtDeformationWidget::updateInfo);
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_Animation, &igQtAnimationWidget::ClearAnimationVCRInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted, DeformationWidget,
+            &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted, ui->widget_Animation,
+            &igQtAnimationWidget::ClearAnimationVCRInfo);
 
     // Update animation controls when model changes
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
-            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, ui->widget_Animation,
+            &igQtAnimationWidget::initAnimationComponents);
     // Update Deformation Info when model changes
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
-            DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, DeformationWidget,
+            &igQtDeformationWidget::updateInfo);
 
     /* Model Tree signal connect END.*/
 
@@ -1664,20 +1664,22 @@ void igQtMainWindow::initAllInteractor() {
             case IG_SURFACE_MESH: {
                 auto mesh = DynamicCast<SurfaceMesh>(dataObj);
                 mesh->RequestEditStatus();
-                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                selection->SelectionCallBackEvent(IG_POINT, pointIds,  Selection::Operate::Add);
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
             } break;
             case IG_VOLUME_MESH: {
                 auto mesh = DynamicCast<VolumeMesh>(dataObj);
                 mesh->RequestEditStatus();
-                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                selection->SelectionCallBackEvent(IG_POINT, pointIds,Selection::Operate::Add);
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
-                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
-                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                    selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add );
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
             } break;
             default:
                 return;
@@ -1781,10 +1783,9 @@ void igQtMainWindow::initAllInteractor() {
         rendererWidget->update();
     });
 
-    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this,
-            [&]() { 
-            //TODO
-        });
+    connect(ui->widget_SelectionField, &igQtSelectionWidget::SetPreLoadModelMsg, this, [&]() {
+        //TODO
+    });
 
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [&]() {
         ui->widget_SelectionField->PreventSignalSend(true);
@@ -1878,3 +1879,30 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+QString igQtMainWindow::LoadExternalFonts() {
+    // 1. 从 Qt 资源系统中加载字体
+    int fontId = QFontDatabase::addApplicationFont(":/Styles/Styles/SourceHanSansCN-Normal.otf");
+    if (fontId == -1) {
+        qWarning() << "Failed to load font from resource :/Styles/SourceHanSansCN-Normal.otf";
+        return QString();
+    }
+
+    // 2. 取出该字体里提供的字体族名称
+    const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
+    if (families.isEmpty()) {
+        qWarning() << "No font families found in loaded font.";
+        return QString();
+    }
+
+    const QString family = families.first();
+    qDebug() << "Loaded font family:" << family;
+
+    // 3. 设置为应用默认字体（接管所有未单独设置字体的控件）
+    QFont appFont(family);
+    appFont.setPointSize(9); // 这里可以根据你界面习惯改字号
+
+    QApplication::setFont(appFont);
+
+    return family;
+}
