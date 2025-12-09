@@ -165,6 +165,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
+    
     // Setup default GUI layout.
     //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
@@ -350,9 +351,9 @@ void igQtMainWindow::initAllComponents() {
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
         if (saved_image.save(path, "BMP")) {
-            QMessageBox::information(this, "", "保存成功");
+            QMessageBox::information(this, "截图结果", "保存成功");
         } else {
-            QMessageBox::information(this, "", "保存失败");
+            QMessageBox::information(this, "截图结果", "保存失败");
         }
     });
 
@@ -412,6 +413,11 @@ void igQtMainWindow::initAllComponents() {
         }
     });
 
+    connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
+        DeformationDockWidget->show();
+    });
+
+
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
 }
@@ -454,6 +460,7 @@ void igQtMainWindow::initAllFilters() {
             ok = triangulation->Execute();
 
             if (!ok) {
+                result = QString("网格简化算法只支持表面网格");
                 QMessageBox::information(this, "非表面网格", result);
                 dialog->close();
                 return;
@@ -470,6 +477,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = QString("执行出错");
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
@@ -574,6 +582,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = "算法执行错误";
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
