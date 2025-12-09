@@ -152,15 +152,15 @@ void igQtModelInformationWidget::updateInformationFrame() {
 QLabel* igQtModelInformationWidget::createLabel(const QString& text) {
     QLabel* label = new QLabel(text);
     label->setStyleSheet("font-weight: bold;");
-    label->setWordWrap(false);                                            // 禁用换行
-    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
+    label->setWordWrap(false);                                          // 禁用换行
+    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred); // 允许水平压缩
     return label;
 }
 
 QLabel* igQtModelInformationWidget::createPropertyLabel(const QString& name, const QString& value) {
     QLabel* label = new QLabel(QString("%1: %2").arg(name, value));
-    label->setWordWrap(false);                                            // 禁用换行
-    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);   // 允许水平压缩
+    label->setWordWrap(false);                                          // 禁用换行
+    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred); // 允许水平压缩
     return label;
 }
 QFrame* igQtModelInformationWidget::createSeparator() {

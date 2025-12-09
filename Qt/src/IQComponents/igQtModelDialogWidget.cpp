@@ -62,7 +62,10 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
     
     tabWidget->addTab(ui->ModelInformationWidget, "Model Info");
     tabWidget->addTab(ui->propertyWidget, "Model Properties");
-
+    QFont tabFont;
+    tabFont.setPointSize(12);
+    tabFont.setWeight(QFont::Bold);
+    tabWidget->setFont(tabFont);
     int totalWidth = parent->width() / 6;
 
     // 根据总宽度调整列宽

@@ -80,19 +80,8 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
-    QString family=LoadExternalFonts();
-    QString qss = QString(R"(
-            * {  /* 针对所有控件 */
-                font-family: "%1";  /* 强制使用外部字体 */
-                font-size: 12pt;    /* 覆盖大小 */
-                font-weight: normal;  /* 覆盖粗细 */
-            }
-            /* 可选：特定控件覆盖原有 */
-            QLabel { font-size: 14pt; }
-            QPushButton { font-weight: bold; }
-        )").arg(family);  // %1 替换为 familyName
-
-    setStyleSheet(qss);
+    LoadExternalFonts();
+    
 
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
@@ -1907,12 +1896,30 @@ QString igQtMainWindow::LoadExternalFonts() {
     }
 
     const QString family = families.first();
-    qDebug() << "Loaded font family:" << family;
+    QString qss = QString(R"(
+            * {  /* 针对所有控件 */
+                font-family: "%1";  /* 强制使用外部字体 */
+            }
+            QMenuBar {
+            font-weight: 500;  /* 粗体；可选：normal（正常）、light（细）、500（中等） */
+            font-size: 12pt;    /* 可选：同时改大小 */
+            }
+            QMenuBar::item {  /* 针对菜单项（子项）粗细 */
+                font-weight: 500;
+                padding: 2px 10px;  /* 可选：调整间距 */
+                background: transparent;
+            }
+            QMenu {  /* 可选：下拉菜单继承粗细 */
+                font-weight: 500;
+            }
+            #LayerDialog{
+                font-weight: 500;
+                font-size: 12pt;
+            }    
+        )").arg(family);  // %1 替换为 familyName
+        //“Model Info”和“Model Properties”在 igQtModelDialogWidget 中，需要单独设置样式
 
-    QFont appFont(family);
-    appFont.setPointSize(12); 
-
-    QApplication::setFont(appFont);
+    setStyleSheet(qss);
 
     return family;
 }
