@@ -123,8 +123,8 @@ bool Scene::Initialize() {
 
     // 添加中心坐标轴到模型池
     m_CenterAxesModel->AddViewStyle(
-            IG_WIREFRAME);                   // 添加线框视图样式（默认不显示线）
-    m_CenterAxesModel->SetAlwaysOnTop(true); // 设置为总在最上层
+            IG_WIREFRAME); // 添加线框视图样式（默认不显示线）
+    m_CenterAxesModel->SetAlwaysOnTop(true);    // 设置为总在最上层
     m_CenterAxesModel->ConvertToDrawableData(); // 初始化几何数据
     m_CenterAxesModel->SyncGpuBuffers();        // 上传GPU数据
     this->AddModel(m_CenterAxesModel);          // 加入模型池
@@ -1459,9 +1459,7 @@ void Scene::UpdateModelsBoundingSphere() {
         auto model = it->second;
 
         if (!model->GetVisibility()) { continue; }
-        //坐标轴不计算包围盒
         auto drawObject = DynamicCast<DrawObject>(model->GetDataObject());
-        if (drawObject->IsAlwaysOnTop()) { continue; }
         box.combine(model->GetDataObject()->GetBoundingBox());
         box.combine(model->GetPainter3D()->GetBoundingBox());
     }
