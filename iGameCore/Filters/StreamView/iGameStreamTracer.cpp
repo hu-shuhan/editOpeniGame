@@ -1353,7 +1353,7 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
         }
         auto CellData = mesh->GetAttributeSet();
         auto Vector = CellData->GetAttribute(vectorName);
-        if (Vector.type == IG_CELL) {
+        if (Vector.attachmentType == IG_CELL) {
             float v[4] = {0.0f};
             Vector.pointer->GetElement(VolumeId, v);
             finnal = Vector3f(v[0], v[1], v[2]);
