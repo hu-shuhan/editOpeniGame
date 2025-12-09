@@ -53,7 +53,7 @@ bool VolumeMeshMetricsFilter::Execute() {
     igIndex cellNum = m_Cells->GetNumberOfCells(); //总面数
 
     DoubleArray::Pointer metricArray = DoubleArray::New();
-    metricArray->SetName("Metric" + m_Metric);
+    metricArray->SetName("Metric" + std::to_string(m_Metric));
 
     metricArray->SetDimension(1);
     metricArray->Reserve(cellNum);
