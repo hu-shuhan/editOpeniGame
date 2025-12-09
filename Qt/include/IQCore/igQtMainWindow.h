@@ -96,6 +96,7 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QLabel* vortexMetricsLabel = nullptr;
+    void UpdateIcons();
 };
 
 

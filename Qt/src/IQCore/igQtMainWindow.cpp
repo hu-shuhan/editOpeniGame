@@ -69,10 +69,11 @@
 #include <QFontDatabase>
 #include <QMessageBox>
 #include <QSplitter>
-
+#include <QSize>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    UpdateIcons();
     initAllUnDefinedComponents();
     initToolbarComponent();
     initAllComponents();
@@ -1923,4 +1924,16 @@ QString igQtMainWindow::LoadExternalFonts() {
 
     return family;
 }
+void igQtMainWindow::UpdateIcons()
+{
+    int iconSize = 60;
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        // 设置 toolbar 的图标大小
+        tb->setIconSize(QSize(iconSize, iconSize));
 
+        // 保证 toolbar 高度足够
+        tb->setMinimumHeight(iconSize + 8);
+    }
+
+
+}
