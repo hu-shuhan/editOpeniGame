@@ -1272,6 +1272,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            this, [&](){
+                ui->widget_VectorField->drawV();
+            });
+
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
         SliceWidget->ClipModel();
 //        SliceWidget->UpdateOriginDataObject()
