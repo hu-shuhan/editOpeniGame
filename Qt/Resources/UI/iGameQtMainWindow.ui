@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1899</height>
+    <height>1902</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,7 +24,17 @@
     <normaloff>:/Ticon/Icons/iGameLogo.png</normaloff>:/Ticon/Icons/iGameLogo.png</iconset>
   </property>
   <property name="styleSheet">
-   <string/>
+   <string notr="true">QToolBar { qproperty-iconSize: 80px; }
+QToolBar QToolButton {
+    icon-size: 80px 80px;
+    min-width: 84px;
+    min-height: 84px;
+    max-width: 84px;
+    max-height: 84px;
+    margin: 2px;
+    padding: 0px;
+    spacing: 0px;
+}</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
@@ -70,21 +80,9 @@
      </property>
      <addaction name="action_TmpFile"/>
     </widget>
-    <addaction name="action_LoadFile"/>
     <addaction name="menu_RecentFiles"/>
-    <addaction name="separator"/>
-    <addaction name="action_SaveMesh"/>
     <addaction name="action_SaveMeshAs"/>
-    <addaction name="separator"/>
-    <addaction name="separator"/>
-    <addaction name="action_SaveScreenShot"/>
-    <addaction name="action_SaveAnimation"/>
-    <addaction name="separator"/>
-    <addaction name="separator"/>
-    <addaction name="separator"/>
     <addaction name="action_compress"/>
-    <addaction name="separator"/>
-    <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
     <addaction name="action_CS"/>
     <addaction name="action_C"/>
@@ -122,11 +120,11 @@
     <addaction name="menu_clip"/>
     <addaction name="separator"/>
    </widget>
-	  <widget class="QMenu" name="menu_filters">
-		  <property name="title">
-			  <string>算法处理</string>
-		  </property>
-	</widget>
+   <widget class="QMenu" name="menu_filters">
+    <property name="title">
+     <string>算法处理</string>
+    </property>
+   </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
      <string>帮助</string>
@@ -175,7 +173,11 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_LoadFile"/>
+   <addaction name="action_SaveMesh"/>
+   <addaction name="action_SaveScreenShot"/>
    <addaction name="separator"/>
+   <addaction name="action_SaveAnimation"/>
    <addaction name="action_DeleteMesh"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ModelList">
@@ -252,8 +254,8 @@
    </property>
    <property name="iconSize">
     <size>
-     <width>40</width>
-     <height>40</height>
+     <width>80</width>
+     <height>80</height>
     </size>
    </property>
    <attribute name="toolBarArea">
@@ -277,8 +279,8 @@
    </property>
    <property name="iconSize">
     <size>
-     <width>40</width>
-     <height>40</height>
+     <width>80</width>
+     <height>80</height>
     </size>
    </property>
    <attribute name="toolBarArea">
@@ -589,8 +591,8 @@
    </property>
    <property name="iconSize">
     <size>
-     <width>40</width>
-     <height>40</height>
+     <width>80</width>
+     <height>80</height>
     </size>
    </property>
    <attribute name="toolBarArea">
@@ -643,7 +645,7 @@
   </action>
   <action name="action_LoadFile">
    <property name="icon">
-    <iconset>
+    <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
    </property>
    <property name="text">
@@ -716,7 +718,6 @@
     <string>关于iGameMeshView</string>
    </property>
   </action>
-	 
   <action name="action_rotateNinetyCounterClockwise">
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
