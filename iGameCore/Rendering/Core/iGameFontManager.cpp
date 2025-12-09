@@ -33,7 +33,7 @@ void FontManager::RegisterWords(const wchar_t* text) {
     }
 
     FT_Select_Charmap(face, FT_ENCODING_UNICODE);
-    FT_Set_Pixel_Sizes(face, 0, 1024);
+    FT_Set_Pixel_Sizes(face, 0, 128);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     int lew_w = wcslen(text);
@@ -43,10 +43,13 @@ void FontManager::RegisterWords(const wchar_t* text) {
 
         // Skip registered word
         auto it = m_Characters.find(wchar);
-        if (it != m_Characters.end()) { continue; };
+        if (it != m_Characters.end()) { continue; }
 
         // Loading the glyphs for characters
-        if (FT_Load_Char(face, wchar, FT_LOAD_RENDER)) {
+        if (FT_Load_Char(face, wchar, FT_LOAD_DEFAULT)) {
+            IGAME_RENDERING_ERROR("FREETYPE: Failed to load Char");
+        }
+        if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL)) {
             IGAME_RENDERING_ERROR("FREETYPE: Failed to load Glyph");
         }
 
