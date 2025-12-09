@@ -91,6 +91,9 @@ private slots:
     //void changePointsSelectionInteractor();
     //void changeFaceSelectionInteractor();
     //void changeFacesSelectionInteractor();
+    void UpdateIcons();
+    QString LoadExternalFonts();
+
 
 private:
     Ui::MainWindow* ui;

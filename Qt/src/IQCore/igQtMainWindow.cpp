@@ -207,12 +207,12 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
-        int R = 0, G = 0, B = 0;
-        if (dialog.exec() == QDialog::Accepted) {
-            auto input = dialog.getInput();
-            R = input[0], G = input[1], B = input[2];
-        }
-        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+      int R = 0, G = 0, B = 0;
+      if (dialog.exec() == QDialog::Accepted) {
+          auto input = dialog.getInput();
+          R = input[0], G = input[1], B = input[2];
+          iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+      }
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
@@ -918,10 +918,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
-    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_FlowField->show();
-        ui->widget_FlowField->updateVectorNameList();
-    });
+
+//    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
+//        ui->dockWidget_FlowField->show();
+//        ui->widget_FlowField->updateVectorNameList();
+//    });
+
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
@@ -1913,3 +1915,42 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+
+QString igQtMainWindow::LoadExternalFonts() {
+    int fontId = QFontDatabase::addApplicationFont(":/Styles/Styles/SourceHanSansCN-Normal.otf");
+    if (fontId == -1) {
+        qWarning() << "Failed to load font from resource :/Styles/SourceHanSansCN-Normal.otf";
+        return QString();
+    }
+
+    const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
+    if (families.isEmpty()) {
+        qWarning() << "No font families found in loaded font.";
+        return QString();
+    }
+
+    const QString family = families.first();
+    qDebug() << "Loaded font family:" << family;
+
+    QFont     appFont(family);
+    appFont.setPointSize(12);
+
+    QApplication::setFont(appFont);
+
+    return family;
+}
+void igQtMainWindow::UpdateIcons()
+{
+    int iconSize = 60;
+
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        // 设置 toolbar 的图标大小
+        tb->setIconSize(QSize(iconSize, iconSize));
+
+        // 保证 toolbar 高度足够
+        tb->setMinimumHeight(iconSize + 8);
+    }
+
+
+}

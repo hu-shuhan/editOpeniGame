@@ -30,7 +30,6 @@ public:
     // static Pointer New() { return new FileReader; }
 
 
-
     bool Execute() override;
 
     void SetFilePath(const std::string& filePath);

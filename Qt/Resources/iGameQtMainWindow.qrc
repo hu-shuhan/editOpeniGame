@@ -57,6 +57,7 @@
         <file>Icons/select/eye-close.png</file>
         <file>Icons/select/hex.png</file>
         <file>Icons/select/point.png</file>
+        <file>Icons/Open.png</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
@@ -66,4 +67,8 @@
         <file>UI/igStreamTracer.ui</file>
         <file>Icons/Chart.png</file>
     </qresource>
+    <qresource prefix="/Styles">
+        <file>Styles/SourceHanSansCN-Normal.otf</file>
+    </qresource>
+
 </RCC>
