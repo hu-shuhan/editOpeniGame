@@ -30,8 +30,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
 
-    numOfSeeds = 200;
-    ui->numOfSeedLineEdit->setText("200");
+    numOfSeeds = 150;
+    ui->numOfSeedLineEdit->setText("150");
     control = 0;
     haveClicked = false;
     //	 proportion = 0.35;
@@ -276,10 +276,12 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         //seeds = streamtracer->getModelSelect();
     } else {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);

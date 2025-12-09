@@ -165,6 +165,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
+    
     // Setup default GUI layout.
     //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
@@ -350,9 +351,9 @@ void igQtMainWindow::initAllComponents() {
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
         if (saved_image.save(path, "BMP")) {
-            QMessageBox::information(this, "", "保存成功");
+            QMessageBox::information(this, "截图结果", "保存成功");
         } else {
-            QMessageBox::information(this, "", "保存失败");
+            QMessageBox::information(this, "截图结果", "保存失败");
         }
     });
 
@@ -412,6 +413,11 @@ void igQtMainWindow::initAllComponents() {
         }
     });
 
+    connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
+        DeformationDockWidget->show();
+    });
+
+
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
 }
@@ -454,6 +460,7 @@ void igQtMainWindow::initAllFilters() {
             ok = triangulation->Execute();
 
             if (!ok) {
+                result = QString("网格简化算法只支持表面网格");
                 QMessageBox::information(this, "非表面网格", result);
                 dialog->close();
                 return;
@@ -470,6 +477,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = QString("执行出错");
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
@@ -574,6 +582,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = "算法执行错误";
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
@@ -651,13 +660,11 @@ void igQtMainWindow::initAllFilters() {
     //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-    //    auto filter = iGame::StressDeformationCodeFilter::New();
-    //    obj->GetDeformationData()->SetAttributeName("UVW");
+    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
+    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
     //    filter->SetInput(obj);
-    //    filter->CalculateIdealDSF();
     //    filter->Execute();
 
-    //    auto res = filter->GetOutput(0);
     //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
     //    rendererWidget->update();
     //    });
@@ -1199,7 +1206,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
+    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&]() {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
     });
@@ -1234,8 +1241,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
-    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
-            &igQtAnimationWidget::initAnimationComponents);
+    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
+        ui->widget_Animation->initAnimationComponents();
+    });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
@@ -1261,6 +1269,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
+        SliceWidget->ClipModel();
+//        SliceWidget->UpdateOriginDataObject()
+    });
 //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
 //            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
@@ -1611,6 +1624,14 @@ void igQtMainWindow::initAllInteractor() {
             default:
                 break;
         }
+    });
+    connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetSelectItemShow, this, [&](bool visiable) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (model == nullptr) return;
+        auto selection = model->GetSelection();
+        if (selection == nullptr) return;
+        selection->SetSelectItemVisable(visiable);
+        rendererWidget->update();
     });
     connect(ui->widget_SelectionField, &igQtSelectionWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
