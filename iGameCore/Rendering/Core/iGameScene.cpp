@@ -822,7 +822,8 @@ void Scene::DrawFrame() {
             glClearColor(m_BackgroundColor.r, m_BackgroundColor.g,
                          m_BackgroundColor.b, 1.0f);
             glClearDepth(depth); // reversed-z: near=1.0, far=0.0
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                    GL_STENCIL_BUFFER_BIT);
         };
 
         // Clear default framebuffer before rendering
@@ -833,19 +834,6 @@ void Scene::DrawFrame() {
         m_FramebufferMultisampled->Bind();
         ClearFramebuffer();
 #endif
-
-        // Draw scene painter
-        glViewport(0, 0, viewport.x, viewport.y);
-        m_Painter2D->Draw();
-        m_Painter3D->Draw();
-
-        // Draw axes in bottom left
-        if(m_AxesVisible){
-            int mx = std::max(viewport.x, viewport.y);
-            glViewport(0, 0, mx / 10, mx / 10);
-            m_Axes->Draw();
-        }
-
 
         // Render to framebuffer
         glViewport(0, 0, viewport.x, viewport.y);
@@ -861,6 +849,16 @@ void Scene::DrawFrame() {
             VolumeRenderingPass();
         }
 #endif
+
+        // Since painter 2D is always in the top
+        m_Painter2D->Draw();
+
+        // Draw axes in bottom left
+        if (m_AxesVisible) {
+            int mx = std::max(viewport.x, viewport.y);
+            glViewport(0, 0, mx / 10, mx / 10);
+            m_Axes->Draw();
+        }
     }
 }
 
@@ -930,7 +928,7 @@ void Scene::ResolveFrameBuffer() {
 void Scene::ShadowPass() {
     // use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
+    glDepthFunc(GL_GREATER);
 
     glDisable(GL_DEPTH_TEST);
 
@@ -939,8 +937,8 @@ void Scene::ShadowPass() {
 
 void Scene::ForwardPass() {
     // Use reversed-z buffer
-    glDepthFunc(GL_GREATER);
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
 
 #ifdef IGAME_OPENGL_VERSION_330
     BindFramebuffer();
@@ -1017,6 +1015,7 @@ void Scene::ForwardPass() {
 
         // refresh phase1: generate loacl hierarchical z-buffer
         RefreshHzb();
+
         // draw phase2: draw invisible meshlet
         BindFramebuffer();
         RefreshDrawCullDataBuffer();
@@ -1030,6 +1029,10 @@ void Scene::ForwardPass() {
     }
     #endif
 #endif
+
+    // Draw scene painter
+    BindFramebuffer();
+    m_Painter3D->Draw();
 
     ResolveFrameBuffer();
     glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
@@ -1115,6 +1118,7 @@ void Scene::VolumeRenderingPass() {
     // use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
+    glDisable(GL_BLEND);
 
     // 1.reset oit pipeline status
     {
@@ -1355,9 +1359,7 @@ void Scene::ToggleCenterAxes() {
     m_CenterAxesVisible = !m_CenterAxesVisible;
     m_CenterAxesModel->SetVisibility(m_CenterAxesVisible);
 }
-void Scene::ToggleAxes() {
-    m_AxesVisible = !m_AxesVisible;
-}
+void Scene::ToggleAxes() { m_AxesVisible = !m_AxesVisible; }
 
 SmartPointer<CenterAxesModel> Scene::GetCenterAxesModel() const {
     return m_CenterAxesModel;
