@@ -37,6 +37,14 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
     } else if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
+        auto numOfCells = mesh->GetNumberOfVolumes();
+        for (int i = 0; i < numOfCells; ++i) { 
+            auto vol = mesh->GetVolume(i);
+            if (vol->GetCellType() == IG_POLYHEDRON) { 
+                mesh->SetIsPolyhedronType(true);
+                break;
+            }
+        }
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
@@ -46,24 +54,32 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->RequestEditStatus();
         } else {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            mesh->SetShouldBuildEageLinks(false);
-            mesh->SetShouldBuildFaceLinks(false);
-            mesh->SetShouldBuildFaceEageLinks(false);
-            mesh->SetShouldBuildVolumeFaceLinks(false);
-            mesh->SetShouldBuildVolumeEageLinks(false);
-            // mesh->InitPolyhedronVertices();
+           // mesh->SetShouldBuildEageLinks(false);
+           // mesh->SetShouldBuildFaceLinks(false);
+           // mesh->SetShouldBuildFaceEageLinks(false);
+           // mesh->SetShouldBuildVolumeFaceLinks(false);
+           // mesh->SetShouldBuildVolumeEageLinks(false);
+             mesh->InitPolyhedronVertices();
         }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
+        auto numOfCells = mesh->GetNumberOfVolumes();
+        for (int i = 0; i < numOfCells; ++i) {
+            auto vol = mesh->GetVolume(i);
+            if (vol->GetCellType() == IG_POLYHEDRON) {
+                mesh->SetIsPolyhedronType(true);
+                break;
+            }
+        }
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            mesh->ClearAllLinks();
+            //mesh->ClearAllLinks();
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
@@ -72,7 +88,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             //mesh->SetShouldBuildFaceEageLinks(false);
             //mesh->SetShouldBuildVolumeFaceLinks(false);
             //mesh->SetShouldBuildVolumeEageLinks(false);
-            //  mesh->InitPolyhedronVertices();
+             mesh->InitPolyhedronVertices();
         }
 
     } else {
@@ -278,6 +294,7 @@ bool StreamTracer::Execute() {
 
 
 
+    currentV = std::move(GetUnifiedVectorField(m_VectorName));
 
     // 使用内部存储的参数调用原始计算逻辑
     std::vector<std::vector<float>> streamColor;
@@ -1334,27 +1351,26 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
             std::unique_lock<std::shared_mutex> lock(rwMutex);
             cellBoundLength[VolumeId] = longest;
         }
-
-        if (mesh->GetIsPolyhedronType()) {
-            auto CellData = mesh->GetAttributeSet();
-            auto Vector = CellData->GetAttribute(vectorName);
-            if (Vector.type == IG_CELL) {
-                float v[4] = {0.0f};
-                Vector.pointer->GetElement(VolumeId, v);
-                finnal = Vector3f(v[0], v[1], v[2]) ;
-            } else {
-                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed)
-                                ;
-            }
-        } else if (size == 4) {
-            finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed) ;
-        } else if (size == 8) {
-            finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed);
-        } else {
-            finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed) 
-                     ;
+        auto CellData = mesh->GetAttributeSet();
+        auto Vector = CellData->GetAttribute(vectorName);
+        if (Vector.type == IG_CELL) {
+            float v[4] = {0.0f};
+            Vector.pointer->GetElement(VolumeId, v);
+            finnal = Vector3f(v[0], v[1], v[2]);
         }
-    } else {
+        if (mesh->GetIsPolyhedronType()) {
+                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed);
+        } 
+        else  {
+            if (size == 4) { finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed); }
+            else if (size == 8) {
+                finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed);
+            }
+            else { finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed); }
+        }
+
+    } 
+    else {
         std::vector<igIndex> tem;
         int temIndex = 0;
         double minD = DBL_MAX;
@@ -1688,9 +1704,10 @@ Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bo
     auto VectorData = mesh->GetAttributeSet();
     auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < size; ++i) {
-        double _v[4] = {0.0f};
-        Vector.pointer->GetElement(volume[i], _v);
-        Vector3f V(_v[0], _v[1], _v[2]);
+        //double _v[4] = {0.0f};
+        //Vector.pointer->GetElement(volume[i], _v);
+        //Vector3f V(_v[0], _v[1], _v[2]);
+        auto V = currentV[volume[i]];
         finnal += V * weights[i];
     }
     if (finnal.length() < terminalSpeed) { inside = false; }

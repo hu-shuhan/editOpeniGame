@@ -83,7 +83,9 @@ public:
     float maxF = FLT_MIN;
     float minF = FLT_MAX;
     bool CellData2PointData(std::string vectorName);
-    void SetMesh(VolumeMesh::Pointer _mesh) { this->mesh = _mesh; };
+    void SetMesh(VolumeMesh::Pointer _mesh) { 
+        std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
+        this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
     void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
     void AddPtFinder(PointFinder::Pointer ptf) { this->ptFinder.emplace_back(ptf); };

@@ -276,10 +276,12 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         //seeds = streamtracer->getModelSelect();
     } else {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);

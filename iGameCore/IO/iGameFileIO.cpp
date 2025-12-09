@@ -152,7 +152,8 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     isvector = false;
                 }
             }
-        } else if (name[name.length() - 1] == '0') {
+        } 
+        else if (name[name.length() - 1] == '0') {
             isvector = true;
             int j = 1;
             for (j = 1; j < 3; j++) {
@@ -161,7 +162,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     break;
                 }
                 auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
-                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                if (tmpName[tmpName.length() - 1] != '0' + j ||
                     Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
                     Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
                     isvector = false;
@@ -176,7 +177,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                     break;
                 }
                 auto tmpName = Attrs->GetAttribute(i + j).pointer->GetName();
-                if (tmpName[tmpName.length() - 1] != 'X' + j ||
+                if (tmpName[tmpName.length() - 1] != '1' + j ||
                     Attrs->GetAttribute(i + j).GetAttachmentType() != attr.GetAttachmentType() ||
                     Attrs->GetAttribute(i + j).GetType() != IG_SCALAR) {
                     isvector = false;
@@ -192,7 +193,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 Vector->SetName(name.substr(0, name.length() - 2));
             } else
                 Vector->SetName(name.substr(0, name.length() - 1));
-            Vector->SetName(name.substr(0, name.length() - 1));
+           // Vector->SetName(name.substr(0, name.length() - 1));
             Vector->SetDimension(3);
             Vector->Resize(attr.pointer->GetNumberOfElements());
             float* vector = Vector->RawPointer();
@@ -216,7 +217,7 @@ static AttributeSet::Pointer TransformScalars2VectorArray(AttributeSet* Attrs) {
                 newDataRange->SetElement(j + 1, scalarData->RawPointer());
             }
             /* 计算Vector 维度的Magnitude*/
-            double maxMagnitude = DBL_MIN, minMagnitude = DBL_MAX;
+            double maxMagnitude = 0, minMagnitude = DBL_MAX;
             for (int k = 0; k < Vector->GetNumberOfValues(); k += 3) {
                 double curMagnitude = std::sqrt(vector[k + 0] * vector[k + 0] + vector[k + 1] * vector[k + 1]  + vector[k + 2] * vector[k + 2]);
                maxMagnitude = std::max(maxMagnitude, curMagnitude);

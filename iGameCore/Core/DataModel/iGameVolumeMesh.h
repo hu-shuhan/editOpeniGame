@@ -275,6 +275,7 @@ public:
         this->IsPolyhedronType = true;
     }
     bool GetIsPolyhedronType() { return this->IsPolyhedronType; }
+    void SetIsPolyhedronType(bool flag) { this->IsPolyhedronType = flag; }
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
     bool GetClipped() override { return true; }

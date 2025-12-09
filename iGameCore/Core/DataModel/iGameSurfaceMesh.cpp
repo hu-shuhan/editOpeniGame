@@ -131,7 +131,7 @@ void SurfaceMesh::BuildEdges() {
 }
 
 void SurfaceMesh::BuildEdgeLinks() {
-    if (m_EdgeLinks && m_EdgeLinks->GetMTime() > m_Edge->GetMTime()) { return; }
+    if (m_EdgeLinks && m_EdgeLinks->GetMTime() > m_Edges->GetMTime()) { return; }
 
     m_EdgeLinks = CellLinks::New();
     IGsize npts = GetNumberOfPoints();
