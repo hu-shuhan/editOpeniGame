@@ -25,7 +25,9 @@ public:
 	}
 
 	void Initialize() {
-		if (!m_Points) { return; }
+        if (!m_Points) {
+            std::cout << "no points" << std::endl;
+			return; }
 		// m_NumberOfPointsPerBox = m_Threshold * m_Points->GetNumberOfPoints();
         m_NumberOfPointsPerBox = std::sqrt(m_Points->GetNumberOfPoints());
 		int numBoxes = m_Points->GetNumberOfPoints() / m_NumberOfPointsPerBox;
@@ -66,7 +68,9 @@ public:
 		}
 	}
 	void Initialize(Points::Pointer points, BoundingBox bound, int NumberOfPointsPerBox, int numBoxes) {
-		if (!points) { return; }
+		if (!points) {
+            std::cout << "no points" << std::endl;
+			return; }
 		m_Points = points;
 		m_NumberOfPointsPerBox = NumberOfPointsPerBox;
 		m_Depth = std::ceil(std::log10(numBoxes) / std::log10(8));
