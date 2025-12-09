@@ -703,7 +703,7 @@ void Selection::DrawPoints() {
     if (m_Model == nullptr) return;
     auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
     painter->Clear();
     auto pNum = mesh->GetNumberOfPoints();
