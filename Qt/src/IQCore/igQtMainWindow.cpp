@@ -1881,14 +1881,12 @@ void igQtMainWindow::initAllInteractor() {
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
 
 QString igQtMainWindow::LoadExternalFonts() {
-    // 1. 从 Qt 资源系统中加载字体
     int fontId = QFontDatabase::addApplicationFont(":/Styles/Styles/SourceHanSansCN-Normal.otf");
     if (fontId == -1) {
         qWarning() << "Failed to load font from resource :/Styles/SourceHanSansCN-Normal.otf";
         return QString();
     }
 
-    // 2. 取出该字体里提供的字体族名称
     const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
     if (families.isEmpty()) {
         qWarning() << "No font families found in loaded font.";
@@ -1898,9 +1896,8 @@ QString igQtMainWindow::LoadExternalFonts() {
     const QString family = families.first();
     qDebug() << "Loaded font family:" << family;
 
-    // 3. 设置为应用默认字体（接管所有未单独设置字体的控件）
     QFont appFont(family);
-    appFont.setPointSize(9); // 这里可以根据你界面习惯改字号
+    appFont.setPointSize(9); 
 
     QApplication::setFont(appFont);
 
