@@ -79,7 +79,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         AddPtFinder(temPtFinder);
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            //mesh->ClearAllLinks();
+            mesh->ClearAllLinks();
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
