@@ -35,6 +35,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
     if (meshId == model->GetDataObject()->GetDataObjectId()) {
 
     } else if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+        std::cout << "is UnstructuredMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
         auto numOfCells = mesh->GetNumberOfVolumes();
@@ -42,6 +43,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             auto vol = mesh->GetVolume(i);
             if (vol->GetCellType() == IG_POLYHEDRON) { 
                 mesh->SetIsPolyhedronType(true);
+                std::cout << "set is poly" << std::endl;
                 break;
             }
         }
@@ -49,6 +51,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->RequestEditStatus();
@@ -63,6 +66,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
+        std::cout << "is VolumeMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
         auto numOfCells = mesh->GetNumberOfVolumes();
@@ -70,6 +74,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             auto vol = mesh->GetVolume(i);
             if (vol->GetCellType() == IG_POLYHEDRON) {
                 mesh->SetIsPolyhedronType(true);
+                std::cout << "set is poly" << std::endl;
                 break;
             }
         }
@@ -77,6 +82,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->ClearAllLinks();
@@ -92,6 +98,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         }
 
     } else {
+        std::cout << "is subdata" << std::endl;
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
             isSubModel = true;
@@ -763,6 +770,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
             auto Vector = PointData->GetAttribute(vectorName);
+            std::cout << "Vector type is:" << Vector.attachmentType << std::endl;
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
