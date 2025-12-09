@@ -53,10 +53,12 @@ bool VolumeMeshMetricsFilter::Execute() {
     igIndex cellNum = m_Cells->GetNumberOfCells(); //总面数
 
     DoubleArray::Pointer metricArray = DoubleArray::New();
+    metricArray->SetName("Metric" + m_Metric);
 
     metricArray->SetDimension(1);
     metricArray->Reserve(cellNum);
     DoubleArray::Pointer dataRange = DoubleArray::New();
+    
     dataRange->AddValue(0.0);
     dataRange->AddValue(1.0);
     dataRange->AddValue(0.0);
@@ -66,10 +68,9 @@ bool VolumeMeshMetricsFilter::Execute() {
         double metric = this->ComputeMetric(vNum, vhs); // 计算质量指标
         metricArray->AddValue(metric);                  // 存储结果
     }
-
-    auto output = input;
-    output->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, metricArray);
-    this->SetOutput(output);
+    
+    input->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, metricArray);
+    this->SetOutput(input);
     return true;
 }
 
