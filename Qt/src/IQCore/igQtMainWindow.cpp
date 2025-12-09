@@ -80,7 +80,20 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();
-    LoadExternalFonts();
+    QString family=LoadExternalFonts();
+    QString qss = QString(R"(
+            * {  /* 针对所有控件 */
+                font-family: "%1";  /* 强制使用外部字体 */
+                font-size: 12pt;    /* 覆盖大小 */
+                font-weight: normal;  /* 覆盖粗细 */
+            }
+            /* 可选：特定控件覆盖原有 */
+            QLabel { font-size: 14pt; }
+            QPushButton { font-weight: bold; }
+        )").arg(family);  // %1 替换为 familyName
+
+    setStyleSheet(qss);
+
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
@@ -1897,9 +1910,10 @@ QString igQtMainWindow::LoadExternalFonts() {
     qDebug() << "Loaded font family:" << family;
 
     QFont appFont(family);
-    appFont.setPointSize(9); 
+    appFont.setPointSize(12); 
 
     QApplication::setFont(appFont);
 
     return family;
 }
+
