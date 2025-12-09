@@ -28,7 +28,7 @@ FileWriter::~FileWriter()
 }
 bool FileWriter::Execute()
 {
-	this->m_DataObject = this->m_Inputs->GetElement(0);
+//	this->m_DataObject = this->m_Inputs->GetElement(0);
 	if(!m_DataObject){
 		igDebug("could not write nullptr object!");
 		return false;
