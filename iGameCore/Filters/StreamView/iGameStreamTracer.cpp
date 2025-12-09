@@ -1358,7 +1358,7 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
             Vector.pointer->GetElement(VolumeId, v);
             finnal = Vector3f(v[0], v[1], v[2]);
         }
-        if (mesh->GetIsPolyhedronType()) {
+        else if (mesh->GetIsPolyhedronType()) {
                 finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed);
         } 
         else  {
