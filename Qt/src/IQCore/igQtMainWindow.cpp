@@ -1199,7 +1199,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     });
     connect(SliceWidget, &igQtModelClipWidget::DrawClipModel, this,
             [&](DrawObject::Pointer mesh) { modelTreeWidget->addDataObjectToModelTree(mesh, ItemSource::Algorithm); });
-    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&](DrawObject::Pointer mesh) {
+    connect(SliceWidget, &igQtModelClipWidget::UpdateClipModel, this, [&]() {
         modelTreeWidget->updateCurrentModelInfo();
         rendererWidget->update();
     });
@@ -1234,8 +1234,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
-    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
-            &igQtAnimationWidget::initAnimationComponents);
+    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
+        ui->widget_Animation->initAnimationComponents();
+    });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
 
@@ -1261,6 +1262,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
+        SliceWidget->ClipModel();
+//        SliceWidget->UpdateOriginDataObject()
+    });
 //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
 //            DeformationWidget, &igQtDeformationWidget::updateInfo);
 

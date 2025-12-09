@@ -211,3 +211,6 @@ void igQtModelClipWidget::ClipModel() {
             break;
     }
 }
+void igQtModelClipWidget::UpdateOriginDataObject(iGame::DataObject::Pointer _origin_ptr) {
+    m_OriginDataObject = _origin_ptr;
+}
