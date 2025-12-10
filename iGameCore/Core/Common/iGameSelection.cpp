@@ -426,6 +426,12 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             DrawCellEdges();
         } break;
         case IG_POINT_BOX: {
+            if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
+                for (auto& id: ids) { AddItem(IG_POINT, id, ope); }
+                for (auto& func: m_CallBackFunctor) { func.second(IG_POINT, ids, ope); }
+                DrawPoints();
+                break;
+            }
             std::pair<Point, Point> pMinMax;
             if (m_Model == nullptr) return;
             auto dataObj = m_Model->GetDataObject();
@@ -475,6 +481,12 @@ void Selection::SelectionCallBackEvent(IGenum itemType, const std::vector<igInde
             for (auto& func: m_BoxSelectInitCallBackFunctor) { func.second(itemType, pMinMax.first, pMinMax.second); }
         } break;
         case IG_CELL_BOX: {
+            if (SelectionParameter::Instance().GetSelectionRadius() == 0) {
+                for (auto& id: ids) { AddItem(IG_CELL, id, ope); }
+                for (auto& func: m_CallBackFunctor) { func.second(IG_CELL, ids, ope); }
+                DrawCellEdges();
+                break;
+            }
             std::pair<Point, Point> pMinMax;
             if (m_Model == nullptr) return;
             auto dataObj = m_Model->GetDataObject();
@@ -691,7 +703,7 @@ void Selection::DrawPoints() {
     if (m_Model == nullptr) return;
     auto mesh = DynamicCast<PointSet>(m_Model->GetDataObject());
     if (mesh == nullptr) return;
-    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedCell);
+    auto painter = m_Model->GetPainter3D(Painter3D::Usage::SelectedPoint);
     if (painter == nullptr) return;
     painter->Clear();
     auto pNum = mesh->GetNumberOfPoints();

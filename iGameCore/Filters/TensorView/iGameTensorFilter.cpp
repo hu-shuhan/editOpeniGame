@@ -169,6 +169,7 @@ DoubleArray::Pointer iGameTensorFilter::GenerateVectorField() {
 void iGameTensorFilter::UpdateTensorObject() { 
     if (m_TensorObject == nullptr) {
         m_TensorObject = iGame::SurfaceMesh::New();
+        m_TensorObject->SetName(this->GetInput(0)->GetName() + "_Tensor");
     }
 
     iGame::CellArray::Pointer Faces = iGame::CellArray::New();
