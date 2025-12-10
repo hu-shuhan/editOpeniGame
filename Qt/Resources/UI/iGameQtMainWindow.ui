@@ -78,6 +78,10 @@ QToolBar QToolButton {
      <property name="title">
       <string>最近文件</string>
      </property>
+     <property name="icon">
+      <iconset resource="../iGameQtMainWindow.qrc">
+       <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
+     </property>
      <addaction name="action_TmpFile"/>
     </widget>
     <addaction name="menu_RecentFiles"/>
@@ -94,6 +98,10 @@ QToolBar QToolButton {
     <widget class="QMenu" name="menu_clip">
      <property name="title">
       <string>切割</string>
+     </property>
+     <property name="icon">
+      <iconset resource="../iGameQtMainWindow.qrc">
+       <normaloff>:/Ticon/Icons/Slice.png</normaloff>:/Ticon/Icons/Slice.png</iconset>
      </property>
      <addaction name="action_ResetClipping"/>
      <addaction name="separator"/>
@@ -964,6 +972,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_ModelPick">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/select/selectView.png</normaloff>:/Ticon/Icons/select/selectView.png</iconset>
+   </property>
    <property name="text">
     <string>点选模式</string>
    </property>
@@ -1106,6 +1118,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_SaveMeshAs">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/SaveFile.png</normaloff>:/Ticon/Icons/SaveFile.png</iconset>
+   </property>
    <property name="text">
     <string>另存为</string>
    </property>
