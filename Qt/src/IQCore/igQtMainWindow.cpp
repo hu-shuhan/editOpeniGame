@@ -417,6 +417,15 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
         DeformationDockWidget->show();
     });
+    connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
+        if(!ui->dockWidget_FlowField->isVisible()){
+            ui->dockWidget_FlowField->show();
+            ui->widget_FlowField->updateVectorNameList();
+        } else {
+            ui->dockWidget_FlowField->hide();
+        }
+
+    });
 
 
     initAllDockWidgetConnectWithAction();

@@ -67,7 +67,7 @@ QToolBar QToolButton {
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>34</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -604,6 +604,10 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_Vector">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/Glyph.png</normaloff>:/Ticon/Icons/Glyph.png</iconset>
+   </property>
    <property name="text">
     <string>矢量场</string>
    </property>
@@ -917,11 +921,19 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_FlowField">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/StreamTracer.png</normaloff>:/Ticon/Icons/StreamTracer.png</iconset>
+   </property>
    <property name="text">
     <string>时序流场</string>
    </property>
   </action>
   <action name="action_ExportAnimation">
+   <property name="icon">
+    <iconset resource="../iGameQtMainWindow.qrc">
+     <normaloff>:/Ticon/Icons/animation_save_vcr.png</normaloff>:/Ticon/Icons/animation_save_vcr.png</iconset>
+   </property>
    <property name="text">
     <string>动画输出可视化</string>
    </property>

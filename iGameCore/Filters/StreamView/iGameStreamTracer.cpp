@@ -39,14 +39,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
         auto numOfCells = mesh->GetNumberOfVolumes();
-        for (int i = 0; i < numOfCells; ++i) { 
-            auto vol = mesh->GetVolume(i);
-            if (vol->GetCellType() == IG_POLYHEDRON) { 
-                mesh->SetIsPolyhedronType(true);
-                std::cout << "set is poly" << std::endl;
-                break;
-            }
-        }
+
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
@@ -70,14 +63,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
         auto numOfCells = mesh->GetNumberOfVolumes();
-        for (int i = 0; i < numOfCells; ++i) {
-            auto vol = mesh->GetVolume(i);
-            if (vol->GetCellType() == IG_POLYHEDRON) {
-                mesh->SetIsPolyhedronType(true);
-                std::cout << "set is poly" << std::endl;
-                break;
-            }
-        }
+
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
@@ -770,6 +756,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
             auto Vector = PointData->GetAttribute(vectorName);
+            std::cout << "Vector type is:" << Vector.attachmentType << std::endl;
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
@@ -2160,6 +2147,12 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
         for (size_t i = chunk_start; i < chunk_end; i++) {
             int vetex_size = cellData->GetCellIds(i, cell);
+            if (i == 0) {
+                for (int j = 0; j < vetex_size; ++j) { 
+                    std::cout << "cell id::::" << cell[j] << std::endl;
+                }
+                std::cout << "vetex" << vetex_size << std::endl;
+            }
             for (int j = 0; j < vetex_size; j++) {
                 if (cell[j] < vetexNum) { vetex_link.offset[cell[j] + 1]++; }
             }
