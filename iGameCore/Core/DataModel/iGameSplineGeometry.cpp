@@ -36,7 +36,13 @@ void SplineGeometry::ComputeBoundingBox() {
 }
 
 void SplineGeometry::ConvertToDrawableData() {
-    if (m_Geometry->GetMTime() > m_Positions->GetMTime()) {
+    bool needReConvertGeometry = m_ReConvertToDrawableData;
+    needReConvertGeometry |= m_Geometry->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    bool needReConvertScalar = needReConvertGeometry;
+    needReConvertScalar |= m_AttributeHelper->GetMTime() > m_ReConvertHelper->GetMTime();
+
+    if (needReConvertGeometry) {
         if (m_Geometry->GetPatchSize() == 0) { return; }
 
         if (m_Geometry->GetType() == SplineUtils::Type::CURVE) {
@@ -49,7 +55,9 @@ void SplineGeometry::ConvertToDrawableData() {
     }
 
     // convert scalar data
-    if (m_AttributeHelper->GetMTime() > m_Colors->GetMTime()) {
+    bool updateColorMapper = m_ColorMapper->GetMTime() > m_ReConvertHelper->GetMTime();
+    if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
+        m_AttributeChanged = false;
         if (m_AttributeIndex == -1) {
             m_UseColor = false;
             m_ColorWithCell = false;
@@ -60,14 +68,12 @@ void SplineGeometry::ConvertToDrawableData() {
             if (!attr.isDeleted && attr.attachmentType == IG_POINT) {
                 m_ColorWithCell = false;
                 // this->SetAttributeWithPointData(attr.pointer, attr.dataRange, m_AttributeDimension);
-                if (m_ColorMapper->GetMTime() > this->GetMTime()) {
-                    double minimal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 0);
-                    double maximal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 1);
-                    if (minimal_val < maximal_val) {
-                        m_ColorMapper->SetRange(minimal_val, maximal_val);
-                    } else {
-                        m_ColorMapper->InitRange(m_ScalarArray, m_AttributeDimension);
-                    }
+                double minimal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 0);
+                double maximal_val = attr.dataRange->GetValue(2 + m_AttributeDimension * 2 + 1);
+                if (minimal_val < maximal_val) {
+                    m_ColorMapper->SetRange(minimal_val, maximal_val);
+                } else {
+                    m_ColorMapper->InitRange(m_ScalarArray, m_AttributeDimension);
                 }
                 m_Colors = m_ColorMapper->MapScalars(m_ScalarArray, m_AttributeDimension);
                 m_Colors->Modified();
@@ -75,6 +81,9 @@ void SplineGeometry::ConvertToDrawableData() {
             }
         }
     }
+
+    m_ReConvertToDrawableData = false;
+    m_ReConvertHelper->Modified();
 }
 
 void SplineGeometry::ConvertToCurveData() {
@@ -137,9 +146,9 @@ void SplineGeometry::ConvertToCurveData() {
         for (int u_id = 0; u_id < u_control_cnt; ++u_id) {
             auto v = patch->m_ControlPoints[u_id];
             points->AddPoint(v[0], v[1], v[2]);
+            pointIndices->AddValue(points->GetNumberOfPoints() - 1);
         }
     }
-    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 3. 传入控制顶点连线
     int patchOffset = 0;
@@ -238,10 +247,10 @@ void SplineGeometry::ConvertToSurfaceData() {
             for (int v_id = 0; v_id < v_control_cnt; ++v_id) {
                 auto v = patch->m_ControlPoints[u_id + v_id * u_control_cnt];
                 points->AddPoint(v[0], v[1], v[2]);
+                pointIndices->AddValue(points->GetNumberOfPoints() - 1);
             }
         }
     }
-    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     // 3. 传入控制顶点连线
     int patchOffset = 0;
@@ -622,6 +631,7 @@ void SplineGeometry::ConvertToVolumeData() {
                     for (int vid = 0; vid < 8; vid++) {
                         auto v = patch->m_ControlPoints[cube_id[vid]];
                         points->AddPoint(v[0], v[1], v[2]);
+                        pointIndices->AddValue(points->GetNumberOfPoints() - 1);
                     }
 
                     std::vector<std::vector<int>> edges = {
@@ -633,7 +643,6 @@ void SplineGeometry::ConvertToVolumeData() {
             }
         }
     }
-    for (int i = 0; i < points->GetNumberOfPoints(); i++) { pointIndices->AddValue(i); }
 
     m_Positions = points->ConvertToArray();
     m_Positions->Modified();
