@@ -231,25 +231,21 @@ std::vector<Vector3f> StreamTracer::getModelSelect() {
 std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName) {
     std::vector<Vector3f> result;
 
-    if (!mesh) return result;
 
     auto attr = mesh->GetAttributeSet();
-    if (!attr) return result;
-
     iGame::AttributeSet::Attribute& vec = attr->GetAttribute(vectorName);
-    if (!vec.pointer) return result;
+
 
     int numPoints = mesh->GetNumberOfPoints();
     int numVolumes = mesh->GetNumberOfVolumes();
 
     result.resize(numPoints, Vector3f(0, 0, 0));
 
-    if (vec.type == IG_CELL) {
-
+    if (vec.attachmentType == IG_CELL) {
+        std::cout << "vec is cell" << std::endl;
         for (int cellId = 0; cellId < numVolumes; cellId++) {
             igIndex pts[32]{};
             int n = mesh->GetVolumePointIds(cellId, pts);
-
             double cv[4] = {0};
             vec.pointer->GetElement(cellId, cv);
             Vector3f V(cv[0], cv[1], cv[2]);
@@ -260,7 +256,7 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
             }
         }
     } else {
-
+        std::cout << "vec is point" << std::endl;
         for (int i = 0; i < numPoints; i++) {
             double pv[4] = {0};
             vec.pointer->GetElement(i, pv);
@@ -283,9 +279,46 @@ bool StreamTracer::Execute() {
         m_ResultMesh = nullptr;
         return false;
     }
+    if (!mesh) {
+        std::cout << "No mesh" << std::endl;
+        return false;
+    }
+    auto attr = mesh->GetAttributeSet();
+    
+    if (!attr) { 
+        std::cout << "No attr" << std::endl;
+        return false; 
+    }
+    std::cout << "VectorName: " << m_VectorName << std::endl;
+    iGame::AttributeSet::Attribute& vec = attr->GetAttribute(m_VectorName);
+    if (vec.IsNone()) {
+        std::cout << "Vetor is none " << std::endl;
+        return false; 
+    }
+    if (vec.pointer->GetDimension() != 3) {
+        std::cout << "Vetor is not 3D " << std::endl;
+        return false; 
+    }
+
+    int numPoints = mesh->GetNumberOfPoints();
+    std::cout << "Point Num" << numPoints << std::endl;
+    int numVolumes = mesh->GetNumberOfVolumes();
+    std::cout << "Volume Num" << numVolumes << std::endl;
+    int numAttr = vec.pointer->GetNumberOfElements();
+    std::cout << "Attr Num" << numAttr << std::endl;
+    if (vec.attachmentType == IG_POINT) { 
+        if (numAttr != numPoints) { 
+            std::cout << "numAttr != numPoints" << std::endl;
+            return false; 
+        }
+    } else {
+        if (numAttr != numVolumes) {
+            std::cout << "numAttr != numVolumes" << std::endl;
+            return false;
+        }
+    }
+
     std::cout << "1111111111111" << std::endl;
-
-
 
     currentV = std::move(GetUnifiedVectorField(m_VectorName));
 
