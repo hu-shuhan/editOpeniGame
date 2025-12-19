@@ -659,19 +659,34 @@ void igQtMainWindow::initAllFilters() {
     //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
     //    rendererWidget->update();
     //    });
-    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
-    //    { 
-    //        CellArray::Pointer cellArray = CellArray::New();
-    //        clock_t start = clock();
-    //        igIndex cell[3]{};
-    //        cellArray->AddCellIds(cell, 2);
-    //        for (int i = 0; i < 10000000; i++) { 
-    //            cellArray->AddCellIds(cell, 3);
-    //        }
-    //        clock_t end = clock();
-    //        std::cout << end - start << std::endl;
+    connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+        { 
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto allAttributes = obj->GetAttributeSet()->GetAllAttributes();
+        iGame::ArrayObject::Pointer tensorData = nullptr;
+        for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+            auto attribute = allAttributes->GetElement(i);
+            if (attribute.type == IG_TENSOR && attribute.attachmentType == IG_POINT) { tensorData = attribute.pointer; }
+        }
+        if (!tensorData) {
+            std::cout << "No Tensor Data\n";
+            return 0;
+        }
+        auto m_TensorFilter = iGame::iGameTensorFilter::New();
+        //设置输入
+        m_TensorFilter->SetInput(obj);
+        //设置张量场数据，是3*3张量场,如果没有输入则会默认找网格的第一个张量场
+        m_TensorFilter->SetTensorAttributes(tensorData);
+        //设置显示图元类型，目前支持ELLIPSOID和CUBOID两种
+        m_TensorFilter->SetGlyphType(iGame::iGameTensorRepresentation::CUBOID);
+        //设置绘制精度
+        m_TensorFilter->SetSliceNum(5);
+        //设置图元缩放比例
+        m_TensorFilter->SetGlyphScale(0.02);
 
-    //    });
+        modelTreeWidget->addDataObjectToModelTree(m_TensorFilter->GetOutput(), Algorithm);
+        rendererWidget->update();
+        });
     QMenu* convert = ui->menu_filters->addMenu("Convert");
     connect(convert->addAction("Convert To PointData"), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -694,6 +709,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
