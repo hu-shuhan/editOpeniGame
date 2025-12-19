@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>981</width>
+    <width>991</width>
     <height>474</height>
    </rect>
   </property>
@@ -55,7 +55,7 @@
           <string>动画步长</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -75,7 +75,7 @@
           <string>关键帧数量</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -92,7 +92,7 @@
           <string>开始时间</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -109,7 +109,7 @@
           <string>结束时间</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -265,8 +265,8 @@
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="../iGameQtMainWindow.qrc">
-           <normaloff>:/Ticon/Icons/VcrDisabledLoop.png</normaloff>:/Ticon/Icons/VcrDisabledLoop.png</iconset>
+          <iconset>
+           <normaloff>:Ticon/Icons/VcrLoop.svg</normaloff>:Ticon/Icons/VcrLoop.svg</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -288,7 +288,7 @@
      <item>
       <widget class="QSlider" name="SliderAnimationTrack">
        <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+        <enum>Qt::Orientation::Horizontal</enum>
        </property>
       </widget>
      </item>

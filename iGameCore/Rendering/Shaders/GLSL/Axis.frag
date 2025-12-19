@@ -44,7 +44,6 @@ void main() {
         float alpha = texture(fontSampler, in_UV).r;
         if (alpha < 0.1f) { discard; }
         out_ScreenColor = vec4(textColor, alpha);
-        gl_FragDepth = 1.0f;
     } else {
         vec3 color = vec3(0.0f, 0.0f, 0.0f);
 
@@ -59,6 +58,5 @@ void main() {
         color += lighting * in_Color;
 
         out_ScreenColor = vec4(color, 1.0f);
-        gl_FragDepth = 1.0f;
     }
 }

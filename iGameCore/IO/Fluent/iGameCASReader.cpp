@@ -28,9 +28,7 @@ bool CASReader::Parsing() {
     std::vector<std::string> exePaths = {
                                         "Resources\\pyNastranLib\\cas_converter.exe",
                                         "Resources\\pyFluentLib\\cas_converter.exe",
-                                         "cas_converter.exe",
-                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe",
-                                         "D:/XuJiangjie/editOpeniGame/ThirdParty/Python/pyFluentLib/cas_converter.exe",
+                                         "cas_converter.exe"
 
     };
 

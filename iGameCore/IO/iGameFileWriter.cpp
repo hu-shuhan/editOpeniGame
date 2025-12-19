@@ -42,8 +42,8 @@ bool FileWriter::Execute()
 }
 bool FileWriter::WriteToFile(DataObject::Pointer dataObject,const std::string filePath)
 {
-	this->m_DataObject = dataObject;
-	this->m_FilePath = filePath;
+	this->SetInput(dataObject);
+	this->SetFilePath(filePath);
 	return Execute();
 }
 
@@ -252,7 +252,7 @@ void FileWriter::SetFilePath(const std::string& filePath)
 
 void FileWriter::SetDataObject(DataObject::Pointer dataObject)
 {
-	this->m_DataObject = dataObject;
+	this->SetInput(0, dataObject);
 }
 void FileWriter::AddStringToBuffer(std::string data, CharArray::Pointer buffer)
 {

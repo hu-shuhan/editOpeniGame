@@ -1,6 +1,6 @@
 ﻿#include "iGameCenterAxesModel.h"
-#include "iGameCenterAxesModel.h"
 #include "OpenGL/GLShader.h"
+#include "iGameCenterAxesModel.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -20,10 +20,27 @@ CenterAxesModel::CenterAxesModel() {
 
 void CenterAxesModel::SetRotationCenter(igm::vec3 center) {
     m_RotationCenter = center;
+    ComputeBoundingBox();
 }
 
 igm::vec3 CenterAxesModel::GetRotationCenter() const {
     return m_RotationCenter;
+}
+
+void CenterAxesModel::ComputeBoundingBox() {
+    m_Bounding.reset();
+    double x = m_RotationCenter.x;
+    double y = m_RotationCenter.y;
+    double z = m_RotationCenter.z;
+    double l = m_CurrentAxisLength;
+    m_Bounding.add({x, y, z});
+    m_Bounding.add({x - l, y, z});
+    m_Bounding.add({x + l, y, z});
+    m_Bounding.add({x, y - l, z});
+    m_Bounding.add({x, y + l, z});
+    m_Bounding.add({x, y, z - l});
+    m_Bounding.add({x, y, z + l});
+    m_BoundingHelper->Modified();
 }
 
 void CenterAxesModel::InitializeGeometry() {
@@ -77,11 +94,7 @@ void CenterAxesModel::InitializeGeometry() {
     //Modified(); // 通知DrawObject基类
 
     m_GeometryInitialized = true;
-}
-
-void CenterAxesModel::PrepareForRendering() {
-    ConvertToDrawableData();
-    SyncGpuBuffers();
+    ComputeBoundingBox();
 }
 
 void CenterAxesModel::UpdateAxisScale(float cameraDistance, float fov,
@@ -92,6 +105,7 @@ void CenterAxesModel::UpdateAxisScale(float cameraDistance, float fov,
     m_CurrentAxisLength = scaleFactor;
 
     // 触发几何更新
+    ComputeBoundingBox();
     ConvertToDrawableData();
 }
 
@@ -144,10 +158,6 @@ void CenterAxesModel::HandleDrag(igm::vec3 worldOffset) {
     // 更新旋转中心（保持原深度）
     m_RotationCenter += worldOffset;
     SetRotationCenter(m_RotationCenter); // 同步到场景
-
-    // 立即刷新几何数据
-    ConvertToDrawableData();
-    SyncGpuBuffers();
 }
 
 void CenterAxesModel::SetHighlight(bool highlight) {

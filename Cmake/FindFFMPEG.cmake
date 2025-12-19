@@ -8,7 +8,7 @@ find_path(FFMPEG_PRIVATE_INCLUDE_DIR
         /usr/local/include
         /usr/include
         "D:/dev/FFMPEG/include"
-        "D:/OpeniGame/FFMPEG/include"
+        "D:/iGameVis/FFMPEG/include"
 )
 
 if (WIN32)
@@ -17,7 +17,7 @@ if (WIN32)
             avcodec.lib
             PATHS
             "D:/dev/FFMPEG/lib"
-            "D:/OpeniGame/FFMPEG/lib"
+            "D:/iGameVis/FFMPEG/lib"
     )
 elseif (UNIX)
     if (APPLE)
@@ -36,7 +36,7 @@ find_path(FFMPEG_DLL_DIR
         avcodec-61.dll
         PATHS
         "D:/dev/FFMPEG/bin"
-        "D:/OpeniGame/FFMPEG/bin"
+        "D:/iGameVis/FFMPEG/bin"
 )
 
 mark_as_advanced(FFMPEG_PRIVATE_INCLUDE_DIR)

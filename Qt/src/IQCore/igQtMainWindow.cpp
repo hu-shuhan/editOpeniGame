@@ -165,6 +165,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
+    
     // Setup default GUI layout.
     //this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     this->setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
@@ -206,12 +207,12 @@ void igQtMainWindow::initAllComponents() {
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
-        int R = 0, G = 0, B = 0;
-        if (dialog.exec() == QDialog::Accepted) {
-            auto input = dialog.getInput();
-            R = input[0], G = input[1], B = input[2];
-        }
-        iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+      int R = 0, G = 0, B = 0;
+      if (dialog.exec() == QDialog::Accepted) {
+          auto input = dialog.getInput();
+          R = input[0], G = input[1], B = input[2];
+          iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+      }
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
@@ -242,6 +243,7 @@ void igQtMainWindow::initAllComponents() {
     // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
     // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
+    connect(ui->action_SaveMesh, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
             SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
@@ -350,9 +352,9 @@ void igQtMainWindow::initAllComponents() {
         QImage saved_image = rendererWidget->grabFramebuffer();
         rendererWidget->resize(oldwidth, oldheight);
         if (saved_image.save(path, "BMP")) {
-            QMessageBox::information(this, "", "保存成功");
+            QMessageBox::information(this, "截图结果", "保存成功");
         } else {
-            QMessageBox::information(this, "", "保存失败");
+            QMessageBox::information(this, "截图结果", "保存失败");
         }
     });
 
@@ -412,6 +414,20 @@ void igQtMainWindow::initAllComponents() {
         }
     });
 
+    connect(ui->action_StrucDeformation, &QAction::triggered, this, [&](bool checked){
+        DeformationDockWidget->show();
+    });
+    connect(ui->action_StreamLine, &QAction::triggered, this, [&](bool checked){
+        if(!ui->dockWidget_FlowField->isVisible()){
+            ui->dockWidget_FlowField->show();
+            ui->widget_FlowField->updateVectorNameList();
+        } else {
+            ui->dockWidget_FlowField->hide();
+        }
+
+    });
+
+
     initAllDockWidgetConnectWithAction();
     initAllMySignalConnections();
 }
@@ -454,6 +470,7 @@ void igQtMainWindow::initAllFilters() {
             ok = triangulation->Execute();
 
             if (!ok) {
+                result = QString("网格简化算法只支持表面网格");
                 QMessageBox::information(this, "非表面网格", result);
                 dialog->close();
                 return;
@@ -470,6 +487,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = QString("执行出错");
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
@@ -574,6 +592,7 @@ void igQtMainWindow::initAllFilters() {
             ok = filter->Execute();
 
             if (!ok) {
+                result = "算法执行错误";
                 QMessageBox::information(this, "执行出错", result);
                 dialog->close();
                 return;
@@ -925,10 +944,12 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         ui->dockWidget_FlowField->show();
         ui->widget_FlowField->updateVectorNameList();
     });
-    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
-        ui->dockWidget_FlowField->show();
-        ui->widget_FlowField->updateVectorNameList();
-    });
+
+//    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
+//        ui->dockWidget_FlowField->show();
+//        ui->widget_FlowField->updateVectorNameList();
+//    });
+
     // connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked)
     // { 	ui->dockWidget_SearchInfo->show();
     //	});
@@ -1276,6 +1297,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
             ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
+
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            this, [&](){
+                ui->widget_VectorField->drawV();
+            });
 
     connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
         SliceWidget->ClipModel();
@@ -1920,3 +1946,42 @@ void igQtMainWindow::initAllInteractor() {
 }
 
 void igQtMainWindow::UpdateRenderingWidget() { rendererWidget->update(); }
+
+
+QString igQtMainWindow::LoadExternalFonts() {
+    int fontId = QFontDatabase::addApplicationFont(":/Styles/Styles/SourceHanSansCN-Normal.otf");
+    if (fontId == -1) {
+        qWarning() << "Failed to load font from resource :/Styles/SourceHanSansCN-Normal.otf";
+        return QString();
+    }
+
+    const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
+    if (families.isEmpty()) {
+        qWarning() << "No font families found in loaded font.";
+        return QString();
+    }
+
+    const QString family = families.first();
+    qDebug() << "Loaded font family:" << family;
+
+    QFont     appFont(family);
+    appFont.setPointSize(12);
+
+    QApplication::setFont(appFont);
+
+    return family;
+}
+void igQtMainWindow::UpdateIcons()
+{
+    int iconSize = 60;
+
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        // 设置 toolbar 的图标大小
+        tb->setIconSize(QSize(iconSize, iconSize));
+
+        // 保证 toolbar 高度足够
+        tb->setMinimumHeight(iconSize + 8);
+    }
+
+
+}

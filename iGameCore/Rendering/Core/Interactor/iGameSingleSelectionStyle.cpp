@@ -362,18 +362,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
 
     if (ids.empty()) return;
 
-    if (SelectionParameter::Instance().IsBoxMode()) {
-        m_Selection->SelectionCallBackEvent(IG_POINT_BOX, ids);
-        return;
-    }
+    m_Selection->SelectionCallBackEvent(
+            SelectionParameter::Instance().IsBoxMode() ? IG_POINT_BOX
+                                                       : IG_POINT,
+            ids,
+            SelectionParameter::Instance().GetSelectOrUnSelect()
+                    ? Selection::Operate::Add
+                    : Selection::Operate::Remove);
 
-    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
-        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
-                                            Selection::Operate::Add);
-    } else {
-        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
-                                            Selection::Operate::Remove);
-    }
     return;
 }
 
@@ -464,18 +460,13 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
 
     if (ids.empty()) return;
 
-    if (SelectionParameter::Instance().IsBoxMode()) {
-        m_Selection->SelectionCallBackEvent(IG_CELL_BOX, ids);
-        return;
-    }
+    m_Selection->SelectionCallBackEvent(
+            SelectionParameter::Instance().IsBoxMode() ? IG_CELL_BOX : IG_CELL,
+            ids,
+            SelectionParameter::Instance().GetSelectOrUnSelect()
+                    ? Selection::Operate::Add
+                    : Selection::Operate::Remove);
 
-    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
-        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
-                                            Selection::Operate::Add);
-    } else {
-        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
-                                            Selection::Operate::Remove);
-    }
     return;
 }
 

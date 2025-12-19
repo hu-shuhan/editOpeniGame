@@ -35,20 +35,16 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
     if (meshId == model->GetDataObject()->GetDataObjectId()) {
 
     } else if (DynamicCast<UnstructuredMesh>(model->GetDataObject())) {
+        std::cout << "is UnstructuredMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
         auto numOfCells = mesh->GetNumberOfVolumes();
-        for (int i = 0; i < numOfCells; ++i) { 
-            auto vol = mesh->GetVolume(i);
-            if (vol->GetCellType() == IG_POLYHEDRON) { 
-                mesh->SetIsPolyhedronType(true);
-                break;
-            }
-        }
+
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->RequestEditStatus();
@@ -63,23 +59,19 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
+        std::cout << "is VolumeMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
         auto numOfCells = mesh->GetNumberOfVolumes();
-        for (int i = 0; i < numOfCells; ++i) {
-            auto vol = mesh->GetVolume(i);
-            if (vol->GetCellType() == IG_POLYHEDRON) {
-                mesh->SetIsPolyhedronType(true);
-                break;
-            }
-        }
+
         auto temPtFinder = PointFinder::New();
         temPtFinder->SetPoints(mesh->GetPoints());
         temPtFinder->Initialize();
         AddPtFinder(temPtFinder);
+        std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            //mesh->ClearAllLinks();
+            mesh->ClearAllLinks();
             mesh->RequestEditStatus(); // Establishing Adjacency
         } else if (!mesh->HasSubDataObject()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
@@ -92,6 +84,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         }
 
     } else {
+        std::cout << "is subdata" << std::endl;
         auto temData = model->GetDataObject();
         if (temData->HasSubDataObject()) {
             isSubModel = true;
@@ -238,25 +231,21 @@ std::vector<Vector3f> StreamTracer::getModelSelect() {
 std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName) {
     std::vector<Vector3f> result;
 
-    if (!mesh) return result;
 
     auto attr = mesh->GetAttributeSet();
-    if (!attr) return result;
-
     iGame::AttributeSet::Attribute& vec = attr->GetAttribute(vectorName);
-    if (!vec.pointer) return result;
+
 
     int numPoints = mesh->GetNumberOfPoints();
     int numVolumes = mesh->GetNumberOfVolumes();
 
     result.resize(numPoints, Vector3f(0, 0, 0));
 
-    if (vec.type == IG_CELL) {
-
+    if (vec.attachmentType == IG_CELL) {
+        std::cout << "vec is cell" << std::endl;
         for (int cellId = 0; cellId < numVolumes; cellId++) {
             igIndex pts[32]{};
             int n = mesh->GetVolumePointIds(cellId, pts);
-
             double cv[4] = {0};
             vec.pointer->GetElement(cellId, cv);
             Vector3f V(cv[0], cv[1], cv[2]);
@@ -267,7 +256,7 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
             }
         }
     } else {
-
+        std::cout << "vec is point" << std::endl;
         for (int i = 0; i < numPoints; i++) {
             double pv[4] = {0};
             vec.pointer->GetElement(i, pv);
@@ -290,9 +279,46 @@ bool StreamTracer::Execute() {
         m_ResultMesh = nullptr;
         return false;
     }
+    if (!mesh) {
+        std::cout << "No mesh" << std::endl;
+        return false;
+    }
+    auto attr = mesh->GetAttributeSet();
+    
+    if (!attr) { 
+        std::cout << "No attr" << std::endl;
+        return false; 
+    }
+    std::cout << "VectorName: " << m_VectorName << std::endl;
+    iGame::AttributeSet::Attribute& vec = attr->GetAttribute(m_VectorName);
+    if (vec.IsNone()) {
+        std::cout << "Vetor is none " << std::endl;
+        return false; 
+    }
+    if (vec.pointer->GetDimension() != 3) {
+        std::cout << "Vetor is not 3D " << std::endl;
+        return false; 
+    }
+
+    int numPoints = mesh->GetNumberOfPoints();
+    std::cout << "Point Num" << numPoints << std::endl;
+    int numVolumes = mesh->GetNumberOfVolumes();
+    std::cout << "Volume Num" << numVolumes << std::endl;
+    int numAttr = vec.pointer->GetNumberOfElements();
+    std::cout << "Attr Num" << numAttr << std::endl;
+    if (vec.attachmentType == IG_POINT) { 
+        if (numAttr != numPoints) { 
+            std::cout << "numAttr != numPoints" << std::endl;
+            return false; 
+        }
+    } else {
+        if (numAttr != numVolumes) {
+            std::cout << "numAttr != numVolumes" << std::endl;
+            return false;
+        }
+    }
+
     std::cout << "1111111111111" << std::endl;
-
-
 
     currentV = std::move(GetUnifiedVectorField(m_VectorName));
 
@@ -763,6 +789,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
             auto Vector = PointData->GetAttribute(vectorName);
+            std::cout << "Vector type is:" << Vector.attachmentType << std::endl;
             for (int i = 0; i < Vector.pointer->GetNumberOfElements(); ++i) { 
                 float v[4] = {0.0f};
                 Vector.pointer->GetElement(i, v);
@@ -1353,7 +1380,7 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
         }
         auto CellData = mesh->GetAttributeSet();
         auto Vector = CellData->GetAttribute(vectorName);
-        if (Vector.type == IG_CELL) {
+        if (Vector.attachmentType == IG_CELL) {
             float v[4] = {0.0f};
             Vector.pointer->GetElement(VolumeId, v);
             finnal = Vector3f(v[0], v[1], v[2]);
@@ -2153,6 +2180,12 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
         for (size_t i = chunk_start; i < chunk_end; i++) {
             int vetex_size = cellData->GetCellIds(i, cell);
+            if (i == 0) {
+                for (int j = 0; j < vetex_size; ++j) { 
+                    std::cout << "cell id::::" << cell[j] << std::endl;
+                }
+                std::cout << "vetex" << vetex_size << std::endl;
+            }
             for (int j = 0; j < vetex_size; j++) {
                 if (cell[j] < vetexNum) { vetex_link.offset[cell[j] + 1]++; }
             }
