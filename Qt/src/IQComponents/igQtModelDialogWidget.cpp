@@ -72,7 +72,7 @@ igQtModelDialogWidget::igQtModelDialogWidget(QWidget* parent) : QDockWidget(pare
 
     modelTreeWidget->setColumnCount(2);
     modelTreeWidget->header()->hide();
-    modelTreeWidget->setColumnWidth(0, 140);
+    modelTreeWidget->setColumnWidth(0, 150);
     modelTreeWidget->setColumnWidth(1, 200);
     modelTreeWidget->setIndentation(15);
 

@@ -28,15 +28,22 @@ public:
     // true: 使用原来的顶点数据
     void SetTransformToCellData(bool flag = false) { this->Transform = flag; }
 
+    bool ExecuteWithLatentFeatures(AttributeSet::Pointer Latent);
+
 protected:
     MeshSimplificationFilterPro();
     ~MeshSimplificationFilterPro() override = default;
+
+    AttributeSet::Pointer Latent;
 
     float TargetReduction = 0.5;
     float TargetFaceCount = 0;
     bool PreserveBoundary = true;
     bool Freeze = false;
     bool Transform = false;
+
+    
+    bool UseLatent = false;
 };
 IGAME_NAMESPACE_END
 #endif

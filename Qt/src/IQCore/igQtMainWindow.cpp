@@ -2,10 +2,12 @@
 //
 // Created by m_ky on 2024/4/10.
 //
-
+#include "DataProcessing/iGameMeshSimplification.h"
+#include "DataProcessing/iGameMeshSimplificationUtil.h"
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
+#include "DataProcessing/iGameMeshPartitionFilter.h"
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
 #include "DataProcessing/Tests/iGameSurfaceSimplification.h"
@@ -642,6 +644,120 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    connect(ui->menu_filters->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        SurfaceMesh::Pointer mesh;
+        if (obj->GetDataObjectType() == IG_SURFACE_MESH) { 
+            mesh = DynamicCast<SurfaceMesh>(obj);
+        } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+            mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+        }
+        MeshPartitionFilter::Pointer partitionFilter = MeshPartitionFilter::New();
+        partitionFilter->SetInput(mesh);
+        partitionFilter->Execute();
+        
+        modelTreeWidget->addDataObjectToModelTree(partitionFilter->GetOutput(), Algorithm);
+        rendererWidget->update();
+    });
+
+    connect(ui->menu_filters->addAction("Test2"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        SurfaceMesh::Pointer mesh;
+        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
+            mesh = DynamicCast<SurfaceMesh>(obj);
+        } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+            mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+        }
+        FEdgeHash hash;
+
+        clock_t start = clock();
+        for (igIndex i = 0; i < mesh->GetNumberOfFaces(); i++) {
+            igIndex f[3];
+            mesh->GetFacePointIds(i, f);
+            for (int j = 0; j < 3; j++) {
+                igIndex v0 = std::min(f[j], f[(j + 1) % 3]);
+                igIndex v1 = std::max(f[j], f[(j + 1) % 3]);
+                Edge edge(v0, v1);
+                int faceId;
+                if (hash.addOrRemove(edge, i, faceId)) {
+
+                }
+            }
+        }
+        clock_t end = clock();
+        std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
+    });
+
+    connect(ui->menu_filters->addAction("Test3"), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        SurfaceMesh::Pointer mesh;
+        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
+            mesh = DynamicCast<SurfaceMesh>(obj);
+        } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+            mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+        }
+
+        std::vector<FVector> V;
+        std::vector<int> F;
+
+        float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
+        float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+        for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+            auto& v = mesh->GetPoint(i);
+
+            V.push_back({v[0], v[1], v[2]});
+
+            for (int j = 0; j < 3; ++j) {
+                float vj = v[j];
+
+                minv[j] = minv[j] > vj ? vj : minv[j];
+                maxv[j] = maxv[j] < vj ? vj : maxv[j];
+            }
+        }
+
+        float extent = 0.f;
+
+        extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
+        extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
+        extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
+
+        float scale = extent == 0 ? 0.f : 1.f / extent;
+
+        for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+            V[i].x = (V[i].x - minv[0]) * scale;
+            V[i].y = (V[i].y - minv[1]) * scale;
+            V[i].z = (V[i].z - minv[2]) * scale;
+        }
+
+        igIndex ids[3];
+        for (int i = 0; i < mesh->GetNumberOfFaces(); i++) { 
+            mesh->GetFacePointIds(i, ids);
+            F.push_back(ids[0]);
+            F.push_back(ids[1]);
+            F.push_back(ids[2]);
+        }
+
+        clock_t start = clock();
+        ManifoldSimplifier simplifier(V, F);
+        simplifier.Execute();
+        clock_t end = clock();
+        std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
+
+        auto newMesh = SurfaceMesh::New();
+        for (const auto& v: V) {
+            newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
+        }
+        auto CellArray = CellArray::New();
+        for (int i = 0; i < F.size() / 3; i++) { CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]); }
+        newMesh->SetFaces(CellArray);
+
+        modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
+        rendererWidget->update();
+    });
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 

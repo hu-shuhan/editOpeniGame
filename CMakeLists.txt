@@ -17,7 +17,7 @@ endif ()
 
 # Add options that the user can set with the -D parameter
 # These options must NOT be forced so that command-line -D values work.
-option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" ON)
+option(ENABLE_CGNS_MODULE "Enable CGNS ThirdParty Module" OFF)
 option(ENABLE_NASTRAN_MODULE "Enable Nastran Lib ThirdParty Module" OFF)
 option(ENABLE_LIBTORCH_MODULE "Enable Libtorch ThirdParty Module" OFF)
 option(ENABLE_GPSCUDA_MODULE "Enable GPS CUDA Module." OFF)
@@ -27,7 +27,7 @@ option(ENABLE_QT_MODULE "Build GUI/Qt Module." ON)
 # If external application want to use Core Module lib.
 # Set Core Module install Option to ON
 #--------------------------------------------------------------------
-set(CORE_MODULE_INSTALL ON CACHE BOOL "Enable iGameVis Core Module to install as lib or not." FORCE)
+set(CORE_MODULE_INSTALL OFF CACHE BOOL "Enable iGameVis Core Module to install as lib or not." FORCE)
 set(EXAMPLE_COMPILE OFF CACHE BOOL "Enable iGameVis Core Module's Example Compilation." FORCE)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
 
@@ -73,6 +73,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # insert our Custom CMake macro path to CMake Module Path
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(IGAMEVIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# Find Python3 Globally
+# 指定使用 Python 3.8 版本
+# 如果系统中有多个版本，可能需要显式设置 Python3_ROOT_DIR，或者设置 Python3_EXECUTABLE
+set(Python3_FIND_STRATEGY LOCATION) # 优先使用路径查找
+set(Python3_FIND_REGISTRY LAST)     # 最后才查找注册表
+find_package(Python3 3.8 EXACT COMPONENTS Interpreter Development.Module REQUIRED)
+message(STATUS "Python3 Found: ${Python3_VERSION}")
+message(STATUS "Python3 Executable: ${Python3_EXECUTABLE}")
+message(STATUS "Python3 Include: ${Python3_INCLUDE_DIRS}")
 
 #--------------------------------------------------------------------
 # Add subdirectories

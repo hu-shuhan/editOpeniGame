@@ -7,6 +7,7 @@
 #include <iGameVolumeMesh.h>
 #include <iomanip>
 
+
 IGAME_NAMESPACE_BEGIN
 namespace meshsmp
 {
@@ -27,7 +28,7 @@ public:
             y /= length;
             z /= length;
         }
-
+        
         return length;
     }
 
@@ -2343,7 +2344,7 @@ private:
 } // namespace mesh_tetra_simplifier
 
 bool MeshSimplificationFilterPro::Execute() {
-
+    
     if (DynamicCast<SurfaceMesh>(GetInput(0))) {
         using namespace meshsmp;
         SurfaceMesh::Pointer Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
@@ -2668,6 +2669,138 @@ bool MeshSimplificationFilterPro::Execute() {
         SetOutput(NewMesh);
     }
 
+    return true;
+}
+
+bool MeshSimplificationFilterPro::ExecuteWithLatentFeatures(AttributeSet::Pointer Latent) 
+{
+    SurfaceMesh::Pointer Mesh;
+    if (GetInput(0) && GetInput(0)->GetDataObjectType() == IG_SURFACE_MESH) {
+        Mesh = DynamicCast<SurfaceMesh>(GetInput(0));
+    }
+    if (Mesh == nullptr) {
+        IGAME_CORE_ERROR("Input is not SurfaceMesh. Aborting MeshSimplification.");
+        return false;
+    }
+
+    if (Mesh->GetAttributeSet()->GetNumberOfAttributes() > 200) {
+        IGAME_CORE_ERROR("Too many Attribute. Aborting MeshSimplification.");
+        return false;
+    }
+
+    using namespace meshsmp;
+        
+    int oldIndexCount = Mesh->GetFaces()->GetNumberOfCellIds();
+
+    MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+    triangulation->SetInput(Mesh);
+    if (!triangulation->Execute()) return false;
+    Mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
+    std::vector<int_t> Indices;
+    std::vector<Point3> VertexPositions;
+    std::vector<Attribute> VertexAttributes;
+    std::vector<float> AttributeWeights;
+
+    size_t TargetCount;
+    float TargetError;
+    std::vector<unsigned char> PointDegree(Mesh->GetNumberOfPoints(), 0);
+    AttributeSet::Pointer AttrSet = AttributeSet::New();
+
+    if (TargetFaceCount != 0) {
+        TargetCount = TargetFaceCount * 3;
+    } else {
+        TargetCount = oldIndexCount * this->TargetReduction;
+    }
+
+    igIndex face[IGAME_CELL_MAX_SIZE]{};
+    float cell[IGAME_CELL_MAX_SIZE]{};
+    for (int i = 0; i < Mesh->GetNumberOfFaces(); ++i) {
+        int size = Mesh->GetFacePointIds(i, face);
+        Indices.push_back(face[0]);
+        Indices.push_back(face[1]);
+        Indices.push_back(face[2]);
+
+        PointDegree[face[0]]++;
+        PointDegree[face[1]]++;
+        PointDegree[face[2]]++;
+    }
+    RescalePositions(VertexPositions, Mesh->GetPoints());
+
+    
+    for (int i = 0; Latent && i < Latent->GetNumberOfAttributes(); ++i) {
+        auto& attr = Latent->GetAttribute(i);
+        if (attr.attachmentType == IG_POINT) {
+            int dim = attr.pointer->GetDimension();
+
+            FloatArray::Pointer arr = FloatArray::New();
+            arr->SetName(attr.pointer->GetName());
+            arr->SetDimension(dim);
+            for (int k = 0; k < attr.pointer->GetNumberOfValues(); ++k) {
+                arr->AddValue(static_cast<float>(attr.pointer->GetValue(k)));
+            }
+            AttrSet->AddAttribute(attr.type, IG_POINT, arr);
+
+            for (int j = 0; j < dim; ++j) {
+                Attribute Attr;
+                Attr.Primitive = arr->RawPointer();
+                Attr.Stride = dim;
+                Attr.Offset = j;
+                VertexAttributes.push_back(Attr);
+                AttributeWeights.push_back(1);
+            }
+        }
+    }
+
+    TargetError = 1.f;
+
+    TriMeshInternalSimplifier Simplifier(Indices, VertexPositions, VertexAttributes, AttributeWeights, TargetCount,
+                                            TargetError);
+    size_t IndexCount = Simplifier.DoWork();
+
+    SurfaceMesh::Pointer NewMesh = SurfaceMesh::New();
+    NewMesh->SetName(Mesh->GetName());
+
+    CellArray::Pointer NewFaces = CellArray::New();
+    Points::Pointer NewPoints;
+
+    NewPoints = Points::New();
+    std::vector<unsigned char> IsDeleted(Mesh->GetPoints()->GetNumberOfPoints(), 1);
+    std::vector<int_t> PointMap(Mesh->GetPoints()->GetNumberOfPoints());
+    for (int i = 0; i < IndexCount / 3; i++) {
+        IsDeleted[Indices[i * 3 + 0]] = 0;
+        IsDeleted[Indices[i * 3 + 1]] = 0;
+        IsDeleted[Indices[i * 3 + 2]] = 0;
+    }
+    int count = 0;
+    for (int i = 0; i < IsDeleted.size(); i++) {
+        if (!IsDeleted[i]) {
+            PointMap[i] = count;
+            count++;
+            NewPoints->AddPoint(Mesh->GetPoint(i));
+        }
+    }
+
+    for (int i = 0; i < Mesh->GetAttributeSet()->GetNumberOfAttributes(); ++i) {
+        auto& attr = Mesh->GetAttributeSet()->GetAttribute(i);
+        for (int j = 0; j < IsDeleted.size(); j++) {
+            if (!IsDeleted[j]) {
+                attr.pointer->GetElement(j, cell);
+                attr.pointer->SetElement(PointMap[j], cell);
+            }
+        }
+        attr.pointer->Resize(count);
+    }
+
+    for (int i = 0; i < IndexCount / 3; i++) {
+        NewFaces->AddCellId3(PointMap[Indices[i * 3 + 0]], PointMap[Indices[i * 3 + 1]], PointMap[Indices[i * 3 + 2]]);
+    }
+
+    NewMesh->SetFaces(NewFaces);
+    NewMesh->SetPoints(NewPoints);
+    NewMesh->SetAttributeSet(Mesh->GetAttributeSet());
+
+    SetOutput(NewMesh);
     return true;
 }
 

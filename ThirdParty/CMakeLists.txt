@@ -10,6 +10,7 @@ add_subdirectory(zlib)
 add_subdirectory(Python)
 add_subdirectory(nanoflann)
 add_subdirectory(zstd/build/cmake)
+add_subdirectory(Metis)
 
 if (ENABLE_CGNS_MODULE)
     # if you want to set cgns static build , please configure in CGNS directory's CMakeLists.txt
