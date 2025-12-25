@@ -957,6 +957,248 @@ bool VolumeMesh::IsCornerPoint(const IGsize ptId) {
 }
 VolumeMesh::VolumeMesh() { m_ViewStyle = IG_SURFACE; };
 
+namespace
+{
+struct Edge {
+    int v1, v2;
+    bool operator==(const Edge& other) const { return v1 == other.v1 && v2 == other.v2; }
+};
+
+struct EdgeHasher {
+    size_t operator()(const Edge& p) const {
+        const size_t h1 = std::hash<int>()(p.v1);
+        const size_t h2 = std::hash<int>()(p.v2);
+        // Improved hash mixing
+        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    }
+};
+
+class FEdgeHash {
+public:
+    typedef Edge key_t;
+    typedef int val_t;
+    typedef EdgeHasher hash_t;
+    struct node {
+        key_t key;
+        val_t val;
+        node* next;
+        node() : key(key_t{}), val(val_t{}), next(nullptr) {}
+        node(key_t key, val_t val) : key(key), val(val), next(nullptr) {}
+    };
+
+    size_t count;
+    size_t capacity;
+    node** data;
+
+    // Optimization: Memory Pool
+    std::vector<node*> blocks;
+    node* freeList;
+    static const size_t BLOCK_SIZE = 1024;
+    size_t currentBlockIndex;
+
+public:
+    FEdgeHash(int initCapacity = 16)
+        : count(0), capacity(initCapacity), freeList(nullptr), currentBlockIndex(BLOCK_SIZE) {
+        data = new node*[capacity];
+        memset(data, 0, capacity * sizeof(node*));
+    }
+
+    ~FEdgeHash() {
+        delete[] data;
+        // Efficient cleanup: just delete the blocks
+        for (auto block: blocks) { delete[] block; }
+    }
+
+    // Allocate from pool or free list
+    node* Allocate(key_t k, val_t v) {
+        if (freeList) {
+            node* p = freeList;
+            freeList = freeList->next;
+            p->key = k;
+            p->val = v;
+            p->next = nullptr;
+            return p;
+        }
+        if (currentBlockIndex >= BLOCK_SIZE) {
+            blocks.push_back(new node[BLOCK_SIZE]);
+            currentBlockIndex = 0;
+        }
+        node* p = &blocks.back()[currentBlockIndex++];
+        p->key = k;
+        p->val = v;
+        p->next = nullptr;
+        return p;
+    }
+
+    // Return to free list
+    void Deallocate(node* p) {
+        p->next = freeList;
+        freeList = p;
+    }
+
+    size_t GetIndex(key_t key) const {
+        size_t code = hash_t()(key);
+        return code & (capacity - 1);
+    }
+
+    bool addUnique(key_t key, val_t value) {
+        if (count >= capacity * 0.75) { Resize(); }
+
+        size_t index = GetIndex(key);
+        node* prev = nullptr;
+        node* curr = data[index];
+
+        while (curr) {
+            if (curr->key == key) { return true; }
+            prev = curr;
+            curr = curr->next;
+        }
+
+        // Not found: Add new node from pool
+        node* p = Allocate(key, value);
+        p->next = data[index];
+        data[index] = p;
+        count++;
+        return false;
+    }
+
+    // 第一次添加，第二次删除并返回true，所以遇到非流形会有重复边
+    bool addOrRemove(key_t key, val_t value, val_t& oldValue) {
+        if (count >= capacity * 0.75) { Resize(); }
+
+        size_t index = GetIndex(key);
+        node* prev = nullptr;
+        node* curr = data[index];
+
+        while (curr) {
+            if (curr->key == key) {
+                // Found: Remove and return to free list
+                oldValue = curr->val;
+                if (prev) prev->next = curr->next;
+                else
+                    data[index] = curr->next;
+
+                Deallocate(curr);
+                count--;
+                return true;
+            }
+            prev = curr;
+            curr = curr->next;
+        }
+
+        // Not found: Add new node from pool
+        node* p = Allocate(key, value);
+        p->next = data[index];
+        data[index] = p;
+        count++;
+        return false;
+    }
+
+private:
+    void Resize() {
+        capacity *= 2;
+        node** old_data = data;
+        data = new node*[capacity];
+        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
+        for (int i = 0; i < capacity / 2; i++) {
+            if (old_data[i]) {
+                node* cur = old_data[i];
+                while (cur) {
+                    node* nxt = cur->next;
+                    Insert(cur);
+                    cur = nxt;
+                }
+            }
+        }
+    }
+    void Insert(node* p) {
+        size_t index = GetIndex(p->key);
+        p->next = data[index];
+        data[index] = p;
+    }
+};
+}
+
+void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress) {
+    EdgeTable::Pointer EdgeTable = EdgeTable::New();
+    m_Volumes = CellArray::New();
+    m_VolumeEdges = CellArray::New();
+    m_FaceEdges = CellArray::New();
+    igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
+    igIndex ptIds[IGAME_CELL_MAX_SIZE]{}, edgeIds[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
+    IGsize npts, nedges;
+    IGsize PointSize = this->GetNumberOfPoints();
+    std::vector<bool> vis(PointSize * 2);
+    std::vector<int> ids;
+    auto t1 = clock();
+    for (igIndex i = 0; i < CellNum; i++) {
+        ids.clear();
+
+        int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
+        for (int j = 0; j < fsize; j++) {
+            int size = m_Faces->GetCellIds(faceIds[j], ptIds);
+            for (int k = 0; k < size; k++) {
+                if (vis[ptIds[k]] == 0) {
+                    ids.push_back(ptIds[k]);
+                    vis[ptIds[k]] = 1;
+                }
+            }
+        }
+        for (int id: ids) { vis[id] = 0; }
+
+        m_Volumes->AddCellIds(ids.data(), ids.size());
+
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3); }
+    }
+    std::cout << "InitPolyhedronVertices cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    t1 = clock();
+
+    for (igIndex i = 0; i < CellNum; i++) {
+        ids.clear();
+        //std::set<igIndex> eset;
+        int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
+        for (int j = 0; j < fsize; j++) {
+            int size = m_Faces->GetCellIds(faceIds[j], ptIds);
+            for (int k = 0; k < size; k++) {
+                igIndex idx;
+                if ((idx = EdgeTable->IsEdge(ptIds[k], ptIds[(k + 1) % size])) == -1) {
+                    idx = EdgeTable->GetNumberOfEdges();
+                    EdgeTable->InsertEdge(ptIds[k], ptIds[(k + 1) % size]);
+                }
+                if (idx >= vis.size()) { vis.resize((idx + 1) * 2, 0); }
+                if (vis[idx] == 0) {
+                    ids.push_back(idx);
+                    vis[idx] = 1;
+                }
+            }
+        }
+
+        m_VolumeEdges->AddCellIds(ids.data(), ids.size());
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3 + 0.33); }
+    }
+    std::cout << "InitPolyhedronEdges cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    t1 = clock();
+    for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
+        int size = m_Faces->GetCellIds(i, ptIds);
+        for (int j = 0; j < size; j++) {
+            igIndex idx;
+            if ((idx = EdgeTable->IsEdge(ptIds[j], ptIds[(j + 1) % size])) == -1) { std::cerr << "error!"; }
+            edgeIds[j] = idx;
+        }
+        m_FaceEdges->AddCellIds(edgeIds, size);
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / m_Faces->GetNumberOfCells() / 3 + 0.66); }
+    }
+    std::cout << "InitPolyhedronFaceEdges cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    m_Edges = EdgeTable->GetOutput();
+    t1 = clock();
+    if (shouldBuildEageLinks) { BuildEdgeLinks(); }
+    if (shouldBuildFaceLinks) { BuildFaceLinks(); }
+    if (shouldBuildFaceEageLinks) { BuildFaceEdgeLinks(); }
+    if (shouldBuildVolumeEageLinks) { BuildVolumeEdgeLinks(); }
+    if (shouldBuildVolumeFaceLinks) { BuildVolumeFaceLinks(); }
+    std::cout << "BuildLinks cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+}
+
 IGsize VolumeMesh::GetRealMemorySize() {
     IGsize res = this->SurfaceMesh::GetRealMemorySize();
     if (m_Volumes) res += m_Volumes->GetRealMemorySize();

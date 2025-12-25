@@ -195,74 +195,7 @@ public:
     }
 
 
-    void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr) {
-        EdgeTable::Pointer EdgeTable = EdgeTable::New();
-        m_Volumes = CellArray::New();
-        m_VolumeEdges = CellArray::New();
-        m_FaceEdges = CellArray::New();
-        igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
-        igIndex ptIds[IGAME_CELL_MAX_SIZE]{}, edgeIds[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
-        IGsize npts, nedges;
-        for (igIndex i = 0; i < CellNum; i++) {
-            std::set<igIndex> vset;
-            int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
-            for (int j = 0; j < fsize; j++) {
-                int size = m_Faces->GetCellIds(faceIds[j], ptIds);
-                for (int k = 0; k < size; k++) { vset.insert(ptIds[k]); }
-            }
-            npts = 0;
-            for (auto it: vset) { ptIds[npts++] = it; }
-            m_Volumes->AddCellIds(ptIds, npts);
-            if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3);
-            }
-        }
-        for (igIndex i = 0; i < CellNum; i++) {
-            std::set<igIndex> eset;
-            int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
-            for (int j = 0; j < fsize; j++) {
-                int size = m_Faces->GetCellIds(faceIds[j], ptIds);
-                for (int k = 0; k < size; k++) {
-                    igIndex idx;
-                    if ((idx = EdgeTable->IsEdge(ptIds[k], ptIds[(k + 1) % size])) == -1) {
-                        idx = EdgeTable->GetNumberOfEdges();
-                        EdgeTable->InsertEdge(ptIds[k], ptIds[(k + 1) % size]);
-                    }
-                    eset.insert(idx);
-                }
-            }
-            nedges = 0;
-            for (auto it: eset) { edgeIds[nedges++] = it; }
-            m_VolumeEdges->AddCellIds(edgeIds, nedges);
-            if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3 + 0.33); }
-        }
-        for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
-            int size = m_Faces->GetCellIds(i, ptIds);
-            for (int j = 0; j < size; j++) {
-                igIndex idx;
-                if ((idx = EdgeTable->IsEdge(ptIds[j], ptIds[(j + 1) % size])) == -1) { std::cerr << "error!"; }
-                edgeIds[j] = idx;
-            }
-            m_FaceEdges->AddCellIds(edgeIds, size);
-            if (i % 2000 == 0 && onProgress) { onProgress((double) i / m_Faces->GetNumberOfCells() / 3 + 0.66); }
-        }
-        m_Edges = EdgeTable->GetOutput();
-
-        if (shouldBuildEageLinks) {
-            BuildEdgeLinks();
-        }
-        if (shouldBuildFaceLinks) {
-            BuildFaceLinks();
-        }
-        if (shouldBuildFaceEageLinks) {
-            BuildFaceEdgeLinks();
-        }
-        if (shouldBuildVolumeEageLinks) {
-            BuildVolumeEdgeLinks();
-        }
-        if (shouldBuildVolumeFaceLinks) {
-            BuildVolumeFaceLinks();
-        }
-    }
+    void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr);
     void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
         m_VolumeFaces = VolumeFaces;
         m_Faces = faces;

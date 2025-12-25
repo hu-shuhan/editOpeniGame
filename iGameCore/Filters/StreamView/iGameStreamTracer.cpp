@@ -51,7 +51,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh->RequestEditStatus();
             this->UpdateProgress(1);
         } else {
+            clock_t startTime = clock();
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            std::cout<< "Init Adjacent Time: "
+					  << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
            // mesh->SetShouldBuildEageLinks(false);
            // mesh->SetShouldBuildFaceLinks(false);
            // mesh->SetShouldBuildFaceEageLinks(false);
@@ -80,7 +83,9 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             this->UpdateProgress(1);
 
         } else if (!mesh->HasSubDataObject()) {
+            clock_t startTime = clock();
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            std::cout<< "Init Adjacent Time: "<< static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
             //mesh->SetShouldBuildEageLinks(false);
             //mesh->SetShouldBuildFaceLinks(false);
             //mesh->SetShouldBuildFaceEageLinks(false);
@@ -394,10 +399,10 @@ bool StreamTracer::Execute() {
     //        }
     //    }
     //}
-    std::cout << "22222222222222222222" << std::endl;
+   // std::cout << "22222222222222222222" << std::endl;
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
-    std::cout << "33333333333333333333" << std::endl;
+   // std::cout << "33333333333333333333" << std::endl;
 
     // 设置属性集到网格
     streamMesh->SetAttributeSet(attrSet);
