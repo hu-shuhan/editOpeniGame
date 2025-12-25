@@ -213,7 +213,7 @@ public:
             npts = 0;
             for (auto it: vset) { ptIds[npts++] = it; }
             m_Volumes->AddCellIds(ptIds, npts);
-            if (i % 2000 == 0) { onProgress((double)i / CellNum / 3);
+            if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3);
             }
         }
         for (igIndex i = 0; i < CellNum; i++) {
@@ -233,7 +233,7 @@ public:
             nedges = 0;
             for (auto it: eset) { edgeIds[nedges++] = it; }
             m_VolumeEdges->AddCellIds(edgeIds, nedges);
-            if (i % 2000 == 0) { onProgress((double) i / CellNum / 3+0.33); }
+            if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3 + 0.33); }
         }
         for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
             int size = m_Faces->GetCellIds(i, ptIds);
@@ -243,7 +243,7 @@ public:
                 edgeIds[j] = idx;
             }
             m_FaceEdges->AddCellIds(edgeIds, size);
-            if (i % 2000 == 0) { onProgress((double)i / m_Faces->GetNumberOfCells() / 3 + 0.66); }
+            if (i % 2000 == 0 && onProgress) { onProgress((double) i / m_Faces->GetNumberOfCells() / 3 + 0.66); }
         }
         m_Edges = EdgeTable->GetOutput();
 
