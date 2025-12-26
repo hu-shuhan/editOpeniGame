@@ -69,6 +69,7 @@ protected:
     FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
     friend class Meshleter;
+    friend class BuildAdjacencyRelationFilter;
 
 public:
     void ConvertToDrawableData() override;

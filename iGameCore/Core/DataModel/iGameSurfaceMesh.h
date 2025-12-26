@@ -342,7 +342,8 @@ protected:
 	~SurfaceMesh() override = default;
 
 	void RequestEdgeStatus();
-	void RequestFaceStatus();
+    void RequestFaceStatus();
+    friend class BuildAdjacencyRelationFilter;
 
 	DeleteMarker::Pointer m_EdgeDeleteMarker{};
 	DeleteMarker::Pointer m_FaceDeleteMarker{};

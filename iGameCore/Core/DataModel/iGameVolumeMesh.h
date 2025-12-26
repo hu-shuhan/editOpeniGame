@@ -258,6 +258,7 @@ protected:
 
     void RequestFaceStatus();
     void RequestVolumeStatus();
+    friend class BuildAdjacencyRelationFilter;
 
     DeleteMarker::Pointer m_VolumeDeleteMarker{};
 
