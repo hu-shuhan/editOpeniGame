@@ -761,11 +761,25 @@ void SurfaceMesh::ConvertToDrawableData() {
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
-            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (attr.type == IG_RGB) {
-                this->m_ColorMapper->SetVectorModeToRGBColors();
+            if (this->GetAttributeSet()->GetNumberOfAttributes() > m_AttributeIndex) {
+                auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+                if (attr.type == IG_RGB) {
+                    this->m_ColorMapper->SetVectorModeToRGBColors();
+                } else {
+                    this->m_ColorMapper->SetVectorModeToComponent();
+                }
+                if (!attr.isDeleted) {
+                    auto dataRange = attr.GetDataRange();
+                    if (attr.attachmentType == IG_POINT) {
+                        m_ColorWithCell = false;
+                        this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
+                    } else if (attr.attachmentType == IG_CELL) {
+                        m_ColorWithCell = true;
+                        this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
+                    }
+                }
             } else {
-                this->m_ColorMapper->SetVectorModeToComponent();
+            std::cout<< "Warning : Attribute index is out of range in SurfaceMesh::ConvertToDrawableData()." << std::endl;
             }
 
 //            if(updateColorMapper){
@@ -774,16 +788,7 @@ void SurfaceMesh::ConvertToDrawableData() {
 //                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
 //            }
 
-            if (!attr.isDeleted) {
-                auto dataRange = attr.GetDataRange();
-                if (attr.attachmentType == IG_POINT) {
-                    m_ColorWithCell = false;
-                    this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
-                } else if (attr.attachmentType == IG_CELL) {
-                    m_ColorWithCell = true;
-                    this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
-                }
-            }
+
         }
     }
 
