@@ -463,17 +463,32 @@ bool VortexDetection::DetectionVortexWithVolumeMesh(VolumeMesh::Pointer Mesh, At
     for (const auto& p: gridPoints) { eigenPoints.emplace_back(p[0], p[1], p[2]); }
     // auto t_01 = std::chrono::high_resolution_clock::now();
     torch::Tensor smooth_vals =
-            knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5);
+            knn_smooth_labels(predict_vals, result_volume_11, eigen_min, global_step, eigenPoints, 5,uniform);
     UpdateProgress(90 * 0.01);
     // auto t_02 = std::chrono::high_resolution_clock::now();
     // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
     // std::cout << "[VortexDetection:process_blocks:::Execute] knn_smooth_labels = " << elapsed_0 << " s" << std::endl;
-    std::vector<float> Predict(NumPoints, 0.0f);
+    // std::vector<float> Predict(NumPoints, 0.0f);
+    // auto t_01 = std::chrono::high_resolution_clock::now();
+    // for (IGsize i = 0; i < NumPoints; ++i) {
+    //     float value = smooth_vals[i].item<float>();
+    //     Predict[i] = value;
+    // }
+    // auto t_02 = std::chrono::high_resolution_clock::now();
+    // double elapsed_0 = std::chrono::duration<double>(t_02 - t_01).count();
+    // std::cout << "[VortexDetection:process_blocks:::Execute] fuzhi = " << elapsed_0 << " s" << std::endl;
 
-    for (IGsize i = 0; i < NumPoints; ++i) {
-        float value = smooth_vals[i].item<float>();
-        Predict[i] = value;
+    std::vector<float> Predict(NumPoints);
+    torch::Tensor t = smooth_vals;
+    if (t.is_cuda()) {
+        t = t.to(torch::kCPU);
     }
+    t = t.contiguous();
+    if (t.scalar_type() != torch::kFloat32) {
+        t = t.to(torch::kFloat32);
+    }
+    const float* src = t.data_ptr<float>();
+    std::memcpy(Predict.data(), src, sizeof(float) * NumPoints);
 
     int dim = volume_Mesh->GetAttributeSet()->GetNumberOfAttributes();
     for (int i = 0; i < dim; i++) {
@@ -1518,9 +1533,15 @@ inline int64_t suggest_chunk_size(int64_t M, int64_t D, int64_t H, int64_t W, bo
 }
 } // namespace
 
-torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, const torch::Tensor& prob_vol_1,
-                                                 const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                                 const std::vector<Eigen::Vector3f>& query_points, int /*k*/) {
+torch::Tensor VortexDetection::knn_smooth_labels(
+    std::vector<float> data_val,
+    const torch::Tensor& prob_vol_1,
+    const Eigen::Vector3f& min_pos,
+    const Eigen::Vector3f& global_step,
+    const std::vector<Eigen::Vector3f>& query_points,
+    int k,
+    bool uniform)
+{
     torch::NoGradGuard no_grad;
 
     const int64_t D = prob_vol_1.size(0);
@@ -1532,88 +1553,133 @@ torch::Tensor VortexDetection::knn_smooth_labels(std::vector<float> data_val, co
     const torch::Device device = prefer_cuda ? prob_vol_1.device() : torch::kCPU;
     const bool use_fp16 = prefer_cuda;
 
-    torch::Tensor vol5 = prob_vol_1;
-    if (vol5.device() != device) vol5 = vol5.to(device, /*non_blocking*/ true);
-    vol5 = vol5.unsqueeze(0).unsqueeze(0).contiguous(torch::MemoryFormat::ChannelsLast3d);
-
-    torch::Tensor dv_host = torch::from_blob((void*) data_val.data(), {M}, torch::kFloat32);
+    // dv
+    torch::Tensor dv_host = torch::from_blob((void*)data_val.data(), {M}, torch::kFloat32);
     torch::Tensor dv = prefer_cuda ? dv_host.clone().to(device, true) : dv_host.clone();
 
+    // thresholds
     torch::Tensor pool = dv.masked_select(dv.ge(0.1f));
     float thr46 = 0.f, thr93 = 0.f, thr25 = 0.f;
     if (pool.numel() > 0) {
         const int64_t n = pool.size(0);
-        const int64_t k48 = std::max<int64_t>(1, (int64_t) std::floor(0.46 * (n - 1)) + 1);
-        const int64_t k93 = std::max<int64_t>(1, (int64_t) std::floor(0.93 * (n - 1)) + 1);
-        const int64_t k25 = std::max<int64_t>(1, (int64_t) std::floor(0.25 * (n - 1)) + 1);
+        const int64_t k48 = std::max<int64_t>(1, (int64_t)std::floor(0.46 * (n - 1)) + 1);
+        const int64_t k93 = std::max<int64_t>(1, (int64_t)std::floor(0.93 * (n - 1)) + 1);
+        const int64_t k25 = std::max<int64_t>(1, (int64_t)std::floor(0.25 * (n - 1)) + 1);
         thr46 = std::get<0>(pool.kthvalue(k48)).item<float>();
         thr93 = std::get<0>(pool.kthvalue(k93)).item<float>();
         thr25 = std::get<0>(pool.kthvalue(k25)).item<float>();
     }
+
     const float sx = global_step[0], sy = global_step[1], sz = global_step[2];
     const float inv_sx = (sx != 0.f) ? 1.f / sx : 0.f;
     const float inv_sy = (sy != 0.f) ? 1.f / sy : 0.f;
     const float inv_sz = (sz != 0.f) ? 1.f / sz : 0.f;
 
-    torch::Tensor min_t =
-            torch::tensor({min_pos[0], min_pos[1], min_pos[2]}, torch::dtype(torch::kFloat32).device(device));
-    torch::Tensor inv_s = torch::tensor({inv_sx, inv_sy, inv_sz}, torch::dtype(torch::kFloat32).device(device));
-    torch::Tensor scale = torch::tensor({(W > 1) ? 2.f / float(W - 1) : 0.f, (H > 1) ? 2.f / float(H - 1) : 0.f,
-                                         (D > 1) ? 2.f / float(D - 1) : 0.f},
-                                        torch::dtype(torch::kFloat32).device(device));
     torch::Tensor cond_out = torch::empty({M}, torch::TensorOptions().dtype(torch::kFloat32).device(device));
-    static thread_local std::vector<float> q_chunk_host_vec;
-    q_chunk_host_vec.reserve(3 * 100'000);
 
     const int64_t CHUNK = suggest_chunk_size(M, D, H, W, prefer_cuda);
-    torch::nn::functional::GridSampleFuncOptions gs_opts;
-    gs_opts = gs_opts.mode(torch::kBilinear).padding_mode(torch::kBorder).align_corners(true);
 
     UpdateProgress(82 * 0.01);
 
-    for (int64_t start = 0; start < M; start += CHUNK) {
-        const int64_t end = std::min<int64_t>(M, start + CHUNK);
-        const int64_t currN = end - start;
+    if (!uniform) {
+        // build vol5 only here
+        torch::Tensor vol5 = prob_vol_1;
+        if (vol5.device() != device) vol5 = vol5.to(device, true);
+        vol5 = vol5.unsqueeze(0).unsqueeze(0).contiguous(torch::MemoryFormat::ChannelsLast3d);
 
-        q_chunk_host_vec.resize(static_cast<size_t>(3 * currN));
-        for (int64_t i = 0; i < currN; ++i) {
-            const Eigen::Vector3f& q = query_points[start + i];
-            q_chunk_host_vec[3 * i + 0] = q[0];
-            q_chunk_host_vec[3 * i + 1] = q[1];
-            q_chunk_host_vec[3 * i + 2] = q[2];
+        torch::Tensor vol5_h;
+        if (use_fp16) vol5_h = vol5.to(torch::kHalf);
+
+        torch::Tensor min_t = torch::tensor({min_pos[0], min_pos[1], min_pos[2]},
+                                            torch::dtype(torch::kFloat32).device(device));
+        torch::Tensor inv_s = torch::tensor({inv_sx, inv_sy, inv_sz},
+                                            torch::dtype(torch::kFloat32).device(device));
+        torch::Tensor scale = torch::tensor({(W > 1) ? 2.f / float(W - 1) : 0.f,
+                                             (H > 1) ? 2.f / float(H - 1) : 0.f,
+                                             (D > 1) ? 2.f / float(D - 1) : 0.f},
+                                            torch::dtype(torch::kFloat32).device(device));
+
+        torch::nn::functional::GridSampleFuncOptions gs_opts;
+        gs_opts = gs_opts.mode(torch::kBilinear).padding_mode(torch::kBorder).align_corners(true);
+
+        static thread_local std::vector<float> q_chunk_host_vec;
+        q_chunk_host_vec.reserve(3 * 100'000);
+
+        for (int64_t start = 0; start < M; start += CHUNK) {
+            const int64_t end = std::min<int64_t>(M, start + CHUNK);
+            const int64_t currN = end - start;
+
+            q_chunk_host_vec.resize(static_cast<size_t>(3 * currN));
+            for (int64_t i = 0; i < currN; ++i) {
+                const auto& q = query_points[start + i];
+                q_chunk_host_vec[3 * i + 0] = q[0];
+                q_chunk_host_vec[3 * i + 1] = q[1];
+                q_chunk_host_vec[3 * i + 2] = q[2];
+            }
+
+            auto q_host = torch::from_blob(q_chunk_host_vec.data(), {currN, 3},
+                                           torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
+            auto q = prefer_cuda ? q_host.to(device, torch::kFloat32, true, true) : q_host.clone();
+
+            auto gridM3 = (q - min_t) * inv_s;
+            gridM3.mul_(scale).add_(-1.0f);
+            auto grid = gridM3.view({1, currN, 1, 1, 3});
+
+            torch::Tensor sampled_chunk;
+            if (use_fp16) {
+                auto grid_h = grid.to(torch::kHalf);
+                sampled_chunk = torch::nn::functional::grid_sample(vol5_h, grid_h, gs_opts)
+                                    .view({currN}).to(torch::kFloat32);
+            } else {
+                sampled_chunk = torch::nn::functional::grid_sample(vol5, grid, gs_opts).view({currN});
+            }
+
+            auto dv_chunk = dv.narrow(0, start, currN);
+            auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
+                         (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
+                         dv_chunk.ge(thr93) |
+                         sampled_chunk.ge(0.3f));
+            cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
+    } else {
+        // uniform direct lookup, do in chunks to reduce peak memory
+        torch::Tensor vol3 = prob_vol_1;
+        if (vol3.device() != device) vol3 = vol3.to(device, true);
+        vol3 = vol3.contiguous();
+        auto prob_flat = vol3.view({-1});
 
-        auto q_host = torch::from_blob(q_chunk_host_vec.data(), {currN, 3},
-                                       torch::dtype(torch::kFloat32).pinned_memory(prefer_cuda));
-        auto q = prefer_cuda ? q_host.to(device, torch::kFloat32, /*non_blocking*/ true, /*copy*/ true)
-                             : q_host.clone(); // CPU �� clone :�� �?
+        for (int64_t start = 0; start < M; start += CHUNK) {
+            const int64_t end = std::min<int64_t>(M, start + CHUNK);
+            const int64_t currN = end - start;
 
-        auto gridM3 = (q - min_t) * inv_s;
-        gridM3.mul_(scale).add_(-1.0f);
-        auto grid = gridM3.view({1, currN, 1, 1, 3});
+            std::vector<int64_t> raw_idx(currN);
+            for (int64_t i = 0; i < currN; ++i) {
+                const auto& q = query_points[start + i];
+                int64_t ix = std::llround((q[0] - min_pos[0]) * inv_sx);
+                int64_t iy = std::llround((q[1] - min_pos[1]) * inv_sy);
+                int64_t iz = std::llround((q[2] - min_pos[2]) * inv_sz);
+                ix = std::clamp<int64_t>(ix, 0, W - 1);
+                iy = std::clamp<int64_t>(iy, 0, H - 1);
+                iz = std::clamp<int64_t>(iz, 0, D - 1);
+                raw_idx[i] = iz * (H * W) + iy * W + ix;
+            }
 
-        torch::Tensor sampled_chunk;
-        if (use_fp16) {
-            auto vol5_h = vol5.to(torch::kHalf);
-            auto grid_h = grid.to(torch::kHalf);
-            sampled_chunk =
-                    torch::nn::functional::grid_sample(vol5_h, grid_h, gs_opts).view({currN}).to(torch::kFloat32);
-        } else {
-            sampled_chunk = torch::nn::functional::grid_sample(vol5, grid, gs_opts).view({currN});
+            auto idx_host = torch::from_blob(raw_idx.data(), {currN}, torch::kInt64).clone();
+            auto idx = prefer_cuda ? idx_host.to(device, torch::kInt64, true, true) : idx_host;
+
+            auto sampled_chunk = prob_flat.gather(0, idx).to(torch::kFloat32);
+            auto dv_chunk = dv.narrow(0, start, currN);
+
+            auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) |
+                         (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
+                         dv_chunk.ge(thr93) |
+                         sampled_chunk.ge(0.3f));
+
+            cond_out.narrow(0, start, currN).copy_(mask.to(torch::kFloat32), prefer_cuda);
         }
-        auto dv_chunk = dv.narrow(0, start, currN); // [currN]
-        // auto cond_chunk = ((dv_chunk.ge(thr40)& sampled_chunk.ge(0.001f)) |
-        //                    (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr20))|
-        //                     dv_chunk.ge(thr93)|
-        //                     sampled_chunk.ge(0.3f))).to(torch::kFloat32);
-        auto mask = ((dv_chunk.ge(thr46) & sampled_chunk.ge(0.001f)) | (sampled_chunk.ge(0.1f) & dv_chunk.ge(thr25)) |
-                     dv_chunk.ge(thr93) | sampled_chunk.ge(0.3f));
-        auto cond_chunk = mask.to(torch::TensorOptions().dtype(torch::kFloat32));
-        cond_out.narrow(0, start, currN).copy_(cond_chunk, prefer_cuda);
     }
 
     return cond_out.to(torch::kCPU);
-    // return cond_out;
 }
 
 // torch::Tensor VortexDetection::knn_smooth_labels(
