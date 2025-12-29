@@ -1098,7 +1098,7 @@ public:
         return false;
     }
 
-    // µÚÒ»´ÎÌí¼Ó£¬µÚ¶þ´ÎÉ¾³ý²¢·µ»Øtrue£¬ËùÒÔÓöµ½·ÇÁ÷ÐÎ»áÓÐÖØ¸´±ß
+    // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½trueï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½
     bool addOrRemove(key_t key, val_t value, val_t& oldValue) {
         if (count >= capacity * 0.75) { Resize(); }
 
@@ -1155,10 +1155,8 @@ private:
 };
 } // namespace
 
-void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress,bool forceBuild) {
-    if (m_Volumes && m_VolumeEdges && m_FaceEdges&&!forceBuild) {
-        return;
-    }
+void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress, bool forceBuild) {
+    if (m_Volumes && m_VolumeEdges && m_FaceEdges && !forceBuild) { return; }
     EdgeTable::Pointer EdgeTable = EdgeTable::New();
     m_Volumes = CellArray::New();
     m_VolumeEdges = CellArray::New();
@@ -1340,6 +1338,7 @@ void VolumeMesh::ConvertToDrawableData() {
                 m_PointMap = extract->GetPointMap();
                 m_ReConvertToDrawableData = false;
                 m_ReConvertHelper->Modified();
+                return;
             } else {
                 m_ShellRendering = false;
                 this->m_RenderableMesh.SurfaceMesh = nullptr;
