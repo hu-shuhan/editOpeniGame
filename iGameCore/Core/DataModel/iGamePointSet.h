@@ -58,7 +58,7 @@ protected:
     ~PointSet() override = default;
 
     // Request point data edit state
-    void RequestPointStatus();
+    void RequestPointStatus(const std::function<void(double)>& onProgress = nullptr);
 
     // Compute model bounding box
     void ComputeBoundingBox() override;
@@ -69,6 +69,7 @@ protected:
     FlatArray<igIndex>::Pointer m_PointMap{nullptr};
 
     friend class Meshleter;
+    friend class BuildAdjacencyRelationFilter;
 
 public:
     void ConvertToDrawableData() override;

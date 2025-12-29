@@ -108,7 +108,7 @@ public:
 
     torch::Tensor knn_smooth_labels(std::vector<float> data_val, const torch::Tensor& prob_vol_1, // [nz, ny, nx]
                                     const Eigen::Vector3f& min_pos, const Eigen::Vector3f& global_step,
-                                    const std::vector<Eigen::Vector3f>& query_points, int k = 8);
+                                    const std::vector<Eigen::Vector3f>& query_points, int k = 8,bool uniform=false);
 
     void EvaluatePredictMetrics(ArrayObject::Pointer Attributes_gc, const std::vector<float>& Predict);
 

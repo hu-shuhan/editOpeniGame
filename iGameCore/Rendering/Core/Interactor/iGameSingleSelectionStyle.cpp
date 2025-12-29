@@ -10,6 +10,7 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -301,8 +302,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     auto meshType = dataObj->GetDataObjectType();
     switch (meshType) {
         case IG_SURFACE_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetPointsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -317,8 +324,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
         } break;
         //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetPointsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -397,8 +410,14 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
     auto meshType = dataObj->GetDataObjectType();
     switch (meshType) {
         case IG_SURFACE_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetCellsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -413,8 +432,14 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
         } break;
         //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetCellsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),

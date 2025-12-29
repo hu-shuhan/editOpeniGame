@@ -2,6 +2,7 @@
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameSceneManager.h>
 #include<iGameBoxStyle.h>
+
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
     ui->setupUi(this);
@@ -274,21 +275,42 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::vector<Vector3f> seeds;
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
-    } else if (control == 1) {
+    }
+    else if (control == 1) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
+        model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
-    } else {
+    } 
+    else if (control == 2) {
+        Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
+        seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
+        //seeds = streamtracer->getModelSelect();
+    } 
+    else if (control == 3) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         for (auto seed: temSeeds) { 
             seeds.emplace_back(seed);
         }
+    } 
+    else if (control == 4) {
+        Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
+        //seeds = streamtracer->getModelSelect();
+        seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
+        auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+        //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        for (auto seed: temSeeds) { seeds.emplace_back(seed); }
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();
@@ -301,10 +323,15 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
-    }
+    } else {
+        m_ResultObject->SetPoints(iGame::Points::New());
+        m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
+        m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
+        m_ResultObject->SetShellRenderingOption(false);
 
+    }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
