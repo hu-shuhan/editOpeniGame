@@ -85,6 +85,7 @@ public:
     float minF = FLT_MAX;
     bool CellData2PointData(std::string vectorName);
     void SetMesh(VolumeMesh::Pointer _mesh) { 
+        if (_mesh)
         std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
         this->mesh = _mesh; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
@@ -139,6 +140,8 @@ public:
                    std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine,
                    float lengthOfStep, float terminalSpeed, int maxSteps);
     void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum);
+    DataObjectId meshId = -1;
+
 
 private:
     /**
@@ -225,7 +228,6 @@ private:
 * @param[in] v2  Input a vertex that makes up the face
 */
     bool checkContact(const Vector3f& coord, const Vector3f& v0,const Vector3f& v1,const Vector3f& v2);
-
 private:
     struct adjacent {
         std::vector<long long> offset;
@@ -244,7 +246,6 @@ private:
     std::unordered_map<int, float> cellBoundLength{};
     VolumeMesh::Pointer mesh{};
     Model::Pointer model{};
-    DataObjectId meshId = -1;
     bool isSubModel = false;
     bool isChange = false;
     std::vector<PointFinder::Pointer> ptFinder;

@@ -39,6 +39,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         std::cout << "is UnstructuredMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
+        if (!mesh) { 
+            std::cout << "model data error" << std::endl;
+            return;
+        }
         auto numOfCells = mesh->GetNumberOfVolumes();
 
         auto temPtFinder = PointFinder::New();
@@ -71,6 +75,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         std::cout << "is VolumeMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
+        if (!mesh) {
+            std::cout << "model data error" << std::endl;
+            return;
+        }
         auto numOfCells = mesh->GetNumberOfVolumes();
 
         auto temPtFinder = PointFinder::New();
