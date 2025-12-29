@@ -57,6 +57,7 @@
         <file>Icons/select/hex.png</file>
         <file>Icons/select/point.png</file>
         <file>Icons/Open.png</file>
+        <file>Icons/refresh.png</file>
     </qresource>
     <qresource prefix="/uiwidgets">
         <file>UI/QualityDetection.ui</file>
@@ -69,5 +70,4 @@
     <qresource prefix="/Styles">
         <file>Styles/SourceHanSansCN-Normal.otf</file>
     </qresource>
-
 </RCC>

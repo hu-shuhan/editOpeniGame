@@ -26,28 +26,40 @@ static inline void MaxPoint(Point& pMax, const Point& p) {
     for (int i = 0; i < 3; i++) { pMax[i] = std::max<float>(pMax[i], p[i]); }
 }
 
-// 计算旋转矩阵的辅助函数
+// 四元数转换为旋转矩阵
+void DynamicBox::QuaternionToMatrix(const double q[4], double& r00, double& r01, double& r02, double& r10, double& r11,
+                                    double& r12, double& r20, double& r21, double& r22) const {
+    double w = q[0], x = q[1], y = q[2], z = q[3];
+
+    // 计算四元数的平方
+    double xx = x * x;
+    double yy = y * y;
+    double zz = z * z;
+    double xy = x * y;
+    double xz = x * z;
+    double yz = y * z;
+    double wx = w * x;
+    double wy = w * y;
+    double wz = w * z;
+
+    // 行主序旋转矩阵（适用于行向量）
+    r00 = 1.0 - 2.0 * (yy + zz);
+    r01 = 2.0 * (xy - wz);
+    r02 = 2.0 * (xz + wy);
+
+    r10 = 2.0 * (xy + wz);
+    r11 = 1.0 - 2.0 * (xx + zz);
+    r12 = 2.0 * (yz - wx);
+
+    r20 = 2.0 * (xz - wy);
+    r21 = 2.0 * (yz + wx);
+    r22 = 1.0 - 2.0 * (xx + yy);
+}
+
+// 获取旋转矩阵
 void DynamicBox::GetRotationMatrix(double& r00, double& r01, double& r02, double& r10, double& r11, double& r12,
                                    double& r20, double& r21, double& r22) const {
-    double cx = cos(m_Rotation[0]);
-    double sx = sin(m_Rotation[0]);
-    double cy = cos(m_Rotation[1]);
-    double sy = sin(m_Rotation[1]);
-    double cz = cos(m_Rotation[2]);
-    double sz = sin(m_Rotation[2]);
-
-    // 组合旋转矩阵：Rz * Ry * Rx
-    r00 = cy * cz;
-    r01 = sx * sy * cz - cx * sz;
-    r02 = cx * sy * cz + sx * sz;
-
-    r10 = cy * sz;
-    r11 = sx * sy * sz + cx * cz;
-    r12 = cx * sy * sz - sx * cz;
-
-    r20 = -sy;
-    r21 = sx * cy;
-    r22 = cx * cy;
+    QuaternionToMatrix(m_Quaternion.data(), r00, r01, r02, r10, r11, r12, r20, r21, r22);
 }
 
 // 应用旋转矩阵到点的辅助函数
@@ -93,12 +105,16 @@ std::array<Point, 4> DynamicBox::TransformFaceVertices(const std::array<Point, 4
     return worldVertices;
 }
 
+// 初始化消息
 void DynamicBox::InitMsg(const Point& p1, const Point& p2) {
     m_Position = (p1 + p2) / 2.0;
-    m_Rotation.setZero();
     m_Length = Point(std::abs(p1[0] - p2[0]), std::abs(p1[1] - p2[1]), std::abs(p1[2] - p2[2]));
+
+    // 初始化四元数为单位四元数（无旋转）
+    m_Quaternion = {1.0, 0.0, 0.0, 0.0};
 }
 
+// 设置操作点
 void DynamicBox::SetOpePoints() {
     // 获取半长（从中心到各面的距离）
     Point halfLength = m_Length / 2.0;
@@ -124,11 +140,13 @@ void DynamicBox::SetOpePoints() {
     }
 }
 
+// 构造函数
 DynamicBox::DynamicBox(const Point& p1, const Point& p2) {
     InitMsg(p1, p2);
     SetOpePoints();
 }
 
+// 移动操作点
 void DynamicBox::MoveOpePoint(OpeInt pointIndex, const Point& direction) {
     if (pointIndex < 0 || pointIndex >= 6) return;
 
@@ -154,6 +172,7 @@ void DynamicBox::MoveOpePoint(OpeInt pointIndex, const Point& direction) {
     UpdateBoxFromOpePoint(pointIndex, localMoveVector);
 }
 
+// 根据操作点更新盒子
 void DynamicBox::UpdateBoxFromOpePoint(OpeInt pointIndex, const Point& localMoveVector) {
     // 获取旋转矩阵
     double r00, r01, r02, r10, r11, r12, r20, r21, r22;
@@ -206,6 +225,7 @@ void DynamicBox::UpdateBoxFromOpePoint(OpeInt pointIndex, const Point& localMove
     SetOpePoints();
 }
 
+// 旋转盒子
 void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
     // 计算从相机指向盒子中心的向量
     Point cameraToCenter = m_Position - camera;
@@ -228,6 +248,7 @@ void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
     }
 }
 
+// 移动位置
 void DynamicBox::MovePosition(double x, double y, double z) { MovePosition(Point(x, y, z)); }
 
 void DynamicBox::MovePosition(const Point& position) {
@@ -235,22 +256,139 @@ void DynamicBox::MovePosition(const Point& position) {
     SetOpePoints();
 }
 
+// 获取中心点
 const Point& DynamicBox::GetMidPoint() const { return m_Position; }
 
-void DynamicBox::SetRotation(double xAngle, double yAngle, double zAngle) {
-    // 简单直接地设置三个旋转角度
-    m_Rotation[0] = xAngle; // 设置绕X轴旋转的角度
-    m_Rotation[1] = yAngle; // 设置绕Y轴旋转的角度
-    m_Rotation[2] = zAngle; // 设置绕Z轴旋转的角度
+// 四元数归一化
+void DynamicBox::NormalizeQuaternion() {
+    double w = m_Quaternion[0];
+    double x = m_Quaternion[1];
+    double y = m_Quaternion[2];
+    double z = m_Quaternion[3];
 
-    // 重要：更新所有操作点的位置，因为旋转改变了盒子的方向
+    double norm = std::sqrt(w * w + x * x + y * y + z * z);
+    if (norm > 0.0) {
+        m_Quaternion[0] = w / norm;
+        m_Quaternion[1] = x / norm;
+        m_Quaternion[2] = y / norm;
+        m_Quaternion[3] = z / norm;
+    } else {
+        // 如果四元数为零，重置为单位四元数
+        m_Quaternion = {1.0, 0.0, 0.0, 0.0};
+    }
+}
+
+// 四元数乘法
+void DynamicBox::MultiplyQuaternions(const double q1[4], const double q2[4], double result[4]) {
+    result[0] = q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3]; // w
+    result[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2]; // x
+    result[2] = q1[0] * q2[2] - q1[1] * q2[3] + q1[2] * q2[0] + q1[3] * q2[1]; // y
+    result[3] = q1[0] * q2[3] + q1[1] * q2[2] - q1[2] * q2[1] + q1[3] * q2[0]; // z
+}
+
+// 欧拉角转四元数（顺序：ZYX，即先绕X轴，再Y轴，最后Z轴）
+void DynamicBox::EulerToQuaternion(double x, double y, double z, double q[4]) const {
+    double cx = cos(x * 0.5);
+    double sx = sin(x * 0.5);
+    double cy = cos(y * 0.5);
+    double sy = sin(y * 0.5);
+    double cz = cos(z * 0.5);
+    double sz = sin(z * 0.5);
+
+    q[0] = cx * cy * cz + sx * sy * sz; // w
+    q[1] = sx * cy * cz - cx * sy * sz; // x
+    q[2] = cx * sy * cz + sx * cy * sz; // y
+    q[3] = cx * cy * sz - sx * sy * cz; // z
+}
+
+// 四元数转欧拉角（顺序：ZYX）
+void DynamicBox::QuaternionToEuler(const double q[4], double& x, double& y, double& z) const {
+    double w = q[0], xq = q[1], yq = q[2], zq = q[3];
+
+    // 绕X轴的旋转
+    double sinr_cosp = 2.0 * (w * xq + yq * zq);
+    double cosr_cosp = 1.0 - 2.0 * (xq * xq + yq * yq);
+    x = atan2(sinr_cosp, cosr_cosp);
+
+    // 绕Y轴的旋转
+    double sinp = 2.0 * (w * yq - zq * xq);
+    if (fabs(sinp) >= 1.0) {
+        y = copysign(M_PI / 2.0, sinp);
+    } else {
+        y = asin(sinp);
+    }
+
+    // 绕Z轴的旋转
+    double siny_cosp = 2.0 * (w * zq + xq * yq);
+    double cosy_cosp = 1.0 - 2.0 * (yq * yq + zq * zq);
+    z = atan2(siny_cosp, cosy_cosp);
+}
+
+// 应用旋转（使用四元数）
+void DynamicBox::ApplyRotation(const Point& axis, double angle) {
+    // 创建增量旋转四元数
+    double halfAngle = angle * 0.5;
+    double s = sin(halfAngle);
+    double c = cos(halfAngle);
+
+    Point normalizedAxis = axis;
+    normalizedAxis.normalize();
+
+    double incrQ[4] = {c, normalizedAxis[0] * s, normalizedAxis[1] * s, normalizedAxis[2] * s};
+
+    // 四元数乘法：新旋转 = 增量旋转 * 当前旋转
+    double newQ[4];
+    MultiplyQuaternions(incrQ, m_Quaternion.data(), newQ);
+
+    // 更新四元数并归一化
+    m_Quaternion[0] = newQ[0];
+    m_Quaternion[1] = newQ[1];
+    m_Quaternion[2] = newQ[2];
+    m_Quaternion[3] = newQ[3];
+    NormalizeQuaternion();
+}
+
+// 设置四元数
+void DynamicBox::SetQuaternion(double w, double x, double y, double z) {
+    m_Quaternion[0] = w;
+    m_Quaternion[1] = x;
+    m_Quaternion[2] = y;
+    m_Quaternion[3] = z;
+    NormalizeQuaternion();
+}
+
+// 设置旋转（欧拉角接口）
+void DynamicBox::SetRotation(double xAngle, double yAngle, double zAngle) {
+    double q[4];
+    EulerToQuaternion(xAngle, yAngle, zAngle, q);
+
+    m_Quaternion[0] = q[0];
+    m_Quaternion[1] = q[1];
+    m_Quaternion[2] = q[2];
+    m_Quaternion[3] = q[3];
+
+    // 更新所有操作点的位置
     SetOpePoints();
 }
 
-const Point& DynamicBox::GetRotation() const { return m_Rotation; }
+// 获取旋转（欧拉角接口）
+const Point& DynamicBox::GetRotation() const {
+    static Point eulerAngles; // 注意：这里使用static是为了返回引用，但这不是线程安全的
 
+    double x, y, z;
+    QuaternionToEuler(m_Quaternion.data(), x, y, z);
+
+    eulerAngles[0] = x;
+    eulerAngles[1] = y;
+    eulerAngles[2] = z;
+
+    return eulerAngles;
+}
+
+// 获取操作点
 const std::array<Point, 6>& DynamicBox::GetOpePoints() const { return m_OpePoints; }
 
+// 获取所有边
 std::vector<std::pair<Point, Point>> DynamicBox::GetAllEdges() const {
     std::vector<std::pair<Point, Point>> edges;
     edges.reserve(12); // 立方体有12条边
@@ -306,6 +444,7 @@ std::vector<std::pair<Point, Point>> DynamicBox::GetAllEdges() const {
     return edges;
 }
 
+// 获取所有面
 std::array<std::array<Point, 4>, 6> DynamicBox::GetAllFaces() const {
     std::array<std::array<Point, 4>, 6> faces;
 
@@ -385,9 +524,10 @@ std::array<std::array<Point, 4>, 6> DynamicBox::GetAllFaces() const {
     return faces;
 }
 
+// 获取长度
 const Point& DynamicBox::GetLength() const { return m_Length; }
 
-// 版本1：使用Point参数
+// 设置长度（Point版本）
 void DynamicBox::SetLength(const Point& newLength) {
     // 首先检查新的尺寸是否合法（不能是负数）
     Point finalLength = newLength;
@@ -405,7 +545,7 @@ void DynamicBox::SetLength(const Point& newLength) {
     SetOpePoints();
 }
 
-// 版本2：使用三个double参数
+// 设置长度（三个double参数版本）
 void DynamicBox::SetLength(double lengthX, double lengthY, double lengthZ) {
     // 创建Point对象并调用第一个版本
     SetLength(Point(lengthX, lengthY, lengthZ));
@@ -418,6 +558,7 @@ Point DynamicBox::LocalToWorld(const Point& localVec) const {
     return ApplyRotationMatrix(localVec, r00, r01, r02, r10, r11, r12, r20, r21, r22);
 }
 
+// 获取极值点
 std::pair<Point, Point> DynamicBox::GetExtremePoint() const {
     // 获取半长（从中心到各面的距离）
     Point halfLength = m_Length / 2.0;
@@ -447,63 +588,11 @@ std::pair<Point, Point> DynamicBox::GetExtremePoint() const {
         Point rotatedPoint = ApplyRotationMatrix(localVertices[i], r00, r01, r02, r10, r11, r12, r20, r21, r22);
         worldVertices[i] = rotatedPoint + m_Position;
     }
+
     auto MinMaxP = MinMaxPoint();
     auto& [minP, maxP] = MinMaxP;
     for (int i = 0; i < 8; ++i) { MinMaxPoint(minP, maxP, worldVertices[i]); }
     return MinMaxP;
-}
-
-// 应用旋转（使用四元数避免万向锁问题）
-void DynamicBox::ApplyRotation(const Point& axis, double angle) {
-    // 创建四元数表示旋转
-    double halfAngle = angle / 2.0;
-    double s = sin(halfAngle);
-    double c = cos(halfAngle);
-
-    Point normalizedAxis = axis;
-    normalizedAxis.normalize();
-
-    // 旋转四元数
-    double qx = normalizedAxis[0] * s;
-    double qy = normalizedAxis[1] * s;
-    double qz = normalizedAxis[2] * s;
-    double qw = c;
-
-    // 将当前欧拉角转换为四元数
-    double cx = cos(m_Rotation[0] / 2.0);
-    double sx = sin(m_Rotation[0] / 2.0);
-    double cy = cos(m_Rotation[1] / 2.0);
-    double sy = sin(m_Rotation[1] / 2.0);
-    double cz = cos(m_Rotation[2] / 2.0);
-    double sz = sin(m_Rotation[2] / 2.0);
-
-    double currentQw = cx * cy * cz + sx * sy * sz;
-    double currentQx = sx * cy * cz - cx * sy * sz;
-    double currentQy = cx * sy * cz + sx * cy * sz;
-    double currentQz = cx * cy * sz - sx * sy * cz;
-
-    // 四元数乘法：新旋转 = 当前旋转 * 增量旋转
-    double newQw = currentQw * qw - currentQx * qx - currentQy * qy - currentQz * qz;
-    double newQx = currentQw * qx + currentQx * qw + currentQy * qz - currentQz * qy;
-    double newQy = currentQw * qy - currentQx * qz + currentQy * qw + currentQz * qx;
-    double newQz = currentQw * qz + currentQx * qy - currentQy * qx + currentQz * qw;
-
-    // 将四元数转换回欧拉角
-    // 绕X轴的旋转
-    double sinr_cosp = 2.0 * (newQw * newQx + newQy * newQz);
-    double cosr_cosp = 1.0 - 2.0 * (newQx * newQx + newQy * newQy);
-    m_Rotation[0] = atan2(sinr_cosp, cosr_cosp);
-
-    // 绕Y轴的旋转
-    double sinp = 2.0 * (newQw * newQy - newQz * newQx);
-    if (fabs(sinp) >= 1.0) m_Rotation[1] = copysign(M_PI / 2.0, sinp);
-    else
-        m_Rotation[1] = asin(sinp);
-
-    // 绕Z轴的旋转
-    double siny_cosp = 2.0 * (newQw * newQz + newQx * newQy);
-    double cosy_cosp = 1.0 - 2.0 * (newQy * newQy + newQz * newQz);
-    m_Rotation[2] = atan2(siny_cosp, cosy_cosp);
 }
 
 IGAME_NAMESPACE_END

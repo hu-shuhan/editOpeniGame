@@ -201,7 +201,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,1,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,1,0,0">
      <item>
       <widget class="QLabel" name="label_11">
        <property name="text">
@@ -226,6 +226,23 @@
        <property name="icon">
         <iconset resource="../iGameQtMainWindow.qrc">
          <normaloff>:/Ticon/Icons/check.png</normaloff>:/Ticon/Icons/check.png</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="refreshBtn">
+       <property name="text">
+        <string/>
+       </property>
+       <property name="icon">
+        <iconset resource="../iGameQtMainWindow.qrc">
+         <normaloff>:/Ticon/Icons/refresh.png</normaloff>:/Ticon/Icons/refresh.png</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>14</width>
+         <height>14</height>
+        </size>
        </property>
       </widget>
      </item>

@@ -7,6 +7,8 @@
 #include <iGameStructuredMesh.h>
 #include <iGameUnstructuredMesh.h>
 #include <iostream>
+#include <QMessageBox>
+#include<QDockWidget>
 class igQtStreamTracerWidget : public QWidget {
 
     Q_OBJECT
