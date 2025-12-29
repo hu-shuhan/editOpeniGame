@@ -53,13 +53,13 @@ public:
 	int GetFaceEdgeIds(const IGsize faceId, igIndex* edgeIds);
 
 	// All edges are constructed according to the point index of the face
-	void BuildEdges();
+    void BuildEdges(const std::function<void(double)>& onProgress = nullptr);
 	// Construct the adjacent edges of the points
-	void BuildEdgeLinks();
+    void BuildEdgeLinks(const std::function<void(double)>& onProgress = nullptr);
 	// Construct the adjacent faces of the points
-	void BuildFaceLinks();
+    void BuildFaceLinks(const std::function<void(double)>& onProgress = nullptr);
 	// Construct the adjacent faces of the edges
-	void BuildFaceEdgeLinks();
+    void BuildFaceEdgeLinks(const std::function<void(double)>& onProgress = nullptr);
 
 	enum Type {
 		P2P = 0,
@@ -341,8 +341,8 @@ protected:
 	SurfaceMesh();
 	~SurfaceMesh() override = default;
 
-	void RequestEdgeStatus();
-    void RequestFaceStatus();
+	void RequestEdgeStatus(const std::function<void(double)>& onProgress = nullptr);
+    void RequestFaceStatus(const std::function<void(double)>& onProgress = nullptr);
     friend class BuildAdjacencyRelationFilter;
 
 	DeleteMarker::Pointer m_EdgeDeleteMarker{};

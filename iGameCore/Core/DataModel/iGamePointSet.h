@@ -58,7 +58,7 @@ protected:
     ~PointSet() override = default;
 
     // Request point data edit state
-    void RequestPointStatus();
+    void RequestPointStatus(const std::function<void(double)>& onProgress = nullptr);
 
     // Compute model bounding box
     void ComputeBoundingBox() override;

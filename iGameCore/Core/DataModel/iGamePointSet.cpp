@@ -66,9 +66,14 @@ IGsize PointSet::GetRealMemorySize() {
     if (m_PointDeleteMarker) res += m_PointDeleteMarker->GetRealMemorySize();
     return res + sizeof(m_InEditStatus);
 }
-void PointSet::RequestPointStatus() {
-    if (m_PointDeleteMarker == nullptr) { m_PointDeleteMarker = DeleteMarker::New(); }
+void PointSet::RequestPointStatus(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_PointDeleteMarker == nullptr) {
+        m_PointDeleteMarker = DeleteMarker::New();
+        if (onProgress) onProgress(1.0);
+    }
     m_PointDeleteMarker->Initialize(this->GetNumberOfPoints());
+    if (onProgress) onProgress(1.0);
 }
 
 void PointSet::ComputeBoundingBox() {

@@ -29,48 +29,35 @@ bool BuildAdjacencyRelationFilter::Execute() {
 void BuildAdjacencyRelationFilter::Run(UnstructuredMesh::Pointer mesh) { return; }
 void BuildAdjacencyRelationFilter::Run(SurfaceMesh::Pointer mesh) {
     if (mesh->InEditStatus()) { return; }
-    this->UpdateProgress(0.2);
-    mesh->RequestPointStatus();
-    this->UpdateProgress(0.4);
-    mesh->RequestEdgeStatus();
-    this->UpdateProgress(0.6);
-    mesh->RequestFaceStatus();
-    this->UpdateProgress(0.8);
+    this->UpdateProgress(0.0);
+    mesh->RequestPointStatus([&](double progress) { this->UpdateProgress(0.0 + 0.3 * progress); });
+    mesh->RequestEdgeStatus([&](double progress) { this->UpdateProgress(0.3 + 0.3 * progress); });
+    mesh->RequestFaceStatus([&](double progress) { this->UpdateProgress(0.6 + 0.4 * progress); });
     mesh->MakeEditStatusOn();
     this->UpdateProgress(1.0);
 }
 void BuildAdjacencyRelationFilter::Run(VolumeMesh::Pointer mesh) {
     if (mesh->InEditStatus()) { return; }
+    this->UpdateProgress(0.0);
     if (mesh->IsPolyhedronType) {
-        this->UpdateProgress(0.2);
-        mesh->InitPolyhedronVertices();
-        this->UpdateProgress(0.8);
+        mesh->InitPolyhedronVertices([&](double progress) { this->UpdateProgress(0.0 + 1.0 * progress); });
     } else {
-        this->UpdateProgress(0.2);
-        mesh->RequestPointStatus();
-        this->UpdateProgress(0.4);
-        mesh->RequestFaceStatus();
-        this->UpdateProgress(0.6);
-        mesh->RequestVolumeStatus();
-        this->UpdateProgress(0.8);
+        mesh->RequestPointStatus([&](double progress) { this->UpdateProgress(0.0 + 0.3 * progress); });
+        mesh->RequestFaceStatus([&](double progress) { this->UpdateProgress(0.3 + 0.3 * progress); });
+        mesh->RequestVolumeStatus([&](double progress) { this->UpdateProgress(0.6 + 0.4 * progress); });
     }
     mesh->MakeEditStatusOn();
     this->UpdateProgress(1.0);
 }
 void BuildAdjacencyRelationFilter::Run(StructuredMesh::Pointer mesh) {
     if (mesh->InEditStatus()) { return; }
+    this->UpdateProgress(0.0);
     if (mesh->IsPolyhedronType) {
-        this->UpdateProgress(0.2);
-        mesh->InitPolyhedronVertices();
-        this->UpdateProgress(0.8);
+        mesh->InitPolyhedronVertices([&](double progress) { this->UpdateProgress(0.0 + 1.0 * progress); });
     } else {
-        this->UpdateProgress(0.2);
-        mesh->RequestPointStatus();
-        this->UpdateProgress(0.4);
-        mesh->RequestFaceStatus();
-        this->UpdateProgress(0.6);
-        mesh->RequestVolumeStatus();
-        this->UpdateProgress(0.8);
+        mesh->RequestPointStatus([&](double progress) { this->UpdateProgress(0.0 + 0.3 * progress); });
+        mesh->RequestFaceStatus([&](double progress) { this->UpdateProgress(0.3 + 0.3 * progress); });
+        mesh->RequestVolumeStatus([&](double progress) { this->UpdateProgress(0.6 + 0.4 * progress); });
     }
     mesh->MakeEditStatusOn();
     this->UpdateProgress(1.0);
