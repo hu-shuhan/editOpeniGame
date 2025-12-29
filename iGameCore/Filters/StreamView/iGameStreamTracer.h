@@ -77,7 +77,8 @@ public:
                                                 int focusSplitCount       // 重点观察区域分割数量（f×f×f）
     );
     std::vector<Vector3f> getModelSelect();
-    std::vector<Vector3f> getModelSelectMax(std::string VectorName,int numOfSeeds);
+    std::vector<Vector3f> getModelSelectMax(std::string VectorName, int numOfSeeds);
+    std::vector<Vector3f> getModelSelectMin(std::string VectorName, int numOfSeeds);
     std::vector<Vector3f> currentV;
     void SetSingleThread(bool single = false) { this->m_IsSingleThread = single; };
     float maxF = FLT_MIN;
