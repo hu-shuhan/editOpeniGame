@@ -419,7 +419,102 @@ bool StreamTracer::Execute() {
     m_ResultMesh = streamMesh;
     return true;
 }
+std::vector<Vector3f> StreamTracer::getModelSelectMin(std::string VectorName,int numOfSeeds) {
+    auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
+    auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
+    std::vector<Vector3f> localMaxPoints;
+    std::map<float, Vector3f, std::greater<>> seedsMap;
+    currentV = std::move(GetUnifiedVectorField(VectorName));
+    // 收集所有选中的点ID
+    std::unordered_set<igIndex> allSelectedPoints;
 
+    if (!selectedPoints.empty()) {
+        // 如果选中的是点，直接使用
+        for (auto pointId: selectedPoints) { allSelectedPoints.insert(pointId); }
+    } else if (!selectedCells.empty()) {
+        // 如果选中的是单元，提取单元中的所有点
+        for (auto cellId: selectedCells) {
+            igIndex pVolume[32]{};
+            int psize = mesh->GetVolumePointIds(cellId, pVolume);
+            for (int i = 0; i < psize; i++) { allSelectedPoints.insert(pVolume[i]); }
+        }
+    } else {
+        std::cout << "no select" << std::endl;
+        return localMaxPoints;
+    }
+
+    // 获取向量数据
+    auto VectorData = mesh->GetAttributeSet();
+    auto Vector = VectorData->GetAttribute(VectorName);
+    if (Vector.pointer == nullptr) {
+        std::cout << "Vector " << VectorName << " not found!" << std::endl;
+        return localMaxPoints;
+    }
+
+    // 对每个选中的点，检查是否为局部最小值
+    for (igIndex pointId: allSelectedPoints) {
+        // 获取该点的向量值并计算其模长
+        //double currentValue[4] = {0.0};
+        //Vector.pointer->GetElement(pointId, currentValue);
+        if (pointId < 0 || pointId >= currentV.size()) {
+            std::cout << "over index:"<< pointId << std::endl;
+            continue;
+        } 
+       const Vector3f& currentValue = currentV[pointId];
+        double currentMagnitude = std::sqrt(currentValue[0] * currentValue[0] + currentValue[1] * currentValue[1] +
+                                            currentValue[2] * currentValue[2]);
+
+        // 收集邻接点
+        std::unordered_set<igIndex> neighborPoints;
+
+        // 通过该点的邻接单元获取邻接点
+        if (pointId < vetex_link.offset.size() - 1) {
+            for (long long k = vetex_link.offset[pointId]; k < vetex_link.offset[pointId + 1]; k++) {
+                if (k < vetex_link.data.size()) {
+                    igIndex cellId = vetex_link.data[k];
+                    igIndex cellPoints[32]{};
+                    int pointCount = mesh->GetVolumePointIds(cellId, cellPoints);
+                    for (int i = 0; i < pointCount; i++) {
+                        if (cellPoints[i] != pointId) { neighborPoints.insert(cellPoints[i]); }
+                    }
+                }
+            }
+        }
+
+        // 检查是否为局部最小值
+        bool isLocalMin = true;
+        for (igIndex neighborId: neighborPoints) {
+            Vector3f neighborValue = currentV[neighborId];
+            double neighborMagnitude =
+                    std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
+                              neighborValue[2] * neighborValue[2]);
+
+            if (neighborMagnitude <= currentMagnitude) {
+                isLocalMin = false;
+                break;
+            } else if (neighborMagnitude == currentMagnitude) {
+                std::cout << "equal" << std::endl;
+            }
+        }
+
+        // 如果是局部最大值，添加该点的坐标到结果
+        if (isLocalMin && !neighborPoints.empty()) {
+            Vector3f V = currentV[pointId];
+            Point p = mesh->GetPoint(pointId);
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], p+V*0.00001);
+           // std::cout << p + V * 0.001 << std::endl;
+        }
+
+    }
+    int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);
+    auto it = seedsMap.begin();
+    for (int i = 0; i < numOfPoints; ++i) { 
+        localMaxPoints.emplace_back(it->second);
+        it++;
+    }
+    std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
+    return localMaxPoints;
+}
 std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int numOfSeeds) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);

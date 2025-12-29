@@ -275,13 +275,22 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::vector<Vector3f> seeds;
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
-    } else if (control == 1) {
+    }
+    else if (control == 1) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
         model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
-    } else {
+    } 
+    else if (control == 2) {
+        Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
+        seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
+        //seeds = streamtracer->getModelSelect();
+    } 
+    else if (control == 3) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
@@ -292,6 +301,16 @@ void igQtStreamTracerWidget::generateStreamline() {
         for (auto seed: temSeeds) { 
             seeds.emplace_back(seed);
         }
+    } 
+    else if (control == 4) {
+        Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
+        //seeds = streamtracer->getModelSelect();
+        seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
+        auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+        //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        for (auto seed: temSeeds) { seeds.emplace_back(seed); }
     }
     streamtracer->SetInput(seeds, vectorName, lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
     streamtracer->Execute();

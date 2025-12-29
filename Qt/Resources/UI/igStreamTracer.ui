@@ -38,12 +38,22 @@
        </item>
        <item>
         <property name="text">
-         <string>重点区域极值模式</string>
+         <string>重点区域极大值模式</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>多尺度混合模式</string>
+         <string>重点区域极小值模式</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>多尺度混合模式(极大)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>多尺度混合模式(极小)</string>
         </property>
        </item>
       </widget>
