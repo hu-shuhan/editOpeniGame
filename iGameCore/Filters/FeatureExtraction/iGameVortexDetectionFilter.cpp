@@ -2343,7 +2343,7 @@ VortexDetection::process_blocks(const std::vector<Vector3f>& gridPoints, const s
             torch::tensor({std[0], std[1], std[2]}, torch::dtype(torch::kFloat32).device(device)).view({1, 1, 1, 3});
 
     // static std::counting_semaphore<> infer_slots(25);
-    static SimpleSemaphore infer_slots(25);
+    static SimpleSemaphore infer_slots(5);
     std::mutex progress_mutex;
     auto t3 = std::chrono::high_resolution_clock::now();
     std::cout << "[RUNTIME] processing using device: " << (device.type() == torch::kCUDA ? "CUDA" : "CPU") << std::endl;
