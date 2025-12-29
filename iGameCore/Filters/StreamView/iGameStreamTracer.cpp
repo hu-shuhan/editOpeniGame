@@ -5,6 +5,7 @@
 #include <iGameThreadPool.h>
 #include <shared_mutex>
 #include <unordered_set>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 
 // Initialize static thread_local members
 IGAME_NAMESPACE_BEGIN
@@ -47,8 +48,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            this->UpdateProgress(0.2);
-            mesh->RequestEditStatus();
+            auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+            buildAdjacencyRelationFilter->SetInput(mesh);
+            buildAdjacencyRelationFilter->Execute();
+            mesh = DynamicCast<VolumeMesh>( buildAdjacencyRelationFilter->GetOutput());
             this->UpdateProgress(1);
         } else {
             clock_t startTime = clock();
@@ -79,7 +82,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->ClearAllLinks();
             this->UpdateProgress(0.2);
-            mesh->RequestEditStatus(); // Establishing Adjacency
+            auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+            buildAdjacencyRelationFilter->SetInput(mesh);
+            buildAdjacencyRelationFilter->Execute();
+            mesh = DynamicCast<VolumeMesh>(buildAdjacencyRelationFilter->GetOutput());
             this->UpdateProgress(1);
 
         } else if (!mesh->HasSubDataObject()) {

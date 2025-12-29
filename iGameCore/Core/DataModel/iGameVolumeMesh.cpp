@@ -1155,7 +1155,10 @@ private:
 };
 } // namespace
 
-void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress) {
+void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress,bool forceBuild) {
+    if (m_Volumes && m_VolumeEdges && m_FaceEdges&&!forceBuild) {
+        return;
+    }
     EdgeTable::Pointer EdgeTable = EdgeTable::New();
     m_Volumes = CellArray::New();
     m_VolumeEdges = CellArray::New();
