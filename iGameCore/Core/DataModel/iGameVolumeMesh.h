@@ -194,8 +194,8 @@ public:
         }
     }
 
-
-    void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr);
+    //forceBuild will build polyhedron even if have Built
+    void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr,bool forceBuild=false);
     void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
         m_VolumeFaces = VolumeFaces;
         m_Faces = faces;

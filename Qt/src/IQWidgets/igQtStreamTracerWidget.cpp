@@ -304,10 +304,15 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
-    }
+    } else {
+        m_ResultObject->SetPoints(iGame::Points::New());
+        m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
+        m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
+        m_ResultObject->SetShellRenderingOption(false);
 
+    }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
