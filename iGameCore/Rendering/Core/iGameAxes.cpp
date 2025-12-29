@@ -130,9 +130,15 @@ void Axes::Draw() {
     4.文字渲染：，切换到文字模式，分别渲染X YZ三个字符标签
     5.清理：恢复渲染状态*/
 
-    // use reversed-z buffer反向深度测试
+    // Use reversed-z buffer
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GREATER);
+    glClearDepth(0.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Enable blend
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
     static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
@@ -201,8 +207,6 @@ void Axes::Draw() {
         m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
                                 (void*) (12 * sizeof(GLuint)));
     }
-
-    glDisable(GL_DEPTH_TEST);
 }
 
 void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {

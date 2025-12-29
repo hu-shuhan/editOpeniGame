@@ -8,7 +8,7 @@
 #include "iGamePrism.h"
 #include "iGamePyramid.h"
 #include "iGameTetra.h"
-
+#include <functional>
 IGAME_NAMESPACE_BEGIN
 class VolumeMesh : public SurfaceMesh {
 public:
@@ -39,13 +39,13 @@ public:
     void BuildFaces();
     // Construct all the faces and edges. Add the face index to VolumeFaces.
     // Add the edge index to VolumeEdges,
-    void BuildFacesAndEdges();
+    void BuildFacesAndEdges(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the points
-    void BuildVolumeLinks();
+    void BuildVolumeLinks(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the edges
-    void BuildVolumeEdgeLinks();
+    void BuildVolumeEdgeLinks(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the faces
-    void BuildVolumeFaceLinks();
+    void BuildVolumeFaceLinks(const std::function<void(double)>& onProgress = nullptr);
 
     int GetNumberOfLinks(const IGsize id, Type type);
     // Get all neighboring volumes of a point. Return the size of indices.
@@ -194,66 +194,8 @@ public:
         }
     }
 
-    void InitPolyhedronVertices() {
-        EdgeTable::Pointer EdgeTable = EdgeTable::New();
-        m_Volumes = CellArray::New();
-        m_VolumeEdges = CellArray::New();
-        m_FaceEdges = CellArray::New();
-        igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
-        igIndex ptIds[IGAME_CELL_MAX_SIZE]{}, edgeIds[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
-        IGsize npts, nedges;
-        for (igIndex i = 0; i < CellNum; i++) {
-            std::set<igIndex> vset;
-            int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
-            for (int j = 0; j < fsize; j++) {
-                int size = m_Faces->GetCellIds(faceIds[j], ptIds);
-                for (int k = 0; k < size; k++) { vset.insert(ptIds[k]); }
-            }
-            npts = 0;
-            for (auto it: vset) { ptIds[npts++] = it; }
-            m_Volumes->AddCellIds(ptIds, npts);
-        }
-        for (igIndex i = 0; i < CellNum; i++) {
-            std::set<igIndex> eset;
-            int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
-            for (int j = 0; j < fsize; j++) {
-                int size = m_Faces->GetCellIds(faceIds[j], ptIds);
-                for (int k = 0; k < size; k++) {
-                    igIndex idx;
-                    if ((idx = EdgeTable->IsEdge(ptIds[k], ptIds[(k + 1) % size])) == -1) {
-                        idx = EdgeTable->GetNumberOfEdges();
-                        EdgeTable->InsertEdge(ptIds[k], ptIds[(k + 1) % size]);
-                    }
-                    eset.insert(idx);
-                }
-            }
-            nedges = 0;
-            for (auto it: eset) { edgeIds[nedges++] = it; }
-            m_VolumeEdges->AddCellIds(edgeIds, nedges);
-        }
-        for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
-            int size = m_Faces->GetCellIds(i, ptIds);
-            for (int j = 0; j < size; j++) {
-                igIndex idx;
-                if ((idx = EdgeTable->IsEdge(ptIds[j], ptIds[(j + 1) % size])) == -1) { std::cerr << "error!"; }
-                edgeIds[j] = idx;
-            }
-            m_FaceEdges->AddCellIds(edgeIds, size);
-        }
-        m_Edges = EdgeTable->GetOutput();
-        if (shouldBuildEageLinks)
-        BuildEdgeLinks();
-        if (shouldBuildFaceLinks)
-        BuildFaceLinks();
-        if (shouldBuildFaceEageLinks)
-        BuildFaceEdgeLinks();
-        if (shouldBuildVolumeEageLinks)
-        BuildVolumeEdgeLinks();
-        if (shouldBuildVolumeFaceLinks)
-        BuildVolumeFaceLinks();
-        if (shouldBuildVolumeLinks)
-        BuildVolumeLinks();
-    }
+    //forceBuild will build polyhedron even if have Built
+    void InitPolyhedronVertices(const std::function<void(double)>& onProgress = nullptr,bool forceBuild=false);
     void InitVolumesWithPolyhedron(CellArray::Pointer faces, CellArray::Pointer VolumeFaces) {
         m_VolumeFaces = VolumeFaces;
         m_Faces = faces;
@@ -275,6 +217,7 @@ public:
         this->IsPolyhedronType = true;
     }
     bool GetIsPolyhedronType() { return this->IsPolyhedronType; }
+    void SetIsPolyhedronType(bool flag) { this->IsPolyhedronType = flag; }
     //Get real size of DataObject
     IGsize GetRealMemorySize() override;
     bool GetClipped() override { return true; }
@@ -313,8 +256,9 @@ protected:
     VolumeMesh();
     ~VolumeMesh() override = default;
 
-    void RequestFaceStatus();
-    void RequestVolumeStatus();
+    void RequestFaceStatus(const std::function<void(double)>& onProgress = nullptr);
+    void RequestVolumeStatus(const std::function<void(double)>& onProgress = nullptr);
+    friend class BuildAdjacencyRelationFilter;
 
     DeleteMarker::Pointer m_VolumeDeleteMarker{};
 

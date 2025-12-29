@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>1990</height>
+    <height>1906</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,17 +24,7 @@
     <normaloff>:/Ticon/Icons/iGameLogo.png</normaloff>:/Ticon/Icons/iGameLogo.png</iconset>
   </property>
   <property name="styleSheet">
-   <string notr="true">QToolBar { qproperty-iconSize: 40px; }
-QToolBar QToolButton {
-    icon-size: 40px 40px;
-    min-width: 44x;
-    min-height: 44px;
-    max-width: 44px;
-    max-height: 44px;
-    margin: 2px;
-    padding: 0px;
-    spacing: 0px;
-}</string>
+   <string/>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
@@ -78,30 +68,45 @@ QToolBar QToolButton {
      <property name="title">
       <string>最近文件</string>
      </property>
-     <property name="icon">
-      <iconset resource="../iGameQtMainWindow.qrc">
-       <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
-     </property>
      <addaction name="action_TmpFile"/>
     </widget>
+    <addaction name="action_LoadFile"/>
     <addaction name="menu_RecentFiles"/>
+    <addaction name="separator"/>
+    <addaction name="action_SaveMesh"/>
     <addaction name="action_SaveMeshAs"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="action_SaveScreenShot"/>
+    <addaction name="action_SaveAnimation"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
     <addaction name="action_compress"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
     <addaction name="action_SetThreadNum"/>
-    <addaction name="action_CS"/>
-    <addaction name="action_C"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
      <string>可视化</string>
     </property>
+    <widget class="QMenu" name="menu_Preview">
+     <property name="title">
+      <string>预览</string>
+     </property>
+     <addaction name="action_1280x720"/>
+     <addaction name="action_1280x800"/>
+     <addaction name="action_1280x1024"/>
+     <addaction name="action_1600x900"/>
+     <addaction name="action_1920x1080"/>
+     <addaction name="action_3840x2160"/>
+     <addaction name="separator"/>
+     <addaction name="action_CustomView"/>
+    </widget>
     <widget class="QMenu" name="menu_clip">
      <property name="title">
       <string>切割</string>
-     </property>
-     <property name="icon">
-      <iconset resource="../iGameQtMainWindow.qrc">
-       <normaloff>:/Ticon/Icons/Slice.png</normaloff>:/Ticon/Icons/Slice.png</iconset>
      </property>
      <addaction name="action_ResetClipping"/>
      <addaction name="separator"/>
@@ -122,16 +127,30 @@ QToolBar QToolButton {
     <addaction name="action_Scalar"/>
     <addaction name="action_Vector"/>
     <addaction name="action_Tensor"/>
+    <addaction name="action_StrucDeformation"/>
     <addaction name="action_FlowField"/>
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
+    <addaction name="action_QualityDetection"/>
     <addaction name="menu_clip"/>
     <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="action_ColorMap"/>
+    <addaction name="separator"/>
+    <addaction name="menu_Preview"/>
+    <addaction name="action_FullScreen"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
     <property name="title">
      <string>算法处理</string>
     </property>
+    <addaction name="action_EditMode"/>
+    <addaction name="action_LaSmoothing"/>
+    <addaction name="action_Simplification"/>
+    <addaction name="action_Parameterization"/>
+    <addaction name="action_Subdivision"/>
+    <addaction name="action_Remeshing"/>
+    <addaction name="action_Delaunay"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -139,16 +158,36 @@ QToolBar QToolButton {
     </property>
     <addaction name="action_AiChat"/>
     <addaction name="separator"/>
+    <addaction name="action_About"/>
+    <addaction name="action_ContactUs"/>
    </widget>
    <widget class="QMenu" name="menu_edit">
     <property name="title">
      <string>编辑</string>
     </property>
-    <addaction name="action_ModelCut"/>
-    <addaction name="action_ModelPick"/>
-    <addaction name="action_ModelView"/>
-    <addaction name="action_ModelEdit"/>
+    <widget class="QMenu" name="menu_ChangeEditModel">
+     <property name="title">
+      <string>模式选择</string>
+     </property>
+     <addaction name="action_ModelEdit"/>
+     <addaction name="action_ModelView"/>
+     <addaction name="action_ModelPick"/>
+     <addaction name="action_ModelCut"/>
+    </widget>
+    <addaction name="menu_ChangeEditModel"/>
+    <addaction name="action_SearchInfo"/>
     <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="action_ClearInfomation"/>
+    <addaction name="action_ResetView"/>
+    <addaction name="action_ResetViewByBoundingBox"/>
+    <addaction name="action_ResetBackground"/>
+    <addaction name="separator"/>
+    <addaction name="action_Settings"/>
+    <addaction name="action_ResetSettings"/>
+    <addaction name="separator"/>
+    <addaction name="action_RenameWindow"/>
+    <addaction name="action_FullWindow"/>
    </widget>
    <addaction name="menu_file"/>
    <addaction name="menu_edit"/>
@@ -169,17 +208,44 @@ QToolBar QToolButton {
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="action_LoadFile"/>
-   <addaction name="action_SaveMesh"/>
-   <addaction name="action_DeleteMesh"/>
    <addaction name="separator"/>
-   <addaction name="action_SaveAnimation"/>
-   <addaction name="action_SaveScreenShot"/>
+   <addaction name="action_DeleteMesh"/>
+  </widget>
+  <widget class="QToolBar" name="toolBar_meshview">
+   <property name="windowTitle">
+    <string>toolBar_2</string>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="toolButtonStyle">
+    <enum>Qt::ToolButtonIconOnly</enum>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QToolBar" name="toolBar_meshinfo">
+   <property name="windowTitle">
+    <string>toolBar_4</string>
+   </property>
+   <property name="toolButtonStyle">
+    <enum>Qt::ToolButtonIconOnly</enum>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ModelList">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -248,6 +314,12 @@ QToolBar QToolButton {
    <property name="windowTitle">
     <string>toolBar_2</string>
    </property>
+   <property name="iconSize">
+    <size>
+     <width>40</width>
+     <height>40</height>
+    </size>
+   </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
    </attribute>
@@ -266,6 +338,12 @@ QToolBar QToolButton {
   <widget class="QToolBar" name="toolBar_4">
    <property name="windowTitle">
     <string>toolBar_4</string>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>40</width>
+     <height>40</height>
+    </size>
    </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
@@ -289,7 +367,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_ScalarField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -307,7 +385,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -325,7 +403,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_FlowField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -343,7 +421,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_TensorField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -361,7 +439,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -379,7 +457,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_VariableCorrelationField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -397,7 +475,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_VariableDensityField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -415,7 +493,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_DataChangeField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -433,7 +511,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_SelectionField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -451,7 +529,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_ContextPreservingShowField">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>150</height>
     </size>
    </property>
@@ -551,10 +629,21 @@ QToolBar QToolButton {
    <attribute name="toolBarBreak">
     <bool>true</bool>
    </attribute>
-   <addaction name="action_StreamLine"/>
+   <addaction name="action_FlowField_2"/>
    <addaction name="action_Glyph"/>
    <addaction name="action_deformation"/>
    <addaction name="action_slice"/>
+  </widget>
+  <widget class="QToolBar" name="toolBar_attribute_view_dim">
+   <property name="windowTitle">
+    <string>toolBar_attribute_view_dim</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
   </widget>
   <widget class="QToolBar" name="toolBar_attribute_view_index">
    <property name="windowTitle">
@@ -573,6 +662,12 @@ QToolBar QToolButton {
    <property name="windowTitle">
     <string>toolBar</string>
    </property>
+   <property name="iconSize">
+    <size>
+     <width>40</width>
+     <height>40</height>
+    </size>
+   </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
    </attribute>
@@ -585,7 +680,7 @@ QToolBar QToolButton {
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
    <property name="minimumSize">
     <size>
-     <width>99</width>
+     <width>98</width>
      <height>45</height>
     </size>
    </property>
@@ -612,10 +707,6 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_Vector">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/Glyph.png</normaloff>:/Ticon/Icons/Glyph.png</iconset>
-   </property>
    <property name="text">
     <string>矢量场</string>
    </property>
@@ -627,7 +718,7 @@ QToolBar QToolButton {
   </action>
   <action name="action_LoadFile">
    <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
+    <iconset>
      <normaloff>:/Ticon/Icons/Open.png</normaloff>:/Ticon/Icons/Open.png</iconset>
    </property>
    <property name="text">
@@ -697,7 +788,7 @@ QToolBar QToolButton {
   </action>
   <action name="action_About">
    <property name="text">
-    <string>关于iGameMeshView</string>
+    <string>关于iGameVis</string>
    </property>
   </action>
   <action name="action_rotateNinetyCounterClockwise">
@@ -854,6 +945,12 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_ShowOrientationAxes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../iGameQtMainWindow.qrc">
      <normaloff>:/Ticon/Icons/ShowOrientationAxes.png</normaloff>:/Ticon/Icons/ShowOrientationAxes.png</iconset>
@@ -929,19 +1026,11 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_FlowField">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/StreamTracer.png</normaloff>:/Ticon/Icons/StreamTracer.png</iconset>
-   </property>
    <property name="text">
     <string>时序流场</string>
    </property>
   </action>
   <action name="action_ExportAnimation">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/animation_save_vcr.png</normaloff>:/Ticon/Icons/animation_save_vcr.png</iconset>
-   </property>
    <property name="text">
     <string>动画输出可视化</string>
    </property>
@@ -972,10 +1061,6 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_ModelPick">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/select/selectView.png</normaloff>:/Ticon/Icons/select/selectView.png</iconset>
-   </property>
    <property name="text">
     <string>点选模式</string>
    </property>
@@ -1085,7 +1170,7 @@ QToolBar QToolButton {
     <string>背景重置</string>
    </property>
   </action>
-  <action name="action_StreamLine">
+  <action name="action_FlowField_2">
    <property name="checkable">
     <bool>false</bool>
    </property>
@@ -1118,10 +1203,6 @@ QToolBar QToolButton {
    </property>
   </action>
   <action name="action_SaveMeshAs">
-   <property name="icon">
-    <iconset resource="../iGameQtMainWindow.qrc">
-     <normaloff>:/Ticon/Icons/SaveFile.png</normaloff>:/Ticon/Icons/SaveFile.png</iconset>
-   </property>
    <property name="text">
     <string>另存为</string>
    </property>
@@ -1330,16 +1411,6 @@ QToolBar QToolButton {
    </property>
    <property name="toolTip">
     <string>启用体绘制</string>
-   </property>
-  </action>
-  <action name="action_CS">
-   <property name="text">
-    <string>传输测试(S)</string>
-   </property>
-  </action>
-  <action name="action_C">
-   <property name="text">
-    <string>传输测试(C)</string>
    </property>
   </action>
   <action name="action_SetThreadNum">

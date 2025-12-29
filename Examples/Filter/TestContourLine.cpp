@@ -10,7 +10,7 @@
 int main(){
     /* 创建场景*/
     auto scene = iGame::Scene::New();
-    const std::string fileName = "F:/OpeniGame/Model/Common/dianfengshan.vtk";
+    const std::string fileName = "./Models/dianfengshan.vtk";
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) {
         std::cout << "Read ERROR!\n";

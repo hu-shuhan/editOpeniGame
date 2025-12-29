@@ -23,15 +23,13 @@ public:
     I_OBJECT(CenterAxesModel);
     static Pointer New() { return new CenterAxesModel; }
 
+    virtual void ComputeBoundingBox() override;
+
     void SetRotationCenter(igm::vec3 center);
 
     igm::vec3 GetRotationCenter() const;
 
     void ConvertToDrawableData() override;
-    /**
-     * @brief 准备渲染数据
-     */
-    void PrepareForRendering();
 
     void HandleDrag(igm::vec3 worldOffset);
 
@@ -41,12 +39,8 @@ public:
     void SetScreenSize(float pixelSize) { m_BaseScreenSize = pixelSize; }
     void UpdateAxisScale(float cameraDistance, float fov, int viewportHeight);
 
-
     CenterAxesModel();
     ~CenterAxesModel() override = default;
-
-     
-    
 
 protected:
     void InitializeGeometry();
@@ -65,8 +59,6 @@ private:
     // ????????????????
     float m_CurrentAxisLength = DEFAULT_AXIS_LENGTH; // ?????
     float m_BaseScreenSize = 20.0f;                  // ???????????С
-
-
 };
 
 IGAME_NAMESPACE_END

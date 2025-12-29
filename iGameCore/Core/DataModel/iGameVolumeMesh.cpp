@@ -81,128 +81,164 @@ int VolumeMesh::GetVolumeFaceIds(const IGsize volumeId, igIndex* faceIds) {
 }
 
 
-void VolumeMesh::BuildFacesAndEdges() {
+void VolumeMesh::BuildFacesAndEdges(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
     FaceTable::Pointer FaceTable = FaceTable::New();
     EdgeTable::Pointer EdgeTable = EdgeTable::New();
     igIndex cell[64]{}, faceIds[64]{}, edgeIds[64]{}, face[64]{}, edge[2]{}, isInsert[64]{};
+    if (onProgress) onProgress(0.05);
 
-
-    if (!this->IsPolyhedronType) {
+    if (this->IsPolyhedronType) {
         m_VolumeEdges = CellArray::New();
-        m_VolumeFaces = CellArray::New();
+        if (onProgress) onProgress(0.5);
         m_FaceEdges = CellArray::New();
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
-        for (IGsize i = 0; i < this->GetNumberOfVolumes(); i++) {
-            Volume* vol = this->GetVolume(i);
-            m_Volumes->GetCellIds(i, cell);
-            memset(isInsert, 0, vol->GetNumberOfFaces() * sizeof(igIndex));
-            for (int j = 0; j < vol->GetNumberOfFaces(); j++) // number of faces
-            {
-                const igIndex* index;
-                int size = vol->GetFacePointIds(j, index); // this face's number of points
-                for (int k = 0; k < size; k++) { face[k] = cell[index[k]]; }
-                igIndex idx;
-                if ((idx = FaceTable->IsFace(face, size)) == -1) {
-                    idx = FaceTable->GetNumberOfFaces();
-                    FaceTable->InsertFace(face, size);
-                    isInsert[j] = 1;
-                }
-                faceIds[j] = idx;
+    m_VolumeEdges = CellArray::New();
+    m_VolumeFaces = CellArray::New();
+    m_FaceEdges = CellArray::New();
+
+    if (onProgress) onProgress(0.1);
+    for (IGsize i = 0; i < this->GetNumberOfVolumes(); i++) {
+        Volume* vol = this->GetVolume(i);
+        m_Volumes->GetCellIds(i, cell);
+        memset(isInsert, 0, vol->GetNumberOfFaces() * sizeof(igIndex));
+        for (int j = 0; j < vol->GetNumberOfFaces(); j++) // number of faces
+        {
+            const igIndex* index;
+            int size = vol->GetFacePointIds(j, index); // this face's number of points
+            for (int k = 0; k < size; k++) { face[k] = cell[index[k]]; }
+            igIndex idx;
+            if ((idx = FaceTable->IsFace(face, size)) == -1) {
+                idx = FaceTable->GetNumberOfFaces();
+                FaceTable->InsertFace(face, size);
+                isInsert[j] = 1;
             }
-            m_VolumeFaces->AddCellIds(faceIds, vol->GetNumberOfFaces());
+            faceIds[j] = idx;
+        }
+        m_VolumeFaces->AddCellIds(faceIds, vol->GetNumberOfFaces());
 
-            for (int j = 0; j < vol->GetNumberOfEdges(); j++) {
-                const igIndex* index;
-                vol->GetEdgePointIds(j, index); // this edge's number of points
-                for (int k = 0; k < 2; k++) { edge[k] = cell[index[k]]; }
-                igIndex idx;
-                if ((idx = EdgeTable->IsEdge(edge[0], edge[1])) == -1) {
-                    idx = EdgeTable->GetNumberOfEdges();
-                    EdgeTable->InsertEdge(edge[0], edge[1]);
-                }
-                edgeIds[j] = idx;
+        for (int j = 0; j < vol->GetNumberOfEdges(); j++) {
+            const igIndex* index;
+            vol->GetEdgePointIds(j, index); // this edge's number of points
+            for (int k = 0; k < 2; k++) { edge[k] = cell[index[k]]; }
+            igIndex idx;
+            if ((idx = EdgeTable->IsEdge(edge[0], edge[1])) == -1) {
+                idx = EdgeTable->GetNumberOfEdges();
+                EdgeTable->InsertEdge(edge[0], edge[1]);
             }
-            m_VolumeEdges->AddCellIds(edgeIds, vol->GetNumberOfEdges());
+            edgeIds[j] = idx;
+        }
+        m_VolumeEdges->AddCellIds(edgeIds, vol->GetNumberOfEdges());
 
-            for (int j = 0; j < vol->GetNumberOfFaces(); j++) {
-                if (isInsert[j]) {
-                    const igIndex* index;
-                    int size = vol->GetFaceEdgeIds(j, index);
-                    for (int k = 0; k < size; k++) { face[k] = edgeIds[index[k]]; }
-                    m_FaceEdges->AddCellIds(face, size);
-                }
+        for (int j = 0; j < vol->GetNumberOfFaces(); j++) {
+            if (isInsert[j]) {
+                const igIndex* index;
+                int size = vol->GetFaceEdgeIds(j, index);
+                for (int k = 0; k < size; k++) { face[k] = edgeIds[index[k]]; }
+                m_FaceEdges->AddCellIds(face, size);
             }
         }
 
-        m_Faces = FaceTable->GetOutput();
-        m_Edges = EdgeTable->GetOutput();
-    } else {
-        m_VolumeEdges = CellArray::New();
-        m_FaceEdges = CellArray::New();
+        if (onProgress) onProgress(0.1 + 0.9 * i / this->GetNumberOfVolumes());
     }
+
+    m_Faces = FaceTable->GetOutput();
+    m_Edges = EdgeTable->GetOutput();
+    if (onProgress) onProgress(1.0);
 }
 
-void VolumeMesh::BuildVolumeLinks() {
-    if (m_VolumeLinks && m_VolumeLinks->GetMTime() > m_Volumes->GetMTime()) { return; }
+void VolumeMesh::BuildVolumeLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_VolumeLinks && m_VolumeLinks->GetMTime() > m_Volumes->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_VolumeLinks = CellLinks::New();
     IGsize npts = GetNumberOfPoints();
     IGsize nvolumes = GetNumberOfVolumes();
     igIndex cell[32]{};
 
+    if (onProgress) onProgress(0.05);
     m_VolumeLinks->Allocate(npts);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_Volumes->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeLinks->IncrementLinkSize(cell[j]); }
+        if (onProgress) onProgress(0.05 + 0.45 * i / nvolumes);
     }
 
+    if (onProgress) onProgress(0.5);
     m_VolumeLinks->AllocateLinks(npts);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_Volumes->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeLinks->AddReference(cell[j], i); }
+
+        if (onProgress) onProgress(0.5 + 0.5 * i / nvolumes);
     }
+    if (onProgress) onProgress(1.0);
 }
 
-void VolumeMesh::BuildVolumeEdgeLinks() {
-    if (m_VolumeEdgeLinks && m_VolumeEdgeLinks->GetMTime() > m_VolumeEdges->GetMTime()) { return; }
+void VolumeMesh::BuildVolumeEdgeLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_VolumeEdgeLinks && m_VolumeEdgeLinks->GetMTime() > m_VolumeEdges->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_VolumeEdgeLinks = CellLinks::New();
     IGsize nedges = this->GetNumberOfEdges();
     IGsize nvolumes = this->GetNumberOfVolumes();
     igIndex cell[64]{};
 
+    if (onProgress) onProgress(0.05);
     m_VolumeEdgeLinks->Allocate(nedges);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_VolumeEdges->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeEdgeLinks->IncrementLinkSize(cell[j]); }
+        if (onProgress) onProgress(0.05 + 0.45 * i / nvolumes);
     }
 
+    if (onProgress) onProgress(0.5);
     m_VolumeEdgeLinks->AllocateLinks(nedges);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_VolumeEdges->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeEdgeLinks->AddReference(cell[j], i); }
+        if (onProgress) onProgress(0.5 + 0.5 * i / nvolumes);
     }
+    if (onProgress) onProgress(1.0);
 }
 
-void VolumeMesh::BuildVolumeFaceLinks() {
-    if (m_VolumeFaceLinks && m_VolumeFaceLinks->GetMTime() > m_VolumeFaces->GetMTime()) { return; }
+void VolumeMesh::BuildVolumeFaceLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_VolumeFaceLinks && m_VolumeFaceLinks->GetMTime() > m_VolumeFaces->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_VolumeFaceLinks = CellLinks::New();
     IGsize nfaces = this->GetNumberOfFaces();
     IGsize nvolumes = this->GetNumberOfVolumes();
     igIndex cell[32]{};
 
+    if (onProgress) onProgress(0.05);
     m_VolumeFaceLinks->Allocate(nfaces);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_VolumeFaces->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeFaceLinks->IncrementLinkSize(cell[j]); }
+        if (onProgress) onProgress(0.05 + 0.45 * i / nvolumes);
     }
 
+    if (onProgress) onProgress(0.5);
     m_VolumeFaceLinks->AllocateLinks(nfaces);
     for (IGsize i = 0; i < nvolumes; i++) {
         int size = m_VolumeFaces->GetCellIds(i, cell);
         for (int j = 0; j < size; j++) { m_VolumeFaceLinks->AddReference(cell[j], i); }
+        if (onProgress) onProgress(0.5 + 0.5 * i / nvolumes);
     }
+    if (onProgress) onProgress(1.0);
 }
 
 int VolumeMesh::GetNumberOfLinks(const IGsize id, Type type) {
@@ -957,6 +993,251 @@ bool VolumeMesh::IsCornerPoint(const IGsize ptId) {
 }
 VolumeMesh::VolumeMesh() { m_ViewStyle = IG_SURFACE; };
 
+namespace
+{
+struct Edge {
+    int v1, v2;
+    bool operator==(const Edge& other) const { return v1 == other.v1 && v2 == other.v2; }
+};
+
+struct EdgeHasher {
+    size_t operator()(const Edge& p) const {
+        const size_t h1 = std::hash<int>()(p.v1);
+        const size_t h2 = std::hash<int>()(p.v2);
+        // Improved hash mixing
+        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    }
+};
+
+class FEdgeHash {
+public:
+    typedef Edge key_t;
+    typedef int val_t;
+    typedef EdgeHasher hash_t;
+    struct node {
+        key_t key;
+        val_t val;
+        node* next;
+        node() : key(key_t{}), val(val_t{}), next(nullptr) {}
+        node(key_t key, val_t val) : key(key), val(val), next(nullptr) {}
+    };
+
+    size_t count;
+    size_t capacity;
+    node** data;
+
+    // Optimization: Memory Pool
+    std::vector<node*> blocks;
+    node* freeList;
+    static const size_t BLOCK_SIZE = 1024;
+    size_t currentBlockIndex;
+
+public:
+    FEdgeHash(int initCapacity = 16)
+        : count(0), capacity(initCapacity), freeList(nullptr), currentBlockIndex(BLOCK_SIZE) {
+        data = new node*[capacity];
+        memset(data, 0, capacity * sizeof(node*));
+    }
+
+    ~FEdgeHash() {
+        delete[] data;
+        // Efficient cleanup: just delete the blocks
+        for (auto block: blocks) { delete[] block; }
+    }
+
+    // Allocate from pool or free list
+    node* Allocate(key_t k, val_t v) {
+        if (freeList) {
+            node* p = freeList;
+            freeList = freeList->next;
+            p->key = k;
+            p->val = v;
+            p->next = nullptr;
+            return p;
+        }
+        if (currentBlockIndex >= BLOCK_SIZE) {
+            blocks.push_back(new node[BLOCK_SIZE]);
+            currentBlockIndex = 0;
+        }
+        node* p = &blocks.back()[currentBlockIndex++];
+        p->key = k;
+        p->val = v;
+        p->next = nullptr;
+        return p;
+    }
+
+    // Return to free list
+    void Deallocate(node* p) {
+        p->next = freeList;
+        freeList = p;
+    }
+
+    size_t GetIndex(key_t key) const {
+        size_t code = hash_t()(key);
+        return code & (capacity - 1);
+    }
+
+    bool addUnique(key_t key, val_t value) {
+        if (count >= capacity * 0.75) { Resize(); }
+
+        size_t index = GetIndex(key);
+        node* prev = nullptr;
+        node* curr = data[index];
+
+        while (curr) {
+            if (curr->key == key) { return true; }
+            prev = curr;
+            curr = curr->next;
+        }
+
+        // Not found: Add new node from pool
+        node* p = Allocate(key, value);
+        p->next = data[index];
+        data[index] = p;
+        count++;
+        return false;
+    }
+
+    // 第一次添加，第二次删除并返回true，所以遇到非流形会有重复边
+    bool addOrRemove(key_t key, val_t value, val_t& oldValue) {
+        if (count >= capacity * 0.75) { Resize(); }
+
+        size_t index = GetIndex(key);
+        node* prev = nullptr;
+        node* curr = data[index];
+
+        while (curr) {
+            if (curr->key == key) {
+                // Found: Remove and return to free list
+                oldValue = curr->val;
+                if (prev) prev->next = curr->next;
+                else
+                    data[index] = curr->next;
+
+                Deallocate(curr);
+                count--;
+                return true;
+            }
+            prev = curr;
+            curr = curr->next;
+        }
+
+        // Not found: Add new node from pool
+        node* p = Allocate(key, value);
+        p->next = data[index];
+        data[index] = p;
+        count++;
+        return false;
+    }
+
+private:
+    void Resize() {
+        capacity *= 2;
+        node** old_data = data;
+        data = new node*[capacity];
+        for (int i = 0; i < capacity; i++) { data[i] = nullptr; }
+        for (int i = 0; i < capacity / 2; i++) {
+            if (old_data[i]) {
+                node* cur = old_data[i];
+                while (cur) {
+                    node* nxt = cur->next;
+                    Insert(cur);
+                    cur = nxt;
+                }
+            }
+        }
+    }
+    void Insert(node* p) {
+        size_t index = GetIndex(p->key);
+        p->next = data[index];
+        data[index] = p;
+    }
+};
+} // namespace
+
+void VolumeMesh::InitPolyhedronVertices(const std::function<void(double)>& onProgress,bool forceBuild) {
+    if (m_Volumes && m_VolumeEdges && m_FaceEdges&&!forceBuild) {
+        return;
+    }
+    EdgeTable::Pointer EdgeTable = EdgeTable::New();
+    m_Volumes = CellArray::New();
+    m_VolumeEdges = CellArray::New();
+    m_FaceEdges = CellArray::New();
+    igIndex CellNum = this->m_VolumeFaces->GetNumberOfCells();
+    igIndex ptIds[IGAME_CELL_MAX_SIZE]{}, edgeIds[IGAME_CELL_MAX_SIZE]{}, faceIds[IGAME_CELL_MAX_SIZE]{};
+    IGsize npts, nedges;
+    IGsize PointSize = this->GetNumberOfPoints();
+    std::vector<bool> vis(PointSize * 2);
+    std::vector<int> ids;
+    auto t1 = clock();
+    for (igIndex i = 0; i < CellNum; i++) {
+        ids.clear();
+
+        int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
+        for (int j = 0; j < fsize; j++) {
+            int size = m_Faces->GetCellIds(faceIds[j], ptIds);
+            for (int k = 0; k < size; k++) {
+                if (vis[ptIds[k]] == 0) {
+                    ids.push_back(ptIds[k]);
+                    vis[ptIds[k]] = 1;
+                }
+            }
+        }
+        for (int id: ids) { vis[id] = 0; }
+
+        m_Volumes->AddCellIds(ids.data(), ids.size());
+
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3); }
+    }
+    std::cout << "InitPolyhedronVertices cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    t1 = clock();
+
+    for (igIndex i = 0; i < CellNum; i++) {
+        ids.clear();
+        //std::set<igIndex> eset;
+        int fsize = m_VolumeFaces->GetCellIds(i, faceIds);
+        for (int j = 0; j < fsize; j++) {
+            int size = m_Faces->GetCellIds(faceIds[j], ptIds);
+            for (int k = 0; k < size; k++) {
+                igIndex idx;
+                if ((idx = EdgeTable->IsEdge(ptIds[k], ptIds[(k + 1) % size])) == -1) {
+                    idx = EdgeTable->GetNumberOfEdges();
+                    EdgeTable->InsertEdge(ptIds[k], ptIds[(k + 1) % size]);
+                }
+                if (idx >= vis.size()) { vis.resize((idx + 1) * 2, 0); }
+                if (vis[idx] == 0) {
+                    ids.push_back(idx);
+                    vis[idx] = 1;
+                }
+            }
+        }
+
+        m_VolumeEdges->AddCellIds(ids.data(), ids.size());
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / CellNum / 3 + 0.33); }
+    }
+    std::cout << "InitPolyhedronEdges cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    t1 = clock();
+    for (IGsize i = 0; i < m_Faces->GetNumberOfCells(); i++) {
+        int size = m_Faces->GetCellIds(i, ptIds);
+        for (int j = 0; j < size; j++) {
+            igIndex idx;
+            if ((idx = EdgeTable->IsEdge(ptIds[j], ptIds[(j + 1) % size])) == -1) { std::cerr << "error!"; }
+            edgeIds[j] = idx;
+        }
+        m_FaceEdges->AddCellIds(edgeIds, size);
+        if (i % 2000 == 0 && onProgress) { onProgress((double) i / m_Faces->GetNumberOfCells() / 3 + 0.66); }
+    }
+    std::cout << "InitPolyhedronFaceEdges cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    m_Edges = EdgeTable->GetOutput();
+    t1 = clock();
+    if (shouldBuildEageLinks) { BuildEdgeLinks(); }
+    if (shouldBuildFaceLinks) { BuildFaceLinks(); }
+    if (shouldBuildFaceEageLinks) { BuildFaceEdgeLinks(); }
+    if (shouldBuildVolumeEageLinks) { BuildVolumeEdgeLinks(); }
+    if (shouldBuildVolumeFaceLinks) { BuildVolumeFaceLinks(); }
+    std::cout << "BuildLinks cost time: " << (clock() - t1) * 1.0 / CLOCKS_PER_SEC << std::endl;
+}
+
 IGsize VolumeMesh::GetRealMemorySize() {
     IGsize res = this->SurfaceMesh::GetRealMemorySize();
     if (m_Volumes) res += m_Volumes->GetRealMemorySize();
@@ -965,35 +1246,67 @@ IGsize VolumeMesh::GetRealMemorySize() {
     if (m_VolumeDeleteMarker) res += m_VolumeDeleteMarker->GetRealMemorySize();
     return res + sizeof(IsPolyhedronType);
 }
-void VolumeMesh::RequestFaceStatus() {
-    if (m_Faces == nullptr || (m_Faces->GetMTime() < m_Volumes->GetMTime())) { BuildFacesAndEdges(); }
+void VolumeMesh::RequestFaceStatus(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_Faces == nullptr || (m_Faces->GetMTime() < m_Volumes->GetMTime())) {
+        BuildFacesAndEdges(onProgress ? ([&](double progress) { onProgress(0.0 + 0.2 * progress); })
+                                      : std::function<void(double)>{});
+    }
 
-    if (m_FaceEdgeLinks == nullptr || (m_FaceEdgeLinks->GetMTime() < m_FaceEdges->GetMTime())) { BuildFaceEdgeLinks(); }
+    if (onProgress) onProgress(0.2);
+    if (m_FaceEdgeLinks == nullptr || (m_FaceEdgeLinks->GetMTime() < m_FaceEdges->GetMTime())) {
+        BuildFaceEdgeLinks(onProgress ? ([&](double progress) { onProgress(0.2 + 0.2 * progress); })
+                                      : std::function<void(double)>{});
+    }
 
-    if (m_FaceLinks == nullptr || (m_FaceLinks->GetMTime() < m_Faces->GetMTime())) { BuildFaceLinks(); }
+    if (onProgress) onProgress(0.4);
+    if (m_FaceLinks == nullptr || (m_FaceLinks->GetMTime() < m_Faces->GetMTime())) {
+        BuildFaceLinks(onProgress ? ([&](double progress) { onProgress(0.4 + 0.2 * progress); })
+                                  : std::function<void(double)>{});
+    }
 
-    if (m_EdgeLinks == nullptr || (m_EdgeLinks->GetMTime() < m_Edges->GetMTime())) { BuildEdgeLinks(); }
+    if (onProgress) onProgress(0.6);
+    if (m_EdgeLinks == nullptr || (m_EdgeLinks->GetMTime() < m_Edges->GetMTime())) {
+        BuildEdgeLinks(onProgress ? ([&](double progress) { onProgress(0.6 + 0.2 * progress); })
+                                  : std::function<void(double)>{});
+    }
 
+    if (onProgress) onProgress(0.80);
     if (m_EdgeDeleteMarker == nullptr) { m_EdgeDeleteMarker = DeleteMarker::New(); }
+    if (onProgress) onProgress(0.85);
     m_EdgeDeleteMarker->Initialize(GetNumberOfEdges());
 
+    if (onProgress) onProgress(0.90);
     if (m_FaceDeleteMarker == nullptr) { m_FaceDeleteMarker = DeleteMarker::New(); }
+    if (onProgress) onProgress(0.95);
     m_FaceDeleteMarker->Initialize(GetNumberOfFaces());
+    if (onProgress) onProgress(1.0);
 }
 
-void VolumeMesh::RequestVolumeStatus() {
-    if (m_VolumeLinks == nullptr || (m_VolumeLinks->GetMTime() < m_Volumes->GetMTime())) { BuildVolumeLinks(); }
+void VolumeMesh::RequestVolumeStatus(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_VolumeLinks == nullptr || (m_VolumeLinks->GetMTime() < m_Volumes->GetMTime())) {
+        BuildVolumeLinks(onProgress ? ([&](double progress) { onProgress(0.0 + 0.3 * progress); })
+                                    : std::function<void(double)>{});
+    }
 
+    if (onProgress) onProgress(0.3);
     if (m_VolumeEdgeLinks == nullptr || (m_VolumeEdgeLinks->GetMTime() < m_VolumeEdges->GetMTime())) {
-        BuildVolumeEdgeLinks();
+        BuildVolumeEdgeLinks(onProgress ? ([&](double progress) { onProgress(0.3 + 0.3 * progress); })
+                                        : std::function<void(double)>{});
     }
 
+    if (onProgress) onProgress(0.6);
     if (m_VolumeFaceLinks == nullptr || (m_VolumeFaceLinks->GetMTime() < m_VolumeFaces->GetMTime())) {
-        BuildVolumeFaceLinks();
+        BuildVolumeFaceLinks(onProgress ? ([&](double progress) { onProgress(0.3 + 0.3 * progress); })
+                                        : std::function<void(double)>{});
     }
 
+    if (onProgress) onProgress(0.9);
     if (m_VolumeDeleteMarker == nullptr) { m_VolumeDeleteMarker = DeleteMarker::New(); }
+    if (onProgress) onProgress(0.95);
     m_VolumeDeleteMarker->Initialize(GetNumberOfEdges());
+    if (onProgress) onProgress(1.0);
 }
 
 void VolumeMesh::ConvertToDrawableData() {

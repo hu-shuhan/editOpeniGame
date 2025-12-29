@@ -6,7 +6,7 @@
 #pragma once
 #include <ui_Animation.h>
 #include <IQCore/igQtExportModule.h>
-
+#include <iGameDataObject.h>
 class igQtAnimationVcrController;
 class IG_QT_MODULE_EXPORT igQtAnimationWidget : public QWidget{
 
@@ -36,6 +36,7 @@ signals:
     void PlayAnimation_snap(int keyframe_idx);
 
     void PlayAnimation_interpolate(int keyframe_0, float t);
+
 
 private:
     Ui::Animation* ui;

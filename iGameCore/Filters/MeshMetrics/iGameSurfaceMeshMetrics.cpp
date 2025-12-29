@@ -52,6 +52,7 @@ bool SurfaceMeshMetricsFilter::Execute() {
     igIndex faceNum = m_Faces->GetNumberOfCells(); //总面数
 
     DoubleArray::Pointer metricArray = DoubleArray::New();
+    metricArray->SetName("Metric" + m_Metric);
 
     metricArray->SetDimension(1);
     metricArray->Reserve(faceNum);

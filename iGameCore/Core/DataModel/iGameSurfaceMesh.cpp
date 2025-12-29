@@ -107,13 +107,16 @@ int SurfaceMesh::GetFaceEdgeIds(const IGsize faceId, igIndex* edgeIds) {
     return m_FaceEdges->GetCellIds(faceId, edgeIds);
 }
 
-void SurfaceMesh::BuildEdges() {
+void SurfaceMesh::BuildEdges(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
     EdgeTable::Pointer EdgeTable = EdgeTable::New();
     IGsize nfaces = GetNumberOfFaces();
     igIndex edgeIds[32]{}, face[32]{};
 
     m_FaceEdges = CellArray::New();
     EdgeTable->Initialize(GetNumberOfPoints());
+
+    if (onProgress) onProgress(0.1);
 
     for (IGsize i = 0; i < nfaces; i++) {
         int size = this->GetFacePointIds(i, face);
@@ -126,12 +129,18 @@ void SurfaceMesh::BuildEdges() {
             edgeIds[j] = idx;
         }
         m_FaceEdges->AddCellIds(edgeIds, size);
+        if (onProgress) onProgress(0.1 + 0.9 * i / nfaces);
     }
     m_Edges = EdgeTable->GetOutput();
+    if (onProgress) onProgress(1.0);
 }
 
-void SurfaceMesh::BuildEdgeLinks() {
-    if (m_EdgeLinks && m_EdgeLinks->GetMTime() > m_Edge->GetMTime()) { return; }
+void SurfaceMesh::BuildEdgeLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_EdgeLinks && m_EdgeLinks->GetMTime() > m_Edges->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_EdgeLinks = CellLinks::New();
     IGsize npts = GetNumberOfPoints();
@@ -143,20 +152,28 @@ void SurfaceMesh::BuildEdgeLinks() {
         int size = m_Edges->GetCellIds(i, e);
         m_EdgeLinks->IncrementLinkSize(e[0]);
         m_EdgeLinks->IncrementLinkSize(e[1]);
+        if (onProgress) onProgress(0.0 + 0.5 * i / nedges);
     }
 
+    if (onProgress) onProgress(0.5);
     m_EdgeLinks->AllocateLinks(npts);
 
     for (int i = 0; i < nedges; i++) {
         int size = m_Edges->GetCellIds(i, e);
         m_EdgeLinks->AddReference(e[0], i);
         m_EdgeLinks->AddReference(e[1], i);
+        if (onProgress) onProgress(0.5 + 0.5 * i / nedges);
     }
     m_EdgeLinks->Modified();
+    if (onProgress) onProgress(1.0);
 }
 
-void SurfaceMesh::BuildFaceLinks() {
-    if (m_FaceLinks && m_FaceLinks->GetMTime() > m_Faces->GetMTime()) { return; }
+void SurfaceMesh::BuildFaceLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_FaceLinks && m_FaceLinks->GetMTime() > m_Faces->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_FaceLinks = CellLinks::New();
     IGsize npts = GetNumberOfPoints();
@@ -167,18 +184,25 @@ void SurfaceMesh::BuildFaceLinks() {
     for (int i = 0; i < nfaces; i++) {
         int size = m_Faces->GetCellIds(i, face);
         for (int j = 0; j < size; j++) { m_FaceLinks->IncrementLinkSize(face[j]); }
+        if (onProgress) onProgress(0.0+0.5*i/nfaces);
     }
 
     m_FaceLinks->AllocateLinks(npts);
     for (int i = 0; i < nfaces; i++) {
         int size = m_Faces->GetCellIds(i, face);
         for (int j = 0; j < size; j++) { m_FaceLinks->AddReference(face[j], i); }
+        if (onProgress) onProgress(0.5+0.5*i/nfaces);
     }
     m_FaceLinks->Modified();
+    if (onProgress) onProgress(1.0);
 }
 
-void SurfaceMesh::BuildFaceEdgeLinks() {
-    if (m_FaceEdgeLinks && m_FaceEdgeLinks->GetMTime() > m_FaceEdges->GetMTime()) { return; }
+void SurfaceMesh::BuildFaceEdgeLinks(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_FaceEdgeLinks && m_FaceEdgeLinks->GetMTime() > m_FaceEdges->GetMTime()) {
+        if (onProgress) onProgress(1.0);
+        return;
+    }
 
     m_FaceEdgeLinks = CellLinks::New();
     IGsize nedges = GetNumberOfEdges();
@@ -189,12 +213,14 @@ void SurfaceMesh::BuildFaceEdgeLinks() {
     for (int i = 0; i < nfaces; i++) {
         int size = m_FaceEdges->GetCellIds(i, face);
         for (int j = 0; j < size; j++) { m_FaceEdgeLinks->IncrementLinkSize(face[j]); }
+        if (onProgress) onProgress(0.0+0.5*i/nfaces);
     }
 
     m_FaceEdgeLinks->AllocateLinks(nedges);
     for (int i = 0; i < nfaces; i++) {
         int size = m_FaceEdges->GetCellIds(i, face);
         for (int j = 0; j < size; j++) { m_FaceEdgeLinks->AddReference(face[j], i); }
+        if (onProgress) onProgress(0.5+0.5*i/nfaces);
     }
 }
 
@@ -523,20 +549,42 @@ void SurfaceMesh::RequestEditStatus() {
     RequestFaceStatus();
     MakeEditStatusOn();
 }
-void SurfaceMesh::RequestEdgeStatus() {
-    if (m_Edges == nullptr || (m_Edges->GetMTime() < m_Faces->GetMTime())) { BuildEdges(); }
-    if (m_EdgeLinks == nullptr || (m_EdgeLinks->GetMTime() < m_Edges->GetMTime())) { BuildEdgeLinks(); }
+void SurfaceMesh::RequestEdgeStatus(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_Edges == nullptr || (m_Edges->GetMTime() < m_Faces->GetMTime())) {
+        BuildEdges(onProgress ? ([&](double progress) { onProgress(0.0 + 0.4 * progress); })
+                              : std::function<void(double)>{});
+    }
+    if (m_EdgeLinks == nullptr || (m_EdgeLinks->GetMTime() < m_Edges->GetMTime())) {
+        BuildEdgeLinks(onProgress ? ([&](double progress) { onProgress(0.4 + 0.5 * progress); })
+                                  : std::function<void(double)>{});
+    }
 
-    if (m_EdgeDeleteMarker == nullptr) { m_EdgeDeleteMarker = DeleteMarker::New(); }
+        if (onProgress) onProgress(0.90);
+    if (m_EdgeDeleteMarker == nullptr) {
+        m_EdgeDeleteMarker = DeleteMarker::New();
+    }
+    if (onProgress) onProgress(0.95);
     m_EdgeDeleteMarker->Initialize(GetNumberOfEdges());
+    if (onProgress) onProgress(1.0);
 }
 
-void SurfaceMesh::RequestFaceStatus() {
-    if (m_FaceEdgeLinks == nullptr || (m_FaceEdgeLinks->GetMTime() < m_FaceEdges->GetMTime())) { BuildFaceEdgeLinks(); }
-    if (m_FaceLinks == nullptr || (m_FaceLinks->GetMTime() < m_Faces->GetMTime())) { BuildFaceLinks(); }
+void SurfaceMesh::RequestFaceStatus(const std::function<void(double)>& onProgress) {
+    if (onProgress) onProgress(0.0);
+    if (m_FaceEdgeLinks == nullptr || (m_FaceEdgeLinks->GetMTime() < m_FaceEdges->GetMTime())) {
+        BuildFaceEdgeLinks(onProgress ? ([&](double progress) { onProgress(0.0 + 0.4 * progress); })
+                                      : std::function<void(double)>{});
+    }
+    if (m_FaceLinks == nullptr || (m_FaceLinks->GetMTime() < m_Faces->GetMTime())) {
+        BuildFaceLinks(onProgress ? ([&](double progress) { onProgress(0.4 + 0.5 * progress); })
+                                  : std::function<void(double)>{});
+    }
 
+    if (onProgress) onProgress(0.90);
     if (m_FaceDeleteMarker == nullptr) { m_FaceDeleteMarker = DeleteMarker::New(); }
+    if (onProgress) onProgress(0.95);
     m_FaceDeleteMarker->Initialize(GetNumberOfFaces());
+    if (onProgress) onProgress(1.0);
 }
 
 void SurfaceMesh::GarbageCollection() {
@@ -761,11 +809,25 @@ void SurfaceMesh::ConvertToDrawableData() {
     if (needReConvertScalar || m_AttributeChanged || updateColorMapper) {
         m_AttributeChanged = false;
         if (m_AttributeIndex != -1) {
-            auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
-            if (attr.type == IG_RGB) {
-                this->m_ColorMapper->SetVectorModeToRGBColors();
+            if (this->GetAttributeSet()->GetNumberOfAttributes() > m_AttributeIndex) {
+                auto& attr = this->GetAttributeSet()->GetAttribute(m_AttributeIndex);
+                if (attr.type == IG_RGB) {
+                    this->m_ColorMapper->SetVectorModeToRGBColors();
+                } else {
+                    this->m_ColorMapper->SetVectorModeToComponent();
+                }
+                if (!attr.isDeleted) {
+                    auto dataRange = attr.GetDataRange();
+                    if (attr.attachmentType == IG_POINT) {
+                        m_ColorWithCell = false;
+                        this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
+                    } else if (attr.attachmentType == IG_CELL) {
+                        m_ColorWithCell = true;
+                        this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
+                    }
+                }
             } else {
-                this->m_ColorMapper->SetVectorModeToComponent();
+            std::cout<< "Warning : Attribute index is out of range in SurfaceMesh::ConvertToDrawableData()." << std::endl;
             }
 
 //            if(updateColorMapper){
@@ -774,16 +836,7 @@ void SurfaceMesh::ConvertToDrawableData() {
 //                          << " Data Range : " <<  attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 0) << ' '  << attr.GetDataRange()->GetValue(2 + m_AttributeDimension * 2 + 1) << std::endl;
 //            }
 
-            if (!attr.isDeleted) {
-                auto dataRange = attr.GetDataRange();
-                if (attr.attachmentType == IG_POINT) {
-                    m_ColorWithCell = false;
-                    this->SetAttributeWithPointData(attr.pointer, dataRange, m_AttributeDimension);
-                } else if (attr.attachmentType == IG_CELL) {
-                    m_ColorWithCell = true;
-                    this->SetAttributeWithCellData(attr.pointer, dataRange, m_AttributeDimension);
-                }
-            }
+
         }
     }
 

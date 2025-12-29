@@ -10,6 +10,7 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -301,8 +302,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
     auto meshType = dataObj->GetDataObjectType();
     switch (meshType) {
         case IG_SURFACE_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetPointsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -317,8 +324,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
         } break;
         //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetPointsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -362,18 +375,14 @@ void SingleSelectionStyle::SelectPoint(igm::vec2 pos) {
 
     if (ids.empty()) return;
 
-    if (SelectionParameter::Instance().IsBoxMode()) {
-        m_Selection->SelectionCallBackEvent(IG_POINT_BOX, ids);
-        return;
-    }
+    m_Selection->SelectionCallBackEvent(
+            SelectionParameter::Instance().IsBoxMode() ? IG_POINT_BOX
+                                                       : IG_POINT,
+            ids,
+            SelectionParameter::Instance().GetSelectOrUnSelect()
+                    ? Selection::Operate::Add
+                    : Selection::Operate::Remove);
 
-    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
-        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
-                                            Selection::Operate::Add);
-    } else {
-        m_Selection->SelectionCallBackEvent(IG_POINT, ids,
-                                            Selection::Operate::Remove);
-    }
     return;
 }
 
@@ -401,8 +410,14 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
     auto meshType = dataObj->GetDataObjectType();
     switch (meshType) {
         case IG_SURFACE_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<SurfaceMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetCellsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -417,8 +432,14 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
         } break;
         //case IG_STRUCTURED_MESH:
         case IG_VOLUME_MESH: {
+            {
+                auto buildAdjacencyRelationFilter =
+                        BuildAdjacencyRelationFilter::New();
+                buildAdjacencyRelationFilter->SetInput(dataObj);
+                buildAdjacencyRelationFilter->Execute();
+                dataObj = buildAdjacencyRelationFilter->GetOutput();
+            }
             auto mesh = DynamicCast<VolumeMesh>(dataObj);
-            mesh->RequestEditStatus();
             ids = GetCellsInCondition(
                     point1, point2, mesh,
                     SelectionParameter::Instance().GetSelectionRadius(),
@@ -464,18 +485,13 @@ void SingleSelectionStyle::SelectCell(igm::vec2 pos) {
 
     if (ids.empty()) return;
 
-    if (SelectionParameter::Instance().IsBoxMode()) {
-        m_Selection->SelectionCallBackEvent(IG_CELL_BOX, ids);
-        return;
-    }
+    m_Selection->SelectionCallBackEvent(
+            SelectionParameter::Instance().IsBoxMode() ? IG_CELL_BOX : IG_CELL,
+            ids,
+            SelectionParameter::Instance().GetSelectOrUnSelect()
+                    ? Selection::Operate::Add
+                    : Selection::Operate::Remove);
 
-    if (SelectionParameter::Instance().GetSelectOrUnSelect()) {
-        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
-                                            Selection::Operate::Add);
-    } else {
-        m_Selection->SelectionCallBackEvent(IG_CELL, ids,
-                                            Selection::Operate::Remove);
-    }
     return;
 }
 

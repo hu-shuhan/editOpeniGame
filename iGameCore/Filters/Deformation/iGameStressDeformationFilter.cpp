@@ -18,7 +18,7 @@ iGame::StressDeformationFilter::StressDeformationFilter() {
 }
 
 bool iGame::StressDeformationFilter::Execute() {
-    auto dataObject = this->GetInput(0);std::cout << "Processing=========\n";
+    auto dataObject = this->GetInput(0);
     if(nullptr == dataObject) {
         return false;
     }
@@ -33,7 +33,7 @@ bool iGame::StressDeformationFilter::Execute() {
     float deform_x = dataObject->GetDeformationData()->GetScaleFactorX();
     float deform_y = dataObject->GetDeformationData()->GetScaleFactorY();
     float deform_z = dataObject->GetDeformationData()->GetScaleFactorZ();
-    std::cout << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
+    std::cout << "deformation var : " << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
 
     /* Process SubDataObject's Deformation. */
     if(dataObject->HasSubDataObject()){

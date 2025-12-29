@@ -2,6 +2,7 @@
 #include <IQWidgets/igQtStreamTracerWidget.h>
 #include <iGameSceneManager.h>
 #include<iGameBoxStyle.h>
+
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
     ui->setupUi(this);
@@ -30,8 +31,8 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
 
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
 
-    numOfSeeds = 200;
-    ui->numOfSeedLineEdit->setText("200");
+    numOfSeeds = 150;
+    ui->numOfSeedLineEdit->setText("150");
     control = 0;
     haveClicked = false;
     //	 proportion = 0.35;
@@ -276,12 +277,16 @@ void igQtStreamTracerWidget::generateStreamline() {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
     } else if (control == 1) {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
+        model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
     } else {
         Q_EMIT SetUseBox();
+        emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        model->GetSelection()->ClearSelections();
       auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
       //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         for (auto seed: temSeeds) { 
@@ -299,10 +304,15 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
-    }
+    } else {
+        m_ResultObject->SetPoints(iGame::Points::New());
+        m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
+        m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
+        m_ResultObject->SetShellRenderingOption(false);
 
+    }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");

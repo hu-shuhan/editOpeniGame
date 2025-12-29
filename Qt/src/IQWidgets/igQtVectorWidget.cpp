@@ -5,6 +5,7 @@ igQtVectorWidget::igQtVectorWidget(QWidget* parent) : QWidget(parent), ui(new Ui
     m_VectorBase = iGame::iGameVectorBase::New();
     m_VectorBase->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
         isDraw = false;
+        updateVectorNameList();
         m_VectorBase->SetInit(false);
     });
 
