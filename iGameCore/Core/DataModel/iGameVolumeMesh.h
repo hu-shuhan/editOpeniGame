@@ -39,13 +39,13 @@ public:
     void BuildFaces();
     // Construct all the faces and edges. Add the face index to VolumeFaces.
     // Add the edge index to VolumeEdges,
-    void BuildFacesAndEdges();
+    void BuildFacesAndEdges(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the points
-    void BuildVolumeLinks();
+    void BuildVolumeLinks(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the edges
-    void BuildVolumeEdgeLinks();
+    void BuildVolumeEdgeLinks(const std::function<void(double)>& onProgress = nullptr);
     // Construct the adjacent volumes of the faces
-    void BuildVolumeFaceLinks();
+    void BuildVolumeFaceLinks(const std::function<void(double)>& onProgress = nullptr);
 
     int GetNumberOfLinks(const IGsize id, Type type);
     // Get all neighboring volumes of a point. Return the size of indices.
@@ -256,8 +256,8 @@ protected:
     VolumeMesh();
     ~VolumeMesh() override = default;
 
-    void RequestFaceStatus();
-    void RequestVolumeStatus();
+    void RequestFaceStatus(const std::function<void(double)>& onProgress = nullptr);
+    void RequestVolumeStatus(const std::function<void(double)>& onProgress = nullptr);
     friend class BuildAdjacencyRelationFilter;
 
     DeleteMarker::Pointer m_VolumeDeleteMarker{};
