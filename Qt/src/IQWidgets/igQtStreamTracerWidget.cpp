@@ -30,6 +30,7 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
 
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
+    connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::updateVectorNameList);
 
     numOfSeeds = 150;
     ui->numOfSeedLineEdit->setText("150");
@@ -323,9 +324,11 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-        m_ResultObject->SetShellRenderingOption(false);
+        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+       // m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
-    } else {
+    }
+    else {
         m_ResultObject->SetPoints(iGame::Points::New());
         m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
         m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
@@ -336,8 +339,14 @@ void igQtStreamTracerWidget::generateStreamline() {
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
         m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+            m_StreamBase->streamFilter->meshId = -1;
             modelBound = false;
             haveDraw= false;
+
+            QMessageBox::information(this, "tips", 
+                "Please click the Streamline Entry button again to refresh the streamline binding status");
+
+
         });
         Q_EMIT AddStreamObject(m_ResultObject);
         haveDraw = true;
