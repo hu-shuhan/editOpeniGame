@@ -43,6 +43,12 @@ igm::mat4 DynamicBox::CreateTranslationMatrix(const Point& translation) {
 // 初始化消息
 void DynamicBox::InitMsg(const Point& p1, const Point& p2) {
     m_Position = (p1 + p2) / 2.0;
+
+    //############ TEST ############
+    OldP = m_Position;
+    NewP = m_Position;
+    //############ TEST ############
+
     m_Length = Point(std::abs(p1[0] - p2[0]), std::abs(p1[1] - p2[1]), std::abs(p1[2] - p2[2]));
 
     // 初始化旋转矩阵为单位矩阵
@@ -206,94 +212,16 @@ static Point ExtractEulerAnglesFromMatrix(const igm::mat4& rotationMatrix) {
 // 获取旋转矩阵转换的欧拉角
 Point DynamicBox::GetRotation() const { return ExtractEulerAnglesFromMatrix(m_RotationMatrix); }
 
-static void MapToSphere(igm::vec3& old_v3D, igm::vec3& new_v3D, const igm::mat4& matrix,
-                        iGame::Camera::Pointer camera) {
-
-    igm::mat4 view = camera->GetViewMatrix();
-    igm::mat4 proj = camera->GetProjectionMatrix();
-
-    auto p = igm::vec4{0, 0, 0, 1.0f};
-    auto p_mvp = (proj * view * matrix * p);
-    p_mvp /= p_mvp.w;
-
-    // if the perspective enters the model, rotate around (0,0)
-    if (p_mvp.x > 1.0f || p_mvp.x < -1.0f || p_mvp.y > 1.0f || p_mvp.y < -1.0f) {
-        p_mvp = igm::vec4{0.0f, 0.0f, 0.0f, 0.0f};
-    }
-
-    auto width = camera->GetViewPort().x;
-    auto height = camera->GetViewPort().y;
-
-    const double trackballradius = 0.6;
-    const double rsqr = trackballradius * trackballradius;
-
-    // calculate old hit sphere point3D
-    double oldX = (2.0 * old_v3D.x - width) / width - p_mvp.x;
-    double oldY = -(2.0 * old_v3D.y - height) / height - p_mvp.y;
-    double old_x2y2 = oldX * oldX + oldY * oldY;
-
-    old_v3D[0] = oldX;
-    old_v3D[1] = oldY;
-    if (old_x2y2 < 0.5 * rsqr) {
-        old_v3D[2] = sqrt(rsqr - old_x2y2);
-    } else {
-        old_v3D[2] = 0.5 * rsqr / sqrt(old_x2y2);
-    }
-
-    // calculate new hit sphere point3D
-    double newX = (2.0 * new_v3D.x - width) / width - p_mvp.x;
-    double newY = -(2.0 * new_v3D.y - height) / height - p_mvp.y;
-    double new_x2y2 = newX * newX + newY * newY;
-
-    new_v3D[0] = newX;
-    new_v3D[1] = newY;
-    if (new_x2y2 < 0.5 * rsqr) {
-        new_v3D[2] = sqrt(rsqr - new_x2y2);
-    } else {
-        new_v3D[2] = 0.5 * rsqr / sqrt(new_x2y2);
-    }
-}
-
-void DynamicBox::RotateBox(const igm::vec2& old_v2D, const igm::vec2& new_v2D, iGame::Camera::Pointer camera) {
-    // 1. 将鼠标移动轨迹映射到球面坐标系
-    igm::vec3 oldPoint3D(old_v2D, 0.0f), newPoint3D(new_v2D, 0.0f);
-    MapToSphere(oldPoint3D, newPoint3D, m_RotationMatrix, camera);
-    // 2. 计算旋转轴（通过叉积）
-    igm::vec3 axis = igm::cross(oldPoint3D, newPoint3D); // corss product
-    if (axis.length() < 1e-7) {
-        axis = igm::vec3(1.0f, 0.0f, 0.0f); // 默认绕X轴旋转
-    } else {
-        axis.normalize();
-    }
-    // find the amount of rotation
-    // (3) 计算旋转角度（基于球面弧长）
-    igm::vec3 d = oldPoint3D - newPoint3D;
-    const double trackballradius = 0.6;
-    double t = 0.5 * d.length() / trackballradius;
-    if (t < -1.0) {
-        t = -1.0;
-    } else if (t > 1.0) {
-        t = 1.0;
-    }
-
-    double phi = 2.0 * asin(t);          // 计算弧度
-    double angle = phi * 180.0 / IGM_PI; // 转为角度制
-
-    //(5) 构建旋转矩阵（绕中心点旋转）
-    igm::mat4 rotate = igm::rotate(igm::mat4{}, static_cast<float>(igm::radians(angle)), axis);
-
-    // (6) 更新场景模型矩阵
-    ApplyRotation(rotate);
-}
-
 // 旋转盒子（基于BasicStyle中的旋转方法）
-void DynamicBox::RotateBox(const Point& camera, const Point& direction) {
-    // 计算旋转轴：方向向量与相机到中心向量的叉积
-    Point cameraToCenter = m_Position - camera;
-    igm::vec3 cameraToCenterVec(cameraToCenter[0], cameraToCenter[1], cameraToCenter[2]);
-    igm::vec3 dirVec(direction[0], direction[1], direction[2]);
+void DynamicBox::RotateBox(const Point& oldP, const Point& newP) {
+    // 计算旋转轴
+    Point cToO = oldP - m_Position;
+    Point cToN = newP - m_Position;
+    Point direction = newP - oldP;
+    igm::vec3 cToOVec(cToO[0], cToO[1], cToO[2]);
+    igm::vec3 cToNVec(cToN[0], cToN[1], cToN[2]);
 
-    igm::vec3 axis = igm::cross(cameraToCenterVec, dirVec);
+    igm::vec3 axis = igm::cross(cToOVec, cToNVec);
 
     if (axis.length() < 1e-7) {
         axis = igm::vec3(1.0f, 0.0f, 0.0f); // 默认绕X轴旋转

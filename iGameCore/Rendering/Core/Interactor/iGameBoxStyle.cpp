@@ -114,13 +114,15 @@ void BoxStyle::MousePressEvent(IEvent event) {
                 int pI2 = (pIndex + 1) % 4;
                 auto& p1 = boxFace[pI1];
                 auto& p2 = boxFace[pI2];
-                auto dist = SegmentIntersectsTriangle(
-                        lineStartPoint, lineDir, p0, p1, p2, intersectionPoint);
+                Point tempP;
+                auto dist = SegmentIntersectsTriangle(lineStartPoint, lineDir,
+                                                      p0, p1, p2, tempP);
                 if (dist == -1) continue;
                 if (m_SelectedDirection == -1 || dist < minFaceDist) {
                     m_SelectedDirection = i;
                     minFaceDist = dist;
                     m_SelectedItem = IG_CELL;
+                    intersectionPoint = tempP;
                     break;
                 }
             }
@@ -171,7 +173,6 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
     Point nowPosition = Point(newPoint_WorldCoord.x, newPoint_WorldCoord.y,
                               newPoint_WorldCoord.z);
     auto dir = nowPosition - m_PrePosition;
-    m_PrePosition = nowPosition;
 
     if (m_SelectedItem == IG_MID_POINT) {
         m_DynamicBox->MovePosition(nowPosition);
@@ -179,13 +180,15 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
         m_DynamicBox->MoveOpePoint((DynamicBox::OpeInt) m_SelectedDirection,
                                    dir);
     } else if (m_SelectedItem == IG_CELL) {
-        //m_DynamicBox->RotateBox(m_PrePosition, dir);
-        //auto cameraPos = m_Scene->GetCamera()->GetPosition();
-        //Point cp(cameraPos.x, cameraPos.y, cameraPos.z);
-        //m_DynamicBox->RotateBox(cp, dir);
-        m_DynamicBox->RotateBox(m_OldPoint2D, m_NewPoint2D,
-                                m_Scene->GetCamera());
+        m_DynamicBox->RotateBox(m_PrePosition, nowPosition);
+        m_DynamicBox->OldP = m_PrePosition;
+        m_DynamicBox->NewP = nowPosition;
+        //m_DynamicBox->RotateBox(m_OldPoint2D, m_NewPoint2D,
+        //                        igm::vec3{m_Scene->GetRotationBoundingSphere()},
+        //                        m_Scene->GetModelMatrix(),
+        //                        m_Scene->GetCamera());
     }
+    m_PrePosition = nowPosition;
     PointMoveCallBack();
     SetChooedStation(false);
     ClearDraw();
@@ -238,23 +241,18 @@ void BoxStyle::ToDraw() {
     }
 
     //################# TEST #################
-    //auto faces = m_DynamicBox->GetAllFaces();
-    //auto& face = faces[5];
-    //std::array<Color, 4> colors{Color::Red, Color::Orange, Color::Yellow,
-    //                            Color::Green};
-    //for (int pi = 0; pi < 4; pi++) {
-    //    painter->SetPen(colors[pi]);
-    //    auto& p = face[pi];
-    //    int hd = painter->DrawPoint(p);
-    //    m_DrawHandles.push_back(hd);
-    //}
-
-    //for (auto& face: faces) {
-    //    for (auto& faceP: face) {
-    //        int hd = painter->DrawPoint(faceP);
-    //        m_DrawHandles.push_back(hd);
-    //    }
-    //}
+    {
+        painter->SetPen(12);
+        painter->SetPen(Color::Yellow);
+        int opeHandle = painter->DrawPoint(m_DynamicBox->OldP);
+        m_DrawHandles.push_back(opeHandle);
+    }
+    {
+        painter->SetPen(12);
+        painter->SetPen(Color::Green);
+        int opeHandle = painter->DrawPoint(m_DynamicBox->NewP);
+        m_DrawHandles.push_back(opeHandle);
+    }
 }
 
 void BoxStyle::ClearDraw() {
