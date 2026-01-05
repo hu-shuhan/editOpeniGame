@@ -945,7 +945,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
-            k[1] = lengthOfStep * temV.normalized();
+            k[1] = lengthOfStep * temV.normalized()*maxLength;
             streamColor[i].emplace_back(temV[0]);
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
@@ -954,7 +954,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                 inside = false;
             }
             k[2] = lengthOfStep *
-                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized();
+                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -962,7 +963,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
 
             k[3] = lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
                                                       vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -970,7 +972,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
 
             k[4] = lengthOfStep * interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                       flag1, vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -979,7 +982,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             k[5] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] + k[4] * B[3][3],
                                        inside, flag1, vectorName, terminalSpeed)
-                           .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -988,7 +992,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             k[6] = lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                               k[4] * B[4][3] + k[5] * B[4][4],
                                                       inside, flag1, vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -2284,6 +2289,49 @@ void StreamTracer::precomputeTrigValues() {
 }
 
 void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum) {
+    float maxLen2 = -1.0;
+    igIndex maxCellId = -1, maxV0 = -1, maxV1 = -1;
+
+    size_t N = (size_t) cellData->GetNumberOfCells();
+    size_t target = 5000;
+    size_t sampleN = std::min(target, N);
+    if (sampleN > 0) {
+        size_t step = N / sampleN;
+        if (step == 0) step = 1;
+
+        igIndex ids[128];
+
+        for (size_t k = 0; k < sampleN; ++k) {
+            size_t i = k * step + step / 2;
+            if (i >= N) i = N - 1;
+
+            int vcnt = cellData->GetCellIds((long long) i, ids);
+            if (vcnt < 2) continue;
+
+            igIndex v0 = ids[0], v1 = ids[1];
+            if (v0 < 0 || v1 < 0 || v0 >= (igIndex) vetexNum || v1 >= (igIndex) vetexNum) continue;
+
+            Point p0 = mesh->GetPoint(v0);
+            Point p1 = mesh->GetPoint(v1);
+
+            float dx = float(p0[0]) - float(p1[0]);
+            float dy = float(p0[1]) - float(p1[1]);
+            float dz = float(p0[2]) - float(p1[2]);
+            float d2 = dx * dx + dy * dy + dz * dz;
+
+            if (d2 > maxLen2) {
+                maxLen2 = d2;
+                maxCellId = (igIndex) i;
+                maxV0 = v0;
+                maxV1 = v1;
+            }
+        }
+    }
+
+     maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
+
+    std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
+              << " v1=" << maxV1 << std::endl;
     igIndex cell[128];
     long long cellNum = cellData->GetNumberOfCells();
 

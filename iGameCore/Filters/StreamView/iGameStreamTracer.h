@@ -255,6 +255,7 @@ private:
     std::shared_mutex rwMutex;
     int processCount;
     int totalProcess;
+    float maxLength = 0.0f;
     std::shared_mutex ProMutex;
 
     // 存储流线计算参数

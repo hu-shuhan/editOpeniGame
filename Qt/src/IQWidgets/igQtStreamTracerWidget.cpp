@@ -32,18 +32,18 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
     connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::updateVectorNameList);
 
-    numOfSeeds = 150;
-    ui->numOfSeedLineEdit->setText("150");
+    numOfSeeds = 200;
+    ui->numOfSeedLineEdit->setText("200");
     control = 0;
     haveClicked = false;
     //	 proportion = 0.35;
     // ui->proportion_Slider->setValue(35);
     lengthOfStreamLine = 5;
     ui->lengthOfStreamLine->setText("5");
-    maxSteps = 200;
-    ui->maxSteps->setText("200");
-    lengthOfStep = 0.03;
-    ui->lengthOfStep->setText("0.03");
+    maxSteps = 1200;
+    ui->maxSteps->setText("1200");
+    lengthOfStep = 0.05;
+    ui->lengthOfStep->setText("0.05");
     terminalSpeed = 0.005;
     ui->terminalSpeed->setText("0.005");
     haveDraw = false;
@@ -324,7 +324,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetPoints(resObj->GetPoints());
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
-        m_ResultObject->SetShellRenderingOption(resObj->GetShellRenderingOption());
+        m_ResultObject->SetShellRenderingOption(false);
        // m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
     }
