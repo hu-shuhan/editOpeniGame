@@ -45,8 +45,8 @@ void DynamicBox::InitMsg(const Point& p1, const Point& p2) {
     m_Position = (p1 + p2) / 2.0;
 
     //############ TEST ############
-    OldP = m_Position;
-    NewP = m_Position;
+    //OldP = m_Position;
+    //NewP = m_Position;
     //############ TEST ############
 
     m_Length = Point(std::abs(p1[0] - p2[0]), std::abs(p1[1] - p2[1]), std::abs(p1[2] - p2[2]));

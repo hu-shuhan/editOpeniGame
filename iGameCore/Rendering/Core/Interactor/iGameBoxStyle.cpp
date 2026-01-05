@@ -181,8 +181,9 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
                                    dir);
     } else if (m_SelectedItem == IG_CELL) {
         m_DynamicBox->RotateBox(m_PrePosition, nowPosition);
-        m_DynamicBox->OldP = m_PrePosition;
-        m_DynamicBox->NewP = nowPosition;
+        //################# TEST #################
+        //m_DynamicBox->OldP = m_PrePosition;
+        //m_DynamicBox->NewP = nowPosition;
         //m_DynamicBox->RotateBox(m_OldPoint2D, m_NewPoint2D,
         //                        igm::vec3{m_Scene->GetRotationBoundingSphere()},
         //                        m_Scene->GetModelMatrix(),
@@ -241,18 +242,18 @@ void BoxStyle::ToDraw() {
     }
 
     //################# TEST #################
-    {
-        painter->SetPen(12);
-        painter->SetPen(Color::Yellow);
-        int opeHandle = painter->DrawPoint(m_DynamicBox->OldP);
-        m_DrawHandles.push_back(opeHandle);
-    }
-    {
-        painter->SetPen(12);
-        painter->SetPen(Color::Green);
-        int opeHandle = painter->DrawPoint(m_DynamicBox->NewP);
-        m_DrawHandles.push_back(opeHandle);
-    }
+    //{
+    //    painter->SetPen(12);
+    //    painter->SetPen(Color::Yellow);
+    //    int opeHandle = painter->DrawPoint(m_DynamicBox->OldP);
+    //    m_DrawHandles.push_back(opeHandle);
+    //}
+    //{
+    //    painter->SetPen(12);
+    //    painter->SetPen(Color::Green);
+    //    int opeHandle = painter->DrawPoint(m_DynamicBox->NewP);
+    //    m_DrawHandles.push_back(opeHandle);
+    //}
 }
 
 void BoxStyle::ClearDraw() {

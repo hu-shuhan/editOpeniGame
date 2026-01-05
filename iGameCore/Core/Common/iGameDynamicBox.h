@@ -43,8 +43,8 @@ public:
 
 public:
     //############ TEST ############
-    Point OldP;
-    Point NewP;
+    //Point OldP;
+    //Point NewP;
 
 private:
     //############ Ori Msg ############
