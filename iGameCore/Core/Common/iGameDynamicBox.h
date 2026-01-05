@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include "igm/igm.h"
+#include <iGameCamera.h>
 IGAME_NAMESPACE_BEGIN
 
 class DynamicBox : public Object {
@@ -22,6 +23,7 @@ public:
 
     void MoveOpePoint(OpeInt opePoint, const Point& direction);
     void RotateBox(const Point& camera, const Point& direction);
+    void RotateBox(const igm::vec2& old_v2D, const igm::vec2& new_v2D, iGame::Camera::Pointer camera);
     Point GetRotation() const;
     void MovePosition(double x, double y, double z);
     void MovePosition(const Point& position);

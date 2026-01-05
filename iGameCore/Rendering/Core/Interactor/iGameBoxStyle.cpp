@@ -63,6 +63,7 @@ void BoxStyle::MousePressEvent(IEvent event) {
     m_InvertedMVP = m_MVP.invert();
 
     auto& pos = event.pos;
+    m_OldPoint2D = event.pos;
 
     igm::vec3 nearPoint = GetNearWorldCoord(pos, m_InvertedMVP);
     igm::vec3 farPoint = GetFarWorldCoord(pos, m_InvertedMVP);
@@ -158,6 +159,7 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
     if (m_MouseMode != MouseButton::MiddleButton) return;
 
     igm::vec2 pos = event.pos;
+    m_NewPoint2D = event.pos;
 
     igm::vec2 NDC(2.0f * pos.x / m_Interactor->GetWidth() - 1.0f,
                   1.0f - (2.0f * pos.y / m_Interactor->GetHeight()));
@@ -178,14 +180,17 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
                                    dir);
     } else if (m_SelectedItem == IG_CELL) {
         //m_DynamicBox->RotateBox(m_PrePosition, dir);
-        auto cameraPos = m_Scene->GetCamera()->GetPosition();
-        Point cp(cameraPos.x, cameraPos.y, cameraPos.z);
-        m_DynamicBox->RotateBox(cp, dir);
+        //auto cameraPos = m_Scene->GetCamera()->GetPosition();
+        //Point cp(cameraPos.x, cameraPos.y, cameraPos.z);
+        //m_DynamicBox->RotateBox(cp, dir);
+        m_DynamicBox->RotateBox(m_OldPoint2D, m_NewPoint2D,
+                                m_Scene->GetCamera());
     }
     PointMoveCallBack();
     SetChooedStation(false);
     ClearDraw();
     ToDraw();
+    m_OldPoint2D = m_NewPoint2D;
 }
 
 void BoxStyle::InitBox(const Point& p1, const Point& p2) {
