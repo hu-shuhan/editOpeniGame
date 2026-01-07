@@ -183,7 +183,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     SliceDockWidget = new QDockWidget(this);
     SliceDockWidget->setWindowTitle("网格切割");
-    SliceWidget = new igQtModelClipWidget(SliceDockWidget);
+    SliceWidget = new igQtModelClipWidget(nullptr);
+    SliceWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    SliceWidget->setMinimumWidth(300);
     SliceDockWidget->setWidget(SliceWidget);
     SliceDockWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     SliceDockWidget->hide();

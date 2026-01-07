@@ -302,7 +302,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtScalarViewWidget" name="widget_ScalarField"/>
+   <widget class="igQtScalarViewWidget" name="widget_ScalarField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_VectorField">
    <property name="minimumSize">
@@ -341,6 +348,12 @@ QToolBar QToolButton {
    <widget class="igQtStreamTracerWidget" name="widget_FlowField"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_TensorField">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="minimumSize">
     <size>
      <width>99</width>
@@ -356,7 +369,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtTensorWidget" name="widget_TensorField"/>
+   <widget class="igQtTensorWidget" name="widget_TensorField">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ParallelCoordinatesField">
    <property name="minimumSize">
@@ -583,6 +603,12 @@ QToolBar QToolButton {
    <addaction name="action_ChangeBackground"/>
   </widget>
   <widget class="QDockWidget" name="dockWidget_ContourExtract">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <property name="minimumSize">
     <size>
      <width>99</width>
@@ -595,7 +621,14 @@ QToolBar QToolButton {
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
-   <widget class="igQtContourExtractWidget" name="widget_ContourExtract"/>
+   <widget class="igQtContourExtractWidget" name="widget_ContourExtract">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <action name="action_SaveMesh">
    <property name="icon">
