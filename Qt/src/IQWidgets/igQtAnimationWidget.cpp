@@ -430,8 +430,8 @@ void igQtAnimationWidget::initAnimationComponents() {
     
     // 初始化缓存ComboBox: 选项 [0, 1, 2, ..., 时间帧数量], 默认值为 数量 * 0.1
     int frameCount = static_cast<int>(timeValues.size());
-//    int defaultCacheNum = std::max(0, frameCount / 10); // 默认10%，至少为0
-    int defaultCacheNum = 0; // 默认为0
+    int defaultCacheNum = std::max(0, frameCount / 10); // 默认10%，至少为0
+//    int defaultCacheNum = 0; // 默认为0
     ui->comboBox_AnimationCacheNum->blockSignals(true);
     ui->comboBox_AnimationCacheNum->clear();
     for (int i = 0; i <= frameCount; i++) {

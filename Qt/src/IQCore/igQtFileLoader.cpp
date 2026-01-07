@@ -68,20 +68,28 @@ void igQtFileLoader::LoadOnlineC() {
 #endif
 }
 void igQtFileLoader::LoadFile() {
-    QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.cas)",
-                           "VTK file(*.vtk)",
-                           "CGNS file(*.cgns)",
+    QStringList filters = {
+        "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
+        "*.vtm *.cgns *.igc *.cas *.xml"
 #if defined(AbqSDK_ENABLE)
-                           "ABAQUS file(*.odb)",
+        " *.odb"
 #endif
-                           "Spline file(*.xml)",
-
 #if defined(NASTRAN_ENABLE)
-                           "Nastran file(*.bdf *.op2)",
+        " *.bdf *.op2"
 #endif
-                           "Compression file(*.igc)",
-                           "Fluent file(*.cas)"};
+        ")",
+        "VTK file(*.vtk)",
+        "CGNS file(*.cgns)",
+#if defined(AbqSDK_ENABLE)
+        "ABAQUS file(*.odb)",
+#endif
+        "Spline file(*.xml)",
+#if defined(NASTRAN_ENABLE)
+        "Nastran file(*.bdf *.op2)",
+#endif
+        "Compression file(*.igc)",
+        "Fluent file(*.cas)"
+    };
     QString selectedFilter;
     QStringList filePath = QFileDialog::getOpenFileNames(nullptr, "Load file", "", filters.join(";;"), &selectedFilter);
 
@@ -137,8 +145,19 @@ void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     using namespace iGame;
     if (filePaths.empty()) return;
     const std::string& first_file_path = filePaths[0].toStdString();
-    if(strrchr(first_file_path.data(), '.') == nullptr) return ;
+    if(strrchr(first_file_path.data(), '.') == nullptr) return;
 
+    // 检测 XML 后缀，使用 Spline 弹窗处理
+    const char* ext = strrchr(first_file_path.data(), '.');
+    if (ext != nullptr) {
+        std::string suffix(ext + 1);
+        // 转换为小写进行比较
+        std::transform(suffix.begin(), suffix.end(), suffix.begin(), ::tolower);
+        if (suffix == "xml") {
+            this->OpenSplineFile(first_file_path);
+            return;
+        }
+    }
 
     auto obj = iGame::FileIO::ReadFile(first_file_path);
     //_obj = obj;
