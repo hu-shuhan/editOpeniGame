@@ -225,7 +225,7 @@ int igQtModelDialogWidget::updateCurrentModelInfo() {
     //    qDebug() << ui->modelTreeWidget->currentIndex();
 
     ui->ModelInformationWidget->updateInformationFrame();
-//    Q_EMIT CurrendModelChanged();
+    Q_EMIT CurrendModelChanged();
 
 
     return 1;
