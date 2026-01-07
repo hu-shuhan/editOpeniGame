@@ -5,6 +5,7 @@
 #include <iGameThreadPool.h>
 #include <shared_mutex>
 #include <unordered_set>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 
 // Initialize static thread_local members
 IGAME_NAMESPACE_BEGIN
@@ -38,6 +39,10 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         std::cout << "is UnstructuredMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<UnstructuredMesh>(model->GetDataObject())->TransferToVolumeMesh());
+        if (!mesh) { 
+            std::cout << "model data error" << std::endl;
+            return;
+        }
         auto numOfCells = mesh->GetNumberOfVolumes();
 
         auto temPtFinder = PointFinder::New();
@@ -47,21 +52,33 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         std::cout << "PF over" << std::endl;
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
-            mesh->RequestEditStatus();
+            auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+            buildAdjacencyRelationFilter->SetInput(mesh);
+            buildAdjacencyRelationFilter->Execute();
+            mesh = DynamicCast<VolumeMesh>( buildAdjacencyRelationFilter->GetOutput());
+            this->UpdateProgress(1);
         } else {
+            clock_t startTime = clock();
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            std::cout<< "Init Adjacent Time: "
+					  << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
            // mesh->SetShouldBuildEageLinks(false);
            // mesh->SetShouldBuildFaceLinks(false);
            // mesh->SetShouldBuildFaceEageLinks(false);
            // mesh->SetShouldBuildVolumeFaceLinks(false);
            // mesh->SetShouldBuildVolumeEageLinks(false);
-             mesh->InitPolyhedronVertices();
+            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            this->UpdateProgress(1);
         }
 
     } else if (DynamicCast<VolumeMesh>(model->GetDataObject())) {
         std::cout << "is VolumeMesh" << std::endl;
         ptFinder.clear();
         SetMesh(DynamicCast<VolumeMesh>(model->GetDataObject()));
+        if (!mesh) {
+            std::cout << "model data error" << std::endl;
+            return;
+        }
         auto numOfCells = mesh->GetNumberOfVolumes();
 
         auto temPtFinder = PointFinder::New();
@@ -72,15 +89,24 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
         if (!mesh->GetIsPolyhedronType()) {
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             mesh->ClearAllLinks();
-            mesh->RequestEditStatus(); // Establishing Adjacency
+            this->UpdateProgress(0.2);
+            auto buildAdjacencyRelationFilter = BuildAdjacencyRelationFilter::New();
+            buildAdjacencyRelationFilter->SetInput(mesh);
+            buildAdjacencyRelationFilter->Execute();
+            mesh = DynamicCast<VolumeMesh>(buildAdjacencyRelationFilter->GetOutput());
+            this->UpdateProgress(1);
+
         } else if (!mesh->HasSubDataObject()) {
+            clock_t startTime = clock();
             InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            std::cout<< "Init Adjacent Time: "<< static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
             //mesh->SetShouldBuildEageLinks(false);
             //mesh->SetShouldBuildFaceLinks(false);
             //mesh->SetShouldBuildFaceEageLinks(false);
             //mesh->SetShouldBuildVolumeFaceLinks(false);
             //mesh->SetShouldBuildVolumeEageLinks(false);
-             mesh->InitPolyhedronVertices();
+            mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            this->UpdateProgress(1);
         }
 
     } else {
@@ -231,25 +257,21 @@ std::vector<Vector3f> StreamTracer::getModelSelect() {
 std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName) {
     std::vector<Vector3f> result;
 
-    if (!mesh) return result;
 
     auto attr = mesh->GetAttributeSet();
-    if (!attr) return result;
-
     iGame::AttributeSet::Attribute& vec = attr->GetAttribute(vectorName);
-    if (!vec.pointer) return result;
+
 
     int numPoints = mesh->GetNumberOfPoints();
     int numVolumes = mesh->GetNumberOfVolumes();
 
     result.resize(numPoints, Vector3f(0, 0, 0));
 
-    if (vec.type == IG_CELL) {
-
+    if (vec.attachmentType == IG_CELL) {
+        std::cout << "vec is cell" << std::endl;
         for (int cellId = 0; cellId < numVolumes; cellId++) {
             igIndex pts[32]{};
             int n = mesh->GetVolumePointIds(cellId, pts);
-
             double cv[4] = {0};
             vec.pointer->GetElement(cellId, cv);
             Vector3f V(cv[0], cv[1], cv[2]);
@@ -260,7 +282,7 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
             }
         }
     } else {
-
+        std::cout << "vec is point" << std::endl;
         for (int i = 0; i < numPoints; i++) {
             double pv[4] = {0};
             vec.pointer->GetElement(i, pv);
@@ -283,9 +305,46 @@ bool StreamTracer::Execute() {
         m_ResultMesh = nullptr;
         return false;
     }
-    std::cout << "1111111111111" << std::endl;
+    if (!mesh) {
+        std::cout << "No mesh" << std::endl;
+        return false;
+    }
+    auto attr = mesh->GetAttributeSet();
+    
+    if (!attr) { 
+        std::cout << "No attr" << std::endl;
+        return false; 
+    }
+    std::cout << "VectorName: " << m_VectorName << std::endl;
+    iGame::AttributeSet::Attribute& vec = attr->GetAttribute(m_VectorName);
+    if (vec.IsNone()) {
+        std::cout << "Vetor is none " << std::endl;
+        return false; 
+    }
+    if (vec.pointer->GetDimension() != 3) {
+        std::cout << "Vetor is not 3D " << std::endl;
+        return false; 
+    }
 
+    int numPoints = mesh->GetNumberOfPoints();
+  //  std::cout << "Point Num" << numPoints << std::endl;
+    int numVolumes = mesh->GetNumberOfVolumes();
+  //  std::cout << "Volume Num" << numVolumes << std::endl;
+    int numAttr = vec.pointer->GetNumberOfElements();
+  //  std::cout << "Attr Num" << numAttr << std::endl;
+    if (vec.attachmentType == IG_POINT) { 
+        if (numAttr != numPoints) { 
+            std::cout << "numAttr != numPoints" << std::endl;
+            return false; 
+        }
+    } else {
+        if (numAttr != numVolumes) {
+            std::cout << "numAttr != numVolumes" << std::endl;
+            return false;
+        }
+    }
 
+  //  std::cout << "1111111111111" << std::endl;
 
     currentV = std::move(GetUnifiedVectorField(m_VectorName));
 
@@ -293,14 +352,14 @@ bool StreamTracer::Execute() {
     std::vector<std::vector<float>> streamColor;
     auto streamlines = showStreamLineMix(m_SeedPoints, m_VectorName, streamColor, m_LengthOfStreamLine, m_LengthOfStep,
                                          m_TerminalSpeed, m_MaxSteps);
-    std::cout << "7777777777777" << std::endl;
+    //std::cout << "7777777777777" << std::endl;
     // 检查数据有效性
     if (streamlines.empty() || streamColor.empty()) {
         igError("Streamline calculation failed or returned empty data");
         m_ResultMesh = nullptr;
         return false;
     }
-    std::cout << "88888888888888888" << std::endl;
+   // std::cout << "88888888888888888" << std::endl;
     // 创建 UnstructuredMesh 对象
     UnstructuredMesh::Pointer streamMesh = UnstructuredMesh::New();
     streamMesh->SetShellRenderingOption(false);
@@ -312,7 +371,7 @@ bool StreamTracer::Execute() {
     velocityArray->SetDimension(3);
     velocityArray->SetName("Velocity");
     igIndex globalPointIndex = 0;
-    std::cout << "99999999999999999" << std::endl;
+ //   std::cout << "99999999999999999" << std::endl;
     // 处理每条流线
     for (int streamlineIdx = 0; streamlineIdx < streamlines.size(); streamlineIdx++) {
         auto& streamline = streamlines[streamlineIdx];
@@ -338,7 +397,7 @@ bool StreamTracer::Execute() {
         }
 
     }
-    std::cout << "1111111111111111111" << std::endl;
+ //   std::cout << "1111111111111111111" << std::endl;
     // 设置点数据和单元数据
     streamMesh->SetPoints(points);
     streamMesh->SetCells(cells, types);
@@ -354,10 +413,10 @@ bool StreamTracer::Execute() {
     //        }
     //    }
     //}
-    std::cout << "22222222222222222222" << std::endl;
+   // std::cout << "22222222222222222222" << std::endl;
     // 添加速度属性
     attrSet->AddAttribute(IG_VECTOR, IG_POINT, velocityArray);
-    std::cout << "33333333333333333333" << std::endl;
+   // std::cout << "33333333333333333333" << std::endl;
 
     // 设置属性集到网格
     streamMesh->SetAttributeSet(attrSet);
@@ -368,7 +427,102 @@ bool StreamTracer::Execute() {
     m_ResultMesh = streamMesh;
     return true;
 }
+std::vector<Vector3f> StreamTracer::getModelSelectMin(std::string VectorName,int numOfSeeds) {
+    auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
+    auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
+    std::vector<Vector3f> localMaxPoints;
+    std::map<float, Vector3f, std::greater<>> seedsMap;
+    currentV = std::move(GetUnifiedVectorField(VectorName));
+    // 收集所有选中的点ID
+    std::unordered_set<igIndex> allSelectedPoints;
 
+    if (!selectedPoints.empty()) {
+        // 如果选中的是点，直接使用
+        for (auto pointId: selectedPoints) { allSelectedPoints.insert(pointId); }
+    } else if (!selectedCells.empty()) {
+        // 如果选中的是单元，提取单元中的所有点
+        for (auto cellId: selectedCells) {
+            igIndex pVolume[32]{};
+            int psize = mesh->GetVolumePointIds(cellId, pVolume);
+            for (int i = 0; i < psize; i++) { allSelectedPoints.insert(pVolume[i]); }
+        }
+    } else {
+        std::cout << "no select" << std::endl;
+        return localMaxPoints;
+    }
+
+    // 获取向量数据
+    auto VectorData = mesh->GetAttributeSet();
+    auto Vector = VectorData->GetAttribute(VectorName);
+    if (Vector.pointer == nullptr) {
+        std::cout << "Vector " << VectorName << " not found!" << std::endl;
+        return localMaxPoints;
+    }
+
+    // 对每个选中的点，检查是否为局部最小值
+    for (igIndex pointId: allSelectedPoints) {
+        // 获取该点的向量值并计算其模长
+        //double currentValue[4] = {0.0};
+        //Vector.pointer->GetElement(pointId, currentValue);
+        if (pointId < 0 || pointId >= currentV.size()) {
+            std::cout << "over index:"<< pointId << std::endl;
+            continue;
+        } 
+       const Vector3f& currentValue = currentV[pointId];
+        double currentMagnitude = std::sqrt(currentValue[0] * currentValue[0] + currentValue[1] * currentValue[1] +
+                                            currentValue[2] * currentValue[2]);
+
+        // 收集邻接点
+        std::unordered_set<igIndex> neighborPoints;
+
+        // 通过该点的邻接单元获取邻接点
+        if (pointId < vetex_link.offset.size() - 1) {
+            for (long long k = vetex_link.offset[pointId]; k < vetex_link.offset[pointId + 1]; k++) {
+                if (k < vetex_link.data.size()) {
+                    igIndex cellId = vetex_link.data[k];
+                    igIndex cellPoints[32]{};
+                    int pointCount = mesh->GetVolumePointIds(cellId, cellPoints);
+                    for (int i = 0; i < pointCount; i++) {
+                        if (cellPoints[i] != pointId) { neighborPoints.insert(cellPoints[i]); }
+                    }
+                }
+            }
+        }
+
+        // 检查是否为局部最小值
+        bool isLocalMin = true;
+        for (igIndex neighborId: neighborPoints) {
+            Vector3f neighborValue = currentV[neighborId];
+            double neighborMagnitude =
+                    std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
+                              neighborValue[2] * neighborValue[2]);
+
+            if (neighborMagnitude <= currentMagnitude) {
+                isLocalMin = false;
+                break;
+            } else if (neighborMagnitude == currentMagnitude) {
+                std::cout << "equal" << std::endl;
+            }
+        }
+
+        // 如果是局部最大值，添加该点的坐标到结果
+        if (isLocalMin && !neighborPoints.empty()) {
+            Vector3f V = currentV[pointId];
+            Point p = mesh->GetPoint(pointId);
+            seedsMap.emplace(V[0] * V[0] + V[1] * V[1] + V[2] * V[2], p+V*0.00001);
+           // std::cout << p + V * 0.001 << std::endl;
+        }
+
+    }
+    int numOfPoints = std::min((int)seedsMap.size(), numOfSeeds);
+    auto it = seedsMap.begin();
+    for (int i = 0; i < numOfPoints; ++i) { 
+        localMaxPoints.emplace_back(it->second);
+        it++;
+    }
+    std::cout << "Found " << localMaxPoints.size() << " local  points for vector field: " << VectorName << std::endl;
+    return localMaxPoints;
+}
 std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int numOfSeeds) {
     auto& selectedPoints = model->GetSelection()->GetSelectedItems(IG_POINT);
     auto& selectedCells = model->GetSelection()->GetSelectedItems(IG_CELL);
@@ -744,7 +898,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                                                                 std::vector<std::vector<float>>& streamColor,
                                                                 float lengOfStreamLine, float lengthOfStep,
                                                                 float terminalSpeed, int maxSteps) {
-    std::cout << "2222222222222" << std::endl;
+   // std::cout << "2222222222222" << std::endl;
     streamColor.clear();
     streamColor.resize(seed.size());
     std::vector<std::vector<float>> tem(seed.size());
@@ -771,7 +925,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
     } else {
         if (isChange) { isChange = false; }
     }
-    std::cout << "333333333333333" << std::endl;
+ //   std::cout << "333333333333333" << std::endl;
 
     auto func = [&](int i) -> void {
         // std::cout << i << " start\n";
@@ -791,7 +945,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
-            k[1] = lengthOfStep * temV.normalized();
+            k[1] = lengthOfStep * temV.normalized()*maxLength;
             streamColor[i].emplace_back(temV[0]);
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
@@ -800,7 +954,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                 inside = false;
             }
             k[2] = lengthOfStep *
-                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized();
+                   interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -808,7 +963,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
 
             k[3] = lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
                                                       vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -816,7 +972,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
 
             k[4] = lengthOfStep * interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
                                                       flag1, vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -825,7 +982,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             k[5] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[3][0] + k[2] * B[3][1] + k[3] * B[3][2] + k[4] * B[3][3],
                                        inside, flag1, vectorName, terminalSpeed)
-                           .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -834,7 +992,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             k[6] = lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
                                                               k[4] * B[4][3] + k[5] * B[4][4],
                                                       inside, flag1, vectorName, terminalSpeed)
-                                          .normalized();
+                           .normalized() *
+                   maxLength;
             if (inside) {
                 flag = true;
                 inside = false;
@@ -863,7 +1022,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
     processCount = 0;
     totalProcess = seed.size();
 
-    std::cout << "555555555555555" << std::endl;
+  //  std::cout << "555555555555555" << std::endl;
     if (m_IsSingleThread) {
         for (int i = 0; i < seed.size(); i++) {
             func(i);
@@ -882,7 +1041,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
         }
     }
 
-    std::cout << "6666666666666666" << std::endl;
+   // std::cout << "6666666666666666" << std::endl;
     return tem;
 
 
@@ -1347,12 +1506,13 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
         }
         auto CellData = mesh->GetAttributeSet();
         auto Vector = CellData->GetAttribute(vectorName);
-        if (Vector.attachmentType == IG_CELL) {
-            float v[4] = {0.0f};
-            Vector.pointer->GetElement(VolumeId, v);
-            finnal = Vector3f(v[0], v[1], v[2]);
-        }
-        else if (mesh->GetIsPolyhedronType()) {
+        //if (Vector.attachmentType == IG_CELL) {
+        //    float v[4] = {0.0f};
+        //    Vector.pointer->GetElement(VolumeId, v);
+        //    finnal = Vector3f(v[0], v[1], v[2]);
+        //}
+        //else 
+        if (mesh->GetIsPolyhedronType()) {
                 finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed);
         } 
         else  {
@@ -2129,6 +2289,49 @@ void StreamTracer::precomputeTrigValues() {
 }
 
 void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum) {
+    float maxLen2 = -1.0;
+    igIndex maxCellId = -1, maxV0 = -1, maxV1 = -1;
+
+    size_t N = (size_t) cellData->GetNumberOfCells();
+    size_t target = 5000;
+    size_t sampleN = std::min(target, N);
+    if (sampleN > 0) {
+        size_t step = N / sampleN;
+        if (step == 0) step = 1;
+
+        igIndex ids[128];
+
+        for (size_t k = 0; k < sampleN; ++k) {
+            size_t i = k * step + step / 2;
+            if (i >= N) i = N - 1;
+
+            int vcnt = cellData->GetCellIds((long long) i, ids);
+            if (vcnt < 2) continue;
+
+            igIndex v0 = ids[0], v1 = ids[1];
+            if (v0 < 0 || v1 < 0 || v0 >= (igIndex) vetexNum || v1 >= (igIndex) vetexNum) continue;
+
+            Point p0 = mesh->GetPoint(v0);
+            Point p1 = mesh->GetPoint(v1);
+
+            float dx = float(p0[0]) - float(p1[0]);
+            float dy = float(p0[1]) - float(p1[1]);
+            float dz = float(p0[2]) - float(p1[2]);
+            float d2 = dx * dx + dy * dy + dz * dz;
+
+            if (d2 > maxLen2) {
+                maxLen2 = d2;
+                maxCellId = (igIndex) i;
+                maxV0 = v0;
+                maxV1 = v1;
+            }
+        }
+    }
+
+     maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
+
+    std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
+              << " v1=" << maxV1 << std::endl;
     igIndex cell[128];
     long long cellNum = cellData->GetNumberOfCells();
 
@@ -2217,6 +2420,8 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
         if ((chunk_start / CHUNK_SIZE) % 10 == 0) {
             std::cout << "Filling progress: " << (chunk_start * 100 / cellNum) << "%" << std::endl;
+            if ((chunk_start / cellNum)<0.2)
+            this->UpdateProgress((chunk_start/ cellNum));
         }
     }
 

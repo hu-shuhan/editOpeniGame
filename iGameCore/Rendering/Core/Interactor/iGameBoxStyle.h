@@ -61,6 +61,9 @@ protected:
     float m_SelectedNDCZ{};
     igm::mat4 m_MVP{};
     igm::mat4 m_InvertedMVP{};
+    igm::vec2 m_OldPoint2D = igm::vec2{0.0f};
+    igm::vec2 m_NewPoint2D = igm::vec2{0.0f};
+
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;

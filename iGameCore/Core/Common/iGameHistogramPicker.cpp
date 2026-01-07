@@ -6,6 +6,7 @@ static double RoadNumPer = 0.35;
 static double SmallRoadNumPer = 0.1;
 static double _GetPer = 0.2;
 static double _HalfGetPer = _GetPer / 2;
+static double MODIFY_EXPD_RATE = 0.1;
 
 static int CalculateBoxIndexByValue(int boxNum, double value, double maxValue, double minValue) {
     if (maxValue == minValue) { return boxNum / 2; }
@@ -49,10 +50,10 @@ std::pair<double, double> HistogramPicker::CalculateMinMaxValueToPick(double val
                           std::abs((double) (m_Density.size() / 2) - (double) mainBoxIndex) +
                   (double) m_RoadNum;
     double accumulatedLeftPer{};
-    int leftRoad = theRoad * expdRatio;
+    int leftRoad = theRoad * expdRatio * MODIFY_EXPD_RATE;
     double accumulatedRightPer{};
-    int rightRoad = theRoad * expdRatio;
-    double HalfGetPer = _HalfGetPer * expdRatio;
+    int rightRoad = theRoad * expdRatio * MODIFY_EXPD_RATE;
+    double HalfGetPer = _HalfGetPer * expdRatio * MODIFY_EXPD_RATE;
 
     while (leftRoad > 0 && accumulatedLeftPer <= HalfGetPer && leftIndex - 1 >= 0) {
         leftIndex--;

@@ -8,6 +8,7 @@
 #include <iGamePointSet.h>
 #include <limits>
 #include <queue>
+#include "iGameProgressObserver.h"
 IGAME_NAMESPACE_BEGIN
 template<class T>
 static inline void SortVector(std::vector<T>& v) {
@@ -258,11 +259,13 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
     if (mesh == nullptr) return;
     int PAR_THREAD_NUM = std::min<int>(PAR_THREAD_NUM_BASE, (mesh->GetNumberOfCells() / 10000) + 1);
     if (!m_CellToFace.empty()) return;
+    ProgressObserver::Instance()->UpdateProgress(0.0);
     m_CellToFace = std::vector<std::vector<FaceId>>(mesh->GetNumberOfCells());
     //concurrency::concurrent_vector<Face> oriFaces;
     {
         //concurrency::concurrent_unordered_map<Face, FaceId, FaceHash> tempFace;
         {
+            ProgressObserver::Instance()->UpdateProgress(0.1);
             std::vector<std::vector<std::pair<Face, Face>>> cellToPFace(
                     std::vector<std::vector<std::pair<Face, Face>>>(mesh->GetNumberOfCells()));
             iGame::ThreadPool::parallelFor(
@@ -275,6 +278,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
                         }
                     },
                     PAR_THREAD_NUM);
+            ProgressObserver::Instance()->UpdateProgress(0.25);
             //concurrency::concurrent_unordered_set<Face, FaceHash> tempFaceSet;
             std::map<Face, FaceId> tempFaceSet;
             std::vector<Face> oriFaces;
@@ -285,6 +289,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
                     oriFaces.push_back(oriFace);
                     tempFaceSet[sFace] = tempFaceSet.size();
                 }
+                ProgressObserver::Instance()->UpdateProgress(0.25 + 0.2 * cellId / mesh->GetNumberOfCells());
             }
             //iGame::ThreadPool::parallelFor(
             //        0, mesh->GetNumberOfCells(),
@@ -297,6 +302,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
             //            }
             //        },
             //        PAR_THREAD_NUM);
+            ProgressObserver::Instance()->UpdateProgress(0.45);
             m_Faces = std::vector<FaceMsg>(tempFaceSet.size());
             for (int cellId = 0; cellId < mesh->GetNumberOfCells(); cellId++) {
                 for (auto& pFace: cellToPFace[cellId]) {
@@ -305,6 +311,8 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
                     m_Faces[faceId].Cells.push_back(cellId);
                     m_CellToFace[cellId].push_back(faceId);
                 }
+
+                ProgressObserver::Instance()->UpdateProgress(0.45 + 0.2 * cellId / mesh->GetNumberOfCells());
             }
             //iGame::ThreadPool::parallelFor(
             //        0, mesh->GetNumberOfCells(),
@@ -319,12 +327,14 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
             //            }
             //        },
             //        PAR_THREAD_NUM);
+            ProgressObserver::Instance()->UpdateProgress(0.65);
             iGame::ThreadPool::parallelFor(
                     0, m_Faces.size(),
                     [&](int st, int ed) {
                         for (int faceId = st; faceId < ed; faceId++) { _BuildFaceEdgeMsgs(faceId, oriFaces); }
                     },
                     PAR_THREAD_NUM);
+            ProgressObserver::Instance()->UpdateProgress(0.8);
             //iGame::ThreadPool::parallelFor(
             //        0, mesh->GetNumberOfCells(),
             //        [&](int st, int ed) {
@@ -365,6 +375,7 @@ void CellFaceExtracter::VisitMesh(UnstructuredMesh* mesh) {
             //}
         }
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
 }
 
 void CellFaceExtracter::_VisitCell(int cellId, Cell* cell,

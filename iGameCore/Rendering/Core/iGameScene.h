@@ -445,6 +445,11 @@ protected:
     SmartPointer<GLBuffer> m_OITAtomicCounterBuffer;
     SmartPointer<GLBuffer> m_OITLinkedListBuffer;
     SmartPointer<GLTextureBuffer> m_OITLinkedListTexture;
+
+    SmartPointer<GLFramebuffer> m_VolumeFramebuffer;
+    SmartPointer<GLTexture2d> m_VolumeColorTexture;
+    SmartPointer<GLTexture2d> m_VolumeDepthTexture;
+
     //HZB(层次Z缓冲)相关
     unsigned int m_HzbWidth, m_HzbHeight, m_HzbLevels;
     SmartPointer<GLTexture2d> m_HzbTexture;
