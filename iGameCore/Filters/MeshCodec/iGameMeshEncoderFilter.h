@@ -55,6 +55,21 @@ public:
     }
 
     bool Execute() override {
+        // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
+        const auto inputObj = GetInput(0);
+        if (!inputObj) { return false; }
+
+        const IGenum meshType = inputObj->GetDataObjectType();
+        const bool supported =
+            (meshType == IG_SURFACE_MESH || meshType == IG_VOLUME_MESH ||
+             meshType == IG_STRUCTURED_MESH || meshType == IG_UNSTRUCTURED_MESH ||
+             meshType == IG_POINT_SET);
+        if (!supported) { return false; }
+
+        // 编码器依赖 PointSet 接口（顶点/属性等）
+        if (!DynamicCast<PointSet>(inputObj)) { return false; }
+        if (meshType == IG_STRUCTURED_MESH && !DynamicCast<StructuredMesh>(inputObj)) { return false; }
+
         if (!InitializeEncoder()) { return false; }
 
         std::vector<unsigned int> pointIdRemap;
@@ -87,6 +102,10 @@ public:
     static CodecControlParams GenerateDefaultCodecParams(const DataObject::Pointer& dataObj) {
         CodecControlParams params;  // 使用结构体默认值
 
+        if (!dataObj) {
+            return params;
+        }
+
         auto makeDefaultControlParams = [](IGsize elementCount) -> FloatControlParams {
             FloatControlParams p;
             p.globalQuantizeLevel = 0;
@@ -97,8 +116,11 @@ public:
         };
 
         // Geom
-        params.geomControl = makeDefaultControlParams(
-            DynamicCast<PointSet>(dataObj)->GetNumberOfPoints());
+        const auto pointSet = DynamicCast<PointSet>(dataObj);
+        if (!pointSet) {
+            return params;
+        }
+        params.geomControl = makeDefaultControlParams(pointSet->GetNumberOfPoints());
 
         // Attributes
         const int attrCount = dataObj->GetAttributeSet()->GetNumberOfAttributes();
@@ -297,10 +319,6 @@ private:
     void InitEncoderParams() {
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
-        // multiblock网格类型暂不支持
-        assert(this->m_codecParams.meshType == IG_SURFACE_MESH || this->m_codecParams.meshType == IG_VOLUME_MESH ||
-               this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
-               this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH || this->m_codecParams.meshType == IG_POINT_SET);
 
         // 点云特殊处理
         if (this->m_codecParams.meshType == IG_POINT_SET) {
