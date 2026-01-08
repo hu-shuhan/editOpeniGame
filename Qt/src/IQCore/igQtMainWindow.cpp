@@ -787,10 +787,26 @@ void igQtMainWindow::initAllFilters() {
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
         filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
+        int index = data->GetAttributeIndex();
         if (filter->Execute()) {
             modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
 
+                }
+            }
             double acc  = filter->GetAccuracy();
             double prec = filter->GetPrecision();
             double rec  = filter->GetRecall();
