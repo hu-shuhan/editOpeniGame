@@ -67,6 +67,8 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSplitter>
+#include <QTimer>
+#include <QPointer>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -789,6 +791,37 @@ void igQtMainWindow::initAllFilters() {
             modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
 
+            double acc  = filter->GetAccuracy();
+            double prec = filter->GetPrecision();
+            double rec  = filter->GetRecall();
+
+            if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
+                !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
+                QString msg = QString(
+                    "<table>"
+                    "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+                    "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
+                    "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
+                    "</table>"
+                )
+                .arg(acc,  0, 'f', 3)
+                .arg(prec, 0, 'f', 3)
+                .arg(rec,  0, 'f', 3);
+
+                QPointer<QWidget> self(this);
+                QTimer::singleShot(48, this, [self, msg]() {
+                    if (!self) return;
+
+                    QMessageBox box(self->window());
+                    box.setWindowTitle("Vortex Prediction Metrics");
+                    box.setTextFormat(Qt::RichText);
+                    box.setText(msg);
+                    box.setIcon(QMessageBox::NoIcon);
+                    box.setStandardButtons(QMessageBox::Ok);
+                    box.exec();
+                });
+            }
+
             // vortexMetricsLabel
             // double acc  = filter->GetAccuracy();
             // double prec = filter->GetPrecision();
@@ -1301,6 +1334,36 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
+connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+
+        auto model = scene->GetCurrentModel();
+        if (!model) return;
+
+        auto dataObject = model->GetDataObject();
+        if (!dataObject) return;
+
+        auto attributeSet = dataObject->GetAttributeSet();
+        if (!attributeSet) return;
+
+        auto allAttributes = attributeSet->GetAllAttributes();
+        if (!allAttributes || allAttributes->GetNumberOfElements() == 0) return;
+
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (drawObject) {
+            auto item = modelTreeWidget->getItemFromObject(dataObject);
+            if (item && item->childCount() > 0) {
+                item->setExpanded(true);
+                auto child = item->child(0);
+                item->setCurrentChild(child);
+                item->setSelected(false);
+                item->viewAttribute(0, -1);
+                child->setSelected(true);
+                modelTreeWidget->setCurrentItem(child);
+            }
+        }
+    });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
@@ -1309,9 +1372,8 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
-                rendererWidget->update();
                 modelTreeWidget->updateAllAttriubute(res);
+                rendererWidget->update();
             });
 
 
