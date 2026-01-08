@@ -28,8 +28,6 @@ public slots:
 	void initScalarRange();
     void initScalarInfo();
     int getCurrentSelectedScalarIdx();
-	// Clear saved states for a specific model
-	void clearModelStates(const std::string& modelName);
 signals:
 	void updateCurrentModelColor();
 	void changeColorBarShow();
@@ -48,8 +46,5 @@ private:
     int currentSelectedScalarIdx{ -1 };
 	std::string scalarName = {"" };
 	float scalarMin = 0.0, scalarMax = 1.0;
-	
-	// Auto-rescaling state: true=auto-update (default), false=fixed range
-	std::map<std::string, bool> m_AutoRescalingStates;
 	std::string m_CurrentModelName;
 };

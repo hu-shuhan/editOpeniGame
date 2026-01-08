@@ -42,12 +42,6 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 		&igQtScalarViewWidget::setCustomScaleRange);
 	connect(SetCustomScaleRangeUi->btnCancle, &QPushButton::clicked, this,
 		[&]() { this->SetCustomScaleRangeWidget->hide(); });
-	// Auto-rescaling toggle: checked=auto-update (default), unchecked=fixed range
-    connect(SetCustomScaleRangeUi->checkBoxEnableAutoRescaling, &QCheckBox::toggled, 
-			this, [&](bool enabled) {
-        std::string key = m_CurrentModelName + "::" + scalarName;
-        m_AutoRescalingStates[key] = enabled;
-    });
 
     connect(ui->radioButton_Liner, &QRadioButton::toggled, this, [&](bool checked){
 		if(this->m_ColorMapper==nullptr)return;
@@ -66,7 +60,7 @@ void igQtScalarViewWidget::loadScalarData() {
 	}
 	if (!obj) return;
 
-	// Track current model name for state management
+	// Track current model name
 	if (scene && scene->GetCurrentModel()) {
 		m_CurrentModelName = scene->GetCurrentModel()->GetDataObject()->GetName();
 	}
@@ -82,24 +76,12 @@ void igQtScalarViewWidget::loadScalarData() {
 
 	auto dataRange = obj->GetAttributeSet()->GetAttribute(scalarName).GetDataRange();
 	if (dataRange) {
-		// For Dimension=1 (scalarDimension=0), use element 1 (first dimension), not element 0 (magnitude)
-		if (scalarDimension == -1 && dataRange->GetNumberOfElements() == 2) {
-			this->scalarMin = dataRange->GetValue(2);  // Element 1, index 0 (min)
-			this->scalarMax = dataRange->GetValue(3);  // Element 1, index 1 (max)
-		} else {
-
-			this->scalarMin = dataRange->GetValue(2 * scalarDimension + 2);
-			this->scalarMax = dataRange->GetValue(2 * scalarDimension + 3);
-		}
+		// Unified formula: dimension 0 -> indices [2,3], dimension -1 -> indices [0,1]
+		int minIdx = 2 * scalarDimension + 2;
+		int maxIdx = 2 * scalarDimension + 3;
+		this->scalarMin = dataRange->GetValue(minIdx);
+		this->scalarMax = dataRange->GetValue(maxIdx);
 	}
-
-	// Restore auto-rescaling state for current model+attribute
-	std::string key = m_CurrentModelName + "::" + scalarName;
-	bool autoRescaling = m_AutoRescalingStates.count(key) 
-		? m_AutoRescalingStates[key] 
-		: true;  // Default: true (auto-update enabled)
-	SetCustomScaleRangeUi->checkBoxEnableAutoRescaling->setChecked(autoRescaling);
-
 }
 void igQtScalarViewWidget::initScalarRange() {
 
@@ -129,29 +111,10 @@ void igQtScalarViewWidget::initScalarInfo()
 }
 
 void igQtScalarViewWidget::showScalarView() {
-	// Check auto-rescaling state for current model+attribute
-	std::string key = m_CurrentModelName + "::" + scalarName;
-	bool autoRescaling = m_AutoRescalingStates.count(key)
-		? m_AutoRescalingStates[key]
-		: true;  // Default: true (auto-update enabled)
-	
-	if (autoRescaling) {
-		// Auto-rescaling enabled: update range with current frame data
-		loadScalarData();
-		initScalarRange();
-		initScalarInfo();
-	} else {
-		// Auto-rescaling disabled: keep fixed range, don't update min/max
-		// Only reload basic data without updating range
-		auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-		iGame::DataObject::Pointer obj;
-		if (scene && scene->GetCurrentModel()) {
-			obj = scene->GetCurrentModel()->GetDataObject();
-		}
-		if (obj) {
-			m_ColorMapper = obj->GetColorMapper();
-		}
-	}
+	// Always load current scalar data and update range
+	loadScalarData();
+	initScalarRange();
+	initScalarInfo();
 	
 	// Always update draw style to apply color mapping
 	if (m_ColorMapper) {
@@ -188,13 +151,9 @@ void igQtScalarViewWidget::rescaleRange() {
     if (!obj) return;
     obj->ReCollectSubDataObjectDataRange();
     auto attribute = obj->GetAttributeSet()->GetAttribute(currentSelectedScalarIdx);
-    if (scalarDimension == -1 && attribute.dataRange->GetNumberOfElements() == 2) {
-        scalarMin = attribute.dataRange->GetElement(1)[0];  // Element 1 (first dimension)
-        scalarMax = attribute.dataRange->GetElement(1)[1];
-    } else {
-        scalarMin = attribute.dataRange->GetElement(scalarDimension + 1)[0];
-        scalarMax = attribute.dataRange->GetElement(scalarDimension + 1)[1];
-    }
+    // Unified formula: dimension + 1
+    scalarMin = attribute.dataRange->GetElement(scalarDimension + 1)[0];
+    scalarMax = attribute.dataRange->GetElement(scalarDimension + 1)[1];
 
 	m_ColorMapper->SetRange(scalarMin, scalarMax);
 	ui->widget_DataRangeSlider->updateMinAndMax(scalarMin, scalarMax);
@@ -241,16 +200,4 @@ void igQtScalarViewWidget::isShowColorLegend() { Q_EMIT changeColorBarShow(); }
 
 int igQtScalarViewWidget::getCurrentSelectedScalarIdx() {
 	return currentSelectedScalarIdx;
-}
-
-void igQtScalarViewWidget::clearModelStates(const std::string& modelName) {
-	// Clear all saved states for this model
-	std::string prefix = modelName + "::";
-	for (auto it = m_AutoRescalingStates.begin(); it != m_AutoRescalingStates.end();) {
-		if (it->first.find(prefix) == 0) {
-			it = m_AutoRescalingStates.erase(it);
-		} else {
-			++it;
-		}
-	}
 }

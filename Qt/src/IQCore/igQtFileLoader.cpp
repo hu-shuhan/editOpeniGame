@@ -117,6 +117,8 @@ void igQtFileLoader::LoadFile() {
     }
 }
 
+
+
 //static DataObject::Pointer _obj;
 void igQtFileLoader::OpenFile(const std::string& filePath) {
     using namespace iGame;

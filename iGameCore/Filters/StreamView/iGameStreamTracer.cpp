@@ -59,7 +59,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             this->UpdateProgress(1);
         } else {
             clock_t startTime = clock();
-            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(),true);
             std::cout<< "Init Adjacent Time: "
 					  << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
            // mesh->SetShouldBuildEageLinks(false);
@@ -98,7 +98,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
 
         } else if (!mesh->HasSubDataObject()) {
             clock_t startTime = clock();
-            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(),true);
             std::cout<< "Init Adjacent Time: "<< static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
             //mesh->SetShouldBuildEageLinks(false);
             //mesh->SetShouldBuildFaceLinks(false);
@@ -106,6 +106,7 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             //mesh->SetShouldBuildVolumeFaceLinks(false);
             //mesh->SetShouldBuildVolumeEageLinks(false);
             mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            //InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             this->UpdateProgress(1);
         }
 
@@ -928,7 +929,7 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
  //   std::cout << "333333333333333" << std::endl;
 
     auto func = [&](int i) -> void {
-        // std::cout << i << " start\n";
+         //std::cout << i << " start\n";
         // auto time1 = clock();
         int steps = maxSteps;
         auto& _coord = seed[i];
@@ -1033,8 +1034,10 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
         ThreadPool::Pointer tp = ThreadPool::Instance();
         std::vector<std::future<void>> result(seed.size());
         for (int i = 0; i < seed.size(); i++) { result[i] = tp->Commit(func, i); }
+       // for (int i = 99; i < 100; i++) { result[i] = tp->Commit(func, i); }
 
-        for (int i = 0; i < seed.size(); i++) {
+       // for (int i = 99; i < 100; i++) {
+            for (int i = 0; i < seed.size(); i++) {
             result[i].wait();
             processCount++;
             this->UpdateProgress((double) processCount / seed.size());
@@ -2288,7 +2291,7 @@ void StreamTracer::precomputeTrigValues() {
     }
 }
 
-void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum) {
+void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum,bool isPoly) {
     float maxLen2 = -1.0;
     igIndex maxCellId = -1, maxV0 = -1, maxV1 = -1;
 
@@ -2305,7 +2308,7 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
             size_t i = k * step + step / 2;
             if (i >= N) i = N - 1;
 
-            int vcnt = cellData->GetCellIds((long long) i, ids);
+            int vcnt = cellData->GetCellIds(i, ids);
             if (vcnt < 2) continue;
 
             igIndex v0 = ids[0], v1 = ids[1];
@@ -2313,7 +2316,11 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
 
             Point p0 = mesh->GetPoint(v0);
             Point p1 = mesh->GetPoint(v1);
-
+            if (k < 4) {
+                std::cout << i << std::endl;
+                std::cout<<v0<<p0[0]<<" "<<p0[1]<<" "<<p0[2]<<std::endl;
+                std::cout<<v1<<p1[0]<<" "<<p1[1]<<" "<<p1[2]<<std::endl;
+            }
             float dx = float(p0[0]) - float(p1[0]);
             float dy = float(p0[1]) - float(p1[1]);
             float dz = float(p0[2]) - float(p1[2]);
@@ -2327,9 +2334,12 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
             }
         }
     }
+    if (!isPoly) {
+        maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
 
-     maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
-
+    } else {
+        maxLength = std::sqrt(0.0419432);
+    }
     std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
               << " v1=" << maxV1 << std::endl;
     igIndex cell[128];

@@ -1017,10 +1017,9 @@ void SurfaceMesh::SetAttributeWithCellData(ArrayObject::Pointer attr, DoubleArra
             }
         }
     }
-    attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
-    attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
-    //    range.first = m_ColorMapper->GetRange()[0];
-    //    range.second = m_ColorMapper->GetRange()[1];
+    // DO NOT write ColorMapper range back to attrRange - this corrupts Magnitude range!
+    // Previously: attrRange->SetValue(0, m_ColorMapper->GetRange()[0]);
+    // Previously: attrRange->SetValue(1, m_ColorMapper->GetRange()[1]);
 
     FloatArray::Pointer colors = m_ColorMapper->MapScalars(attr, dimension);
     if (colors == nullptr) { return; }

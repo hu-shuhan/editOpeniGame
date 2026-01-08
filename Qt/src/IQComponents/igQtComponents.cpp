@@ -13,9 +13,14 @@ MComboBox::MComboBox(SubAttribTreeWidgetItem* item, QWidget* parent) : subItem(i
 
 void MComboBox::onItemActivated(int index) {
     if (this->item) {
-        this->item->viewAttribute(index - 1);
+        // For single-component fields: always use component 0
+        // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+        int actualDim = (item->getDimension() == 1) ? 0 : (index - 1);
+        this->item->viewAttribute(actualDim);
     } else if (this->subItem) {
-        this->subItem->viewAttribute(index - 1);
+        // For single-component fields: always use component 0
+        // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+        int actualDim = (subItem->getDimension() == 1) ? 0 : (index - 1);
+        this->subItem->viewAttribute(actualDim);
     }
-    //std::cout << "onItemActivated\n";
 }

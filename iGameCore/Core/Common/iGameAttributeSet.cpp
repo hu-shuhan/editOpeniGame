@@ -308,8 +308,6 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     for (int i = 0; i < 2 * (dim + 1); i += 2) {
         dimensionRanges[i + 0] = DBL_MAX;
         dimensionRanges[i + 1] = DBL_MIN;
-//        dimensionRanges[i + 0] = dataRange->GetValue(i + 0) == 0 ? DBL_MAX : dataRange->GetValue(i + 0);
-//        dimensionRanges[i + 1] = dataRange->GetValue(i + 1) == 0 ? DBL_MIN : dataRange->GetValue(i + 1);
     }
 
     auto& data = this->pointer;
@@ -334,6 +332,7 @@ bool iGame::AttributeSet::Attribute::UpdateAllDataRange() {
     for (int i = 0; i < dim + 1; i++) {
         dataRange->SetElement(i, {dimensionRanges[2 * i], dimensionRanges[2 * i + 1]});
     }
+
     dataRange->Modified();
     return true;
 }
