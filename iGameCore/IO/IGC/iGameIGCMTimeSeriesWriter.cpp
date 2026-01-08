@@ -2,6 +2,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameIGCWriter.h"
+#include "iGameIGCMReportAggregator.h"
 #include "Log/iGameLogger.h"
 
 #include <algorithm>
@@ -64,6 +65,9 @@ bool IGCMTimeSeriesWriter::GenerateBuffers() {
 
     auto* timeSeries = doc.NewElement("TimeSeries");
     root->InsertEndChild(timeSeries);
+
+    IGCMReportAggregator aggregator;
+    aggregator.Reset();
 
     int totalParts = 0;
     const int frameCount = static_cast<int>(timeFrames->GetTimeNum());
@@ -182,10 +186,21 @@ bool IGCMTimeSeriesWriter::GenerateBuffers() {
                 return false;
             }
 
-            AppendPartReport(frameIndex, partIndex, displayName, fileName, writer->GetReport());
+            const auto partReport = writer->GetReport();
+            if (m_hasCodecParams && m_CodecParams.showReport) {
+                aggregator.Accumulate(part, partPath, partReport);
+            }
+            AppendPartReport(frameIndex, partIndex, displayName, fileName, partReport);
         }
 
         totalParts += partCount;
+    }
+
+    if (m_hasCodecParams && m_CodecParams.showReport) {
+        const auto summary = aggregator.BuildSummaryForTimeSeries(frameCount, totalParts);
+        // 汇总段放在明细之前
+        m_report.insert(m_report.begin(), std::make_pair(std::string(""), std::string("")));
+        m_report.insert(m_report.begin(), summary.begin(), summary.end());
     }
 
     m_report.emplace_back("帧数", std::to_string(frameCount));

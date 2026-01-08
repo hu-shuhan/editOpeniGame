@@ -1,6 +1,7 @@
 #include "iGameIGCMWriter.h"
 
 #include "iGameIGCWriter.h"
+#include "iGameIGCMReportAggregator.h"
 
 #include <filesystem>
 #include <iomanip>
@@ -71,12 +72,23 @@ bool IGCMWriter::GenerateBuffers() {
         return false;
     }
 
+    IGCMReportAggregator aggregator;
+    aggregator.Reset();
+
     int leafPreorderIndex = 0;
-    if (!WriteSubBlocksToDiskAndManifest(doc, rootBlock, m_DataObject, outputDir, baseName, leafTotal, leafPreorderIndex)) {
+    if (!WriteSubBlocksToDiskAndManifest(doc, rootBlock, m_DataObject, outputDir, baseName, leafTotal, leafPreorderIndex,
+                                         aggregator)) {
         return false;
     }
     if (leafPreorderIndex <= 0) {
         return false;
+    }
+
+    if (m_hasCodecParams && m_CodecParams.showReport) {
+        const auto summary = aggregator.BuildSummaryForMultiBlock(leafPreorderIndex);
+        // 汇总段放在明细之前
+        m_report.insert(m_report.begin(), std::make_pair(std::string(""), std::string("")));
+        m_report.insert(m_report.begin(), summary.begin(), summary.end());
     }
 
     m_report.emplace_back("叶子块数量", std::to_string(leafPreorderIndex));
@@ -99,7 +111,8 @@ bool IGCMWriter::GenerateBuffers() {
 
 bool IGCMWriter::WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parentElem,
                                                 DataObject::Pointer obj, const std::filesystem::path& outputDir,
-                                                const std::string& baseName, int leafTotal, int& leafPreorderIndex) {
+                                                const std::string& baseName, int leafTotal, int& leafPreorderIndex,
+                                                IGCMReportAggregator& aggregator) {
     int siblingIndex = 0;
     for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it, ++siblingIndex) {
         auto child = it->second;
@@ -117,7 +130,8 @@ bool IGCMWriter::WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tin
             blockElem->SetAttribute("name", name.c_str());
             parentElem->InsertEndChild(blockElem);
 
-            if (!WriteSubBlocksToDiskAndManifest(doc, blockElem, child, outputDir, baseName, leafTotal, leafPreorderIndex)) {
+            if (!WriteSubBlocksToDiskAndManifest(doc, blockElem, child, outputDir, baseName, leafTotal, leafPreorderIndex,
+                                                 aggregator)) {
                 return false;
             }
             continue;
@@ -152,7 +166,11 @@ bool IGCMWriter::WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tin
             return false;
         }
 
-        AppendLeafReport(displayName, fileName, writer->GetReport());
+        const auto leafReport = writer->GetReport();
+        if (m_hasCodecParams && m_CodecParams.showReport) {
+            aggregator.Accumulate(child, leafPath, leafReport);
+        }
+        AppendLeafReport(displayName, fileName, leafReport);
         leafPreorderIndex++;
     }
 

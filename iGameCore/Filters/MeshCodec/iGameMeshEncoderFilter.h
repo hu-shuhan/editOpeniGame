@@ -301,6 +301,7 @@ private:
 
             // 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
             const float errPercent = keyError * 100.0f;
+
             std::cout << dataName << " relative_error: " << fmt::v11::format("{:.8f}%", errPercent) << std::endl;
             m_report.push_back(std::make_pair(dataName + " 相对误差", fmt::v11::format("{:.8f}%", errPercent)));
         }
@@ -440,7 +441,8 @@ private:
         MeshFloatCodec::FloatEncoder(encodedFloat, remappedPointBuffer, m_codecParams.geomParams,
                                         m_geomControlParams);
 
-        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomControlParams, "顶点坐标");
+        // 顶点坐标项统一用英文，避免控制台中文乱码
+        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomControlParams, "Vertex Position");
 
         UpdateProgress(0.2);
 
