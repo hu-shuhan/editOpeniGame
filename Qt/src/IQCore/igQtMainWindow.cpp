@@ -865,8 +865,49 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_VariableCorrelationField->show();
-        ui->widget_VariableCorrelationField->SetModel(model);
+
+        // 使用动态属性存储对话框指针
+        QDialog* dialog = this->property("correlationDialog").value<QDialog*>();
+
+        if (!dialog) {
+            dialog = new QDialog(this);
+            dialog->setWindowTitle("变量相关性分析");
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->setModal(false);
+
+            // 将指针存储为属性
+            this->setProperty("correlationDialog", QVariant::fromValue(dialog));
+
+            igQtVariableCorrelationWidget* widget = new igQtVariableCorrelationWidget(dialog);
+            QVBoxLayout* layout = new QVBoxLayout(dialog);
+            layout->addWidget(widget);
+            dialog->setLayout(layout);
+            dialog->resize(700, 500);
+
+            // 对话框关闭时清理属性
+            connect(dialog, &QDialog::destroyed, this,
+                    [this]() { this->setProperty("correlationDialog", QVariant()); });
+        }
+
+        // 获取widget并设置模型
+        igQtVariableCorrelationWidget* widget = dialog->findChild<igQtVariableCorrelationWidget*>();
+        if (widget) { widget->SetModel(model); }
+
+        dialog->show();
+        dialog->raise();
+        dialog->activateWindow();
+        connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+            // 使用sender()获取信号发送者
+            auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
+            if (!senderWidget) return;
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            senderWidget->SetModel(model);
+        });
+
+
+        //ui->dockWidget_VariableCorrelationField->show();
+        //ui->widget_VariableCorrelationField->SetModel(model);
     });
 
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
