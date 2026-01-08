@@ -70,6 +70,8 @@
 #include <QTimer>
 #include <QPointer>
 
+#include "ui_igQtVariableCorrelationWidget.h"
+
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     initAllUnDefinedComponents();
@@ -912,10 +914,11 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             dialog->setModal(false);
 
             widget = new igQtVariableCorrelationWidget(dialog);
+            widget->GetUi()->splitter->setSizes({200, 300, 400});
             QVBoxLayout* layout = new QVBoxLayout(dialog);
             layout->addWidget(widget);
             dialog->setLayout(layout);
-            dialog->resize(700, 500);
+            dialog->resize(900, 500);
             connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
                 // 使用sender()获取信号发送者
                 auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
