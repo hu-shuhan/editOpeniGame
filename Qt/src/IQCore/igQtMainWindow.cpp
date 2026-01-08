@@ -1344,9 +1344,6 @@ void igQtMainWindow::initAllMySignalConnections() {
             [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->updateAllAttriubute(res);
                 rendererWidget->update();
-
-
-
             });
 
 

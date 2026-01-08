@@ -320,6 +320,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     //m_StreamBase->SetUpdate(true);
     if (!m_ResultObject) {
         m_ResultObject = iGame::UnstructuredMesh::New();
+        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+            m_StreamBase->streamFilter->meshId = -1;
+            modelBound = false;
+            haveDraw = false;
+            isExisted= false;
+            this->parentWidget()->hide();
+        });
     }
     auto resObj = streamtracer->GetOutput();
     if (resObj) {
@@ -341,14 +348,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
-        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-            m_StreamBase->streamFilter->meshId = -1;
-            modelBound = false;
-            haveDraw= false;
-            this->parentWidget()->hide();
 
-
-        });
         Q_EMIT AddStreamObject(m_ResultObject);
 
         haveDraw = true;
