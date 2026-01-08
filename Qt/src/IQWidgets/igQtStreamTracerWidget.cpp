@@ -229,6 +229,8 @@ void igQtStreamTracerWidget::updateVectorNameList() {
         m_DataObject = tem;
 
         modelBound = true;
+    } else {
+        
     }
 }
 void igQtStreamTracerWidget::changeVecName() {
@@ -318,6 +320,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     //m_StreamBase->SetUpdate(true);
     if (!m_ResultObject) {
         m_ResultObject = iGame::UnstructuredMesh::New();
+        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
+            m_StreamBase->streamFilter->meshId = -1;
+            modelBound = false;
+            haveDraw = false;
+            isExisted= false;
+            this->parentWidget()->hide();
+        });
     }
     auto resObj = streamtracer->GetOutput();
     if (resObj) {
@@ -327,31 +336,29 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetShellRenderingOption(false);
        // m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
+        m_ResultObject->SetLineWidth(5);
     }
     else {
         m_ResultObject->SetPoints(iGame::Points::New());
         m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
         m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
         m_ResultObject->SetShellRenderingOption(false);
-
+        m_ResultObject->SetLineWidth(5);
     }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {
         m_ResultObject->DataObject::SetName(masterName + "_StreamLine");
-        m_ResultObject->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-            m_StreamBase->streamFilter->meshId = -1;
-            modelBound = false;
-            haveDraw= false;
 
-            QMessageBox::information(this, "tips", 
-                "Please click the Streamline Entry button again to refresh the streamline binding status");
-
-
-        });
         Q_EMIT AddStreamObject(m_ResultObject);
+
         haveDraw = true;
     } else {
+        m_ResultObject->ConvertToDrawableData();
+
+        m_ResultObject->ViewCloudPicture(scene, 0);
+
         Q_EMIT UpdateStreamObject(m_ResultObject);
+
     }
     if (!haveDraw)
     scene->GetCurrentModel()->SetViewPointsSwitch(true);

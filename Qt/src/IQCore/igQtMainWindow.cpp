@@ -67,6 +67,8 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSplitter>
+#include <QTimer>
+#include <QPointer>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -789,6 +791,37 @@ void igQtMainWindow::initAllFilters() {
             modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
 
+            double acc  = filter->GetAccuracy();
+            double prec = filter->GetPrecision();
+            double rec  = filter->GetRecall();
+
+            if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
+                !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
+                QString msg = QString(
+                    "<table>"
+                    "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+                    "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
+                    "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
+                    "</table>"
+                )
+                .arg(acc,  0, 'f', 3)
+                .arg(prec, 0, 'f', 3)
+                .arg(rec,  0, 'f', 3);
+
+                QPointer<QWidget> self(this);
+                QTimer::singleShot(48, this, [self, msg]() {
+                    if (!self) return;
+
+                    QMessageBox box(self->window());
+                    box.setWindowTitle("Vortex Prediction Metrics");
+                    box.setTextFormat(Qt::RichText);
+                    box.setText(msg);
+                    box.setIcon(QMessageBox::NoIcon);
+                    box.setStandardButtons(QMessageBox::Ok);
+                    box.exec();
+                });
+            }
+
             // vortexMetricsLabel
             // double acc  = filter->GetAccuracy();
             // double prec = filter->GetPrecision();
@@ -867,8 +900,49 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_VariableCorrelation, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
-        ui->dockWidget_VariableCorrelationField->show();
-        ui->widget_VariableCorrelationField->SetModel(model);
+
+        // 使用动态属性存储对话框指针
+        QDialog* dialog = this->property("correlationDialog").value<QDialog*>();
+
+        if (!dialog) {
+            dialog = new QDialog(this);
+            dialog->setWindowTitle("变量相关性分析");
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->setModal(false);
+
+            // 将指针存储为属性
+            this->setProperty("correlationDialog", QVariant::fromValue(dialog));
+
+            igQtVariableCorrelationWidget* widget = new igQtVariableCorrelationWidget(dialog);
+            QVBoxLayout* layout = new QVBoxLayout(dialog);
+            layout->addWidget(widget);
+            dialog->setLayout(layout);
+            dialog->resize(700, 500);
+
+            // 对话框关闭时清理属性
+            connect(dialog, &QDialog::destroyed, this,
+                    [this]() { this->setProperty("correlationDialog", QVariant()); });
+        }
+
+        // 获取widget并设置模型
+        igQtVariableCorrelationWidget* widget = dialog->findChild<igQtVariableCorrelationWidget*>();
+        if (widget) { widget->SetModel(model); }
+
+        dialog->show();
+        dialog->raise();
+        dialog->activateWindow();
+        connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+            // 使用sender()获取信号发送者
+            auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
+            if (!senderWidget) return;
+            auto model = rendererWidget->GetScene()->GetCurrentModel();
+            if (model == nullptr) return;
+            senderWidget->SetModel(model);
+        });
+
+
+        //ui->dockWidget_VariableCorrelationField->show();
+        //ui->widget_VariableCorrelationField->SetModel(model);
     });
 
     connect(ui->widget_VariableCorrelationField, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this,
@@ -1298,9 +1372,8 @@ connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
-                rendererWidget->update();
                 modelTreeWidget->updateAllAttriubute(res);
+                rendererWidget->update();
             });
 
 
@@ -1344,7 +1417,7 @@ connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_Animation, &igQtAnimationWidget::ClearAnimationVCRInfo);
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
 
     // Update animation controls when model changes
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
