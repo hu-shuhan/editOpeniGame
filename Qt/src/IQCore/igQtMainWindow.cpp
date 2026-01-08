@@ -1956,8 +1956,7 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->SetInitBoxSettingDialog(rendererWidget);
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetUseBox, this, [&](Model::Pointer model) {
-        if (!SelectionParameter::Instance().GetInSelection()) return;
-         model = rendererWidget->GetScene()->GetCurrentModel();
+        // model = rendererWidget-> GetScene()->GetCurrentModel();
         if (model == nullptr) return;
         auto dataObj = model->GetDataObject();
         if (dataObj == nullptr) return;
