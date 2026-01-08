@@ -44,7 +44,7 @@ private:
 
     bool WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parentElem,
                                          DataObject::Pointer obj, const std::filesystem::path& outputDir,
-                                         const std::string& baseName, int& leafPreorderIndex);
+                                         const std::string& baseName, int leafTotal, int& leafPreorderIndex);
 
     void AppendLeafReport(const std::string& displayName, const std::string& fileName,
                           const std::vector<std::pair<std::string, std::string>>& leafReport);

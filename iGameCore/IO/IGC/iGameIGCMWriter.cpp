@@ -15,6 +15,20 @@ static std::string FormatIndex4(int index) {
     return oss.str();
 }
 
+static int CountLeafBlocks(DataObject::Pointer obj) {
+    if (!obj) {
+        return 0;
+    }
+    if (!obj->HasSubDataObject()) {
+        return 1;
+    }
+    int total = 0;
+    for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
+        total += CountLeafBlocks(it->second);
+    }
+    return total;
+}
+
 bool IGCMWriter::GenerateBuffers() {
     if (!m_DataObject) {
         return false;
@@ -52,8 +66,13 @@ bool IGCMWriter::GenerateBuffers() {
     rootBlock->SetAttribute("name", rootName.c_str());
     multiBlock->InsertEndChild(rootBlock);
 
+    const int leafTotal = CountLeafBlocks(m_DataObject);
+    if (leafTotal <= 0) {
+        return false;
+    }
+
     int leafPreorderIndex = 0;
-    if (!WriteSubBlocksToDiskAndManifest(doc, rootBlock, m_DataObject, outputDir, baseName, leafPreorderIndex)) {
+    if (!WriteSubBlocksToDiskAndManifest(doc, rootBlock, m_DataObject, outputDir, baseName, leafTotal, leafPreorderIndex)) {
         return false;
     }
     if (leafPreorderIndex <= 0) {
@@ -61,6 +80,10 @@ bool IGCMWriter::GenerateBuffers() {
     }
 
     m_report.emplace_back("叶子块数量", std::to_string(leafPreorderIndex));
+
+    if (m_ProgressObserver) {
+        m_ProgressObserver->UpdateText("");
+    }
 
     tinyxml2::XMLPrinter printer;
     doc.Print(&printer);
@@ -76,7 +99,7 @@ bool IGCMWriter::GenerateBuffers() {
 
 bool IGCMWriter::WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parentElem,
                                                 DataObject::Pointer obj, const std::filesystem::path& outputDir,
-                                                const std::string& baseName, int& leafPreorderIndex) {
+                                                const std::string& baseName, int leafTotal, int& leafPreorderIndex) {
     int siblingIndex = 0;
     for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it, ++siblingIndex) {
         auto child = it->second;
@@ -94,10 +117,16 @@ bool IGCMWriter::WriteSubBlocksToDiskAndManifest(tinyxml2::XMLDocument& doc, tin
             blockElem->SetAttribute("name", name.c_str());
             parentElem->InsertEndChild(blockElem);
 
-            if (!WriteSubBlocksToDiskAndManifest(doc, blockElem, child, outputDir, baseName, leafPreorderIndex)) {
+            if (!WriteSubBlocksToDiskAndManifest(doc, blockElem, child, outputDir, baseName, leafTotal, leafPreorderIndex)) {
                 return false;
             }
             continue;
+        }
+
+        if (m_ProgressObserver) {
+            // leafPreorderIndex 尚未自增，所以当前正在处理的是 (leafPreorderIndex + 1)
+            m_ProgressObserver->UpdateText(
+                "多块编码 " + std::to_string(leafPreorderIndex + 1) + "/" + std::to_string(leafTotal));
         }
 
         const std::string idx4 = FormatIndex4(leafPreorderIndex);
@@ -143,4 +172,3 @@ void IGCMWriter::AppendLeafReport(const std::string& displayName, const std::str
 }
 
 IGAME_NAMESPACE_END
-

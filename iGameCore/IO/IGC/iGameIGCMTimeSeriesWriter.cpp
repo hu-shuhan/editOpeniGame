@@ -100,6 +100,11 @@ bool IGCMTimeSeriesWriter::GenerateBuffers() {
             const int inputCount = frameFiles->GetNumberOfElements();
             for (int i = 0; i < inputCount; ++i) {
                 const auto& inputPath = frameFiles->GetElement(i);
+                if (m_ProgressObserver) {
+                    m_ProgressObserver->UpdateText(
+                        "多帧读取 帧 " + std::to_string(frameIndex + 1) + "/" + std::to_string(frameCount) +
+                        " 输入 " + std::to_string(i + 1) + "/" + std::to_string(inputCount));
+                }
                 auto partObj = FileIO::ReadFile(inputPath);
                 if (!partObj) {
                     IGAME_CORE_ERROR("IGCMTimeSeriesWriter: 读取帧 {} 输入文件失败: {}", frameIndex, inputPath);
@@ -142,6 +147,12 @@ bool IGCMTimeSeriesWriter::GenerateBuffers() {
                 return false;
             }
 
+            if (m_ProgressObserver) {
+                m_ProgressObserver->UpdateText(
+                    "多帧编码 帧 " + std::to_string(frameIndex + 1) + "/" + std::to_string(frameCount) +
+                    " 部件 " + std::to_string(partIndex + 1) + "/" + std::to_string(partCount));
+            }
+
             const std::string fileName = [&] {
                 if (partCount == 1) {
                     return baseName + "__frame_" + frameIdx4 + ".igc";
@@ -179,6 +190,10 @@ bool IGCMTimeSeriesWriter::GenerateBuffers() {
 
     m_report.emplace_back("帧数", std::to_string(frameCount));
     m_report.emplace_back("部件总数", std::to_string(totalParts));
+
+    if (m_ProgressObserver) {
+        m_ProgressObserver->UpdateText("");
+    }
 
     tinyxml2::XMLPrinter printer;
     doc.Print(&printer);

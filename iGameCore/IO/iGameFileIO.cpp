@@ -28,6 +28,7 @@
 #include "VTK/iGameVTKWriter.h"
 #include "iGameFileReader.h"
 #include "iGameFileWriter.h"
+#include "iGameProgressObserver.h"
 #include <Nastran/iGameNastranReader.h>
 #include <VTK XML/iGameVTMWriter.h>
 #include <filesystem>
@@ -396,6 +397,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
 
     if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
+
+    // 读文件流程里很多 Reader 会把进度推到 1.0，但并不会在结束时清理。
+    // ProgressObserver 是全局单例，不复位就会导致 UI 进度条停在 100%。
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
     return resObj;
 }
 
