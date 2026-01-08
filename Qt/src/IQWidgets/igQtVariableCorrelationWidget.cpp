@@ -150,6 +150,8 @@ igQtVariableCorrelationWidget_VariableCorrelationLabel::igQtVariableCorrelationW
         QWidget* parent)
     : QLabel(parent) {}
 
+Ui::igQtVariableCorrelationWidget* igQtVariableCorrelationWidget::GetUi() { return this->ui; }
+
 igQtVariableCorrelationWidget::igQtVariableCorrelationWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::igQtVariableCorrelationWidget) {
     ui->setupUi(this);
