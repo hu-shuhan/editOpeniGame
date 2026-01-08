@@ -608,7 +608,6 @@ void DrawObject::SyncGpuBuffers() {
     if (m_Positions->GetMTime() > m_PositionVBO->GetMTime()) {
         GLAllocateGLBuffer(m_PositionVBO, m_Positions->GetNumberOfValues() * sizeof(float), m_Positions->RawPointer());
         m_PositionVBO->Modified();
-
         SetPositionBufferToVAO(m_PointVAO, m_PositionVBO);
         SetPositionBufferToVAO(m_LineVAO, m_PositionVBO);
         SetPositionBufferToVAO(m_TriangleVAO, m_PositionVBO);
@@ -617,7 +616,6 @@ void DrawObject::SyncGpuBuffers() {
     if (m_Colors->GetMTime() > m_ColorVBO->GetMTime()) {
         GLAllocateGLBuffer(m_ColorVBO, m_Colors->GetNumberOfValues() * sizeof(float), m_Colors->RawPointer());
         m_ColorVBO->Modified();
-
         SetColorBufferToVAO(m_PointVAO, m_ColorVBO);
         SetColorBufferToVAO(m_LineVAO, m_ColorVBO);
         SetColorBufferToVAO(m_TriangleVAO, m_ColorVBO);

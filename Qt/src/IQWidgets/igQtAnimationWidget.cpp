@@ -107,6 +107,9 @@ igQtAnimationWidget::igQtAnimationWidget(QWidget* parent)
             ui->btnLoop->setIcon(QIcon(":/Ticon/Icons/VcrDisabledLoop.png"));
         }
     });
+    connect(ui->spinBoxAnimationStride, QOverload<int>::of(&QSpinBox::valueChanged), this, [&](int val){
+        VcrController->setStripe(ui->spinBoxAnimationStride->value());
+    });
     connect(ui->btnApplyAnimationOperation, &QPushButton::clicked, this,
             [&](bool checked) {
                 VcrController->setStripe(ui->spinBoxAnimationStride->value());
@@ -174,6 +177,11 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         m_IsAnimationPlaying = false;
         return;
     }
+    // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
+    ui->comboBoxCurrentAnimation->blockSignals(true);
+    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
+    ui->comboBoxCurrentAnimation->blockSignals(false);
+
     // 缓存设置由 comboBox_AnimationCacheNum 控制，不在播放时覆盖
     currentDrawObject->UpdateAnimation(keyframe_idx);
 
@@ -199,10 +207,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     currentDrawObject->ForceReConvertToDrawableData();
     currentScene->DoneCurrent();
 
-    // Update comboBoxCurrentAnimation to reflect current frame (block signals to avoid recursion)
-    ui->comboBoxCurrentAnimation->blockSignals(true);
-    ui->comboBoxCurrentAnimation->setCurrentIndex(keyframe_idx);
-    ui->comboBoxCurrentAnimation->blockSignals(false);
     Q_EMIT UpdateScene();
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
     
