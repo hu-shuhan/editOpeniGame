@@ -1260,6 +1260,36 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
+connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+
+        auto model = scene->GetCurrentModel();
+        if (!model) return;
+
+        auto dataObject = model->GetDataObject();
+        if (!dataObject) return;
+
+        auto attributeSet = dataObject->GetAttributeSet();
+        if (!attributeSet) return;
+
+        auto allAttributes = attributeSet->GetAllAttributes();
+        if (!allAttributes || allAttributes->GetNumberOfElements() == 0) return;
+
+        auto drawObject = DynamicCast<DrawObject>(dataObject);
+        if (drawObject) {
+            auto item = modelTreeWidget->getItemFromObject(dataObject);
+            if (item && item->childCount() > 0) {
+                item->setExpanded(true);
+                auto child = item->child(0);
+                item->setCurrentChild(child);
+                item->setSelected(false);
+                item->viewAttribute(0, -1);
+                child->setSelected(true);
+                modelTreeWidget->setCurrentItem(child);
+            }
+        }
+    });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
         modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
