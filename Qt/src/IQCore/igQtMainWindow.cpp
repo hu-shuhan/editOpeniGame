@@ -809,7 +809,6 @@ void igQtMainWindow::initAllFilters() {
                 .arg(rec,  0, 'f', 3);
 
                 QPointer<QWidget> self(this);
-
                 QTimer::singleShot(48, this, [self, msg]() {
                     if (!self) return;
 
