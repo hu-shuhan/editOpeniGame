@@ -9,6 +9,8 @@
 #pragma once
 
 #include <utility>
+#include <list>
+#include <unordered_map>
 
 #include "iGameStringArray.h"
 #include "iGameElementArray.h"
@@ -27,7 +29,6 @@ public:
             StreamingType m_type {StreamingType::NONE};
             bool m_IsCached {false};
 
-//        ElementArray<Object> m_CachedData{};
         private:
             std::vector<iGame::Object::Pointer> m_CachedData {};
 
@@ -48,6 +49,8 @@ public:
             bool GetISCached() const {return m_IsCached;}
             bool SetCache(std::vector<iGame::Object::Pointer> cache);
 
+            // 清除缓存数据
+            void ClearCachedData();
     };
 
     static Pointer New() { return new StreamingData; }
@@ -68,12 +71,19 @@ public:
     std::vector<TimeFrame>& GetArrays() { return m_Data;}
 
     /* Cache Stuff */
-    /*开启动画缓存*/
-    void EnableCache(unsigned int maxCacheSize = UINT32_MAX);
+    /*开启动画缓存
+     * @param maxCacheSize 最大缓存帧数，超过此数量将淘汰最久未使用的缓存
+     */
+    void EnableCache(unsigned int maxCacheSize);
     /*禁用动画缓存功能，同时清除缓存*/
     void DisableCache();
     /*清除缓存*/
     void ClearCache();
+
+    /*获取当前缓存帧数*/
+    unsigned int GetCurrentCacheCount() const { return m_Cache_AllocatedNum; }
+    /*获取最大缓存帧数*/
+    unsigned int GetMaxCacheSize() const { return m_Cache_MAXSize; }
 
     TimeFrame& GetTargetTimeFrame(unsigned int index);
     const TimeFrame& GetTargetTimeFrame(unsigned int index) const;
@@ -87,6 +97,13 @@ protected:
     bool m_Enable_Cache{false};
     unsigned int m_Cache_MAXSize{0};
     unsigned int m_Cache_AllocatedNum{0};
+
+    // LRU缓存管理
+    std::list<unsigned int> m_LRUOrder;  // LRU顺序列表（存储帧索引，头部为最近使用）
+    std::unordered_map<unsigned int, std::list<unsigned int>::iterator> m_LRUMap; // 帧索引到LRU位置的映射
+
+    /*淘汰最久未使用的缓存（列表尾部）*/
+    void EvictLRUCache();
 };
 
 IGAME_NAMESPACE_END

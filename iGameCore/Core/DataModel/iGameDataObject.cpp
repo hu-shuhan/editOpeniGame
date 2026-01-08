@@ -223,6 +223,7 @@ void DataObject::UpdateAnimation(int keyframe_idx) {
     auto timeFrameData = this->GetTimeFrames()->GetTargetTimeFrameData(keyframe_idx);
     if (timeFrameType == StreamingType::MultiSubFiles) {
         this->ClearSubDataObject();
+
         for (auto& subObj: timeFrameData) {
             auto subDataObj = DynamicCast<iGame::DrawObject>(subObj);
             if (subDataObj) {

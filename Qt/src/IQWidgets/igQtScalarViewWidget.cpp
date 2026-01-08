@@ -17,6 +17,7 @@ igQtScalarViewWidget::igQtScalarViewWidget(QWidget* parent)
 	ui->label_Data->hide();
 	ui->DataInfoCombox->hide();
 	ui->DataItemCombox->hide();
+    this->setMinimumWidth(350);
 	SetCustomScaleRangeWidget = new QWidget;
 	SetCustomScaleRangeUi = new Ui::SetCustomScaleRange;
 	SetCustomScaleRangeUi->setupUi(SetCustomScaleRangeWidget);

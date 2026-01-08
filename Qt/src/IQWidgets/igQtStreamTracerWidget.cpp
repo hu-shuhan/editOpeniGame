@@ -327,13 +327,14 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetShellRenderingOption(false);
        // m_ResultObject->SetShellRenderingOption(false);
         m_ResultObject->ViewCloudPicture(scene,0);
+        m_ResultObject->SetLineWidth(5);
     }
     else {
         m_ResultObject->SetPoints(iGame::Points::New());
         m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
         m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
         m_ResultObject->SetShellRenderingOption(false);
-
+        m_ResultObject->SetLineWidth(5);
     }
     //scene->ChangeModelVisibility(model, false);
     if (!haveDraw) {

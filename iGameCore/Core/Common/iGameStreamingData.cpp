@@ -23,6 +23,12 @@ bool iGame::StreamingData::TimeFrame::SetCache(std::vector<iGame::Object::Pointe
     return true;
 }
 
+void StreamingData::TimeFrame::ClearCachedData() {
+    m_CachedData.clear();
+    m_CachedData.shrink_to_fit();
+    m_IsCached = false;
+}
+
 std::vector<iGame::Object::Pointer> StreamingData::TimeFrame::GetCachedData() {
     return m_CachedData;
 }
@@ -46,7 +52,18 @@ const StreamingData::TimeFrame &StreamingData::GetTargetTimeFrame(unsigned int i
 
 std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsigned int index) {
     auto& currentFrame = GetTargetTimeFrame(index);
-    if(m_Enable_Cache && currentFrame.GetISCached()) return currentFrame.GetCachedData();
+    
+    // 如果启用缓存且已缓存，更新LRU顺序并返回缓存数据
+    if(m_Enable_Cache && currentFrame.GetISCached()) {
+        // 更新LRU顺序：移动到列表头部
+        auto it = m_LRUMap.find(index);
+        if(it != m_LRUMap.end()) {
+            m_LRUOrder.erase(it->second);
+            m_LRUOrder.push_front(index);
+            m_LRUMap[index] = m_LRUOrder.begin();
+        }
+        return currentFrame.GetCachedData();
+    }
     auto frameData = currentFrame.GetMetaData();
     std::vector<iGame::Object::Pointer> target_time_data;
     /* If the timeframe data store MultiSubFile's Path, the job is to Parse the sub File. */
@@ -123,9 +140,21 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
 #endif
         }
     }
-    if(m_Enable_Cache && m_Cache_AllocatedNum < m_Cache_MAXSize && !currentFrame.GetISCached()){
-        m_Cache_AllocatedNum ++;
-        currentFrame.SetCache(target_time_data);
+    if(m_Enable_Cache && !currentFrame.GetISCached()){
+        // 如果缓存已满，淘汰最久未使用的缓存
+        if(m_Cache_AllocatedNum >= m_Cache_MAXSize) {
+            EvictLRUCache();
+        }
+        
+        // 缓存当前帧数据
+        if(m_Cache_AllocatedNum < m_Cache_MAXSize) {
+            currentFrame.SetCache(target_time_data);
+            m_Cache_AllocatedNum++;
+            
+            // 添加到LRU列表头部（最近使用）
+            m_LRUOrder.push_front(index);
+            m_LRUMap[index] = m_LRUOrder.begin();
+        }
     }
     return target_time_data;
 }
@@ -133,10 +162,11 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
 
 void StreamingData::ClearCache() {
     m_Cache_AllocatedNum = 0;
-    for(auto timeFrames : m_Data){
+    m_LRUOrder.clear();
+    m_LRUMap.clear();
+    for(auto& timeFrames : m_Data){
         if(timeFrames.GetISCached()){
-            timeFrames.GetCachedData().clear();
-            timeFrames.SetCachedStatus(false);
+            timeFrames.ClearCachedData();
         }
     }
 }
@@ -148,13 +178,28 @@ StreamingType StreamingData::GetTargetFrameType(unsigned int index) {
 
 void StreamingData::EnableCache(unsigned int maxCacheSize) {
     m_Enable_Cache = true;
-    m_Cache_MAXSize = std::max(maxCacheSize, (uint32_t)m_Data.size());
+    m_Cache_MAXSize = std::min((size_t)maxCacheSize, this->GetTimeNum());
 }
 
 void StreamingData::DisableCache() {
     m_Enable_Cache = false;
     m_Cache_MAXSize = 0;
     ClearCache();
+}
+
+void StreamingData::EvictLRUCache() {
+    // 淘汰列表尾部的缓存（最久未使用的）
+    if(m_LRUOrder.empty()) return;
+    
+    unsigned int oldestIndex = m_LRUOrder.back();
+    m_LRUOrder.pop_back();
+    m_LRUMap.erase(oldestIndex);
+    
+    auto& frame = GetTargetTimeFrame(oldestIndex);
+    if(frame.GetISCached()) {
+        frame.ClearCachedData();
+        m_Cache_AllocatedNum--;
+    }
 }
 
 float StreamingData::GetTargetTimeValue(unsigned int index) {
