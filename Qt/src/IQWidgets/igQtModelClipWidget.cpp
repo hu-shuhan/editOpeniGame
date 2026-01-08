@@ -91,7 +91,7 @@ void igQtModelClipWidget::SetViewMode(ViewMode vm) {
     if (this->m_OriginDataObject) { ClipModel(); }
 }
 void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
-    // 清理旧的 Observer
+    // 娓呯悊鏃х殑 Observer
     if (m_OriginDataObject && m_OriginObserverTag) {
         m_OriginDataObject->RemoveObserver(m_OriginObserverTag);
         m_OriginObserverTag = 0;
@@ -107,9 +107,9 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
     m_ResultMesh->SetAttributeSet(m_d->GetAttributeSet());
     DrawClipModel(m_ResultMesh);
     
-    // 监听原始模型删除事件
+    // 鐩戝惉鍘熷妯″瀷鍒犻櫎浜嬩欢
     m_OriginObserverTag = m_d->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-        // 移除结果模型上的 Observer
+        // 绉婚櫎缁撴灉妯″瀷涓婄殑 Observer
         if (m_ResultMesh && m_ResultObserverTag) {
             m_ResultMesh->RemoveObserver(m_ResultObserverTag);
             m_ResultObserverTag = 0;
@@ -121,9 +121,9 @@ void igQtModelClipWidget::SetOriginDataObject(iGame::DataObject::Pointer m_d) {
         ResetInteractor();
     });
     
-    // 监听结果模型删除事件
+    // 鐩戝惉缁撴灉妯″瀷鍒犻櫎浜嬩欢
     m_ResultObserverTag = m_ResultMesh->AddObserver(iGame::Command::DeleteEvent, [&]() -> void {
-        // 移除原始模型上的 Observer
+        // 绉婚櫎鍘熷妯″瀷涓婄殑 Observer
         if (m_OriginDataObject && m_OriginObserverTag) {
             m_OriginDataObject->RemoveObserver(m_OriginObserverTag);
             m_OriginObserverTag = 0;
