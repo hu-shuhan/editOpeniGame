@@ -67,7 +67,7 @@ QToolBar QToolButton {
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>26</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_file">
@@ -126,6 +126,7 @@ QToolBar QToolButton {
     <addaction name="action_ExportAnimation"/>
     <addaction name="menu_DataAnalysis"/>
     <addaction name="menu_clip"/>
+    <addaction name="action_ResetViewByBoundingBox"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menu_filters">
@@ -161,7 +162,7 @@ QToolBar QToolButton {
     <string>toolBar</string>
    </property>
    <property name="toolButtonStyle">
-    <enum>Qt::ToolButtonIconOnly</enum>
+    <enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum>
    </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
@@ -190,7 +191,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>模型列表</string>
@@ -230,7 +231,7 @@ QToolBar QToolButton {
       </sizepolicy>
      </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
      <property name="lineWidth">
       <number>1</number>
@@ -294,7 +295,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>标量场</string>
@@ -312,7 +313,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>矢量场</string>
@@ -330,7 +331,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>流场</string>
@@ -348,7 +349,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>张量场</string>
@@ -366,7 +367,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>平行坐标</string>
@@ -384,7 +385,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>变量相关性</string>
@@ -402,7 +403,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>变量数据密度</string>
@@ -420,7 +421,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>路径图</string>
@@ -438,7 +439,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>选择</string>
@@ -456,7 +457,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>已选数据的上下文保持显示</string>
@@ -489,7 +490,7 @@ QToolBar QToolButton {
     </size>
    </property>
    <property name="allowedAreas">
-    <set>Qt::NoDockWidgetArea</set>
+    <set>Qt::DockWidgetArea::NoDockWidgetArea</set>
    </property>
    <property name="windowTitle">
     <string>动画控件</string>
@@ -663,7 +664,7 @@ QToolBar QToolButton {
     <string>action_ResetView</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_ResetViewByBoundingBox">
@@ -674,7 +675,7 @@ QToolBar QToolButton {
     <string>action_ResetViewByBoundingBox</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_StrucDeformation">
@@ -1244,7 +1245,7 @@ QToolBar QToolButton {
     <string>使用正交投影</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::NoRole</enum>
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="action_slice">
