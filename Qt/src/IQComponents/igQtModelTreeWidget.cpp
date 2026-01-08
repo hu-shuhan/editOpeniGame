@@ -172,6 +172,7 @@ AttribTreeWidgetItem::AttribTreeWidgetItem(int index, QTreeWidget* treeview, Mod
 
 void AttribTreeWidgetItem::setDimension(int length) {
     comboBox->clear();
+    m_Dimension = length;
 
     // For Dimension=1, show only the single dimension value, not magnitude
     if (length == 1) {
@@ -371,7 +372,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
                 parent->setCurrentChild(sa);
                 int dim = sa->currentIndex();
                 if (dim == -1) dim = 0;
-                sa->viewAttribute(dim - 1);
+                // For single-component fields: use component 0
+                // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+                int actualDim = (sa->getDimension() == 1) ? 0 : (dim - 1);
+                sa->viewAttribute(actualDim);
                 call = false;
             }
         } 
@@ -399,7 +403,10 @@ void igQtModelTreeWidget::mousePressEvent(QMouseEvent* event) {
 
                     int dim = c->currentIndex();
                     if (dim == -1) { dim = 0; }
-                    c->viewAttribute(dim - 1);
+                    // For single-component fields: use component 0
+                    // For multi-component fields: index 0=Magnitude(-1), 1=x(0), 2=y(1), etc.
+                    int actualDim = (c->getDimension() == 1) ? 0 : (dim - 1);
+                    c->viewAttribute(actualDim);
                     Q_EMIT ViewCloudPicture();
                 }
             }

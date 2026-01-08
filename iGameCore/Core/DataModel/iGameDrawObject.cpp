@@ -243,6 +243,20 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         return; // no change
     }
 
+    // Share parent's dataRange to RenderableMesh BEFORE processing
+    // This ensures RenderableMesh uses the full model's calculated range
+    if (index >= 0) {
+        auto& parentAttr = this->GetAttributeSet()->GetAttribute(index);
+        auto parentDataRange = parentAttr.GetDataRange();
+        
+        if (m_RenderableMesh.SurfaceMesh && m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
+            m_RenderableMesh.SurfaceMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
+        }
+        if (m_RenderableMesh.SimplifiedMesh && m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetNumberOfAttributes() > index) {
+            m_RenderableMesh.SimplifiedMesh->GetAttributeSet()->GetAttribute(index).dataRange = parentDataRange;
+        }
+    }
+
     // process renderable object
     if (m_RenderableMesh.SurfaceMesh) { m_RenderableMesh.SurfaceMesh->ViewCloudPicture(scene, index, dimension); }
     if (m_RenderableMesh.SimplifiedMesh) { m_RenderableMesh.SimplifiedMesh->ViewCloudPicture(scene, index, dimension); }

@@ -1255,6 +1255,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtMainWindow::updateViewStyleAndCloudPicture); connect(fileLoader,
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
+
     connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
         ui->widget_Animation->initAnimationComponents();
     });
@@ -1307,9 +1308,6 @@ void igQtMainWindow::initAllMySignalConnections() {
     /* Model Tree signal connect BEGIN.*/
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
-    // Clear auto-rescaling states when model is deleted
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
-            ui->widget_ScalarField, &igQtScalarViewWidget::clearModelStates);
     // Update Deformation Info when model is deleted
     connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
             DeformationWidget, &igQtDeformationWidget::updateInfo);
