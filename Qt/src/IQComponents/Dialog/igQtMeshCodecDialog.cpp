@@ -26,23 +26,23 @@ static iGame::PointSet::Pointer FindFirstLeafPointSet(iGame::DataObject::Pointer
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
     ui(new Ui::MeshCodecDialog),
-    m_dataObj(nullptr),
-    m_writeDataObj(obj)
+    m_uiSampleLeafObj(nullptr),
+    m_exportSourceObj(obj)
 {
     ui->setupUi(this);
 
-    m_isMultiBlock = (m_writeDataObj && m_writeDataObj->HasSubDataObject());
+    m_isMultiBlock = (m_exportSourceObj && m_exportSourceObj->HasSubDataObject());
 
     // 多块数据：UI 仅用于生成编码参数，实际写文件时需要使用根对象
     if (m_isMultiBlock) {
-        m_dataObj = FindFirstLeafPointSet(m_writeDataObj);
-        if (!m_dataObj) {
+        m_uiSampleLeafObj = FindFirstLeafPointSet(m_exportSourceObj);
+        if (!m_uiSampleLeafObj) {
             QMessageBox::critical(this, "错误", "多块数据中未找到可压缩的叶子块（PointSet）！");
             QTimer::singleShot(0, this, &QDialog::reject);
             return;
         }
     } else {
-        m_dataObj = m_writeDataObj;
+        m_uiSampleLeafObj = m_exportSourceObj;
     }
 
     // 多块数据不支持直方图/关键区域相关 UI，直接隐藏对应选项
@@ -150,16 +150,16 @@ void igQtMeshCodecDialog::InitDataItems()
         item.category = UIDataCategory::Geom;
         item.displayName = QString::fromUtf8("顶点坐标");
         item.dimension = 3;
-        item.elementCount = iGame::DynamicCast<iGame::PointSet>(m_dataObj)->GetNumberOfPoints();
+        item.elementCount = iGame::DynamicCast<iGame::PointSet>(m_uiSampleLeafObj)->GetNumberOfPoints();
         item.isKeyElement = std::vector<bool>(item.elementCount, false);
         m_uiDataItems.append(item);
     }
 
     // Attributes（属性数据）
-    const int attrCount = m_dataObj->GetAttributeSet()->GetNumberOfAttributes();
+    const int attrCount = m_uiSampleLeafObj->GetAttributeSet()->GetNumberOfAttributes();
     for (int i = 0; i < attrCount; i++)
     {
-        auto attr = m_dataObj->GetAttributeSet()->GetAttribute(i);
+        auto attr = m_uiSampleLeafObj->GetAttributeSet()->GetAttribute(i);
         UIDataItem item;
         item.category = UIDataCategory::Attr;
         item.attrIndex = i;
@@ -905,7 +905,7 @@ void igQtMeshCodecDialog::CalFeatureHistogram(std::vector<float>& xAxis, std::ve
 
     // MeshCodecFeature 索引与 UI 索引一致：1=几何，2+=属性
     // UI索引：0=全部数据，1=几何，2+=属性
-    iGame::MeshCodecFeature featureExtractor(this->m_dataObj, idx);
+    iGame::MeshCodecFeature featureExtractor(this->m_uiSampleLeafObj, idx);
     std::vector<float> norms;
 
     // 旧逻辑：使用梯度 Frobenius 范数并进行对数缩放
@@ -1019,12 +1019,12 @@ void igQtMeshCodecDialog::L2Norm(
 
 void igQtMeshCodecDialog::on_btnStartCompress_clicked()
 {
-    if (!m_writeDataObj) {
+    if (!m_exportSourceObj) {
         QMessageBox::critical(this, "错误", "无可用数据对象，无法压缩！");
         return;
     }
 
-    const bool isMultiBlock = m_writeDataObj->HasSubDataObject();
+    const bool isMultiBlock = m_exportSourceObj->HasSubDataObject();
     const QString filter = isMultiBlock ? "Compression Manifest(*.igcm)" : "Compress Mesh(*.igc)";
 
     std::string saveFilePath =
@@ -1049,9 +1049,33 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
 
     bool result = false;
     if (isMultiBlock) {
-        auto writer = iGame::IGCMWriter::New();
-        writer->SetCodecControlParams(codecParams);
-        result = writer->WriteToFile(m_writeDataObj, saveFilePath);
+        // 注意：多帧序列在当前帧也会表现为“多块”（subdataobj），不能仅凭 HasSubDataObject() 判断。
+        iGame::DataObject::Pointer rootObj = m_exportSourceObj;
+        if (m_exportSourceObj) {
+            auto* parent = m_exportSourceObj->FindParent();
+            if (parent && parent != m_exportSourceObj.get()) {
+                rootObj = iGame::DataObject::Pointer(parent);
+            }
+        }
+        auto timeFrames = rootObj ? rootObj->PeekTimeFrames() : nullptr;
+        const bool isTimeSeries = (timeFrames && timeFrames->GetTimeNum() > 1);
+
+        std::vector<std::pair<std::string, std::string>> report;
+        if (isTimeSeries) {
+            auto writer = iGame::IGCMTimeSeriesWriter::New();
+            writer->SetCodecControlParams(codecParams);
+            result = writer->WriteToFile(rootObj, saveFilePath);
+            if (result) {
+                report = writer->GetReport();
+            }
+        } else {
+            auto writer = iGame::IGCMWriter::New();
+            writer->SetCodecControlParams(codecParams);
+            result = writer->WriteToFile(m_exportSourceObj, saveFilePath);
+            if (result) {
+                report = writer->GetReport();
+            }
+        }
 
         if (!result) {
             QMessageBox::critical(this, "错误", "压缩失败！");
@@ -1059,7 +1083,7 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
         }
 
         if (m_showReport) {
-            ShowReportDialog(writer->GetReport());
+            ShowReportDialog(report);
         }
         accept();
         return;
@@ -1067,7 +1091,7 @@ void igQtMeshCodecDialog::on_btnStartCompress_clicked()
     
     auto writer = iGame::IGCWriter::New();
     writer->SetCodecControlParams(codecParams);
-    result = writer->WriteToFile(m_writeDataObj, saveFilePath);
+    result = writer->WriteToFile(m_exportSourceObj, saveFilePath);
     
     if (!result) {
         QMessageBox::critical(this, "错误", "压缩失败！");

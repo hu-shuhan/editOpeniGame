@@ -30,6 +30,8 @@ public:
     virtual CellArray::Pointer GetCellArray() { return nullptr; }
 
     StreamingData::Pointer GetTimeFrames();
+    // 仅用于“查询是否存在时间序列”之类的场景，避免 GetTimeFrames() 产生空对象的副作用
+    StreamingData::Pointer PeekTimeFrames() const { return m_TimeFrames; }
     DeformationData::Pointer GetDeformationData();
 
     /*Set the data for Animation.*/

@@ -26,6 +26,9 @@ private:
     DataObject::Pointer parseData;
     int m_dataSetCount = 0;
 
+    bool ParseMultiBlock(const std::filesystem::path& manifestDir);
+    bool ParseTimeSeries(const std::filesystem::path& manifestDir);
+
     bool ParseChildren(tinyxml2::XMLElement* parentElem, const std::filesystem::path& manifestDir,
                        std::vector<DataObject::Pointer>& outNodes);
     bool ParseElement(tinyxml2::XMLElement* elem, const std::filesystem::path& manifestDir, DataObject::Pointer& outObj);

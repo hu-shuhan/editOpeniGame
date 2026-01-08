@@ -4,6 +4,7 @@
 #include "iGameDrawObject.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -47,19 +48,29 @@ bool IGCMReader::Parsing() {
 
     const char* typeAttr = root->Attribute("type");
     const char* versionAttr = root->Attribute("version");
-    if (!typeAttr || std::strcmp(typeAttr, "iGameMultiBlock") != 0) {
-        return false;
-    }
     if (!versionAttr || std::strcmp(versionAttr, "1.0") != 0) {
         return false;
     }
 
+    const std::filesystem::path manifestDir = std::filesystem::path(m_FilePath).parent_path();
+
+    if (!typeAttr) {
+        return false;
+    }
+    if (std::strcmp(typeAttr, "iGameMultiBlock") == 0) {
+        return ParseMultiBlock(manifestDir);
+    }
+    if (std::strcmp(typeAttr, "iGameTimeSeries") == 0) {
+        return ParseTimeSeries(manifestDir);
+    }
+    return false;
+}
+
+bool IGCMReader::ParseMultiBlock(const std::filesystem::path& manifestDir) {
     auto* multiBlockElem = root->FirstChildElement("MultiBlock");
     if (!multiBlockElem) {
         return false;
     }
-
-    const std::filesystem::path manifestDir = std::filesystem::path(m_FilePath).parent_path();
 
     std::vector<DataObject::Pointer> topNodes;
     if (!ParseChildren(multiBlockElem, manifestDir, topNodes)) {
@@ -82,6 +93,186 @@ bool IGCMReader::Parsing() {
     for (const auto& node : topNodes) {
         rootObj->AddSubDataObject(node);
     }
+    parseData = rootObj;
+    return true;
+}
+
+bool IGCMReader::ParseTimeSeries(const std::filesystem::path& manifestDir) {
+    auto* timeSeriesElem = root->FirstChildElement("TimeSeries");
+    if (!timeSeriesElem) {
+        return false;
+    }
+
+    struct ElemInfo {
+        tinyxml2::XMLElement* elem{};
+        bool hasIndex{false};
+        int index{0};
+        int documentOrder{0};
+    };
+
+    std::vector<ElemInfo> frames;
+    int docOrder = 0;
+    for (auto* elem = timeSeriesElem->FirstChildElement(); elem; elem = elem->NextSiblingElement(), ++docOrder) {
+        const char* value = elem->Value();
+        if (!value) {
+            return false;
+        }
+        if (std::strcmp(value, "Frame") != 0) {
+            return false;
+        }
+
+        ElemInfo info;
+        info.elem = elem;
+        info.documentOrder = docOrder;
+        int idx = 0;
+        if (elem->QueryIntAttribute("index", &idx) == tinyxml2::XML_SUCCESS) {
+            info.hasIndex = true;
+            info.index = idx;
+        }
+        frames.emplace_back(info);
+    }
+
+    if (frames.empty()) {
+        return false;
+    }
+
+    std::stable_sort(frames.begin(), frames.end(), [](const ElemInfo& a, const ElemInfo& b) {
+        if (a.hasIndex && b.hasIndex) {
+            return a.index < b.index;
+        }
+        if (a.hasIndex != b.hasIndex) {
+            return a.hasIndex; // 有 index 的优先
+        }
+        return a.documentOrder < b.documentOrder;
+    });
+
+    auto rootObj = DrawObject::New();
+
+    for (const auto& frame : frames) {
+        auto* frameElem = frame.elem;
+        if (!frameElem) {
+            return false;
+        }
+
+        float timeVal = 0.0f;
+        if (frameElem->Attribute("timestep")) {
+            if (frameElem->QueryFloatAttribute("timestep", &timeVal) != tinyxml2::XML_SUCCESS) {
+                return false;
+            }
+        }
+
+        std::vector<ElemInfo> dataSets;
+        int dsDocOrder = 0;
+        for (auto* elem = frameElem->FirstChildElement(); elem; elem = elem->NextSiblingElement(), ++dsDocOrder) {
+            const char* value = elem->Value();
+            if (!value) {
+                return false;
+            }
+            if (std::strcmp(value, "DataSet") != 0) {
+                return false;
+            }
+
+            ElemInfo info;
+            info.elem = elem;
+            info.documentOrder = dsDocOrder;
+            int idx = 0;
+            if (elem->QueryIntAttribute("index", &idx) == tinyxml2::XML_SUCCESS) {
+                info.hasIndex = true;
+                info.index = idx;
+            }
+            dataSets.emplace_back(info);
+        }
+
+        if (dataSets.empty()) {
+            return false;
+        }
+
+        std::stable_sort(dataSets.begin(), dataSets.end(), [](const ElemInfo& a, const ElemInfo& b) {
+            if (a.hasIndex && b.hasIndex) {
+                return a.index < b.index;
+            }
+            if (a.hasIndex != b.hasIndex) {
+                return a.hasIndex; // 有 index 的优先
+            }
+            return a.documentOrder < b.documentOrder;
+        });
+
+        auto files = StringArray::New();
+        for (const auto& ds : dataSets) {
+            const char* fileAttr = ds.elem->Attribute("file");
+            if (!fileAttr) {
+                return false;
+            }
+
+            std::string relFile(fileAttr);
+            if (!IsSafeRelativePath(relFile)) {
+                return false;
+            }
+
+            std::filesystem::path igcPath = manifestDir / std::filesystem::path(relFile);
+            files->AddElement(igcPath.string());
+            m_dataSetCount++;
+        }
+
+        rootObj->GetTimeFrames()->AddTimeStep(timeVal, files, StreamingType::MultiSubFiles);
+    }
+
+    if (rootObj->GetTimeFrames()->GetTimeNum() <= 0) {
+        return false;
+    }
+    if (m_dataSetCount <= 0) {
+        return false;
+    }
+
+    auto& firstFrame = rootObj->GetTimeFrames()->GetTargetTimeFrame(0);
+    auto firstFrameFiles = firstFrame.GetMetaData();
+    if (!firstFrameFiles || firstFrameFiles->GetNumberOfElements() <= 0) {
+        return false;
+    }
+
+    for (int i = 0; i < firstFrameFiles->GetNumberOfElements(); ++i) {
+        auto partObj = FileIO::ReadFile(firstFrameFiles->GetElement(i));
+        if (!partObj) {
+            return false;
+        }
+        rootObj->AddSubDataObject(partObj);
+    }
+
+    bool attributesExist = rootObj->HasSubDataObject() && rootObj->SubDataObjectIteratorBegin()->second->GetAttributeSet();
+    if (attributesExist) {
+        auto firstAttrSet = rootObj->SubDataObjectIteratorBegin()->second->GetAttributeSet();
+        for (int k = 0; k < firstAttrSet->GetAllAttributes()->GetNumberOfElements(); ++k) {
+            auto attribute = firstAttrSet->GetAttribute(k);
+            int dim = attribute.pointer->GetDimension();
+            int attachmentType = attribute.attachmentType;
+
+            DoubleArray::Pointer array = DoubleArray::New();
+            array->SetName(attribute.pointer->GetName());
+            array->SetDimension(dim);
+
+            DoubleArray::Pointer parentDataRange = DoubleArray::New();
+            parentDataRange->SetDimension(2);
+            parentDataRange->Resize(dim + 1);
+            for (int j = 0; j < dim + 1; ++j) {
+                parentDataRange->SetElement(j, {DBL_MIN, DBL_MAX});
+            }
+
+            switch (attribute.type) {
+                case IG_SCALAR:
+                    rootObj->GetAttributeSet()->AddScalar(attachmentType, array, parentDataRange);
+                    break;
+                case IG_VECTOR:
+                    rootObj->GetAttributeSet()->AddVector(attachmentType, array, parentDataRange);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        rootObj->ReCollectSubDataObjectDataRange();
+        rootObj->UpdateSubDataObjectDataRange();
+    }
+
     parseData = rootObj;
     return true;
 }

@@ -42,6 +42,7 @@ class QComboBox;
 class QLabel;
 #include "IGC/iGameIGCWriter.h"
 #include "IGC/iGameIGCMWriter.h"
+#include "IGC/iGameIGCMTimeSeriesWriter.h"
 #include <algorithm>
 #include <functional>
 #include <qfiledialog.h>
@@ -123,8 +124,10 @@ protected:
 
 private:
     Ui::MeshCodecDialog* ui;
-    iGame::DataObject::Pointer m_dataObj;
-    iGame::DataObject::Pointer m_writeDataObj;
+    // 用于 UI 侧做统计/参数推导的“代表性叶子块”（多块/多帧时通常只取第一个叶子块）
+    iGame::DataObject::Pointer m_uiSampleLeafObj;
+    // 用于最终写文件的“源数据对象”（可能是 multiblock/time series 的根对象）
+    iGame::DataObject::Pointer m_exportSourceObj;
     bool m_isMultiBlock = false;
 
     // UI 数据模型
