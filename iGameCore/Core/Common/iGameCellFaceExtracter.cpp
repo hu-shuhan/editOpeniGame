@@ -53,6 +53,8 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     if (choosedCellIds.empty() || mesh == nullptr) return {};
     VisitMesh(mesh);
     std::set<std::pair<int, int>> re;
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressCellLoop{};
     for (auto& cellId: choosedCellIds) {
         auto& faceSet = m_CellToFace[cellId];
         for (auto& face: faceSet) {
@@ -66,7 +68,10 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
             auto& edges = m_Faces[face].Edges;
             re.insert(edges.begin(), edges.end());
         }
+        progressCellLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.0 + 1.0 * progressCellLoop / choosedCellIds.size());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
 }
 
@@ -75,6 +80,8 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     if (choosedCellIds.empty() || mesh == nullptr) return {};
     std::set<std::pair<int, int>> re;
     std::map<igIndex, int> faceNums;
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressCellLoop{};
     for (auto& cellId: choosedCellIds) {
         igIndex faceSet[IGAME_CELL_MAX_SIZE]{};
         if (mesh->GetNumberOfVolumes() <= cellId) continue;
@@ -83,8 +90,12 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
             auto& faceId = faceSet[faceIndex];
             faceNums[faceId]++;
         }
+        progressCellLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.0 + 0.3 * progressCellLoop / choosedCellIds.size());
     }
     std::set<igIndex> edgeIds;
+    ProgressObserver::Instance()->UpdateProgress(0.3);
+    int progressFaceLoop{};
     for (auto& faceNum_: faceNums) {
         if (faceNum_.second != 1) continue;
         igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
@@ -94,12 +105,19 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
             auto& edgeId = edgeSet[edgeIndex];
             edgeIds.insert(edgeId);
         }
+        progressFaceLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.3 + 0.3 * progressFaceLoop / faceNums.size());
     }
+    ProgressObserver::Instance()->UpdateProgress(0.6);
+    int progressEdgeLoop{};
     for (auto& edgeId: edgeIds) {
         if (mesh->GetNumberOfEdges() <= edgeId) continue;
         auto edge = mesh->GetEdge(edgeId);
         re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
+        progressEdgeLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.6 + 0.4 * progressEdgeLoop / edgeIds.size());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
 }
 
@@ -108,6 +126,8 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
     if (choosedCellIds.empty() || mesh == nullptr) return {};
     std::set<std::pair<int, int>> re;
     std::set<igIndex> edgeIds;
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressCellLoop{};
     for (auto& cellId: choosedCellIds) {
         igIndex edgeSet[IGAME_CELL_MAX_SIZE]{};
         if (mesh->GetNumberOfFaces() <= cellId) continue;
@@ -116,12 +136,19 @@ std::set<std::pair<int, int>> CellFaceExtracter::GetExtractPointIdPairs(const st
             auto& edgeId = edgeSet[edgeIndex];
             edgeIds.insert(edgeId);
         }
+        progressCellLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.0 + 0.5 * progressCellLoop / choosedCellIds.size());
     }
+    ProgressObserver::Instance()->UpdateProgress(0.5);
+    int progressEdgeLoop{};
     for (auto& edgeId: edgeIds) {
         if (mesh->GetNumberOfEdges() <= edgeId) continue;
         auto edge = mesh->GetEdge(edgeId);
         re.insert(std::pair<int, int>((int) edge->GetPointId(0), (int) edge->GetPointId(1)));
+        progressEdgeLoop++;
+        ProgressObserver::Instance()->UpdateProgress(0.5 + 0.5 * progressEdgeLoop / edgeIds.size());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
 }
 

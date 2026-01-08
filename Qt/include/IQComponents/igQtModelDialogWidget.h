@@ -36,7 +36,9 @@ public slots:
     void deleteCurrentModel();
     void onPropertyChanged(QtProperty* property, const QVariant& value);
     iGame::Model* GetCurrentModel();
-
+    void setCurrentItem(QTreeWidgetItem* item) {
+        if (modelTreeWidget) modelTreeWidget->setCurrentItem(item);
+    }
 signals:
     void CurrendModelChanged();
     void CloudPictureChanged();
