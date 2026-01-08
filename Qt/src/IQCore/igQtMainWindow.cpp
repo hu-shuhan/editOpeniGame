@@ -901,44 +901,35 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
 
-        // 使用动态属性存储对话框指针
-        QDialog* dialog = this->property("correlationDialog").value<QDialog*>();
+        // 使用动态属性存储对话框指针    // 匿名命名空间，只在当前cpp文件可见
+        static QDialog* dialog = nullptr;
+        static igQtVariableCorrelationWidget* widget = nullptr;
 
         if (!dialog) {
             dialog = new QDialog(this);
             dialog->setWindowTitle("变量相关性分析");
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            //dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->setModal(false);
 
-            // 将指针存储为属性
-            this->setProperty("correlationDialog", QVariant::fromValue(dialog));
-
-            igQtVariableCorrelationWidget* widget = new igQtVariableCorrelationWidget(dialog);
+            widget = new igQtVariableCorrelationWidget(dialog);
             QVBoxLayout* layout = new QVBoxLayout(dialog);
             layout->addWidget(widget);
             dialog->setLayout(layout);
             dialog->resize(700, 500);
-
-            // 对话框关闭时清理属性
-            connect(dialog, &QDialog::destroyed, this,
-                    [this]() { this->setProperty("correlationDialog", QVariant()); });
+            connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
+                // 使用sender()获取信号发送者
+                auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
+                if (!senderWidget) return;
+                auto model = rendererWidget->GetScene()->GetCurrentModel();
+                if (model == nullptr) return;
+                senderWidget->SetModel(model);
+            });
         }
 
-        // 获取widget并设置模型
-        igQtVariableCorrelationWidget* widget = dialog->findChild<igQtVariableCorrelationWidget*>();
-        if (widget) { widget->SetModel(model); }
-
+        widget->SetModel(model);
         dialog->show();
         dialog->raise();
         dialog->activateWindow();
-        connect(widget, &igQtVariableCorrelationWidget::SIGNAL_RefreshDataClicked, this, [&]() {
-            // 使用sender()获取信号发送者
-            auto* senderWidget = qobject_cast<igQtVariableCorrelationWidget*>(sender());
-            if (!senderWidget) return;
-            auto model = rendererWidget->GetScene()->GetCurrentModel();
-            if (model == nullptr) return;
-            senderWidget->SetModel(model);
-        });
 
 
         //ui->dockWidget_VariableCorrelationField->show();
