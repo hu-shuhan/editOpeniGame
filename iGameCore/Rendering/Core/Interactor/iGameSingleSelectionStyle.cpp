@@ -11,6 +11,7 @@
 #include <queue>
 #include <set>
 #include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
+#include "iGameProgressObserver.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -1238,10 +1239,16 @@ std::vector<int> SingleSelectionStyle::GetPointsInBox(
     std::vector<int> re;
     if (mesh == nullptr) return re;
     /*################################# CORE START #################################*/
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressPointLoop{};
     for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
         auto& point = mesh->GetPoint(pointId);
         if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+        progressPointLoop++;
+        ProgressObserver::Instance()->UpdateProgress(
+                0.0 + 1.0 * progressPointLoop / mesh->GetNumberOfPoints());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
     /*################################# CORE END #################################*/
 }
@@ -1252,10 +1259,16 @@ std::vector<int> SingleSelectionStyle::GetPointsInBox(
     std::vector<int> re;
     if (mesh == nullptr) return re;
     /*################################# CORE START #################################*/
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressPointLoop{};
     for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
         auto& point = mesh->GetPoint(pointId);
         if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+        progressPointLoop++;
+        ProgressObserver::Instance()->UpdateProgress(
+                0.0 + 1.0 * progressPointLoop / mesh->GetNumberOfPoints());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
     /*################################# CORE END #################################*/
 }
@@ -1266,13 +1279,19 @@ std::vector<int> SingleSelectionStyle::GetPointsInBox(
     std::vector<int> re;
     if (mesh == nullptr) return re;
     /*################################# CORE START #################################*/
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressPointLoop{};
     for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
         auto& point = mesh->GetPoint(pointId);
         if (!IsPointInside(point, allFaces)) continue;
         if (!onlySelectSeeAbleCells || mesh->IsBoundaryPoint(pointId)) {
             re.push_back(pointId);
         }
+        progressPointLoop++;
+        ProgressObserver::Instance()->UpdateProgress(
+                0.0 + 1.0 * progressPointLoop / mesh->GetNumberOfPoints());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
     /*################################# CORE END #################################*/
 }
@@ -1283,10 +1302,16 @@ std::vector<int> SingleSelectionStyle::GetPointsInBox(
     std::vector<int> re;
     if (mesh == nullptr) return re;
     /*################################# CORE START #################################*/
+    ProgressObserver::Instance()->UpdateProgress(0.0);
+    int progressPointLoop{};
     for (int pointId = 0; pointId < mesh->GetNumberOfPoints(); pointId++) {
         auto& point = mesh->GetPoint(pointId);
         if (IsPointInside(point, allFaces)) { re.push_back(pointId); }
+        progressPointLoop++;
+        ProgressObserver::Instance()->UpdateProgress(
+                0.0 + 1.0 * progressPointLoop / mesh->GetNumberOfPoints());
     }
+    ProgressObserver::Instance()->UpdateProgress(1.0);
     return re;
     /*################################# CORE END #################################*/
 }
@@ -1316,12 +1341,26 @@ std::vector<int> SingleSelectionStyle::GetCellsInBox(
 
     if (onlySelectSeeAbleCells) {
         auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
-        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
+        for (auto& cellIndex: seeAbleFaces) {
+            _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / seeAbleFaces.size());
+        }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     } else {
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
         for (int cellIndex = 0; cellIndex < mesh->GetNumberOfCells();
              cellIndex++) {
             _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / mesh->GetNumberOfCells());
         }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     }
     return re;
     /*################################# CORE END #################################*/
@@ -1340,12 +1379,26 @@ std::vector<int> SingleSelectionStyle::GetCellsInBox(
 
     if (onlySelectSeeAbleCells) {
         auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
-        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
+        for (auto& cellIndex: seeAbleFaces) {
+            _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / seeAbleFaces.size());
+        }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     } else {
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
         for (int cellIndex = 0; cellIndex < mesh->GetNumberOfVolumes();
              cellIndex++) {
             _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / mesh->GetNumberOfVolumes());
         }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     }
     return re;
     /*################################# CORE END #################################*/
@@ -1364,12 +1417,26 @@ std::vector<int> SingleSelectionStyle::GetCellsInBox(
 
     if (onlySelectSeeAbleCells) {
         auto& seeAbleFaces = mesh->GetSelection()->GetSeeAbleCells(mesh);
-        for (auto& cellIndex: seeAbleFaces) { _NormalSelectFunc(cellIndex); }
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
+        for (auto& cellIndex: seeAbleFaces) {
+            _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / seeAbleFaces.size());
+        }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     } else {
+        ProgressObserver::Instance()->UpdateProgress(0.0);
+        int progressCellLoop{};
         for (int cellIndex = 0; cellIndex < mesh->GetNumberOfFaces();
              cellIndex++) {
             _NormalSelectFunc(cellIndex);
+            progressCellLoop++;
+            ProgressObserver::Instance()->UpdateProgress(
+                    0.0 + 1.0 * progressCellLoop / mesh->GetNumberOfFaces());
         }
+        ProgressObserver::Instance()->UpdateProgress(1.0);
     }
     return re;
     /*################################# CORE END #################################*/
