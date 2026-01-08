@@ -67,6 +67,8 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSplitter>
+#include <QTimer>
+#include <QPointer>
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -788,6 +790,38 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) {
             modelTreeWidget->updateAllAttriubute(data);
             rendererWidget->update();
+
+            double acc  = filter->GetAccuracy();
+            double prec = filter->GetPrecision();
+            double rec  = filter->GetRecall();
+
+            if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
+                !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
+                QString msg = QString(
+                    "<table>"
+                    "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
+                    "<tr><td>Precision</td><td>:</td><td>%2</td></tr>"
+                    "<tr><td>Recall</td><td>:</td><td>%3</td></tr>"
+                    "</table>"
+                )
+                .arg(acc,  0, 'f', 3)
+                .arg(prec, 0, 'f', 3)
+                .arg(rec,  0, 'f', 3);
+
+                QPointer<QWidget> self(this);
+
+                QTimer::singleShot(48, this, [self, msg]() {
+                    if (!self) return;
+
+                    QMessageBox box(self->window());
+                    box.setWindowTitle("Vortex Prediction Metrics");
+                    box.setTextFormat(Qt::RichText);
+                    box.setText(msg);
+                    box.setIcon(QMessageBox::NoIcon);
+                    box.setStandardButtons(QMessageBox::Ok);
+                    box.exec();
+                });
+            }
 
             // vortexMetricsLabel
             // double acc  = filter->GetAccuracy();
