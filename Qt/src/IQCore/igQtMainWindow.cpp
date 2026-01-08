@@ -1268,9 +1268,11 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
-                res->Modified();
-                rendererWidget->update();
                 modelTreeWidget->updateAllAttriubute(res);
+                rendererWidget->update();
+
+
+
             });
 
 
