@@ -1,7 +1,7 @@
 #include "iGameSelection.h"
 #include <IQWidgets/igQtStreamTracerWidget.h>
+#include <iGameBoxStyle.h>
 #include <iGameSceneManager.h>
-#include<iGameBoxStyle.h>
 
 using namespace iGame;
 igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent), ui(new Ui::SteamLineTracer) {
@@ -11,7 +11,6 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
     connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
-
     connect(ui->startX, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
     connect(ui->startY, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
     connect(ui->startZ, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
@@ -21,9 +20,11 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->endX, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
     connect(ui->endY, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
     connect(ui->endZ, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
+
     ui->endX->setText("0");
     ui->endY->setText("0");
     ui->endZ->setText("0");
+
     connect(ui->terminalSpeed, SIGNAL(textChanged(const QString&)), this, SLOT(changeterminalSpeed()));
 
 
@@ -51,28 +52,20 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     ui->control_comboBox->setCurrentIndex(1);
     streamlineResult = UnstructuredMesh::New();
 }
+
+void igQtStreamTracerWidget::refresh() {
+    modelBound = false;
+    updateVectorNameList();
+}
 void igQtStreamTracerWidget::hideEvent(QHideEvent* event) {
     auto scene = SceneManager::Instance()->GetCurrentScene();
     scene->GetInteractor()->RequestBasicStyle();
 }
-void igQtStreamTracerWidget::refresh() {
-    modelBound= false;
-    updateVectorNameList();
-}
 void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
-    startP = Vector3f(-0.3, -4.4, 0.13);
-    endP = Vector3f(-0.3, 4.4, 0.13);
-    auto scene = SceneManager::Instance()->GetCurrentScene();
-    auto currentModel = scene->GetCurrentModel();
-    if (currentModel) {
-        Selection = StreamLineSelection::New();
+    if (isExisted) {
+        auto scene = SceneManager::Instance()->GetCurrentScene();
         Selection->Start = startP;
         Selection->End = endP;
-        Painter = scene->GetCurrentModel()->GetPainter3D();
-        scene->GetInteractor()->SetDataObject(m_DataObject);
-        scene->GetInteractor()->SetPainter3D(Painter);
-        scene->GetInteractor()->RequestStreamLineStyle(Selection);
-
         Selection->SetSelectionCallBackEvent(
                 [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
                     if (itemType == IG_CHANGE) {
@@ -89,9 +82,16 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
                     }
                 },
                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-        isExisted=true;
-     }
 
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+
+        //if (rendererWidget->GetScene()->GetInteractor()) {
+        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
+        //}
+
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+    }
     std::cout << first << std::endl;
     if (first) {
         std::cout << "do link" << std::endl;
@@ -132,7 +132,7 @@ void igQtStreamTracerWidget::changeStart() {
     startP = Vector3f(ui->startX->text().toFloat(), ui->startY->text().toFloat(), ui->startZ->text().toFloat());
     if (Selection) {
         Selection->Start = startP;
-        auto scene= SceneManager::Instance()->GetCurrentScene();
+        auto scene = SceneManager::Instance()->GetCurrentScene();
         Painter = scene->GetCurrentModel()->GetPainter3D();
         scene->GetInteractor()->SetDataObject(m_DataObject);
         scene->GetInteractor()->SetPainter3D(Painter);
@@ -143,7 +143,7 @@ void igQtStreamTracerWidget::changeStart() {
 }
 void igQtStreamTracerWidget::changeEnd() {
     endP = Vector3f(ui->endX->text().toFloat(), ui->endY->text().toFloat(), ui->endZ->text().toFloat());
-    if (Selection) { 
+    if (Selection) {
         Selection->End = endP;
         auto scene = SceneManager::Instance()->GetCurrentScene();
         Painter = scene->GetCurrentModel()->GetPainter3D();
@@ -254,7 +254,6 @@ void igQtStreamTracerWidget::updateVectorNameList() {
 
         modelBound = true;
     } else {
-        
     }
 }
 void igQtStreamTracerWidget::changeVecName() {
@@ -274,7 +273,7 @@ void igQtStreamTracerWidget::generateStreamline() {
         masterName = model->GetDataObject()->GetName();
 
         auto tem = model->GetDataObject();
-        m_DataObject = tem; 
+        m_DataObject = tem;
 
         modelBound = true;
     }
@@ -302,34 +301,28 @@ void igQtStreamTracerWidget::generateStreamline() {
     std::vector<Vector3f> seeds;
     if (control == 0) {
         seeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
-    }
-    else if (control == 1) {
+    } else if (control == 1) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
-        seeds = streamtracer->getModelSelectMax(vectorName,numOfSeeds);
+        seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
-    } 
-    else if (control == 2) {
+    } else if (control == 2) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         seeds = streamtracer->getModelSelectMin(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
         //seeds = streamtracer->getModelSelect();
-    } 
-    else if (control == 3) {
+    } else if (control == 3) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
         seeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
         model->GetSelection()->ClearSelections();
-      auto  temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
-      //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
-        for (auto seed: temSeeds) { 
-            seeds.emplace_back(seed);
-        }
-    } 
-    else if (control == 4) {
+        auto temSeeds = streamtracer->seedPCoordGenerate(numOfSeeds, startP, endP);
+        //auto temSeeds = streamtracer->getModelSelectMax(vectorName, numOfSeeds);
+        for (auto seed: temSeeds) { seeds.emplace_back(seed); }
+    } else if (control == 4) {
         Q_EMIT SetUseBox();
         emit SetSelectItemShow(false);
         //seeds = streamtracer->getModelSelect();
@@ -348,7 +341,7 @@ void igQtStreamTracerWidget::generateStreamline() {
             m_StreamBase->streamFilter->meshId = -1;
             modelBound = false;
             haveDraw = false;
-            isExisted= false;
+            isExisted = false;
             this->parentWidget()->hide();
         });
     }
@@ -358,15 +351,15 @@ void igQtStreamTracerWidget::generateStreamline() {
         m_ResultObject->SetCells(resObj->GetCells(), resObj->GetCellTypes());
         m_ResultObject->SetAttributeSet(resObj->GetAttributeSet());
         m_ResultObject->SetShellRenderingOption(false);
-       // m_ResultObject->SetShellRenderingOption(false);
-        m_ResultObject->ViewCloudPicture(scene,0);
+        // m_ResultObject->SetShellRenderingOption(false);
+        m_ResultObject->ViewCloudPicture(scene, 0);
         m_ResultObject->SetLineWidth(5);
-    }
-    else {
+    } else {
         m_ResultObject->SetPoints(iGame::Points::New());
         m_ResultObject->SetCells(iGame::CellArray::New(), iGame::UnsignedIntArray::New());
         m_ResultObject->SetAttributeSet(iGame::AttributeSet::New());
         m_ResultObject->SetShellRenderingOption(false);
+        m_ResultObject->SetAttributeIndex(-1);
         m_ResultObject->SetLineWidth(5);
     }
     //scene->ChangeModelVisibility(model, false);
@@ -379,15 +372,13 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         m_ResultObject->ConvertToDrawableData();
 
-        //m_ResultObject->ViewCloudPicture(scene, 0);
+       // m_ResultObject->ViewCloudPicture(scene, 0);
 
         Q_EMIT UpdateStreamObject(m_ResultObject);
-
     }
-    if (!haveDraw)
-    scene->GetCurrentModel()->SetViewPointsSwitch(true);
-   // scene->SetCurrentModel(1);
-    
+    if (!haveDraw) scene->GetCurrentModel()->SetViewPointsSwitch(true);
+    // scene->SetCurrentModel(1);
+
     if (isExisted == false) {
         isExisted = true;
         Selection = StreamLineSelection::New();
@@ -415,5 +406,4 @@ void igQtStreamTracerWidget::generateStreamline() {
         scene->GetInteractor()->SetPainter3D(Painter);
         scene->GetInteractor()->RequestStreamLineStyle(Selection);
     }
-
 }

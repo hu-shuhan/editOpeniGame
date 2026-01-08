@@ -177,6 +177,7 @@ public:
     void SetColorMapper(ScalarsToColors::Pointer cm) { m_ColorMapper = cm; }
 
     int GetAttributeIndex();
+    void SetAttributeIndex(int index);
     int GetAttributeDimension();
 
 protected:

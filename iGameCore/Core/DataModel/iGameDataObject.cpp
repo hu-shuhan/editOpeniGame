@@ -134,6 +134,7 @@ void DataObject::SetParent(DataObject* parent) {
 //}
 
 int DataObject::GetAttributeIndex() { return this->m_AttributeIndex; }
+void DataObject::SetAttributeIndex(int index) { this->m_AttributeIndex = index; }
 
 int DataObject::GetAttributeDimension() { return this->m_AttributeDimension; }
 
