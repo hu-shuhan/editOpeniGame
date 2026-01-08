@@ -261,7 +261,6 @@ void DrawObject::ViewCloudPicture(Scene* scene, int index, int dimension) {
         m_UseColor = true;
     } else {
         std::cout << "[Warning] The specified attribute index is out of range." << std::endl;
-        ;
     }
     m_AttributeChanged = true;
 
