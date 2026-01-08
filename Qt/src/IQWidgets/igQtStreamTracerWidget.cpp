@@ -11,26 +11,26 @@ igQtStreamTracerWidget::igQtStreamTracerWidget(QWidget* parent) : QWidget(parent
     connect(ui->lengthOfStreamLine, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStreamLine()));
     connect(ui->lengthOfStep, SIGNAL(textChanged(const QString&)), this, SLOT(changelengthOfStep()));
     connect(ui->maxSteps, SIGNAL(textChanged(const QString&)), this, SLOT(changemaxSteps()));
-    connect(ui->startX, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
-    connect(ui->startY, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
-    connect(ui->startZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeStart()));
+
+    connect(ui->startX, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
+    connect(ui->startY, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
+    connect(ui->startZ, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeStart);
     ui->startX->setText("0");
     ui->startY->setText("0");
     ui->startZ->setText("0");
-    connect(ui->endX, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
-    connect(ui->endY, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
-    connect(ui->endZ, SIGNAL(textChanged(const QString&)), this, SLOT(changeEnd()));
+    connect(ui->endX, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
+    connect(ui->endY, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
+    connect(ui->endZ, &QLineEdit::editingFinished, this, &igQtStreamTracerWidget::changeEnd);
     ui->endX->setText("0");
     ui->endY->setText("0");
     ui->endZ->setText("0");
-
     connect(ui->terminalSpeed, SIGNAL(textChanged(const QString&)), this, SLOT(changeterminalSpeed()));
 
 
     connect(ui->comboBox, &QComboBox::currentTextChanged, this, [&]() { this->changeVecName(); });
 
     connect(ui->generate_streamline_btn, &QPushButton::clicked, this, &igQtStreamTracerWidget::generateStreamline);
-    connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::updateVectorNameList);
+    connect(ui->refreshBtn, &QPushButton::clicked, this, &igQtStreamTracerWidget::refresh);
 
     numOfSeeds = 200;
     ui->numOfSeedLineEdit->setText("200");
@@ -55,11 +55,24 @@ void igQtStreamTracerWidget::hideEvent(QHideEvent* event) {
     auto scene = SceneManager::Instance()->GetCurrentScene();
     scene->GetInteractor()->RequestBasicStyle();
 }
+void igQtStreamTracerWidget::refresh() {
+    modelBound= false;
+    updateVectorNameList();
+}
 void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
-    if (isExisted) {
-        auto scene = SceneManager::Instance()->GetCurrentScene();
+    startP = Vector3f(-0.3, -4.4, 0.13);
+    endP = Vector3f(-0.3, 4.4, 0.13);
+    auto scene = SceneManager::Instance()->GetCurrentScene();
+    auto currentModel = scene->GetCurrentModel();
+    if (currentModel) {
+        Selection = StreamLineSelection::New();
         Selection->Start = startP;
         Selection->End = endP;
+        Painter = scene->GetCurrentModel()->GetPainter3D();
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+
         Selection->SetSelectionCallBackEvent(
                 [&](IGenum itemType, const std::vector<igIndex>& ids, Selection::Operate ope) {
                     if (itemType == IG_CHANGE) {
@@ -76,16 +89,9 @@ void igQtStreamTracerWidget::showEvent(QShowEvent* event) {
                     }
                 },
                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+        isExisted=true;
+     }
 
-        scene->GetInteractor()->SetDataObject(m_DataObject);
-        scene->GetInteractor()->SetPainter3D(Painter);
-
-        //if (rendererWidget->GetScene()->GetInteractor()) {
-        //    rendererWidget->GetScene()->GetInteractor()->SetCallBack(&igQtModelClipWidget::FilterSignal, SliceWidget);
-        //}
-
-        scene->GetInteractor()->RequestStreamLineStyle(Selection);
-    }
     std::cout << first << std::endl;
     if (first) {
         std::cout << "do link" << std::endl;
@@ -124,10 +130,28 @@ void igQtStreamTracerWidget::changenumOfSeeds() {
 }
 void igQtStreamTracerWidget::changeStart() {
     startP = Vector3f(ui->startX->text().toFloat(), ui->startY->text().toFloat(), ui->startZ->text().toFloat());
+    if (Selection) {
+        Selection->Start = startP;
+        auto scene= SceneManager::Instance()->GetCurrentScene();
+        Painter = scene->GetCurrentModel()->GetPainter3D();
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+        scene->Update();
+    }
     //std::cout << "current seeds=" << numOfSeeds << std::endl;
 }
 void igQtStreamTracerWidget::changeEnd() {
     endP = Vector3f(ui->endX->text().toFloat(), ui->endY->text().toFloat(), ui->endZ->text().toFloat());
+    if (Selection) { 
+        Selection->End = endP;
+        auto scene = SceneManager::Instance()->GetCurrentScene();
+        Painter = scene->GetCurrentModel()->GetPainter3D();
+        scene->GetInteractor()->SetDataObject(m_DataObject);
+        scene->GetInteractor()->SetPainter3D(Painter);
+        scene->GetInteractor()->RequestStreamLineStyle(Selection);
+        scene->Update();
+    }
     //std::cout << "current seeds=" << numOfSeeds << std::endl;
 }
 void igQtStreamTracerWidget::changelengthOfStreamLine() {

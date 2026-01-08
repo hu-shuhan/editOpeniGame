@@ -1389,7 +1389,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
-connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
+    connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
 
@@ -1429,6 +1429,20 @@ connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
             [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->updateAllAttriubute(res);
                 rendererWidget->update();
+
+                auto drawObject = DynamicCast<DrawObject>(res);
+                if (drawObject) {
+                    auto item = modelTreeWidget->getItemFromObject(res);
+                    if (item && item->childCount() > 0) {
+                        item->setExpanded(true);
+                        auto child = item->child(0);
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(0, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
             });
 
 

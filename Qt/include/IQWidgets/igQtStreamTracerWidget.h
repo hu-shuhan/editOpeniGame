@@ -36,6 +36,7 @@ public slots:
     void Pressed();
     void Released();
     void changeVecName();
+    void refresh();
     void updateVectorNameList();
     //void changeOffsetP1();
     //void changeOffsetP2();
