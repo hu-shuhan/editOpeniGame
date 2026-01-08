@@ -379,7 +379,7 @@ void igQtStreamTracerWidget::generateStreamline() {
     } else {
         m_ResultObject->ConvertToDrawableData();
 
-        m_ResultObject->ViewCloudPicture(scene, 0);
+        //m_ResultObject->ViewCloudPicture(scene, 0);
 
         Q_EMIT UpdateStreamObject(m_ResultObject);
 
