@@ -50,7 +50,7 @@ QuickClipperPointList::QuickClipperPointList() {
 QuickClipperPointList::~QuickClipperPointList() {
     int i = 0;
     while (m_List[i] && i < m_ListSize) { delete[] m_List[i++]; }
-    delete m_List;
+    delete[] m_List;
 }
 igIndex QuickClipperPointList::AddPoint(igIndex p0, igIndex p1, double percent) {
     //当前list放满了
@@ -267,7 +267,7 @@ QuickClipperCellList::QuickClipperCellList(int size) {
 QuickClipperCellList::~QuickClipperCellList() {
     int i = 0;
     while (m_List[i] && i < m_ListSize) { delete[] m_List[i++]; }
-    delete m_List;
+    delete[] m_List;
 }
 int QuickClipperCellList::GetList(int listId, const igIndex*& list) const {
     if (listId < 0 || listId > m_CurrentListId) {
@@ -467,7 +467,7 @@ QuickClipperCenterPointList::QuickClipperCenterPointList() {
 QuickClipperCenterPointList::~QuickClipperCenterPointList() {
     int i = 0;
     while (m_List[i] && i < m_ListSize) { delete[] m_List[i++]; }
-    delete m_List;
+    delete[] m_List;
 }
 igIndex QuickClipperCenterPointList::AddPoint(igIndex pNum, igIndex* vhs) {
     //当前list放满了

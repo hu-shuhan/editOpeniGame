@@ -265,30 +265,30 @@ void igQtModelDialogWidget::deleteCurrentModel() {
 
     int id = currentItem->getModelId();
     
-    // Clear auto-rescaling states for this model before deletion
-    auto model = scene->GetModelById(id);
+    // 在删除之前获取模型名称，避免在 RemoveModel 后持有引用
+    std::string modelName;
+    {
+        auto model = scene->GetModelById(id);
+        if (model && model->GetDataObject()) {
+            modelName = model->GetDataObject()->GetName();
+        }
+        // model 智能指针在这里离开作用域并释放
+    }
 
     scene->RemoveModel(id);
     scene->Update();
 
-    if (model && model->GetDataObject()) {
-        std::string modelName = model->GetDataObject()->GetName();
+    if (!modelName.empty()) {
         // Need to emit signal to ScalarViewWidget to clear states
         Q_EMIT ModelDeleted(modelName);
     }
-//    std::cout << "Delete current model: " << currentItem << std::endl;
 
     int index = modelTreeWidget->indexOfTopLevelItem(currentItem);
     if (index != -1) { delete modelTreeWidget->takeTopLevelItem(index); }
 
-    //iGame::SceneManager::Instance()->GetCurrentScene()->RemoveCurrentModel();
-    //iGame::SceneManager::Instance()->GetCurrentScene()->Update();
     currentItem = dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem());
     if (currentItem) {
         scene->SetCurrentModel(currentItem->getModelId());
-        //modelTreeWidget->setCurrentModelItem(dynamic_cast<ModelTreeWidgetItem*>(modelTreeWidget->currentItem()));
-    } else {
-        //modelTreeWidget->setCurrentModelItem(nullptr);
     }
 }
 

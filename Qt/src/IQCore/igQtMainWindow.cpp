@@ -248,6 +248,98 @@ void igQtMainWindow::initAllComponents() {
     // connect(ui->action_C, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineC);
     connect(ui->action_SaveMeshAs, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
     connect(ui->action_SaveMesh, &QAction::triggered, fileLoader, &igQtFileLoader::SaveFileAs);
+    
+    //// 添加按钮：将当前标量场移到第一个位置并另存为
+    //QAction* action_MoveScalarToFirstAndSave = new QAction("将标量场移到首位并另存为", this);
+    //action_MoveScalarToFirstAndSave->setShortcut(QKeySequence()); // 可以设置快捷键
+    //ui->menu_help->addAction(action_MoveScalarToFirstAndSave);
+    //connect(action_MoveScalarToFirstAndSave, &QAction::triggered, this, [&]() {
+    //    // 获取当前场景的当前模型
+    //    auto scene = rendererWidget->GetScene();
+    //    if (!scene) {
+    //        QMessageBox::warning(this, "警告", "当前没有活动场景");
+    //        return;
+    //    }
+    //    auto model = scene->GetCurrentModel();
+    //    if (!model) {
+    //        QMessageBox::warning(this, "警告", "当前没有活动模型");
+    //        return;
+    //    }
+    //    auto dataObject = model->GetDataObject();
+    //    if (!dataObject) {
+    //        QMessageBox::warning(this, "警告", "无法获取数据对象");
+    //        return;
+    //    }
+    //    
+    //    // 获取当前选择的标量场索引
+    //    int currentAttributeIndex = dataObject->GetAttributeIndex();
+    //    if (currentAttributeIndex < 0) {
+    //        QMessageBox::warning(this, "警告", "当前未选择任何标量场");
+    //        return;
+    //    }
+    //    
+    //    // 获取属性集
+    //    auto attributeSet = dataObject->GetAttributeSet();
+    //    if (!attributeSet) {
+    //        QMessageBox::warning(this, "警告", "无法获取属性集");
+    //        return;
+    //    }
+    //    
+    //    // 获取所有属性
+    //    auto allAttributes = attributeSet->GetAllAttributes();
+    //    if (!allAttributes || allAttributes->GetNumberOfElements() == 0) {
+    //        QMessageBox::warning(this, "警告", "属性集为空");
+    //        return;
+    //    }
+    //    
+    //    // 检查索引是否有效
+    //    if (currentAttributeIndex >= allAttributes->GetNumberOfElements()) {
+    //        QMessageBox::warning(this, "警告", "当前属性索引无效");
+    //        return;
+    //    }
+    //    
+    //    // 如果已经在第一个位置，直接另存为
+    //    if (currentAttributeIndex == 0) {
+    //        fileLoader->SaveFileAs();
+    //        return;
+    //    }
+    //    
+    //    // 创建新的属性数组，将当前属性移到第一个位置
+    //    auto newAttributes = ElementArray<AttributeSet::Attribute>::New();
+    //    newAttributes->Reserve(allAttributes->GetNumberOfElements());
+    //    
+    //    // 首先添加当前选择的属性
+    //    newAttributes->AddElement(allAttributes->GetElement(currentAttributeIndex));
+    //    
+    //    // 然后添加其他属性（跳过当前属性）
+    //    for (int i = 0; i < allAttributes->GetNumberOfElements(); i++) {
+    //        if (i != currentAttributeIndex) {
+    //            newAttributes->AddElement(allAttributes->GetElement(i));
+    //        }
+    //    }
+    //    
+    //    // 保存当前属性维度
+    //    int currentDimension = dataObject->GetAttributeDimension();
+    //    
+    //    // 设置新的属性数组
+    //    attributeSet->SetAllAttributes(newAttributes);
+    //    
+    //    // 标记数据对象已修改
+    //    dataObject->Modified();
+    //    
+    //    // 如果是 DrawObject，使用 ViewCloudPicture 方法设置新的属性索引为0
+    //    auto drawObject = DynamicCast<DrawObject>(dataObject);
+    //    if (drawObject) {
+    //        drawObject->ViewCloudPicture(scene, 0, currentDimension);
+    //    }
+    //    
+    //    // 更新模型树和渲染
+    //    modelTreeWidget->updateAllAttriubute(dataObject);
+    //    rendererWidget->update();
+    //    
+    //    // 自动触发另存为
+    //    fileLoader->SaveFileAs();
+    //});
     connect(ui->action_UseOrthographic, &QAction::triggered, this, [&](bool checked) {
         if (ui->action_UseOrthographic->isChecked()) {
             SceneManager::Instance()->GetCurrentScene()->ChangeCameraType(Camera::Type::ORTHOGRAPHIC);
