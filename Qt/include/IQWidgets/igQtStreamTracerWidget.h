@@ -43,7 +43,7 @@ public slots:
 signals:
     void AddStreamObject(iGame::DataObject::Pointer);
     void UpdateStreamObject(iGame::DataObject::Pointer);
-    void SetUseBox();
+    void SetUseBox(iGame::Model::Pointer);
     void SetSelectItemShow(bool show);
 
 

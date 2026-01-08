@@ -498,11 +498,11 @@ std::vector<Vector3f> StreamTracer::getModelSelectMin(std::string VectorName,int
                     std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
                               neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude <= currentMagnitude) {
+            if (neighborMagnitude < currentMagnitude) {
                 isLocalMin = false;
                 break;
             } else if (neighborMagnitude == currentMagnitude) {
-                std::cout << "equal" << std::endl;
+               // std::cout << "equal" << std::endl;
             }
         }
 
@@ -596,11 +596,11 @@ std::vector<Vector3f> StreamTracer::getModelSelectMax(std::string VectorName,int
                     std::sqrt(neighborValue[0] * neighborValue[0] + neighborValue[1] * neighborValue[1] +
                               neighborValue[2] * neighborValue[2]);
 
-            if (neighborMagnitude >= currentMagnitude) {
+            if (neighborMagnitude > currentMagnitude) {
                 isLocalMax = false;
                 break;
             } else if (neighborMagnitude == currentMagnitude) {
-                std::cout << "equal" << std::endl;
+               // std::cout << "equal" << std::endl;
             }
         }
 
@@ -1443,6 +1443,9 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
             if (ptFinder[0]) {
                 igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
                 // Use vetex_link adjacency data instead of mesh method
+                if (vetex_link.offset[temPointId + 1] - vetex_link.offset[temPointId] <= 0) {
+                    std::cout << "vetex" << vetex_link.offset[temPointId + 1] << vetex_link.offset[temPointId] << std::endl;
+                }
                 for (long long k = vetex_link.offset[temPointId]; k < vetex_link.offset[temPointId + 1]; k++) {
                     tem.emplace_back(vetex_link.data[k]);
                 }
@@ -1450,13 +1453,18 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
 
         } else {
             // Use cell_link adjacency data instead of mesh method
+            if (cell_link.offset[VolumeId+1] - cell_link.offset[VolumeId] <= 0) {
+                std::cout << "cell" << cell_link.offset[VolumeId + 1] << " " << cell_link.offset[VolumeId] << std::endl;
+            }
             for (long long k = cell_link.offset[VolumeId]; k < cell_link.offset[VolumeId + 1]; k++) {
                 tem.emplace_back(cell_link.data[k]);
             }
             tem.emplace_back(VolumeId);
         }
         VolumeId = -1;
-        if (tem.empty()) { std::cout << "no tem Volume" << std::endl; }
+        if (tem.empty()) {
+            std::cout << "no tem Volume" << std::endl;
+        }
         for (auto& c: tem) {
             if (mesh == nullptr) { return finnal; }
             int contactPointNum = 0;
@@ -2338,7 +2346,7 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
         maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
 
     } else {
-        maxLength = std::sqrt(0.0419432);
+        maxLength = std::sqrt(0.0419432893);
     }
     std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
               << " v1=" << maxV1 << std::endl;

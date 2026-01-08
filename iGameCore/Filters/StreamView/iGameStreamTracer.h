@@ -88,6 +88,7 @@ public:
         if (_mesh)
         std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
         this->mesh = _mesh; };
+    auto GetModel() { return this->model; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
     void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
     void AddPtFinder(PointFinder::Pointer ptf) { this->ptFinder.emplace_back(ptf); };
