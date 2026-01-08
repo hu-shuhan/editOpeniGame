@@ -50,12 +50,13 @@ void igQtFileLoader::LoadOnlineS() {
 void igQtFileLoader::LoadOnlineC() {
 #if defined(_WIN32) || defined(_WIN64)
     QStringList filters = {"ALL FIle(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-                           "*.vtm *.cgns *.odb *.igc *.cas)",
+                           "*.vtm *.cgns *.odb *.igc *.igcm *.cas)",
                            "VTK file(*.vtk)",
                            "CGNS file(*.cgns)",
                            "ABAQUS file(*.odb)",
                            "Spline file(*.xml)",
                            "Compression file(*.igc)",
+                           "Compression Manifest file(*.igcm)",
                            "Fluent file(*.cas)"};
     QString selectedFilter;
     std::string filePath =
@@ -70,7 +71,7 @@ void igQtFileLoader::LoadOnlineC() {
 void igQtFileLoader::LoadFile() {
     QStringList filters = {
         "ALL File(*.obj *.off *.stl *.ply *.vtk *.mesh *.pvd *.vts *.vtu "
-        "*.vtm *.cgns *.igc *.cas *.xml"
+        "*.vtm *.cgns *.igc *.igcm *.cas *.xml"
 #if defined(AbqSDK_ENABLE)
         " *.odb"
 #endif
@@ -88,6 +89,7 @@ void igQtFileLoader::LoadFile() {
         "Nastran file(*.bdf *.op2)",
 #endif
         "Compression file(*.igc)",
+        "Compression Manifest file(*.igcm)",
         "Fluent file(*.cas)"
     };
     QString selectedFilter;
@@ -146,6 +148,22 @@ void igQtFileLoader::OpenFile(const std::string& filePath) {
 void igQtFileLoader::OpenFiles(const QStringList& filePaths) {
     using namespace iGame;
     if (filePaths.empty()) return;
+
+    // IGCM 是“多块清单文件”，不应被当作“多文件帧/子文件”加入模型树；
+    // 若用户同时选中了 .igcm 与其子块 .igc，仅打开 .igcm 即可（子块会由清单引用并加载）。
+    QStringList igcmFiles;
+    for (const auto& p : filePaths) {
+        if (p.endsWith(".igcm", Qt::CaseInsensitive)) {
+            igcmFiles.append(p);
+        }
+    }
+    if (!igcmFiles.empty()) {
+        for (const auto& p : igcmFiles) {
+            this->OpenFile(p.toStdString());
+        }
+        return;
+    }
+
     const std::string& first_file_path = filePaths[0].toStdString();
     if(strrchr(first_file_path.data(), '.') == nullptr) return;
 

@@ -232,18 +232,21 @@ void igQtMainWindow::initAllComponents() {
     vortexMetricsLabel->setStyleSheet(
         "QLabel { color: rgb(230,230,230); font-size: 20px; "
         "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
-    vortexMetricsLabel->hide();
+	    vortexMetricsLabel->hide();
 
-    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        if (!DynamicCast<PointSet>(obj)) return false;
+	    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
+	        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
+	        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+	        // 支持两种情况：
+	        // 1) 单块：当前对象本身是可压缩的 PointSet
+	        // 2) 多块：根对象为容器（HasSubDataObject()==true），由 MeshCodecDialog 自动切换到 IGCM + IGC
+	        if (!DynamicCast<PointSet>(obj) && !obj->HasSubDataObject()) return false;
 
-        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
-        d->exec();
+	        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
+	        d->exec();
 
-        return true;
-    });
+	        return true;
+	    });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
     // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);

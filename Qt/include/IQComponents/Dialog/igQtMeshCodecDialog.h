@@ -41,6 +41,7 @@
 class QComboBox;
 class QLabel;
 #include "IGC/iGameIGCWriter.h"
+#include "IGC/iGameIGCMWriter.h"
 #include <algorithm>
 #include <functional>
 #include <qfiledialog.h>
@@ -123,6 +124,8 @@ protected:
 private:
     Ui::MeshCodecDialog* ui;
     iGame::DataObject::Pointer m_dataObj;
+    iGame::DataObject::Pointer m_writeDataObj;
+    bool m_isMultiBlock = false;
 
     // UI 数据模型
     QVector<UIDataItem> m_uiDataItems;      // UI 数据项列表

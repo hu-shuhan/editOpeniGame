@@ -5,13 +5,63 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include <filesystem>
+
+static iGame::PointSet::Pointer FindFirstLeafPointSet(iGame::DataObject::Pointer obj) {
+    if (!obj) {
+        return nullptr;
+    }
+    if (!obj->HasSubDataObject()) {
+        return iGame::DynamicCast<iGame::PointSet>(obj);
+    }
+    for (auto it = obj->SubDataObjectIteratorBegin(); it != obj->SubDataObjectIteratorEnd(); ++it) {
+        auto found = FindFirstLeafPointSet(it->second);
+        if (found) {
+            return found;
+        }
+    }
+    return nullptr;
+}
 
 igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Pointer obj) :
     QDialog(parent),
     ui(new Ui::MeshCodecDialog),
-    m_dataObj(obj)
+    m_dataObj(nullptr),
+    m_writeDataObj(obj)
 {
     ui->setupUi(this);
+
+    m_isMultiBlock = (m_writeDataObj && m_writeDataObj->HasSubDataObject());
+
+    // 多块数据：UI 仅用于生成编码参数，实际写文件时需要使用根对象
+    if (m_isMultiBlock) {
+        m_dataObj = FindFirstLeafPointSet(m_writeDataObj);
+        if (!m_dataObj) {
+            QMessageBox::critical(this, "错误", "多块数据中未找到可压缩的叶子块（PointSet）！");
+            QTimer::singleShot(0, this, &QDialog::reject);
+            return;
+        }
+    } else {
+        m_dataObj = m_writeDataObj;
+    }
+
+    // 多块数据不支持直方图/关键区域相关 UI，直接隐藏对应选项
+    if (m_isMultiBlock) {
+        if (ui->radio_areaModel) {
+            ui->radio_areaModel->setChecked(false);
+            ui->radio_areaModel->setVisible(false);
+        }
+        if (ui->stack_keyArea) {
+            ui->stack_keyArea->setVisible(false);
+        }
+        if (ui->groupbox_dataDistGroup) {
+            ui->groupbox_dataDistGroup->setVisible(false);
+        }
+        if (ui->comboBox_criticalLevel) ui->comboBox_criticalLevel->setVisible(false);
+        if (ui->label_critical) ui->label_critical->setVisible(false);
+        if (ui->comboBox_normalLevel) ui->comboBox_normalLevel->setVisible(false);
+        if (ui->label_normal) ui->label_normal->setVisible(false);
+    }
 
     // 显示压缩报告选项
     ui->checkbox_showReport->setVisible(true);
@@ -31,7 +81,9 @@ igQtMeshCodecDialog::igQtMeshCodecDialog(QWidget* parent, iGame::DataObject::Poi
     setWithMark(ui->radio_globalMode,   m_modeMark[1]);
     setWithMark(ui->radio_areaModel,    m_modeMark[2]);
     InitAttrFeatureDatas();
-    InitHistogramView();
+    if (!m_isMultiBlock) {
+        InitHistogramView();
+    }
     InitAttributeList();
 
     for (int i = 1; i < m_quantizeLevel.size(); i++) {
@@ -186,6 +238,17 @@ void igQtMeshCodecDialog::on_combo_boxFloatSelect_currentIndexChanged(int)
 
     SetRadiosFromErrorMode(item->errorMode);
 
+    // 多块数据：不显示直方图/关键区域相关选项
+    if (m_isMultiBlock) {
+        ui->radio_areaModel->setEnabled(false);
+        if (ui->radio_areaModel->isChecked()) {
+            ui->radio_losslessMode->setChecked(true);
+        }
+        UpdateKeyAreaVisibility(false);
+        HideRefreshButton();
+        return;
+    }
+
     // 当选择"全部数据"时，禁用分区量化选项
     if (item->isAllData()) {
         ui->radio_areaModel->setEnabled(false);
@@ -235,6 +298,10 @@ void igQtMeshCodecDialog::RefreshAllComboItemMarks()
 
 void igQtMeshCodecDialog::LoadAttrFeatureWidget()
 {
+    if (m_isMultiBlock) {
+        return;
+    }
+
     int idx = ui->combo_boxFloatSelect->currentIndex();
     if (idx < 0 || idx >= m_uiDataItems.size())
         return;
@@ -474,6 +541,10 @@ void igQtMeshCodecDialog::LoadAllCheckBoxes() {
 
 void igQtMeshCodecDialog::GenerateHistogram()
 {
+    if (m_isMultiBlock) {
+        return;
+    }
+
     int idx = ui->combo_boxFloatSelect->currentIndex();
     if (idx < 0 || idx >= m_uiDataItems.size())
         return;
@@ -610,6 +681,14 @@ void igQtMeshCodecDialog::on_radio_globalMode_toggled(bool checked)
 
 void igQtMeshCodecDialog::on_radio_areaModel_toggled(bool checked)
 {
+    if (m_isMultiBlock) {
+        if (checked) {
+            ui->radio_areaModel->setChecked(false);
+            ui->radio_losslessMode->setChecked(true);
+        }
+        return;
+    }
+
     if (checked) {
         // 分区：启用关键/非关键两个量化
         ApplyModeUI(false, false, true);
@@ -940,21 +1019,55 @@ void igQtMeshCodecDialog::L2Norm(
 
 void igQtMeshCodecDialog::on_btnStartCompress_clicked()
 {
+    if (!m_writeDataObj) {
+        QMessageBox::critical(this, "错误", "无可用数据对象，无法压缩！");
+        return;
+    }
+
+    const bool isMultiBlock = m_writeDataObj->HasSubDataObject();
+    const QString filter = isMultiBlock ? "Compression Manifest(*.igcm)" : "Compress Mesh(*.igc)";
+
     std::string saveFilePath =
-        QFileDialog::getSaveFileName(nullptr, "Compress file as ", "", "Compress Mesh(*.igc)")
+        QFileDialog::getSaveFileName(nullptr, "Compress file as ", "", filter)
         .toStdString();
     if (saveFilePath.empty()) {
         igDebug("Could not save file with error file path\n");
         return;
     }
 
+    {
+        const std::string expectExt = isMultiBlock ? ".igcm" : ".igc";
+        std::filesystem::path outPath(saveFilePath);
+        if (outPath.extension().string() != expectExt) {
+            outPath.replace_extension(expectExt);
+            saveFilePath = outPath.string();
+        }
+    }
+
     // 使用桥接器将 UI 模型转换为编码器参数
     iGame::CodecControlParams codecParams = BuildCodecParams();
 
+    bool result = false;
+    if (isMultiBlock) {
+        auto writer = iGame::IGCMWriter::New();
+        writer->SetCodecControlParams(codecParams);
+        result = writer->WriteToFile(m_writeDataObj, saveFilePath);
+
+        if (!result) {
+            QMessageBox::critical(this, "错误", "压缩失败！");
+            return;
+        }
+
+        if (m_showReport) {
+            ShowReportDialog(writer->GetReport());
+        }
+        accept();
+        return;
+    }
+    
     auto writer = iGame::IGCWriter::New();
     writer->SetCodecControlParams(codecParams);
-
-    bool result = writer->WriteToFile(m_dataObj, saveFilePath);
+    result = writer->WriteToFile(m_writeDataObj, saveFilePath);
     
     if (!result) {
         QMessageBox::critical(this, "错误", "压缩失败！");
@@ -1020,6 +1133,10 @@ void igQtMeshCodecDialog::ShowReportDialog(const std::vector<std::pair<std::stri
 void igQtMeshCodecDialog::UpdateKeyAreaVisibility(bool show)
 {
     if (!ui || !ui->groupbox_dataDistGroup) return;
+
+    if (m_isMultiBlock) {
+        show = false;
+    }
 
     // 使用 QStackedWidget 切换空页/真实内容，空页高度为0
     if (m_keyAreaStack) {
@@ -1101,6 +1218,11 @@ void igQtMeshCodecDialog::ApplyModeUI(bool lossless, bool global, bool area)
 
 void igQtMeshCodecDialog::UpdateRefreshButtonStateForCurrent()
 {
+    if (m_isMultiBlock) {
+        HideRefreshButton();
+        return;
+    }
+
     int idx = ui->combo_boxFloatSelect->currentIndex();
     if (idx < 0 || idx >= m_uiDataItems.size()) { HideRefreshButton(); return; }
 

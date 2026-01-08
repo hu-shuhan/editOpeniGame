@@ -5,6 +5,9 @@
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "Fluent/iGameCASReader.h"
 #include "IGC/iGameIGCReader.h"
+#include "IGC/iGameIGCMReader.h"
+#include "IGC/iGameIGCMWriter.h"
+#include "IGC/iGameIGCWriter.h"
 #include "INP/iGameINPReader.h"
 #include "MESH/iGameMESHReader.h"
 #include "MESH/iGameMESHWriter.h"
@@ -38,6 +41,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return VTK;
     } else if (FileSuffix == "igc") {
         return IGC;
+    } else if (FileSuffix == "igcm") {
+        return IGCM;
     } else if (FileSuffix == "obj") {
         return OBJ;
     } else if (FileSuffix == "mesh" || FileSuffix == "MESH") {
@@ -84,6 +89,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "VTK";
         case IGC:
             return "IGC";
+        case IGCM:
+            return "IGCM";
         case OBJ:
             return "OBJ";
         case OFF:
@@ -256,6 +263,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             // resObj = reader->Execute();
 
             IGCReader::Pointer reader = IGCReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
+        case IGCM: {
+            IGCMReader::Pointer reader = IGCMReader::New();
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
@@ -440,6 +454,16 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
         }
         case VTK: {
             VTKWriter::Pointer writer = VTKWriter::New();
+            result = writer->WriteToFile(dataObject, file_name);
+            break;
+        }
+        case IGC: {
+            IGCWriter::Pointer writer = IGCWriter::New();
+            result = writer->WriteToFile(dataObject, file_name);
+            break;
+        }
+        case IGCM: {
+            IGCMWriter::Pointer writer = IGCMWriter::New();
             result = writer->WriteToFile(dataObject, file_name);
             break;
         }
