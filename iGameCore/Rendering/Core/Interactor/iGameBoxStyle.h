@@ -16,6 +16,7 @@ public:
 
     void MousePressEvent(IEvent event) override;
     void MouseMoveEvent(IEvent event) override;
+    void MouseReleaseEvent(IEvent event) override;
 
     void InitBox(const Point& p1, const Point& p2);
     void DeleteBox();
@@ -64,6 +65,8 @@ protected:
     igm::vec2 m_OldPoint2D = igm::vec2{0.0f};
     igm::vec2 m_NewPoint2D = igm::vec2{0.0f};
 
+    igm::vec2 m_PressSite = igm::vec2{0.0f};
+    bool m_MeetedBox{};
 
     std::vector<IGuint> m_DrawHandles;
     std::map<std::string, std::function<void()>> m_PointMoveCallBacks;
