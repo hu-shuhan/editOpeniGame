@@ -288,6 +288,11 @@ void igQtSelectionWidget::PreLoadModelMsg() {
 
 void igQtSelectionWidget::hideEvent(QHideEvent* event) {
     QWidget::hideEvent(event);
+
+    //########################
+    return;
+    //########################
+
     if (m_PreventSignalSend) return;
     if (m_BoxSettingDialog) m_BoxSettingDialog->hide();
     emit Hided();
