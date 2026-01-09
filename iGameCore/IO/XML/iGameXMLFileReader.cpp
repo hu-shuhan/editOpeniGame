@@ -31,20 +31,35 @@ void iGameXMLFileReader::SetFilePath(const std::string& filePath) {
 }
 
 bool iGameXMLFileReader::Execute() {
+    auto resetProgressUI = [this]() -> void {
+        // 强制复位进度，避免 XML 系列读取（vtu/vts/vtm/pvd...）结束后停留在 100%
+        // 注意：Filter::UpdateProgress 会受 m_ProgressShift/m_ProgressScale 影响，不能用 UpdateProgress(0.0) 作为“清零”
+        m_Progress = 0.0;
+        m_ProgressShift = 0.0;
+        m_ProgressScale = 1.0;
+        if (m_ProgressObserver) {
+            m_ProgressObserver->UpdateProgress(0.0);
+            m_ProgressObserver->UpdateText("");
+        }
+    };
+
 	clock_t start, end;
 //	start = clock();
 
 	if (!Open()) {
         IGAME_CORE_ERROR("Opening failure");
+        resetProgressUI();
 		return false;
 	}
 	if (!Parsing())
 	{
         IGAME_CORE_ERROR("Parsing failure");
+        resetProgressUI();
 		return false;
 	}
 	if (!CreateDataObject()) {
         IGAME_CORE_ERROR("Not create mesh");
+        resetProgressUI();
 		return false;
 	}
 	m_Output->SetName(m_FileName);
@@ -54,6 +69,8 @@ bool iGameXMLFileReader::Execute() {
 //	end = clock();
 //	std::cout << "Read file success!" << std::endl;
 //	std::cout << "   The time cost: " << end - start << "ms" << std::endl;
+
+    resetProgressUI();
 	return true;
 }
 

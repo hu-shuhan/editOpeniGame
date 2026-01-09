@@ -14,12 +14,15 @@
 
 #include "iGameSurfaceMesh.h"
 #include "iGameVolumeMesh.h"
-
+#include <chrono>
+#include <fstream>
 IGAME_NAMESPACE_BEGIN
 SplineReaderGPU::SplineReaderGPU() {
     SetNumberOfInputs(0);
     SetNumberOfOutputs(1);
 }
+int maxpq = 3;
+int isoNum = maxpq * 10;
 
 bool SplineReaderGPU::Parsing() {
     // 判断是否是体数据
@@ -91,22 +94,81 @@ bool SplineReaderGPU::Parsing() {
 bool SplineReaderGPU::CreateDataObject() {
     // 调用GPU离散成表面网格
     DataObject::Pointer output = nullptr;
-
     if (m_SurfaceRenderForVolume) {
+        gpmesh::CadSceneGP m_scene_gp;
         SurfaceMesh::Pointer surfaceMesh = SurfaceMesh::New();
         output = surfaceMesh;
 
         CSFile* csf;
         bool isSurface = true;
-        gpmesh::CadSceneGP m_scene_gp;
         gpbezier::SurfaceConvertHelper SurfaceHelper;
+
         SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, 0);
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        //获取控制点
+        vector<CBSplineSurface> allSurfaces = SurfaceHelper.getSurfaces();
+        int num_suf = allSurfaces.size();
+        vector<vector<vector<double>>> allSurfacesControlPointsX; // 所有曲面的X坐标
+        vector<vector<vector<double>>> allSurfacesControlPointsY; // 所有曲面的Y坐标
+        vector<vector<vector<double>>> allSurfacesControlPointsZ; // 所有曲面的Z坐标
+        // 遍历每个曲面
+        for (int i = 0; i < num_suf; i++) {
+            // 获取当前曲面的控制点网格 (二维数组)
+            vector<vector<CPoint>> controlPointsGrid = allSurfaces[i].getControlPoints();
+
+            // 为当前曲面创建存储坐标的容器
+            vector<vector<double>> surfacePointsX; // 当前曲面所有点的X坐标
+            vector<vector<double>> surfacePointsY; // 当前曲面所有点的Y坐标
+            vector<vector<double>> surfacePointsZ; // 当前曲面所有点的Z坐标
+
+            // 遍历控制点网格的每一行
+            for (const auto& row: controlPointsGrid) {
+                // 为当前行创建坐标向量
+                vector<double> rowX;
+                vector<double> rowY;
+                vector<double> rowZ;
+
+                // 遍历当前行的每个控制点，提取坐标
+                for (const auto& point: row) {
+                    // 假设CPoint有getX(), getY(), getZ()方法
+                    rowX.push_back(point.getX());
+                    rowY.push_back(point.getY());
+                    rowZ.push_back(point.getZ());
+                }
+
+                // 将当前行的坐标添加到曲面容器中
+                surfacePointsX.push_back(rowX);
+                surfacePointsY.push_back(rowY);
+                surfacePointsZ.push_back(rowZ);
+            }
+
+            // 将当前曲面的坐标容器添加到总容器中
+            allSurfacesControlPointsX.push_back(surfacePointsX);
+            allSurfacesControlPointsY.push_back(surfacePointsY);
+            allSurfacesControlPointsZ.push_back(surfacePointsZ);
+        }
+        //////////////////////////////////////////////////////////////////////////
+
+
         m_scene_gp.init_CUDA_map_mode(true);
         UpdateProgress(0.2f);
-        std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces = m_scene_gp.init_scene(SurfaceHelper);
-        std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
-        std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
-        std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+        //m_scene_gp.release();
+
+        // 开始计时
+        auto start_time = std::chrono::high_resolution_clock::now();
+        m_scene_gp.init_scene(SurfaceHelper, maxpq);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration<double>(end_time - start_time);
+        igDebug("GPU Processing Time: {}s", duration.count());
+
+        //std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
+        //std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
+        //std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+        auto& result = m_scene_gp.m_cuda_ptr_arr;
+        auto& normal = m_scene_gp.m_cuda_normal_arr;
+        auto& scalar = m_scene_gp.m_cuda_scalar_arr;
         std::vector<double> controlPoints;
         UpdateProgress(0.6f);
         FloatArray::Pointer scalarArray = FloatArray::New();
@@ -117,16 +179,17 @@ bool SplineReaderGPU::CreateDataObject() {
         surfaceMesh->SetFaces(faces);
 
         for (auto i = 0; i < m_scene_gp.get_patchsurface_num(); i++) {
-            for (auto p = 0; p < 5; p++) {
-                for (auto q = 0; q < 5; q++) {
+            for (auto p = 0; p < maxpq; p++) {
+                for (auto q = 0; q < maxpq; q++) {
                     igIndex face[8][8]{};
                     for (auto j = 0; j < 64; j++) {
-                        Point x = {result[i][(p * 5 + q) * 64 * 3 + j * 3], result[i][(p * 5 + q) * 64 * 3 + j * 3 + 1],
-                                   result[i][(p * 5 + q) * 64 * 3 + j * 3 + 2]};
+                        Point x = {result[i][(p * maxpq + q) * 64 * 3 + j * 3],
+                                   result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
+                                   result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
                         face[j / 8][j % 8] = surfaceMesh->AddPoint(x);
-                        float value[3] = {scalar[i][(p * 5 + q) * 64 * 3 + j * 3],
-                                          scalar[i][(p * 5 + q) * 64 * 3 + j * 3 + 1],
-                                          scalar[i][(p * 5 + q) * 64 * 3 + j * 3 + 2]};
+                        float value[3] = {scalar[i][(p * maxpq + q) * 64 * 3 + j * 3],
+                                          scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
+                                          scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
                         scalarArray->AddElement(value);
                     }
 
@@ -171,20 +234,29 @@ bool SplineReaderGPU::CreateDataObject() {
 
         CSFile* csf;
         bool isSurface = false;
-        int isoNum = 5;
         gpmesh::CadSceneGP m_scene_gp;
         gpbezier::SurfaceConvertHelper SurfaceHelper;
         SurfaceHelper.readfile(m_FilePath.c_str(), isSurface, isoNum);
 
         m_scene_gp.init_CUDA_map_mode(true);
         UpdateProgress(0.2f);
-        std::vector<gpmesh::GPSplinePatchSurface>& main_patchsurfaces = m_scene_gp.init_scene(SurfaceHelper);
-        UpdateProgress(0.7f);
 
-        std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
-        std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
-        std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
-        std::vector<gpmesh::GPSplinePatchSurface> surfacepatch = m_scene_gp.host_patchsurfaces;
+        // 开始计时
+        auto start_time = std::chrono::high_resolution_clock::now();
+        m_scene_gp.init_scene(SurfaceHelper, maxpq);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration<double>(end_time - start_time);
+        igDebug("GPU Processing Time: {}s", duration.count());
+
+        UpdateProgress(0.7f);
+        //std::vector<gpmesh::real_t*> result = m_scene_gp.m_cuda_ptr_arr;
+        //std::vector<gpmesh::real_t*> normal = m_scene_gp.m_cuda_normal_arr;
+        //std::vector<gpmesh::real_t*> scalar = m_scene_gp.m_cuda_scalar_arr;
+        auto& result = m_scene_gp.m_cuda_ptr_arr;
+        auto& normal = m_scene_gp.m_cuda_normal_arr;
+        auto& scalar = m_scene_gp.m_cuda_scalar_arr;
+        //std::vector<gpmesh::GPSplinePatchSurface> surfacepatch = m_scene_gp.host_patchsurfaces;
+        auto& surfacepatch = m_scene_gp.host_patchsurfaces;
         FloatArray::Pointer scalarArray = FloatArray::New();
         scalarArray->SetDimension(3);
         scalarArray->SetName("scalar3");
@@ -200,19 +272,20 @@ bool SplineReaderGPU::CreateDataObject() {
         for (auto i = 0; i < surface_num / isoNum; i++) {
             std::vector<std::vector<igIndex>> ids(isoNum);
             for (auto k = 0; k < isoNum; k++) {
-                ids[k].resize(5 * 5 * 64);
-                for (auto p = 0; p < 5; p++) {
-                    for (auto q = 0; q < 5; q++) {
+                ids[k].resize(maxpq * maxpq * 64);
+                for (auto p = 0; p < maxpq; p++) {
+                    for (auto q = 0; q < maxpq; q++) {
                         for (auto u = 0; u < 8; u++) {
                             for (auto v = 0; v < 8; v++) {
-                                Point x1 = {result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
-                                            result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
-                                            result[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
+                                Point x1 = {result[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3],
+                                            result[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
+                                            result[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
 
-                                ids[k][(p * 5 + q) * 64 + (u * 8 + v)] = Points->AddPoint(x1);
-                                float value[3] = {scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3],
-                                                  scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
-                                                  scalar[i * isoNum + k][(p * 5 + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
+                                ids[k][(p * maxpq + q) * 64 + (u * 8 + v)] = Points->AddPoint(x1);
+                                float value[3] = {
+                                        scalar[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3],
+                                        scalar[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3 + 1],
+                                        scalar[i * isoNum + k][(p * maxpq + q) * 64 * 3 + (u * 8 + v) * 3 + 2]};
                                 scalarArray->AddElement(value);
                             }
                         }
@@ -222,19 +295,19 @@ bool SplineReaderGPU::CreateDataObject() {
 
             igIndex cell[8]{};
             for (auto k = 0; k < isoNum - 1; k++) {
-                for (auto p = 0; p < 5; p++) {
-                    for (auto q = 0; q < 5; q++) {
+                for (auto p = 0; p < maxpq; p++) {
+                    for (auto q = 0; q < maxpq; q++) {
                         for (auto u = 0; u < 7; u++) {
                             for (auto v = 0; v < 7; v++) {
-                                cell[0] = ids[k][(p * 5 + q) * 64 + (u * 8 + v)];
-                                cell[1] = ids[k][(p * 5 + q) * 64 + (u * 8 + v + 1)];
-                                cell[2] = ids[k][((p * 5 + q) * 64 + ((u + 1) * 8 + v + 1))];
-                                cell[3] = ids[k][(p * 5 + q) * 64 + ((u + 1) * 8 + v)];
+                                cell[0] = ids[k][(p * maxpq + q) * 64 + (u * 8 + v)];
+                                cell[1] = ids[k][(p * maxpq + q) * 64 + (u * 8 + v + 1)];
+                                cell[2] = ids[k][((p * maxpq + q) * 64 + ((u + 1) * 8 + v + 1))];
+                                cell[3] = ids[k][(p * maxpq + q) * 64 + ((u + 1) * 8 + v)];
 
-                                cell[4] = ids[k + 1][(p * 5 + q) * 64 + (u * 8 + v)];
-                                cell[5] = ids[k + 1][(p * 5 + q) * 64 + (u * 8 + v + 1)];
-                                cell[6] = ids[k + 1][((p * 5 + q) * 64 + ((u + 1) * 8 + v + 1))];
-                                cell[7] = ids[k + 1][(p * 5 + q) * 64 + ((u + 1) * 8 + v)];
+                                cell[4] = ids[k + 1][(p * maxpq + q) * 64 + (u * 8 + v)];
+                                cell[5] = ids[k + 1][(p * maxpq + q) * 64 + (u * 8 + v + 1)];
+                                cell[6] = ids[k + 1][((p * maxpq + q) * 64 + ((u + 1) * 8 + v + 1))];
+                                cell[7] = ids[k + 1][(p * maxpq + q) * 64 + ((u + 1) * 8 + v)];
 
                                 Volume->AddCellIds(cell, 8);
                             }
@@ -248,7 +321,6 @@ bool SplineReaderGPU::CreateDataObject() {
     m_Output = output;
     SetOutput(0, m_Output);
     UpdateProgress(1.0f);
-
     return true;
 }
 

@@ -328,7 +328,7 @@ public:
 private:
 	LambdaCommand() {}
 	~LambdaCommand() override {
-		//delete this->Callable;
+		delete this->Callable;
 	}
 
 	CallbackBase* Callable{ nullptr };

@@ -5,6 +5,10 @@
 #include "FFMPEG/iGameFFMPEGVideoWriter.h"
 #include "Fluent/iGameCASReader.h"
 #include "IGC/iGameIGCReader.h"
+#include "IGC/iGameIGCMReader.h"
+#include "IGC/iGameIGCMTimeSeriesWriter.h"
+#include "IGC/iGameIGCMWriter.h"
+#include "IGC/iGameIGCWriter.h"
 #include "INP/iGameINPReader.h"
 #include "MESH/iGameMESHReader.h"
 #include "MESH/iGameMESHWriter.h"
@@ -24,6 +28,7 @@
 #include "VTK/iGameVTKWriter.h"
 #include "iGameFileReader.h"
 #include "iGameFileWriter.h"
+#include "iGameProgressObserver.h"
 #include <Nastran/iGameNastranReader.h>
 #include <VTK XML/iGameVTMWriter.h>
 #include <filesystem>
@@ -38,6 +43,8 @@ IGenum FileIO::GetFileType(const std::string& file_name) {
         return VTK;
     } else if (FileSuffix == "igc") {
         return IGC;
+    } else if (FileSuffix == "igcm") {
+        return IGCM;
     } else if (FileSuffix == "obj") {
         return OBJ;
     } else if (FileSuffix == "mesh" || FileSuffix == "MESH") {
@@ -84,6 +91,8 @@ std::string FileIO::GetFileTypeAsString(IGenum type) {
             return "VTK";
         case IGC:
             return "IGC";
+        case IGCM:
+            return "IGCM";
         case OBJ:
             return "OBJ";
         case OFF:
@@ -261,6 +270,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             resObj = reader->GetOutput();
             break;
         }
+        case IGCM: {
+            IGCMReader::Pointer reader = IGCMReader::New();
+            reader->SetFilePath(file_name);
+            reader->Execute();
+            resObj = reader->GetOutput();
+            break;
+        }
         case OBJ: {
             OBJReader::Pointer reader = OBJReader::New();
             reader->SetFilePath(file_name);
@@ -312,39 +328,11 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
         case iGame::FileIO::ODB: {
             ODBReader::Pointer reader = ODBReader::New();
             resObj = reader->ReadOdbFirstFrameMesh(file_name);
-            //        resObj = reader->ReadOdbRawMesh(file_name);
-
-            //		ODBReader::Pointer reader = ODBReader::New();
-            //		resObj = reader->ReadOdbMesh(file_name);
-            //        AttributeSet::Pointer attributeSet = reader->ReadOdbFieldData(file_name, "Step-1", 2);
-            ////
-            ////        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
-            ////            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
-            ////            attribute.updateAllDataRange();
-            ////            auto range = attribute.GetDataRange();
-            ////            std::cout << "===================\n";
-            ////            for(int i = 200; i < 215; i += 3){
-            ////                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
-            ////            }
-            ////            std::cout << attribute.pointer->GetName()<< " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
-            ////        }
-            //        resObj->SetAttributeSet(attributeSet);
-            //        resObj->Modified();
             break;
         }
 #endif
 
 
-        //      case iGame::FileIO::STEP:
-        //      {
-
-        //      }
-        //          break;
-        //      case iGame::FileIO::IGES:
-        //      {
-
-        //      }
-        //          break;
         case iGame::FileIO::VTS: {
             iGameVTSReader::Pointer reader = iGameVTSReader::New();
             reader->SetFilePath(file_name);
@@ -357,18 +345,6 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
             reader->SetFilePath(file_name);
             reader->Execute();
             resObj = reader->GetOutput();
-
-            //        auto attributeSet = resObj->GetAttributeSet();
-            //        for(int i = 0; i < attributeSet->GetAllAttributes()->GetNumberOfElements(); i ++){
-            //            auto attribute = attributeSet->GetAllAttributes()->GetElement(i);
-            //            attribute.updateAllDataRange();
-            //            auto range = attribute.GetDataRange();
-            //            std::cout << "===================\n";
-            //            for(int i = 200; i < 215; i += 3){
-            //                std::cout << attribute.pointer->GetValue(i) << ' ' << attribute.pointer->GetValue(i + 1) << ' ' << attribute.pointer->GetValue(i + 2) << '\n';
-            //            }
-            //            std::cout << attribute.pointer->GetName() << " size " << attribute.pointer->GetNumberOfValues() << ' ' << "Range " << range->GetValue(0) << ' ' << range->GetValue(1) << '\n';
-            //        }
             break;
         }
 
@@ -421,6 +397,13 @@ DataObject::Pointer FileIO::ReadFile(const std::string& file_name) {
 
 
     if (resObj && resObj->GetAttributeSet()) { resObj->SetAttributeSet(TransformScalars2VectorArray(resObj->GetAttributeSet())); }
+
+    // 读文件流程里很多 Reader 会把进度推到 1.0，但并不会在结束时清理。
+    // ProgressObserver 是全局单例，不复位就会导致 UI 进度条停在 100%。
+    if (auto* progress = ProgressObserver::Instance()) {
+        progress->UpdateProgress(0.0);
+        progress->UpdateText("");
+    }
     return resObj;
 }
 
@@ -441,6 +424,32 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
         case VTK: {
             VTKWriter::Pointer writer = VTKWriter::New();
             result = writer->WriteToFile(dataObject, file_name);
+            break;
+        }
+        case IGC: {
+            IGCWriter::Pointer writer = IGCWriter::New();
+            result = writer->WriteToFile(dataObject, file_name);
+            break;
+        }
+        case IGCM: {
+            // 多帧序列：写出 iGameTimeSeries（sequence.igcm）
+            // 单帧（包含 multiblock）：写出 iGameMultiBlock（.igcm）
+            DataObject::Pointer rootObj = dataObject;
+            if (dataObject) {
+                auto* parent = dataObject->FindParent();
+                if (parent && parent != dataObject.get()) {
+                    rootObj = DataObject::Pointer(parent);
+                }
+            }
+
+            auto timeFrames = rootObj ? rootObj->PeekTimeFrames() : nullptr;
+            if (rootObj && timeFrames && timeFrames->GetTimeNum() > 1) {
+                IGCMTimeSeriesWriter::Pointer writer = IGCMTimeSeriesWriter::New();
+                result = writer->WriteToFile(rootObj, file_name);
+            } else {
+                IGCMWriter::Pointer writer = IGCMWriter::New();
+                result = writer->WriteToFile(dataObject, file_name);
+            }
             break;
         }
         case OBJ: {
@@ -478,27 +487,14 @@ bool FileIO::WriteFile(const std::string& file_name, DataObject::Pointer dataObj
         case iGame::FileIO::INP: {
             break;
         }
-        //      case iGame::FileIO::STEP:
-        //      {
-
-        //      }
-        //          break;
-        //      case iGame::FileIO::IGES:
-        //      {
-
-        //      }
-        //          break;
         case iGame::FileIO::VTS: {
-
             break;
         }
         case iGame::FileIO::VTU: {
-
             break;
         }
 
         case iGame::FileIO::PVD: {
-
             break;
         }
         case iGame::FileIO::VTM: {

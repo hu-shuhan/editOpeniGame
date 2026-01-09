@@ -103,6 +103,9 @@ std::vector<iGame::Object::Pointer> StreamingData::GetTargetTimeFrameData(unsign
                         rd->Execute();
                         newObj = rd->GetOutput();
                     }
+                    else if(fileSuffix == "igc" || fileSuffix == "igcm"){
+                        newObj = FileIO::ReadFile(fileName);
+                    }
                     results[i] = newObj;
                     return newObj;
                 }, frameData->GetElement(i)));

@@ -55,6 +55,21 @@ public:
     }
 
     bool Execute() override {
+        // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
+        const auto inputObj = GetInput(0);
+        if (!inputObj) { return false; }
+
+        const IGenum meshType = inputObj->GetDataObjectType();
+        const bool supported =
+            (meshType == IG_SURFACE_MESH || meshType == IG_VOLUME_MESH ||
+             meshType == IG_STRUCTURED_MESH || meshType == IG_UNSTRUCTURED_MESH ||
+             meshType == IG_POINT_SET);
+        if (!supported) { return false; }
+
+        // 编码器依赖 PointSet 接口（顶点/属性等）
+        if (!DynamicCast<PointSet>(inputObj)) { return false; }
+        if (meshType == IG_STRUCTURED_MESH && !DynamicCast<StructuredMesh>(inputObj)) { return false; }
+
         if (!InitializeEncoder()) { return false; }
 
         std::vector<unsigned int> pointIdRemap;
@@ -87,6 +102,10 @@ public:
     static CodecControlParams GenerateDefaultCodecParams(const DataObject::Pointer& dataObj) {
         CodecControlParams params;  // 使用结构体默认值
 
+        if (!dataObj) {
+            return params;
+        }
+
         auto makeDefaultControlParams = [](IGsize elementCount) -> FloatControlParams {
             FloatControlParams p;
             p.globalQuantizeLevel = 0;
@@ -97,8 +116,11 @@ public:
         };
 
         // Geom
-        params.geomControl = makeDefaultControlParams(
-            DynamicCast<PointSet>(dataObj)->GetNumberOfPoints());
+        const auto pointSet = DynamicCast<PointSet>(dataObj);
+        if (!pointSet) {
+            return params;
+        }
+        params.geomControl = makeDefaultControlParams(pointSet->GetNumberOfPoints());
 
         // Attributes
         const int attrCount = dataObj->GetAttributeSet()->GetNumberOfAttributes();
@@ -241,6 +263,16 @@ private:
         };
 
         if (m_showReport) calCR();
+
+        // 编码结束后复位进度条，避免单帧任务最后一次进度为 1.0 导致 UI 长期停留在 100%
+        // 注意：Filter::UpdateProgress 会受 m_ProgressShift/m_ProgressScale 影响，不能用 UpdateProgress(0.0) 作为“清零”
+        m_Progress = 0.0;
+        m_ProgressShift = 0.0;
+        m_ProgressScale = 1.0;
+        if (m_ProgressObserver) {
+            m_ProgressObserver->UpdateProgress(0.0);
+            m_ProgressObserver->UpdateText("");
+        }
     }
     // endregion
 
@@ -269,6 +301,7 @@ private:
 
             // 新逻辑：无论是否 KeyArea，统一使用整体平均相对误差，输出单一百分比
             const float errPercent = keyError * 100.0f;
+
             std::cout << dataName << " relative_error: " << fmt::v11::format("{:.8f}%", errPercent) << std::endl;
             m_report.push_back(std::make_pair(dataName + " 相对误差", fmt::v11::format("{:.8f}%", errPercent)));
         }
@@ -297,10 +330,6 @@ private:
     void InitEncoderParams() {
         // 网格类型
         this->m_codecParams.meshType = this->m_EncoderAdapter->GetMeshType();
-        // multiblock网格类型暂不支持
-        assert(this->m_codecParams.meshType == IG_SURFACE_MESH || this->m_codecParams.meshType == IG_VOLUME_MESH ||
-               this->m_codecParams.meshType == IG_STRUCTURED_MESH ||
-               this->m_codecParams.meshType == IG_UNSTRUCTURED_MESH || this->m_codecParams.meshType == IG_POINT_SET);
 
         // 点云特殊处理
         if (this->m_codecParams.meshType == IG_POINT_SET) {
@@ -412,7 +441,8 @@ private:
         MeshFloatCodec::FloatEncoder(encodedFloat, remappedPointBuffer, m_codecParams.geomParams,
                                         m_geomControlParams);
 
-        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomControlParams, "顶点坐标");
+        // 顶点坐标项统一用英文，避免控制台中文乱码
+        AddErrorReport(preserve, remappedPointBuffer, m_codecParams.geomParams, m_geomControlParams, "Vertex Position");
 
         UpdateProgress(0.2);
 
