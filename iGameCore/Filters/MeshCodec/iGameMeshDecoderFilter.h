@@ -32,6 +32,15 @@ public:
     }
 
     bool Execute() override {
+        // 无论解码成功/失败，都清理进度文本，避免 UI 文案残留
+        struct ProgressTextResetGuard {
+            ProgressObserver* observer{};
+            ~ProgressTextResetGuard() noexcept {
+                if (!observer) { return; }
+                observer->UpdateText("");
+            }
+        } resetTextGuard{m_ProgressObserver};
+
         if (!InitializeInputs()) { return false; }
 
         m_DecompressProgress = 0.0f;

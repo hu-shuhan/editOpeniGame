@@ -4,7 +4,7 @@
 
 #include <IQComponents/igQtProgressBarWidget.h>
 #include <QHBoxLayout>
-#include<shared_mutex>
+
 /**
  * @class   igQtProgressBarWidget
  * @brief   igQtProgressBarWidget's brief
@@ -15,8 +15,7 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
     progressBar->setValue(0);
 
     progressBarLabel = new QLabel(DEFAULT,this);
-    // statusBar 空间有限，给 label 足够的伸缩空间，避免“多帧编码 3/120 …”被截断到只剩前缀
-    // 右对齐：让“a/n”贴着进度条边缘，更容易看到
+
     progressBarLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     progressBarLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     progressBarLabel->setMinimumWidth(220);
@@ -31,8 +30,6 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
 
     progressObserver = iGame::ProgressObserver::Instance();
 
-
-    /*TODO FIX ProgressBar*/
    progressObserver->AddObserver(iGame::Command::ProgressEvent,
         [&](iGame::Object*, unsigned long, void* data)-> void {
             double value = *static_cast<double*>(data);
@@ -41,20 +38,19 @@ igQtProgressBarWidget::igQtProgressBarWidget(QWidget *parent) : QWidget(parent) 
 
     progressObserver->AddObserver(iGame::Command::UpdateEvent,
         [&](iGame::Object*, unsigned long, void* data)-> void {
-            if (!data) {
-                this->updateProgressBarLabel(DEFAULT);
-                progressBar->setValue(0);
-                return;
-            }
             const char* text = static_cast<const char*>(data);
             if (!text || text[0] == '\0') {
-                this->updateProgressBarLabel(DEFAULT);
-                progressBar->setValue(0);
+                resetTextMode();
                 return;
             }
+            hasExternalText = true;
             this->updateProgressBarLabel(text);
         });
+}
 
+void igQtProgressBarWidget::resetTextMode() {
+    hasExternalText = false;
+    updateProgressBarLabel(DEFAULT);
 }
 
 void igQtProgressBarWidget::updateProgressBar(double value) {
@@ -65,9 +61,14 @@ void igQtProgressBarWidget::updateProgressBar(double value) {
     
 
     if (progress < 100) {
+        if (!hasExternalText) {
+            updateProgressBarLabel(PROCESSING);
+        }
         progressBar->setValue(progress);
     } else {
+        resetTextMode();
         progressBar->setValue(100);
+        progressBar->setValue(0);
     }
 }
 

@@ -55,6 +55,15 @@ public:
     }
 
     bool Execute() override {
+        // 无论编码成功/失败，都清理进度文本，避免 UI 文案残留
+        struct ProgressTextResetGuard {
+            ProgressObserver* observer{};
+            ~ProgressTextResetGuard() noexcept {
+                if (!observer) { return; }
+                observer->UpdateText("");
+            }
+        } resetTextGuard{m_ProgressObserver};
+
         // 统一在入口处做类型校验：不支持则直接返回 false，避免 assert 终止进程
         const auto inputObj = GetInput(0);
         if (!inputObj) { return false; }
