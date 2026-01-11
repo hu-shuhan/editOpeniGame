@@ -1,13 +1,21 @@
-//#pragma once
-//#include<Client.h>
-//#include<Sever.h>
-//void CSTest(int selected_idx, std::string filePath) {
-//    std::thread server_thread(serverThread);
-//
-//    std::thread client_thread(clientThread,selected_idx,filePath);
-//
-//    // 等待线程完成
-//    server_thread.join();
-//    client_thread.join();
-//    return ;
-//}
+#pragma once
+#include <string>
+
+class OpenCmd {
+public:
+    int selected_idx;
+    std::string filePath;
+
+    std::string serialize() const { return std::to_string(selected_idx) + "|" + filePath; }
+
+    void deserialize(const std::string& data) {
+        size_t pos = data.find("|");
+        if (pos != std::string::npos) {
+            selected_idx = std::stoi(data.substr(0, pos));
+            filePath = data.substr(pos + 1);
+        } else {
+            selected_idx = -1;
+            filePath = "";
+        }
+    }
+};
