@@ -185,17 +185,6 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
     // 缓存设置由 comboBox_AnimationCacheNum 控制，不在播放时覆盖
     currentDrawObject->UpdateAnimation(keyframe_idx);
 
-    /* If obj has the deformation var and is enabled.
-     * Make sure every timeStep have the deformation scale factor. */
-
-    if(currentDrawObject->GetDeformationData()->GetEnableStatus()){
-        StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
-        deformFilter->SetInput(currentDrawObject);
-        IGAME_CORE_DEBUG("Deformation Executing");
-        if(!deformFilter->Execute()) std::cout << " error \n";
-    }
-
-
     currentScene->MakeCurrent();
     currentDrawObject->SetViewStyle(currentDrawObject->GetViewStyle());
     if (currentDrawObject->GetAttributeIndex() != -1) {
@@ -204,10 +193,52 @@ void igQtAnimationWidget::playAnimation_snap(unsigned int keyframe_idx) {
         currentDrawObject->ViewCloudPicture(
                 currentScene, currentDrawObject->GetAttributeIndex() + 1);
     }
+    
+    // Force reconvert to generate new shell data for this frame
     currentDrawObject->ForceReConvertToDrawableData();
+    // Explicitly call ConvertToDrawableData NOW to create the shell (RenderableMesh)
+    currentDrawObject->ConvertToDrawableData();
+    
+    // CRITICAL: Also call the RenderableMesh's ConvertToDrawableData to populate
+    // its m_Positions. Otherwise GetRenderPoints() returns an empty array and
+    // the RenderableMesh's ConvertToDrawableData would run during render,
+    // overwriting our deformation.
+    auto renderableObj = currentDrawObject->GetRenderableObject();
+    if (renderableObj && renderableObj.get() != currentDrawObject) {
+        renderableObj->ForceReConvertToDrawableData();
+        renderableObj->ConvertToDrawableData();
+    }
+    
+    // For MultiSubFiles: also need to convert sub-objects' RenderableObjects
+    if (currentDrawObject->HasSubDataObject()) {
+        for (auto it = currentDrawObject->SubDataObjectIteratorBegin(); 
+             it != currentDrawObject->SubDataObjectIteratorEnd(); ++it) {
+            auto subDrawObj = iGame::DynamicCast<iGame::DrawObject>(it->second);
+            if (subDrawObj) {
+                // Force convert the sub-object's RenderableObject
+                auto subRenderableObj = subDrawObj->GetRenderableObject();
+                if (subRenderableObj && subRenderableObj.get() != subDrawObj.get()) {
+                    subRenderableObj->ForceReConvertToDrawableData();
+                    subRenderableObj->ConvertToDrawableData();
+                }
+            }
+        }
+    }
+    
+    // Apply deformation AFTER both parent and RenderableMesh have been converted
+    // but BEFORE the render pass
+    if(currentDrawObject->GetDeformationData()->GetEnableStatus()){
+        StressDeformationFilter::Pointer deformFilter = iGame::StressDeformationFilter::New();
+        deformFilter->SetInput(currentDrawObject);
+        if(!deformFilter->Execute()) std::cout << " deformation error \n";
+    }
+
     currentScene->DoneCurrent();
 
+    // Single render pass - ConvertToDrawableData should NOT run again
+    // because m_ReConvertToDrawableData was set to false by our explicit call
     Q_EMIT UpdateScene();
+
     Q_EMIT AnimationFrameChanged();  // Notify scalar widget to update UI
     
     // 恢复播放状态标记
