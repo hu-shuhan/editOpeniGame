@@ -65,6 +65,9 @@ void BoxStyle::MousePressEvent(IEvent event) {
     auto& pos = event.pos;
     m_OldPoint2D = event.pos;
 
+    m_PressSite = event.pos;
+    m_MeetedBox = false;
+
     igm::vec3 nearPoint = GetNearWorldCoord(pos, m_InvertedMVP);
     igm::vec3 farPoint = GetFarWorldCoord(pos, m_InvertedMVP);
     igm::vec3 rayDir = (farPoint - nearPoint).normalized();
@@ -134,6 +137,8 @@ void BoxStyle::MousePressEvent(IEvent event) {
         return;
     }
 
+    m_MeetedBox = true;
+
     igm::vec4 p;
     if (m_SelectedItem == IG_MID_POINT) {
         p = igm::vec4{midPoint[0], midPoint[1], midPoint[2], 1.f};
@@ -195,6 +200,13 @@ void BoxStyle::MouseMoveEvent(IEvent event) {
     ClearDraw();
     ToDraw();
     m_OldPoint2D = m_NewPoint2D;
+}
+
+void BoxStyle::MouseReleaseEvent(IEvent event) {
+    BasicStyle::MouseReleaseEvent(event);
+    if (!m_MeetedBox) return;
+    if (m_PressSite != event.pos) return;
+    SetNeedReSet();
 }
 
 void BoxStyle::InitBox(const Point& p1, const Point& p2) {

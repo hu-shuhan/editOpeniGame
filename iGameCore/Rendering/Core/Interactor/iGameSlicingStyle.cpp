@@ -518,6 +518,13 @@ void SlicingStyle::ComputeSlicingPlane() {
     auto& bbox = m_DataObject->GetBoundingBox();
     Vector3d p1 = bbox.min;
     Vector3d p7 = bbox.max;
+    double epsilions[3] = {1e-10, 1e-10, 1e-10};
+    for (int i = 0; i < 3; ++i) {
+        double size = (p7[i] - p1[i]) * 0.02;
+        if (size > epsilions[i]) { epsilions[i] = size; }
+        p7[i] += epsilions[i];
+        p1[i] -= epsilions[i];
+    }
     Vector3d p2 = Vector3d(p7[0], p1[1], p1[2]);
     Vector3d p3 = Vector3d(p7[0], p7[1], p1[2]);
     Vector3d p4 = Vector3d(p1[0], p7[1], p1[2]);

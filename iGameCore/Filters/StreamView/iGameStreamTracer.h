@@ -88,6 +88,7 @@ public:
         if (_mesh)
         std::cout << "isPoly:"<< _mesh->GetIsPolyhedronType() << std::endl;
         this->mesh = _mesh; };
+    auto GetModel() { return this->model; };
     VolumeMesh::Pointer GetMesh() { return this->mesh; };
     void SetSubFlag(bool Subflag) { this->isSubModel = Subflag; };
     void AddPtFinder(PointFinder::Pointer ptf) { this->ptFinder.emplace_back(ptf); };
@@ -139,7 +140,7 @@ public:
     showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
                    std::vector<std::vector<std::vector<float>>>& streamColor, float lengthOfStreamLine,
                    float lengthOfStep, float terminalSpeed, int maxSteps);
-    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum);
+    void InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum,bool isPoly=false);
     DataObjectId meshId = -1;
 
 
@@ -266,7 +267,7 @@ private:
     float m_TerminalSpeed = 0.001f;
     int m_MaxSteps = 10000;
 
-    bool m_IsSingleThread = true;
+    bool m_IsSingleThread = false;
 
     // 存储计算结果
     UnstructuredMesh::Pointer m_ResultMesh;
