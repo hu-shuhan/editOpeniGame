@@ -257,6 +257,7 @@ std::vector<Vector3f> StreamTracer::getModelSelect() {
 }
 std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName) {
     std::vector<Vector3f> result;
+    std::vector<int> resultCount;
 
 
     auto attr = mesh->GetAttributeSet();
@@ -267,6 +268,7 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
     int numVolumes = mesh->GetNumberOfVolumes();
 
     result.resize(numPoints, Vector3f(0, 0, 0));
+    resultCount.resize(numPoints,0);
 
     if (vec.attachmentType == IG_CELL) {
         std::cout << "vec is cell" << std::endl;
@@ -279,8 +281,14 @@ std::vector<Vector3f> StreamTracer::GetUnifiedVectorField(std::string vectorName
 
             for (int i = 0; i < n; i++) {
                 igIndex pid = pts[i];
-                result[pid] = V;
+                result[pid] += V;
+                resultCount[pid]++;
             }
+        }
+        for (int i = 0; i < numPoints; i++) {
+            if (resultCount[i] > 0) result[i] /= float(resultCount[i]);
+            else
+                result[i] = Vector3f(0, 0, 0); // 或者保留原值/标记无效
         }
     } else {
         std::cout << "vec is point" << std::endl;
@@ -906,7 +914,6 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
     if (model == nullptr && mesh == nullptr) return tem;
     if (!isSubModel) {
         if (isChange) {
-            cellBoundLength.clear();
             int numOfPoints = mesh->GetNumberOfPoints();
             clock_t time1 = clock();
             auto PointData = mesh->GetAttributeSet();
@@ -942,7 +949,6 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
         float length = 0;
         while (flag && length < lengOfStreamLine && steps-- > 0) {
             inside = false;
-            flag = false;
             bool check = false;
             Vector3f k[7];
             auto temV = interpolationVector(_coord, inside, flag1, vectorName, terminalSpeed);
@@ -951,15 +957,33 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
             streamColor[i].emplace_back(temV[1]);
             streamColor[i].emplace_back(temV[2]);
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+                flag = false;
+                k[1] = (float)0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
             k[2] = lengthOfStep *
                    interpolationVector(_coord + k[1] * B[0][0], inside, flag1, vectorName, terminalSpeed).normalized() *
                    maxLength;
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+                flag = false;
+                k[2] = (float) 0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
 
             k[3] = lengthOfStep * interpolationVector(_coord + k[1] * B[1][0] + k[2] * B[1][1], inside, flag1,
@@ -967,8 +991,17 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                            .normalized() *
                    maxLength;
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+            	flag = false;
+				k[3] = (float)0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
 
             k[4] = lengthOfStep * interpolationVector(_coord + k[1] * B[2][0] + k[2] * B[2][1] + k[3] * B[2][2], inside,
@@ -976,8 +1009,17 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                            .normalized() *
                    maxLength;
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+                flag = false;
+                k[4] = (float) 0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
 
             k[5] = lengthOfStep *
@@ -986,8 +1028,17 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                            .normalized() *
                    maxLength;
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+                flag = false;
+                k[5] = (float) 0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
 
             k[6] = lengthOfStep * interpolationVector(_coord + k[1] * B[4][0] + k[2] * B[4][1] + k[3] * B[4][2] +
@@ -996,8 +1047,17 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
                            .normalized() *
                    maxLength;
             if (inside) {
-                flag = true;
                 inside = false;
+            } else {
+                flag = false;
+                k[6] = (float) 0.0 * temV;
+                tem[i].emplace_back(_coord[0]);
+                tem[i].emplace_back(_coord[1]);
+                tem[i].emplace_back(_coord[2]);
+                streamColor[i].emplace_back(temV[0]);
+                streamColor[i].emplace_back(temV[1]);
+                streamColor[i].emplace_back(temV[2]);
+                break;
             }
 
             if (flag) {
@@ -1024,7 +1084,8 @@ std::vector<std::vector<float>> StreamTracer::showStreamLineMix(std::vector<Vect
     totalProcess = seed.size();
 
   //  std::cout << "555555555555555" << std::endl;
-    if (m_IsSingleThread) {
+    //if (m_IsSingleThread) {
+        if (true) {
         for (int i = 0; i < seed.size(); i++) {
             func(i);
             processCount++;
@@ -1377,54 +1438,6 @@ StreamTracer::showStreamFace(std::vector<Vector3f> seed, std::string vectorName,
     //	std::cout << "time: " << clock() - time1 << std::endl;
     return tem;
 }
-bool StreamTracer::CellData2PointData(std::string vectorName) {
-    this->mesh = DynamicCast<VolumeMesh>(this->mesh);
-    auto allPolyhedrons = mesh->GetVolumes();
-    auto allPoints = mesh->GetPoints();
-    auto numOfPoints = mesh->GetNumberOfPoints();
-    auto numOfCells = mesh->GetNumberOfVolumes();
-    auto Vec = mesh->GetAttributeSet();
-    auto Scalars = Vec->GetAllAttributes();
-    int size = Scalars->GetNumberOfElements();
-    for (int i = 0; i < size; i++) {
-        auto scalarDataArray = Scalars->GetElement(i);
-        if (scalarDataArray.type == IG_VECTOR) std::cout << "type is a" << scalarDataArray.attachmentType << std::endl;
-    }
-    auto vec = Vec->GetAttribute(vectorName);
-    // how much D
-    if (vec.attachmentType != IG_CELL) {
-        std::cout << "error! type is:" << vec.attachmentType << std::endl;
-        return false;
-    }
-    auto vecV = vec.pointer->GetDimension();
-    std::vector<Vector3f> pointVector(numOfPoints);
-    auto chec1 = vec.pointer->GetNumberOfElements();
-    std::cout << chec1 << std::endl;
-    std::cout << numOfPoints << std::endl;
-    std::vector<int> pointVectorNUM(numOfPoints); // The number of volumes to which the point belongs
-    igIndex vhs[256];
-    igIndex fhs[256];
-    igIndex vcnt, fcnt = 0;
-    for (int i = 0; i < numOfCells; i++) {
-        float VV[3] = {0.0f};
-        vec.pointer->GetElement(i, VV);
-        Vector3f temVec(VV[0], VV[1], VV[2]);
-        auto volume = mesh->GetVolume(i);
-        int numOfCellPoints = volume->GetCellSize(); // The number of point
-        for (int j = 0; j < numOfCellPoints; j++) {
-            auto pointId = volume->GetPointId(j);
-            pointVector[pointId] = pointVector[pointId] + temVec;
-            pointVectorNUM[pointId]++;
-        }
-    }
-    FloatArray::Pointer VectorData = FloatArray::New();
-    VectorData->SetDimension(3);
-    VectorData->SetName(vectorName + "_Point");
-    for (int i = 0; i < numOfPoints; i++) {
-        for (int j = 0; j < vecV; j++) { VectorData->AddValue(pointVector[i][j] / pointVectorNUM[i]); }
-    }
-    return true;
-}
 float StreamTracer::distance2Line(Vector3f point, Vector3f lineP1, Vector3f lineP2) {
     Vector3f pP1 = point - lineP1;
     Vector3f line = lineP2 - lineP1;
@@ -1441,10 +1454,17 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
             int numOfPoints = mesh->GetNumberOfPoints();
             int numOfVolumes = mesh->GetNumberOfVolumes();
             if (ptFinder[0]) {
-                igIndex temPointId = ptFinder[0]->FindClosestPoint(coord);
+                igIndex temPointId;
+                {
+                    std::lock_guard<std::mutex> lk(Mutex);
+                    temPointId = ptFinder[0]->FindClosestPoint(coord);
+                }
+                
                 // Use vetex_link adjacency data instead of mesh method
                 if (vetex_link.offset[temPointId + 1] - vetex_link.offset[temPointId] <= 0) {
-                    std::cout << "vetex" << vetex_link.offset[temPointId + 1] << vetex_link.offset[temPointId] << std::endl;
+                    std:: cout << temPointId<<std::endl;
+                    std::cout << "vetex" << vetex_link.offset[temPointId + 1] << " " << vetex_link.offset[temPointId]
+                              << std::endl;
                 }
                 for (long long k = vetex_link.offset[temPointId]; k < vetex_link.offset[temPointId + 1]; k++) {
                     tem.emplace_back(vetex_link.data[k]);
@@ -1491,30 +1511,17 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
             if (contactPointNum % 2 == 1) {
                 inside = true;
                 VolumeId = c;
-                std::unique_lock<std::shared_mutex> lock(rwMutex);
-                cellBoundLength[VolumeId] = culL.diag();
                 break;
             }
         }
-        if (!inside) { return finnal; }
+        if (!inside) { 
+            return finnal;
+        }
         igIndex volume[32]{};
         int size = mesh->GetVolumePointIds(VolumeId, volume);
-        auto it = [&]() {
-            std::shared_lock<std::shared_mutex> lock(rwMutex);
-            return cellBoundLength.find(VolumeId);
-        }();
 
-        float longest;
-        if (it != cellBoundLength.end()) {
-            longest = it->second;
-        } else {
-            BoundingBox culL;
-            for (int i = 0; i < size; i++) { culL.add(mesh->GetPoint(volume[i])); }
-            longest = culL.diag();
-            // use write lock
-            std::unique_lock<std::shared_mutex> lock(rwMutex);
-            cellBoundLength[VolumeId] = longest;
-        }
+
+
         auto CellData = mesh->GetAttributeSet();
         auto Vector = CellData->GetAttribute(vectorName);
         //if (Vector.attachmentType == IG_CELL) {
@@ -1654,9 +1661,7 @@ Vector3f StreamTracer::interpolationVectorTri(const Vector3f& coord, bool& insid
     auto VectorData = mesh->GetAttributeSet();
     auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 4; ++i) {
-        double _v[4] = {1.0f};
-        Vector.pointer->GetElement(volume[i], _v);
-        Vector3f V(_v[0], _v[1], _v[2]);
+        auto V = currentV[volume[i]];
         finnal += V * weights[i];
     }
     if (finnal.length() < terminalSpeed) { inside = false; }
@@ -1816,9 +1821,7 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
     auto VectorData = mesh->GetAttributeSet();
     auto Vector = VectorData->GetAttribute(vectorName);
     for (int i = 0; i < 8; ++i) {
-        double _v[4] = {0.0};
-        Vector.pointer->GetElement(volume[i], _v);
-        Vector3f V(static_cast<float>(_v[0]), static_cast<float>(_v[1]), static_cast<float>(_v[2]));
+        auto V = currentV[volume[i]];
         finnal += V * static_cast<float>(weights[i]);
     }
 
@@ -1875,7 +1878,10 @@ Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bo
         auto V = currentV[volume[i]];
         finnal += V * weights[i];
     }
-    if (finnal.length() < terminalSpeed) { inside = false; }
+    if (finnal.length() < terminalSpeed) {
+
+        inside = false; 
+}
     // return finnal * longestDiagonal;
     return finnal;
 }
@@ -1939,6 +1945,10 @@ void StreamTracer::ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3
                     break; // Found match, break inner loop
                 }
             }
+            if (uIdInVolume[j] < 0) {
+                std::cout << "Error: Point ID " << fp[j] << " not found in volume point IDs." << std::endl;
+                break;
+            }
         }
 
         // unit vector v.
@@ -1959,7 +1969,12 @@ void StreamTracer::ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3
                 temp /= crossLength; // Normalize
             }
 
-            angle = 2.0 * fastAsin(diffLength / 2.0); // Use cached asin
+           auto clamp01 = [](double x) {
+                if (x > 1.0) return 1.0;
+                if (x < -1.0) return -1.0;
+                return x;
+            };
+            angle = 2.0 * fastAsin(clamp01(diffLength * 0.5));
 
             v[0] += 0.5 * angle * temp[0];
             v[1] += 0.5 * angle * temp[1];
@@ -1977,7 +1992,11 @@ void StreamTracer::ComputeWeightsForPolygonMesh(igIndex* PointIds, const Vector3
         v[1] += 0.5 * angle * temp[1];
         v[2] += 0.5 * angle * temp[2];
         double vNorm = v.length();
-        v.normalize();
+        if (vNorm < eps) {
+            poly++;
+            continue;
+        }
+        v /= vNorm;
         if (v.dot(u[0]) < 0) {
             v[0] = -v[0];
             v[1] = -v[1];
