@@ -159,6 +159,8 @@ private:
                                  float terminalSpeed);
     Vector3f interpolationVectorTri(const Vector3f& coord, bool& inside, igIndex& VolumeId, std::string vectorName,
                                     float terminal);
+    bool IsInsideCell_RayCasting(const Vector3f& p, igIndex cellId);
+    bool IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellId);
     /**
 	* @brief Calculate vector values with Newton interpolation method
 	* @param[in] coord  Input coord data
