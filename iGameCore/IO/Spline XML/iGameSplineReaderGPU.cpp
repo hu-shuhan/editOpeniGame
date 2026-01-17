@@ -22,7 +22,7 @@ SplineReaderGPU::SplineReaderGPU() {
     SetNumberOfOutputs(1);
 }
 int maxpq = 3;
-int isoNum = maxpq * 10;
+int isoNum = maxpq * 8 - 2;
 
 bool SplineReaderGPU::Parsing() {
     // 判断是否是体数据
@@ -178,51 +178,82 @@ bool SplineReaderGPU::CreateDataObject() {
         CellArray::Pointer faces = CellArray::New();
         surfaceMesh->SetFaces(faces);
 
+        //for (auto i = 0; i < m_scene_gp.get_patchsurface_num(); i++) {
+        //    for (auto p = 0; p < maxpq; p++) {
+        //        for (auto q = 0; q < maxpq; q++) {
+        //            igIndex face[8][8]{};
+        //            for (auto j = 0; j < 64; j++) {
+        //                Point x = {result[i][(p * maxpq + q) * 64 * 3 + j * 3],
+        //                           result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
+        //                           result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
+        //                face[j / 8][j % 8] = surfaceMesh->AddPoint(x);
+        //                float value[3] = {scalar[i][(p * maxpq + q) * 64 * 3 + j * 3],
+        //                                  scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
+        //                                  scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
+        //                scalarArray->AddElement(value);
+        //            }
+
+        //            for (auto j = 0; j < 7; j++) {
+        //                for (auto k = 0; k < 7; k++) {
+        //                    if (j == 0) {
+        //                        if (k == 0) {
+        //                            surfaceMesh->AddEdge(face[j][k], face[j][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
+        //                        } else {
+        //                            surfaceMesh->AddEdge(face[j][k], face[j][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
+        //                        }
+        //                    } else {
+        //                        if (k == 0) {
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
+        //                        } else {
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
+        //                            surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
+        //                            surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
+        //                        }
+        //                    }
+
+        //                    faces->AddCellId3(face[j][k], face[j][k + 1], face[j + 1][k]);
+        //                    faces->AddCellId3(face[j + 1][k], face[j][k + 1], face[j + 1][k + 1]);
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
         for (auto i = 0; i < m_scene_gp.get_patchsurface_num(); i++) {
             for (auto p = 0; p < maxpq; p++) {
                 for (auto q = 0; q < maxpq; q++) {
+
                     igIndex face[8][8]{};
                     for (auto j = 0; j < 64; j++) {
                         Point x = {result[i][(p * maxpq + q) * 64 * 3 + j * 3],
                                    result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
                                    result[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
+
                         face[j / 8][j % 8] = surfaceMesh->AddPoint(x);
+
                         float value[3] = {scalar[i][(p * maxpq + q) * 64 * 3 + j * 3],
                                           scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 1],
                                           scalar[i][(p * maxpq + q) * 64 * 3 + j * 3 + 2]};
                         scalarArray->AddElement(value);
                     }
-
-                    for (auto j = 0; j < 7; j++) {
-                        for (auto k = 0; k < 7; k++) {
-                            if (j == 0) {
-                                if (k == 0) {
-                                    surfaceMesh->AddEdge(face[j][k], face[j][k + 1]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
-                                    surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
-                                } else {
-                                    surfaceMesh->AddEdge(face[j][k], face[j][k + 1]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
-                                    surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
-                                }
-                            } else {
-                                if (k == 0) {
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
-                                    surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
-                                } else {
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k]);
-                                    surfaceMesh->AddEdge(face[j][k + 1], face[j + 1][k + 1]);
-                                    surfaceMesh->AddEdge(face[j + 1][k + 1], face[j + 1][k]);
-                                }
-                            }
-
-                            faces->AddCellId3(face[j][k], face[j][k + 1], face[j + 1][k]);
-                            faces->AddCellId3(face[j + 1][k], face[j][k + 1], face[j + 1][k + 1]);
+                    for (int jj = 0; jj < 8; jj++) {
+                        for (int kk = 0; kk < 7; kk++) { surfaceMesh->AddEdge(face[jj][kk], face[jj][kk + 1]); }
+                    }
+                    for (int jj = 0; jj < 7; jj++) {
+                        for (int kk = 0; kk < 8; kk++) { surfaceMesh->AddEdge(face[jj][kk], face[jj + 1][kk]); }
+                    }
+                    for (int j = 0; j < 7; j++) {
+                        for (int k = 0; k < 7; k++) {
+                            faces->AddCellId4(face[j][k], face[j][k + 1], face[j + 1][k + 1], face[j + 1][k]);
                         }
                     }
                 }
