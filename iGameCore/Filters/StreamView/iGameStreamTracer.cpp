@@ -76,16 +76,17 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             mesh = DynamicCast<VolumeMesh>( buildAdjacencyRelationFilter->GetOutput());
             this->UpdateProgress(1);
         } else {
-            clock_t startTime = clock();
-            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(),true);
-            std::cout<< "Init Adjacent Time: "
-					  << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
+
            // mesh->SetShouldBuildEageLinks(false);
            // mesh->SetShouldBuildFaceLinks(false);
            // mesh->SetShouldBuildFaceEageLinks(false);
            // mesh->SetShouldBuildVolumeFaceLinks(false);
            // mesh->SetShouldBuildVolumeEageLinks(false);
             mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+           clock_t startTime = clock();
+           std::cout << "Init Adjacent Time: " << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC
+                     << " seconds." << std::endl;
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(), true);
             this->UpdateProgress(1);
         }
 
@@ -115,15 +116,17 @@ void StreamTracer::initStreamTracer(Model::Pointer _model) {
             this->UpdateProgress(1);
 
         } else if (!mesh->HasSubDataObject()) {
-            clock_t startTime = clock();
-            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(),true);
-            std::cout<< "Init Adjacent Time: "<< static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC << " seconds." << std::endl;
+
             //mesh->SetShouldBuildEageLinks(false);
             //mesh->SetShouldBuildFaceLinks(false);
             //mesh->SetShouldBuildFaceEageLinks(false);
             //mesh->SetShouldBuildVolumeFaceLinks(false);
             //mesh->SetShouldBuildVolumeEageLinks(false);
             mesh->InitPolyhedronVertices([this](double p) { this->UpdateProgress(p); });
+            clock_t startTime = clock();
+            InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints(), true);
+            std::cout << "Init Adjacent Time: " << static_cast<double>(clock() - startTime) / CLOCKS_PER_SEC
+                      << " seconds." << std::endl;
             //InitAdjacent(mesh->GetCells(), mesh->GetNumberOfPoints());
             this->UpdateProgress(1);
         }
@@ -1202,7 +1205,7 @@ bool StreamTracer::IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellI
     if (diag <= 0) diag = 1.0f;
 
     // 放宽包围盒容差
-    float epsBB = 1e-4f * diag;
+    float epsBB = 1e-5f * diag;
 
     // bbox check with epsilon
     bool bboxFail = !(bb.min[0] - epsBB <= p[0] && p[0] <= bb.max[0] + epsBB && bb.min[1] - epsBB <= p[1] &&
@@ -1221,7 +1224,7 @@ bool StreamTracer::IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellI
     Vector3f facePts[256];
     
     // 大幅放宽距离容差 (从 1e-3 改为 0.1，即对角线的10%)
-    float epsDist = 0.1f * diag;
+    float epsDist = 0.01f * diag;
 
     for (int fi = 0; fi < faceNum; ++fi) {
         int fsize = mesh->GetFacePointIds(faceIds[fi], f);
@@ -2232,12 +2235,8 @@ void StreamTracer::InitAdjacent(iGame::CellArray::Pointer cellData, int vetexNum
             }
         }
     }
-    if (!isPoly) {
         maxLength = (maxLen2 > 0.0) ? std::sqrt(maxLen2) : 0.0;
 
-    } else {
-        maxLength = std::sqrt(0.0419432893);
-    }
     std::cout << "[Sampled Max First Edge] maxLength=" << maxLength << " cell=" << maxCellId << " v0=" << maxV0
               << " v1=" << maxV1 << std::endl;
     igIndex cell[128];
