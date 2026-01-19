@@ -1,9 +1,7 @@
 ﻿#include "iGameStreamTracer.h"
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <future>
-#include <thread>
 #include <iGameThreadPool.h>
 #include <shared_mutex>
 #include <unordered_set>
@@ -1178,25 +1176,12 @@ bool StreamTracer::IsInsideCell_RayCasting(const Vector3f& p, igIndex cellId) {
     return (contactCount % 2) == 1;
 }
 
-// 调试用：静态计数器，避免输出过多
-static int g_debugCellCheckCount = 0;
-static int g_debugFailedCellCount = 0;
-static bool g_enableDetailDebug = false;  // 设为 false 关闭详细调试
-
 bool StreamTracer::IsInsideCell_ConvexHalfSpace(const Vector3f& p, igIndex cellId) {
     if (!mesh) return false;
     
-    // 调试：检测 NaN 坐标
+    // NaN 坐标检查
     if (std::isnan(p[0]) || std::isnan(p[1]) || std::isnan(p[2])) {
-        static std::atomic<int> nanCount{0};
-        int count = ++nanCount;
-        if (count <= 5) {
-            static std::mutex nanMutex;
-            std::lock_guard<std::mutex> lk(nanMutex);
-            std::cout << "[NaN DETECTED] Thread " << std::this_thread::get_id() 
-                      << " cellId=" << cellId << " coord=(" << p[0] << "," << p[1] << "," << p[2] << ")" << std::endl;
-        }
-        return false;  // NaN 坐标永远不在任何单元内
+        return false;
     }
 
     igIndex pids[256]{};
@@ -1387,25 +1372,37 @@ Vector3f StreamTracer::interpolationVector(const Vector3f& coord, bool& inside, 
         igIndex volume[32]{};
         int size = mesh->GetVolumePointIds(VolumeId, volume);
 
-
+        // 记录找到的单元信息用于回退
+        bool wasInsideBeforeInterp = inside;
+        igIndex foundVolumeId = VolumeId;
 
         auto CellData = mesh->GetAttributeSet();
         auto Vector = CellData->GetAttribute(vectorName);
-        //if (Vector.attachmentType == IG_CELL) {
-        //    float v[4] = {0.0f};
-        //    Vector.pointer->GetElement(VolumeId, v);
-        //    finnal = Vector3f(v[0], v[1], v[2]);
-        //}
-        //else 
+
         if (mesh->GetIsPolyhedronType()) {
                 finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed);
         } 
         else  {
-            if (size == 4) { finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed); }
-            else if (size == 8) {
-                finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed);
+            if (size == 4) { 
+                finnal = interpolationVectorTri(coord, inside, VolumeId, vectorName, terminalSpeed); 
             }
-            else { finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed); }
+            else if (size == 8) {
+                // 尝试自然坐标插值
+                finnal = interpolationVectorHexWithNatural(coord, inside, VolumeId, vectorName, terminalSpeed);
+                
+                // 如果自然坐标法失败但 BFS 已确认点在单元内，使用 MeanV 方法
+                if (wasInsideBeforeInterp && !inside && finnal.length() >= terminalSpeed) {
+                    // 恢复 inside 和 VolumeId
+                    inside = true;
+                    VolumeId = foundVolumeId;
+                    // 使用备用插值方法
+                    finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed);
+
+                }
+            }
+            else { 
+                finnal = interpolationVectorMixWithMeanV(coord, inside, VolumeId, vectorName, terminalSpeed); 
+            }
         }
 
     } 
@@ -1565,6 +1562,10 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
     }
     double volumeBound = longestDiagonal * std::sqrt(longestDiagonal);
     double determinantTolerance = std::max(1e-20, 1e-5 * volumeBound);
+    
+    // 自适应参数坐标容差，基于单元大小（类似 ParaView 的做法）
+    // 对于小单元使用更宽松的容差，对于大单元保持合理精度
+    double pcoordsTolerance = std::max(0.001, std::min(0.1, 1.0 / longestDiagonal));
 
     const int maxIter = 10;
     const double tol = 1e-5;
@@ -1642,8 +1643,9 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
         newPCoords[2] = pcoords[2] + dp2;
 
         for (int k = 0; k < 3; ++k) {
-            if (newPCoords[k] < -0.01) newPCoords[k] = -0.01;
-            if (newPCoords[k] > 1.01) newPCoords[k] = 1.01;
+            double clampMargin = pcoordsTolerance;
+            if (newPCoords[k] < -clampMargin) newPCoords[k] = -clampMargin;
+            if (newPCoords[k] > 1.0 + clampMargin) newPCoords[k] = 1.0 + clampMargin;
         }
 
         double diff0 = std::fabs(newPCoords[0] - pcoords[0]);
@@ -1675,9 +1677,10 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
         return finnal;
     }
 
-    const double eps = 1e-4;
-    if (pcoords[0] < -eps || pcoords[0] > 1.0 + eps || pcoords[1] < -eps || pcoords[1] > 1.0 + eps ||
-        pcoords[2] < -eps || pcoords[2] > 1.0 + eps) {
+    // 使用自适应容差检查 pcoords 范围
+    if (pcoords[0] < -pcoordsTolerance || pcoords[0] > 1.0 + pcoordsTolerance || 
+        pcoords[1] < -pcoordsTolerance || pcoords[1] > 1.0 + pcoordsTolerance ||
+        pcoords[2] < -pcoordsTolerance || pcoords[2] > 1.0 + pcoordsTolerance) {
         inside = false;
         return finnal;
     }
@@ -1692,8 +1695,9 @@ Vector3f StreamTracer::interpolationVectorHexWithNatural(const Vector3f& coord, 
         finnal += V * static_cast<float>(weights[i]);
     }
 
-    if (finnal.length() < terminalSpeed) { inside = false; }
-
+    if (finnal.length() < terminalSpeed) { 
+        inside = false;
+    }
     return finnal;
 }
 Vector3f StreamTracer::interpolationVectorMixWithMeanV(const Vector3f& coord, bool& inside, igIndex& VolumeId,
